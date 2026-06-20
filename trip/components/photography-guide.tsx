@@ -2,11 +2,14 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { Camera, Clock, MapPin, Sun, Moon, Aperture } from 'lucide-react';
 import { PHOTO_SPOTS, PHOTO_CATEGORIES, PhotoSpot } from '@/lib/photography-data';
+import { withBasePath } from '@/lib/utils';
 
 function PhotoCard({ spot }: { spot: PhotoSpot }) {
   const isNepal = spot.country === 'Nepal';
+  const [imgError, setImgError] = useState(false);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -17,6 +20,20 @@ function PhotoCard({ spot }: { spot: PhotoSpot }) {
         isNepal ? 'glass-nepal' : 'glass-japan'
       }`}
     >
+      {spot.image && !imgError && (
+        <div className="relative -mx-5 -mt-5 mb-4 aspect-[16/10] overflow-hidden rounded-t-2xl bg-navy-800">
+          <Image
+            src={withBasePath(spot.image)}
+            alt={`${spot.name}, ${spot.city}`}
+            fill
+            className="object-cover"
+            unoptimized
+            onError={() => setImgError(true)}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+        </div>
+      )}
+
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className={`p-2 rounded-xl ${isNepal ? 'bg-himalaya-400/10' : 'bg-sakura-400/10'}`}>

@@ -3,15 +3,16 @@ export interface FeaturedDestination {
   country: 'Nepal' | 'Japan';
   blurb: string;
   emoji: string;
+  image?: string;
 }
 
 export const FEATURED_DESTINATIONS: FeaturedDestination[] = [
-  { name: 'Boudhanath Stupa', country: 'Nepal', blurb: 'One of the largest Buddhist stupas in the world — circle it at dusk among butter lamps and prayer flags.', emoji: '🏯' },
-  { name: 'Patan Durbar Square', country: 'Nepal', blurb: 'A living museum of Newari architecture, intricate woodwork, and centuries-old temples and courtyards.', emoji: '🛕' },
-  { name: 'Nagarkot Sunrise', country: 'Nepal', blurb: 'Hilltop viewpoint with a panoramic Himalayan horizon — catch first light over the snow peaks.', emoji: '⛰️' },
-  { name: 'Shibuya, Tokyo', country: 'Japan', blurb: 'Neon-soaked energy, the world\'s busiest crossing, and endless food and fashion in every direction.', emoji: '🌆' },
-  { name: 'Arashiyama, Kyoto', country: 'Japan', blurb: 'Towering bamboo groves, riverside temples, and the timeless calm of old Kyoto.', emoji: '🎋' },
-  { name: 'Mt. Fuji', country: 'Japan', blurb: 'Japan\'s iconic snow-capped peak — best viewed from the Fuji Five Lakes on a clear winter morning.', emoji: '🗻' },
+  { name: 'Boudhanath Stupa', image: '/images/featured/boudhanath.jpg', country: 'Nepal', blurb: 'One of the largest Buddhist stupas in the world — circle it at dusk among butter lamps and prayer flags.', emoji: '🏯' },
+  { name: 'Patan Durbar Square', image: '/images/featured/patan-durbar.jpg', country: 'Nepal', blurb: 'A living museum of Newari architecture, intricate woodwork, and centuries-old temples and courtyards.', emoji: '🛕' },
+  { name: 'Nagarkot Sunrise', image: '/images/featured/nagarkot.jpg', country: 'Nepal', blurb: 'Hilltop viewpoint with a panoramic Himalayan horizon — catch first light over the snow peaks.', emoji: '⛰️' },
+  { name: 'Shibuya, Tokyo', image: '/images/featured/shibuya.jpg', country: 'Japan', blurb: 'Neon-soaked energy, the world\'s busiest crossing, and endless food and fashion in every direction.', emoji: '🌆' },
+  { name: 'Arashiyama, Kyoto', image: '/images/featured/arashiyama.jpg', country: 'Japan', blurb: 'Towering bamboo groves, riverside temples, and the timeless calm of old Kyoto.', emoji: '🎋' },
+  { name: 'Mt. Fuji', image: '/images/featured/mount-fuji.jpg', country: 'Japan', blurb: 'Japan\'s iconic snow-capped peak — best viewed from the Fuji Five Lakes on a clear winter morning.', emoji: '🗻' },
 ];
 
 export interface FoodItem {

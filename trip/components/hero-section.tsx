@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { MapPin, Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
 import { TRIP_START, TRIP_DATE_LABEL } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
+import { withBasePath } from '@/lib/utils';
 
 const COUNTDOWN_UNITS = [
   { key: 'months', label: 'Months' },
@@ -17,6 +19,7 @@ const COUNTDOWN_UNITS = [
 
 export default function HeroSection() {
   const [mounted, setMounted] = useState(false);
+  const [heroImgError, setHeroImgError] = useState(false);
   const [timeLeft, setTimeLeft] = useState<Countdown>({ months: 0, weeks: 0, days: 0, hours: 0, minutes: 0, seconds: 0, totalDays: 0, isPast: false });
 
   useEffect(() => {
@@ -43,6 +46,23 @@ export default function HeroSection() {
               'linear-gradient(180deg, #0b1020 0%, #15203c 32%, #2a3252 52%, #6e5a78 70%, #b9786b 82%, #e8a86a 92%, #f4cf8e 100%)',
           }}
         />
+        {/* Bundled Himalayan photo layer — sits between the base gradient and the
+            glows so the gradient tints it and the SVG + dark overlays render on
+            top. Tuned to ~45% so the title and countdown stay legible. On error
+            (or if the asset is absent) the original CSS/SVG art shows through. */}
+        {!heroImgError && (
+          <div className="absolute inset-0">
+            <Image
+              src={withBasePath('/images/hero/hero.jpg')}
+              alt=""
+              fill
+              priority
+              unoptimized
+              className="object-cover opacity-[0.45]"
+              onError={() => setHeroImgError(true)}
+            />
+          </div>
+        )}
         {/* Soft radial glows — a Himalayan "sun" on the left, a sakura/neon bloom on the right */}
         <div
           className="absolute inset-0"

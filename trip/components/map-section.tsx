@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Image from 'next/image';
 import {
   Landmark,
   UtensilsCrossed,
@@ -20,6 +21,7 @@ import {
   type MapMarker,
   type MarkerCategory,
 } from '@/lib/map-data';
+import { withBasePath } from '@/lib/utils';
 
 // Consistent marker palette keyed to the app's category vocabulary.
 // Each entry carries the icon plus the Tailwind classes used for the pin, the
@@ -81,6 +83,26 @@ const CATEGORY_STYLES: Record<
 };
 
 type FilterValue = MarkerCategory | 'All';
+
+// Photo header for the selected-marker popup. Owns its own error state so a
+// missing/broken bundled image silently collapses (popup shows text only).
+function MarkerThumb({ src, alt }: { src: string; alt: string }) {
+  const [imgError, setImgError] = useState(false);
+  if (imgError) return null;
+  return (
+    <div className="relative -mx-4 -mt-4 sm:-mx-5 sm:-mt-5 mb-4 aspect-[16/9] overflow-hidden rounded-t-2xl bg-navy-800">
+      <Image
+        src={withBasePath(src)}
+        alt={alt}
+        fill
+        className="object-cover"
+        unoptimized
+        onError={() => setImgError(true)}
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-navy-900/80 to-transparent" />
+    </div>
+  );
+}
 
 interface CountryPanelProps {
   country: 'Nepal' | 'Japan';
@@ -311,6 +333,9 @@ export default function MapSection() {
                 >
                   <X className="w-4 h-4" />
                 </button>
+                {selected.image && (
+                  <MarkerThumb src={selected.image} alt={selected.name} />
+                )}
                 <div className="flex items-start gap-3 pr-8">
                   <div
                     className={`shrink-0 grid place-items-center w-10 h-10 rounded-xl ${CATEGORY_STYLES[selected.category].pin}`}

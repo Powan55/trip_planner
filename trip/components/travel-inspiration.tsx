@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import Image from 'next/image';
 import { Thermometer, Cloud, Shirt, CheckCircle, Circle, AlertTriangle, Heart, Utensils, BookOpen, MapPin } from 'lucide-react';
 import { FEATURED_DESTINATIONS, LOCAL_FOODS, ETIQUETTE_TIPS, PACKING_LIST, WEATHER_INFO } from '@/lib/travel-tips-data';
+import { withBasePath } from '@/lib/utils';
 
 function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIONS[0] }) {
   const isNepal = destination.country === 'Nepal';
+  const [imgError, setImgError] = useState(false);
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -17,6 +20,19 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
         isNepal ? 'glass-nepal' : 'glass-japan'
       }`}
     >
+      {destination.image && !imgError && (
+        <div className="relative -mx-5 -mt-5 mb-3 aspect-[16/9] overflow-hidden rounded-t-2xl bg-navy-800">
+          <Image
+            src={withBasePath(destination.image)}
+            alt={destination.name}
+            fill
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+            unoptimized
+            onError={() => setImgError(true)}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-navy-900/80 to-transparent" />
+        </div>
+      )}
       <div
         className={`absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl opacity-40 transition-opacity duration-300 group-hover:opacity-60 ${
           isNepal ? 'bg-himalaya-400/30' : 'bg-sakura-400/30'

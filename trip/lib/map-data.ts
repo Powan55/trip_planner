@@ -26,6 +26,8 @@ export interface MapMarker {
   x: number;
   /** 0-100 — vertical % position on that country's mock panel. */
   y: number;
+  /** Optional bundled photo for the popup (root-relative). */
+  image?: string;
 }
 
 export const MARKER_CATEGORIES: MarkerCategory[] = [
@@ -41,7 +43,7 @@ export const MARKER_CATEGORIES: MarkerCategory[] = [
 export const MAP_MARKERS: MapMarker[] = [
   // ── Nepal — Kathmandu Valley ──────────────────────────────────────────────
   {
-    id: 'np-boudhanath',
+    id: 'np-boudhanath', image: '/images/map/np-boudhanath.jpg',
     name: 'Boudhanath Stupa',
     category: 'Cultural',
     country: 'Nepal',
@@ -52,7 +54,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 30,
   },
   {
-    id: 'np-swayambhunath',
+    id: 'np-swayambhunath', image: '/images/map/np-swayambhunath.jpg',
     name: 'Swayambhunath (Monkey Temple)',
     category: 'Attraction',
     country: 'Nepal',
@@ -63,7 +65,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 38,
   },
   {
-    id: 'np-pashupatinath',
+    id: 'np-pashupatinath', image: '/images/map/np-pashupatinath.jpg',
     name: 'Pashupatinath Temple',
     category: 'Cultural',
     country: 'Nepal',
@@ -74,7 +76,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 44,
   },
   {
-    id: 'np-durbar-ktm',
+    id: 'np-durbar-ktm', image: '/images/map/np-durbar-ktm.jpg',
     name: 'Kathmandu Durbar Square',
     category: 'Attraction',
     country: 'Nepal',
@@ -85,7 +87,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 50,
   },
   {
-    id: 'np-thamel',
+    id: 'np-thamel', image: '/images/map/np-thamel.jpg',
     name: 'Thamel Bazaar',
     category: 'Shopping',
     country: 'Nepal',
@@ -107,7 +109,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 34,
   },
   {
-    id: 'np-patan',
+    id: 'np-patan', image: '/images/map/np-patan.jpg',
     name: 'Patan Durbar Square',
     category: 'Cultural',
     country: 'Nepal',
@@ -118,7 +120,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 66,
   },
   {
-    id: 'np-bhaktapur',
+    id: 'np-bhaktapur', image: '/images/map/np-bhaktapur.jpg',
     name: 'Bhaktapur Durbar Square',
     category: 'Attraction',
     country: 'Nepal',
@@ -129,7 +131,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 58,
   },
   {
-    id: 'np-nagarkot',
+    id: 'np-nagarkot', image: '/images/map/np-nagarkot.jpg',
     name: 'Nagarkot Viewpoint',
     category: 'Day Trip',
     country: 'Nepal',
@@ -140,7 +142,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 22,
   },
   {
-    id: 'np-newa-kitchen',
+    id: 'np-newa-kitchen', image: '/images/map/np-newa-kitchen.jpg',
     name: 'Newa Lahana',
     category: 'Restaurant',
     country: 'Nepal',
@@ -151,7 +153,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 60,
   },
   {
-    id: 'np-yangling',
+    id: 'np-yangling', image: '/images/map/np-yangling.jpg',
     name: 'Yangling Tibetan Restaurant',
     category: 'Restaurant',
     country: 'Nepal',
@@ -173,7 +175,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 52,
   },
   {
-    id: 'np-kopan',
+    id: 'np-kopan', image: '/images/map/np-kopan.jpg',
     name: 'Kopan Monastery',
     category: 'Photo Spot',
     country: 'Nepal',
@@ -186,7 +188,7 @@ export const MAP_MARKERS: MapMarker[] = [
 
   // ── Japan — Tokyo · Kyoto · Osaka ─────────────────────────────────────────
   {
-    id: 'jp-sensoji',
+    id: 'jp-sensoji', image: '/images/map/jp-sensoji.jpg',
     name: 'Senso-ji Temple',
     category: 'Cultural',
     country: 'Japan',
@@ -197,7 +199,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 26,
   },
   {
-    id: 'jp-shibuya',
+    id: 'jp-shibuya', image: '/images/map/jp-shibuya.jpg',
     name: 'Shibuya Crossing',
     category: 'Attraction',
     country: 'Japan',
@@ -208,7 +210,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 36,
   },
   {
-    id: 'jp-akihabara',
+    id: 'jp-akihabara', image: '/images/map/jp-akihabara.jpg',
     name: 'Akihabara Electric Town',
     category: 'Shopping',
     country: 'Japan',
@@ -219,7 +221,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 32,
   },
   {
-    id: 'jp-ichiran',
+    id: 'jp-ichiran', image: '/images/map/jp-ichiran.jpg',
     name: 'Ichiran Ramen',
     category: 'Restaurant',
     country: 'Japan',
@@ -230,7 +232,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 30,
   },
   {
-    id: 'jp-park-hyatt',
+    id: 'jp-park-hyatt', image: '/images/map/jp-park-hyatt.jpg',
     name: 'Park Hyatt Tokyo',
     category: 'Hotel',
     country: 'Japan',
@@ -252,7 +254,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 42,
   },
   {
-    id: 'jp-fushimi',
+    id: 'jp-fushimi', image: '/images/map/jp-fushimi.jpg',
     name: 'Fushimi Inari Taisha',
     category: 'Cultural',
     country: 'Japan',
@@ -263,7 +265,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 60,
   },
   {
-    id: 'jp-arashiyama',
+    id: 'jp-arashiyama', image: '/images/map/jp-arashiyama.jpg',
     name: 'Arashiyama Bamboo Grove',
     category: 'Photo Spot',
     country: 'Japan',
@@ -274,7 +276,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 54,
   },
   {
-    id: 'jp-kinkakuji',
+    id: 'jp-kinkakuji', image: '/images/map/jp-kinkakuji.jpg',
     name: 'Kinkaku-ji (Golden Pavilion)',
     category: 'Attraction',
     country: 'Japan',
@@ -285,7 +287,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 48,
   },
   {
-    id: 'jp-nishiki',
+    id: 'jp-nishiki', image: '/images/map/jp-nishiki.jpg',
     name: 'Nishiki Market',
     category: 'Shopping',
     country: 'Japan',
@@ -296,7 +298,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 52,
   },
   {
-    id: 'jp-dotonbori',
+    id: 'jp-dotonbori', image: '/images/map/jp-dotonbori.jpg',
     name: 'Dotonbori',
     category: 'Restaurant',
     country: 'Japan',
@@ -307,7 +309,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 80,
   },
   {
-    id: 'jp-osaka-castle',
+    id: 'jp-osaka-castle', image: '/images/map/jp-osaka-castle.jpg',
     name: 'Osaka Castle',
     category: 'Attraction',
     country: 'Japan',
@@ -318,7 +320,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 74,
   },
   {
-    id: 'jp-nara',
+    id: 'jp-nara', image: '/images/map/jp-nara.jpg',
     name: 'Nara Deer Park',
     category: 'Day Trip',
     country: 'Japan',
@@ -329,7 +331,7 @@ export const MAP_MARKERS: MapMarker[] = [
     y: 64,
   },
   {
-    id: 'jp-hakone',
+    id: 'jp-hakone', image: '/images/map/jp-hakone.jpg',
     name: 'Hakone',
     category: 'Day Trip',
     country: 'Japan',

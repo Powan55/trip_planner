@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Star, Clock, MapPin, Camera } from 'lucide-react';
 import Image from 'next/image';
 import { Recommendation } from '@/lib/nepal-data';
+import { withBasePath } from '@/lib/utils';
 
 interface RecommendationSectionProps {
   id: string;
@@ -30,7 +31,7 @@ function RecommendationCard({ item, accentColor }: { item: Recommendation; accen
       {item.image && !imgError ? (
         <div className="relative aspect-[16/10] bg-navy-800 overflow-hidden">
           <Image
-            src={item.image}
+            src={withBasePath(item.image)}
             alt={item.name}
             fill
             className="object-cover group-hover:scale-105 transition-transform duration-500"

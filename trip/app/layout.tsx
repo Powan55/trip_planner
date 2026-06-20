@@ -3,25 +3,24 @@ import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { ChunkLoadErrorHandler } from '@/components/chunk-load-error-handler'
+import { withBasePath } from '@/lib/utils'
 
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-sans' })
 const jakartaSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-display' })
 const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
-
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
   title: 'Nepal × Japan Journey | Dec 2026 - Jan 2027',
   description: 'Premium travel planner for an epic Nepal and Japan adventure. Explore Kathmandu, Tokyo, Kyoto, and beyond.',
   icons: {
-    icon: `${basePath}/favicon.svg`,
-    shortcut: `${basePath}/favicon.svg`,
+    icon: withBasePath('/favicon.svg'),
+    shortcut: withBasePath('/favicon.svg'),
   },
   openGraph: {
     title: 'Nepal × Japan Journey',
     description: 'Premium travel planner for an epic Nepal and Japan adventure.',
-    images: ['/og-image.png'],
+    images: [withBasePath('/og-image.png')],
   },
 }
 
