@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   MapPin, Plane, Mountain, Building, Clock, ListPlus,
@@ -9,9 +9,9 @@ import {
 } from 'lucide-react';
 import {
   TRIP_DATES, getCountryForDate, formatDate,
-  CATEGORY_COLORS, ItineraryCategory, DayPlan,
+  CATEGORY_COLORS, ItineraryCategory,
 } from '@/lib/trip-data';
-import { loadPlans } from '@/lib/itinerary-storage';
+import { useItineraryContext } from '@/components/itinerary-provider';
 
 // Map each category to a lucide icon, matching the calendar planner.
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
@@ -29,13 +29,13 @@ const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
 
 export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: string) => void }) {
   const [selectedDate, setSelectedDate] = useState<string>(TRIP_DATES[0]);
-  const [plans, setPlans] = useState<DayPlan[]>([]);
 
-  // Read the itinerary once at mount via the single storage contract.
-  // Same-tab live sync is intentionally out of scope here.
-  useEffect(() => {
-    setPlans(loadPlans());
-  }, []);
+  // Read the itinerary from the shared reactive store instead of a one-time
+  // `loadPlans()` on mount. This makes the selected-day panel reflect a same-tab
+  // add/edit/remove from any place card OR the calendar LIVE, without a reload —
+  // the store re-reads on its `itinerary:changed` CustomEvent. The timeline only
+  // READS `plans` (it has no mutators).
+  const { plans } = useItineraryContext();
 
   const handleDateClick = (date: string) => {
     setSelectedDate(date);

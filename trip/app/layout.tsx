@@ -1,6 +1,7 @@
 import { DM_Sans, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
+import { ItineraryProvider } from '@/components/itinerary-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { ChunkLoadErrorHandler } from '@/components/chunk-load-error-handler'
 import { withBasePath } from '@/lib/utils'
@@ -20,7 +21,20 @@ export const metadata = {
   openGraph: {
     title: 'Nepal × Japan Journey',
     description: 'Premium travel planner for an epic Nepal and Japan adventure.',
-    images: [withBasePath('/og-image.png')],
+    // NOTE: pass a bare root-relative path here — do NOT wrap in
+    // withBasePath(). Next resolves metadata image URLs against metadataBase,
+    // and metadataBase already carries the basePath segment via
+    // NEXT_PUBLIC_SITE_URL (=https://powan55.github.io/trip_planner on CI).
+    // Wrapping with withBasePath() would prepend /trip_planner a SECOND time,
+    // producing /trip_planner/trip_planner/og-image.png. Local dev stays
+    // correct: metadataBase=http://localhost:3000 -> /og-image.png.
+    images: ['/og-image.png'],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Nepal × Japan Journey',
+    description: 'Premium travel planner for an epic Nepal and Japan adventure.',
+    images: ['/og-image.png'],
   },
 }
 
@@ -38,7 +52,9 @@ export default function RootLayout({
           forcedTheme="dark"
           disableTransitionOnChange
         >
-          {children}
+          <ItineraryProvider>
+            {children}
+          </ItineraryProvider>
           <Toaster />
           <ChunkLoadErrorHandler />
         </ThemeProvider>

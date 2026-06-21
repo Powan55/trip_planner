@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Thermometer, Cloud, Shirt, CheckCircle, Circle, AlertTriangle, Heart, Utensils, BookOpen, MapPin } from 'lucide-react';
 import { FEATURED_DESTINATIONS, LOCAL_FOODS, ETIQUETTE_TIPS, PACKING_LIST, WEATHER_INFO } from '@/lib/travel-tips-data';
 import { withBasePath } from '@/lib/utils';
+import AddToPlanButton from '@/components/add-to-plan-button';
 
 function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIONS[0] }) {
   const isNepal = destination.country === 'Nepal';
@@ -49,6 +50,14 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
           </span>
         </div>
         <p className="mt-2 text-xs text-white/40 leading-relaxed">{destination.blurb}</p>
+        {/* Add-to-plan affordance — additive; only Featured cards get
+            it (not food/etiquette/packing/weather). Featured has no id/category;
+            the adapter derives sourceId from the name and uses 'sightseeing'. */}
+        <AddToPlanButton
+          source={destination}
+          sourceType="featured"
+          accentColor={isNepal ? 'text-himalaya-400' : 'text-sakura-400'}
+        />
       </div>
     </motion.div>
   );

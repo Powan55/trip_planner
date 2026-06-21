@@ -8,7 +8,7 @@ import { computeCountdown } from '@/lib/countdown';
 import { NEPAL_ATTRACTIONS, NEPAL_FOOD } from '@/lib/nepal-data';
 import { JAPAN_ATTRACTIONS, JAPAN_FOOD } from '@/lib/japan-data';
 import { PHOTO_SPOTS } from '@/lib/photography-data';
-import { loadPlans, ITINERARY_STORAGE_KEY } from '@/lib/itinerary-storage';
+import { useItineraryContext } from '@/components/itinerary-provider';
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -89,8 +89,13 @@ export default function TripDashboard() {
   // Card 2 (days until departure) and Card 3 (status) depend on the clock.
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [tripStatus, setTripStatus] = useState('Upcoming');
-  // Card 9 (planned days) depends on localStorage.
-  const [plannedDays, setPlannedDays] = useState(0);
+
+  // Card 9 (planned days) now derives from the shared reactive store instead
+  // of a mount-only loadPlans() + cross-tab storage listener. A same-tab calendar (or
+  // card) edit fans out via the store's CustomEvent, so this count updates
+  // live without a reload.
+  const { plans } = useItineraryContext();
+  const plannedDays = useMemo(() => countPlannedDays(plans), [plans]);
 
   // Data-derived, clock/storage-independent counts.
   const totalDays = TRIP_DATES.length;
@@ -113,18 +118,7 @@ export default function TripDashboard() {
       else setTripStatus('Completed');
     };
 
-    const refreshPlanned = () => setPlannedDays(countPlannedDays(loadPlans()));
-
     refreshTimeValues();
-    refreshPlanned();
-
-    // Re-read the itinerary when another tab/window mutates it. Same-tab updates
-    // from the calendar refresh on the next mount/reload.
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === ITINERARY_STORAGE_KEY || e.key === null) refreshPlanned();
-    };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
   }, []);
 
   const unplannedDays = Math.max(0, totalDays - plannedDays);

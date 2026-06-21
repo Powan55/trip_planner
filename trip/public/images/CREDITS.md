@@ -1,6 +1,6 @@
 # Image Credits
 
-All images bundled under `public/images/` are freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision **D-015**. Each was sourced from Wikimedia Commons / Wikipedia via `scripts/fetch-images.mjs` and is hosted locally (no hotlinking). Attribution below is captured automatically from each file’s Wikimedia `extmetadata`.
+All images bundled under `public/images/` are freely licensed (Public Domain / CC0 / CC BY / CC BY-SA). Each was sourced from Wikimedia Commons / Wikipedia and is hosted locally (no hotlinking). Attribution below is captured from each file’s Wikimedia metadata.
 
 Total assets: 103.
 

@@ -6,6 +6,7 @@ import { Star, Clock, MapPin, Camera } from 'lucide-react';
 import Image from 'next/image';
 import { Recommendation } from '@/lib/nepal-data';
 import { withBasePath } from '@/lib/utils';
+import AddToPlanButton from '@/components/add-to-plan-button';
 
 interface RecommendationSectionProps {
   id: string;
@@ -65,6 +66,10 @@ function RecommendationCard({ item, accentColor }: { item: Recommendation; accen
           </span>
         </div>
         {item.notes && <p className="text-[11px] text-white/25 mt-2 italic">💡 {item.notes}</p>}
+        {/* Add-to-plan affordance — additive; doesn't disturb the
+            existing image/filtering/layout. Renders for both Nepal and Japan since
+            both use this shared card. */}
+        <AddToPlanButton source={item} sourceType="recommendation" accentColor={accentColor} />
       </div>
     </motion.div>
   );

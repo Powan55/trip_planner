@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef, useId } from 'react';
+import { useState, useEffect, useRef, useId } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Calendar, Plus, Trash2, Edit3, GripVertical, Save,
@@ -19,9 +19,10 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import {
   TRIP_DATES, getCountryForDate, formatDate, formatDateLong,
-  DayPlan, ItineraryItem, ItineraryCategory, CATEGORY_COLORS,
+  ItineraryItem, ItineraryCategory, CATEGORY_COLORS,
 } from '@/lib/trip-data';
-import { loadPlans, savePlans } from '@/lib/itinerary-storage';
+import { generateItemId } from '@/lib/item-id';
+import { useItineraryContext } from '@/components/itinerary-provider';
 
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
   sightseeing: <MapPin className="w-3.5 h-3.5" />,
@@ -37,10 +38,6 @@ const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
 };
 
 const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography', 'shopping', 'nature', 'cultural', 'transportation', 'hotel', 'free', 'nightlife'];
-
-function generateId() {
-  return 'item_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 7);
-}
 
 // Sortable Item
 function SortableItem({ item, onEdit, onDelete }: { item: ItineraryItem; onEdit: () => void; onDelete: () => void }) {
@@ -121,7 +118,10 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
   const handleSave = () => {
     if (!title.trim()) return;
     onSave({
-      id: item?.id ?? generateId(),
+      // Spread the original item first so additive source-linkage fields
+      // (sourceId/sourceType) survive an edit of a card-created item.
+      ...item,
+      id: item?.id ?? generateItemId(),
       title: title.trim(),
       category,
       time: time || undefined,
@@ -273,8 +273,18 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
 }
 
 export default function CalendarPlanner() {
-  const [plans, setPlans] = useState<DayPlan[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  // The itinerary now lives in the shared reactive store instead of
+  // component-local state. `plans`/`hydrated` and the mutators come from the one
+  // app-root instance, so a same-tab calendar edit propagates to the dashboard live.
+  const {
+    plans,
+    addItem,
+    updateItem,
+    removeItem,
+    moveItem,
+    reorderItems,
+    getDayPlan,
+  } = useItineraryContext();
   const [selectedDate, setSelectedDate] = useState<string>(TRIP_DATES[0]);
   const [editingItem, setEditingItem] = useState<ItineraryItem | undefined>(undefined);
   const [showEditor, setShowEditor] = useState(false);
@@ -291,44 +301,9 @@ export default function CalendarPlanner() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Load from localStorage (key-present check lives in the shared helper).
-  useEffect(() => {
-    setPlans(loadPlans());
-    setHydrated(true);
-  }, []);
-
-  // Persist on every change — including an emptied itinerary ([]). The !hydrated
-  // guard stops the initial render's plans=[] from clobbering storage before the
-  // load effect has run.
-  useEffect(() => {
-    if (!hydrated) return;
-    savePlans(plans);
-  }, [plans, hydrated]);
-
-  const getDayPlan = useCallback((dateStr: string): DayPlan => {
-    return plans.find((p) => p.date === dateStr) ?? {
-      date: dateStr,
-      city: getCountryForDate(dateStr) === 'nepal' ? 'Kathmandu' : 'Tokyo',
-      country: getCountryForDate(dateStr),
-      items: [],
-    };
-  }, [plans]);
-
-  const updateDayPlan = useCallback((dateStr: string, updater: (plan: DayPlan) => DayPlan) => {
-    setPlans((prev) => {
-      const existing = prev.find((p) => p.date === dateStr);
-      if (existing) {
-        return prev.map((p) => (p.date === dateStr ? updater(p) : p));
-      }
-      const newPlan = updater({
-        date: dateStr,
-        city: getCountryForDate(dateStr) === 'nepal' ? 'Kathmandu' : 'Tokyo',
-        country: getCountryForDate(dateStr),
-        items: [],
-      });
-      return [...prev, newPlan];
-    });
-  }, []);
+  // Load/save effects and the local getDayPlan/updateDayPlan are gone — the store
+  // owns load-on-mount, the savePlans-on-write + CustomEvent fan-out, and
+  // the existing-or-synthesized getDayPlan. The calendar is now a pure consumer.
 
   const handleAddItem = () => {
     triggerRef.current = (document.activeElement as HTMLElement) ?? null;
@@ -343,24 +318,21 @@ export default function CalendarPlanner() {
   };
 
   const handleSaveItem = (item: ItineraryItem) => {
-    updateDayPlan(selectedDate, (plan) => {
-      const existingIdx = plan.items.findIndex((i: ItineraryItem) => i.id === item.id);
-      if (existingIdx >= 0) {
-        const newItems = [...(plan.items ?? [])];
-        newItems[existingIdx] = item;
-        return { ...plan, items: newItems };
-      }
-      return { ...plan, items: [...(plan.items ?? []), item] };
-    });
+    // Edit-in-place when the item already exists on the selected day; otherwise add.
+    // Mirrors the former updateDayPlan upsert (replace by id, else append).
+    const dayPlan = getDayPlan(selectedDate);
+    const exists = (dayPlan.items ?? []).some((i) => i.id === item.id);
+    if (exists) {
+      updateItem(selectedDate, item.id, item);
+    } else {
+      addItem(selectedDate, item);
+    }
     setShowEditor(false);
     setEditingItem(undefined);
   };
 
   const handleDeleteItem = (itemId: string) => {
-    updateDayPlan(selectedDate, (plan) => ({
-      ...plan,
-      items: (plan.items ?? []).filter((i: ItineraryItem) => i.id !== itemId),
-    }));
+    removeItem(selectedDate, itemId);
   };
 
   // Find which day an item belongs to
@@ -388,13 +360,9 @@ export default function CalendarPlanner() {
       const targetDate = overId.replace('day-', '');
       const sourceDate = findDayForItem(activeId);
       if (sourceDate && sourceDate !== targetDate) {
-        // Move item between days
-        const sourcePlan = getDayPlan(sourceDate);
-        const item = (sourcePlan.items ?? []).find((i: ItineraryItem) => i.id === activeId);
-        if (item) {
-          updateDayPlan(sourceDate, (p) => ({ ...p, items: (p.items ?? []).filter((i: ItineraryItem) => i.id !== activeId) }));
-          updateDayPlan(targetDate, (p) => ({ ...p, items: [...(p.items ?? []), item] }));
-        }
+        // Move item between days (remove from source, append to target) — the store
+        // moveItem reproduces the former two-updateDayPlan sequence atomically.
+        moveItem(activeId, sourceDate, targetDate);
       }
     }
   };
@@ -415,27 +383,30 @@ export default function CalendarPlanner() {
       const overDate = findDayForItem(overIdStr);
 
       if (activeDate && overDate && activeDate === overDate) {
-        updateDayPlan(activeDate, (plan) => {
-          const items = [...(plan.items ?? [])];
-          const oldIdx = items.findIndex((i: ItineraryItem) => i.id === activeIdStr);
-          const newIdx = items.findIndex((i: ItineraryItem) => i.id === overIdStr);
-          if (oldIdx >= 0 && newIdx >= 0) {
-            return { ...plan, items: arrayMove(items, oldIdx, newIdx) };
-          }
-          return plan;
-        });
+        // Reorder within the same day: compute the new id order with arrayMove
+        // (identical to the former in-place splice) and apply via reorderItems.
+        const items = [...(getDayPlan(activeDate).items ?? [])];
+        const oldIdx = items.findIndex((i: ItineraryItem) => i.id === activeIdStr);
+        const newIdx = items.findIndex((i: ItineraryItem) => i.id === overIdStr);
+        if (oldIdx >= 0 && newIdx >= 0) {
+          const orderedIds = arrayMove(items, oldIdx, newIdx).map((i) => i.id);
+          reorderItems(activeDate, orderedIds);
+        }
       } else if (activeDate && overDate && activeDate !== overDate) {
-        // Move between days
+        // Move between days, inserting at the hovered item's index (as before).
+        // Compute the target's intended final id order from the current snapshot,
+        // then move (append) + reorder; the store reads the freshest persisted state
+        // on each commit, so these two ops compose without a stale-snapshot clobber.
         const sourcePlan = getDayPlan(activeDate);
         const item = (sourcePlan.items ?? []).find((i: ItineraryItem) => i.id === activeIdStr);
         if (item) {
-          updateDayPlan(activeDate, (p) => ({ ...p, items: (p.items ?? []).filter((i: ItineraryItem) => i.id !== activeIdStr) }));
-          updateDayPlan(overDate, (p) => {
-            const items = [...(p.items ?? [])];
-            const targetIdx = items.findIndex((i: ItineraryItem) => i.id === overIdStr);
-            items.splice(targetIdx >= 0 ? targetIdx : items.length, 0, item);
-            return { ...p, items };
-          });
+          const targetItems = [...(getDayPlan(overDate).items ?? [])];
+          const targetIdx = targetItems.findIndex((i: ItineraryItem) => i.id === overIdStr);
+          const insertAt = targetIdx >= 0 ? targetIdx : targetItems.length;
+          const orderedIds = targetItems.map((i) => i.id);
+          orderedIds.splice(insertAt, 0, item.id);
+          moveItem(activeIdStr, activeDate, overDate);
+          reorderItems(overDate, orderedIds);
         }
       }
     }

@@ -22,6 +22,7 @@ import {
   type MarkerCategory,
 } from '@/lib/map-data';
 import { withBasePath } from '@/lib/utils';
+import AddToPlanButton from '@/components/add-to-plan-button';
 
 // Consistent marker palette keyed to the app's category vocabulary.
 // Each entry carries the icon plus the Tailwind classes used for the pin, the
@@ -365,6 +366,14 @@ export default function MapSection() {
                     </p>
                   </div>
                 </div>
+
+                {/* Add-to-plan affordance — additive; lives in the
+                    selected-marker popup so the picked place is addable to a day. */}
+                <AddToPlanButton
+                  source={selected}
+                  sourceType="map"
+                  accentColor={selected.country === 'Nepal' ? 'text-himalaya-400' : 'text-sakura-400'}
+                />
               </motion.div>
             )}
           </AnimatePresence>

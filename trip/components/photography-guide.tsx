@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Camera, Clock, MapPin, Sun, Moon, Aperture } from 'lucide-react';
 import { PHOTO_SPOTS, PHOTO_CATEGORIES, PhotoSpot } from '@/lib/photography-data';
 import { withBasePath } from '@/lib/utils';
+import AddToPlanButton from '@/components/add-to-plan-button';
 
 function PhotoCard({ spot }: { spot: PhotoSpot }) {
   const isNepal = spot.country === 'Nepal';
@@ -67,6 +68,14 @@ function PhotoCard({ spot }: { spot: PhotoSpot }) {
       <div className="mt-3 p-2.5 rounded-lg bg-white/5">
         <p className="text-[11px] text-white/40 italic">💡 {spot.tip}</p>
       </div>
+
+      {/* Add-to-plan affordance — additive; reuses the shared control.
+          accentColor matches the card's country theme. */}
+      <AddToPlanButton
+        source={spot}
+        sourceType="photo"
+        accentColor={isNepal ? 'text-himalaya-400' : 'text-sakura-400'}
+      />
     </motion.div>
   );
 }

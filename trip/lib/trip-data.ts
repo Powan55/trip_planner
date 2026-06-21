@@ -58,6 +58,11 @@ export interface ItineraryItem {
   duration?: string;
   notes?: string;
   location?: string;
+  // Optional back-link to the source record a card-created item came from.
+  // Both optional, so existing sample/calendar items (no sourceId) stay valid.
+  // `findPlacements(sourceId)` matches every plan item whose sourceId equals a card's id.
+  sourceId?: string;
+  sourceType?: 'recommendation' | 'photo' | 'map' | 'featured';
 }
 
 export interface DayPlan {
