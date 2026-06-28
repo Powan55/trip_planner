@@ -6,10 +6,9 @@ export const SAMPLE_ITINERARY: DayPlan[] = [
     city: 'Kathmandu',
     country: 'nepal',
     items: [
-      { id: 'n1-1', title: 'Depart Syracuse (SYR)', category: 'transportation', time: '06:00', duration: '2h', notes: 'Early check-in for the first leg; international connection — keep passport & visa docs handy', location: 'Syracuse Hancock Intl (SYR)' },
-      { id: 'n1-2', title: 'Connection at Newark / JFK hub', category: 'transportation', time: '08:30', duration: '3h', notes: 'Layover and gate change for the long-haul; grab a meal before boarding', location: 'Newark (EWR) / New York (JFK)' },
-      { id: 'n1-3', title: 'Transpacific long-haul leg', category: 'transportation', time: '11:30', duration: '14h', notes: 'Main long-haul flight toward the Gulf/Asia hub; set watch ahead, hydrate, sleep on board', location: 'In transit' },
-      { id: 'n1-4', title: 'Overnight layover at Gulf hub', category: 'transportation', time: '23:00', duration: '4h', notes: 'Connection at Doha/Dubai-style hub; stretch, freshen up before the final leg to Kathmandu', location: 'Doha (DOH) / Dubai (DXB)' },
+      { id: 'n1-1', title: 'Depart Syracuse (SYR) — Delta 5363 to New York (JFK)', category: 'transportation', time: '05:30', duration: '1h 32m', notes: 'SYR → JFK Terminal 4 · Delta 5363 · arrive 7:02am · seats 11A/11B/11C · Economy. Keep passport & onward boarding passes handy', location: 'Syracuse Hancock Intl (SYR) → New York JFK (T4)' },
+      { id: 'n1-2', title: 'Layover at New York (JFK) Terminal 4', category: 'transportation', time: '07:02', duration: '4h 53m', notes: 'Connection to the long-haul; grab a meal before the Air India flight to Delhi', location: 'New York JFK — Terminal 4' },
+      { id: 'n1-3', title: 'Fly JFK → Delhi (DEL) — Air India 102', category: 'transportation', time: '11:55', duration: '14h 55m', notes: 'JFK T4 → DEL Terminal 3 · Air India 102 · arrives 1:20pm Dec 10 · seats 31D/31E/31G · Economy. Long-haul — set watch ahead, hydrate, sleep on board', location: 'New York JFK (T4) → Delhi (DEL T3)' },
     ],
   },
   {
@@ -17,11 +16,12 @@ export const SAMPLE_ITINERARY: DayPlan[] = [
     city: 'Kathmandu',
     country: 'nepal',
     items: [
-      { id: 'n2-1', title: 'Final approach into the Himalayas', category: 'transportation', time: '11:00', duration: '4h', notes: 'Window seat on the left for first glimpses of the snow peaks on descent', location: 'In transit → KTM' },
-      { id: 'n2-2', title: 'Land at Tribhuvan International Airport', category: 'transportation', time: '15:00', duration: '1.5h', notes: 'Visa on arrival, baggage claim, currency exchange to Nepali rupees', location: 'Tribhuvan Intl Airport (KTM)' },
-      { id: 'n2-3', title: 'Check in to Hotel Yak & Yeti', category: 'hotel', time: '17:00', duration: '1h', notes: 'Heritage wing preferred; rest and freshen up after the long journey', location: 'Durbar Marg, Kathmandu' },
-      { id: 'n2-4', title: 'Evening walk in Thamel', category: 'sightseeing', time: '18:30', duration: '1.5h', notes: 'Ease into the city — buy a local SIM card, browse the shops, get oriented', location: 'Thamel' },
-      { id: 'n2-5', title: 'Welcome dinner at Bhojan Griha', category: 'food', time: '20:00', duration: '2h', notes: 'Traditional Nepali dal bhat feast in a 150-year-old heritage building with a cultural dance show — reserve ahead', location: 'Dillibazar, Kathmandu' },
+      { id: 'n2-1', title: 'Layover at Delhi (DEL) Terminal 3', category: 'transportation', time: '13:20', duration: '1h 10m', notes: 'Short connection at Indira Gandhi Intl before the final hop to Kathmandu', location: 'Delhi Indira Gandhi Intl — Terminal 3' },
+      { id: 'n2-2', title: 'Fly Delhi (DEL) → Kathmandu (KTM) — Air India 219', category: 'transportation', time: '14:30', duration: '1h 45m', notes: 'DEL T3 → KTM Terminal I · Air India 219 · arrives 4:30pm · seats 26D/26E/26F · Economy. Window seat for first glimpses of the Himalaya on descent', location: 'Delhi (DEL T3) → Kathmandu Tribhuvan Intl (KTM)' },
+      { id: 'n2-3', title: 'Arrive Tribhuvan (KTM): visa on arrival & transfer', category: 'transportation', time: '16:30', duration: '1.5h', notes: 'Visa on arrival, baggage claim, currency exchange to Nepali rupees, then transfer into the city', location: 'Tribhuvan Intl Airport (KTM)' },
+      { id: 'n2-3b', title: 'Check in to Tulsi Kathmandu Hotel', category: 'hotel', time: '18:00', duration: '1h', notes: '3-star hotel on Keshar Mahal Marga, beside the Garden of Dreams and a short walk from Thamel; rest and freshen up after the long journey', location: 'Keshar Mahal Marga, Kathmandu' },
+      { id: 'n2-4', title: 'Evening walk in Thamel', category: 'sightseeing', time: '19:30', duration: '1h', notes: 'Ease into the city — buy a local SIM card, browse the shops, get oriented', location: 'Thamel' },
+      { id: 'n2-5', title: 'Welcome dinner at Bhojan Griha', category: 'food', time: '20:30', duration: '2h', notes: 'Traditional Nepali dal bhat feast in a 150-year-old heritage building with a cultural dance show — reserve ahead', location: 'Dillibazar, Kathmandu' },
     ],
   },
   {
@@ -95,7 +95,7 @@ export const SAMPLE_ITINERARY: DayPlan[] = [
       { id: 'n8-2', title: 'Hike down toward Bhaktapur', category: 'nature', time: '10:00', duration: '2h', notes: 'Gentle ridge walk through terraced fields with valley views; easy half-day trail', location: 'Changunarayan → Bhaktapur' },
       { id: 'n8-3', title: 'Pottery Square & lunch in Bhaktapur', category: 'food', time: '12:30', duration: '1.5h', notes: 'Watch potters at the wheel, then a Newari lunch in the old town', location: 'Bhaktapur' },
       { id: 'n8-4', title: 'Taudaha Lake birdwatching', category: 'nature', time: '15:30', duration: '1.5h', notes: 'Tranquil lake on the valley rim — December is best for migratory birds; tea stalls along the shore', location: 'Chobhar' },
-      { id: 'n8-5', title: 'Quiet dinner near the hotel', category: 'food', time: '19:00', duration: '1.5h', notes: 'Low-key evening to recharge before the final days', location: 'Durbar Marg, Kathmandu' },
+      { id: 'n8-5', title: 'Quiet dinner near the hotel', category: 'food', time: '19:00', duration: '1.5h', notes: 'Low-key evening to recharge before the final days', location: 'Keshar Mahal Marga, Kathmandu' },
     ],
   },
   {
@@ -119,7 +119,8 @@ export const SAMPLE_ITINERARY: DayPlan[] = [
       { id: 'n10-2', title: 'Souvenir shopping in Thamel & Asan', category: 'shopping', time: '10:00', duration: '2.5h', notes: 'Pashmina, singing bowls, Nepali tea, prayer flags and handmade paper — last gifts before Japan', location: 'Thamel & Asan, Kathmandu' },
       { id: 'n10-3', title: 'Lunch at Cafe Swotha', category: 'food', time: '13:00', duration: '1.5h', notes: 'One more Newari meal in the Patan courtyard', location: 'Patan' },
       { id: 'n10-4', title: 'Garden of Dreams — afternoon unwind', category: 'free', time: '15:00', duration: '1.5h', notes: 'Quiet pavilions and fountains to close out the Nepal leg', location: 'Kaiser Mahal, Kathmandu' },
-      { id: 'n10-5', title: 'Pack & confirm tomorrow\'s Japan flight', category: 'hotel', time: '18:00', duration: '1.5h', notes: 'Repack, check in online for the Kathmandu → Tokyo flight, and an early night before the early departure', location: 'Hotel Yak & Yeti, Durbar Marg' },
+      { id: 'n10-5', title: 'Check out & transfer to airport (KTM)', category: 'transportation', time: '20:30', duration: '2h', notes: 'Check out of Tulsi Kathmandu Hotel, last dinner, and head to Tribhuvan for the late-night departure', location: 'Tulsi Kathmandu Hotel → Tribhuvan Intl (KTM)' },
+      { id: 'n10-6', title: 'Depart Kathmandu (KTM) → Guangzhou (CAN) — China Southern 3068', category: 'transportation', time: '23:30', duration: '4h 10m', notes: 'KTM Terminal I → CAN Terminal 2 · China Southern 3068 · arrives 5:55am Dec 19 · Economy. Overnight flight — sleep if you can', location: 'Kathmandu (KTM) → Guangzhou Baiyun (CAN T2)' },
     ],
   },
   {
@@ -127,8 +128,9 @@ export const SAMPLE_ITINERARY: DayPlan[] = [
     city: 'Tokyo',
     country: 'japan',
     items: [
-      { id: 'j1-1', title: 'Fly from Kathmandu to Tokyo (Narita)', category: 'transportation', time: '08:00', duration: '10h', notes: 'KTM → NRT, likely a one-stop routing; arrive Tokyo in the evening local time. Set watches ahead and fill out the immigration QR via Visit Japan Web before landing', location: 'TIA → Narita Intl (NRT)' },
-      { id: 'j1-2', title: 'Narita Express to Shinjuku & check in', category: 'hotel', time: '20:00', duration: '1.5h', notes: 'N\'EX train into the city, then check in to the Shinjuku base hotel; grab IC card (Suica/Pasmo) top-up at the station', location: 'Shinjuku, Tokyo' },
+      { id: 'j1-1', title: 'Layover at Guangzhou (CAN) Terminal 2', category: 'transportation', time: '05:55', duration: '2h 55m', notes: 'Early-morning connection at Baiyun Intl before the flight to Tokyo', location: 'Guangzhou Baiyun Intl — Terminal 2' },
+      { id: 'j1-2', title: 'Fly Guangzhou (CAN) → Tokyo Haneda (HND) — China Southern 385', category: 'transportation', time: '08:50', duration: '3h 45m', notes: 'CAN T2 → HND Terminal 3 · China Southern 385 · arrives 1:35pm · Economy. Fill out Visit Japan Web before landing', location: 'Guangzhou (CAN T2) → Tokyo Haneda (HND T3)' },
+      { id: 'j1-2b', title: 'Haneda → Shinjuku & hotel check-in', category: 'hotel', time: '14:30', duration: '1.5h', notes: 'Afternoon transfer from Haneda into the city (Keikyu/monorail + train), grab a Suica/Pasmo, and check in to the Shinjuku base hotel', location: 'Tokyo Haneda (HND) → Shinjuku, Tokyo' },
       { id: 'j1-3', title: 'Late-night tsukemen at Fuunji', category: 'food', time: '21:30', duration: '45min', notes: 'Shinjuku\'s legendary dipping ramen — thick fish-based broth and chewy noodles; finish with soup-wari', location: 'Shinjuku, Tokyo' },
       { id: 'j1-4', title: 'Night walk through Kabukicho', category: 'nightlife', time: '22:30', duration: '1h', notes: 'Ease into Tokyo under the neon — Godzilla head, the lantern alleys; a fast prime for cyberpunk reflections on wet streets', location: 'Kabukicho, Shinjuku' },
     ],
@@ -382,9 +384,9 @@ export const SAMPLE_ITINERARY: DayPlan[] = [
     country: 'japan',
     items: [
       { id: 'j22-1', title: 'Slow final breakfast & checkout', category: 'free', time: '08:00', duration: '1.5h', notes: 'Unhurried last morning, final konbini coffee and a look over the city before heading out', location: 'Shinjuku, Tokyo' },
-      { id: 'j22-2', title: 'Narita Express to the airport', category: 'transportation', time: '10:30', duration: '1.5h', notes: 'N\'EX from Shinjuku to Narita; allow extra buffer and aim to be airside ~3h before an international departure', location: 'Shinjuku → Narita Intl (NRT)' },
-      { id: 'j22-3', title: 'Last airport shopping & lunch', category: 'food', time: '12:30', duration: '1.5h', notes: 'Final KitKats and bento at Narita; spend the last yen and a proper airport ramen send-off', location: 'Narita Intl (NRT)' },
-      { id: 'j22-4', title: 'Fly home from Tokyo', category: 'transportation', time: '15:00', duration: '13h', notes: 'Long-haul flight home — crossing the date line means arriving the same day; the trip ends here', location: 'Narita (NRT) → home' },
+      { id: 'j22-2', title: 'Transfer to the airport (to be booked)', category: 'transportation', time: '10:30', duration: '1.5h', notes: 'Flight home not booked yet — departure airport/routing TBC. Allow ~3h before an international departure', location: 'Tokyo → airport (to be booked)' },
+      { id: 'j22-3', title: 'Last airport shopping & lunch', category: 'food', time: '12:30', duration: '1.5h', notes: 'Final KitKats and bento, spend the last yen and a proper airport ramen send-off', location: 'Tokyo airport' },
+      { id: 'j22-4', title: 'Fly home from Tokyo (to be booked)', category: 'transportation', time: '15:00', duration: 'TBC', notes: 'Return flight not yet booked — placeholder for the Jan 9 departure home', location: 'Tokyo → home (to be booked)' },
     ],
   },
 ];

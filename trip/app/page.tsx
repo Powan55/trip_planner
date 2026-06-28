@@ -5,6 +5,7 @@ const HeroSection = dynamic(() => import('@/components/hero-section'), { ssr: fa
 const TripDashboard = dynamic(() => import('@/components/trip-dashboard'), { ssr: false });
 const TripTimeline = dynamic(() => import('@/components/trip-timeline'), { ssr: false });
 const CalendarPlanner = dynamic(() => import('@/components/calendar-planner'), { ssr: false });
+const FlightsSection = dynamic(() => import('@/components/flights-section'), { ssr: false });
 const NepalSection = dynamic(() => import('@/components/nepal-section'), { ssr: false });
 const JapanSection = dynamic(() => import('@/components/japan-section'), { ssr: false });
 const PhotographyGuide = dynamic(() => import('@/components/photography-guide'), { ssr: false });
@@ -21,6 +22,7 @@ export default function HomePage() {
       <TripDashboard />
       <TripTimeline />
       <CalendarPlanner />
+      <FlightsSection />
       <NepalSection />
       <JapanSection />
       <PhotographyGuide />

@@ -19,6 +19,9 @@ export default function Footer() {
           <Heart className="w-3 h-3 text-red-400 fill-red-400" />
           <span>for the journey ahead</span>
         </div>
+        <p className="mt-4 text-xs text-white/25">
+          &copy; {new Date().getFullYear()} Lax
+        </p>
       </div>
     </footer>
   );

@@ -6,6 +6,7 @@ import { MapPin, Calendar, Camera, Compass, Mountain, Menu, X, Plane, Map } from
 
 const NAV_ITEMS = [
   { label: 'Itinerary', href: '#itinerary', icon: Calendar },
+  { label: 'Flights', href: '#flights', icon: Plane },
   { label: 'Nepal', href: '#nepal', icon: Mountain },
   { label: 'Japan', href: '#japan', icon: Compass },
   { label: 'Photography', href: '#photography', icon: Camera },
