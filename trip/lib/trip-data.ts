@@ -63,6 +63,11 @@ export interface ItineraryItem {
   // `findPlacements(sourceId)` matches every plan item whose sourceId equals a card's id.
   sourceId?: string;
   sourceType?: 'recommendation' | 'photo' | 'map' | 'featured';
+  // Cross-friend attribution: who created / last-edited an item. Populated only when
+  // remote sync is active; optional so every existing item stays valid.
+  createdBy?: string;
+  updatedBy?: string;
+  updatedAt?: string; // ISO timestamp
 }
 
 export interface DayPlan {

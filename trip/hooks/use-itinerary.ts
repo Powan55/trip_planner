@@ -3,6 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { DayPlan, ItineraryItem, getCountryForDate } from '@/lib/trip-data';
 import { loadPlans, savePlans } from '@/lib/itinerary-storage';
+import { isRemoteConfigured } from '@/lib/firebase-config';
+import { getUserName } from '@/lib/identity';
+import { stampCreated, stampUpdated } from '@/lib/attribution';
 
 /**
  * Shared reactive itinerary store.
@@ -36,6 +39,14 @@ export interface ItineraryStore {
   getDayPlan(date: string): DayPlan;
   findPlacements(sourceId: string): Array<{ date: string; item: ItineraryItem }>;
 }
+
+// Cross-friend attribution stamping lives in lib/attribution.ts —
+// a single named, unit-testable place. The mutators below call stampCreated /
+// stampUpdated with `getUserName` as the name source, so:
+//   - stamping fires ONLY when a name is set (dormant / no-name ⇒ fields stay undefined,
+//     items valid);
+//   - it runs ONLY in these local mutators, so the snapshot-ingest path (which writes via
+//     savePlans() directly) PRESERVES a remote author's attribution (echo-suppression).
 
 // Synthesize an empty day for a date with no stored plan. Lifted verbatim from
 // `calendar-planner.tsx`'s former `getDayPlan`/`updateDayPlan` so there is zero
@@ -100,12 +111,32 @@ export function useItinerary(): ItineraryStore {
   // sees the prior call's already-persisted write, so e.g. moveItem()+reorderItems()
   // in handleDragEnd don't clobber each other on a stale render snapshot.
   // Gated on `hydrated` so the first-render plans=[] can't clobber storage before load.
+  //
+  // Remote push: this is the single write choke-point, so it is also where
+  // local mutations fan out to the remote. We capture `prev = loadPlans()` BEFORE the
+  // compute (it's free — the base read already happens), then AFTER the local
+  // savePlans+dispatch (offline cache + instant same-tab echo first), push the per-day
+  // delta to Firestore — ONLY when remote is configured, behind a DYNAMIC import so the
+  // dormant build never pulls firebase onto the hot path. `pushPlans` is invoked ONLY here
+  // (genuine local mutations), never from the snapshot-ingest path — that is the
+  // echo-suppression rule. Push is best-effort and self-degrading; it never
+  // throws, so a remote failure can't break the local edit.
   const commit = useCallback((compute: (current: DayPlan[]) => DayPlan[]) => {
     if (!hydratedRef.current) return;
-    const next = compute(loadPlans());
+    const prev = loadPlans();
+    const next = compute(prev);
     savePlans(next);
     setPlans(next);
     window.dispatchEvent(new CustomEvent(ITINERARY_CHANGED_EVENT));
+
+    if (isRemoteConfigured()) {
+      import('@/lib/itinerary-remote')
+        .then(({ pushPlans }) => pushPlans(prev, next))
+        .catch((err) => {
+          // Degrade to local-only; never let a remote-push path break a local edit.
+          console.warn('[use-itinerary] remote push unavailable:', err);
+        });
+    }
   }, []);
 
   // Upsert helper mirroring the calendar's former `updateDayPlan`: if a DayPlan
@@ -125,16 +156,24 @@ export function useItinerary(): ItineraryStore {
 
   const addItem = useCallback(
     (date: string, item: ItineraryItem) => {
-      upsertDay(date, (plan) => ({ ...plan, items: [...(plan.items ?? []), item] }));
+      // Stamp createdBy/updatedBy/updatedAt from the identity module — no-op
+      // when no name is set, so dormant/no-name items keep undefined attribution.
+      const stamped = stampCreated(item, getUserName);
+      upsertDay(date, (plan) => ({ ...plan, items: [...(plan.items ?? []), stamped] }));
     },
     [upsertDay],
   );
 
   const updateItem = useCallback(
     (date: string, itemId: string, patch: Partial<ItineraryItem>) => {
+      // A content edit stamps updatedBy/updatedAt. Stamp the MERGED item so a
+      // patch that itself carries attribution (none today) can't be overwritten oddly;
+      // no-op when no name is set.
       upsertDay(date, (plan) => ({
         ...plan,
-        items: (plan.items ?? []).map((i) => (i.id === itemId ? { ...i, ...patch } : i)),
+        items: (plan.items ?? []).map((i) =>
+          i.id === itemId ? stampUpdated({ ...i, ...patch }, getUserName) : i,
+        ),
       }));
     },
     [upsertDay],
@@ -161,6 +200,10 @@ export function useItinerary(): ItineraryStore {
         const item = (sourcePlan?.items ?? []).find((i) => i.id === itemId);
         if (!item) return current;
 
+        // A cross-day move IS a content edit → stamp updatedBy/updatedAt on the
+        // moved item (no-op when no name set). createdBy is preserved (first author wins).
+        const moved = stampUpdated(item, getUserName);
+
         // Remove from source.
         const removed = current.map((p) =>
           p.date === fromDate
@@ -171,9 +214,9 @@ export function useItinerary(): ItineraryStore {
         const targetExists = removed.some((p) => p.date === toDate);
         return targetExists
           ? removed.map((p) =>
-              p.date === toDate ? { ...p, items: [...(p.items ?? []), item] } : p,
+              p.date === toDate ? { ...p, items: [...(p.items ?? []), moved] } : p,
             )
-          : [...removed, { ...synthesizeDay(toDate), items: [item] }];
+          : [...removed, { ...synthesizeDay(toDate), items: [moved] }];
       });
     },
     [commit],

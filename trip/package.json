@@ -67,6 +67,7 @@
     "date-fns": "3.6.0",
     "dayjs": "1.11.13",
     "embla-carousel-react": "8.3.0",
+    "firebase": "^12.15.0",
     "formik": "2.4.5",
     "framer-motion": "10.18.0",
     "gray-matter": "4.0.3",

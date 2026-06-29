@@ -12,6 +12,7 @@ import {
   CATEGORY_COLORS, ItineraryCategory,
 } from '@/lib/trip-data';
 import { useItineraryContext } from '@/components/itinerary-provider';
+import { formatRelativeTime } from '@/lib/relative-time';
 
 // Map each category to a lucide icon, matching the calendar planner.
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
@@ -190,6 +191,18 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                         </div>
                         {item.notes && (
                           <p className="text-sm text-white/60 mt-1.5 leading-snug">{item.notes}</p>
+                        )}
+                        {/* Cross-friend attribution: muted
+                            "by {name} · {relative}". Renders nothing without updatedBy
+                            (dormant / local-only-no-name) → portfolio build unchanged.
+                            Static classes; contrast-safe muted. */}
+                        {item.updatedBy && (
+                          <p className="text-xs text-white/40 mt-1.5 truncate">
+                            by {item.updatedBy}
+                            {formatRelativeTime(item.updatedAt)
+                              ? ` · ${formatRelativeTime(item.updatedAt)}`
+                              : ''}
+                          </p>
                         )}
                       </div>
                     </li>

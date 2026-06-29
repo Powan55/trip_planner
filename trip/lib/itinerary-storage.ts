@@ -43,6 +43,26 @@ export function loadPlans(): DayPlan[] {
 }
 
 /**
+ * Has the user ever persisted an itinerary to this browser?
+ *
+ * True iff the storage key is PRESENT (regardless of value — including `[]`). This is
+ * the key-presence signal from the contract above, exposed so the remote-sync layer can
+ * distinguish "this client holds the untouched SAMPLE_ITINERARY seed" (key absent ⇒
+ * false) from "this client holds the user's own edits, possibly a deliberate empty"
+ * (key present ⇒ true) when deciding what to seed up to a never-synced remote.
+ *
+ * SSR-safe: returns false under no-window (matches loadPlans() returning the sample).
+ */
+export function hasStoredPlans(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(ITINERARY_STORAGE_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Persist itinerary plans to localStorage.
  *
  * Always writes — including an empty array — so "delete everything" is a durable

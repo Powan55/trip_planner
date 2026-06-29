@@ -23,6 +23,7 @@ import {
 } from '@/lib/trip-data';
 import { generateItemId } from '@/lib/item-id';
 import { useItineraryContext } from '@/components/itinerary-provider';
+import { formatRelativeTime } from '@/lib/relative-time';
 
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
   sightseeing: <MapPin className="w-3.5 h-3.5" />,
@@ -38,6 +39,22 @@ const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
 };
 
 const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography', 'shopping', 'nature', 'cultural', 'transportation', 'hotel', 'free', 'nightlife'];
+
+// Cross-friend attribution line: a small, muted
+// "by {updatedBy} · {relative time}" under each item. Renders NOTHING when the item
+// has no `updatedBy` — which is exactly the dormant / local-only-no-name case
+// (attribution fields stay undefined there), so the portfolio build is unchanged.
+// Static Tailwind classes; muted but contrast-safe on the card bg.
+function AttributionLine({ item }: { item: ItineraryItem }) {
+  if (!item.updatedBy) return null;
+  const rel = formatRelativeTime(item.updatedAt);
+  return (
+    <p className="text-[11px] text-white/40 mt-1 truncate">
+      by {item.updatedBy}
+      {rel ? ` · ${rel}` : ''}
+    </p>
+  );
+}
 
 // Sortable Item
 function SortableItem({ item, onEdit, onDelete }: { item: ItineraryItem; onEdit: () => void; onDelete: () => void }) {
@@ -65,6 +82,7 @@ function SortableItem({ item, onEdit, onDelete }: { item: ItineraryItem; onEdit:
           {item.location && <span>• {item.location}</span>}
         </div>
         {item.notes && <p className="text-xs text-white/30 mt-1 line-clamp-1">{item.notes}</p>}
+        <AttributionLine item={item} />
       </div>
       <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
         <button onClick={onEdit} aria-label={`Edit ${item.title}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
