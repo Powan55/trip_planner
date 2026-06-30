@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import { Star, Clock, MapPin, Camera } from 'lucide-react';
-import Image from 'next/image';
 import { Recommendation } from '@/lib/nepal-data';
-import { withBasePath } from '@/lib/utils';
+import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 
 interface RecommendationSectionProps {
@@ -21,22 +20,24 @@ interface RecommendationSectionProps {
 
 function RecommendationCard({ item, accentColor }: { item: Recommendation; accentColor: string }) {
   const [imgError, setImgError] = useState(false);
+  const reduce = useReducedMotion();
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      whileHover={{ y: -4 }}
-      className="glass-card rounded-2xl overflow-hidden group hover:shadow-lg hover:shadow-black/30 transition-all duration-300"
+      whileHover={reduce ? undefined : { y: -6 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+      className="glass-card rounded-2xl overflow-hidden group transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)]"
     >
       {item.image && !imgError ? (
-        <div className="relative aspect-[16/10] bg-navy-800 overflow-hidden">
-          <Image
-            src={withBasePath(item.image)}
+        <div className="relative aspect-[16/10] bg-navy-800 overflow-hidden motion-reduce:[&_img]:!transform-none">
+          <OptimizedImage
+            src={item.image}
             alt={item.name}
             fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover group-hover:scale-105 transition-transform duration-500"
-            unoptimized
             onError={() => setImgError(true)}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-navy-900/80 to-transparent" />
@@ -71,7 +72,7 @@ function RecommendationCard({ item, accentColor }: { item: Recommendation; accen
             both use this shared card. */}
         <AddToPlanButton source={item} sourceType="recommendation" accentColor={accentColor} />
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -85,7 +86,7 @@ export default function RecommendationSection({
   return (
     <section id={id} aria-labelledby={`${id}-heading`} className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -95,7 +96,7 @@ export default function RecommendationSection({
             {title} <span className={titleGradient}>Guide</span>
           </h2>
           <p className="text-white/50 max-w-xl mx-auto">{subtitle}</p>
-        </motion.div>
+        </m.div>
 
         {/* Category Filter */}
         <div className="flex flex-wrap justify-center gap-2 mb-8">

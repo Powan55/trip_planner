@@ -4,6 +4,8 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { ItineraryProvider } from '@/components/itinerary-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { ChunkLoadErrorHandler } from '@/components/chunk-load-error-handler'
+import CommandPalette from '@/components/command-palette'
+import ScrollAccentEngine from '@/components/scroll-accent-engine'
 import { withBasePath } from '@/lib/utils'
 
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-sans' })
@@ -22,10 +24,10 @@ export const metadata = {
     title: 'Nepal × Japan Journey',
     description: 'Premium travel planner for an epic Nepal and Japan adventure.',
     // NOTE: pass a bare root-relative path here — do NOT wrap in
-    // withBasePath(). Next resolves metadata image URLs against metadataBase,
+    // withBasePath. Next resolves metadata image URLs against metadataBase
     // and metadataBase already carries the basePath segment via
     // NEXT_PUBLIC_SITE_URL (=https://powan55.github.io/trip_planner on CI).
-    // Wrapping with withBasePath() would prepend /trip_planner a SECOND time,
+    // Wrapping with withBasePath would prepend /trip_planner a SECOND time
     // producing /trip_planner/trip_planner/og-image.png. Local dev stays
     // correct: metadataBase=http://localhost:3000 -> /og-image.png.
     images: ['/og-image.png'],
@@ -55,6 +57,13 @@ export default function RootLayout({
           <ItineraryProvider>
             {children}
           </ItineraryProvider>
+          {/* ⌘K / Ctrl+K command palette. Mounted once at the app root so the
+              shortcut works from anywhere, alongside the other root client islands. */}
+          <CommandPalette />
+          {/* Scroll-driven warm/cool accent engine. Renders null; reads the
+              active section (scroll-spy) and drives --accent-scroll
+              himalaya↔gold↔sakura. Reduced-motion sets it instantly. */}
+          <ScrollAccentEngine />
           <Toaster />
           <ChunkLoadErrorHandler />
         </ThemeProvider>

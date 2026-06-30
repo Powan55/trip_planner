@@ -4,29 +4,68 @@
 
 @layer base {
   :root {
-    --background: 220 30% 7%;
+    /* Core surfaces (dark-only, ) ---
+       refinement: a marginally deeper, very slightly cooler navy base for
+       richer contrast under the glass, with the card surface lifted a touch off
+       the background so elevation reads. Brand hue (navy ~220) is preserved. */
+    --background: 222 36% 6%;
     --foreground: 210 40% 98%;
-    --card: 220 25% 10%;
+    --card: 221 30% 9%;
     --card-foreground: 210 40% 98%;
-    --popover: 220 25% 10%;
+    --popover: 221 30% 9%;
     --popover-foreground: 210 40% 98%;
-    --primary: 43 78% 60%;
-    --primary-foreground: 220 30% 7%;
-    --secondary: 220 20% 16%;
+    /* Gold primary, nudged a hair warmer/brighter for a premium metallic feel
+       (43->44 hue, +2% sat, +1% light). Still unmistakably the brand gold. */
+    --primary: 44 80% 61%;
+    --primary-foreground: 222 36% 6%;
+    --secondary: 220 22% 15%;
     --secondary-foreground: 210 40% 98%;
-    --muted: 220 20% 14%;
-    --muted-foreground: 215 20% 60%;
+    --muted: 220 22% 13%;
+    --muted-foreground: 215 22% 62%;
+    /* shadcn interactive-fill accent (menus/toggles/selected) — UNCHANGED hue
+       (sakura). This is the Radix/shadcn "accent" surface token; the scroll
+       warm/cool engine uses the separate --accent-scroll var below so we don't
+       recolor interactive chrome (see handback note). */
     --accent: 340 60% 65%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
-    --border: 220 20% 18%;
-    --input: 220 20% 18%;
-    --ring: 43 78% 60%;
-    --radius: 0.625rem;
-    --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
-    --shadow-md: 0 4px 12px rgba(0,0,0,0.4);
-    --shadow-lg: 0 8px 32px rgba(0,0,0,0.5);
+    /* Borders/inputs: a touch lighter for a crisper hairline against the deeper bg. */
+    --border: 220 22% 19%;
+    --input: 220 22% 19%;
+    --ring: 44 80% 61%;
+    --radius: 0.75rem;
+    --radius-sm: 0.5rem;
+    --radius-lg: 1rem;
+
+    /* Brand accent channels (HSL triplets, for hsl/rgba reuse) ---- */
+    --gold: 44 80% 61%;
+    --sakura: 344 80% 78%;     /* Japan accent */
+    --himalaya: 22 100% 63%;   /* Nepal accent */
+
+    /* semantic tokens ---
+       accent-scroll: the SINGLE scroll-driven accent. Defaults to gold
+       animates it himalaya<->sakura by scroll position. Consumers reference this
+       var only, so the warm/cool engine has one hook. --accent-scroll-rgb mirrors
+       it as an "r, g, b" list for rgba(var(--accent-scroll-rgb) / a) usage. */
+    --accent-scroll: 44 80% 61%;
+    --accent-scroll-rgb: 240, 199, 96;
+
+    /* Refined aurora backdrop gradient (warm gold -> sakura -> cool navy). Used as
+       a subtle premium wash; decorative only. */
+    --gradient-aurora: radial-gradient(60% 55% at 18% 12%, hsl(44 80% 61% / 0.14) 0%, transparent 60%),
+                       radial-gradient(50% 45% at 85% 18%, hsl(344 80% 78% / 0.12) 0%, transparent 62%),
+                       radial-gradient(55% 50% at 78% 88%, hsl(22 100% 63% / 0.10) 0%, transparent 65%),
+                       linear-gradient(180deg, hsl(222 38% 5%) 0%, hsl(221 34% 8%) 100%);
+
+    /* Elevation tiers (deeper, layered shadows for premium depth) ---- */
+    --shadow-sm: 0 1px 2px rgba(3, 6, 18, 0.40);
+    --shadow-md: 0 6px 18px -4px rgba(3, 6, 18, 0.50), 0 2px 6px -2px rgba(3, 6, 18, 0.35);
+    --shadow-lg: 0 16px 40px -8px rgba(3, 6, 18, 0.58), 0 4px 12px -4px rgba(3, 6, 18, 0.40);
+    --shadow-xl: 0 28px 64px -12px rgba(3, 6, 18, 0.66), 0 8px 20px -6px rgba(3, 6, 18, 0.45);
+    /* Glow keyed to the scroll accent so it warms/cools with the page. */
+    --shadow-glow: 0 0 0 1px hsl(var(--accent-scroll) / 0.18), 0 0 28px hsl(var(--accent-scroll) / 0.22);
+
     --duration-fast: 150ms;
     --duration-normal: 250ms;
     --duration-slow: 350ms;
@@ -50,30 +89,46 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Glass utilities (premium refinement) ---
+   Each surface gets: a slightly richer translucent fill, a crisp 1px hairline
+   border, and a subtle INNER top-highlight + soft drop shadow expressed via
+   box-shadow `inset` (insets add NO layout box, so 0-overflow at 360/390/414 is
+   preserved — ). Brand tint per surface is unchanged (gold/white/himalaya/
+   sakura); only depth is enhanced. */
 .glass-card {
-  background: rgba(17, 22, 64, 0.6);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(240, 199, 96, 0.1);
+  background: linear-gradient(180deg, rgba(28, 36, 84, 0.62) 0%, rgba(17, 22, 64, 0.58) 100%);
+  backdrop-filter: blur(18px) saturate(125%);
+  -webkit-backdrop-filter: blur(18px) saturate(125%);
+  border: 1px solid rgba(240, 199, 96, 0.12);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06),
+    0 8px 28px -12px rgba(3, 6, 18, 0.55);
 }
 
 .glass-card-dark {
-  background: rgba(10, 14, 39, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, rgba(14, 19, 50, 0.82) 0%, rgba(10, 14, 39, 0.80) 100%);
+  backdrop-filter: blur(22px) saturate(125%);
+  -webkit-backdrop-filter: blur(22px) saturate(125%);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+    0 10px 32px -14px rgba(3, 6, 18, 0.62);
 }
 
 .glass-nepal {
-  background: rgba(230, 118, 53, 0.08);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(230, 118, 53, 0.15);
+  background: linear-gradient(180deg, rgba(255, 140, 66, 0.10) 0%, rgba(230, 118, 53, 0.06) 100%);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  border: 1px solid rgba(255, 140, 66, 0.18);
+  box-shadow: inset 0 1px 0 0 rgba(255, 200, 160, 0.08);
 }
 
 .glass-japan {
-  background: rgba(247, 160, 179, 0.08);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(247, 160, 179, 0.15);
+  background: linear-gradient(180deg, rgba(247, 160, 179, 0.10) 0%, rgba(247, 160, 179, 0.06) 100%);
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  border: 1px solid rgba(247, 160, 179, 0.18);
+  box-shadow: inset 0 1px 0 0 rgba(255, 220, 230, 0.08);
 }
 
 .text-gradient-gold {
@@ -100,11 +155,47 @@ html {
 .hero-gradient {
   background: linear-gradient(
     135deg,
-    rgba(10, 14, 39, 0.95) 0%,
-    rgba(17, 22, 64, 0.85) 30%,
-    rgba(26, 32, 80, 0.7) 60%,
-    rgba(10, 14, 39, 0.9) 100%
+    rgba(8, 11, 32, 0.95) 0%,
+    rgba(17, 22, 64, 0.84) 30%,
+    rgba(26, 32, 80, 0.68) 60%,
+    rgba(8, 11, 32, 0.92) 100%
   );
+}
+
+/* Refined aurora backdrop wash — opt-in utility, decorative. */
+.bg-aurora {
+  background-image: var(--gradient-aurora);
+}
+
+/* accent-scroll consumers (so has a live hook) ---- */
+/* 1) Premium gradient underline beneath every section <h2...-heading> title.
+   Always-visible, additive (pure CSS, no component edits), and themed by the
+   scroll accent so sweeps it warm/cool. Centered under the centered titles. */
+h2[id$="-heading"] {
+  position: relative;
+}
+h2[id$="-heading"]::after {
+  content: "";
+  display: block;
+  width: 3rem;
+  height: 3px;
+  margin: 0.75rem auto 0;
+  border-radius: 9999px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    hsl(var(--accent-scroll)) 50%,
+    transparent 100%
+  );
+  opacity: 0.9;
+}
+
+/* 2) Keyboard focus ring fallback uses the scroll accent. Components that set
+   their own Tailwind ring still win; this gives every other focusable element a
+   visible, on-brand ring that also animates. */
+:focus-visible {
+  outline: 2px solid hsl(var(--accent-scroll));
+  outline-offset: 2px;
 }
 
 @keyframes float {
@@ -112,9 +203,18 @@ html {
   50% { transform: translateY(-10px); }
 }
 
+/* pulse-glow now keys off --shadow-glow / --accent-scroll so the countdown glow
+   warms/cools with the page. Values stay within the prior glow size. */
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(240, 199, 96, 0.2); }
-  50% { box-shadow: 0 0 40px rgba(240, 199, 96, 0.4); }
+  0%, 100% { box-shadow: 0 0 20px hsl(var(--accent-scroll) / 0.20); }
+  50% { box-shadow: 0 0 40px hsl(var(--accent-scroll) / 0.38); }
+}
+
+/* New in a slow aurora drift for the optional.bg-aurora wash. Suppressed
+   under prefers-reduced-motion (see media block below — /). */
+@keyframes aurora-shift {
+  0%, 100% { background-position: 0% 50%, 100% 50%, 50% 100%, 0 0; }
+  50% { background-position: 20% 40%, 80% 60%, 60% 80%, 0 0; }
 }
 
 .animate-float {
@@ -123,6 +223,11 @@ html {
 
 .animate-pulse-glow {
   animation: pulse-glow 3s ease-in-out infinite;
+}
+
+.animate-aurora {
+  background-size: 160% 160%, 160% 160%, 160% 160%, 100% 100%;
+  animation: aurora-shift 18s ease-in-out infinite;
 }
 
 .scrollbar-hide {
@@ -147,6 +252,14 @@ html {
   }
   html {
     scroll-behavior: auto !important;
+  }
+  /* Explicitly neutralize the keyframe-backed utilities (the universal rule
+     above already covers them; this is the named guarantee required by
+     / for every new keyframe). */
+  .animate-aurora,
+  .animate-float,
+  .animate-pulse-glow {
+    animation: none !important;
   }
 }
 

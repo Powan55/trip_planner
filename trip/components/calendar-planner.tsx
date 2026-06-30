@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useId } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Calendar, Plus, Trash2, Edit3, GripVertical, Save,
   MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
@@ -24,6 +24,9 @@ import {
 import { generateItemId } from '@/lib/item-id';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { formatRelativeTime } from '@/lib/relative-time';
+import { filterItemsByAuthor } from '@/lib/author-filter';
+import { useAuthorFilter } from '@/hooks/use-author-filter';
+import AuthorFilterControl from '@/components/author-filter';
 
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
   sightseeing: <MapPin className="w-3.5 h-3.5" />,
@@ -137,7 +140,7 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
     if (!title.trim()) return;
     onSave({
       // Spread the original item first so additive source-linkage fields
-      // (sourceId/sourceType) survive an edit of a card-created item.
+      // (sourceId/sourceType, ) survive an edit of a card-created item.
       ...item,
       id: item?.id ?? generateItemId(),
       title: title.trim(),
@@ -206,14 +209,14 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
-      <motion.div
+      <m.div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
@@ -285,8 +288,8 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
             {item ? 'Update Item' : 'Add Item'}
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }
 
@@ -308,6 +311,11 @@ export default function CalendarPlanner() {
   const [showEditor, setShowEditor] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'agenda'>('calendar');
+
+  // Presentational author filter: READ-ONLY. It only narrows which items
+  // are SHOWN; it never touches `plans`/localStorage or any store mutator. CRUD, DnD and
+  // persistence operate on the FULL stored set below, unaffected by the active filter.
+  const { filter: authorFilter, myName } = useAuthorFilter();
 
   // The element focused when the editor opened (the "Add Activity" / edit
   // button), captured before the modal autofocuses, so focus returns to it once
@@ -412,7 +420,7 @@ export default function CalendarPlanner() {
         }
       } else if (activeDate && overDate && activeDate !== overDate) {
         // Move between days, inserting at the hovered item's index (as before).
-        // Compute the target's intended final id order from the current snapshot,
+        // Compute the target's intended final id order from the current snapshot
         // then move (append) + reorder; the store reads the freshest persisted state
         // on each commit, so these two ops compose without a stale-snapshot clobber.
         const sourcePlan = getDayPlan(activeDate);
@@ -508,13 +516,19 @@ export default function CalendarPlanner() {
     );
   };
 
-  // All items across all visible days for DnD
-  const allItemIds = (currentPlan.items ?? []).map((i: ItineraryItem) => i.id);
+  // The selected day's full stored item set (unfiltered — this is the CRUD/DnD target).
+  const dayItems = currentPlan.items ?? [];
+  // The presentational view: narrowed by the active author filter (read-only). DnD reorder
+  // still reads the full set from the store in handleDragEnd, so persistence is unaffected
+  // we only change what renders and which ids the SortableContext tracks (so a drag inside
+  // a filtered view stays consistent with what's visible).
+  const visibleItems = filterItemsByAuthor(dayItems, authorFilter, myName);
+  const allItemIds = visibleItems.map((i: ItineraryItem) => i.id);
 
   return (
     <section id="itinerary" aria-labelledby="itinerary-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -526,7 +540,7 @@ export default function CalendarPlanner() {
           <p className="text-white/50 max-w-xl mx-auto">
             Plan every day of the journey. Drag items to reorder or move between days.
           </p>
-        </motion.div>
+        </m.div>
 
         {/* View Toggle */}
         <div className="flex flex-wrap justify-center gap-2 mb-6">
@@ -547,6 +561,11 @@ export default function CalendarPlanner() {
             Agenda View
           </button>
         </div>
+
+        {/* Author filter: presentational, read-only. Self-hides when no item is
+            attributed (dormant/portfolio build unchanged). Narrows the day-detail list
+            below AND the timeline (shared selection via lib/author-filter). */}
+        <AuthorFilterControl plans={plans} className="mb-6" />
 
         <div className="grid lg:grid-cols-[340px_1fr] gap-6">
           {/* Left: Calendar or Date list */}
@@ -604,14 +623,25 @@ export default function CalendarPlanner() {
               <DroppableDay dateStr={selectedDate}>
                 <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
                   <div className="space-y-2">
-                    {(currentPlan.items ?? []).length === 0 ? (
+                    {visibleItems.length === 0 ? (
                       <div className="text-center py-12">
                         <Calendar className="w-10 h-10 text-white/10 mx-auto mb-3" />
-                        <p className="text-white/30 text-sm">No activities planned for this day</p>
-                        <p className="text-white/20 text-xs mt-1">Click the button below to start planning</p>
+                        {dayItems.length === 0 ? (
+                          <>
+                            <p className="text-white/30 text-sm">No activities planned for this day</p>
+                            <p className="text-white/20 text-xs mt-1">Click the button below to start planning</p>
+                          </>
+                        ) : (
+                          /* Day HAS items, but none match the active author filter (read-only
+                             view filter, ) — the stored items are untouched. */
+                          <>
+                            <p className="text-white/30 text-sm">No activities match this filter</p>
+                            <p className="text-white/20 text-xs mt-1">Switch the author filter to “All” to see every item</p>
+                          </>
+                        )}
                       </div>
                     ) : (
-                      (currentPlan.items ?? []).map((item: ItineraryItem) => (
+                      visibleItems.map((item: ItineraryItem) => (
                         <SortableItem
                           key={item.id}
                           item={item}

@@ -1,34 +1,35 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import Image from 'next/image';
+import { m, useReducedMotion } from 'framer-motion';
 import { Thermometer, Cloud, Shirt, CheckCircle, Circle, AlertTriangle, Heart, Utensils, BookOpen, MapPin } from 'lucide-react';
 import { FEATURED_DESTINATIONS, LOCAL_FOODS, ETIQUETTE_TIPS, PACKING_LIST, WEATHER_INFO } from '@/lib/travel-tips-data';
-import { withBasePath } from '@/lib/utils';
+import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 
 function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIONS[0] }) {
   const isNepal = destination.country === 'Nepal';
   const [imgError, setImgError] = useState(false);
+  const reduce = useReducedMotion();
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      whileHover={{ y: -4 }}
-      className={`group relative overflow-hidden rounded-2xl p-5 transition-all duration-300 ${
+      whileHover={reduce ? undefined : { y: -6 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+      className={`group relative overflow-hidden rounded-2xl p-5 transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)] ${
         isNepal ? 'glass-nepal' : 'glass-japan'
       }`}
     >
       {destination.image && !imgError && (
-        <div className="relative -mx-5 -mt-5 mb-3 aspect-[16/9] overflow-hidden rounded-t-2xl bg-navy-800">
-          <Image
-            src={withBasePath(destination.image)}
+        <div className="relative -mx-5 -mt-5 mb-3 aspect-[16/9] overflow-hidden rounded-t-2xl bg-navy-800 motion-reduce:[&_img]:!transform-none">
+          <OptimizedImage
+            src={destination.image}
             alt={destination.name}
             fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover transition-transform duration-500 group-hover:scale-105"
-            unoptimized
             onError={() => setImgError(true)}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-navy-900/80 to-transparent" />
@@ -51,7 +52,7 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
         </div>
         <p className="mt-2 text-xs text-white/40 leading-relaxed">{destination.blurb}</p>
         {/* Add-to-plan affordance — additive; only Featured cards get
-            it (not food/etiquette/packing/weather). Featured has no id/category;
+            it (not food/etiquette/packing/weather). Featured has no id/category
             the adapter derives sourceId from the name and uses 'sightseeing'. */}
         <AddToPlanButton
           source={destination}
@@ -59,19 +60,21 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
           accentColor={isNepal ? 'text-himalaya-400' : 'text-sakura-400'}
         />
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
 function FoodCard({ food }: { food: typeof LOCAL_FOODS[0] }) {
   const isNepal = food.country === 'Nepal';
+  const reduce = useReducedMotion();
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      whileHover={{ y: -3 }}
-      className={`rounded-xl p-4 transition-all duration-300 ${
+      whileHover={reduce ? undefined : { y: -5 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+      className={`group rounded-xl p-4 transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)] ${
         isNepal ? 'glass-nepal' : 'glass-japan'
       }`}
     >
@@ -87,7 +90,7 @@ function FoodCard({ food }: { food: typeof LOCAL_FOODS[0] }) {
           <p className="text-xs text-white/40 mt-1">{food.description}</p>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -156,7 +159,7 @@ export default function TravelInspiration() {
   return (
     <section id="inspiration" aria-labelledby="inspiration-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -166,7 +169,7 @@ export default function TravelInspiration() {
             Travel <span className="text-gradient-gold">Inspiration</span>
           </h2>
           <p className="text-white/50 max-w-xl mx-auto">Essential tips, local flavors, and packing essentials for the journey.</p>
-        </motion.div>
+        </m.div>
 
         {/* Featured Destinations */}
         <div className="mb-12">
@@ -183,7 +186,7 @@ export default function TravelInspiration() {
         {/* Weather Section */}
         <div className="grid md:grid-cols-2 gap-5 mb-12">
           {[{ key: 'nepal' as const, label: 'Kathmandu, Nepal', data: WEATHER_INFO.nepal }, { key: 'japan' as const, label: 'Japan (Tokyo/Kyoto)', data: WEATHER_INFO.japan }].map(({ key, label, data }) => (
-            <motion.div
+            <m.div
               key={key}
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
@@ -208,7 +211,7 @@ export default function TravelInspiration() {
               </div>
               <p className="text-xs text-white/40 mb-2">{data.description}</p>
               <p className="text-xs text-white/30 italic">🧥 {data.whatToWear}</p>
-            </motion.div>
+            </m.div>
           ))}
         </div>
 

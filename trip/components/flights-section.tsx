@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment, useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   Plane, Hotel, Clock, ArrowRight, Armchair, Ticket,
   Building2, Star, MapPin, CircleDashed,
@@ -11,7 +11,7 @@ import {
   type Journey, type FlightLeg, type Layover, type Stay, type ToBookPlaceholder,
 } from '@/lib/booking-data';
 
-// --- Static class records: never interpolate Tailwind class names. ---
+// Static class records: never interpolate Tailwind class names. --
 // Status chip styling, keyed by booking status.
 const STATUS_CHIP: Record<'booked' | 'to-book', string> = {
   'booked': 'bg-green-500/15 text-green-300 border border-green-500/30',
@@ -79,7 +79,7 @@ function LegRow({ leg }: { leg: FlightLeg }) {
         </span>
       </div>
 
-      {/* Seats — only when present (return legs legitimately have none). */}
+      {/* Seats — only when present (return legs legitimately have none; ). */}
       {leg.seats && leg.seats.length > 0 && (
         <div className="mt-2 flex items-center gap-1.5 text-[11px] text-white/45">
           <Armchair className="w-3 h-3 text-cyan-300/70" aria-hidden="true" />
@@ -111,7 +111,7 @@ function LayoverRow({ layover }: { layover: Layover }) {
 
 function JourneyCard({ journey, index }: { journey: Journey; index: number }) {
   return (
-    <motion.article
+    <m.article
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
@@ -149,13 +149,13 @@ function JourneyCard({ journey, index }: { journey: Journey; index: number }) {
           </Fragment>
         ))}
       </ol>
-    </motion.article>
+    </m.article>
   );
 }
 
 function StayCard({ stay }: { stay: Stay }) {
   return (
-    <motion.article
+    <m.article
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
@@ -196,7 +196,7 @@ function StayCard({ stay }: { stay: Stay }) {
       {stay.address && (
         <p className="text-[11px] text-white/35 pl-5">{stay.address}</p>
       )}
-    </motion.article>
+    </m.article>
   );
 }
 
@@ -219,7 +219,7 @@ function ToBookCard({ item }: { item: ToBookPlaceholder }) {
 }
 
 export default function FlightsSection() {
-  // Mount guard for parity with neighbor sections (this section is static/SSR-safe,
+  // Mount guard for parity with neighbor sections (this section is static/SSR-safe
   // but it is loaded ssr:false; the guard avoids any flash before mount).
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -227,7 +227,7 @@ export default function FlightsSection() {
   return (
     <section id="flights" aria-labelledby="flights-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -240,7 +240,7 @@ export default function FlightsSection() {
             The confirmed bookings for the journey — flight by flight, with layovers, seats and the
             Kathmandu hotel. What is not yet booked is shown honestly as still to come.
           </p>
-        </motion.div>
+        </m.div>
 
         {mounted && (
           <>
@@ -258,7 +258,7 @@ export default function FlightsSection() {
                 <StayCard stay={NEPAL_STAY} />
               </div>
 
-              <motion.div
+              <m.div
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -280,7 +280,7 @@ export default function FlightsSection() {
                     <ToBookCard key={item.id} item={item} />
                   ))}
                 </div>
-              </motion.div>
+              </m.div>
             </div>
           </>
         )}

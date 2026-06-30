@@ -1,34 +1,35 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import Image from 'next/image';
+import { m, useReducedMotion } from 'framer-motion';
 import { Camera, Clock, MapPin, Sun, Moon, Aperture } from 'lucide-react';
 import { PHOTO_SPOTS, PHOTO_CATEGORIES, PhotoSpot } from '@/lib/photography-data';
-import { withBasePath } from '@/lib/utils';
+import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 
 function PhotoCard({ spot }: { spot: PhotoSpot }) {
   const isNepal = spot.country === 'Nepal';
   const [imgError, setImgError] = useState(false);
+  const reduce = useReducedMotion();
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      whileHover={{ y: -4 }}
-      className={`rounded-2xl p-5 hover:shadow-lg transition-all duration-300 ${
+      whileHover={reduce ? undefined : { y: -6 }}
+      transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+      className={`group rounded-2xl p-5 transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)] ${
         isNepal ? 'glass-nepal' : 'glass-japan'
       }`}
     >
       {spot.image && !imgError && (
-        <div className="relative -mx-5 -mt-5 mb-4 aspect-[16/10] overflow-hidden rounded-t-2xl bg-navy-800">
-          <Image
-            src={withBasePath(spot.image)}
+        <div className="relative -mx-5 -mt-5 mb-4 aspect-[16/10] overflow-hidden rounded-t-2xl bg-navy-800 motion-safe:group-hover:[&_img]:scale-105 [&_img]:transition-transform [&_img]:duration-500">
+          <OptimizedImage
+            src={spot.image}
             alt={`${spot.name}, ${spot.city}`}
             fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
             className="object-cover"
-            unoptimized
             onError={() => setImgError(true)}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
@@ -76,7 +77,7 @@ function PhotoCard({ spot }: { spot: PhotoSpot }) {
         sourceType="photo"
         accentColor={isNepal ? 'text-himalaya-400' : 'text-sakura-400'}
       />
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -87,7 +88,7 @@ export default function PhotographyGuide() {
   return (
     <section id="photography" aria-labelledby="photography-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -97,7 +98,7 @@ export default function PhotographyGuide() {
             Photography <span className="text-gradient-gold">Guide</span>
           </h2>
           <p className="text-white/50 max-w-xl mx-auto">Capture the perfect shot at every destination with expert shooting tips and gear suggestions.</p>
-        </motion.div>
+        </m.div>
 
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           {PHOTO_CATEGORIES.map((cat) => (

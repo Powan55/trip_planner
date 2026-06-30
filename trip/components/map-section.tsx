@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import Image from 'next/image';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Landmark,
   UtensilsCrossed,
@@ -21,7 +20,7 @@ import {
   type MapMarker,
   type MarkerCategory,
 } from '@/lib/map-data';
-import { withBasePath } from '@/lib/utils';
+import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 
 // Consistent marker palette keyed to the app's category vocabulary.
@@ -91,13 +90,13 @@ function MarkerThumb({ src, alt }: { src: string; alt: string }) {
   const [imgError, setImgError] = useState(false);
   if (imgError) return null;
   return (
-    <div className="relative -mx-4 -mt-4 sm:-mx-5 sm:-mt-5 mb-4 aspect-[16/9] overflow-hidden rounded-t-2xl bg-navy-800">
-      <Image
-        src={withBasePath(src)}
+    <div className="relative -mx-4 -mt-4 sm:-mx-5 sm:-mt-5 mb-4 aspect-[16/9] overflow-hidden rounded-t-2xl bg-navy-800 motion-safe:group-hover:[&_img]:scale-105 [&_img]:transition-transform [&_img]:duration-500">
+      <OptimizedImage
+        src={src}
         alt={alt}
         fill
+        sizes="(min-width: 640px) 420px, 100vw"
         className="object-cover"
-        unoptimized
         onError={() => setImgError(true)}
       />
       <div className="absolute inset-0 bg-gradient-to-t from-navy-900/80 to-transparent" />
@@ -253,7 +252,7 @@ export default function MapSection() {
   return (
     <section id="map" aria-labelledby="map-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -266,7 +265,7 @@ export default function MapSection() {
             A stylized look at where things sit across the Kathmandu Valley and
             Japan. Filter by category and tap any pin to see the details.
           </p>
-        </motion.div>
+        </m.div>
 
         {/* Category filter chips — toggling visibly changes which pins render. */}
         <div className="flex flex-wrap justify-center gap-2 mb-8">
@@ -318,13 +317,13 @@ export default function MapSection() {
           {/* Detail / popup card — updates as you click different pins. */}
           <AnimatePresence mode="wait">
             {selected && (
-              <motion.div
+              <m.div
                 key={selected.id}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 10 }}
                 transition={{ duration: 0.2 }}
-                className="glass-card-dark rounded-2xl p-4 sm:p-5 mt-6 relative"
+                className="group glass-card-dark rounded-2xl p-4 sm:p-5 mt-6 relative transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)]"
               >
                 <button
                   type="button"
@@ -374,7 +373,7 @@ export default function MapSection() {
                   sourceType="map"
                   accentColor={selected.country === 'Nepal' ? 'text-himalaya-400' : 'text-sakura-400'}
                 />
-              </motion.div>
+              </m.div>
             )}
           </AnimatePresence>
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import {
   MapPin, Plane, Mountain, Building, Clock, ListPlus,
   UtensilsCrossed, Camera, ShoppingBag, Trees,
@@ -13,6 +13,10 @@ import {
 } from '@/lib/trip-data';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { formatRelativeTime } from '@/lib/relative-time';
+import { filterItemsByAuthor } from '@/lib/author-filter';
+import { useAuthorFilter } from '@/hooks/use-author-filter';
+import AuthorFilterControl from '@/components/author-filter';
+import ActivityFeed from '@/components/activity-feed';
 
 // Map each category to a lucide icon, matching the calendar planner.
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
@@ -32,11 +36,16 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
   const [selectedDate, setSelectedDate] = useState<string>(TRIP_DATES[0]);
 
   // Read the itinerary from the shared reactive store instead of a one-time
-  // `loadPlans()` on mount. This makes the selected-day panel reflect a same-tab
-  // add/edit/remove from any place card OR the calendar LIVE, without a reload —
+  // `loadPlans` on mount. This makes the selected-day panel reflect a same-tab
+  // add/edit/remove from any place card OR the calendar LIVE, without a reload
   // the store re-reads on its `itinerary:changed` CustomEvent. The timeline only
-  // READS `plans` (it has no mutators).
+  // READS `plans` (it has no mutators),.
   const { plans } = useItineraryContext();
+
+  // Presentational author filter: READ-ONLY. Shared with the calendar via
+  // lib/author-filter, so one selection narrows BOTH surfaces. It only changes which items
+  // render here — `plans`/localStorage are never touched.
+  const { filter: authorFilter, myName } = useAuthorFilter();
 
   const handleDateClick = (date: string) => {
     setSelectedDate(date);
@@ -48,12 +57,14 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
 
   const selectedCountry = getCountryForDate(selectedDate);
   const selectedPlan = plans.find((p) => p.date === selectedDate);
-  const selectedItems = selectedPlan?.items ?? [];
+  // Full stored items for the day, then the presentational author-filtered view.
+  const dayItems = selectedPlan?.items ?? [];
+  const selectedItems = filterItemsByAuthor(dayItems, authorFilter, myName);
 
   return (
     <section id="timeline" aria-labelledby="timeline-heading" className="py-16 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -63,7 +74,17 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
             Trip <span className="text-gradient-gold">Timeline</span>
           </h2>
           <p className="text-white/50">32 days across two incredible countries</p>
-        </motion.div>
+        </m.div>
+
+        {/* Author filter: presentational, read-only, shared with the calendar.
+            Self-hides when no item is attributed (portfolio build unchanged). */}
+        <AuthorFilterControl plans={plans} className="mb-6" />
+
+        {/* Recent-changes activity feed: read-only, DERIVED FOR FREE from the
+            existing updatedBy/updatedAt. Reads the same shared store so it
+            updates live on same-tab edits. Self-hides when nothing is
+            attributed (portfolio build unchanged). */}
+        <ActivityFeed className="mb-8" />
 
         {/* Country labels */}
         <div className="flex justify-between mb-4 px-2">
@@ -134,7 +155,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
         </div>
 
         {/* Selected date info + that day's saved plans */}
-        <motion.div
+        <m.div
           key={selectedDate}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -226,7 +247,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
               </div>
             )}
           </div>
-        </motion.div>
+        </m.div>
       </div>
     </section>
   );

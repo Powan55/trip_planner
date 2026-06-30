@@ -18,17 +18,27 @@ const config: Config = {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic':
           'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+        // refined aurora backdrop
+        aurora: 'var(--gradient-aurora)',
       },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        xl: 'var(--radius-lg)',
+      },
+      boxShadow: {
+        // elevation tiers + scroll-accent glow (driven by CSS vars).
+        glow: 'var(--shadow-glow)',
+        xl: 'var(--shadow-xl)',
       },
       colors: {
         navy: { 900: '#0a0e27', 800: '#111640', 700: '#1a2050' },
         gold: { 400: '#f0c760', 500: '#d4a843', 600: '#b8922e' },
         sakura: { 300: '#ffb7c5', 400: '#f7a0b3', 500: '#e88fa2' },
         himalaya: { 400: '#ff8c42', 500: '#e67635', 600: '#cc6228' },
+        // single scroll-driven accent (default gold; animates the var).
+        'accent-scroll': 'hsl(var(--accent-scroll))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

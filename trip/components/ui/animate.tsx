@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'framer-motion'
+import { m } from 'framer-motion'
 
 const viewportConfig = { once: true, margin: '-60px' as `${number}px` }
 
@@ -10,7 +10,7 @@ export function FadeIn({
   children: React.ReactNode; delay?: number; duration?: number; className?: string
 }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 8 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={viewportConfig}
@@ -18,7 +18,7 @@ export function FadeIn({
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -28,7 +28,7 @@ export function ScaleIn({
   children: React.ReactNode; delay?: number; className?: string
 }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, scale: 0.95 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={viewportConfig}
@@ -36,7 +36,7 @@ export function ScaleIn({
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -53,7 +53,7 @@ export function SlideIn({
   children: React.ReactNode; from?: keyof typeof slideDirections; delay?: number; className?: string
 }) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, ...slideDirections[from] }}
       whileInView={{ opacity: 1, x: 0, y: 0 }}
       viewport={viewportConfig}
@@ -61,7 +61,7 @@ export function SlideIn({
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -71,7 +71,7 @@ export function Stagger({
   children: React.ReactNode; staggerDelay?: number; className?: string
 }) {
   return (
-    <motion.div
+    <m.div
       variants={{ show: { transition: { staggerChildren: staggerDelay } } }}
       initial="hidden"
       whileInView="show"
@@ -79,7 +79,7 @@ export function Stagger({
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -89,7 +89,7 @@ export function StaggerItem({
   children: React.ReactNode; className?: string
 }) {
   return (
-    <motion.div
+    <m.div
       variants={{
         hidden: { opacity: 0, y: 16 },
         show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
@@ -97,7 +97,7 @@ export function StaggerItem({
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -107,13 +107,13 @@ export function HoverLift({
   children: React.ReactNode; className?: string
 }) {
   return (
-    <motion.div
+    <m.div
       whileHover={{ y: -2, boxShadow: 'var(--shadow-lg)' }}
       transition={{ duration: 0.15, ease: 'easeOut' }}
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
@@ -123,19 +123,19 @@ export function PressScale({
   children: React.ReactNode; className?: string
 }) {
   return (
-    <motion.div
+    <m.div
       whileTap={{ scale: 0.98 }}
       transition={{ duration: 0.1, ease: 'easeOut' }}
       className={className}
     >
       {children}
-    </motion.div>
+    </m.div>
   )
 }
 
 export function SkeletonPulse({ className }: { className?: string }) {
   return (
-    <motion.div
+    <m.div
       animate={{ opacity: [0.4, 1, 0.4] }}
       transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
       className={`rounded-md bg-muted ${className ?? ''}`}

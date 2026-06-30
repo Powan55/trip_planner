@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useId } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
@@ -16,25 +16,25 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import type { ItineraryDraft } from '@/lib/itinerary-adapter';
 
 /**
- * Shared "Add to plan" dialog — a lightweight, source-aware dialog,
+ * Shared "Add to plan" dialog — a NEW, lightweight, source-aware dialog
  * deliberately separate from the calendar's `ItemEditor`. It is invoked from any
  * place card (via `add-to-plan-button.tsx`) with a prefilled `ItineraryDraft`
  * and the place's current `existingPlacements` (from `findPlacements`).
  *
- * It reads/writes the itinerary THROUGH the store (`useItineraryContext`) —
+ * It reads/writes the itinerary THROUGH the store (`useItineraryContext`, )
  * no add/remove callbacks per call site. The CustomEvent fan-out makes the
  * calendar / dashboard / card reflect every change immediately.
  *
- * A11y / focus reuses the EXACT contract that `ItemEditor` uses:
- *  - role="dialog" aria-modal aria-labelledby
- *  - document-level Esc via an `onCloseRef` (latest-closure, bound once)
- *  - a lightweight Tab-trap inside the panel
- *  - autofocus the first field on open
- *  - parent-owned focus-return: the invoking button captures the trigger and
- *    refocuses it on `<AnimatePresence onExitComplete>` — NOT in this dialog's
- *    effect cleanup.
- * Reduced-motion is respected by framer-motion via the global reduced-motion CSS;
- * Tailwind classes are static literals.
+ * A11y / focus reuses the EXACT contract that `ItemEditor` uses
+ * role="dialog" aria-modal aria-labelledby
+ * document-level Esc via an `onCloseRef` (latest-closure, bound once)
+ * a lightweight Tab-trap inside the panel
+ * autofocus the first field on open
+ * parent-owned focus-return: the invoking button captures the trigger and
+ * refocuses it on `<AnimatePresence onExitComplete>` — NOT in this dialog's
+ * effect cleanup (the bug).
+ * Reduced-motion is respected by framer-motion via the global reduced-motion CSS
+ *Tailwind classes are static literals.
  */
 
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
@@ -160,7 +160,7 @@ export default function AddToItineraryDialog({
     };
 
     if (editingPlacementId) {
-      // Modify an existing placement. If the date is unchanged, update in place;
+      // Modify an existing placement. If the date is unchanged, update in place
       // if the user moved it to another day, remove from the old day and re-add on
       // the new one (an item lives inside a single DayPlan, keyed by date).
       const original = existingPlacements.find((p) => p.item.id === editingPlacementId);
@@ -173,7 +173,7 @@ export default function AddToItineraryDialog({
         toast.success(`Updated “${draft.title}” on ${formatDate(selectedDate)}`);
       }
     } else {
-      // Add a brand-new placement (fresh per-placement id; shared sourceId).
+      // Add a brand-new placement (fresh per-placement id; shared sourceId, ).
       addItem(selectedDate, { ...patch, id: generateItemId() });
       toast.success(`Added “${draft.title}” to ${formatDate(selectedDate)}`);
     }
@@ -233,14 +233,14 @@ export default function AddToItineraryDialog({
   };
 
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
-      <motion.div
+      <m.div
         ref={panelRef}
         role="dialog"
         aria-modal="true"
@@ -250,9 +250,10 @@ export default function AddToItineraryDialog({
         animate={{ scale: 1, opacity: 1 }}
         exit={{ scale: 0.9, opacity: 0 }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full max-w-md glass-card-dark rounded-2xl p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-hide"
+        className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
       >
-        <div className="flex items-start justify-between gap-3 mb-5">
+        {/* Non-scrolling header — stays pinned at the top of the panel. */}
+        <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
           <div className="min-w-0">
             <h3 id={titleId} className="font-display text-lg font-bold text-white leading-tight">
               {isModifyMode ? 'Update plan' : 'Add to plan'}
@@ -270,6 +271,11 @@ export default function AddToItineraryDialog({
           </button>
         </div>
 
+        {/* Scrollable body — the only scroll region. `min-h-0` lets it shrink inside
+            the flex column so the pinned footer is never pushed off-screen on short
+            viewports (fix). A native scrollbar (no `scrollbar-hide`) makes the
+            overflow discoverable when the content is taller than the viewport. */}
+        <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6">
         {/* Existing placements (modify/remove mode) */}
         {isModifyMode && (
           <div className="mb-5 space-y-2">
@@ -393,7 +399,14 @@ export default function AddToItineraryDialog({
             <label htmlFor={notesFieldId} className="text-xs text-white/50 mb-1 block">Notes</label>
             <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
           </div>
+        </div>
+        </div>
 
+        {/* Pinned action footer — OUTSIDE the scroll area, so the confirm button is
+            ALWAYS visible and clickable at any viewport height (fix). The top
+            border + panel bg give a clean divider so scrolled content doesn't bleed
+            under it. */}
+        <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-navy-900/40">
           <button
             onClick={handleConfirm}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
@@ -402,7 +415,7 @@ export default function AddToItineraryDialog({
             {editingPlacementId ? 'Update plan' : 'Add to plan'}
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </m.div>
+    </m.div>
   );
 }

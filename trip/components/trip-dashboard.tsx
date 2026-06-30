@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useRef, useMemo } from 'react';
-import { motion, useInView } from 'framer-motion';
+import { m, useInView } from 'framer-motion';
+import { useCountUp } from '@/hooks/use-count-up';
 import { Calendar, MapPin, Camera, UtensilsCrossed, Clock, Globe, Bookmark, Sun, Compass } from 'lucide-react';
 import { TRIP_START, TRIP_END, TRIP_DATES, DayPlan } from '@/lib/trip-data';
 import { computeCountdown } from '@/lib/countdown';
@@ -22,29 +23,22 @@ interface StatCardProps {
 }
 
 function AnimatedCounter({ target, duration = 2000 }: { target: number; duration?: number }) {
-  const [count, setCount] = useState(0);
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true });
-
-  useEffect(() => {
-    if (!inView) return;
-    const startTime = Date.now();
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(eased * target));
-      if (progress < 1) requestAnimationFrame(animate);
-    };
-    requestAnimationFrame(animate);
-  }, [inView, target, duration]);
+  // Shared eased count-up (cubic ease-out). The hook owns the reduced-motion
+  // guard: under `prefers-reduced-motion: reduce` it skips the rAF loop
+  // and reports the final value instantly — closing the gap where this counter
+  // previously animated regardless of the user's motion preference. The dashboard
+  // stats are static once revealed, so `done` is unused here; `count` settles on
+  // `target` exactly at the final frame.
+  const { value: count } = useCountUp(target, inView, duration);
 
   return <span ref={ref} className="font-mono">{count}</span>;
 }
 
 function StatCard({ icon, label, value, display, suffix = '', color, delay }: StatCardProps) {
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
@@ -64,11 +58,11 @@ function StatCard({ icon, label, value, display, suffix = '', color, delay }: St
         )}
       </div>
       <div className="text-sm text-white/50">{label}</div>
-    </motion.div>
+    </m.div>
   );
 }
 
-// --- Pure, data-derived counts (module/render scope, no clock, no localStorage) ---
+// Pure, data-derived counts (module/render scope, no clock, no localStorage) --
 // Card 4: distinct countries present in the photography data set (Nepal + Japan = 2).
 function distinctCountries(): number {
   return new Set(PHOTO_SPOTS.map((s) => s.country)).size;
@@ -91,9 +85,9 @@ export default function TripDashboard() {
   const [tripStatus, setTripStatus] = useState('Upcoming');
 
   // Card 9 (planned days) now derives from the shared reactive store instead
-  // of a mount-only loadPlans() + cross-tab storage listener. A same-tab calendar (or
+  // of a mount-only loadPlans + cross-tab storage listener. A same-tab calendar (or
   // card) edit fans out via the store's CustomEvent, so this count updates
-  // live without a reload.
+  // live without a reload — this is the visible proof is closed.
   const { plans } = useItineraryContext();
   const plannedDays = useMemo(() => countPlannedDays(plans), [plans]);
 
@@ -148,7 +142,7 @@ export default function TripDashboard() {
   return (
     <section id="dashboard" aria-labelledby="dashboard-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -160,7 +154,7 @@ export default function TripDashboard() {
           <p className="text-white/50 max-w-xl mx-auto">
             Your adventure at a glance — track every detail of the journey ahead.
           </p>
-        </motion.div>
+        </m.div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {stats.map((stat, i) => (

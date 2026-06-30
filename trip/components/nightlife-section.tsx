@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import { Music, Eye, EyeOff, MapPin, DollarSign, Calendar, Headphones } from 'lucide-react';
 import { NIGHTLIFE_VENUES, NightlifeVenue } from '@/lib/nightlife-data';
 
@@ -10,7 +10,7 @@ const STORAGE_KEY = 'nightlife_section_visible';
 function VenueCard({ venue }: { venue: NightlifeVenue }) {
   const isNepal = venue.country === 'Nepal';
   return (
-    <motion.div
+    <m.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
@@ -55,7 +55,7 @@ function VenueCard({ venue }: { venue: NightlifeVenue }) {
           <span>{venue.bestDays}</span>
         </div>
       </div>
-    </motion.div>
+    </m.div>
   );
 }
 
@@ -82,7 +82,7 @@ export default function NightlifeSection() {
   return (
     <section id="nightlife" aria-labelledby="nightlife-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        <motion.div
+        <m.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
@@ -107,11 +107,11 @@ export default function NightlifeSection() {
             {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             {visible ? 'Hide Nightlife Section' : 'Show Nightlife Section'}
           </button>
-        </motion.div>
+        </m.div>
 
         <AnimatePresence>
           {visible && (
-            <motion.div
+            <m.div
               id="nightlife-content"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -141,7 +141,7 @@ export default function NightlifeSection() {
                   ))}
                 </div>
               </div>
-            </motion.div>
+            </m.div>
           )}
         </AnimatePresence>
       </div>
