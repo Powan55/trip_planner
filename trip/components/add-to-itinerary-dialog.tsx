@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useId } from 'react';
+import { createPortal } from 'react-dom';
 import { m } from 'framer-motion';
 import { toast } from 'sonner';
 import {
@@ -35,6 +36,21 @@ import type { ItineraryDraft } from '@/lib/itinerary-adapter';
  * effect cleanup (the bug).
  * Reduced-motion is respected by framer-motion via the global reduced-motion CSS
  *Tailwind classes are static literals.
+ *
+ * RENDERING: the overlay is rendered through a React PORTAL to `document.body`.
+ * Every trigger surface (recommendations, photography, map popup, featured) sits
+ * inside a place card whose root is a framer `m.div` with an active `whileHover`
+ * transform AND `overflow-hidden`. A `position: fixed` element whose ancestor is
+ * transformed is positioned relative to that ancestor (the CSS containing-block rule),
+ * not the viewport — so rendered inline, the backdrop covered only the card (neighbours
+ * stayed bright) and the panel overflowed and was clipped by the card's `overflow-hidden`,
+ * hiding the pinned footer. The portal moves ONLY the DOM node out to `<body>`; the React
+ * tree (and the parent `AnimatePresence`) is unchanged, so the focus contract —
+ * document-level Esc, the `panelRef` Tab-trap, first-field autofocus, and parent-owned
+ * focus-return on `onExitComplete` — all keep working. The portal is mount-guarded
+ * (`mounted` state) so it never touches `document` during the static-export prerender
+ * (`output: 'export'`); the dialog only mounts on a user click, post-hydration, so this
+ * is always satisfied in practice.
  */
 
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
@@ -79,6 +95,14 @@ export default function AddToItineraryDialog({
   onClose,
 }: AddToItineraryDialogProps) {
   const { addItem, updateItem, removeItem } = useItineraryContext();
+
+  // Portal mount guard. `createPortal(…, document.body)` must not run during the
+  // static-export prerender, so we only portal after the component has mounted on the
+  // client. The dialog only ever mounts on a user click (post-hydration), so this is
+  // satisfied immediately on open; it exists purely to keep `document` untouched on the
+  // server and to keep tsc/SSR honest.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Live ref to the latest onClose so the once-registered Esc listener always
   // calls the current closure without re-binding every render.
@@ -232,7 +256,14 @@ export default function AddToItineraryDialog({
     }
   };
 
-  return (
+  // Don't render the overlay during the prerender / before the client mounts — the
+  // portal target (`document.body`) doesn't exist on the server. Returning null here is
+  // safe for the parent `AnimatePresence`: this only short-circuits for the single
+  // synchronous render before `useEffect` flips `mounted`, which never coincides with a
+  // user-driven open in the static-export client.
+  if (!mounted) return null;
+
+  return createPortal(
     <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -416,6 +447,7 @@ export default function AddToItineraryDialog({
           </button>
         </div>
       </m.div>
-    </m.div>
+    </m.div>,
+    document.body,
   );
 }
