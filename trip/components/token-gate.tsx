@@ -282,7 +282,7 @@ function TokenGateWall({
               autoCapitalize="off"
               spellCheck={false}
               disabled={!!unlocked}
-              placeholder="e.g., Powan"
+              placeholder="Enter your trip token"
               aria-invalid={error}
               aria-describedby={error ? errId : undefined}
               className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-gold-400 focus-visible:ring-2 disabled:opacity-60"
@@ -294,7 +294,7 @@ function TokenGateWall({
             {error && (
               <p id={errId} className="flex items-center gap-1.5 text-xs text-red-300">
                 <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                That token doesn&rsquo;t match a traveler. Try Powan, Sushil, or Uttam.
+                That token doesn&rsquo;t match a traveler. Double-check it and try again.
               </p>
             )}
           </div>
