@@ -8,30 +8,30 @@ import { formatRelativeTime } from '@/lib/relative-time';
 import { FadeIn } from '@/components/ui/animate';
 
 /**
- * Recent-changes activity feed (, M13 — closes the redesign).
+ * Recent-changes activity feed.
  *
  * A presentational, READ-ONLY "who changed what, recently" list, DERIVED FOR FREE
- * from the attribution already on every item — `updatedBy` + `updatedAt`
- *. It performs NO writes: no `plans`/localStorage mutation, no store
+ * from the attribution already on every item — `updatedBy` + `updatedAt`.
+ * It performs NO writes: no `plans`/localStorage mutation, no store
  * mutator, no firebase write, no append-log — it only reads the shared reactive store
- * and renders. This keeps it firmly within the Spark free tier (zero extra reads/writes
- * ) because it reads data the app already has.
+ * and renders. This keeps it firmly within the free tier (zero extra reads/writes)
+ * because it reads data the app already has.
  *
- * LIVE: it reads `plans` via `useItineraryContext`, the one shared store that
+ * LIVE: it reads `plans` via `useItineraryContext()`, the one shared store that
  * re-reads on the same-tab `itinerary:changed` CustomEvent. So a same-tab edit (or a
- * remote snapshot fanned in through the same event, ) re-renders the feed with no
+ * remote snapshot fanned in through the same event) re-renders the feed with no
  * reload — newer edits float to the top.
  *
  * DORMANT / NO-ATTRIBUTION (the portfolio case): when NO item carries
  * `updatedBy && updatedAt`, the derived list is empty and this renders NOTHING — exactly
- * like 's author filter and 's per-item attribution line. The portfolio build is
+ * like the author filter and the per-item attribution line. The portfolio build is
  * visually unchanged.
  *
  * A11y: a labeled region (`<section aria-labelledby>`) with a real
  * heading and an ordered `<ol>` (the list IS ordered, newest-first). The only motion is
- * one declarative `FadeIn` reveal (the `m`-based shared primitive, ), which
+ * one declarative `FadeIn` reveal (the `m`-based shared primitive), which
  * `<MotionConfig reducedMotion="user">` auto-neutralizes under prefers-reduced-motion
- * no scroll-linked transform, no rAF, nothing that needs a manual guard.
+ * — no scroll-linked transform, no rAF, nothing that needs a manual guard.
  *
  * Static Tailwind literals only; dark-only; `min-w-0`/`truncate` so long
  * names/titles never overflow at narrow widths.
@@ -58,7 +58,7 @@ export default function ActivityFeed({ className = '' }: { className?: string })
   // READ-ONLY: we never call a mutator — `plans` is only consumed here.
   const { plans } = useItineraryContext();
 
-  // Derive the feed: every attributed item across all days, sorted by `updatedAt` DESC
+  // Derive the feed: every attributed item across all days, sorted by `updatedAt` DESC,
   // capped at FEED_LIMIT. Pure derivation from props/store — no storage, no DOM.
   const entries = useMemo<ActivityEntry[]>(() => {
     const collected: ActivityEntry[] = [];

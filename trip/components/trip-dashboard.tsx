@@ -6,6 +6,7 @@ import { useCountUp } from '@/hooks/use-count-up';
 import { Calendar, MapPin, Camera, UtensilsCrossed, Clock, Globe, Bookmark, Sun, Compass } from 'lucide-react';
 import { TRIP_START, TRIP_END, TRIP_DATES, DayPlan } from '@/lib/trip-data';
 import { computeCountdown } from '@/lib/countdown';
+import { getNow } from '@/lib/trip-now';
 import { NEPAL_ATTRACTIONS, NEPAL_FOOD } from '@/lib/nepal-data';
 import { JAPAN_ATTRACTIONS, JAPAN_FOOD } from '@/lib/japan-data';
 import { PHOTO_SPOTS } from '@/lib/photography-data';
@@ -62,7 +63,7 @@ function StatCard({ icon, label, value, display, suffix = '', color, delay }: St
   );
 }
 
-// Pure, data-derived counts (module/render scope, no clock, no localStorage) --
+// --- Pure, data-derived counts (module/render scope, no clock, no localStorage) ---
 // Card 4: distinct countries present in the photography data set (Nepal + Japan = 2).
 function distinctCountries(): number {
   return new Set(PHOTO_SPOTS.map((s) => s.country)).size;
@@ -84,10 +85,10 @@ export default function TripDashboard() {
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [tripStatus, setTripStatus] = useState('Upcoming');
 
-  // Card 9 (planned days) now derives from the shared reactive store instead
-  // of a mount-only loadPlans + cross-tab storage listener. A same-tab calendar (or
-  // card) edit fans out via the store's CustomEvent, so this count updates
-  // live without a reload — this is the visible proof is closed.
+  // Card 9 (planned days) derives from the shared reactive store instead
+  // of a mount-only loadPlans() + cross-tab storage listener. A same-tab calendar
+  // (or card) edit fans out via the store's CustomEvent, so this count updates
+  // live without a reload.
   const { plans } = useItineraryContext();
   const plannedDays = useMemo(() => countPlannedDays(plans), [plans]);
 
@@ -103,7 +104,7 @@ export default function TripDashboard() {
     setMounted(true);
 
     const refreshTimeValues = () => {
-      const now = new Date();
+      const now = getNow();
       // Reuse the shared, tested countdown helper instead of recomputing inline.
       setDaysRemaining(computeCountdown(TRIP_START, now).totalDays);
       // Status text derived from now vs. the trip window.

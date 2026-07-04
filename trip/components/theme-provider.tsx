@@ -14,7 +14,7 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
 
           LazyMotion + the lightweight `m` component shrink the shared
           bundle by lazy-loading the animation feature set. `domAnimation` covers
-          everything this app uses (animations, variants, exit, whileInView
+          everything this app uses (animations, variants, exit, whileInView,
           hover/tap/focus gestures) — no framer layout/layoutId/drag in use.
           `strict` throws in dev if any `motion.*` slips through, guaranteeing the
           migration is complete. Order MUST stay MotionConfig → LazyMotion →

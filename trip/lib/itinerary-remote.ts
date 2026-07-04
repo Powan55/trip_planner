@@ -1,4 +1,5 @@
-// The remote-sync seam — the core new surface for cross-friend sync.
+// The remote-sync seam — the only optional cross-friend surface on top of the
+// local store.
 //
 // This module wraps the existing local store; it never replaces it. It has two
 // directions:
@@ -20,11 +21,10 @@
 // local-write echo is additionally skipped via `snapshot.metadata.hasPendingWrites`.
 // Together these break any write→read→write loop.
 //
-// FIRST-SNAPSHOT RECONCILIATION:
-// on the first snapshot we read the trip-doc marker to distinguish "never synced" from
-// "deliberately emptied", then either apply remote authoritatively (incl. empty) or
-// seed remote from local — never losing user data, never resurrecting the sample over a
-// deliberately-emptied shared plan (the local persistence spirit, across devices).
+// FIRST-SNAPSHOT RECONCILIATION: on the first snapshot we read the trip-doc marker
+// to distinguish "never synced" from "deliberately emptied", then either apply remote
+// authoritatively (incl. empty) or seed remote from local — never losing user data,
+// never resurrecting the sample over a deliberately-emptied shared plan (across devices).
 //
 // DORMANT-SAFE: firebase is imported ONLY via dynamic `import()` behind
 // the `isRemoteConfigured()` gate. With the env absent the gate is false, this module's
@@ -45,8 +45,8 @@ import { FIREBASE_CONFIG, isRemoteConfigured, TRIP_ID } from './firebase-config'
 // ---------------------------------------------------------------------------
 // Shared lazy firebase handle. Both the read (subscribe) and write (push) paths
 // need the same app/auth/firestore instances; init them once, behind the gate, via
-// dynamic import (firebase stays off the dormant hot path). The promise
-// is cached so concurrent callers share one init + one anonymous sign-in.
+// dynamic import (firebase stays off the dormant hot path). The promise is cached
+// so concurrent callers share one init + one anonymous sign-in.
 // ---------------------------------------------------------------------------
 
 type FirestoreMod = typeof import('firebase/firestore');
@@ -147,8 +147,7 @@ function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boolean {
  *   - unchanged days are not touched (no spurious writes / no echo storm)
  *
  * ECHO-SUPPRESSION: this is invoked ONLY from `commit()` (genuine local mutations),
- * never from the snapshot path. Items carry whatever attribution the local store stamped
- * (optional `updatedBy`/`updatedAt` may be undefined) and are written as-is here.
+ * never from the snapshot path. Items carry their attribution as-is.
  *
  * Gated + lazy + degrading: no-ops when `isRemoteConfigured()` is false; wraps all SDK
  * work in try/catch → console.warn so a failed push NEVER breaks the local edit.
@@ -199,14 +198,13 @@ export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void>
  * `itinerary:changed` CustomEvent — so the existing reactive UI updates with no
  * component edits. Returns an unsubscribe fn.
  *
- * FIRST-SNAPSHOT RECONCILIATION. On the
- * FIRST snapshot we read the trip-doc marker `trips/{TRIP_ID}` once to distinguish
- * "never synced" from "deliberately emptied":
+ * FIRST-SNAPSHOT RECONCILIATION. On the FIRST snapshot we read the trip-doc marker
+ * `trips/{TRIP_ID}` once to distinguish "never synced" from "deliberately emptied":
  *   - Trip doc EXISTS (group synced before): remote is authoritative → apply the days
  *     snapshot INCLUDING empty (`savePlans(remoteDays)` even if `[]`). This respects a
  *     deliberately-emptied shared plan (no sample resurrection).
  *   - Trip doc ABSENT (never synced): THIS client seeds → create the trip doc and push
- *     the local state up. Seed source by local intent (key-presence): localStorage
+ *     the local state up. Seed source by local intent (localStorage key-presence):
  *     key PRESENT ⇒ push the user's local edits; key ABSENT ⇒ local is the untouched
  *     SAMPLE_ITINERARY → seed from the sample. Local is left as-is (never overwritten
  *     with an empty remote).
@@ -286,7 +284,7 @@ export function subscribeRemote(
   };
 
   // Lazy, gated setup. All wrapped — any failure degrades to local-only and
-  // never throws (misconfigured/unreachable → local-only). Idempotent + retryable:
+  // never throws ("misconfigured/unreachable → local-only"). Idempotent + retryable:
   // returns early if already established/cancelled, and on failure arms the `online` retry
   // so a cold-offline start recovers when the network returns.
   const attemptSetup = async () => {
@@ -309,9 +307,9 @@ export function subscribeRemote(
           if (snapshot.metadata.hasPendingWrites) return;
 
           // FIRST-SNAPSHOT must reconcile against SERVER truth, never a cold/empty cache.
-          // onSnapshot can deliver a cache-sourced first event (e.g. right
-          // after the listener (re)establishes following an offline window) — an EMPTY one
-          // would wrongly look like "never synced" and could drive the seed branch, wiping a
+          // onSnapshot can deliver a cache-sourced first event (e.g. right after the
+          // listener (re)establishes following an offline window) — an EMPTY one would
+          // wrongly look like "never synced" and could drive the seed branch, wiping a
           // peer's real remote with the local sample. So we DEFER reconciliation until the
           // first `fromCache === false` (server) snapshot. A pre-server cache snapshot is
           // simply ignored here: the local store already holds the correct first-paint data
@@ -400,8 +398,8 @@ export function subscribeRemote(
 }
 
 /**
- * First-snapshot reconciliation handshake. Reads the trip-doc marker once
- * to decide between "remote authoritative" and "this client seeds".
+ * First-snapshot reconciliation handshake. Reads the trip-doc marker once to decide
+ * between "remote authoritative" and "this client seeds".
  *
  * Imports nothing eagerly — the firestore fns are passed in from the gated, lazy
  * getRemote() handle so this stays off the dormant hot path.
@@ -423,9 +421,9 @@ async function reconcileFirstSnapshot(
 
   // The trip-doc marker is the "has this group ever synced" signal. Read it from
   // the SERVER so a fresh client doesn't see a stale/absent cached value as authoritative
-  // — using getDocFromServer makes that explicit (a plain getDoc may serve
-  // an empty cache after an offline window, which would wrongly look like "never synced"
-  // and seed the sample over a peer's real remote). Fall back to a cache getDoc only if the
+  // — using getDocFromServer makes that explicit (a plain getDoc may serve an empty cache
+  // after an offline window, which would wrongly look like "never synced" and seed the
+  // sample over a peer's real remote). Fall back to a cache getDoc only if the
   // server read fails, and even then only the never-wipe-on-empty interpretation applies.
   let tripExists = false;
   try {

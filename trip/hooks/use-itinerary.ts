@@ -40,9 +40,9 @@ export interface ItineraryStore {
   findPlacements(sourceId: string): Array<{ date: string; item: ItineraryItem }>;
 }
 
-// Cross-friend attribution stamping lives in lib/attribution.ts —
-// a single named, unit-testable place. The mutators below call stampCreated /
-// stampUpdated with `getUserName` as the name source, so:
+// Cross-friend attribution stamping lives in lib/attribution.ts — a single named,
+// unit-testable place. The mutators below call stampCreated / stampUpdated with
+// `getUserName` as the name source, so:
 //   - stamping fires ONLY when a name is set (dormant / no-name ⇒ fields stay undefined,
 //     items valid);
 //   - it runs ONLY in these local mutators, so the snapshot-ingest path (which writes via
@@ -114,10 +114,10 @@ export function useItinerary(): ItineraryStore {
   //
   // Remote push: this is the single write choke-point, so it is also where
   // local mutations fan out to the remote. We capture `prev = loadPlans()` BEFORE the
-  // compute (it's free — the base read already happens), then AFTER the local
-  // savePlans+dispatch (offline cache + instant same-tab echo first), push the per-day
-  // delta to Firestore — ONLY when remote is configured, behind a DYNAMIC import so the
-  // dormant build never pulls firebase onto the hot path. `pushPlans` is invoked ONLY here
+  // compute (it's free — we already read it), then AFTER the local savePlans+dispatch
+  // (offline cache + instant same-tab echo first), push the per-day delta to Firestore —
+  // ONLY when remote is configured, behind a DYNAMIC import so a build with no remote
+  // config never pulls firebase onto the hot path. `pushPlans` is invoked ONLY here
   // (genuine local mutations), never from the snapshot-ingest path — that is the
   // echo-suppression rule. Push is best-effort and self-degrading; it never
   // throws, so a remote failure can't break the local edit.

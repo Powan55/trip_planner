@@ -1,30 +1,44 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { MapPin, Calendar, Camera, Compass, Mountain, Menu, X, Plane, Map, LogOut, UserRound } from 'lucide-react';
+import { MapPin, Calendar, Compass, Mountain, Menu, X, Map, LogOut, UserRound, Home } from 'lucide-react';
 import ScrollProgress from '@/components/scroll-progress';
-import { useActiveSection } from '@/hooks/use-active-section';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signOut, IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
 
+// The nav is ROUTE-driven — five pages, trailing-slash canonical hrefs
+// (`trailingSlash:true`). next/link handles basePath; active state comes from
+// usePathname() (which EXCLUDES basePath), so the whole nav is basePath-agnostic.
+// The old single-page anchor items + scroll-spy are gone.
 const NAV_ITEMS = [
-  { label: 'Itinerary', href: '#itinerary', icon: Calendar },
-  { label: 'Flights', href: '#flights', icon: Plane },
-  { label: 'Nepal', href: '#nepal', icon: Mountain },
-  { label: 'Japan', href: '#japan', icon: Compass },
-  { label: 'Photography', href: '#photography', icon: Camera },
-  { label: 'Map', href: '#map', icon: Map },
-  { label: 'Inspiration', href: '#inspiration', icon: Plane },
+  { label: 'Home', href: '/', icon: Home },
+  { label: 'Plan', href: '/plan/', icon: Calendar },
+  { label: 'Nepal', href: '/nepal/', icon: Mountain },
+  { label: 'Japan', href: '/japan/', icon: Compass },
+  { label: 'Map', href: '/map/', icon: Map },
 ];
 
-// Section ids the scroll-spy watches — derived from the nav anchors so the two
-// can never drift apart.
-const SECTION_IDS = NAV_ITEMS.map((item) => item.href.replace('#', ''));
+// Trailing-slash-agnostic pathname compare ('' and '/' both mean Home).
+function normalizePath(p: string | null): string {
+  const stripped = (p ?? '/').replace(/\/+$/, '');
+  return stripped === '' ? '/' : stripped;
+}
+
+// Active when the pathname IS the route or sits below it (`/nepal/*`).
+// Home is exact-match only, otherwise it would claim every route.
+function isRouteActive(pathname: string | null, href: string): boolean {
+  const current = normalizePath(pathname);
+  const target = normalizePath(href);
+  if (target === '/') return current === '/';
+  return current === target || current.startsWith(`${target}/`);
+}
 
 // Clearing the guest opt-in re-arms the gate: with no active traveler and the guest flag
 // gone, TokenGate's identity:changed listener re-evaluates `!traveler && !guest` → re-shows
-// the wall. SSR-guarded; dispatches the same reactive signal sign-in/out use (pattern).
+// the wall. SSR-guarded; dispatches the same reactive signal sign-in/out use.
 function exitGuest(): void {
   if (typeof window === 'undefined') return;
   try {
@@ -38,11 +52,12 @@ function exitGuest(): void {
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const activeSection = useActiveSection(SECTION_IDS);
+  // Route-driven active state. usePathname() excludes basePath.
+  const pathname = usePathname();
   // Reactive identity: the chip reflects sign-in / sign-out LIVE via identity:changed.
   const { traveler, isGuest } = useActiveTraveler();
 
-  // reduced-motion-aware panel motion. <MotionConfig reducedMotion="user">
+  // Reduced-motion-aware panel motion. <MotionConfig reducedMotion="user">
   // neutralizes animated TRANSITIONS under reduce, but a declared `initial={{ y:-20 }}`
   // still paints one transform frame before snapping. So under reduce we drop the `y`
   // offset entirely → the panel is OPACITY-ONLY (no transform-based motion at any frame).
@@ -53,8 +68,8 @@ export default function Navbar() {
   const panelAnimate = prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
   const panelExit = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -20 };
 
-  // the hamburger toggle (focus returns here on close, ) and the open
-  // panel (so the Tab-trap can scope its focusables to the menu).
+  // The hamburger toggle (focus returns here on close) and the open panel
+  // (so the Tab-trap can scope its focusables to the menu).
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -64,10 +79,10 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // single close path. Returns focus to the hamburger toggle so a
+  // Single close path. Returns focus to the hamburger toggle so a
   // keyboard user lands back on the control that opened the menu, regardless of
   // whether close came from Esc, the scrim, the X, or a nav item. `preventScroll`
-  // because the scroll-lock effect (below) pins the body with position:fixed
+  // because the scroll-lock effect (below) pins the body with position:fixed;
   // focusing while still pinned must not nudge the viewport before the offset is
   // restored on the same tick by the effect cleanup.
   const closeMobile = useCallback(() => {
@@ -75,18 +90,18 @@ export default function Navbar() {
     toggleRef.current?.focus({ preventScroll: true });
   }, []);
 
-  // while the menu is open: lock background scroll, listen for Escape, and
+  // While the menu is open: lock background scroll, listen for Escape, and
   // trap Tab within the panel. SSR-guarded; everything is torn down on close so
   // there is no residual listener or locked body.
-  
+  //
   // Scroll-lock technique: on THIS page the scrolling element is <html>, so a bare
-  // `body { overflow:hidden }` does NOT stop the viewport (verified — the page
-  // still scrolled behind the open menu). We instead PIN the body with
+  // `body { overflow:hidden }` does NOT stop the viewport (the page still scrolled
+  // behind the open menu). We instead PIN the body with
   // `position:fixed; top:-<scrollY>px; width:100%`, which truly freezes the
-  // background, and on close we remove the pin and `scrollTo` the saved offset
-  // so scroll POSITION is preserved exactly (brief §4: the sanctioned position:fixed
-  // path). No layout shift / no horizontal overflow (width:100% + the page already
-  // hides the scrollbar via.scrollbar-hide / hidden OS scrollbars).
+  // background, and on close we remove the pin and `scrollTo` the saved offset —
+  // so scroll POSITION is preserved exactly. No layout shift / no horizontal
+  // overflow (width:100% + the page already
+  // hides the scrollbar via .scrollbar-hide / hidden OS scrollbars).
   useEffect(() => {
     if (typeof document === 'undefined' || !mobileOpen) return;
 
@@ -115,8 +130,8 @@ export default function Navbar() {
       }
       if (e.key === 'Tab') {
         // Minimal focus-trap: cycle Tab/Shift+Tab within the open panel so focus
-        // can't escape behind the scrim into the page underneath (logical
-        // tab order). The hamburger toggle stays the focus-return target on close.
+        // can't escape behind the scrim into the page underneath (logical tab
+        // order). The hamburger toggle stays the focus-return target on close.
         const panel = panelRef.current;
         if (!panel) return;
         const focusables = panel.querySelectorAll<HTMLElement>(
@@ -155,24 +170,12 @@ export default function Navbar() {
     };
   }, [mobileOpen, closeMobile]);
 
-  const handleNav = (href: string) => {
-    const wasOpen = mobileOpen;
-    closeMobile();
-    const scrollToTarget = () => {
-      const el = document.querySelector(href);
-      el?.scrollIntoView?.({ behavior: 'smooth' });
-    };
-    // When the mobile menu was open, the scroll-lock effect pins the body
-    // (position:fixed) and, on close, restores the saved offset — both of which
-    // would clobber an immediate scrollIntoView. Defer past the React commit +
-    // effect cleanup (double rAF) so we scroll AFTER the body is unpinned. On
-    // desktop (menu never open) scroll immediately — no pin, no defer needed.
-    if (wasOpen) {
-      requestAnimationFrame(() => requestAnimationFrame(scrollToTarget));
-    } else {
-      scrollToTarget();
-    }
-  };
+  // Nav items are real <Link>s (route navigation, not scroll), so the
+  // old handleNav/scrollIntoView path is gone. Mobile links close the overlay via
+  // onClick={closeMobile} — the scroll-lock cleanup unpins the body synchronously
+  // on that same commit, and the router's own scroll-to-top runs after the
+  // (async) route render, so the two never fight. Focus returns to the toggle,
+  // which lives in the persistent layout navbar and survives the route change.
 
   const handleSignOut = () => {
     closeMobile();
@@ -192,26 +195,32 @@ export default function Navbar() {
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled ? 'bg-navy-900/90 backdrop-blur-xl shadow-lg shadow-black/20' : 'bg-transparent'
+          // v2 cosmetic: on scroll the bar reads as a richer "liquid glass"
+          // surface — deeper navy fill, stronger blur+saturate, a luminous
+          // hairline bottom edge keyed to the route accent, and the v2 elevation
+          // ramp. Surfaces/type only; nav logic + a11y contracts untouched.
+          scrolled
+            ? 'bg-navy-900/80 backdrop-blur-xl backdrop-saturate-150 border-b border-white/[0.06] shadow-2xl'
+            : 'bg-transparent'
         }`}
       >
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            <button onClick={() => handleNav('#hero')} aria-label="Nepal × Japan — back to top" className="flex items-center gap-2 group rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none">
+            <Link href="/" aria-label="Nepal × Japan — home" className="flex items-center gap-2.5 group rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none">
               <MapPin className="w-5 h-5 text-gold-400 group-hover:scale-110 transition-transform" />
               <span className="font-display font-bold text-lg tracking-tight text-white">
                 Nepal <span className="text-gold-400">×</span> Japan
               </span>
-            </button>
+            </Link>
 
             <div className="hidden md:flex items-center gap-1">
               {NAV_ITEMS.map((item) => {
-                const isActive = activeSection === item.href.replace('#', '');
+                const isActive = isRouteActive(pathname, item.href);
                 return (
-                  <button
+                  <Link
                     key={item.label}
-                    onClick={() => handleNav(item.href)}
-                    aria-current={isActive ? 'true' : undefined}
+                    href={item.href}
+                    aria-current={isActive ? 'page' : undefined}
                     data-active={isActive ? 'true' : undefined}
                     className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
                       isActive ? 'text-white' : 'text-white/70 hover:text-white hover:bg-white/5'
@@ -226,13 +235,13 @@ export default function Navbar() {
                         style={{ backgroundColor: 'hsl(var(--accent-scroll))' }}
                       />
                     )}
-                  </button>
+                  </Link>
                 );
               })}
             </div>
 
             {/* Identity chip — desktop. "You are {name}" tinted with the traveler's
-                accent (inline style, NOT a dynamic Tailwind class — ), + sign-out.
+                accent (inline style, NOT a dynamic Tailwind class), + sign-out.
                 Guest → a quiet "Guest · Sign in" affordance that returns to the gate.
                 Reactive via identity:changed so sign-in/out reflect live (no reload). */}
             <div className="hidden md:flex items-center shrink-0">
@@ -264,7 +273,8 @@ export default function Navbar() {
                 page content — tap/click anywhere off the menu to dismiss. Decorative
                 (aria-hidden); the menu items carry the a11y. Opacity-only fade, so
                 <MotionConfig reducedMotion="user"> renders it instantly (no transform)
-                under prefers-reduced-motion. `inset-0` introduces no overflow. Stays under the Trip Token gate (z-70) and toasts. */}
+                under prefers-reduced-motion. `inset-0` introduces no overflow.
+                Stays under the Trip Token gate (z-70) and toasts. */}
             <m.div
               key="mobile-nav-scrim"
               aria-hidden="true"
@@ -273,7 +283,7 @@ export default function Navbar() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-30 bg-navy-900/60 backdrop-blur-sm md:hidden"
+              className="fixed inset-0 z-30 bg-navy-900/70 backdrop-blur-md md:hidden"
             />
 
             <m.div
@@ -282,16 +292,17 @@ export default function Navbar() {
               initial={panelInitial}
               animate={panelAnimate}
               exit={panelExit}
-              className="fixed inset-x-0 top-16 z-40 bg-navy-900/95 backdrop-blur-xl border-b border-white/5 md:hidden"
+              className="fixed inset-x-0 top-16 z-40 bg-navy-900/90 backdrop-blur-xl backdrop-saturate-150 border-b border-white/[0.08] shadow-2xl md:hidden"
             >
               <div className="p-4 space-y-1">
                 {NAV_ITEMS.map((item) => {
-                  const isActive = activeSection === item.href.replace('#', '');
+                  const isActive = isRouteActive(pathname, item.href);
                   return (
-                    <button
+                    <Link
                       key={item.label}
-                      onClick={() => handleNav(item.href)}
-                      aria-current={isActive ? 'true' : undefined}
+                      href={item.href}
+                      onClick={closeMobile}
+                      aria-current={isActive ? 'page' : undefined}
                       data-active={isActive ? 'true' : undefined}
                       className={`relative flex items-center gap-3 w-full min-h-[44px] px-4 py-3 rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
                         isActive ? 'text-white bg-white/5' : 'text-white/80 hover:text-white hover:bg-white/5'
@@ -306,7 +317,7 @@ export default function Navbar() {
                       )}
                       <item.icon className="w-5 h-5 text-gold-400" />
                       {item.label}
-                    </button>
+                    </Link>
                   );
                 })}
 
@@ -356,10 +367,10 @@ export default function Navbar() {
 }
 
 /**
- * "You are {name}" chip (, desktop). The traveler's `accent` tints a subtle pill
- * background + dot via INLINE style (forbids dynamic Tailwind class names), so any
- * of the three brand accents renders correctly without a safelist. Carries a sign-out
- * control; `signOut` then fires identity:changed → the gate re-shows and this chip clears.
+ * "You are {name}" chip (desktop). The traveler's `accent` tints a subtle pill
+ * background + dot via INLINE style (a dynamic Tailwind class name would not work), so
+ * any of the three brand accents renders correctly without a safelist. Carries a sign-out
+ * control; `signOut()` then fires identity:changed → the gate re-shows and this chip clears.
  */
 function TravelerChip({
   name,
@@ -398,7 +409,7 @@ function TravelerChip({
 }
 
 /**
- * Guest affordance (, desktop): a quiet "Guest · Sign in" pill. Clicking clears the
+ * Guest affordance (desktop): a quiet "Guest · Sign in" pill. Clicking clears the
  * guest opt-in and fires identity:changed → the gate returns so the guest can sign in.
  */
 function GuestChip({ onSignIn }: { onSignIn: () => void }) {

@@ -11,7 +11,7 @@ import {
   type Journey, type FlightLeg, type Layover, type Stay, type ToBookPlaceholder,
 } from '@/lib/booking-data';
 
-// Static class records: never interpolate Tailwind class names. --
+// --- Static class records: never interpolate Tailwind class names. ---
 // Status chip styling, keyed by booking status.
 const STATUS_CHIP: Record<'booked' | 'to-book', string> = {
   'booked': 'bg-green-500/15 text-green-300 border border-green-500/30',
@@ -79,7 +79,7 @@ function LegRow({ leg }: { leg: FlightLeg }) {
         </span>
       </div>
 
-      {/* Seats — only when present (return legs legitimately have none; ). */}
+      {/* Seats — only when present (return legs legitimately have none). */}
       {leg.seats && leg.seats.length > 0 && (
         <div className="mt-2 flex items-center gap-1.5 text-[11px] text-white/45">
           <Armchair className="w-3 h-3 text-cyan-300/70" aria-hidden="true" />
@@ -219,8 +219,8 @@ function ToBookCard({ item }: { item: ToBookPlaceholder }) {
 }
 
 export default function FlightsSection() {
-  // Mount guard for parity with neighbor sections (this section is static/SSR-safe
-  // but it is loaded ssr:false; the guard avoids any flash before mount).
+  // Mount guard for parity with neighbor sections (this section is static/SSR-safe,
+  // but it is loaded ssr:false like the rest; the guard avoids any flash before mount).
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 

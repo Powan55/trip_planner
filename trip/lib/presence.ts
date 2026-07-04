@@ -1,47 +1,47 @@
 // The presence seam — "who else is on the trip right now".
-
+//
 // This module is the presence analog of lib/itinerary-remote.ts. It owns the ONLY new
-// Firestore collection M10/M13 adds: a heartbeat doc per traveler at
-// `trips/{TRIP_ID}/presence/{uid}` (uid = the silent anon uid, ), shape
-// `{ name, lastSeen: serverTimestamp }`. It never touches the `days` model or its
-// per-day LWW. It has two directions
-// WRITE (heartbeat): while the tab is OPEN and VISIBLE, `startPresence` writes the
-// traveler's heartbeat once immediately, then on an interval (>=30s). The write
-// is PAUSED when the tab is hidden (`visibilitychange`) and resumed when visible.
-// `stopPresence` clears the interval, removes listeners, and best-effort deletes
-// the doc so the traveler drops off the bar immediately on sign-out / unmount.
-// READ (subscribe): `subscribePresence(cb)` opens ONE `onSnapshot` on the presence
-// collection (<=3 docs) and maps docs → `PresenceRecord[]`. The caller filters to
-// "active" travelers via `isActive(lastSeen)`.
-
-// DORMANT-SAFE (/, mirrors itinerary-remote.ts EXACTLY): firebase is imported
-// ONLY via dynamic `import` behind `isRemoteConfigured`. With the env absent the gate
+// Firestore collection the cross-friend feature adds: a heartbeat doc per traveler at
+// `trips/{TRIP_ID}/presence/{uid}` (uid = the silent anon uid), shape
+// `{ name, lastSeen: serverTimestamp() }`. It never touches the `days` model or its
+// per-day LWW. It has two directions:
+//   WRITE (heartbeat): while the tab is OPEN and VISIBLE, `startPresence()` writes the
+//         traveler's heartbeat once immediately, then on an interval (>=30s). The write
+//         is PAUSED when the tab is hidden (`visibilitychange`) and resumed when visible.
+//         `stopPresence()` clears the interval, removes listeners, and best-effort deletes
+//         the doc so the traveler drops off the bar immediately on sign-out / unmount.
+//   READ  (subscribe): `subscribePresence(cb)` opens ONE `onSnapshot` on the presence
+//         collection (<=3 docs) and maps docs → `PresenceRecord[]`. The caller filters to
+//         "active" travelers via `isActive(lastSeen)`.
+//
+// DORMANT-SAFE (mirrors itinerary-remote.ts EXACTLY): firebase is imported
+// ONLY via dynamic `import()` behind `isRemoteConfigured()`. With the env absent the gate
 // is false, none of this module's SDK code executes, and firebase tree-shakes off the
 // first-load chunk. WRITE is additionally gated on an identified traveler so a
 // guest never writes/opens a connection. A misconfigured/unreachable Firebase degrades to
 // local-only (try/catch → console.warn, never throw) — it must never crash the app.
-
-// FREE-TIER (, HARD RULE — never Blaze): cadence is HEARTBEAT_MS (>=30s) and the
+//
+// FREE-TIER (HARD RULE — never a paid plan): cadence is HEARTBEAT_MS (>=30s) and the
 // loop is PAUSED while hidden, so it can never become a sustained sub-30s write loop.
 // Budget: ~1 write / HEARTBEAT_MS / traveler. At 60s × 3 travelers ≈ 4,320 writes/day ≈
-// ~22% of Spark's ~20k writes/day. One onSnapshot on <=3 docs is negligible reads.
-
+// ~22% of the free tier's ~20k writes/day. One onSnapshot on <=3 docs is negligible reads.
+//
 // REUSES the existing firebase init: it shares the SAME singleton app + anonymous sign-in
-// as itinerary-remote.ts (getApps/getApp — there is never a second initialization
+// as itinerary-remote.ts (getApps()/getApp() — there is never a second initialization
 // path). The two modules each cache their own lazy handle promise, but both resolve to the
-// one app instance, so dynamic import + getApps dedupe is enough (no shared mutable here).
-
+// one app instance, so dynamic import + getApps() dedupe is enough (no shared mutable here).
+//
 // CONFIG single-source: the config + on/off gate are read ONLY from
 // lib/firebase-config.ts. No process.env.NEXT_PUBLIC_FIREBASE_* reads here.
 
 import { FIREBASE_CONFIG, isRemoteConfigured, TRIP_ID } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
 
-
+// ---------------------------------------------------------------------------
 // Tuning constants. HEARTBEAT_MS MUST stay >= 30_000 (free-tier hard rule).
 // ACTIVE_WINDOW_MS is the "active = lastSeen within N min" window; a small constant a bit
 // larger than the heartbeat so a single missed/late beat doesn't flicker a traveler off.
-
+// ---------------------------------------------------------------------------
 
 /** Heartbeat cadence. >= 30s (free-tier hard rule). */
 export const HEARTBEAT_MS = 60_000;
@@ -53,18 +53,18 @@ export const ACTIVE_WINDOW_MS = 3 * 60_000;
 export interface PresenceRecord {
   /** The traveler's anon uid (doc id). */
   uid: string;
-  /** Display name written into the heartbeat (the traveler's name, ). */
+  /** Display name written into the heartbeat (the traveler's name). */
   name: string;
   /** Last heartbeat as epoch ms, or null while the serverTimestamp is still pending. */
   lastSeen: number | null;
 }
 
-
-// Shared lazy firebase handle. Mirrors itinerary-remote.ts's getRemote: init the app +
+// ---------------------------------------------------------------------------
+// Shared lazy firebase handle. Mirrors itinerary-remote.ts's getRemote(): init the app +
 // anonymous auth + firestore ONCE, behind the gate, via dynamic import (firebase stays off
-// the dormant hot path, /). getApps/getApp reuses the SAME singleton app that
+// the dormant hot path). getApps()/getApp() reuses the SAME singleton app that
 // itinerary-remote.ts creates — there is never a second firebase init.
-
+// ---------------------------------------------------------------------------
 
 type FirestoreMod = typeof import('firebase/firestore');
 
@@ -78,8 +78,8 @@ let presencePromise: Promise<PresenceHandle> | null = null;
 
 /**
  * Lazily initialize firebase (app + anonymous auth + firestore) ONCE, behind the
- * `isRemoteConfigured` gate. Rejects (caller degrades to a no-op) if the gate is off or
- * any step fails; never throws synchronously. Reuses the singleton app via getApps.
+ * `isRemoteConfigured()` gate. Rejects (caller degrades to a no-op) if the gate is off or
+ * any step fails; never throws synchronously. Reuses the singleton app via getApps().
  */
 function getPresence(): Promise<PresenceHandle> {
   if (!isRemoteConfigured()) {
@@ -97,12 +97,12 @@ function getPresence(): Promise<PresenceHandle> {
     const { getAuth, signInAnonymously } = authMod;
     const { getFirestore } = firestoreMod;
 
-    // Reuse the singleton app if it already exists (shared with itinerary-remote.ts
+    // Reuse the singleton app if it already exists (shared with itinerary-remote.ts —
     // one init across the app), otherwise create it from the single-source config.
     const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
 
-    // Silent anonymous sign-in. The rules gate on request.auth != null
-    // so we must be signed in before any read/write. If itinerary-remote already signed in
+    // Silent anonymous sign-in. The rules gate on request.auth != null,
+    // so we must be signed in before any read/write. If itinerary-remote already signed in,
     // this resolves to the same persisted anon user.
     const auth = getAuth(app);
     const cred = await signInAnonymously(auth);
@@ -145,18 +145,18 @@ export function isActive(lastSeen: number | null, now: number = Date.now()): boo
   return now - lastSeen <= ACTIVE_WINDOW_MS;
 }
 
-
+// ---------------------------------------------------------------------------
 // WRITE — the heartbeat loop. One active loop per tab (module-level singleton), tied to the
-// active traveler. start → immediate write + interval; pause on hidden; resume on visible
+// active traveler. start → immediate write + interval; pause on hidden; resume on visible;
 // stop → clear interval + listeners + best-effort delete the doc.
-
+// ---------------------------------------------------------------------------
 
 interface HeartbeatLoop {
   /** The traveler name this loop is beating for (used to detect an identity change). */
   name: string;
   intervalId: ReturnType<typeof setInterval> | null;
   onVisibility: (() => void) | null;
-  /** True once stop has run, so a late async write resolving after stop is dropped. */
+  /** True once stop() has run, so a late async write resolving after stop is dropped. */
   stopped: boolean;
 }
 
@@ -174,7 +174,7 @@ async function writeHeartbeat(): Promise<void> {
 
   try {
     const { db, fs, uid } = await getPresence();
-    // A stop during the await wins — don't write after teardown.
+    // A stop() during the await wins — don't write after teardown.
     if (loop?.stopped) return;
     const { doc, setDoc, serverTimestamp } = fs;
     const ref = doc(db, 'trips', TRIP_ID, 'presence', uid);
@@ -192,7 +192,7 @@ async function writeHeartbeat(): Promise<void> {
 /**
  * Begin the heartbeat for the currently-active traveler.
  *
- * Dormant/guest-safe: no-ops (and pulls NO firebase) when `isRemoteConfigured` is false
+ * Dormant/guest-safe: no-ops (and pulls NO firebase) when `isRemoteConfigured()` is false
  * or there's no active traveler. One loop per tab — calling start again for
  * the SAME traveler is a no-op; calling it for a DIFFERENT traveler restarts cleanly.
  *
@@ -293,9 +293,9 @@ export function stopPresence(): void {
   })();
 }
 
-
+// ---------------------------------------------------------------------------
 // READ — subscribe to the presence collection. One onSnapshot on <=3 docs (negligible).
-
+// ---------------------------------------------------------------------------
 
 /**
  * Subscribe to the presence collection (remote → caller). Opens ONE `onSnapshot` on
@@ -303,7 +303,7 @@ export function stopPresence(): void {
  * `PresenceRecord[]`. The caller filters to active travelers via `isActive`.
  *
  * Gating & safety (mirrors subscribeRemote): no-ops (returns a no-op unsubscribe) when
- * `isRemoteConfigured` is false. All SDK/network work is wrapped so any failure
+ * `isRemoteConfigured()` is false. All SDK/network work is wrapped so any failure
  * degrades to no-presence via console.warn and never throws. Returns an unsubscribe fn that
  * is always safe to call (even on the dormant path / before async setup resolves).
  *

@@ -11,7 +11,7 @@ import {
 import { getUserName } from '@/lib/identity';
 
 /**
- * React binding for the shared, presentational author filter (, M13).
+ * React binding for the shared, presentational author filter.
  *
  * Reads the module-level selection from `lib/author-filter` and re-renders on the
  * same-tab `author-filter:changed` CustomEvent — the SAME lightweight pattern the

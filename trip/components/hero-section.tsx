@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { m, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { MapPin, Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
-import { TRIP_START, TRIP_DATE_LABEL } from '@/lib/trip-data';
+import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
+import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import OptimizedImage from '@/components/optimized-image';
 import { useCountUp } from '@/hooks/use-count-up';
 
@@ -25,7 +27,7 @@ const COUNTDOWN_UNITS = [
  * While revealing, the eased fraction tracks the current `live` value so the final
  * frame lands on it exactly; once `done`, we render `live` directly so the ticking
  * value (e.g. seconds) passes through with no desync (the live tick is never
- * throttled or delayed). Under reduced motion the hook reports `done` immediately
+ * throttled or delayed). Under reduced motion the hook reports `done` immediately,
  * so `live` shows at once with no count-up.
  *
  * `format` keeps each surface's exact presentation — `padStart(2,'0')` for the
@@ -48,13 +50,13 @@ const padUnit = (n: number) => String(n).padStart(2, '0');
 const identity = (n: number) => n;
 
 /**
- * Hero entrance reveal variants (M11 Tier 2).
+ * Hero entrance reveal variants.
  *
  * A single cohesive, staggered reveal for the hero content block, replacing the
  * old per-element `delay` props. The container staggers its direct children; each
  * child rises a few px while fading in with a premium ease.
  *
- * Reduced-motion (HARD FENCE): a scroll/translate reveal is NOT gated by
+ * Reduced-motion: a scroll/translate reveal is NOT gated by
  * the app's declarative `<MotionConfig reducedMotion="user">` automatically for
  * the `y` offset we author here, so we swap to opacity-only variants when the user
  * prefers reduced motion (`hiddenReduced`/`showReduced`) — no translate, instant
@@ -88,14 +90,25 @@ export default function HeroSection() {
   const [mounted, setMounted] = useState(false);
   const [heroImgError, setHeroImgError] = useState(false);
   const [timeLeft, setTimeLeft] = useState<Countdown>({ months: 0, weeks: 0, days: 0, hours: 0, minutes: 0, seconds: 0, totalDays: 0, isPast: false });
+  // Travel mode: when the app clock lands inside the trip window the hero
+  // swaps the countdown grid for a "Day N — {city}" panel. `null` until mount (SSR-safe
+  // default) and while outside the window; recomputed on the same 1s tick as the
+  // countdown so it self-corrects at midnight without a reload.
+  const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
 
   const sectionRef = useRef<HTMLElement>(null);
   const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     setMounted(true);
-    setTimeLeft(computeCountdown(TRIP_START, new Date()));
-    const timer = setInterval(() => setTimeLeft(computeCountdown(TRIP_START, new Date())), 1000);
+    // Clock reads flow through getNow() so `?today=` drives the hero. computeCountdown
+    // stays pure — we pass the clock in.
+    setTimeLeft(computeCountdown(TRIP_START, getNow()));
+    setTodayInTrip(getTodayInTrip());
+    const timer = setInterval(() => {
+      setTimeLeft(computeCountdown(TRIP_START, getNow()));
+      setTodayInTrip(getTodayInTrip());
+    }, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -145,7 +158,7 @@ export default function HeroSection() {
             glows so the gradient tints it and the SVG + dark overlays render on
             top. Tuned to ~45% so the title and countdown stay legible. On error
             (or if the asset is absent) the original CSS/SVG art shows through.
-            the PARENT div is a parallax layer (drifts slow + scales subtly
+            The PARENT div is a parallax layer (drifts slow + scales subtly,
             reading as the deepest plane); the image element itself is untouched. */}
         {!heroImgError && (
           <m.div className="absolute inset-0" style={{ y: photoY, scale: photoScale }}>
@@ -161,7 +174,7 @@ export default function HeroSection() {
           </m.div>
         )}
         {/* Soft radial glows — a Himalayan "sun" on the left, a sakura/neon bloom on the right.
-            drifts UP slightly and fades as the hero leaves, a mid-depth plane. */}
+            Drifts UP slightly and fades as the hero leaves, a mid-depth plane. */}
         <m.div
           className="absolute inset-0"
           style={{
@@ -173,7 +186,7 @@ export default function HeroSection() {
         />
 
         {/* Layered mountain-range / skyline silhouette.
-            wrapped in a parallax m.div that drifts DOWN the most slowly of the
+            Wrapped in a parallax m.div that drifts DOWN the most slowly of the
             backdrop planes (deepest fixed scenery feel). The SVG art is unchanged. */}
         <m.div className="absolute inset-x-0 bottom-0 w-full h-[62%]" style={{ y: silhouetteY }}>
         <svg
@@ -304,8 +317,34 @@ export default function HeroSection() {
           "The world is a book and those who do not travel read only one page." — St. Augustine
         </m.p>
 
-        {/* Countdown */}
-        {mounted && (
+        {/* Countdown ⇄ Travel mode. Both are gated behind `mounted` so the
+            client-only clock never renders on the server (no hydration mismatch — the
+            Day-N panel only ever appears post-mount). When the app clock is inside the
+            trip window, `todayInTrip` is non-null and the "Day N — {city}" panel replaces
+            the countdown grid; otherwise the live countdown shows. */}
+        {mounted && (todayInTrip ? (
+          <m.div variants={reveal} className="mb-10">
+            <p className="text-sm text-gold-400/80 mb-4 uppercase tracking-widest">You're on the trip</p>
+            <div className="inline-flex flex-col items-center gap-2 glass-card rounded-2xl px-6 sm:px-10 py-5 sm:py-6 max-w-full">
+              <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
+                Day <span className="text-gradient-gold">{todayInTrip.dayNumber}</span>
+                <span className="text-white/40 mx-2 sm:mx-3">—</span>
+                {todayInTrip.city}
+              </div>
+              <p className="text-sm sm:text-base text-white/50">{formatDateLong(todayInTrip.date)}</p>
+            </div>
+            <div className="mt-5">
+              <Link
+                href="/plan/"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
+              >
+                <Calendar className="w-4 h-4" />
+                Open today's plan
+                <span aria-hidden="true">→</span>
+              </Link>
+            </div>
+          </m.div>
+        ) : (
           <m.div
             variants={reveal}
             className="mb-10"
@@ -327,27 +366,30 @@ export default function HeroSection() {
               </span> total days until adventure begins
             </p>
           </m.div>
-        )}
+        ))}
 
         {/* CTA Buttons */}
         <m.div
           variants={reveal}
           className="flex flex-wrap justify-center gap-3"
         >
-          <button
-            onClick={() => scrollTo('#itinerary')}
+          {/* Itinerary + destinations moved to their own routes, so
+              these CTAs are real next/link navigations (trailing-slash canonical);
+              the dashboard stays on Home and keeps the local smooth scroll. */}
+          <Link
+            href="/plan/"
             className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
           >
             <Calendar className="w-4 h-4" />
             View Itinerary
-          </button>
-          <button
-            onClick={() => scrollTo('#nepal')}
+          </Link>
+          <Link
+            href="/nepal/"
             className="flex items-center gap-2 px-6 py-3 rounded-xl glass-card text-white font-semibold hover:bg-white/10 transition-all duration-200 hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
           >
             <Compass className="w-4 h-4 text-himalaya-400" />
             Explore Destinations
-          </button>
+          </Link>
           <button
             onClick={() => scrollTo('#dashboard')}
             className="flex items-center gap-2 px-6 py-3 rounded-xl glass-card text-white font-semibold hover:bg-white/10 transition-all duration-200 hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"

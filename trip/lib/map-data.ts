@@ -1,10 +1,13 @@
-// Mock interactive-map data. The map is a mock — category markers, popup cards,
-// regional layout — built so it could later be wired to a real provider. No real
-// map library/API is used; maplibre-gl stays unused.
+// Interactive-map data. The map used to be a CSS/SVG mock; it is now a REAL
+// MapLibre GL map, so every marker carries genuine WGS84 `lng`/`lat` for a
+// famous, well-known place. This is a PURE data module — no imports with side
+// effects — so it stays off the initial load path and tree-shakeable
+// (map-section.tsx is the only consumer that mounts the GL canvas, and it does
+// so client-only).
 //
-// Each marker's x/y are 0-100 percentages relative to its OWN country panel
-// (the stylized mock surface), NOT real lat/lng. They are hand-distributed to
-// approximate the relative geography of each region while avoiding overlap.
+// The legacy `x`/`y` fields (0-100 % positions on the former CSS/SVG mock panel)
+// are kept as harmless, unused metadata; nothing renders them once the mock is
+// gone. `lng`/`lat` are the source of truth for placement now.
 
 export type MarkerCategory =
   | 'Attraction'
@@ -22,9 +25,13 @@ export interface MapMarker {
   country: 'Nepal' | 'Japan';
   area: string;
   description: string;
-  /** 0-100 — horizontal % position on that country's mock panel. */
+  /** Real longitude (WGS84). Source of truth for map placement. */
+  lng: number;
+  /** Real latitude (WGS84). Source of truth for map placement. */
+  lat: number;
+  /** Legacy 0-100 % X on the former mock panel — unused, kept harmless. */
   x: number;
-  /** 0-100 — vertical % position on that country's mock panel. */
+  /** Legacy 0-100 % Y on the former mock panel — unused, kept harmless. */
   y: number;
   /** Optional bundled photo for the popup (root-relative). */
   image?: string;
@@ -50,8 +57,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Boudha, Kathmandu',
     description:
       'One of the largest spherical stupas in the world and a UNESCO World Heritage Site, ringed by Tibetan monasteries and the constant turn of prayer wheels.',
-    x: 68,
-    y: 30,
+    lng: 85.3620, lat: 27.7215,
+    x: 68, y: 30,
   },
   {
     id: 'np-swayambhunath', image: '/images/map/np-swayambhunath.jpg',
@@ -61,8 +68,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'West Kathmandu',
     description:
       'A hilltop stupa with the watchful eyes of the Buddha gazing over the valley. A steep 365-step climb rewards you with sweeping city panoramas.',
-    x: 24,
-    y: 38,
+    lng: 85.2904, lat: 27.7149,
+    x: 24, y: 38,
   },
   {
     id: 'np-pashupatinath', image: '/images/map/np-pashupatinath.jpg',
@@ -72,8 +79,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Gaushala, Kathmandu',
     description:
       'The most sacred Hindu temple complex on the banks of the Bagmati River, dedicated to Lord Shiva and alive with sadhus and evening aarti rituals.',
-    x: 74,
-    y: 44,
+    lng: 85.3488, lat: 27.7104,
+    x: 74, y: 44,
   },
   {
     id: 'np-durbar-ktm', image: '/images/map/np-durbar-ktm.jpg',
@@ -83,8 +90,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Old City, Kathmandu',
     description:
       'A historic royal plaza of pagoda temples, courtyards, and the Kumari Ghar — home of Nepal’s living goddess. A UNESCO site at the heart of the old city.',
-    x: 42,
-    y: 50,
+    lng: 85.3072, lat: 27.7043,
+    x: 42, y: 50,
   },
   {
     id: 'np-thamel', image: '/images/map/np-thamel.jpg',
@@ -94,8 +101,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Thamel, Kathmandu',
     description:
       'The buzzing tourist quarter packed with trekking gear, pashmina, singing bowls, thangka art, and souvenir stalls. Best haggled at after dusk.',
-    x: 38,
-    y: 40,
+    lng: 85.3110, lat: 27.7154,
+    x: 38, y: 40,
   },
   {
     id: 'np-garden-dreams',
@@ -105,8 +112,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Kaiser Mahal, Kathmandu',
     description:
       'A restored neo-classical garden oasis of pavilions, fountains, and pergolas — a serene, photogenic escape from the city bustle.',
-    x: 46,
-    y: 34,
+    lng: 85.3159, lat: 27.7143,
+    x: 46, y: 34,
   },
   {
     id: 'np-patan', image: '/images/map/np-patan.jpg',
@@ -116,8 +123,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Lalitpur',
     description:
       'A masterpiece of Newari architecture with the Krishna Mandir and the Patan Museum — arguably the finest of the valley’s three durbar squares.',
-    x: 50,
-    y: 66,
+    lng: 85.3253, lat: 27.6727,
+    x: 50, y: 66,
   },
   {
     id: 'np-bhaktapur', image: '/images/map/np-bhaktapur.jpg',
@@ -127,8 +134,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Bhaktapur',
     description:
       'A perfectly preserved medieval city of brick streets, the 55-Window Palace, and Nyatapola Temple. Famous for juju dhau (king curd) and pottery.',
-    x: 86,
-    y: 58,
+    lng: 85.4281, lat: 27.6721,
+    x: 86, y: 58,
   },
   {
     id: 'np-nagarkot', image: '/images/map/np-nagarkot.jpg',
@@ -138,8 +145,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Nagarkot (~32 km)',
     description:
       'A ridge-top village famous for sunrise panoramas over the Himalaya, including glimpses of Everest on clear winter mornings. A classic valley day trip.',
-    x: 92,
-    y: 22,
+    lng: 85.5206, lat: 27.7154,
+    x: 92, y: 22,
   },
   {
     id: 'np-newa-kitchen', image: '/images/map/np-newa-kitchen.jpg',
@@ -149,8 +156,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Kirtipur',
     description:
       'A community-run Newari kitchen serving an authentic platter of choila, bara, and chhoyla — the most traditional way to taste valley cuisine.',
-    x: 30,
-    y: 60,
+    lng: 85.2774, lat: 27.6786,
+    x: 30, y: 60,
   },
   {
     id: 'np-yangling', image: '/images/map/np-yangling.jpg',
@@ -160,8 +167,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Thamel, Kathmandu',
     description:
       'A beloved Thamel institution for steaming plates of momos and thukpa — hearty, warming fare perfect for a December evening.',
-    x: 36,
-    y: 46,
+    lng: 85.3126, lat: 27.7139,
+    x: 36, y: 46,
   },
   {
     id: 'np-dwarikas',
@@ -171,8 +178,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Battisputali, Kathmandu',
     description:
       'A heritage luxury hotel built around a living museum of rescued Newari woodcarving — an immersion in Nepali craftsmanship and a base near Pashupatinath.',
-    x: 66,
-    y: 52,
+    lng: 85.3452, lat: 27.7061,
+    x: 66, y: 52,
   },
   {
     id: 'np-kopan', image: '/images/map/np-kopan.jpg',
@@ -182,8 +189,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'North Kathmandu',
     description:
       'A hillside Tibetan Buddhist monastery with gardens and golden rooftops overlooking Boudha — luminous at sunrise and wonderfully peaceful.',
-    x: 70,
-    y: 16,
+    lng: 85.3641, lat: 27.7431,
+    x: 70, y: 16,
   },
 
   // ── Japan — Tokyo · Kyoto · Osaka ─────────────────────────────────────────
@@ -195,8 +202,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Asakusa, Tokyo',
     description:
       'Tokyo’s oldest temple, entered through the giant Kaminarimon lantern gate and the Nakamise shopping street. Atmospheric and lantern-lit at night.',
-    x: 78,
-    y: 26,
+    lng: 139.7967, lat: 35.7148,
+    x: 78, y: 26,
   },
   {
     id: 'jp-shibuya', image: '/images/map/jp-shibuya.jpg',
@@ -206,8 +213,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Shibuya, Tokyo',
     description:
       'The world’s busiest pedestrian scramble, a neon-soaked icon of Tokyo. Best viewed from above at the Shibuya Sky observation deck.',
-    x: 72,
-    y: 36,
+    lng: 139.7005, lat: 35.6595,
+    x: 72, y: 36,
   },
   {
     id: 'jp-akihabara', image: '/images/map/jp-akihabara.jpg',
@@ -217,8 +224,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Akihabara, Tokyo',
     description:
       'The electric heart of anime, gaming, and gadgets — towers of arcades, retro game shops, and multi-floor electronics emporiums.',
-    x: 80,
-    y: 32,
+    lng: 139.7714, lat: 35.6984,
+    x: 80, y: 32,
   },
   {
     id: 'jp-ichiran', image: '/images/map/jp-ichiran.jpg',
@@ -228,8 +235,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Shinjuku, Tokyo',
     description:
       'Tonkotsu ramen perfected in solo focus booths — customize richness, spice, and noodle firmness, then slurp in distraction-free bliss.',
-    x: 68,
-    y: 30,
+    lng: 139.7038, lat: 35.6919,
+    x: 68, y: 30,
   },
   {
     id: 'jp-park-hyatt', image: '/images/map/jp-park-hyatt.jpg',
@@ -239,8 +246,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Shinjuku, Tokyo',
     description:
       'A sky-high luxury landmark (of Lost in Translation fame) with floor-to-ceiling skyline views — a polished base for exploring central Tokyo.',
-    x: 60,
-    y: 40,
+    lng: 139.6905, lat: 35.6857,
+    x: 60, y: 40,
   },
   {
     id: 'jp-teamlab',
@@ -250,8 +257,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Toyosu, Tokyo',
     description:
       'An immersive digital-art museum of infinite mirrored light gardens and water rooms — one of the most photogenic experiences in the city.',
-    x: 84,
-    y: 42,
+    lng: 139.7900, lat: 35.6488,
+    x: 84, y: 42,
   },
   {
     id: 'jp-fushimi', image: '/images/map/jp-fushimi.jpg',
@@ -261,8 +268,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Fushimi, Kyoto',
     description:
       'The shrine of a thousand vermilion torii gates winding up Mount Inari. Go early to walk the tunnels of gates in golden morning light.',
-    x: 30,
-    y: 60,
+    lng: 135.7727, lat: 34.9671,
+    x: 30, y: 60,
   },
   {
     id: 'jp-arashiyama', image: '/images/map/jp-arashiyama.jpg',
@@ -272,8 +279,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Arashiyama, Kyoto',
     description:
       'A towering green corridor of swaying bamboo on Kyoto’s western edge, paired with the Togetsukyo Bridge and Tenryu-ji temple gardens.',
-    x: 18,
-    y: 54,
+    lng: 135.6716, lat: 35.0170,
+    x: 18, y: 54,
   },
   {
     id: 'jp-kinkakuji', image: '/images/map/jp-kinkakuji.jpg',
@@ -283,8 +290,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'North Kyoto',
     description:
       'A gold-leaf Zen pavilion mirrored in its reflecting pond — Kyoto’s most iconic image, dusted with light frost in winter.',
-    x: 26,
-    y: 48,
+    lng: 135.7292, lat: 35.0394,
+    x: 26, y: 48,
   },
   {
     id: 'jp-nishiki', image: '/images/map/jp-nishiki.jpg',
@@ -294,8 +301,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Central Kyoto',
     description:
       'Kyoto’s "kitchen" — a narrow 400-year-old arcade of stalls selling pickles, tofu, sweets, knives, and street snacks.',
-    x: 34,
-    y: 52,
+    lng: 135.7649, lat: 35.0050,
+    x: 34, y: 52,
   },
   {
     id: 'jp-dotonbori', image: '/images/map/jp-dotonbori.jpg',
@@ -305,8 +312,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Namba, Osaka',
     description:
       'Osaka’s neon canal-side food strip — takoyaki, okonomiyaki, and the running Glico man sign. The capital of kuidaore ("eat till you drop").',
-    x: 40,
-    y: 80,
+    lng: 135.5011, lat: 34.6687,
+    x: 40, y: 80,
   },
   {
     id: 'jp-osaka-castle', image: '/images/map/jp-osaka-castle.jpg',
@@ -316,8 +323,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Chuo-ku, Osaka',
     description:
       'A grand reconstructed feudal castle ringed by moats and a park of plum and cherry trees, with a panoramic observation deck on top.',
-    x: 48,
-    y: 74,
+    lng: 135.5259, lat: 34.6873,
+    x: 48, y: 74,
   },
   {
     id: 'jp-nara', image: '/images/map/jp-nara.jpg',
@@ -327,8 +334,8 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Nara (~45 min from Kyoto)',
     description:
       'Free-roaming bowing deer, the colossal Great Buddha of Todai-ji, and lantern-lined paths — an easy and unforgettable day trip from Kyoto or Osaka.',
-    x: 44,
-    y: 64,
+    lng: 135.8430, lat: 34.6851,
+    x: 44, y: 64,
   },
   {
     id: 'jp-hakone', image: '/images/map/jp-hakone.jpg',
@@ -338,7 +345,7 @@ export const MAP_MARKERS: MapMarker[] = [
     area: 'Hakone (~85 min from Tokyo)',
     description:
       'A hot-spring retreat with Mt. Fuji views, the Hakone open-air sculpture museum, and a pirate-ship cruise on Lake Ashi — a scenic escape from Tokyo.',
-    x: 58,
-    y: 46,
+    lng: 139.1069, lat: 35.2324,
+    x: 58, y: 46,
   },
 ];

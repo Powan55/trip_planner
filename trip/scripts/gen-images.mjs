@@ -1,18 +1,18 @@
-// gen-images.mjs — build-time image derivative + LQIP pipeline (slice, M12).
-
+// gen-images.mjs — build-time image derivative + LQIP pipeline.
+//
 // WHY THIS EXISTS: the site ships as a static export with
 // `images:{unoptimized:true}`, so Next's runtime image optimizer is OFF. To still
 // serve modern formats and kill CLS we PRE-GENERATE derivatives here, LOCALLY, and
 // COMMIT them. This script is invoked ONLY by `npm run gen:images` — it is NOT part
-// of `build`/`prebuild`, and `sharp` is a devDependency imported by NO client code
+// of `build`/`prebuild`, and `sharp` is a devDependency imported by NO client code,
 // so 0 bytes of sharp ship to the browser.
-
+//
 // For each source raster (.jpg/.jpeg/.png) under public/images/** it emits a sibling
 // `.webp` and `.avif`, reads the intrinsic width/height, and computes a tiny base64
-// `blurDataURL` (LQIP). It writes lib/image-manifest.json mapping the SAME root
-// relative string the app passes to withBasePath (e.g. "/images/nepal/na1.jpg")
+// `blurDataURL` (LQIP). It writes lib/image-manifest.json mapping the SAME root-
+// relative string the app passes to withBasePath() (e.g. "/images/nepal/na1.jpg")
 // → { webp, avif, blurDataURL, width, height }. SVGs and already-tiny files are skipped.
-
+//
 // Idempotent: re-running regenerates derivatives and the manifest from sources.
 
 import { readdir, stat, writeFile, readFile } from 'node:fs/promises';
@@ -103,7 +103,7 @@ async function run() {
     const width = meta.width ?? 0;
     const height = meta.height ?? 0;
 
-    // Derivatives. `rotate` with no arg applies EXIF orientation so the encoded
+    // Derivatives. `rotate()` with no arg applies EXIF orientation so the encoded
     // raster matches the intrinsic w/h we report.
     await sharp(input).rotate().webp({ quality: WEBP_QUALITY }).toFile(webpPath);
     await sharp(input).rotate().avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT }).toFile(avifPath);

@@ -1,15 +1,16 @@
-// Real confirmed bookings — read-only PRESENTATION data, deliberately kept separate
-// from the user-editable, localStorage-persisted itinerary store. These are fixed
-// reference facts about the trip (flight numbers, terminals, seats, the hotel); they
-// are NOT an ItineraryItem/DayPlan and are NOT persisted. The only link to the
-// itinerary is human-authored content agreement — never a shared type or store.
+// Real confirmed bookings — read-only PRESENTATION data, deliberately
+// kept separate from the user-editable, localStorage-persisted itinerary store.
+// These are fixed reference facts about the trip (flight numbers,
+// terminals, seats, the hotel); they are NOT an ItineraryItem/DayPlan and are NOT
+// persisted. The only link to the itinerary is human-authored content agreement
+// — never a shared type or store.
 //
-// HARD RULE: time/duration/total labels are rendered VERBATIM. There is no `Date`
-// object, no parsing, no timezone math, no recompute anywhere in this module or its
-// presenter. The booking is the source of truth for its own arithmetic — the outbound
-// crosses the date line (totalDuration '1d 15m'), and "correcting" it would be a bug.
-// `status: 'to-book'` / ToBookPlaceholder is the only sanctioned way to show unbooked
-// Japan logistics; they are never faked with invented numbers/hotels.
+// HARD RULE: time/duration/total labels are rendered VERBATIM. There is no
+// `Date` object, no parsing, no timezone math, no recompute anywhere in this module
+// or its presenter. The booking is the source of truth for its own arithmetic — the
+// outbound crosses the date line (totalDuration '1d 15m'), and "correcting" it would
+// be a bug. `status: 'to-book'` / ToBookPlaceholder is the ONLY sanctioned way to
+// show unbooked Japan logistics; they are never faked with invented numbers/hotels.
 
 export type BookingStatus = 'booked' | 'to-book';
 export type CabinClass = 'Economy' | 'Premium Economy' | 'Business' | 'First';

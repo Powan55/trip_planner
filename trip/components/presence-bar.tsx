@@ -4,19 +4,19 @@ import { m } from 'framer-motion';
 import { usePresence } from '@/hooks/use-presence';
 
 /**
- * Active-traveler presence bar (, M13 / ).
+ * Active-traveler presence bar.
  *
  * A compact, premium "active now" cluster — accent-colored avatar dots (the traveler's
- * brand accent, ) + names — for the travelers who are on the trip right now. The
- * data + gating live in `usePresence` (which subscribes via `lib/presence.ts`); this
+ * brand accent) + names — for the travelers who are on the trip right now. The
+ * data + gating live in `usePresence()` (which subscribes via `lib/presence.ts`); this
  * component is purely presentational.
  *
  * RENDERS NOTHING when there are no active OTHERS — which is exactly the dormant case (no
  * firebase env ⇒ `usePresence` short-circuits and returns []) and the guest case (no token
  * ⇒ same short-circuit). So the portfolio / guest build shows nothing AND loads no firebase
- * (the headline dormant-safety guarantee, /).
+ * (the headline dormant-safety guarantee).
  *
- * Placement (, no collision): a small `fixed` cluster at the BOTTOM-LEFT at `z-40`.
+ * Placement (no collision): a small `fixed` cluster at the BOTTOM-LEFT at `z-40`.
  * That sits BELOW the navbar (z-50), the gate (z-[70]), the scroll-progress bar (z-[60])
  * and the name-prompt (z-[60]), and is on the OPPOSITE side from the bottom-right Sonner
  * toasts — so it never overlaps any of them. `fixed` means it never participates in layout
@@ -47,7 +47,12 @@ export default function PresenceBar() {
       role="status"
       aria-live="polite"
       aria-label="Travelers active now"
-      className="fixed bottom-4 left-4 z-40 max-w-[calc(100vw-2rem)] sm:max-w-xs"
+      // Bottom OFFSET only. On `<md` the mobile bottom tab bar (z-50, fixed at
+      // bottom-0) would overlap this z-40 cluster, so we lift it above the bar using the
+      // `--tab-bar-h` contract + safe-area inset + the original 1rem gap. `md:` restores the
+      // original `bottom-4` (desktop has no tab bar, so it is pixel-unchanged there). Only the
+      // bottom coordinate changed; left/z/max-width and everything else are as before.
+      className="fixed left-4 z-40 max-w-[calc(100vw-2rem)] sm:max-w-xs bottom-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom)+1rem)] md:bottom-4"
     >
       <div className="flex items-center gap-2.5 rounded-full glass-card px-3 py-2 shadow-lg">
         {/* Overlapping accent dots — one per active traveler, decorative (names follow). */}

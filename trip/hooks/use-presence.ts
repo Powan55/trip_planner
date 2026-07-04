@@ -12,9 +12,9 @@ import type { PresenceRecord } from '@/lib/presence';
  * ACTIVE travelers (filtered by `isActive`), EXCLUDING the signed-in viewer themselves (the
  * bar shows *others*). Each entry is enriched with the traveler's brand accent.
  *
- * DORMANT / GUEST-SAFE (the headline guarantee, /): `lib/presence.ts` (and through
- * it, firebase) is reached ONLY via a dynamic `import` INSIDE the effect, behind the gate
- * `isRemoteConfigured && getActiveTraveler` — the SAME gate the provider uses for the
+ * DORMANT / GUEST-SAFE (the headline guarantee): `lib/presence.ts` (and through
+ * it, firebase) is reached ONLY via a dynamic `import()` INSIDE the effect, behind the gate
+ * `isRemoteConfigured() && getActiveTraveler()` — the SAME gate the provider uses for the
  * remote `days` subscribe. So the module body never lands in the first-load chunk (mirrors
  * how `itinerary-provider` lazy-imports `itinerary-remote`); only the PURE, firebase-free
  * modules (`firebase-config`, `token-auth`) are statically imported here. Dormant (no env)
@@ -127,7 +127,7 @@ export function usePresence(): ActivePresence[] {
     if (!r.name) continue;
     if (!recordIsActive(r.lastSeen, now)) continue;
     // Exclude the viewer's own heartbeat — the bar shows who ELSE is here. Match by name
-    // (soft identity, ); a traveler signed in on two tabs collapses to one entry below.
+    // (soft identity); a traveler signed in on two tabs collapses to one entry below.
     if (me && r.name.trim().toLowerCase() === me.name.trim().toLowerCase()) continue;
     active.push({ uid: r.uid, name: r.name, accent: accentFor(r.name), lastSeen: r.lastSeen });
   }

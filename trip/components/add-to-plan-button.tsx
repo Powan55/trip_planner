@@ -24,7 +24,7 @@ import AddToItineraryDialog from '@/components/add-to-itinerary-dialog';
  * views of one store, removing from the calendar flips this back to "Add to plan"
  * automatically — `findPlacements` is re-read on the CustomEvent fan-out.
  *
- * `source` is the full union
+ * `source` accepts the full union
  * (`Recommendation | PhotoSpot | MapMarker | FeaturedDestination`) so the Photography,
  * Map-popup, and Featured surfaces reuse this control unchanged. The `sourceId` and
  * `title` are read from the adapter-built `draft`, NOT `source.id`/`source.name`,

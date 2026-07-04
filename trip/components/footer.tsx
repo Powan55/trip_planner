@@ -5,21 +5,34 @@ import { TRIP_DATE_LABEL } from '@/lib/trip-data';
 
 export default function Footer() {
   return (
-    <footer className="py-10 px-4 sm:px-6 border-t border-white/5">
+    // v2 cosmetic restyle: the footer becomes a quiet closing panel on the
+    // aurora field — a luminous route-accent hairline across the top, richer
+    // spacing rhythm, and legibility-tuned muted type. Content/logic unchanged.
+    <footer className="relative py-18 px-gutter border-t border-white/[0.06]">
+      {/* Route-accent hairline: a soft gradient rule keyed to --accent-scroll so
+          the footer warms/cools with the page. Decorative, adds no layout box. */}
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{
+          background:
+            'linear-gradient(90deg, transparent 0%, hsl(var(--accent-scroll) / 0.6) 50%, transparent 100%)',
+        }}
+      />
       <div className="max-w-[1200px] mx-auto text-center">
-        <div className="flex items-center justify-center gap-2 mb-3">
+        <div className="flex items-center justify-center gap-2 mb-4">
           <MapPin className="w-4 h-4 text-gold-400" />
-          <span className="font-display font-bold text-white">Nepal <span className="text-gold-400">×</span> Japan Journey</span>
+          <span className="font-display font-bold tracking-tight text-white">Nepal <span className="text-gold-400">×</span> Japan Journey</span>
         </div>
-        <p className="text-sm text-white/30 mb-4">
+        <p className="text-sm text-muted-foreground mb-4">
           {TRIP_DATE_LABEL}
         </p>
-        <div className="flex items-center justify-center gap-1 text-xs text-white/20">
+        <div className="flex items-center justify-center gap-1.5 text-xs text-white/40">
           <span>Made with</span>
           <Heart className="w-3 h-3 text-red-400 fill-red-400" />
           <span>for the journey ahead</span>
         </div>
-        <p className="mt-4 text-xs text-white/25">
+        <p className="mt-4 text-xs text-white/30">
           &copy; {new Date().getFullYear()} Lax
         </p>
       </div>

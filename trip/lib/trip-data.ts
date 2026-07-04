@@ -33,9 +33,19 @@ function formatLabelPart(d: Date): string {
 }
 export const TRIP_DATE_LABEL = `${formatLabelPart(TRIP_START)} – ${formatLabelPart(TRIP_END)}`;
 
+// Country classification must be timezone-independent. An earlier implementation
+// parsed the incoming 'YYYY-MM-DD' with `new Date(dateStr)` — the ES spec treats
+// date-ONLY strings as UTC midnight, while NEPAL_END above is a LOCAL datetime. At
+// any negative UTC offset (e.g. America/New_York) Dec 19's UTC midnight lands
+// BEFORE Dec 18 23:59:59 local, misclassifying Dec 19 as 'nepal'. Fix: compare
+// calendar-day strings lexicographically — ISO 'YYYY-MM-DD' sorts in date order and
+// the input is never Date-parsed at all. The boundary is derived from NEPAL_END's
+// local parts (a local-datetime literal has the same parts on every machine), so the
+// trip dates stay configured in one place.
+const NEPAL_END_DAY = `${NEPAL_END.getFullYear()}-${String(NEPAL_END.getMonth() + 1).padStart(2, '0')}-${String(NEPAL_END.getDate()).padStart(2, '0')}`; // '2026-12-18'
+
 export function getCountryForDate(dateStr: string): 'nepal' | 'japan' {
-  const d = new Date(dateStr);
-  return d <= NEPAL_END ? 'nepal' : 'japan';
+  return dateStr <= NEPAL_END_DAY ? 'nepal' : 'japan';
 }
 
 export function formatDate(dateStr: string): string {

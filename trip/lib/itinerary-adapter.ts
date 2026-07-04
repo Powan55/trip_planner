@@ -15,8 +15,8 @@ import type { FeaturedDestination } from '@/lib/travel-tips-data';
  * "Already added" is a pure `sourceId` equality — no fuzzy matching —
  * resolved at the card via `findPlacements(sourceId)`.
  *
- * The `'recommendation'` branch came first; the `'photo' | 'map' |
- * 'featured'` branches were added WITHOUT touching the recommendation branch or the map.
+ * All four source types (`'recommendation' | 'photo' | 'map' | 'featured'`) are
+ * handled here so no card family reimplements the conversion.
  */
 
 export type SourceType = 'recommendation' | 'photo' | 'map' | 'featured';
@@ -70,7 +70,7 @@ export interface ItineraryDraft {
  * source vocabulary maps to them) but remain user-selectable in the dialog.
  *
  * This mapping is DATA, not behavior — extending it for a new source category is
- * an additive edit.
+ * a purely additive edit.
  */
 export const CATEGORY_MAP: Record<string, ItineraryCategory> = {
   // food family

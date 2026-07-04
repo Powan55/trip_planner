@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import {
   MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
   Landmark, Plane, Hotel, Coffee, Music, X, Check, Trash2, Plus,
+  ExternalLink,
 } from 'lucide-react';
 import {
   TRIP_DATES, getCountryForDate, formatDate,
@@ -17,40 +18,40 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import type { ItineraryDraft } from '@/lib/itinerary-adapter';
 
 /**
- * Shared "Add to plan" dialog — a NEW, lightweight, source-aware dialog
- * deliberately separate from the calendar's `ItemEditor`. It is invoked from any
- * place card (via `add-to-plan-button.tsx`) with a prefilled `ItineraryDraft`
- * and the place's current `existingPlacements` (from `findPlacements`).
+ * Shared "Add to plan" dialog — a lightweight, source-aware dialog, deliberately
+ * separate from the calendar's `ItemEditor`. It is invoked from any place card
+ * (via `add-to-plan-button.tsx`) with a prefilled `ItineraryDraft` and the place's
+ * current `existingPlacements` (from `findPlacements`).
  *
- * It reads/writes the itinerary THROUGH the store (`useItineraryContext`, )
+ * It reads/writes the itinerary THROUGH the store (`useItineraryContext`) —
  * no add/remove callbacks per call site. The CustomEvent fan-out makes the
  * calendar / dashboard / card reflect every change immediately.
  *
- * A11y / focus reuses the EXACT contract that `ItemEditor` uses
- * role="dialog" aria-modal aria-labelledby
- * document-level Esc via an `onCloseRef` (latest-closure, bound once)
- * a lightweight Tab-trap inside the panel
- * autofocus the first field on open
- * parent-owned focus-return: the invoking button captures the trigger and
- * refocuses it on `<AnimatePresence onExitComplete>` — NOT in this dialog's
- * effect cleanup (the bug).
- * Reduced-motion is respected by framer-motion via the global reduced-motion CSS
- *Tailwind classes are static literals.
+ * A11y / focus reuses the EXACT contract that `ItemEditor` uses:
+ *  - role="dialog" aria-modal aria-labelledby
+ *  - document-level Esc via an `onCloseRef` (latest-closure, bound once)
+ *  - a lightweight Tab-trap inside the panel
+ *  - autofocus the first field on open
+ *  - parent-owned focus-return: the invoking button captures the trigger and
+ *    refocuses it on `<AnimatePresence onExitComplete>` — NOT in this dialog's
+ *    effect cleanup (which is where an earlier version had a focus bug).
+ * Reduced-motion is respected by framer-motion via the global reduced-motion CSS;
+ * Tailwind classes are static literals.
  *
  * RENDERING: the overlay is rendered through a React PORTAL to `document.body`.
  * Every trigger surface (recommendations, photography, map popup, featured) sits
  * inside a place card whose root is a framer `m.div` with an active `whileHover`
  * transform AND `overflow-hidden`. A `position: fixed` element whose ancestor is
- * transformed is positioned relative to that ancestor (the CSS containing-block rule),
- * not the viewport — so rendered inline, the backdrop covered only the card (neighbours
- * stayed bright) and the panel overflowed and was clipped by the card's `overflow-hidden`,
- * hiding the pinned footer. The portal moves ONLY the DOM node out to `<body>`; the React
- * tree (and the parent `AnimatePresence`) is unchanged, so the focus contract —
- * document-level Esc, the `panelRef` Tab-trap, first-field autofocus, and parent-owned
- * focus-return on `onExitComplete` — all keep working. The portal is mount-guarded
- * (`mounted` state) so it never touches `document` during the static-export prerender
- * (`output: 'export'`); the dialog only mounts on a user click, post-hydration, so this
- * is always satisfied in practice.
+ * transformed is positioned relative to that ancestor (CSS containing-block rule),
+ * not the viewport — so rendered inline, the backdrop covered only the card
+ * (neighbours stayed bright) and the panel overflowed and was clipped by the card's
+ * `overflow-hidden`, hiding the pinned footer. The portal moves ONLY the DOM node out
+ * to `<body>`; the React tree (and the parent `AnimatePresence`) is unchanged, so the
+ * focus contract — document-level Esc, the `panelRef` Tab-trap, first-field autofocus,
+ * and parent-owned focus-return on `onExitComplete` — all keep working. The portal is
+ * mount-guarded (`mounted` state) so it never touches `document` during the
+ * static-export prerender (`output: 'export'`); the dialog only mounts on a user click,
+ * post-hydration, so this is always satisfied in practice.
  */
 
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
@@ -76,6 +77,18 @@ function dateOptionLabel(dateStr: string): string {
   return `${formatDate(dateStr)} · ${city}, ${countryName}`;
 }
 
+// Google Maps link-out scheme (keyless — a URL, not an API). Exported so the detail
+// sheet and any custom-add trigger build the exact same query string.
+// `query = encodeURIComponent(title [+ ' ' + location])`. Returns null when there is
+// nothing to search yet (empty title), so the caller can disable the link.
+export function buildMapsSearchUrl(title: string, location?: string): string | null {
+  const t = title.trim();
+  if (!t) return null;
+  const loc = (location ?? '').trim();
+  const query = loc ? `${t} ${loc}` : t;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
 export interface ExistingPlacement {
   date: string;
   item: ItineraryItem;
@@ -86,6 +99,16 @@ export interface AddToItineraryDialogProps {
   draft: ItineraryDraft;
   existingPlacements: ExistingPlacement[];
   onClose(): void;
+  /**
+   * Custom-add mode. Default 'source' keeps the source behavior (Title/Location
+   * fixed, sourceId/sourceType stamped). In 'custom' mode Title + Location become
+   * editable text inputs, the confirm is blocked until Title is non-empty, and the
+   * created item is a PLAIN ItineraryItem with NO sourceId/sourceType — so it can
+   * never trip a false "Added" badge.
+   */
+  mode?: 'source' | 'custom';
+  /** Custom mode only: preset the date select to this date (e.g. the FAB's day). */
+  presetDate?: string;
 }
 
 export default function AddToItineraryDialog({
@@ -93,14 +116,22 @@ export default function AddToItineraryDialog({
   draft,
   existingPlacements,
   onClose,
+  mode = 'source',
+  presetDate,
 }: AddToItineraryDialogProps) {
   const { addItem, updateItem, removeItem } = useItineraryContext();
+  const isCustom = mode === 'custom';
 
-  // Portal mount guard. `createPortal(…, document.body)` must not run during the
-  // static-export prerender, so we only portal after the component has mounted on the
-  // client. The dialog only ever mounts on a user click (post-hydration), so this is
-  // satisfied immediately on open; it exists purely to keep `document` untouched on the
-  // server and to keep tsc/SSR honest.
+  // The date the form initializes to. Custom mode honors `presetDate` (the FAB's
+  // day) when it's a valid trip date; otherwise both modes fall back to TRIP_DATES[0].
+  const initialDate =
+    presetDate && TRIP_DATES.includes(presetDate) ? presetDate : TRIP_DATES[0];
+
+  // Portal mount guard. `createPortal(…, document.body)` must not run
+  // during the static-export prerender, so we only portal after the component has
+  // mounted on the client. The dialog only ever mounts on a user click (post-hydration),
+  // so this is satisfied immediately on open; it exists purely to keep `document`
+  // untouched on the server and to keep tsc/SSR honest.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -110,13 +141,17 @@ export default function AddToItineraryDialog({
   onCloseRef.current = onClose;
 
   // Form state. Default the date to the first placement (modify mode) else the
-  // first trip date (add mode). Category/time/duration/notes prefill from the
+  // preset/first trip date (add mode). Category/time/duration/notes prefill from the
   // draft, then from the placement being modified if one is selected.
-  const [selectedDate, setSelectedDate] = useState<string>(TRIP_DATES[0]);
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [time, setTime] = useState<string>('');
   const [category, setCategory] = useState<ItineraryCategory>(draft.category);
   const [duration, setDuration] = useState<string>(draft.duration ?? '');
   const [notes, setNotes] = useState<string>(draft.notes ?? '');
+  // Custom mode only: editable Title + Location. In source mode these are unused
+  // (Title/Location come fixed from the draft), so source behavior is unchanged.
+  const [customTitle, setCustomTitle] = useState<string>(draft.title ?? '');
+  const [customLocation, setCustomLocation] = useState<string>(draft.location ?? '');
 
   // In modify mode the user works on one existing placement at a time. Its
   // {date,itemId} is the modify target; null = "add a new placement".
@@ -126,14 +161,16 @@ export default function AddToItineraryDialog({
   // reused dialog instance never shows stale values from a prior open.
   useEffect(() => {
     if (!open) return;
-    setSelectedDate(TRIP_DATES[0]);
+    setSelectedDate(initialDate);
     setTime('');
     setCategory(draft.category);
     setDuration(draft.duration ?? '');
     setNotes(draft.notes ?? '');
+    setCustomTitle(draft.title ?? '');
+    setCustomLocation(draft.location ?? '');
     setEditingPlacementId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, draft.sourceId]);
+  }, [open, draft.sourceId, initialDate]);
 
   // Stable, collision-free ids for label/aria wiring.
   const baseId = useId();
@@ -143,11 +180,26 @@ export default function AddToItineraryDialog({
   const durationFieldId = `${baseId}-duration`;
   const notesFieldId = `${baseId}-notes`;
   const categoryLabelId = `${baseId}-category-label`;
+  const titleFieldId = `${baseId}-title`;
+  const locationFieldId = `${baseId}-location`;
 
   const panelRef = useRef<HTMLDivElement>(null);
+  // In custom mode the first focusable field is the editable Title input; in source
+  // mode it's the date select (the autofocus target).
   const firstFieldRef = useRef<HTMLSelectElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
+  // Custom mode never has existing placements (custom items carry no sourceId, so
+  // findPlacements returns []), so isModifyMode is always false there.
   const isModifyMode = existingPlacements.length > 0;
+
+  // The effective title/location the confirm + Maps link use. Custom mode reads the
+  // editable fields; source mode reads the fixed draft (unchanged behavior).
+  const effectiveTitle = isCustom ? customTitle : draft.title;
+  const effectiveLocation = isCustom ? (customLocation || undefined) : draft.location;
+  const mapsUrl = buildMapsSearchUrl(effectiveTitle, effectiveLocation);
+  // Confirm is blocked in custom mode until a non-empty title.
+  const confirmDisabled = isCustom && effectiveTitle.trim().length === 0;
 
   // Load a placement's values into the form so the user can change its date/time
   // (and category/duration/notes). Selecting a placement switches the confirm
@@ -164,7 +216,7 @@ export default function AddToItineraryDialog({
   // Reset the form back to "add a new placement" (clears the modify target).
   const startAddingNew = () => {
     setEditingPlacementId(null);
-    setSelectedDate(TRIP_DATES[0]);
+    setSelectedDate(initialDate);
     setTime('');
     setCategory(draft.category);
     setDuration(draft.duration ?? '');
@@ -172,6 +224,27 @@ export default function AddToItineraryDialog({
   };
 
   const handleConfirm = () => {
+    // Custom mode: a PLAIN ItineraryItem — editable title/location, NO
+    // sourceId/sourceType, so it never trips a card "Added" badge. Blocked on empty
+    // title. There is never a placement to modify (no sourceId ⇒ findPlacements []).
+    if (isCustom) {
+      const title = customTitle.trim();
+      if (!title) return; // guard (the button is also disabled)
+      addItem(selectedDate, {
+        id: generateItemId(),
+        title,
+        location: customLocation.trim() || undefined,
+        category,
+        time: time || undefined,
+        duration: duration || undefined,
+        notes: notes || undefined,
+        // Deliberately NO sourceId / sourceType.
+      });
+      toast.success(`Added “${title}” to ${formatDate(selectedDate)}`);
+      onClose();
+      return;
+    }
+
     const patch = {
       title: draft.title,
       location: draft.location,
@@ -184,7 +257,7 @@ export default function AddToItineraryDialog({
     };
 
     if (editingPlacementId) {
-      // Modify an existing placement. If the date is unchanged, update in place
+      // Modify an existing placement. If the date is unchanged, update in place;
       // if the user moved it to another day, remove from the old day and re-add on
       // the new one (an item lives inside a single DayPlan, keyed by date).
       const original = existingPlacements.find((p) => p.item.id === editingPlacementId);
@@ -197,23 +270,38 @@ export default function AddToItineraryDialog({
         toast.success(`Updated “${draft.title}” on ${formatDate(selectedDate)}`);
       }
     } else {
-      // Add a brand-new placement (fresh per-placement id; shared sourceId, ).
+      // Add a brand-new placement (fresh per-placement id; shared sourceId).
       addItem(selectedDate, { ...patch, id: generateItemId() });
       toast.success(`Added “${draft.title}” to ${formatDate(selectedDate)}`);
     }
     onClose();
   };
 
-  // On open: focus the first field (the date select). The native control's focus
-  // re-asserts shortly after, in case the open animation steals it.
+  // On open: focus the first field — the Title input in custom mode, the date select
+  // in source mode. The native control's focus re-asserts shortly after, in case the
+  // open animation steals it.
   useEffect(() => {
     const timer = setTimeout(() => {
       const panel = panelRef.current;
       if (panel && !panel.contains(document.activeElement)) {
-        firstFieldRef.current?.focus();
+        if (isCustom) titleInputRef.current?.focus();
+        else firstFieldRef.current?.focus();
       }
     }, 50);
     return () => clearTimeout(timer);
+  }, [isCustom]);
+
+  // body[data-dialog-open] flag: the quick-add FAB hides while it is set, so the FAB
+  // never floats over an open dialog's scrim. Set it while this
+  // dialog is mounted-open and clear it on close/unmount, in the same portal/focus
+  // lifecycle. Guarded by a ref-count style check on the attribute so two dialogs that
+  // briefly overlap during an exit animation don't clear the flag prematurely.
+  useEffect(() => {
+    const body = document.body;
+    body.dataset.dialogOpen = '1';
+    return () => {
+      delete body.dataset.dialogOpen;
+    };
   }, []);
 
   // Esc closes at the document level so it fires wherever focus sits. onClose only
@@ -287,14 +375,20 @@ export default function AddToItineraryDialog({
         <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
           <div className="min-w-0">
             <h3 id={titleId} className="font-display text-lg font-bold text-white leading-tight">
-              {isModifyMode ? 'Update plan' : 'Add to plan'}
+              {isCustom ? 'Add your own plan' : isModifyMode ? 'Update plan' : 'Add to plan'}
             </h3>
-            <p className="text-sm text-white/60 mt-0.5 truncate">{draft.title}</p>
-            {draft.location && (
-              <p className="text-xs text-white/30 mt-0.5 flex items-center gap-1">
-                <MapPin className="w-3 h-3 shrink-0" />
-                <span className="truncate">{draft.location}</span>
-              </p>
+            {isCustom ? (
+              <p className="text-sm text-white/60 mt-0.5 truncate">A dinner spot, a place a friend mentioned…</p>
+            ) : (
+              <>
+                <p className="text-sm text-white/60 mt-0.5 truncate">{draft.title}</p>
+                {draft.location && (
+                  <p className="text-xs text-white/30 mt-0.5 flex items-center gap-1">
+                    <MapPin className="w-3 h-3 shrink-0" />
+                    <span className="truncate">{draft.location}</span>
+                  </p>
+                )}
+              </>
             )}
           </div>
           <button type="button" onClick={onClose} aria-label="Close dialog" className="shrink-0 p-1 rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none">
@@ -304,7 +398,7 @@ export default function AddToItineraryDialog({
 
         {/* Scrollable body — the only scroll region. `min-h-0` lets it shrink inside
             the flex column so the pinned footer is never pushed off-screen on short
-            viewports (fix). A native scrollbar (no `scrollbar-hide`) makes the
+            viewports. A native scrollbar (no `scrollbar-hide`) makes the
             overflow discoverable when the content is taller than the viewport. */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6">
         {/* Existing placements (modify/remove mode) */}
@@ -369,6 +463,57 @@ export default function AddToItineraryDialog({
         )}
 
         <div className="space-y-4">
+          {/* Custom mode: editable Title + Location. Source mode keeps these
+              fixed in the header, so this block is only rendered for custom mode. */}
+          {isCustom && (
+            <>
+              <div>
+                <label htmlFor={titleFieldId} className="text-xs text-white/50 mb-1 block">Title *</label>
+                <input
+                  id={titleFieldId}
+                  ref={titleInputRef}
+                  value={customTitle}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomTitle(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                  placeholder="e.g., Ramen Nagi"
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label htmlFor={locationFieldId} className="text-xs text-white/50 mb-1 block">Location</label>
+                <input
+                  id={locationFieldId}
+                  value={customLocation}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomLocation(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                  placeholder="e.g., Shinjuku"
+                  autoComplete="off"
+                />
+              </div>
+              {/* Google Maps research link-out. Disabled until Title is
+                  non-empty; a URL, not an API — no key, no quota. */}
+              {mapsUrl ? (
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gold-300 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                  Search on Google Maps
+                </a>
+              ) : (
+                <span
+                  aria-disabled="true"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white/25 cursor-not-allowed select-none"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                  Search on Google Maps
+                </span>
+              )}
+            </>
+          )}
+
           {/* Date select */}
           <div>
             <label htmlFor={dateFieldId} className="text-xs text-white/50 mb-1 block">Date *</label>
@@ -434,13 +579,14 @@ export default function AddToItineraryDialog({
         </div>
 
         {/* Pinned action footer — OUTSIDE the scroll area, so the confirm button is
-            ALWAYS visible and clickable at any viewport height (fix). The top
+            ALWAYS visible and clickable at any viewport height. The top
             border + panel bg give a clean divider so scrolled content doesn't bleed
             under it. */}
         <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-navy-900/40">
           <button
             onClick={handleConfirm}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
+            disabled={confirmDisabled}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gold-500"
           >
             <Check className="w-4 h-4" />
             {editingPlacementId ? 'Update plan' : 'Add to plan'}

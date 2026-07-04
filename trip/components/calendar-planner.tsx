@@ -5,7 +5,7 @@ import { m, AnimatePresence } from 'framer-motion';
 import {
   Calendar, Plus, Trash2, Edit3, GripVertical, Save,
   MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
-  Landmark, Plane, Hotel, Coffee, Music, X, Check, ChevronLeft, ChevronRight
+  Landmark, Plane, Hotel, Coffee, Music, X, Check, ChevronLeft, ChevronRight, ChevronDown
 } from 'lucide-react';
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
@@ -22,6 +22,9 @@ import {
   ItineraryItem, ItineraryCategory, CATEGORY_COLORS,
 } from '@/lib/trip-data';
 import { generateItemId } from '@/lib/item-id';
+import { getTodayInTrip } from '@/lib/trip-now';
+import { setSelectedDay } from '@/lib/selected-day';
+import DayStrip, { DayStripDateMeta } from '@/components/day-strip';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { filterItemsByAuthor } from '@/lib/author-filter';
@@ -140,7 +143,7 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
     if (!title.trim()) return;
     onSave({
       // Spread the original item first so additive source-linkage fields
-      // (sourceId/sourceType, ) survive an edit of a card-created item.
+      // (sourceId/sourceType) survive an edit of a card-created item.
       ...item,
       id: item?.id ?? generateItemId(),
       title: title.trim(),
@@ -311,6 +314,9 @@ export default function CalendarPlanner() {
   const [showEditor, setShowEditor] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'agenda'>('calendar');
+  // Mobile-only (`<lg`): the month grid is demoted to a collapsible "Month view",
+  // collapsed by default so the phone lands on the single-day agenda.
+  const [showMonthView, setShowMonthView] = useState(false);
 
   // Presentational author filter: READ-ONLY. It only narrows which items
   // are SHOWN; it never touches `plans`/localStorage or any store mutator. CRUD, DnD and
@@ -330,6 +336,25 @@ export default function CalendarPlanner() {
   // Load/save effects and the local getDayPlan/updateDayPlan are gone — the store
   // owns load-on-mount, the savePlans-on-write + CustomEvent fan-out, and
   // the existing-or-synthesized getDayPlan. The calendar is now a pure consumer.
+
+  // Travel-mode default: jump the initial selection to today when we are
+  // inside the trip window. Run ONCE post-mount ([] deps) — NOT during the initial
+  // render — so the SSR/first-client paint keeps the SSR-safe TRIP_DATES[0] default and
+  // there is no hydration mismatch. Only overrides the untouched initial selection;
+  // any later user selection is unaffected because this never re-runs.
+  useEffect(() => {
+    const t = getTodayInTrip();
+    if (t) setSelectedDate(t.date);
+  }, []);
+
+  // Mirror the focused day into the in-memory selected-day signal so
+  // the quick-add FAB presets its date to whatever day the calendar shows. Covers every
+  // selection path uniformly — day-strip taps, month-grid clicks, agenda-list clicks,
+  // prev/next, and the today-init above — since all of them flow through
+  // `selectedDate`. In-memory only: setSelectedDay never touches storage.
+  useEffect(() => {
+    setSelectedDay(selectedDate);
+  }, [selectedDate]);
 
   const handleAddItem = () => {
     triggerRef.current = (document.activeElement as HTMLElement) ?? null;
@@ -420,7 +445,7 @@ export default function CalendarPlanner() {
         }
       } else if (activeDate && overDate && activeDate !== overDate) {
         // Move between days, inserting at the hovered item's index (as before).
-        // Compute the target's intended final id order from the current snapshot
+        // Compute the target's intended final id order from the current snapshot,
         // then move (append) + reorder; the store reads the freshest persisted state
         // on each commit, so these two ops compose without a stale-snapshot clobber.
         const sourcePlan = getDayPlan(activeDate);
@@ -519,11 +544,22 @@ export default function CalendarPlanner() {
   // The selected day's full stored item set (unfiltered — this is the CRUD/DnD target).
   const dayItems = currentPlan.items ?? [];
   // The presentational view: narrowed by the active author filter (read-only). DnD reorder
-  // still reads the full set from the store in handleDragEnd, so persistence is unaffected
+  // still reads the full set from the store in handleDragEnd, so persistence is unaffected;
   // we only change what renders and which ids the SortableContext tracks (so a drag inside
   // a filtered view stays consistent with what's visible).
   const visibleItems = filterItemsByAuthor(dayItems, authorFilter, myName);
   const allItemIds = visibleItems.map((i: ItineraryItem) => i.id);
+
+  // Per-date meta for the mobile day-strip. Precomputed here so the strip stays a
+  // pure presentational consumer — same country + item-count source the month grid uses
+  // (full stored set, unaffected by the read-only author filter). The Today marker date
+  // comes from the single trip-clock.
+  const dayStripMeta: DayStripDateMeta[] = TRIP_DATES.map((date) => ({
+    date,
+    country: getCountryForDate(date),
+    count: getDayPlan(date).items?.length ?? 0,
+  }));
+  const todayStripDate = getTodayInTrip()?.date ?? null;
 
   return (
     <section id="itinerary" aria-labelledby="itinerary-heading" className="py-20 px-4 sm:px-6">
@@ -542,8 +578,9 @@ export default function CalendarPlanner() {
           </p>
         </m.div>
 
-        {/* View Toggle */}
-        <div className="flex flex-wrap justify-center gap-2 mb-6">
+        {/* View Toggle — desktop only (`lg+`). On phones the day-strip + collapsible
+            month view replace this Calendar/Agenda switch, so it is hidden below `lg`. */}
+        <div className="hidden lg:flex flex-wrap justify-center gap-2 mb-6">
           <button
             onClick={() => setViewMode('calendar')}
             aria-pressed={viewMode === 'calendar'}
@@ -570,6 +607,33 @@ export default function CalendarPlanner() {
         <div className="grid lg:grid-cols-[340px_1fr] gap-6">
           {/* Left: Calendar or Date list */}
           <div className="min-w-0">
+            {/* Mobile picker (`<lg`): the one-handed day-strip agenda picker replaces the
+                desktop month grid. The month grid is demoted to a collapsible "Month view",
+                collapsed by default. Desktop (`lg+`) never sees this block. */}
+            <div className="lg:hidden space-y-3">
+              <DayStrip
+                dates={TRIP_DATES}
+                selectedDate={selectedDate}
+                onSelect={setSelectedDate}
+                meta={dayStripMeta}
+                todayDate={todayStripDate}
+              />
+              <button
+                type="button"
+                onClick={() => setShowMonthView((v) => !v)}
+                aria-expanded={showMonthView}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white/50 hover:text-white/80 hover:bg-white/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                Month view
+                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMonthView ? 'rotate-180' : ''}`} />
+              </button>
+              {showMonthView && renderCalendar()}
+            </div>
+
+            {/* Desktop left pane (`lg+`): the existing month-grid / agenda-list two-pane,
+                pixel-equivalent to before — now gated to `lg+` since the day-strip owns `<lg`. */}
+            <div className="hidden lg:block">
             {viewMode === 'calendar' ? renderCalendar() : (
               <div className="glass-card rounded-2xl p-4 max-h-[600px] overflow-y-auto scrollbar-hide space-y-1">
                 {TRIP_DATES.map((date) => {
@@ -596,6 +660,7 @@ export default function CalendarPlanner() {
                 })}
               </div>
             )}
+            </div>
           </div>
 
           {/* Right: Day Detail with DnD */}
@@ -633,7 +698,7 @@ export default function CalendarPlanner() {
                           </>
                         ) : (
                           /* Day HAS items, but none match the active author filter (read-only
-                             view filter, ) — the stored items are untouched. */
+                             view filter) — the stored items are untouched. */
                           <>
                             <p className="text-white/30 text-sm">No activities match this filter</p>
                             <p className="text-white/20 text-xs mt-1">Switch the author filter to “All” to see every item</p>

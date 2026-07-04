@@ -6,10 +6,10 @@ import { getActiveTraveler, IDENTITY_CHANGED_EVENT, type Traveler } from '@/lib/
 /**
  * Reactive view of the signed-in identity.
  *
- * Returns `{ traveler, isGuest }` derived from `getActiveTraveler` (the persisted Trip
+ * Returns `{ traveler, isGuest }` derived from `getActiveTraveler()` (the persisted Trip
  * Token) and the `tripPlannerGuest` flag. It re-reads on the same-tab
  * `identity:changed` CustomEvent (dispatched by `signIn` / `signOut` and the guest
- * affordance — 's pattern) AND the cross-tab `storage` event, so a sign-in / sign-out
+ * affordance) AND the cross-tab `storage` event, so a sign-in / sign-out
  * reflects LIVE in the navbar chip and elsewhere without a manual reload.
  *
  * SSR-safe: `useSyncExternalStore`'s server snapshot returns the inert signed-out value

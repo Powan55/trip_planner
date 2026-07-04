@@ -1,0 +1,117 @@
+'use client';
+
+import { useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Home, Calendar, Mountain, Compass, Map, type LucideIcon } from 'lucide-react';
+
+/**
+ * Mobile bottom tab bar.
+ *
+ * The phone's primary navigation: a fixed, thumb-reach tab bar shown only `<md` (desktop
+ * keeps the top navbar). Five routes, each an app-like icon + label, ≥44×44 target, with a
+ * live `aria-current="page"` active state and the same warm/cool accent tint the navbar uses.
+ *
+ * DESIGN CONTRACT
+ * - Route array is a LOCAL copy of the navbar's five items (kept out of a shared module on
+ *   purpose to avoid coupling the two navs through an import). Kept byte-identical in
+ *   labels/hrefs/icons so the two navs never disagree.
+ * - Active state mirrors the navbar EXACTLY: trailing-slash-agnostic `normalizePath` +
+ *   `isRouteActive` (Home exact; others `===` or `startsWith(target + '/')`), driven by
+ *   `usePathname()` (which excludes basePath — the whole bar is basePath-agnostic).
+ * - Active tint via INLINE style `hsl(var(--accent-scroll))` (a dynamic color must be an
+ *   inline style, never a dynamic Tailwind class name) — same idiom + same live accent var the
+ *   navbar's underline uses, so both navs re-tint together via the route-accent engine.
+ * - Z-LADDER: the bar is `z-50` (navbar/tab-bar/dialog tier) so it sits above page
+ *   content and the presence bar (z-40) but below the token gate (z-70).
+ * - SAFE AREA: `paddingBottom: env(safe-area-inset-bottom)` keeps the labels clear of
+ *   the home-indicator on notched phones (`viewport-fit=cover` is set in the layout).
+ * - HEIGHT CONTRACT: on mount we publish the bar's height as `--tab-bar-h` on
+ *   `document.documentElement` so the FAB and page content can offset above it. A fixed 64px
+ *   (`h-16` content) is stable; consumers read `var(--tab-bar-h, 64px)` so the fallback
+ *   already covers first paint (before this effect runs).
+ * - A11y: a labeled `<nav>`, real `<Link>`s, visible focus ring, and reduced-motion-safe
+ *   color-only transitions (no transform on the tabs).
+ */
+
+// LOCAL copy of the navbar's five route items (deliberately not imported from navbar.tsx —
+// keeps the two navs decoupled). Icons match the navbar 1:1.
+const TAB_ITEMS: { label: string; href: string; icon: LucideIcon }[] = [
+  { label: 'Home', href: '/', icon: Home },
+  { label: 'Plan', href: '/plan/', icon: Calendar },
+  { label: 'Nepal', href: '/nepal/', icon: Mountain },
+  { label: 'Japan', href: '/japan/', icon: Compass },
+  { label: 'Map', href: '/map/', icon: Map },
+];
+
+/** The published height contract: consumers use `var(--tab-bar-h, 64px)`. */
+const TAB_BAR_HEIGHT_PX = 64;
+
+// Trailing-slash-agnostic pathname compare (mirrors navbar.tsx exactly: '' and '/' → Home).
+function normalizePath(p: string | null): string {
+  const stripped = (p ?? '/').replace(/\/+$/, '');
+  return stripped === '' ? '/' : stripped;
+}
+
+// Active when the pathname IS the route or sits below it (`/nepal/*`); Home is exact-only.
+function isRouteActive(pathname: string | null, href: string): boolean {
+  const current = normalizePath(pathname);
+  const target = normalizePath(href);
+  if (target === '/') return current === '/';
+  return current === target || current.startsWith(`${target}/`);
+}
+
+export default function BottomTabBar() {
+  const pathname = usePathname();
+
+  // Publish the bar height so the FAB / page content can offset above it (SSR-guarded).
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const root = document.documentElement;
+    root.style.setProperty('--tab-bar-h', `${TAB_BAR_HEIGHT_PX}px`);
+    // Leave the var in place on unmount: consumers already fall back to 64px, and in the
+    // real app the bar is app-wide chrome that never unmounts. No cleanup needed.
+  }, []);
+
+  return (
+    <nav
+      aria-label="Primary mobile"
+      className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-white/10 bg-navy-900/90 backdrop-blur-xl"
+      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
+      <ul className="flex items-stretch" style={{ height: `${TAB_BAR_HEIGHT_PX}px` }}>
+        {TAB_ITEMS.map((item) => {
+          const isActive = isRouteActive(pathname, item.href);
+          const Icon = item.icon;
+          return (
+            <li key={item.label} className="flex-1 min-w-0">
+              <Link
+                href={item.href}
+                aria-current={isActive ? 'page' : undefined}
+                data-active={isActive ? 'true' : undefined}
+                className="relative flex h-full min-h-[44px] w-full flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-medium outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold-400 focus-visible:outline-none"
+                // The active color is dynamic (route-accent var) → inline style, never a
+                // dynamic Tailwind class. Inactive tabs use a static muted white.
+                style={isActive ? { color: 'hsl(var(--accent-scroll))' } : undefined}
+              >
+                {/* Active top hairline in the same accent (decorative). */}
+                {isActive && (
+                  <span
+                    aria-hidden="true"
+                    className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full"
+                    style={{ backgroundColor: 'hsl(var(--accent-scroll))' }}
+                  />
+                )}
+                <Icon
+                  className={`h-5 w-5 shrink-0 ${isActive ? '' : 'text-white/60'}`}
+                  aria-hidden="true"
+                />
+                <span className={`truncate ${isActive ? '' : 'text-white/60'}`}>{item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}

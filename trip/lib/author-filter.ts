@@ -1,20 +1,20 @@
 // Author filter — a PRESENTATIONAL, read-only view filter shared across the calendar
-// and the timeline (, M13). It narrows which itinerary items are SHOWN to All /
+// and the timeline. It narrows which itinerary items are SHOWN to All /
 // "My edits" / a specific traveler, using the existing `createdBy` / `updatedBy`
 // attribution on `ItineraryItem`. It NEVER mutates stored data.
-
-// HARD FENCE: this module touches NO localStorage and NO itinerary store. It
+//
+// HARD RULE: this module touches NO localStorage and NO itinerary store. It
 // holds only ephemeral, in-memory view state (the active selection). A reload resets the
 // filter to "All" and the stored itinerary is byte-for-byte unaffected by it. CRUD and
 // persistence are completely independent of anything here.
-
-// STATE SHARING (, in a SEPARATE module so it never entangles the itinerary
+//
+// STATE SHARING (kept in a SEPARATE module so it never entangles the itinerary
 // store or `itinerary-provider.tsx`): a tiny module-level value plus a same-tab
-// `CustomEvent` on `window`. `setAuthorFilter` updates the value and dispatches the event
+// `CustomEvent` on `window`. `setAuthorFilter` updates the value and dispatches the event;
 // `subscribeAuthorFilter` lets both surfaces re-read on change, so ONE selection narrows
 // BOTH views. This is the same lightweight pattern the itinerary store uses for
 // `itinerary:changed`, kept entirely independent of it.
-
+//
 // SSR-safe: no module-load side effects; `setAuthorFilter` guards the `window` dispatch
 // with a `typeof window` check, and the pure helpers below never touch the DOM.
 
@@ -24,10 +24,10 @@ import type { DayPlan, ItineraryItem } from './trip-data';
 export const AUTHOR_FILTER_CHANGED_EVENT = 'author-filter:changed';
 
 /**
- * The active filter. Two reserved sentinels + any author name
- * 'all' → show everything (no filtering).
- * 'mine' → show only the current user's items (resolved via the live display name).
- * any other string → that exact author name.
+ * The active filter. Two reserved sentinels + any author name:
+ *   - 'all'  → show everything (no filtering).
+ *   - 'mine' → show only the current user's items (resolved via the live display name).
+ *   - any other string → that exact author name.
  *
  * Sentinels are bare words ('all' / 'mine'); a real selection is always a non-empty
  * display name. To avoid any theoretical collision with a traveler literally named "all"
@@ -82,9 +82,9 @@ export function subscribeAuthorFilter(onChange: () => void): () => void {
  * Pure — no storage, no DOM. `myName` is injected (the live display name from
  * lib/identity) so "My edits" stays testable and this module never imports identity.
  *
- * @param item the item under test
- * @param filter the active filter
- * @param myName the current display name, or null/undefined if none is set
+ * @param item    the item under test
+ * @param filter  the active filter
+ * @param myName  the current display name, or null/undefined if none is set
  */
 export function itemMatchesAuthor(
   item: ItineraryItem,
@@ -100,8 +100,8 @@ export function itemMatchesAuthor(
 }
 
 /**
- * Filter a day's items by the active author filter. A thin, pure `.filter` over the
- * items SHOWN — it returns a NEW array and never touches the source (read-only, ).
+ * Filter a day's items by the active author filter. A thin, pure `.filter()` over the
+ * items SHOWN — it returns a NEW array and never touches the source (read-only).
  * 'all' returns the same items (no copy needed for the common path).
  */
 export function filterItemsByAuthor(

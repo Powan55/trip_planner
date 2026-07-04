@@ -8,7 +8,7 @@ import { TRIP_START } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 
 /**
- * Trip Token landing gate (, M10 / ··) — the app's cinematic
+ * Trip Token landing gate — the app's cinematic
  * "front door." A full-screen WALL that gates the whole app: a traveler enters their
  * Trip Token (Powan / Sushil / Uttam) to sign in, OR clicks "Explore as guest" to
  * browse local-only. Once a token resolves, `signIn` persists the display name via the
@@ -16,29 +16,29 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
  * (createdBy / updatedBy, "last edited by X") needs ZERO changes downstream.
  *
  * ALWAYS-ON: unlike name-prompt, this shows in EVERY build (dormant or synced)
- * it is a client-only product feature, not a sync prompt. The guest bypass keeps the
+ * — it is a client-only product feature, not a sync prompt. The guest bypass keeps the
  * public/portfolio demo viewable. It is DORMANT-SAFE: it imports ONLY pure modules
  * (token-auth + identity + trip-data + countdown) and NEVER firebase, so the dormant
- * bundle loads no Firebase chunk (/ preserved).
+ * bundle loads no Firebase chunk.
  *
- * A11y reuses the /modal contract from name-prompt VERBATIM
- * role="dialog" aria-modal aria-labelledby aria-describedby
- * document-level Esc via an onCloseRef (latest-closure, bound once)
- * a lightweight Tab-trap inside the panel
- * autofocus the token input on open
- * Intentional DIVERGENCES — it is a WALL, not a dismissible modal (flagged at review)
- * signed-out: NON-dismissible — NO overlay-click-close, NO X button, Esc does NOT
- * dismiss. The ONLY ways past are a valid token or "Explore as guest".
- * invalid token → inline aria-live="polite" error; the input stays, no app access.
- * no focus-return-to-trigger (it's the front door, not triggered) — on unlock we let
- * focus fall to the body so keyboard users land in the revealed app naturally.
+ * A11y reuses the shared modal contract from name-prompt VERBATIM:
+ *  - role="dialog" aria-modal aria-labelledby aria-describedby
+ *  - document-level Esc via an onCloseRef (latest-closure, bound once)
+ *  - a lightweight Tab-trap inside the panel
+ *  - autofocus the token input on open
+ * Intentional DIVERGENCES — it is a WALL, not a dismissible modal:
+ *  - signed-out: NON-dismissible — NO overlay-click-close, NO X button, Esc does NOT
+ *    dismiss. The ONLY ways past are a valid token or "Explore as guest".
+ *  - invalid token → inline aria-live="polite" error; the input stays, no app access.
+ *  - no focus-return-to-trigger (it's the front door, not triggered) — on unlock we let
+ *    focus fall to the body so keyboard users land in the revealed app naturally.
  *
- * Motion uses the lightweight `m.*` only (LazyMotion `strict` — `motion.*` throws
- * ); reduced-motion is honored via <MotionConfig reducedMotion="user"> (declarative
+ * Motion uses the lightweight `m.*` only (LazyMotion `strict` — `motion.*` throws);
+ * reduced-motion is honored via <MotionConfig reducedMotion="user"> (declarative
  * framer auto-gates) plus the global reduced-motion CSS for the backdrop shimmer
- * (.bg-aurora/.animate-aurora are already neutralized there, /). Tailwind
- * classes are static literals; the card is sized to never overflow @360/390/414
- *. Countdown reuses the shared pure helper vs TRIP_START (Dec 9 2026, ).
+ * (.bg-aurora/.animate-aurora are already neutralized there). Tailwind
+ * classes are static literals; the card is sized to never overflow @360/390/414.
+ * Countdown reuses the shared pure helper vs TRIP_START (Dec 9 2026).
  */
 
 const GUEST_KEY = 'tripPlannerGuest';
@@ -68,7 +68,7 @@ function setGuest(): void {
 }
 
 export default function TokenGate() {
-  // `false` until we've decided on the client whether to show the wall (SSR-safe
+  // `false` until we've decided on the client whether to show the wall (SSR-safe:
   // getActiveTraveler / isGuest both read window). Decide once on mount.
   const [open, setOpen] = useState(false);
   const [decided, setDecided] = useState(false);
@@ -82,10 +82,10 @@ export default function TokenGate() {
     setDecided(true);
   }, []);
 
-  // Reactive re-show (, pattern): when identity changes — sign-out clears the
+  // Reactive re-show: when identity changes — sign-out clears the
   // token, or the navbar's "Guest · Sign in" clears the guest flag — re-evaluate and
   // re-OPEN the wall without a reload. We only ever re-open here; closing on a successful
-  // sign-in stays owned by the wall's own accent-flash dissolve (handleSubmit → onClose)
+  // sign-in stays owned by the wall's own accent-flash dissolve (handleSubmit → onClose),
   // so that cinematic exit is never cut short. (Signing in is the only path that closes.)
   useEffect(() => {
     const onIdentityChanged = () => {
@@ -129,7 +129,7 @@ function TokenGateWall({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus the token input on open; re-assert shortly after in case the open animation
-  // steals focus (the backstop), but only if focus isn't already in the panel.
+  // steals focus, but only if focus isn't already in the panel.
   useEffect(() => {
     const timer = setTimeout(() => {
       const panel = panelRef.current;
@@ -245,7 +245,7 @@ function TokenGateWall({
           </div>
         </div>
 
-        {/* Compact live countdown to departure (Dec 9 2026, ). */}
+        {/* Compact live countdown to departure (Dec 9 2026). */}
         <div className="mt-4 mb-5">
           <CompactCountdown />
         </div>

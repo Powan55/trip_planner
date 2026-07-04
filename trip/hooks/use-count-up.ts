@@ -4,35 +4,35 @@ import { useEffect, useRef, useState } from 'react';
 import { useReducedMotion } from 'framer-motion';
 
 /**
- * Eased, one-time count-up "reveal" for a numeric value (, M11 motion polish).
+ * Eased, one-time count-up "reveal" for a numeric value.
  *
  * PRESENTATIONAL ONLY. This hook is veneer over a value the caller already
  * computed (a countdown unit, a stat). It NEVER computes or recomputes anything
- * `target` is passed in, and the returned `value` is just an eased fraction of
+ * — `target` is passed in, and the returned `value` is just an eased fraction of
  * it during a single reveal, then the exact `target` forever after.
  *
- * Reduced-motion (/ HARD FENCE)
- * A hand-rolled requestAnimationFrame count-up is NOT auto-neutralized by
- * `<MotionConfig reducedMotion="user">` (that only gates declarative framer
- * props). So we read `useReducedMotion` explicitly: when the user prefers
- * reduced motion we SKIP the rAF loop entirely and report the final value
- * immediately, with `done: true`. No animation, no count-up.
+ * Reduced-motion (HARD FENCE):
+ *   A hand-rolled requestAnimationFrame count-up is NOT auto-neutralized by
+ *   `<MotionConfig reducedMotion="user">` (that only gates declarative framer
+ *   props). So we read `useReducedMotion()` explicitly: when the user prefers
+ *   reduced motion we SKIP the rAF loop entirely and report the final value
+ *   immediately, with `done: true`. No animation, no count-up.
  *
- * The live-tick handoff (used by the hero countdown)
- * The eased fraction is multiplied by the *current* `target` each frame, so a
- * caller whose `target` ticks every second (the live seconds) stays tracked
- * at the final frame `progress === 1` ⇒ `eased === 1` ⇒ `value === target`
- * EXACTLY. The caller flips to rendering its live value directly once `done`
- * is true, so after the reveal the displayed number equals the live value with
- * no desync and no jump.
+ * The live-tick handoff (used by the hero countdown):
+ *   The eased fraction is multiplied by the *current* `target` each frame, so a
+ *   caller whose `target` ticks every second (the live seconds) stays tracked:
+ *   at the final frame `progress === 1` ⇒ `eased === 1` ⇒ `value === target`
+ *   EXACTLY. The caller flips to rendering its live value directly once `done`
+ *   is true, so after the reveal the displayed number equals the live value with
+ *   no desync and no jump.
  *
- * @param target the number to reveal up to (may change live; final frame lands on it exactly)
- * @param active when true, the one-time reveal runs (e.g. gate on mount or useInView)
+ * @param target   the number to reveal up to (may change live; final frame lands on it exactly)
+ * @param active   when true, the one-time reveal runs (e.g. gate on mount or useInView)
  * @param duration reveal length in ms (default 2000, matching the dashboard's feel)
  * @returns `{ value, done }` — `value` is the eased number to display while
- * revealing; `done` is true once the reveal has completed (or instantly
- * under reduced motion). Callers should display their live/exact value
- * when `done` is true.
+ *          revealing; `done` is true once the reveal has completed (or instantly
+ *          under reduced motion). Callers should display their live/exact value
+ *          when `done` is true.
  */
 export function useCountUp(
   target: number,
@@ -57,7 +57,7 @@ export function useCountUp(
   // mid-reveal and re-runs it (StrictMode's mount→cleanup→remount in dev, or any
   // remount), the unfinished reveal RESUMES instead of being blocked forever by a
   // started-but-never-completed guard. That dev double-invoke was the cause of the
-  // stuck "00" countdown: the first run scheduled a rAF, the cleanup cancelled it
+  // stuck "00" countdown: the first run scheduled a rAF, the cleanup cancelled it,
   // and the re-run early-returned — leaving value at 0, done false, forever.
   const doneRef = useRef(false);
 

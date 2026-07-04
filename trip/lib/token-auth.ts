@@ -1,15 +1,15 @@
 // Trip Token gate — maps a shared "Trip Token" to a known traveler identity.
-
+//
 // This is *soft* identity (display-only, intentionally spoofable). A token is just a
 // shared word the three of us type to say "this is me"; on a match we reuse the
-// existing display-name pipeline (`setUserName` from./identity) so attribution
+// existing display-name pipeline (`setUserName` from ./identity) so attribution
 // (createdBy / updatedBy stamping, "last edited by X") needs zero changes. The token
 // itself is persisted separately so the gate can recognise a returning traveler.
-
+//
 // This module is firebase-free and carries no auth credential — the unspoofable
 // security id (anonymous-auth uid) is a separate, backend-greenlight-only concern and
 // is NOT handled here.
-
+//
 // SSR-safe: every localStorage / window access is guarded by a `typeof window` check so
 // these helpers are inert during static export / server render (return null / no-op).
 // `resolveToken` is deliberately pure (no storage) so it can be unit-tested anywhere.
@@ -17,13 +17,13 @@
 import { setUserName } from './identity';
 
 const TOKEN_KEY = 'tripPlannerToken';
-const USER_NAME_KEY = 'tripPlannerUserName'; // owned by./identity; cleared here on sign-out
+const USER_NAME_KEY = 'tripPlannerUserName'; // owned by ./identity; cleared here on sign-out
 
 /**
  * Same-tab reactive signal for identity changes. Mirrors the itinerary store's
  * `itinerary:changed` pattern: a sign-in/sign-out dispatches this CustomEvent on
  * `window` so the navbar chip, the gate, and the gated remote-subscribe re-evaluate LIVE
- * without a manual reload. SSR-guarded at each call site (no-op when `window` is absent).
+ * — without a manual reload. SSR-guarded at each call site (no-op when `window` is absent).
  */
 export const IDENTITY_CHANGED_EVENT = 'identity:changed';
 
@@ -96,7 +96,7 @@ export function getActiveTraveler(): Traveler | null {
 }
 
 /**
- * Sign out: clear the persisted token and the display name. Since./identity stays
+ * Sign out: clear the persisted token and the display name. Since ./identity stays
  * untouched, the name key is removed directly here. Already-stamped createdBy /
  * updatedBy on stored items are historical and are NOT touched. No-op during SSR.
  */

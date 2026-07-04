@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { m } from 'framer-motion';
 import {
   MapPin, Plane, Mountain, Building, Clock, ListPlus,
@@ -36,10 +37,10 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
   const [selectedDate, setSelectedDate] = useState<string>(TRIP_DATES[0]);
 
   // Read the itinerary from the shared reactive store instead of a one-time
-  // `loadPlans` on mount. This makes the selected-day panel reflect a same-tab
-  // add/edit/remove from any place card OR the calendar LIVE, without a reload
+  // `loadPlans()` on mount. This makes the selected-day panel reflect a same-tab
+  // add/edit/remove from any place card OR the calendar LIVE, without a reload —
   // the store re-reads on its `itinerary:changed` CustomEvent. The timeline only
-  // READS `plans` (it has no mutators),.
+  // READS `plans` (it has no mutators).
   const { plans } = useItineraryContext();
 
   // Presentational author filter: READ-ONLY. Shared with the calendar via
@@ -237,13 +238,14 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                   <ListPlus className="w-5 h-5 text-white/40" />
                 </div>
                 <p className="text-white/70 font-medium">No activities planned for this day yet</p>
-                <a
-                  href="#itinerary"
+                {/* The planner lives on /plan/ — real route link. */}
+                <Link
+                  href="/plan/"
                   className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-gold-400 hover:text-gold-300 transition-colors rounded outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
                 >
                   <ListPlus className="w-4 h-4" />
                   Plan this day in the itinerary
-                </a>
+                </Link>
               </div>
             )}
           </div>

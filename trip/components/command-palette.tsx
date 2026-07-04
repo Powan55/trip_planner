@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   Calendar,
   Gauge,
@@ -24,19 +25,24 @@ import {
   CommandItem,
   CommandShortcut,
 } from '@/components/ui/command';
+import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
 
 /**
- * ⌘K / Ctrl+K command palette (, M11).
+ * ⌘K / Ctrl+K command palette.
  *
- * Keyboard-first navigation to any of the page's anchored sections. Mounted ONCE
- * at the app root (see app/layout.tsx) so the shortcut works from anywhere. It is
- * purely additive: jump-to-section only — jump-to-date / author-filter / add-item
- * are intentionally deferred (out of scope for this slice).
+ * Keyboard-first navigation to any destination in the app. Mounted ONCE at the
+ * app root (see app/layout.tsx) so the shortcut works from anywhere. Since the
+ * v2 route split every target is a `{ route, hash? }` pair: selection
+ * navigates via `useRouter().push(route + hash)` (basePath-agnostic).
+ * A SAME-route hash keeps the direct `scrollIntoView` path; a CROSS-route hash
+ * defers through `scrollToSectionWhenReady` (bounded rAF poll + double-rAF once
+ * the `ssr:false` island mounts — the same pattern the navbar uses), because the target
+ * does not exist in the DOM until the destination page's chunks load.
  *
  * A11y: built on the Radix Dialog primitive (via ui/dialog), which traps
  * focus and closes on Esc. Radix does NOT, however, restore focus when the dialog is
  * opened programmatically (no DialogTrigger) — verified in headless Chrome that focus
- * lands on <body> after Esc. So per the brief we add explicit focus-return: snapshot
+ * lands on <body> after Esc. So we add explicit focus-return: snapshot
  * document.activeElement when opening, and in DialogContent's onCloseAutoFocus
  * preventDefault Radix's default and focus the snapshot back. A visually-hidden
  * DialogTitle/Description satisfies Radix's required-title a11y contract without a
@@ -46,38 +52,49 @@ import {
  * (tailwindcss-animate), already neutralized by globals.css under
  * `prefers-reduced-motion: reduce`. The JS scrollIntoView below is a JS API the CSS
  * `scroll-behavior` rule does NOT govern, so we explicitly pass behavior:'auto' under
- * reduce (instant jump). No framer-motion is introduced here, so the LazyMotion
- * `strict` flag is irrelevant to this file.
+ * reduce (instant jump) — scrollToSectionWhenReady applies the same rule. No
+ * framer-motion is introduced here, so the LazyMotion `strict` flag is irrelevant
+ * to this file.
  *
  * Matching: a custom deterministic `filter` (scoreItem) replaces cmdk's built-in
  * fuzzy scorer, which was loose enough to rank "nepal" → "Itinerary Planner" (…Planner)
  * above the actual Nepal item. scoreItem ranks exact label substrings first, keyword
  * aliases below them, and drops weak fuzzy noise — verified in headless Chrome.
+ * scoreItem is untouched by the route split.
  */
 
 type Section = {
-  id: string; // anchor target WITHOUT the leading '#'
+  route: string; // canonical trailing-slash route ('/', '/plan/', …)
+  hash?: string; // optional sub-anchor WITH the leading '#' (section ids are kept)
   label: string;
   group: 'Plan' | 'Destinations' | 'Guides';
-  keywords?: string[]; // extra alias terms for fuzzy matching (static literals — )
+  keywords?: string[]; // extra alias terms for fuzzy matching (static literals)
   icon: React.ComponentType<{ className?: string }>;
 };
 
-// Anchors are harvested from the live section markup and verified to exist on the
-// page (hero/dashboard/timeline/itinerary/flights/nepal/japan/photography/nightlife/
-// map/inspiration). The seven navbar items are a subset of these and match exactly.
+// Targets follow the five-page route tree; hash sub-anchors match the section ids
+// kept on each page. Photography/Nightlife point at /nepal/ (the guide pages'
+// canonical home, mirroring the legacy-hash redirect map); Travel Essentials is
+// the renamed Home half of the old Travel Inspiration section (id stays
+// `inspiration`).
 const SECTIONS: Section[] = [
-  { id: 'dashboard', label: 'Countdown Dashboard', group: 'Plan', keywords: ['countdown', 'timer', 'days', 'home'], icon: Gauge },
-  { id: 'timeline', label: 'Trip Timeline', group: 'Plan', keywords: ['schedule', 'days', 'route'], icon: ListOrdered },
-  { id: 'itinerary', label: 'Itinerary Planner', group: 'Plan', keywords: ['calendar', 'plan', 'events'], icon: Calendar },
-  { id: 'flights', label: 'Flights', group: 'Plan', keywords: ['airport', 'travel', 'arrivals', 'departures'], icon: Plane },
-  { id: 'nepal', label: 'Nepal', group: 'Destinations', keywords: ['kathmandu', 'himalaya', 'pokhara'], icon: Mountain },
-  { id: 'japan', label: 'Japan', group: 'Destinations', keywords: ['tokyo', 'kyoto', 'osaka'], icon: Compass },
-  { id: 'photography', label: 'Photography Guide', group: 'Guides', keywords: ['camera', 'photos', 'gear', 'spots'], icon: Camera },
-  { id: 'nightlife', label: 'Nightlife & Bars', group: 'Guides', keywords: ['clubs', 'drinks', 'bars', 'night'], icon: Wine },
-  { id: 'map', label: 'Map', group: 'Guides', keywords: ['locations', 'pins', 'regions'], icon: MapIcon },
-  { id: 'inspiration', label: 'Travel Inspiration', group: 'Guides', keywords: ['ideas', 'blog', 'gallery'], icon: Sparkles },
+  { route: '/', hash: '#dashboard', label: 'Countdown Dashboard', group: 'Plan', keywords: ['countdown', 'timer', 'days', 'home'], icon: Gauge },
+  { route: '/', hash: '#timeline', label: 'Trip Timeline', group: 'Plan', keywords: ['schedule', 'days', 'route'], icon: ListOrdered },
+  { route: '/plan/', label: 'Itinerary Planner', group: 'Plan', keywords: ['calendar', 'plan', 'events'], icon: Calendar },
+  { route: '/', hash: '#flights', label: 'Flights', group: 'Plan', keywords: ['airport', 'travel', 'arrivals', 'departures'], icon: Plane },
+  { route: '/nepal/', label: 'Nepal', group: 'Destinations', keywords: ['kathmandu', 'himalaya', 'pokhara'], icon: Mountain },
+  { route: '/japan/', label: 'Japan', group: 'Destinations', keywords: ['tokyo', 'kyoto', 'osaka'], icon: Compass },
+  { route: '/nepal/', hash: '#photography', label: 'Photography Guide', group: 'Guides', keywords: ['camera', 'photos', 'gear', 'spots'], icon: Camera },
+  { route: '/nepal/', hash: '#nightlife', label: 'Nightlife & Bars', group: 'Guides', keywords: ['clubs', 'drinks', 'bars', 'night'], icon: Wine },
+  { route: '/map/', label: 'Map', group: 'Guides', keywords: ['locations', 'pins', 'regions'], icon: MapIcon },
+  { route: '/', hash: '#inspiration', label: 'Travel Essentials', group: 'Guides', keywords: ['inspiration', 'packing', 'weather', 'ideas'], icon: Sparkles },
 ];
+
+// Trailing-slash-agnostic pathname compare (mirrors navbar.tsx).
+function normalizePath(p: string | null): string {
+  const stripped = (p ?? '/').replace(/\/+$/, '');
+  return stripped === '' ? '/' : stripped;
+}
 
 const GROUP_ORDER: Section['group'][] = ['Plan', 'Destinations', 'Guides'];
 
@@ -116,7 +133,7 @@ export function scoreItem(value: string, search: string, keywords?: string[]): n
   }
 
   // 3) Last resort: a loose subsequence on the LABEL only, but require contiguity-ish
-  // quality so noise (e.g. "nepal" vs "Itinerary Planner") is rejected.
+  //    quality so noise (e.g. "nepal" vs "Itinerary Planner") is rejected.
   return subsequenceScore(label, q);
 }
 
@@ -155,14 +172,17 @@ function prefersReducedMotion(): boolean {
 
 export default function CommandPalette() {
   const [open, setOpen] = React.useState(false);
+  const router = useRouter();
+  const pathname = usePathname();
   // Focus-return shim: the element focused at the moment the palette opened, so we can
   // restore focus on close. Radix's FocusScope does NOT restore focus when the dialog
   // is opened programmatically (no DialogTrigger) — it sends focus to <body>. We snapshot
   // here on open and restore in DialogContent's onCloseAutoFocus (the correct Radix hook).
   const triggerRef = React.useRef<HTMLElement | null>(null);
-  // Set when a selection requested a scroll; consumed after the dialog finishes closing
-  // so the scroll happens once the overlay is gone (avoids competing with focus teardown).
-  const pendingScrollId = React.useRef<string | null>(null);
+  // Set when a selection requested navigation; consumed after the dialog finishes closing
+  // so the route push / scroll happens once the overlay is gone (avoids competing with
+  // focus teardown).
+  const pendingTarget = React.useRef<{ route: string; hash?: string } | null>(null);
 
   const snapshotTrigger = React.useCallback(() => {
     triggerRef.current = (document.activeElement as HTMLElement) ?? null;
@@ -189,38 +209,69 @@ export default function CommandPalette() {
     setOpen(next);
   }, [snapshotTrigger]);
 
-  const performScroll = React.useCallback((id: string) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.scrollIntoView({
-      behavior: prefersReducedMotion() ? 'auto' : 'smooth',
-      block: 'start',
-    });
-    // Reflect the destination in the URL hash without a jumpy history entry, matching
-    // native anchor behavior (and helping deep-linking / screen readers).
-    if (typeof history !== 'undefined' && history.replaceState) {
-      history.replaceState(null, '', `#${id}`);
-    }
-  }, []);
+  /**
+   * Route-aware navigation.
+   * - SAME route + hash → the section is already mounted: direct scrollIntoView
+   *   (reduced-motion 'auto') + history.replaceState of the hash, the original
+   *   single-page behavior. (If the island hasn't mounted yet — e.g. palette used
+   *   instantly after load — fall back to the bounded poll.)
+   * - SAME route, no hash → scroll to top (the page IS the destination).
+   * - CROSS route → router.push(route + hash). The hash target is a `ssr:false`
+   *   island that does not exist until the destination page mounts, so the scroll
+   *   defers through scrollToSectionWhenReady (bounded rAF poll + double-rAF —
+   *   the same pattern the navbar uses). Fire-and-forget by design: the poll must
+   *   survive the route transition.
+   */
+  const performNavigate = React.useCallback((target: { route: string; hash?: string }) => {
+    const sameRoute = normalizePath(pathname) === normalizePath(target.route);
+    const id = target.hash ? target.hash.slice(1) : null;
 
-  const handleSelect = React.useCallback((id: string) => {
-    // Defer the scroll until the dialog has closed (onCloseAutoFocus), then close.
-    pendingScrollId.current = id;
+    if (sameRoute) {
+      if (!id) {
+        window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? 'auto' : 'smooth' });
+        return;
+      }
+      const el = document.getElementById(id);
+      if (el) {
+        el.scrollIntoView({
+          behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+          block: 'start',
+        });
+      } else {
+        scrollToSectionWhenReady(id);
+      }
+      // Reflect the destination in the URL hash without a jumpy history entry, matching
+      // native anchor behavior (and helping deep-linking / screen readers).
+      if (typeof history !== 'undefined' && history.replaceState) {
+        history.replaceState(null, '', target.hash);
+      }
+      return;
+    }
+
+    router.push(target.route + (target.hash ?? ''));
+    if (id) scrollToSectionWhenReady(id);
+  }, [pathname, router]);
+
+  const handleSelect = React.useCallback((target: { route: string; hash?: string }) => {
+    // Defer navigation until the dialog has closed (onCloseAutoFocus), then close.
+    pendingTarget.current = target;
     setOpen(false);
   }, []);
 
   // Fires exactly when Radix would auto-focus on close. We preventDefault (Radix would
-  // otherwise focus <body> since there's no trigger) and restore focus to the opener
-  // then run any pending scroll. This is the reliable focus-return path.
+  // otherwise focus <body> since there's no trigger) and restore focus to the opener,
+  // then run any pending navigation. This is the reliable focus-return path:
+  // focus is restored BEFORE the route push, so an opener that lives in the persistent
+  // layout (navbar, etc.) keeps focus across the transition.
   const handleCloseAutoFocus = React.useCallback((e: Event) => {
     e.preventDefault();
     const target = triggerRef.current;
     triggerRef.current = null;
     if (target && typeof target.focus === 'function') target.focus();
-    const id = pendingScrollId.current;
-    pendingScrollId.current = null;
-    if (id) performScroll(id);
-  }, [performScroll]);
+    const pending = pendingTarget.current;
+    pendingTarget.current = null;
+    if (pending) performNavigate(pending);
+  }, [performNavigate]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -240,7 +291,7 @@ export default function CommandPalette() {
           // first, keyword aliases below them, loose fuzzy noise is dropped. Replaces
           // cmdk's built-in scorer, which mis-ranked "nepal" → "Itinerary Planner".
           // value = clean label; keywords prop carries the aliases (fed to scoreItem).
-          // globals.css color tokens are untouched ('s lane).
+          // globals.css color tokens are untouched.
           filter={scoreItem}
           className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4"
         >
@@ -253,10 +304,10 @@ export default function CommandPalette() {
                   const Icon = section.icon;
                   return (
                     <CommandItem
-                      key={section.id}
+                      key={`${section.route}${section.hash ?? ''}`}
                       value={section.label}
                       keywords={section.keywords}
-                      onSelect={() => handleSelect(section.id)}
+                      onSelect={() => handleSelect({ route: section.route, hash: section.hash })}
                       className="gap-3"
                     >
                       <Icon className="shrink-0 text-gold-400" />
