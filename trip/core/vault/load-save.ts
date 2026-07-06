@@ -139,7 +139,7 @@ export function loadItinerary(config: VaultConfig): DayPlan[] {
     return fallback;
   }
 
-  // Forward-compat (blueprint §2.3): a version GREATER than current is read leniently
+  // Forward-compat: a version GREATER than current is read leniently
   // and NEVER down-converted or quarantined-on-version — attempt the lenient payload
   // read as-is; only quarantine if that lenient read itself fails.
   let payload: unknown;

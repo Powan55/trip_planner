@@ -213,7 +213,7 @@ function Figure({
   // Wrapped in a <div> group inside the parent <dl> (an allowed dl grouping element). The <div>
   // may ONLY contain <dt>/<dd> — so the supplementary `sub` is a SECOND <dd> (multiple descriptions
   // for one term are valid), NOT a <p> (axe `definition-list`: a <p> directly inside the group is a
-  // serious violation — surfaced by the in-trip axe scan, F19b).
+  // serious violation — surfaced by the in-trip axe scan).
   return (
     <div className="rounded-lg border border-white/10 bg-navy-900/40 p-3">
       <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-white/55">

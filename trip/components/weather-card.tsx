@@ -101,7 +101,7 @@ function LoadingState() {
       aria-busy="true"
       aria-label="Loading weather"
       // min-height approximates the loaded WeatherBody (conditions row + golden-hour block +
-      // attribution) so the agenda below does not jump when weather resolves (F16c).
+      // attribution) so the agenda below does not jump when weather resolves.
       className="min-h-[220px] rounded-xl border border-white/10 bg-white/[0.03] p-4"
     >
       <div className="flex items-center gap-3">
