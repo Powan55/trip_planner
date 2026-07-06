@@ -14,7 +14,7 @@ import { FadeIn } from '@/components/ui/animate';
  * from the attribution already on every item — `updatedBy` + `updatedAt`.
  * It performs NO writes: no `plans`/localStorage mutation, no store
  * mutator, no firebase write, no append-log — it only reads the shared reactive store
- * and renders. This keeps it firmly within the free tier (zero extra reads/writes)
+ * and renders. This keeps it firmly within the Spark free tier (zero extra reads/writes)
  * because it reads data the app already has.
  *
  * LIVE: it reads `plans` via `useItineraryContext()`, the one shared store that
@@ -37,7 +37,7 @@ import { FadeIn } from '@/components/ui/animate';
  * names/titles never overflow at narrow widths.
  */
 
-/** How many recent edits to surface (newest first). Brief: N = 6–8. */
+/** How many recent edits to surface (newest first). */
 const FEED_LIMIT = 8;
 
 interface ActivityEntry {

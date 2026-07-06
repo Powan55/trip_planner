@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { m } from 'framer-motion';
 import { Thermometer, Cloud, Shirt, CheckCircle, Circle, AlertTriangle } from 'lucide-react';
 import { PACKING_LIST, WEATHER_INFO } from '@/lib/travel-tips-data';
+import { checklistStore } from '@/core/storage/gateway';
 
 /**
  * Travel Essentials — the HOME half of the old `travel-inspiration.tsx`
@@ -11,29 +12,31 @@ import { PACKING_LIST, WEATHER_INFO } from '@/lib/travel-tips-data';
  * (featured destinations / foods / etiquette) moved to `country-essentials.tsx`
  * on the /nepal/ and /japan/ pages.
  *
- * The section KEEPS the legacy `inspiration` id (every original section id is
+ * The section KEEPS the legacy `inspiration` id (every v1 section id is
  * preserved; `/#inspiration` scrolls here via the legacy-hash redirect, and the
  * command palette targets it).
  *
- * ⚠ PERSISTENCE: the packing checklist persists to the exact localStorage key
- * `packing_checklist`, carried over verbatim from the old travel-inspiration
- * component. The key must never change — users' checklists survive the redesign.
+ * ⚠ PERSISTENCE: the packing checklist persists to the
+ * exact localStorage key `packing_checklist` (`Record<string,boolean>` JSON). The
+ * raw literal + localStorage access live in the typed storage gateway
+ * (`core/storage/gateway.ts`); this component delegates to `checklistStore`. The key
+ * string and on-disk value shape are UNCHANGED — deployed users' checklists survive.
  */
 
 function PackingChecklist() {
   const [checked, setChecked] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('packing_checklist');
-      if (saved) setChecked(JSON.parse(saved));
-    } catch { /* ignore */ }
+    // `checklistStore.get()` returns the persisted map, or {} when absent / corrupt / SSR —
+    // matching the prior "start empty unless a saved value exists" behavior (initial state
+    // is already {}). Never throws (guarded inside the gateway).
+    setChecked(checklistStore.get());
   }, []);
 
   const toggle = (item: string) => {
     const next = { ...(checked ?? {}), [item]: !checked?.[item] };
     setChecked(next);
-    try { localStorage.setItem('packing_checklist', JSON.stringify(next)); } catch { /* ignore */ }
+    checklistStore.set(next);
   };
 
   const categories = [...new Set(PACKING_LIST.map((p) => p.category))];
@@ -85,8 +88,11 @@ export default function TravelEssentials() {
   return (
     <section id="inspiration" aria-labelledby="inspiration-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
+        {/* Slide-only masthead entrance (opacity pinned to 1) so the axe
+            scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
+            mid-fade as a transient contrast failure. See RecommendationSection. */}
         <m.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-12"

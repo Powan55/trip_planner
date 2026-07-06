@@ -286,8 +286,8 @@ export default function MapSection() {
   const [popupNode, setPopupNode] = useState<HTMLElement | null>(null);
 
   // The GL map lives inside a single, persistent host div (`mapHostRef`) that we
-  // physically relocate between an inline slot and the portaled fullscreen slot
-  //. React never reparents this node (it renders once, at the component
+  // physically relocate between an inline slot and the portaled fullscreen slot.
+  // React never reparents this node (it renders once, at the component
   // root, and we move it with appendChild), so the MapLibre instance attached to
   // `containerRef` survives fullscreen enter/exit with zero state loss — only its
   // size changes, which map.resize() reconciles.
@@ -656,7 +656,7 @@ export default function MapSection() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stops, showItinerary, mapReady]);
 
-  // ── Map-host relocation ─────────────────────────────────────────────
+  // ── Map-host relocation ─────────────────────────────────────────────────────
   // Physically move the persistent map-host node between the inline slot and the
   // portaled fullscreen slot (createPortal only reparents React-managed subtrees;
   // the map-host is moved imperatively so MapLibre's canvas is never destroyed).
@@ -742,8 +742,12 @@ export default function MapSection() {
       className="py-20 px-4 sm:px-6"
     >
       <div className="max-w-[1200px] mx-auto">
+        {/* Slide-only masthead entrance (opacity pinned to 1) — see the
+            RecommendationSection masthead for the full rationale. Keeps the
+            (non-reduced-motion) axe scan from catching the muted `text-white/50`
+            subtitle mid-fade and flagging a transient contrast failure. */}
         <m.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-8"
@@ -774,12 +778,13 @@ export default function MapSection() {
                 type="button"
                 onClick={() => handleFilter(value)}
                 aria-pressed={isActive}
+                data-testid={`map-filter-${value.toLowerCase().replace(/\s+/g, '-')}`}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 ${
                   isActive
                     ? value === 'All'
                       ? 'bg-white/10 text-white border-white/20'
                       : `${style!.badge}`
-                    : 'text-white/40 border-transparent hover:bg-white/5 hover:text-white/60'
+                    : 'text-white/55 border-transparent hover:bg-white/5 hover:text-white/80'
                 }`}
               >
                 {Icon && <Icon className="w-3.5 h-3.5" />}
@@ -795,6 +800,7 @@ export default function MapSection() {
             type="button"
             onClick={() => setShowItinerary((v) => !v)}
             aria-pressed={showItinerary}
+            data-testid="map-itinerary-toggle"
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 ${
               showItinerary
                 ? 'bg-gold-500/20 text-gold-300 border-gold-500/40'
@@ -868,6 +874,7 @@ export default function MapSection() {
           backdrop-filter containing block). */}
       <div
         ref={mapHostRef}
+        data-testid="map-shell"
         className={
           isFullscreen
             ? 'fixed inset-0 z-[65] bg-navy-900'
@@ -889,7 +896,9 @@ export default function MapSection() {
         {/* Loading skeleton until the GL canvas is ready. */}
         {!mapReady && (
           <div className="absolute inset-0 grid place-items-center bg-navy-900">
-            <div className="flex flex-col items-center gap-3 text-white/40">
+            {/* Loading label `/40`→`/55` so "Loading map…" clears AA (3.76→6.22)
+                on the navy skeleton while the GL canvas mounts. */}
+            <div className="flex flex-col items-center gap-3 text-white/55">
               <MapPin className="w-6 h-6 motion-safe:animate-pulse" />
               <span className="text-xs">Loading map…</span>
             </div>
@@ -903,6 +912,7 @@ export default function MapSection() {
           onClick={() => setIsFullscreen((v) => !v)}
           aria-label={isFullscreen ? 'Exit fullscreen map' : 'Open map fullscreen'}
           aria-pressed={isFullscreen}
+          data-testid="map-fullscreen-toggle"
           className="absolute top-3 left-3 z-10 grid place-items-center w-9 h-9 rounded-lg bg-navy-900/80 backdrop-blur border border-white/10 text-white/80 hover:text-white hover:bg-navy-800 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
         >
           {isFullscreen ? (
@@ -947,8 +957,8 @@ export default function MapSection() {
         : null}
 
       {/* Scoped dark-brand overrides for the MapLibre popup + controls. A plain
-          <style> element (local to this component, deliberately not globals.css)
-          — the default popup/control chrome is light, so we retint it to
+          <style> element (local to this component, not globals.css) — the default
+          popup/control chrome is light, so we retint it to
           the navy/gold palette. */}
       <style>{`
         .njp-map-popup .maplibregl-popup-content {

@@ -8,29 +8,24 @@
 //
 // SSR-safe: every localStorage access is guarded by a `typeof window` check so these
 // helpers are inert during static export / server render (return null / no-op).
+//
+// The raw localStorage access + the `tripPlannerUserName` key literal live in the typed
+// storage gateway (`core/storage/gateway.ts`). These functions keep their exact
+// signatures and behavior (SSR-safe, never-throw, trim on write) and simply delegate to
+// `identityStore` — the key string and on-disk value are unchanged.
 
-const USER_NAME_KEY = 'tripPlannerUserName';
+import { identityStore } from '@/core/storage/gateway';
 
 /**
  * Return the persisted display name, or null if none is set (or during SSR).
  */
 export function getUserName(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(USER_NAME_KEY);
-  } catch {
-    return null;
-  }
+  return identityStore.getName();
 }
 
 /**
  * Persist a trimmed display name. No-op during SSR or if storage is unavailable.
  */
 export function setUserName(name: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(USER_NAME_KEY, name.trim());
-  } catch {
-    /* ignore (quota / disabled storage) */
-  }
+  identityStore.setName(name);
 }

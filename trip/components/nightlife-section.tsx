@@ -9,8 +9,7 @@ import {
 import { NIGHTLIFE_VENUES, NightlifeVenue } from '@/lib/nightlife-data';
 import PlaceDetailSheet, { type PlaceDetailData } from '@/components/place-detail-sheet';
 import type { ItineraryDraft } from '@/lib/itinerary-adapter';
-
-const STORAGE_KEY = 'nightlife_section_visible';
+import { uiPrefs } from '@/core/storage/gateway';
 
 type SortKey = 'mustSee' | 'name';
 
@@ -33,6 +32,7 @@ function VenueCard({ venue, onOpen }: { venue: NightlifeVenue; onOpen: () => voi
       <button
         type="button"
         onClick={onOpen}
+        data-testid={`nightlife-add-${venue.id}`}
         aria-label={`View details for ${venue.name}`}
         className="block w-full text-left p-5 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded-2xl"
       >
@@ -83,11 +83,12 @@ function VenueCard({ venue, onOpen }: { venue: NightlifeVenue; onOpen: () => voi
 }
 
 /**
- * Optional `country` filter prop. No prop = both country blocks (the original
- * single-page behavior); on /nepal/ and /japan/ only that country's venues show. The
- * show/hide toggle and its `nightlife_section_visible` localStorage key are unchanged.
+ * Optional `country` filter prop. No prop = both country blocks
+ * (v1 behavior); on /nepal/ and /japan/ only that country's venues show. The show/hide
+ * toggle and its `nightlife_section_visible` key/value shape are unchanged; the key +
+ * storage access live in the gateway (`uiPrefs`).
  *
- * There is a search box, city + vibe chips with live counts, sort, an empty state,
+ * Includes a search box, city + vibe chips with live counts, sort, an empty state,
  * must-see badges, and a tap-to-open detail sheet. Nightlife venues have no adapter
  * source (the adapter union excludes them), so the detail sheet's add-to-plan uses the
  * CUSTOM add flow: a plain item prefilled with the venue's title/location,
@@ -110,16 +111,19 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
 
   useEffect(() => {
     setMounted(true);
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved !== null) setVisible(saved === 'true');
-    } catch { /* ignore */ }
+    // The `nightlife_section_visible` key + access live in the gateway.
+    // The pref is `String(boolean)` on disk (NOT JSON); `uiPrefs.getNightlifeVisible()`
+    // parses it leniently (`=== 'true'`) and returns null when absent — so the `visible`
+    // default of `true` is only overridden when a value was actually stored, byte-identical
+    // to the prior `if (saved !== null) setVisible(saved === 'true')`.
+    const saved = uiPrefs.getNightlifeVisible();
+    if (saved !== null) setVisible(saved);
   }, []);
 
   const toggleVisible = () => {
     const next = !visible;
     setVisible(next);
-    try { localStorage.setItem(STORAGE_KEY, String(next)); } catch { /* ignore */ }
+    uiPrefs.setNightlifeVisible(next);
   };
 
   const venues = useMemo(
@@ -237,10 +241,13 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
   if (!mounted) return null;
 
   return (
-    <section id="nightlife" aria-labelledby="nightlife-heading" className="py-20 px-4 sm:px-6">
+    <section id="nightlife" data-testid="nightlife-section" aria-labelledby="nightlife-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
+        {/* Slide-only masthead entrance (opacity pinned to 1) so the axe
+            scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
+            mid-fade as a transient contrast failure. See RecommendationSection. */}
         <m.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-10"
@@ -258,7 +265,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
               visible
                 ? 'bg-fuchsia-500/20 text-fuchsia-300 ring-1 ring-fuchsia-500/30 hover:bg-fuchsia-500/30'
-                : 'bg-white/5 text-white/40 hover:bg-white/10 hover:text-white/60'
+                : 'bg-white/5 text-white/55 hover:bg-white/10 hover:text-white/80'
             }`}
           >
             {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -266,7 +273,13 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
           </button>
         </m.div>
 
-        <AnimatePresence>
+        {/* `initial={false}` skips the ENTER animation for content already
+            present on first render. `visible` defaults to true, so without this the
+            whole nightlife panel fades up from opacity:0 on every page load — and
+            the (non-reduced-motion) axe scan catches its chips/inputs mid-fade at
+            ~0.15 opacity as serious contrast failures. Suppressing only the initial
+            mount animation keeps the show/hide toggle transition fully intact. */}
+        <AnimatePresence initial={false}>
           {visible && (
             <m.div
               id="nightlife-content"
@@ -324,11 +337,11 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
                         activeCity === city
                           ? 'text-fuchsia-300 bg-fuchsia-500/15 ring-1 ring-fuchsia-500/30'
-                          : 'text-white/40 hover:bg-white/5 hover:text-white/60'
+                          : 'text-white/55 hover:bg-white/5 hover:text-white/80'
                       }`}
                     >
                       {city === 'All' ? 'All cities' : city}
-                      <span className="ml-1.5 text-white/30 font-mono">{cityCounts[city] ?? 0}</span>
+                      <span className="ml-1.5 text-white/50 font-mono">{cityCounts[city] ?? 0}</span>
                     </button>
                   ))}
                 </div>
@@ -344,11 +357,11 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
                       activeVibe === vibe
                         ? 'text-fuchsia-300 bg-fuchsia-500/15 ring-1 ring-fuchsia-500/30'
-                        : 'text-white/40 hover:bg-white/5 hover:text-white/60'
+                        : 'text-white/55 hover:bg-white/5 hover:text-white/80'
                     }`}
                   >
                     {vibe === 'All' ? 'All vibes' : vibe}
-                    <span className="ml-1.5 text-white/30 font-mono">{vibeCounts[vibe] ?? 0}</span>
+                    <span className="ml-1.5 text-white/50 font-mono">{vibeCounts[vibe] ?? 0}</span>
                   </button>
                 ))}
               </div>

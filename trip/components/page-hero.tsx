@@ -3,13 +3,12 @@
 /**
  * PageHero — compact per-page hero header.
  *
- * A gradient + type header that gives each route (/plan, /nepal, /japan, /map)
- * an editorial masthead WITHOUT imagery (we deliberately avoid stock photos
- * here). It consumes the existing design tokens only — it defines no new CSS.
- * One is mounted per page.
+ * A gradient + type header that gives each route (/plan, /nepal, /japan,
+ * /map) an editorial masthead WITHOUT imagery (none by design). It consumes the
+ * shared tokens only — it defines no new CSS. One is mounted per page.
  *
  * Treatment:
- *   - `.glass-panel` shell (max-elevation tier: radius-2xl + shadow-2xl,
+ *   - `.glass-panel` shell (max-elevation v2 tier: radius-2xl + shadow-2xl,
  *     gradient hairline edge) sitting on the app-wide aurora/grain field.
  *   - `text-eyebrow uppercase` overline in the route accent (`--accent-scroll`,
  *     which the route-accent-engine warms/cools per page — gold/himalaya/sakura).
@@ -75,7 +74,7 @@ const VARIANTS: Record<
   },
   map: {
     titleGradient: 'text-gradient-gold',
-    // gold, more restrained (spec §7: "slightly more restrained")
+    // gold, more restrained
     wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.08) 0%, transparent 55%)',
   },
 };

@@ -15,17 +15,18 @@ import { useReducedMotion } from 'framer-motion';
  * providers (Theme / Itinerary / accent engine / navbar / footer) live in
  * `layout.tsx` and must stay there so they are NOT torn down and rebuilt on
  * navigation — putting them here would remount the whole app on every route
- * change (lost itinerary state, re-run token gate, flashing chrome). Template
- * holds only the transition shell.
+ * change (lost itinerary state, re-run gate, flashing chrome). Template holds
+ * only the transition shell.
  *
- * Reduced-motion: NO transition under `prefers-reduced-motion`. The CSS class is
- * one-shot and already collapses to ~0ms under reduced motion (it rests at
- * opacity:1, never stuck at 0), but to be unambiguous we ALSO branch at the React
- * level: under reduced motion we render a plain `<div>` with NO animation class at
- * all — no keyframe is ever attached, so there is nothing to neutralize.
- * `useReducedMotion()` returns `null` during SSR/first paint (treated as "no
- * preference"), which is correct: the very first paint is not a route transition,
- * and the class resting at opacity:1 means even that first mount lands visible.
+ * Reduced-motion HARD guarantee: the "NONE under reduced
+ * motion" contract. The CSS class is one-shot and already collapses to ~0ms
+ * under `prefers-reduced-motion` (it rests at opacity:1, never stuck at 0), but
+ * to be unambiguous we ALSO branch at the React level: under reduced motion we
+ * render a plain `<div>` with NO animation class at all — no keyframe is ever
+ * attached, so there is nothing to neutralize. `useReducedMotion()` returns
+ * `null` during SSR/first paint (treated as "no preference"), which is correct:
+ * the very first paint is not a route transition, and the class resting at
+ * opacity:1 means even that first mount lands visible.
  */
 export default function Template({ children }: { children: React.ReactNode }) {
   const prefersReducedMotion = useReducedMotion();

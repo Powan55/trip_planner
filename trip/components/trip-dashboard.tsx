@@ -21,6 +21,9 @@ interface StatCardProps {
   suffix?: string;
   color: string;
   delay: number;
+  // Stable E2E hook, distinct per card and namespaced `dashboard-*` so it never
+  // collides with the hero's `countdown-*` hooks (both can render on `/`).
+  testId: string;
 }
 
 function AnimatedCounter({ target, duration = 2000 }: { target: number; duration?: number }) {
@@ -37,9 +40,10 @@ function AnimatedCounter({ target, duration = 2000 }: { target: number; duration
   return <span ref={ref} className="font-mono">{count}</span>;
 }
 
-function StatCard({ icon, label, value, display, suffix = '', color, delay }: StatCardProps) {
+function StatCard({ icon, label, value, display, suffix = '', color, delay, testId }: StatCardProps) {
   return (
     <m.div
+      data-testid={testId}
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
@@ -85,9 +89,9 @@ export default function TripDashboard() {
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [tripStatus, setTripStatus] = useState('Upcoming');
 
-  // Card 9 (planned days) derives from the shared reactive store instead
-  // of a mount-only loadPlans() + cross-tab storage listener. A same-tab calendar
-  // (or card) edit fans out via the store's CustomEvent, so this count updates
+  // Card 9 (planned days) now derives from the shared reactive store instead
+  // of a mount-only loadPlans() + cross-tab storage listener. A same-tab calendar (or
+  // card) edit fans out via the store's CustomEvent, so this count updates
   // live without a reload.
   const { plans } = useItineraryContext();
   const plannedDays = useMemo(() => countPlannedDays(plans), [plans]);
@@ -120,14 +124,14 @@ export default function TripDashboard() {
 
   // Dashboard stat cards.
   const stats: StatCardProps[] = [
-    { icon: <Calendar className="w-5 h-5 text-gold-400" />, label: 'Total Trip Duration', value: totalDays, suffix: ' days', color: 'bg-gold-500/10', delay: 0 },
-    { icon: <Clock className="w-5 h-5 text-sakura-400" />, label: 'Days Until Departure', value: mounted ? daysRemaining : 0, color: 'bg-sakura-400/10', delay: 0.1 },
-    { icon: <Compass className="w-5 h-5 text-teal-400" />, label: 'Trip Status', display: mounted ? tripStatus : 'Upcoming', color: 'bg-teal-500/10', delay: 0.2 },
-    { icon: <Globe className="w-5 h-5 text-blue-400" />, label: 'Countries to Visit', value: countries, color: 'bg-blue-500/10', delay: 0.3 },
-    { icon: <MapPin className="w-5 h-5 text-himalaya-400" />, label: 'Cities to Explore', value: cities, color: 'bg-himalaya-400/10', delay: 0.4 },
-    { icon: <Bookmark className="w-5 h-5 text-green-400" />, label: 'Attractions Saved', value: attractionsSaved, color: 'bg-green-500/10', delay: 0.5 },
-    { icon: <UtensilsCrossed className="w-5 h-5 text-orange-400" />, label: 'Restaurants Listed', value: restaurantsListed, color: 'bg-orange-500/10', delay: 0.6 },
-    { icon: <Camera className="w-5 h-5 text-purple-400" />, label: 'Photo Spots Saved', value: photoSpotsSaved, color: 'bg-purple-500/10', delay: 0.7 },
+    { icon: <Calendar className="w-5 h-5 text-gold-400" />, label: 'Total Trip Duration', value: totalDays, suffix: ' days', color: 'bg-gold-500/10', delay: 0, testId: 'dashboard-trip-duration' },
+    { icon: <Clock className="w-5 h-5 text-sakura-400" />, label: 'Days Until Departure', value: mounted ? daysRemaining : 0, color: 'bg-sakura-400/10', delay: 0.1, testId: 'dashboard-days-remaining' },
+    { icon: <Compass className="w-5 h-5 text-teal-400" />, label: 'Trip Status', display: mounted ? tripStatus : 'Upcoming', color: 'bg-teal-500/10', delay: 0.2, testId: 'dashboard-trip-status' },
+    { icon: <Globe className="w-5 h-5 text-blue-400" />, label: 'Countries to Visit', value: countries, color: 'bg-blue-500/10', delay: 0.3, testId: 'dashboard-countries' },
+    { icon: <MapPin className="w-5 h-5 text-himalaya-400" />, label: 'Cities to Explore', value: cities, color: 'bg-himalaya-400/10', delay: 0.4, testId: 'dashboard-cities' },
+    { icon: <Bookmark className="w-5 h-5 text-green-400" />, label: 'Attractions Saved', value: attractionsSaved, color: 'bg-green-500/10', delay: 0.5, testId: 'dashboard-attractions-saved' },
+    { icon: <UtensilsCrossed className="w-5 h-5 text-orange-400" />, label: 'Restaurants Listed', value: restaurantsListed, color: 'bg-orange-500/10', delay: 0.6, testId: 'dashboard-restaurants-listed' },
+    { icon: <Camera className="w-5 h-5 text-purple-400" />, label: 'Photo Spots Saved', value: photoSpotsSaved, color: 'bg-purple-500/10', delay: 0.7, testId: 'dashboard-photo-spots-saved' },
     // Planned days: days with at least one item, shown as planned / total; the
     // unplanned remainder is surfaced in the label.
     {
@@ -137,14 +141,18 @@ export default function TripDashboard() {
       suffix: ` / ${totalDays}`,
       color: 'bg-yellow-500/10',
       delay: 0.8,
+      testId: 'dashboard-planned-days',
     },
   ];
 
   return (
     <section id="dashboard" aria-labelledby="dashboard-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
+        {/* Slide-only masthead entrance (opacity pinned to 1) so the axe
+            scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
+            mid-fade as a transient contrast failure. See RecommendationSection. */}
         <m.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-12"

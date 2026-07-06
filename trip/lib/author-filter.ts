@@ -3,12 +3,12 @@
 // "My edits" / a specific traveler, using the existing `createdBy` / `updatedBy`
 // attribution on `ItineraryItem`. It NEVER mutates stored data.
 //
-// HARD RULE: this module touches NO localStorage and NO itinerary store. It
+// HARD FENCE: this module touches NO localStorage and NO itinerary store. It
 // holds only ephemeral, in-memory view state (the active selection). A reload resets the
 // filter to "All" and the stored itinerary is byte-for-byte unaffected by it. CRUD and
 // persistence are completely independent of anything here.
 //
-// STATE SHARING (kept in a SEPARATE module so it never entangles the itinerary
+// STATE SHARING (in a SEPARATE module so it never entangles the itinerary
 // store or `itinerary-provider.tsx`): a tiny module-level value plus a same-tab
 // `CustomEvent` on `window`. `setAuthorFilter` updates the value and dispatches the event;
 // `subscribeAuthorFilter` lets both surfaces re-read on change, so ONE selection narrows

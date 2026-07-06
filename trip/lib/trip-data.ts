@@ -1,62 +1,28 @@
-// Trip date constants and utilities
-export const TRIP_START = new Date('2026-12-09T00:00:00');
-export const TRIP_END = new Date('2027-01-09T23:59:59');
-export const NEPAL_START = new Date('2026-12-09T00:00:00');
-export const NEPAL_END = new Date('2026-12-18T23:59:59');
-export const JAPAN_START = new Date('2026-12-19T00:00:00');
-export const JAPAN_END = new Date('2027-01-09T23:59:59');
-
-// Derive the inclusive day sequence from TRIP_START/TRIP_END. We iterate in UTC
-// so the produced 'YYYY-MM-DD' strings are identical regardless of build-machine
-// timezone (and match the original '2026-12-09'...'2027-01-09' sequence).
-export const TRIP_DATES: string[] = (() => {
-  const dates: string[] = [];
-  const d = new Date(Date.UTC(TRIP_START.getFullYear(), TRIP_START.getMonth(), TRIP_START.getDate()));
-  const end = new Date(Date.UTC(TRIP_END.getFullYear(), TRIP_END.getMonth(), TRIP_END.getDate()));
-  while (d <= end) {
-    dates.push(d.toISOString().split('T')[0]);
-    d.setUTCDate(d.getUTCDate() + 1);
-  }
-  return dates;
-})();
-
-// Centralized human-readable trip-date label. Derived from TRIP_START/TRIP_END so
-// the year is configured in one place. Built from explicit parts to
-// guarantee the exact rendered string ("December 9, 2026 – January 9, 2027", en-dash)
-// independent of the runtime's Intl/locale data.
-const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-function formatLabelPart(d: Date): string {
-  return `${MONTH_NAMES[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
-}
-export const TRIP_DATE_LABEL = `${formatLabelPart(TRIP_START)} – ${formatLabelPart(TRIP_END)}`;
-
-// Country classification must be timezone-independent. An earlier implementation
-// parsed the incoming 'YYYY-MM-DD' with `new Date(dateStr)` — the ES spec treats
-// date-ONLY strings as UTC midnight, while NEPAL_END above is a LOCAL datetime. At
-// any negative UTC offset (e.g. America/New_York) Dec 19's UTC midnight lands
-// BEFORE Dec 18 23:59:59 local, misclassifying Dec 19 as 'nepal'. Fix: compare
-// calendar-day strings lexicographically — ISO 'YYYY-MM-DD' sorts in date order and
-// the input is never Date-parsed at all. The boundary is derived from NEPAL_END's
-// local parts (a local-datetime literal has the same parts on every machine), so the
-// trip dates stay configured in one place.
-const NEPAL_END_DAY = `${NEPAL_END.getFullYear()}-${String(NEPAL_END.getMonth() + 1).padStart(2, '0')}-${String(NEPAL_END.getDate()).padStart(2, '0')}`; // '2026-12-18'
-
-export function getCountryForDate(dateStr: string): 'nepal' | 'japan' {
-  return dateStr <= NEPAL_END_DAY ? 'nepal' : 'japan';
-}
-
-export function formatDate(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-}
-
-export function formatDateLong(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00');
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
-}
+// Trip date constants and utilities.
+//
+// The framework-free date BACKBONE (constants, `TRIP_DATES`, `TRIP_DATE_LABEL`,
+// the TZ-safe `getCountryForDate`, and `formatDate`/`formatDateLong`) lives in the
+// framework-free `core/dates/` package. This module RE-EXPORTS every
+// one of those symbols byte-identically so the many `@/lib/trip-data` callers (components,
+// hooks, tests) are untouched — the `itinerary-storage.ts`→Vault delegate pattern.
+// One implementation in core, the same public surface here.
+//
+// The itinerary DOMAIN types + category maps below (`ItineraryItem`, `DayPlan`,
+// `CATEGORY_COLORS`, `CATEGORY_ICONS`, …) intentionally STAY here — they are not date
+// backbone and belong to the itinerary domain, not `core/dates`.
+export {
+  TRIP_START,
+  TRIP_END,
+  NEPAL_START,
+  NEPAL_END,
+  JAPAN_START,
+  JAPAN_END,
+  TRIP_DATES,
+  TRIP_DATE_LABEL,
+  getCountryForDate,
+  formatDate,
+  formatDateLong,
+} from '@/core/dates';
 
 export type ItineraryCategory = 'sightseeing' | 'food' | 'photography' | 'shopping' | 'nature' | 'cultural' | 'transportation' | 'hotel' | 'free' | 'nightlife';
 
@@ -78,6 +44,18 @@ export interface ItineraryItem {
   createdBy?: string;
   updatedBy?: string;
   updatedAt?: string; // ISO timestamp
+  // Sync v2 per-item merge fields (additive; every existing item
+  // stays valid with all three absent). See core/sync/{hlc,merge-day}.ts. Defaulted
+  // losslessly at the Vault v3→v4 migration / read boundary.
+  rev?: number; // monotonic per-item revision counter; starts at 1 on create.
+  hlc?: string; // Hybrid Logical Clock stamp (serialized) — the primary cross-client order key.
+  deleted?: boolean; // tombstone; true ⇒ deleted-but-retained so the delete can propagate + win.
+  // Done-tracking (additive OPTIONAL, NO Vault migration / version bump). Absent
+  // = not done (falsy); `done === true` = checked off on the Today screen. Toggled via the
+  // existing `updateItem(date, id, { done })` path, so sync-on it rides rev/hlc for free (LWW).
+  // No backfill needed (unlike the sync fields), so the lenient passthrough schema
+  // tolerates it and the on-disk envelope stays at v4 (see core/vault/schema.ts).
+  done?: boolean;
 }
 
 export interface DayPlan {

@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useId } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { Plane, Lock, ArrowRight, AlertCircle, Check } from 'lucide-react';
 import { signIn, getActiveTraveler, IDENTITY_CHANGED_EVENT, type Traveler } from '@/lib/token-auth';
+import { sessionGate } from '@/core/storage/gateway';
 import { TRIP_START } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 
@@ -21,7 +22,7 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
  * (token-auth + identity + trip-data + countdown) and NEVER firebase, so the dormant
  * bundle loads no Firebase chunk.
  *
- * A11y reuses the shared modal contract from name-prompt VERBATIM:
+ * A11y reuses the modal contract from name-prompt VERBATIM:
  *  - role="dialog" aria-modal aria-labelledby aria-describedby
  *  - document-level Esc via an onCloseRef (latest-closure, bound once)
  *  - a lightweight Tab-trap inside the panel
@@ -41,30 +42,26 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
  * Countdown reuses the shared pure helper vs TRIP_START (Dec 9 2026).
  */
 
-const GUEST_KEY = 'tripPlannerGuest';
+// The `tripPlannerGuest` key + raw localStorage access live in the
+// typed storage gateway (`core/storage/gateway.ts`). `isGuest` / `setGuest` here delegate
+// to `sessionGate` (SSR-safe, never-throw, `'1'` presence-flag unchanged); the guest OPT-IN
+// still fires identity:changed so the navbar affordance updates live — that reactive
+// dispatch is app logic, NOT storage, so it stays here.
 
 /** Has the user opted into guest (local-only) browsing this/previous session? */
 function isGuest(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(GUEST_KEY) === '1';
-  } catch {
-    return false;
-  }
+  return sessionGate.isGuest();
 }
 
 /** Persist the guest choice so a reload does NOT re-show the wall (documented design). */
 function setGuest(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(GUEST_KEY, '1');
-  } catch {
-    /* ignore (quota / disabled storage) */
-  }
+  sessionGate.setGuest();
   // Reactive signal: opting into guest IS an identity-state change. Dispatching
   // identity:changed lets the navbar surface the "Guest · Sign in" affordance LIVE (no
   // reload) — same event the gate / chip / remote-subscribe already listen on.
-  window.dispatchEvent(new CustomEvent(IDENTITY_CHANGED_EVENT));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(IDENTITY_CHANGED_EVENT));
+  }
 }
 
 export default function TokenGate() {
@@ -129,7 +126,7 @@ function TokenGateWall({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus the token input on open; re-assert shortly after in case the open animation
-  // steals focus, but only if focus isn't already in the panel.
+  // steals focus (the backstop), but only if focus isn't already in the panel.
   useEffect(() => {
     const timer = setTimeout(() => {
       const panel = panelRef.current;

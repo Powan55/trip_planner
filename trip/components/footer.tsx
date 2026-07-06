@@ -27,13 +27,19 @@ export default function Footer() {
         <p className="text-sm text-muted-foreground mb-4">
           {TRIP_DATE_LABEL}
         </p>
-        <div className="flex items-center justify-center gap-1.5 text-xs text-white/40">
+        {/* Muted footer type brightened to meet WCAG AA on the navy field
+            (#0a0e27). `/40`→`/55` (3.77:1 → 6.22:1) and the quieter copyright
+            `/30`→`/50` (2.63:1 → 5.32:1). Both stay clearly muted vs. the white
+            wordmark above, preserving the glassmorphism hierarchy. */}
+        <div className="flex items-center justify-center gap-1.5 text-xs text-white/55">
           <span>Made with</span>
           <Heart className="w-3 h-3 text-red-400 fill-red-400" />
           <span>for the journey ahead</span>
         </div>
-        <p className="mt-4 text-xs text-white/30">
+        <p className="mt-4 text-xs text-white/50">
           &copy; {new Date().getFullYear()} Lax
+          {' '}&middot;{' '}
+          v{process.env.NEXT_PUBLIC_APP_VERSION}
         </p>
       </div>
     </footer>

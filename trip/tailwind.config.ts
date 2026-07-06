@@ -31,7 +31,7 @@ const config: Config = {
         '3xl': 'var(--radius-2xl)',
       },
       boxShadow: {
-        // elevation tiers + scroll-accent glow (driven by CSS vars).
+        // Elevation tiers + scroll-accent glow (driven by CSS vars).
         glow: 'var(--shadow-glow)',
         xl: 'var(--shadow-xl)',
         // v2 deepest elevation for hero/panel surfaces (additive).
@@ -61,7 +61,7 @@ const config: Config = {
         gold: { 400: '#f0c760', 500: '#d4a843', 600: '#b8922e' },
         sakura: { 300: '#ffb7c5', 400: '#f7a0b3', 500: '#e88fa2' },
         himalaya: { 400: '#ff8c42', 500: '#e67635', 600: '#cc6228' },
-        // single scroll-driven accent (default gold; the accent engine animates the var).
+        // Single scroll-driven accent (default gold; a later effect animates the var).
         'accent-scroll': 'hsl(var(--accent-scroll))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',

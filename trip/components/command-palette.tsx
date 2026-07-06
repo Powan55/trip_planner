@@ -28,7 +28,7 @@ import {
 import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
 
 /**
- * ⌘K / Ctrl+K command palette.
+ * ⌘K / Ctrl+K command palette (route-aware).
  *
  * Keyboard-first navigation to any destination in the app. Mounted ONCE at the
  * app root (see app/layout.tsx) so the shortcut works from anywhere. Since the
@@ -36,7 +36,7 @@ import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
  * navigates via `useRouter().push(route + hash)` (basePath-agnostic).
  * A SAME-route hash keeps the direct `scrollIntoView` path; a CROSS-route hash
  * defers through `scrollToSectionWhenReady` (bounded rAF poll + double-rAF once
- * the `ssr:false` island mounts — the same pattern the navbar uses), because the target
+ * the `ssr:false` island mounts — the navbar pattern), because the target
  * does not exist in the DOM until the destination page's chunks load.
  *
  * A11y: built on the Radix Dialog primitive (via ui/dialog), which traps
@@ -60,7 +60,6 @@ import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
  * fuzzy scorer, which was loose enough to rank "nepal" → "Itinerary Planner" (…Planner)
  * above the actual Nepal item. scoreItem ranks exact label substrings first, keyword
  * aliases below them, and drops weak fuzzy noise — verified in headless Chrome.
- * scoreItem is untouched by the route split.
  */
 
 type Section = {
@@ -72,7 +71,7 @@ type Section = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
-// Targets follow the five-page route tree; hash sub-anchors match the section ids
+// Targets follow the route tree; hash sub-anchors match the section ids
 // kept on each page. Photography/Nightlife point at /nepal/ (the guide pages'
 // canonical home, mirroring the legacy-hash redirect map); Travel Essentials is
 // the renamed Home half of the old Travel Inspiration section (id stays
@@ -212,15 +211,15 @@ export default function CommandPalette() {
   /**
    * Route-aware navigation.
    * - SAME route + hash → the section is already mounted: direct scrollIntoView
-   *   (reduced-motion 'auto') + history.replaceState of the hash, the original
-   *   single-page behavior. (If the island hasn't mounted yet — e.g. palette used
-   *   instantly after load — fall back to the bounded poll.)
+   *   (reduced-motion 'auto') + history.replaceState of the hash. (If the island
+   *   hasn't mounted yet — e.g. palette used instantly
+   *   after load — fall back to the bounded poll.)
    * - SAME route, no hash → scroll to top (the page IS the destination).
    * - CROSS route → router.push(route + hash). The hash target is a `ssr:false`
    *   island that does not exist until the destination page mounts, so the scroll
    *   defers through scrollToSectionWhenReady (bounded rAF poll + double-rAF —
-   *   the same pattern the navbar uses). Fire-and-forget by design: the poll must
-   *   survive the route transition.
+   *   the navbar pattern). Fire-and-forget by design: the poll must survive
+   *   the route transition.
    */
   const performNavigate = React.useCallback((target: { route: string; hash?: string }) => {
     const sameRoute = normalizePath(pathname) === normalizePath(target.route);
@@ -291,7 +290,6 @@ export default function CommandPalette() {
           // first, keyword aliases below them, loose fuzzy noise is dropped. Replaces
           // cmdk's built-in scorer, which mis-ranked "nepal" → "Itinerary Planner".
           // value = clean label; keywords prop carries the aliases (fed to scoreItem).
-          // globals.css color tokens are untouched.
           filter={scoreItem}
           className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4"
         >

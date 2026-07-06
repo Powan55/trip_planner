@@ -1,16 +1,16 @@
-// Cross-friend attribution stamping — the ONE place that decides how an item gets
-// `createdBy` / `updatedBy` / `updatedAt`.
+// Cross-friend attribution stamping — the ONE place that decides
+// how an item gets `createdBy` / `updatedBy` / `updatedAt`.
 //
 // Extracted from the store mutators so the stamping rule lives in a single named,
 // unit-testable module (stamping happens at the store layer, in one place).
 // The store's `addItem` / `updateItem` / cross-day `moveItem` call these; `removeItem`
 // and `reorderItems` deliberately do NOT (a delete/reorder is not a content edit).
 //
-// KEY CONTRACT: stamping fires ONLY when a display name is set. With no name (the
-// dormant / local-only-no-name case) these are NO-OPS — the attribution fields stay
-// `undefined` and the item remains valid. The name source is injected (the store passes
-// `getUserName` from lib/identity) so this module stays pure and testable, and so it
-// never imports firebase (dormant-safe).
+// KEY CONTRACT: stamping fires ONLY when a display name is set. With no
+// name (the dormant / local-only-no-name case) these are NO-OPS — the attribution fields
+// stay `undefined` and the item remains valid. The name source is injected (the store
+// passes `getUserName` from lib/identity) so this module stays pure and testable, and so
+// it never imports firebase (dormant-safe).
 //
 // ECHO-SUPPRESSION: these run ONLY inside the local mutators. The remote
 // snapshot-ingest path writes items via savePlans() directly (never through the

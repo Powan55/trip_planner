@@ -1,20 +1,20 @@
 // Map style + brand tokens for the real MapLibre GL map.
 //
 // PURE data/helper module — no maplibre-gl import, no side effects — so it is
-// safe to import from anywhere and stays off the initial load path. The GL
+// safe to import from anywhere and stays out of the dormant hot path. The GL
 // canvas itself is mounted client-only by map-section.tsx.
 //
-// Basemap choice (free, keyless): CARTO "dark-matter" raster XYZ tiles.
-// Genuinely free, NO API key required, dark by design — a clean fit for the
-// navy/gold brand. Attribution (CARTO + OpenStreetMap) is legally required and
-// is rendered via MapLibre's AttributionControl (see map-section.tsx).
+// Basemap choice (free-keyless HARD RULE): CARTO "dark-matter" raster XYZ
+// tiles. Genuinely free, NO API key required, dark by design — a clean fit for
+// the navy/gold brand. Attribution (CARTO + OpenStreetMap) is legally required
+// and is rendered via MapLibre's AttributionControl (see map-section.tsx).
 //
 //   Tiles:  https://{a-d}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png
 //   Docs:   https://github.com/CartoDB/basemap-styles  (free basemaps, no token)
 //
-// Rejected alternatives (they need a key in production, and we want keyless):
-// Stadia, MapTiler, Mapbox. Raw tile.openstreetmap.org is also rejected (its
-// usage policy discourages app embedding + it is light, not dark).
+// REJECTED alternatives (need a key in production → free-only rule): Stadia,
+// MapTiler, Mapbox. Raw tile.openstreetmap.org is also rejected (usage policy
+// discourages app embedding + it is light, not dark).
 //
 // Brand-tune: a navy fill sits UNDER the raster (shows through tile gaps / while
 // loading and warms the dark grey toward the app's navy), and the raster is
@@ -25,7 +25,7 @@
 import type { MarkerCategory } from '@/lib/map-data';
 
 // Brand hex, mirrored from tailwind.config.ts (navy/gold/himalaya/sakura). These
-// are READ copies of those tokens — the config is the source of truth; we do
+// are READ copies of the design tokens — the config is the source of truth; we do
 // not write it. Kept here so GL paint properties (which take raw colors, not
 // Tailwind classes) stay in one place.
 export const BRAND = {

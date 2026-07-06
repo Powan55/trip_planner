@@ -129,11 +129,17 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                           : 'hover:bg-white/5'
                       }`}
                     >
-                      <span className="text-[10px] text-white/40">{formatDate(date).split(',')[0]?.split(' ')[0]}</span>
+                      {/* Weekday `/40`→`/60` so it clears AA on the navy tab
+                          AND over the colored active-tab fills (himalaya-500/30 →
+                          5.48:1, sakura-400/30 → 4.81:1). */}
+                      <span className="text-[10px] text-white/60">{formatDate(date).split(',')[0]?.split(' ')[0]}</span>
+                      {/* Inactive date number — brand HUE preserved (still
+                          himalaya-400 / sakura-400), opacity `/70`→`/90` to reach AA
+                          (himalaya 4.48:1 → 6.79:1, sakura → 7.90:1). */}
                       <span className={`text-sm font-mono font-bold ${
                         isSelected
                           ? 'text-white'
-                          : country === 'nepal' ? 'text-himalaya-400/70' : 'text-sakura-400/70'
+                          : country === 'nepal' ? 'text-himalaya-400/90' : 'text-sakura-400/90'
                       }`}>
                         {new Date(date + 'T12:00:00').getDate()}
                       </span>
@@ -238,7 +244,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                   <ListPlus className="w-5 h-5 text-white/40" />
                 </div>
                 <p className="text-white/70 font-medium">No activities planned for this day yet</p>
-                {/* The planner lives on /plan/ — real route link. */}
+                {/* The planner lives on /plan/ now — real route link. */}
                 <Link
                   href="/plan/"
                   className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-gold-400 hover:text-gold-300 transition-colors rounded outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"

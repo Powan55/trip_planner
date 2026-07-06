@@ -12,6 +12,14 @@ const nextConfig = {
   basePath,
   assetPrefix: basePath || undefined,
   productionBrowserSourceMaps: false,
+  env: {
+    // Single source of truth for the app's visible version: package.json's
+    // "version" field, read fresh at every build (local + CI). This
+    // is deliberately the `env` config-key mechanism, NOT the shell-env-var
+    // pattern basePath (above) uses, so it can never drift out of sync with
+    // package.json and needs zero CI plumbing.
+    NEXT_PUBLIC_APP_VERSION: require('./package.json').version,
+  },
   experimental: {
     outputFileTracingRoot: path.join(__dirname, '../'),
   },

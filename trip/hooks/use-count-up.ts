@@ -18,7 +18,7 @@ import { useReducedMotion } from 'framer-motion';
  *   reduced motion we SKIP the rAF loop entirely and report the final value
  *   immediately, with `done: true`. No animation, no count-up.
  *
- * The live-tick handoff (used by the hero countdown):
+ * The live tick (used by the hero countdown):
  *   The eased fraction is multiplied by the *current* `target` each frame, so a
  *   caller whose `target` ticks every second (the live seconds) stays tracked:
  *   at the final frame `progress === 1` ⇒ `eased === 1` ⇒ `value === target`

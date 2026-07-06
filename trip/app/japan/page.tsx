@@ -31,8 +31,8 @@ export const metadata = {
 export default function JapanPage() {
   return (
     <main className="min-h-screen bg-navy-900">
-      {/* PageHero supplies the page's <h1> (the section components keep their own
-          <h2>s, so every route has exactly one top-level heading — a11y win). */}
+      {/* PageHero supplies the page's <h1> (pages previously shipped
+          without one — a11y win). Section components keep their own <h2>s. */}
       <PageHero
         variant="japan"
         title="Japan"

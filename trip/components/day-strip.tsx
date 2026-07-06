@@ -1,10 +1,11 @@
 'use client';
 
-// Mobile day-strip picker. A horizontally scroll-snapping row of the 32 trip days,
-// used ONLY below `lg` as the one-handed replacement for the desktop month grid. It
-// is strictly PRESENTATIONAL — a pure consumer: it subscribes to NO store, holds no
-// persistence, and simply renders the props it is handed and calls `onSelect` on tap.
-// All selection/persistence stays in `calendar-planner.tsx` (no storage literals here).
+// Mobile day-strip picker. A horizontally scroll-snapping row of the
+// 32 trip days, used ONLY below `lg` as the one-handed replacement for the desktop
+// month grid. It is strictly PRESENTATIONAL — a pure consumer: it subscribes to NO
+// store, holds no persistence, and simply renders the props it is handed and calls
+// `onSelect` on tap. All selection/persistence stays in `calendar-planner.tsx`
+// (selection state untouched; no storage literals here).
 //
 // The strip scrolls INSIDE itself (`overflow-x-auto`), so it never pushes the page
 // wider than the viewport (min-w-0 discipline on the scroll container).
@@ -70,6 +71,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
       ref={scrollerRef}
       role="group"
       aria-label="Select a trip day"
+      data-testid="day-strip"
       className="min-w-0 flex gap-2 overflow-x-auto scrollbar-hide pb-1 snap-x snap-proximity"
     >
       {dates.map((date) => {
@@ -91,6 +93,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             onClick={() => onSelect(date)}
             aria-pressed={isSelected}
             aria-label={`${long}${todayLabel}${activityLabel}`}
+            data-testid={`day-strip-${date}`}
             className={`snap-center shrink-0 w-16 relative flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-xl text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
               isSelected
                 ? 'bg-gold-500/20 ring-2 ring-gold-400 text-white font-bold'

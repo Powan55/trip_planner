@@ -4,16 +4,16 @@
  * SectionSkeleton — placeholder for `dynamic()` `loading:` slots.
  *
  * Sized to RESERVE the space a not-yet-loaded section will occupy so the code-
- * split island swapping in causes no cumulative layout shift (CLS). Wired into the
- * pages' `dynamic(() => import(...), { loading: () => <SectionSkeleton .../> })`
- * calls, with a per-import reserved height.
+ * split island swapping in causes no cumulative layout shift (CLS). Wired
+ * into the pages' `dynamic(() => import(...), { loading: () => <SectionSkeleton .../> })`
+ * calls at integration, with per-import heights.
  *
- * Consumes the shared design tokens only:
+ * Consumes shared tokens only:
  *   - `.animate-shimmer` for the sweep. That utility is INFINITE and is already
  *     hard-neutralized (`animation:none !important`) under `prefers-reduced-motion`
  *     in globals.css — so under reduced motion the bars render as static muted
- *     blocks (no sweep), which is the required behavior. This component adds no
- *     motion of its own.
+ *     blocks (no sweep), which is the required behavior. This
+ *     component adds no motion of its own.
  *   - Muted surface tokens (`--muted` / `--border`) for the resting fill.
  *
  * Decorative: the whole tree is `aria-hidden="true"` (a loading placeholder has

@@ -4,49 +4,23 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { MapPin, Calendar, Compass, Mountain, Menu, X, Map, LogOut, UserRound, Home } from 'lucide-react';
+import { MapPin, Menu, X, LogOut, UserRound } from 'lucide-react';
 import ScrollProgress from '@/components/scroll-progress';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signOut, IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
-
-// The nav is ROUTE-driven — five pages, trailing-slash canonical hrefs
-// (`trailingSlash:true`). next/link handles basePath; active state comes from
-// usePathname() (which EXCLUDES basePath), so the whole nav is basePath-agnostic.
-// The old single-page anchor items + scroll-spy are gone.
-const NAV_ITEMS = [
-  { label: 'Home', href: '/', icon: Home },
-  { label: 'Plan', href: '/plan/', icon: Calendar },
-  { label: 'Nepal', href: '/nepal/', icon: Mountain },
-  { label: 'Japan', href: '/japan/', icon: Compass },
-  { label: 'Map', href: '/map/', icon: Map },
-];
-
-// Trailing-slash-agnostic pathname compare ('' and '/' both mean Home).
-function normalizePath(p: string | null): string {
-  const stripped = (p ?? '/').replace(/\/+$/, '');
-  return stripped === '' ? '/' : stripped;
-}
-
-// Active when the pathname IS the route or sits below it (`/nepal/*`).
-// Home is exact-match only, otherwise it would claim every route.
-function isRouteActive(pathname: string | null, href: string): boolean {
-  const current = normalizePath(pathname);
-  const target = normalizePath(href);
-  if (target === '/') return current === '/';
-  return current === target || current.startsWith(`${target}/`);
-}
+import { sessionGate } from '@/core/storage/gateway';
+import { NAV_ITEMS, isRouteActive } from '@/lib/nav-items';
 
 // Clearing the guest opt-in re-arms the gate: with no active traveler and the guest flag
 // gone, TokenGate's identity:changed listener re-evaluates `!traveler && !guest` → re-shows
-// the wall. SSR-guarded; dispatches the same reactive signal sign-in/out use.
+// the wall. The RAW `tripPlannerGuest` literal that used to sit here is gone —
+// the clear is `sessionGate.clearGuest()` (SSR-safe, never-throws inside the gateway). The
+// reactive dispatch stays here as app logic, guarded for SSR parity.
 function exitGuest(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem('tripPlannerGuest');
-  } catch {
-    /* ignore (disabled storage) */
+  sessionGate.clearGuest();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(IDENTITY_CHANGED_EVENT));
   }
-  window.dispatchEvent(new CustomEvent(IDENTITY_CHANGED_EVENT));
 }
 
 export default function Navbar() {
@@ -68,8 +42,8 @@ export default function Navbar() {
   const panelAnimate = prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
   const panelExit = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -20 };
 
-  // The hamburger toggle (focus returns here on close) and the open panel
-  // (so the Tab-trap can scope its focusables to the menu).
+  // The hamburger toggle (focus returns here on close) and the open
+  // panel (so the Tab-trap can scope its focusables to the menu).
   const toggleRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -95,12 +69,12 @@ export default function Navbar() {
   // there is no residual listener or locked body.
   //
   // Scroll-lock technique: on THIS page the scrolling element is <html>, so a bare
-  // `body { overflow:hidden }` does NOT stop the viewport (the page still scrolled
-  // behind the open menu). We instead PIN the body with
+  // `body { overflow:hidden }` does NOT stop the viewport (verified — the page
+  // still scrolled behind the open menu). We instead PIN the body with
   // `position:fixed; top:-<scrollY>px; width:100%`, which truly freezes the
   // background, and on close we remove the pin and `scrollTo` the saved offset —
-  // so scroll POSITION is preserved exactly. No layout shift / no horizontal
-  // overflow (width:100% + the page already
+  // so scroll POSITION is preserved exactly (the sanctioned position:fixed
+  // path). No layout shift / no horizontal overflow (width:100% + the page already
   // hides the scrollbar via .scrollbar-hide / hidden OS scrollbars).
   useEffect(() => {
     if (typeof document === 'undefined' || !mobileOpen) return;
@@ -130,8 +104,8 @@ export default function Navbar() {
       }
       if (e.key === 'Tab') {
         // Minimal focus-trap: cycle Tab/Shift+Tab within the open panel so focus
-        // can't escape behind the scrim into the page underneath (logical tab
-        // order). The hamburger toggle stays the focus-return target on close.
+        // can't escape behind the scrim into the page underneath (logical
+        // tab order). The hamburger toggle stays the focus-return target on close.
         const panel = panelRef.current;
         if (!panel) return;
         const focusables = panel.querySelectorAll<HTMLElement>(
@@ -170,12 +144,13 @@ export default function Navbar() {
     };
   }, [mobileOpen, closeMobile]);
 
-  // Nav items are real <Link>s (route navigation, not scroll), so the
+  // Nav items are real <Link>s now (route navigation, not scroll), so the
   // old handleNav/scrollIntoView path is gone. Mobile links close the overlay via
   // onClick={closeMobile} — the scroll-lock cleanup unpins the body synchronously
   // on that same commit, and the router's own scroll-to-top runs after the
   // (async) route render, so the two never fight. Focus returns to the toggle,
-  // which lives in the persistent layout navbar and survives the route change.
+  // which lives in the persistent layout navbar and survives the route
+  // change.
 
   const handleSignOut = () => {
     closeMobile();
@@ -191,6 +166,7 @@ export default function Navbar() {
     <>
       <ScrollProgress />
       <m.nav
+        data-testid="navbar"
         aria-label="Primary"
         initial={{ y: -100 }}
         animate={{ y: 0 }}
@@ -220,6 +196,7 @@ export default function Navbar() {
                   <Link
                     key={item.label}
                     href={item.href}
+                    data-testid={`navbar-link-${item.label.toLowerCase()}`}
                     aria-current={isActive ? 'page' : undefined}
                     data-active={isActive ? 'true' : undefined}
                     className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
@@ -254,6 +231,7 @@ export default function Navbar() {
 
             <button
               ref={toggleRef}
+              data-testid="navbar-menu-toggle"
               onClick={() => (mobileOpen ? closeMobile() : setMobileOpen(true))}
               aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
               aria-expanded={mobileOpen}
@@ -302,6 +280,7 @@ export default function Navbar() {
                       key={item.label}
                       href={item.href}
                       onClick={closeMobile}
+                      data-testid={`navbar-link-mobile-${item.label.toLowerCase()}`}
                       aria-current={isActive ? 'page' : undefined}
                       data-active={isActive ? 'true' : undefined}
                       className={`relative flex items-center gap-3 w-full min-h-[44px] px-4 py-3 rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
@@ -368,8 +347,8 @@ export default function Navbar() {
 
 /**
  * "You are {name}" chip (desktop). The traveler's `accent` tints a subtle pill
- * background + dot via INLINE style (a dynamic Tailwind class name would not work), so
- * any of the three brand accents renders correctly without a safelist. Carries a sign-out
+ * background + dot via INLINE style (dynamic Tailwind class names are forbidden), so any
+ * of the three brand accents renders correctly without a safelist. Carries a sign-out
  * control; `signOut()` then fires identity:changed → the gate re-shows and this chip clears.
  */
 function TravelerChip({

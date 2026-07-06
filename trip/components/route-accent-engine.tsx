@@ -5,46 +5,49 @@ import { useReducedMotion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 
 /**
- * Route-driven warm/cool accent engine.
+ * Route-driven warm/cool accent engine (formerly `scroll-accent-engine.tsx`).
  *
  * Renders nothing. Reads the CURRENT ROUTE (`usePathname()`) and animates the
- * SINGLE scroll accent — the CSS custom property `--accent-scroll` — so the app
- * warms to **himalaya** on /nepal/*, cools to **sakura** on /japan/*, and rests
- * at neutral **gold** on every other route. With the sections split across five
- * pages, section-scroll can no longer drive a cross-page accent — the route IS
- * the honest signal. The token names (`--accent-scroll`, `--accent-scroll-rgb`,
- * `--shadow-glow`) are unchanged, so every existing consumer (section-heading
- * underline, glow, :focus-visible fallback) is untouched: this is a drop-in INPUT
- * swap, not a consumer migration.
+ * SINGLE scroll accent — the CSS custom property `--accent-scroll` — so
+ * the app warms to **himalaya** on /nepal/*, cools to **sakura** on /japan/*,
+ * and rests at neutral **gold** on every other route. With the v1 sections split
+ * across five pages, section-scroll can no longer drive a cross-page
+ * accent — the route IS the honest signal. The token names (`--accent-scroll`,
+ * `--accent-scroll-rgb`, `--shadow-glow`) are unchanged, so every
+ * existing consumer (section-heading underline, glow, :focus-visible fallback)
+ * is untouched: this is a drop-in INPUT swap, not a consumer migration.
  *
- * There is no DOM readiness poll: an earlier version watched for
- * `document.getElementById('nepal')` because the engine consumed a DOM-anchored
- * active-section hook from the layout root before the page subtree mounted.
- * `usePathname()` has no DOM dependency and is valid immediately, so the
- * outer/inner split and the readiness poll are gone.
+ * The old outer rAF poll for
+ * `document.getElementById('nepal')` existed only because the engine consumed
+ * the DOM-anchored `useActiveSection` from the layout root before the page
+ * subtree mounted. `usePathname()` has no DOM dependency and is valid
+ * immediately, so the outer/inner split and the readiness poll are deleted.
+ * (The general rule — a layout-root island consuming a DOM-anchored hook
+ * must defer binding — remains true as a pattern; it just has no live consumer.)
  *
- * Motion (CRITICAL): a route-linked colour shift is NOT auto-neutralised by the
- * app's `MotionConfig`/`LazyMotion`. So we keep the explicit `useReducedMotion()`
- * guard: under `prefers-reduced-motion: reduce` the accent is set to the route's
- * target INSTANTLY (no tween — a single settled write of both vars). With motion
- * allowed, a short self-contained `requestAnimationFrame` HSL tween (~320ms,
- * eased) blends from the current colour to the target.
+ * Motion (CRITICAL): a route-linked colour shift is NOT
+ * auto-neutralised by the app's `MotionConfig`/`LazyMotion`. So we keep the
+ * explicit `useReducedMotion()` guard: under `prefers-reduced-motion: reduce`
+ * the accent is set to the route's target INSTANTLY (no tween — a single
+ * settled write of both vars). With motion allowed, a short self-contained
+ * `requestAnimationFrame` HSL tween (~320ms, eased) blends from the current
+ * colour to the target.
  *
- * Scope: drives `--accent-scroll` ONLY. shadcn's `--accent` (interactive chrome)
- * stays sakura and is never touched here. Dark-only. SSR-safe: every `document`
- * access is guarded and lives in an effect; the pending rAF is cancelled on every
- * change and on unmount.
+ * Scope: drives `--accent-scroll` ONLY. shadcn's `--accent`
+ * (interactive chrome) stays sakura and is never touched here. Dark-only.
+ * SSR-safe: every `document` access is guarded and lives in an effect;
+ * the pending rAF is cancelled on every change and on unmount.
  */
 
 // ---- Target palette (matches the brand / token-auth accents) ---------------
 // Each accent carries BOTH its `hsl` triplet (`[h, s, l]` — degrees, %, %, for
 // the `hsl()` var) AND its **authored** `rgb` triplet (`[r, g, b]` 0..255, for
-// the `rgba(var(--accent-scroll-rgb) / a)` var). The RGB is a pinned literal, NOT
-// a value derived from the HSL: standard HSL->RGB does not reproduce the brand
-// values (gold rounds to 235,193,76 but the pinned literal is 240,199,96 — a
-// visible 20-pt blue gap), so every SETTLED accent must write the authored literal
-// verbatim to match globals.css byte-for-byte. (Derivation is only allowed for
-// intermediate, unpinned tween frames — see the tween below.)
+// the `rgba(var(--accent-scroll-rgb) / a)` var). The RGB is the
+// **pinned literal**, NOT a value derived from the HSL: standard HSL->RGB does
+// not reproduce the brand values (gold rounds to 235,193,76 but the pin is
+// 240,199,96 — a visible 20-pt blue gap), so every SETTLED accent must write the
+// authored literal verbatim to equal the pinned values byte-for-byte. (Derivation is
+// only allowed for intermediate, unpinned tween frames — see the tween below.)
 type Hsl = readonly [number, number, number];
 type Rgb = readonly [number, number, number];
 type Accent = { readonly hsl: Hsl; readonly rgb: Rgb };
@@ -54,8 +57,8 @@ const HIMALAYA: Accent = { hsl: [24, 100, 63], rgb: [255, 140, 66] }; // Nepal (
 const SAKURA: Accent = { hsl: [347, 85, 80], rgb: [247, 160, 179] }; // Japan (cool/pink)
 
 /**
- * ROUTE -> accent: only the two destination pages drive the warm/cool shift;
- * every other route rests at neutral gold. Trailing-slash agnostic
+ * ROUTE -> accent: only the two destination pages drive the warm/cool
+ * shift; every other route rests at neutral gold. Trailing-slash agnostic
  * (`trailingSlash:true` makes `/nepal/` canonical, but compare normalized) and
  * basePath-agnostic (`usePathname()` excludes basePath).
  */
@@ -85,8 +88,8 @@ function lerp(a: number, b: number, t: number): number {
 }
 
 // Write the `--accent-scroll` HSL var from an HSL triplet. Rounds to 0.1° / 0.1%
-// for a stable, readable computed value. (RGB is written separately — see below
-// — because at settled endpoints it must be the AUTHORED literal, not derived.)
+// for a stable, readable computed value. (RGB is written separately — see below —
+// because at settled endpoints it must be the AUTHORED literal, not derived.)
 function writeHsl(root: HTMLElement, [h, s, l]: readonly [number, number, number]): void {
   const hr = Math.round(h * 10) / 10;
   const sr = Math.round(s * 10) / 10;

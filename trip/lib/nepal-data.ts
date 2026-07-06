@@ -9,7 +9,7 @@ export interface Recommendation {
   notes: string;
   location?: string;
   image?: string;
-  // --- optional enrichment (additive; nothing existing breaks) ---
+  // --- Optional enrichment (additive; nothing existing breaks) ---
   /** Curated genuine highlight — drives the "Must-see" badge (~5-8 per country). */
   mustSee?: boolean;
   /** Longer, accurate description shown in the detail sheet. Real facts only. */

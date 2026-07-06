@@ -13,25 +13,25 @@ import type { AddToPlanSource, SourceType, ItineraryDraft } from '@/lib/itinerar
  * Shared, responsive place-detail sheet — ONE component that renders as a
  * bottom sheet on mobile and a right-side panel on desktop. It is opened by tapping a
  * card in the recommendation / photography / nightlife guides and shows the full
- * description, practical info, image, a Google Maps research link, and an add-to-plan
- * action.
+ * description, practical info, image, a Google Maps research link, and
+ * an add-to-plan action.
  *
  * It inherits the full modal contract of the add-to-plan dialog:
- *  - Portal to `document.body` (mount-guarded, SSR-safe under output:'export'),
+ *  - portal to `document.body` (mount-guarded, SSR-safe under output:'export'),
  *    so it escapes the transformed / overflow-hidden card ancestors.
- *  - Document-level Esc (via `onCloseRef`), a Tab-trap inside the panel,
+ *  - document-level Esc (via `onCloseRef`), a Tab-trap inside the panel,
  *    first-element autofocus, and PARENT-OWNED focus-return — the opening card captures
  *    the trigger and refocuses it on `AnimatePresence onExitComplete` (NOT here).
- *  - Flex-column with a NON-scrolling pinned footer holding the add action, so
+ *  - flex-column with a NON-scrolling pinned footer holding the add action, so
  *    it stays visible/clickable at any viewport height.
- *  - It also sets the `body[data-dialog-open]` flag (the quick-add FAB hides on it).
+ *  - It also sets the `body[data-dialog-open]` seam flag (the mobile FAB hides on it).
  *
  * Add-to-plan (two shapes, so all card families reuse it):
  *  - `addSource` + `addSourceType`: a source-linked place (recommendation / photo) —
  *    renders the shared state-aware `AddToPlanButton` (gets the "Added" badge).
  *  - `customAddDraft`: a place with no adapter source (nightlife) — opens the custom
- *    add dialog prefilled with the venue's title/location; produces a plain item with
- *    NO sourceId, so it never trips a false "Added" badge.
+ *    add dialog prefilled with the venue's title/location; produces a plain
+ *    item with NO sourceId, so it never trips a false "Added" badge.
  *
  * Reduced-motion: entrance/exit use opacity + a small translate; the global
  * reduced-motion CSS guard neutralizes transitions, and framer honors prefers-reduced-
@@ -134,7 +134,7 @@ export default function PlaceDetailSheet({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, customOpen]);
 
-  // body[data-dialog-open] flag while the sheet is open (the quick-add FAB hides on it).
+  // body[data-dialog-open] seam flag while the sheet is open (the mobile FAB hides on it).
   useEffect(() => {
     if (!open) return;
     document.body.dataset.dialogOpen = '1';
@@ -193,6 +193,7 @@ export default function PlaceDetailSheet({
         >
           <m.div
             ref={panelRef}
+            data-testid="place-detail-sheet"
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
@@ -233,6 +234,7 @@ export default function PlaceDetailSheet({
               <button
                 ref={closeBtnRef}
                 type="button"
+                data-testid="place-detail-close"
                 onClick={onClose}
                 aria-label="Close details"
                 className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/50 hover:bg-black/70 text-white/80 backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
@@ -328,7 +330,7 @@ export default function PlaceDetailSheet({
 
               {/* Source-linked add (recs / photos) — the shared state-aware control. */}
               {addSource && addSourceType && (
-                <div className="[&>button]:mt-0">
+                <div data-testid="place-detail-add-to-plan" className="[&>button]:mt-0">
                   <AddToPlanButton source={addSource} sourceType={addSourceType} accentColor={accentText} />
                 </div>
               )}
@@ -338,6 +340,7 @@ export default function PlaceDetailSheet({
                 <button
                   ref={customTriggerRef}
                   type="button"
+                  data-testid="place-detail-add-to-plan"
                   onClick={handleCustomAdd}
                   aria-haspopup="dialog"
                   className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none hover:bg-white/10 ${accentText}`}

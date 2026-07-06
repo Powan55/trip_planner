@@ -2,8 +2,8 @@ import dynamic from 'next/dynamic';
 import PageHero from '@/components/page-hero';
 import SectionSkeleton from '@/components/section-skeleton';
 
-// NEPAL: recommendations · photography (Nepal) · nightlife (Nepal) ·
-// foods/etiquette/featured (Nepal). Section ids (#nepal/#photography/
+// NEPAL: recommendations · photography (Nepal) · nightlife (Nepal)
+// · foods/etiquette/featured (Nepal). Section ids (#nepal/#photography/
 // #nightlife/#essentials) are kept for sub-anchors + the command palette.
 // SectionSkeletons reserve space while islands load (anti-CLS).
 const NepalSection = dynamic(() => import('@/components/nepal-section'), {
@@ -31,8 +31,8 @@ export const metadata = {
 export default function NepalPage() {
   return (
     <main className="min-h-screen bg-navy-900">
-      {/* PageHero supplies the page's <h1> (the section components keep their own
-          <h2>s, so every route has exactly one top-level heading — a11y win). */}
+      {/* PageHero supplies the page's <h1> (pages previously shipped
+          without one — a11y win). Section components keep their own <h2>s. */}
       <PageHero
         variant="nepal"
         title="Nepal"

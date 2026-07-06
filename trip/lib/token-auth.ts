@@ -15,9 +15,13 @@
 // `resolveToken` is deliberately pure (no storage) so it can be unit-tested anywhere.
 
 import { setUserName } from './identity';
+import { identityStore } from '@/core/storage/gateway';
 
-const TOKEN_KEY = 'tripPlannerToken';
-const USER_NAME_KEY = 'tripPlannerUserName'; // owned by ./identity; cleared here on sign-out
+// The token key literal AND the raw localStorage access now live in
+// the typed storage gateway (`core/storage/gateway.ts`). The duplicated
+// `tripPlannerUserName` literal that used to sit here is gone — the cross-module clear on
+// sign-out (token + name, owned by ./identity) is `identityStore.clearIdentity()`, which
+// clears BOTH keys. On-disk key strings and value shapes are unchanged.
 
 /**
  * Same-tab reactive signal for identity changes. Mirrors the itinerary store's
@@ -68,13 +72,7 @@ export function signIn(raw: string): Traveler | null {
   const traveler = resolveToken(raw);
   if (!traveler) return null;
   setUserName(traveler.name);
-  if (typeof window !== 'undefined') {
-    try {
-      window.localStorage.setItem(TOKEN_KEY, traveler.token);
-    } catch {
-      /* ignore (quota / disabled storage) */
-    }
-  }
+  identityStore.setToken(traveler.token);
   // Reactive signal: let the chip / gate / remote-subscribe pick up the sign-in
   // live. Dispatched after persistence so any listener that re-reads sees the new token.
   emitIdentityChanged();
@@ -86,28 +84,19 @@ export function signIn(raw: string): Traveler | null {
  * if none is stored / it no longer resolves / during SSR.
  */
 export function getActiveTraveler(): Traveler | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    const token = window.localStorage.getItem(TOKEN_KEY);
-    return token ? resolveToken(token) : null;
-  } catch {
-    return null;
-  }
+  const token = identityStore.getToken();
+  return token ? resolveToken(token) : null;
 }
 
 /**
- * Sign out: clear the persisted token and the display name. Since ./identity stays
- * untouched, the name key is removed directly here. Already-stamped createdBy /
- * updatedBy on stored items are historical and are NOT touched. No-op during SSR.
+ * Sign out: clear the persisted token AND the display name via the gateway's
+ * `clearIdentity` (which removes both keys — the cross-module ownership the gateway
+ * now centralizes; behavior byte-identical to the prior direct removals). Already-stamped
+ * createdBy / updatedBy on stored items are historical and are NOT touched. No-op / never
+ * throws during SSR or with disabled storage (handled inside the gateway).
  */
 export function signOut(): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(TOKEN_KEY);
-    window.localStorage.removeItem(USER_NAME_KEY);
-  } catch {
-    /* ignore (disabled storage) */
-  }
+  identityStore.clearIdentity();
   // Reactive signal: re-show the gate + clear the chip + tear down remote-subscribe
   // live, no reload. Dispatched after the keys are cleared so listeners re-read "signed out."
   emitIdentityChanged();

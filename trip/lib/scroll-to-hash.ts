@@ -7,12 +7,12 @@
  * island whose chunk loads after the page mounts, so the browser's / Next's own
  * hash-scroll attempt finds nothing and lands at the top. This helper closes that
  * gap: it rAF-polls (bounded) until the element exists, then defers the scroll by
- * a double rAF (the same pattern the navbar uses) so the freshly-mounted subtree
- * gets two frames to lay out before we measure.
+ * a double rAF — the navbar pattern — so the freshly-mounted subtree gets two frames
+ * to lay out before we measure.
  *
- * Reduced motion: `scrollIntoView` is a JS API the CSS `scroll-behavior` rule
- * does not govern, so we explicitly pass `behavior:'auto'` (instant jump) under
- * `prefers-reduced-motion: reduce`.
+ * Reduced motion: `scrollIntoView` is a JS API the CSS `scroll-behavior`
+ * rule does not govern, so we explicitly pass `behavior:'auto'` (instant jump)
+ * under `prefers-reduced-motion: reduce`.
  */
 
 // ~5s at 60fps — generous for a route chunk + section islands on a slow line,

@@ -1,0 +1,13 @@
+{
+  "hero": {
+    "path": "/images/hero/hero.jpg",
+    "alt": "",
+    "title": "Himalayas",
+    "artist": "NASA Landsat image",
+    "license": "Public domain",
+    "licenseUrl": "",
+    "credit": "https://eoimages.gsfc.nasa.gov/images/imagerecords/82000/82581/himalaya_map_color_lrg.jpg",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Himalayas_and_allied_ranges_NASA_Landsat_showing_the_eight_thousanders%2C_annotated_with_major_rivers.jpg/1920px-Himalayas_and_allied_ranges_NASA_Landsat_showing_the_eight_thousanders%2C_annotated_with_major_rivers.jpg",
+    "ext": ".jpg"
+  }
+}

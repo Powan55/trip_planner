@@ -13,19 +13,21 @@ import { getSelectedDay } from '@/lib/selected-day';
  * preset date. Shown only `<md`; parked at the bottom-right, above the tab bar and clear of the
  * home indicator.
  *
- * How it connects to the dialog (two decoupled hooks):
- * - EMIT: on click we `window.dispatchEvent(new CustomEvent('quickadd:open', { detail:
- *   { date } }))`. The listener (`quick-add-host.tsx`) opens the dialog on that date. If no
- *   listener is mounted the click is a harmless no-op (we do NOT build a fallback dialog). The
- *   preset `date` is `getTodayInTrip()?.date ?? getSelectedDay() ?? TRIP_DATES[0]` — i.e. today
- *   if we're mid-trip, else the day the calendar has focused, else the first trip day.
- * - HIDE ON DIALOG: the dialog sets `document.body.dataset.dialogOpen = '1'` while open. We
- *   observe that attribute with a MutationObserver and hide the FAB while it is present (so the
- *   FAB never floats over an open dialog).
+ * SEAMS (build against the contract; graceful no-op until the listener is present):
+ * - SEAM 1 — emit: on click we `window.dispatchEvent(new CustomEvent('quickadd:open', { detail:
+ *   { date } }))`. The listener (`quick-add-host.tsx`) opens the dialog on that
+ *   date. With no listener the click is a harmless no-op (we do NOT build a
+ *   fallback dialog). The preset `date` is `getTodayInTrip()?.date ?? getSelectedDay() ??
+ *   TRIP_DATES[0]` — i.e. today if we're mid-trip, else the day the calendar has focused, else
+ *   the first trip day.
+ * - SEAM 2 — hide on dialog: the dialog sets `document.body.dataset.dialogOpen = '1'` while
+ *   open. We observe that attribute with a MutationObserver and hide the FAB while it is present
+ *   (so the FAB never floats over an open dialog). When the attribute never appears, the
+ *   FAB simply never hides.
  *
  * Z-LADDER: the FAB is `z-40` (presence/panel tier), deliberately BELOW the dialog tier
- * (z-50) and the token gate (z-70), so it can never sit over an open dialog's scrim — the
- * hide-on-dialog observer is a belt-and-braces reinforcement of the same guarantee.
+ * (z-50) and the token gate (z-70), so it can never sit over an open dialog's scrim — seam 2 is a
+ * belt-and-braces reinforcement of the same guarantee.
  *
  * POSITION: `bottom = var(--tab-bar-h, 64px) + env(safe-area-inset-bottom) + 1rem`, so it always
  * floats one comfortable gap above the tab bar regardless of safe-area inset. `right-4`.
@@ -35,7 +37,7 @@ import { getSelectedDay } from '@/lib/selected-day';
  * SSR-guarded throughout.
  */
 export default function QuickAddFab() {
-  // Hidden while any dialog is open (body[data-dialog-open]).
+  // Seam 2: hidden while any dialog is open (body[data-dialog-open]).
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
@@ -48,7 +50,7 @@ export default function QuickAddFab() {
     return () => observer.disconnect();
   }, []);
 
-  // Resolve the preset date and emit the open event; quick-add-host.tsx listens.
+  // Seam 1: resolve the preset date and emit the open event. The host listens; no-op otherwise.
   const handleClick = () => {
     if (typeof window === 'undefined') return;
     const date = getTodayInTrip()?.date ?? getSelectedDay() ?? TRIP_DATES[0];
@@ -60,6 +62,7 @@ export default function QuickAddFab() {
   return (
     <button
       type="button"
+      data-testid="quick-add-fab"
       onClick={handleClick}
       aria-label="Add to plan"
       className="md:hidden fixed right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-full bg-gold-400 text-navy-900 shadow-lg shadow-black/30 outline-none transition-transform duration-200 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:ring-gold-400 focus-visible:outline-none motion-reduce:transition-none motion-reduce:hover:scale-100 motion-reduce:active:scale-100"

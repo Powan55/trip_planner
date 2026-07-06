@@ -1,4 +1,14 @@
-// The SINGLE app-wide clock / trip-day source.
+// The SINGLE app-wide clock / trip-day source — the ClockPort ADAPTER.
+//
+// The app is split into a framework-free `core/` and thin
+// `lib/` adapters. This module is the ADAPTER that implements `core/ports.ts`'s
+// `ClockPort`: it owns all the I/O — reading the real clock AND resolving the `?today=`
+// simulation override (URL / sessionStorage) — and delegates the PURE trip-day
+// math to `core/dates` (`dayInTripFor`). The public API here (`getNow`, `getTodayInTrip`,
+// `TripToday`) is BYTE-IDENTICAL to before, so every caller (`hero-section.tsx`,
+// `trip-dashboard.tsx`, `calendar-planner.tsx`, `quick-add-fab.tsx`) is untouched. The
+// override resolution/precedence/timing (an I/O concern) intentionally STAYS here — only
+// deterministic math moved to core.
 //
 // Every "what day is it, and where in the trip are we" read flows through here so
 // travel-mode features are testable against the real static build via a `?today=`
@@ -13,21 +23,25 @@
 //   - Any absent/invalid `?today` falls back to the persisted key if present, else the
 //     real clock.
 //
-// Storage rules: sessionStorage ONLY, via the ONE named key constant below —
-// NEVER localStorage, NEVER shared/reactive state. The itinerary's localStorage
-// namespace is untouched. `computeCountdown` stays PURE: callers pass `getNow()`.
+// Storage rules: sessionStorage ONLY — NEVER localStorage, NEVER
+// shared/reactive state. The `tripPlannerTodayOverride` key + raw sessionStorage
+// access live in the typed storage gateway (`clockOverride`), which is store-aware
+// and keeps this key on the SESSION backend. All resolution/validation/
+// precedence logic stays HERE — the gateway is byte-transport only, not policy. The
+// localStorage namespace is untouched. `computeCountdown` stays PURE: callers pass
+// `getNow()`.
 //
-// SSR-safe: every `window` / `sessionStorage` access is guarded with
-// `typeof window !== 'undefined'`; on the server `getNow()` returns the real clock and
-// no override is ever resolved (first-paint parity, then the client re-reads on mount).
-//
-// Purity: this module imports ONLY from `lib/trip-data.ts` (TRIP_DATES, getCountryForDate)
-// — no store import — so it stays a leaf with no reactive-state coupling.
+// SSR-safe: `clockOverride` is `typeof window`-guarded internally (reads return null, writes
+// no-op on the server), so `getNow()` returns the real clock and no override is ever
+// resolved during SSR (first-paint parity, then the client re-reads on mount).
 
-import { TRIP_DATES, getCountryForDate } from '@/lib/trip-data';
+import { dayInTripFor, type TripToday } from '@/core/dates';
+import type { ClockPort } from '@/core/ports';
+import { clockOverride } from '@/core/storage/gateway';
 
-/** The ONE sessionStorage key for the `?today=` override (single named constant). */
-const TODAY_OVERRIDE_KEY = 'tripPlannerTodayOverride';
+// Re-export the trip-day type from its core home so `@/lib/trip-now`'s public surface is
+// byte-identical for existing type importers (e.g. `hero-section.tsx`'s `TripToday`).
+export type { TripToday } from '@/core/dates';
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -63,30 +77,25 @@ function resolveOverrideOnce(): void {
     param = null;
   }
 
-  try {
-    if (param === 'off') {
-      // Explicit clear: drop any persisted override, fall through to the real clock.
-      window.sessionStorage.removeItem(TODAY_OVERRIDE_KEY);
-      overrideMs = null;
-      return;
-    }
-
-    if (param && DATE_RE.test(param)) {
-      // Valid URL override wins and is persisted for subsequent navigations this session.
-      window.sessionStorage.setItem(TODAY_OVERRIDE_KEY, param);
-      overrideMs = localNoon(param).getTime();
-      return;
-    }
-
-    // No usable URL param: fall back to a persisted override if one exists.
-    const stored = window.sessionStorage.getItem(TODAY_OVERRIDE_KEY);
-    if (stored && DATE_RE.test(stored)) {
-      overrideMs = localNoon(stored).getTime();
-      return;
-    }
-  } catch {
-    // sessionStorage unavailable (privacy mode / quota): silently use the real clock.
+  if (param === 'off') {
+    // Explicit clear: drop any persisted override, fall through to the real clock.
+    clockOverride.clear();
     overrideMs = null;
+    return;
+  }
+
+  if (param && DATE_RE.test(param)) {
+    // Valid URL override wins and is persisted for subsequent navigations this session.
+    clockOverride.set(param);
+    overrideMs = localNoon(param).getTime();
+    return;
+  }
+
+  // No usable URL param: fall back to a persisted override if one exists. `clockOverride`
+  // never throws (privacy mode / quota degrade to `null` inside the gateway) → real clock.
+  const stored = clockOverride.get();
+  if (stored && DATE_RE.test(stored)) {
+    overrideMs = localNoon(stored).getTime();
     return;
   }
 
@@ -103,34 +112,24 @@ export function getNow(): Date {
   return overrideMs === null ? new Date() : new Date(overrideMs);
 }
 
-export interface TripToday {
-  date: string;
-  dayNumber: number;
-  city: string;
-  country: 'nepal' | 'japan';
-}
-
-const pad = (n: number) => String(n).padStart(2, '0');
+/**
+ * The ClockPort adapter instance. `now()` delegates to `getNow()`,
+ * so the port and the standalone function share ONE resolution path. Exposed for
+ * core-boundary consumers that want the clock as a port; existing callers keep using
+ * `getNow()` directly (byte-identical).
+ */
+export const clock: ClockPort = {
+  now: getNow,
+};
 
 /**
  * The trip-day for "now", or `null` when the current day is outside the trip window.
  *
- * Formats `getNow()` to a LOCAL calendar-day string from local parts (NOT
- * `toISOString()`, which is UTC and can slip a day at the edges), then looks it up in
- * TRIP_DATES — the single date source. Day N = index + 1. The `city` literal
- * MUST match `hooks/use-itinerary.ts`'s synthesizeDay default so travel-mode labels and
- * the stored day plans agree.
+ * Reads the app-wide clock (`getNow()`, incl. the `?today=` override) and delegates the
+ * pure calendar-day → trip-day mapping to `core/dates`' `dayInTripFor`. Splitting it this
+ * way keeps the clock I/O here and the deterministic math in core, with no observable
+ * change — the same `?today=` inputs yield the same `{ date, dayNumber, city, country }`.
  */
 export function getTodayInTrip(): TripToday | null {
-  const now = getNow();
-  const s = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  const i = TRIP_DATES.indexOf(s);
-  if (i < 0) return null;
-  const country = getCountryForDate(s);
-  return {
-    date: s,
-    dayNumber: i + 1,
-    country,
-    city: country === 'nepal' ? 'Kathmandu' : 'Tokyo',
-  };
+  return dayInTripFor(getNow());
 }

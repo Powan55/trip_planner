@@ -1,5 +1,7 @@
 'use client';
 
+// components/service-worker-registrar.tsx
+//
 // Registers the hand-rolled service worker (emitted to out/sw.js by
 // scripts/gen-sw.mjs) and drives the NO-silent-auto-refresh update flow:
 //   updatefound -> new worker reaches `installed` while a controller exists
@@ -14,9 +16,10 @@
 //   contenthash chunks make dev serve stale hashes, so a SW in dev is a
 //   footgun.
 //
-// basePath: the registrar does NOT re-implement prefixing — it imports the
-// single-source helper `withBasePath` from '@/lib/utils' (no-op when basePath
-// is empty, so it never double-prefixes) and registers withBasePath('/sw.js').
+// basePath: the registrar does NOT re-implement prefixing — it imports
+// the single-source helper `withBasePath` from '@/lib/utils' (no-op when
+// basePath is empty, so it never double-prefixes) and registers
+// withBasePath('/sw.js').
 
 import { useEffect } from 'react';
 import { toast } from 'sonner';

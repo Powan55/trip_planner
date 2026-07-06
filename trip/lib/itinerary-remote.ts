@@ -1,7 +1,6 @@
-// The remote-sync seam — the only optional cross-friend surface on top of the
-// local store.
+// The remote-sync seam — the module that layers cross-device sync onto the local store.
 //
-// This module wraps the existing local store; it never replaces it. It has two
+// This module wraps the existing store; it never replaces it. It has two
 // directions:
 //   READ  (remote → local): a Firestore `onSnapshot` on the trip's `days` collection
 //         maps docs back to `DayPlan[]`, writes them through the existing
@@ -21,10 +20,11 @@
 // local-write echo is additionally skipped via `snapshot.metadata.hasPendingWrites`.
 // Together these break any write→read→write loop.
 //
-// FIRST-SNAPSHOT RECONCILIATION: on the first snapshot we read the trip-doc marker
-// to distinguish "never synced" from "deliberately emptied", then either apply remote
-// authoritatively (incl. empty) or seed remote from local — never losing user data,
-// never resurrecting the sample over a deliberately-emptied shared plan (across devices).
+// FIRST-SNAPSHOT RECONCILIATION:
+// on the first snapshot we read the trip-doc marker to distinguish "never synced" from
+// "deliberately emptied", then either apply remote authoritatively (incl. empty) or
+// seed remote from local — never losing user data, never resurrecting the sample over a
+// deliberately-emptied shared plan (across devices).
 //
 // DORMANT-SAFE: firebase is imported ONLY via dynamic `import()` behind
 // the `isRemoteConfigured()` gate. With the env absent the gate is false, this module's
@@ -38,15 +38,17 @@
 'use client';
 
 import type { DayPlan, ItineraryItem } from './trip-data';
-import { savePlans, hasStoredPlans } from './itinerary-storage';
+import { savePlans, loadPlans, hasStoredPlans } from './itinerary-storage';
 import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
 import { FIREBASE_CONFIG, isRemoteConfigured, TRIP_ID } from './firebase-config';
+import { mergeDay, mergeDays } from '@/core/sync/merge-day';
+import { seedHlcFromLegacy } from '@/core/sync/hlc';
 
 // ---------------------------------------------------------------------------
 // Shared lazy firebase handle. Both the read (subscribe) and write (push) paths
 // need the same app/auth/firestore instances; init them once, behind the gate, via
-// dynamic import (firebase stays off the dormant hot path). The promise is cached
-// so concurrent callers share one init + one anonymous sign-in.
+// dynamic import (firebase stays off the dormant hot path). The promise
+// is cached so concurrent callers share one init + one anonymous sign-in.
 // ---------------------------------------------------------------------------
 
 type FirestoreMod = typeof import('firebase/firestore');
@@ -105,8 +107,16 @@ function getRemote(): Promise<RemoteHandle> {
  * Map a raw Firestore day-doc into a DayPlan. Defensive: tolerate partial/legacy docs
  * so a malformed remote doc degrades gracefully (it just yields a thin-but-valid
  * DayPlan) rather than throwing inside the snapshot handler.
+ *
+ * BEHAVIOR-FROZEN: this mapper is pinned verbatim by the merge-primitive suite
+ * (`itinerary-remote.test.ts`) and MUST stay a pure shape-mapper (no field defaulting), so
+ * that suite passes with zero assertion edits. The Sync-v2 default-on-read is a
+ * SEPARATE step, `defaultDayForMerge` below, applied at the two merge boundaries (snapshot
+ * assembly + the transactional-push remote read) — NOT inside `docToDayPlan`. Keeping the
+ * two concerns separate is what lets the frozen mapper stay frozen while new clients still
+ * treat v1 remote docs as mergeable v2.
  */
-function docToDayPlan(id: string, data: Record<string, unknown>): DayPlan {
+export function docToDayPlan(id: string, data: Record<string, unknown>): DayPlan {
   const date = typeof data.date === 'string' ? data.date : id;
   const country = data.country === 'japan' ? 'japan' : 'nepal';
   const city = typeof data.city === 'string' ? data.city : '';
@@ -115,12 +125,39 @@ function docToDayPlan(id: string, data: Record<string, unknown>): DayPlan {
 }
 
 /**
+ * Default a single item's Sync v2 fields on read. Pure, clock-free — the
+ * hlc is DERIVED from `updatedAt` via `seedHlcFromLegacy`, never minted, so every client
+ * seeds the identical stamp for the same legacy item (no divergence). A v2 item that
+ * already carries the fields (incl. a `deleted:true` tombstone) passes through unchanged.
+ */
+export function defaultItemSyncFields(it: ItineraryItem): ItineraryItem {
+  return {
+    ...it,
+    rev: it.rev ?? 1,
+    hlc: it.hlc ?? seedHlcFromLegacy(it.updatedAt),
+    deleted: it.deleted ?? false,
+  };
+}
+
+/**
+ * Default a whole day's items for merging. The deployed shared trip's
+ * `days/{date}` docs are v1 — items carry NO `rev`/`hlc`/`deleted`. Applying this at the
+ * merge boundary makes a v1 remote doc a fully valid, MERGEABLE `DayPlan` in a new client's
+ * memory WITHOUT any remote write — the core of the dual-read window. Tombstones are
+ * KEPT (they must reach `mergeDay` to propagate + win); the UI-exposed `plans` selector
+ * filters them downstream, not here.
+ */
+export function defaultDayForMerge(day: DayPlan): DayPlan {
+  return { ...day, items: (day.items ?? []).map(defaultItemSyncFields) };
+}
+
+/**
  * Strip `undefined`-valued fields from a day's items before writing to Firestore.
  * Firestore rejects `undefined` field values; our `ItineraryItem` has many optional
  * fields (time/notes/sourceId/updatedBy/...) that are commonly undefined. JSON
  * round-trip drops them cleanly and is also a defensive deep-clone.
  */
-function sanitizeDayForWrite(day: DayPlan): Record<string, unknown> {
+export function sanitizeDayForWrite(day: DayPlan): Record<string, unknown> {
   return JSON.parse(JSON.stringify(day)) as Record<string, unknown>;
 }
 
@@ -129,7 +166,7 @@ function sanitizeDayForWrite(day: DayPlan): Record<string, unknown> {
  * prev→next? Compared by value (JSON) so an unchanged day is NOT re-written (keeps
  * writes minimal — only changed day-docs hit Firestore).
  */
-function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boolean {
+export function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
   return JSON.stringify(a) === JSON.stringify(b);
@@ -141,13 +178,30 @@ function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boolean {
  * Called from the store's `commit()` AFTER the local `savePlans(next)` — so the offline
  * cache + instant same-tab echo are already in place; the remote write is best-effort
  * on top. Diffs `prev`→`next` by date:
- *   - a day whose contents CHANGED  → `setDoc(days/{date}, {...day})` (LWW per day-doc)
- *     (a day that became empty has `items:[]` and is written, NOT deleted — local parity)
+ *   - a day whose contents CHANGED  → a merge-aware transactional write (see below)
+ *     (a day that became empty writes `items:[]` — NOT deleted — parity with local)
  *   - a day present in `prev` but ABSENT in `next` → `deleteDoc(days/{date})`
  *   - unchanged days are not touched (no spurious writes / no echo storm)
  *
+ * SYNC-V2 MERGE-AWARE WRITE (transactional). A blind
+ * `setDoc(whole day)` is the lost-update bug at the TRANSPORT layer: even with a correct
+ * local merge, two clients pushing the SAME day still overwrite each other's items. So each
+ * changed day is written inside a `runTransaction`:
+ *   1. read the CURRENT remote day-doc,
+ *   2. default its v1 items on read (`docToDayPlan`) so it is a valid mergeable DayPlan,
+ *   3. `mergeDay(remoteNow, localDay)` — item-level merge inside the day,
+ *   4. write the merged doc.
+ * A concurrent peer write to the same doc between the transaction's read and write forces
+ * Firestore to RETRY the transaction, which re-reads the peer's now-committed state and
+ * re-merges — so simultaneous same-day pushes NEVER lose an item (the headline v2 fix at
+ * the write side). `mergeDay` is commutative+idempotent, so the retry is safe. Cost
+ * is one extra doc read per changed day per edit — negligible on the free tier at 32 day-docs /
+ * 3 editors. A day newly-created locally (absent remote) merges against an
+ * empty remote and writes the local items — same code path, no special-casing.
+ *
  * ECHO-SUPPRESSION: this is invoked ONLY from `commit()` (genuine local mutations),
- * never from the snapshot path. Items carry their attribution as-is.
+ * never from the snapshot path. Attribution + the rev/hlc stamp (gated on config) are
+ * already on the items handed in; they are written as-is here.
  *
  * Gated + lazy + degrading: no-ops when `isRemoteConfigured()` is false; wraps all SDK
  * work in try/catch → console.warn so a failed push NEVER breaks the local edit.
@@ -158,18 +212,17 @@ export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void>
 
   try {
     const { db, fs } = await getRemote();
-    const { doc, setDoc, deleteDoc } = fs;
+    const { doc, deleteDoc, runTransaction } = fs;
 
     const prevByDate = new Map(prev.map((d) => [d.date, d]));
     const nextByDate = new Map(next.map((d) => [d.date, d]));
 
     const writes: Promise<void>[] = [];
 
-    // Changed or newly-added days → setDoc that single day-doc.
+    // Changed or newly-added days → merge-aware transactional write of that single day-doc.
     for (const day of next) {
       if (!dayEquals(prevByDate.get(day.date), day)) {
-        const ref = doc(db, 'trips', TRIP_ID, 'days', day.date);
-        writes.push(setDoc(ref, sanitizeDayForWrite(day)));
+        writes.push(pushDayMerged(db, fs, day));
       }
     }
 
@@ -190,6 +243,32 @@ export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void>
 }
 
 /**
+ * Merge-aware transactional write of ONE changed day. Reads the
+ * current remote day-doc inside a transaction, `mergeDay`s the local day on top of it, and
+ * writes the merged result — so a concurrent same-day peer write forces a retry that
+ * re-merges rather than clobbering. Exported for the wired-behavior unit test (fake
+ * Firestore). See `pushPlans` for the full rationale.
+ */
+export async function pushDayMerged(
+  db: import('firebase/firestore').Firestore,
+  fs: Pick<FirestoreMod, 'doc' | 'runTransaction'>,
+  localDay: DayPlan,
+): Promise<void> {
+  const { doc, runTransaction } = fs;
+  const ref = doc(db, 'trips', TRIP_ID, 'days', localDay.date);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    // Read the remote-now day (defaulting v1 items) and merge the local day on top.
+    // An absent remote doc merges against an empty day → writes the local items unchanged.
+    const remoteNow: DayPlan = snap.exists()
+      ? defaultDayForMerge(docToDayPlan(localDay.date, snap.data() as Record<string, unknown>))
+      : { date: localDay.date, city: localDay.city, country: localDay.country, items: [] };
+    const merged = mergeDay(remoteNow, localDay);
+    tx.set(ref, sanitizeDayForWrite(merged));
+  });
+}
+
+/**
  * Subscribe to remote itinerary changes (remote → local).
  *
  * Opens ONE Firestore `onSnapshot` on `trips/{TRIP_ID}/days` after a silent
@@ -198,13 +277,14 @@ export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void>
  * `itinerary:changed` CustomEvent — so the existing reactive UI updates with no
  * component edits. Returns an unsubscribe fn.
  *
- * FIRST-SNAPSHOT RECONCILIATION. On the FIRST snapshot we read the trip-doc marker
- * `trips/{TRIP_ID}` once to distinguish "never synced" from "deliberately emptied":
+ * FIRST-SNAPSHOT RECONCILIATION. On the
+ * FIRST snapshot we read the trip-doc marker `trips/{TRIP_ID}` once to distinguish
+ * "never synced" from "deliberately emptied":
  *   - Trip doc EXISTS (group synced before): remote is authoritative → apply the days
  *     snapshot INCLUDING empty (`savePlans(remoteDays)` even if `[]`). This respects a
  *     deliberately-emptied shared plan (no sample resurrection).
  *   - Trip doc ABSENT (never synced): THIS client seeds → create the trip doc and push
- *     the local state up. Seed source by local intent (localStorage key-presence):
+ *     the local state up. Seed source by local intent (key-presence): localStorage
  *     key PRESENT ⇒ push the user's local edits; key ABSENT ⇒ local is the untouched
  *     SAMPLE_ITINERARY → seed from the sample. Local is left as-is (never overwritten
  *     with an empty remote).
@@ -270,11 +350,11 @@ export function subscribeRemote(
     window.addEventListener('online', onlineHandler);
   };
 
-  // Apply a remote snapshot to the local store (the shared steady-state write path).
-  // Writes through the EXISTING persistence (incl. `[]`) and dispatches the
-  // EXISTING event DIRECTLY — NOT via commit() — so the snapshot path never
-  // re-pushes (echo-suppression).
-  const applyRemote = (plans: DayPlan[]) => {
+  // Persist + dispatch a resolved plan set to the local store (the shared write tail).
+  // Writes through the EXISTING persistence (incl. `[]`) and dispatches the EXISTING
+  // event DIRECTLY — NOT via commit() — so the snapshot path never re-pushes
+  // (echo-suppression). `onRemoteChange`/`onApplied` receives the resolved plans.
+  const persistAndDispatch = (plans: DayPlan[]) => {
     plans.sort((a, b) => a.date.localeCompare(b.date)); // stable local shape
     savePlans(plans);
     if (typeof window !== 'undefined') {
@@ -283,8 +363,37 @@ export function subscribeRemote(
     onRemoteChange?.(plans);
   };
 
+  // AUTHORITATIVE apply (first-snapshot reconciliation only).
+  // Remote is taken verbatim, INCLUDING empty — this is what makes "A deletes everything → B
+  // reflects empty and STAYS empty after reload" true: a deliberately-emptied
+  // shared plan is a real state, NOT a trigger to reseed, and must NOT be merged against the
+  // local items (which would resurrect them). Used ONLY on the first, marker-gated snapshot.
+  const applyRemoteAuthoritative = (plans: DayPlan[]) => {
+    // Default v1 items on read so the local store holds valid v2-shaped items, but do
+    // NOT merge — remote is authoritative here, verbatim incl. empty. An empty
+    // remote defaults to empty (no items to seed), so delete-all-stays-empty is preserved.
+    persistAndDispatch(plans.map(defaultDayForMerge));
+  };
+
+  // STEADY-STATE apply (every snapshot AFTER first-snapshot reconciliation).
+  // SYNC-V2: MERGE the incoming remote days against the CURRENT local view item-by-item
+  // (`mergeDays(loadPlans(), remoteDays)`) before persisting, so a local edit that hasn't
+  // round-tripped yet is preserved (different items, same day both survive — the headline
+  // fix) while a peer's edits/deletes are folded in. The merge is item-level;
+  // tombstones from either side are retained in the persisted/merged layer and filtered out
+  // of the UI-exposed `plans` downstream. Applied DIRECTLY (savePlans +
+  // dispatch), never via commit() — so it can never re-push (echo-suppression), and
+  // because mergeDay is idempotent, re-applying a snapshot we ourselves produced is a
+  // value-identical no-op (the loop is broken twice over).
+  const applyRemoteMerged = (remoteDays: DayPlan[]) => {
+    // Default v1 remote items on read so a legacy day-doc merges as valid v2, then
+    // item-merge against the current local view. Local is already v2 (migrated on load).
+    const merged = mergeDays(loadPlans(), remoteDays.map(defaultDayForMerge));
+    persistAndDispatch(merged);
+  };
+
   // Lazy, gated setup. All wrapped — any failure degrades to local-only and
-  // never throws ("misconfigured/unreachable → local-only"). Idempotent + retryable:
+  // never throws (misconfigured/unreachable → local-only). Idempotent + retryable:
   // returns early if already established/cancelled, and on failure arms the `online` retry
   // so a cold-offline start recovers when the network returns.
   const attemptSetup = async () => {
@@ -307,9 +416,9 @@ export function subscribeRemote(
           if (snapshot.metadata.hasPendingWrites) return;
 
           // FIRST-SNAPSHOT must reconcile against SERVER truth, never a cold/empty cache.
-          // onSnapshot can deliver a cache-sourced first event (e.g. right after the
-          // listener (re)establishes following an offline window) — an EMPTY one would
-          // wrongly look like "never synced" and could drive the seed branch, wiping a
+          // onSnapshot can deliver a cache-sourced first event (e.g. right
+          // after the listener (re)establishes following an offline window) — an EMPTY one
+          // would wrongly look like "never synced" and could drive the seed branch, wiping a
           // peer's real remote with the local sample. So we DEFER reconciliation until the
           // first `fromCache === false` (server) snapshot. A pre-server cache snapshot is
           // simply ignored here: the local store already holds the correct first-paint data
@@ -329,18 +438,18 @@ export function subscribeRemote(
                 await reconcileFirstSnapshot(
                   remoteDays,
                   { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp },
-                  applyRemote,
+                  applyRemoteAuthoritative,
                 );
                 return;
               }
 
-              // Steady-state: remote is authoritative, apply incl. empty.
-              // This is also the path Firestore drives when it AUTO-RECONNECTS after an
-              // offline window: the listener stays attached and re-delivers the merged
-              // server state (a friend's offline edits flushed on reconnect arrive here),
-              // and our own offline writes round-trip through the hasPendingWrites guard —
-              // no duplicate, no wipe.
-              applyRemote(remoteDays);
+              // Steady-state: MERGE remote against current local, apply incl. empty.
+              // This is also the path Firestore drives when it
+              // AUTO-RECONNECTS after an offline window: the listener stays attached and
+              // re-delivers the server state (a friend's offline edits flushed on reconnect
+              // arrive here), and our own offline writes round-trip through the
+              // hasPendingWrites guard — no duplicate, no wipe, no lost same-day item.
+              applyRemoteMerged(remoteDays);
             } catch (err) {
               // A bad single snapshot must not break the stream or the app.
               console.warn('[itinerary-remote] failed to apply remote snapshot:', err);
@@ -398,8 +507,8 @@ export function subscribeRemote(
 }
 
 /**
- * First-snapshot reconciliation handshake. Reads the trip-doc marker once to decide
- * between "remote authoritative" and "this client seeds".
+ * First-snapshot reconciliation handshake. Reads the trip-doc marker once
+ * to decide between "remote authoritative" and "this client seeds".
  *
  * Imports nothing eagerly — the firestore fns are passed in from the gated, lazy
  * getRemote() handle so this stays off the dormant hot path.
@@ -414,6 +523,10 @@ async function reconcileFirstSnapshot(
     setDoc: FirestoreMod['setDoc'];
     serverTimestamp: FirestoreMod['serverTimestamp'];
   },
+  // The AUTHORITATIVE applier (not the merging one): on the first snapshot, a synced group's
+  // remote is taken verbatim incl. empty (delete-all-stays-empty). Merging here
+  // would resurrect local items over a deliberately-emptied shared plan — so the first
+  // snapshot deliberately does NOT merge. Steady-state (later snapshots) does merge.
   applyRemote: (plans: DayPlan[]) => void,
 ): Promise<void> {
   const { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp } = ctx;
@@ -421,9 +534,9 @@ async function reconcileFirstSnapshot(
 
   // The trip-doc marker is the "has this group ever synced" signal. Read it from
   // the SERVER so a fresh client doesn't see a stale/absent cached value as authoritative
-  // — using getDocFromServer makes that explicit (a plain getDoc may serve an empty cache
-  // after an offline window, which would wrongly look like "never synced" and seed the
-  // sample over a peer's real remote). Fall back to a cache getDoc only if the
+  // — using getDocFromServer makes that explicit (a plain getDoc may serve
+  // an empty cache after an offline window, which would wrongly look like "never synced"
+  // and seed the sample over a peer's real remote). Fall back to a cache getDoc only if the
   // server read fails, and even then only the never-wipe-on-empty interpretation applies.
   let tripExists = false;
   try {

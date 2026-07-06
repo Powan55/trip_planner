@@ -20,7 +20,7 @@ import { m, useScroll, useSpring, useReducedMotion } from 'framer-motion';
  * cannot introduce horizontal overflow at any breakpoint. `transformOrigin:left`
  * makes scaleX grow from the left edge.
  *
- * Colour: reads `--accent-scroll` so the warm/cool accent engine drives
+ * Colour: reads `--accent-scroll` so the warm/cool scroll engine drives
  * it for free. Dark-only.
  *
  * Decorative: the native scrollbar already conveys scroll position to assistive

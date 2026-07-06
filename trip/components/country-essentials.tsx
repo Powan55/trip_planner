@@ -14,9 +14,9 @@ import AddToPlanButton from '@/components/add-to-plan-button';
  * (etiquette additionally includes the 'Both' tips). The Home half (weather +
  * packing checklist) lives in `travel-essentials.tsx`.
  *
- * FeaturedCard / FoodCard keep the same micro-interaction recipe and the
- * add-to-plan affordance on Featured only. All Tailwind classes stay static
- * whole-string literals.
+ * FeaturedCard / FoodCard moved here VERBATIM (micro-interaction recipe,
+ * add-to-plan affordance on Featured only). All Tailwind classes stay
+ * static whole-string literals.
  */
 
 function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIONS[0] }) {
@@ -63,8 +63,8 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
           </span>
         </div>
         <p className="mt-2 text-xs text-white/40 leading-relaxed">{destination.blurb}</p>
-        {/* Add-to-plan affordance — only Featured cards get it (not
-            food/etiquette/packing/weather). Featured has no id/category;
+        {/* Add-to-plan affordance — additive; only Featured cards get
+            it (not food/etiquette/packing/weather). Featured has no id/category;
             the adapter derives sourceId from the name and uses 'sightseeing'. */}
         <AddToPlanButton
           source={destination}
@@ -115,8 +115,11 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
   return (
     <section id="essentials" aria-labelledby="essentials-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
+        {/* Slide-only masthead entrance (opacity pinned to 1) so the axe
+            scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
+            mid-fade as a transient contrast failure. See RecommendationSection. */}
         <m.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-12"

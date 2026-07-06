@@ -57,6 +57,7 @@ function RecommendationCard({
       <button
         type="button"
         onClick={onOpen}
+        data-testid={`guide-card-${item.id}`}
         aria-label={`View details for ${item.name}`}
         className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded-2xl"
       >
@@ -226,8 +227,15 @@ export default function RecommendationSection({
   return (
     <section id={id} aria-labelledby={`${id}-heading`} className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
+        {/* Masthead entrance is SLIDE-ONLY (opacity held at 1), not a fade.
+            The muted `text-white/50` subtitle passes AA at rest (5.32:1), but a
+            fade-in drops its computed opacity mid-animation, and the axe scan
+            (which does NOT run reduced-motion) races that transition and flags the
+            partially-faded text as a serious contrast failure. Sliding from y:20
+            with opacity pinned to 1 keeps the reveal feel while guaranteeing the
+            text is always at full, AA-passing contrast whenever it is scanned. */}
         <m.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-10"
@@ -248,6 +256,7 @@ export default function RecommendationSection({
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search by name or description…"
               aria-label={`Search ${title} guide`}
+              data-testid="guide-search-input"
               className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
             />
             {query && (
@@ -268,6 +277,7 @@ export default function RecommendationSection({
               id={`${id}-sort`}
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
+              data-testid="guide-sort-select"
               className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
             >
               <option value="rating" className="bg-navy-900">Sort: Top rated</option>
@@ -284,14 +294,15 @@ export default function RecommendationSection({
                 key={city}
                 onClick={() => setActiveCity(city)}
                 aria-pressed={activeCity === city}
+                data-testid={`guide-filter-city-${city.toLowerCase()}`}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
                   activeCity === city
                     ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                    : 'text-white/40 hover:bg-white/5 hover:text-white/60'
+                    : 'text-white/55 hover:bg-white/5 hover:text-white/80'
                 }`}
               >
                 {city === 'All' ? 'All cities' : city}
-                <span className="ml-1.5 text-white/30 font-mono">{cityCounts[city] ?? 0}</span>
+                <span className="ml-1.5 text-white/50 font-mono">{cityCounts[city] ?? 0}</span>
               </button>
             ))}
           </div>
@@ -304,21 +315,22 @@ export default function RecommendationSection({
               key={cat}
               onClick={() => setActiveCategory(cat)}
               aria-pressed={activeCategory === cat}
+              data-testid={`guide-filter-category-${cat.toLowerCase()}`}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
                 activeCategory === cat
                   ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                  : 'text-white/40 hover:bg-white/5 hover:text-white/60'
+                  : 'text-white/55 hover:bg-white/5 hover:text-white/80'
               }`}
             >
               {cat}
-              <span className="ml-1.5 text-white/30 font-mono">{categoryCounts[cat] ?? 0}</span>
+              <span className="ml-1.5 text-white/50 font-mono">{categoryCounts[cat] ?? 0}</span>
             </button>
           ))}
         </div>
 
         {/* Cards Grid or empty state */}
         {filtered.length > 0 ? (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div data-testid="guide-results" className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((item) => (
               <RecommendationCard
                 key={item.id}
@@ -329,7 +341,7 @@ export default function RecommendationSection({
             ))}
           </div>
         ) : (
-          <div className={`text-center py-16 px-6 rounded-2xl ${glassClass}`}>
+          <div data-testid="guide-empty-state" className={`text-center py-16 px-6 rounded-2xl ${glassClass}`}>
             <SearchX className="w-10 h-10 mx-auto mb-4 text-white/20" />
             <p className="text-white/60 font-medium mb-1">No places match your filters</p>
             <p className="text-white/35 text-sm mb-5">Try a different search, city, or category.</p>

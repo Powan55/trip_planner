@@ -16,12 +16,20 @@ import {
 import { generateItemId } from '@/lib/item-id';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import type { ItineraryDraft } from '@/lib/itinerary-adapter';
+import { buildMapsSearchUrl } from '@/lib/maps-link';
+
+// Back-compat re-export: `buildMapsSearchUrl` was hoisted to the pure, React-free
+// `@/lib/maps-link` module (so eager consumers like the calendar can use it without
+// dragging this component + framer-motion into their first-load bundle). Re-exported
+// here so existing importers (e.g. place-detail-sheet) keep resolving it from this
+// module unchanged. This module's own JSX below still calls it via the import above.
+export { buildMapsSearchUrl };
 
 /**
- * Shared "Add to plan" dialog — a lightweight, source-aware dialog, deliberately
- * separate from the calendar's `ItemEditor`. It is invoked from any place card
- * (via `add-to-plan-button.tsx`) with a prefilled `ItineraryDraft` and the place's
- * current `existingPlacements` (from `findPlacements`).
+ * Shared "Add to plan" dialog — a NEW, lightweight, source-aware dialog,
+ * deliberately separate from the calendar's `ItemEditor`. It is invoked from any
+ * place card (via `add-to-plan-button.tsx`) with a prefilled `ItineraryDraft`
+ * and the place's current `existingPlacements` (from `findPlacements`).
  *
  * It reads/writes the itinerary THROUGH the store (`useItineraryContext`) —
  * no add/remove callbacks per call site. The CustomEvent fan-out makes the
@@ -34,22 +42,22 @@ import type { ItineraryDraft } from '@/lib/itinerary-adapter';
  *  - autofocus the first field on open
  *  - parent-owned focus-return: the invoking button captures the trigger and
  *    refocuses it on `<AnimatePresence onExitComplete>` — NOT in this dialog's
- *    effect cleanup (which is where an earlier version had a focus bug).
+ *    effect cleanup.
  * Reduced-motion is respected by framer-motion via the global reduced-motion CSS;
  * Tailwind classes are static literals.
  *
- * RENDERING: the overlay is rendered through a React PORTAL to `document.body`.
- * Every trigger surface (recommendations, photography, map popup, featured) sits
- * inside a place card whose root is a framer `m.div` with an active `whileHover`
- * transform AND `overflow-hidden`. A `position: fixed` element whose ancestor is
- * transformed is positioned relative to that ancestor (CSS containing-block rule),
- * not the viewport — so rendered inline, the backdrop covered only the card
- * (neighbours stayed bright) and the panel overflowed and was clipped by the card's
- * `overflow-hidden`, hiding the pinned footer. The portal moves ONLY the DOM node out
- * to `<body>`; the React tree (and the parent `AnimatePresence`) is unchanged, so the
- * focus contract — document-level Esc, the `panelRef` Tab-trap, first-field autofocus,
- * and parent-owned focus-return on `onExitComplete` — all keep working. The portal is
- * mount-guarded (`mounted` state) so it never touches `document` during the
+ * RENDERING: the overlay is rendered through a React PORTAL to
+ * `document.body`. Every trigger surface (recommendations, photography, map popup,
+ * featured) sits inside a place card whose root is a framer `m.div` with an active
+ * `whileHover` transform AND `overflow-hidden`. A `position: fixed` element whose
+ * ancestor is transformed is positioned relative to that ancestor (CSS
+ * containing-block rule), not the viewport — so rendered inline, the backdrop covered
+ * only the card (neighbours stayed bright) and the panel overflowed and was clipped by
+ * the card's `overflow-hidden`, hiding the pinned footer. The portal moves ONLY the DOM
+ * node out to `<body>`; the React tree (and the parent `AnimatePresence`) is unchanged,
+ * so the focus contract — document-level Esc, the `panelRef` Tab-trap, first-field
+ * autofocus, and parent-owned focus-return on `onExitComplete` — all keep working. The
+ * portal is mount-guarded (`mounted` state) so it never touches `document` during the
  * static-export prerender (`output: 'export'`); the dialog only mounts on a user click,
  * post-hydration, so this is always satisfied in practice.
  */
@@ -77,18 +85,6 @@ function dateOptionLabel(dateStr: string): string {
   return `${formatDate(dateStr)} · ${city}, ${countryName}`;
 }
 
-// Google Maps link-out scheme (keyless — a URL, not an API). Exported so the detail
-// sheet and any custom-add trigger build the exact same query string.
-// `query = encodeURIComponent(title [+ ' ' + location])`. Returns null when there is
-// nothing to search yet (empty title), so the caller can disable the link.
-export function buildMapsSearchUrl(title: string, location?: string): string | null {
-  const t = title.trim();
-  if (!t) return null;
-  const loc = (location ?? '').trim();
-  const query = loc ? `${t} ${loc}` : t;
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
-}
-
 export interface ExistingPlacement {
   date: string;
   item: ItineraryItem;
@@ -100,11 +96,11 @@ export interface AddToItineraryDialogProps {
   existingPlacements: ExistingPlacement[];
   onClose(): void;
   /**
-   * Custom-add mode. Default 'source' keeps the source behavior (Title/Location
-   * fixed, sourceId/sourceType stamped). In 'custom' mode Title + Location become
-   * editable text inputs, the confirm is blocked until Title is non-empty, and the
-   * created item is a PLAIN ItineraryItem with NO sourceId/sourceType — so it can
-   * never trip a false "Added" badge.
+   * Custom-add mode. Default 'source' keeps today's byte-compatible
+   * source behavior (Title/Location fixed, sourceId/sourceType stamped). In 'custom'
+   * mode Title + Location become editable text inputs, the confirm is blocked until
+   * Title is non-empty, and the created item is a PLAIN ItineraryItem with NO
+   * sourceId/sourceType — so it can never trip a false "Added" badge.
    */
   mode?: 'source' | 'custom';
   /** Custom mode only: preset the date select to this date (e.g. the FAB's day). */
@@ -185,7 +181,7 @@ export default function AddToItineraryDialog({
 
   const panelRef = useRef<HTMLDivElement>(null);
   // In custom mode the first focusable field is the editable Title input; in source
-  // mode it's the date select (the autofocus target).
+  // mode it's the date select (unchanged autofocus target).
   const firstFieldRef = useRef<HTMLSelectElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
 
@@ -291,8 +287,8 @@ export default function AddToItineraryDialog({
     return () => clearTimeout(timer);
   }, [isCustom]);
 
-  // body[data-dialog-open] flag: the quick-add FAB hides while it is set, so the FAB
-  // never floats over an open dialog's scrim. Set it while this
+  // body[data-dialog-open] flag (cross-surface seam): the quick-add FAB hides while
+  // it is set, so the FAB never floats over an open dialog's scrim. Set it while this
   // dialog is mounted-open and clear it on close/unmount, in the same portal/focus
   // lifecycle. Guarded by a ref-count style check on the attribute so two dialogs that
   // briefly overlap during an exit animation don't clear the flag prematurely.
@@ -361,6 +357,7 @@ export default function AddToItineraryDialog({
     >
       <m.div
         ref={panelRef}
+        data-testid="add-item-dialog"
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
@@ -391,7 +388,7 @@ export default function AddToItineraryDialog({
               </>
             )}
           </div>
-          <button type="button" onClick={onClose} aria-label="Close dialog" className="shrink-0 p-1 rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none">
+          <button type="button" data-testid="add-item-cancel" onClick={onClose} aria-label="Close dialog" className="shrink-0 p-1 rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -472,6 +469,7 @@ export default function AddToItineraryDialog({
                 <input
                   id={titleFieldId}
                   ref={titleInputRef}
+                  data-testid="add-item-title-input"
                   value={customTitle}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomTitle(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
@@ -483,6 +481,7 @@ export default function AddToItineraryDialog({
                 <label htmlFor={locationFieldId} className="text-xs text-white/50 mb-1 block">Location</label>
                 <input
                   id={locationFieldId}
+                  data-testid="add-item-location-input"
                   value={customLocation}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomLocation(e.target.value)}
                   className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
@@ -495,6 +494,7 @@ export default function AddToItineraryDialog({
               {mapsUrl ? (
                 <a
                   href={mapsUrl}
+                  data-testid="add-item-maps-link"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gold-300 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
@@ -505,6 +505,7 @@ export default function AddToItineraryDialog({
               ) : (
                 <span
                   aria-disabled="true"
+                  data-testid="add-item-maps-link"
                   className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white/25 cursor-not-allowed select-none"
                 >
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
@@ -520,6 +521,7 @@ export default function AddToItineraryDialog({
             <select
               id={dateFieldId}
               ref={firstFieldRef}
+              data-testid="add-item-day-select"
               value={selectedDate}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDate(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
@@ -585,6 +587,7 @@ export default function AddToItineraryDialog({
         <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-navy-900/40">
           <button
             onClick={handleConfirm}
+            data-testid="add-item-confirm"
             disabled={confirmDisabled}
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gold-500"
           >

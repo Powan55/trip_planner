@@ -21,7 +21,7 @@ const COUNTDOWN_UNITS = [
 
 /**
  * One-time eased count-up reveal for a single hero countdown number, then a clean
- * handoff to the LIVE value. PRESENTATIONAL ONLY — `live` is the exact value
+ * transition to the LIVE value. PRESENTATIONAL ONLY — `live` is the exact value
  * computed by `computeCountdown`; this never recomputes anything.
  *
  * While revealing, the eased fraction tracks the current `live` value so the final
@@ -56,7 +56,7 @@ const identity = (n: number) => n;
  * old per-element `delay` props. The container staggers its direct children; each
  * child rises a few px while fading in with a premium ease.
  *
- * Reduced-motion: a scroll/translate reveal is NOT gated by
+ * Reduced-motion (HARD FENCE): a scroll/translate reveal is NOT gated by
  * the app's declarative `<MotionConfig reducedMotion="user">` automatically for
  * the `y` offset we author here, so we swap to opacity-only variants when the user
  * prefers reduced motion (`hiddenReduced`/`showReduced`) — no translate, instant
@@ -325,9 +325,9 @@ export default function HeroSection() {
         {mounted && (todayInTrip ? (
           <m.div variants={reveal} className="mb-10">
             <p className="text-sm text-gold-400/80 mb-4 uppercase tracking-widest">You're on the trip</p>
-            <div className="inline-flex flex-col items-center gap-2 glass-card rounded-2xl px-6 sm:px-10 py-5 sm:py-6 max-w-full">
+            <div data-testid="hero-travel-mode" className="inline-flex flex-col items-center gap-2 glass-card rounded-2xl px-6 sm:px-10 py-5 sm:py-6 max-w-full">
               <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
-                Day <span className="text-gradient-gold">{todayInTrip.dayNumber}</span>
+                Day <span data-testid="hero-day-number" className="text-gradient-gold">{todayInTrip.dayNumber}</span>
                 <span className="text-white/40 mx-2 sm:mx-3">—</span>
                 {todayInTrip.city}
               </div>
@@ -353,7 +353,7 @@ export default function HeroSection() {
             <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-4">
               {COUNTDOWN_UNITS.map(({ key, label }) => (
                 <div key={key} className="glass-card rounded-xl px-3 sm:px-5 py-3 sm:py-4 min-w-[70px] sm:min-w-[90px] animate-pulse-glow">
-                  <div className="font-mono text-2xl sm:text-3xl md:text-4xl font-bold text-gold-400">
+                  <div data-testid={`countdown-${key}`} className="font-mono text-2xl sm:text-3xl md:text-4xl font-bold text-gold-400">
                     <CountUpNumber live={timeLeft[key] ?? 0} active={mounted} format={padUnit} />
                   </div>
                   <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider mt-1">{label}</div>
@@ -361,7 +361,7 @@ export default function HeroSection() {
               ))}
             </div>
             <p className="text-sm text-white/40">
-              <span className="font-mono text-gold-400 font-semibold">
+              <span data-testid="countdown-total-days" className="font-mono text-gold-400 font-semibold">
                 <CountUpNumber live={timeLeft.totalDays} active={mounted} format={identity} />
               </span> total days until adventure begins
             </p>

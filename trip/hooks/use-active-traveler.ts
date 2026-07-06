@@ -2,6 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 import { getActiveTraveler, IDENTITY_CHANGED_EVENT, type Traveler } from '@/lib/token-auth';
+import { sessionGate } from '@/core/storage/gateway';
 
 /**
  * Reactive view of the signed-in identity.
@@ -25,20 +26,13 @@ export interface ActiveTravelerState {
   isGuest: boolean;
 }
 
-const GUEST_KEY = 'tripPlannerGuest';
-
 // Stable inert snapshot for SSR / the no-window path. Returning the SAME reference is
 // required by useSyncExternalStore (a fresh object each call would loop).
 const SERVER_SNAPSHOT: ActiveTravelerState = { traveler: null, isGuest: false };
 
-function readGuest(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(GUEST_KEY) === '1';
-  } catch {
-    return false;
-  }
-}
+// Guest-flag read: the `tripPlannerGuest` key + raw localStorage access live
+// in the gateway. `sessionGate.isGuest()` is SSR-safe and never-throws, matching the prior
+// inline `readGuest` exactly (returns false under no-window / disabled storage).
 
 // Cache the last client snapshot so getSnapshot can return a STABLE reference when nothing
 // changed — useSyncExternalStore bails out of a re-render only on referential equality, so
@@ -47,7 +41,7 @@ let cached: ActiveTravelerState = SERVER_SNAPSHOT;
 
 function getClientSnapshot(): ActiveTravelerState {
   const traveler = getActiveTraveler();
-  const isGuest = readGuest();
+  const isGuest = sessionGate.isGuest();
   // Reuse the cached object unless something actually changed (compare by token name +
   // guest flag — Traveler objects are stable module-level singletons from TRAVELERS).
   if (cached.traveler?.token === traveler?.token && cached.isGuest === isGuest) {

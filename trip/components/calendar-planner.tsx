@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect, useRef, useId } from 'react';
+import { useState, useEffect, useRef, useId, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { m, AnimatePresence } from 'framer-motion';
 import {
   Calendar, Plus, Trash2, Edit3, GripVertical, Save,
   MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
-  Landmark, Plane, Hotel, Coffee, Music, X, Check, ChevronLeft, ChevronRight, ChevronDown
+  Landmark, Plane, Hotel, Coffee, Music, X, Check, ChevronLeft, ChevronRight, ChevronDown,
+  ExternalLink,
 } from 'lucide-react';
 import {
   DndContext, closestCenter, KeyboardSensor, PointerSensor,
@@ -30,6 +32,10 @@ import { formatRelativeTime } from '@/lib/relative-time';
 import { filterItemsByAuthor } from '@/lib/author-filter';
 import { useAuthorFilter } from '@/hooks/use-author-filter';
 import AuthorFilterControl from '@/components/author-filter';
+import { buildMapsSearchUrl } from '@/lib/maps-link';
+import { useExpenses } from '@/hooks/use-expenses';
+import { expensesByDate } from '@/core/budget/burn-rate';
+import { legCurrency, formatMoney } from '@/core/budget/model';
 
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
   sightseeing: <MapPin className="w-3.5 h-3.5" />,
@@ -73,7 +79,7 @@ function SortableItem({ item, onEdit, onDelete }: { item: ItineraryItem; onEdit:
   const colors = CATEGORY_COLORS[item.category] ?? CATEGORY_COLORS.free;
 
   return (
-    <div ref={setNodeRef} style={style} className={`flex items-start gap-2 p-3 rounded-xl ${colors.bg} border ${colors.border} group hover:scale-[1.01] transition-transform`}>
+    <div ref={setNodeRef} style={style} data-testid={`calendar-item-${item.id}`} className={`flex items-start gap-2 p-3 rounded-xl ${colors.bg} border ${colors.border} group hover:scale-[1.01] transition-transform`}>
       <button {...attributes} {...listeners} aria-label={`Reorder ${item.title}`} className="mt-1 cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 touch-none outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded">
         <GripVertical className="w-4 h-4" />
       </button>
@@ -91,8 +97,8 @@ function SortableItem({ item, onEdit, onDelete }: { item: ItineraryItem; onEdit:
         <AttributionLine item={item} />
       </div>
       <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-        <button onClick={onEdit} aria-label={`Edit ${item.title}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
-        <button onClick={onDelete} aria-label={`Delete ${item.title}`} className="p-1.5 rounded hover:bg-red-500/20 text-white/40 hover:text-red-400 outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
+        <button onClick={onEdit} aria-label={`Edit ${item.title}`} data-testid={`calendar-item-edit-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
+        <button onClick={onDelete} aria-label={`Delete ${item.title}`} data-testid={`calendar-item-delete-${item.id}`} className="p-1.5 rounded hover:bg-red-500/20 text-white/40 hover:text-red-400 outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
     </div>
   );
@@ -120,6 +126,21 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
   const [duration, setDuration] = useState(item?.duration ?? '');
   const [location, setLocation] = useState(item?.location ?? '');
   const [notes, setNotes] = useState(item?.notes ?? '');
+
+  // Portal mount guard (mirrored from add-to-itinerary-dialog.tsx).
+  // `createPortal(…, document.body)` must not run during the static-export
+  // prerender, so we only portal after the component has mounted on the client. The
+  // editor only ever mounts on a user click (post-hydration), so this is satisfied
+  // immediately in practice; it exists purely to keep `document` untouched on the
+  // server and to keep tsc/SSR honest.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Google Maps research link-out (parity with the custom-add dialog).
+  // Reuses the shared, already-exported builder — no reimplementation of the URL
+  // scheme. Recomputed live off the editor's own title/location state; null (and
+  // therefore disabled) until the title is non-empty.
+  const mapsUrl = buildMapsSearchUrl(title, location);
 
   // Stable, collision-free ids so each <label htmlFor> binds to its input and
   // the dialog can be labelled by its title heading.
@@ -211,7 +232,14 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
     }
   };
 
-  return (
+  // Don't render the overlay during the prerender / before the client mounts — the
+  // portal target (`document.body`) doesn't exist on the server. Returning null here
+  // is safe for the parent `AnimatePresence`: this only short-circuits for the single
+  // synchronous render before `useEffect` flips `mounted`, which never coincides with
+  // a user-driven open in the static-export client.
+  if (!mounted) return null;
+
+  return createPortal(
     <m.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -222,6 +250,7 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
       <m.div
         ref={panelRef}
         role="dialog"
+        data-testid="calendar-editor"
         aria-modal="true"
         aria-labelledby={titleId}
         onKeyDown={handleKeyDown}
@@ -233,12 +262,12 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
       >
         <div className="flex items-center justify-between mb-5">
           <h3 id={titleId} className="font-display text-lg font-bold text-white">{item ? 'Edit Item' : 'Add Item'}</h3>
-          <button type="button" onClick={onClose} aria-label="Close editor" className="p-1 rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><X className="w-5 h-5" /></button>
+          <button type="button" onClick={onClose} aria-label="Close editor" data-testid="calendar-editor-cancel" className="p-1 rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><X className="w-5 h-5" /></button>
         </div>
         <div className="space-y-4">
           <div>
             <label htmlFor={titleFieldId} className="text-xs text-white/50 mb-1 block">Title *</label>
-            <input id={titleFieldId} ref={titleInputRef} autoFocus value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., Visit Boudhanath Stupa" />
+            <input id={titleFieldId} ref={titleInputRef} autoFocus value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} data-testid="calendar-editor-title-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., Visit Boudhanath Stupa" />
           </div>
           <div>
             <span id={categoryLabelId} className="text-xs text-white/50 mb-1 block">Category</span>
@@ -253,6 +282,7 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
                     onClick={() => setCategory(cat)}
                     aria-pressed={isActive}
                     aria-label={`Category: ${cat}`}
+                    data-testid={`calendar-editor-category-${cat}`}
                     className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
                       isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-white/40 hover:bg-white/5'
                     }`}
@@ -267,24 +297,48 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor={timeFieldId} className="text-xs text-white/50 mb-1 block">Time</label>
-              <input id={timeFieldId} value={time} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTime(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., 09:00" />
+              <input id={timeFieldId} value={time} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTime(e.target.value)} data-testid="calendar-editor-time-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., 09:00" />
             </div>
             <div>
               <label htmlFor={durationFieldId} className="text-xs text-white/50 mb-1 block">Duration</label>
-              <input id={durationFieldId} value={duration} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDuration(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., 2 hours" />
+              <input id={durationFieldId} value={duration} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDuration(e.target.value)} data-testid="calendar-editor-duration-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., 2 hours" />
             </div>
           </div>
           <div>
             <label htmlFor={locationFieldId} className="text-xs text-white/50 mb-1 block">Location</label>
-            <input id={locationFieldId} value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., Thamel, Kathmandu" />
+            <input id={locationFieldId} value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} data-testid="calendar-editor-location-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., Thamel, Kathmandu" />
           </div>
+          {/* Google Maps research link-out. Disabled until Title is
+              non-empty; a URL, not an API — no key, no quota. */}
+          {mapsUrl ? (
+            <a
+              href={mapsUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="calendar-editor-maps-link"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gold-300 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+            >
+              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+              Search on Google Maps
+            </a>
+          ) : (
+            <span
+              aria-disabled="true"
+              data-testid="calendar-editor-maps-link"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white/25 cursor-not-allowed select-none"
+            >
+              <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+              Search on Google Maps
+            </span>
+          )}
           <div>
             <label htmlFor={notesFieldId} className="text-xs text-white/50 mb-1 block">Notes</label>
-            <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
+            <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} data-testid="calendar-editor-notes-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
           </div>
           <button
             onClick={handleSave}
             disabled={!title.trim()}
+            data-testid="calendar-editor-save"
             className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
           >
             <Check className="w-4 h-4" />
@@ -292,7 +346,8 @@ function ItemEditor({ item, onSave, onClose }: { item?: ItineraryItem; onSave: (
           </button>
         </div>
       </m.div>
-    </m.div>
+    </m.div>,
+    document.body,
   );
 }
 
@@ -322,6 +377,15 @@ export default function CalendarPlanner() {
   // are SHOWN; it never touches `plans`/localStorage or any store mutator. CRUD, DnD and
   // persistence operate on the FULL stored set below, unaffected by the active filter.
   const { filter: authorFilter, myName } = useAuthorFilter();
+
+  // Cost overlay — READ-ONLY / DISPLAY-ONLY. A SEPARATE reactive read of the
+  // expense store (NOT the itinerary store): the calendar's CRUD/DnD/select all still operate on
+  // `plans` from `useItineraryContext()`, entirely untouched. This adds a per-day leg-local spend
+  // figure to the single-day header and a subtle "has spend" marker on month-grid cells. The pure
+  // `expensesByDate` buckets logged expenses by their 'YYYY-MM-DD' (undated ones are excluded from
+  // per-day, matching the burn-rate view). Nothing here writes; it only decorates existing cells.
+  const { expenses } = useExpenses();
+  const spendByDate = useMemo(() => expensesByDate(expenses), [expenses]);
 
   // The element focused when the editor opened (the "Add Activity" / edit
   // button), captured before the modal autofocuses, so focus returns to it once
@@ -508,13 +572,20 @@ export default function CalendarPlanner() {
             const dayPlan = getDayPlan(date);
             const hasItems = (dayPlan.items?.length ?? 0) > 0;
             const isSelected = date === selectedDate;
+            // Cost overlay (read-only): does this day have logged spend? The marker is a subtle
+            // dot; the actual figure goes to the single-day readout + the aria-label extension below
+            // (a full currency figure would break the cramped cell). Leg-local (a day is one leg).
+            const daySpend = spendByDate[date] ?? 0;
+            const hasSpend = daySpend > 0;
+            const spendLabel = hasSpend ? `, ${formatMoney(daySpend, legCurrency(country))} spent` : '';
 
             return (
               <button
                 key={date}
                 onClick={() => setSelectedDate(date)}
                 aria-pressed={isSelected}
-                aria-label={`${formatDateLong(date)}${hasItems ? `, ${dayPlan.items?.length ?? 0} activities planned` : ', no activities planned'}`}
+                aria-label={`${formatDateLong(date)}${hasItems ? `, ${dayPlan.items?.length ?? 0} activities planned` : ', no activities planned'}${spendLabel}`}
+                data-testid={`calendar-day-${date}`}
                 className={`min-w-0 aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
                   isSelected
                     ? 'bg-gold-500/20 ring-2 ring-gold-400 text-white font-bold scale-105'
@@ -532,6 +603,16 @@ export default function CalendarPlanner() {
                       <div key={j} className={`w-1 h-1 rounded-full ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`} />
                     ))}
                   </div>
+                )}
+                {/* A subtle "has spend" marker (top-right), sized to fit the cramped cell — a
+                    small gold dot, NOT a currency figure (that lives in the single-day readout +
+                    aria-label). aria-hidden: the label extension already announces the amount. */}
+                {hasSpend && (
+                  <span
+                    aria-hidden="true"
+                    data-testid={`calendar-day-${date}-spend`}
+                    className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-gold-400 ring-2 ring-gold-400/25"
+                  />
                 )}
               </button>
             );
@@ -564,8 +645,14 @@ export default function CalendarPlanner() {
   return (
     <section id="itinerary" aria-labelledby="itinerary-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
+        {/* Slide-only masthead entrance (opacity pinned to 1) — see the
+            RecommendationSection masthead for the full rationale. A fade-in drops
+            the muted `text-white/50` subtitle's computed opacity mid-animation, and
+            the (non-reduced-motion) axe scan races it and flags a transient contrast
+            failure. Sliding from y:20 at full opacity keeps the reveal and keeps the
+            text AA-compliant at every scanned frame. */}
         <m.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-10"
@@ -667,14 +754,28 @@ export default function CalendarPlanner() {
           <div className="min-w-0 glass-card rounded-2xl p-4 sm:p-6">
             {/* Day Header */}
             <div className="flex items-center justify-between gap-1 mb-5">
-              <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
+              <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
                 <h3 className="font-display text-base sm:text-lg font-bold text-white leading-snug">{formatDateLong(selectedDate)}</h3>
                 <p className="text-xs text-white/40">
                   Day {currentIdx + 1} • {currentPlan.city}, {currentPlan.country === 'nepal' ? 'Nepal' : 'Japan'}
                 </p>
+                {/* Cost overlay (read-only): this day's total logged spend, in the day's
+                    leg-local currency (a single day is one leg). Renders only when there is spend;
+                    an unplanned/no-spend day shows nothing extra. Purely derived from useExpenses(). */}
+                {(spendByDate[selectedDate] ?? 0) > 0 && (
+                  <p
+                    data-testid="calendar-day-spend-total"
+                    className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-2.5 py-0.5 text-xs font-medium text-gold-300"
+                  >
+                    <span aria-hidden="true">•</span>
+                    <span>
+                      {formatMoney(spendByDate[selectedDate] ?? 0, legCurrency(currentPlan.country))} spent
+                    </span>
+                  </p>
+                )}
               </div>
-              <button onClick={goToNext} disabled={currentIdx >= TRIP_DATES.length - 1} aria-label="Next day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><ChevronRight className="w-5 h-5" /></button>
+              <button onClick={goToNext} disabled={currentIdx >= TRIP_DATES.length - 1} aria-label="Next day" data-testid="calendar-next-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><ChevronRight className="w-5 h-5" /></button>
             </div>
 
             {/* Items */}
@@ -689,7 +790,7 @@ export default function CalendarPlanner() {
                 <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
                   <div className="space-y-2">
                     {visibleItems.length === 0 ? (
-                      <div className="text-center py-12">
+                      <div className="text-center py-12" data-testid="calendar-empty-state">
                         <Calendar className="w-10 h-10 text-white/10 mx-auto mb-3" />
                         {dayItems.length === 0 ? (
                           <>
@@ -736,6 +837,7 @@ export default function CalendarPlanner() {
             {/* Add Button */}
             <button
               onClick={handleAddItem}
+              data-testid="calendar-add-item"
               className="w-full mt-4 flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-white/10 text-white/40 hover:text-gold-400 hover:border-gold-400/30 hover:bg-gold-400/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
             >
               <Plus className="w-4 h-4" />

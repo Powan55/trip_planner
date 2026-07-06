@@ -100,9 +100,9 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
 }
 
 /**
- * Optional `country` filter prop. No prop = every spot (the original whole-page
+ * Optional `country` filter prop. No prop = every spot (whole-page
  * behavior); on the /nepal/ and /japan/ pages the guide shows only that country's
- * spots. There are city + category chips with live counts, a search box, sort, an
+ * spots. City + category chips with live counts, a search box, sort, an
  * empty state, must-see badges, and a tap-to-open detail sheet. Category/city chips
  * derive from the country-filtered set so a page never renders a dead filter.
  */
@@ -216,8 +216,11 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
   return (
     <section id="photography" aria-labelledby="photography-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
+        {/* Slide-only masthead entrance (opacity pinned to 1) so the axe
+            scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
+            mid-fade as a transient contrast failure. See RecommendationSection. */}
         <m.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-10"
@@ -277,11 +280,11 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
                   activeCity === city
                     ? 'text-gold-400 bg-gold-400/10 ring-1 ring-gold-400/30'
-                    : 'text-white/40 hover:bg-white/5 hover:text-white/60'
+                    : 'text-white/55 hover:bg-white/5 hover:text-white/80'
                 }`}
               >
                 {city === 'All' ? 'All cities' : city}
-                <span className="ml-1.5 text-white/30 font-mono">{cityCounts[city] ?? 0}</span>
+                <span className="ml-1.5 text-white/50 font-mono">{cityCounts[city] ?? 0}</span>
               </button>
             ))}
           </div>
@@ -297,11 +300,11 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
                 activeCategory === cat
                   ? 'text-gold-400 bg-gold-400/10 ring-1 ring-gold-400/30'
-                  : 'text-white/40 hover:bg-white/5 hover:text-white/60'
+                  : 'text-white/55 hover:bg-white/5 hover:text-white/80'
               }`}
             >
               {cat}
-              <span className="ml-1.5 text-white/30 font-mono">{categoryCounts[cat] ?? 0}</span>
+              <span className="ml-1.5 text-white/50 font-mono">{categoryCounts[cat] ?? 0}</span>
             </button>
           ))}
         </div>

@@ -5,18 +5,18 @@
 //   out/manifest.webmanifest   the web app manifest (basePath-correct per build)
 //   out/sw.js                  a hand-rolled, dependency-free service worker
 //
-// WHY hand-rolled: the app uses output:'export' + trailingSlash:true + a GitHub
-// Pages basePath + a CUSTOM webpack output.filename =
-// 'static/chunks/[name]-[contenthash:8].js' in next.config.js. next-pwa
-// (unmaintained) and @serwist/next (webpack-injection collision with that custom
-// filename) were both rejected. So we emit the SW ourselves as a plain literal
-// string, no runtime dependency, ~150 lines, auditable.
+// WHY hand-rolled: the app uses output:'export' +
+// trailingSlash:true + a GitHub Pages basePath + a CUSTOM webpack
+// output.filename = 'static/chunks/[name]-[contenthash:8].js' in next.config.js.
+// next-pwa (unmaintained) and @serwist/next (webpack-injection collision with
+// that custom filename) were REJECTED. So we emit the SW ourselves as a plain
+// literal string, no runtime dependency, ~150 lines, auditable.
 //
-// basePath (single prefix): out/ file paths are basePath-agnostic on disk, but
-// the BROWSER requests URLs under the basePath. This script is the SINGLE prefix
-// source at build time: read NEXT_PUBLIC_BASE_PATH once and prefix every emitted
-// URL EXACTLY once (precache entries, manifest start_url/scope/icon src). Never
-// double-prefix.
+// basePath (single prefix): out/ file paths are basePath-
+// agnostic on disk, but the BROWSER requests URLs under the basePath. This
+// script is the SINGLE prefix source at build time: read
+// NEXT_PUBLIC_BASE_PATH once and prefix every emitted URL EXACTLY once
+// (precache entries, manifest start_url/scope/icon src). Never double-prefix.
 
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, sep, posix } from 'node:path';
@@ -27,7 +27,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const OUT_DIR = join(ROOT, 'out');
 
-// ---- single basePath source --------------------------------------------
+// ---- single basePath source ------------------------------------
 const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 // Prefix a root-relative "/x" path with the basePath EXACTLY once. No-op when
 // BASE_PATH is empty, so local dev never gets a stray prefix.
@@ -66,7 +66,7 @@ async function walk(dir) {
   return out;
 }
 
-// Build the precache list:
+// Build the precache list per the precache contract:
 //   - every route HTML (5 routes + 404.html)
 //   - ALL of _next/static/**
 //   - manifest.webmanifest
@@ -170,7 +170,7 @@ const PRECACHE_URLS = ${JSON.stringify(precacheUrls, null, 2)};
 // surface the "New version available" toast and only activate on a Refresh
 // click (via the SKIP_WAITING message handler below). An unconditional
 // skipWaiting would make every update a silent auto-reload -- the exact
-// behaviour we want to avoid. First install is unaffected: with no existing
+// behaviour this design forbids. First install is unaffected: with no existing
 // controller the new worker activates immediately regardless, so there is no
 // reload loop on a clean profile.
 self.addEventListener('install', (event) => {
@@ -261,9 +261,9 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // FIRST LINE: cross-origin -> return untouched. This protects Firebase
-  // (firestore/identitytoolkit), gstatic, font hosts — the SW must never
-  // intercept their traffic, so their offline degradation stays intact.
+  // FIRST LINE: cross-origin -> return untouched. This protects
+  // Firebase (firestore/identitytoolkit), gstatic, font hosts — the SW must
+  // never intercept their traffic, so their offline degradation stays intact.
   if (url.origin !== self.location.origin) {
     return;
   }

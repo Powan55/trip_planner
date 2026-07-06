@@ -5,9 +5,9 @@
 @layer base {
   :root {
     /* ---- Core surfaces (dark-only) ----
-       "Alpine Nocturne": a marginally DEEPER, richer navy night field with the
-       card surface lifted a touch further off the background so the glass
-       elevation ramp reads. Brand hue (navy ~220) preserved. */
+       "Alpine Nocturne": a marginally DEEPER, richer navy night field
+       with the card surface lifted a touch further off the background so the new
+       glass elevation ramp reads. Brand hue (navy ~220) preserved. */
     --background: 222 41% 5%;
     --foreground: 210 40% 98%;
     --card: 221 33% 10%;
@@ -22,10 +22,10 @@
     --secondary-foreground: 210 40% 98%;
     --muted: 220 24% 14%;
     --muted-foreground: 214 20% 68%;
-    /* shadcn interactive-fill accent (menus/toggles/selected) — sakura hue. This
-       is the Radix/shadcn "accent" surface token; the scroll warm/cool engine
-       uses the separate --accent-scroll var below so we don't recolor interactive
-       chrome. Stays 340 60% 65%. */
+    /* shadcn interactive-fill accent (menus/toggles/selected) — UNCHANGED hue
+       (sakura). This is the Radix/shadcn "accent" surface token; the scroll
+       warm/cool engine uses the separate --accent-scroll var below so we don't
+       recolor interactive chrome. Stays 340 60% 65%. */
     --accent: 340 60% 65%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
@@ -46,17 +46,17 @@
     --sakura: 344 80% 78%;     /* Japan accent */
     --himalaya: 22 100% 63%;   /* Nepal accent */
 
-    /* ---- semantic accent tokens ----
-       --accent-scroll: the SINGLE route-driven accent. Defaults to gold; the
-       accent engine animates it himalaya<->sakura per route. Consumers reference
-       this var only, so the warm/cool engine has one hook. --accent-scroll-rgb
-       mirrors it as an "r, g, b" list for rgba(var(--accent-scroll-rgb) / a) usage. */
+    /* ---- semantic tokens ----
+       --accent-scroll: the SINGLE scroll-driven accent. Defaults to gold; it is
+       animated himalaya<->sakura by scroll position. Consumers reference this
+       var only, so the warm/cool engine has one hook. --accent-scroll-rgb mirrors
+       it as an "r, g, b" list for rgba(var(--accent-scroll-rgb) / a) usage. */
     --accent-scroll: 44 80% 61%;
     --accent-scroll-rgb: 240, 199, 96;
 
     /* Aurora backdrop gradient (warm gold -> sakura -> himalaya -> cool navy).
-       A 4th cool stop + slightly higher opacities give more ambient presence;
-       still decorative/subtle. Feeds .bg-aurora + Tailwind bg-aurora. */
+       Enriched with a 4th cool stop + slightly higher opacities for more ambient
+       presence; still decorative/subtle. Feeds .bg-aurora + Tailwind bg-aurora. */
     --gradient-aurora:
       radial-gradient(58% 52% at 16% 10%, hsl(44 80% 61% / 0.16) 0%, transparent 60%),
       radial-gradient(48% 44% at 84% 16%, hsl(344 80% 78% / 0.14) 0%, transparent 62%),
@@ -75,8 +75,8 @@
     --shadow-xl: 0 28px 64px -12px rgba(3, 6, 18, 0.66), 0 8px 20px -6px rgba(3, 6, 18, 0.45);
     /* v2: deepest elevation ramp for hero/panel surfaces (additive key). */
     --shadow-2xl: 0 40px 90px -20px rgba(2, 5, 16, 0.72), 0 12px 30px -10px rgba(2, 5, 16, 0.55);
-    /* Glow keyed to the scroll accent so it warms/cools with the page, nudged a
-       touch richer in v2 (still sized within the prior glow footprint). */
+    /* Glow keyed to the scroll accent so it warms/cools with the page,
+       nudged a touch richer (still sized within prior glow footprint). */
     --shadow-glow: 0 0 0 1px hsl(var(--accent-scroll) / 0.22), 0 0 34px hsl(var(--accent-scroll) / 0.26);
 
     --duration-fast: 150ms;
@@ -85,8 +85,8 @@
     /* v2 editorial reveal duration (anti-pattern: fast/cheap). */
     --duration-slower: 500ms;
 
-    /* ---- v2 motion vocabulary (spring; reduced-motion aware) ----
-       Consumed by the keyframe utilities and the hero/skeleton/transition
+    /* ---- motion vocabulary (spring; reduced-motion aware) ----
+       Consumed by the keyframe utilities and hero/skeleton/transition
        components. */
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* gentle overshoot */
     --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);    /* expo-ish settle */
@@ -103,11 +103,11 @@
        sit behind content but in front of the page canvas. */
     position: relative;
   }
-  /* ---- v2 app-wide ambient depth (aurora + grain) ----
+  /* ---- app-wide ambient depth (aurora + grain) ----
      Two fixed, non-interactive, negative-z decorative layers. They paint the
      backdrop only: NO layout box is added (fixed + inset:0 + pointer-events:none),
-     so 0-overflow @360/390/414 holds. The static aurora here is distinct from the
-     opt-in .animate-aurora drift. */
+     so 0-overflow @360/390/414 holds.
+     The static aurora here is distinct from the opt-in .animate-aurora drift. */
   body::before {
     content: "";
     position: fixed;
@@ -137,15 +137,15 @@ html {
   scroll-behavior: smooth;
 }
 
-/* ---- Glass hierarchy (v2 "liquid glass" — the main token-level upgrade) ----
+/* ---- Glass hierarchy ("liquid glass") ----
    A three-tier translucent surface system. Each surface gets a richer multi-stop
    navy/tint fill, a GRADIENT HAIRLINE EDGE, a stronger inner top-highlight, and
    layered drop shadow.
 
    Gradient-edge technique (no extra element, no layout box, so 0-overflow @360/
-   390/414 holds): a transparent 1px border is painted by TWO stacked backgrounds
-   — the fill clipped to `padding-box` and the edge gradient clipped to
-   `border-box`. Insets in `box-shadow` also add no layout box. Brand tint per
+   390/414 holds): a transparent 1px border is painted by TWO stacked
+   backgrounds — the fill clipped to `padding-box` and the edge gradient clipped
+   to `border-box`. Insets in `box-shadow` also add no layout box. Brand tint per
    surface is preserved (gold / white / himalaya / sakura). */
 .glass-card {
   background:
@@ -195,7 +195,7 @@ html {
     var(--shadow-lg);
 }
 
-/* v2 optional tiers (additive — consumed by the hero/skeleton, and available for
+/* Optional tiers (additive — consumed by hero/skeleton, and available for
    progressive adoption). Nothing renamed to introduce these. */
 .glass-panel {
   background:
@@ -258,7 +258,7 @@ html {
   background-image: var(--gradient-aurora);
 }
 
-/* ---- --accent-scroll consumers (so the accent engine has a live hook) ---- */
+/* ---- --accent-scroll consumers (so the scroll engine has a live hook) ---- */
 /* 1) Premium gradient underline beneath every section <h2 ...-heading> title.
    Always-visible, additive (pure CSS, no component edits), and themed by the
    scroll accent so it sweeps warm/cool. Centered under the centered titles. */
@@ -283,7 +283,7 @@ h2[id$="-heading"]::after {
 
 /* 2) Keyboard focus ring fallback uses the scroll accent. Components that set
    their own Tailwind ring still win; this gives every other focusable element a
-   visible, on-brand ring that the accent engine also animates. */
+   visible, on-brand ring that is also animated with the scroll accent. */
 :focus-visible {
   outline: 2px solid hsl(var(--accent-scroll));
   outline-offset: 2px;
@@ -294,15 +294,15 @@ h2[id$="-heading"]::after {
   50% { transform: translateY(-10px); }
 }
 
-/* pulse-glow keys off --shadow-glow / --accent-scroll so the countdown glow
+/* pulse-glow now keys off --shadow-glow / --accent-scroll so the countdown glow
    warms/cools with the page. Values stay within the prior glow size. */
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 0 20px hsl(var(--accent-scroll) / 0.20); }
   50% { box-shadow: 0 0 40px hsl(var(--accent-scroll) / 0.38); }
 }
 
-/* A slow aurora drift for the optional .bg-aurora wash. Suppressed under
-   prefers-reduced-motion (see media block below). */
+/* A slow aurora drift for the optional .bg-aurora wash. Suppressed
+   under prefers-reduced-motion (see media block below). */
 @keyframes aurora-shift {
   0%, 100% { background-position: 0% 50%, 100% 50%, 50% 100%, 0 0; }
   50% { background-position: 20% 40%, 80% 60%, 60% 80%, 0 0; }
@@ -329,12 +329,12 @@ h2[id$="-heading"]::after {
   display: none;
 }
 
-/* ---- v2 motion utilities ----
-   One-shot entrances (reveal-up, route-fade) rest at their VISIBLE end-state: base
-   opacity is 1 and the keyframe supplies the entrance from 0, so under reduced
-   motion (where duration collapses to ~0) the element lands settled/visible and
-   can never stick at opacity:0. The infinite shimmer sweep is additionally
-   hard-neutralized in the reduced-motion block. */
+/* ---- motion utilities ----
+   One-shot entrances (reveal-up, route-fade) rest
+   at their VISIBLE end-state: base opacity is 1 and the keyframe supplies the
+   entrance from 0, so under reduced motion (where duration collapses to ~0) the
+   element lands settled/visible and can never stick at opacity:0. The infinite
+   shimmer sweep is additionally hard-neutralized in the reduced-motion block. */
 
 /* Editorial entrance — fade + gentle rise. */
 @keyframes reveal-up {
@@ -348,7 +348,7 @@ h2[id$="-heading"]::after {
 }
 
 /* Skeleton sweep — INFINITE (loops), so it is neutralized under reduced motion.
-   Elements pair this with a moving-gradient background sized 200% (the skeleton). */
+   Elements pair this with a moving-gradient background sized 200% (skeleton). */
 @keyframes shimmer {
   100% { background-position-x: -200%; }
 }
@@ -356,7 +356,7 @@ h2[id$="-heading"]::after {
   animation: shimmer 1.6s linear infinite;
 }
 
-/* Route-change fade — opacity only (the template.tsx wrapper). */
+/* Route-change fade — opacity only (template.tsx wrapper). */
 @keyframes route-fade {
   from { opacity: 0; }
   to   { opacity: 1; }
@@ -394,11 +394,11 @@ h2[id$="-heading"]::after {
   }
   /* Explicitly neutralize the keyframe-backed utilities (the universal rule
      above already covers them; this is the named guarantee for every keyframe).
-     The v2 INFINITE/looping sweep (.animate-shimmer) MUST be fully stopped — the
-     universal 0.01ms rule would otherwise leave it running one ultra-fast
-     iteration. The v2 one-shot entrances (reveal-up, route-fade) intentionally
-     stay in the universal collapse path and land on their opacity:1 end-state
-     (never stuck at 0). */
+     The INFINITE/looping sweep
+     (.animate-shimmer) MUST be fully stopped — the universal 0.01ms rule would
+     otherwise leave it running one ultra-fast iteration. The one-shot
+     entrances (reveal-up, route-fade) intentionally stay in the universal
+     collapse path and land on their opacity:1 end-state (never stuck at 0). */
   .animate-aurora,
   .animate-float,
   .animate-pulse-glow,
@@ -421,4 +421,30 @@ h2[id$="-heading"]::after {
 
 .dragging {
   opacity: 0.3;
+}
+
+/* ── MapLibre attribution — dark-theme contrast fix (WCAG AA) ──────────
+   MapLibre's default attribution control renders near-black text/links, which on
+   this dark navy map chrome measured 1.1:1 (fgColor #000000 on #0a0e27) — a
+   serious axe color-contrast failure on /map. The tile imagery underneath is
+   arbitrary, so we give the attribution a solid dark pill and light,
+   AA-compliant text + links regardless of what map tiles sit behind it. This is
+   the map's chrome, not the opaque WebGL canvas (which axe excludes). */
+.maplibregl-ctrl-attrib.maplibregl-compact,
+.maplibregl-ctrl-attrib-inner {
+  background: rgba(10, 14, 39, 0.92) !important; /* navy-900 @ 92% */
+  border-radius: 6px;
+}
+.maplibregl-ctrl-attrib-inner {
+  color: rgba(255, 255, 255, 0.82) !important; /* ~9:1 on the pill */
+  padding: 0 6px;
+}
+.maplibregl-ctrl-attrib-inner a,
+.maplibregl-ctrl-attrib a {
+  color: #7dd3fc !important; /* sky-300 — ≥7.5:1 on the pill, keeps link affordance */
+  text-decoration: underline;
+}
+/* The compact "ⓘ" toggle button: keep its glyph legible on the dark pill. */
+.maplibregl-ctrl-attrib-button {
+  background-color: rgba(255, 255, 255, 0.82) !important;
 }

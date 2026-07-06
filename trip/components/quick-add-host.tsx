@@ -8,20 +8,20 @@ import type { ItineraryDraft } from '@/lib/itinerary-adapter';
 /**
  * Global, invisible host for the custom "add your own plan" flow.
  *
- * Mounted ONCE in the root layout (this component does NOT mount itself). It renders
- * nothing until an event arrives; it listens on `window` for the CustomEvent
- * `quickadd:open` — emitted by the quick-add FAB and by the calendar FAB — and opens
- * `AddToItineraryDialog` in CUSTOM mode preset to the requested day:
+ * Mounted ONCE in the root layout (this component does NOT mount
+ * itself). It renders nothing until an event arrives; it listens on `window` for the
+ * CustomEvent `quickadd:open` — emitted by the quick-add FAB and by the calendar
+ * FAB — and opens `AddToItineraryDialog` in CUSTOM mode preset to the requested day:
  *
  *   window.dispatchEvent(new CustomEvent('quickadd:open', { detail: { date: '2026-12-22' } }))
  *
  * `detail.date` is optional; when absent (or not a valid trip date) the dialog falls
  * back to the first trip date (the dialog validates `presetDate` against TRIP_DATES).
  *
- * The dialog itself owns the full modal contract it inherits: document-level Esc,
- * Tab-trap, first-field autofocus, parent-owned focus-return on
- * `AnimatePresence onExitComplete`, the pinned action footer, the portal to
- * `document.body`, and the `body[data-dialog-open]` flag. Focus-return here is
+ * The dialog itself owns the full modal contract it inherits: document-level
+ * Esc, Tab-trap, first-field autofocus, parent-owned focus-return on
+ * `AnimatePresence onExitComplete`, pinned action footer, portal to
+ * `document.body`, and the `body[data-dialog-open]` seam flag. Focus-return here is
  * parent-owned: we capture `document.activeElement` when the event fires and
  * refocus it once the exit animation completes.
  *

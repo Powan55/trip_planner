@@ -1,8 +1,7 @@
 // The presence seam — "who else is on the trip right now".
 //
-// This module is the presence analog of lib/itinerary-remote.ts. It owns the ONLY new
-// Firestore collection the cross-friend feature adds: a heartbeat doc per traveler at
-// `trips/{TRIP_ID}/presence/{uid}` (uid = the silent anon uid), shape
+// This module is the presence analog of lib/itinerary-remote.ts. It owns a heartbeat doc
+// per traveler at `trips/{TRIP_ID}/presence/{uid}` (uid = the silent anon uid), shape
 // `{ name, lastSeen: serverTimestamp() }`. It never touches the `days` model or its
 // per-day LWW. It has two directions:
 //   WRITE (heartbeat): while the tab is OPEN and VISIBLE, `startPresence()` writes the

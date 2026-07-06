@@ -92,18 +92,27 @@ function LegRow({ leg }: { leg: FlightLeg }) {
 }
 
 function LayoverRow({ layover }: { layover: Layover }) {
+  // A11y `list` rule (WCAG 1.3.1): the layover row must be a REAL <li>
+  // (listitem) as a direct child of the <ol> — previously it carried
+  // `role="separator"` on the <li> itself, which OVERRODE its implicit listitem
+  // role, so axe saw the <ol> directly containing a non-listitem (only-listitems
+  // failure). We keep the <li> a plain listitem and move the separator semantics
+  // (role + descriptive aria-label) onto an INNER wrapper, so the list structure
+  // is valid while assistive tech still announces the layover as a separator.
   return (
-    <li
-      className="flex items-center gap-2 pl-4 py-1.5 text-[11px] text-amber-200/70"
-      role="separator"
-      aria-label={`Layover ${layover.duration} at ${layover.airportName ?? layover.airportCode}`}
-    >
-      <span className="inline-flex items-center justify-center w-7 shrink-0">
-        <CircleDashed className="w-3.5 h-3.5 text-amber-300/60" aria-hidden="true" />
-      </span>
-      <span>
-        Layover {layover.duration} · {layover.airportCode}
-        {layover.airportName ? <span className="text-amber-200/45"> — {layover.airportName}</span> : null}
+    <li className="flex items-center gap-2 pl-4 py-1.5 text-[11px] text-amber-200/70">
+      <span
+        className="flex items-center gap-2"
+        role="separator"
+        aria-label={`Layover ${layover.duration} at ${layover.airportName ?? layover.airportCode}`}
+      >
+        <span className="inline-flex items-center justify-center w-7 shrink-0">
+          <CircleDashed className="w-3.5 h-3.5 text-amber-300/60" aria-hidden="true" />
+        </span>
+        <span>
+          Layover {layover.duration} · {layover.airportCode}
+          {layover.airportName ? <span className="text-amber-200/45"> — {layover.airportName}</span> : null}
+        </span>
       </span>
     </li>
   );
@@ -140,7 +149,9 @@ function JourneyCard({ journey, index }: { journey: Journey; index: number }) {
       </div>
 
       {/* Ordered legs interleaved with layovers: layover[i] sits between leg[i] and leg[i+1].
-          LegRow / LayoverRow each render a single <li>, so they are direct children of <ol>. */}
+          LegRow / LayoverRow each render a single <li> LISTITEM (the layover's
+          `role="separator"` lives on an inner span, not the <li>), so every DIRECT
+          child of this <ol> is a valid listitem (axe `only-listitems`). */}
       <ol className="space-y-2">
         {journey.legs.map((leg, i) => (
           <Fragment key={leg.id}>
@@ -220,15 +231,19 @@ function ToBookCard({ item }: { item: ToBookPlaceholder }) {
 
 export default function FlightsSection() {
   // Mount guard for parity with neighbor sections (this section is static/SSR-safe,
-  // but it is loaded ssr:false like the rest; the guard avoids any flash before mount).
+  // but it is loaded ssr:false; the guard avoids any flash before mount).
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   return (
     <section id="flights" aria-labelledby="flights-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
+        {/* Slide-only masthead entrance (opacity pinned to 1) — see the
+            RecommendationSection masthead for the full rationale. Prevents the
+            (non-reduced-motion) axe scan from catching the muted `text-white/50`
+            subtitle mid-fade and flagging a transient contrast failure. */}
         <m.div
-          initial={{ opacity: 0, y: 20 }}
+          initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-10"

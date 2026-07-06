@@ -5,11 +5,11 @@ import { useRouter } from 'next/navigation';
 import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
 
 /**
- * Legacy anchor deep-link redirects. Mounted on HOME only.
+ * Legacy v1 anchor deep-link redirects. Mounted on HOME only.
  *
- * The original site was a single page of anchored sections, so old links look
- * like `/#nepal`. The current site splits those sections across five routes. On
- * load, this island maps a legacy hash to its new home:
+ * v1 was a single page of anchored sections, so old links look like `/#nepal`.
+ * v2 splits those sections across five routes. On load, this island maps
+ * a legacy hash to its new home:
  *
  *   #itinerary → /plan/        #photography → /nepal/#photography
  *   #nepal     → /nepal/       #nightlife   → /nepal/#nightlife
