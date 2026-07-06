@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
+import { toast } from 'sonner';
 import { Wallet, RefreshCw, Info, Plus, Pencil, Trash2, ReceiptText } from 'lucide-react';
 import { CATEGORY_COLORS, type ItineraryCategory } from '@/lib/trip-data';
 import { loadBudget, saveBudget } from '@/core/budget/storage';
@@ -27,17 +28,18 @@ import { getNow } from '@/lib/trip-now';
 import BurnRateView from '@/components/burn-rate-view';
 
 /**
- * Budget panel — Yen & Rupee, the CORE. Mounted on `/plan` between the calendar
+ * Budget panel (the budgeting CORE). Mounted on `/plan` between the calendar
  * planner and Backup & Restore via `dynamic({ ssr:false })`.
  *
- * Lets the traveller SET budgets and rates and SEE the totals. Specifically:
+ * Lets the traveller SET budgets and rates and SEE the totals — expense LOGGING and
+ * burn-rate/overlays live in their own components. Specifically:
  *   - a total budget per leg (Nepal in NPR, Japan in JPY);
  *   - optional per-category budgets per leg (the 10 canonical ItineraryCategory values);
  *   - the home/display currency (USD / NPR / JPY);
  *   - a manual override of the two exchange rates (NPR-per-USD, JPY-per-USD) — the seeds are
- *     labelled as approximate defaults; there is NO rate API / fetch.
+ *     labelled as approximate defaults; there is NO rate API / fetch (fully client-side, keyless).
  * Per-leg totals + a grand total roll up into the home currency. Every edit persists through the
- * typed storage gateway (key 10) via `saveBudget`, so it survives a reload.
+ * typed storage gateway via `saveBudget`, so it survives a reload.
  *
  * State/persistence: SSR-safe — the model starts at the seeded default (matching the server render)
  * and hydrates from `loadBudget()` on mount, so a fresh visitor sees the seeded defaults and a
@@ -115,10 +117,24 @@ export default function BudgetPanel() {
   // The reactive expense store. Its aggregate feeds the `rollUp` `spent` seam, so the
   // rollup now returns real spent/remaining. The store's CustomEvent makes this update live the
   // instant an expense is logged/edited/deleted from the global dialog (or the list below).
-  const { expenses, removeExpense } = useExpenses();
+  const { expenses, removeExpense, restoreExpense } = useExpenses();
   const spent = useMemo(() => expensesToSpent(expenses), [expenses]);
   const roll = useMemo(() => rollUp(model, spent), [model, spent]);
   const home = model.homeCurrency;
+
+  // Delete an expense immediately (fast-log ethos — no confirm dialog), then offer a sonner
+  // Undo that re-inserts the EXACT removed object (same id + createdAt) via the store's
+  // restore path. Keeping the removed object captured in the closure is what makes the restore
+  // byte-identical rather than a fresh-id re-log.
+  const handleDeleteExpense = (expense: Expense) => {
+    removeExpense(expense.id);
+    toast.success(`Deleted ${formatMoney(expense.amount, legCurrency(expense.leg))} ${expense.category}`, {
+      action: {
+        label: 'Undo',
+        onClick: () => restoreExpense(expense),
+      },
+    });
+  };
 
   // Open the fast-log dialog (add mode) via the global host. The button that had focus is the
   // parent-owned focus-return target (the host captures document.activeElement).
@@ -133,16 +149,19 @@ export default function BudgetPanel() {
     window.dispatchEvent(new CustomEvent(EXPENSE_OPEN_EVENT, { detail: { expense } }));
   };
 
+  // Axe-deterministic reveal: full-opacity slide (opacity pinned to 1) so the axe scan
+  // (no reduced motion) never catches the muted budget copy mid-fade below AA. Reduced-motion
+  // branch left intact (it only runs under reduced motion, which the scan does not exercise).
   const reveal = prefersReducedMotion
     ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
     : {
-        hidden: { opacity: 0, y: 16 },
+        hidden: { opacity: 1, y: 16 },
         show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
       };
 
   return (
     <section
-      aria-labelledby="budget-panel-heading"
+      aria-labelledby="budget-panel-title"
       className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6"
       data-testid="budget-panel"
     >
@@ -158,7 +177,7 @@ export default function BudgetPanel() {
           <Wallet className="mt-0.5 h-6 w-6 shrink-0 text-gold-400" aria-hidden="true" />
           <div>
             <h2
-              id="budget-panel-heading"
+              id="budget-panel-title"
               className="font-display text-xl font-bold text-white sm:text-2xl"
             >
               Trip Budget
@@ -245,7 +264,7 @@ export default function BudgetPanel() {
           <LegBudgetCard
             leg="nepal"
             title="Nepal leg"
-            subtitle="Dec 9 – 18 · Kathmandu &amp; around"
+            subtitle="Dec 9 – 18 · Kathmandu & around"
             model={model}
             home={home}
             legRoll={roll.legs[0]}
@@ -255,7 +274,7 @@ export default function BudgetPanel() {
           <LegBudgetCard
             leg="japan"
             title="Japan leg"
-            subtitle="Dec 19 – Jan 9 · Tokyo, Kyoto &amp; more"
+            subtitle="Dec 19 – Jan 9 · Tokyo, Kyoto & more"
             model={model}
             home={home}
             legRoll={roll.legs[1]}
@@ -282,7 +301,7 @@ export default function BudgetPanel() {
           expenses={expenses}
           onLog={openLogDialog}
           onEdit={openEditDialog}
-          onDelete={removeExpense}
+          onDelete={handleDeleteExpense}
         />
       </m.div>
     </section>
@@ -334,7 +353,6 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
   return (
     <div
       data-testid="budget-grand-total"
-      aria-live="polite"
       className="mt-6 flex flex-col gap-3 rounded-xl border border-gold-400/25 bg-gold-400/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
@@ -344,6 +362,7 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
       <div className="sm:text-right">
         <p
           data-testid="budget-grand-total-value"
+          aria-live="polite"
           className="font-display text-3xl font-bold text-gradient-gold"
         >
           {formatMoney(roll.totalBudgetHome, home)}
@@ -446,7 +465,7 @@ function LegBudgetCard({
     >
       <div>
         <h3 className="text-sm font-semibold text-white">{title}</h3>
-        <p className="mt-0.5 text-xs text-white/50" dangerouslySetInnerHTML={{ __html: subtitle }} />
+        <p className="mt-0.5 text-xs text-white/50">{subtitle}</p>
       </div>
 
       {/* Leg total budget (in the leg's local currency) */}
@@ -479,7 +498,7 @@ function LegBudgetCard({
         {/* Home-currency echo of this leg's total (presentation-only). */}
         <p className="text-xs text-white/50" data-testid={`budget-leg-${leg}-home`}>
           {home === cur ? (
-            <span className="text-white/30">Shown in {cur}</span>
+            <span className="text-white/55">Shown in {cur}</span>
           ) : (
             <>
               ≈ <span className="font-semibold text-white/70">{formatMoney(budgetHome, home)}</span> in{' '}
@@ -501,7 +520,7 @@ function LegBudgetCard({
       <details className="group rounded-lg border border-white/10 bg-navy-900/40">
         <summary
           data-testid={`budget-leg-${leg}-categories-toggle`}
-          className="flex cursor-pointer list-none items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40"
+          className="flex min-h-[44px] cursor-pointer list-none items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40"
         >
           <span>Break down by category (optional)</span>
           <span aria-hidden="true" className="text-white/40 transition-transform group-open:rotate-90">
@@ -515,7 +534,7 @@ function LegBudgetCard({
             const stored = safeAmount(legCats[category]);
             const catRoll = catRollByCategory.get(category);
             // Only show a category's spent/remaining once it HAS a budget set
-            // (per-category, where a category budget exists).
+            // (per-category figures appear only where a category budget exists).
             const showCatSpend = stored > 0 && (catRoll?.spentLocal ?? 0) >= 0 && !!catRoll;
             return (
               <div key={category} className="flex flex-col gap-1">
@@ -555,7 +574,7 @@ function LegBudgetCard({
                     className="pl-[calc(6.5rem+0.75rem)] text-[11px]"
                     data-testid={`budget-cat-${leg}-${category}-spent-remaining`}
                   >
-                    <span className="text-white/40">Spent {formatMoney(catRoll.spentLocal, cur)}</span>
+                    <span className="text-white/55">Spent {formatMoney(catRoll.spentLocal, cur)}</span>
                     <span aria-hidden="true" className="mx-1.5 text-white/20">
                       ·
                     </span>
@@ -588,7 +607,7 @@ function ExpenseLog({
   expenses: Expense[];
   onLog: () => void;
   onEdit: (expense: Expense) => void;
-  onDelete: (id: string) => void;
+  onDelete: (expense: Expense) => void;
 }) {
   // Newest first — sort a copy by createdAt descending (the core keeps insertion order).
   const ordered = useMemo(
@@ -620,7 +639,7 @@ function ExpenseLog({
           className="rounded-lg border border-dashed border-white/10 px-4 py-8 text-center"
         >
           <p className="text-sm text-white/60">No expenses logged yet.</p>
-          <p className="mt-1 text-xs text-white/40">
+          <p className="mt-1 text-xs text-white/55">
             Tap “Log expense” to record a meal, a taxi, or a ticket — it counts against your budget above.
           </p>
         </div>
@@ -652,16 +671,16 @@ function ExpenseLog({
                   onClick={() => onEdit(e)}
                   data-testid={`expense-item-edit-${e.id}`}
                   aria-label={`Edit ${e.category} expense of ${formatMoney(e.amount, cur)}`}
-                  className="shrink-0 rounded-lg p-2 text-white/50 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
                 </button>
                 <button
                   type="button"
-                  onClick={() => onDelete(e.id)}
+                  onClick={() => onDelete(e)}
                   data-testid={`expense-item-delete-${e.id}`}
                   aria-label={`Delete ${e.category} expense of ${formatMoney(e.amount, cur)}`}
-                  className="shrink-0 rounded-lg p-2 text-white/40 transition-colors hover:bg-red-500/20 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-red-500/20 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </button>

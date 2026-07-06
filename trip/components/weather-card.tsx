@@ -20,6 +20,7 @@ import {
  * semantic time via visible + `aria-label`led text, AA-contrast palette, and NO
  * motion-only affordance — the card is static markup, so it is reduced-motion-safe by
  * construction (the parent TodayPanel owns the reveal animation, already reduced-motion gated).
+ * Stable `data-testid` attributes are part of the test contract.
  */
 
 /** Format a golden-hour ISO local datetime ("2026-12-12T06:42") to a "6:42 AM" clock time. */
@@ -77,7 +78,7 @@ function GoldenRow({
   );
 }
 
-/** The Open-Meteo attribution pill (CC-BY 4.0) — required by the data license. */
+/** The Open-Meteo attribution pill (CC-BY 4.0) — attribution is required by the data license. */
 function Attribution() {
   return (
     <a
@@ -85,7 +86,7 @@ function Attribution() {
       target="_blank"
       rel="noopener noreferrer"
       data-testid="weather-attribution"
-      className="mt-3 inline-block text-[10px] text-white/30 hover:text-white/50 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded"
+      className="mt-3 inline-block text-[10px] text-white/50 hover:text-white/70 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded"
     >
       {OPEN_METEO_ATTRIBUTION.label}
     </a>
@@ -99,7 +100,9 @@ function LoadingState() {
       data-state="loading"
       aria-busy="true"
       aria-label="Loading weather"
-      className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+      // min-height approximates the loaded WeatherBody (conditions row + golden-hour block +
+      // attribution) so the agenda below does not jump when weather resolves (F16c).
+      className="min-h-[220px] rounded-xl border border-white/10 bg-white/[0.03] p-4"
     >
       <div className="flex items-center gap-3">
         <div className="h-10 w-16 rounded bg-white/10 animate-pulse" aria-hidden="true" />
@@ -120,7 +123,7 @@ function UnavailableState() {
       className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4"
     >
       <CloudOff className="h-5 w-5 flex-shrink-0 text-white/25" aria-hidden="true" />
-      <p className="text-sm text-white/40">Weather is unavailable right now.</p>
+      <p className="text-sm text-white/55">Weather is unavailable right now.</p>
     </div>
   );
 }
@@ -188,7 +191,7 @@ function WeatherBody({ data }: { data: WeatherNow }) {
       {data.stale && (
         <p
           data-testid="weather-cached-indicator"
-          className="mt-3 flex items-center gap-1.5 text-[11px] text-white/40"
+          className="mt-3 flex items-center gap-1.5 text-[11px] text-white/55"
           aria-live="polite"
         >
           <WifiOff className="h-3 w-3" aria-hidden="true" />

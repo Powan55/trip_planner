@@ -19,7 +19,7 @@ import {
  * `hooks/use-itinerary.ts`'s reactivity — but SIMPLER: no sync fan-out, no attribution,
  * no tombstones (expenses are a private, single-user, localStorage-only domain).
  *
- * Reactivity (idiom, mirrored):
+ * Reactivity (mirrors the itinerary store's idiom):
  *  - Every mutator writes via `saveExpenses()` AND dispatches a same-tab CustomEvent
  *    (`EXPENSES_CHANGED_EVENT`) on `window`, so the budget panel (which reads spent/remaining
  *    off the same list) updates live the instant an expense is logged from the global dialog.
@@ -44,6 +44,14 @@ export interface ExpenseStore {
   addExpense(input: NewExpenseInput): void;
   updateExpense(id: string, patch: Partial<NewExpenseInput>): void;
   removeExpense(id: string): void;
+  /**
+   * Re-insert a COMPLETE, previously-removed expense verbatim — SAME `id` + `createdAt`
+   * (delete-Undo). Unlike `addExpense` (which injects a fresh id/createdAt for a brand-new
+   * log), this preserves the exact object so an Undo restores byte-identically. Routes through
+   * the same `commit()` choke-point (persist + dispatch), reusing the pure `addExpense` core
+   * with the object's own id/createdAt; a duplicate id is de-duped so a double-Undo is safe.
+   */
+  restoreExpense(expense: Expense): void;
 }
 
 /**
@@ -124,5 +132,15 @@ export function useExpenses(): ExpenseStore {
     [commit],
   );
 
-  return { expenses, hydrated, addExpense, updateExpense, removeExpense };
+  const restoreExpense = useCallback(
+    (expense: Expense) => {
+      // Re-insert verbatim with the expense's OWN id + createdAt (not a freshly generated one),
+      // so an Undo restores the exact removed object. De-dupe first so a double-Undo is a no-op.
+      const { id, createdAt, ...input } = expense;
+      commit((current) => addExpenseCore(removeExpenseCore(current, id), input, id, createdAt));
+    },
+    [commit],
+  );
+
+  return { expenses, hydrated, addExpense, updateExpense, removeExpense, restoreExpense };
 }

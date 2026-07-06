@@ -5,7 +5,7 @@
 @layer base {
   :root {
     /* ---- Core surfaces (dark-only) ----
-       "Alpine Nocturne": a marginally DEEPER, richer navy night field
+       v2 "Alpine Nocturne": a marginally DEEPER, richer navy night field
        with the card surface lifted a touch further off the background so the new
        glass elevation ramp reads. Brand hue (navy ~220) preserved. */
     --background: 222 41% 5%;
@@ -25,7 +25,7 @@
     /* shadcn interactive-fill accent (menus/toggles/selected) — UNCHANGED hue
        (sakura). This is the Radix/shadcn "accent" surface token; the scroll
        warm/cool engine uses the separate --accent-scroll var below so we don't
-       recolor interactive chrome. Stays 340 60% 65%. */
+       recolor interactive chrome (see note below). The accent stays 340 60% 65%. */
     --accent: 340 60% 65%;
     --accent-foreground: 210 40% 98%;
     --destructive: 0 84% 60%;
@@ -46,15 +46,15 @@
     --sakura: 344 80% 78%;     /* Japan accent */
     --himalaya: 22 100% 63%;   /* Nepal accent */
 
-    /* ---- semantic tokens ----
-       --accent-scroll: the SINGLE scroll-driven accent. Defaults to gold; it is
-       animated himalaya<->sakura by scroll position. Consumers reference this
+    /* ---- semantic accent tokens ----
+       --accent-scroll: the SINGLE scroll-driven accent. Defaults to gold; the accent engine
+       animates it himalaya<->sakura by scroll position. Consumers reference this
        var only, so the warm/cool engine has one hook. --accent-scroll-rgb mirrors
        it as an "r, g, b" list for rgba(var(--accent-scroll-rgb) / a) usage. */
     --accent-scroll: 44 80% 61%;
     --accent-scroll-rgb: 240, 199, 96;
 
-    /* Aurora backdrop gradient (warm gold -> sakura -> himalaya -> cool navy).
+    /* v2 aurora backdrop gradient (warm gold -> sakura -> himalaya -> cool navy).
        Enriched with a 4th cool stop + slightly higher opacities for more ambient
        presence; still decorative/subtle. Feeds .bg-aurora + Tailwind bg-aurora. */
     --gradient-aurora:
@@ -76,7 +76,7 @@
     /* v2: deepest elevation ramp for hero/panel surfaces (additive key). */
     --shadow-2xl: 0 40px 90px -20px rgba(2, 5, 16, 0.72), 0 12px 30px -10px rgba(2, 5, 16, 0.55);
     /* Glow keyed to the scroll accent so it warms/cools with the page,
-       nudged a touch richer (still sized within prior glow footprint). */
+       nudged a touch richer in v2 (still sized within prior glow footprint). */
     --shadow-glow: 0 0 0 1px hsl(var(--accent-scroll) / 0.22), 0 0 34px hsl(var(--accent-scroll) / 0.26);
 
     --duration-fast: 150ms;
@@ -85,7 +85,7 @@
     /* v2 editorial reveal duration (anti-pattern: fast/cheap). */
     --duration-slower: 500ms;
 
-    /* ---- motion vocabulary (spring; reduced-motion aware) ----
+    /* ---- v2 motion vocabulary (spring; reduced-motion aware) ----
        Consumed by the keyframe utilities and hero/skeleton/transition
        components. */
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* gentle overshoot */
@@ -103,7 +103,7 @@
        sit behind content but in front of the page canvas. */
     position: relative;
   }
-  /* ---- app-wide ambient depth (aurora + grain) ----
+  /* ---- v2 app-wide ambient depth (aurora + grain) ----
      Two fixed, non-interactive, negative-z decorative layers. They paint the
      backdrop only: NO layout box is added (fixed + inset:0 + pointer-events:none),
      so 0-overflow @360/390/414 holds.
@@ -137,7 +137,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* ---- Glass hierarchy ("liquid glass") ----
+/* ---- Glass hierarchy (v2 "liquid glass" — the main token-level upgrade) ----
    A three-tier translucent surface system. Each surface gets a richer multi-stop
    navy/tint fill, a GRADIENT HAIRLINE EDGE, a stronger inner top-highlight, and
    layered drop shadow.
@@ -195,7 +195,7 @@ html {
     var(--shadow-lg);
 }
 
-/* Optional tiers (additive — consumed by hero/skeleton, and available for
+/* v2 optional tiers (additive — consumed by the hero/skeleton, and available for
    progressive adoption). Nothing renamed to introduce these. */
 .glass-panel {
   background:
@@ -258,10 +258,10 @@ html {
   background-image: var(--gradient-aurora);
 }
 
-/* ---- --accent-scroll consumers (so the scroll engine has a live hook) ---- */
+/* ---- --accent-scroll consumers (so the accent engine has a live hook) ---- */
 /* 1) Premium gradient underline beneath every section <h2 ...-heading> title.
    Always-visible, additive (pure CSS, no component edits), and themed by the
-   scroll accent so it sweeps warm/cool. Centered under the centered titles. */
+   scroll accent so the accent engine sweeps it warm/cool. Centered under the centered titles. */
 h2[id$="-heading"] {
   position: relative;
 }
@@ -283,7 +283,7 @@ h2[id$="-heading"]::after {
 
 /* 2) Keyboard focus ring fallback uses the scroll accent. Components that set
    their own Tailwind ring still win; this gives every other focusable element a
-   visible, on-brand ring that is also animated with the scroll accent. */
+   visible, on-brand ring that the accent engine also animates. */
 :focus-visible {
   outline: 2px solid hsl(var(--accent-scroll));
   outline-offset: 2px;
@@ -301,7 +301,7 @@ h2[id$="-heading"]::after {
   50% { box-shadow: 0 0 40px hsl(var(--accent-scroll) / 0.38); }
 }
 
-/* A slow aurora drift for the optional .bg-aurora wash. Suppressed
+/* New: a slow aurora drift for the optional .bg-aurora wash. Suppressed
    under prefers-reduced-motion (see media block below). */
 @keyframes aurora-shift {
   0%, 100% { background-position: 0% 50%, 100% 50%, 50% 100%, 0 0; }
@@ -329,7 +329,7 @@ h2[id$="-heading"]::after {
   display: none;
 }
 
-/* ---- motion utilities ----
+/* ---- v2 motion utilities (keyframes + their component consumers) ----
    One-shot entrances (reveal-up, route-fade) rest
    at their VISIBLE end-state: base opacity is 1 and the keyframe supplies the
    entrance from 0, so under reduced motion (where duration collapses to ~0) the
@@ -393,10 +393,10 @@ h2[id$="-heading"]::after {
     scroll-behavior: auto !important;
   }
   /* Explicitly neutralize the keyframe-backed utilities (the universal rule
-     above already covers them; this is the named guarantee for every keyframe).
-     The INFINITE/looping sweep
+     above already covers them; this is the named guarantee required by
+     the reduced-motion contract for every keyframe). The v2 INFINITE/looping sweep
      (.animate-shimmer) MUST be fully stopped — the universal 0.01ms rule would
-     otherwise leave it running one ultra-fast iteration. The one-shot
+     otherwise leave it running one ultra-fast iteration. The v2 one-shot
      entrances (reveal-up, route-fade) intentionally stay in the universal
      collapse path and land on their opacity:1 end-state (never stuck at 0). */
   .animate-aurora,
@@ -447,4 +447,22 @@ h2[id$="-heading"]::after {
 /* The compact "ⓘ" toggle button: keep its glyph legible on the dark pill. */
 .maplibregl-ctrl-attrib-button {
   background-color: rgba(255, 255, 255, 0.82) !important;
+}
+
+/* ── Sonner toaster — lift above the mobile bottom tab bar ────
+   sonner 1.5.0's own `@media (max-width: 600px)` block HARD-SETS
+   `[data-sonner-toaster][data-y-position=bottom] { bottom: 20px }`, ignoring both
+   the `offset` prop and its `--mobile-offset` var for the bottom edge
+   (`--mobile-offset` is applied to left/right only — verified in dist/index.mjs).
+   So on phones a bottom toast overlapped the fixed tab bar (~45px at 390×844).
+   This dependency-free override re-anchors the mobile bottom position above the
+   bar, mirroring the FAB / layout padding idiom (`--tab-bar-h` is published by
+   bottom-tab-bar.tsx, 64px fallback; safe-area inset + 8px breathing room).
+   `!important` is required: sonner injects its stylesheet at runtime AFTER this
+   file, and its rule has equal specificity. Desktop (>600px) keeps the Toaster
+   `offset` prop from components/ui/sonner.tsx. */
+@media (max-width: 600px) {
+  [data-sonner-toaster][data-y-position='bottom'] {
+    bottom: calc(var(--tab-bar-h, 64px) + env(safe-area-inset-bottom) + 8px) !important;
+  }
 }

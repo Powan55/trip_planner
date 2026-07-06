@@ -9,16 +9,17 @@
  * imported into a v3 build migrates exactly as an on-disk v2 array would.
  *
  * Two functions, both framework-free (no React) but browser-facing:
- *   - `exportItinerary()` serializes the CURRENT itinerary as a v3 envelope string
- *     (Blob-ready; the download is wired in the UI — client-only, no server).
+ *   - `exportItinerary()` serializes the CURRENT itinerary as a `CURRENT_ITINERARY_VERSION`
+ *     (currently v4) envelope string (Blob-ready; the download is wired in the UI —
+ *     client-only, no server).
  *   - `importItinerary(rawText)` parses → migrates (if a legacy/older version) →
  *     lenient-Zod-validates → on success writes through the Vault path (`savePlans`)
  *     and fires the store's change event so the live UI refreshes. On ANY failure it
  *     writes NOTHING to the main key, optionally quarantines the bad blob (the
- *     don't-clobber-first pattern), and returns `{ ok:false, error }`. A bad/hostile import
- *     can therefore never destroy the current trip (fail-safe).
+ *     don't-clobber-first pattern), and returns `{ ok:false, error }`. A bad/hostile
+ *     import can therefore never destroy the current trip (fail-safe).
  *
- * Scope = itinerary-only. Identity/token/prefs are device-soft, not
+ * v1 SCOPE = itinerary-only. Identity/token/prefs are device-soft, not
  * portable trip data, so they are neither exported nor touched on import.
  */
 import { loadPlans, savePlans, ITINERARY_QUARANTINE_KEY } from '@/lib/itinerary-storage';
@@ -26,7 +27,7 @@ import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
 import { makeEnvelope } from './envelope';
 import { parseItineraryPayload } from './schema';
 import { CURRENT_ITINERARY_VERSION, runItineraryMigrations } from './migrations';
-// Reuse the read path's version detection + payload extraction (exported
+// Reuse the read path's version detection + payload extraction (exported export-only
 // from load-save.ts) so import makes the IDENTICAL migrate-vs-quarantine
 // decision as the on-disk read — ONE source of truth, no re-derived copy to drift.
 import { detectVersion, extractPayload } from './load-save';
@@ -35,7 +36,8 @@ import { detectVersion, extractPayload } from './load-save';
 export type ImportResult = { ok: true } | { ok: false; error: string };
 
 /**
- * Serialize the current itinerary as a pretty-printed v3 Vault envelope JSON string.
+ * Serialize the current itinerary as a pretty-printed Vault envelope JSON string at the
+ * CURRENT schema version (`CURRENT_ITINERARY_VERSION`, currently v4).
  *
  * Reads the live plans through the Vault (`loadPlans()`), wraps them in the CURRENT
  * envelope (`{ schemaVersion, updatedAt, payload }`) exactly as the write path does,
@@ -78,20 +80,27 @@ function quarantineImport(raw: string): void {
  *   3. runItineraryMigrations         — a v2/older export migrates to current; a
  *                                       throwing/gap migration ⇒ reject + quarantine.
  *                                       A version GREATER than current is accepted
- *                                       leniently (read-only-forward-compat) —
+ *                                       leniently (read-only forward compatibility) —
  *                                       its payload is validated as-is, not migrated.
  *   4. parseItineraryPayload          — lenient Zod (unknown categories/fields kept);
  *                                       a genuinely malformed payload ⇒ reject + quarantine.
  *   5. savePlans(payload)             — the ONLY write; goes through the Vault so the
- *                                       on-disk envelope + key-presence invariants all hold.
+ *                                       on-disk envelope + persistence invariants all hold.
  *   6. dispatch ITINERARY_CHANGED_EVENT — same-tab liveness so the calendar/dashboard
  *                                       re-read immediately, no reload needed.
  *
- * SYNC NOTE: the app is sync-enabled — `savePlans` here writes locally,
- * and the store's own commit path pushes bulk changes to the shared Firestore trip,
- * so a successful import REPLACES the trip for everyone on it. That is the consistent
- * behavior (any bulk edit syncs) and the UI gates it behind an explicit confirm; import
- * is deliberately NOT made local-only (that would diverge local vs remote).
+ * SYNC NOTE: this import is an
+ * INGEST path, not a local commit. It writes via `savePlans` + dispatches the change
+ * event, but it does NOT go through the store's `commit()` — and pushes happen ONLY
+ * from local commits (never from an applied snapshot/ingest). So on a sync-configured,
+ * signed-in build a successful import does NOT propagate to the shared Firestore trip:
+ * the next snapshot merge resurrects any items the import removed, and a reload's
+ * first-snapshot-authoritative apply reverts the restore wholesale — i.e. it silently
+ * does not stick. Because of that, the UI (`components/backup-restore.tsx`) DISABLES
+ * Restore whenever sync is configured AND a traveler is signed in (local mode only for
+ * now — Export stays available; guests + the dormant build keep Restore). Future work:
+ * make Restore a real tombstone-replace that propagates to the shared trip;
+ * until then this module's behavior is local write only.
  */
 export function importItinerary(rawText: string): ImportResult {
   let parsed: unknown;

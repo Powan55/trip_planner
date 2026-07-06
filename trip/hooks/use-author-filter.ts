@@ -9,6 +9,7 @@ import {
   subscribeAuthorFilter,
 } from '@/lib/author-filter';
 import { getUserName } from '@/lib/identity';
+import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
 
 /**
  * React binding for the shared, presentational author filter.
@@ -46,10 +47,10 @@ export function useAuthorFilter() {
     // The display name can change when identity is (re)set; the itinerary store fires
     // `itinerary:changed` on edits, and the name prompt writes the name then. Re-reading
     // here on that event keeps "My edits" correct without coupling to identity internals.
-    window.addEventListener('itinerary:changed', sync);
+    window.addEventListener(ITINERARY_CHANGED_EVENT, sync);
     window.addEventListener('storage', sync);
     return () => {
-      window.removeEventListener('itinerary:changed', sync);
+      window.removeEventListener(ITINERARY_CHANGED_EVENT, sync);
       window.removeEventListener('storage', sync);
     };
   }, []);

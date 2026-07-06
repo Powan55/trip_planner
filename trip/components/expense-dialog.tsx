@@ -17,19 +17,19 @@ import { useExpenses } from '@/hooks/use-expenses';
 import type { Expense } from '@/core/budget/expenses';
 
 /**
- * Fast expense-log dialog. A NEW, lightweight modal, deliberately
+ * Fast expense-log dialog. A lightweight modal, deliberately
  * separate from the itinerary add dialog (`add-to-itinerary-dialog.tsx`), reached via the
  * `expense:open` event + `ExpenseLogHost` — the itinerary quick-add FAB is left single-purpose.
  * It writes expenses THROUGH the reactive store (`useExpenses`), so the budget
  * panel's spent/remaining updates live via the shared CustomEvent.
  *
- * SUB-5s LOG (the UX constraint IS the DoD): open → amount is AUTOFOCUSED (`inputMode="decimal"`,
+ * SUB-5s LOG (the driving UX constraint): open → amount is AUTOFOCUSED (`inputMode="decimal"`,
  * numeric keypad on mobile) → tap a one-tap category chip → the leg is PRESET (usually correct,
  * no tap) → Save (Enter also saves). Amount + category are the only required fields.
  *
  * MODAL CONTRACT (mirrors AddToItineraryDialog exactly): portal to `document.body`,
  * document-level Esc + Tab-trap + first-field autofocus + parent-owned focus-return (the host's
- * `AnimatePresence onExitComplete`), pinned action footer, and the `body[data-dialog-open]`
+ * `AnimatePresence onExitComplete`), a pinned action footer, and the `body[data-dialog-open]`
  * flag while open. Reduced-motion is honored by framer via the global reduced-motion CSS.
  *
  * EDIT MODE: pass an `expense` and the fields preset from it; Save calls `updateExpense`. Delete
@@ -164,7 +164,7 @@ export default function ExpenseDialog({
     return () => clearTimeout(timer);
   }, []);
 
-  // body[data-dialog-open] flag (cross-surface seam): the itinerary FAB hides while it is set, so the
+  // body[data-dialog-open] flag (cross-lane seam): the itinerary FAB hides while it is set, so the
   // FAB never floats over this dialog's scrim. Set while mounted-open, cleared on close/unmount.
   useEffect(() => {
     const body = document.body;
@@ -345,7 +345,7 @@ export default function ExpenseDialog({
                       aria-label={`Category: ${cat}`}
                       data-testid={`expense-category-${cat}`}
                       className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                        isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-white/40 hover:bg-white/5'
+                        isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-white/60 hover:bg-white/5'
                       }`}
                     >
                       {CATEGORY_ICON_MAP[cat]}

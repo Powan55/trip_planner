@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { BookOpen, Pencil, Sparkles } from 'lucide-react';
 import { useJournal } from '@/hooks/use-journal';
 import { MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
@@ -9,9 +9,9 @@ import { MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
  * The in-trip per-day TEXT journal card.
  *
  * Renders INSIDE the in-trip Today panel (`components/today-panel.tsx`), below the agenda — so it is
- * intrinsically in-trip-gated (the panel is `null` outside the trip window) and demoable via `?today=`.
- * Reads/writes TODAY'S entry through `useJournal()` → the framework-free journal core +
- * gateway key 12 (localStorage only). Photos are OUT (declared future boundary).
+ * intrinsically in-trip-gated (the panel is `null` outside the trip window) and demoable via
+ * `?today=`. Reads/writes TODAY'S entry through `useJournal()` → the framework-free journal core +
+ * its gateway storage slot (localStorage only). Photos are OUT (declared future boundary).
  *
  * Two states:
  *   - READ (an entry exists): mood glyph + highlight + body, with an Edit control.
@@ -44,18 +44,38 @@ export default function JournalCard({ date }: { date: string }) {
   const [draftMood, setDraftMood] = useState<Mood | null>(null);
   const [draftHighlight, setDraftHighlight] = useState('');
 
+  // ── Focus management (the PARENT owns focus-return) ─────────────────────────────────────────
+  // Opening the editor unmounts the trigger (Edit / "Write about today"), which would otherwise
+  // drop focus to <body>; Save/Cancel unmount the editor the same way. We hold refs to both
+  // triggers, focus the first editor field on open, and on close return focus to whichever trigger
+  // re-mounts — mirroring the calendar/expense-dialog parent-owned pattern. Esc is document-level.
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+  const writePromptRef = useRef<HTMLButtonElement>(null);
+  const highlightInputRef = useRef<HTMLInputElement>(null);
+  // Which trigger to restore focus to after the editor closes ('edit' when an entry existed,
+  // 'write' from the empty prompt). Null unless a genuine open→close cycle should return focus.
+  const returnFocusTo = useRef<'edit' | 'write' | null>(null);
+  const wasEditing = useRef(false);
+  // Live ref to the latest handleCancel so the once-registered Esc listener calls the current one.
+  const onCancelRef = useRef<() => void>(() => {});
+
   // Seed the draft from the current entry whenever we OPEN the editor (or the day changes under it).
   const openEditor = () => {
     const cur = getEntry(date);
     setDraftText(cur?.text ?? '');
     setDraftMood(cur?.mood ?? null);
     setDraftHighlight(cur?.highlight ?? '');
+    // Record the return target BEFORE the trigger unmounts: an existing entry opens from the Edit
+    // button, the empty state opens from the "Write about today" prompt.
+    returnFocusTo.current = cur ? 'edit' : 'write';
     setEditing(true);
   };
 
   // If the trip day rolls over (midnight self-correct in the panel) while the editor is open, close
-  // it so we never save a stale day's draft onto a new day.
+  // it so we never save a stale day's draft onto a new day. This is NOT a user close, so it must not
+  // steal/return focus — clear the return target.
   useEffect(() => {
+    returnFocusTo.current = null;
     setEditing(false);
   }, [date]);
 
@@ -72,6 +92,40 @@ export default function JournalCard({ date }: { date: string }) {
   const handleCancel = () => {
     setEditing(false);
   };
+  onCancelRef.current = handleCancel;
+
+  // Focus the first editor field on open, and return focus to the originating trigger on close.
+  // Runs after commit (so the trigger has actually re-mounted before we focus it).
+  useEffect(() => {
+    if (editing) {
+      // Opening: focus the first field (the highlight input — a single unambiguous text target,
+      // mirroring the expense dialog focusing its amount field; the mood group sits just above it
+      // and remains a Shift+Tab away).
+      highlightInputRef.current?.focus();
+    } else if (wasEditing.current) {
+      // Just closed via Save/Cancel: return focus to whichever trigger re-mounted.
+      const target = returnFocusTo.current;
+      returnFocusTo.current = null;
+      if (target === 'edit') editButtonRef.current?.focus();
+      else if (target === 'write') writePromptRef.current?.focus();
+    }
+    wasEditing.current = editing;
+  }, [editing]);
+
+  // Esc cancels editing, at the document level so it fires wherever focus sits inside the editor
+  // (matches the house `onCloseRef` idiom in expense-dialog.tsx). Registered once; only acts while
+  // the editor is open (the handler no-ops otherwise via the current handleCancel closing a closed
+  // editor being idempotent — but we also guard on `editing` through the ref-free closure below).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && editing) {
+        e.preventDefault();
+        onCancelRef.current();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [editing]);
 
   // Before hydration, render a stable read/empty shell (the parent panel already gates on `hydrated`,
   // so this is belt-and-braces — never renders a flash of the wrong state).
@@ -91,6 +145,7 @@ export default function JournalCard({ date }: { date: string }) {
         </h3>
         {!editing && entry && (
           <button
+            ref={editButtonRef}
             type="button"
             onClick={openEditor}
             data-testid="journal-edit"
@@ -108,6 +163,7 @@ export default function JournalCard({ date }: { date: string }) {
           text={draftText}
           mood={draftMood}
           highlight={draftHighlight}
+          highlightInputRef={highlightInputRef}
           onTextChange={setDraftText}
           onMoodChange={setDraftMood}
           onHighlightChange={setDraftHighlight}
@@ -118,6 +174,7 @@ export default function JournalCard({ date }: { date: string }) {
         <JournalReadView entry={entry} />
       ) : (
         <button
+          ref={writePromptRef}
           type="button"
           onClick={openEditor}
           data-testid="journal-write-prompt"
@@ -152,18 +209,22 @@ function JournalReadView({ entry }: { entry: JournalEntry }) {
             </span>
           )}
           {entry.highlight && (
+            // The PARENT also needs min-w-0 + max-w-full — as a flex item of the
+            // flex-wrap row it otherwise refuses to shrink below the unbroken highlight's
+            // intrinsic width (break-words does not affect intrinsic min-content sizing), which
+            // left the child's break-words inert and overflowed the page at 360px.
             <span
               data-testid="journal-highlight-display"
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-white/90"
+              className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-white/90"
             >
               <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
-              <span>{entry.highlight}</span>
+              <span className="break-words min-w-0">{entry.highlight}</span>
             </span>
           )}
         </div>
       )}
       {entry.text && (
-        <p data-testid="journal-body" className="whitespace-pre-wrap text-sm leading-relaxed text-white/70">
+        <p data-testid="journal-body" className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white/70">
           {entry.text}
         </p>
       )}
@@ -176,6 +237,7 @@ function JournalEditor({
   text,
   mood,
   highlight,
+  highlightInputRef,
   onTextChange,
   onMoodChange,
   onHighlightChange,
@@ -185,6 +247,8 @@ function JournalEditor({
   text: string;
   mood: Mood | null;
   highlight: string;
+  /** Parent-owned ref for the first-field-on-open focus (parent-owned focus pattern). */
+  highlightInputRef: React.RefObject<HTMLInputElement>;
   onTextChange: (v: string) => void;
   onMoodChange: (v: Mood | null) => void;
   onHighlightChange: (v: string) => void;
@@ -228,9 +292,10 @@ function JournalEditor({
       {/* Highlight of the day — a short single-line input. */}
       <div>
         <label htmlFor="journal-highlight-input" className="mb-1.5 block text-xs font-medium text-white/60">
-          Highlight of the day <span className="text-white/40">(optional)</span>
+          Highlight of the day <span className="text-white/55">(optional)</span>
         </label>
         <input
+          ref={highlightInputRef}
           id="journal-highlight-input"
           type="text"
           value={highlight}

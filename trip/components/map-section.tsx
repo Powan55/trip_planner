@@ -231,9 +231,9 @@ function MarkerPopupContent({ marker }: { marker: MapMarker }) {
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 mb-1">
-            <h4 className="font-display font-bold text-white text-sm leading-tight">
+            <h3 className="font-display font-bold text-white text-sm leading-tight">
               {marker.name}
-            </h4>
+            </h3>
             <span
               className={`text-[9px] px-1.5 py-0.5 rounded-full border ${style.badge}`}
             >
@@ -685,7 +685,7 @@ export default function MapSection() {
   }, [isFullscreen, mounted, mapReady]);
 
   // ── Fullscreen (mobile takeover) — body scroll-lock + Esc ───────────────────
-  // Local body-pin — deliberately NOT imported from navbar. The
+  // Local body-pin (same pattern as the navbar) — deliberately NOT imported from navbar. The
   // shell itself is portaled + relocated above; this only owns scroll-lock, Esc,
   // and the exit resize.
   useEffect(() => {
@@ -896,7 +896,7 @@ export default function MapSection() {
         {/* Loading skeleton until the GL canvas is ready. */}
         {!mapReady && (
           <div className="absolute inset-0 grid place-items-center bg-navy-900">
-            {/* Loading label `/40`→`/55` so "Loading map…" clears AA (3.76→6.22)
+            {/* Loading label uses `/55` (not `/40`) so "Loading map…" clears AA (3.76→6.22)
                 on the navy skeleton while the GL canvas mounts. */}
             <div className="flex flex-col items-center gap-3 text-white/55">
               <MapPin className="w-6 h-6 motion-safe:animate-pulse" />
@@ -957,8 +957,8 @@ export default function MapSection() {
         : null}
 
       {/* Scoped dark-brand overrides for the MapLibre popup + controls. A plain
-          <style> element (local to this component, not globals.css) — the default
-          popup/control chrome is light, so we retint it to
+          <style> element (local to this component, keeping globals.css
+          untouched) — the default popup/control chrome is light, so we retint it to
           the navy/gold palette. */}
       <style>{`
         .njp-map-popup .maplibregl-popup-content {

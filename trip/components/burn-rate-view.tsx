@@ -105,6 +105,7 @@ export default function BurnRateView({
         <span
           data-testid="burn-rate-pace"
           data-pace={b.pace}
+          aria-live="polite"
           className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${pace.badge}`}
         >
           <pace.Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -150,11 +151,11 @@ export default function BurnRateView({
             </div>
           </div>
 
-          {/* The figures — announced together when a value moves (currency toggle / new expense). */}
-          <dl
-            aria-live="polite"
-            className="grid grid-cols-2 gap-3 sm:grid-cols-4"
-          >
+          {/* The figures. the whole 4-figure grid is NO LONGER an aria-live region (announcing
+              4 numbers on every currency toggle / expense was spam). The single meaningful summary
+              — the worded pace badge above — carries aria-live instead, so only "Under/On/Over pace"
+              is announced on a change. */}
+          <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Figure
               testId="burn-rate-days"
               icon={<CalendarClock className="h-4 w-4" aria-hidden="true" />}
@@ -209,9 +210,13 @@ function Figure({
   icon?: React.ReactNode;
   tone?: 'default' | 'over';
 }) {
+  // Wrapped in a <div> group inside the parent <dl> (an allowed dl grouping element). The <div>
+  // may ONLY contain <dt>/<dd> — so the supplementary `sub` is a SECOND <dd> (multiple descriptions
+  // for one term are valid), NOT a <p> (axe `definition-list`: a <p> directly inside the group is a
+  // serious violation — surfaced by the in-trip axe scan, F19b).
   return (
     <div className="rounded-lg border border-white/10 bg-navy-900/40 p-3">
-      <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-white/45">
+      <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-white/55">
         {icon && <span className="text-white/40">{icon}</span>}
         {label}
       </dt>
@@ -221,7 +226,7 @@ function Figure({
       >
         {value}
       </dd>
-      {sub && <p className="mt-0.5 text-[11px] text-white/40">{sub}</p>}
+      {sub && <dd className="mt-0.5 text-[11px] text-white/55">{sub}</dd>}
     </div>
   );
 }

@@ -6,7 +6,7 @@
  * single place raw `window.localStorage` / `window.sessionStorage` is touched in app
  * code (the itinerary slot's raw access lives in `core/vault/**`; tests excepted).
  * A grep for `localStorage.` / `sessionStorage.` outside this file (and the
- * Vault + tests) returns zero app hits — that makes the storage-literal rule
+ * Vault + tests) returns zero app hits — that makes the no-raw-storage-literal rule
  * *structural* rather than a convention.
  *
  * BACK-COMPAT IS ABSOLUTE (the hard constraint for a LIVE, sync-enabled site): the
@@ -40,7 +40,7 @@ function backing(store: Store): Storage | null {
   return store === 'session' ? window.sessionStorage : window.localStorage;
 }
 
-// ── The single key registry ──────────────────────────────────────────────────
+// ── The single key registry ─────────────────────────────────────────────────
 /**
  * Every persisted web-storage key literal lives here and NOWHERE else. Each entry pins
  * the exact on-disk string (unchanged) and its store. The three previously duplicated /
@@ -84,9 +84,9 @@ export const STORAGE_KEYS = {
   budget: 'nepal_japan_budget',
   /**
    * localStorage — JSON `Expense[]` for logged trip expenses (expenses, key 11). Each
-   * entry holds an amount in the leg's LOCAL currency (NPR / JPY, mirroring the budget model),
-   * a leg, a category, and optional date/note. Client-side only, offline-safe. Value shape is
-   * owned by `core/budget/expenses.ts` (the gateway is byte-transport only
+   * entry holds an amount in the leg's LOCAL currency (NPR / JPY, mirroring the budget
+   * model), a leg, a category, and optional date/note. Client-side only, offline-safe.
+   * Value shape is owned by `core/budget/expenses.ts` (the gateway is byte-transport only
    * — it does not know the Expense shape). ADDITIVE: a brand-new key, so no back-compat surface
    * changes and NO migration (it is NOT part of the itinerary Vault; it mirrors the key-10
    * `budgetStore` pattern exactly). The aggregate feeds the budget `rollUp` `spent` seam.
@@ -96,12 +96,20 @@ export const STORAGE_KEYS = {
    * localStorage — JSON `JournalEntry[]` for the in-trip per-day text journal (journal, key 12).
    * Each entry holds a `YYYY-MM-DD` trip day (≤ 1 entry per date), a free-text body, an
    * optional mood, and an optional highlight. Client-side only, offline-safe; photos
-   * / IndexedDB are OUT (a future photo phase is a declared future boundary). Value shape is
+   * / IndexedDB are OUT (a declared future boundary). Value shape is
    * owned by `core/journal/model.ts` (the gateway is byte-transport only — it does not know the
    * JournalEntry shape). ADDITIVE: a brand-new key, so no back-compat surface changes and NO migration
    * (it is NOT part of the itinerary Vault; it mirrors the key-11 `expensesStore` pattern exactly).
    */
   journal: 'nepal_japan_journal',
+  /**
+   * sessionStorage — presence flag `'1'` marking that the ChunkLoadError handler has already
+   * auto-reloaded ONCE this session (key 13). SESSION store (same precedent as the today-override): a
+   * chunk-load race should be recovered by a single reload; if it recurs after that reload the
+   * flag is set, so the handler logs and STOPS instead of looping. Cleared naturally when the tab
+   * closes. ADDITIVE: a brand-new key, no back-compat surface changes.
+   */
+  chunkReloadOnce: 'chunk_reload_once',
 } as const;
 
 // ── Low-level typed primitives (store-aware, SSR-safe, never-throw) ──────────
@@ -142,7 +150,7 @@ export function removeKey(store: Store, key: string): void {
 }
 
 /**
- * Key-presence test: true iff the key is PRESENT, regardless of value
+ * Key-presence test (the "has the user ever saved" signal): true iff the key is PRESENT, regardless of value
  * (including a stored empty string). False during SSR or if storage is unreadable.
  */
 export function hasKey(store: Store, key: string): boolean {
@@ -157,7 +165,7 @@ export function hasKey(store: Store, key: string): boolean {
 
 /**
  * Read + `JSON.parse` a slot, returning `fallback` on absent / SSR / parse error.
- * Used by the checklist accessor (a JSON-shaped non-itinerary slot). NOT used for
+ * Used by the checklist accessor (the only JSON-shaped non-itinerary slot). NOT used for
  * the nightlife pref — that is `String(boolean)`, not JSON (see `uiPrefs`).
  */
 export function readJson<T>(store: Store, key: string, fallback: T): T {
@@ -182,14 +190,14 @@ export function writeJson<T>(store: Store, key: string, value: T): void {
   writeString(store, key, serialized);
 }
 
-// ── Domain accessors — the actual public API ─────────────────────────────────
+// ── Domain accessors — the actual public API ────────────────────────────────
 
 /**
  * Identity slot (keys 3 + 4). `getName`/`setName` back `lib/identity.ts`;
  * `getToken`/`setToken` back `lib/token-auth.ts`.
  *
- * `clearIdentity` clears BOTH the name AND the token — this is a cross-module ownership
- * concern: `token-auth.ts`'s sign-out historically removed
+ * `clearIdentity` clears BOTH the name AND the token — a deliberate piece of cross-module
+ * ownership: `token-auth.ts`'s sign-out historically removed
  * `tripPlannerUserName` (owned by `identity.ts`) as well as its own token. Centralizing
  * both removals here keeps that behavior exact while removing the duplicated literal.
  *
@@ -220,7 +228,7 @@ export const identityStore = {
  * Guest/session gate slot (key 5). The flag is a presence string `'1'`; `isGuest` matches
  * the exact prior semantics (`=== '1'`). `setGuest` writes `'1'`; `clearGuest` removes it
  * (re-arming the Trip Token wall). This is the single home for the flag that previously
- * appeared in THREE places, including the raw literal in `navbar.tsx`.
+ * appeared in THREE places, including the raw literal in `navbar.tsx` (risk 1).
  */
 export const sessionGate = {
   isGuest(): boolean {
@@ -252,7 +260,7 @@ export const checklistStore = {
 /**
  * UI preferences slot (key 7) — the nightlife section's visibility.
  *
- * CRITICAL: this value is stored as `String(boolean)` (`'true'` / `'false'`),
+ * CRITICAL (risk 3): this value is stored as `String(boolean)` (`'true'` / `'false'`),
  * NOT JSON. The read parses it leniently with `=== 'true'` (any other stored string,
  * including a legacy value, reads as `false`) — it must NOT use `JSON.parse`. The write
  * uses `String(next)`, byte-identical to the component's prior behavior.
@@ -276,7 +284,7 @@ export const uiPrefs = {
 
 /**
  * Clock-override slot (key 8) — the `?today=` simulation date. SESSION store only
- * (this key is sessionStorage and must NEVER migrate to localStorage). The
+ * (this key is sessionStorage by design and must NEVER migrate to localStorage). The
  * gateway wraps the raw string read/write/remove; all resolution/validation/precedence
  * logic stays in `lib/trip-now.ts` (the gateway is byte-transport only, not policy).
  */
@@ -372,5 +380,21 @@ export const journalStore = {
   },
   set<T>(entries: T): void {
     writeJson('local', STORAGE_KEYS.journal, entries);
+  },
+} as const;
+
+/**
+ * Chunk-reload guard slot (key 13) — a one-shot-per-session flag for the ChunkLoadError
+ * auto-reload. SESSION store (mirrors the `?today=` sessionStorage handling above): `hasReloaded()`
+ * is the presence signal, `markReloaded()` sets it before the handler triggers `window.location
+ * .reload()`. This lets the handler recover a dev/first-load chunk race with a single reload while
+ * refusing to loop if the error persists after that reload. SSR-safe + never-throw (inherited).
+ */
+export const chunkReloadGuard = {
+  hasReloaded(): boolean {
+    return readString('session', STORAGE_KEYS.chunkReloadOnce) === '1';
+  },
+  markReloaded(): void {
+    writeString('session', STORAGE_KEYS.chunkReloadOnce, '1');
   },
 } as const;

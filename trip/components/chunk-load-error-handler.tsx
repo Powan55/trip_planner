@@ -6,6 +6,7 @@
 // a ChunkLoadError
 
 import { useEffect } from 'react'
+import { chunkReloadGuard } from '@/core/storage/gateway'
 
 export function ChunkLoadErrorHandler() {
   useEffect(() => {
@@ -15,6 +16,15 @@ export function ChunkLoadErrorHandler() {
         event.error?.message?.includes('Loading chunk')
       ) {
         event.preventDefault()
+        // Recover a chunk-load race with a SINGLE reload per session. If a ChunkLoadError
+        // still fires after we've already auto-reloaded once, the reload isn't fixing it — log and
+        // STOP rather than looping. The one-shot flag lives in the typed gateway, session-
+        // backed so it resets when the tab closes.
+        if (chunkReloadGuard.hasReloaded()) {
+          console.warn('[chunk-load] ChunkLoadError persisted after an auto-reload — not reloading again.')
+          return
+        }
+        chunkReloadGuard.markReloaded()
         window.location.reload()
       }
     }

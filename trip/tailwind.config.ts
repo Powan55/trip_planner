@@ -61,7 +61,7 @@ const config: Config = {
         gold: { 400: '#f0c760', 500: '#d4a843', 600: '#b8922e' },
         sakura: { 300: '#ffb7c5', 400: '#f7a0b3', 500: '#e88fa2' },
         himalaya: { 400: '#ff8c42', 500: '#e67635', 600: '#cc6228' },
-        // Single scroll-driven accent (default gold; a later effect animates the var).
+        // Single scroll-driven accent (default gold; scroll logic animates the var).
         'accent-scroll': 'hsl(var(--accent-scroll))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
@@ -96,13 +96,6 @@ const config: Config = {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
-        chart: {
-          '1': 'hsl(var(--chart-1))',
-          '2': 'hsl(var(--chart-2))',
-          '3': 'hsl(var(--chart-3))',
-          '4': 'hsl(var(--chart-4))',
-          '5': 'hsl(var(--chart-5))',
-        },
       },
       keyframes: {
         'accordion-down': {

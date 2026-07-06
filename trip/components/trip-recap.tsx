@@ -12,7 +12,7 @@ import { type Mood, type JournalEntry } from '@/core/journal/model';
 import { summarizePlan, elapsedTripDates } from '@/core/recap/model';
 
 /**
- * Afterglow: the read-only plan-vs-actual DAY RECAP island.
+ * The read-only plan-vs-actual DAY RECAP island.
  *
  * A Home island that, for each trip day that has already HAPPENED (as of the app clock, incl. the
  * `?today=` override), pairs three things — READ-ONLY:
@@ -23,7 +23,7 @@ import { summarizePlan, elapsedTripDates } from '@/core/recap/model';
  * It appears DURING and AFTER the trip (so you can look back over the days you've lived) and renders
  * `null` PRE-trip (Home is byte-unchanged before Dec 9) or before both stores hydrate. It MUTATES
  * NOTHING — editing the plan stays in the calendar, editing the journal stays in the Today panel; this
- * is a pure surface over the two persisted domains — no writes, no re-seed.
+ * is a pure surface over the two persisted domains (no writes, no re-seed).
  *
  * Clock cadence: unlike the Today panel, the recap does NOT need a per-second render (that would be 32
  * cards re-rendering every tick). `nowDateStr` is resolved once on mount from `getNow()` (local Y-M-D
@@ -77,7 +77,7 @@ export default function TripRecap() {
   if (elapsed.length === 0 || !itineraryHydrated || !journalHydrated) return null;
 
   // Most-recent-first for display (Day N at the top). The pure core returns chronological order; the
-  // ordering policy lives here in the view (keeps the core order-agnostic).
+  // ordering policy lives here in the view (the core stays order-agnostic).
   const daysDesc = [...elapsed].reverse();
 
   // Optional top summary — a pure roll-up across every elapsed day (activities done vs planned).
@@ -89,17 +89,20 @@ export default function TripRecap() {
     plannedTotal += s.planned;
   }
 
+  // Axe-deterministic reveal: full-opacity slide (opacity pinned to 1) so the axe scan
+  // (no reduced motion) never catches muted card text mid-fade below AA. Reduced-motion branch
+  // left intact (it only runs under reduced motion, which the scan does not exercise).
   const reveal = prefersReducedMotion
     ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
     : {
-        hidden: { opacity: 0, y: 16 },
+        hidden: { opacity: 1, y: 16 },
         show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
       };
 
   return (
     <section
       id="recap"
-      aria-labelledby="recap-heading"
+      aria-labelledby="recap-title"
       data-testid="trip-recap"
       className="relative bg-navy-900 py-12 sm:py-16 px-4 sm:px-6"
     >
@@ -110,7 +113,7 @@ export default function TripRecap() {
             <History className="h-3.5 w-3.5" aria-hidden="true" />
             Days so far
           </p>
-          <h2 id="recap-heading" className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
+          <h2 id="recap-title" className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
             The trip, <span className="text-gradient-gold">day by day</span>
           </h2>
           {plannedTotal > 0 && (
@@ -190,7 +193,7 @@ function RecapCard({
             </span>
             {getCityForDate(date)}
           </h3>
-          <p className="text-xs text-white/45 mt-0.5">{formatDateLong(date)}</p>
+          <p className="text-xs text-white/55 mt-0.5">{formatDateLong(date)}</p>
         </div>
         {summary.planned > 0 && (
           <p data-testid={`recap-done-count-${date}`} className="text-sm text-white/50 flex-shrink-0">
@@ -204,7 +207,7 @@ function RecapCard({
 
       {/* Plan + actual: the day's items, each with a done/not-done tick (read-only — no toggle). */}
       {items.length === 0 ? (
-        <p data-testid={`recap-no-plan-${date}`} className="text-sm text-white/40 italic">
+        <p data-testid={`recap-no-plan-${date}`} className="text-sm text-white/55 italic">
           No plans this day — a free day.
         </p>
       ) : (
@@ -252,14 +255,16 @@ function RecapItem({ item }: { item: ItineraryItem }) {
           {item.title}
         </span>
         {(item.time || cat) && (
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-white/40">
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-white/55">
             {item.time && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" aria-hidden="true" />
                 {item.time}
               </span>
             )}
-            <span className={`inline-flex rounded-full px-2 py-0.5 ${cat.bg} ${cat.text}`}>{item.category}</span>
+            {cat && (
+              <span className={`inline-flex rounded-full px-2 py-0.5 ${cat.bg} ${cat.text}`}>{item.category}</span>
+            )}
           </span>
         )}
       </span>
@@ -294,12 +299,14 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
                 </span>
               )}
               {entry.highlight && (
+                // Mirror of journal-card.tsx: the parent flex item needs min-w-0 +
+                // max-w-full so it can shrink and the child's break-words engages.
                 <span
                   data-testid={`recap-journal-highlight-${date}`}
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-white/90"
+                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-white/90"
                 >
                   <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
-                  <span>{entry.highlight}</span>
+                  <span className="break-words min-w-0">{entry.highlight}</span>
                 </span>
               )}
             </div>
@@ -307,14 +314,14 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
           {entry.text && (
             <p
               data-testid={`recap-journal-body-${date}`}
-              className="whitespace-pre-wrap text-sm leading-relaxed text-white/65"
+              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white/65"
             >
               {entry.text}
             </p>
           )}
         </div>
       ) : (
-        <p data-testid={`recap-no-journal-${date}`} className="text-sm text-white/35 italic">
+        <p data-testid={`recap-no-journal-${date}`} className="text-sm text-white/55 italic">
           No journal entry for this day.
         </p>
       )}

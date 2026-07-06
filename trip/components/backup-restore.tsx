@@ -2,22 +2,29 @@
 
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Download, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
+import { Download, Upload, ShieldCheck, AlertTriangle, Info } from 'lucide-react';
 import { exportItinerary, importItinerary } from '@/core/vault/export-import';
+import { isRemoteConfigured } from '@/lib/firebase-config';
+import { getActiveTraveler } from '@/lib/token-auth';
 
 /**
  * Backup & Restore panel — mounted on `/plan`.
  *
  * Two user-facing controls over the WHOLE itinerary:
  *   - EXPORT: downloads the current trip as `nepal-japan-trip.json` (a v3 Vault
- *     envelope) via a client-side Blob URL — no server.
+ *     envelope) via a client-side Blob URL — no server involved.
  *   - IMPORT: a file <input> → read text → an explicit CONFIRM dialog (this is a
  *     destructive, and on a synced trip a shared, replace) → `importItinerary()` →
  *     success or a SAFE error. A rejected import never touches the live trip.
  *
- * Sync note: the app is sync-enabled, so a successful
- * import replaces the shared Firestore trip for everyone on it — the confirm copy
- * says so explicitly. Import is deliberately NOT local-only.
+ * Sync note (honest containment): on a build with sync configured AND an active
+ * traveler signed in, RESTORE/import is DISABLED. Import is an ingest-style path that never
+ * pushes (per the push-only-from-local-commits rule), so on a synced trip the next snapshot
+ * merge would resurrect removed items and a reload's first-snapshot-authoritative apply would
+ * revert the restore wholesale — i.e. it silently does not stick. Rather than ship that trap,
+ * Restore is limited to LOCAL MODE ONLY for now (Export stays always available; guests and the
+ * dormant/portfolio build keep Restore unchanged). Future work: make Restore a real
+ * tombstone-replace that propagates to the shared trip.
  *
  * A11y / contrast: dark glassmorphism; the most-muted caption is `text-white/60`
  * (well above the AA 4.5:1 floor of `/50` = 5.32:1 on `#0a0e27`); status/error use their
@@ -53,6 +60,15 @@ export default function BackupRestore() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // Restore is available in LOCAL mode only for now. When sync is configured AND a traveler is
+  // signed in, an ingest-style import doesn't propagate + gets reverted by the next snapshot merge,
+  // so we disable it. Computed post-mount (getActiveTraveler reads localStorage → client-only) to
+  // avoid a hydration mismatch; the dormant build + guests always resolve `false` (Restore enabled).
+  const [restoreBlocked, setRestoreBlocked] = useState(false);
+  useEffect(() => {
+    setRestoreBlocked(isRemoteConfigured() && !!getActiveTraveler());
+  }, []);
+
   const handleExport = () => {
     try {
       const json = exportItinerary();
@@ -75,7 +91,9 @@ export default function BackupRestore() {
     const file = e.target.files?.[0];
     // Reset the input value NOW so picking the same file twice still fires `change`.
     e.target.value = '';
-    if (!file) return;
+    // defense-in-depth: never ingest a file while Restore is sync-blocked (the button is also
+    // disabled, but the input can be driven directly).
+    if (restoreBlocked || !file) return;
     try {
       const text = await file.text();
       setStatus({ kind: 'idle' });
@@ -86,7 +104,7 @@ export default function BackupRestore() {
   };
 
   const confirmImport = () => {
-    if (!pendingImport) return;
+    if (restoreBlocked || !pendingImport) return;
     const result = importItinerary(pendingImport.text);
     setPendingImport(null);
     if (result.ok) {
@@ -106,7 +124,7 @@ export default function BackupRestore() {
 
   return (
     <section
-      aria-labelledby="backup-restore-heading"
+      aria-labelledby="backup-restore-title"
       className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6"
       data-testid="backup-restore"
     >
@@ -115,7 +133,7 @@ export default function BackupRestore() {
           <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-gold-400" aria-hidden="true" />
           <div>
             <h2
-              id="backup-restore-heading"
+              id="backup-restore-title"
               className="font-display text-xl font-bold text-white sm:text-2xl"
             >
               Backup &amp; Restore
@@ -149,27 +167,43 @@ export default function BackupRestore() {
           {/* Import */}
           <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <h3 className="text-sm font-semibold text-white">Import</h3>
-            <p className="text-sm text-white/70">
-              Restore from a backup file. This <strong className="text-white">replaces</strong> your
-              current trip.
-            </p>
+            {restoreBlocked ? (
+              // sync-configured + signed-in ⇒ Restore is local-mode-only for now.
+              <p
+                data-testid="backup-restore-sync-note"
+                className="flex items-start gap-2 text-sm text-white/70"
+              >
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-gold-400/80" aria-hidden="true" />
+                <span>
+                  Restore is available in local mode only for now — it can&apos;t yet replace the
+                  shared synced trip.
+                </span>
+              </p>
+            ) : (
+              <p className="text-sm text-white/70">
+                Restore from a backup file. This <strong className="text-white">replaces</strong>{' '}
+                your current trip.
+              </p>
+            )}
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
+              disabled={restoreBlocked}
               data-testid="backup-import-trigger"
-              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 disabled:cursor-not-allowed disabled:border-white/15 disabled:text-white/40 disabled:hover:bg-transparent"
             >
               <Upload className="h-4 w-4" aria-hidden="true" />
               Choose backup file
             </button>
             {/* Real, keyboard-reachable file input. Visually hidden (not display:none, so
                 it stays focusable/labelled); the button above opens it, and E2E drives it
-                directly via setInputFiles. */}
+                directly via setInputFiles. Disabled while Restore is sync-blocked. */}
             <input
               ref={fileInputRef}
               type="file"
               accept="application/json,.json"
               onChange={handleFileChange}
+              disabled={restoreBlocked}
               data-testid="backup-import-input"
               aria-label="Choose a trip backup file to import"
               className="sr-only"
@@ -201,7 +235,7 @@ export default function BackupRestore() {
           import is pending. Portaling lifts this `fixed` overlay out of /plan's
           `.animate-route-fade` stacking context so the app <footer> can't paint over /
           capture its buttons when the page is scrolled down. Explicit
-          shared-trip copy. */}
+          shared-trip copy in the dialog body. */}
       {mounted &&
         pendingImport &&
         createPortal(
@@ -224,8 +258,8 @@ export default function BackupRestore() {
                 overwrite your current itinerary with the contents of that file.
               </p>
               <p className="mt-2 text-sm text-white/70">
-                This trip is shared, so this <strong className="text-white">replaces the current
-                trip for everyone on it</strong>. This cannot be undone.
+                This replaces the itinerary{' '}
+                <strong className="text-white">on this device</strong>. This cannot be undone.
               </p>
               <div className="mt-6 flex justify-end gap-3">
                 <button

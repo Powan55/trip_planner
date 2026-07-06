@@ -24,7 +24,7 @@ function nowHHMM(): string {
 }
 
 /**
- * Trip OS: the "Today" screen (the operational core).
+ * The "Today" screen (the in-trip operational core).
  *
  * A home-page island that, ONLY when the app clock is inside the trip window
  * (Dec 9 2026 – Jan 9 2027 — via `getTodayInTrip()` incl. the `?today=`
@@ -40,7 +40,7 @@ function nowHHMM(): string {
  * Done-tracking: each item's toggle calls the EXISTING store method
  * `updateItem(today.date, item.id, { done: !item.done })` — no new store method,
  * no `hooks/use-itinerary.ts` change. Sync-on, `updateItem` already stamps rev/hlc
- * so a done-toggle propagates to friends + merges LWW for free; dormant,
+ * so a done-toggle propagates to friends + merges last-write-wins for free; dormant,
  * it's a plain local persisted update (survives reload — the persistence guarantee).
  */
 export default function TodayPanel() {
@@ -106,17 +106,20 @@ export default function TodayPanel() {
   // (but only when there ARE items; a zero-item day keeps the existing empty state below).
   const upcoming = nextUp(items, now);
 
+  // Axe-deterministic reveal: the non-reduced-motion variant slides from y:16 at
+  // FULL opacity (opacity pinned to 1), so the axe scan (which runs WITHOUT reduced motion)
+  // can never catch the muted subtitle mid-fade below AA. Reduced-motion branch unchanged.
   const reveal = prefersReducedMotion
     ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
     : {
-        hidden: { opacity: 0, y: 16 },
+        hidden: { opacity: 1, y: 16 },
         show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
       };
 
   return (
     <section
       id="today"
-      aria-labelledby="today-heading"
+      aria-labelledby="today-title"
       data-testid="today-panel"
       className="relative bg-navy-900 py-12 sm:py-16 px-4 sm:px-6"
     >
@@ -131,7 +134,7 @@ export default function TodayPanel() {
         <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
           <div>
             <p className="text-xs uppercase tracking-widest text-gold-400/80 mb-2">Today on the trip</p>
-            <h2 id="today-heading" className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
+            <h2 id="today-title" className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
               Day <span className="text-gradient-gold">{todayInTrip.dayNumber}</span>
               <span className="text-white/40 mx-2">—</span>
               {todayInTrip.city}
@@ -166,8 +169,8 @@ export default function TodayPanel() {
           // Empty state — mirrors the calendar's empty-state tone.
           <div className="text-center py-10" data-testid="today-empty-state">
             <Calendar className="w-10 h-10 text-white/10 mx-auto mb-3" aria-hidden="true" />
-            <p className="text-white/40 text-sm">Nothing planned for today yet</p>
-            <p className="text-white/25 text-xs mt-1">A free day — or head to the planner to add something.</p>
+            <p className="text-white/55 text-sm">Nothing planned for today yet</p>
+            <p className="text-white/55 text-xs mt-1">A free day — or head to the planner to add something.</p>
             <Link
               href="/plan/"
               className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg glass-card text-white text-sm font-medium hover:bg-white/10 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
@@ -189,7 +192,7 @@ export default function TodayPanel() {
         )}
 
         {/* In-trip per-day TEXT journal — below the agenda. Reads/writes today's entry via
-            useJournal() (gateway key 12, localStorage-only); intrinsically in-trip-gated by the
+            useJournal() (its own gateway slot, localStorage-only); intrinsically in-trip-scoped by the
             panel. Photos are OUT (declared future boundary). */}
         <JournalCard date={todayInTrip.date} />
       </m.div>
@@ -288,12 +291,12 @@ function TodayAgendaItem({ item, onToggle }: { item: ItineraryItem; onToggle: ()
           <span
             data-testid="today-agenda-item"
             className={`block truncate font-medium transition-colors duration-200 ${
-              done ? 'text-white/40 line-through' : 'text-white'
+              done ? 'text-white/50 line-through' : 'text-white'
             }`}
           >
             {item.title}
           </span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-white/40">
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-white/55">
             {item.time && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" aria-hidden="true" />
@@ -306,7 +309,9 @@ function TodayAgendaItem({ item, onToggle }: { item: ItineraryItem; onToggle: ()
                 <span className="truncate">{item.location}</span>
               </span>
             )}
-            <span className={`inline-flex rounded-full px-2 py-0.5 ${cat.bg} ${cat.text}`}>{item.category}</span>
+            {cat && (
+              <span className={`inline-flex rounded-full px-2 py-0.5 ${cat.bg} ${cat.text}`}>{item.category}</span>
+            )}
           </span>
         </span>
       </button>

@@ -10,7 +10,7 @@
  * strategy for a LIVE, sync-enabled site where the itinerary is real users' only
  * irreplaceable data.
  *
- * The four on-disk states this resolves (mapped through the envelope):
+ * The four on-disk states this resolves (the persistence contract mapped through the envelope):
  *   A — key ABSENT               → seed sample (nothing to quarantine).
  *   B — legacy un-enveloped array (v2) → migrate v2→v3 → validate → payload verbatim (incl. []).
  *   C — valid v3 envelope        → validate payload → verbatim (incl. []).
@@ -73,7 +73,7 @@ function quarantineCorrupt(quarantineKey: string, raw: string): void {
  *   - object with a numeric `schemaVersion` ⇒ that number (state C or a future version)
  *   - anything else ⇒ null (corrupt, state D)
  *
- * EXPORTED so the
+ * EXPORTED (export-only — a visibility change ONLY, no behavior change) so the
  * whole-trip import path (`core/vault/export-import.ts`) makes the identical
  * migrate-vs-quarantine-vs-verbatim decision as this read path, from ONE source of
  * truth instead of a re-derived copy (drift risk on a data-integrity path).
@@ -95,7 +95,7 @@ export function detectVersion(parsed: unknown): number | null {
  *   - v2 (state B): the parsed array IS the payload (pre-envelope).
  *   - enveloped (state C / future): the envelope's `.payload`.
  *
- * EXPORTED — same
+ * EXPORTED (export-only — a visibility change ONLY, no behavior change) — same
  * rationale as `detectVersion`: the import path reuses this instead of a copy.
  */
 export function extractPayload(parsed: unknown, detected: number): unknown {
@@ -139,7 +139,7 @@ export function loadItinerary(config: VaultConfig): DayPlan[] {
     return fallback;
   }
 
-  // Forward-compat: a version GREATER than current is read leniently
+  // Forward-compat (blueprint §2.3): a version GREATER than current is read leniently
   // and NEVER down-converted or quarantined-on-version — attempt the lenient payload
   // read as-is; only quarantine if that lenient read itself fails.
   let payload: unknown;
@@ -182,8 +182,10 @@ export function saveItinerary(plans: DayPlan[], config: VaultConfig): void {
   const envelope = makeEnvelope(CURRENT_ITINERARY_VERSION, plans, nowISO());
   try {
     window.localStorage.setItem(storageKey, JSON.stringify(envelope));
-  } catch {
-    /* ignore (quota / disabled storage) */
+  } catch (err) {
+    // Behavior unchanged (degrade quietly — never throw), but surface the reason so a lost save
+    // (quota exceeded / storage disabled) is at least diagnosable rather than silently vanishing.
+    console.warn('[vault] save failed (quota?):', err);
   }
 }
 

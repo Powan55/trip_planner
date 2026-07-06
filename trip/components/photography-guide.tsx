@@ -57,10 +57,10 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
               <Camera className={`w-4 h-4 ${isNepal ? 'text-himalaya-400' : 'text-sakura-400'}`} />
             </div>
             <div>
-              <h4 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
+              <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
                 {spot.name}
                 {spot.mustSee && !spot.image && <Star className="w-3 h-3 fill-gold-400 text-gold-400" />}
-              </h4>
+              </h3>
               <p className="text-[11px] text-white/40">{spot.city}, {spot.country}</p>
             </div>
           </div>
@@ -100,9 +100,9 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
 }
 
 /**
- * Optional `country` filter prop. No prop = every spot (whole-page
+ * Optional `country` filter prop. No prop = every spot (v1, whole-page
  * behavior); on the /nepal/ and /japan/ pages the guide shows only that country's
- * spots. City + category chips with live counts, a search box, sort, an
+ * spots. Also: city + category chips with live counts, a search box, sort, an
  * empty state, must-see badges, and a tap-to-open detail sheet. Category/city chips
  * derive from the country-filtered set so a page never renders a dead filter.
  */

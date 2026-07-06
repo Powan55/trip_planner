@@ -42,10 +42,10 @@ function VenueCard({ venue, onOpen }: { venue: NightlifeVenue; onOpen: () => voi
               <Music className="w-4 h-4 text-fuchsia-400" />
             </div>
             <div>
-              <h4 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
+              <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
                 {venue.name}
                 {venue.mustSee && <Star className="w-3 h-3 fill-gold-400 text-gold-400" />}
-              </h4>
+              </h3>
               <p className="text-[11px] text-white/40 flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
                 {venue.location}
@@ -85,12 +85,12 @@ function VenueCard({ venue, onOpen }: { venue: NightlifeVenue; onOpen: () => voi
 /**
  * Optional `country` filter prop. No prop = both country blocks
  * (v1 behavior); on /nepal/ and /japan/ only that country's venues show. The show/hide
- * toggle and its `nightlife_section_visible` key/value shape are unchanged; the key +
- * storage access live in the gateway (`uiPrefs`).
+ * toggle and its `nightlife_section_visible` key/value shape are stable across versions;
+ * the key + storage access live in the gateway (`uiPrefs`).
  *
- * Includes a search box, city + vibe chips with live counts, sort, an empty state,
+ * Also: a search box, city + vibe chips with live counts, sort, an empty state,
  * must-see badges, and a tap-to-open detail sheet. Nightlife venues have no adapter
- * source (the adapter union excludes them), so the detail sheet's add-to-plan uses the
+ * source (the source union excludes them), so the detail sheet's add-to-plan uses the
  * CUSTOM add flow: a plain item prefilled with the venue's title/location,
  * with NO sourceId — it can never trip a false "Added" badge on any curated card.
  */
@@ -111,7 +111,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
 
   useEffect(() => {
     setMounted(true);
-    // The `nightlife_section_visible` key + access live in the gateway.
+    // The `nightlife_section_visible` key + access live in the typed gateway.
     // The pref is `String(boolean)` on disk (NOT JSON); `uiPrefs.getNightlifeVisible()`
     // parses it leniently (`=== 'true'`) and returns null when absent — so the `visible`
     // default of `true` is only overridden when a value was actually stored, byte-identical

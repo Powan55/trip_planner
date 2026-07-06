@@ -96,7 +96,7 @@ function RecommendationCard({
         )}
         <div className="p-4 pb-0">
           <div className="flex items-start justify-between gap-2 mb-2">
-            <h4 className="font-display font-bold text-white text-sm leading-tight">{item.name}</h4>
+            <h3 className="font-display font-bold text-white text-sm leading-tight">{item.name}</h3>
             <span className={`text-[10px] px-2 py-0.5 rounded-full ${accentColor} bg-white/5 whitespace-nowrap`}>{item.category}</span>
           </div>
           <p className="text-xs text-white/40 mb-3 line-clamp-2">{item.description}</p>

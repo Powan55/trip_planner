@@ -10,6 +10,7 @@ import { clock } from '@/lib/trip-now';
 import { stampCreated, stampUpdated } from '@/lib/attribution';
 import { stampSyncCreated, stampSyncUpdated, stampSyncDeleted } from '@/core/sync/stamp';
 import { itineraryStoragePort, itinerarySyncPort } from '@/lib/itinerary-ports';
+import { generateItemId } from '@/lib/item-id';
 import * as itinerary from '@/core/itinerary';
 
 /**
@@ -28,9 +29,8 @@ import * as itinerary from '@/core/itinerary';
  * Reactivity (both layers, by design):
  *  - Every mutator writes via the StoragePort `save()` AND dispatches a same-tab
  *    `CustomEvent` (`ITINERARY_CHANGED_EVENT`) on `window`.
- *  - The hook listens for that CustomEvent (same-tab liveness — this is what closes the
- *    same-tab reactivity gap) AND the cross-tab `storage` event, re-reading from the
- *    StoragePort on either.
+ *  - The hook listens for that CustomEvent (same-tab liveness)
+ *    AND the cross-tab `storage` event, re-reading from the StoragePort on either.
  *
  * Instantiated ONCE at the app root by `itinerary-provider.tsx`; consumers read the one
  * shared instance via `useItineraryContext()`. The raw hook is exported for the provider
@@ -55,31 +55,31 @@ export interface ItineraryStore {
 // a single named, unit-testable place. The mutators below pass bound `stampCreated` /
 // `stampUpdated` closures (name source = `getUserName`) INTO the pure core, so:
 //   - stamping fires ONLY when a name is set (dormant / no-name ⇒ fields stay undefined,
-//     items valid);
+//     items valid — persistence holds);
 //   - it runs ONLY in these local mutators (at the adapter boundary), so the snapshot-ingest
 //     path (which writes via savePlans() directly) PRESERVES a remote author's attribution
 //     (echo-suppression). Keeping the identity read here — not in core — is what lets
 //     `core/itinerary` stay pure while the attribution behavior is byte-identical.
 
-// ── Sync v2 rev/hlc stamping ─────────────────────────────────────────────────────────────
-// The mutators additionally stamp the two NEW ordering fields via the pure `core/sync/stamp`
+// ── Sync v2 rev/hlc stamping ──────────────────────────────────────────────────────────────
+// The mutators additionally stamp the two ordering fields via the pure `core/sync/stamp`
 // helpers — riding ALONGSIDE attribution (no duplication). These take an
 // injected `physicalNow` (ClockPort) and `actor`, so they stay pure/testable and
 // never import firebase.
 //
-// ── THE DORMANT-BUILD BYTE-IDENTITY GATE (the biggest risk) ──────────────────────────────
+// ── THE DORMANT-BUILD BYTE-IDENTITY GUARANTEE (the biggest risk) ─────────────────────────
 // Stamping rev/hlc — and, critically, turning `removeItem` into a tombstone — CHANGES
 // localStorage bytes. Doing that unconditionally would break the dormant portfolio build's
 // byte-identity and risk the delete-all-stays-empty guarantee (a tombstone
-// must not leave `plans` non-empty). So the ENTIRE Sync-v2 behavior is GATED on
+// must not leave `plans` non-empty). So the ENTIRE Sync-v2 behavior is CONDITIONAL on
 // `isRemoteConfigured()`:
 //   - DORMANT (no firebase env): `syncEnabled()` is false. `removeItem` physically removes
 //     exactly as today, and NO rev/hlc is stamped. The dormant build is byte-for-byte
-//     unchanged; the persistence pack + delete-all guarantee hold verbatim.
+//     unchanged; the persistence guarantees hold verbatim.
 //   - CONFIGURED (sync on): the tombstone + rev/hlc path activates, and the exposed `plans`
 //     selector filters `deleted` items so the UI still shows a normal delete.
 // The `actor` is sourced synchronously + firebase-free from the active traveler token
-// (`getActiveTraveler().name` — Powan/Sushil/Uttam, distinct per friend),
+// (`getActiveTraveler().name` — distinct per friend),
 // falling back to the display name, then ''. The anon-auth uid would be strictly-better as
 // the actor but is only available async inside the remote handle; the per-friend token is a
 // stable, synchronous, dormant-safe id sufficient for the HLC tie-break (distinct across the
@@ -148,9 +148,9 @@ export function useItinerary(): ItineraryStore {
   //
   // Remote push: this is the single write choke-point, so it is also where
   // local mutations fan out to the remote via the SyncPort. We capture `prev = load()`
-  // BEFORE the compute (it's free — the base read already happens), then AFTER the local
-  // save + dispatch (offline cache + instant same-tab echo first), push the per-day delta —
-  // ONLY when remote is configured, behind the SyncPort's DYNAMIC gated import so the
+  // BEFORE the compute (it's free — the commit path already reads it), then AFTER the local save +
+  // dispatch (offline cache + instant same-tab echo first), push the per-day delta —
+  // ONLY when remote is configured, behind the SyncPort's DYNAMIC conditional import so the
   // dormant build never pulls firebase onto the hot path. `push` is invoked
   // ONLY here (genuine local mutations), never from the snapshot-ingest path — the
   // echo-suppression rule. It is best-effort and self-degrading; it never throws
@@ -225,21 +225,51 @@ export function useItinerary(): ItineraryStore {
     [commit],
   );
 
-  // Move an item between days (drag-between-days semantics). A cross-day move IS a content
-  // edit → stamp updatedBy/updatedAt on the moved item at the boundary (no-op when
-  // no name set); createdBy is preserved (first author wins). When sync is on (gated), it
-  // also bumps rev + advances hlc. Computed as one atomic commit against the freshest
-  // persisted state.
+  // Move an item between days (drag-between-days semantics).
+  //
+  // DORMANT (sync off): a physical move — remove from source, append to target — exactly
+  // as before, BYTE-IDENTICAL. A cross-day move IS a content edit → stamp updatedBy/
+  // updatedAt on the moved item (no-op when no name set); createdBy preserved (first author wins).
+  //
+  // SYNC ON: a physical remove from the source day leaves NO tombstone, so the Sync-v2
+  // union-merge (pushDayMerged / snapshot mergeDays) resurrects the source copy — the item ends up
+  // live on BOTH days for everyone. So under sync a move is, in ONE commit, the SAME mechanics as
+  // the dialog's cross-day date-change: (a) TOMBSTONE the source copy (deleted:true, rev+1,
+  // hlc advanced — identical to removeItem's sync path), then (b) ADD a FRESH-ID copy of the item
+  // to the target day (identical to addItem's sync path: fresh createdBy + rev=1 + fresh hlc, same
+  // `sourceId` carried so findPlacements follows the move). The fresh id is REQUIRED so a later
+  // move-BACK can't collide with this item's own tombstone on the origin day.
   const moveItem = useCallback(
     (itemId: string, fromDate: string, toDate: string) => {
-      commit((current) =>
-        itinerary.moveItem(current, itemId, fromDate, toDate, (i) => {
-          const attributed = stampUpdated(i, getUserName);
-          return syncEnabled()
-            ? stampSyncUpdated(attributed, clock.now().getTime(), syncActor())
-            : attributed;
-        }),
-      );
+      if (!syncEnabled()) {
+        commit((current) =>
+          itinerary.moveItem(current, itemId, fromDate, toDate, (i) =>
+            stampUpdated(i, getUserName),
+          ),
+        );
+        return;
+      }
+      // Sync on: tombstone-source + fresh-id-target, one atomic commit against freshest state.
+      commit((current) => {
+        if (fromDate === toDate) return current; // same-day: no-op (matches core moveItem)
+        const source = current.find((p) => p.date === fromDate);
+        const original = (source?.items ?? []).find((i) => i.id === itemId);
+        if (!original) return current; // nothing to move (guard, matches core moveItem)
+
+        // (a) Tombstone the source copy — IDENTICAL to removeItem's sync path.
+        const tombstoned = itinerary.updateItem(current, fromDate, itemId, {}, (i) =>
+          stampSyncDeleted(stampUpdated(i, getUserName), clock.now().getTime(), syncActor()),
+        );
+
+        // (b) Add a FRESH-ID copy to the target — IDENTICAL to addItem's sync path. Carry the
+        // item's content (incl. sourceId/sourceType/done/notes…) but a NEW id, and let the
+        // stampers set fresh createdBy + rev=1 + fresh hlc; drop any inherited tombstone/rev/hlc.
+        const { id: _oldId, deleted: _wasDeleted, rev: _oldRev, hlc: _oldHlc, ...content } = original;
+        const freshCopy = { ...content, id: generateItemId() } as ItineraryItem;
+        return itinerary.addItem(tombstoned, toDate, freshCopy, (i) =>
+          stampSyncCreated(stampCreated(i, getUserName), clock.now().getTime(), syncActor()),
+        );
+      });
     },
     [commit],
   );
@@ -268,13 +298,13 @@ export function useItinerary(): ItineraryStore {
     [commit],
   );
 
-  // ── The exposed-`plans` tombstone filter ───────────────────────────────────────────────
+  // ── The exposed-`plans` tombstone filter ───────────────────────────────────
   // The MERGE sees tombstones; the UI does not. The internal `plans` state (and the
   // persisted localStorage layer beneath it) RETAIN `deleted:true` items so a delete can
   // propagate + win over a concurrent edit. The value handed to consumers — and every
   // selector below — is filtered to `!deleted` items ONLY, so the calendar, dashboard,
   // timeline, findPlacements, and every card render live items exactly as before, with ZERO
-  // consumer edits (this is the ONLY selector change here). Dormant items
+  // consumer edits (this is the ONLY selector change made here). Dormant items
   // never carry `deleted` (physical remove, gated), so `visiblePlans === plans` byte-for-byte
   // in the dormant build; the filter only ever removes anything when sync is on.
   const visiblePlans = useCallback(
