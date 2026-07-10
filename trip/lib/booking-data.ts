@@ -1,4 +1,4 @@
-// Real confirmed bookings — read-only PRESENTATION data, deliberately
+// Real confirmed bookings — read-only presentation data, deliberately
 // kept separate from the user-editable, localStorage-persisted itinerary store.
 // These are fixed reference facts about the trip (flight numbers,
 // terminals, seats, the hotel); they are NOT an ItineraryItem/DayPlan and are NOT
@@ -60,6 +60,7 @@ export interface Stay {
   status: BookingStatus;      // 'booked'
   checkIn?: string;           // optional human label; omit if not a fixed booking fact
   checkOut?: string;
+  note?: string;              // short human-readable extra line (e.g. '5 nights · 3 adults · 3 rooms'); omit if nothing extra to show
 }
 
 export interface ToBookPlaceholder {
@@ -115,6 +116,39 @@ export const RETURN_TO_JAPAN_JOURNEY: Journey = {
   layovers: [{ airportCode: 'CAN', airportName: 'Guangzhou Baiyun Intl', duration: '2h 55m' }],
 };
 
+export const TOKYO_TO_OSAKA_JOURNEY: Journey = {
+  id: 'tokyo-to-osaka', label: 'Tokyo to Osaka', status: 'booked',
+  fromSummary: 'Tokyo (HND)', toSummary: 'Osaka (ITM)',
+  totalDuration: '1h 10m',
+  legs: [
+    { id: 'dom-1', flightNumber: 'Japan Airlines 127',
+      fromCode: 'HND', fromName: 'Tokyo Haneda', fromTerminal: 'Terminal 1',
+      toCode: 'ITM', toName: 'Osaka Itami',
+      departLabel: '4:25pm Sat Dec 19', arriveLabel: '5:35pm Sat Dec 19',
+      duration: '1h 10m', cabin: 'Economy', cabinCode: 'Q' },   // no seats given — omit the seats line in UI
+  ],
+  layovers: [],
+};
+
+export const FLIGHT_HOME_JOURNEY: Journey = {
+  id: 'flight-home', label: 'Flight home — Tokyo to Syracuse', status: 'booked',
+  fromSummary: 'Tokyo (HND)', toSummary: 'Syracuse (SYR)',
+  totalDuration: '19h 23m',           // verbatim source string — render as-is, do NOT recompute
+  legs: [
+    { id: 'home-1', flightNumber: 'Delta 274',
+      fromCode: 'HND', fromName: 'Tokyo Haneda', fromTerminal: 'Terminal 3',
+      toCode: 'DTW', toName: 'Detroit Metropolitan Wayne County', toTerminal: 'Terminal M',
+      departLabel: '5:35pm Sat Jan 9', arriveLabel: '3:35pm Sat Jan 9',
+      duration: '12h', cabin: 'Economy', cabinCode: 'E' },   // no seats given — omit the seats line in UI
+    { id: 'home-2', flightNumber: 'Delta 1689',
+      fromCode: 'DTW', fromName: 'Detroit Metropolitan Wayne County', fromTerminal: 'Terminal M',
+      toCode: 'SYR', toName: 'Syracuse Hancock Intl',
+      departLabel: '9:35pm Sat Jan 9', arriveLabel: '10:58pm Sat Jan 9',
+      duration: '1h 23m', cabin: 'Economy', cabinCode: 'E' },   // no seats given
+  ],
+  layovers: [{ airportCode: 'DTW', airportName: 'Detroit Metropolitan Wayne County', duration: '6h' }],
+};
+
 export const NEPAL_STAY: Stay = {
   id: 'nepal-hotel', name: 'Tulsi Kathmandu Hotel', stars: 3,
   address: 'Keshar Mahal Marga, Kathmandu, Bagmati 44600',
@@ -122,10 +156,28 @@ export const NEPAL_STAY: Stay = {
   city: 'Kathmandu', country: 'nepal', status: 'booked',
 };
 
+export const OSAKA_STAY: Stay = {
+  id: 'osaka-hotel', name: 'Hotel The Grandee Shinsaibashi', stars: null,
+  address: '1-6-28 Higashi-Shinsaibashi, Osaka, 542-0083 Japan',
+  city: 'Osaka', country: 'japan', status: 'booked',
+  checkIn: '3:00pm Sat Dec 19',
+  note: '5 nights · 3 adults · 3 rooms',
+};
+
+export const KYOTO_STAY: Stay = {
+  id: 'kyoto-hotel', name: 'Hotel Forza Kyoto Shijo Kawaramachi', stars: null,
+  address: 'Shijo-Dori, Fuya, Nishihairu, Tachiuri, Kyoto, 600-8005 Japan',
+  city: 'Kyoto', country: 'japan', status: 'booked',
+  checkIn: '2:00pm Thu Dec 24',
+  note: '3 nights · 3 adults · 3 rooms',
+};
+
 export const JAPAN_TODO: ToBookPlaceholder[] = [
-  { id: 'japan-hotels', kind: 'stay', label: 'Japan accommodation', note: 'Not booked yet — Dec 19 to Jan 9' },
-  { id: 'flight-home', kind: 'flight', label: 'Flight home', note: 'Not booked yet — departs Tokyo Jan 9' },
+  { id: 'tokyo-hotel', kind: 'stay', label: 'Tokyo accommodation', note: 'Not booked yet — Dec 28–Jan 9 (12 nights). Target: Shinjuku/Kabukicho edge (Higashi-Shinjuku, Seibu-Shinjuku, Shinjuku-sanchome), 3 separate rooms same hotel, under $150/room/night preferred, 3-star+, refundable preferred. Ranked candidates: APA Hotel Shinjuku Kabukicho Tower, Hotel Gracery Shinjuku, Premier Hotel Cabin Shinjuku, Tokyu Stay Shinjuku, Sotetsu Fresa Inn Higashi Shinjuku, APA Hotel Higashi-Shinjuku Kabukicho, Hotel Wing International Shinjuku, APA Hotel Shinjuku Gyoemmae.' },
 ];
 
 // Convenience ordered list for the section to map over.
-export const JOURNEYS: Journey[] = [OUTBOUND_JOURNEY, RETURN_TO_JAPAN_JOURNEY];
+export const JOURNEYS: Journey[] = [OUTBOUND_JOURNEY, RETURN_TO_JAPAN_JOURNEY, TOKYO_TO_OSAKA_JOURNEY, FLIGHT_HOME_JOURNEY];
+
+// Ordered stays (chronological) for the section to map over.
+export const BOOKED_STAYS: Stay[] = [NEPAL_STAY, OSAKA_STAY, KYOTO_STAY];

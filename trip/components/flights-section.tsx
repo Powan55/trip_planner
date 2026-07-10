@@ -7,7 +7,7 @@ import {
   Building2, Star, MapPin, CircleDashed,
 } from 'lucide-react';
 import {
-  JOURNEYS, NEPAL_STAY, JAPAN_TODO,
+  JOURNEYS, BOOKED_STAYS, JAPAN_TODO,
   type Journey, type FlightLeg, type Layover, type Stay, type ToBookPlaceholder,
 } from '@/lib/booking-data';
 
@@ -92,7 +92,7 @@ function LegRow({ leg }: { leg: FlightLeg }) {
 }
 
 function LayoverRow({ layover }: { layover: Layover }) {
-  // A11y `list` rule (WCAG 1.3.1): the layover row must be a REAL <li>
+  // a11y `list` rule (WCAG 1.3.1): the layover row must be a REAL <li>
   // (listitem) as a direct child of the <ol> — previously it carried
   // `role="separator"` on the <li> itself, which OVERRODE its implicit listitem
   // role, so axe saw the <ol> directly containing a non-listitem (only-listitems
@@ -207,6 +207,15 @@ function StayCard({ stay }: { stay: Stay }) {
       {stay.address && (
         <p className="text-[11px] text-white/35 pl-5">{stay.address}</p>
       )}
+      {stay.checkIn && (
+        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-white/45">
+          <Clock className="w-3.5 h-3.5 text-indigo-300/70 shrink-0" aria-hidden="true" />
+          <span className="text-white/40">Check-in</span> {stay.checkIn}
+        </p>
+      )}
+      {stay.note && (
+        <p className="mt-1.5 text-[11px] text-white/40 pl-5">{stay.note}</p>
+      )}
     </m.article>
   );
 }
@@ -270,7 +279,11 @@ export default function FlightsSection() {
             <div className="grid lg:grid-cols-2 gap-5">
               <div className="min-w-0">
                 <h3 className="sr-only">Accommodation</h3>
-                <StayCard stay={NEPAL_STAY} />
+                <div className="space-y-3">
+                  {BOOKED_STAYS.map((stay) => (
+                    <StayCard key={stay.id} stay={stay} />
+                  ))}
+                </div>
               </div>
 
               <m.div

@@ -10,6 +10,7 @@ import { NIGHTLIFE_VENUES, NightlifeVenue } from '@/lib/nightlife-data';
 import PlaceDetailSheet, { type PlaceDetailData } from '@/components/place-detail-sheet';
 import type { ItineraryDraft } from '@/lib/itinerary-adapter';
 import { uiPrefs } from '@/core/storage/gateway';
+import { useActiveTraveler } from '@/hooks/use-active-traveler';
 
 type SortKey = 'mustSee' | 'name';
 
@@ -84,17 +85,18 @@ function VenueCard({ venue, onOpen }: { venue: NightlifeVenue; onOpen: () => voi
 
 /**
  * Optional `country` filter prop. No prop = both country blocks
- * (v1 behavior); on /nepal/ and /japan/ only that country's venues show. The show/hide
- * toggle and its `nightlife_section_visible` key/value shape are stable across versions;
- * the key + storage access live in the gateway (`uiPrefs`).
+ * (default behavior); on /nepal/ and /japan/ only that country's venues show. The
+ * show/hide toggle and its `nightlife_section_visible` key/value shape live in the
+ * storage gateway (`uiPrefs`).
  *
- * Also: a search box, city + vibe chips with live counts, sort, an empty state,
+ * Includes a search box, city + vibe chips with live counts, sort, an empty state,
  * must-see badges, and a tap-to-open detail sheet. Nightlife venues have no adapter
- * source (the source union excludes them), so the detail sheet's add-to-plan uses the
- * CUSTOM add flow: a plain item prefilled with the venue's title/location,
- * with NO sourceId — it can never trip a false "Added" badge on any curated card.
+ * source, so the detail sheet's add-to-plan uses the CUSTOM add flow: a plain item
+ * prefilled with the venue's title/location, with NO sourceId — it can never trip a
+ * false "Added" badge on any curated card.
  */
 export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Japan' }) {
+  const { traveler } = useActiveTraveler();
   const [visible, setVisible] = useState(true);
   const [mounted, setMounted] = useState(false);
   const scopeLabel =
@@ -111,7 +113,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
 
   useEffect(() => {
     setMounted(true);
-    // The `nightlife_section_visible` key + access live in the typed gateway.
+    // The `nightlife_section_visible` key + access live in the gateway.
     // The pref is `String(boolean)` on disk (NOT JSON); `uiPrefs.getNightlifeVisible()`
     // parses it leniently (`=== 'true'`) and returns null when absent — so the `visible`
     // default of `true` is only overridden when a value was actually stored, byte-identical
@@ -238,7 +240,13 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
     setQuery('');
   };
 
-  if (!mounted) return null;
+  // Visibility gate (soft/UI-only, NOT real access control — the content
+  // still ships in the static bundle either way). Hidden entirely (not a teaser) unless
+  // a real Trip Token is signed in; `traveler === null` covers both "not mounted yet" and
+  // "guest" (a guest never gets past the token-gate wall without EITHER a token OR the
+  // guest flag, so reaching this component with `traveler === null` only happens on the
+  // guest path — exactly the case this hides).
+  if (!mounted || !traveler) return null;
 
   return (
     <section id="nightlife" data-testid="nightlife-section" aria-labelledby="nightlife-heading" className="py-20 px-4 sm:px-6">
