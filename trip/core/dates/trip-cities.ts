@@ -22,8 +22,8 @@
  * city string changed.
  *
  * ── Osaka -> Kyoto -> Tokyo route ─────────────────────────────────────────────
- * Osaka 5 nights (Dec 19–24) → Kyoto 4 nights (Dec 24–28) → Tokyo 12 nights (Dec 28–Jan 9).
- * Transfer days use the ARRIVAL city (Dec 24 → Kyoto, Dec 28 → Tokyo). No more
+ * Osaka 5 nights (Dec 19–24) → Kyoto 3 nights (Dec 24–27) → Tokyo 13 nights (Dec 27–Jan 9).
+ * Transfer days use the ARRIVAL city (Dec 24 → Kyoto, Dec 27 → Tokyo). No more
  * Hakone/Kawaguchiko/Yuzawa/Nikko/Yokohama day trips — this is a straight 3-city itinerary.
  */
 
@@ -46,8 +46,8 @@ export const TRIP_CITIES: Record<string, string> = {
   '2026-12-17': 'Kathmandu',
   '2026-12-18': 'Kathmandu',
   // Japan (Dec 19 – Jan 9) — Osaka -> Kyoto -> Tokyo route.
-  // Osaka 5 nights (Dec 19-24), Kyoto 4 nights (Dec 24-28), Tokyo 12 nights (Dec 28-Jan 9).
-  // Transfer days use the ARRIVAL city: Dec 24 -> Kyoto, Dec 28 -> Tokyo.
+  // Osaka 5 nights (Dec 19-24), Kyoto 3 nights (Dec 24-27), Tokyo 13 nights (Dec 27-Jan 9).
+  // Transfer days use the ARRIVAL city: Dec 24 -> Kyoto, Dec 27 -> Tokyo.
   '2026-12-19': 'Osaka',
   '2026-12-20': 'Osaka',
   '2026-12-21': 'Osaka',
@@ -56,7 +56,7 @@ export const TRIP_CITIES: Record<string, string> = {
   '2026-12-24': 'Kyoto',
   '2026-12-25': 'Kyoto',
   '2026-12-26': 'Kyoto',
-  '2026-12-27': 'Kyoto',
+  '2026-12-27': 'Tokyo',
   '2026-12-28': 'Tokyo',
   '2026-12-29': 'Tokyo',
   '2026-12-30': 'Tokyo',

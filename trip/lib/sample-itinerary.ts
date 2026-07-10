@@ -220,14 +220,14 @@ export const SAMPLE_ITINERARY: DayPlan[] = [
   },
   {
     date: '2026-12-27',
-    city: 'Kyoto',
+    city: 'Tokyo',
     country: 'japan',
     items: [
-      { id: 'j9-1', title: 'Kyoto International Manga Museum', category: 'cultural', time: '10:00', duration: '2.5h', notes: "A converted 1920s elementary school housing 300,000+ manga volumes across every genre — a relaxed recovery-day pick that fits the group's anime interest", location: 'Nakagyo, Kyoto' },
-      { id: 'j9-2', title: 'Lunch near Kawaramachi', category: 'food', time: '13:00', duration: '1h', notes: 'Easy lunch downtown', location: 'Kawaramachi, Kyoto' },
-      { id: 'j9-3', title: 'Slow afternoon — recovery before Tokyo', category: 'free', time: '14:30', duration: '2h', notes: 'A flex block to recharge before the Tokyo leg — wander back through Gion or Higashiyama at an easy pace, or just rest at the hotel', location: 'Kyoto' },
-      { id: 'j9-4', title: 'Pack & prepare for the Tokyo transfer', category: 'hotel', time: '17:00', duration: '1.5h', notes: "Repack for tomorrow's Shinkansen; grab any last-minute Kyoto souvenirs", location: 'Kyoto' },
-      { id: 'j9-5', title: 'Final Kyoto dinner & easy night', category: 'nightlife', time: '19:30', duration: '2.5h', notes: 'A lower-key last Kyoto evening — dinner then one more look at Kiyamachi/Pontocho before an early-ish night ahead of the transfer', location: 'Kyoto' },
+      { id: 'j9-1', title: 'Check out of Hotel Forza Kyoto Shijo Kawaramachi', category: 'hotel', time: '11:00', duration: '1h', notes: 'Real booked checkout time — pack up before the Shinkansen to Tokyo', location: 'Kyoto' },
+      { id: 'j9-2', title: 'Kyoto → Tokyo by Shinkansen', category: 'transportation', time: '12:30', duration: '2.5h', notes: 'Tokaido Shinkansen from Kyoto Station to Tokyo/Shinagawa; book seats ahead — this is New Year travel season. Right-side seats for a Mt Fuji glimpse past Shizuoka', location: 'Kyoto → Tokyo' },
+      { id: 'j9-3', title: 'Check in to Tokyo hotel (Shinjuku/Kabukicho edge)', category: 'hotel', time: '15:30', duration: '1h', notes: 'Not yet booked at itinerary-writing time — target the Shinjuku/Kabukicho edge (Higashi-Shinjuku, Seibu-Shinjuku or Shinjuku-sanchome) for easy walking access to nightlife; 3 separate rooms, same hotel (see the to-book list)', location: 'Shinjuku, Tokyo' },
+      { id: 'j9-4', title: 'Omoide Yokocho food & drinks', category: 'food', time: '18:30', duration: '1.5h', notes: '"Memory Lane" — lantern-lit yakitori stalls under the Shinjuku tracks; an easy orientation dinner. Cash only', location: 'Shinjuku, Tokyo' },
+      { id: 'j9-5', title: 'Kabukicho walk, Golden Gai & Shinjuku bars', category: 'nightlife', time: '20:30', duration: '3h', notes: "Orientation night — walk Kabukicho's neon blocks, then bar-hop through Golden Gai's tiny alleys; look for an English-friendly sign", location: 'Kabukicho & Golden Gai, Shinjuku' },
     ],
   },
   {
@@ -235,11 +235,11 @@ export const SAMPLE_ITINERARY: DayPlan[] = [
     city: 'Tokyo',
     country: 'japan',
     items: [
-      { id: 'j10-1', title: 'Check out of Kyoto hotel', category: 'hotel', time: '09:30', duration: '1h', notes: "Pack up before the Shinkansen to Tokyo", location: 'Kyoto' },
-      { id: 'j10-2', title: 'Kyoto → Tokyo by Shinkansen', category: 'transportation', time: '11:00', duration: '2.5h', notes: 'Tokaido Shinkansen from Kyoto Station to Tokyo/Shinagawa; book seats ahead — this is New Year travel season. Right-side seats for a Mt Fuji glimpse past Shizuoka', location: 'Kyoto → Tokyo' },
-      { id: 'j10-3', title: 'Check in to Tokyo hotel (Shinjuku/Kabukicho edge)', category: 'hotel', time: '14:30', duration: '1h', notes: 'Not yet booked at itinerary-writing time — target the Shinjuku/Kabukicho edge (Higashi-Shinjuku, Seibu-Shinjuku or Shinjuku-sanchome) for easy walking access to nightlife; 3 separate rooms, same hotel (see the to-book list)', location: 'Shinjuku, Tokyo' },
-      { id: 'j10-4', title: 'Omoide Yokocho food & drinks', category: 'food', time: '18:30', duration: '1.5h', notes: '"Memory Lane" — lantern-lit yakitori stalls under the Shinjuku tracks; an easy orientation dinner. Cash only', location: 'Shinjuku, Tokyo' },
-      { id: 'j10-5', title: 'Kabukicho walk, Golden Gai & Shinjuku bars', category: 'nightlife', time: '20:30', duration: '3h', notes: "Orientation night — walk Kabukicho's neon blocks, then bar-hop through Golden Gai's tiny alleys; look for an English-friendly sign", location: 'Kabukicho & Golden Gai, Shinjuku' },
+      { id: 'j10-1', title: 'Senso-ji Temple & Nakamise-dori', category: 'cultural', time: '09:30', duration: '2h', notes: "Tokyo's oldest Buddhist temple — the Thunder Gate (Kaminarimon), the main hall, and the Nakamise-dori approach lined with snack and souvenir stalls", location: 'Asakusa, Tokyo' },
+      { id: 'j10-2', title: 'Lunch in Asakusa', category: 'food', time: '12:00', duration: '1h', notes: 'Casual bite near the temple before heading to Ueno', location: 'Asakusa, Tokyo' },
+      { id: 'j10-3', title: 'Ueno Park & Ameyoko Market', category: 'sightseeing', time: '13:30', duration: '2.5h', notes: 'A relaxed park stroll, then the bustling Ameyoko market street under the train tracks for snacks and cheap finds', location: 'Ueno, Tokyo' },
+      { id: 'j10-4', title: 'Dinner in Shinjuku', category: 'food', time: '18:30', duration: '1.5h', notes: 'Back to the home base for dinner', location: 'Shinjuku, Tokyo' },
+      { id: 'j10-5', title: 'Easy Shinjuku night', category: 'nightlife', time: '21:00', duration: '2.5h', notes: 'A lighter night after a sightseeing-heavy day — an easy Shinjuku bar round', location: 'Shinjuku, Tokyo' },
     ],
   },
   {
