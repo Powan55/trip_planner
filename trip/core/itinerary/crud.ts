@@ -1,7 +1,8 @@
 // Core itinerary CRUD — pure, framework-free.
 //
-// Every array-manipulation body below is the logic that backs the hook's mutators. The
-// hook (`hooks/use-itinerary.ts`) is a thin React adapter that wires these pure
+// EXTRACTED MECHANICALLY from `hooks/use-itinerary.ts`. Every array-manipulation
+// body below is the VERBATIM logic that previously lived inside the hook's mutators —
+// moved, not rewritten. The hook is now a thin React adapter that wires these pure
 // functions to the ports (StoragePort = the Vault gateway; SyncPort = pushPlans) and
 // supplies the two I/O-bearing callbacks these functions inject:
 //
@@ -33,11 +34,12 @@ export type ItemStamper = (item: ItineraryItem) => ItineraryItem;
 export const noStamp: ItemStamper = (item) => item;
 
 /**
- * Synthesize an empty day for a date with no stored plan. The `city` comes from
+ * Synthesize an empty day for a date with no stored plan. Lifted from `use-itinerary.ts`'s
+ * `synthesizeDay` (itself lifted from `calendar-planner.tsx`); the `city` now comes from
  * `getCityForDate` — the SAME per-day city source `dayInTripFor` (`core/dates`) uses,
  * so a synthesized day and the travel-mode/Today header agree on the REAL day-trip city
  * (Nagarkot, Kyoto, …) rather than collapsing to the base city. Behavior is unchanged on the
- * five frozen base dates (their sample city IS the base city).
+ * frozen base dates (their sample city IS the base city).
  */
 export function synthesizeDay(dateStr: string): DayPlan {
   return {
@@ -65,7 +67,8 @@ export function upsertDay(
 }
 
 /**
- * Add an item to a day. The item is stamped by the injected `stamp` at the boundary
+ * Add an item to a day. Verbatim from `use-itinerary.ts`'s `addItem` → `upsertDay`
+ * updater body. The item is stamped by the injected `stamp` at the boundary
  * BEFORE the pure append, exactly as the hook stamped it before calling upsertDay.
  */
 export function addItem(
@@ -82,7 +85,8 @@ export function addItem(
 }
 
 /**
- * Patch an item within a day. The MERGED item is stamped by the injected `stamp`,
+ * Patch an item within a day. Verbatim from `use-itinerary.ts`'s `updateItem` →
+ * `upsertDay` updater body. The MERGED item is stamped by the injected `stamp`,
  * matching the hook's `stampUpdated({ ...i, ...patch }, getUserName)`.
  */
 export function updateItem(
@@ -101,7 +105,8 @@ export function updateItem(
 }
 
 /**
- * Remove an item from a day. No attribution (a delete is not a content edit).
+ * Remove an item from a day. Verbatim from `use-itinerary.ts`'s `removeItem` →
+ * `upsertDay` updater body. No attribution (a delete is not a content edit).
  */
 export function removeItem(current: DayPlan[], date: string, itemId: string): DayPlan[] {
   return upsertDay(current, date, (plan) => ({
@@ -111,9 +116,20 @@ export function removeItem(current: DayPlan[], date: string, itemId: string): Da
 }
 
 /**
- * Move an item between days: remove from source, append to the (upserted) target. A
- * cross-day move IS a content edit → the moved item is stamped by the injected `stamp`
- * (createdBy preserved, first author wins). Same-date is a no-op guard, matching the hook.
+ * Clear a whole day — empty its `items` in ONE transform. Mirrors `removeItem`'s
+ * `upsertDay` structure but drops every item rather than one. Pure `DayPlan[] -> DayPlan[]`:
+ * the DORMANT clear (a physical empty). The SYNC-on clear tombstones every live item in the
+ * hook adapter (one commit → one per-day doc write); this core stays I/O-free.
+ */
+export function clearDay(current: DayPlan[], date: string): DayPlan[] {
+  return upsertDay(current, date, (plan) => ({ ...plan, items: [] }));
+}
+
+/**
+ * Move an item between days. Verbatim from `use-itinerary.ts`'s `moveItem` compute body:
+ * remove from source, append to the (upserted) target. A cross-day move IS a content edit
+ * → the moved item is stamped by the injected `stamp` (createdBy preserved, first
+ * author wins). Same-date is a no-op guard, matching the hook.
  */
 export function moveItem(
   current: DayPlan[],
@@ -162,6 +178,61 @@ export function reorderItems(
       .filter((i): i is ItineraryItem => i !== undefined);
     return { ...plan, items: reordered };
   });
+}
+
+/**
+ * Bulk delete — remove a set of items across days in ONE transform, by FOLDING the
+ * single-item `removeItem` over the selection. Pure `DayPlan[] -> DayPlan[]`: the DORMANT
+ * bulk delete (physical removes). The SYNC-on bulk delete tombstones every selected item in
+ * the hook adapter (one commit → few per-day doc writes); this core stays I/O-free.
+ * Folding `removeItem` (not re-implementing) means each removal composes on the prior's output.
+ */
+export function deleteItems(
+  current: DayPlan[],
+  targets: Array<{ date: string; itemId: string }>,
+): DayPlan[] {
+  return targets.reduce((acc, { date, itemId }) => removeItem(acc, date, itemId), current);
+}
+
+/**
+ * Bulk move — move a set of items to `toDate` in ONE transform, by FOLDING the
+ * single-item `moveItem` over the selection. Pure `DayPlan[] -> DayPlan[]`: the DORMANT bulk
+ * move (physical remove-from-source + append-to-target, same ids — byte-safe since
+ * no source tombstone exists). The SYNC-on move mints fresh-id targets in the hook adapter,
+ * exactly as the single `moveItem` sync path does. A cross-day move IS a content edit
+ * → the injected `stamp` applies; same-date targets are no-ops (matches `moveItem`).
+ */
+export function moveItems(
+  current: DayPlan[],
+  targets: Array<{ itemId: string; fromDate: string }>,
+  toDate: string,
+  stamp: ItemStamper = noStamp,
+): DayPlan[] {
+  return targets.reduce(
+    (acc, { itemId, fromDate }) => moveItem(acc, itemId, fromDate, toDate, stamp),
+    current,
+  );
+}
+
+/**
+ * Copy a whole day — copy `srcDate`'s LIVE items onto `dstDate` in ONE transform, by
+ * FOLDING the single-item `addItem` over a fresh-id copy of each. Every produced copy goes
+ * through the injected `copyOf` stripper (production = `freshCopyOf`: strip id/deleted/rev/hlc,
+ * mint a new id, keep content + sourceId) so a copy NEVER reuses a source id — which also makes
+ * `copyDay(current, d, d)` (copy onto the same day) safe: the copies get fresh ids and cannot
+ * collide with the originals (dedupe on id). Tombstones on the source are skipped (live only).
+ * Pure `DayPlan[] -> DayPlan[]`; the hook injects `copyOf`/`stamp` at the boundary.
+ */
+export function copyDay(
+  current: DayPlan[],
+  srcDate: string,
+  dstDate: string,
+  copyOf: (item: ItineraryItem) => ItineraryItem,
+  stamp: ItemStamper = noStamp,
+): DayPlan[] {
+  const src = current.find((p) => p.date === srcDate);
+  const items = (src?.items ?? []).filter((i) => i.deleted !== true);
+  return items.reduce((acc, item) => addItem(acc, dstDate, copyOf(item), stamp), current);
 }
 
 /**

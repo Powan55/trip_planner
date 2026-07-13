@@ -151,7 +151,7 @@ export default function BurnRateView({
             </div>
           </div>
 
-          {/* The figures. the whole 4-figure grid is NO LONGER an aria-live region (announcing
+          {/* The figures. F9: the whole 4-figure grid is NO LONGER an aria-live region (announcing
               4 numbers on every currency toggle / expense was spam). The single meaningful summary
               — the worded pace badge above — carries aria-live instead, so only "Under/On/Over pace"
               is announced on a change. */}
@@ -213,7 +213,7 @@ function Figure({
   // Wrapped in a <div> group inside the parent <dl> (an allowed dl grouping element). The <div>
   // may ONLY contain <dt>/<dd> — so the supplementary `sub` is a SECOND <dd> (multiple descriptions
   // for one term are valid), NOT a <p> (axe `definition-list`: a <p> directly inside the group is a
-  // serious violation — surfaced by the in-trip axe scan).
+  // serious violation — surfaced by the in-app axe scan).
   return (
     <div className="rounded-lg border border-white/10 bg-navy-900/40 p-3">
       <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-white/55">

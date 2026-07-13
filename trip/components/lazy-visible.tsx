@@ -21,10 +21,10 @@
  * scope by the caller (SSG-safe — never constructed during render).
  *
  * ── The trigger: visibility, with a post-hydration idle fallback ─────────────────
- * 1. VISIBILITY (primary, `react-intersection-observer` `useInView`, v9.8.0 — an
- *    ALREADY-present dep; no new dependency). A generous `rootMargin`
+ * 1. VISIBILITY (primary, a minimal inline native `IntersectionObserver` hook — see
+ *    `useInView` below; ZERO deps). A generous `rootMargin`
  *    (default 600px) starts loading the chunk BEFORE the section reaches the viewport,
- *    so there is no visible pop-in on a normal scroll. `triggerOnce`.
+ *    so there is no visible pop-in on a normal scroll. Latches once (triggerOnce).
  * 2. IDLE FALLBACK (`requestIdleCallback`, `setTimeout` fallback). Shortly AFTER
  *    hydration — when the main thread is idle — we mount the section even if the user
  *    never scrolls. This does NOT re-add the chunk to First Load JS (it is absent from
@@ -32,8 +32,7 @@
  *    fetches a beat after hydration instead of only on scroll. It guarantees the section
  *    is present for (a) users on very tall viewports who see it without scrolling and
  *    (b) E2E specs that assert a below-fold section is visible WITHOUT an explicit scroll
- *    (e.g. the packing-checklist persistence spec) — keeping the frozen net green with
- *    NO frozen-spec edits.
+ *    — keeping the frozen net green with NO frozen-spec edits.
  *
  * The two triggers are OR-ed: whichever fires first mounts the section.
  *
@@ -44,9 +43,48 @@
  * `prefers-reduced-motion` it is a static muted block, never a sweep.
  */
 
-import { useEffect, useRef, useState, type ComponentType } from 'react';
-import { useInView } from 'react-intersection-observer';
+import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react';
 import SectionSkeleton from '@/components/section-skeleton';
+
+/**
+ * Minimal native-`IntersectionObserver` replacement for `react-intersection-observer`'s
+ * `useInView` (no new deps — this is a deletion, not a swap). Single consumer, so
+ * it lives inline here rather than in its own module. Preserves the four behaviours the
+ * component relied on: the `rootMargin` pre-viewport lead, a `triggerOnce` latch (`inView`
+ * goes true once and never back), `skip`-driven detach (once mounted the observer stops),
+ * and the `{ ref, inView }` shape (a callback `ref` for the placeholder + a boolean).
+ * SSR-safe: no observer is constructed until the ref runs on a real DOM node, and it
+ * guards `typeof IntersectionObserver`.
+ */
+function useInView({ rootMargin, skip }: { rootMargin: string; skip: boolean }) {
+  const [inView, setInView] = useState(false);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  const ref = useCallback(
+    (node: Element | null) => {
+      // Detach any prior observer (node swapped / unmounted / now skipped).
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+
+      if (!node || skip || typeof IntersectionObserver === 'undefined') return;
+
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries.some((e) => e.isIntersecting)) {
+            setInView(true); // triggerOnce: latch true...
+            observer.disconnect(); // ...and stop observing.
+          }
+        },
+        { rootMargin },
+      );
+      observer.observe(node);
+      observerRef.current = observer;
+    },
+    [skip, rootMargin],
+  );
+
+  return { ref, inView };
+}
 
 interface LazyVisibleProps {
   /**
@@ -81,11 +119,10 @@ export default function LazyVisible({
 }: LazyVisibleProps) {
   const [mounted, setMounted] = useState(false);
 
-  // Primary trigger: near-viewport visibility. `triggerOnce` so `inView` latches true
-  // and never toggles the section back out. `skip` once mounted so the observer detaches.
+  // Primary trigger: near-viewport visibility. The hook latches `inView` true once (so the
+  // section never toggles back out) and detaches the observer once `skip` (mounted) is set.
   const { ref, inView } = useInView({
     rootMargin,
-    triggerOnce: true,
     skip: mounted,
   });
 

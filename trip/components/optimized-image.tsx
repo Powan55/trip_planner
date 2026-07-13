@@ -79,8 +79,8 @@ export interface OptimizedImageProps {
   fallback?: ReactNode;
   /**
    * Called when the raster fails to load, in addition to rendering `fallback`. Lets a
-   * caller that already drives its own gradient/emoji fallback via state (the existing
-   * pattern) hook the same `setImgError(true)` it used with next/image, so the
+   * caller that already drives its own gradient/emoji fallback via state hook the
+   * same `setImgError(true)` it used with next/image, so the
    * wiring change stays localized to the image element.
    */
   onError?: () => void;

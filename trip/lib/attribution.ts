@@ -1,4 +1,4 @@
-// Cross-friend attribution stamping — the ONE place that decides
+// Cross-friend attribution stamping — the one place that decides
 // how an item gets `createdBy` / `updatedBy` / `updatedAt`.
 //
 // Extracted from the store mutators so the stamping rule lives in a single named,

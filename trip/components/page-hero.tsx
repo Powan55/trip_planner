@@ -4,11 +4,12 @@
  * PageHero — compact per-page hero header.
  *
  * A gradient + type header that gives each route (/plan, /nepal, /japan,
- * /map) an editorial masthead WITHOUT imagery (none by design). It consumes the
- * shared tokens only — it defines no new CSS. One is mounted per page.
+ * /map) an editorial masthead WITHOUT imagery (exact-location-free-photos rule
+ * → use none; the design spec forbids new imagery). It consumes the existing
+ * design tokens only — it defines no new CSS.
  *
- * Treatment:
- *   - `.glass-panel` shell (max-elevation v2 tier: radius-2xl + shadow-2xl,
+ * Treatment (per the design spec):
+ *   - `.glass-panel` shell (top elevation tier: radius-2xl + shadow-2xl,
  *     gradient hairline edge) sitting on the app-wide aurora/grain field.
  *   - `text-eyebrow uppercase` overline in the route accent (`--accent-scroll`,
  *     which the route-accent-engine warms/cools per page — gold/himalaya/sakura).
@@ -33,7 +34,7 @@
  *     never renders invisible if `background-clip:text` is unsupported.
  */
 
-type HeroVariant = 'nepal' | 'japan' | 'plan' | 'map';
+type HeroVariant = 'nepal' | 'japan' | 'plan' | 'map' | 'flights';
 
 interface PageHeroProps {
   variant: HeroVariant;
@@ -74,8 +75,14 @@ const VARIANTS: Record<
   },
   map: {
     titleGradient: 'text-gradient-gold',
-    // gold, more restrained
+    // gold, more restrained (per spec: "slightly more restrained")
     wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.08) 0%, transparent 55%)',
+  },
+  flights: {
+    // Reuses the neutral-premium gold treatment (same tier as 'plan') —
+    // Flights has no country identity of its own, so a distinct wash isn't warranted.
+    titleGradient: 'text-gradient-gold',
+    wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.12) 0%, transparent 55%)',
   },
 };
 

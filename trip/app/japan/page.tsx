@@ -1,27 +1,16 @@
-import dynamic from 'next/dynamic';
 import PageHero from '@/components/page-hero';
-import SectionSkeleton from '@/components/section-skeleton';
 
 // JAPAN: mirror of /nepal/ with country="Japan". Section ids
 // (#japan/#photography/#nightlife/#essentials) are kept for sub-anchors + the
 // command palette.
-// SectionSkeletons reserve space while islands load (anti-CLS).
-const JapanSection = dynamic(() => import('@/components/japan-section'), {
-  ssr: false,
-  loading: () => <SectionSkeleton />,
-});
-const PhotographyGuide = dynamic(() => import('@/components/photography-guide'), {
-  ssr: false,
-  loading: () => <SectionSkeleton />,
-});
-const NightlifeSection = dynamic(() => import('@/components/nightlife-section'), {
-  ssr: false,
-  loading: () => <SectionSkeleton />,
-});
-const CountryEssentials = dynamic(() => import('@/components/country-essentials'), {
-  ssr: false,
-  loading: () => <SectionSkeleton />,
-});
+// The ssr:false islands live in ./sections (client module); this
+// Server Component page exports metadata so can't declare them.
+import {
+  JapanSection,
+  PhotographyGuide,
+  NightlifeSection,
+  CountryEssentials,
+} from './sections';
 
 export const metadata = {
   title: 'Japan · Nepal × Japan Journey',
@@ -31,8 +20,8 @@ export const metadata = {
 export default function JapanPage() {
   return (
     <main className="min-h-screen bg-navy-900">
-      {/* PageHero supplies the page's <h1> (pages previously shipped
-          without one — a11y win). Section components keep their own <h2>s. */}
+      {/* PageHero supplies the page's <h1> (earlier pages shipped
+          without one — an accessibility fix). Section components keep their own <h2>s. */}
       <PageHero
         variant="japan"
         title="Japan"

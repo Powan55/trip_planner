@@ -13,6 +13,10 @@ import {
   Wine,
   Map as MapIcon,
   Sparkles,
+  BookOpen,
+  ShieldCheck,
+  Scroll,
+  Settings,
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -26,17 +30,20 @@ import {
   CommandShortcut,
 } from '@/components/ui/command';
 import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
+import { loadPlans } from '@/lib/itinerary-storage';
+import { searchPlanItems } from '@/lib/search-plan';
+import { formatDate, type DayPlan } from '@/lib/trip-data';
 
 /**
- * ⌘K / Ctrl+K command palette (route-aware).
+ * ⌘K / Ctrl+K command palette — route-aware navigation.
  *
  * Keyboard-first navigation to any destination in the app. Mounted ONCE at the
- * app root (see app/layout.tsx) so the shortcut works from anywhere. Since the
- * v2 route split every target is a `{ route, hash? }` pair: selection
- * navigates via `useRouter().push(route + hash)` (basePath-agnostic).
+ * app root (see app/layout.tsx) so the shortcut works from anywhere. Every
+ * target is a `{ route, hash? }` pair: selection navigates via
+ * `useRouter().push(route + hash)` (basePath-agnostic).
  * A SAME-route hash keeps the direct `scrollIntoView` path; a CROSS-route hash
  * defers through `scrollToSectionWhenReady` (bounded rAF poll + double-rAF once
- * the `ssr:false` island mounts — the navbar pattern), because the target
+ * the `ssr:false` island mounts — the same pattern the navbar uses), because the target
  * does not exist in the DOM until the destination page's chunks load.
  *
  * A11y: built on the Radix Dialog primitive (via ui/dialog), which traps
@@ -60,13 +67,28 @@ import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
  * fuzzy scorer, which was loose enough to rank "nepal" → "Itinerary Planner" (…Planner)
  * above the actual Nepal item. scoreItem ranks exact label substrings first, keyword
  * aliases below them, and drops weak fuzzy noise — verified in headless Chrome.
+ *
+ * Search-within-plan bridge. This component is mounted OUTSIDE
+ * `ItineraryProvider` (see app/layout.tsx), so it cannot call `useItineraryContext()`.
+ * Instead, on each OPEN it takes an on-demand READ-ONLY snapshot via
+ * `loadPlans()` (the same non-hook storage-backed source `use-itinerary` reads) — no
+ * persistent second store, no provider move (never writes). While
+ * typing, the snapshot is run through the pure `searchPlanItems` matcher and any hits
+ * render as a dynamic "In your plan" `CommandGroup` below the static section groups.
+ * Because those items are already pre-filtered by title/notes/category, the dynamic
+ * "In your plan" group and its items are rendered with cmdk's `forceMount` — they opt
+ * OUT of cmdk's own filter/score/visibility machinery entirely (see the CommandGroup
+ * below for the specific cmdk-internals trap this sidesteps) and are shown/hidden
+ * purely by our own `planResults`. Selecting a result defers to the same
+ * close-then-navigate pattern as a section pick, but routes via `?focus=<itemId>`
+ * (consumed by calendar-planner.tsx) instead of a hash.
  */
 
 type Section = {
   route: string; // canonical trailing-slash route ('/', '/plan/', …)
   hash?: string; // optional sub-anchor WITH the leading '#' (section ids are kept)
   label: string;
-  group: 'Plan' | 'Destinations' | 'Guides';
+  group: 'Plan' | 'Destinations' | 'Guides' | 'More';
   keywords?: string[]; // extra alias terms for fuzzy matching (static literals)
   icon: React.ComponentType<{ className?: string }>;
 };
@@ -80,13 +102,20 @@ const SECTIONS: Section[] = [
   { route: '/', hash: '#dashboard', label: 'Countdown Dashboard', group: 'Plan', keywords: ['countdown', 'timer', 'days', 'home'], icon: Gauge },
   { route: '/', hash: '#timeline', label: 'Trip Timeline', group: 'Plan', keywords: ['schedule', 'days', 'route'], icon: ListOrdered },
   { route: '/plan/', label: 'Itinerary Planner', group: 'Plan', keywords: ['calendar', 'plan', 'events'], icon: Calendar },
-  { route: '/', hash: '#flights', label: 'Flights', group: 'Plan', keywords: ['airport', 'travel', 'arrivals', 'departures'], icon: Plane },
+  { route: '/flights/', label: 'Flights', group: 'Plan', keywords: ['airport', 'travel', 'arrivals', 'departures'], icon: Plane },
   { route: '/nepal/', label: 'Nepal', group: 'Destinations', keywords: ['kathmandu', 'himalaya', 'pokhara'], icon: Mountain },
   { route: '/japan/', label: 'Japan', group: 'Destinations', keywords: ['tokyo', 'kyoto', 'osaka'], icon: Compass },
   { route: '/nepal/', hash: '#photography', label: 'Photography Guide', group: 'Guides', keywords: ['camera', 'photos', 'gear', 'spots'], icon: Camera },
   { route: '/nepal/', hash: '#nightlife', label: 'Nightlife & Bars', group: 'Guides', keywords: ['clubs', 'drinks', 'bars', 'night'], icon: Wine },
   { route: '/map/', label: 'Map', group: 'Guides', keywords: ['locations', 'pins', 'regions'], icon: MapIcon },
-  { route: '/', hash: '#inspiration', label: 'Travel Essentials', group: 'Guides', keywords: ['inspiration', 'packing', 'weather', 'ideas'], icon: Sparkles },
+  { route: '/', hash: '#inspiration', label: 'Travel Essentials', group: 'Guides', keywords: ['inspiration', 'weather', 'ideas'], icon: Sparkles },
+  // The 3 companion routes — deliberately kept off the desktop top row (width
+  // ceiling) and off the mobile tab bar (≥44px floor); the palette is
+  // their desktop discoverability path (the mobile hamburger panel is the other).
+  { route: '/journal/', label: 'Journal', group: 'More', keywords: ['diary', 'notes', 'entries'], icon: BookOpen },
+  { route: '/safety/', label: 'Safety', group: 'More', keywords: ['emergency', 'embassy', 'phrasebook'], icon: ShieldCheck },
+  { route: '/recap/', label: 'Recap', group: 'More', keywords: ['story', 'summary', 'post-trip'], icon: Scroll },
+  { route: '/settings/', label: 'Settings', group: 'More', keywords: ['identity', 'currency', 'rates', 'sign out', 'clear', 'backup', 'export', 'import'], icon: Settings },
 ];
 
 // Trailing-slash-agnostic pathname compare (mirrors navbar.tsx).
@@ -95,7 +124,7 @@ function normalizePath(p: string | null): string {
   return stripped === '' ? '/' : stripped;
 }
 
-const GROUP_ORDER: Section['group'][] = ['Plan', 'Destinations', 'Guides'];
+const GROUP_ORDER: Section['group'][] = ['Plan', 'Destinations', 'Guides', 'More'];
 
 /**
  * Deterministic matcher passed to cmdk's `filter`. cmdk's built-in command-score is
@@ -182,10 +211,31 @@ export default function CommandPalette() {
   // so the route push / scroll happens once the overlay is gone (avoids competing with
   // focus teardown).
   const pendingTarget = React.useRef<{ route: string; hash?: string } | null>(null);
+  // Set when a search-within-plan RESULT was picked (instead of a section);
+  // consumed the same deferred way, but routes via `?focus=` rather than performNavigate.
+  const pendingPlanFocus = React.useRef<string | null>(null);
+
+  // The on-demand, read-only plan snapshot + the live search query. Re-read fresh
+  // every time the palette opens (loadPlans() is a cheap synchronous localStorage read),
+  // so a change made elsewhere in the app is never stale the next time ⌘K opens.
+  const [plansSnapshot, setPlansSnapshot] = React.useState<DayPlan[]>([]);
+  const [query, setQuery] = React.useState('');
 
   const snapshotTrigger = React.useCallback(() => {
     triggerRef.current = (document.activeElement as HTMLElement) ?? null;
   }, []);
+
+  React.useEffect(() => {
+    if (open) {
+      setPlansSnapshot(loadPlans());
+      setQuery('');
+    }
+  }, [open]);
+
+  const planResults = React.useMemo(
+    () => (query.trim() ? searchPlanItems(plansSnapshot, query) : []),
+    [plansSnapshot, query],
+  );
 
   // Global ⌘K (mac) / Ctrl+K (win/linux) listener. preventDefault stops the browser's
   // own Ctrl+K (focus address bar / search) from firing.
@@ -212,14 +262,14 @@ export default function CommandPalette() {
    * Route-aware navigation.
    * - SAME route + hash → the section is already mounted: direct scrollIntoView
    *   (reduced-motion 'auto') + history.replaceState of the hash. (If the island
-   *   hasn't mounted yet — e.g. palette used instantly
-   *   after load — fall back to the bounded poll.)
+   *   hasn't mounted yet — e.g. palette used instantly after load — fall back to
+   *   the bounded poll.)
    * - SAME route, no hash → scroll to top (the page IS the destination).
    * - CROSS route → router.push(route + hash). The hash target is a `ssr:false`
    *   island that does not exist until the destination page mounts, so the scroll
    *   defers through scrollToSectionWhenReady (bounded rAF poll + double-rAF —
-   *   the navbar pattern). Fire-and-forget by design: the poll must survive
-   *   the route transition.
+   *   the same pattern the navbar uses). Fire-and-forget by design: the poll must
+   *   survive the route transition.
    */
   const performNavigate = React.useCallback((target: { route: string; hash?: string }) => {
     const sameRoute = normalizePath(pathname) === normalizePath(target.route);
@@ -257,6 +307,13 @@ export default function CommandPalette() {
     setOpen(false);
   }, []);
 
+  // A plan-search RESULT was picked — same defer-then-close pattern, routed via
+  // `?focus=<itemId>` instead of a hash (calendar-planner.tsx's `?focus=` reader).
+  const handleSelectPlanItem = React.useCallback((itemId: string) => {
+    pendingPlanFocus.current = itemId;
+    setOpen(false);
+  }, []);
+
   // Fires exactly when Radix would auto-focus on close. We preventDefault (Radix would
   // otherwise focus <body> since there's no trigger) and restore focus to the opener,
   // then run any pending navigation. This is the reliable focus-return path:
@@ -270,7 +327,13 @@ export default function CommandPalette() {
     const pending = pendingTarget.current;
     pendingTarget.current = null;
     if (pending) performNavigate(pending);
-  }, [performNavigate]);
+    const planFocusId = pendingPlanFocus.current;
+    pendingPlanFocus.current = null;
+    // Always push (never a same-route scroll-only shortcut like performNavigate's hash
+    // case): even when already on /plan, the query param must change for calendar-
+    // planner's `useSearchParams` reader to react and re-apply the highlight.
+    if (planFocusId) router.push(`/plan/?focus=${encodeURIComponent(planFocusId)}`);
+  }, [performNavigate, router]);
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -290,12 +353,21 @@ export default function CommandPalette() {
           // first, keyword aliases below them, loose fuzzy noise is dropped. Replaces
           // cmdk's built-in scorer, which mis-ranked "nepal" → "Itinerary Planner".
           // value = clean label; keywords prop carries the aliases (fed to scoreItem).
+          // globals.css color tokens are untouched here.
           filter={scoreItem}
           className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4"
         >
-          <CommandInput placeholder="Jump to a section…" aria-label="Jump to a section" />
+          <CommandInput
+            placeholder="Jump to a section…"
+            aria-label="Jump to a section"
+            onValueChange={setQuery}
+          />
           <CommandList>
-            <CommandEmpty>No matching section.</CommandEmpty>
+            {/* cmdk's own "no results" count only tracks items IT registers/scores
+                (see the CommandGroup below — our dynamic group opts out of that via
+                forceMount), so gate this on OUR OWN planResults too — otherwise "No
+                matching section." could render ALONGSIDE a real "In your plan" hit. */}
+            {planResults.length === 0 && <CommandEmpty>No matching section.</CommandEmpty>}
             {GROUP_ORDER.map((group) => (
               <CommandGroup key={group} heading={group}>
                 {SECTIONS.filter((s) => s.group === group).map((section) => {
@@ -315,6 +387,36 @@ export default function CommandPalette() {
                 })}
               </CommandGroup>
             ))}
+            {/* Dynamic search-within-plan results, read-only over the on-demand
+                loadPlans() snapshot. WE already decide membership (via our own
+                `searchPlanItems` matcher, computed outside cmdk), so this group and its
+                items are `forceMount`ed — cmdk's OWN filter/score/visibility bookkeeping
+                is bypassed entirely for them. This sidesteps a real cmdk-internals trap:
+                a registered item's score is only recomputed when its `value` STRING
+                changes, but `value` must also stay STABLE for arrow-key/Enter selection
+                to track the same item across keystrokes — those two requirements
+                conflict for a live-updating search-query keyword match, and fighting
+                cmdk's own filter pass here is more fragile than simply not entering it.
+                Only rendered when there is at least one hit, so an empty query never
+                shows an empty "In your plan" heading. */}
+            {planResults.length > 0 && (
+              <CommandGroup heading="In your plan" forceMount>
+                {planResults.map(({ item, date }) => (
+                  <CommandItem
+                    key={item.id}
+                    forceMount
+                    value={`${item.title}-${item.id}`}
+                    onSelect={() => handleSelectPlanItem(item.id)}
+                    className="gap-3"
+                    data-testid={`palette-plan-result-${item.id}`}
+                  >
+                    <Calendar className="shrink-0 text-gold-400" />
+                    <span className="truncate flex-1">{item.title}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">{formatDate(date)}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
           </CommandList>
           <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
             <span>Press</span>

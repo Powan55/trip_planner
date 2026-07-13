@@ -12,11 +12,8 @@ import type { FeaturedDestination } from '@/lib/travel-tips-data';
  * duration does this place get" is decided in exactly one place across all four
  * card families. The user still picks date/time in the dialog.
  *
- * "Already added" is a pure `sourceId` equality — no fuzzy matching —
- * resolved at the card via `findPlacements(sourceId)`.
- *
- * The adapter covers the `'recommendation' | 'photo' | 'map' | 'featured'` source
- * branches through one shared mapping.
+ * "Already added" is a pure `sourceId` equality — no fuzzy matching — resolved at
+ * the card via `findPlacements(sourceId)`.
  */
 
 export type SourceType = 'recommendation' | 'photo' | 'map' | 'featured';
@@ -40,6 +37,19 @@ export function featuredSourceId(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '');
   return `featured-${slug}`;
+}
+
+/**
+ * Derive a stable, collision-free `sourceId` for a nightlife venue.
+ * Nightlife has no `AddToPlanSource` adapter branch, so a custom-add draft used to
+ * carry NO sourceId at all (an anti-false-positive guarantee). Namespacing the
+ * venue's own id the same way `featuredSourceId` does preserves that guarantee (it
+ * can never collide with a recommendation/photo/map/`featured-*` id) while letting
+ * nightlife participate in `findPlacements` like every other surface. Exported so
+ * any surface deriving a nightlife venue's sourceId gets the same id.
+ */
+export function nightlifeSourceId(id: string): string {
+  return `nightlife-${id}`;
 }
 
 /**
@@ -70,7 +80,7 @@ export interface ItineraryDraft {
  * source vocabulary maps to them) but remain user-selectable in the dialog.
  *
  * This mapping is DATA, not behavior — extending it for a new source category is
- * an additive edit.
+ * a simple additive edit.
  */
 export const CATEGORY_MAP: Record<string, ItineraryCategory> = {
   // food family
@@ -181,8 +191,8 @@ export function toItineraryDraft(source: unknown, sourceType: SourceType): Itine
     }
     case 'featured': {
       // FeaturedDestination {name,country,blurb,emoji,image?} — NO id, NO category:
-      // derive a stable sourceId from the name; category is always
-      // 'sightseeing'; location/duration/time are undefined; notes = blurb.
+      // derive a stable sourceId from the name; category is always 'sightseeing';
+      // location/duration/time are undefined; notes = blurb.
       const dest = source as FeaturedDestination;
       return {
         title: dest.name,

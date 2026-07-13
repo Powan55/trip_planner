@@ -15,13 +15,14 @@
  *   - `importItinerary(rawText)` parses → migrates (if a legacy/older version) →
  *     lenient-Zod-validates → on success writes through the Vault path (`savePlans`)
  *     and fires the store's change event so the live UI refreshes. On ANY failure it
- *     writes NOTHING to the main key, optionally quarantines the bad blob (the
- *     don't-clobber-first pattern), and returns `{ ok:false, error }`. A bad/hostile
- *     import can therefore never destroy the current trip (fail-safe).
+ *     writes NOTHING to the main key, optionally quarantines the bad blob, and returns
+ *     `{ ok:false, error }`. A bad/hostile import can therefore never destroy the
+ *     current trip.
  *
- * v1 SCOPE = itinerary-only. Identity/token/prefs are device-soft, not
+ * Export/import scope is itinerary-only. Identity/token/prefs are device-soft, not
  * portable trip data, so they are neither exported nor touched on import.
  */
+import type { DayPlan } from '@/lib/trip-data';
 import { loadPlans, savePlans, ITINERARY_QUARANTINE_KEY } from '@/lib/itinerary-storage';
 import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
 import { makeEnvelope } from './envelope';
@@ -34,6 +35,15 @@ import { detectVersion, extractPayload } from './load-save';
 
 /** Discriminated result of an import attempt — success carries nothing, failure carries a reason. */
 export type ImportResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Discriminated result of PARSING a backup without writing — success carries the validated
+ * `DayPlan[]`, failure carries a reason (and has already quarantined the bad blob). This is the
+ * seam the tombstone-replace Restore-under-sync flow needs: it must VALIDATE the backup with the
+ * SAME trust boundary as a plain import, then hand the parsed plans to the store's `restorePlans`
+ * merge (rather than a blind `savePlans` overwrite that the next server snapshot would unwind).
+ */
+export type ParseResult = { ok: true; plans: DayPlan[] } | { ok: false; error: string };
 
 /**
  * Serialize the current itinerary as a pretty-printed Vault envelope JSON string at the
@@ -54,7 +64,7 @@ export function exportItinerary(): string {
  * who imports the wrong/corrupt file can still recover its raw bytes. Reuses the
  * itinerary quarantine key. NEVER throws (the preserve attempt is itself guarded);
  * SSR/no-window safe. This does NOT touch the main itinerary key — the live trip is
- * untouched by a failed import.
+ * untouched by a failed import (fail-safe by design).
  */
 function quarantineImport(raw: string): void {
   if (typeof window === 'undefined') return;
@@ -80,29 +90,44 @@ function quarantineImport(raw: string): void {
  *   3. runItineraryMigrations         — a v2/older export migrates to current; a
  *                                       throwing/gap migration ⇒ reject + quarantine.
  *                                       A version GREATER than current is accepted
- *                                       leniently (read-only forward compatibility) —
+ *                                       leniently (read-only-forward-compat) —
  *                                       its payload is validated as-is, not migrated.
  *   4. parseItineraryPayload          — lenient Zod (unknown categories/fields kept);
  *                                       a genuinely malformed payload ⇒ reject + quarantine.
  *   5. savePlans(payload)             — the ONLY write; goes through the Vault so the
- *                                       on-disk envelope + persistence invariants all hold.
+ *                                       on-disk envelope and invariants all hold.
  *   6. dispatch ITINERARY_CHANGED_EVENT — same-tab liveness so the calendar/dashboard
  *                                       re-read immediately, no reload needed.
  *
- * SYNC NOTE: this import is an
- * INGEST path, not a local commit. It writes via `savePlans` + dispatches the change
- * event, but it does NOT go through the store's `commit()` — and pushes happen ONLY
- * from local commits (never from an applied snapshot/ingest). So on a sync-configured,
- * signed-in build a successful import does NOT propagate to the shared Firestore trip:
- * the next snapshot merge resurrects any items the import removed, and a reload's
- * first-snapshot-authoritative apply reverts the restore wholesale — i.e. it silently
- * does not stick. Because of that, the UI (`components/backup-restore.tsx`) DISABLES
- * Restore whenever sync is configured AND a traveler is signed in (local mode only for
- * now — Export stays available; guests + the dormant build keep Restore). Future work:
- * make Restore a real tombstone-replace that propagates to the shared trip;
- * until then this module's behavior is local write only.
+ * SYNC NOTE (supersedes the earlier local-only containment): this DORMANT/local
+ * path is unchanged — a plain `savePlans` overwrite + same-tab refresh, correct because there is
+ * no sync to unwind it. Under sync it is NOT used: the UI (`components/backup-restore.tsx`) instead
+ * calls `parseBackup()` (the validate-only seam below, SAME trust boundary) and hands the parsed
+ * plans to the store's `restorePlans()`, which expresses the Restore as a tombstone-replace MERGE
+ * through `commit()`/outbox so it PROPAGATES to the shared trip and survives the next snapshot
+ * (instead of the old ingest-overwrite that the first-snapshot apply reverted). The earlier
+ * local-only Restore disable is removed; Export stays always-available.
  */
 export function importItinerary(rawText: string): ImportResult {
+  const parsed = parseBackup(rawText);
+  if (!parsed.ok) return parsed;
+
+  // Success — the ONLY place THIS path writes. Vault write path + same-tab refresh (dormant/local).
+  savePlans(parsed.plans);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(ITINERARY_CHANGED_EVENT));
+  }
+  return { ok: true };
+}
+
+/**
+ * Validate a whole-trip JSON string WITHOUT writing — the shared parse/migrate/validate
+ * pipeline `importItinerary` delegates to, exposed so a synced Restore can validate the backup with
+ * the IDENTICAL trust boundary (schema + migrations + quarantine-on-failure) and then MERGE the
+ * result instead of overwriting. Fails safe at every step (on ANY failure the main key is NOT
+ * written and the bad blob is quarantined). Returns the validated `DayPlan[]` on success.
+ */
+export function parseBackup(rawText: string): ParseResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(rawText);
@@ -147,10 +172,5 @@ export function importItinerary(rawText: string): ImportResult {
     };
   }
 
-  // Success — the ONLY place we write. Vault write path + same-tab refresh.
-  savePlans(validated);
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(ITINERARY_CHANGED_EVENT));
-  }
-  return { ok: true };
+  return { ok: true, plans: validated };
 }

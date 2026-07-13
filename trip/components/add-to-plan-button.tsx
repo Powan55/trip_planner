@@ -12,23 +12,23 @@ import AddToItineraryDialog from '@/components/add-to-itinerary-dialog';
  * Shared, state-aware "Add to plan" control dropped into every place card.
  *
  * It is additive to a card's existing markup: it builds the prefilled draft via the
- * adapter, queries `findPlacements(sourceId)` from the store, owns
- * the dialog `open` state + the `triggerRef`, and renders ONE `AddToItineraryDialog`.
+ * adapter, queries `findPlacements(sourceId)` from the store, owns the dialog `open`
+ * state + the `triggerRef`, and renders ONE `AddToItineraryDialog`.
  *
  * State (reactive via `findPlacements`):
  *  - 0 placements -> "Add to plan" pill (Plus).
  *  - >=1 placement -> "added" badge + a compact where-it's-planned summary
  *    ("On Dec 12" / "On 2 days"); clicking opens the dialog in modify/remove mode.
  *
- * Cross-surface integrity: because the calendar and this control are two
- * views of one store, removing from the calendar flips this back to "Add to plan"
- * automatically — `findPlacements` is re-read on the CustomEvent fan-out.
+ * Cross-surface integrity: because the calendar and this control are two views of
+ * one store, removing from the calendar flips this back to "Add to plan"
+ * automatically — `findPlacements` is re-read on the store's CustomEvent fan-out.
  *
- * `source` accepts the full union
- * (`Recommendation | PhotoSpot | MapMarker | FeaturedDestination`) so the Photography,
- * Map-popup, and Featured surfaces reuse this control unchanged. The `sourceId` and
- * `title` are read from the adapter-built `draft`, NOT `source.id`/`source.name`,
- * because `FeaturedDestination` has no `id` (its id is derived from the name).
+ * `source` is a union (`Recommendation | PhotoSpot | MapMarker | FeaturedDestination`)
+ * so the Photography, Map-popup, and Featured surfaces all reuse this control
+ * unchanged. The `sourceId` and `title` are read from the adapter-built `draft`, NOT
+ * `source.id`/`source.name`, because `FeaturedDestination` has no `id` (its id is
+ * derived from the name).
  */
 
 interface AddToPlanButtonProps {

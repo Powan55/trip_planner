@@ -6,7 +6,7 @@ import { m } from 'framer-motion';
 import {
   MapPin, Plane, Mountain, Building, Clock, ListPlus,
   UtensilsCrossed, Camera, ShoppingBag, Trees,
-  Landmark, Hotel, Coffee, Music,
+  Landmark, Hotel, Coffee, Music, AlertTriangle,
 } from 'lucide-react';
 import {
   TRIP_DATES, getCountryForDate, formatDate,
@@ -18,6 +18,8 @@ import { filterItemsByAuthor } from '@/lib/author-filter';
 import { useAuthorFilter } from '@/hooks/use-author-filter';
 import AuthorFilterControl from '@/components/author-filter';
 import ActivityFeed from '@/components/activity-feed';
+import { describeItemTime } from '@/lib/item-time-display';
+import { sortItemsByTime, clashingItemIds } from '@/lib/sort-items-by-time';
 
 // Map each category to a lucide icon, matching the calendar planner.
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
@@ -61,6 +63,11 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
   // Full stored items for the day, then the presentational author-filtered view.
   const dayItems = selectedPlan?.items ?? [];
   const selectedItems = filterItemsByAuthor(dayItems, authorFilter, myName);
+  // A pure VIEW-level chronological projection for the timeline read only —
+  // never written back, the calendar's manually-dragged order stays the persisted truth.
+  // Clash detection is order-independent, so it runs on the same filtered set.
+  const chronoItems = sortItemsByTime(selectedItems);
+  const clashIds = clashingItemIds(selectedItems);
 
   return (
     <section id="timeline" aria-labelledby="timeline-heading" className="py-16 px-4 sm:px-6">
@@ -182,13 +189,19 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
 
           {/* That day's plans */}
           <div className="max-w-2xl mx-auto mt-5">
-            {selectedItems.length > 0 ? (
+            {chronoItems.length > 0 ? (
               <ul className="space-y-2">
-                {selectedItems.map((item) => {
+                {chronoItems.map((item) => {
                   const colors = CATEGORY_COLORS[item.category];
+                  // Display rule: effectiveStartMinutes -> AM/PM + day-country badge;
+                  // legacy-only `time` -> verbatim, unbadged.
+                  const timeInfo = describeItemTime(item, selectedDate);
+                  // Warn-only, never blocking — a passive badge, not a modal.
+                  const clashes = clashIds.has(item.id);
                   return (
                     <li
                       key={item.id}
+                      data-testid={`timeline-item-${item.id}`}
                       className="glass-card rounded-xl px-4 py-3 flex items-start gap-3 text-left"
                     >
                       {/* Category badge */}
@@ -203,11 +216,25 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                       <div className="min-w-0 flex-1">
                         <p className="text-white font-medium leading-snug">{item.title}</p>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
-                          {item.time && (
+                          {timeInfo && (
                             <span className="inline-flex items-center gap-1 text-xs text-white/50 font-mono">
                               <Clock className="w-3 h-3" />
-                              {item.time}
+                              {timeInfo.label}
+                              {timeInfo.badge && (
+                                <span className="ml-1 text-[10px] uppercase tracking-wide text-white/55">{timeInfo.badge}</span>
+                              )}
                               {item.duration ? ` • ${item.duration}` : ''}
+                            </span>
+                          )}
+                          {clashes && (
+                            <span
+                              title="Overlaps another timed item"
+                              aria-label="Overlaps another timed item"
+                              data-testid={`timeline-item-clash-${item.id}`}
+                              className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded-full px-2 py-0.5"
+                            >
+                              <AlertTriangle className="w-3 h-3" aria-hidden="true" />
+                              Overlap
                             </span>
                           )}
                           {item.location && (
@@ -220,10 +247,9 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                         {item.notes && (
                           <p className="text-sm text-white/60 mt-1.5 leading-snug">{item.notes}</p>
                         )}
-                        {/* Cross-friend attribution: muted
-                            "by {name} · {relative}". Renders nothing without updatedBy
-                            (dormant / local-only-no-name) → portfolio build unchanged.
-                            Static classes; contrast-safe muted. */}
+                        {/* Cross-friend attribution: muted "by {name} · {relative}".
+                            Renders nothing without updatedBy (dormant / local-only-no-name)
+                            → portfolio build unchanged. Static classes; contrast-safe muted. */}
                         {item.updatedBy && (
                           <p className="text-xs text-white/40 mt-1.5 truncate">
                             by {item.updatedBy}

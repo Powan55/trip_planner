@@ -1,9 +1,9 @@
-// Real confirmed bookings — read-only presentation data, deliberately
+// Real confirmed bookings — read-only PRESENTATION data, deliberately
 // kept separate from the user-editable, localStorage-persisted itinerary store.
 // These are fixed reference facts about the trip (flight numbers,
 // terminals, seats, the hotel); they are NOT an ItineraryItem/DayPlan and are NOT
-// persisted. The only link to the itinerary is human-authored content agreement —
-// never a shared type or store.
+// persisted. The only link to the itinerary is human-authored content agreement
+// — never a shared type or store. (Locked.)
 //
 // HARD RULE: time/duration/total labels are rendered VERBATIM. There is no
 // `Date` object, no parsing, no timezone math, no recompute anywhere in this module
@@ -172,12 +172,19 @@ export const KYOTO_STAY: Stay = {
   note: '3 nights · 3 adults · 3 rooms',
 };
 
-export const JAPAN_TODO: ToBookPlaceholder[] = [
-  { id: 'tokyo-hotel', kind: 'stay', label: 'Tokyo accommodation', note: 'Not booked yet — Dec 28–Jan 9 (12 nights). Target: Shinjuku/Kabukicho edge (Higashi-Shinjuku, Seibu-Shinjuku, Shinjuku-sanchome), 3 separate rooms same hotel, under $150/room/night preferred, 3-star+, refundable preferred. Ranked candidates: APA Hotel Shinjuku Kabukicho Tower, Hotel Gracery Shinjuku, Premier Hotel Cabin Shinjuku, Tokyu Stay Shinjuku, Sotetsu Fresa Inn Higashi Shinjuku, APA Hotel Higashi-Shinjuku Kabukicho, Hotel Wing International Shinjuku, APA Hotel Shinjuku Gyoemmae.' },
-];
+export const TOKYO_STAY: Stay = {
+  id: 'tokyo-hotel', name: 'APA Hotel Shinjuku Kabukicho Chuo', stars: null,
+  address: '2-26-5, Kabukicho, Tokyo, 160-0021 Japan',
+  city: 'Tokyo', country: 'japan', status: 'booked',
+  checkIn: '3:00pm Sun Dec 27',
+  checkOut: '10:00am Sat Jan 9',
+  note: '13 nights · 3 adults · 3 rooms',
+};
+
+export const JAPAN_TODO: ToBookPlaceholder[] = [];
 
 // Convenience ordered list for the section to map over.
 export const JOURNEYS: Journey[] = [OUTBOUND_JOURNEY, RETURN_TO_JAPAN_JOURNEY, TOKYO_TO_OSAKA_JOURNEY, FLIGHT_HOME_JOURNEY];
 
 // Ordered stays (chronological) for the section to map over.
-export const BOOKED_STAYS: Stay[] = [NEPAL_STAY, OSAKA_STAY, KYOTO_STAY];
+export const BOOKED_STAYS: Stay[] = [NEPAL_STAY, OSAKA_STAY, KYOTO_STAY, TOKYO_STAY];

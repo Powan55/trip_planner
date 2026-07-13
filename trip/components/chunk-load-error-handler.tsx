@@ -18,7 +18,7 @@ export function ChunkLoadErrorHandler() {
         event.preventDefault()
         // Recover a chunk-load race with a SINGLE reload per session. If a ChunkLoadError
         // still fires after we've already auto-reloaded once, the reload isn't fixing it — log and
-        // STOP rather than looping. The one-shot flag lives in the typed gateway, session-
+        // STOP rather than looping. The one-shot flag lives in the typed storage gateway, session-
         // backed so it resets when the tab closes.
         if (chunkReloadGuard.hasReloaded()) {
           console.warn('[chunk-load] ChunkLoadError persisted after an auto-reload — not reloading again.')

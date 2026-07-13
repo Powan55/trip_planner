@@ -18,8 +18,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // `offset` prop only ever reaches the DESKTOP (>600px) layout. The mobile bottom edge
       // is therefore re-anchored by a scoped `!important` override in app/globals.css
       // (`[data-sonner-toaster][data-y-position='bottom']`) using the same calc. Keep this
-      // prop for desktop; keep the calc in both places in sync. Revisit this override if
-      // sonner is upgraded (newer versions expose a `mobileOffset` prop).
+      // prop for desktop; keep the calc in both places in sync.
       offset="calc(var(--tab-bar-h, 64px) + env(safe-area-inset-bottom) + 8px)"
       toastOptions={{
         classNames: {

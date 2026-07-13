@@ -9,7 +9,7 @@ export interface PhotoSpot {
   tip: string;
   category: string;
   image?: string;
-  // --- Optional enrichment (additive; nothing existing breaks) ---
+  // --- optional enrichment fields (additive; nothing existing breaks) ---
   /** Curated genuine highlight — drives the "Must-see" badge. */
   mustSee?: boolean;
   /** Longer, accurate description shown in the detail sheet. Real facts only. */

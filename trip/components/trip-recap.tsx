@@ -2,28 +2,35 @@
 
 import { useEffect, useState } from 'react';
 import { m, useReducedMotion, type Variants } from 'framer-motion';
-import { BookOpen, Check, Clock, History, Sparkles } from 'lucide-react';
+import { BookOpen, Check, Clock, History, Sparkles, Wallet } from 'lucide-react';
 import { formatDateLong, CATEGORY_COLORS, type ItineraryItem } from '@/lib/trip-data';
-import { getCityForDate } from '@/core/dates';
+import { getCityForDate, getCountryForDate } from '@/core/dates';
 import { getNow } from '@/lib/trip-now';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useJournal } from '@/hooks/use-journal';
 import { type Mood, type JournalEntry } from '@/core/journal/model';
-import { summarizePlan, elapsedTripDates } from '@/core/recap/model';
+import { summarizePlan, elapsedTripDates, sumExpensesForDate } from '@/core/recap/model';
+import { useExpenses } from '@/hooks/use-expenses';
+import { legCurrency, formatMoney } from '@/core/budget/model';
 
 /**
  * The read-only plan-vs-actual DAY RECAP island.
  *
- * A Home island that, for each trip day that has already HAPPENED (as of the app clock, incl. the
+ * A Home island that, for each trip day that has already HAPPENED (as of the app clock, incl. a
  * `?today=` override), pairs three things — READ-ONLY:
  *   - the PLAN: that day's itinerary items (`useItineraryContext().getDayPlan(date).items`),
  *   - the ACTUAL: which items are marked done (`item.done`) + a "{done} of {planned} done" line,
  *   - the REFLECTION: that day's journal entry (`useJournal().getEntry(date)`) rendered read-only.
  *
  * It appears DURING and AFTER the trip (so you can look back over the days you've lived) and renders
- * `null` PRE-trip (Home is byte-unchanged before Dec 9) or before both stores hydrate. It MUTATES
- * NOTHING — editing the plan stays in the calendar, editing the journal stays in the Today panel; this
- * is a pure surface over the two persisted domains (no writes, no re-seed).
+ * `null` PRE-trip (Home is byte-unchanged before Dec 9) or before all stores hydrate. It MUTATES
+ * NOTHING — editing the plan stays in the calendar, editing the journal stays in the Today panel,
+ * expenses are logged from the budget panel; this is a pure surface over the persisted domains
+ * (no writes, no re-seed).
+ *
+ * There's also a fourth, purely additive read: a per-day SPEND line (`core/recap/model.ts`'s
+ * `sumExpensesForDate`, summing the expense store's entries for that date), shown only on days
+ * that have logged spend — READ-ONLY, same as the plan/journal reads above.
  *
  * Clock cadence: unlike the Today panel, the recap does NOT need a per-second render (that would be 32
  * cards re-rendering every tick). `nowDateStr` is resolved once on mount from `getNow()` (local Y-M-D
@@ -31,7 +38,7 @@ import { summarizePlan, elapsedTripDates } from '@/core/recap/model';
  * midnight day-rollover self-corrects without a reload — the elapsed-day set only changes at a day
  * boundary, so minute cadence is plenty (a reload also suffices).
  *
- * A11y AA: a section `h2`, per-day `h3`s, list semantics for items, `aria-hidden` decorative
+ * A11y: a section `h2`, per-day `h3`s, list semantics for items, `aria-hidden` decorative
  * glyphs, visible focus rings on the one navigation link. Static markup + CSS-only transitions →
  * reduced-motion-safe by construction (the reveal is framer, already reduced-motion gated).
  */
@@ -56,6 +63,8 @@ function nowDateString(): string {
 export default function TripRecap() {
   const { getDayPlan, hydrated: itineraryHydrated } = useItineraryContext();
   const { getEntry, hydrated: journalHydrated } = useJournal();
+  // The per-day spend line reads the expense store, READ-ONLY (no mutator consumed).
+  const { expenses, hydrated: expensesHydrated } = useExpenses();
   const prefersReducedMotion = useReducedMotion();
 
   // '' until mount (SSR-safe default). Resolved on mount + on a LIGHT 60s interval so a midnight
@@ -71,13 +80,26 @@ export default function TripRecap() {
   // The trip days that have already happened, oldest-first (pure). Empty pre-trip / pre-mount.
   const elapsed = elapsedTripDates(nowDateStr);
 
-  // Pre-trip (nothing elapsed) OR either store not yet hydrated → render NOTHING (Home byte-unchanged
-  // before the trip; no flash of an empty/pre-hydrate frame). Both hydration gates matter because the
-  // recap pairs BOTH domains per day.
-  if (elapsed.length === 0 || !itineraryHydrated || !journalHydrated) return null;
+  // Pre-trip / pre-mount (nothing elapsed) → render NOTHING (Home byte-unchanged before the trip).
+  // Dormant/portfolio (clock outside the trip window) always takes this branch → byte-identical.
+  if (elapsed.length === 0) return null;
+
+  // During/after the trip but a store hasn't hydrated yet: reserve a min-height instead of null so
+  // the island mount doesn't collapse→expand (CLS). Presentation only; all three hydration gates
+  // matter because the recap pairs the plan + journal + expense domains.
+  if (!itineraryHydrated || !journalHydrated || !expensesHydrated) {
+    return (
+      <section id="recap" aria-hidden="true" className="relative bg-navy-900 py-12 sm:py-16 px-4 sm:px-6">
+        <div
+          data-testid="trip-recap-skeleton"
+          className="mx-auto min-h-[320px] max-w-3xl rounded-2xl glass-card"
+        />
+      </section>
+    );
+  }
 
   // Most-recent-first for display (Day N at the top). The pure core returns chronological order; the
-  // ordering policy lives here in the view (the core stays order-agnostic).
+  // ordering policy lives here in the view (keeps the core order-agnostic).
   const daysDesc = [...elapsed].reverse();
 
   // Optional top summary — a pure roll-up across every elapsed day (activities done vs planned).
@@ -89,8 +111,8 @@ export default function TripRecap() {
     plannedTotal += s.planned;
   }
 
-  // Axe-deterministic reveal: full-opacity slide (opacity pinned to 1) so the axe scan
-  // (no reduced motion) never catches muted card text mid-fade below AA. Reduced-motion branch
+  // Accessibility-deterministic reveal: full-opacity slide (opacity pinned to 1) so a contrast
+  // scan (no reduced motion) never catches muted card text mid-fade below AA. Reduced-motion branch
   // left intact (it only runs under reduced motion, which the scan does not exercise).
   const reveal = prefersReducedMotion
     ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
@@ -139,6 +161,7 @@ export default function TripRecap() {
                 dayNumber={dayNumber}
                 items={getDayPlan(date).items}
                 entry={getEntry(date)}
+                spend={sumExpensesForDate(expenses, date)}
                 variants={reveal}
               />
             );
@@ -160,12 +183,15 @@ function RecapCard({
   dayNumber,
   items,
   entry,
+  spend,
   variants,
 }: {
   date: string;
   dayNumber: number;
   items: ItineraryItem[];
   entry: JournalEntry | null;
+  /** That day's logged-expense total, in the day's leg-local currency. 0 = nothing logged. */
+  spend: number;
   // The framer reveal variants built by the parent (the same shape the Today panel builds); the
   // reveal is reduced-motion gated by the parent's `prefersReducedMotion`.
   variants: Variants;
@@ -220,6 +246,15 @@ function RecapCard({
             <RecapItem key={item.id} item={item} />
           ))}
         </ul>
+      )}
+
+      {/* The day's logged-expense total (read-only over the expense store) — only when >0. */}
+      {spend > 0 && (
+        <p data-testid={`recap-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-white/60">
+          <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
+          Spent{' '}
+          <span className="font-semibold text-white/85">{formatMoney(spend, legCurrency(getCountryForDate(date)))}</span>
+        </p>
       )}
 
       {/* Reflection: the day's journal entry (read-only), mirroring journal-card's read view. */}
@@ -299,7 +334,7 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
                 </span>
               )}
               {entry.highlight && (
-                // Mirror of journal-card.tsx: the parent flex item needs min-w-0 +
+                // DEF-2 (mirror of journal-card.tsx): the parent flex item needs min-w-0 +
                 // max-w-full so it can shrink and the child's break-words engages.
                 <span
                   data-testid={`recap-journal-highlight-${date}`}

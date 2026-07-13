@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { NAV_ITEMS, isRouteActive } from '@/lib/nav-items';
+import { PRIMARY_NAV_ITEMS, isRouteActive } from '@/lib/nav-items';
 
 /**
  * Mobile bottom tab bar.
@@ -13,10 +13,14 @@ import { NAV_ITEMS, isRouteActive } from '@/lib/nav-items';
  * live `aria-current="page"` active state and the same warm/cool accent tint the navbar uses.
  *
  * DESIGN CONTRACT / SEAMS
- * - Route array + active-match helper are imported from `lib/nav-items.ts` (the
- *   navbar and this bar previously each carried a byte-identical local copy; that was closed
- *   by unifying on the single shared module). Both navs consume the same NAV_ITEMS, so they
- *   can never drift out of sync.
+ * - Route array + active-match helper are imported from `lib/nav-items.ts` — the
+ *   navbar and this bar previously each carried a byte-identical local copy; unified
+ *   on the single shared module so both navs consume the same source and can never
+ *   drift out of sync.
+ * - This bar maps `PRIMARY_NAV_ITEMS` (the 6 daily-use routes), NOT the full
+ *   `NAV_ITEMS` (9) — adding the 3 companion routes (Journal/Safety/Recap) here would drop
+ *   each tab below the ≥44px touch-target floor at a 360px viewport. Companions are reachable
+ *   via the mobile hamburger panel + command palette instead.
  * - Active state mirrors the navbar EXACTLY: trailing-slash-agnostic `isRouteActive` (Home
  *   exact; others `===` or `startsWith(target + '/')`), driven by `usePathname()` (which
  *   excludes basePath — the whole bar is basePath-agnostic).
@@ -58,7 +62,7 @@ export default function BottomTabBar() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="flex items-stretch" style={{ height: `${TAB_BAR_HEIGHT_PX}px` }}>
-        {NAV_ITEMS.map((item) => {
+        {PRIMARY_NAV_ITEMS.map((item) => {
           const isActive = isRouteActive(pathname, item.href);
           const Icon = item.icon;
           return (

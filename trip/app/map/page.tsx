@@ -1,16 +1,12 @@
-import dynamic from 'next/dynamic';
 import PageHero from '@/components/page-hero';
-import SectionSkeleton from '@/components/section-skeleton';
 
 // MAP: the real MapLibre GL map, full-height treatment — the
 // flex column stretches the section to fill at least the viewport so the map
 // reads as the page's centerpiece (PageHero is a <header>, so the
 // [&>section]:flex-1 selector leaves it at natural height).
-// SectionSkeleton reserves space while the island loads (anti-CLS).
-const MapSection = dynamic(() => import('@/components/map-section'), {
-  ssr: false,
-  loading: () => <SectionSkeleton height="60vh" count={2} />,
-});
+// The ssr:false MapSection island lives in ./sections (client
+// module); this Server Component page exports metadata.
+import { MapSection } from './sections';
 
 export const metadata = {
   title: 'Map · Nepal × Japan Journey',
@@ -20,8 +16,8 @@ export const metadata = {
 export default function MapPage() {
   return (
     <main className="min-h-screen bg-navy-900 flex flex-col [&>section]:flex-1">
-      {/* PageHero supplies the page's <h1> (pages previously shipped
-          without one — a11y win). Section components keep their own <h2>s. */}
+      {/* PageHero supplies the page's <h1> (earlier pages shipped
+          without one — an accessibility fix). Section components keep their own <h2>s. */}
       <PageHero
         variant="map"
         title="Trip Map"

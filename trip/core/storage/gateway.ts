@@ -6,14 +6,14 @@
  * single place raw `window.localStorage` / `window.sessionStorage` is touched in app
  * code (the itinerary slot's raw access lives in `core/vault/**`; tests excepted).
  * A grep for `localStorage.` / `sessionStorage.` outside this file (and the
- * Vault + tests) returns zero app hits — that makes the no-raw-storage-literal rule
+ * Vault + tests) returns zero app hits — that makes the storage-literal rule
  * *structural* rather than a convention.
  *
  * BACK-COMPAT IS ABSOLUTE (the hard constraint for a LIVE, sync-enabled site): the
  * on-disk key *strings* and value *shapes* are byte-identical to the pre-gateway code.
  * The gateway is a typed wrapper over the SAME bytes — the only thing that moved is
  * where each string constant is declared, not what it is. Every deployed browser reads
- * guest flag / name / token / checklist / nightlife-pref / today-override identically.
+ * guest flag / name / token / nightlife-pref / today-override identically.
  *
  * Store-per-key: the gateway spans BOTH web-storage backends because
  * `tripPlannerTodayOverride` is genuinely sessionStorage. Each slot declares its
@@ -40,17 +40,20 @@ function backing(store: Store): Storage | null {
   return store === 'session' ? window.sessionStorage : window.localStorage;
 }
 
-// ── The single key registry ─────────────────────────────────────────────────
+// ── The single key registry ────────────────────────
 /**
  * Every persisted web-storage key literal lives here and NOWHERE else. Each entry pins
- * the exact on-disk string (unchanged) and its store. The three previously duplicated /
- * raw literals (`tripPlannerGuest` across navbar/token-gate/use-active-traveler,
- * `tripPlannerUserName` across identity/token-auth, `packing_checklist` raw in
- * travel-essentials) now collapse to a single reference each.
+ * the exact on-disk string (unchanged) and its store. The previously duplicated raw
+ * literals (`tripPlannerGuest` across navbar/token-gate/use-active-traveler,
+ * `tripPlannerUserName` across identity/token-auth) now collapse to a single reference
+ * each.
  *
  * NOTE: the itinerary keys (`nepal_japan_itinerary` + `…_corrupt`) are deliberately NOT
- * here — they stay owned by `lib/itinerary-storage.ts` / the Vault. This registry
- * is the SEVEN non-itinerary persisted keys only.
+ * here — they stay owned by `lib/itinerary-storage.ts` / the Vault. The
+ * `packing_checklist` slot (formerly key 6) was removed along with the Home
+ * packing checklist feature; the key numbering (7 onward) is kept as historical
+ * documentation rather than renumbered. This registry is the SIX non-itinerary
+ * persisted keys only.
  */
 export const STORAGE_KEYS = {
   /** localStorage — plain display-name string (identity, key 3). */
@@ -59,8 +62,6 @@ export const STORAGE_KEYS = {
   token: 'tripPlannerToken',
   /** localStorage — presence flag `'1'` for guest browsing (session/gate, key 5). */
   guest: 'tripPlannerGuest',
-  /** localStorage — `Record<string, boolean>` JSON packing checklist (key 6). */
-  packingChecklist: 'packing_checklist',
   /** localStorage — boolean-as-string (`String(next)`) nightlife visibility (ui-prefs, key 7). */
   nightlifeVisible: 'nightlife_section_visible',
   /** sessionStorage — `YYYY-MM-DD` `?today=` override (clock-override, key 8). */
@@ -84,9 +85,9 @@ export const STORAGE_KEYS = {
   budget: 'nepal_japan_budget',
   /**
    * localStorage — JSON `Expense[]` for logged trip expenses (expenses, key 11). Each
-   * entry holds an amount in the leg's LOCAL currency (NPR / JPY, mirroring the budget
-   * model), a leg, a category, and optional date/note. Client-side only, offline-safe.
-   * Value shape is owned by `core/budget/expenses.ts` (the gateway is byte-transport only
+   * entry holds an amount in the leg's LOCAL currency (NPR / JPY, mirroring the budget model),
+   * a leg, a category, and optional date/note. Client-side only, offline-safe. Value shape is
+   * owned by `core/budget/expenses.ts` (the gateway is byte-transport only
    * — it does not know the Expense shape). ADDITIVE: a brand-new key, so no back-compat surface
    * changes and NO migration (it is NOT part of the itinerary Vault; it mirrors the key-10
    * `budgetStore` pattern exactly). The aggregate feeds the budget `rollUp` `spent` seam.
@@ -104,12 +105,56 @@ export const STORAGE_KEYS = {
   journal: 'nepal_japan_journal',
   /**
    * sessionStorage — presence flag `'1'` marking that the ChunkLoadError handler has already
-   * auto-reloaded ONCE this session (key 13). SESSION store (same precedent as the today-override): a
-   * chunk-load race should be recovered by a single reload; if it recurs after that reload the
-   * flag is set, so the handler logs and STOPS instead of looping. Cleared naturally when the tab
-   * closes. ADDITIVE: a brand-new key, no back-compat surface changes.
+   * auto-reloaded ONCE this session (key 13). SESSION store (mirrors the today-override's session
+   * precedent): a chunk-load race should be recovered by a single reload; if it recurs after that
+   * reload the flag is set, so the handler logs and STOPS instead of looping. Cleared naturally
+   * when the tab closes. ADDITIVE: a brand-new key, no back-compat surface changes.
    */
   chunkReloadOnce: 'chunk_reload_once',
+  /**
+   * localStorage — JSON `string[]` of favorited `Recommendation` ids (favorites, key 14).
+   * Guides-scoped bookmarks across both countries' recommendation cards (`na…`/`ja…`
+   * ids from `lib/nepal-data.ts` / `lib/japan-data.ts`). Client-side only, offline-safe,
+   * local-only (NOT part of any sync/Firebase path). Value shape is owned by
+   * `hooks/use-favorites.ts` (the gateway is byte-transport only). ADDITIVE: a brand-new key,
+   * no back-compat surface changes and NO migration (it is NOT part of the itinerary Vault;
+   * mirrors the key-12 `journalStore` pattern exactly).
+   */
+  favorites: 'nepal_japan_favorites',
+  /**
+   * localStorage — JSON `OutboxSlot` for the offline sync push outbox (sync-outbox, key 15).
+   * Records WHICH chunks have unconfirmed local changes per synced domain
+   * (`{ version, dirty: { itinerary?: string[]; expenses?: string[]; budget?: string[] } }`),
+   * so an offline edit survives a reload and is re-pushed exactly once on reconnect. STATE-
+   * based (dirty-chunk sets), NOT an op-log. Client-side only; the value shape is owned by
+   * `core/sync/outbox.ts` (the gateway is byte-transport only). Written ONLY on a configured +
+   * identified-traveler build (the outbox self-gates), so the dormant/guest build NEVER touches
+   * this key and stays byte-identical. ADDITIVE: a brand-new key, no back-compat
+   * surface changes and NO migration (it is NOT part of the itinerary Vault). NOTE: an earlier
+   * sketch reserved key 14 for this slot, but favorites took 14 first — the outbox is
+   * the next free number, key 15.
+   */
+  syncOutbox: 'nepal_japan_sync_outbox',
+  /**
+   * localStorage — JSON `PhotoMeta[]` photo-metadata index (photos, key 16).
+   * METADATA ONLY — blob bytes live in IndexedDB behind `BlobStorePort`, NEVER in web storage.
+   * Local-only: NOT part of the itinerary Vault, NOT part of any sync path;
+   * NO photo field exists on any synced/Vault schema (the photo↔owner link lives only here). Value
+   * shape owned by `core/photos/model.ts` (the gateway is byte-transport only). ADDITIVE: a brand-new
+   * key, no back-compat surface changes and NO migration. Mirrors `favoritesStore`/`journalStore`. */
+  photos: 'nepal_japan_photos',
+  /**
+   * localStorage — presence flag `'1'` marking the first-run guided tour has been seen
+   * (first-run-tour, key 17). Gates a ≤5-step coach-mark stepper (Today · Plan ·
+   * Budget · Journal · Map) shown exactly once, right after the TokenGate first resolves
+   * (a traveler signs in OR opts into guest). Local-only (mirrors `chunkReloadGuard`'s
+   * presence-flag shape, but on the LOCAL store since this must survive a reload, unlike
+   * the session-scoped chunk guard) — NOT part of any sync path. `tourStore.hasSeenTour()`
+   * is the presence read; `markTourSeen()` sets it on Skip OR finishing the last step —
+   * either path is terminal (exactly-once, reload-proof). ADDITIVE: a brand-new key, no
+   * back-compat surface changes and NO migration.
+   */
+  firstRunTour: 'nepal_japan_first_run_tour_seen',
 } as const;
 
 // ── Low-level typed primitives (store-aware, SSR-safe, never-throw) ──────────
@@ -150,7 +195,7 @@ export function removeKey(store: Store, key: string): void {
 }
 
 /**
- * Key-presence test (the "has the user ever saved" signal): true iff the key is PRESENT, regardless of value
+ * Key-presence test: true iff the key is PRESENT, regardless of value
  * (including a stored empty string). False during SSR or if storage is unreadable.
  */
 export function hasKey(store: Store, key: string): boolean {
@@ -190,14 +235,14 @@ export function writeJson<T>(store: Store, key: string, value: T): void {
   writeString(store, key, serialized);
 }
 
-// ── Domain accessors — the actual public API ────────────────────────────────
+// ── Domain accessors — the actual public API ───────────────
 
 /**
  * Identity slot (keys 3 + 4). `getName`/`setName` back `lib/identity.ts`;
  * `getToken`/`setToken` back `lib/token-auth.ts`.
  *
- * `clearIdentity` clears BOTH the name AND the token — a deliberate piece of cross-module
- * ownership: `token-auth.ts`'s sign-out historically removed
+ * `clearIdentity` clears BOTH the name AND the token — this is a cross-module ownership
+ * risk worth calling out: `token-auth.ts`'s sign-out historically removed
  * `tripPlannerUserName` (owned by `identity.ts`) as well as its own token. Centralizing
  * both removals here keeps that behavior exact while removing the duplicated literal.
  *
@@ -228,7 +273,7 @@ export const identityStore = {
  * Guest/session gate slot (key 5). The flag is a presence string `'1'`; `isGuest` matches
  * the exact prior semantics (`=== '1'`). `setGuest` writes `'1'`; `clearGuest` removes it
  * (re-arming the Trip Token wall). This is the single home for the flag that previously
- * appeared in THREE places, including the raw literal in `navbar.tsx` (risk 1).
+ * appeared in THREE places, including the raw literal in `navbar.tsx`.
  */
 export const sessionGate = {
   isGuest(): boolean {
@@ -243,24 +288,9 @@ export const sessionGate = {
 } as const;
 
 /**
- * Packing checklist slot (key 6) — `Record<string, boolean>` JSON. `get` returns `{}` on
- * absent / SSR / corrupt (matching the component's prior "start empty" behavior); `set`
- * persists the whole map as JSON. The raw `packing_checklist` literal in
- * `travel-essentials.tsx` collapses to this accessor.
- */
-export const checklistStore = {
-  get(): Record<string, boolean> {
-    return readJson<Record<string, boolean>>('local', STORAGE_KEYS.packingChecklist, {});
-  },
-  set(value: Record<string, boolean>): void {
-    writeJson('local', STORAGE_KEYS.packingChecklist, value);
-  },
-} as const;
-
-/**
  * UI preferences slot (key 7) — the nightlife section's visibility.
  *
- * CRITICAL (risk 3): this value is stored as `String(boolean)` (`'true'` / `'false'`),
+ * CRITICAL: this value is stored as `String(boolean)` (`'true'` / `'false'`),
  * NOT JSON. The read parses it leniently with `=== 'true'` (any other stored string,
  * including a legacy value, reads as `false`) — it must NOT use `JSON.parse`. The write
  * uses `String(next)`, byte-identical to the component's prior behavior.
@@ -284,7 +314,7 @@ export const uiPrefs = {
 
 /**
  * Clock-override slot (key 8) — the `?today=` simulation date. SESSION store only
- * (this key is sessionStorage by design and must NEVER migrate to localStorage). The
+ * (this key is sessionStorage and must NEVER migrate to localStorage). The
  * gateway wraps the raw string read/write/remove; all resolution/validation/precedence
  * logic stays in `lib/trip-now.ts` (the gateway is byte-transport only, not policy).
  */
@@ -396,5 +426,62 @@ export const chunkReloadGuard = {
   },
   markReloaded(): void {
     writeString('session', STORAGE_KEYS.chunkReloadOnce, '1');
+  },
+} as const;
+
+/**
+ * Favorites slot (key 14) — the guides-scoped bookmarked-recommendation `string[]` of
+ * ids. localStorage backend; additive, no migration, NOT part of the itinerary Vault,
+ * NOT part of any sync path. Mirrors `journalStore`/`expensesStore` exactly.
+ *
+ * The gateway is byte-transport only: it does NOT know the id shape beyond "a
+ * JSON array" — the value type is a caller-supplied generic `T`, owned by `hooks/use-favorites.ts`.
+ * `get(fallback)` returns the parsed slot or `fallback` (absent / SSR / corrupt JSON); the CALLER
+ * sanitizes a partially-valid parsed value into a safe `string[]` — keeping the "make a corrupt
+ * slot safe" policy in the favorites domain, not this transport layer. `set(ids)` writes the whole
+ * list as JSON. Never throws (inherits `readJson`/`writeJson`).
+ */
+export const favoritesStore = {
+  get<T>(fallback: T): T {
+    return readJson<T>('local', STORAGE_KEYS.favorites, fallback);
+  },
+  set<T>(ids: T): void {
+    writeJson('local', STORAGE_KEYS.favorites, ids);
+  },
+} as const;
+
+/**
+ * Photos slot (key 16) — the `PhotoMeta[]` photo-metadata index JSON. localStorage backend;
+ * additive, no migration, local-only (NOT part of the itinerary Vault, NOT part of any
+ * sync path). Mirrors `favoritesStore`/`journalStore` exactly. BLOB BYTES ARE NOT HERE — they live in
+ * IndexedDB behind `core/photos/blob-store.ts`; this slot carries only small JSON metadata.
+ *
+ * The gateway is byte-transport only: it does NOT know the `PhotoMeta` shape — the value
+ * type is a caller-supplied generic `T`, owned by `core/photos/model.ts`. `get(fallback)` returns the
+ * parsed slot or `fallback` (absent / SSR / corrupt JSON); the CALLER sanitizes (`sanitizePhotos`).
+ * `set(metas)` writes the whole list as JSON. Never throws (inherits `readJson`/`writeJson`).
+ */
+export const photosStore = {
+  get<T>(fallback: T): T {
+    return readJson<T>('local', STORAGE_KEYS.photos, fallback);
+  },
+  set<T>(metas: T): void {
+    writeJson('local', STORAGE_KEYS.photos, metas);
+  },
+} as const;
+
+/**
+ * First-run tour slot (key 17) — a one-shot-ever presence flag. LOCAL store (unlike
+ * `chunkReloadGuard`'s session-scoped one-shot-per-session flag): the tour must stay
+ * dismissed across a reload/new tab, forever, until storage is explicitly cleared.
+ * `hasSeenTour()` reads presence (any stored value counts); `markTourSeen()`
+ * writes the `'1'` flag. SSR-safe + never-throw (inherited from `hasKey`/`writeString`).
+ */
+export const tourStore = {
+  hasSeenTour(): boolean {
+    return hasKey('local', STORAGE_KEYS.firstRunTour);
+  },
+  markTourSeen(): void {
+    writeString('local', STORAGE_KEYS.firstRunTour, '1');
   },
 } as const;

@@ -9,7 +9,7 @@ import ScrollProgress from '@/components/scroll-progress';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signOut, IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
 import { sessionGate } from '@/core/storage/gateway';
-import { NAV_ITEMS, isRouteActive } from '@/lib/nav-items';
+import { NAV_ITEMS, PRIMARY_NAV_ITEMS, isRouteActive } from '@/lib/nav-items';
 
 // Clearing the guest opt-in re-arms the gate: with no active traveler and the guest flag
 // gone, TokenGate's identity:changed listener re-evaluates `!traveler && !guest` → re-shows
@@ -104,7 +104,7 @@ export default function Navbar() {
       }
       if (e.key === 'Tab') {
         // Minimal focus-trap: cycle Tab/Shift+Tab within the open panel so focus
-        // can't escape behind the scrim into the page underneath (logical
+        // can't escape behind the scrim into the page underneath (keeps a logical
         // tab order). The hamburger toggle stays the focus-return target on close.
         const panel = panelRef.current;
         if (!panel) return;
@@ -171,9 +171,9 @@ export default function Navbar() {
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          // v2 cosmetic: on scroll the bar reads as a richer "liquid glass"
+          // Cosmetic: on scroll the bar reads as a richer "liquid glass"
           // surface — deeper navy fill, stronger blur+saturate, a luminous
-          // hairline bottom edge keyed to the route accent, and the v2 elevation
+          // hairline bottom edge keyed to the route accent, and a matching elevation
           // ramp. Surfaces/type only; nav logic + a11y contracts untouched.
           scrolled
             ? 'bg-navy-900/80 backdrop-blur-xl backdrop-saturate-150 border-b border-white/[0.06] shadow-2xl'
@@ -190,7 +190,10 @@ export default function Navbar() {
             </Link>
 
             <div className="hidden md:flex items-center gap-1">
-              {NAV_ITEMS.map((item) => {
+              {/* The desktop top row stays at the 6 primary routes (no
+                  tablet overflow); the 3 companion routes (Journal/Safety/Recap) are
+                  reachable via the command palette + the mobile hamburger panel below. */}
+              {PRIMARY_NAV_ITEMS.map((item) => {
                 const isActive = isRouteActive(pathname, item.href);
                 return (
                   <Link
@@ -273,6 +276,9 @@ export default function Navbar() {
               className="fixed inset-x-0 top-16 z-40 bg-navy-900/90 backdrop-blur-xl backdrop-saturate-150 border-b border-white/[0.08] shadow-2xl md:hidden"
             >
               <div className="p-4 space-y-1">
+                {/* The mobile hamburger panel maps the FULL NAV_ITEMS (all 9) — a
+                    vertical panel has no width limit, so this is where mobile users reach
+                    the companion routes (Journal/Safety/Recap). */}
                 {NAV_ITEMS.map((item) => {
                   const isActive = isRouteActive(pathname, item.href);
                   return (
@@ -347,7 +353,7 @@ export default function Navbar() {
 
 /**
  * "You are {name}" chip (desktop). The traveler's `accent` tints a subtle pill
- * background + dot via INLINE style (dynamic Tailwind class names are forbidden), so any
+ * background + dot via INLINE style (dynamic Tailwind class names aren't safe here), so any
  * of the three brand accents renders correctly without a safelist. Carries a sign-out
  * control; `signOut()` then fires identity:changed → the gate re-shows and this chip clears.
  */

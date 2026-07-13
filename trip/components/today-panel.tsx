@@ -9,26 +9,23 @@ import {
   CATEGORY_COLORS,
   type ItineraryItem,
 } from '@/lib/trip-data';
-import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
+import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-now';
+import { offsetForCountry } from '@/core/dates';
 import { nextUp } from '@/lib/whats-next';
 import { useItineraryContext } from '@/components/itinerary-provider';
+import { generateItemId } from '@/lib/item-id';
+import QuickAddInput from '@/components/quick-add-input';
 import WeatherCard from '@/components/weather-card';
 import JournalCard from '@/components/journal-card';
 import { fetchWeather, type WeatherResult } from '@/lib/weather';
-
-/** The resolved clock's local time-of-day as zero-padded 24h "HH:MM" (the impure "now"). */
-function nowHHMM(): string {
-  const d = getNow();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+import { describeItemTime } from '@/lib/item-time-display';
 
 /**
- * The "Today" screen (the in-trip operational core).
+ * The "Today" screen — the operational core of the trip dashboard.
  *
  * A home-page island that, ONLY when the app clock is inside the trip window
- * (Dec 9 2026 – Jan 9 2027 — via `getTodayInTrip()` incl. the `?today=`
- * override), surfaces TODAY'S agenda with per-item done-tracking. Outside the
+ * (Dec 9 2026 – Jan 9 2027 — via `getTodayInTrip()` incl. a `?today=`
+ * override for testing), surfaces TODAY'S agenda with per-item done-tracking. Outside the
  * window it renders `null`, so the pre-/post-trip home page is byte-unchanged.
  *
  * Clock cadence (MIRRORS hero-section.tsx exactly — do NOT diverge): `todayInTrip`
@@ -40,30 +37,32 @@ function nowHHMM(): string {
  * Done-tracking: each item's toggle calls the EXISTING store method
  * `updateItem(today.date, item.id, { done: !item.done })` — no new store method,
  * no `hooks/use-itinerary.ts` change. Sync-on, `updateItem` already stamps rev/hlc
- * so a done-toggle propagates to friends + merges last-write-wins for free; dormant,
- * it's a plain local persisted update (survives reload — the persistence guarantee).
+ * so a done-toggle propagates to friends + merges via last-write-wins for free; dormant,
+ * it's a plain local persisted update that survives reload.
  */
 export default function TodayPanel() {
-  const { getDayPlan, updateItem, hydrated } = useItineraryContext();
+  const { getDayPlan, updateItem, addItem, hydrated } = useItineraryContext();
   const prefersReducedMotion = useReducedMotion();
 
   // `null` until mount (SSR-safe default) and whenever the clock is outside the
   // trip window. Resolved on mount + re-resolved on the same 1s cadence as the
   // hero's countdown/travel-mode flip, so it self-corrects at day boundaries.
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
-  // The resolved clock's time-of-day (via getNow(), incl. the ?today= override — local
-  // noon "12:00" under a ?today=DATE clock). Feeds the pure `nextUp` helper for the "Up next"
-  // rail; re-resolved on the SAME 1s cadence as `todayInTrip` so the rail advances live as
-  // the day progresses (and self-corrects at day boundaries). `''` until mount (SSR-safe).
-  const [now, setNow] = useState<string>('');
+  // "Now" as a UTC epoch-ms instant re-interpreted at TODAY'S place offset (via
+  // getNowUtcMsForPlace, incl. the ?today= override — place-noon under a ?today=DATE clock).
+  // Feeds the pure `nextUp` helper for the "Up next" rail; re-resolved on the SAME 1s cadence
+  // as `todayInTrip` so the rail advances live and self-corrects at day boundaries. `0` until
+  // mount (SSR-safe; only read once `todayInTrip` is non-null, so the 0 is never observed).
+  const [nowUtcMs, setNowUtcMs] = useState<number>(0);
 
   useEffect(() => {
-    setTodayInTrip(getTodayInTrip());
-    setNow(nowHHMM());
-    const timer = setInterval(() => {
-      setTodayInTrip(getTodayInTrip());
-      setNow(nowHHMM());
-    }, 1000);
+    const tick = () => {
+      const t = getTodayInTrip();
+      setTodayInTrip(t);
+      if (t) setNowUtcMs(getNowUtcMsForPlace(t.date, offsetForCountry(t.country)));
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -94,20 +93,38 @@ export default function TodayPanel() {
     };
   }, [city]);
 
-  // Renders nothing outside the trip window (the home page is unchanged pre-/post-
-  // trip) or before the store hydrates (avoids a flash of the empty state).
-  if (!todayInTrip || !hydrated) return null;
+  // Renders nothing outside the trip window (the home page is unchanged pre-/post-trip). Dormant/
+  // portfolio (clock outside Dec 9–Jan 9) always takes this branch → byte-identical to before.
+  if (!todayInTrip) return null;
+
+  // In-trip but the store hasn't hydrated yet: reserve the panel's settled min-height instead of
+  // returning null, so the island mount doesn't collapse→expand (CLS). Presentation
+  // only; carries no `today-panel` testid so it can't be mistaken for the live panel.
+  if (!hydrated) {
+    return (
+      <section id="today" aria-hidden="true" className="relative bg-navy-900 py-12 sm:py-16 px-4 sm:px-6">
+        <div
+          data-testid="today-panel-skeleton"
+          className="mx-auto min-h-[420px] max-w-3xl rounded-2xl glass-card"
+        />
+      </section>
+    );
+  }
 
   const dayPlan = getDayPlan(todayInTrip.date);
   const items = dayPlan.items;
   const doneCount = items.filter((it) => it.done === true).length;
-  // The next upcoming, not-done, timed item by the resolved clock (pure `nextUp`).
-  // `null` when everything is done/past or nothing is timed → the rail shows "all caught up"
-  // (but only when there ARE items; a zero-item day keeps the existing empty state below).
-  const upcoming = nextUp(items, now);
+  // The next upcoming, not-done, timed item by the resolved place-clock (pure `nextUp`
+  // helper). `null` when everything is done/past or nothing is timed → the rail shows "all
+  // caught up" (but only when there ARE items; a zero-item day keeps the empty state below).
+  const upcoming = nextUp(items, {
+    dayDate: todayInTrip.date,
+    placeOffsetMin: offsetForCountry(todayInTrip.country),
+    nowUtcMs,
+  });
 
   // Axe-deterministic reveal: the non-reduced-motion variant slides from y:16 at
-  // FULL opacity (opacity pinned to 1), so the axe scan (which runs WITHOUT reduced motion)
+  // FULL opacity (opacity pinned to 1), so an accessibility scan (which runs WITHOUT reduced motion)
   // can never catch the muted subtitle mid-fade below AA. Reduced-motion branch unchanged.
   const reveal = prefersReducedMotion
     ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
@@ -161,7 +178,7 @@ export default function TodayPanel() {
             below); shows the next item when one is upcoming, else an "all caught up" line. */}
         {items.length > 0 && (
           <div className="mb-6">
-            <NextUpRail item={upcoming} />
+            <NextUpRail item={upcoming} date={todayInTrip.date} />
           </div>
         )}
 
@@ -185,14 +202,28 @@ export default function TodayPanel() {
               <TodayAgendaItem
                 key={item.id}
                 item={item}
+                date={todayInTrip.date}
                 onToggle={() => updateItem(todayInTrip.date, item.id, { done: !item.done })}
               />
             ))}
           </ul>
         )}
 
+        {/* Inline quick-add for today — title → Enter →
+            addItem on today's date, through the same commit() choke-point. The Today agenda
+            previously had NO add affordance; this is the fast title-only path (detail is
+            editable later in the /plan editor). Available in both the empty and populated
+            states so a free day can be filled without leaving Home. */}
+        <div className="mt-6">
+          <QuickAddInput
+            label={`Quick-add a plan for today, ${formatDateLong(todayInTrip.date)}`}
+            testId="today-quick-add"
+            onAdd={(title) => addItem(todayInTrip.date, { id: generateItemId(), title, category: 'sightseeing' })}
+          />
+        </div>
+
         {/* In-trip per-day TEXT journal — below the agenda. Reads/writes today's entry via
-            useJournal() (its own gateway slot, localStorage-only); intrinsically in-trip-scoped by the
+            useJournal() (localStorage-only); intrinsically in-trip-gated by the
             panel. Photos are OUT (declared future boundary). */}
         <JournalCard date={todayInTrip.date} />
       </m.div>
@@ -208,8 +239,11 @@ export default function TodayPanel() {
  * parent panel owns the already-gated reveal). Semantic: an `aria-live="polite"` region so
  * the change is announced when the rail advances (e.g. after toggling the current item done).
  */
-function NextUpRail({ item }: { item: ItineraryItem | null }) {
+function NextUpRail({ item, date }: { item: ItineraryItem | null; date: string }) {
   const cat = item ? CATEGORY_COLORS[item.category] : null;
+  // Display rule only — NOT the `nextUp` selection logic itself (untouched here):
+  // purely how the already-chosen item's time renders.
+  const timeInfo = item ? describeItemTime(item, date) : null;
 
   return (
     <div
@@ -223,9 +257,14 @@ function NextUpRail({ item }: { item: ItineraryItem | null }) {
       </p>
       {item ? (
         <div className="flex items-start gap-3">
-          {item.time && (
+          {timeInfo && (
             <span className="flex-shrink-0 font-mono text-lg font-bold text-gold-400 leading-tight">
-              {item.time}
+              {timeInfo.label}
+              {timeInfo.badge && (
+                <span className="block text-[10px] font-sans font-normal uppercase tracking-wide text-gold-400/80 leading-tight">
+                  {timeInfo.badge}
+                </span>
+              )}
             </span>
           )}
           <div className="min-w-0 flex-1">
@@ -259,9 +298,10 @@ function NextUpRail({ item }: { item: ItineraryItem | null }) {
  * transitions are CSS `transition-*`, gated to reduced-motion via the global
  * config, so no motion-only affordance is lost.
  */
-function TodayAgendaItem({ item, onToggle }: { item: ItineraryItem; onToggle: () => void }) {
+function TodayAgendaItem({ item, date, onToggle }: { item: ItineraryItem; date: string; onToggle: () => void }) {
   const done = item.done === true;
   const cat = CATEGORY_COLORS[item.category];
+  const timeInfo = describeItemTime(item, date);
 
   return (
     <li>
@@ -277,15 +317,23 @@ function TodayAgendaItem({ item, onToggle }: { item: ItineraryItem; onToggle: ()
             : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
         }`}
       >
-        {/* The check indicator — 44px hit target lives on the parent button. */}
-        <span
+        {/* The check indicator — 44px hit target lives on the parent button.
+            Done-tick: a small spring "pop" when toggled done. `initial={false}`
+            suppresses any mount animation; the scale keyframe fires only on the
+            done→ transition. Reduced motion is handled app-wide by
+            <MotionConfig reducedMotion="user"> → it lands on the final scale
+            with no pop; the color/state change (the real affordance) is unaffected. */}
+        <m.span
           aria-hidden="true"
+          initial={false}
+          animate={{ scale: done ? [1, 1.25, 1] : 1 }}
+          transition={{ duration: 0.28, ease: 'easeOut' }}
           className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-md border transition-colors duration-200 ${
             done ? 'border-emerald-400 bg-emerald-400 text-navy-900' : 'border-white/25 text-transparent group-hover:border-white/40'
           }`}
         >
           <Check className="h-4 w-4" strokeWidth={3} />
-        </span>
+        </m.span>
 
         <span className="min-w-0 flex-1">
           <span
@@ -297,10 +345,13 @@ function TodayAgendaItem({ item, onToggle }: { item: ItineraryItem; onToggle: ()
             {item.title}
           </span>
           <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-white/55">
-            {item.time && (
+            {timeInfo && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" aria-hidden="true" />
-                {item.time}
+                {timeInfo.label}
+                {timeInfo.badge && (
+                  <span className="text-[10px] uppercase tracking-wide text-white/55">{timeInfo.badge}</span>
+                )}
               </span>
             )}
             {item.location && (

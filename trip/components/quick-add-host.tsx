@@ -20,8 +20,8 @@ import type { ItineraryDraft } from '@/lib/itinerary-adapter';
  *
  * The dialog itself owns the full modal contract it inherits: document-level
  * Esc, Tab-trap, first-field autofocus, parent-owned focus-return on
- * `AnimatePresence onExitComplete`, pinned action footer, portal to
- * `document.body`, and the `body[data-dialog-open]` seam flag. Focus-return here is
+ * `AnimatePresence onExitComplete`, a pinned action footer, a portal to
+ * `document.body`, and the `body[data-dialog-open]` flag. Focus-return here is
  * parent-owned: we capture `document.activeElement` when the event fires and
  * refocus it once the exit animation completes.
  *

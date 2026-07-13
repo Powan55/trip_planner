@@ -9,10 +9,10 @@
 // SSR-safe: every localStorage access is guarded by a `typeof window` check so these
 // helpers are inert during static export / server render (return null / no-op).
 //
-// The raw localStorage access + the `tripPlannerUserName` key literal live in the typed
-// storage gateway (`core/storage/gateway.ts`). These functions keep their exact
-// signatures and behavior (SSR-safe, never-throw, trim on write) and simply delegate to
-// `identityStore` — the key string and on-disk value are unchanged.
+// The raw localStorage access and the `tripPlannerUserName` key literal live in the
+// typed storage gateway (`core/storage/gateway.ts`). These functions keep their exact
+// signatures and behavior (SSR-safe, never-throw, trim on write) and simply delegate
+// to `identityStore` — the key string and on-disk value are unchanged.
 
 import { identityStore } from '@/core/storage/gateway';
 

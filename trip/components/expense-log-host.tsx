@@ -23,7 +23,7 @@ import type { Expense } from '@/core/budget/expenses';
  *
  * This is a PARALLEL trigger to the itinerary quick-add FAB (its OWN event + host + dialog) — the
  * itinerary FAB is left single-purpose. The dialog owns the full modal contract
- * (plus the `body[data-dialog-open]` flag); focus-return is parent-owned here:
+ * (portal + Esc/Tab-trap + the `body[data-dialog-open]` flag); focus-return is parent-owned here:
  * we capture `document.activeElement` when the event fires (the "Log expense" / "Edit"
  * button) and refocus it once the exit animation completes.
  *

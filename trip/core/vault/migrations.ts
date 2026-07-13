@@ -11,6 +11,7 @@
 
 import type { DayPlan } from '@/lib/trip-data';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
+import { parseTimeString } from '@/core/dates/item-time';
 
 export interface Migration {
   /** schemaVersion this step consumes. */
@@ -61,10 +62,43 @@ export const itineraryMigrations: Migration[] = [
       }));
     },
   },
+  // #3 (v4→v5) — Structured time model additive backfill. Each
+  // item best-effort-gains `startMinutes` parsed from its legacy `time` text. LOSSLESS by
+  // construction — the ONLY possible per-item change is the ADDITION of `startMinutes`;
+  // `time`/`duration`/`id`/every other field is byte-preserved, and `durationMinutes` is
+  // NEVER set (legacy duration text is not parsed — a decided gap). NEVER-CLOBBER: an
+  // item already carrying a `startMinutes` (even one conflicting with its `time`) keeps it
+  // verbatim. IDEMPOTENT: a re-run is an identity (parsed items now have startMinutes → the
+  // never-clobber branch; unparseable items are untouched twice) — this is what makes the
+  // service-worker-lag old-build-overwrite loop safe. PURE / NO CLOCK: `parseTimeString` is total
+  // (returns `undefined`, never throws) so a well-formed payload never spuriously
+  // quarantines; a genuinely malformed payload is caught later by the lenient Zod read. The
+  // SAME `parseTimeString` is the runtime fallback (`effectiveStartMinutes`) — sync-ingested
+  // /seed items bypass migrations forever, so migration-time and runtime parsing MUST agree.
+  {
+    from: 4,
+    to: 5,
+    migrate: (payload) => {
+      const days = payload as DayPlan[];
+      return days.map((d) => ({
+        ...d,
+        items: (d.items ?? []).map((it) => {
+          if (it.startMinutes !== undefined) return it; // never clobber (any existing value)
+          if (typeof it.time !== 'string') return it; // nothing to parse → unchanged
+          const parsed = parseTimeString(it.time);
+          return parsed === undefined ? it : { ...it, startMinutes: parsed };
+        }),
+      }));
+    },
+  },
 ];
 
-/** The current on-disk itinerary schema version (bumped 3→4 for the Sync v2 fields). */
-export const CURRENT_ITINERARY_VERSION = 4;
+/**
+ * The current on-disk itinerary schema version.
+ *   - 3→4: Sync v2 per-item merge fields.
+ *   - 4→5: structured time model — `startMinutes` best-effort backfill.
+ */
+export const CURRENT_ITINERARY_VERSION = 5;
 
 /**
  * Run the ordered migration chain from `fromVersion` up to `CURRENT_ITINERARY_VERSION`.

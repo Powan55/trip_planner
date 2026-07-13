@@ -5,20 +5,20 @@ import { useRouter } from 'next/navigation';
 import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
 
 /**
- * Legacy v1 anchor deep-link redirects. Mounted on HOME only.
+ * Legacy anchor deep-link redirects. Mounted on HOME only.
  *
- * v1 was a single page of anchored sections, so old links look like `/#nepal`.
- * v2 splits those sections across five routes. On load, this island maps
+ * The original app was a single page of anchored sections, so old links look like `/#nepal`.
+ * The current app splits those sections across five routes. On load, this island maps
  * a legacy hash to its new home:
  *
  *   #itinerary → /plan/        #photography → /nepal/#photography
  *   #nepal     → /nepal/       #nightlife   → /nepal/#nightlife
- *   #japan     → /japan/
+ *   #japan     → /japan/       #flights     → /flights/
  *   #map       → /map/
  *
  * via `router.replace` (no history entry for the dead URL — basePath-agnostic).
  * Hashes whose sections still live on Home (#hero/#dashboard/#timeline/
- * #flights/#inspiration — inspiration is now the travel-essentials section, which
+ * #inspiration — inspiration is now the travel-essentials section, which
  * keeps the `inspiration` id) scroll locally; an unknown hash no-ops harmlessly.
  *
  * Scrolling goes through `scrollToSectionWhenReady` because every section is a
@@ -35,9 +35,10 @@ const ROUTE_REDIRECTS: Record<string, string> = {
   map: '/map/',
   photography: '/nepal/#photography',
   nightlife: '/nepal/#nightlife',
+  flights: '/flights/',
 };
 
-const LOCAL_ANCHORS = new Set(['hero', 'dashboard', 'timeline', 'flights', 'inspiration']);
+const LOCAL_ANCHORS = new Set(['hero', 'dashboard', 'timeline', 'inspiration']);
 
 export default function LegacyHashRedirect() {
   const router = useRouter();

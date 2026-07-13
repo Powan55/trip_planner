@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
+import { SectionHeading } from '@/components/section-heading';
 import { Camera, Clock, Aperture, Search, X, SlidersHorizontal, SearchX, Star } from 'lucide-react';
 import { PHOTO_SPOTS, PHOTO_CATEGORIES, PhotoSpot } from '@/lib/photography-data';
 import OptimizedImage from '@/components/optimized-image';
@@ -100,9 +101,9 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
 }
 
 /**
- * Optional `country` filter prop. No prop = every spot (v1, whole-page
+ * Optional `country` filter prop. No prop = every spot (whole-page
  * behavior); on the /nepal/ and /japan/ pages the guide shows only that country's
- * spots. Also: city + category chips with live counts, a search box, sort, an
+ * spots. Also includes city + category chips with live counts, a search box, sort, an
  * empty state, must-see badges, and a tap-to-open detail sheet. Category/city chips
  * derive from the country-filtered set so a page never renders a dead filter.
  */
@@ -216,20 +217,12 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
   return (
     <section id="photography" aria-labelledby="photography-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* Slide-only masthead entrance (opacity pinned to 1) so the axe
-            scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
-            mid-fade as a transient contrast failure. See RecommendationSection. */}
-        <m.div
-          initial={{ opacity: 1, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-10"
-        >
-          <h2 id="photography-heading" className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
-            Photography <span className="text-gradient-gold">Guide</span>
-          </h2>
-          <p className="text-white/50 max-w-xl mx-auto">Capture the perfect shot at every destination with expert shooting tips and gear suggestions.</p>
-        </m.div>
+        <SectionHeading
+          id="photography-heading"
+          className="mb-10"
+          title={<>Photography <span className="text-gradient-gold">Guide</span></>}
+          subtitle="Capture the perfect shot at every destination with expert shooting tips and gear suggestions."
+        />
 
         {/* Search + sort */}
         <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">

@@ -13,7 +13,8 @@
  * swallows quota / disabled-storage / cyclic-value failures).
  */
 
-import { budgetStore, expensesStore } from '@/core/storage/gateway';
+import { budgetStore, expensesStore, hasKey, STORAGE_KEYS } from '@/core/storage/gateway';
+import type { StoragePort } from '@/core/ports';
 import { DEFAULT_BUDGET, normalizeModel, type BudgetModel } from '@/core/budget/model';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
 
@@ -28,7 +29,7 @@ export function saveBudget(model: BudgetModel): void {
   budgetStore.set<BudgetModel>(normalizeModel(model));
 }
 
-// ── Expenses (gateway key 11) — mirrors the budget adapter exactly ────────────
+// ── Expenses (gateway key 11) — mirrors the budget adapter exactly ──────
 
 /**
  * Load + sanitize the persisted `Expense[]` (empty list when absent / SSR / corrupt). The
@@ -48,3 +49,21 @@ export function loadExpenses(): Expense[] {
 export function saveExpenses(expenses: Expense[]): void {
   expensesStore.set<Expense[]>(sanitizeExpenses(expenses));
 }
+
+/**
+ * The budget `StoragePort<BudgetModel>` and expense `StoragePort<Expense[]>` for
+ * `createReactiveStore` — the same load/save contracts the hooks already used,
+ * plus raw key-presence to satisfy the port. `has()` is not consulted by the factory
+ * skeleton; it completes the contract for parity with the itinerary port.
+ */
+export const budgetStoragePort: StoragePort<BudgetModel> = {
+  load: loadBudget,
+  save: saveBudget,
+  has: () => hasKey('local', STORAGE_KEYS.budget),
+};
+
+export const expensesStoragePort: StoragePort<Expense[]> = {
+  load: loadExpenses,
+  save: saveExpenses,
+  has: () => hasKey('local', STORAGE_KEYS.expenses),
+};

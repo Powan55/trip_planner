@@ -3,19 +3,19 @@
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,
  * no fetch, no clock, no id generation, no storage. `import type` from `@/lib/trip-data`
- * (the `ItineraryCategory` union) and from `./model` (the `Leg` / `SpentInput` shapes) follows the
+ * (the `ItineraryCategory` union) and from `./model` (the `Leg` / `SpentInput` shapes) is the
  * crud.ts/model.ts precedent — a type-only import drags no runtime in. Every function is TOTAL
  * (a bad / NaN / negative / missing input degrades to a safe value, never a throw), so the store
  * can never crash on a corrupt slot and the panel can never render `NaN`.
  *
- * ── The rollup seam (the whole point on the math side) ────────────────────────────────────
- * The budget model's `rollUp(model, spent?: SpentInput)` already returns spent/remaining on every
+ * ── The rollup seam (the whole point on the math side) ──────────────────────────────────────
+ * `rollUp(model, spent?: SpentInput)` already returns spent/remaining on every
  * leg + category line + the grand total. This module's `expensesToSpent(expenses)` computes that
  * `SpentInput` by summing logged expenses per leg + per (leg, category). Amounts are stored in
  * each leg's LOCAL currency, mirroring the budget model, so the aggregator needs NO
  * currency conversion — it just sums. The rollup shape is unchanged; this module only consumes the seam.
  *
- * ── id / timestamp injection (the pure-core pattern) ──────────────────────────────────────
+ * ── id / timestamp injection ──────────────────────────────────────────────────────────────
  * The CRUD transforms (`addExpense` / `updateExpense` / `removeExpense`) are pure `Expense[]`
  * functions: the CALLER (the React hook) supplies the new `id` + `createdAt` timestamp, so this
  * core stays deterministic and unit-testable without stubbing a clock or a random source.
@@ -25,7 +25,7 @@ import type { ItineraryCategory } from '@/lib/trip-data';
 import type { Leg, SpentInput } from '@/core/budget/model';
 import { BUDGET_CATEGORIES, safeAmount } from '@/core/budget/model';
 
-// ── The Expense shape (the store persists an `Expense[]`) ────────────────────────────────
+// ── The Expense shape (gateway key 11 stores an `Expense[]`) ─────────────────────────────
 /**
  * A single logged expense. Amounts are in the LEG's LOCAL currency (Nepal → NPR, Japan → JPY),
  * matching the budget model so `expensesToSpent` sums with no conversion. `id` + `createdAt` are
@@ -47,6 +47,32 @@ export interface Expense {
   note?: string;
   /** ISO timestamp for ordering the list — injected by the caller. */
   createdAt: string;
+
+  // ── Split / settlement fields — ADDITIVE + OPTIONAL, dormant-absent ───────────────
+  // Who owes whom. Both absent = the FAST PATH (paid by me, not split) = byte-identical to a
+  // pre-split expense. They ride the row merge for free (just more row fields) and
+  // are settlement-only: they do NOT affect `amount` or `expensesToSpent` — an expense's amount
+  // still counts fully toward spend regardless of split (split = who reimburses whom, local to the leg).
+  /** TRAVELERS id who fronted the money. Absent ⇒ the current traveler ("me"). */
+  paidBy?: string;
+  /** TRAVELERS ids the cost is shared EVENLY among. Absent ⇒ not split (no settlement row). */
+  split?: string[];
+
+  // ── Sync v2 fields — ALL additive + optional ──────────────
+  // Written ONLY when remote sync is configured (the hook gates on `isRemoteConfigured()`);
+  // a dormant expense carries NONE of these, so the dormant on-disk bytes stay byte-identical.
+  // Old clients ignore unknown fields. `sanitizeExpense` PASSES THEM THROUGH
+  // (a load-bearing line — silently stripping `hlc` would break merge ordering).
+  /** Monotonic per-row revision counter; starts at 1 on create (sync only). */
+  rev?: number;
+  /** Hybrid Logical Clock stamp (serialized) — the primary cross-client merge order key. */
+  hlc?: string;
+  /** Tombstone; true ⇒ deleted-but-retained so the delete can propagate + win (sync only). */
+  deleted?: boolean;
+  /** "Logged by" attribution — first author wins. Set only when a traveler is active. */
+  createdBy?: string;
+  /** Last editor's display name. Set only when a traveler is active. */
+  updatedBy?: string;
 }
 
 // The two legs, in a stable order.
@@ -94,6 +120,25 @@ export function sanitizeExpense(value: unknown): Expense | null {
     expense.note = v.note.trim();
   }
 
+  // ── Split passthrough — additive; absent on a fast-path expense ⇒ byte-identical ──
+  // A non-empty string `paidBy`; a `split` reduced to its valid non-empty-string members (an empty
+  // result drops the field, so `[]` never persists ⇒ a no-member split is just the fast path).
+  if (typeof v.paidBy === 'string' && v.paidBy.length > 0) expense.paidBy = v.paidBy;
+  if (Array.isArray(v.split)) {
+    const members = v.split.filter((m): m is string => typeof m === 'string' && m.length > 0);
+    if (members.length > 0) expense.split = members;
+  }
+
+  // ── Sync v2 passthrough ──────────────────────────────────────────────
+  // Pass the additive sync/attribution fields through UNCHANGED when present. Dropping `hlc`
+  // here would break merge ordering and violate the stamped-bytes expectation. A dormant
+  // expense has none of these ⇒ nothing is added ⇒ byte-identical.
+  if (typeof v.rev === 'number' && Number.isFinite(v.rev)) expense.rev = v.rev;
+  if (typeof v.hlc === 'string') expense.hlc = v.hlc;
+  if (typeof v.deleted === 'boolean') expense.deleted = v.deleted;
+  if (typeof v.createdBy === 'string' && v.createdBy.length > 0) expense.createdBy = v.createdBy;
+  if (typeof v.updatedBy === 'string' && v.updatedBy.length > 0) expense.updatedBy = v.updatedBy;
+
   return expense;
 }
 
@@ -111,7 +156,7 @@ export function sanitizeExpenses(value: unknown): Expense[] {
   return out;
 }
 
-// ── The aggregator (the `SpentInput` seam consumer) ──────────────────────────────────────
+// ── The aggregator (the `SpentInput` seam consumer) ─────────────────────────────────
 /**
  * Sum logged expenses into the `SpentInput` shape `rollUp(model, spent?)` already accepts:
  * `byLeg[leg]` = total spent on that leg, `byCategory[leg][category]` = total on that (leg,
@@ -149,45 +194,59 @@ export function expensesToSpent(expenses: readonly Expense[] | null | undefined)
   return spent;
 }
 
-// ── Pure CRUD transforms (id + timestamp INJECTED by the caller) ─────────────────────────
+// ── Pure CRUD transforms (id + timestamp INJECTED by the caller) ─────────────────
 /**
  * The fields the caller provides when logging a NEW expense — everything except the injected
  * `id` + `createdAt` (which the pure core must not generate). `amount` is sanitized on add.
  */
-export type NewExpenseInput = Omit<Expense, 'id' | 'createdAt'>;
+export type NewExpenseInput = Omit<Expense, 'id' | 'createdAt' | 'rev' | 'hlc' | 'deleted' | 'createdBy' | 'updatedBy'>;
+
+/**
+ * A boundary stamper the caller injects to apply attribution (createdBy/updatedBy) + the Sync-v2
+ * ordering fields (rev/hlc/deleted) to a row — the same seam pattern as the itinerary core's
+ * `ItemStamper`. Absent ⇒ the row is returned as-is (dormant / no-name), so the
+ * pure transforms stay deterministic and byte-identical when nothing is stamped.
+ */
+export type ExpenseStamper = (expense: Expense) => Expense;
+
+const noStamp: ExpenseStamper = (e) => e;
 
 /**
  * Append a sanitized new expense to the list. The caller injects `id` + `createdAt` (so the core
- * stays deterministic). Newest-first is NOT imposed here — the list keeps insertion order; the UI
- * sorts by `createdAt` when it wants recency. Returns a NEW array (never mutates). TOTAL: a
- * malformed input (invalid leg/category) is dropped, returning the list unchanged.
+ * stays deterministic) and an optional `stamp` (attribution + sync fields). Newest-first is
+ * NOT imposed here — the list keeps insertion order; the UI sorts by `createdAt`. Returns a NEW
+ * array (never mutates). TOTAL: a malformed input (invalid leg/category) is dropped, returning the
+ * list unchanged.
  */
 export function addExpense(
   expenses: readonly Expense[],
   input: NewExpenseInput,
   id: string,
   createdAt: string,
+  stamp: ExpenseStamper = noStamp,
 ): Expense[] {
   const candidate = sanitizeExpense({ ...input, id, createdAt });
   if (candidate === null) return [...expenses];
-  return [...expenses, candidate];
+  return [...expenses, stamp(candidate)];
 }
 
 /**
- * Update an existing expense by id with a partial patch (any of leg/category/amount/date/note).
- * The `id` + `createdAt` are preserved (an edit never re-times or re-ids the entry). Returns a NEW
- * array; a non-matching id is a no-op (list returned unchanged). TOTAL: if the patch would make
- * the entry unsalvageable it is left unchanged.
+ * Update an existing expense by id with a partial patch (any of leg/category/amount/date/note),
+ * then apply the optional `stamp` (attribution + sync fields; a tombstone under sync is an
+ * `updateExpense` with an empty patch + a delete stamper, mirroring the itinerary `removeItem`
+ * sync path). The `id` + `createdAt` are preserved. Returns a NEW array; a non-matching id is a
+ * no-op. TOTAL: if the patch would make the entry unsalvageable it is left unchanged.
  */
 export function updateExpense(
   expenses: readonly Expense[],
   id: string,
   patch: Partial<NewExpenseInput>,
+  stamp: ExpenseStamper = noStamp,
 ): Expense[] {
   return expenses.map((e) => {
     if (e.id !== id) return e;
     const merged = sanitizeExpense({ ...e, ...patch, id: e.id, createdAt: e.createdAt });
-    return merged ?? e;
+    return merged ? stamp(merged) : e;
   });
 }
 

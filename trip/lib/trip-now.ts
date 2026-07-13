@@ -35,7 +35,7 @@
 // no-op on the server), so `getNow()` returns the real clock and no override is ever
 // resolved during SSR (first-paint parity, then the client re-reads on mount).
 
-import { dayInTripFor, type TripToday } from '@/core/dates';
+import { dayInTripFor, placeWallClockToUtcMs, type TripToday } from '@/core/dates';
 import type { ClockPort } from '@/core/ports';
 import { clockOverride } from '@/core/storage/gateway';
 
@@ -121,6 +121,27 @@ export function getNow(): Date {
 export const clock: ClockPort = {
   now: getNow,
 };
+
+/**
+ * "Now" as a UTC epoch-ms instant, re-interpreted at a given place's offset — the ONE clock
+ * seam for the place-accurate item comparison (`isPastAtPlace`). Consumed by
+ * `components/today-panel.tsx` → `nextUp`.
+ *
+ *   - NO override: `getNow().getTime()` — the real instant. In-zone (during the trip) this is
+ *     an exact no-op vs the old device-wall-clock string compare (device == place wall-clock).
+ *   - Override active (`?today=`/sessionStorage): the synthetic Date's wall-clock FACE IS the
+ *     demo's place wall-clock by declaration, so we re-interpret those hours:minutes at
+ *     `placeOffsetMin`. Because the override Date is LOCAL NOON, demo "now" = NOON at the place
+ *     — byte-parity with the old `"12:00"` compare, now TZ-deterministic (the frozen `?today=`
+ *     countdown/persistence E2E stays green). We do NOT convert the synthetic instant through
+ *     the offset — that would break the fake-clock parity.
+ */
+export function getNowUtcMsForPlace(dayDate: string, placeOffsetMin: number): number {
+  const now = getNow(); // resolves the override once; returns override-noon or the real clock
+  if (overrideMs === null) return now.getTime();
+  const minutes = now.getHours() * 60 + now.getMinutes(); // override noon → 720
+  return placeWallClockToUtcMs(dayDate, minutes, placeOffsetMin);
+}
 
 /**
  * The trip-day for "now", or `null` when the current day is outside the trip window.

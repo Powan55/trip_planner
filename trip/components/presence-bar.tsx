@@ -23,7 +23,7 @@ import { usePresence } from '@/hooks/use-presence';
  * flow, so it can't cause horizontal overflow at any width. `max-w` + `truncate` keep long
  * names contained.
  *
- * A11y: a labeled live region (`role="status"` + `aria-live="polite"`) so a
+ * Accessibility: a labeled live region (`role="status"` + `aria-live="polite"`) so a
  * screen reader announces who joins, with a visually-hidden summary sentence; the dots are
  * `aria-hidden` decoration. The only motion is one declarative `m` reveal, which the
  * app-wide `<MotionConfig reducedMotion="user">` auto-neutralizes under

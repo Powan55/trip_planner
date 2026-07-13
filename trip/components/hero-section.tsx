@@ -21,7 +21,7 @@ const COUNTDOWN_UNITS = [
 
 /**
  * One-time eased count-up reveal for a single hero countdown number, then a clean
- * transition to the LIVE value. PRESENTATIONAL ONLY — `live` is the exact value
+ * handoff to the LIVE value. PRESENTATIONAL ONLY — `live` is the exact value
  * computed by `computeCountdown`; this never recomputes anything.
  *
  * While revealing, the eased fraction tracks the current `live` value so the final
@@ -72,7 +72,12 @@ const containerVariants = {
 };
 
 const itemVariants = {
-  hidden: { opacity: 0, y: 24 },
+  // Axe-deterministic reveal (the trip-recap/budget-panel pattern): a full-opacity
+  // SLIDE — opacity pinned to 1 — so the axe scan can never sample the CTA/countdown text
+  // mid-fade below AA (seen on a real run on Next 15: the "/plan/" CTA flagged
+  // color-contrast 1.49 at ~50% opacity, a ~50% flake). Reduced-motion branch below is
+  // untouched (it only runs under reduced motion, which the scan does not exercise).
+  hidden: { opacity: 1, y: 24 },
   show: {
     opacity: 1,
     y: 0,
@@ -158,7 +163,7 @@ export default function HeroSection() {
             glows so the gradient tints it and the SVG + dark overlays render on
             top. Tuned to ~45% so the title and countdown stay legible. On error
             (or if the asset is absent) the original CSS/SVG art shows through.
-            The PARENT div is a parallax layer (drifts slow + scales subtly,
+            the PARENT div is a parallax layer (drifts slow + scales subtly,
             reading as the deepest plane); the image element itself is untouched. */}
         {!heroImgError && (
           <m.div className="absolute inset-0" style={{ y: photoY, scale: photoScale }}>
@@ -174,7 +179,7 @@ export default function HeroSection() {
           </m.div>
         )}
         {/* Soft radial glows — a Himalayan "sun" on the left, a sakura/neon bloom on the right.
-            Drifts UP slightly and fades as the hero leaves, a mid-depth plane. */}
+            drifts UP slightly and fades as the hero leaves, a mid-depth plane. */}
         <m.div
           className="absolute inset-0"
           style={{
@@ -186,7 +191,7 @@ export default function HeroSection() {
         />
 
         {/* Layered mountain-range / skyline silhouette.
-            Wrapped in a parallax m.div that drifts DOWN the most slowly of the
+            wrapped in a parallax m.div that drifts DOWN the most slowly of the
             backdrop planes (deepest fixed scenery feel). The SVG art is unchanged. */}
         <m.div className="absolute inset-x-0 bottom-0 w-full h-[62%]" style={{ y: silhouetteY }}>
         <svg

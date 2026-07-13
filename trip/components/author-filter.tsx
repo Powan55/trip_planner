@@ -9,20 +9,20 @@ import {
 import { useAuthorFilter } from '@/hooks/use-author-filter';
 
 /**
- * Author filter control — a presentational, READ-ONLY view filter that
- * narrows the calendar and timeline item lists to All / "My edits" / a specific traveler,
- * using the existing `createdBy` / `updatedBy` attribution. It NEVER mutates
- * stored data: selecting an option only updates the shared in-memory selection
- * (lib/author-filter), which both surfaces read.
+ * Author filter control — a presentational, READ-ONLY view filter that narrows the
+ * calendar and timeline item lists to All / "My edits" / a specific traveler, using
+ * the existing `createdBy` / `updatedBy` attribution. It NEVER mutates stored data:
+ * selecting an option only updates the shared in-memory selection (lib/author-filter),
+ * which both surfaces read.
  *
  * DORMANT / NO-ATTRIBUTION (the portfolio case): when NO item carries attribution,
  * `distinctAuthors` is empty and this control renders NOTHING — so the portfolio build is
  * visually unchanged. It also renders nothing if the only options would be "All" with no
  * real authors to pick.
  *
- * A11y: a labeled segmented control — a `<div role="group">` with an
- * accessible name, options as `<button aria-pressed>` with visible `focus-visible` rings,
- * fully keyboard-operable (native button semantics: Tab to reach, Enter/Space to pick).
+ * A11y: a labeled segmented control — a `<div role="group">` with an accessible name,
+ * options as `<button aria-pressed>` with visible `focus-visible` rings, fully
+ * keyboard-operable (native button semantics: Tab to reach, Enter/Space to pick).
  * No motion (no `m.*`, no rAF) — only static Tailwind color transitions, which the global
  * `prefers-reduced-motion` rule already neutralizes.
  *

@@ -1,6 +1,6 @@
 // Weather + golden-hour for the current trip city.
 //
-// A KEYLESS, no-card, no-signup client for Open-Meteo (free-tools-only: Open-Meteo is
+// A KEYLESS, no-card, no-signup client for Open-Meteo (Open-Meteo is
 // genuinely free forever, requires no API key / card / account — only CC-BY 4.0 attribution).
 // Because there is no secret to protect, the fetch is a plain browser `fetch` DIRECTLY to
 // api.open-meteo.com — NO route handler, NO server. NO npm
@@ -23,8 +23,9 @@ import { weatherCache } from '@/core/storage/gateway';
 
 // ── City → coordinates ──────────────────────────────────────────────────────────────────
 // All 12 trip cities. Every per-day city in `core/dates`' TRIP_CITIES / the sample
-// itinerary has real coordinates, so day-trip days (Nagarkot, Kyoto, Osaka, …) get real
-// weather instead of the graceful `unavailable` fallback. A weather-coords coverage unit test
+// itinerary now has real coordinates, so day-trip days (Nagarkot, Kyoto, Osaka, …) get real
+// weather instead of the graceful `unavailable` fallback. The original two (Kathmandu, Tokyo)
+// are byte-identical to keep the weather net exact. A weather-coords coverage unit test
 // asserts `isKnownWeatherCity` is true for all 12 canonical cities so no trip day loses weather.
 const CITY_COORDS: Record<string, { latitude: number; longitude: number }> = {
   // Nepal
@@ -59,6 +60,21 @@ export interface GoldenWindow {
   end: string; // ISO local datetime
 }
 
+/**
+ * One day of the 7-day outlook. `date` is the Open-Meteo `daily.time[i]` local calendar
+ * date ("YYYY-MM-DD"); index 0 of the source arrays is today. Golden hour is derived the SAME
+ * pure way as today's (`goldenHour`), so photography planning extends naturally into the week.
+ */
+export interface ForecastDay {
+  date: string;
+  highC: number;
+  lowC: number;
+  weatherCode: number;
+  condition: string;
+  goldenMorning: GoldenWindow;
+  goldenEvening: GoldenWindow;
+}
+
 /** The parsed, UI-ready weather snapshot for one city. */
 export interface WeatherNow {
   city: string;
@@ -80,6 +96,12 @@ export interface WeatherNow {
   stale: boolean;
   /** ISO timestamp the value was fetched (for the "last updated" indicator). */
   fetchedAt: string;
+  /**
+   * The 7-day outlook (index 0 = today), parsed from the SAME Open-Meteo response — no
+   * extra fetch. `null` when the daily arrays didn't hold a full row (malformed/short body); the
+   * current-day fields above are still valid on their own in that case.
+   */
+  forecast: ForecastDay[] | null;
 }
 
 /** The result of a weather load: either data (fresh or stale) or a quiet unavailable state. */
@@ -87,7 +109,7 @@ export type WeatherResult =
   | { status: 'ok'; data: WeatherNow }
   | { status: 'unavailable'; city: string };
 
-// ── Pure helpers ────────────────────────────────────────────────────────────────────────
+// ── Pure helpers ─────────────────────────────────────────────────────────────────────────
 
 /**
  * Map an Open-Meteo WMO weather code to a short human label. Codes grouped per the WMO
@@ -166,6 +188,8 @@ function addLocalMinutes(iso: string, minutes: number): string {
 interface OpenMeteoResponse {
   current?: { temperature_2m?: number; weather_code?: number };
   daily?: {
+    /** Open-Meteo always includes the daily calendar dates alongside the requested fields. */
+    time?: string[];
     sunrise?: string[];
     sunset?: string[];
     temperature_2m_max?: number[];
@@ -217,7 +241,66 @@ export function parseOpenMeteo(
     goldenEvening: golden.evening,
     stale: false,
     fetchedAt,
+    // Filled in by `fetchWeather` (same response); a bare `parseOpenMeteo` call (as the
+    // existing unit tests make) has no forecast of its own to attach.
+    forecast: null,
   };
+}
+
+/**
+ * Parse the 7-day outlook out of the SAME Open-Meteo body `parseOpenMeteo` reads (PURE — no
+ * clock/fetch/storage). Reads indices 0..6 of the `daily` arrays (index 0 = today). Returns
+ * `null` if `daily` or any required array is missing/not-an-array/empty, or if any row within
+ * the available range is malformed — total + total-simple: a partially-bad body is never
+ * half-rendered, the caller falls back to cache instead.
+ */
+export function parseForecast(json: OpenMeteoResponse): ForecastDay[] | null {
+  const daily = json.daily;
+  if (!daily) return null;
+  const { time, sunrise, sunset, temperature_2m_max: highs, temperature_2m_min: lows, weather_code: codes } = daily;
+  if (
+    !Array.isArray(time) ||
+    !Array.isArray(sunrise) ||
+    !Array.isArray(sunset) ||
+    !Array.isArray(highs) ||
+    !Array.isArray(lows) ||
+    !Array.isArray(codes)
+  ) {
+    return null;
+  }
+  const length = Math.min(7, time.length, sunrise.length, sunset.length, highs.length, lows.length, codes.length);
+  if (length === 0) return null;
+
+  const days: ForecastDay[] = [];
+  for (let i = 0; i < length; i++) {
+    const date = time[i];
+    const sr = sunrise[i];
+    const ss = sunset[i];
+    const hi = highs[i];
+    const lo = lows[i];
+    const code = codes[i];
+    if (
+      typeof date !== 'string' ||
+      typeof sr !== 'string' ||
+      typeof ss !== 'string' ||
+      typeof hi !== 'number' ||
+      typeof lo !== 'number' ||
+      typeof code !== 'number'
+    ) {
+      return null;
+    }
+    const golden = goldenHour(sr, ss);
+    days.push({
+      date,
+      highC: Math.round(hi),
+      lowC: Math.round(lo),
+      weatherCode: code,
+      condition: weatherCodeToLabel(code),
+      goldenMorning: golden.morning,
+      goldenEvening: golden.evening,
+    });
+  }
+  return days;
 }
 
 // ── The client (impure: fetch + gateway I/O, but TOTAL — never throws) ───────────────────
@@ -233,15 +316,27 @@ function buildUrl(coords: { latitude: number; longitude: number }): string {
     current: 'temperature_2m,weather_code',
     daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code',
     timezone: 'auto',
+    // Explicit (Open-Meteo already defaults to 7) so the 7-day outlook is guaranteed
+    // present in the SAME response the current-day fields already parse — zero extra fetch.
+    forecast_days: '7',
   });
   return `${OPEN_METEO_URL}?${params.toString()}`;
 }
 
-/** Read the cached last-good value for a city (through the gateway), tagged `stale: true`. */
+/** The compound cache key the 7-day outlook is stored under — reuses `weatherCache`'s
+ *  existing get/set surface with a distinct string, so `core/storage/gateway.ts` stays
+ *  untouched and the current-conditions entry under the plain `city` key is unaffected. */
+function forecastCacheKey(city: string): string {
+  return `${city}:forecast`;
+}
+
+/** Read the cached last-good value for a city (through the gateway), tagged `stale: true`,
+ *  with the last cached 7-day outlook (if any) merged back in. */
 function readCache(city: string): WeatherNow | null {
   const cached = weatherCache.get<WeatherNow>(city);
   if (!cached) return null;
-  return { ...cached, stale: true };
+  const forecast = weatherCache.get<ForecastDay[]>(forecastCacheKey(city));
+  return { ...cached, stale: true, forecast: forecast ?? null };
 }
 
 /**
@@ -273,7 +368,11 @@ export async function fetchWeather(
     if (!parsed) throw new Error('Open-Meteo body missing required fields');
     // Write-through the fresh value (persist WITHOUT the stale flag flipped — it is fresh).
     weatherCache.set<WeatherNow>(city, parsed);
-    return { status: 'ok', data: parsed };
+    // The 7-day outlook, parsed from the SAME body (no second fetch), cached under its
+    // own compound key so the current-conditions entry above stays byte-identical to before.
+    const forecast = parseForecast(json);
+    if (forecast) weatherCache.set<ForecastDay[]>(forecastCacheKey(city), forecast);
+    return { status: 'ok', data: { ...parsed, forecast: forecast ?? null } };
   } catch {
     // Any failure → cached last-good (stale), else the quiet unavailable state. Never throws.
     const cached = readCache(city);

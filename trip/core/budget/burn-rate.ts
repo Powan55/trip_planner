@@ -1,5 +1,5 @@
 /**
- * Trip burn-rate + per-day spend bucketing (the CORE).
+ * Trip burn-rate + per-day spend bucketing.
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,
  * no fetch, no clock, no storage. The impurity (reading the clock / resolving `?today=`) stays
@@ -11,18 +11,18 @@
  * `@/core/dates` is a core→core dependency (the SAME date backbone the itinerary + clock use), so
  * the trip window stays configured in ONE place rather than hard-coded here.
  *
- * ── What this consumes (the budget + expenses seams — no reshape) ───────────────────────────
- * The budget model's `rollUp(model, spent)` already returns `totalBudgetHome` / `totalSpentHome`
- * in the home currency; the budget panel computes it live off the reactive `model` + `useExpenses()`.
- * This module's `burnRate(budgetHome, spentHome, now)` takes those two home-currency figures + the
- * clock instant and derives the TIME dimension: how far into the trip we are, the daily average vs the
+ * ── What this consumes (no reshape) ─────────────────────────────────
+ * `rollUp(model, spent)` already returns `totalBudgetHome` / `totalSpentHome` in the home
+ * currency; the budget panel computes it live off the reactive `model` + `useExpenses()`. This
+ * module's `burnRate(budgetHome, spentHome, now)` takes those two home-currency figures + the clock
+ * instant and derives the TIME dimension: how far into the trip we are, the daily average vs the
  * daily budget, the projected end-of-trip total at the current pace, and an under/on/over indicator.
  * `expensesByDate(expenses)` buckets the raw `Expense[]` into leg-local per-day sums for the
  * calendar cost overlay (undated expenses are excluded from the per-day map but still count in the
  * leg/total spend that `rollUp` reports — the two views agree on the total, differ only on "which
  * day").
  *
- * ── daysElapsed derivation (the judgment call) ──────────────────────────────────────────────
+ * ── daysElapsed derivation ─────────────────────────────
  * `daysElapsed` is an INCLUSIVE calendar-day count from the trip's first day up to and including the
  * day `now` falls on, clamped to `[0, daysTotal]`:
  *   - strictly before the trip (now < the first trip day)      → 0   (the trip hasn't started)

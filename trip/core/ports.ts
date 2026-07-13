@@ -5,7 +5,7 @@
  * supplies the actual I/O (URL / web-storage / real clock). Core never imports React,
  * Next, `window`, or `date-fns`-of-the-app — only these contracts.
  *
- * ── ClockPort ───────────────────────────────────────────────────────────────
+ * ── ClockPort ─────────────────────────────────────────────────────────
  * The single "what instant is it, right now" boundary. `core/clock` decomposition
  * (`computeCountdown`) and `core/dates` day-math are PURE — they take a `now: Date` and
  * never read a clock. The impurity (reading the real clock AND resolving the `?today=`
@@ -25,7 +25,7 @@ export interface ClockPort {
 }
 
 /**
- * ── StoragePort<T> ───────────────────────────────────────────────────────────
+ * ── StoragePort<T> ─────────────────────────────────────────────────────
  * The single "read/write the persisted domain value" boundary. `core/itinerary` states
  * WHAT it needs (load the freshest persisted value, save a value, ask whether anything was
  * ever persisted) as this plain-TS contract; the framework layer supplies the actual I/O.
@@ -50,14 +50,14 @@ export interface StoragePort<T> {
 }
 
 /**
- * ── SyncPort<T> ──────────────────────────────────────────────────────────────
+ * ── SyncPort<T> ──────────────────────────────────────
  * The remote-sync boundary. Two directions, both per-day-DELTA-shaped to match the
- * Firestore-compatible per-day granularity:
+ * Firestore/Spark-compatible per-day granularity:
  *
  *   push(prev, next)  — local→remote fan-out, invoked ONLY from the store's single
  *                       `commit()` choke-point AFTER the local `save()`. Diffs
  *                       `prev`→`next` per day; for each changed day it performs the
- *                       merge-aware write. No-op when not
+ *                       merge-aware write (Sync v2). No-op when not
  *                       configured. Never throws (degrades local-only).
  *   subscribe(onApplied) — remote→local read direction. Opens the long-lived Firestore
  *                       `onSnapshot`; on each snapshot it MERGES incoming remote days
@@ -67,7 +67,8 @@ export interface StoragePort<T> {
  *                       an unsubscribe fn; a no-op unsub when not configured.
  *   isConfigured()    — the dormant/config gate surfaced through the port.
  *
- * The remote→local direction is first-class on the port so the whole sync surface is ONE
+ * The remote→local direction was previously an out-of-band `subscribeRemote` the provider
+ * called directly; it is now first-class on the port so the whole sync surface is ONE
  * contract. The provider still owns WHEN it subscribes (mount + identity gates) — the port
  * just exposes the operation.
  *

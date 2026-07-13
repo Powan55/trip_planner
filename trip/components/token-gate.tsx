@@ -1,28 +1,44 @@
 'use client';
 
 import { useState, useEffect, useRef, useId } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { m, AnimatePresence } from 'framer-motion';
-import { Plane, Lock, ArrowRight, AlertCircle, Check } from 'lucide-react';
-import { signIn, getActiveTraveler, IDENTITY_CHANGED_EVENT, type Traveler } from '@/lib/token-auth';
+import { Plane, Lock, ArrowRight, ArrowLeft, AlertCircle, Check } from 'lucide-react';
+import { signIn, IDENTITY_CHANGED_EVENT, type Traveler } from '@/lib/token-auth';
 import { sessionGate } from '@/core/storage/gateway';
+import { useActiveTraveler } from '@/hooks/use-active-traveler';
+import { isRouteActive } from '@/lib/nav-items';
 import { TRIP_START } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 
 /**
- * Trip Token landing gate — the app's cinematic
- * "front door." A full-screen WALL that gates the whole app: a traveler enters their
- * Trip Token (Powan / Sushil / Uttam) to sign in, OR clicks "Explore as guest" to
- * browse local-only. Once a token resolves, `signIn` persists the display name via the
- * existing identity pipeline (lib/token-auth → lib/identity), so attribution
- * (createdBy / updatedBy, "last edited by X") needs ZERO changes downstream.
+ * Trip Token landing gate — the app's cinematic "front door." A full-screen WALL
+ * that gates the whole app: a traveler enters their Trip Token (Powan / Sushil /
+ * Uttam) to sign in, OR clicks "Explore as guest" to browse local-only. Once a
+ * token resolves, `signIn` persists the display name via the existing identity
+ * pipeline (lib/token-auth → lib/identity), so attribution (createdBy / updatedBy,
+ * "last edited by X") needs ZERO changes downstream.
  *
- * ALWAYS-ON: unlike name-prompt, this shows in EVERY build (dormant or synced)
- * — it is a client-only product feature, not a sync prompt. The guest bypass keeps the
+ * TWO MODES — ONE component, ONE mount, mode derived here from
+ * `useActiveTraveler()` + `usePathname()`:
+ *  - 'front-door' (`!traveler && !isGuest`): today's behavior — copy + "Explore as guest".
+ *  - 'guest-route' (`traveler === null && isGuest && !isRouteActive(pathname,'/')`): a
+ *    guest is confined to Home; on ANY other route the same wall appears with guest-route
+ *    copy and a "Back to Home" escape. Default-deny by pathname — zero per-route work,
+ *    no new persisted key (the decision is derived, never stored). The panel/form/a11y
+ *    below are shared VERBATIM; only the desc copy + the secondary control differ.
+ * Two invariants: a guest-route sign-in ALSO clears the guest flag (token + guest must
+ * never coexist, else a later sign-out lands in guest mode not the front door); and a
+ * front-door "Explore as guest" on a non-Home path also navigates Home (else it would
+ * instantly re-trigger guest-route — a dead end).
+ *
+ * ALWAYS-ON: unlike name-prompt, this shows in EVERY build (dormant or synced) —
+ * it is a client-only product feature, not a sync prompt. The guest bypass keeps the
  * public/portfolio demo viewable. It is DORMANT-SAFE: it imports ONLY pure modules
  * (token-auth + identity + trip-data + countdown) and NEVER firebase, so the dormant
  * bundle loads no Firebase chunk.
  *
- * A11y reuses the modal contract from name-prompt VERBATIM:
+ * A11y reuses the same modal contract as name-prompt VERBATIM:
  *  - role="dialog" aria-modal aria-labelledby aria-describedby
  *  - document-level Esc via an onCloseRef (latest-closure, bound once)
  *  - a lightweight Tab-trap inside the panel
@@ -37,21 +53,17 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
  * Motion uses the lightweight `m.*` only (LazyMotion `strict` — `motion.*` throws);
  * reduced-motion is honored via <MotionConfig reducedMotion="user"> (declarative
  * framer auto-gates) plus the global reduced-motion CSS for the backdrop shimmer
- * (.bg-aurora/.animate-aurora are already neutralized there). Tailwind
- * classes are static literals; the card is sized to never overflow @360/390/414.
- * Countdown reuses the shared pure helper vs TRIP_START (Dec 9 2026).
+ * (.bg-aurora/.animate-aurora are already neutralized there). Tailwind classes are
+ * static literals; the card is sized to never overflow small phone widths. Countdown
+ * reuses the shared pure helper vs TRIP_START (Dec 9 2026).
  */
 
-// The `tripPlannerGuest` key + raw localStorage access live in the
-// typed storage gateway (`core/storage/gateway.ts`). `isGuest` / `setGuest` here delegate
-// to `sessionGate` (SSR-safe, never-throw, `'1'` presence-flag unchanged); the guest OPT-IN
-// still fires identity:changed so the navbar affordance updates live — that reactive
-// dispatch is app logic, NOT storage, so it stays here.
-
-/** Has the user opted into guest (local-only) browsing this/previous session? */
-function isGuest(): boolean {
-  return sessionGate.isGuest();
-}
+// The `tripPlannerGuest` key + raw localStorage access live in the typed storage
+// gateway (`core/storage/gateway.ts`). `setGuest`/`clearGuest` here delegate to
+// `sessionGate` (SSR-safe, never-throw, `'1'` presence-flag unchanged); the guest
+// read flows through `useActiveTraveler()`. The guest OPT-IN still fires
+// identity:changed so the navbar affordance updates live — that reactive dispatch is
+// app logic, NOT storage, so it stays here.
 
 /** Persist the guest choice so a reload does NOT re-show the wall (documented design). */
 function setGuest(): void {
@@ -64,53 +76,43 @@ function setGuest(): void {
   }
 }
 
+type GateMode = 'front-door' | 'guest-route';
+
 export default function TokenGate() {
-  // `false` until we've decided on the client whether to show the wall (SSR-safe:
-  // getActiveTraveler / isGuest both read window). Decide once on mount.
-  const [open, setOpen] = useState(false);
-  const [decided, setDecided] = useState(false);
+  // Reactive identity + pathname drive the mode. `useActiveTraveler` re-reads on
+  // `identity:changed` / `storage`; `usePathname` re-reads on navigation — so sign-in,
+  // guest opt-in, sign-out, and every route change re-evaluate LIVE without a manual
+  // listener or a reload. Both are firebase-free (dormant-safe).
+  const { traveler, isGuest } = useActiveTraveler();
+  const pathname = usePathname();
 
-  useEffect(() => {
-    // Show the wall when there is NO active traveler AND the user is not a guest.
-    // A returning signed-in traveler (token persisted) or a returning guest skips it.
-    if (!getActiveTraveler() && !isGuest()) {
-      setOpen(true);
-    }
-    setDecided(true);
-  }, []);
+  // SSR-safe first paint: `useActiveTraveler` yields the inert `{null,false}` snapshot on
+  // the server and the first client render, which would spuriously satisfy 'front-door'
+  // for EVERYONE for one frame. Gate on a post-mount flag so the wall never flashes for a
+  // signed-in/guest user before storage is read.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  // Reactive re-show: when identity changes — sign-out clears the
-  // token, or the navbar's "Guest · Sign in" clears the guest flag — re-evaluate and
-  // re-OPEN the wall without a reload. We only ever re-open here; closing on a successful
-  // sign-in stays owned by the wall's own accent-flash dissolve (handleSubmit → onClose),
-  // so that cinematic exit is never cut short. (Signing in is the only path that closes.)
-  useEffect(() => {
-    const onIdentityChanged = () => {
-      if (!getActiveTraveler() && !isGuest()) setOpen(true);
-    };
-    window.addEventListener(IDENTITY_CHANGED_EVENT, onIdentityChanged);
-    return () => window.removeEventListener(IDENTITY_CHANGED_EVENT, onIdentityChanged);
-  }, []);
+  let mode: GateMode | null = null;
+  if (mounted) {
+    if (!traveler && !isGuest) mode = 'front-door';
+    else if (traveler === null && isGuest && !isRouteActive(pathname, '/')) mode = 'guest-route';
+  }
 
-  const close = () => setOpen(false);
-
-  // Nothing to render before we've decided, or once signed-in / guest (wall dismissed).
-  if (!decided) return null;
-
+  // The wall dissolves purely by mode → null: a valid token sets `traveler` (both modes),
+  // "Explore as guest" sets `isGuest` (+ navigates Home so guest-route never re-triggers),
+  // "Back to Home" changes the pathname. Each drops `mode` to null and AnimatePresence
+  // plays the exit — the accent-flash `unlocked` state rides through that exit frame.
   return (
     <AnimatePresence>
-      {open && <TokenGateWall onClose={close} onGuest={() => { setGuest(); close(); }} />}
+      {mode && <TokenGateWall key={mode} mode={mode} />}
     </AnimatePresence>
   );
 }
 
-function TokenGateWall({
-  onClose,
-  onGuest,
-}: {
-  onClose: () => void;
-  onGuest: () => void;
-}) {
+function TokenGateWall({ mode }: { mode: GateMode }) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [value, setValue] = useState('');
   const [error, setError] = useState(false);
   // The resolved traveler drives a brief accent-flash micro-animation before dissolve.
@@ -126,7 +128,7 @@ function TokenGateWall({
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Focus the token input on open; re-assert shortly after in case the open animation
-  // steals focus (the backstop), but only if focus isn't already in the panel.
+  // steals focus, but only if focus isn't already in the panel.
   useEffect(() => {
     const timer = setTimeout(() => {
       const panel = panelRef.current;
@@ -186,11 +188,28 @@ function TokenGateWall({
       inputRef.current?.focus();
       return;
     }
+    // INVARIANT (a): a guest-route sign-in must ALSO clear the guest flag so a token
+    // and the guest flag never coexist — otherwise a later signOut() would drop the
+    // traveler into guest mode instead of the front door. `signIn` already persisted the
+    // token + emitted identity:changed above; clearing here (after a confirmed valid token,
+    // never on an invalid one) leaves storage consistent before the parent re-derives mode.
+    if (mode === 'guest-route') sessionGate.clearGuest();
     setError(false);
-    // Brief accent-flash, then dissolve the wall (AnimatePresence exit on parent).
+    // Accent-flash, then the wall dissolves: `signIn` set `traveler` (and cleared guest),
+    // so the parent's derived mode drops to null and AnimatePresence plays the exit with
+    // this `unlocked` state still committed (the "Welcome, {name}" glow rides the fade out).
     setUnlocked(traveler);
-    window.setTimeout(onClose, 850);
   };
+
+  // Secondary actions differ by mode (copy/behavior below); both keep the wall otherwise
+  // non-dismissible (no overlay-click, no X, Esc captured-but-inert).
+  const handleGuest = () => {
+    setGuest(); // sessionGate.setGuest() + identity:changed (navbar affordance updates live)
+    // INVARIANT (b): opting into guest from a NON-Home path must also navigate Home,
+    // else the wall would instantly re-trigger in guest-route mode (a dead end).
+    if (!isRouteActive(pathname, '/')) router.push('/');
+  };
+  const handleBackHome = () => router.push('/'); // guest flag untouched; pathname → '/' dissolves the wall
 
   return (
     <m.div
@@ -253,8 +272,17 @@ function TokenGateWall({
         </div>
 
         <p id={descId} className="text-sm text-white/55 mb-4 leading-relaxed">
-          Enter your trip token to sign in and have your edits attributed to you — or
-          explore as a guest for local-only browsing.
+          {mode === 'guest-route' ? (
+            <>
+              This page is for the travelers. Enter your Trip Token to unlock the full
+              itinerary, or head back to the home screen.
+            </>
+          ) : (
+            <>
+              Enter your trip token to sign in and have your edits attributed to you — or
+              explore as a guest for local-only browsing.
+            </>
+          )}
         </p>
 
         <form onSubmit={handleSubmit}>
@@ -315,17 +343,34 @@ function TokenGateWall({
           </button>
         </form>
 
-        {/* Quiet secondary: explore as guest (local-only). Reachable by keyboard. */}
-        <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={onGuest}
-            disabled={!!unlocked}
-            className="text-xs text-white/45 hover:text-white/70 underline underline-offset-4 decoration-white/20 hover:decoration-white/40 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded disabled:opacity-50"
-          >
-            Explore as guest
-          </button>
-        </div>
+        {/* Secondary control — differs by mode. */}
+        {mode === 'guest-route' ? (
+          // "Back to Home": the guest's escape hatch. A REAL focusable control ≥44px
+          // (a11y floor) — full-width ghost button, not a quiet text link.
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={handleBackHome}
+              disabled={!!unlocked}
+              className="w-full flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white/70 font-medium hover:bg-white/10 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none disabled:opacity-50"
+            >
+              <ArrowLeft className="w-4 h-4" aria-hidden="true" />
+              Back to Home
+            </button>
+          </div>
+        ) : (
+          // Quiet secondary: explore as guest (local-only). Reachable by keyboard.
+          <div className="mt-4 text-center">
+            <button
+              type="button"
+              onClick={handleGuest}
+              disabled={!!unlocked}
+              className="text-xs text-white/45 hover:text-white/70 underline underline-offset-4 decoration-white/20 hover:decoration-white/40 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded disabled:opacity-50"
+            >
+              Explore as guest
+            </button>
+          </div>
+        )}
       </m.div>
     </m.div>
   );

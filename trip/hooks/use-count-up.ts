@@ -11,14 +11,14 @@ import { useReducedMotion } from 'framer-motion';
  * — `target` is passed in, and the returned `value` is just an eased fraction of
  * it during a single reveal, then the exact `target` forever after.
  *
- * Reduced-motion (HARD FENCE):
+ * Reduced-motion (hard requirement):
  *   A hand-rolled requestAnimationFrame count-up is NOT auto-neutralized by
  *   `<MotionConfig reducedMotion="user">` (that only gates declarative framer
  *   props). So we read `useReducedMotion()` explicitly: when the user prefers
  *   reduced motion we SKIP the rAF loop entirely and report the final value
  *   immediately, with `done: true`. No animation, no count-up.
  *
- * The live tick (used by the hero countdown):
+ * The live-tick handoff (used by the hero countdown):
  *   The eased fraction is multiplied by the *current* `target` each frame, so a
  *   caller whose `target` ticks every second (the live seconds) stays tracked:
  *   at the final frame `progress === 1` ⇒ `eased === 1` ⇒ `value === target`

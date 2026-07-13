@@ -1,6 +1,5 @@
 import { DM_Sans, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
 import type { Viewport } from 'next'
-import dynamic from 'next/dynamic'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
 import { ItineraryProvider } from '@/components/itinerary-provider'
@@ -9,24 +8,20 @@ import { ChunkLoadErrorHandler } from '@/components/chunk-load-error-handler'
 import CommandPalette from '@/components/command-palette'
 import RouteAccentEngine from '@/components/route-accent-engine'
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
+import { OfflineBanner } from '@/components/offline-banner'
 import { withBasePath } from '@/lib/utils'
-
-// The Navbar + Footer are app-wide chrome now — they live in the
-// root layout so all five routes share ONE persistent instance (client-side
-// route transitions keep layout state; no remount, no re-animation). Same
-// `dynamic({ssr:false})` island pattern the pages use.
-const Navbar = dynamic(() => import('@/components/navbar'), { ssr: false })
-const Footer = dynamic(() => import('@/components/footer'), { ssr: false })
-
-// Mobile bottom tab bar + quick-add FAB
-// and the global `quickadd:open` host — mounted inside ItineraryProvider so
-// they share the store and sit under the token gate (z-70).
-const BottomTabBar = dynamic(() => import('@/components/bottom-tab-bar'), { ssr: false })
-const QuickAddFab = dynamic(() => import('@/components/quick-add-fab'), { ssr: false })
-const QuickAddHost = dynamic(() => import('@/components/quick-add-host'), { ssr: false })
-// The global fast expense-log host — its OWN `expense:open` event +
-// dialog, PARALLEL to QuickAddHost (the itinerary FAB is left single-purpose).
-const ExpenseLogHost = dynamic(() => import('@/components/expense-log-host'), { ssr: false })
+// The app-wide chrome islands (Navbar, Footer, mobile tab bar,
+// quick-add FAB + host, expense-log host). Declared in a `'use client'` module
+// because Next 15 forbids `dynamic({ssr:false})` in this Server Component layout
+// (it exports metadata/viewport). See chrome-islands.tsx for the same island pattern.
+import {
+  Navbar,
+  Footer,
+  BottomTabBar,
+  QuickAddFab,
+  QuickAddHost,
+  ExpenseLogHost,
+} from './chrome-islands'
 
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-sans' })
 const jakartaSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-display' })
@@ -40,7 +35,7 @@ export const metadata = {
     icon: withBasePath('/favicon.svg'),
     shortcut: withBasePath('/favicon.svg'),
   },
-  // Manifest is emitted at build time by scripts/gen-sw.mjs
+  // manifest is emitted at build time by scripts/gen-sw.mjs
   // (single basePath prefix source), so withBasePath here matches its start_url.
   manifest: withBasePath('/manifest.webmanifest'),
   appleWebApp: {
@@ -111,7 +106,7 @@ export default function RootLayout({
             {/* The expense-log dialog host (its own event/dialog, beside QuickAddHost). */}
             <ExpenseLogHost />
           </ItineraryProvider>
-          {/* ⌘K / Ctrl+K command palette (route-aware). Mounted once
+          {/* Cmd+K / Ctrl+K command palette, route-aware. Mounted once
               at the app root so the shortcut works from anywhere. */}
           <CommandPalette />
           {/* Route-driven warm/cool accent engine. Renders null;
@@ -123,6 +118,10 @@ export default function RootLayout({
           {/* Registers /sw.js in production only; drives the
               toast-based update flow (no silent refresh). Renders null. */}
           <ServiceWorkerRegistrar />
+          {/* App-wide navigator.onLine banner. Renders nothing while online
+              (incl. server/first paint — no SSR mismatch); appears on every route
+              the instant connectivity drops. */}
+          <OfflineBanner />
         </ThemeProvider>
       </body>
     </html>

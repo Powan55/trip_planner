@@ -3,371 +3,408 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    /* ---- Core surfaces (dark-only) ----
-       v2 "Alpine Nocturne": a marginally DEEPER, richer navy night field
-       with the card surface lifted a touch further off the background so the new
-       glass elevation ramp reads. Brand hue (navy ~220) preserved. */
-    --background: 222 41% 5%;
-    --foreground: 210 40% 98%;
-    --card: 221 33% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 221 33% 10%;
-    --popover-foreground: 210 40% 98%;
-    /* Gold primary, nudged a hair warmer/brighter for a premium metallic feel
-       (43->44 hue, +2% sat, +1% light). Still unmistakably the brand gold. */
-    --primary: 44 80% 61%;
-    --primary-foreground: 222 36% 6%;
-    --secondary: 220 24% 16%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 220 24% 14%;
-    --muted-foreground: 214 20% 68%;
-    /* shadcn interactive-fill accent (menus/toggles/selected) — UNCHANGED hue
-       (sakura). This is the Radix/shadcn "accent" surface token; the scroll
-       warm/cool engine uses the separate --accent-scroll var below so we don't
-       recolor interactive chrome (see note below). The accent stays 340 60% 65%. */
-    --accent: 340 60% 65%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    /* Borders/inputs: crisper luminous hairline against the deeper bg + glass. */
-    --border: 220 26% 24%;
-    --input: 220 26% 24%;
-    --ring: 44 80% 61%;
-    --radius: 0.75rem;
-    --radius-sm: 0.5rem;
-    --radius-lg: 1rem;
-    /* v2 larger radii for panels/heroes (additive keys — do not touch --radius). */
-    --radius-xl: 1.25rem;      /* panels, heroes */
-    --radius-2xl: 1.75rem;     /* full-bleed hero cards */
+ :root {
+ /* ---- Core surfaces (dark-only) ----
+ "Alpine Nocturne": a marginally DEEPER, richer navy night field
+ with the card surface lifted a touch further off the background so the new
+ glass elevation ramp reads. Brand hue (navy ~220) preserved. Values per
+ docs/. */
+ --background: 222 41% 5%;
+ --foreground: 210 40% 98%;
+ --card: 221 33% 10%;
+ --card-foreground: 210 40% 98%;
+ --popover: 221 33% 10%;
+ --popover-foreground: 210 40% 98%;
+ /* Gold primary, nudged a hair warmer/brighter for a premium metallic feel
+ (43->44 hue, +2% sat, +1% light). Still unmistakably the brand gold. */
+ --primary: 44 80% 61%;
+ --primary-foreground: 222 36% 6%;
+ --secondary: 220 24% 16%;
+ --secondary-foreground: 210 40% 98%;
+ --muted: 220 24% 14%;
+ --muted-foreground: 214 20% 68%;
+ /* shadcn interactive-fill accent (menus/toggles/selected) — UNCHANGED hue
+ (sakura). This is the Radix/shadcn "accent" surface token; the scroll
+ warm/cool engine uses the separate --accent-scroll var below so we don't
+ recolor interactive chrome; this stays 340 60% 65%. */
+ --accent: 340 60% 65%;
+ --accent-foreground: 210 40% 98%;
+ --destructive: 0 84% 60%;
+ --destructive-foreground: 210 40% 98%;
+ /* Borders/inputs: crisper luminous hairline against the deeper bg + glass. */
+ --border: 220 26% 24%;
+ --input: 220 26% 24%;
+ --ring: 44 80% 61%;
+ --radius: 0.75rem;
+ --radius-sm: 0.5rem;
+ --radius-lg: 1rem;
+ /* larger radii for panels/heroes (additive keys — do not touch --radius). */
+ --radius-xl: 1.25rem; /* panels, heroes */
+ --radius-2xl: 1.75rem; /* full-bleed hero cards */
 
-    /* ---- Brand accent channels (HSL triplets, for hsl()/rgba() reuse) ---- */
-    --gold: 44 80% 61%;
-    --sakura: 344 80% 78%;     /* Japan accent */
-    --himalaya: 22 100% 63%;   /* Nepal accent */
+ /* ---- Brand accent channels (HSL triplets, for hsl()/rgba() reuse) ---- */
+ --gold: 44 80% 61%;
+ --sakura: 344 80% 78%; /* Japan accent */
+ --himalaya: 22 100% 63%; /* Nepal accent */
 
-    /* ---- semantic accent tokens ----
-       --accent-scroll: the SINGLE scroll-driven accent. Defaults to gold; the accent engine
-       animates it himalaya<->sakura by scroll position. Consumers reference this
-       var only, so the warm/cool engine has one hook. --accent-scroll-rgb mirrors
-       it as an "r, g, b" list for rgba(var(--accent-scroll-rgb) / a) usage. */
-    --accent-scroll: 44 80% 61%;
-    --accent-scroll-rgb: 240, 199, 96;
+ /* ---- semantic tokens ----
+ --accent-scroll: the SINGLE scroll-driven accent. Defaults to gold;
+ animates it himalaya<->sakura by scroll position. Consumers reference this
+ var only, so the warm/cool engine has one hook. --accent-scroll-rgb mirrors
+ it as an "r, g, b" list for rgba(var(--accent-scroll-rgb) / a) usage. */
+ --accent-scroll: 44 80% 61%;
+ --accent-scroll-rgb: 240, 199, 96;
 
-    /* v2 aurora backdrop gradient (warm gold -> sakura -> himalaya -> cool navy).
-       Enriched with a 4th cool stop + slightly higher opacities for more ambient
-       presence; still decorative/subtle. Feeds .bg-aurora + Tailwind bg-aurora. */
-    --gradient-aurora:
-      radial-gradient(58% 52% at 16% 10%, hsl(44 80% 61% / 0.16) 0%, transparent 60%),
-      radial-gradient(48% 44% at 84% 16%, hsl(344 80% 78% / 0.14) 0%, transparent 62%),
-      radial-gradient(52% 48% at 78% 88%, hsl(22 100% 63% / 0.12) 0%, transparent 65%),
-      radial-gradient(40% 40% at 50% 50%, hsl(220 60% 30% / 0.10) 0%, transparent 70%),
-      linear-gradient(180deg, hsl(222 42% 4%) 0%, hsl(221 36% 7%) 100%);
+ /* aurora backdrop gradient (warm gold -> sakura -> himalaya -> cool navy).
+ Enriched with a 4th cool stop + slightly higher opacities for more ambient
+ presence; still decorative/subtle. Feeds .bg-aurora + Tailwind bg-aurora.
+ Per docs/. */
+ --gradient-aurora:
+ radial-gradient(58% 52% at 16% 10%, hsl(44 80% 61% / 0.16) 0%, transparent 60%),
+ radial-gradient(48% 44% at 84% 16%, hsl(344 80% 78% / 0.14) 0%, transparent 62%),
+ radial-gradient(52% 48% at 78% 88%, hsl(22 100% 63% / 0.12) 0%, transparent 65%),
+ radial-gradient(40% 40% at 50% 50%, hsl(220 60% 30% / 0.10) 0%, transparent 70%),
+ linear-gradient(180deg, hsl(222 42% 4%) 0%, hsl(221 36% 7%) 100%);
 
-    /* Film grain — inline SVG feTurbulence noise (no dependency, no extra request).
-       Applied app-wide via body::after at low opacity/overlay for premium texture. */
-    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+ /* Film grain — inline SVG feTurbulence noise (no dependency, no extra request).
+ Applied app-wide via body::after at low opacity/overlay for premium texture. */
+ --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
 
-    /* ---- Elevation tiers (deeper, layered shadows for premium depth) ---- */
-    --shadow-sm: 0 1px 2px rgba(3, 6, 18, 0.40);
-    --shadow-md: 0 6px 18px -4px rgba(3, 6, 18, 0.50), 0 2px 6px -2px rgba(3, 6, 18, 0.35);
-    --shadow-lg: 0 16px 40px -8px rgba(3, 6, 18, 0.58), 0 4px 12px -4px rgba(3, 6, 18, 0.40);
-    --shadow-xl: 0 28px 64px -12px rgba(3, 6, 18, 0.66), 0 8px 20px -6px rgba(3, 6, 18, 0.45);
-    /* v2: deepest elevation ramp for hero/panel surfaces (additive key). */
-    --shadow-2xl: 0 40px 90px -20px rgba(2, 5, 16, 0.72), 0 12px 30px -10px rgba(2, 5, 16, 0.55);
-    /* Glow keyed to the scroll accent so it warms/cools with the page,
-       nudged a touch richer in v2 (still sized within prior glow footprint). */
-    --shadow-glow: 0 0 0 1px hsl(var(--accent-scroll) / 0.22), 0 0 34px hsl(var(--accent-scroll) / 0.26);
+ /* ---- Elevation tiers (deeper, layered shadows for premium depth) ---- */
+ --shadow-sm: 0 1px 2px rgba(3, 6, 18, 0.40);
+ --shadow-md: 0 6px 18px -4px rgba(3, 6, 18, 0.50), 0 2px 6px -2px rgba(3, 6, 18, 0.35);
+ --shadow-lg: 0 16px 40px -8px rgba(3, 6, 18, 0.58), 0 4px 12px -4px rgba(3, 6, 18, 0.40);
+ --shadow-xl: 0 28px 64px -12px rgba(3, 6, 18, 0.66), 0 8px 20px -6px rgba(3, 6, 18, 0.45);
+ /* : deepest elevation ramp for hero/panel surfaces (additive key). */
+ --shadow-2xl: 0 40px 90px -20px rgba(2, 5, 16, 0.72), 0 12px 30px -10px rgba(2, 5, 16, 0.55);
+ /* Glow keyed to the scroll accent so it warms/cools with the page,
+ nudged a touch richer in (still sized within prior glow footprint). */
+ --shadow-glow: 0 0 0 1px hsl(var(--accent-scroll) / 0.22), 0 0 34px hsl(var(--accent-scroll) / 0.26);
 
-    --duration-fast: 150ms;
-    --duration-normal: 250ms;
-    --duration-slow: 350ms;
-    /* v2 editorial reveal duration (anti-pattern: fast/cheap). */
-    --duration-slower: 500ms;
+ --duration-fast: 150ms;
+ --duration-normal: 250ms;
+ --duration-slow: 350ms;
+ /* editorial reveal duration (anti-pattern: fast/cheap). */
+ --duration-slower: 500ms;
 
-    /* ---- v2 motion vocabulary (spring; reduced-motion aware) ----
-       Consumed by the keyframe utilities and hero/skeleton/transition
-       components. */
-    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* gentle overshoot */
-    --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);    /* expo-ish settle */
-  }
+ /* ---- motion vocabulary (spring; reduced-motion aware) ----
+ Consumed by keyframe utilities and hero/skeleton/transition
+ components. Per docs/. */
+ --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* gentle overshoot */
+ --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1); /* expo-ish settle */
+ }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-    /* Establish a stacking context so the fixed z-index:-1 ambient layers below
-       sit behind content but in front of the page canvas. */
-    position: relative;
-  }
-  /* ---- v2 app-wide ambient depth (aurora + grain) ----
-     Two fixed, non-interactive, negative-z decorative layers. They paint the
-     backdrop only: NO layout box is added (fixed + inset:0 + pointer-events:none),
-     so 0-overflow @360/390/414 holds.
-     The static aurora here is distinct from the opt-in .animate-aurora drift. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: var(--gradient-aurora);
-  }
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background-image: var(--grain);
-    background-size: 140px 140px;
-    opacity: 0.035;
-    mix-blend-mode: overlay;
-  }
+ * {
+ @apply border-border;
+ }
+ body {
+ @apply bg-background text-foreground;
+ /* Establish a stacking context so the fixed z-index:-1 ambient layers below
+ sit behind content but in front of the page canvas. */
+ position: relative;
+ }
+ /* ---- app-wide ambient depth (aurora + grain) ----
+ Two fixed, non-interactive, negative-z decorative layers. They paint the
+ backdrop only: NO layout box is added (fixed + inset:0 + pointer-events:none),
+ so 0-overflow @360/390/414 holds. Per docs/.
+ The static aurora here is distinct from the opt-in .animate-aurora drift. */
+ body::before {
+ content: "";
+ position: fixed;
+ inset: 0;
+ z-index: -1;
+ pointer-events: none;
+ background: var(--gradient-aurora);
+ }
+ body::after {
+ content: "";
+ position: fixed;
+ inset: 0;
+ z-index: -1;
+ pointer-events: none;
+ background-image: var(--grain);
+ background-size: 140px 140px;
+ opacity: 0.035;
+ mix-blend-mode: overlay;
+ }
 }
 
 [data-hydration-error] {
-  display: none !important;
+ display: none !important;
 }
 
 html {
-  scroll-behavior: smooth;
+ scroll-behavior: smooth;
 }
 
-/* ---- Glass hierarchy (v2 "liquid glass" — the main token-level upgrade) ----
-   A three-tier translucent surface system. Each surface gets a richer multi-stop
-   navy/tint fill, a GRADIENT HAIRLINE EDGE, a stronger inner top-highlight, and
-   layered drop shadow.
+/* ---- Glass hierarchy ("liquid glass" — the main token-level upgrade) ----
+ A three-tier translucent surface system. Each surface gets a richer multi-stop
+ navy/tint fill, a GRADIENT HAIRLINE EDGE, a stronger inner top-highlight, and
+ layered drop shadow.
 
-   Gradient-edge technique (no extra element, no layout box, so 0-overflow @360/
-   390/414 holds): a transparent 1px border is painted by TWO stacked
-   backgrounds — the fill clipped to `padding-box` and the edge gradient clipped
-   to `border-box`. Insets in `box-shadow` also add no layout box. Brand tint per
-   surface is preserved (gold / white / himalaya / sakura). */
+ Gradient-edge technique (no extra element, no layout box, so 0-overflow @360/
+ 390/414 holds —): a transparent 1px border is painted by TWO stacked
+ backgrounds — the fill clipped to `padding-box` and the edge gradient clipped
+ to `border-box`. Insets in `box-shadow` also add no layout box. Brand tint per
+ surface is preserved (gold / white / himalaya / sakura). Per. */
 .glass-card {
-  background:
-    linear-gradient(180deg, rgba(28, 36, 84, 0.66) 0%, rgba(16, 21, 60, 0.60) 100%) padding-box,
-    linear-gradient(150deg, rgba(240, 199, 96, 0.22) 0%, rgba(255, 255, 255, 0.06) 55%, rgba(240, 199, 96, 0.05) 100%) border-box;
-  border: 1px solid transparent;
-  backdrop-filter: blur(20px) saturate(130%);
-  -webkit-backdrop-filter: blur(20px) saturate(130%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-    var(--shadow-lg);
+ background:
+ linear-gradient(180deg, rgba(28, 36, 84, 0.66) 0%, rgba(16, 21, 60, 0.60) 100%) padding-box,
+ linear-gradient(150deg, rgba(240, 199, 96, 0.22) 0%, rgba(255, 255, 255, 0.06) 55%, rgba(240, 199, 96, 0.05) 100%) border-box;
+ border: 1px solid transparent;
+ backdrop-filter: blur(20px) saturate(130%);
+ -webkit-backdrop-filter: blur(20px) saturate(130%);
+ box-shadow:
+ inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+ var(--shadow-lg);
 }
 
 .glass-card-dark {
-  background:
-    linear-gradient(180deg, rgba(13, 18, 48, 0.88) 0%, rgba(9, 13, 36, 0.86) 100%) padding-box,
-    linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 55%, rgba(255, 255, 255, 0.02) 100%) border-box;
-  border: 1px solid transparent;
-  backdrop-filter: blur(24px) saturate(130%);
-  -webkit-backdrop-filter: blur(24px) saturate(130%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
-    var(--shadow-xl);
+ background:
+ linear-gradient(180deg, rgba(13, 18, 48, 0.88) 0%, rgba(9, 13, 36, 0.86) 100%) padding-box,
+ linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 55%, rgba(255, 255, 255, 0.02) 100%) border-box;
+ border: 1px solid transparent;
+ backdrop-filter: blur(24px) saturate(130%);
+ -webkit-backdrop-filter: blur(24px) saturate(130%);
+ box-shadow:
+ inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
+ var(--shadow-xl);
 }
 
 .glass-nepal {
-  background:
-    linear-gradient(180deg, rgba(255, 140, 66, 0.12) 0%, rgba(230, 118, 53, 0.06) 100%) padding-box,
-    linear-gradient(150deg, rgba(255, 140, 66, 0.34) 0%, rgba(255, 200, 160, 0.10) 55%, rgba(255, 140, 66, 0.08) 100%) border-box;
-  border: 1px solid transparent;
-  backdrop-filter: blur(16px) saturate(125%);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 210, 175, 0.10),
-    var(--shadow-lg);
+ background:
+ linear-gradient(180deg, rgba(255, 140, 66, 0.12) 0%, rgba(230, 118, 53, 0.06) 100%) padding-box,
+ linear-gradient(150deg, rgba(255, 140, 66, 0.34) 0%, rgba(255, 200, 160, 0.10) 55%, rgba(255, 140, 66, 0.08) 100%) border-box;
+ border: 1px solid transparent;
+ backdrop-filter: blur(16px) saturate(125%);
+ -webkit-backdrop-filter: blur(16px) saturate(125%);
+ box-shadow:
+ inset 0 1px 0 0 rgba(255, 210, 175, 0.10),
+ var(--shadow-lg);
 }
 
 .glass-japan {
-  background:
-    linear-gradient(180deg, rgba(247, 160, 179, 0.12) 0%, rgba(247, 160, 179, 0.06) 100%) padding-box,
-    linear-gradient(150deg, rgba(247, 160, 179, 0.34) 0%, rgba(255, 220, 230, 0.10) 55%, rgba(247, 160, 179, 0.08) 100%) border-box;
-  border: 1px solid transparent;
-  backdrop-filter: blur(16px) saturate(125%);
-  -webkit-backdrop-filter: blur(16px) saturate(125%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 225, 233, 0.10),
-    var(--shadow-lg);
+ background:
+ linear-gradient(180deg, rgba(247, 160, 179, 0.12) 0%, rgba(247, 160, 179, 0.06) 100%) padding-box,
+ linear-gradient(150deg, rgba(247, 160, 179, 0.34) 0%, rgba(255, 220, 230, 0.10) 55%, rgba(247, 160, 179, 0.08) 100%) border-box;
+ border: 1px solid transparent;
+ backdrop-filter: blur(16px) saturate(125%);
+ -webkit-backdrop-filter: blur(16px) saturate(125%);
+ box-shadow:
+ inset 0 1px 0 0 rgba(255, 225, 233, 0.10),
+ var(--shadow-lg);
 }
 
-/* v2 optional tiers (additive — consumed by the hero/skeleton, and available for
-   progressive adoption). Nothing renamed to introduce these. */
+/* optional tiers (additive — consumed by hero/skeleton, and available for
+ progressive adoption). Nothing renamed to introduce these. */
 .glass-panel {
-  background:
-    linear-gradient(180deg, rgba(24, 31, 74, 0.70) 0%, rgba(14, 19, 54, 0.64) 100%) padding-box,
-    linear-gradient(150deg, rgba(240, 199, 96, 0.26) 0%, rgba(255, 255, 255, 0.07) 55%, rgba(240, 199, 96, 0.06) 100%) border-box;
-  border: 1px solid transparent;
-  border-radius: var(--radius-2xl);
-  backdrop-filter: blur(24px) saturate(135%);
-  -webkit-backdrop-filter: blur(24px) saturate(135%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.09),
-    var(--shadow-2xl);
+ background:
+ linear-gradient(180deg, rgba(24, 31, 74, 0.70) 0%, rgba(14, 19, 54, 0.64) 100%) padding-box,
+ linear-gradient(150deg, rgba(240, 199, 96, 0.26) 0%, rgba(255, 255, 255, 0.07) 55%, rgba(240, 199, 96, 0.06) 100%) border-box;
+ border: 1px solid transparent;
+ border-radius: var(--radius-2xl);
+ backdrop-filter: blur(24px) saturate(135%);
+ -webkit-backdrop-filter: blur(24px) saturate(135%);
+ box-shadow:
+ inset 0 1px 0 0 rgba(255, 255, 255, 0.09),
+ var(--shadow-2xl);
 }
 
 .glass-subtle {
-  background:
-    linear-gradient(180deg, rgba(24, 31, 72, 0.42) 0%, rgba(16, 21, 58, 0.38) 100%) padding-box,
-    linear-gradient(150deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 60%, rgba(255, 255, 255, 0.02) 100%) border-box;
-  border: 1px solid transparent;
-  backdrop-filter: blur(14px) saturate(120%);
-  -webkit-backdrop-filter: blur(14px) saturate(120%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
-    var(--shadow-sm);
+ background:
+ linear-gradient(180deg, rgba(24, 31, 72, 0.42) 0%, rgba(16, 21, 58, 0.38) 100%) padding-box,
+ linear-gradient(150deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 60%, rgba(255, 255, 255, 0.02) 100%) border-box;
+ border: 1px solid transparent;
+ backdrop-filter: blur(14px) saturate(120%);
+ -webkit-backdrop-filter: blur(14px) saturate(120%);
+ box-shadow:
+ inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+ var(--shadow-sm);
 }
 
 .text-gradient-gold {
-  background: linear-gradient(135deg, #f0c760 0%, #d4a843 50%, #f0c760 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+ background: linear-gradient(135deg, #f0c760 0%, #d4a843 50%, #f0c760 100%);
+ -webkit-background-clip: text;
+ -webkit-text-fill-color: transparent;
+ background-clip: text;
 }
 
 .text-gradient-sakura {
-  background: linear-gradient(135deg, #ffb7c5 0%, #f7a0b3 50%, #e88fa2 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+ background: linear-gradient(135deg, #ffb7c5 0%, #f7a0b3 50%, #e88fa2 100%);
+ -webkit-background-clip: text;
+ -webkit-text-fill-color: transparent;
+ background-clip: text;
 }
 
 .text-gradient-himalaya {
-  background: linear-gradient(135deg, #ff8c42 0%, #e67635 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+ background: linear-gradient(135deg, #ff8c42 0%, #e67635 100%);
+ -webkit-background-clip: text;
+ -webkit-text-fill-color: transparent;
+ background-clip: text;
 }
 
 .hero-gradient {
-  background: linear-gradient(
-    135deg,
-    rgba(8, 11, 32, 0.95) 0%,
-    rgba(17, 22, 64, 0.84) 30%,
-    rgba(26, 32, 80, 0.68) 60%,
-    rgba(8, 11, 32, 0.92) 100%
-  );
+ background: linear-gradient(
+ 135deg,
+ rgba(8, 11, 32, 0.95) 0%,
+ rgba(17, 22, 64, 0.84) 30%,
+ rgba(26, 32, 80, 0.68) 60%,
+ rgba(8, 11, 32, 0.92) 100%
+ );
 }
 
 /* Refined aurora backdrop wash — opt-in utility, decorative. */
 .bg-aurora {
-  background-image: var(--gradient-aurora);
+ background-image: var(--gradient-aurora);
 }
 
-/* ---- --accent-scroll consumers (so the accent engine has a live hook) ---- */
+/* ---- --accent-scroll consumers (so has a live hook) ---- */
 /* 1) Premium gradient underline beneath every section <h2 ...-heading> title.
-   Always-visible, additive (pure CSS, no component edits), and themed by the
-   scroll accent so the accent engine sweeps it warm/cool. Centered under the centered titles. */
+ Always-visible, additive (pure CSS, no component edits), and themed by the
+ scroll accent so sweeps it warm/cool. Centered under the centered titles. */
 h2[id$="-heading"] {
-  position: relative;
+ position: relative;
 }
 h2[id$="-heading"]::after {
-  content: "";
-  display: block;
-  width: 3rem;
-  height: 3px;
-  margin: 0.75rem auto 0;
-  border-radius: 9999px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    hsl(var(--accent-scroll)) 50%,
-    transparent 100%
-  );
-  opacity: 0.9;
+ content: "";
+ display: block;
+ width: 3rem;
+ height: 3px;
+ margin: 0.75rem auto 0;
+ border-radius: 9999px;
+ background: linear-gradient(
+ 90deg,
+ transparent 0%,
+ hsl(var(--accent-scroll)) 50%,
+ transparent 100%
+ );
+ opacity: 0.9;
 }
 
 /* 2) Keyboard focus ring fallback uses the scroll accent. Components that set
-   their own Tailwind ring still win; this gives every other focusable element a
-   visible, on-brand ring that the accent engine also animates. */
+ their own Tailwind ring still win; this gives every other focusable element a
+ visible, on-brand ring that also animates. */
 :focus-visible {
-  outline: 2px solid hsl(var(--accent-scroll));
-  outline-offset: 2px;
+ outline: 2px solid hsl(var(--accent-scroll));
+ outline-offset: 2px;
 }
 
 @keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
+ 0%, 100% { transform: translateY(0px); }
+ 50% { transform: translateY(-10px); }
 }
 
 /* pulse-glow now keys off --shadow-glow / --accent-scroll so the countdown glow
-   warms/cools with the page. Values stay within the prior glow size. */
+ warms/cools with the page. Values stay within the prior glow size. */
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px hsl(var(--accent-scroll) / 0.20); }
-  50% { box-shadow: 0 0 40px hsl(var(--accent-scroll) / 0.38); }
+ 0%, 100% { box-shadow: 0 0 20px hsl(var(--accent-scroll) / 0.20); }
+ 50% { box-shadow: 0 0 40px hsl(var(--accent-scroll) / 0.38); }
 }
 
-/* New: a slow aurora drift for the optional .bg-aurora wash. Suppressed
-   under prefers-reduced-motion (see media block below). */
+/* New in: a slow aurora drift for the optional .bg-aurora wash. Suppressed
+ under prefers-reduced-motion (see media block below —). */
 @keyframes aurora-shift {
-  0%, 100% { background-position: 0% 50%, 100% 50%, 50% 100%, 0 0; }
-  50% { background-position: 20% 40%, 80% 60%, 60% 80%, 0 0; }
+ 0%, 100% { background-position: 0% 50%, 100% 50%, 50% 100%, 0 0; }
+ 50% { background-position: 20% 40%, 80% 60%, 60% 80%, 0 0; }
 }
 
 .animate-float {
-  animation: float 6s ease-in-out infinite;
+ animation: float 6s ease-in-out infinite;
 }
 
 .animate-pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
+ animation: pulse-glow 3s ease-in-out infinite;
 }
 
 .animate-aurora {
-  background-size: 160% 160%, 160% 160%, 160% 160%, 100% 100%;
-  animation: aurora-shift 18s ease-in-out infinite;
+ background-size: 160% 160%, 160% 160%, 160% 160%, 100% 100%;
+ animation: aurora-shift 18s ease-in-out infinite;
 }
 
 .scrollbar-hide {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+ -ms-overflow-style: none;
+ scrollbar-width: none;
 }
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;
+ display: none;
 }
 
-/* ---- v2 motion utilities (keyframes + their component consumers) ----
-   One-shot entrances (reveal-up, route-fade) rest
-   at their VISIBLE end-state: base opacity is 1 and the keyframe supplies the
-   entrance from 0, so under reduced motion (where duration collapses to ~0) the
-   element lands settled/visible and can never stick at opacity:0. The infinite
-   shimmer sweep is additionally hard-neutralized in the reduced-motion block. */
+/* ---- motion utilities (defined, consumed by components) ----
+ Per docs/. One-shot entrances (reveal-up, route-fade) rest
+ at their VISIBLE end-state: base opacity is 1 and the keyframe supplies the
+ entrance from 0, so under reduced motion (where duration collapses to ~0) the
+ element lands settled/visible and can never stick at opacity:0. The infinite
+ shimmer sweep is additionally hard-neutralized in the reduced-motion block. */
 
 /* Editorial entrance — fade + gentle rise. */
 @keyframes reveal-up {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: none; }
+ from { opacity: 0; transform: translateY(14px); }
+ to { opacity: 1; transform: none; }
 }
 .animate-reveal-up {
-  /* `both` holds the from-state before start and the to-state after end; resting
-     opacity is 1 (the to-state), which is what reduced motion lands on. */
-  animation: reveal-up var(--duration-slower) var(--ease-out-soft) both;
+ /* `both` holds the from-state before start and the to-state after end; resting
+ opacity is 1 (the to-state), which is what reduced motion lands on. */
+ animation: reveal-up var(--duration-slower) var(--ease-out-soft) both;
 }
 
 /* Skeleton sweep — INFINITE (loops), so it is neutralized under reduced motion.
-   Elements pair this with a moving-gradient background sized 200% (skeleton). */
+ Elements pair this with a moving-gradient background sized 200%. */
 @keyframes shimmer {
-  100% { background-position-x: -200%; }
+ 100% { background-position-x: -200%; }
 }
 .animate-shimmer {
-  animation: shimmer 1.6s linear infinite;
+ animation: shimmer 1.6s linear infinite;
 }
 
-/* Route-change fade — opacity only (template.tsx wrapper). */
+/* ── micro-interactions pack (CSS-cheap effects) ────────────────────────
+ The cheap effects live here as CSS keyframes (perf: no framer pulled into any
+ route). Each is neutralized under prefers-reduced-motion in the @media block
+ below — the infinite/forwards ones need the explicit `animation:none`
+ there, so they rest at their base (visible/settled) state, never mid-sweep. */
+
+/* Day-cell "today" pulse — a gentle ring breathing on the calendar's today cell.
+ INFINITE → hard-neutralized under reduced motion (added to the block below). */
+@keyframes today-pulse {
+ 0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent-scroll) / 0.45); }
+ 50% { box-shadow: 0 0 0 5px hsl(var(--accent-scroll) / 0); }
+}
+.animate-today-pulse {
+ animation: today-pulse 2.4s ease-in-out infinite;
+}
+
+/* Undo-toast progress ring — a 4s depletion of the ring stroke as the undo window
+ elapses. Base state is the FULL ring (dashoffset 0), so
+ under reduced motion (animation:none) it rests full/visible, never mid-deplete. */
+@keyframes undo-ring {
+ from { stroke-dashoffset: 0; }
+ to { stroke-dashoffset: 44; }
+}
+.animate-undo-ring {
+ animation: undo-ring 4s linear forwards;
+}
+
+/* Drag-lift — a quick "pick up" pop when the dnd overlay spawns. One-shot; the `to`
+ equals the resting transform so it holds after. Neutralized under reduced motion
+ below (rests at the lifted-but-static look — no pop). */
+@keyframes drag-lift {
+ from { transform: scale(0.96); opacity: 0.5; }
+ to { transform: scale(1.03); opacity: 0.95; }
+}
+
+/* Route-change fade — opacity only. */
 @keyframes route-fade {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+ from { opacity: 0; }
+ to { opacity: 1; }
 }
 .animate-route-fade {
-  animation: route-fade var(--duration-fast) var(--ease-out-soft) both;
+ animation: route-fade var(--duration-fast) var(--ease-out-soft) both;
 }
 
 /* Staggered reveal — children opt in with .animate-reveal-up and inherit an
-   incremental 40ms delay (1..8). Beyond the 8th child the base 0ms applies. The
-   framer-motion equivalent is `staggerChildren: 0.04` with a spring transition. */
+ incremental 40ms delay (1..8). Beyond the 8th child the base 0ms applies. The
+ framer-motion equivalent is `staggerChildren: 0.04` with a spring transition. */
 .reveal-stagger > *:nth-child(1) { animation-delay: 0ms; }
 .reveal-stagger > *:nth-child(2) { animation-delay: 40ms; }
 .reveal-stagger > *:nth-child(3) { animation-delay: 80ms; }
@@ -378,91 +415,169 @@ h2[id$="-heading"]::after {
 .reveal-stagger > *:nth-child(8) { animation-delay: 280ms; }
 
 /* Reduced-motion: honor the OS setting app-wide. This is the CSS layer
-   that covers raw CSS animations/transitions and smooth scroll; framer-motion
-   is handled separately via <MotionConfig reducedMotion="user">. */
+ that covers raw CSS animations/transitions and smooth scroll; framer-motion
+ is handled separately via <MotionConfig reducedMotion="user">. */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-  html {
-    scroll-behavior: auto !important;
-  }
-  /* Explicitly neutralize the keyframe-backed utilities (the universal rule
-     above already covers them; this is the named guarantee required by
-     the reduced-motion contract for every keyframe). The v2 INFINITE/looping sweep
-     (.animate-shimmer) MUST be fully stopped — the universal 0.01ms rule would
-     otherwise leave it running one ultra-fast iteration. The v2 one-shot
-     entrances (reveal-up, route-fade) intentionally stay in the universal
-     collapse path and land on their opacity:1 end-state (never stuck at 0). */
-  .animate-aurora,
-  .animate-float,
-  .animate-pulse-glow,
-  .animate-shimmer {
-    animation: none !important;
-  }
-  /* Zero out the staggered reveal delays so nothing is held invisible waiting to
-     start under reduced motion. */
-  .reveal-stagger > * {
-    animation-delay: 0ms !important;
-  }
+ *,
+ *::before,
+ *::after {
+ animation-duration: 0.01ms !important;
+ animation-iteration-count: 1 !important;
+ transition-duration: 0.01ms !important;
+ scroll-behavior: auto !important;
+ }
+ html {
+ scroll-behavior: auto !important;
+ }
+ /* Explicitly neutralize the keyframe-backed utilities (the universal rule
+ above already covers them; this is the named guarantee required by
+ for every keyframe). The INFINITE/looping sweep
+ (.animate-shimmer) MUST be fully stopped — the universal 0.01ms rule would
+ otherwise leave it running one ultra-fast iteration. The one-shot
+ entrances (reveal-up, route-fade) intentionally stay in the universal
+ collapse path and land on their opacity:1 end-state (never stuck at 0). */
+ .animate-aurora,
+ .animate-float,
+ .animate-pulse-glow,
+ .animate-shimmer,
+ /* micro-interactions — infinite/forwards keyframes hard-stopped so they rest
+ at their base state (today cell static, undo ring full, overlay lifted-but-still). */
+ .animate-today-pulse,
+ .animate-undo-ring,
+ .drag-overlay {
+ animation: none !important;
+ }
+ /* Zero out the staggered reveal delays so nothing is held invisible waiting to
+ start under reduced motion. */
+ .reveal-stagger > * {
+ animation-delay: 0ms !important;
+ }
 }
 
 /* DnD Kit styles */
+/* drag-lift: a stronger "picked up" look (bigger lift + on-brand glow) plus a
+ one-shot spawn pop via the drag-lift keyframe. `both` holds the `to` (rest) state
+ after; under reduced motion the animation is neutralized (block above) so the
+ overlay simply appears lifted-and-static — no pop. */
 .drag-overlay {
-  opacity: 0.9;
-  transform: scale(1.02);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+ opacity: 0.95;
+ transform: scale(1.03);
+ box-shadow: 0 12px 40px hsl(var(--accent-scroll) / 0.22), 0 8px 32px rgba(0,0,0,0.5);
+ animation: drag-lift 160ms ease-out both;
 }
 
 .dragging {
-  opacity: 0.3;
+ opacity: 0.3;
 }
 
-/* ── MapLibre attribution — dark-theme contrast fix (WCAG AA) ──────────
-   MapLibre's default attribution control renders near-black text/links, which on
-   this dark navy map chrome measured 1.1:1 (fgColor #000000 on #0a0e27) — a
-   serious axe color-contrast failure on /map. The tile imagery underneath is
-   arbitrary, so we give the attribution a solid dark pill and light,
-   AA-compliant text + links regardless of what map tiles sit behind it. This is
-   the map's chrome, not the opaque WebGL canvas (which axe excludes). */
+/* ── MapLibre attribution — dark-theme contrast fix ──────────
+ MapLibre's default attribution control renders near-black text/links, which on
+ this dark navy map chrome measured 1.1:1 (fgColor #000000 on #0a0e27) — a
+ serious axe color-contrast failure on /map. The tile imagery underneath is
+ arbitrary, so we give the attribution a solid dark pill and light,
+ AA-compliant text + links regardless of what map tiles sit behind it. This is
+ the map's chrome, not the opaque WebGL canvas (which axe excludes). */
 .maplibregl-ctrl-attrib.maplibregl-compact,
 .maplibregl-ctrl-attrib-inner {
-  background: rgba(10, 14, 39, 0.92) !important; /* navy-900 @ 92% */
-  border-radius: 6px;
+ background: rgba(10, 14, 39, 0.92) !important; /* navy-900 @ 92% */
+ border-radius: 6px;
 }
 .maplibregl-ctrl-attrib-inner {
-  color: rgba(255, 255, 255, 0.82) !important; /* ~9:1 on the pill */
-  padding: 0 6px;
+ color: rgba(255, 255, 255, 0.82) !important; /* ~9:1 on the pill */
+ padding: 0 6px;
 }
 .maplibregl-ctrl-attrib-inner a,
 .maplibregl-ctrl-attrib a {
-  color: #7dd3fc !important; /* sky-300 — ≥7.5:1 on the pill, keeps link affordance */
-  text-decoration: underline;
+ color: #7dd3fc !important; /* sky-300 — ≥7.5:1 on the pill, keeps link affordance */
+ text-decoration: underline;
 }
 /* The compact "ⓘ" toggle button: keep its glyph legible on the dark pill. */
 .maplibregl-ctrl-attrib-button {
-  background-color: rgba(255, 255, 255, 0.82) !important;
+ background-color: rgba(255, 255, 255, 0.82) !important;
 }
 
 /* ── Sonner toaster — lift above the mobile bottom tab bar ────
-   sonner 1.5.0's own `@media (max-width: 600px)` block HARD-SETS
-   `[data-sonner-toaster][data-y-position=bottom] { bottom: 20px }`, ignoring both
-   the `offset` prop and its `--mobile-offset` var for the bottom edge
-   (`--mobile-offset` is applied to left/right only — verified in dist/index.mjs).
-   So on phones a bottom toast overlapped the fixed tab bar (~45px at 390×844).
-   This dependency-free override re-anchors the mobile bottom position above the
-   bar, mirroring the FAB / layout padding idiom (`--tab-bar-h` is published by
-   bottom-tab-bar.tsx, 64px fallback; safe-area inset + 8px breathing room).
-   `!important` is required: sonner injects its stylesheet at runtime AFTER this
-   file, and its rule has equal specificity. Desktop (>600px) keeps the Toaster
-   `offset` prop from components/ui/sonner.tsx. */
+ sonner 1.5.0's own `@media (max-width: 600px)` block HARD-SETS
+ `[data-sonner-toaster][data-y-position=bottom] { bottom: 20px }`, ignoring both
+ the `offset` prop and its `--mobile-offset` var for the bottom edge
+ (`--mobile-offset` is applied to left/right only — verified in dist/index.mjs).
+ So on phones a bottom toast overlapped the fixed tab bar (~45px at 390×844).
+ This dependency-free override re-anchors the mobile bottom position above the
+ bar, mirroring the FAB / layout padding idiom (`--tab-bar-h` is published by
+ bottom-tab-bar.tsx, 64px fallback; safe-area inset + 8px breathing room).
+ `!important` is required: sonner injects its stylesheet at runtime AFTER this
+ file, and its rule has equal specificity. Desktop (>600px) keeps the Toaster
+ `offset` prop from components/ui/sonner.tsx. */
 @media (max-width: 600px) {
-  [data-sonner-toaster][data-y-position='bottom'] {
-    bottom: calc(var(--tab-bar-h, 64px) + env(safe-area-inset-bottom) + 8px) !important;
-  }
+ [data-sonner-toaster][data-y-position='bottom'] {
+ bottom: calc(var(--tab-bar-h, 64px) + env(safe-area-inset-bottom) + 8px) !important;
+ }
+}
+
+/* ── Home sticky section nav ────────
+ Chrome lives HERE (plain CSS) rather than as inline Tailwind utility strings —
+ this small component is kept EAGER/non-`dynamic` (its observer must attach as
+ each section mounts), and Home's First Load JS budget is tight;
+ a few short class names cost far fewer JS bytes than the equivalent Tailwind
+ soup repeated in the page's own chunk. `position:sticky` reserves its own
+ space in normal flow (never overlaps content); `top` matches the fixed
+ navbar's 64px (`h-16`) so the strip docks directly under it once sticky;
+ `z-index:20` stays below the navbar (`z-50`) and its mobile-menu scrim
+ (`z-30`, `components/navbar.tsx`). No animation authored here — reduced
+ motion has nothing to neutralize. */
+.home-nav {
+ position: sticky;
+ top: 4rem;
+ z-index: 20;
+ border-bottom: 1px solid rgb(255 255 255 / 0.06);
+ background: rgb(10 14 39 / 0.9); /* navy-900 @ 90% */
+}
+.home-nav-inner {
+ max-width: 1200px;
+ margin: 0 auto;
+ display: flex;
+ align-items: center;
+ gap: 0.25rem;
+ overflow-x: auto;
+ padding: 0.375rem 1rem;
+}
+@media (min-width: 640px) {
+ .home-nav-inner {
+ padding-left: 1.5rem;
+ padding-right: 1.5rem;
+ }
+}
+.home-nav-link {
+ display: inline-flex;
+ min-height: 44px;
+ flex-shrink: 0;
+ align-items: center;
+ border-radius: 0.5rem;
+ padding: 0 0.75rem;
+ font-size: 0.875rem;
+ font-weight: 500;
+ color: rgb(255 255 255 / 0.7); /* matches navbar.tsx's inactive-link tone */
+}
+.home-nav-link:hover {
+ color: #fff;
+ background: rgb(255 255 255 / 0.05);
+}
+.home-nav-link[aria-current='true'] {
+ color: #f0c760; /* gold-400 */
+}
+
+/* Anchor-jump landing offset: a bare hash jump aligns the target's TOP edge flush with
+ the viewport top, which would land it UNDER the fixed navbar (h-16 = 4rem) and — for every
+ section below the hero — also under this sticky nav once it's docked (~3.5rem: 44px min-height
+ link + 2×6px vertical padding). `scroll-margin-top` fixes the landing position for BOTH the
+ native browser hash-jump this nav's anchors rely on AND any other in-page anchor targeting the
+ same ids (the legacy `/#hash` redirect, the command palette). Scoped to exactly the four ids
+ this nav targets — no other route's anchors are affected. */
+#hero {
+ scroll-margin-top: 4rem;
+}
+#dashboard,
+#timeline,
+#inspiration {
+ scroll-margin-top: 7.5rem;
 }

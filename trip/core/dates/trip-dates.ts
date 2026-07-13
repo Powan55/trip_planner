@@ -1,13 +1,14 @@
 /**
  * Core date backbone — the framework-free trip-date constants + pure calendar math.
- * `lib/trip-data.ts` re-exports every symbol here byte-identically so its many callers are
+ * Extracted verbatim from `lib/trip-data.ts`; that
+ * module now re-exports every symbol here byte-identically so its many callers are
  * untouched. Plain TS only — no React / Next / `window`.
  *
  * ── Timezone correctness is LOAD-BEARING (do NOT "clean up") ─────────────────
- * Two behaviors here are permanent regression fixes, pinned by the unit suite
+ * Two behaviors here are permanent regression fixes, frozen by the unit test suite
  * (which runs under `TZ=America/New_York`) and the E2E boundary pack:
  *   - `getCountryForDate` compares 'YYYY-MM-DD' strings LEXICOGRAPHICALLY and NEVER
- *     `new Date(dateStr)`-parses the input. A date-only string parses as
+ *     `new Date(dateStr)`-parses the input (the B-01 fix). A date-only string parses as
  *     UTC midnight; at a negative UTC offset that slips Dec-19 before Dec-18 23:59:59
  *     local and misclassifies it as 'nepal'. Lexicographic ISO compare is TZ-independent.
  *   - `formatDate` / `formatDateLong` anchor the input at LOCAL NOON (`+ 'T12:00:00'`)
@@ -50,7 +51,7 @@ function formatLabelPart(d: Date): string {
 }
 export const TRIP_DATE_LABEL = `${formatLabelPart(TRIP_START)} – ${formatLabelPart(TRIP_END)}`;
 
-// Country classification must be timezone-independent. A prior naive
+// B-01 fix: country classification must be timezone-independent. The previous
 // implementation parsed the incoming 'YYYY-MM-DD' with `new Date(dateStr)` — the ES
 // spec treats date-ONLY strings as UTC midnight, while NEPAL_END above is a LOCAL
 // datetime. At any negative UTC offset (e.g. America/New_York) Dec 19's UTC midnight

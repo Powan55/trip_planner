@@ -5,13 +5,13 @@
  * different clients whose wall-clocks disagree. It is the primary ordering key the
  * per-day item merge (`merge-day.ts`) uses to pick a winner for a same-`id` collision.
  *
- * ── PURITY (the load-bearing rule) ───────────────────────────────────────────
+ * ── PURITY (the load-bearing rule) ─────────────────────────────────────
  * This module reads NO clock. Physical time is INJECTED as a plain `number`
  * (`ClockPort.now().getTime()`), exactly as `computeCountdown(now)` takes its `now`.
  * It imports NO React / Next / `window` / firebase / date-fns-of-the-app — only plain
  * TS. That is what keeps the ops deterministically unit-testable and dormant-safe.
  *
- * ── The value ────────────────────────────────────────────────────────────────
+ * ── The value ───────────────────────────────────────────────
  *   HLC = { pt: number, ct: number, actor: string }
  *   serialized: `${pad(pt)}:${pad(ct)}:${actor}`
  *     pt    — physical time, ms since epoch (the "physical" half).
@@ -37,7 +37,7 @@ export interface Hlc {
  * Fixed-width zero-pad widths.
  *
  * `PT_WIDTH = 15`: ms-since-epoch fits in 15 digits until year ~33658 (10^15 ms ≈ 31.7 k
- * years past 1970) — comfortably well past year 5000. Any real trip
+ * years past 1970) — comfortably well past any realistic horizon. Any real trip
  * `pt` is 13 digits today (`Date.now()` ≈ 1.7e12), so 15 digits leaves 2 orders of
  * headroom before the width would ever be exceeded.
  *

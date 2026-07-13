@@ -5,7 +5,7 @@
 // month grid. It is strictly PRESENTATIONAL — a pure consumer: it subscribes to NO
 // store, holds no persistence, and simply renders the props it is handed and calls
 // `onSelect` on tap. All selection/persistence stays in `calendar-planner.tsx`
-// (selection state untouched; no storage literals here).
+// — no storage literals here.
 //
 // The strip scrolls INSIDE itself (`overflow-x-auto`), so it never pushes the page
 // wider than the viewport (min-w-0 discipline on the scroll container).
@@ -32,7 +32,7 @@ export interface DayStripProps {
   onSelect: (date: string) => void;
   /** Per-date country + item-count meta, keyed by date (order need not match). */
   meta: DayStripDateMeta[];
-  /** Today's trip date when inside the trip window, else null (drives the Today marker). */
+  /** Today's trip date when inside the trip window, else null (Today marker). */
   todayDate: string | null;
 }
 
@@ -72,7 +72,12 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
       role="group"
       aria-label="Select a trip day"
       data-testid="day-strip"
-      className="min-w-0 flex gap-2 overflow-x-auto scrollbar-hide pb-1 snap-x snap-proximity"
+      // Snap physics: decisive mandatory
+      // snapping with scroll-padding so chips settle centred, plus overscroll
+      // containment so a horizontal flick never chains to the page scroll. Pure CSS —
+      // snapping is instant positioning (not vestibular motion), and the JS auto-centre
+      // already honours reduced motion via behavior:'auto'.
+      className="min-w-0 flex gap-2 overflow-x-auto scrollbar-hide pb-1 snap-x snap-mandatory scroll-px-3 overscroll-x-contain"
     >
       {dates.map((date) => {
         const { weekday, dayNum, long } = parseDay(date);

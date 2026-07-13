@@ -1,5 +1,5 @@
 /**
- * Trip-budget domain model + pure money math (the CORE).
+ * Trip-budget domain model + pure money math.
  *
  * FRAMEWORK-FREE: this module is pure TypeScript — no React, no window,
  * no next, no firebase, no fetch, no clock, no storage. Every function is TOTAL (a bad /
@@ -8,7 +8,7 @@
  * lives in `components/budget-panel.tsx`; the persistence lives behind the typed storage
  * gateway (`core/storage/gateway.ts`, key 10). This file owns only the SHAPE + the math.
  *
- * ── The currency model (the reversible design) ──────────────────────────────────────────
+ * ── The currency model (the reversible design) ─────────────────────────
  * The trip has two legs by country: Nepal (local currency NPR) and Japan (local
  * currency JPY). Each leg's budget + per-category budgets are entered and STORED in that
  * leg's LOCAL currency, so no per-amount currency tag is ever needed — a Nepal amount is
@@ -25,14 +25,14 @@
  *     convert(amount, from, home)  = amount / rate[from] * rate[home]
  *
  * The seeded rates are APPROXIMATE mid-2026 defaults, clearly labelled as seeds in the UI —
- * the whole point is the manual override (zero rate APIs, no fetch, ever).
+ * the whole point is the manual override (no rate APIs, no fetch, ever).
  *
- * ── The rollup shape (the expenses/burn-rate seam) ──────────────────────────────────────
+ * ── The rollup shape ───────────────────────────────────────────────
  * `rollUp()` returns a `budget` and a `spent` for every leg + category + the grand total.
- * With no logged expenses yet, `spent` is always 0 and `remaining === budget`.
+ * With no logged expenses, `spent` is always 0 and `remaining === budget`.
  * Expense logging feeds a `spentByLeg`/`spentByCategory` map into the SAME shape (see the optional
- * `spent` arg) so it subtracts without a reshape — `remaining` and the figures the burn-rate
- * needs are already computed here.
+ * `spent` arg) so it subtracts without a reshape — `remaining` and everything the burn-rate
+ * view needs are already computed here.
  */
 
 import type { ItineraryCategory } from '@/lib/trip-data';
@@ -73,6 +73,14 @@ export interface BudgetModel {
   legBudgets: Record<Leg, number>;
   /** Optional per-category budgets per leg, in the leg's LOCAL currency. */
   categoryBudgets: Partial<Record<Leg, Partial<Record<ItineraryCategory, number>>>>;
+  /**
+   * Sync v2 per-field HLC map — ADDITIVE + OPTIONAL. Absent on a dormant/local-only
+   * model (byte-identity: field stamping is gated on `isRemoteConfigured()`). Present ⇒ each
+   * changed leaf path (a `flattenBudget` key) carries the HLC of its last edit, so a per-field LWW
+   * merge (`mergeBudget`) converges two peers editing DIFFERENT fields. `normalizeModel` PRESERVES
+   * it when present and tolerates it absent.
+   */
+  sync?: { fieldHlc: Record<string, string> };
 }
 
 // ── Seeds / defaults (build-time constants; NOT authoritative — the point is the override) ──
@@ -150,7 +158,7 @@ export function legLocalToHome(
   return convert(amount, legCurrency(leg), home, rates);
 }
 
-// ── Rollup (the expenses/burn-rate seam) ─────────────────────────────────────
+// ── Rollup (the budget/spend seam) ──────────────────────────────────────────────
 
 /** A single budget/spent/remaining line, carried in the home currency for the grand total. */
 export interface RollupLine {
@@ -188,9 +196,9 @@ export interface BudgetRollup {
 }
 
 /**
- * Optional logged-expense input (the expenses seam). Amounts are in each leg's LOCAL currency,
+ * Optional logged-expense input. Amounts are in each leg's LOCAL currency,
  * mirroring the budget entry. Absent ⇒ nothing spent. The rollup shape is
- * IDENTICAL whether or not this is supplied, so expenses wire in with no reshape.
+ * IDENTICAL whether or not this is supplied, so expense logging wires in with no reshape.
  */
 export interface SpentInput {
   byLeg?: Partial<Record<Leg, number>>;
@@ -319,13 +327,29 @@ export function normalizeModel(value: unknown): BudgetModel {
     if (Object.keys(cleaned).length > 0) categoryBudgets[leg] = cleaned;
   }
 
-  return {
+  const result: BudgetModel = {
     version: 1,
     homeCurrency: normalizeCurrency(v.homeCurrency),
     rates: normalizeRates(v.rates),
     legBudgets,
     categoryBudgets,
   };
+
+  // PRESERVE the additive per-field HLC map when present, sanitized to string→string.
+  // A dormant/local-only model never carries `sync` (stamping is gated on isRemoteConfigured()),
+  // so this branch is skipped ⇒ the dormant key-10 bytes stay byte-for-byte identical.
+  const sync = (v as { sync?: unknown }).sync;
+  if (sync && typeof sync === 'object') {
+    const fh = (sync as { fieldHlc?: unknown }).fieldHlc;
+    if (fh && typeof fh === 'object') {
+      const fieldHlc: Record<string, string> = {};
+      for (const [k, val] of Object.entries(fh as Record<string, unknown>)) {
+        if (typeof val === 'string') fieldHlc[k] = val;
+      }
+      result.sync = { fieldHlc };
+    }
+  }
+  return result;
 }
 
 // ── Formatting (pure; the panel's single source for currency display) ─────────

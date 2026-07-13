@@ -10,12 +10,11 @@ import { FadeIn } from '@/components/ui/animate';
 /**
  * Recent-changes activity feed.
  *
- * A presentational, READ-ONLY "who changed what, recently" list, DERIVED FOR FREE
- * from the attribution already on every item — `updatedBy` + `updatedAt`.
- * It performs NO writes: no `plans`/localStorage mutation, no store
- * mutator, no firebase write, no append-log — it only reads the shared reactive store
- * and renders. This keeps it firmly within the Spark free tier (zero extra reads/writes)
- * because it reads data the app already has.
+ * A presentational, READ-ONLY "who changed what, recently" list, derived for free
+ * from the attribution already on every item — `updatedBy` + `updatedAt`. It performs
+ * NO writes: no `plans`/localStorage mutation, no store mutator, no remote write, no
+ * append-log — it only reads the shared reactive store and renders. This keeps writes
+ * and reads to a minimum since it reads data the app already has.
  *
  * LIVE: it reads `plans` via `useItineraryContext()`, the one shared store that
  * re-reads on the same-tab `itinerary:changed` CustomEvent. So a same-tab edit (or a
@@ -24,20 +23,20 @@ import { FadeIn } from '@/components/ui/animate';
  *
  * DORMANT / NO-ATTRIBUTION (the portfolio case): when NO item carries
  * `updatedBy && updatedAt`, the derived list is empty and this renders NOTHING — exactly
- * like the author filter and the per-item attribution line. The portfolio build is
- * visually unchanged.
+ * like the author filter and the per-item attribution line elsewhere in the app. The
+ * portfolio build is visually unchanged.
  *
- * A11y: a labeled region (`<section aria-labelledby>`) with a real
- * heading and an ordered `<ol>` (the list IS ordered, newest-first). The only motion is
- * one declarative `FadeIn` reveal (the `m`-based shared primitive), which
- * `<MotionConfig reducedMotion="user">` auto-neutralizes under prefers-reduced-motion
- * — no scroll-linked transform, no rAF, nothing that needs a manual guard.
+ * A11y: a labeled region (`<section aria-labelledby>`) with a real heading and an
+ * ordered `<ol>` (the list IS ordered, newest-first). The only motion is one
+ * declarative `FadeIn` reveal (the shared motion primitive), which
+ * `<MotionConfig reducedMotion="user">` auto-neutralizes under prefers-reduced-motion —
+ * no scroll-linked transform, no rAF, nothing that needs a manual guard.
  *
  * Static Tailwind literals only; dark-only; `min-w-0`/`truncate` so long
  * names/titles never overflow at narrow widths.
  */
 
-/** How many recent edits to surface (newest first). */
+/** How many recent edits to surface (newest first). Brief: N = 6–8. */
 const FEED_LIMIT = 8;
 
 interface ActivityEntry {

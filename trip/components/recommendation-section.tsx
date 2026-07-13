@@ -2,11 +2,13 @@
 
 import { useMemo, useRef, useState } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
-import { Star, Clock, MapPin, Camera, Search, X, SlidersHorizontal, SearchX } from 'lucide-react';
+import { SectionHeading } from '@/components/section-heading';
+import { Star, Clock, MapPin, Camera, Search, X, SlidersHorizontal, SearchX, Heart } from 'lucide-react';
 import { Recommendation } from '@/lib/nepal-data';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import PlaceDetailSheet, { type PlaceDetailData } from '@/components/place-detail-sheet';
+import { useFavorites } from '@/hooks/use-favorites';
 
 interface RecommendationSectionProps {
   id: string;
@@ -36,10 +38,17 @@ function RecommendationCard({
   item,
   accentColor,
   onOpen,
+  favorited,
+  onToggleFavorite,
+  favoritesReady,
 }: {
   item: Recommendation;
   accentColor: string;
   onOpen: () => void;
+  favorited: boolean;
+  onToggleFavorite: () => void;
+  /** Gate the favorite toggle's render on hook hydration (no SSR/first-paint mismatch). */
+  favoritesReady: boolean;
 }) {
   const [imgError, setImgError] = useState(false);
   const reduce = useReducedMotion();
@@ -112,9 +121,30 @@ function RecommendationCard({
           {item.notes && <p className="text-[11px] text-white/25 mt-2 italic">💡 {item.notes}</p>}
         </div>
       </button>
-      <div className="px-4 pb-4">
+      <div className="px-4 pb-4 flex items-start gap-2">
         {/* Add-to-plan affordance — additive; a sibling of the details button. */}
-        <AddToPlanButton source={item} sourceType="recommendation" accentColor={accentColor} />
+        <div className="flex-1 min-w-0">
+          <AddToPlanButton source={item} sourceType="recommendation" accentColor={accentColor} />
+        </div>
+        {/* Favorite/bookmark toggle — a sibling of AddToPlanButton, real <button>, and
+            gated on the favorites hook's hydration so server/first-client-paint always match
+            (starts unfavorited on both, avoiding a hydration mismatch). */}
+        {favoritesReady && (
+          <button
+            type="button"
+            onClick={onToggleFavorite}
+            aria-pressed={favorited}
+            aria-label={favorited ? `Remove ${item.name} from saved` : `Save ${item.name}`}
+            data-testid={`guide-favorite-${item.id}`}
+            className={`mt-3 shrink-0 p-2 rounded-xl border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+              favorited
+                ? 'bg-gold-500/15 border-gold-400/40 text-gold-300 hover:bg-gold-500/25'
+                : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'
+            }`}
+          >
+            <Heart className={`w-3.5 h-3.5 ${favorited ? 'fill-current' : ''}`} />
+          </button>
+        )}
       </div>
     </m.div>
   );
@@ -127,6 +157,15 @@ export default function RecommendationSection({
   const [activeCity, setActiveCity] = useState('All');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('rating');
+  const [savedOnly, setSavedOnly] = useState(false);
+  const { favorites, toggle: toggleFavorite, hydrated: favoritesReady } = useFavorites();
+
+  // How many of THIS section's items are favorited — the "Saved" chip only renders once this
+  // is >= 1 (it cuts across categories, so it isn't folded into the `categories` chip row).
+  const savedCount = useMemo(
+    () => items.filter((i) => favorites.includes(i.id)).length,
+    [items, favorites],
+  );
 
   // Cities present in this data set (from location), sorted, with an "All" head.
   const cities = useMemo(() => {
@@ -179,6 +218,7 @@ export default function RecommendationSection({
       (i) =>
         (activeCategory === 'All' || i.category === activeCategory) &&
         (activeCity === 'All' || cityOf(i.location) === activeCity) &&
+        (!savedOnly || favorites.includes(i.id)) &&
         matchesSearch(i),
     );
     out.sort((a, b) =>
@@ -186,7 +226,7 @@ export default function RecommendationSection({
     );
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, activeCategory, activeCity, q, sort]);
+  }, [items, activeCategory, activeCity, q, sort, savedOnly, favorites]);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<Recommendation | null>(null);
@@ -222,29 +262,18 @@ export default function RecommendationSection({
     setActiveCategory('All');
     setActiveCity('All');
     setQuery('');
+    setSavedOnly(false);
   };
 
   return (
     <section id={id} aria-labelledby={`${id}-heading`} className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* Masthead entrance is SLIDE-ONLY (opacity held at 1), not a fade.
-            The muted `text-white/50` subtitle passes AA at rest (5.32:1), but a
-            fade-in drops its computed opacity mid-animation, and the axe scan
-            (which does NOT run reduced-motion) races that transition and flags the
-            partially-faded text as a serious contrast failure. Sliding from y:20
-            with opacity pinned to 1 keeps the reveal feel while guaranteeing the
-            text is always at full, AA-passing contrast whenever it is scanned. */}
-        <m.div
-          initial={{ opacity: 1, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-10"
-        >
-          <h2 id={`${id}-heading`} className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
-            {title} <span className={titleGradient}>Guide</span>
-          </h2>
-          <p className="text-white/50 max-w-xl mx-auto">{subtitle}</p>
-        </m.div>
+        <SectionHeading
+          id={`${id}-heading`}
+          className="mb-10"
+          title={<>{title} <span className={titleGradient}>Guide</span></>}
+          subtitle={subtitle}
+        />
 
         {/* Search + sort */}
         <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
@@ -308,6 +337,29 @@ export default function RecommendationSection({
           </div>
         )}
 
+        {/* "Saved" filter chip — cuts across categories, so it's a separate boolean
+            toggle rather than folded into the `categories` chip row. Only rendered once
+            favorites have hydrated AND this section has >=1 favorited item. */}
+        {favoritesReady && savedCount > 0 && (
+          <div className="flex flex-wrap justify-center gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() => setSavedOnly((v) => !v)}
+              aria-pressed={savedOnly}
+              data-testid="guide-filter-saved"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                savedOnly
+                  ? `${accentColor} bg-white/10 ring-1 ring-current/30`
+                  : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+              }`}
+            >
+              <Heart className={`w-3 h-3 ${savedOnly ? 'fill-current' : ''}`} />
+              Saved
+              <span className="ml-0.5 text-white/50 font-mono">{savedCount}</span>
+            </button>
+          </div>
+        )}
+
         {/* Category filter chips with live counts */}
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           {categories.map((cat) => (
@@ -337,6 +389,9 @@ export default function RecommendationSection({
                 item={item}
                 accentColor={accentColor}
                 onOpen={() => openDetail(item)}
+                favorited={favorites.includes(item.id)}
+                onToggleFavorite={() => toggleFavorite(item.id)}
+                favoritesReady={favoritesReady}
               />
             ))}
           </div>

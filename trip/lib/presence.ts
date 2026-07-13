@@ -1,7 +1,8 @@
 // The presence seam — "who else is on the trip right now".
 //
-// This module is the presence analog of lib/itinerary-remote.ts. It owns a heartbeat doc
-// per traveler at `trips/{TRIP_ID}/presence/{uid}` (uid = the silent anon uid), shape
+// This module is the presence analog of lib/itinerary-remote.ts. It owns the only
+// Firestore collection this feature adds: a heartbeat doc per traveler at
+// `trips/{TRIP_ID}/presence/{uid}` (uid = the silent anon uid), shape
 // `{ name, lastSeen: serverTimestamp() }`. It never touches the `days` model or its
 // per-day LWW. It has two directions:
 //   WRITE (heartbeat): while the tab is OPEN and VISIBLE, `startPresence()` writes the
@@ -13,17 +14,18 @@
 //         collection (<=3 docs) and maps docs → `PresenceRecord[]`. The caller filters to
 //         "active" travelers via `isActive(lastSeen)`.
 //
-// DORMANT-SAFE (mirrors itinerary-remote.ts EXACTLY): firebase is imported
-// ONLY via dynamic `import()` behind `isRemoteConfigured()`. With the env absent the gate
-// is false, none of this module's SDK code executes, and firebase tree-shakes off the
-// first-load chunk. WRITE is additionally gated on an identified traveler so a
-// guest never writes/opens a connection. A misconfigured/unreachable Firebase degrades to
+// DORMANT-SAFE (mirrors itinerary-remote.ts EXACTLY): firebase is imported ONLY via
+// dynamic `import()` behind `isRemoteConfigured()`. With the env absent the gate is
+// false, none of this module's SDK code executes, and firebase tree-shakes off the
+// first-load chunk. WRITE is additionally gated on an identified traveler so a guest
+// never writes/opens a connection. A misconfigured/unreachable Firebase degrades to
 // local-only (try/catch → console.warn, never throw) — it must never crash the app.
 //
-// FREE-TIER (HARD RULE — never a paid plan): cadence is HEARTBEAT_MS (>=30s) and the
-// loop is PAUSED while hidden, so it can never become a sustained sub-30s write loop.
-// Budget: ~1 write / HEARTBEAT_MS / traveler. At 60s × 3 travelers ≈ 4,320 writes/day ≈
-// ~22% of the free tier's ~20k writes/day. One onSnapshot on <=3 docs is negligible reads.
+// FREE-TIER (HARD RULE — never upgrade off the free plan): cadence is HEARTBEAT_MS
+// (>=30s) and the loop is PAUSED while hidden, so it can never become a sustained
+// sub-30s write loop. Budget: ~1 write / HEARTBEAT_MS / traveler. At 60s × 3 travelers
+// ≈ 4,320 writes/day ≈ ~22% of the free plan's ~20k writes/day. One onSnapshot on
+// <=3 docs is negligible reads.
 //
 // REUSES the existing firebase init: it shares the SAME singleton app + anonymous sign-in
 // as itinerary-remote.ts (getApps()/getApp() — there is never a second initialization

@@ -24,6 +24,12 @@ export const itineraryItemSchema = z
     category: z.string(), // permissive on read — NOT z.enum
     time: z.string().optional(),
     duration: z.string().optional(),
+    // Structured time model (v5, additive). Declared-surface style like
+    // `done`. Deliberately PLAIN `z.number().optional()` — NO `.int().min().max()` on the read
+    // path: an out-of-range value from a buggy client must degrade to "untimed" at
+    // `effectiveStartMinutes` (the ONE runtime range check), never quarantine a whole vault.
+    startMinutes: z.number().optional(),
+    durationMinutes: z.number().optional(),
     notes: z.string().optional(),
     location: z.string().optional(),
     sourceId: z.string().optional(),
@@ -38,13 +44,29 @@ export const itineraryItemSchema = z
     rev: z.number().optional(),
     hlc: z.string().optional(),
     deleted: z.boolean().optional(),
-    // Done-tracking (additive OPTIONAL, per the lenient-read rule). NO
+    // Trip OS done-tracking (additive OPTIONAL, per the lenient-read rule). NO
     // migration and NO version bump: an item with `done` absent is trivially "not done"
     // (falsy), so no on-disk backfill is required (unlike the Sync-v2 fields, which needed a
     // deterministic hlc backfill). CURRENT_ITINERARY_VERSION STAYS 4 — the `schemaVersion`
     // assertions remain `toBe(4)`. `.passthrough()` already tolerated it on read; declaring it
     // makes the accepted surface explicit + typed.
     done: z.boolean().optional(),
+    // Manual pin-drop (additive OPTIONAL, per the lenient-read rule, mirrors the
+    // `done` entry above). NO migration and NO version bump: an item with lat/lng absent is
+    // trivially un-pinned, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION STAYS
+    // 5 — the `schemaVersion` assertions remain `toBe(5)`. `.passthrough()` already tolerated
+    // these on read; declaring them makes the accepted surface explicit + typed. Deliberately
+    // plain `z.number().optional()` (no `.min()/.max()` range clamp) — the lat/lng range check
+    // lives once, in the ItemEditor UI, matching the startMinutes precedent above.
+    lat: z.number().optional(),
+    lng: z.number().optional(),
+    // Multi-day span (additive OPTIONAL, per the lenient-read rule, mirrors the
+    // lat/lng entry above). NO migration and NO version bump: an item with `endDate` absent is
+    // trivially single-day, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION STAYS
+    // 5 — the `schemaVersion` assertions remain `toBe(5)`. `.passthrough()` already tolerated it
+    // on read; declaring it makes the accepted surface explicit + typed. ISO date string; the
+    // ">= startDay & in-trip-range" check lives once, in the ItemEditor UI (matching lat/lng).
+    endDate: z.string().optional(),
   })
   .passthrough(); // tolerate unknown future fields on read
 
@@ -62,7 +84,7 @@ export const dayPlanSchema = z
  * validated payload is v4 (below). v3 and v4 share the SAME structural shape — v4 only
  * adds three OPTIONAL per-item fields (`rev`/`hlc`/`deleted`) to `itineraryItemSchema`,
  * so v3 data validates cleanly against v4 (the fields simply default absent). The pair is
- * kept explicit so the version progression reads honestly (an append-only style).
+ * kept explicit so the version progression reads honestly (mirrors the append-only migration style).
  */
 export const itineraryPayloadV3 = z.array(dayPlanSchema);
 
@@ -88,7 +110,23 @@ export const itineraryEnvelopeV4 = z.object({
 });
 
 /**
- * Validate an already-migrated payload against the CURRENT lenient itinerary schema.
+ * The CURRENT itinerary payload (v5): a `DayPlan[]` whose items may carry the additive
+ * structured-time fields (`startMinutes`/`durationMinutes`). Same array-of-days shape as
+ * v3/v4; the difference lives inside `itineraryItemSchema` (the two new optionals), so this
+ * mirrors the v3/v4 pair. The lenient read means v3/v4 data validates cleanly here too (the
+ * fields default absent).
+ */
+export const itineraryPayloadV5 = z.array(dayPlanSchema);
+
+/** The full v5 envelope: `{ schemaVersion: 5, updatedAt, payload: DayPlan[] }`. */
+export const itineraryEnvelopeV5 = z.object({
+  schemaVersion: z.literal(5),
+  updatedAt: z.string(),
+  payload: itineraryPayloadV5,
+});
+
+/**
+ * Validate an already-migrated payload against the CURRENT (v5) lenient itinerary schema.
  *
  * Returns the parsed `DayPlan[]` on success, or `null` on failure (the caller
  * quarantines + falls back — the schema never throws to the load path). `.passthrough()`
@@ -96,6 +134,6 @@ export const itineraryEnvelopeV4 = z.object({
  * cast is safe because the schema is a superset-tolerant mirror of the type.
  */
 export function parseItineraryPayload(payload: unknown): DayPlan[] | null {
-  const result = itineraryPayloadV4.safeParse(payload);
+  const result = itineraryPayloadV5.safeParse(payload);
   return result.success ? (result.data as DayPlan[]) : null;
 }

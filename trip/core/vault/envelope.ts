@@ -6,7 +6,7 @@
  * `./migrations.ts`) rather than a defensive `try/catch` guess. The envelope is the
  * smallest shape that satisfies versioning + validation + migration — three fields,
  * no gold-plating (no `id` / `checksum` / `migratedFrom` history; add only when a
- * concrete need arises, recorded then).
+ * concrete slice needs one, recorded then).
  *
  * `T` is generic so the same envelope serves the itinerary now (`DayPlan[]`) and any
  * future corralled blob.

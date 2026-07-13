@@ -1,17 +1,19 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { BookOpen, Pencil, Sparkles } from 'lucide-react';
 import { useJournal } from '@/hooks/use-journal';
+import PhotoAttach from '@/components/photo-attach';
 import { MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
 
 /**
  * The in-trip per-day TEXT journal card.
  *
  * Renders INSIDE the in-trip Today panel (`components/today-panel.tsx`), below the agenda — so it is
- * intrinsically in-trip-gated (the panel is `null` outside the trip window) and demoable via
- * `?today=`. Reads/writes TODAY'S entry through `useJournal()` → the framework-free journal core +
- * its gateway storage slot (localStorage only). Photos are OUT (declared future boundary).
+ * intrinsically in-trip-gated (the panel is `null` outside the trip window) and demoable via `?today=`.
+ * Reads/writes TODAY'S entry through `useJournal()` → the framework-free journal core +
+ * the storage gateway (localStorage only). Photos are handled by a separate attach control.
  *
  * Two states:
  *   - READ (an entry exists): mood glyph + highlight + body, with an Edit control.
@@ -20,7 +22,7 @@ import { MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
  * multiline text area, and Save + Cancel. Save calls `saveEntry(date, {text, mood, highlight})`;
  * clearing everything + Save removes the entry (the empty state returns).
  *
- * A11y (non-negotiable, AA): real `<label>`s, visible focus rings (`focus-visible:ring-gold-400`,
+ * A11y (AA): real `<label>`s, visible focus rings (`focus-visible:ring-gold-400`,
  * matching the panel), ≥44px targets, `aria-pressed` on mood chips, an `aria-live` region on the read
  * view. Static markup + CSS-only transitions → reduced-motion-safe by construction (the parent panel
  * owns the already-gated reveal). Design: the panel's glass-card / navy / gold-accent language.
@@ -44,7 +46,7 @@ export default function JournalCard({ date }: { date: string }) {
   const [draftMood, setDraftMood] = useState<Mood | null>(null);
   const [draftHighlight, setDraftHighlight] = useState('');
 
-  // ── Focus management (the PARENT owns focus-return) ─────────────────────────────────────────
+  // ── Focus management (the PARENT owns focus-return) ────────────────────────
   // Opening the editor unmounts the trigger (Edit / "Write about today"), which would otherwise
   // drop focus to <body>; Save/Cancel unmount the editor the same way. We hold refs to both
   // triggers, focus the first editor field on open, and on close return focus to whichever trigger
@@ -143,19 +145,29 @@ export default function JournalCard({ date }: { date: string }) {
           <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
           Today&apos;s journal
         </h3>
-        {!editing && entry && (
-          <button
-            ref={editButtonRef}
-            type="button"
-            onClick={openEditor}
-            data-testid="journal-edit"
-            aria-label="Edit today's journal entry"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+        <div className="flex items-center gap-1.5">
+          {/* The only way to reach the /journal browse view besides a direct URL. */}
+          <Link
+            href="/journal/"
+            data-testid="journal-view-all"
+            className="inline-flex min-h-[44px] items-center rounded-lg px-2.5 py-2 text-xs font-medium text-white/55 underline-offset-4 outline-none transition-colors duration-200 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
           >
-            <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
-            Edit
-          </button>
-        )}
+            View all entries
+          </Link>
+          {!editing && entry && (
+            <button
+              ref={editButtonRef}
+              type="button"
+              onClick={openEditor}
+              data-testid="journal-edit"
+              aria-label="Edit today's journal entry"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+            >
+              <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+              Edit
+            </button>
+          )}
+        </div>
       </header>
 
       {editing ? (
@@ -187,6 +199,10 @@ export default function JournalCard({ date }: { date: string }) {
           </span>
         </button>
       )}
+
+      {/* Day photos (owner keyed by DATE, so they persist independent of the text entry and
+          the recap is a pure owner.date filter). Local-only IndexedDB blobs, zero egress. */}
+      <PhotoAttach owner={{ kind: 'journal', date }} heading="Day photos" altPlaceholder="e.g. Sunset over Boudhanath" />
     </section>
   );
 }
@@ -247,8 +263,8 @@ function JournalEditor({
   text: string;
   mood: Mood | null;
   highlight: string;
-  /** Parent-owned ref for the first-field-on-open focus (parent-owned focus pattern). */
-  highlightInputRef: React.RefObject<HTMLInputElement>;
+  /** Parent-owned ref for the first-field-on-open focus (parent-owned pattern). */
+  highlightInputRef: React.RefObject<HTMLInputElement | null>;
   onTextChange: (v: string) => void;
   onMoodChange: (v: Mood | null) => void;
   onHighlightChange: (v: string) => void;

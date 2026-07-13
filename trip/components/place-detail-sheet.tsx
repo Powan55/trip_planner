@@ -3,11 +3,13 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { m, AnimatePresence } from 'framer-motion';
-import { X, MapPin, Clock, Star, ExternalLink, Tag, CalendarClock, Coins } from 'lucide-react';
+import { X, MapPin, Clock, Star, ExternalLink, Tag, CalendarClock, Coins, Check, CalendarDays } from 'lucide-react';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import AddToItineraryDialog, { buildMapsSearchUrl } from '@/components/add-to-itinerary-dialog';
 import type { AddToPlanSource, SourceType, ItineraryDraft } from '@/lib/itinerary-adapter';
+import { useItineraryContext } from '@/components/itinerary-provider';
+import { formatDate } from '@/lib/trip-data';
 
 /**
  * Shared, responsive place-detail sheet — ONE component that renders as a
@@ -17,21 +19,23 @@ import type { AddToPlanSource, SourceType, ItineraryDraft } from '@/lib/itinerar
  * an add-to-plan action.
  *
  * It inherits the full modal contract of the add-to-plan dialog:
- *  - portal to `document.body` (mount-guarded, SSR-safe under output:'export'),
+ *  - Portal to `document.body` (mount-guarded, SSR-safe under output:'export'),
  *    so it escapes the transformed / overflow-hidden card ancestors.
- *  - document-level Esc (via `onCloseRef`), a Tab-trap inside the panel,
+ *  - Document-level Esc (via `onCloseRef`), a Tab-trap inside the panel,
  *    first-element autofocus, and PARENT-OWNED focus-return — the opening card captures
  *    the trigger and refocuses it on `AnimatePresence onExitComplete` (NOT here).
- *  - flex-column with a NON-scrolling pinned footer holding the add action, so
+ *  - Flex-column with a NON-scrolling pinned footer holding the add action, so
  *    it stays visible/clickable at any viewport height.
- *  - It also sets the `body[data-dialog-open]` seam flag (the mobile FAB hides on it).
+ *  - It also sets the `body[data-dialog-open]` seam flag (the FAB hides on it).
  *
  * Add-to-plan (two shapes, so all card families reuse it):
  *  - `addSource` + `addSourceType`: a source-linked place (recommendation / photo) —
  *    renders the shared state-aware `AddToPlanButton` (gets the "Added" badge).
  *  - `customAddDraft`: a place with no adapter source (nightlife) — opens the custom
- *    add dialog prefilled with the venue's title/location; produces a plain
- *    item with NO sourceId, so it never trips a false "Added" badge.
+ *    add dialog prefilled with the venue's title/location. When the
+ *    draft carries a (namespaced) sourceId, the footer control mirrors the source-linked
+ *    state-aware "Added"/modify/remove treatment; an empty-sourceId draft (none today,
+ *    kept for shape-compat) still gets the plain static button.
  *
  * Reduced-motion: entrance/exit use opacity + a small translate; the global
  * reduced-motion CSS guard neutralizes transitions, and framer honors prefers-reduced-
@@ -98,6 +102,18 @@ export default function PlaceDetailSheet({
   const [customOpen, setCustomOpen] = useState(false);
   const customTriggerRef = useRef<HTMLButtonElement | null>(null);
 
+  // Reactive "already added" lookup for a non-empty-sourceId customAddDraft
+  // (nightlife). Empty sourceId (none today, kept for shape-compat) never matches —
+  // `findPlacements('')` reads as "not planned", so this stays a no-op for that shape.
+  const { findPlacements } = useItineraryContext();
+  const customPlacements = customAddDraft?.sourceId ? findPlacements(customAddDraft.sourceId) : [];
+  const customIsAdded = customPlacements.length > 0;
+  const customSummary = customIsAdded
+    ? customPlacements.length === 1
+      ? `On ${formatDate(customPlacements[0].date).replace(/^[A-Za-z]+,\s*/, '')}`
+      : `On ${customPlacements.length} days`
+    : '';
+
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
 
@@ -134,7 +150,7 @@ export default function PlaceDetailSheet({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, customOpen]);
 
-  // body[data-dialog-open] seam flag while the sheet is open (the mobile FAB hides on it).
+  // body[data-dialog-open] seam flag while the sheet is open (the FAB hides on it).
   useEffect(() => {
     if (!open) return;
     document.body.dataset.dialogOpen = '1';
@@ -237,7 +253,7 @@ export default function PlaceDetailSheet({
                 data-testid="place-detail-close"
                 onClick={onClose}
                 aria-label="Close details"
-                className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/50 hover:bg-black/70 text-white/80 backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                className="absolute top-3 right-3 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-black/50 hover:bg-black/70 text-white/80 backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -275,34 +291,52 @@ export default function PlaceDetailSheet({
                 <p className="text-sm text-white/60 leading-relaxed mb-5">{bodyText}</p>
               )}
 
-              {/* Practical info rows — each optional; omitted when unknown. */}
+              {/* Practical info rows — each optional; omitted when unknown.
+                  axe's `only-dlitems` requires every direct `<dl>` child to be a
+                  `dt`/`dd` (or a wrapping div holding ONLY dt/dd) — the decorative icon
+                  used to sit as a THIRD sibling in that wrapping div, which violated it.
+                  Fix: each icon now lives INSIDE its `<dt>` (still purely decorative, no
+                  text) so the wrapping `<div>` holds exactly one dt + one dd. The label
+                  text keeps its ORIGINAL `text-white/40 w-24 shrink-0` box (unchanged,
+                  now a `<span>` inside the dt) so it wraps exactly as before; `dt` just
+                  flexes the icon and that span together with the same `gap-2.5` the icon
+                  used to have as a dl-row sibling — so `<dd>` still starts at the same
+                  x-offset (icon 16px + gap 10px + label 96px + gap 10px, unchanged). */}
               {(place.bestTime || place.duration || place.priceHint || typeof place.rating === 'number') && (
                 <dl className="space-y-2.5 mb-2">
                   {place.bestTime && (
                     <div className="flex items-center gap-2.5 text-sm">
-                      <Clock className="w-4 h-4 text-gold-400 shrink-0" />
-                      <dt className="text-white/40 w-24 shrink-0">Best time</dt>
+                      <dt className="flex items-center gap-2.5 shrink-0">
+                        <Clock className="w-4 h-4 text-gold-400 shrink-0" aria-hidden="true" />
+                        <span className="text-white/40 w-24 shrink-0">Best time</span>
+                      </dt>
                       <dd className="text-white/70">{place.bestTime}</dd>
                     </div>
                   )}
                   {place.duration && (
                     <div className="flex items-center gap-2.5 text-sm">
-                      <CalendarClock className="w-4 h-4 text-blue-400 shrink-0" />
-                      <dt className="text-white/40 w-24 shrink-0">Duration</dt>
+                      <dt className="flex items-center gap-2.5 shrink-0">
+                        <CalendarClock className="w-4 h-4 text-blue-400 shrink-0" aria-hidden="true" />
+                        <span className="text-white/40 w-24 shrink-0">Duration</span>
+                      </dt>
                       <dd className="text-white/70">{place.duration}</dd>
                     </div>
                   )}
                   {place.priceHint && (
                     <div className="flex items-center gap-2.5 text-sm">
-                      <Coins className="w-4 h-4 text-green-400 shrink-0" />
-                      <dt className="text-white/40 w-24 shrink-0">Price</dt>
+                      <dt className="flex items-center gap-2.5 shrink-0">
+                        <Coins className="w-4 h-4 text-green-400 shrink-0" aria-hidden="true" />
+                        <span className="text-white/40 w-24 shrink-0">Price</span>
+                      </dt>
                       <dd className="text-white/70">{place.priceHint}</dd>
                     </div>
                   )}
                   {typeof place.rating === 'number' && place.rating > 0 && (
                     <div className="flex items-center gap-2.5 text-sm">
-                      <Star className="w-4 h-4 text-gold-400 shrink-0" />
-                      <dt className="text-white/40 w-24 shrink-0">Photo rating</dt>
+                      <dt className="flex items-center gap-2.5 shrink-0">
+                        <Star className="w-4 h-4 text-gold-400 shrink-0" aria-hidden="true" />
+                        <span className="text-white/40 w-24 shrink-0">Photo rating</span>
+                      </dt>
                       <dd className="flex items-center gap-0.5">
                         {Array.from({ length: Math.min(5, Math.max(0, Math.round(place.rating))) }).map((_, i) => (
                           <Star key={i} className="w-3 h-3 fill-gold-400 text-gold-400" />
@@ -335,18 +369,55 @@ export default function PlaceDetailSheet({
                 </div>
               )}
 
-              {/* Custom add (nightlife) — opens the custom dialog prefilled. */}
+              {/* Custom add (nightlife) — opens the custom dialog prefilled.
+                  a non-empty sourceId (the namespaced nightlife id) gets the same
+                  state-aware "Added"/modify-remove treatment as AddToPlanButton; an
+                  empty-sourceId draft (none today) keeps the plain static button. */}
               {customAddDraft && (
-                <button
-                  ref={customTriggerRef}
-                  type="button"
-                  data-testid="place-detail-add-to-plan"
-                  onClick={handleCustomAdd}
-                  aria-haspopup="dialog"
-                  className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none hover:bg-white/10 ${accentText}`}
-                >
-                  Add to plan
-                </button>
+                customAddDraft.sourceId ? (
+                  <button
+                    ref={customTriggerRef}
+                    type="button"
+                    data-testid="place-detail-add-to-plan"
+                    onClick={handleCustomAdd}
+                    aria-haspopup="dialog"
+                    aria-label={
+                      customIsAdded
+                        ? `${customAddDraft.title} is planned ${customSummary.toLowerCase()}. Modify or remove.`
+                        : `Add ${customAddDraft.title} to your trip plan`
+                    }
+                    className={
+                      customIsAdded
+                        ? 'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-gold-500/15 border border-gold-400/40 text-gold-300 text-xs font-medium hover:bg-gold-500/25 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none'
+                        : `w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none hover:bg-white/10 ${accentText}`
+                    }
+                  >
+                    {customIsAdded ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 shrink-0" />
+                        <span>Added</span>
+                        <span className="text-gold-400/60" aria-hidden="true">·</span>
+                        <span className="flex items-center gap-1 text-gold-300/80">
+                          <CalendarDays className="w-3 h-3 shrink-0" />
+                          {customSummary}
+                        </span>
+                      </>
+                    ) : (
+                      'Add to plan'
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    ref={customTriggerRef}
+                    type="button"
+                    data-testid="place-detail-add-to-plan"
+                    onClick={handleCustomAdd}
+                    aria-haspopup="dialog"
+                    className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none hover:bg-white/10 ${accentText}`}
+                  >
+                    Add to plan
+                  </button>
+                )
               )}
             </div>
           </m.div>
@@ -364,7 +435,7 @@ export default function PlaceDetailSheet({
                   open={customOpen}
                   mode="custom"
                   draft={customAddDraft}
-                  existingPlacements={[]}
+                  existingPlacements={customPlacements}
                   onClose={() => setCustomOpen(false)}
                 />
               )}

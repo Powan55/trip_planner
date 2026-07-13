@@ -3,7 +3,7 @@
 // components/service-worker-registrar.tsx
 //
 // Registers the hand-rolled service worker (emitted to out/sw.js by
-// scripts/gen-sw.mjs) and drives the NO-silent-auto-refresh update flow:
+// scripts/gen-sw.mjs) and drives a NO-silent-auto-refresh update flow:
 //   updatefound -> new worker reaches `installed` while a controller exists
 //   -> show a persistent sonner toast "New version available" + Refresh action
 //   -> on Refresh, postMessage SKIP_WAITING to the waiting worker
@@ -34,10 +34,19 @@ export function ServiceWorkerRegistrar() {
 
     let refreshing = false;
 
+    // Whether this page was ALREADY controlled by a worker when we registered.
+    // On a FIRST-EVER visit the page starts uncontrolled and the activate handler's
+    // `clients.claim()` fires `controllerchange` with no prior controller — reloading
+    // then is a spurious ~200ms post-load refresh that re-hydrates the whole tree and
+    // wipes any in-flight form state (e.g. a token typed into the gate). Only an UPDATE
+    // (page was already controlled → SKIP_WAITING handshake) warrants a reload.
+    const hadController = !!navigator.serviceWorker.controller;
+
     // When the controlling worker changes (i.e. the new worker took over after
-    // SKIP_WAITING), reload once onto the new version.
+    // SKIP_WAITING), reload once onto the new version — but never on the first-install
+    // claim (see `hadController`).
     const onControllerChange = () => {
-      if (refreshing) return;
+      if (!hadController || refreshing) return;
       refreshing = true;
       window.location.reload();
     };

@@ -1,19 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { m, useReducedMotion } from 'framer-motion';
-import { toast } from 'sonner';
-import { Wallet, RefreshCw, Info, Plus, Pencil, Trash2, ReceiptText } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { m, useReducedMotion, useInView } from 'framer-motion';
+import { useCountUp } from '@/hooks/use-count-up';
+import { showUndoToast } from '@/lib/undo-toast';
+import { Wallet } from 'lucide-react';
 import { CATEGORY_COLORS, type ItineraryCategory } from '@/lib/trip-data';
-import { loadBudget, saveBudget } from '@/core/budget/storage';
+import { useBudget } from '@/hooks/use-budget';
 import {
   rollUp,
   legCurrency,
   currencySymbol,
   formatMoney,
   safeAmount,
-  SEED_RATES,
-  CURRENCIES,
   BUDGET_CATEGORIES,
   type BudgetModel,
   type BudgetRollup,
@@ -22,22 +21,28 @@ import {
   type Leg,
 } from '@/core/budget/model';
 import { useExpenses } from '@/hooks/use-expenses';
+import { usePhotos } from '@/hooks/use-photos';
 import { expensesToSpent, type Expense } from '@/core/budget/expenses';
+import { settle } from '@/core/budget/settlement';
 import { EXPENSE_OPEN_EVENT } from '@/components/expense-log-host';
 import { getNow } from '@/lib/trip-now';
+import { useActiveTraveler } from '@/hooks/use-active-traveler';
+import { TRAVELERS } from '@/lib/token-auth';
 import BurnRateView from '@/components/burn-rate-view';
+import ExpenseLog from '@/components/expense-log';
+import SettleUpSummary from '@/components/settle-up-summary';
 
 /**
- * Budget panel (the budgeting CORE). Mounted on `/plan` between the calendar
- * planner and Backup & Restore via `dynamic({ ssr:false })`.
+ * Budget panel. Mounted on `/plan` between the calendar planner and Backup & Restore
+ * via `dynamic({ ssr:false })`.
  *
- * Lets the traveller SET budgets and rates and SEE the totals — expense LOGGING and
- * burn-rate/overlays live in their own components. Specifically:
+ * Lets the traveller SET budgets and rates and SEE the totals — expense logging and
+ * burn-rate/overlays live in sibling components. Specifically:
  *   - a total budget per leg (Nepal in NPR, Japan in JPY);
  *   - optional per-category budgets per leg (the 10 canonical ItineraryCategory values);
  *   - the home/display currency (USD / NPR / JPY);
  *   - a manual override of the two exchange rates (NPR-per-USD, JPY-per-USD) — the seeds are
- *     labelled as approximate defaults; there is NO rate API / fetch (fully client-side, keyless).
+ *     labelled as approximate defaults; there is NO rate API / fetch.
  * Per-leg totals + a grand total roll up into the home currency. Every edit persists through the
  * typed storage gateway via `saveBudget`, so it survives a reload.
  *
@@ -53,15 +58,11 @@ import BurnRateView from '@/components/burn-rate-view';
 export default function BudgetPanel() {
   const prefersReducedMotion = useReducedMotion();
 
-  // Seeded default first (SSR-safe, matches first paint), then hydrate from storage on mount.
-  const [model, setModel] = useState<BudgetModel>(() => ({
-    version: 1,
-    homeCurrency: 'USD',
-    rates: { ...SEED_RATES },
-    legBudgets: { nepal: 0, japan: 0 },
-    categoryBudgets: {},
-  }));
-  const [hydrated, setHydrated] = useState(false);
+  // Reactive budget store — the shared `createReactiveStore` skeleton. Seeds from
+  // the StoragePort's SSR value, hydrates on mount, and re-reads on the `'budget:changed'` event +
+  // cross-tab `storage`. Replaces the panel's former ad-hoc `useState` + `loadBudget`/
+  // `saveBudget`; the money math + input handling below are unchanged.
+  const { model, commit } = useBudget();
   // The clock instant that drives the burn-rate TIME math. SSR-safe: start at the real
   // `new Date()` (matches first paint, no hydration mismatch), then re-resolve via `getNow()` on
   // mount so the `?today=` override is applied client-side (the same post-mount pattern the
@@ -70,16 +71,15 @@ export default function BudgetPanel() {
   const [now, setNow] = useState<Date>(() => new Date());
 
   useEffect(() => {
-    setModel(loadBudget());
-    setHydrated(true);
     setNow(getNow());
   }, []);
 
-  // Persist every change AFTER hydration (so the first-render default can't clobber a saved model
-  // before load — the "hydrated flag" discipline the calendar uses).
+  // Persist every change through the store's single commit choke-point (fresh-base
+  // read + fan-out). Gated on `hydrated` INSIDE `commit` (so a first-render seed can't clobber a saved
+  // model before load), which is why the setters can build `next` from the
+  // current `model` and hand it in as a constant compute.
   const persist = (next: BudgetModel) => {
-    setModel(next);
-    if (hydrated) saveBudget(next);
+    commit(() => next);
   };
 
   const setLegBudget = (leg: Leg, value: string) => {
@@ -97,30 +97,30 @@ export default function BudgetPanel() {
     });
   };
 
-  const setHomeCurrency = (home: CurrencyCode) => {
-    persist({ ...model, homeCurrency: home });
-  };
-
-  const setRate = (cur: 'NPR' | 'JPY', value: string) => {
-    // Keep the raw typed number in state; the pure math seed-defaults a 0/blank at read time,
-    // so a mid-edit blank never breaks the totals. Store the sanitized-but-not-forced value:
-    // an empty string parses to 0, which `ratePerUsd` treats as "fall back to seed".
-    const n = value === '' ? 0 : Number(value);
-    const rate = Number.isFinite(n) ? n : 0;
-    persist({ ...model, rates: { ...model.rates, [cur]: rate } });
-  };
-
-  const resetRates = () => {
-    persist({ ...model, rates: { ...SEED_RATES } });
-  };
+  // The home-currency toggle + exchange-rate override moved to the Settings page
+  // (`components/settings-panel.tsx`). The write path is IDENTICAL (still `useBudget().commit`),
+  // so budget sync (`mergeBudget`) is unaffected — only the rendering location changed.
 
   // The reactive expense store. Its aggregate feeds the `rollUp` `spent` seam, so the
   // rollup now returns real spent/remaining. The store's CustomEvent makes this update live the
   // instant an expense is logged/edited/deleted from the global dialog (or the list below).
   const { expenses, removeExpense, restoreExpense } = useExpenses();
+  // The sync-on expense Undo re-adds a FRESH-ID copy, so any receipt photo pointed at the
+  // old id must follow. `repointExpense` is a no-op when the id is unchanged (dormant restore).
+  const { repointExpense } = usePhotos();
   const spent = useMemo(() => expensesToSpent(expenses), [expenses]);
   const roll = useMemo(() => rollUp(model, spent), [model, spent]);
   const home = model.homeCurrency;
+
+  // The read-only "who owes whom" settlement over the SAME expenses (per-leg / per-currency).
+  // Separate from the spend rollup above — split never changes totals, only who reimburses whom.
+  // `me` (the active traveler) is the payer fallback for a split expense logged without an explicit
+  // payer. Empty until ≥1 split expense exists, so the summary stays hidden on the fast path.
+  const { traveler } = useActiveTraveler();
+  const settlements = useMemo(
+    () => settle(expenses, TRAVELERS.map((t) => t.name), traveler?.name),
+    [expenses, traveler],
+  );
 
   // Delete an expense immediately (fast-log ethos — no confirm dialog), then offer a sonner
   // Undo that re-inserts the EXACT removed object (same id + createdAt) via the store's
@@ -128,12 +128,15 @@ export default function BudgetPanel() {
   // byte-identical rather than a fresh-id re-log.
   const handleDeleteExpense = (expense: Expense) => {
     removeExpense(expense.id);
-    toast.success(`Deleted ${formatMoney(expense.amount, legCurrency(expense.leg))} ${expense.category}`, {
-      action: {
-        label: 'Undo',
-        onClick: () => restoreExpense(expense),
+    showUndoToast(
+      `Deleted ${formatMoney(expense.amount, legCurrency(expense.leg))} ${expense.category}`,
+      () => {
+        // Restore returns the id the row came back under (fresh under sync, same when dormant); move
+        // any receipt meta to it so a synced Undo doesn't strand the photo. No-op if unchanged.
+        const newId = restoreExpense(expense);
+        repointExpense(expense.id, newId);
       },
-    });
+    );
   };
 
   // Open the fast-log dialog (add mode) via the global host. The button that had focus is the
@@ -189,76 +192,6 @@ export default function BudgetPanel() {
           </div>
         </div>
 
-        {/* Home currency + rates row */}
-        <div className="mb-6 grid gap-4 lg:grid-cols-2">
-          {/* Home / display currency toggle */}
-          <fieldset className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <legend className="px-1 text-sm font-semibold text-white">Show totals in</legend>
-            <div
-              role="radiogroup"
-              aria-label="Home currency for totals"
-              data-testid="budget-currency-toggle"
-              className="mt-2 flex flex-wrap gap-2"
-            >
-              {CURRENCIES.map((cur) => {
-                const active = home === cur;
-                return (
-                  <button
-                    key={cur}
-                    type="button"
-                    role="radio"
-                    aria-checked={active}
-                    onClick={() => setHomeCurrency(cur)}
-                    data-testid={`budget-currency-${cur.toLowerCase()}`}
-                    className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 ${
-                      active
-                        ? 'border-gold-400 bg-gold-400/15 text-gold-300'
-                        : 'border-white/15 text-white/70 hover:bg-white/5'
-                    }`}
-                  >
-                    <span aria-hidden="true">{currencySymbol(cur)}</span>
-                    {cur}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
-
-          {/* Exchange rates (manual override; seeded) */}
-          <fieldset className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <legend className="px-1 text-sm font-semibold text-white">Exchange rates</legend>
-            <p className="mt-1 flex items-center gap-1.5 text-xs text-white/50">
-              <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-              Approximate defaults — edit to match today's rate. Units per 1 US dollar.
-            </p>
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
-              <RateField
-                id="budget-rate-npr"
-                label="Rs per $1"
-                seed={SEED_RATES.NPR}
-                value={model.rates.NPR}
-                onChange={(v) => setRate('NPR', v)}
-              />
-              <RateField
-                id="budget-rate-jpy"
-                label="¥ per $1"
-                seed={SEED_RATES.JPY}
-                value={model.rates.JPY}
-                onChange={(v) => setRate('JPY', v)}
-              />
-            </div>
-            <button
-              type="button"
-              onClick={resetRates}
-              data-testid="budget-rate-reset"
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
-            >
-              <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
-              Reset to defaults
-            </button>
-          </fieldset>
-        </div>
-
         {/* Per-leg budgets */}
         <div className="grid gap-4 lg:grid-cols-2">
           <LegBudgetCard
@@ -303,6 +236,9 @@ export default function BudgetPanel() {
           onEdit={openEditDialog}
           onDelete={handleDeleteExpense}
         />
+
+        {/* Settle up — who owes whom over the split expenses; hidden until ≥1 split. */}
+        <SettleUpSummary settlements={settlements} />
       </m.div>
     </section>
   );
@@ -346,6 +282,36 @@ function SpentRemaining({
   );
 }
 
+/**
+ * Count-up: a money figure that eases up to its value the first time it scrolls
+ * into view (reusing the `use-count-up` hook, exactly like the dashboard
+ * stats). PRESENTATIONAL ONLY — `formatMoney` still formats the REAL number every
+ * frame, and the final frame lands on `amount` exactly, so the displayed value is
+ * byte-identical to a plain render once settled. Reduced motion is owned by the hook:
+ * it skips the ramp and reports the final value immediately. In jsdom (unit
+ * tests) `useInView` never fires, so the hook reports the live value with no ramp.
+ */
+function CountUpMoney({
+  amount,
+  cur,
+  testId,
+  className,
+}: {
+  amount: number;
+  cur: CurrencyCode;
+  testId: string;
+  className?: string;
+}) {
+  const ref = useRef<HTMLSpanElement>(null);
+  const inView = useInView(ref, { once: true });
+  const { value } = useCountUp(amount, inView);
+  return (
+    <span ref={ref} data-testid={testId} className={className}>
+      {formatMoney(value, cur)}
+    </span>
+  );
+}
+
 /** The grand-total block: budget + (once anything is spent) spent + remaining in the home currency. */
 function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) {
   const over = roll.totalRemainingHome < 0;
@@ -371,9 +337,12 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs sm:justify-end">
             <span className="text-white/50">
               Spent{' '}
-              <span className="font-semibold text-white/80" data-testid="budget-grand-total-spent">
-                {formatMoney(roll.totalSpentHome, home)}
-              </span>
+              <CountUpMoney
+                amount={roll.totalSpentHome}
+                cur={home}
+                testId="budget-grand-total-spent"
+                className="font-semibold text-white/80"
+              />
             </span>
             <span aria-hidden="true" className="text-white/20">
               ·
@@ -387,44 +356,6 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
           </p>
         )}
       </div>
-    </div>
-  );
-}
-
-/** A labelled numeric rate input with its seed shown as the placeholder/hint. */
-function RateField({
-  id,
-  label,
-  seed,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  seed: number;
-  value: number;
-  onChange: (value: string) => void;
-}) {
-  // Show the empty string when the stored rate is the "unset" sentinel 0 (so the placeholder
-  // seed shows through); otherwise the typed number. This keeps a mid-edit blank possible.
-  const display = value === 0 ? '' : String(value);
-  return (
-    <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-white/70">
-        {label}
-      </label>
-      <input
-        id={id}
-        data-testid={id}
-        type="number"
-        inputMode="decimal"
-        min={0}
-        step="any"
-        value={display}
-        placeholder={String(seed)}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-white/15 bg-navy-900/60 px-3 py-2 text-sm text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40"
-      />
     </div>
   );
 }
@@ -533,8 +464,8 @@ function LegBudgetCard({
             const catId = `budget-cat-${leg}-${category}`;
             const stored = safeAmount(legCats[category]);
             const catRoll = catRollByCategory.get(category);
-            // Only show a category's spent/remaining once it HAS a budget set
-            // (per-category figures appear only where a category budget exists).
+            // Only show a category's spent/remaining once it HAS a budget set (per the brief:
+            // per-category where a category budget exists).
             const showCatSpend = stored > 0 && (catRoll?.spentLocal ?? 0) >= 0 && !!catRoll;
             return (
               <div key={category} className="flex flex-col gap-1">
@@ -593,102 +524,3 @@ function LegBudgetCard({
   );
 }
 
-/**
- * The expense log: a "Log expense" trigger (emits `expense:open`) + the list of logged
- * expenses (newest first) with per-row edit + delete. Amounts show in each expense's leg-local
- * currency. Empty state when nothing is logged yet.
- */
-function ExpenseLog({
-  expenses,
-  onLog,
-  onEdit,
-  onDelete,
-}: {
-  expenses: Expense[];
-  onLog: () => void;
-  onEdit: (expense: Expense) => void;
-  onDelete: (expense: Expense) => void;
-}) {
-  // Newest first — sort a copy by createdAt descending (the core keeps insertion order).
-  const ordered = useMemo(
-    () => [...expenses].sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0)),
-    [expenses],
-  );
-
-  return (
-    <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5" data-testid="expense-log">
-      <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <ReceiptText className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />
-          <h3 className="text-sm font-semibold text-white sm:text-base">Logged expenses</h3>
-        </div>
-        <button
-          type="button"
-          onClick={onLog}
-          data-testid="expense-log-open"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-gold-500 px-3.5 py-2 text-sm font-semibold text-navy-900 transition-colors hover:bg-gold-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Log expense
-        </button>
-      </div>
-
-      {ordered.length === 0 ? (
-        <div
-          data-testid="expense-log-empty"
-          className="rounded-lg border border-dashed border-white/10 px-4 py-8 text-center"
-        >
-          <p className="text-sm text-white/60">No expenses logged yet.</p>
-          <p className="mt-1 text-xs text-white/55">
-            Tap “Log expense” to record a meal, a taxi, or a ticket — it counts against your budget above.
-          </p>
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-2" data-testid="expense-list">
-          {ordered.map((e) => {
-            const cur = legCurrency(e.leg);
-            const colors = CATEGORY_COLORS[e.category];
-            return (
-              <li
-                key={e.id}
-                data-testid={`expense-item-${e.id}`}
-                className="flex items-center gap-3 rounded-lg border border-white/10 bg-navy-900/40 p-3"
-              >
-                <span
-                  className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${colors.bg} ${colors.text}`}
-                >
-                  {e.category}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-white" data-testid={`expense-item-${e.id}-amount`}>
-                    {formatMoney(e.amount, cur)}
-                    <span className="ml-1.5 text-xs font-normal capitalize text-white/40">· {e.leg}</span>
-                  </p>
-                  {e.note && <p className="truncate text-xs text-white/50">{e.note}</p>}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => onEdit(e)}
-                  data-testid={`expense-item-edit-${e.id}`}
-                  aria-label={`Edit ${e.category} expense of ${formatMoney(e.amount, cur)}`}
-                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
-                >
-                  <Pencil className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDelete(e)}
-                  data-testid={`expense-item-delete-${e.id}`}
-                  aria-label={`Delete ${e.category} expense of ${formatMoney(e.amount, cur)}`}
-                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-red-500/20 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-                >
-                  <Trash2 className="h-4 w-4" aria-hidden="true" />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
-}

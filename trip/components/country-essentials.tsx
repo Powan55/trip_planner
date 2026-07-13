@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
+import { SectionHeading } from '@/components/section-heading';
 import { Heart, Utensils, BookOpen, MapPin } from 'lucide-react';
 import { FEATURED_DESTINATIONS, LOCAL_FOODS, ETIQUETTE_TIPS } from '@/lib/travel-tips-data';
 import OptimizedImage from '@/components/optimized-image';
@@ -11,10 +12,10 @@ import AddToPlanButton from '@/components/add-to-plan-button';
  * Country Essentials — the country-parameterized half of the old
  * `travel-inspiration.tsx` split: featured destinations, local foods, and
  * cultural etiquette, filtered to ONE country for the /nepal/ and /japan/ pages
- * (etiquette additionally includes the 'Both' tips). The Home half (weather +
- * packing checklist) lives in `travel-essentials.tsx`.
+ * (etiquette additionally includes the 'Both' tips). The Home half (weather
+ * outlook) lives in `travel-essentials.tsx`.
  *
- * FeaturedCard / FoodCard moved here VERBATIM (micro-interaction recipe,
+ * FeaturedCard / FoodCard moved here VERBATIM (shared micro-interaction recipe,
  * add-to-plan affordance on Featured only). All Tailwind classes stay
  * static whole-string literals.
  */
@@ -64,7 +65,7 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
         </div>
         <p className="mt-2 text-xs text-white/40 leading-relaxed">{destination.blurb}</p>
         {/* Add-to-plan affordance — additive; only Featured cards get
-            it (not food/etiquette/packing/weather). Featured has no id/category;
+            it (not food/etiquette/weather). Featured has no id/category;
             the adapter derives sourceId from the name and uses 'sightseeing'. */}
         <AddToPlanButton
           source={destination}
@@ -115,21 +116,12 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
   return (
     <section id="essentials" aria-labelledby="essentials-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* Slide-only masthead entrance (opacity pinned to 1) so the axe
-            scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
-            mid-fade as a transient contrast failure. See RecommendationSection. */}
-        <m.div
-          initial={{ opacity: 1, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-12"
-        >
-          <h2 id="essentials-heading" className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
-            {country}{' '}
-            <span className={isNepal ? 'text-gradient-himalaya' : 'text-gradient-sakura'}>Essentials</span>
-          </h2>
-          <p className="text-white/50 max-w-xl mx-auto">Featured spots, local flavors, and cultural know-how for {country}.</p>
-        </m.div>
+        <SectionHeading
+          id="essentials-heading"
+          className="mb-12"
+          title={<>{country}{' '}<span className={isNepal ? 'text-gradient-himalaya' : 'text-gradient-sakura'}>Essentials</span></>}
+          subtitle={`Featured spots, local flavors, and cultural know-how for ${country}.`}
+        />
 
         {/* Featured Destinations */}
         <div className="mb-12">

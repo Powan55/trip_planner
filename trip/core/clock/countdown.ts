@@ -1,6 +1,7 @@
 // Core clock — pure, deterministically-testable countdown decomposition.
 //
-// Framework-free. `lib/countdown.ts` re-exports `computeCountdown` + `Countdown`
+// Framework-free. Extracted VERBATIM from
+// `lib/countdown.ts`; that module now re-exports `computeCountdown` + `Countdown`
 // from here byte-identically, so every caller (`components/hero-section.tsx`,
 // `token-gate.tsx`, `trip-dashboard.tsx`) is untouched.
 //

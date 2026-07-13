@@ -53,35 +53,6 @@ export const ETIQUETTE_TIPS: EtiquetteTip[] = [
   { title: 'Bowing', country: 'Japan', description: 'A slight bow shows respect in greetings. Deeper bows show more respect. Follow the local\'s lead.', icon: 'HeartHandshake' },
 ];
 
-export interface PackingItem {
-  item: string;
-  category: string;
-  essential: boolean;
-}
-
-export const PACKING_LIST: PackingItem[] = [
-  { item: 'Down jacket / Puffer coat', category: 'Clothing', essential: true },
-  { item: 'Thermal base layers (2-3 sets)', category: 'Clothing', essential: true },
-  { item: 'Waterproof hiking boots', category: 'Clothing', essential: true },
-  { item: 'Warm beanie and gloves', category: 'Clothing', essential: true },
-  { item: 'Scarf / Neck gaiter', category: 'Clothing', essential: false },
-  { item: 'Smart casual outfit (for nice dinners)', category: 'Clothing', essential: false },
-  { item: 'Camera body + lenses (wide, zoom, prime)', category: 'Electronics', essential: true },
-  { item: 'Portable power bank (20000mAh+)', category: 'Electronics', essential: true },
-  { item: 'Universal travel adapter', category: 'Electronics', essential: true },
-  { item: 'Tripod (compact travel)', category: 'Electronics', essential: false },
-  { item: 'Passport (6+ months validity)', category: 'Documents', essential: true },
-  { item: 'Travel insurance documents', category: 'Documents', essential: true },
-  { item: 'Japan Rail Pass (if applicable)', category: 'Documents', essential: false },
-  { item: 'Nepal visa (on arrival)', category: 'Documents', essential: true },
-  { item: 'Sunscreen SPF50 (high altitude Nepal)', category: 'Toiletries', essential: true },
-  { item: 'Lip balm (dry winter air)', category: 'Toiletries', essential: true },
-  { item: 'Daypack (25-30L)', category: 'Gear', essential: true },
-  { item: 'Rain cover for camera bag', category: 'Gear', essential: false },
-  { item: 'Reusable water bottle', category: 'Gear', essential: true },
-  { item: 'Hand warmers (for Japan winter)', category: 'Gear', essential: false },
-];
-
 export const WEATHER_INFO = {
   nepal: {
     tempHigh: '19°C (66°F)',

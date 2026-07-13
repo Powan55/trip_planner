@@ -92,7 +92,7 @@ function LegRow({ leg }: { leg: FlightLeg }) {
 }
 
 function LayoverRow({ layover }: { layover: Layover }) {
-  // a11y `list` rule (WCAG 1.3.1): the layover row must be a REAL <li>
+  // A11y `list` rule (WCAG 1.3.1): the layover row must be a REAL <li>
   // (listitem) as a direct child of the <ol> — previously it carried
   // `role="separator"` on the <li> itself, which OVERRODE its implicit listitem
   // role, so axe saw the <ol> directly containing a non-listitem (only-listitems
@@ -150,7 +150,7 @@ function JourneyCard({ journey, index }: { journey: Journey; index: number }) {
 
       {/* Ordered legs interleaved with layovers: layover[i] sits between leg[i] and leg[i+1].
           LegRow / LayoverRow each render a single <li> LISTITEM (the layover's
-          `role="separator"` lives on an inner span, not the <li>), so every DIRECT
+          `role="separator"` now lives on an inner span, not the <li>), so every DIRECT
           child of this <ol> is a valid listitem (axe `only-listitems`). */}
       <ol className="space-y-2">
         {journey.legs.map((leg, i) => (
@@ -211,6 +211,12 @@ function StayCard({ stay }: { stay: Stay }) {
         <p className="mt-2 flex items-center gap-1.5 text-[11px] text-white/45">
           <Clock className="w-3.5 h-3.5 text-indigo-300/70 shrink-0" aria-hidden="true" />
           <span className="text-white/40">Check-in</span> {stay.checkIn}
+        </p>
+      )}
+      {stay.checkOut && (
+        <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-white/45">
+          <Clock className="w-3.5 h-3.5 text-indigo-300/70 shrink-0" aria-hidden="true" />
+          <span className="text-white/40">Check-out</span> {stay.checkOut}
         </p>
       )}
       {stay.note && (
@@ -286,29 +292,31 @@ export default function FlightsSection() {
                 </div>
               </div>
 
-              <m.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5 }}
-                className="glass-card rounded-2xl p-5 sm:p-6 min-w-0"
-                aria-labelledby="japan-todo-heading"
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <CircleDashed className="w-4 h-4 text-amber-300/70" aria-hidden="true" />
-                  <h3 id="japan-todo-heading" className="font-display font-bold text-white text-base">
-                    Japan — to be booked
-                  </h3>
-                </div>
-                <p className="text-[11px] text-white/40 mb-4">
-                  These parts of the trip are not confirmed yet. They are intentionally left open, not missing.
-                </p>
-                <div className="space-y-3">
-                  {JAPAN_TODO.map((item) => (
-                    <ToBookCard key={item.id} item={item} />
-                  ))}
-                </div>
-              </m.div>
+              {JAPAN_TODO.length > 0 && (
+                <m.div
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5 }}
+                  className="glass-card rounded-2xl p-5 sm:p-6 min-w-0"
+                  aria-labelledby="japan-todo-heading"
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <CircleDashed className="w-4 h-4 text-amber-300/70" aria-hidden="true" />
+                    <h3 id="japan-todo-heading" className="font-display font-bold text-white text-base">
+                      Japan — to be booked
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-white/40 mb-4">
+                    These parts of the trip are not confirmed yet. They are intentionally left open, not missing.
+                  </p>
+                  <div className="space-y-3">
+                    {JAPAN_TODO.map((item) => (
+                      <ToBookCard key={item.id} item={item} />
+                    ))}
+                  </div>
+                </m.div>
+              )}
             </div>
           </>
         )}

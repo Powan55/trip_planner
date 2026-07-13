@@ -90,7 +90,7 @@ export function getActiveTraveler(): Traveler | null {
 
 /**
  * Sign out: clear the persisted token AND the display name via the gateway's
- * `clearIdentity` (which removes both keys — the cross-module ownership the gateway
+ * `clearIdentity` (which removes both keys 4 + 3 — the cross-module ownership the gateway
  * now centralizes; behavior byte-identical to the prior direct removals). Already-stamped
  * createdBy / updatedBy on stored items are historical and are NOT touched. No-op / never
  * throws during SSR or with disabled storage (handled inside the gateway).

@@ -1,51 +1,58 @@
-// The "what's-next rail" pure helper.
+// The "what's-next rail" pure helper, signatured for the place-clock time model.
 //
-// ── Purity ────────────────────────────────────────────────────────────────────────────────
-// `nextUp` is PURE — no clock read, no fetch, no storage. It takes the day's items AND the
-// resolved "now" time-of-day ("HH:MM", zero-padded 24h) and returns the next upcoming item.
-// The IMPURE "now" (from `getNow()`, incl. the `?today=` override — local noon under a
-// `?today=DATE` clock) is supplied by the caller (`components/today-panel.tsx`), never read
-// here. That keeps this trivially unit-testable in isolation (no time mocking needed).
+// ── Purity ───────────────────────────────────────────────────────────────────────────────
+// `nextUp` is PURE — no clock read, no fetch, no storage. It takes the day's items AND a
+// context carrying the day's date, the place's UTC offset, and the resolved "now" as a UTC
+// epoch-ms instant. The IMPURE "now" (from `getNowUtcMsForPlace`, incl. the `?today=`
+// override) is supplied by the caller (`components/today-panel.tsx`), never read here — so
+// this stays trivially unit-testable in isolation (no time mocking).
+//
+// The comparison is place-accurate: "upcoming" is decided by an INSTANT compare via
+// `isPastAtPlace` (correct across a day boundary for a viewer far from the trip zone), and the
+// ordering key is `effectiveStartMinutes` — the ONE shared fallback that parses legacy `time`
+// for items that never got a structured `startMinutes` (sync-ingest / seed / pre-migration).
 
 import type { ItineraryItem } from '@/lib/trip-data';
+import { effectiveStartMinutes, isPastAtPlace } from '@/core/dates';
 
-/** A zero-padded 24h clock time, e.g. "06:00", "12:00", "18:30". */
-const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-/**
- * Whether `time` is a valid zero-padded 24h "HH:MM". Items with a missing / blank /
- * unparseable time have no scheduled slot, so they are never "next".
- */
-function hasValidTime(time: string | undefined): time is string {
-  return typeof time === 'string' && TIME_RE.test(time);
+/** The resolved-clock context for a single trip day (all injected — no clock read here). */
+export interface NextUpContext {
+  /** The day's ISO date `YYYY-MM-DD` (the place-anchor for the instant compare). */
+  dayDate: string;
+  /** The day's place UTC offset in minutes (NPT +345 / JST +540). */
+  placeOffsetMin: number;
+  /** "Now" as a UTC epoch-ms instant (from `getNowUtcMsForPlace`). */
+  nowUtcMs: number;
 }
 
 /**
  * The next relevant agenda item, or `null` when nothing is upcoming.
  *
- * "Upcoming" = the earliest item that is NOT done and whose `time` is `>= nowHHMM`. Because
- * the times are zero-padded 24h "HH:MM", a plain lexicographic string compare IS a correct
- * chronological compare — no Date parsing (and no tz risk) needed. The scan is a single pass;
- * ties (two items at the same time) resolve to the FIRST in array order (stable, matches the
- * agenda's own top-to-bottom order).
+ * "Upcoming" = the earliest not-done item whose effective start is NOT past at the place
+ * (an item exactly at "now" IS upcoming — the old `>=` strictness, preserved via
+ * `isPastAtPlace`'s `<`). The ordering key is `effectiveStartMinutes`: valid `startMinutes`
+ * (0–1439) else the parsed legacy `time`. Ties resolve to the FIRST in array order (stable,
+ * matches the agenda's top-to-bottom order).
  *
  * Excluded from "next":
  *   - done items (`item.done === true`),
- *   - items with a missing / blank / unparseable `time` (no scheduled slot),
- *   - items whose `time` is strictly before `nowHHMM` (already passed).
+ *   - items with no effective start (missing / unparseable `time` and no valid `startMinutes`),
+ *   - items already past at the place.
  *
- * Returns `null` when every timed, not-done item is in the past, or there are no timed items.
- * Total — it never throws; a malformed `nowHHMM` simply means everything with a valid time
- * lexicographically `>=` it is considered (still deterministic).
+ * Total — never throws; returns `null` when every timed, not-done item is past or nothing is
+ * timed. Returns the SAME item reference on the same inputs (no new object built).
  */
-export function nextUp(items: ItineraryItem[], nowHHMM: string): ItineraryItem | null {
+export function nextUp(items: ItineraryItem[], ctx: NextUpContext): ItineraryItem | null {
   let best: ItineraryItem | null = null;
+  let bestMin = Infinity;
   for (const item of items) {
     if (item.done === true) continue;
-    if (!hasValidTime(item.time)) continue;
-    if (item.time < nowHHMM) continue; // already passed
-    if (best === null || item.time < (best.time as string)) {
+    const min = effectiveStartMinutes(item);
+    if (min === undefined) continue; // no scheduled slot
+    if (isPastAtPlace(ctx.dayDate, min, ctx.placeOffsetMin, ctx.nowUtcMs)) continue; // passed
+    if (min < bestMin) {
       best = item;
+      bestMin = min;
     }
   }
   return best;

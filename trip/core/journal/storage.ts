@@ -11,7 +11,8 @@
  * caller value from ever reaching disk.
  */
 
-import { journalStore } from '@/core/storage/gateway';
+import { journalStore, hasKey, STORAGE_KEYS } from '@/core/storage/gateway';
+import type { StoragePort } from '@/core/ports';
 import { sanitizeEntries, type JournalEntry } from '@/core/journal/model';
 
 /** Load + sanitize the persisted journal list (empty list when absent / SSR / corrupt). */
@@ -24,3 +25,15 @@ export function loadJournal(): JournalEntry[] {
 export function saveJournal(entries: JournalEntry[]): void {
   journalStore.set<JournalEntry[]>(sanitizeEntries(entries));
 }
+
+/**
+ * The journal `StoragePort<JournalEntry[]>` for `createReactiveStore` — the same
+ * load/save contract the hook already used, plus raw key-presence to satisfy the port.
+ * `has()` is not consulted by the factory skeleton; it completes the contract for parity with the
+ * itinerary port.
+ */
+export const journalStoragePort: StoragePort<JournalEntry[]> = {
+  load: loadJournal,
+  save: saveJournal,
+  has: () => hasKey('local', STORAGE_KEYS.journal),
+};

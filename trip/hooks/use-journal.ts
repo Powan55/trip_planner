@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import { STORAGE_KEYS } from '@/core/storage/gateway';
-import { loadJournal, saveJournal } from '@/core/journal/storage';
+import { loadJournal, saveJournal, journalStoragePort } from '@/core/journal/storage';
+import { createReactiveStore } from '@/hooks/create-reactive-store';
 import {
   getEntry as getEntryCore,
   upsertEntry as upsertEntryCore,
@@ -14,25 +15,15 @@ import {
 /**
  * Reactive journal store (in-trip per-day text journal).
  *
- * A THIN React adapter over the framework-free journal core (`core/journal/model.ts`) + the
- * load/save adapter (`core/journal/storage.ts`, gateway key 12). It mirrors `hooks/use-expenses.ts`
- * exactly — SIMPLE: no sync fan-out, no attribution, no tombstones (the journal is a private,
- * single-user, localStorage-only domain).
+ * A thin React adapter over the framework-free journal core (`core/journal/model.ts`) + the
+ * load/save adapter (`core/journal/storage.ts`, gateway key 12). Simple: no sync fan-out, no
+ * attribution, no tombstones (the journal is a private, single-user, localStorage-only domain
+ * by design) — so it wires `createReactiveStore` without a `sync` port. The shared
+ * factory owns the hydrate/listen/commit skeleton (dual-layer reactivity, fresh-base
+ * commit); this file owns only the journal-specific mutators + `getEntry` selector.
  *
- * Reactivity (idiom, mirrored):
- *  - Every mutator writes via `saveJournal()` AND dispatches a same-tab CustomEvent
- *    (`JOURNAL_CHANGED_EVENT`) on `window`, so any other reader (the recap consumes this)
- *    updates live the instant an entry is saved.
- *  - The hook listens for that CustomEvent (same-tab liveness) AND the cross-tab `storage` event,
- *    re-reading from storage on either — via the exported key constant, never a literal.
- *
- * SSR-safe + hydrated gate (mirrors `use-expenses.ts`): the list starts `[]` (matching the server
- * render), hydrates from `loadJournal()` in a mount effect, and every mutator reads the FRESHEST
- * persisted state as its base (not a stale React closure) so multiple saves in one handler compose.
- * `hydrated` is exposed so a consumer can defer a persist-on-first-render.
- *
- * timestamp injection: `saveEntry` injects `new Date().toISOString()` at the ADAPTER
- * boundary and hands it to the pure `upsertEntry`, so the core stays deterministic + clock-free.
+ * Timestamp injection: `saveEntry` injects `new Date().toISOString()` at the adapter
+ * boundary and hands it to the pure `upsertEntry`, so the core stays deterministic and clock-free.
  */
 
 export const JOURNAL_CHANGED_EVENT = 'journal:changed';
@@ -44,68 +35,48 @@ export interface JournalStore {
   /** Upsert the entry for `date` with a patch (mood/highlight `null` clears; empty content removes). */
   saveEntry(date: string, patch: JournalPatch): void;
   removeEntry(date: string): void;
+  /** Clear ALL journal entries (settings page). Local-only — the journal never syncs; this
+   *  store has no sync port, so a wipe of key 12 has no propagation path by construction. */
+  clearAll(): void;
 }
 
+// The shared hydrate/listen/commit skeleton, instantiated once for the journal domain.
+// Local-only: no `sync` port (the journal never syncs — privacy-by-design).
+const useJournalStore = createReactiveStore<JournalEntry[]>({
+  eventName: JOURNAL_CHANGED_EVENT,
+  storageKeys: [STORAGE_KEYS.journal],
+  storage: journalStoragePort,
+});
+
 export function useJournal(): JournalStore {
-  const [entries, setEntries] = useState<JournalEntry[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-  const hydratedRef = useRef(false);
-
-  // Load from localStorage on mount. SSR-safe: `loadJournal()` returns [] under no-window,
-  // matching first paint; the real read happens here after mount.
-  useEffect(() => {
-    setEntries(loadJournal());
-    setHydrated(true);
-    hydratedRef.current = true;
-  }, []);
-
-  // Re-read on a same-tab CustomEvent OR a cross-tab `storage` event, so every store instance
-  // stays in sync within and across tabs.
-  useEffect(() => {
-    const reread = () => {
-      if (!hydratedRef.current) return;
-      setEntries(loadJournal());
-    };
-    const onCustom = () => reread();
-    const onStorage = (e: StorageEvent) => {
-      // Route through the exported key constant (never a literal) so the cross-tab listener can't
-      // silently stop matching if the on-disk key changes. A full clear (key===null) too.
-      if (e.key === STORAGE_KEYS.journal || e.key === null) reread();
-    };
-    window.addEventListener(JOURNAL_CHANGED_EVENT, onCustom);
-    window.addEventListener('storage', onStorage);
-    return () => {
-      window.removeEventListener(JOURNAL_CHANGED_EVENT, onCustom);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, []);
-
-  // Single commit path: derive `next` from the freshest persisted state (storage is the source of
-  // truth), write through `saveJournal`, update React state, then dispatch the same-tab CustomEvent
-  // so other store instances re-read. Gated on `hydrated` so the first-render [] can't clobber a
-  // saved list before load.
-  const commit = useCallback((compute: (current: JournalEntry[]) => JournalEntry[]) => {
-    if (!hydratedRef.current) return;
-    const prev = loadJournal();
-    const next = compute(prev);
-    saveJournal(next);
-    setEntries(next);
-    window.dispatchEvent(new CustomEvent(JOURNAL_CHANGED_EVENT));
-  }, []);
+  const { value: entries, hydrated, commit } = useJournalStore();
 
   // Read against the freshest persisted state (not a stale closure), so a caller that reads right
   // after a save sees the write; falls back to React state under SSR/pre-hydrate.
+  //
+  // Performance: the per-call `loadJournal()` parse was O(callers) per render — the recap
+  // browse renders one card per elapsed day, each calling `getEntry`, so up to ~32 full parses per
+  // render. Memoize the parsed source via a version-stamped ref keyed on the `entries` identity:
+  // `entries` gets a fresh reference on every `commit()` (setValue(next)) and every event re-read
+  // (setValue(load())) in `createReactiveStore`, so the memo invalidates exactly when the store
+  // changes — one parse per change, not per call. Read-after-write-in-one-handler is preserved
+  // because no caller reads `getEntry` synchronously after `saveEntry` before re-render (verified:
+  // journal-card seeds its draft on open, recap/trip-story-recap only read at render time).
+  const sourceRef = useRef<{ key: JournalEntry[]; source: JournalEntry[] } | null>(null);
   const getEntry = useCallback(
     (date: string): JournalEntry | null => {
-      const source = hydratedRef.current ? loadJournal() : entries;
-      return getEntryCore(source, date);
+      if (!hydrated) return getEntryCore(entries, date);
+      if (sourceRef.current?.key !== entries) {
+        sourceRef.current = { key: entries, source: loadJournal() };
+      }
+      return getEntryCore(sourceRef.current.source, date);
     },
-    [entries],
+    [entries, hydrated],
   );
 
   const saveEntry = useCallback(
     (date: string, patch: JournalPatch) => {
-      // timestamp injected HERE (the pure core stays deterministic).
+      // timestamp injected here (the pure core stays deterministic).
       commit((current) => upsertEntryCore(current, date, patch, new Date().toISOString()));
     },
     [commit],
@@ -118,5 +89,11 @@ export function useJournal(): JournalStore {
     [commit],
   );
 
-  return { entries, hydrated, getEntry, saveEntry, removeEntry };
+  // Local-only clear: the journal store carries no sync port, so this plain local wipe of
+  // key 12 can never propagate — privacy-by-design. One commit; stays cleared on reload (key present).
+  const clearAll = useCallback(() => {
+    commit(() => []);
+  }, [commit]);
+
+  return { entries, hydrated, getEntry, saveEntry, removeEntry, clearAll };
 }

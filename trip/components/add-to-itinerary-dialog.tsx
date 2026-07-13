@@ -15,8 +15,14 @@ import {
 } from '@/lib/trip-data';
 import { generateItemId } from '@/lib/item-id';
 import { useItineraryContext } from '@/components/itinerary-provider';
+import { showUndoToast } from '@/lib/undo-toast';
+import { flyChip } from '@/lib/fly-chip';
 import type { ItineraryDraft } from '@/lib/itinerary-adapter';
 import { buildMapsSearchUrl } from '@/lib/maps-link';
+import { effectiveStartMinutes } from '@/core/dates';
+import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
+import { describeItemTime } from '@/lib/item-time-display';
+import TimePicker, { DurationField } from '@/components/time-picker';
 
 // Back-compat re-export: `buildMapsSearchUrl` was hoisted to the pure, React-free
 // `@/lib/maps-link` module (so eager consumers like the calendar can use it without
@@ -26,38 +32,38 @@ import { buildMapsSearchUrl } from '@/lib/maps-link';
 export { buildMapsSearchUrl };
 
 /**
- * Shared "Add to plan" dialog — a NEW, lightweight, source-aware dialog,
- * deliberately separate from the calendar's `ItemEditor`. It is invoked from any
- * place card (via `add-to-plan-button.tsx`) with a prefilled `ItineraryDraft`
- * and the place's current `existingPlacements` (from `findPlacements`).
+ * Shared "Add to plan" dialog — a lightweight, source-aware dialog, deliberately
+ * separate from the calendar's `ItemEditor`. It is invoked from any place card (via
+ * `add-to-plan-button.tsx`) with a prefilled `ItineraryDraft` and the place's current
+ * `existingPlacements` (from `findPlacements`).
  *
- * It reads/writes the itinerary THROUGH the store (`useItineraryContext`) —
- * no add/remove callbacks per call site. The CustomEvent fan-out makes the
+ * It reads/writes the itinerary THROUGH the store (`useItineraryContext`) — no
+ * add/remove callbacks per call site. The store's CustomEvent fan-out makes the
  * calendar / dashboard / card reflect every change immediately.
  *
- * A11y / focus reuses the EXACT contract that `ItemEditor` uses:
+ * A11y / focus reuses the same contract that `ItemEditor` uses:
  *  - role="dialog" aria-modal aria-labelledby
  *  - document-level Esc via an `onCloseRef` (latest-closure, bound once)
  *  - a lightweight Tab-trap inside the panel
  *  - autofocus the first field on open
  *  - parent-owned focus-return: the invoking button captures the trigger and
  *    refocuses it on `<AnimatePresence onExitComplete>` — NOT in this dialog's
- *    effect cleanup.
+ *    effect cleanup (a focus-return correctness rule shared across the dialogs).
  * Reduced-motion is respected by framer-motion via the global reduced-motion CSS;
  * Tailwind classes are static literals.
  *
- * RENDERING: the overlay is rendered through a React PORTAL to
- * `document.body`. Every trigger surface (recommendations, photography, map popup,
- * featured) sits inside a place card whose root is a framer `m.div` with an active
- * `whileHover` transform AND `overflow-hidden`. A `position: fixed` element whose
- * ancestor is transformed is positioned relative to that ancestor (CSS
- * containing-block rule), not the viewport — so rendered inline, the backdrop covered
- * only the card (neighbours stayed bright) and the panel overflowed and was clipped by
- * the card's `overflow-hidden`, hiding the pinned footer. The portal moves ONLY the DOM
- * node out to `<body>`; the React tree (and the parent `AnimatePresence`) is unchanged,
- * so the focus contract — document-level Esc, the `panelRef` Tab-trap, first-field
- * autofocus, and parent-owned focus-return on `onExitComplete` — all keep working. The
- * portal is mount-guarded (`mounted` state) so it never touches `document` during the
+ * RENDERING: the overlay is rendered through a React PORTAL to `document.body`.
+ * Every trigger surface (recommendations, photography, map popup, featured) sits
+ * inside a place card whose root is a framer `m.div` with an active `whileHover`
+ * transform AND `overflow-hidden`. A `position: fixed` element whose ancestor is
+ * transformed is positioned relative to that ancestor (CSS containing-block rule),
+ * not the viewport — so rendered inline, the backdrop covered only the card
+ * (neighbours stayed bright) and the panel overflowed and was clipped by the card's
+ * `overflow-hidden`, hiding the pinned footer. The portal moves ONLY the DOM node out
+ * to `<body>`; the React tree (and the parent `AnimatePresence`) is unchanged, so the
+ * focus contract — document-level Esc, the `panelRef` Tab-trap, first-field autofocus,
+ * and parent-owned focus-return on `onExitComplete` — all keep working. The portal is
+ * mount-guarded (`mounted` state) so it never touches `document` during the
  * static-export prerender (`output: 'export'`); the dialog only mounts on a user click,
  * post-hydration, so this is always satisfied in practice.
  */
@@ -96,11 +102,11 @@ export interface AddToItineraryDialogProps {
   existingPlacements: ExistingPlacement[];
   onClose(): void;
   /**
-   * Custom-add mode. Default 'source' keeps today's byte-compatible
-   * source behavior (Title/Location fixed, sourceId/sourceType stamped). In 'custom'
-   * mode Title + Location become editable text inputs, the confirm is blocked until
-   * Title is non-empty, and the created item is a PLAIN ItineraryItem with NO
-   * sourceId/sourceType — so it can never trip a false "Added" badge.
+   * Custom-add mode. Default 'source' keeps the byte-compatible source behavior
+   * (Title/Location fixed, sourceId/sourceType stamped). In 'custom' mode Title +
+   * Location become editable text inputs, the confirm is blocked until Title is
+   * non-empty, and the created item is a PLAIN ItineraryItem with NO sourceId/sourceType
+   * — so it can never trip a false "Added" badge.
    */
   mode?: 'source' | 'custom';
   /** Custom mode only: preset the date select to this date (e.g. the FAB's day). */
@@ -115,7 +121,7 @@ export default function AddToItineraryDialog({
   mode = 'source',
   presetDate,
 }: AddToItineraryDialogProps) {
-  const { addItem, updateItem, removeItem } = useItineraryContext();
+  const { addItem, updateItem, removeItem, restoreItem } = useItineraryContext();
   const isCustom = mode === 'custom';
 
   // The date the form initializes to. Custom mode honors `presetDate` (the FAB's
@@ -123,11 +129,11 @@ export default function AddToItineraryDialog({
   const initialDate =
     presetDate && TRIP_DATES.includes(presetDate) ? presetDate : TRIP_DATES[0];
 
-  // Portal mount guard. `createPortal(…, document.body)` must not run
-  // during the static-export prerender, so we only portal after the component has
-  // mounted on the client. The dialog only ever mounts on a user click (post-hydration),
-  // so this is satisfied immediately on open; it exists purely to keep `document`
-  // untouched on the server and to keep tsc/SSR honest.
+  // Portal mount guard. `createPortal(…, document.body)` must not run during the
+  // static-export prerender, so we only portal after the component has mounted on
+  // the client. The dialog only ever mounts on a user click (post-hydration), so this
+  // is satisfied immediately on open; it exists purely to keep `document` untouched on
+  // the server and to keep tsc/SSR honest.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -140,9 +146,18 @@ export default function AddToItineraryDialog({
   // preset/first trip date (add mode). Category/time/duration/notes prefill from the
   // draft, then from the placement being modified if one is selected.
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
-  const [time, setTime] = useState<string>('');
+  // Time/duration picker state. `timeTouched`/`durationTouched` gate the
+  // dual-write on confirm: untouched fields pass the ORIGINAL time/duration through
+  // unchanged (from `originalTimeRef`, reset alongside every form reset below) instead
+  // of being silently clobbered — mirrors ItemEditor's identical rule.
+  const [startMinutes, setStartMinutesState] = useState<number | undefined>(undefined);
+  const [timeTouched, setTimeTouched] = useState(false);
+  const [durationMinutes, setDurationMinutesState] = useState<number | undefined>(undefined);
+  const [durationTouched, setDurationTouched] = useState(false);
+  const originalTimeRef = useRef<{
+    time?: string; startMinutes?: number; duration?: string; durationMinutes?: number;
+  }>({});
   const [category, setCategory] = useState<ItineraryCategory>(draft.category);
-  const [duration, setDuration] = useState<string>(draft.duration ?? '');
   const [notes, setNotes] = useState<string>(draft.notes ?? '');
   // Custom mode only: editable Title + Location. In source mode these are unused
   // (Title/Location come fixed from the draft), so source behavior is unchanged.
@@ -153,14 +168,29 @@ export default function AddToItineraryDialog({
   // {date,itemId} is the modify target; null = "add a new placement".
   const [editingPlacementId, setEditingPlacementId] = useState<string | null>(null);
 
+  const handleTimeChange = (minutes: number | undefined) => {
+    setStartMinutesState(minutes);
+    setTimeTouched(true);
+  };
+  const handleDurationChange = (minutes: number | undefined) => {
+    setDurationMinutesState(minutes);
+    setDurationTouched(true);
+  };
+
   // Re-seed the form whenever the dialog (re)opens or its draft changes, so a
-  // reused dialog instance never shows stale values from a prior open.
+  // reused dialog instance never shows stale values from a prior open. Time is left
+  // untimed by default (draft.time is deliberately never prefilled, pre-existing
+  // behavior); duration.text (not minutes — legacy free text isn't parsed) is
+  // carried as the ORIGINAL fallback so an untouched confirm still writes it, unchanged.
   useEffect(() => {
     if (!open) return;
     setSelectedDate(initialDate);
-    setTime('');
+    setStartMinutesState(undefined);
+    setTimeTouched(false);
+    setDurationMinutesState(undefined);
+    setDurationTouched(false);
+    originalTimeRef.current = { duration: draft.duration };
     setCategory(draft.category);
-    setDuration(draft.duration ?? '');
     setNotes(draft.notes ?? '');
     setCustomTitle(draft.title ?? '');
     setCustomLocation(draft.location ?? '');
@@ -184,9 +214,27 @@ export default function AddToItineraryDialog({
   // mode it's the date select (unchanged autofocus target).
   const firstFieldRef = useRef<HTMLSelectElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  // Flying chip: measure the confirm button as the chip's launch point.
+  const confirmRef = useRef<HTMLButtonElement>(null);
 
-  // Custom mode never has existing placements (custom items carry no sourceId, so
-  // findPlacements returns []), so isModifyMode is always false there.
+  // Launch the "added to plan" flying chip from the confirm button toward the plan
+  // target. Presentational only + reduced-motion-gated inside flyChip; fire BEFORE
+  // onClose (the dialog unmounts on close, but the chip lives outside React).
+  const launchChip = (label: string) => {
+    const btn = confirmRef.current;
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    flyChip(
+      { x: r.left + r.width / 2, y: r.top + r.height / 2 },
+      { label, colorClass: CATEGORY_COLORS[category]?.text },
+    );
+  };
+
+  // Custom mode with an EMPTY sourceId (FAB / free-form) never has existing
+  // placements — the caller always passes `[]` since no sourceId can ever match
+  // `findPlacements` — so isModifyMode is false there. Custom mode with a NON-EMPTY
+  // sourceId (a namespaced nightlife id) behaves like source mode: the caller passes
+  // real `findPlacements(draft.sourceId)` results.
   const isModifyMode = existingPlacements.length > 0;
 
   // The effective title/location the confirm + Maps link use. Custom mode reads the
@@ -203,9 +251,17 @@ export default function AddToItineraryDialog({
   const startEditingPlacement = (placement: ExistingPlacement) => {
     setEditingPlacementId(placement.item.id);
     setSelectedDate(placement.date);
-    setTime(placement.item.time ?? '');
+    setStartMinutesState(effectiveStartMinutes(placement.item));
+    setTimeTouched(false);
+    setDurationMinutesState(placement.item.durationMinutes);
+    setDurationTouched(false);
+    originalTimeRef.current = {
+      time: placement.item.time,
+      startMinutes: placement.item.startMinutes,
+      duration: placement.item.duration,
+      durationMinutes: placement.item.durationMinutes,
+    };
     setCategory(placement.item.category);
-    setDuration(placement.item.duration ?? '');
     setNotes(placement.item.notes ?? '');
   };
 
@@ -213,30 +269,64 @@ export default function AddToItineraryDialog({
   const startAddingNew = () => {
     setEditingPlacementId(null);
     setSelectedDate(initialDate);
-    setTime('');
+    setStartMinutesState(undefined);
+    setTimeTouched(false);
+    setDurationMinutesState(undefined);
+    setDurationTouched(false);
+    originalTimeRef.current = { duration: draft.duration };
     setCategory(draft.category);
-    setDuration(draft.duration ?? '');
     setNotes(draft.notes ?? '');
   };
 
+  // Dual-write, gated on whether the user actually touched the picker/field —
+  // otherwise the ORIGINAL time/duration (from whichever target is active) passes
+  // through unchanged, so an unparseable legacy string is never silently clobbered.
+  const effectiveTime = timeTouched
+    ? (startMinutes !== undefined ? minutesToHHMM(startMinutes) : undefined)
+    : originalTimeRef.current.time;
+  const effectiveStart = timeTouched ? startMinutes : originalTimeRef.current.startMinutes;
+  const effectiveDuration = durationTouched
+    ? (durationMinutes !== undefined ? formatDurationText(durationMinutes) : undefined)
+    : originalTimeRef.current.duration;
+  const effectiveDurationMinutes = durationTouched ? durationMinutes : originalTimeRef.current.durationMinutes;
+
   const handleConfirm = () => {
-    // Custom mode: a PLAIN ItineraryItem — editable title/location, NO
-    // sourceId/sourceType, so it never trips a card "Added" badge. Blocked on empty
-    // title. There is never a placement to modify (no sourceId ⇒ findPlacements []).
+    // Custom mode: editable title/location. The empty-sourceId (FAB / free-form) path
+    // stays a PLAIN ItineraryItem with NO sourceId/sourceType (byte-identical, never
+    // trips a card "Added" badge, never has a placement to modify). A NON-EMPTY
+    // sourceId (a namespaced nightlife id) stamps it and supports modify/move/remove
+    // exactly like source mode. Blocked on empty title either way.
     if (isCustom) {
       const title = customTitle.trim();
       if (!title) return; // guard (the button is also disabled)
-      addItem(selectedDate, {
-        id: generateItemId(),
+      const hasSourceId = draft.sourceId.length > 0;
+      const patch = {
         title,
         location: customLocation.trim() || undefined,
         category,
-        time: time || undefined,
-        duration: duration || undefined,
+        time: effectiveTime,
+        startMinutes: effectiveStart,
+        duration: effectiveDuration,
+        durationMinutes: effectiveDurationMinutes,
         notes: notes || undefined,
-        // Deliberately NO sourceId / sourceType.
-      });
-      toast.success(`Added “${title}” to ${formatDate(selectedDate)}`);
+        ...(hasSourceId ? { sourceId: draft.sourceId, sourceType: draft.sourceType } : {}),
+      };
+
+      if (hasSourceId && editingPlacementId) {
+        const original = existingPlacements.find((p) => p.item.id === editingPlacementId);
+        if (original && original.date !== selectedDate) {
+          removeItem(original.date, editingPlacementId);
+          addItem(selectedDate, { ...patch, id: generateItemId() });
+          toast.success(`Moved “${title}” to ${formatDate(selectedDate)}`);
+        } else {
+          updateItem(selectedDate, editingPlacementId, patch);
+          toast.success(`Updated “${title}” on ${formatDate(selectedDate)}`);
+        }
+      } else {
+        addItem(selectedDate, { ...patch, id: generateItemId() });
+        toast.success(`Added “${title}” to ${formatDate(selectedDate)}`);
+        launchChip(title);
+      }
       onClose();
       return;
     }
@@ -245,8 +335,10 @@ export default function AddToItineraryDialog({
       title: draft.title,
       location: draft.location,
       category,
-      time: time || undefined,
-      duration: duration || undefined,
+      time: effectiveTime,
+      startMinutes: effectiveStart,
+      duration: effectiveDuration,
+      durationMinutes: effectiveDurationMinutes,
       notes: notes || undefined,
       sourceId: draft.sourceId,
       sourceType: draft.sourceType,
@@ -269,6 +361,7 @@ export default function AddToItineraryDialog({
       // Add a brand-new placement (fresh per-placement id; shared sourceId).
       addItem(selectedDate, { ...patch, id: generateItemId() });
       toast.success(`Added “${draft.title}” to ${formatDate(selectedDate)}`);
+      launchChip(draft.title);
     }
     onClose();
   };
@@ -287,8 +380,8 @@ export default function AddToItineraryDialog({
     return () => clearTimeout(timer);
   }, [isCustom]);
 
-  // body[data-dialog-open] flag (cross-surface seam): the quick-add FAB hides while
-  // it is set, so the FAB never floats over an open dialog's scrim. Set it while this
+  // body[data-dialog-open] flag: the quick-add FAB hides while it is set, so the FAB
+  // never floats over an open dialog's scrim. Set it while this
   // dialog is mounted-open and clear it on close/unmount, in the same portal/focus
   // lifecycle. Guarded by a ref-count style check on the attribute so two dialogs that
   // briefly overlap during an exit animation don't clear the flag prematurely.
@@ -388,7 +481,7 @@ export default function AddToItineraryDialog({
               </>
             )}
           </div>
-          <button type="button" data-testid="add-item-cancel" onClick={onClose} aria-label="Close dialog" className="shrink-0 p-1 rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none">
+          <button type="button" data-testid="add-item-cancel" onClick={onClose} aria-label="Close dialog" className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -413,9 +506,13 @@ export default function AddToItineraryDialog({
                 >
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white/90 truncate">{formatDate(p.date)}</p>
-                    <p className="text-xs text-white/40 truncate">
+                    <p className="text-xs text-white/55 truncate">
                       {getCountryForDate(p.date) === 'nepal' ? 'Kathmandu, Nepal' : 'Tokyo, Japan'}
-                      {p.item.time ? ` · ${p.item.time}` : ''}
+                      {(() => {
+                        const timeInfo = describeItemTime(p.item, p.date);
+                        if (!timeInfo) return '';
+                        return ` · ${timeInfo.label}${timeInfo.badge ? ` ${timeInfo.badge}` : ''}`;
+                      })()}
                     </p>
                   </div>
                   <button
@@ -429,8 +526,14 @@ export default function AddToItineraryDialog({
                   <button
                     type="button"
                     onClick={() => {
-                      removeItem(p.date, p.item.id);
-                      toast.success(`Removed “${draft.title}” from ${formatDate(p.date)}`);
+                      // Capture the placement for undo before removing it.
+                      const removed = p.item;
+                      const removedDate = p.date;
+                      removeItem(removedDate, removed.id);
+                      showUndoToast(
+                        `Removed “${draft.title}” from ${formatDate(removedDate)}`,
+                        () => restoreItem(removedDate, removed),
+                      );
                       // If the placement we were editing is the one removed, reset
                       // the form to "add new" so it doesn't target a gone item.
                       if (editingPlacementId === p.item.id) startAddingNew();
@@ -564,11 +667,11 @@ export default function AddToItineraryDialog({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor={timeFieldId} className="text-xs text-white/50 mb-1 block">Time</label>
-              <input id={timeFieldId} value={time} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTime(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., 09:00" />
+              <TimePicker id={timeFieldId} value={startMinutes} onChange={handleTimeChange} testId="add-item-time-input" />
             </div>
             <div>
-              <label htmlFor={durationFieldId} className="text-xs text-white/50 mb-1 block">Duration</label>
-              <input id={durationFieldId} value={duration} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setDuration(e.target.value)} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., 2 hours" />
+              <label htmlFor={durationFieldId} className="text-xs text-white/50 mb-1 block">Duration (min)</label>
+              <DurationField id={durationFieldId} value={durationMinutes} onChange={handleDurationChange} testId="add-item-duration-input" />
             </div>
           </div>
 
@@ -586,6 +689,7 @@ export default function AddToItineraryDialog({
             under it. */}
         <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-navy-900/40">
           <button
+            ref={confirmRef}
             onClick={handleConfirm}
             data-testid="add-item-confirm"
             disabled={confirmDisabled}

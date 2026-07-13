@@ -1,4 +1,4 @@
-// gen-images.mjs — build-time image derivative + LQIP pipeline.
+// gen-images.mjs — build-time image derivative + LQIP pipeline ().
 //
 // WHY THIS EXISTS: the site ships as a static export with
 // `images:{unoptimized:true}`, so Next's runtime image optimizer is OFF. To still
@@ -44,123 +44,123 @@ const SOURCE_EXT = new Set(['.jpg', '.jpeg', '.png']);
 
 /** Recursively collect every file under `dir`. */
 async function walk(dir) {
-  const out = [];
-  for (const entry of await readdir(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...(await walk(full)));
-    else if (entry.isFile()) out.push(full);
-  }
-  return out;
+ const out = [];
+ for (const entry of await readdir(dir, { withFileTypes: true })) {
+ const full = path.join(dir, entry.name);
+ if (entry.isDirectory()) out.push(...(await walk(full)));
+ else if (entry.isFile()) out.push(full);
+ }
+ return out;
 }
 
 /** Absolute fs path → the root-relative "/images/..." key the app uses (POSIX slashes). */
 function toManifestKey(absPath) {
-  const rel = path.relative(path.join(APP_ROOT, 'public'), absPath);
-  return '/' + rel.split(path.sep).join('/');
+ const rel = path.relative(path.join(APP_ROOT, 'public'), absPath);
+ return '/' + rel.split(path.sep).join('/');
 }
 
 function fmtKB(bytes) {
-  return (bytes / 1024).toFixed(1) + ' KB';
+ return (bytes / 1024).toFixed(1) + ' KB';
 }
 
 async function run() {
-  if (!existsSync(IMAGES_DIR)) {
-    console.error(`[gen-images] images dir not found: ${IMAGES_DIR}`);
-    process.exit(1);
-  }
+ if (!existsSync(IMAGES_DIR)) {
+ console.error(`[gen-images] images dir not found: ${IMAGES_DIR}`);
+ process.exit(1);
+ }
 
-  const all = await walk(IMAGES_DIR);
-  const sources = all.filter((f) => SOURCE_EXT.has(path.extname(f).toLowerCase()));
+ const all = await walk(IMAGES_DIR);
+ const sources = all.filter((f) => SOURCE_EXT.has(path.extname(f).toLowerCase()));
 
-  console.log(`[gen-images] found ${sources.length} source raster(s) under public/images`);
+ console.log(`[gen-images] found ${sources.length} source raster(s) under public/images`);
 
-  const manifest = {};
-  let processed = 0;
-  let skippedTiny = 0;
-  let totalSrc = 0;
-  let totalWebp = 0;
-  let totalAvif = 0;
-  const samples = [];
+ const manifest = {};
+ let processed = 0;
+ let skippedTiny = 0;
+ let totalSrc = 0;
+ let totalWebp = 0;
+ let totalAvif = 0;
+ const samples = [];
 
-  for (const src of sources.sort()) {
-    const ext = path.extname(src);
-    const base = src.slice(0, -ext.length);
-    const webpPath = `${base}.webp`;
-    const avifPath = `${base}.avif`;
-    const key = toManifestKey(src);
+ for (const src of sources.sort()) {
+ const ext = path.extname(src);
+ const base = src.slice(0, -ext.length);
+ const webpPath = `${base}.webp`;
+ const avifPath = `${base}.avif`;
+ const key = toManifestKey(src);
 
-    const srcStat = await stat(src);
-    if (srcStat.size <= MIN_SOURCE_BYTES) {
-      skippedTiny += 1;
-      continue;
-    }
+ const srcStat = await stat(src);
+ if (srcStat.size <= MIN_SOURCE_BYTES) {
+ skippedTiny += 1;
+ continue;
+ }
 
-    const input = await readFile(src);
+ const input = await readFile(src);
 
-    // Intrinsic dimensions — drive explicit width/height on the <img> so the box is
-    // reserved before load (CLS ≈ 0).
-    const meta = await sharp(input).metadata();
-    const width = meta.width ?? 0;
-    const height = meta.height ?? 0;
+ // Intrinsic dimensions — drive explicit width/height on the <img> so the box is
+ // reserved before load (CLS ≈ 0).
+ const meta = await sharp(input).metadata();
+ const width = meta.width ?? 0;
+ const height = meta.height ?? 0;
 
-    // Derivatives. `rotate()` with no arg applies EXIF orientation so the encoded
-    // raster matches the intrinsic w/h we report.
-    await sharp(input).rotate().webp({ quality: WEBP_QUALITY }).toFile(webpPath);
-    await sharp(input).rotate().avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT }).toFile(avifPath);
+ // Derivatives. `rotate()` with no arg applies EXIF orientation so the encoded
+ // raster matches the intrinsic w/h we report.
+ await sharp(input).rotate().webp({ quality: WEBP_QUALITY }).toFile(webpPath);
+ await sharp(input).rotate().avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT }).toFile(avifPath);
 
-    // LQIP — tiny WebP, inlined base64.
-    const lqipBuf = await sharp(input)
-      .rotate()
-      .resize(LQIP_WIDTH, null, { fit: 'inside' })
-      .webp({ quality: LQIP_QUALITY })
-      .toBuffer();
-    const blurDataURL = `data:image/webp;base64,${lqipBuf.toString('base64')}`;
+ // LQIP — tiny WebP, inlined base64.
+ const lqipBuf = await sharp(input)
+ .rotate()
+ .resize(LQIP_WIDTH, null, { fit: 'inside' })
+ .webp({ quality: LQIP_QUALITY })
+ .toBuffer();
+ const blurDataURL = `data:image/webp;base64,${lqipBuf.toString('base64')}`;
 
-    const webpSize = (await stat(webpPath)).size;
-    const avifSize = (await stat(avifPath)).size;
+ const webpSize = (await stat(webpPath)).size;
+ const avifSize = (await stat(avifPath)).size;
 
-    manifest[key] = {
-      webp: key.replace(ext, '.webp'),
-      avif: key.replace(ext, '.avif'),
-      blurDataURL,
-      width,
-      height,
-    };
+ manifest[key] = {
+ webp: key.replace(ext, '.webp'),
+ avif: key.replace(ext, '.avif'),
+ blurDataURL,
+ width,
+ height,
+ };
 
-    totalSrc += srcStat.size;
-    totalWebp += webpSize;
-    totalAvif += avifSize;
-    processed += 1;
-    if (samples.length < 6) {
-      samples.push({ key, src: srcStat.size, webp: webpSize, avif: avifSize, width, height });
-    }
-  }
+ totalSrc += srcStat.size;
+ totalWebp += webpSize;
+ totalAvif += avifSize;
+ processed += 1;
+ if (samples.length < 6) {
+ samples.push({ key, src: srcStat.size, webp: webpSize, avif: avifSize, width, height });
+ }
+ }
 
-  // Stable key order for a clean, reviewable diff.
-  const ordered = {};
-  for (const k of Object.keys(manifest).sort()) ordered[k] = manifest[k];
-  await writeFile(MANIFEST_PATH, JSON.stringify(ordered, null, 2) + '\n', 'utf8');
+ // Stable key order for a clean, reviewable diff.
+ const ordered = {};
+ for (const k of Object.keys(manifest).sort()) ordered[k] = manifest[k];
+ await writeFile(MANIFEST_PATH, JSON.stringify(ordered, null, 2) + '\n', 'utf8');
 
-  console.log(`\n[gen-images] processed ${processed}, skipped ${skippedTiny} tiny`);
-  console.log(`[gen-images] manifest → ${path.relative(APP_ROOT, MANIFEST_PATH)} (${processed} entries)`);
-  console.log('\n[gen-images] sample savings (source → derivative):');
-  for (const s of samples) {
-    const wPct = ((1 - s.webp / s.src) * 100).toFixed(0);
-    const aPct = ((1 - s.avif / s.src) * 100).toFixed(0);
-    console.log(
-      `  ${s.key}  ${s.width}x${s.height}  jpg ${fmtKB(s.src)} → webp ${fmtKB(s.webp)} (-${wPct}%)  avif ${fmtKB(s.avif)} (-${aPct}%)`,
-    );
-  }
-  if (processed > 0) {
-    const wTot = ((1 - totalWebp / totalSrc) * 100).toFixed(0);
-    const aTot = ((1 - totalAvif / totalSrc) * 100).toFixed(0);
-    console.log(
-      `\n[gen-images] TOTAL  jpg ${fmtKB(totalSrc)} → webp ${fmtKB(totalWebp)} (-${wTot}%)  avif ${fmtKB(totalAvif)} (-${aTot}%)`,
-    );
-  }
+ console.log(`\n[gen-images] processed ${processed}, skipped ${skippedTiny} tiny`);
+ console.log(`[gen-images] manifest → ${path.relative(APP_ROOT, MANIFEST_PATH)} (${processed} entries)`);
+ console.log('\n[gen-images] sample savings (source → derivative):');
+ for (const s of samples) {
+ const wPct = ((1 - s.webp / s.src) * 100).toFixed(0);
+ const aPct = ((1 - s.avif / s.src) * 100).toFixed(0);
+ console.log(
+ ` ${s.key} ${s.width}x${s.height} jpg ${fmtKB(s.src)} → webp ${fmtKB(s.webp)} (-${wPct}%) avif ${fmtKB(s.avif)} (-${aPct}%)`,
+ );
+ }
+ if (processed > 0) {
+ const wTot = ((1 - totalWebp / totalSrc) * 100).toFixed(0);
+ const aTot = ((1 - totalAvif / totalSrc) * 100).toFixed(0);
+ console.log(
+ `\n[gen-images] TOTAL jpg ${fmtKB(totalSrc)} → webp ${fmtKB(totalWebp)} (-${wTot}%) avif ${fmtKB(totalAvif)} (-${aTot}%)`,
+ );
+ }
 }
 
 run().catch((err) => {
-  console.error('[gen-images] FAILED:', err);
-  process.exit(1);
+ console.error('[gen-images] FAILED:', err);
+ process.exit(1);
 });
