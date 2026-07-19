@@ -42,7 +42,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
   // `loadPlans()` on mount. This makes the selected-day panel reflect a same-tab
   // add/edit/remove from any place card OR the calendar LIVE, without a reload —
   // the store re-reads on its `itinerary:changed` CustomEvent. The timeline only
-  // READS `plans` (it has no mutators).
+  // READS `plans` (it has no mutators), per.
   const { plans } = useItineraryContext();
 
   // Presentational author filter: READ-ONLY. Shared with the calendar via
@@ -63,8 +63,8 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
   // Full stored items for the day, then the presentational author-filtered view.
   const dayItems = selectedPlan?.items ?? [];
   const selectedItems = filterItemsByAuthor(dayItems, authorFilter, myName);
-  // A pure VIEW-level chronological projection for the timeline read only —
-  // never written back, the calendar's manually-dragged order stays the persisted truth.
+  // a pure VIEW-level chronological projection for the timeline read only —
+  // never written back, the calendar's manually-dragged order stays the persisted truth
   // Clash detection is order-independent, so it runs on the same filtered set.
   const chronoItems = sortItemsByTime(selectedItems);
   const clashIds = clashingItemIds(selectedItems);
@@ -85,16 +85,16 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
         </m.div>
 
         {/* Author filter: presentational, read-only, shared with the calendar.
-            Self-hides when no item is attributed (portfolio build unchanged). */}
+}            Self-hides when no item is attributed (portfolio build unchanged). */
         <AuthorFilterControl plans={plans} className="mb-6" />
 
         {/* Recent-changes activity feed: read-only, DERIVED FOR FREE from the
             existing updatedBy/updatedAt. Reads the same shared store so it
             updates live on same-tab edits. Self-hides when nothing is
-            attributed (portfolio build unchanged). */}
+}            attributed (portfolio build unchanged). */
         <ActivityFeed className="mb-8" />
 
-        {/* Country labels */}
+        {}/* Country labels */
         <div className="flex justify-between mb-4 px-2">
           <div className="flex items-center gap-2">
             <Mountain className="w-4 h-4 text-himalaya-400" />
@@ -106,7 +106,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
           </div>
         </div>
 
-        {/* Timeline bar */}
+        {}/* Timeline bar */
         <div className="relative">
           <div className="overflow-x-auto scrollbar-hide pb-4">
             <div className="flex gap-1 min-w-max px-2">
@@ -136,13 +136,13 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                           : 'hover:bg-white/5'
                       }`}
                     >
-                      {/* Weekday `/40`→`/60` so it clears AA on the navy tab
+                      {/* weekday `/40`→`/60` so it clears AA on the navy tab
                           AND over the colored active-tab fills (himalaya-500/30 →
-                          5.48:1, sakura-400/30 → 4.81:1). */}
+}                          5.48:1, sakura-400/30 → 4.81:1). */
                       <span className="text-[10px] text-white/60">{formatDate(date).split(',')[0]?.split(' ')[0]}</span>
-                      {/* Inactive date number — brand HUE preserved (still
+                      {/* inactive date number — brand HUE preserved (still
                           himalaya-400 / sakura-400), opacity `/70`→`/90` to reach AA
-                          (himalaya 4.48:1 → 6.79:1, sakura → 7.90:1). */}
+}                          (himalaya 4.48:1 → 6.79:1, sakura → 7.90:1).. */
                       <span className={`text-sm font-mono font-bold ${
                         isSelected
                           ? 'text-white'
@@ -162,20 +162,20 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
             </div>
           </div>
 
-          {/* Progress bar */}
+          {}/* Progress bar */
           <div className="h-1 rounded-full bg-white/5 mt-2">
             <div className="h-full rounded-full bg-gradient-to-r from-himalaya-500 via-gold-400 to-sakura-400" style={{ width: `${((TRIP_DATES.indexOf(selectedDate) + 1) / TRIP_DATES.length) * 100}%` }} />
           </div>
         </div>
 
-        {/* Selected date info + that day's saved plans */}
+        {}/* Selected date info + that day's saved plans */
         <m.div
           key={selectedDate}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="mt-6"
         >
-          {/* Date chip */}
+          {}/* Date chip */
           <div className="flex justify-center">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl glass-card">
               <MapPin className={`w-4 h-4 ${selectedCountry === 'nepal' ? 'text-himalaya-400' : 'text-sakura-400'}`} />
@@ -187,16 +187,16 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
             </div>
           </div>
 
-          {/* That day's plans */}
+          {}/* That day's plans */
           <div className="max-w-2xl mx-auto mt-5">
             {chronoItems.length > 0 ? (
               <ul className="space-y-2">
                 {chronoItems.map((item) => {
                   const colors = CATEGORY_COLORS[item.category];
-                  // Display rule: effectiveStartMinutes -> AM/PM + day-country badge;
-                  // legacy-only `time` -> verbatim, unbadged.
+                  // Display rule: effectiveStartMinutes -> AM/PM
+                  // + day-country badge; legacy-only `time` -> verbatim, unbadged.
                   const timeInfo = describeItemTime(item, selectedDate);
-                  // Warn-only, never blocking — a passive badge, not a modal.
+                  // warn-only, never blocking — a passive badge, not a modal.
                   const clashes = clashIds.has(item.id);
                   return (
                     <li
@@ -204,7 +204,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                       data-testid={`timeline-item-${item.id}`}
                       className="glass-card rounded-xl px-4 py-3 flex items-start gap-3 text-left"
                     >
-                      {/* Category badge */}
+                      {}/* Category badge */
                       <span
                         className={`shrink-0 mt-0.5 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-medium ${colors.bg} ${colors.text} ${colors.border}`}
                       >
@@ -212,7 +212,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                         <span className="capitalize">{item.category}</span>
                       </span>
 
-                      {/* Title + meta */}
+                      {}/* Title + meta */
                       <div className="min-w-0 flex-1">
                         <p className="text-white font-medium leading-snug">{item.title}</p>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
@@ -247,9 +247,10 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                         {item.notes && (
                           <p className="text-sm text-white/60 mt-1.5 leading-snug">{item.notes}</p>
                         )}
-                        {/* Cross-friend attribution: muted "by {name} · {relative}".
-                            Renders nothing without updatedBy (dormant / local-only-no-name)
-                            → portfolio build unchanged. Static classes; contrast-safe muted. */}
+                        {/* Cross-friend attribution: muted
+                            "by {name} · {relative}". Renders nothing without updatedBy
+                            (dormant / local-only-no-name) → portfolio build unchanged.
+}                            Static classes; contrast-safe muted. */
                         {item.updatedBy && (
                           <p className="text-xs text-white/40 mt-1.5 truncate">
                             by {item.updatedBy}
@@ -270,7 +271,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                   <ListPlus className="w-5 h-5 text-white/40" />
                 </div>
                 <p className="text-white/70 font-medium">No activities planned for this day yet</p>
-                {/* The planner lives on /plan/ now — real route link. */}
+                {}/* the planner lives on /plan/ now — real route link. */
                 <Link
                   href="/plan/"
                   className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-gold-400 hover:text-gold-300 transition-colors rounded outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"

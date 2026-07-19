@@ -10,7 +10,7 @@ import { searchPlanItems, type PlanSearchResult } from '@/lib/search-plan';
  * itinerary's item titles/notes/categories, mounted inside `/plan`
  * (calendar-planner.tsx). Runs the pure `searchPlanItems` matcher against the
  * LIVE `plans` passed in from the itinerary context — this component never
- * reads or writes storage itself (read-only).
+ * reads or writes storage itself.
  */
 interface PlanSearchProps {
   plans: DayPlan[];
@@ -84,7 +84,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
             setActiveIndex(0);
           }}
           onKeyDown={onKeyDown}
-          className="w-full pl-9 pr-9 py-2.5 rounded-lg bg-navy-900 border border-white/15 text-white text-sm placeholder:text-white/30 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          className="w-full pl-9 pr-9 py-2.5 rounded-lg bg-surface border border-white/15 text-white text-sm placeholder:text-white/30 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
         />
         {query && (
           <button
@@ -105,7 +105,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
           role="listbox"
           aria-label="Plan search results"
           data-testid="plan-search-results"
-          className="absolute z-20 mt-1.5 w-full max-h-72 overflow-y-auto rounded-lg bg-navy-900 border border-white/15 shadow-xl py-1"
+          className="absolute z-20 mt-1.5 w-full max-h-72 overflow-y-auto rounded-lg bg-surface border border-white/15 shadow-xl py-1"
         >
           {results.length === 0 ? (
             <li role="presentation" className="px-3 py-2.5 text-sm text-white/40" data-testid="plan-search-empty">
@@ -115,7 +115,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
             results.map((result, i) => (
               // role="presentation": the <ul> carries role="listbox" (not the implicit
               // "list"), so a plain <li> would fail axe's aria-required-parent/listitem
-              // checks — the <button role="option"> below is the actual accessibility node.
+              // checks — the <button role="option"> below is the actual a11y node.
               <li key={result.item.id} role="presentation">
                 <button
                   type="button"

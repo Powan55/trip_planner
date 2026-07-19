@@ -8,7 +8,7 @@
 // filter to "All" and the stored itinerary is byte-for-byte unaffected by it. CRUD and
 // persistence are completely independent of anything here.
 //
-// STATE SHARING (kept in a SEPARATE module so it never entangles the itinerary
+// STATE SHARING (mirrors in a SEPARATE module so it never entangles the itinerary
 // store or `itinerary-provider.tsx`): a tiny module-level value plus a same-tab
 // `CustomEvent` on `window`. `setAuthorFilter` updates the value and dispatches the event;
 // `subscribeAuthorFilter` lets both surfaces re-read on change, so ONE selection narrows
@@ -25,9 +25,9 @@ export const AUTHOR_FILTER_CHANGED_EVENT = 'author-filter:changed';
 
 /**
  * The active filter. Two reserved sentinels + any author name:
- *   - 'all'  → show everything (no filtering).
- *   - 'mine' → show only the current user's items (resolved via the live display name).
- *   - any other string → that exact author name.
+ * - 'all' → show everything (no filtering).
+ * - 'mine' → show only the current user's items (resolved via the live display name).
+ * - any other string → that exact author name.
  *
  * Sentinels are bare words ('all' / 'mine'); a real selection is always a non-empty
  * display name. To avoid any theoretical collision with a traveler literally named "all"
@@ -82,9 +82,9 @@ export function subscribeAuthorFilter(onChange: () => void): () => void {
  * Pure — no storage, no DOM. `myName` is injected (the live display name from
  * lib/identity) so "My edits" stays testable and this module never imports identity.
  *
- * @param item    the item under test
- * @param filter  the active filter
- * @param myName  the current display name, or null/undefined if none is set
+ * @param item the item under test
+ * @param filter the active filter
+ * @param myName the current display name, or null/undefined if none is set
  */
 export function itemMatchesAuthor(
   item: ItineraryItem,
@@ -101,7 +101,7 @@ export function itemMatchesAuthor(
 
 /**
  * Filter a day's items by the active author filter. A thin, pure `.filter()` over the
- * items SHOWN — it returns a NEW array and never touches the source (read-only).
+ * items SHOWN — it returns a NEW array and never touches the source.
  * 'all' returns the same items (no copy needed for the common path).
  */
 export function filterItemsByAuthor(

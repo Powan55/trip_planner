@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { toast } from 'sonner';
 import { SectionHeading } from '@/components/section-heading';
 import {
   X,
@@ -12,6 +13,8 @@ import {
   Search,
   Heart,
   WifiOff,
+  CalendarPlus,
+  MapPin,
 } from 'lucide-react';
 import {
   MAP_MARKERS,
@@ -19,25 +22,38 @@ import {
   type MapMarker,
   type MarkerCategory,
 } from '@/lib/map-data';
-import { buildItineraryStops } from '@/lib/itinerary-map';
+import { buildItineraryStops, MARKER_BY_ID, type DayStop } from '@/lib/itinerary-map';
 import TripMap, {
   CATEGORY_STYLES,
   type TripMapHandle,
+  type AssignDayOption,
 } from '@/components/trip-map';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useOnline } from '@/hooks/use-online';
+import { TRIP_DATES, formatDate } from '@/lib/trip-data';
+import { generateItemId } from '@/lib/item-id';
+import { toItineraryDraft } from '@/lib/itinerary-adapter';
+import { orderByProximity, haversineKm, MAP_PIN_DND_TYPE, type LatLng } from '@/lib/day-anchor';
+import { dayAnchorStore } from '@/core/storage/gateway';
 
 type FilterValue = MarkerCategory | 'All';
 
 // ── MapSection: the /map page chrome that re-composes <TripMap> ─────────
 // Owns the category filter UI, the itinerary overlay toggle, the fullscreen
-// slot-swap (host relocation), the geolocate note banner, the masthead,
+// slot-swap, the geolocate note banner, the masthead,
 // and the legend. The map engine itself (init, style, markers, route, popups,
 // reduced-motion) lives in <TripMap>; this component just feeds it the visible
 // marker set + the whole-trip route and hosts its surface.
+// build the trip-day options offered by the popup's "Anchor to a day" control
+// and the day strip below the map. "Day 1 · Tue, Dec 9" — one per TRIP_DATE.
+const ASSIGN_DAYS: AssignDayOption[] = TRIP_DATES.map((date, i) => ({
+  date,
+  label: `Day ${i + 1} · ${formatDate(date)}`,
+}));
+
 export default function MapSection() {
-  const { plans } = useItineraryContext();
+  const { plans, addItem, findPlacements } = useItineraryContext();
 
   const [filter, setFilter] = useState<FilterValue>('All');
   const [showItinerary, setShowItinerary] = useState(false);
@@ -45,14 +61,76 @@ export default function MapSection() {
   const [geoNote, setGeoNote] = useState<string | null>(null);
 
   // "Saved" filter — mirrors the guide "Saved" chip idiom
-  // (components/recommendation-section.tsx). Same flat favorites store; map marker
-  // ids (`np-*`/`jp-*`) are provably disjoint from guide rec ids (`na#`/`ja#`) so
-  // raw ids are reused as-is.
+  // (components/recommendation-section.tsx). Same flat gateway-key-14
+  // favorites store; map marker ids (`np-*`/`jp-*`) are provably
+  // disjoint from guide rec ids (`na#`/`ja#`) so raw ids are reused as-is.
   const { favorites, hydrated: favoritesReady } = useFavorites();
   const [savedOnly, setSavedOnly] = useState(false);
   const online = useOnline();
 
-  // Search-within-map: client-side filter over ALL curated markers (not just
+  // ──: map-linked day planning ───────────────────────────────────────────
+  // `anchors`: date → the marker id that day is "anchored" to. LOCAL-ONLY presentation
+  // state — it drives a DERIVED proximity reorder of the day's
+  // stops; the assigned pin itself rides the existing itinerary CRUD (`addItem`, the ONE
+  // synced write). Hydrated once on mount, persisted on every change. `selectedDay` is the
+  // day whose ordered stop-list the panel shows; `dragOverDate` highlights a drop target.
+  const [anchors, setAnchors] = useState<Record<string, string>>({});
+  const [anchorsReady, setAnchorsReady] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null);
+
+  useEffect(() => {
+    setAnchors(dayAnchorStore.get<Record<string, string>>({}));
+    setAnchorsReady(true);
+  }, []);
+
+  // Assign a map pin to a trip day: add it as a stop via the
+  // EXISTING itinerary CRUD when it isn't already on that day (ONE vault commit; idempotent
+  // re-anchor writes nothing to the vault), then record the local anchor so the day re-orders
+  // by distance from this pin. Both survive reload (the stop in the Vault, the anchor in key 22).
+  const assignPinToDay = useCallback(
+    (marker: MapMarker, date: string) => {
+      const already = findPlacements(marker.id).some((p) => p.date === date);
+      if (!already) {
+        const draft = toItineraryDraft(marker, 'map');
+        addItem(date, {
+          id: generateItemId(),
+          title: draft.title,
+          category: draft.category,
+          location: draft.location,
+          notes: draft.notes,
+          sourceId: draft.sourceId,
+          sourceType: draft.sourceType,
+        });
+      }
+      setAnchors((prev) => {
+        const next = { ...prev, [date]: marker.id };
+        dayAnchorStore.set(next);
+        return next;
+      });
+      setSelectedDay(date);
+      const dayNo = TRIP_DATES.indexOf(date) + 1;
+      toast.success(
+        already
+          ? `Day ${dayNo} re-anchored around ${marker.name}`
+          : `Added ${marker.name} to Day ${dayNo} · stops re-ordered by distance`,
+      );
+    },
+    [addItem, findPlacements],
+  );
+
+  // Drop handler for the day strip: read the dragged marker id and assign it.
+  const handleDayDrop = useCallback(
+    (date: string, markerId: string | null) => {
+      setDragOverDate(null);
+      if (!markerId) return;
+      const marker = MARKER_BY_ID.get(markerId);
+      if (marker) assignPinToDay(marker, date);
+    },
+    [assignPinToDay],
+  );
+
+  // search-within-map: client-side filter over ALL curated markers (not just
   // the currently-visible/filtered set) — a plain case-insensitive `includes` over
   // name/area/country, no search library.
   const [searchOpen, setSearchOpen] = useState(false);
@@ -68,7 +146,7 @@ export default function MapSection() {
   const tripMapRef = useRef<TripMapHandle | null>(null);
 
   // The GL map lives inside a single, persistent host div (`mapHostRef`) that we
-  // physically relocate between an inline slot and the portaled fullscreen slot.
+  // physically relocate between an inline slot and the portaled fullscreen slot
   // React never reparents this node, so the MapLibre instance inside
   // <TripMap> survives fullscreen enter/exit with zero state loss — only its
   // size changes, which tripMapRef.resize() reconciles.
@@ -90,15 +168,69 @@ export default function MapSection() {
     return list;
   }, [filter, savedOnly, favorites]);
 
-  // Itinerary stops: derived from the shared store, so it live-updates on
-  // any itinerary:changed fan-out (the provider re-renders us with new `plans`),
-  // and TripMap re-draws its route source when this array changes.
-  const stops = useMemo(
-    () => (showItinerary ? buildItineraryStops(plans) : []),
-    [plans, showItinerary],
+  // All mappable itinerary stops: derived from the shared store, so it
+  // live-updates on any itinerary:changed fan-out. Used by the day strip/panel below
+  // (regardless of the overlay toggle) and, when the overlay is on, by the map route.
+  const allStops = useMemo(() => buildItineraryStops(plans), [plans]);
+
+  // Resolve an anchored day's anchor COORD (the marker's lat/lng). Self-healing: a stale
+  // anchor id not in the curated marker table yields null → that day is left un-reordered.
+  const anchorCoordFor = useCallback(
+    (date: string): LatLng | null => {
+      const id = anchors[date];
+      if (!id) return null;
+      const mk = MARKER_BY_ID.get(id);
+      return mk ? { lat: mk.lat, lng: mk.lng } : null;
+    },
+    [anchors],
   );
 
-  // Search results — a plain case-insensitive `includes` over name/area/
+  // Apply the proximity reorder to a flat DayStop[]: within each ANCHORED day, sort
+  // that day's stops by haversine distance from the anchor (nearest first). Un-anchored
+  // days keep their existing (date/insertion) order. Day grouping order is preserved.
+  const applyAnchorOrdering = useCallback(
+    (flat: DayStop[]): DayStop[] => {
+      const anchoredDates = new Set(Object.keys(anchors));
+      if (anchoredDates.size === 0) return flat;
+      // Group by date, reorder anchored groups, then flatten back in first-seen order.
+      const byDate = new Map<string, DayStop[]>();
+      for (const s of flat) {
+        if (!byDate.has(s.date)) byDate.set(s.date, []);
+        byDate.get(s.date)!.push(s);
+      }
+      const groups: DayStop[][] = [];
+      for (const [date, group] of byDate) {
+        const coord = anchoredDates.has(date) ? anchorCoordFor(date) : null;
+        groups.push(coord ? orderByProximity(group, coord, (s) => s.marker) : group);
+      }
+      return groups.flat();
+    },
+    [anchors, anchorCoordFor],
+  );
+
+  // Itinerary route stops fed to TripMap — proximity-ordered per anchored day (so the
+  // drawn day line reflects the reorder), empty when the overlay is off.
+  const stops = useMemo(
+    () => (showItinerary ? applyAnchorOrdering(allStops) : []),
+    [showItinerary, applyAnchorOrdering, allStops],
+  );
+
+  // The selected day's ordered stop list shown in the day-order panel below the strip.
+  const selectedDayStops = useMemo<DayStop[]>(() => {
+    if (!selectedDay) return [];
+    const group = allStops.filter((s) => s.date === selectedDay);
+    const coord = anchorCoordFor(selectedDay);
+    return coord ? orderByProximity(group, coord, (s) => s.marker) : group;
+  }, [selectedDay, allStops, anchorCoordFor]);
+
+  // Per-day stop counts (for the day-strip chip badges).
+  const stopCountByDate = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const s of allStops) m.set(s.date, (m.get(s.date) ?? 0) + 1);
+    return m;
+  }, [allStops]);
+
+  // search results — a plain case-insensitive `includes` over name/area/
   // country across ALL markers (not the category-filtered set); empty query =
   // no results shown.
   const searchResults = useMemo(() => {
@@ -229,7 +361,7 @@ export default function MapSection() {
           subtitle="A real, pannable map of every place across the Kathmandu Valley and Japan. Filter by category, tap a pin for details, or flip on your itinerary to see the plan take shape day by day."
         />
 
-        {/* Category filter chips. */}
+        {}/* Category filter chips. */
         <div className="flex flex-wrap justify-center gap-2 mb-4">
           {filters.map((value) => {
             const isActive = filter === value;
@@ -259,7 +391,7 @@ export default function MapSection() {
 
           {/* "Saved" filter chip — mirrors the guide idiom: only rendered once
               favorites have hydrated AND >=1 map marker is favorited; cuts across
-              categories (composes as an AND with the active category filter). */}
+}              categories (composes as an AND with the active category filter). */
           {favoritesReady && savedCount > 0 && (
             <button
               type="button"
@@ -279,10 +411,10 @@ export default function MapSection() {
           )}
         </div>
 
-        {/* Overlay + search + fullscreen controls. */}
+        {}/* Overlay + search + fullscreen controls. */
         <div className="flex flex-wrap justify-center items-center gap-2 mb-5">
-          {/* Search-within-map: an icon toggle that reveals a small
-              client-side search over MAP_MARKERS (name/area/country). */}
+          {/* search-within-map: an icon toggle that reveals a small
+}              client-side search over MAP_MARKERS (name/area/country). */
           <div className="relative">
             <button
               type="button"
@@ -314,7 +446,7 @@ export default function MapSection() {
                   }}
                   placeholder="Search places…"
                   data-testid="map-search-input"
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-navy-900/60 border border-white/10 text-xs text-white placeholder:text-white/30 outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-xs text-white placeholder:text-white/30 outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60"
                 />
                 {searchQuery.trim() && (
                   <ul data-testid="map-search-results" className="mt-1.5 max-h-56 overflow-y-auto">
@@ -372,9 +504,9 @@ export default function MapSection() {
           </button>
         </div>
 
-        {/* Schematic-line caveat — an honest passive note, only while the
+        {/* schematic-line caveat — an honest passive note, only while the
             itinerary overlay is on (the drawn line is a schematic day-order
-            connection between stops, not a routed driving/transit path). */}
+}            connection between stops, not a routed driving/transit path). */
         {showItinerary && (
           <p
             data-testid="map-route-caveat"
@@ -394,9 +526,9 @@ export default function MapSection() {
           </div>
         )}
 
-        {/* Offline stale-tile hint — passive, connectivity-only (useOnline()),
-            matching the geoNote banner's calm styling. The service worker caches the map
-            tiles; this only reports connectivity, not real cache state. */}
+        {/* offline stale-tile hint — passive, connectivity-only (useOnline()),
+            matching the geoNote banner's calm styling. The SW caches the map tiles;
+}            this only reports connectivity, not real cache state. */
         {!online && (
           <div
             role="status"
@@ -413,13 +545,13 @@ export default function MapSection() {
               lives here in normal mode and is relocated into the portaled
               fullscreen shell on expand — see the relocation effect. This slot
               keeps the layout box (definite height) so the card doesn't collapse
-              while the host is away in fullscreen. */}
+}              while the host is away in fullscreen. */
           <div
             ref={inlineSlotRef}
             className="relative w-full h-[560px] sm:h-[600px] rounded-2xl overflow-hidden border border-white/10"
           />
 
-          {/* Legend — color/icon → category. */}
+          {}/* Legend — color/icon → category. */
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-5 pt-4 border-t border-white/5">
             <span className="text-[11px] uppercase tracking-wider text-white/30 font-mono">
               Legend
@@ -443,6 +575,146 @@ export default function MapSection() {
             })}
           </div>
         </div>
+
+        {/* ──: day-target strip — assign a pin to a trip day ──────────────
+            The map becomes an INPUT to planning: drag a pin's popup handle onto a
+            day (desktop pointer) OR use the popup's day <select> + Anchor button
+            (keyboard/touch). The dropped/selected pin is added to that day via the
+            existing itinerary CRUD and becomes the day's ANCHOR — the day's stops
+}            then re-order by client-side haversine distance. */
+        <div className="mt-6" data-testid="map-day-strip">
+          <div className="flex items-center gap-1.5 mb-2 text-xs font-medium text-white/60">
+            <CalendarPlus className="w-3.5 h-3.5 text-gold-400" />
+            <span>Plan a day around a pin</span>
+            <span className="text-white/55 font-normal">
+              — drag a pin here, or use a pin&apos;s “Anchor” menu
+            </span>
+          </div>
+          <ul
+            className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x"
+            aria-label="Trip days — drop a map pin onto a day to anchor it"
+          >
+            {ASSIGN_DAYS.map(({ date, label }, i) => {
+              const count = stopCountByDate.get(date) ?? 0;
+              const anchored = anchorsReady && Boolean(anchors[date]);
+              const isSelected = selectedDay === date;
+              const isDropTarget = dragOverDate === date;
+              return (
+                <li key={date} className="snap-start shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDay(isSelected ? null : date)}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.dataTransfer.dropEffect = 'copy';
+                      if (dragOverDate !== date) setDragOverDate(date);
+                    }}
+                    onDragLeave={() => setDragOverDate((d) => (d === date ? null : d))}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const id =
+                        e.dataTransfer.getData(MAP_PIN_DND_TYPE) ||
+                        e.dataTransfer.getData('text/plain');
+                      handleDayDrop(date, id || null);
+                    }}
+                    aria-pressed={isSelected}
+                    data-testid={`map-day-target-${date}`}
+                    data-anchored={anchored ? 'true' : 'false'}
+                    data-stop-count={count}
+                    aria-label={`${label}, ${count} ${count === 1 ? 'stop' : 'stops'}${
+                      anchored ? ', anchored' : ''
+                    }. Drop a pin to anchor this day, or view its ordered stops.`}
+                    className={`flex flex-col items-start gap-0.5 min-w-[92px] min-h-[44px] px-3 py-2 rounded-xl border text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 ${
+                      isDropTarget
+                        ? 'border-gold-400 bg-gold-500/20 ring-2 ring-gold-400/50'
+                        : isSelected
+                          ? 'border-gold-400/50 bg-gold-500/10 text-gold-200'
+                          : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1 text-[11px] font-semibold">
+                      Day {i + 1}
+                      {anchored && (
+                        <span
+                          className="w-1.5 h-1.5 rounded-full bg-gold-400"
+                          aria-hidden="true"
+                        />
+                      )}
+                    </span>
+                    <span className="text-[10px] text-white/60">
+                      {formatDate(date).replace(/^[A-Za-z]+,\s*/, '')}
+                    </span>
+                    <span className="text-[10px] text-white/55 font-mono">
+                      {count} {count === 1 ? 'stop' : 'stops'}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Ordered-stop panel for the selected day. When the day is anchored the
+              order is nearest-first from the anchor (with a distance label); otherwise
+}              it is the plain day order. Empty days show a calm hint. */
+          {selectedDay && (
+            <div
+              data-testid="map-day-order"
+              data-anchored={anchorsReady && anchors[selectedDay] ? 'true' : 'false'}
+              className="mt-2 glass-card rounded-2xl p-3 border border-white/10"
+            >
+              {(() => {
+                const anchorId = anchorsReady ? anchors[selectedDay] : undefined;
+                const anchorMarker = anchorId ? MARKER_BY_ID.get(anchorId) : undefined;
+                const dayNo = TRIP_DATES.indexOf(selectedDay) + 1;
+                const coord = anchorCoordFor(selectedDay);
+                return (
+                  <>
+                    <p className="text-xs font-medium text-white/70 mb-2 flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-gold-400" />
+                      Day {dayNo}
+                      {anchorMarker ? (
+                        <span className="text-white/60 font-normal">
+                          · ordered by distance from{' '}
+                          <span className="text-gold-300">{anchorMarker.name}</span>
+                        </span>
+                      ) : (
+                        <span className="text-white/55 font-normal">· stops in day order</span>
+                      )}
+                    </p>
+                    {selectedDayStops.length === 0 ? (
+                      <p className="text-[11px] text-white/55 py-1">
+                        No mapped stops on this day yet — drop a pin here to start.
+                      </p>
+                    ) : (
+                      <ol className="space-y-1">
+                        {selectedDayStops.map((s, idx) => {
+                          const km = coord ? haversineKm(coord, s.marker) : null;
+                          return (
+                            <li
+                              key={s.marker.id}
+                              data-testid={`map-day-order-stop-${s.marker.id}`}
+                              className="flex items-center gap-2 text-[11px] text-white/70"
+                            >
+                              <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-gold-500/20 text-gold-300 font-mono text-[10px]">
+                                {idx + 1}
+                              </span>
+                              <span className="min-w-0 truncate text-white/80">{s.marker.name}</span>
+                              {km !== null && (
+                                <span className="ml-auto shrink-0 font-mono text-white/55">
+                                  {km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`}
+                                </span>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Persistent map-host node. Rendered exactly ONCE, here at the section
@@ -453,14 +725,14 @@ export default function MapSection() {
           fullscreen (fixed inset-0 → resolves against the VIEWPORT because its
           parent is the body-portaled shell, escaping the glass-card
           backdrop-filter containing block). The fullscreen buttons are direct
-          children so they travel with the host and stay clickable in both modes. */}
+}          children so they travel with the host and stay clickable in both modes. */
       <div
         ref={mapHostRef}
         data-testid="map-shell"
         data-visible-count={visibleMarkers.length}
         className={
           isFullscreen
-            ? 'fixed inset-0 z-[65] bg-navy-900'
+            ? 'fixed inset-0 z-[65] bg-surface'
             : 'absolute inset-0'
         }
       >
@@ -470,17 +742,20 @@ export default function MapSection() {
           routeStops={stops}
           onGeoNote={setGeoNote}
           enablePopupFavorite
+          enableDayAssign
+          assignDays={ASSIGN_DAYS}
+          onAssignDay={assignPinToDay}
         />
 
         {/* Fullscreen toggle (visible on the map, keyboard-accessible). Travels
-            with the host, so it stays clickable inline and in fullscreen. */}
+}            with the host, so it stays clickable inline and in fullscreen. */
         <button
           type="button"
           onClick={() => setIsFullscreen((v) => !v)}
           aria-label={isFullscreen ? 'Exit fullscreen map' : 'Open map fullscreen'}
           aria-pressed={isFullscreen}
           data-testid="map-fullscreen-toggle"
-          className="absolute top-3 left-3 z-10 grid place-items-center w-9 h-9 rounded-lg bg-navy-900/80 backdrop-blur border border-white/10 text-white/80 hover:text-white hover:bg-navy-800 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+          className="absolute top-3 left-3 z-10 grid place-items-center w-9 h-9 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-white/80 hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
         >
           {isFullscreen ? (
             <Minimize2 className="w-4 h-4" />
@@ -493,7 +768,7 @@ export default function MapSection() {
           <button
             type="button"
             onClick={() => setIsFullscreen(false)}
-            className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-navy-900/80 backdrop-blur border border-white/10 text-white/80 text-xs hover:text-white hover:bg-navy-800 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+            className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-white/80 text-xs hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
           >
             <X className="w-4 h-4" />
             Close
@@ -509,7 +784,7 @@ export default function MapSection() {
           Kept mounted for the component's whole lifetime (not gated on
           isFullscreen) so React never tears down a slot while the imperatively-
           moved map-host is still inside it — the host relocates back to the
-          inline slot first, then this stays as an empty, harmless mount point. */}
+}          inline slot first, then this stays as an empty, harmless mount point. */
       {mounted
         ? createPortal(
             <div ref={fullscreenSlotRef} data-map-fullscreen-slot="" />,

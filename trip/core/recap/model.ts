@@ -1,6 +1,6 @@
 /**
- * Recap domain — the pure, framework-free plan-vs-actual day-recap core ( —
- *, the second and final slice of proposal #11's in-trip core).
+ * Recap domain — the pure, framework-free plan-vs-actual day-recap core (slice —
+ * the second and final slice of proposal #11's in-trip core).
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,
  * no fetch, no clock, no storage. Every function is TOTAL (a bad / missing / corrupt input
@@ -9,14 +9,14 @@
  * (`core/budget/*`, `core/journal/model.ts`).
  *
  * The recap has NO persisted domain of its own — it is a read-only DERIVATION over two
- * EXISTING localStorage domains (the itinerary Vault's `done` state; the journal).
+ * EXISTING localStorage domains.
  * Nothing here writes; nothing here reads a clock or storage. The clock read (resolving "now")
  * and the per-day plan/entry reads stay in the React component (the I/O boundary); these pure
- * functions take the already-resolved values as inputs (the split).
+ * functions take the already-resolved values as inputs.
  */
 
 // type-only import — no runtime coupling to `lib/` (the crud.ts / expenses.ts precedent that
-// keeps `core/` from depending on `lib/` layering).
+// keeps `core/` from depending on `lib/`, layering).
 import type { ItineraryItem } from '@/lib/trip-data';
 // core→core runtime import of the one trip-window source. `TRIP_DATES` is a static
 // chronological `YYYY-MM-DD[]`, framework-free.
@@ -30,28 +30,28 @@ import type { Expense } from '@/core/budget/expenses';
  * how many are marked DONE.
  */
 export interface PlanSummary {
- planned: number;
- done: number;
+  planned: number;
+  done: number;
 }
 
 /**
  * Count a day's planned items + the subset marked done. TOTAL: a non-array / null / undefined
  * input yields `{ planned: 0, done: 0 }`; a bad entry (non-object / missing fields) counts as a
  * planned-but-not-done item is NOT assumed — only items that are objects count toward `planned`,
- * and `done` counts ONLY `item.done === true` (absent/falsy = not done, per). Never throws.
+ * and `done` counts ONLY `item.done === true`. Never throws.
  */
 export function summarizePlan(items: readonly ItineraryItem[] | null | undefined): PlanSummary {
- if (!Array.isArray(items)) return { planned: 0, done: 0 };
- let planned = 0;
- let done = 0;
- for (const item of items) {
- // Only real objects are countable activities; a corrupt (null / primitive) slot is skipped
- // entirely so the summary can never over-count or throw on a bad entry.
- if (item === null || typeof item !== 'object') continue;
- planned += 1;
- if ((item as ItineraryItem).done === true) done += 1;
- }
- return { planned, done };
+  if (!Array.isArray(items)) return { planned: 0, done: 0 };
+  let planned = 0;
+  let done = 0;
+  for (const item of items) {
+    // Only real objects are countable activities; a corrupt (null / primitive) slot is skipped
+    // entirely so the summary can never over-count or throw on a bad entry.
+    if (item === null || typeof item !== 'object') continue;
+    planned += 1;
+    if ((item as ItineraryItem).done === true) done += 1;
+  }
+  return { planned, done };
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -71,8 +71,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
  * for the most-recent-first display, keeping the ordering policy in the (impure) view, not here.
  */
 export function elapsedTripDates(nowDateStr: string): string[] {
- if (typeof nowDateStr !== 'string' || !DATE_RE.test(nowDateStr)) return [];
- return TRIP_DATES.filter((date) => date <= nowDateStr);
+  if (typeof nowDateStr !== 'string' || !DATE_RE.test(nowDateStr)) return [];
+  return TRIP_DATES.filter((date) => date <= nowDateStr);
 }
 
 /**
@@ -85,8 +85,8 @@ export function elapsedTripDates(nowDateStr: string): string[] {
  * TOTAL: a non-string / malformed `nowDateStr` → `false` (an unusable clock is never "post-trip").
  */
 export function isPostTrip(nowDateStr: string): boolean {
- if (typeof nowDateStr !== 'string' || !DATE_RE.test(nowDateStr)) return false;
- return nowDateStr > TRIP_DATES[TRIP_DATES.length - 1];
+  if (typeof nowDateStr !== 'string' || !DATE_RE.test(nowDateStr)) return false;
+  return nowDateStr > TRIP_DATES[TRIP_DATES.length - 1];
 }
 
 /**
@@ -99,13 +99,13 @@ export function isPostTrip(nowDateStr: string): boolean {
  * contributes 0; a bad/negative/non-finite `amount` also contributes 0. Never throws.
  */
 export function sumExpensesForDate(expenses: readonly Expense[] | null | undefined, date: string): number {
- if (!Array.isArray(expenses)) return 0;
- let total = 0;
- for (const e of expenses) {
- if (e === null || typeof e !== 'object') continue;
- if (e.date !== date) continue;
- const amt = e.amount;
- if (typeof amt === 'number' && Number.isFinite(amt) && amt > 0) total += amt;
- }
- return total;
+  if (!Array.isArray(expenses)) return 0;
+  let total = 0;
+  for (const e of expenses) {
+    if (e === null || typeof e !== 'object') continue;
+    if (e.date !== date) continue;
+    const amt = e.amount;
+    if (typeof amt === 'number' && Number.isFinite(amt) && amt > 0) total += amt;
+  }
+  return total;
 }

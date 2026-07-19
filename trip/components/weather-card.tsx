@@ -9,22 +9,22 @@ import {
 } from '@/lib/weather';
 
 /**
- * Trip OS 2: the weather + golden-hour card for the CURRENT trip city.
+ * — 2: the weather + golden-hour card for the CURRENT trip city.
  *
  * Renders a `WeatherResult` in one of four states:
- *   - `loading`  — a quiet skeleton while the first fetch is in flight (prop `loading`).
- *   - live       — fresh weather (temp / condition / hi-lo / golden hour + attribution).
- *   - cached     — the SAME layout, plus a "last updated …" offline indicator (`data.stale`).
- *   - unavailable— a quiet fallback (no error styling) when there's no data and no cache.
+ * - `loading` — a quiet skeleton while the first fetch is in flight (prop `loading`).
+ * - live — fresh weather (temp / condition / hi-lo / golden hour + attribution).
+ * - cached — the SAME layout, plus a "last updated …" offline indicator (`data.stale`).
+ * - unavailable— a quiet fallback (no error styling) when there's no data and no cache.
  *
  * Golden hour is highlighted (this is the app's photography theme). A11y: a labelled region,
- * semantic time via visible + `aria-label`led text, an AA-contrast palette, and NO
+ * semantic time via visible + `aria-label`led text, AA-contrast palette, and NO
  * motion-only affordance — the card is static markup, so it is reduced-motion-safe by
  * construction (the parent TodayPanel owns the reveal animation, already reduced-motion gated).
- * Test ids are registered in docs/test-ids.md.
  *
- * A compact 7-day outlook (`data.forecast`) sits below the golden-hour block as a native
- * `<details>` disclosure — collapsed by default so it never dominates the card, keyboard-operable
+ *
+ * adds a compact 7-day outlook (`data.forecast`) as a native `<details>` disclosure below
+ * the golden-hour block — collapsed by default so it never dominates the card, keyboard-operable
  * with zero extra JS/state, and reduced-motion-safe via the same global CSS rule as everything
  * else. It rides the SAME `WeatherResult`/`WeatherNow` this component already receives (no new
  * prop, no change to `today-panel.tsx`), and is simply absent — never an error state — when the
@@ -56,7 +56,7 @@ function formatUpdated(iso: string): string {
 }
 
 /** Label a forecast row's date: "Today" / "Tomorrow" / a short weekday name. Display-only —
- *  parses the "YYYY-MM-DD" local calendar date (no clock read), mirrors `formatClock`. */
+ * parses the "YYYY-MM-DD" local calendar date (no clock read), mirrors `formatClock`. */
 function formatDayLabel(date: string, index: number): string {
   if (index === 0) return 'Today';
   if (index === 1) return 'Tomorrow';
@@ -68,7 +68,7 @@ function formatDayLabel(date: string, index: number): string {
 }
 
 /** One row of the 7-day outlook: day label, condition, hi/lo, and that day's golden-hour times
- *  (photography-ahead — the app's photography theme, extended past just today). */
+ * (photography-ahead — the app's photography theme, extended past just today). */
 function ForecastRow({ day, index }: { day: ForecastDay; index: number }) {
   return (
     <li
@@ -160,7 +160,7 @@ function GoldenRow({
   );
 }
 
-/** The Open-Meteo attribution pill (CC-BY 4.0) — required by their license. */
+/** The Open-Meteo attribution pill (CC-BY 4.0) — required by. */
 function Attribution() {
   return (
     <a
@@ -175,7 +175,7 @@ function Attribution() {
   );
 }
 
-// Skeleton shimmer: the loading bars use the shared `.animate-shimmer` sweep
+// skeleton shimmer: the loading bars use the shared `.animate-shimmer` sweep
 // (a moving gradient) instead of the plain `animate-pulse` opacity blink, for a more
 // premium loading feel — consistent with SectionSkeleton. Both are already neutralized
 // under prefers-reduced-motion in globals.css (the sweep hard-stops to a static muted
@@ -235,7 +235,7 @@ function WeatherBody({ data }: { data: WeatherNow }) {
         Weather in {data.city}
       </h3>
 
-      {/* Current conditions — temp + condition + hi/lo. */}
+      {}/* Current conditions — temp + condition + hi/lo. */
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <Thermometer className="h-6 w-6 text-gold-400" aria-hidden="true" />
@@ -261,7 +261,7 @@ function WeatherBody({ data }: { data: WeatherNow }) {
         </p>
       </div>
 
-      {/* Golden hour — highlighted for photographers (the app's photography theme). */}
+      {}/* Golden hour — highlighted for photographers (the app's photography theme). */
       <div className="mt-4 space-y-2" data-testid="weather-golden-hour">
         <p className="text-[10px] uppercase tracking-widest text-gold-400/70">
           Golden hour · {data.city}
@@ -283,12 +283,12 @@ function WeatherBody({ data }: { data: WeatherNow }) {
       </div>
 
       {/* 7-day outlook — compact, collapsed-by-default, never dominates the card. Absent
-          (not an error) when the response didn't carry a usable forecast. */}
+}          (not an error) when the response didn't carry a usable forecast. */
       {data.forecast && data.forecast.length > 0 && (
         <ForecastOutlook days={data.forecast} stale={data.stale} />
       )}
 
-      {/* Offline / cached indicator — only when we're showing stale data. */}
+      {}/* Offline / cached indicator — only when we're showing stale data. */
       {data.stale && (
         <p
           data-testid="weather-cached-indicator"

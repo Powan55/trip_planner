@@ -1,6 +1,6 @@
 'use client';
 
-// `dynamic({ssr:false})` islands live in this client
+// (Next 15 migration): `dynamic({ssr:false})` islands live in this client
 // module because the sibling `page.tsx` is a Server Component (exports
 // `metadata`) and Next 15 forbids `ssr:false` dynamic imports there. Same
 // islands, same anti-CLS SectionSkeletons — only the declaration

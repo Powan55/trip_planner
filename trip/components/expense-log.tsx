@@ -7,7 +7,7 @@ import { legCurrency, formatMoney } from '@/core/budget/model';
 import type { Expense } from '@/core/budget/expenses';
 
 /**
- * The expense log (extracted from budget-panel in a light module split — behavior
+ * The expense log ( extracted from budget-panel in light module split — behavior
  * byte-identical): a "Log expense" trigger (emits `expense:open` via the parent's `onLog`) + the
  * list of logged expenses (newest first) with per-row edit + delete. Amounts show in each expense's
  * leg-local currency. Empty state when nothing is logged yet. A split expense shows a small
@@ -41,7 +41,7 @@ export default function ExpenseLog({
           type="button"
           onClick={onLog}
           data-testid="expense-log-open"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-gold-500 px-3.5 py-2 text-sm font-semibold text-navy-900 transition-colors hover:bg-gold-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-gold-500 px-3.5 py-2 text-sm font-semibold text-surface transition-colors hover:bg-gold-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Log expense
@@ -68,7 +68,7 @@ export default function ExpenseLog({
               <li
                 key={e.id}
                 data-testid={`expense-item-${e.id}`}
-                className="flex items-center gap-3 rounded-lg border border-white/10 bg-navy-900/40 p-3"
+                className="flex items-center gap-3 rounded-lg border border-white/10 bg-surface/40 p-3"
               >
                 <span
                   className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${colors.bg} ${colors.text}`}
@@ -91,7 +91,7 @@ export default function ExpenseLog({
                   </p>
                   {e.note && <p className="truncate text-xs text-white/50">{e.note}</p>}
                   {/* "Logged by {name}" attribution — present only on a synced
-                      expense stamped by an active traveler; dormant rows carry no createdBy. */}
+}                      expense stamped by an active traveler; dormant rows carry no createdBy. */
                   {e.createdBy && (
                     <p className="truncate text-[0.7rem] text-white/40" data-testid={`expense-item-${e.id}-author`}>
                       logged by {e.createdBy}

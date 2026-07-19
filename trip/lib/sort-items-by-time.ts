@@ -2,9 +2,10 @@ import type { ItineraryItem } from '@/lib/trip-data';
 import { effectiveStartMinutes } from '@/core/dates';
 
 /**
- * Two passive, non-destructive time VIEWS. Pure, view-level only: NEVER writes the store,
- * NEVER reorders the calendar's manually-dragged persisted order. Reuses
- * `effectiveStartMinutes` as the ONE sort key / clash gate — no new parsing/offset math here.
+ * — the two passive, non-destructive time VIEWS (; follow-on
+ * to). Pure, view-level only: NEVER writes the store, NEVER reorders the
+ * calendar's manually-dragged persisted order. Reuses `effectiveStartMinutes`
+ * as the ONE sort key / clash gate — no new parsing/offset math here.
  */
 
 /**
@@ -23,14 +24,14 @@ export function sortItemsByTime(items: ItineraryItem[]): ItineraryItem[] {
 }
 
 /**
- * The set of item ids that overlap at least one other item's timed span, per the
+ * The set of item ids that overlap at least one other item's timed span, per
  * half-open rule: only items with a defined `effectiveStartMinutes` AND a positive
  * `durationMinutes` are considered; two such items clash iff
  * `a.start < b.start + b.dur && b.start < a.start + a.dur` — touching edges (one item's
  * end exactly equals another's start) never clash. Raw minutes, no midnight wrap. Pure,
  * order-independent — never writes.
  *
- * MULTI-DAY SPANS ARE EXCLUDED (clash v1): an item carrying an `endDate` is a
+ * — MULTI-DAY SPANS ARE EXCLUDED (clash v1): an item carrying an `endDate` is a
  * multi-day span (the field is only ever written strictly after the item's start day, so
  * its presence means "genuine span"). Its clock-time overlap with a same-day timed item
  * is not a meaningful conflict (a hotel stay "overlapping" a dinner is expected), so spans

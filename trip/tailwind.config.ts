@@ -3,9 +3,9 @@ import type { Config } from 'tailwindcss';
 const config: Config = {
   darkMode: ['class'],
   content: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
-    './components/**/*.{js,ts,jsx,tsx,mdx}',
-    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './pages*.{js,ts,jsx,tsx,mdx}',/**/
+    './components*.{js,ts,jsx,tsx,mdx}',/**/
+    './app*.{js,ts,jsx,tsx,mdx}',/**/
   ],
   theme: {
     extend: {
@@ -26,21 +26,21 @@ const config: Config = {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
         xl: 'var(--radius-lg)',
-        // Additive larger radii for panels/heroes.
+        // v2 additive larger radii for panels/heroes.
         '2xl': 'var(--radius-xl)',
         '3xl': 'var(--radius-2xl)',
       },
       boxShadow: {
-        // Elevation tiers + scroll-accent glow (driven by CSS vars).
+        // elevation tiers + scroll-accent glow (driven by CSS vars).
         glow: 'var(--shadow-glow)',
         xl: 'var(--shadow-xl)',
-        // Deepest elevation for hero/panel surfaces, additive.
+        // v2 deepest elevation for hero/panel surfaces.
         '2xl': 'var(--shadow-2xl)',
       },
       fontSize: {
-        // Editorial display scale — additive keys only. Default text-base/lg/xl…
-        // are intentionally not redefined (that would shift existing components and
-        // risk overflow). Heroes pair these with font-display + .text-gradient-*;
+        // v2 editorial DISPLAY scale — additive keys only. Default text-base/lg/xl…
+        // are intentionally NOT redefined (that would shift existing components and
+        // risk overflow). Heroes pair these with font-display +.text-gradient-*;
         // section overlines use `text-eyebrow uppercase`.
         'display-2xl': ['clamp(2.75rem, 6vw, 4.5rem)', { lineHeight: '1.02', letterSpacing: '-0.03em', fontWeight: '600' }],
         'display-xl': ['clamp(2.25rem, 4.6vw, 3.5rem)', { lineHeight: '1.05', letterSpacing: '-0.025em', fontWeight: '600' }],
@@ -49,19 +49,25 @@ const config: Config = {
         'eyebrow': ['0.75rem', { lineHeight: '1', letterSpacing: '0.22em', fontWeight: '600' }],
       },
       spacing: {
-        // 8pt rhythm — additive semantic keys only (Tailwind's 4pt base covers
-        // the rest; do not redefine the default scale).
+        // v2 8pt rhythm — additive semantic keys only (Tailwind's 4pt base covers
+        // the rest; do NOT redefine the default scale).
         section: 'clamp(4rem, 8vw, 7rem)',   /* vertical rhythm between major sections */
         gutter: 'clamp(1rem, 4vw, 2rem)',    /* responsive page inset */
         '18': '4.5rem',
         '22': '5.5rem',
       },
       colors: {
-        navy: { 900: '#0a0e27', 800: '#111640', 700: '#1a2050' },
+        // former raw `navy` scale, now semantic surface tokens driven by
+        // CSS vars (globals.css --surface* → --navy-* channel single source).
+        // rgb(var / <alpha-value>) so opacity modifiers (bg-surface/60) match the
+        // old bg-navy-900/60 byte-for-byte. Values pixel-identical, no recolor.
+        surface: 'rgb(var(--surface) / <alpha-value>)',
+        'surface-raised': 'rgb(var(--surface-raised) / <alpha-value>)',
+        'surface-overlay': 'rgb(var(--surface-overlay) / <alpha-value>)',
         gold: { 400: '#f0c760', 500: '#d4a843', 600: '#b8922e' },
         sakura: { 300: '#ffb7c5', 400: '#f7a0b3', 500: '#e88fa2' },
         himalaya: { 400: '#ff8c42', 500: '#e67635', 600: '#cc6228' },
-        // Single scroll-driven accent (default gold; animated via the CSS var).
+        // single scroll-driven accent.
         'accent-scroll': 'hsl(var(--accent-scroll))',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',

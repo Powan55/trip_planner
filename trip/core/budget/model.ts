@@ -8,7 +8,7 @@
  * lives in `components/budget-panel.tsx`; the persistence lives behind the typed storage
  * gateway (`core/storage/gateway.ts`, key 10). This file owns only the SHAPE + the math.
  *
- * ── The currency model (the reversible design) ─────────────────────────
+ * ── The currency model ─────────────────────────
  * The trip has two legs by country: Nepal (local currency NPR) and Japan (local
  * currency JPY). Each leg's budget + per-category budgets are entered and STORED in that
  * leg's LOCAL currency, so no per-amount currency tag is ever needed — a Nepal amount is
@@ -20,19 +20,19 @@
  * and non-destructive: the stored amounts + rates never change when you toggle home
  * currency, only how the totals are expressed. Conversion always routes local → USD → home:
  *
- *     localToUsd(amount, cur)      = amount / rate[cur]           // rate[USD] = 1
- *     usdToHome(usd, home)         = usd    * rate[home]
- *     convert(amount, from, home)  = amount / rate[from] * rate[home]
+ * localToUsd(amount, cur) = amount / rate[cur] // rate[USD] = 1
+ * usdToHome(usd, home) = usd * rate[home]
+ * convert(amount, from, home) = amount / rate[from] * rate[home]
  *
  * The seeded rates are APPROXIMATE mid-2026 defaults, clearly labelled as seeds in the UI —
- * the whole point is the manual override (no rate APIs, no fetch, ever).
+ * the whole point is the manual override.
  *
  * ── The rollup shape ───────────────────────────────────────────────
  * `rollUp()` returns a `budget` and a `spent` for every leg + category + the grand total.
- * With no logged expenses, `spent` is always 0 and `remaining === budget`.
- * Expense logging feeds a `spentByLeg`/`spentByCategory` map into the SAME shape (see the optional
- * `spent` arg) so it subtracts without a reshape — `remaining` and everything the burn-rate
- * view needs are already computed here.
+ * In there are no logged expenses yet, so `spent` is always 0 and `remaining === budget`.
+ * will feed a `spentByLeg`/`spentByCategory` map into the SAME shape (see the optional
+ * `spent` arg) so expense logging subtracts without a reshape — `remaining` and the burn-rate
+ * needs are already computed here.
  */
 
 import type { ItineraryCategory } from '@/lib/trip-data';
@@ -60,7 +60,7 @@ export const BUDGET_CATEGORIES: readonly ItineraryCategory[] = [
 
 /**
  * The persisted budget model (typed storage gateway key 10). `version` is a cheap internal
- * forward-compat marker (NOT the Vault envelope version — the budget is its
+ * forward-compat marker for (NOT the Vault envelope version — the budget is its
  * own domain, no migration). All amounts are in each leg's LOCAL currency.
  */
 export interface BudgetModel {
@@ -75,7 +75,7 @@ export interface BudgetModel {
   categoryBudgets: Partial<Record<Leg, Partial<Record<ItineraryCategory, number>>>>;
   /**
    * Sync v2 per-field HLC map — ADDITIVE + OPTIONAL. Absent on a dormant/local-only
-   * model (byte-identity: field stamping is gated on `isRemoteConfigured()`). Present ⇒ each
+   * model ( byte-identity: field stamping is gated on `isRemoteConfigured()`). Present ⇒ each
    * changed leaf path (a `flattenBudget` key) carries the HLC of its last edit, so a per-field LWW
    * merge (`mergeBudget`) converges two peers editing DIFFERENT fields. `normalizeModel` PRESERVES
    * it when present and tolerates it absent.
@@ -134,7 +134,7 @@ export function ratePerUsd(rates: BudgetModel['rates'], cur: CurrencyCode): numb
 /**
  * Convert an amount from one currency to another via the USD anchor. Total: a bad amount → 0,
  * a bad source/target rate falls back to seed, so this never returns NaN/Infinity.
- *   convert(amount, from, to) = amount / rate[from] * rate[to]
+ * convert(amount, from, to) = amount / rate[from] * rate[to]
  */
 export function convert(
   amount: unknown,
@@ -158,7 +158,7 @@ export function legLocalToHome(
   return convert(amount, legCurrency(leg), home, rates);
 }
 
-// ── Rollup (the budget/spend seam) ──────────────────────────────────────────────
+// ── Rollup ──────────────────────────────────────────────
 
 /** A single budget/spent/remaining line, carried in the home currency for the grand total. */
 export interface RollupLine {
@@ -166,7 +166,7 @@ export interface RollupLine {
   budgetLocal: number;
   /** Budget converted to the home/display currency. */
   budgetHome: number;
-  /** Spent in the leg's LOCAL currency (0 until expenses are logged). */
+  /** Spent in the leg's LOCAL currency. */
   spentLocal: number;
   /** Spent in the home/display currency. */
   spentHome: number;
@@ -198,7 +198,7 @@ export interface BudgetRollup {
 /**
  * Optional logged-expense input. Amounts are in each leg's LOCAL currency,
  * mirroring the budget entry. Absent ⇒ nothing spent. The rollup shape is
- * IDENTICAL whether or not this is supplied, so expense logging wires in with no reshape.
+ * IDENTICAL whether or not this is supplied, so wires expenses in with no reshape.
  */
 export interface SpentInput {
   byLeg?: Partial<Record<Leg, number>>;
@@ -210,7 +210,7 @@ const LEGS: readonly Leg[] = ['nepal', 'japan'] as const;
 /**
  * The single rollup: per-leg + per-category budgets and (optionally) logged spend, plus a
  * grand total in the home currency. PURE + TOTAL — a malformed model degrades every field to
- * a safe 0. `spent` defaults to empty, so with no expenses `spent* === 0` and `remaining === budget`.
+ * a safe 0. `spent` defaults to empty, so in `spent* === 0` and `remaining === budget`.
  */
 export function rollUp(model: BudgetModel, spent: SpentInput = {}): BudgetRollup {
   const home = normalizeCurrency(model?.homeCurrency);
@@ -336,8 +336,8 @@ export function normalizeModel(value: unknown): BudgetModel {
   };
 
   // PRESERVE the additive per-field HLC map when present, sanitized to string→string.
-  // A dormant/local-only model never carries `sync` (stamping is gated on isRemoteConfigured()),
-  // so this branch is skipped ⇒ the dormant key-10 bytes stay byte-for-byte identical.
+  // A dormant/local-only model never carries `sync` (stamping is gated on isRemoteConfigured() —
+  //), so this branch is skipped ⇒ the dormant key-10 bytes stay byte-for-byte identical.
   const sync = (v as { sync?: unknown }).sync;
   if (sync && typeof sync === 'object') {
     const fh = (sync as { fieldHlc?: unknown }).fieldHlc;

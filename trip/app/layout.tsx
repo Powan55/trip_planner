@@ -9,11 +9,12 @@ import CommandPalette from '@/components/command-palette'
 import RouteAccentEngine from '@/components/route-accent-engine'
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
 import { OfflineBanner } from '@/components/offline-banner'
+import { SyncStatusBadge } from '@/components/sync-status-badge'
 import { withBasePath } from '@/lib/utils'
-// The app-wide chrome islands (Navbar, Footer, mobile tab bar,
+// the app-wide chrome islands (Navbar, Footer, mobile tab bar,
 // quick-add FAB + host, expense-log host). Declared in a `'use client'` module
 // because Next 15 forbids `dynamic({ssr:false})` in this Server Component layout
-// (it exports metadata/viewport). See chrome-islands.tsx for the same island pattern.
+// (it exports metadata/viewport). Same island pattern; see chrome-islands.tsx.
 import {
   Navbar,
   Footer,
@@ -21,6 +22,7 @@ import {
   QuickAddFab,
   QuickAddHost,
   ExpenseLogHost,
+  TripJoinHandshake,
 } from './chrome-islands'
 
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-sans' })
@@ -65,13 +67,13 @@ export const metadata = {
 
 // `viewportFit:'cover'` extends the layout viewport into the
 // device safe-areas so `env(safe-area-inset-bottom)` resolves — required by the
-// mobile bottom tab bar. width/initialScale restate Next's
+// upcoming mobile bottom tab bar. width/initialScale restate Next's
 // defaults (declaring `viewport` replaces the default meta tag).
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  // navy-900 — the visible app surface color (matches the PWA
+  // surface — the visible app surface color (matches the PWA
   // manifest's theme_color/background_color emitted by gen-sw.mjs).
   themeColor: '#0a0e27',
 }
@@ -83,7 +85,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
-      <body className={`${dmSans.variable} ${jakartaSans.variable} ${jetbrainsMono.variable} font-sans bg-navy-900`}>
+      <body className={`${dmSans.variable} ${jakartaSans.variable} ${jetbrainsMono.variable} font-sans bg-surface`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -92,10 +94,10 @@ export default function RootLayout({
         >
           <ItineraryProvider>
             {/* App chrome: one persistent navbar/footer around the routed
-                page content. TokenGate + PresenceBar render inside the provider. */}
+}                page content. TokenGate + PresenceBar render inside the provider. */
             <Navbar />
-            {/* Routed content + footer must clear the fixed mobile
-                tab bar; 64px fallback = the bar's published height contract. */}
+            {/* routed content + footer must clear the fixed mobile
+}                tab bar; 64px fallback = the bar's published height contract. */
             <div className="pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] md:pb-0">
               {children}
               <Footer />
@@ -103,25 +105,31 @@ export default function RootLayout({
             <BottomTabBar />
             <QuickAddFab />
             <QuickAddHost />
-            {/* The expense-log dialog host (its own event/dialog, beside QuickAddHost). */}
+            {}/* the expense-log dialog host (its own event/dialog, beside QuickAddHost). */
             <ExpenseLogHost />
           </ItineraryProvider>
-          {/* Cmd+K / Ctrl+K command palette, route-aware. Mounted once
-              at the app root so the shortcut works from anywhere. */}
+          {/* ⌘K / Ctrl+K command palette. Mounted once
+}              at the app root so the shortcut works from anywhere. */
           <CommandPalette />
+          {/* `?trip=` shared-link join handshake. Renders null unless a
+}              `?trip=` link is opened. Root-level (needs no ItineraryProvider). */
+          <TripJoinHandshake />
           {/* Route-driven warm/cool accent engine. Renders null;
               reads usePathname() and drives --accent-scroll himalaya↔gold↔sakura.
-              Reduced-motion sets it instantly. */}
+}              Reduced-motion sets it instantly. */
           <RouteAccentEngine />
           <Toaster />
           <ChunkLoadErrorHandler />
-          {/* Registers /sw.js in production only; drives the
-              toast-based update flow (no silent refresh). Renders null. */}
+          {/* registers /sw.js in production only; drives the
+}              toast-based update flow (no silent refresh). Renders null. */
           <ServiceWorkerRegistrar />
-          {/* App-wide navigator.onLine banner. Renders nothing while online
+          {/* app-wide navigator.onLine banner. Renders nothing while online
               (incl. server/first paint — no SSR mismatch); appears on every route
-              the instant connectivity drops. */}
+}              the instant connectivity drops. */
           <OfflineBanner />
+          {/* app-wide offline-push outbox status pill. Renders nothing on a dormant/guest
+}              build or before anything has ever synced; top-right, below the navbar. */
+          <SyncStatusBadge />
         </ThemeProvider>
       </body>
     </html>

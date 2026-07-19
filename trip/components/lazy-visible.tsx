@@ -22,17 +22,17 @@
  *
  * ── The trigger: visibility, with a post-hydration idle fallback ─────────────────
  * 1. VISIBILITY (primary, a minimal inline native `IntersectionObserver` hook — see
- *    `useInView` below; ZERO deps). A generous `rootMargin`
- *    (default 600px) starts loading the chunk BEFORE the section reaches the viewport,
- *    so there is no visible pop-in on a normal scroll. Latches once (triggerOnce).
+ * `useInView` below; ZERO deps,). A generous `rootMargin`
+ * (default 600px) starts loading the chunk BEFORE the section reaches the viewport,
+ * so there is no visible pop-in on a normal scroll. Latches once (triggerOnce).
  * 2. IDLE FALLBACK (`requestIdleCallback`, `setTimeout` fallback). Shortly AFTER
- *    hydration — when the main thread is idle — we mount the section even if the user
- *    never scrolls. This does NOT re-add the chunk to First Load JS (it is absent from
- *    the initial preload manifest, which is what the bundle number measures); it merely
- *    fetches a beat after hydration instead of only on scroll. It guarantees the section
- *    is present for (a) users on very tall viewports who see it without scrolling and
- *    (b) E2E specs that assert a below-fold section is visible WITHOUT an explicit scroll
- *    — keeping the frozen net green with NO frozen-spec edits.
+ * hydration — when the main thread is idle — we mount the section even if the user
+ * never scrolls. This does NOT re-add the chunk to First Load JS (it is absent from
+ * the initial preload manifest, which is what the bundle number measures); it merely
+ * fetches a beat after hydration instead of only on scroll. It guarantees the section
+ * is present for (a) users on very tall viewports who see it without scrolling and
+ * (b) E2E specs that assert a below-fold section is visible WITHOUT an explicit scroll
+ * — keeping the frozen net green with NO frozen-spec edits.
  *
  * The two triggers are OR-ed: whichever fires first mounts the section.
  *
@@ -48,7 +48,7 @@ import SectionSkeleton from '@/components/section-skeleton';
 
 /**
  * Minimal native-`IntersectionObserver` replacement for `react-intersection-observer`'s
- * `useInView` (no new deps — this is a deletion, not a swap). Single consumer, so
+ * `useInView`. Single consumer, so
  * it lives inline here rather than in its own module. Preserves the four behaviours the
  * component relied on: the `rootMargin` pre-viewport lead, a `triggerOnce` latch (`inView`
  * goes true once and never back), `skip`-driven detach (once mounted the observer stops),
@@ -72,7 +72,7 @@ function useInView({ rootMargin, skip }: { rootMargin: string; skip: boolean }) 
         (entries) => {
           if (entries.some((e) => e.isIntersecting)) {
             setInView(true); // triggerOnce: latch true...
-            observer.disconnect(); // ...and stop observing.
+            observer.disconnect(); // ..and stop observing.
           }
         },
         { rootMargin },

@@ -9,10 +9,10 @@ import { TRAVELERS } from '@/lib/token-auth';
  * "Settle up" summary — the read-only who-owes-whom view over the split expenses.
  *
  * Presentation-only: it renders the pure `settle()` result (`LegSettlement[]`, one per leg with a
- * split, per-currency isolated). The parent (`budget-panel`) computes the settlement and
+ * split, per-currency isolated —). The parent (`budget-panel`) computes the settlement and
  * only mounts this when there is ≥1 split expense, so `settlements` is always non-empty here.
  * No effect, no store — a straight map over the math (extracted from budget-panel to keep that
- * file bounded).
+ * file bounded, light module split).
  *
  * Per leg: each participant's net (owed to them / they owe), then the minimal "A → B ¥X" transfers.
  */
@@ -46,7 +46,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                 {LEG_LABEL[s.leg] ?? s.leg} · {s.currency}
               </p>
 
-              {/* Per-person net */}
+              {}/* Per-person net */
               <ul className="flex flex-wrap gap-2" data-testid={`settle-up-balances-${s.leg}`}>
                 {balances.map(([id, net]) => {
                   const settled = Math.abs(net) < 0.5;
@@ -54,7 +54,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                     <li
                       key={id}
                       data-testid={`settle-up-balance-${s.leg}-${id}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-navy-900/40 px-2.5 py-1 text-xs"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-surface/40 px-2.5 py-1 text-xs"
                     >
                       <span
                         aria-hidden="true"
@@ -76,7 +76,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                 })}
               </ul>
 
-              {/* Minimal transfers */}
+              {}/* Minimal transfers */
               {s.transfers.length === 0 ? (
                 <p className="text-xs text-white/50" data-testid={`settle-up-even-${s.leg}`}>
                   All square — nobody owes anybody.

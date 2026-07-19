@@ -1,19 +1,19 @@
 /**
  * Budget persistence adapter — the ONE load/save path for the `BudgetModel`,
- * over the typed storage gateway's key-10 `budgetStore`. Kept tiny + framework-free:
+ * over the typed storage gateway's key-10 `budgetStore`. Kept tiny + framework-free
  * it wires the byte-transport gateway to the domain's `normalizeModel`, so a corrupt
  * or partially-valid on-disk slot always resolves to a valid model (the "make it safe" policy
  * lives in the domain, not the transport). The panel + the unit round-trip both go through here.
  *
  * `loadBudget()` returns a fully-normalized `BudgetModel`:
- *   - key absent / SSR / corrupt JSON → the gateway hands back `DEFAULT_BUDGET`, which is
- *     already valid (a fresh visitor sees the seeded defaults);
- *   - key present but partially valid → `normalizeModel` keeps good fields, seed-defaults the rest.
+ * - key absent / SSR / corrupt JSON → the gateway hands back `DEFAULT_BUDGET`, which is
+ * already valid (a fresh visitor sees the seeded defaults);
+ * - key present but partially valid → `normalizeModel` keeps good fields, seed-defaults the rest.
  * `saveBudget(model)` normalizes then writes the whole model as JSON. Never throws (the gateway
  * swallows quota / disabled-storage / cyclic-value failures).
  */
 
-import { budgetStore, expensesStore, hasKey, STORAGE_KEYS } from '@/core/storage/gateway';
+import { budgetStore, expensesStore, hasKey, keyFor } from '@/core/storage/gateway';
 import type { StoragePort } from '@/core/ports';
 import { DEFAULT_BUDGET, normalizeModel, type BudgetModel } from '@/core/budget/model';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
@@ -29,7 +29,7 @@ export function saveBudget(model: BudgetModel): void {
   budgetStore.set<BudgetModel>(normalizeModel(model));
 }
 
-// ── Expenses (gateway key 11) — mirrors the budget adapter exactly ──────
+// ── Expenses — mirrors the budget adapter exactly ──────
 
 /**
  * Load + sanitize the persisted `Expense[]` (empty list when absent / SSR / corrupt). The
@@ -59,11 +59,11 @@ export function saveExpenses(expenses: Expense[]): void {
 export const budgetStoragePort: StoragePort<BudgetModel> = {
   load: loadBudget,
   save: saveBudget,
-  has: () => hasKey('local', STORAGE_KEYS.budget),
+  has: () => hasKey('local', keyFor('budget')),
 };
 
 export const expensesStoragePort: StoragePort<Expense[]> = {
   load: loadExpenses,
   save: saveExpenses,
-  has: () => hasKey('local', STORAGE_KEYS.expenses),
+  has: () => hasKey('local', keyFor('expenses')),
 };

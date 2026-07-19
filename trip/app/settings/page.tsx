@@ -1,9 +1,9 @@
 // SETTINGS: a grouped, progressively-disclosed settings page — identity/sign-out,
 // currency + rate overrides (relocated from budget-panel), and data management (export/import +
-// per-domain clears). The island is lazy + ssr:false, mirroring app/journal/sections.tsx; the
-// ssr:false dynamic import lives in ./sections (a client module); this Server
+// per-domain clears). The island is lazy + ssr:false, mirroring app/journal/sections.tsx; Next 15
+// the ssr:false dynamic import lives in./sections (a client module); this Server
 // Component page exports metadata. Reached via the companion nav (mobile hamburger + command
-// palette) or a direct URL.
+// palette, split) or a direct URL.
 import { Settings } from './sections';
 
 export const metadata = {
@@ -14,10 +14,10 @@ export const metadata = {
 
 export default function SettingsPage() {
   return (
-    <main className="min-h-screen bg-navy-900">
+    <main className="min-h-screen bg-surface">
       {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
           text-gradient-gold / animate-reveal-up) directly rather than extending PageHero's closed
-          `HeroVariant` union, following the /journal and /safety precedent. Supplies the page's <h1>. */}
+}          `HeroVariant` union. Supplies the page's <h1>. */
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
         <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
           <span

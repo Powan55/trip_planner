@@ -66,11 +66,11 @@ export const itineraryMigrations: Migration[] = [
   // item best-effort-gains `startMinutes` parsed from its legacy `time` text. LOSSLESS by
   // construction — the ONLY possible per-item change is the ADDITION of `startMinutes`;
   // `time`/`duration`/`id`/every other field is byte-preserved, and `durationMinutes` is
-  // NEVER set (legacy duration text is not parsed — a decided gap). NEVER-CLOBBER: an
+  // NEVER set. NEVER-CLOBBER: an
   // item already carrying a `startMinutes` (even one conflicting with its `time`) keeps it
   // verbatim. IDEMPOTENT: a re-run is an identity (parsed items now have startMinutes → the
   // never-clobber branch; unparseable items are untouched twice) — this is what makes the
-  // service-worker-lag old-build-overwrite loop safe. PURE / NO CLOCK: `parseTimeString` is total
+  // SW-lag old-build-overwrite loop safe. PURE / NO CLOCK: `parseTimeString` is total
   // (returns `undefined`, never throws) so a well-formed payload never spuriously
   // quarantines; a genuinely malformed payload is caught later by the lenient Zod read. The
   // SAME `parseTimeString` is the runtime fallback (`effectiveStartMinutes`) — sync-ingested
@@ -95,8 +95,8 @@ export const itineraryMigrations: Migration[] = [
 
 /**
  * The current on-disk itinerary schema version.
- *   - 3→4: Sync v2 per-item merge fields.
- *   - 4→5: structured time model — `startMinutes` best-effort backfill.
+ * - 3→4: Sync v2 per-item merge fields.
+ * - 4→5: structured time model — `startMinutes` best-effort backfill.
  */
 export const CURRENT_ITINERARY_VERSION = 5;
 
@@ -105,9 +105,9 @@ export const CURRENT_ITINERARY_VERSION = 5;
  *
  * - Picks each step whose `from` equals the running version, applies it, advances.
  * - PURE: no I/O. A step MAY throw (a genuinely un-migratable payload) — the caller
- *   catches it and quarantines; this function does not swallow throws.
+ * catches it and quarantines; this function does not swallow throws.
  * - If a required step is missing (a gap in the chain) it throws, so the caller
- *   quarantines rather than silently returning a half-migrated payload.
+ * quarantines rather than silently returning a half-migrated payload.
  *
  * Returns the migrated payload (still `unknown` — the caller validates it against the
  * current Zod schema before trusting it).

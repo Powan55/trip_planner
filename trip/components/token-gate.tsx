@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useId } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { m, AnimatePresence } from 'framer-motion';
-import { Plane, Lock, ArrowRight, ArrowLeft, AlertCircle, Check } from 'lucide-react';
+import { Plane, Lock, ArrowRight, ArrowLeft, Check } from 'lucide-react';
 import { signIn, IDENTITY_CHANGED_EVENT, type Traveler } from '@/lib/token-auth';
 import { sessionGate } from '@/core/storage/gateway';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
@@ -12,58 +12,61 @@ import { TRIP_START } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 
 /**
- * Trip Token landing gate — the app's cinematic "front door." A full-screen WALL
- * that gates the whole app: a traveler enters their Trip Token (Powan / Sushil /
- * Uttam) to sign in, OR clicks "Explore as guest" to browse local-only. Once a
- * token resolves, `signIn` persists the display name via the existing identity
- * pipeline (lib/token-auth → lib/identity), so attribution (createdBy / updatedBy,
- * "last edited by X") needs ZERO changes downstream.
+ * Trip Token landing gate — the app's cinematic
+ * "front door." A full-screen WALL that gates the whole app: a traveler enters any
+ * nickname to sign in, OR clicks
+ * "Explore as guest" to browse local-only. Once a non-empty nickname resolves, `signIn`
+ * persists the display name via the existing identity pipeline (lib/token-auth →
+ * lib/identity), so attribution (createdBy / updatedBy, "last edited by X") needs ZERO
+ * changes downstream.
  *
  * TWO MODES — ONE component, ONE mount, mode derived here from
  * `useActiveTraveler()` + `usePathname()`:
- *  - 'front-door' (`!traveler && !isGuest`): today's behavior — copy + "Explore as guest".
- *  - 'guest-route' (`traveler === null && isGuest && !isRouteActive(pathname,'/')`): a
- *    guest is confined to Home; on ANY other route the same wall appears with guest-route
- *    copy and a "Back to Home" escape. Default-deny by pathname — zero per-route work,
- *    no new persisted key (the decision is derived, never stored). The panel/form/a11y
- *    below are shared VERBATIM; only the desc copy + the secondary control differ.
+ * - 'front-door' (`!traveler && !isGuest`): today's behavior — copy + "Explore as guest".
+ * - 'guest-route' (`traveler === null && isGuest && !isRouteActive(pathname,'/')`): a
+ * guest is confined to Home; on ANY other route the same wall appears with guest-route
+ * copy and a "Back to Home" escape. Default-deny by pathname — zero per-route work,
+ * no new persisted key (the decision is derived, never stored). The panel/form/a11y
+ * below are shared VERBATIM; only the desc copy + the secondary control differ.
  * Two invariants: a guest-route sign-in ALSO clears the guest flag (token + guest must
  * never coexist, else a later sign-out lands in guest mode not the front door); and a
  * front-door "Explore as guest" on a non-Home path also navigates Home (else it would
  * instantly re-trigger guest-route — a dead end).
  *
- * ALWAYS-ON: unlike name-prompt, this shows in EVERY build (dormant or synced) —
- * it is a client-only product feature, not a sync prompt. The guest bypass keeps the
+ * ALWAYS-ON: unlike name-prompt, this shows in EVERY build (dormant or synced)
+ * — it is a client-only product feature, not a sync prompt. The guest bypass keeps the
  * public/portfolio demo viewable. It is DORMANT-SAFE: it imports ONLY pure modules
  * (token-auth + identity + trip-data + countdown) and NEVER firebase, so the dormant
  * bundle loads no Firebase chunk.
  *
- * A11y reuses the same modal contract as name-prompt VERBATIM:
- *  - role="dialog" aria-modal aria-labelledby aria-describedby
- *  - document-level Esc via an onCloseRef (latest-closure, bound once)
- *  - a lightweight Tab-trap inside the panel
- *  - autofocus the token input on open
- * Intentional DIVERGENCES — it is a WALL, not a dismissible modal:
- *  - signed-out: NON-dismissible — NO overlay-click-close, NO X button, Esc does NOT
- *    dismiss. The ONLY ways past are a valid token or "Explore as guest".
- *  - invalid token → inline aria-live="polite" error; the input stays, no app access.
- *  - no focus-return-to-trigger (it's the front door, not triggered) — on unlock we let
- *    focus fall to the body so keyboard users land in the revealed app naturally.
+ * A11y reuses the modal contract from name-prompt VERBATIM:
+ * - role="dialog" aria-modal aria-labelledby aria-describedby
+ * - document-level Esc via an onCloseRef (latest-closure, bound once)
+ * - a lightweight Tab-trap inside the panel
+ * - autofocus the nickname input on open
+ * Intentional DIVERGENCES — it is a WALL, not a dismissible modal (flagged at review):
+ * - signed-out: NON-dismissible — NO overlay-click-close, NO X button, Esc does NOT
+ * dismiss. The ONLY ways past are a non-empty nickname or "Explore as guest".
+ * - no error state: any non-empty nickname succeeds, so the old
+ * "doesn't match a traveler" branch is unreachable and removed; the submit button is
+ * simply disabled while the input is empty (the pre-existing empty-guard).
+ * - no focus-return-to-trigger (it's the front door, not triggered) — on unlock we let
+ * focus fall to the body so keyboard users land in the revealed app naturally.
  *
- * Motion uses the lightweight `m.*` only (LazyMotion `strict` — `motion.*` throws);
- * reduced-motion is honored via <MotionConfig reducedMotion="user"> (declarative
+ * Motion uses the lightweight `m.*` only (LazyMotion `strict` — `motion.*` throws,
+ *); reduced-motion is honored via <MotionConfig reducedMotion="user"> (declarative
  * framer auto-gates) plus the global reduced-motion CSS for the backdrop shimmer
- * (.bg-aurora/.animate-aurora are already neutralized there). Tailwind classes are
- * static literals; the card is sized to never overflow small phone widths. Countdown
- * reuses the shared pure helper vs TRIP_START (Dec 9 2026).
+ * Tailwind
+ * classes are static literals; the card is sized to never overflow @360/390/414
+ * Countdown reuses the shared pure helper vs TRIP_START.
  */
 
-// The `tripPlannerGuest` key + raw localStorage access live in the typed storage
-// gateway (`core/storage/gateway.ts`). `setGuest`/`clearGuest` here delegate to
-// `sessionGate` (SSR-safe, never-throw, `'1'` presence-flag unchanged); the guest
-// read flows through `useActiveTraveler()`. The guest OPT-IN still fires
-// identity:changed so the navbar affordance updates live — that reactive dispatch is
-// app logic, NOT storage, so it stays here.
+// the `tripPlannerGuest` key + raw localStorage access live in the
+// typed storage gateway (`core/storage/gateway.ts`). `setGuest`/`clearGuest` here delegate
+// to `sessionGate` (SSR-safe, never-throw, `'1'` presence-flag unchanged); the guest read
+// now flows through `useActiveTraveler()`. The guest OPT-IN still fires
+// identity:changed so the navbar affordance updates live — that reactive dispatch is app
+// logic, NOT storage, so it stays here.
 
 /** Persist the guest choice so a reload does NOT re-show the wall (documented design). */
 function setGuest(): void {
@@ -79,10 +82,10 @@ function setGuest(): void {
 type GateMode = 'front-door' | 'guest-route';
 
 export default function TokenGate() {
-  // Reactive identity + pathname drive the mode. `useActiveTraveler` re-reads on
-  // `identity:changed` / `storage`; `usePathname` re-reads on navigation — so sign-in,
-  // guest opt-in, sign-out, and every route change re-evaluate LIVE without a manual
-  // listener or a reload. Both are firebase-free (dormant-safe).
+  // Reactive identity + pathname drive the mode. `useActiveTraveler`
+  // re-reads on `identity:changed` / `storage`; `usePathname` re-reads on navigation —
+  // so sign-in, guest opt-in, sign-out, and every route change re-evaluate LIVE without
+  // a manual listener or a reload. Both are firebase-free.
   const { traveler, isGuest } = useActiveTraveler();
   const pathname = usePathname();
 
@@ -114,15 +117,13 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [value, setValue] = useState('');
-  const [error, setError] = useState(false);
   // The resolved traveler drives a brief accent-flash micro-animation before dissolve.
   const [unlocked, setUnlocked] = useState<Traveler | null>(null);
 
   const baseId = useId();
   const titleId = `${baseId}-title`;
   const descId = `${baseId}-desc`;
-  const fieldId = `${baseId}-token`;
-  const errId = `${baseId}-err`;
+  const fieldId = `${baseId}-nickname`;
 
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -183,8 +184,8 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
     if (unlocked) return; // already unlocking
     const traveler = signIn(value);
     if (!traveler) {
-      setError(true);
-      // keep the wall and the field; re-focus so the user can correct
+      // Only an empty/whitespace input fails now (the submit is already disabled while
+      // empty; this guards an Enter-key submit). Keep the wall + re-focus, no error copy.
       inputRef.current?.focus();
       return;
     }
@@ -194,7 +195,6 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
     // token + emitted identity:changed above; clearing here (after a confirmed valid token,
     // never on an invalid one) leaves storage consistent before the parent re-derives mode.
     if (mode === 'guest-route') sessionGate.clearGuest();
-    setError(false);
     // Accent-flash, then the wall dissolves: `signIn` set `traveler` (and cleared guest),
     // so the parent's derived mode drops to null and AnimatePresence plays the exit with
     // this `unlocked` state still committed (the "Welcome, {name}" glow rides the fade out).
@@ -239,7 +239,7 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
             : undefined
         }
       >
-        {/* Boarding-pass header: ticket-stub iconography + trip title. */}
+        {}/* Boarding-pass header: ticket-stub iconography + trip title. */
         <div className="flex items-center gap-3 mb-1">
           <span
             className="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-gold-500/15 text-gold-400"
@@ -261,12 +261,12 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
           </div>
         </div>
 
-        {/* Compact live countdown to departure (Dec 9 2026). */}
+        {}/* Compact live countdown to departure. */
         <div className="mt-4 mb-5">
           <CompactCountdown />
         </div>
 
-        {/* Perforation line — the boarding-pass tear. Decorative, no layout box of its own. */}
+        {}/* Perforation line — the boarding-pass tear. Decorative, no layout box of its own. */
         <div className="relative my-5" aria-hidden="true">
           <div className="border-t border-dashed border-white/15" />
         </div>
@@ -274,12 +274,12 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
         <p id={descId} className="text-sm text-white/55 mb-4 leading-relaxed">
           {mode === 'guest-route' ? (
             <>
-              This page is for the travelers. Enter your Trip Token to unlock the full
+              This page is for the travelers. Enter your name to unlock the full
               itinerary, or head back to the home screen.
             </>
           ) : (
             <>
-              Enter your trip token to sign in and have your edits attributed to you — or
+              Enter your name to sign in and have your edits attributed to you — or
               explore as a guest for local-only browsing.
             </>
           )}
@@ -287,7 +287,7 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
 
         <form onSubmit={handleSubmit}>
           <label htmlFor={fieldId} className="text-xs text-white/50 mb-1.5 block">
-            Trip token
+            Your name
           </label>
           <div className="relative">
             <Lock
@@ -300,34 +300,21 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
               value={value}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
                 setValue(e.target.value);
-                if (error) setError(false);
               }}
               maxLength={24}
               autoComplete="off"
-              autoCapitalize="off"
+              autoCapitalize="words"
               spellCheck={false}
               disabled={!!unlocked}
-              placeholder="Enter your trip token"
-              aria-invalid={error}
-              aria-describedby={error ? errId : undefined}
+              placeholder="Enter your name"
               className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-gold-400 focus-visible:ring-2 disabled:opacity-60"
             />
-          </div>
-
-          {/* Inline error — aria-live so SR users hear it; input stays, no app access. */}
-          <div className="min-h-[1.25rem] mt-1.5" aria-live="polite">
-            {error && (
-              <p id={errId} className="flex items-center gap-1.5 text-xs text-red-300">
-                <AlertCircle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                That token doesn&rsquo;t match a traveler. Double-check it and try again.
-              </p>
-            )}
           </div>
 
           <button
             type="submit"
             disabled={!value.trim() || !!unlocked}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
+            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
           >
             {unlocked ? (
               <>
@@ -343,16 +330,16 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
           </button>
         </form>
 
-        {/* Secondary control — differs by mode. */}
+        {}/* Secondary control — differs by mode. */
         {mode === 'guest-route' ? (
           // "Back to Home": the guest's escape hatch. A REAL focusable control ≥44px
-          // (a11y floor) — full-width ghost button, not a quiet text link.
+          // — full-width ghost button, not a quiet text link.
           <div className="mt-4">
             <button
               type="button"
               onClick={handleBackHome}
               disabled={!!unlocked}
-              className="w-full flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white/70 font-medium hover:bg-white/10 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 min-h-[44px] px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-white/70 font-medium hover:bg-white/10 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-50"
             >
               <ArrowLeft className="w-4 h-4" aria-hidden="true" />
               Back to Home

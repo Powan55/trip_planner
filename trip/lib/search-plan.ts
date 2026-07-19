@@ -13,8 +13,8 @@ export interface PlanSearchResult {
 }
 
 // Rank: a title hit beats a notes hit beats a category-only hit. Keeps the
-// simplest deterministic ordering — no fuzzy-search dependency, a scoring
-// library would be overkill for a 3-field substring match.
+// simplest deterministic ordering — no fuzzy-search dependency (ponytail: a
+// scoring library would be overkill for a 3-field substring match).
 export function searchPlanItems(plans: DayPlan[], query: string): PlanSearchResult[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];

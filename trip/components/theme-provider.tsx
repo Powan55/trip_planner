@@ -18,7 +18,7 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
           hover/tap/focus gestures) — no framer layout/layoutId/drag in use.
           `strict` throws in dev if any `motion.*` slips through, guaranteeing the
           migration is complete. Order MUST stay MotionConfig → LazyMotion →
-          children so reduced-motion still gates the whole tree. */}
+}          children so reduced-motion still gates the whole tree. */
       <MotionConfig reducedMotion="user">
         <LazyMotion features={domAnimation} strict>
           {children}

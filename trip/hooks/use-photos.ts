@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { STORAGE_KEYS } from '@/core/storage/gateway';
+import { keyFor } from '@/core/storage/gateway';
 import { photosStoragePort } from '@/core/photos/storage';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
 import { defaultBlobStore } from '@/core/photos/blob-store';
@@ -16,13 +16,13 @@ import {
 } from '@/core/photos/model';
 
 /**
- * Reactive photo-metadata store. A thin React adapter over the pure
- * `core/photos/model.ts` + the key-16 `photosStoragePort`, wired through `createReactiveStore`
- * without a `sync` port — photos are local-only, forever, by design. The shared factory owns the
+ * Reactive photo-metadata store. A THIN React adapter over the pure
+ * `core/photos/model.ts` + the key-16 `photosStoragePort`, wired through `createReactiveStore` (
+ *) WITHOUT a `sync` port — photos are LOCAL-ONLY, forever. The shared factory owns the
  * hydrate/listen/commit skeleton; this file owns the capture pipeline coupling (downscale → blob-store
  * put → meta append) + the delete + the sync-on Undo re-point.
  *
- * Zero egress by design: this hook writes only the key-16 metadata index and the local `BlobStorePort`.
+ * ZERO EGRESS: this hook writes ONLY the key-16 metadata index and the local `BlobStorePort`.
  * There is no `SyncPort`, no Firestore, no export path — the metadata never leaves the device and the
  * blob bytes never leave IndexedDB. The photo↔owner link lives only in the meta rows here.
  */
@@ -49,16 +49,16 @@ export interface PhotosStore {
   removePhoto(id: string): Promise<void>;
   /**
    * Re-point expense-owned photos `oldId → newId`: the sync-on expense Undo re-adds a
-   * fresh-id copy, so the receipt meta must follow. No-op when the id is unchanged (dormant restore).
+   * FRESH-ID copy, so the receipt meta must follow. No-op when the id is unchanged (dormant restore).
    */
   repointExpense(oldId: string, newId: string): void;
 }
 
 // The shared hydrate/listen/commit skeleton, instantiated once for the photos domain.
-// Local-only: no `sync` port (photos never sync — zero-egress by design).
+// LOCAL-ONLY: no `sync` port.
 const usePhotosStore = createReactiveStore<PhotoMeta[]>({
   eventName: PHOTOS_CHANGED_EVENT,
-  storageKeys: [STORAGE_KEYS.photos],
+  storageKeys: () => [keyFor('photos')],
   storage: photosStoragePort,
 });
 
@@ -72,7 +72,7 @@ export function usePhotos(): PhotosStore {
 
   const addPhoto = useCallback(
     async (owner: PhotoOwner, file: File | Blob, altText: string, caption?: string): Promise<AddPhotoResult> => {
-      // 1. Downscale before any store write — original full-size bytes are never persisted.
+      // 1. Downscale BEFORE any store write — original full-size bytes are never persisted.
       const prepared = await preparePhoto(file);
       if (!prepared.ok) return { ok: false, reason: 'decode' };
 
@@ -102,7 +102,7 @@ export function usePhotos(): PhotosStore {
   const removePhoto = useCallback(
     async (id: string) => {
       // Blob first, then meta: a meta without a blob renders as a placeholder (harmless); a blob
-      // without a meta is invisible and orphaned — so delete in the order that fails safe.
+      // without a meta is invisible+orphaned — so delete in the order that fails safe.
       await defaultBlobStore.delete(id);
       commit((current) => removePhotoMeta(current, id));
     },

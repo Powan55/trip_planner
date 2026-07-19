@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState } from 'react';
+import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import { SectionHeading } from '@/components/section-heading';
 import { Star, Clock, MapPin, Camera, Search, X, SlidersHorizontal, SearchX, Heart } from 'lucide-react';
@@ -9,6 +9,7 @@ import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import PlaceDetailSheet, { type PlaceDetailData } from '@/components/place-detail-sheet';
 import { useFavorites } from '@/hooks/use-favorites';
+import { useCardTilt, useGyroOptIn } from '@/hooks/use-card-tilt';
 
 interface RecommendationSectionProps {
   id: string;
@@ -52,6 +53,8 @@ function RecommendationCard({
 }) {
   const [imgError, setImgError] = useState(false);
   const reduce = useReducedMotion();
+  // — pointer/gyro 3D tilt (cards only). Fully disabled under reduced motion.
+  const tilt = useCardTilt();
   return (
     <m.div
       initial={{ opacity: 0, y: 20 }}
@@ -59,10 +62,15 @@ function RecommendationCard({
       viewport={{ once: true }}
       whileHover={reduce ? undefined : { y: -6 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+      style={tilt.style}
+      onPointerMove={tilt.onPointerMove}
+      onPointerLeave={tilt.onPointerLeave}
+      data-testid={`guide-tilt-${item.id}`}
+      data-tilt-enabled={tilt.enabled}
       className="glass-card rounded-2xl overflow-hidden group transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)]"
     >
       {/* The image + text (down to notes) is a single button that opens the detail
-          sheet. The AddToPlanButton stays a sibling so it isn't nested in a button. */}
+}          sheet. The AddToPlanButton stays a sibling so it isn't nested in a button. */
       <button
         type="button"
         onClick={onOpen}
@@ -71,7 +79,10 @@ function RecommendationCard({
         className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded-2xl"
       >
         {item.image && !imgError ? (
-          <div className="relative aspect-[16/10] bg-navy-800 overflow-hidden motion-reduce:[&_img]:!transform-none">
+          <div
+            className="vt-shared relative aspect-[16/10] bg-surface-raised overflow-hidden motion-reduce:[&_img]:!transform-none"
+            style={{ ['--vt-name']: `place-photo-${item.id}` } as CSSProperties}
+          >
             <OptimizedImage
               src={item.image}
               alt={item.name}
@@ -80,24 +91,24 @@ function RecommendationCard({
               className="object-cover group-hover:scale-105 transition-transform duration-500"
               onError={() => setImgError(true)}
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-navy-900/80 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
             <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
               <Camera className="w-3 h-3 text-gold-400" />
               <span className="text-xs font-mono text-gold-400">{item.photoRating}/5</span>
             </div>
             {item.mustSee && (
-              <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-navy-900 text-[10px] font-bold uppercase tracking-wide">
-                <Star className="w-3 h-3 fill-navy-900" />
+              <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                <Star className="w-3 h-3 fill-surface" />
                 Must-see
               </span>
             )}
           </div>
         ) : (
-          <div className="aspect-[16/10] bg-gradient-to-br from-navy-800 to-navy-700 flex items-center justify-center relative">
+          <div className="aspect-[16/10] bg-gradient-to-br from-surface-raised to-surface-overlay flex items-center justify-center relative">
             <MapPin className={`w-8 h-8 ${accentColor} opacity-30`} />
             {item.mustSee && (
-              <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-navy-900 text-[10px] font-bold uppercase tracking-wide">
-                <Star className="w-3 h-3 fill-navy-900" />
+              <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                <Star className="w-3 h-3 fill-surface" />
                 Must-see
               </span>
             )}
@@ -105,7 +116,12 @@ function RecommendationCard({
         )}
         <div className="p-4 pb-0">
           <div className="flex items-start justify-between gap-2 mb-2">
-            <h3 className="font-display font-bold text-white text-sm leading-tight">{item.name}</h3>
+            <h3
+              className="vt-shared font-display font-bold text-white text-sm leading-tight"
+              style={{ ['--vt-name']: `place-title-${item.id}` } as CSSProperties}
+            >
+              {item.name}
+            </h3>
             <span className={`text-[10px] px-2 py-0.5 rounded-full ${accentColor} bg-white/5 whitespace-nowrap`}>{item.category}</span>
           </div>
           <p className="text-xs text-white/40 mb-3 line-clamp-2">{item.description}</p>
@@ -122,13 +138,13 @@ function RecommendationCard({
         </div>
       </button>
       <div className="px-4 pb-4 flex items-start gap-2">
-        {/* Add-to-plan affordance — additive; a sibling of the details button. */}
+        {}/* Add-to-plan affordance — additive; a sibling of the details button. */
         <div className="flex-1 min-w-0">
           <AddToPlanButton source={item} sourceType="recommendation" accentColor={accentColor} />
         </div>
         {/* Favorite/bookmark toggle — a sibling of AddToPlanButton, real <button>, and
             gated on the favorites hook's hydration so server/first-client-paint always match
-            (starts unfavorited on both, avoiding a hydration mismatch). */}
+}            (starts unfavorited on both, avoiding a hydration mismatch). */
         {favoritesReady && (
           <button
             type="button"
@@ -159,6 +175,9 @@ export default function RecommendationSection({
   const [sort, setSort] = useState<SortKey>('rating');
   const [savedOnly, setSavedOnly] = useState(false);
   const { favorites, toggle: toggleFavorite, hydrated: favoritesReady } = useFavorites();
+  // — one iOS motion opt-in for the whole section (renders only on iOS, sensor
+  // not yet granted, motion allowed). Desktop/Android/reduced-motion → nothing renders.
+  const gyro = useGyroOptIn();
 
   // How many of THIS section's items are favorited — the "Saved" chip only renders once this
   // is >= 1 (it cuts across categories, so it isn't folded into the `categories` chip row).
@@ -275,7 +294,7 @@ export default function RecommendationSection({
           subtitle={subtitle}
         />
 
-        {/* Search + sort */}
+        {}/* Search + sort */
         <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
@@ -309,13 +328,13 @@ export default function RecommendationSection({
               data-testid="guide-sort-select"
               className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
             >
-              <option value="rating" className="bg-navy-900">Sort: Top rated</option>
-              <option value="name" className="bg-navy-900">Sort: Name (A–Z)</option>
+              <option value="rating" className="bg-surface">Sort: Top rated</option>
+              <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
             </select>
           </div>
         </div>
 
-        {/* City filter chips (only when more than one city is present) */}
+        {}/* City filter chips (only when more than one city is present) */
         {cities.length > 2 && (
           <div className="flex flex-wrap justify-center gap-2 mb-3">
             {cities.map((city) => (
@@ -339,7 +358,7 @@ export default function RecommendationSection({
 
         {/* "Saved" filter chip — cuts across categories, so it's a separate boolean
             toggle rather than folded into the `categories` chip row. Only rendered once
-            favorites have hydrated AND this section has >=1 favorited item. */}
+}            favorites have hydrated AND this section has >=1 favorited item. */
         {favoritesReady && savedCount > 0 && (
           <div className="flex flex-wrap justify-center gap-2 mb-3">
             <button
@@ -360,7 +379,7 @@ export default function RecommendationSection({
           </div>
         )}
 
-        {/* Category filter chips with live counts */}
+        {}/* Category filter chips with live counts */
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           {categories.map((cat) => (
             <button
@@ -380,7 +399,22 @@ export default function RecommendationSection({
           ))}
         </div>
 
-        {/* Cards Grid or empty state */}
+        {}/* iOS motion-tilt opt-in — unobtrusive, one per section, iOS-only. */
+        {gyro.show && (
+          <div className="flex justify-center mb-6">
+            <button
+              type="button"
+              onClick={gyro.request}
+              data-testid="guide-tilt-optin"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/55 bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white/80 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+            >
+              <SlidersHorizontal className="w-3 h-3" />
+              Enable motion tilt
+            </button>
+          </div>
+        )}
+
+        {}/* Cards Grid or empty state */
         {filtered.length > 0 ? (
           <div data-testid="guide-results" className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((item) => (

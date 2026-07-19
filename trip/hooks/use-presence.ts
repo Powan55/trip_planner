@@ -9,17 +9,17 @@ import type { PresenceRecord } from '@/lib/presence';
  * Reactive view of "who else is active on the trip right now".
  *
  * Subscribes to the presence collection via `lib/presence.ts` and returns the currently
- * active travelers (filtered by `isActive`), excluding the signed-in viewer themselves (the
+ * ACTIVE travelers (filtered by `isActive`), EXCLUDING the signed-in viewer themselves (the
  * bar shows *others*). Each entry is enriched with the traveler's brand accent.
  *
- * Dormant / guest-safe (the headline guarantee here): `lib/presence.ts` (and through
- * it, firebase) is reached only via a dynamic `import()` inside the effect, behind the gate
- * `isRemoteConfigured() && getActiveTraveler()` — the same gate the provider uses for the
+ * DORMANT / GUEST-SAFE: `lib/presence.ts` (and through
+ * it, firebase) is reached ONLY via a dynamic `import()` INSIDE the effect, behind the gate
+ * `isRemoteConfigured() && getActiveTraveler()` — the SAME gate the provider uses for the
  * remote `days` subscribe. So the module body never lands in the first-load chunk (mirrors
- * how `itinerary-provider` lazy-imports `itinerary-remote`); only the pure, firebase-free
+ * how `itinerary-provider` lazy-imports `itinerary-remote`); only the PURE, firebase-free
  * modules (`firebase-config`, `token-auth`) are statically imported here. Dormant (no env)
- * or guest (no token) means the effect short-circuits before any `import('@/lib/presence')`, so
- * no firebase is loaded and the hook returns an empty list. It re-evaluates on the same-tab
+ * or guest (no token) ⇒ the effect short-circuits before any `import('@/lib/presence')`, so
+ * NO firebase is loaded and the hook returns an empty list. It re-evaluates on the same-tab
  * `IDENTITY_CHANGED_EVENT`: sign-in opens the subscribe live; sign-out tears it down
  * and clears the list.
  *
@@ -79,9 +79,9 @@ export function usePresence(): ActivePresence[] {
     };
 
     const activate = () => {
-      // Same gate as the provider's remote subscribe: configured and a token
-      // traveler. Guest / dormant short-circuits before any `import('@/lib/presence')`, so no
-      // firebase loads, and the presence module body stays off the first-load chunk.
+      // SAME gate as the provider's remote subscribe: configured AND a token
+      // traveler. Guest / dormant ⇒ short-circuit ⇒ no `import('@/lib/presence')` ⇒ no
+      // firebase, and the presence module body stays off the first-load chunk.
       if (!(isRemoteConfigured() && getActiveTraveler())) return;
       if (unsubscribe) return; // already subscribed for the current identity
       import('@/lib/presence')
@@ -101,7 +101,7 @@ export function usePresence(): ActivePresence[] {
     // Open on mount for a returning signed-in traveler...
     activate();
 
-    // ...and re-evaluate on identity change (sign-in opens live, sign-out tears down).
+    // ..and re-evaluate on identity change (sign-in opens live, sign-out tears down).
     const onIdentityChanged = () => {
       teardown();
       activate();
@@ -126,8 +126,8 @@ export function usePresence(): ActivePresence[] {
   for (const r of records) {
     if (!r.name) continue;
     if (!recordIsActive(r.lastSeen, now)) continue;
-    // Exclude the viewer's own heartbeat — the bar shows who else is here. Match by name
-    // (soft identity); a traveler signed in on two tabs collapses to one entry below.
+    // Exclude the viewer's own heartbeat — the bar shows who ELSE is here. Match by name
+    //; a traveler signed in on two tabs collapses to one entry below.
     if (me && r.name.trim().toLowerCase() === me.name.trim().toLowerCase()) continue;
     active.push({ uid: r.uid, name: r.name, accent: accentFor(r.name), lastSeen: r.lastSeen });
   }

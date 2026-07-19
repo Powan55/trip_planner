@@ -3,7 +3,7 @@
 // (`budgetStoragePort`) already lives in `core/budget/storage.ts`; this file adds the SYNC side: the
 // offline-outbox-decorated push (the singleton 'model' chunk) + the gated subscribe.
 //
-// Preserves the dormant-safe contract EXACTLY: firebase/budget-remote is NOT imported at module scope; every
+// Preserves EXACTLY: firebase/budget-remote is NOT imported at module scope; every
 // remote op is behind an `isRemoteConfigured()` gate and a DYNAMIC import, so the dormant build never
 // pulls firebase onto the hot path. Best-effort + self-degrading.
 
@@ -17,11 +17,11 @@ import { withOutbox, type ChunkSync } from '@/core/sync/outbox';
 /**
  * Budget `ChunkSync` for the offline outbox. The budget is a SINGLETON, so its only chunk is
  * `'model'`.
- *  - `chunkDiff` = `['model']` when ANY leaf field changed prev→next (a `flattenBudget` JSON compare,
- *    ignoring the additive `sync.fieldHlc` — a value change is what dirties the doc). Inlined so this
- *    module keeps NOT statically importing `budget-remote` — firebase stays off the dormant hot path.
- *  - `pushChunk` = the merge-aware singleton transactional write, reached via the SAME dynamic, gated
- *    import; it REJECTS on failure so the decorator keeps the chunk dirty.
+ * - `chunkDiff` = `['model']` when ANY leaf field changed prev→next (a `flattenBudget` JSON compare,
+ * ignoring the additive `sync.fieldHlc` — a value change is what dirties the doc). Inlined so this
+ * module keeps NOT statically importing `budget-remote` — firebase stays off the dormant hot path.
+ * - `pushChunk` = the merge-aware singleton transactional write, reached via the SAME dynamic, gated
+ * import; it REJECTS on failure so the decorator keeps the chunk dirty.
  */
 const budgetChunkSync: ChunkSync<BudgetModel> = {
   domain: 'budget',
@@ -35,7 +35,7 @@ const budgetChunkSync: ChunkSync<BudgetModel> = {
 };
 
 // Exported so the provider can flush this domain's outbox on app-start / online / visible
-// (flush-then-subscribe).
+//.
 export const budgetOutboxSync = budgetChunkSync;
 
 export const budgetSyncPort: SyncPort<BudgetModel> = {

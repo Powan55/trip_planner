@@ -12,8 +12,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps['theme']}
       className="toaster group"
-      // Lift toasts above the mobile bottom tab bar so a toast never covers it.
-      // sonner 1.5.0 has no `mobileOffset` prop, and its own
+      ///DEF-1: lift toasts above the mobile bottom tab bar so a toast never covers it.
+      // sonner 1.5.0 has no `mobileOffset` prop, and — the DEF-1 finding — its own
       // `@media (max-width:600px)` styles HARD-SET the toaster's `bottom: 20px`, so this
       // `offset` prop only ever reaches the DESKTOP (>600px) layout. The mobile bottom edge
       // is therefore re-anchored by a scoped `!important` override in app/globals.css

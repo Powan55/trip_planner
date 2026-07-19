@@ -2,17 +2,17 @@
  * Budget ⇄ leaf-field bridge. PURE + framework-free.
  *
  * The budget syncs as a SINGLETON LWW-per-field doc, so this module is the ONE place that:
- *   - `flattenBudget` — turns a `BudgetModel` into its CLOSED set of canonical dotted leaf paths
- *     (`homeCurrency`, `rates.{NPR,JPY}`, `legBudgets.{nepal,japan}`, and each PRESENT
- *     `categoryBudgets.{leg}.{category}`). No dynamic keys — the path set is derived from the fixed
- *     scalars + `BUDGET_CATEGORIES` × legs.
- *   - `unflattenBudget` — rebuilds a `BudgetModel` from a leaf-path map (inverse of flatten).
- *   - `modelToFields` / `fieldsToModel` — convert between a model (+ its per-field HLC map) and the
- *     Firestore field-doc shape (`BudgetFields`, `core/sync/merge-budget.ts`). A CLEARED field
- *     (stamped in `sync.fieldHlc` but with no live value) round-trips as a stamped `null`.
- *   - `stampBudgetChanges` — the edit stamper: diff prev vs next flatten, advance the HLC of exactly
- *     the CHANGED leaf paths (via `nextSyncStamp`). Gated on `isRemoteConfigured()` by the CALLER
- *     (`use-budget`) — dormant never calls it (byte-identity is preserved when sync is off).
+ * - `flattenBudget` — turns a `BudgetModel` into its CLOSED set of canonical dotted leaf paths
+ * (`homeCurrency`, `rates.{NPR,JPY}`, `legBudgets.{nepal,japan}`, and each PRESENT
+ * `categoryBudgets.{leg}.{category}`). No dynamic keys — the path set is derived from the fixed
+ * scalars + `BUDGET_CATEGORIES` × legs.
+ * - `unflattenBudget` — rebuilds a `BudgetModel` from a leaf-path map (inverse of flatten).
+ * - `modelToFields` / `fieldsToModel` — convert between a model (+ its per-field HLC map) and the
+ * Firestore field-doc shape (`BudgetFields`, `core/sync/merge-budget.ts`). A CLEARED field
+ * (stamped in `sync.fieldHlc` but with no live value) round-trips as a stamped `null`.
+ * - `stampBudgetChanges` — the edit stamper: diff prev vs next flatten, advance the HLC of exactly
+ * the CHANGED leaf paths (via `nextSyncStamp`). Gated on `isRemoteConfigured()` by the CALLER
+ * (`use-budget`) — dormant never calls it.
  */
 
 import {

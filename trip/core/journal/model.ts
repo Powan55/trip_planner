@@ -1,12 +1,12 @@
 /**
- * Journal domain — the pure, framework-free per-day text-journal core. Gateway key 12
- * stores a `JournalEntry[]`.
+ * Journal domain — the pure, framework-free per-day text-journal core (slice —
+ * the L-core of proposal #11). Gateway key 12 stores a `JournalEntry[]`.
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,
  * no fetch, no clock, no id generation, no storage. Every function is TOTAL (a bad / missing
  * / corrupt input degrades to a safe value, never a throw), so the store can never crash on a
  * corrupt slot and the panel can never render `undefined`. This mirrors `core/budget/expenses.ts`
- * exactly (another persisted data domain on the same established pattern).
+ * exactly (the 4th persisted data domain on the same established pattern).
  *
  * ── One entry per trip day, keyed by date (upsert by date) ─────────────────────────────────
  * A journal entry is a short capture for a single `YYYY-MM-DD` trip day: a free-text body, an
@@ -15,12 +15,12 @@
  * one). Deleting all content (empty text + no mood + empty highlight) REMOVES the entry, so the
  * "clear everything" flow lands on a clean empty state with no phantom re-seed.
  *
- * ── timestamp injection ────────────────────────────────────────────────────────────────────
+ * ── timestamp injection ────────────────────────────────────────
  * `upsertEntry` takes `nowIso` from the CALLER (the React hook injects `new Date().toISOString()`),
  * so this core stays deterministic and unit-testable without stubbing a clock. `createdAt` is set
  * only on create; `updatedAt` moves to `nowIso` on every write. Photos / IndexedDB are explicitly
- * out of scope here (a future phase); the journal stays localStorage-only, which is the whole
- * reason the photo handling is held out.
+ * OUT of this slice (the XL photo/story phase of #11 is a declared future boundary; keeps the
+ * journal localStorage-only, which is the whole reason the photo phase is held out).
  */
 
 // ── Moods (a small closed enum) ──────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@ export function isMood(v: unknown): v is Mood {
 /**
  * Is a candidate's content "empty"? True iff trimmed text is '' AND no valid mood AND trimmed
  * highlight is ''. An empty candidate is not a persistable entry — `sanitizeEntry` rejects it and
- * `upsertEntry` removes the entry when a merge lands here (the "delete all content" path). TOTAL.
+ * `upsertEntry` removes the entry when a merge lands here. TOTAL.
  */
 export function isEmptyContent(c: { text?: string; mood?: Mood | null; highlight?: string | null }): boolean {
   const text = typeof c.text === 'string' ? c.text.trim() : '';
@@ -159,7 +159,7 @@ export function upsertEntry(
       ? (typeof patch.highlight === 'string' && patch.highlight.trim().length > 0 ? patch.highlight.trim() : null)
       : (existing?.highlight ?? null);
 
-  // Emptying an entry (or creating with empty content) → remove it (clean empty state).
+  // Emptying an entry (or creating with empty content) → remove it.
   if (isEmptyContent({ text: nextText, mood: nextMood, highlight: nextHighlight })) {
     return list.filter((e) => e.date !== date);
   }

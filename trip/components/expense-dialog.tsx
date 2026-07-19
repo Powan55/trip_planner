@@ -20,16 +20,15 @@ import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { TRAVELERS } from '@/lib/token-auth';
 
 /**
- * Fast expense-log dialog. A lightweight modal, deliberately
+ * Fast expense-log dialog. A NEW, lightweight modal, deliberately
  * separate from the itinerary add dialog (`add-to-itinerary-dialog.tsx`), reached via the
- * `expense:open` event + `ExpenseLogHost` — the itinerary quick-add FAB is left single-purpose.
+ * `expense:open` event + `ExpenseLogHost` — the itinerary quick-add FAB is left single-purpose
  * It writes expenses THROUGH the reactive store (`useExpenses`), so the budget
  * panel's spent/remaining updates live via the shared CustomEvent.
  *
- * SUB-5s LOG (the UX constraint IS the definition of done): open → amount is AUTOFOCUSED
- * (`inputMode="decimal"`, numeric keypad on mobile) → tap a one-tap category chip → the leg is
- * PRESET (usually correct, no tap) → Save (Enter also saves). Amount + category are the only
- * required fields.
+ * SUB-5s LOG (the UX constraint IS the DoD): open → amount is AUTOFOCUSED (`inputMode="decimal"`,
+ * numeric keypad on mobile) → tap a one-tap category chip → the leg is PRESET (usually correct,
+ * no tap) → Save (Enter also saves). Amount + category are the only required fields.
  *
  * MODAL CONTRACT (mirrors AddToItineraryDialog exactly): portal to `document.body`,
  * document-level Esc + Tab-trap + first-field autofocus + parent-owned focus-return (the host's
@@ -187,7 +186,7 @@ export default function ExpenseDialog({
     onClose();
   };
 
-  // On open: focus the amount input (the autofocus target — the sub-5s "type first" field).
+  // On open: focus the amount input.
   // Re-assert shortly after in case the open animation steals focus.
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -272,7 +271,7 @@ export default function ExpenseDialog({
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
         className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
       >
-        {/* Pinned header */}
+        {}/* Pinned header */
         <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
           <div className="min-w-0">
             <h3 id={titleId} className="font-display text-lg font-bold text-white leading-tight">
@@ -293,10 +292,10 @@ export default function ExpenseDialog({
           </button>
         </div>
 
-        {/* Scrollable body */}
+        {}/* Scrollable body */
         <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6">
           <div className="space-y-4 pb-1">
-            {/* Amount — the autofocused, "type first" field */}
+            {}/* Amount — the autofocused, "type first" field */
             <div>
               <label htmlFor={amountFieldId} className="text-xs text-white/50 mb-1 block">
                 Amount ({cur}) *
@@ -327,12 +326,12 @@ export default function ExpenseDialog({
                   }}
                   placeholder="0"
                   autoComplete="off"
-                  className={`w-full rounded-lg border border-white/15 bg-navy-900/60 py-2.5 pr-3 text-base text-white placeholder:text-white/30 focus:outline-none focus-visible:border-gold-400/60 focus-visible:ring-2 focus-visible:ring-gold-400/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
+                  className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-white/30 focus:outline-none focus-visible:border-gold-400/60 focus-visible:ring-2 focus-visible:ring-gold-400/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
                 />
               </div>
             </div>
 
-            {/* Leg toggle — preset, one tap to override */}
+            {}/* Leg toggle — preset, one tap to override */
             <div>
               <span id={legLabelId} className="text-xs text-white/50 mb-1 block">Leg</span>
               <div
@@ -351,7 +350,7 @@ export default function ExpenseDialog({
                       aria-checked={active}
                       onClick={() => setLeg(l)}
                       data-testid={`expense-leg-${l}`}
-                      className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none ${
+                      className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none ${
                         active
                           ? 'border-gold-400 bg-gold-400/15 text-gold-300'
                           : 'border-white/15 text-white/70 hover:bg-white/5'
@@ -365,7 +364,7 @@ export default function ExpenseDialog({
               </div>
             </div>
 
-            {/* Category chips — one-tap, always a value (required, no empty state) */}
+            {}/* Category chips — one-tap, always a value (required, no empty state) */
             <div>
               <span id={categoryLabelId} className="text-xs text-white/50 mb-1 block">Category *</span>
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
@@ -392,7 +391,7 @@ export default function ExpenseDialog({
               </div>
             </div>
 
-            {/* Note (optional) */}
+            {}/* Note (optional) */
             <div>
               <label htmlFor={noteFieldId} className="text-xs text-white/50 mb-1 block">Note</label>
               <input
@@ -406,7 +405,7 @@ export default function ExpenseDialog({
               />
             </div>
 
-            {/* Split — opt-in. Collapsed = the fast path (nothing written). */}
+            {}/* Split — opt-in. Collapsed = the fast path (nothing written). */
             <div className="rounded-lg border border-white/10 bg-white/[0.02]">
               <button
                 type="button"
@@ -426,7 +425,7 @@ export default function ExpenseDialog({
 
               {splitOn && (
                 <div className="flex flex-col gap-3 px-3 pb-3 pt-1" data-testid="expense-split-panel">
-                  {/* Payer */}
+                  {}/* Payer */
                   <div>
                     <span id={`${baseId}-payer-label`} className="text-xs text-white/50 mb-1 block">Paid by</span>
                     <div role="radiogroup" aria-labelledby={`${baseId}-payer-label`} className="flex flex-wrap gap-2">
@@ -452,7 +451,7 @@ export default function ExpenseDialog({
                     </div>
                   </div>
 
-                  {/* Members (split evenly among) */}
+                  {}/* Members (split evenly among) */
                   <div>
                     <span id={`${baseId}-members-label`} className="text-xs text-white/50 mb-1 block">Split evenly among</span>
                     <div role="group" aria-labelledby={`${baseId}-members-label`} className="flex flex-wrap gap-2">
@@ -491,9 +490,9 @@ export default function ExpenseDialog({
               )}
             </div>
 
-            {/* Receipt photos. Edit-mode only: a receipt attaches by the expense's id, which
+            {/* — receipt photos. Edit-mode only: a receipt attaches by the expense's id, which
                 exists only after the row is saved (log first, then edit to add a receipt). Local-only
-                IndexedDB blobs, zero egress — no photo field ever touches the synced Expense. */}
+}                IndexedDB blobs, zero egress — no photo field ever touches the synced Expense. */
             {isEdit && expense && (
               <PhotoAttach
                 owner={{ kind: 'expense', expenseId: expense.id }}
@@ -504,13 +503,13 @@ export default function ExpenseDialog({
           </div>
         </div>
 
-        {/* Pinned action footer */}
-        <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-navy-900/40">
+        {}/* Pinned action footer */
+        <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-surface/40">
           <button
             onClick={handleSave}
             data-testid="expense-save"
             disabled={saveDisabled}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gold-500"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gold-500"
           >
             <Check className="w-4 h-4" />
             {isEdit ? 'Update expense' : 'Save expense'}

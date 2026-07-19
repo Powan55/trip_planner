@@ -1,46 +1,26 @@
 rules_version = '2';
 
-// Firestore Security Rules for the shared trip planner.
+// Capability-token trips: each trip lives at trips/{tripId}, where tripId is a
+// high-entropy unguessable secret (crypto.randomUUID(), minted client-side).
+// Whoever HOLDS the token has full read+write on that trip's document tree —
+// a capability-link model ("anyone with the link can edit"). There is NO
+// per-user check: request.auth is never read; Firebase Auth is not required.
 //
-// These rules ARE the authorization gate. The web config shipped in the client
-// bundle is public by design and only names the project; it grants nothing on
-// its own. Access is decided here, by Google, on every read and write. In
-// production mode the database denies everything by default, so without these
-// rules deployed no friend can read or write the shared trip.
-//
-// Data lives under a single trip tree:
-//   trips/{tripId}/days/{date}     one document per day plan
-//   trips/{tripId}/members/{uid}   optional uid -> name map
-//   trips/{tripId}                 trip metadata doc
-// The recursive {document=**} matcher below covers all of them.
-
+// The model rests on tripId being unguessable and unenumerable, so listing the
+// top-level trips collection is explicitly denied. Collection-group queries
+// across all trips are denied by omission (no rule grants them).
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Any signed-in user may read and write the shared trip.
-    //
-    // Sign-in is silent Anonymous Auth: every device gets a stable uid with no
-    // login screen. request.auth is null for an unauthenticated caller, so this
-    // denies the anonymous public while allowing the friends group (who all sign
-    // in anonymously when the app loads).
-    match /trips/{tripId}/{document=**} {
-      allow read, write: if request.auth != null;
+    // Deny discovering trips by listing the top-level collection.
+    match /trips {
+      allow list: if false;
     }
 
-    // --- Optional hardening (disabled). ---------------------------------------
-    // Once the friends' anonymous uids are known, replace the rule above with the
-    // block below to lock the trip to exactly those devices. Collect each uid
-    // from the app (or the Authentication tab) and paste them into the list.
-    // This narrows access from "any signed-in user" to "these specific users".
-    //
-    // match /trips/{tripId}/{document=**} {
-    //   allow read, write: if request.auth != null
-    //     && request.auth.uid in [
-    //       'REPLACE_WITH_UID_1',
-    //       'REPLACE_WITH_UID_2',
-    //       'REPLACE_WITH_UID_3'
-    //     ];
-    // }
-    // -------------------------------------------------------------------------
+    // A single known trip and everything under it: full read+write to anyone
+    // who has the tripId. No request.auth check.
+    match /trips/{tripId}/{document=**} {
+      allow get, list, write: if true;
+    }
   }
 }

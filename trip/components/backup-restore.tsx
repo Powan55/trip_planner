@@ -4,6 +4,7 @@ import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { exportItinerary, importItinerary, parseBackup } from '@/core/vault/export-import';
+import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { useItineraryContext } from '@/components/itinerary-provider';
@@ -12,27 +13,27 @@ import { useItineraryContext } from '@/components/itinerary-provider';
  * Backup & Restore panel — mounted on `/plan`.
  *
  * Two user-facing controls over the WHOLE itinerary:
- *   - EXPORT: downloads the current trip as `nepal-japan-trip.json` (a versioned vault
- *     envelope) via a client-side Blob URL — no server involved.
- *   - IMPORT: a file <input> → read text → an explicit CONFIRM dialog (this is a
- *     destructive, and on a synced trip a shared, replace) → `importItinerary()` →
- *     success or a SAFE error. A rejected import never touches the live trip.
+ * - EXPORT: downloads the current trip as `nepal-japan-trip.json` (a v3 Vault
+ * envelope) via a client-side Blob URL — no server.
+ * - IMPORT: a file <input> → read text → an explicit CONFIRM dialog (this is a
+ * destructive, and on a synced trip a shared, replace) → `importItinerary()` →
+ * success or a SAFE error. A rejected import never touches the live trip.
  *
- * Sync note: Restore now works under sync. On a synced, signed-in build a Restore is
- * applied as a tombstone-replace MERGE, not an ingest-overwrite: `parseBackup()`
- * validates the file with the same trust boundary, then the store's `restorePlans()`
- * tombstones the current items and re-adds the backup's items as fresh-id copies
- * through the normal `commit()`/outbox fan-out — so it PROPAGATES to the shared trip
- * and survives the next snapshot. Dormant/guest keep the plain local `importItinerary`
- * overwrite (nothing to unwind). Export stays always available.
+ * Sync note: Restore now works under
+ * sync. On a synced, signed-in build a Restore is applied as a tombstone-replace MERGE, not an
+ * ingest-overwrite: `parseBackup()` validates the file with the same trust boundary, then the
+ * store's `restorePlans()` tombstones the current items and re-adds the backup's items as fresh-id
+ * copies through the normal `commit()`/outbox fan-out — so it PROPAGATES to the shared trip and
+ * survives the next snapshot. Dormant/guest keep the plain local `importItinerary` overwrite
+ * (nothing to unwind). Export stays always available.
  *
  * A11y / contrast: dark glassmorphism; the most-muted caption is `text-white/60`
  * (well above the AA 4.5:1 floor of `/50` = 5.32:1 on `#0a0e27`); status/error use their
  * own AA-clearing tints; buttons expose visible focus rings and the file input is a real,
  * keyboard-reachable, labelled `<input type="file">`. No text animates through low opacity.
  *
- * Overlay mounting: the confirm dialog is a `fixed` overlay, so it renders via the
- * mount-guarded `createPortal(…, document.body)` pattern — the SAME as
+ * Overlay mounting: the confirm dialog is a `fixed` overlay, so it renders
+ * via the mount-guarded `createPortal(…, document.body)` pattern — the SAME as
  * `calendar-planner.tsx`'s `ItemEditor` and `add-to-itinerary-dialog.tsx`. Inline
  * `fixed` route content is trapped by `app/template.tsx`'s `.animate-route-fade` stacking
  * context, so the app `<footer>` (a sibling outside that wrapper) would paint over / capture
@@ -42,6 +43,10 @@ import { useItineraryContext } from '@/components/itinerary-provider';
  */
 
 const EXPORT_FILENAME = 'nepal-japan-trip.json';
+// gzip-compressed exports (native CompressionStream) get a `.gz` filename; the bytes
+// stay auto-detected on import by gzip magic bytes regardless of what a user renames the
+// file to (see `core/vault/compression.ts`).
+const EXPORT_FILENAME_GZ = 'nepal-japan-trip.json.gz';
 
 type Status =
   | { kind: 'idle' }
@@ -66,25 +71,28 @@ export default function BackupRestore() {
   // guest it is the plain local `importItinerary` overwrite. Computed post-mount (getActiveTraveler
   // reads localStorage → client-only) to avoid a hydration mismatch; the dormant build + guests
   // always resolve `false`. Drives only the confirm-dialog copy + which restore path runs — Restore
-  // is enabled in every mode.
+  // is ENABLED in every mode now.
   const [synced, setSynced] = useState(false);
   useEffect(() => {
     setSynced(isRemoteConfigured() && !!getActiveTraveler());
   }, []);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     try {
       const json = exportItinerary();
-      const blob = new Blob([json], { type: 'application/json' });
+      // gzip via native CompressionStream when supported (compressToBlob feature-
+      // detects and falls back to a plain-text Blob — same bytes as before — when not).
+      const blob = await compressToBlob(json);
+      const filename = supportsCompression() ? EXPORT_FILENAME_GZ : EXPORT_FILENAME;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = EXPORT_FILENAME;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setStatus({ kind: 'success', message: `Exported your trip to ${EXPORT_FILENAME}.` });
+      setStatus({ kind: 'success', message: `Exported your trip to ${filename}.` });
     } catch {
       setStatus({ kind: 'error', message: 'Could not export your trip. Please try again.' });
     }
@@ -96,7 +104,9 @@ export default function BackupRestore() {
     e.target.value = '';
     if (!file) return;
     try {
-      const text = await file.text();
+      // auto-detects gzip vs plain by magic bytes (not extension), so both a
+      // freshly-compressed export AND an old pre- plain-JSON export import here.
+      const text = await decompressBlobOrText(file);
       setStatus({ kind: 'idle' });
       setPendingImport({ text, name: file.name });
     } catch {
@@ -153,7 +163,7 @@ export default function BackupRestore() {
             >
               Backup &amp; Restore
             </h2>
-            {/* Most-muted caption — text-white/60 clears AA on #0a0e27. */}
+            {}/* Most-muted caption — text-white/60 clears AA on #0a0e27. */
             <p className="mt-1 max-w-2xl text-sm text-white/60">
               Save your whole itinerary to a file, or restore it from a backup. Everything is stored
               on this device — a backup lets you keep a copy or move your trip to another browser.
@@ -162,7 +172,7 @@ export default function BackupRestore() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {/* Export */}
+          {}/* Export */
           <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <h3 className="text-sm font-semibold text-white">Export</h3>
             <p className="text-sm text-white/70">
@@ -172,14 +182,14 @@ export default function BackupRestore() {
               type="button"
               onClick={handleExport}
               data-testid="backup-export-button"
-              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gold-400 px-4 py-2.5 text-sm font-semibold text-navy-900 transition-colors hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gold-400 px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
               Export trip
             </button>
           </div>
 
-          {/* Import */}
+          {}/* Import */
           <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <h3 className="text-sm font-semibold text-white">Import</h3>
             <p className="text-sm text-white/70">
@@ -190,14 +200,14 @@ export default function BackupRestore() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               data-testid="backup-import-trigger"
-              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               <Upload className="h-4 w-4" aria-hidden="true" />
               Choose backup file
             </button>
             {/* Real, keyboard-reachable file input. Visually hidden (not display:none, so
                 it stays focusable/labelled); the button above opens it, and E2E drives it
-                directly via setInputFiles. */}
+}                directly via setInputFiles. */
             <input
               ref={fileInputRef}
               type="file"
@@ -210,7 +220,7 @@ export default function BackupRestore() {
           </div>
         </div>
 
-        {/* Status line (success/error). aria-live so a screen reader announces the outcome. */}
+        {}/* Status line (success/error). aria-live so a screen reader announces the outcome. */
         <div aria-live="polite" className="mt-4 min-h-[1.25rem]">
           {status.kind === 'success' && (
             <p data-testid="backup-status" className="text-sm font-medium text-green-300">
@@ -234,7 +244,7 @@ export default function BackupRestore() {
           import is pending. Portaling lifts this `fixed` overlay out of /plan's
           `.animate-route-fade` stacking context so the app <footer> can't paint over /
           capture its buttons when the page is scrolled down. Explicit
-          shared-trip copy flag. */}
+}          shared-trip copy. */
       {mounted &&
         pendingImport &&
         createPortal(
@@ -275,7 +285,7 @@ export default function BackupRestore() {
                   type="button"
                   onClick={cancelImport}
                   data-testid="backup-confirm-cancel"
-                  className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+                  className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                 >
                   Cancel
                 </button>
@@ -283,7 +293,7 @@ export default function BackupRestore() {
                   type="button"
                   onClick={confirmImport}
                   data-testid="backup-confirm-import"
-                  className="rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-navy-900 transition-colors hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+                  className="rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                 >
                   Replace trip
                 </button>

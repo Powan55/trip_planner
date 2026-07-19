@@ -1,8 +1,8 @@
-// Cross-friend attribution stamping — the one place that decides
+// Cross-friend attribution stamping — the ONE place that decides
 // how an item gets `createdBy` / `updatedBy` / `updatedAt`.
 //
 // Extracted from the store mutators so the stamping rule lives in a single named,
-// unit-testable module (stamping happens at the store layer, in one place).
+// unit-testable module.
 // The store's `addItem` / `updateItem` / cross-day `moveItem` call these; `removeItem`
 // and `reorderItems` deliberately do NOT (a delete/reorder is not a content edit).
 //
@@ -10,7 +10,7 @@
 // name (the dormant / local-only-no-name case) these are NO-OPS — the attribution fields
 // stay `undefined` and the item remains valid. The name source is injected (the store
 // passes `getUserName` from lib/identity) so this module stays pure and testable, and so
-// it never imports firebase (dormant-safe).
+// it never imports firebase.
 //
 // ECHO-SUPPRESSION: these run ONLY inside the local mutators. The remote
 // snapshot-ingest path writes items via savePlans() directly (never through the
@@ -28,9 +28,9 @@ export type NameSource = () => string | null | undefined;
  * If the item already carries a `createdBy` (e.g. a card-created draft, or a remote item
  * being re-added), the FIRST author wins — only `updatedBy`/`updatedAt` advance.
  *
- * @param item       the item being added
- * @param getName    name source (store injects lib/identity getUserName)
- * @param nowIso     ISO timestamp to stamp (defaults to now; injectable for tests)
+ * @param item the item being added
+ * @param getName name source (store injects lib/identity getUserName)
+ * @param nowIso ISO timestamp to stamp (defaults to now; injectable for tests)
  */
 export function stampCreated(
   item: ItineraryItem,
@@ -52,9 +52,9 @@ export function stampCreated(
  * the current name. No-op when no name is set. `createdBy` is left untouched (first
  * author wins).
  *
- * @param item       the item being edited (already merged with any patch)
- * @param getName    name source (store injects lib/identity getUserName)
- * @param nowIso     ISO timestamp to stamp (defaults to now; injectable for tests)
+ * @param item the item being edited (already merged with any patch)
+ * @param getName name source (store injects lib/identity getUserName)
+ * @param nowIso ISO timestamp to stamp (defaults to now; injectable for tests)
  */
 export function stampUpdated(
   item: ItineraryItem,

@@ -3,18 +3,18 @@
 // components/service-worker-registrar.tsx
 //
 // Registers the hand-rolled service worker (emitted to out/sw.js by
-// scripts/gen-sw.mjs) and drives a NO-silent-auto-refresh update flow:
-//   updatefound -> new worker reaches `installed` while a controller exists
-//   -> show a persistent sonner toast "New version available" + Refresh action
-//   -> on Refresh, postMessage SKIP_WAITING to the waiting worker
-//   -> the SW calls skipWaiting() -> `controllerchange` fires -> reload().
+// scripts/gen-sw.mjs) and drives the NO-silent-auto-refresh update flow:
+// updatefound -> new worker reaches `installed` while a controller exists
+// -> show a persistent sonner toast "New version available" + Refresh action
+// -> on Refresh, postMessage SKIP_WAITING to the waiting worker
+// -> the SW calls skipWaiting() -> `controllerchange` fires -> reload().
 //
 // Renders nothing.
 //
 // Gating: registration is production-only AND requires SW support.
-//   `next dev` (NODE_ENV !== 'production') NEVER registers — the export's
-//   contenthash chunks make dev serve stale hashes, so a SW in dev is a
-//   footgun.
+// `next dev` (NODE_ENV !== 'production') NEVER registers — the export's
+// contenthash chunks make dev serve stale hashes, so a SW in dev is a
+// footgun. Verified by DoD item 9.
 //
 // basePath: the registrar does NOT re-implement prefixing — it imports
 // the single-source helper `withBasePath` from '@/lib/utils' (no-op when

@@ -1,14 +1,14 @@
-// POST-TRIP STORY RECAP: a read-only, scroll-storytelling text recap of the whole
-// trip — weaves plan-vs-actual (`core/recap/model.ts`'s `summarizePlan`), journal reflections,
-// and spend into a chronological day-by-day narrative. Only unlocks once
+// POST-TRIP STORY RECAP: a read-only, scroll-storytelling TEXT recap of the whole
+// trip — weaves plan-vs-actual (`core/recap/model.ts`'s `summarizePlan`), journal reflections
+//, and spend into a chronological day-by-day narrative. Only unlocks once
 // `isPostTrip()` is true; before that it shows a tasteful "unlocks after the trip" state
 // (`components/trip-story-recap.tsx`). Localstorage-only — the island is lazy +
-// ssr:false, mirroring app/journal/. The ssr:false dynamic import
-// lives in ./sections (a client module); this Server Component page exports metadata.
-// Reached via a direct URL only for now — deliberately not wired into `lib/nav-items.ts` /
-// the navbar / tab bar / command palette, left as a deliberate follow-up, same
-// deferral as `/journal` and `/safety`.
-import { TripStoryRecap } from './sections';
+// ssr:false, mirroring app/journal/. Next 15: the ssr:false dynamic import
+// lives in./sections (a client module); this Server Component page exports metadata.
+// Reached via a direct URL only this slice — deliberately NOT wired into `lib/nav-items.ts` /
+// the navbar / tab bar / command palette (those files are fenced — a follow-up rider, same
+// deferral as `/journal` and `/safety`).
+import { TripStoryRecap, WrappedStory } from './sections';
 
 export const metadata = {
   title: 'Trip Story · Nepal × Japan Journey',
@@ -17,12 +17,12 @@ export const metadata = {
 
 export default function RecapPage() {
   return (
-    <main className="min-h-screen bg-navy-900">
+    <main className="min-h-screen bg-surface">
       {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
           text-gradient-gold / animate-reveal-up) directly rather than extending PageHero's
-          closed `HeroVariant` union, mirroring app/journal/page.tsx
-          and app/safety/page.tsx. Supplies the page's <h1>; the island's own headings (trip
-          summary / per-day) nest under it as h2/h3. */}
+          closed `HeroVariant` union (fenced per the brief, mirroring app/journal/page.tsx
+          and app/safety/page.tsx). Supplies the page's <h1>; the island's own headings (trip
+}          summary / per-day) nest under it as h2/h3. */
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
         <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
           <span
@@ -46,6 +46,9 @@ export default function RecapPage() {
         </div>
       </header>
       <TripStoryRecap />
+      {/* — the "Trip Wrapped" capstone: an entry card + headline-stat panels, composed BELOW
+}          the day-by-day story (additive, does not touch TripStoryRecap's own markup/behavior). */
+      <WrappedStory />
     </main>
   );
 }

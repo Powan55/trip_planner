@@ -12,8 +12,8 @@
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Who a photo belongs to. Journal photos are DAY-keyed (not entry-keyed) so a day recap is a
- *  pure `owner.date` filter; expense photos are keyed by the `Expense.id` on THIS device. */
+/** Who a photo belongs to. Journal photos are DAY-keyed (not entry-keyed) so recap is a
+ * pure `owner.date` filter; expense photos are keyed by the `Expense.id` on THIS device. */
 export type PhotoOwner =
   | { kind: 'journal'; date: string }
   | { kind: 'expense'; expenseId: string };

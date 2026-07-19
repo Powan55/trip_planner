@@ -1,9 +1,9 @@
 // Strict AUTHORING-TIME content schemas. Framework-free: plain TS + zod
-// (already a prod dep used by core/vault/schema.ts — NO new dependency).
+//.
 //
 // ── The strict / lenient split (LOAD-BEARING — do NOT merge the two families) ──────────────
-// The Vault's READ schemas (core/vault/schema.ts) are deliberately LENIENT — `category`
-// as z.string(), `.passthrough()` — because they parse USER DATA that must never be destroyed.
+// The Vault's READ schemas are deliberately LENIENT — `category`
+// as z.string(), `.passthrough()` — because they parse USER DATA that must never be destroyed
 // The schemas HERE validate AUTHORED SOURCE CODE, where the failure mode is a typo
 // that should be caught loudly before commit. So these are STRICT: z.enum on categories/
 // countries/status, ISO-date & HH:MM regex, non-empty required strings, and `.strict()`
@@ -11,7 +11,7 @@
 // master. These schemas NEVER run on the app's runtime read path — validation is authoring/
 // CI-time only, via `npm run validate:content` (lib/__tests__/content-validation.test.ts).
 //
-// ── Booking schemas ────────────────────────────────────────────────────────────────
+// ── (booking schemas) ────────────────────────────────────────────────────────────────
 // Booking schemas validate STRUCTURE ONLY. Time/duration/label fields stay plain strings — the
 // schema checks presence/shape, NEVER arithmetic (`totalDuration: '1d 15m'` crosses the date
 // line and is correct verbatim; recomputing it would be a bug). Bookings are never derived from
@@ -155,7 +155,7 @@ export const etiquetteTipSchema = z
   })
   .strict();
 
-// ── Bookings (lib/booking-data.ts — STRUCTURE ONLY, never recompute times/durations) ─
+// ── Bookings ─
 const cabinClasses = ['Economy', 'Premium Economy', 'Business', 'First'] as const;
 const bookingStatus = ['booked', 'to-book'] as const;
 
@@ -200,7 +200,7 @@ export const journeySchema = z
   .strict()
   // The documented positional contract (booking-data.ts): layovers sit BETWEEN legs, so there
   // is always exactly one fewer layover than legs. This is a STRUCTURAL invariant (counts),
-  // not time arithmetic.
+  // not time arithmetic —-safe.
   .superRefine((j, ctx) => {
     if (j.layovers.length !== j.legs.length - 1) {
       ctx.addIssue({

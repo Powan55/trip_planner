@@ -4,8 +4,8 @@
  * Replaces today's per-day last-write-wins (which clobbers a whole day-doc) with an
  * item-level merge keyed on `ItineraryItem.id`: two friends editing DIFFERENT items on the
  * same day both keep their edits; only a genuine SAME-`id` concurrent edit falls back to a
- * deterministic HLC tie-break (`hlc.ts`). The merge lives ENTIRELY inside one per-day
- * doc (no per-item docs, no new collection).
+ * deterministic HLC tie-break. The merge lives ENTIRELY inside one per-day
+ * doc.
  *
  * ── PURITY ─────────────────────────────────────────────────────────────
  * No I/O, no clock, no `window`, no firebase, no React/Next. `nowPt` for GC is INJECTED.
@@ -16,7 +16,7 @@
  * order) and IDEMPOTENT (`mergeDay(x, mergeDay(x,y))` ≡ `mergeDay(x,y)`). Because each item's
  * winner is a deterministic total-order max and days/items are independent, the merge
  * is a join over a lattice ⇒ all clients converge to the same state regardless of the order
- * snapshots arrive. The commutativity + idempotence property test in the test suite is the
+ * snapshots arrive. The commutativity + idempotence property test in the suite is the
  * formal statement of "no client can end up divergent".
  */
 
@@ -24,8 +24,8 @@ import type { DayPlan } from '@/lib/trip-data';
 import { mergeItems, gcTombstoneRows, DEFAULT_GC_HORIZON_MS, DEFAULT_POLICY, type MergePolicy } from './merge-items';
 
 // The per-item conflict resolver + the id-keyed union/ordering were generalized into
-// `merge-items.ts` so expenses reuse the identical merge
-// algebra. `mergeDay` now DELEGATES to `mergeItems` — behavior-preserving, so the original suite
+// `merge-items.ts` at so expenses reuse the identical merge
+// algebra. `mergeDay` now DELEGATES to `mergeItems` — behavior-preserving, so the suite
 // passes with ZERO assertion edits. `MergePolicy` is re-exported here to keep this module's
 // public API byte-identical (`core-merge-day.test.ts` imports the type from here). The GC horizon
 // is likewise re-exported from its new home in `merge-items.ts` so the day-shaped `gcTombstones`
@@ -39,10 +39,10 @@ export { DEFAULT_GC_HORIZON_MS } from './merge-items';
  * and merges only the `items` via the shared `mergeItems` — day metadata is derived from
  * the date and never a conflict source in practice.
  *
- * Result `items` INCLUDE tombstones (they must persist to propagate + win). The
+ * Result `items` INCLUDE tombstones. The
  * UI-exposed selector filters `deleted` out downstream — the MERGE sees tombstones;
  * the UI does not. Ordering is `mergeItems`' deterministic hlc-asc rule (live first, tombstones
- * appended) — extracted verbatim, so convergence + the original ordering assertions are unchanged.
+ * appended) — extracted verbatim, so convergence + the ordering assertions are unchanged.
  */
 export function mergeDay(local: DayPlan, remote: DayPlan, policy: MergePolicy = DEFAULT_POLICY): DayPlan {
   return { ...local, items: mergeItems(local.items ?? [], remote.items ?? [], policy) };
@@ -70,20 +70,20 @@ export function mergeDays(local: DayPlan[], remote: DayPlan[], policy: MergePoli
  * (so a GC bug can never lose a live item). PURE: `nowPt` (physical now, ms) is INJECTED.
  *
  * Drop a tombstone iff BOTH:
- *   - its `hlc.pt` is older than `nowPt - horizonMs` (comfortably past any realistic offline
- *     window — default 30 days), AND
- *   - no LIVE item on this day shares its `id` (nothing references/supersedes it).
+ * - its `hlc.pt` is older than `nowPt - horizonMs` (comfortably past any realistic offline
+ * window — default 30 days), AND
+ * - no LIVE item on this day shares its `id` (nothing references/supersedes it).
  * Because the merge is deterministic and runs on every client, all clients GC the same
  * tombstone at the same logical point ⇒ convergent. Conservative: when in doubt, keep it
  * (doc size is a non-issue at 32 days × a friends group; GC is tidiness, not correctness).
  *
- * @param day       the day to GC.
- * @param nowPt     injected physical-now in ms (ClockPort.now().getTime()).
+ * @param day the day to GC.
+ * @param nowPt injected physical-now in ms (ClockPort.now().getTime()).
  * @param horizonMs how old a tombstone's `hlc.pt` must be before it may drop (default 30d).
  */
 export function gcTombstones(day: DayPlan, nowPt: number, horizonMs: number = DEFAULT_GC_HORIZON_MS): DayPlan {
   // DELEGATE to the id-keyed `gcTombstoneRows` (merge-items.ts) — ONE GC predicate shared with the
-  // expenses analog. Behavior-preserving vs the former inline copy (the gc suite passes
+  // expenses analog. Behavior-preserving vs the former inline copy (the #10 gc suite passes
   // with ZERO assertion edits): identical live-never-dropped / old-unreferenced-tombstone-dropped
   // rule, over the same `hlc ?? seedHlcFromLegacy(updatedAt)` ordering key.
   return { ...day, items: gcTombstoneRows(day.items ?? [], nowPt, horizonMs) };

@@ -3,7 +3,7 @@
 // (`expensesStoragePort`) already lives in `core/budget/storage.ts`; this file adds the SYNC
 // side: the offline-outbox-decorated push (chunked by leg) + the gated subscribe.
 //
-// Preserves the dormant-safe contract EXACTLY: firebase/expenses-remote is NOT imported at module scope;
+// Preserves EXACTLY: firebase/expenses-remote is NOT imported at module scope;
 // every remote op is behind an `isRemoteConfigured()` gate and a DYNAMIC import, so the dormant
 // build never pulls firebase onto the hot path. Best-effort + self-degrading.
 
@@ -19,12 +19,13 @@ function legRows(list: Expense[], leg: 'nepal' | 'japan'): Expense[] {
 }
 
 /**
- * Expense `ChunkSync` for the offline outbox. Chunk = a leg (`'nepal'` | `'japan'`).
- *  - `chunkDiff` = the legs whose row-set changed prev→next (per-leg JSON compare, inlined so
- *    this module keeps NOT statically importing `expenses-remote` — firebase stays off the
- *    dormant hot path).
- *  - `pushChunk` = the merge-aware per-leg transactional write, reached via the SAME dynamic,
- *    gated import; it REJECTS on failure so the decorator keeps the chunk dirty.
+ * Expense `ChunkSync` for the offline outbox. Chunk = a leg (`'nepal'` | `'japan'`,
+ *).
+ * - `chunkDiff` = the legs whose row-set changed prev→next (per-leg JSON compare, inlined so
+ * this module keeps NOT statically importing `expenses-remote` — firebase stays off the
+ * dormant hot path,).
+ * - `pushChunk` = the merge-aware per-leg transactional write, reached via the SAME dynamic,
+ * gated import; it REJECTS on failure so the decorator keeps the chunk dirty.
  */
 const expensesChunkSync: ChunkSync<Expense[]> = {
   domain: 'expenses',
@@ -44,7 +45,7 @@ const expensesChunkSync: ChunkSync<Expense[]> = {
 };
 
 // Exported so the provider can flush this domain's outbox on app-start / online / visible
-// (flush-then-subscribe).
+//.
 export const expensesOutboxSync = expensesChunkSync;
 
 export const expensesSyncPort: SyncPort<Expense[]> = {

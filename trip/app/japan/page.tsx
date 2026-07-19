@@ -3,8 +3,8 @@ import PageHero from '@/components/page-hero';
 // JAPAN: mirror of /nepal/ with country="Japan". Section ids
 // (#japan/#photography/#nightlife/#essentials) are kept for sub-anchors + the
 // command palette.
-// The ssr:false islands live in ./sections (client module); this
-// Server Component page exports metadata so can't declare them.
+// (Next 15): ssr:false islands live in./sections (client module); this
+// Server Component page exports metadata so can't declare them./ skeletons.
 import {
   JapanSection,
   PhotographyGuide,
@@ -19,9 +19,9 @@ export const metadata = {
 
 export default function JapanPage() {
   return (
-    <main className="min-h-screen bg-navy-900">
-      {/* PageHero supplies the page's <h1> (earlier pages shipped
-          without one — an accessibility fix). Section components keep their own <h2>s. */}
+    <main className="min-h-screen bg-surface">
+      {/* PageHero supplies the page's <h1> ( pages shipped
+}          without one — a11y win). Section components keep their own <h2>s. */
       <PageHero
         variant="japan"
         title="Japan"

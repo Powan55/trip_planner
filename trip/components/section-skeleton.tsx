@@ -4,17 +4,18 @@
  * SectionSkeleton — placeholder for `dynamic()` `loading:` slots.
  *
  * Sized to RESERVE the space a not-yet-loaded section will occupy so the code-
- * split island swapping in causes no cumulative layout shift (CLS). This is wired
- * into the pages' `dynamic(() => import(...), { loading: () => <SectionSkeleton .../> })`
- * calls at integration time, with heights matched per section.
+ * split island swapping in causes no cumulative layout shift (CLS). wires
+ * this into the pages' `dynamic(() => import(...), { loading: () => <SectionSkeleton.../> })`
+ * calls at integration; see the for which imports get it and
+ * with what heights.
  *
- * Consumes the shared skeleton tokens only:
- *   - `.animate-shimmer` for the sweep. That utility is INFINITE and is already
- *     hard-neutralized (`animation:none !important`) under `prefers-reduced-motion`
- *     in globals.css — so under reduced motion the bars render as static muted
- *     blocks (no sweep), which is the required behavior. This
- *     component adds no motion of its own.
- *   - Muted surface tokens (`--muted` / `--border`) for the resting fill.
+ * Consumes tokens only:
+ * - `.animate-shimmer` for the sweep. That utility is INFINITE and is already
+ * hard-neutralized (`animation:none !important`) under `prefers-reduced-motion`
+ * in globals.css — so under reduced motion the bars render as static muted
+ * blocks (no sweep), which is the required behavior. This
+ * component adds no motion of its own.
+ * - Muted surface tokens (`--muted` / `--border`) for the resting fill.
  *
  * Decorative: the whole tree is `aria-hidden="true"` (a loading placeholder has
  * no semantic content; screen readers should skip it and reach the real section
@@ -69,7 +70,7 @@ export default function SectionSkeleton({
       style={{ minHeight: height }}
     >
       <div className="glass-subtle mx-auto flex max-w-[1200px] flex-col gap-6 rounded-3xl p-6 sm:p-10">
-        {/* Eyebrow + title placeholders (matches the section header rhythm). */}
+        {}/* Eyebrow + title placeholders (matches the section header rhythm). */
         <div className="flex flex-col items-center gap-3">
           <span
             className="animate-shimmer h-3 w-24 rounded-full"
@@ -81,7 +82,7 @@ export default function SectionSkeleton({
           />
         </div>
 
-        {/* Content-row placeholders. */}
+        {}/* Content-row placeholders. */
         <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: rows }).map((_, i) => (
             <div

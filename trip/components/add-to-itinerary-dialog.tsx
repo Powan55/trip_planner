@@ -32,38 +32,38 @@ import TimePicker, { DurationField } from '@/components/time-picker';
 export { buildMapsSearchUrl };
 
 /**
- * Shared "Add to plan" dialog — a lightweight, source-aware dialog, deliberately
- * separate from the calendar's `ItemEditor`. It is invoked from any place card (via
- * `add-to-plan-button.tsx`) with a prefilled `ItineraryDraft` and the place's current
- * `existingPlacements` (from `findPlacements`).
+ * Shared "Add to plan" dialog — a NEW, lightweight, source-aware dialog,
+ * deliberately separate from the calendar's `ItemEditor`. It is invoked from any
+ * place card (via `add-to-plan-button.tsx`) with a prefilled `ItineraryDraft`
+ * and the place's current `existingPlacements` (from `findPlacements`).
  *
- * It reads/writes the itinerary THROUGH the store (`useItineraryContext`) — no
- * add/remove callbacks per call site. The store's CustomEvent fan-out makes the
+ * It reads/writes the itinerary THROUGH the store —
+ * no add/remove callbacks per call site. The CustomEvent fan-out makes the
  * calendar / dashboard / card reflect every change immediately.
  *
- * A11y / focus reuses the same contract that `ItemEditor` uses:
- *  - role="dialog" aria-modal aria-labelledby
- *  - document-level Esc via an `onCloseRef` (latest-closure, bound once)
- *  - a lightweight Tab-trap inside the panel
- *  - autofocus the first field on open
- *  - parent-owned focus-return: the invoking button captures the trigger and
- *    refocuses it on `<AnimatePresence onExitComplete>` — NOT in this dialog's
- *    effect cleanup (a focus-return correctness rule shared across the dialogs).
- * Reduced-motion is respected by framer-motion via the global reduced-motion CSS;
- * Tailwind classes are static literals.
+ * A11y / focus reuses the EXACT contract that `ItemEditor` uses:
+ * - role="dialog" aria-modal aria-labelledby
+ * - document-level Esc via an `onCloseRef` (latest-closure, bound once)
+ * - a lightweight Tab-trap inside the panel
+ * - autofocus the first field on open
+ * - parent-owned focus-return: the invoking button captures the trigger and
+ * refocuses it on `<AnimatePresence onExitComplete>` — NOT in this dialog's
+ * effect cleanup.
+ * Reduced-motion is respected by framer-motion via the global reduced-motion CSS
+ *; Tailwind classes are static literals.
  *
- * RENDERING: the overlay is rendered through a React PORTAL to `document.body`.
- * Every trigger surface (recommendations, photography, map popup, featured) sits
- * inside a place card whose root is a framer `m.div` with an active `whileHover`
- * transform AND `overflow-hidden`. A `position: fixed` element whose ancestor is
- * transformed is positioned relative to that ancestor (CSS containing-block rule),
- * not the viewport — so rendered inline, the backdrop covered only the card
- * (neighbours stayed bright) and the panel overflowed and was clipped by the card's
- * `overflow-hidden`, hiding the pinned footer. The portal moves ONLY the DOM node out
- * to `<body>`; the React tree (and the parent `AnimatePresence`) is unchanged, so the
- * focus contract — document-level Esc, the `panelRef` Tab-trap, first-field autofocus,
- * and parent-owned focus-return on `onExitComplete` — all keep working. The portal is
- * mount-guarded (`mounted` state) so it never touches `document` during the
+ * RENDERING: the overlay is rendered through a React PORTAL to
+ * `document.body`. Every trigger surface (recommendations, photography, map popup,
+ * featured) sits inside a place card whose root is a framer `m.div` with an active
+ * `whileHover` transform AND `overflow-hidden`. A `position: fixed` element whose
+ * ancestor is transformed is positioned relative to that ancestor (CSS
+ * containing-block rule), not the viewport — so rendered inline, the backdrop covered
+ * only the card (neighbours stayed bright) and the panel overflowed and was clipped by
+ * the card's `overflow-hidden`, hiding the pinned footer. The portal moves ONLY the DOM
+ * node out to `<body>`; the React tree (and the parent `AnimatePresence`) is unchanged,
+ * so the focus contract — document-level Esc, the `panelRef` Tab-trap, first-field
+ * autofocus, and parent-owned focus-return on `onExitComplete` — all keep working. The
+ * portal is mount-guarded (`mounted` state) so it never touches `document` during the
  * static-export prerender (`output: 'export'`); the dialog only mounts on a user click,
  * post-hydration, so this is always satisfied in practice.
  */
@@ -102,11 +102,11 @@ export interface AddToItineraryDialogProps {
   existingPlacements: ExistingPlacement[];
   onClose(): void;
   /**
-   * Custom-add mode. Default 'source' keeps the byte-compatible source behavior
-   * (Title/Location fixed, sourceId/sourceType stamped). In 'custom' mode Title +
-   * Location become editable text inputs, the confirm is blocked until Title is
-   * non-empty, and the created item is a PLAIN ItineraryItem with NO sourceId/sourceType
-   * — so it can never trip a false "Added" badge.
+   * custom-add mode. Default 'source' keeps today's byte-compatible
+   * source behavior (Title/Location fixed, sourceId/sourceType stamped). In 'custom'
+   * mode Title + Location become editable text inputs, the confirm is blocked until
+   * Title is non-empty, and the created item is a PLAIN ItineraryItem with NO
+   * sourceId/sourceType — so it can never trip a false "Added" badge.
    */
   mode?: 'source' | 'custom';
   /** Custom mode only: preset the date select to this date (e.g. the FAB's day). */
@@ -129,11 +129,11 @@ export default function AddToItineraryDialog({
   const initialDate =
     presetDate && TRIP_DATES.includes(presetDate) ? presetDate : TRIP_DATES[0];
 
-  // Portal mount guard. `createPortal(…, document.body)` must not run during the
-  // static-export prerender, so we only portal after the component has mounted on
-  // the client. The dialog only ever mounts on a user click (post-hydration), so this
-  // is satisfied immediately on open; it exists purely to keep `document` untouched on
-  // the server and to keep tsc/SSR honest.
+  // Portal mount guard. `createPortal(…, document.body)` must not run
+  // during the static-export prerender, so we only portal after the component has
+  // mounted on the client. The dialog only ever mounts on a user click (post-hydration),
+  // so this is satisfied immediately on open; it exists purely to keep `document`
+  // untouched on the server and to keep tsc/SSR honest.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -180,7 +180,7 @@ export default function AddToItineraryDialog({
   // Re-seed the form whenever the dialog (re)opens or its draft changes, so a
   // reused dialog instance never shows stale values from a prior open. Time is left
   // untimed by default (draft.time is deliberately never prefilled, pre-existing
-  // behavior); duration.text (not minutes — legacy free text isn't parsed) is
+  // behavior); duration.text is
   // carried as the ORIGINAL fallback so an untouched confirm still writes it, unchanged.
   useEffect(() => {
     if (!open) return;
@@ -211,10 +211,10 @@ export default function AddToItineraryDialog({
 
   const panelRef = useRef<HTMLDivElement>(null);
   // In custom mode the first focusable field is the editable Title input; in source
-  // mode it's the date select (unchanged autofocus target).
+  // mode it's the date select.
   const firstFieldRef = useRef<HTMLSelectElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
-  // Flying chip: measure the confirm button as the chip's launch point.
+  // flying chip: measure the confirm button as the chip's launch point.
   const confirmRef = useRef<HTMLButtonElement>(null);
 
   // Launch the "added to plan" flying chip from the confirm button toward the plan
@@ -230,11 +230,11 @@ export default function AddToItineraryDialog({
     );
   };
 
-  // Custom mode with an EMPTY sourceId (FAB / free-form) never has existing
-  // placements — the caller always passes `[]` since no sourceId can ever match
-  // `findPlacements` — so isModifyMode is false there. Custom mode with a NON-EMPTY
-  // sourceId (a namespaced nightlife id) behaves like source mode: the caller passes
-  // real `findPlacements(draft.sourceId)` results.
+  // custom mode with an EMPTY sourceId never has
+  // existing placements — the caller always passes `[]` since no sourceId can ever
+  // match `findPlacements` — so isModifyMode is false there. Custom mode with a
+  // NON-EMPTY sourceId (a namespaced nightlife id) behaves like source mode: the
+  // caller passes real `findPlacements(draft.sourceId)` results.
   const isModifyMode = existingPlacements.length > 0;
 
   // The effective title/location the confirm + Maps link use. Custom mode reads the
@@ -278,7 +278,7 @@ export default function AddToItineraryDialog({
     setNotes(draft.notes ?? '');
   };
 
-  // Dual-write, gated on whether the user actually touched the picker/field —
+  // dual-write, gated on whether the user actually touched the picker/field —
   // otherwise the ORIGINAL time/duration (from whichever target is active) passes
   // through unchanged, so an unparseable legacy string is never silently clobbered.
   const effectiveTime = timeTouched
@@ -291,11 +291,11 @@ export default function AddToItineraryDialog({
   const effectiveDurationMinutes = durationTouched ? durationMinutes : originalTimeRef.current.durationMinutes;
 
   const handleConfirm = () => {
-    // Custom mode: editable title/location. The empty-sourceId (FAB / free-form) path
-    // stays a PLAIN ItineraryItem with NO sourceId/sourceType (byte-identical, never
-    // trips a card "Added" badge, never has a placement to modify). A NON-EMPTY
-    // sourceId (a namespaced nightlife id) stamps it and supports modify/move/remove
-    // exactly like source mode. Blocked on empty title either way.
+    // Custom mode: editable title/location. amends — the empty-sourceId
+    // (FAB / free-form) path stays a PLAIN ItineraryItem with NO sourceId/sourceType
+    // (byte-identical, never trips a card "Added" badge, never has a placement to
+    // modify). A NON-EMPTY sourceId (a namespaced nightlife id) stamps it and supports
+    // modify/move/remove exactly like source mode. Blocked on empty title either way.
     if (isCustom) {
       const title = customTitle.trim();
       if (!title) return; // guard (the button is also disabled)
@@ -358,7 +358,7 @@ export default function AddToItineraryDialog({
         toast.success(`Updated “${draft.title}” on ${formatDate(selectedDate)}`);
       }
     } else {
-      // Add a brand-new placement (fresh per-placement id; shared sourceId).
+      // Add a brand-new placement.
       addItem(selectedDate, { ...patch, id: generateItemId() });
       toast.success(`Added “${draft.title}” to ${formatDate(selectedDate)}`);
       launchChip(draft.title);
@@ -380,8 +380,8 @@ export default function AddToItineraryDialog({
     return () => clearTimeout(timer);
   }, [isCustom]);
 
-  // body[data-dialog-open] flag: the quick-add FAB hides while it is set, so the FAB
-  // never floats over an open dialog's scrim. Set it while this
+  // body[data-dialog-open] flag (cross-lane seam):'s quick-add FAB hides while
+  // it is set, so the FAB never floats over an open dialog's scrim. Set it while this
   // dialog is mounted-open and clear it on close/unmount, in the same portal/focus
   // lifecycle. Guarded by a ref-count style check on the attribute so two dialogs that
   // briefly overlap during an exit animation don't clear the flag prematurely.
@@ -461,7 +461,7 @@ export default function AddToItineraryDialog({
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
         className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
       >
-        {/* Non-scrolling header — stays pinned at the top of the panel. */}
+        {}/* Non-scrolling header — stays pinned at the top of the panel. */
         <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
           <div className="min-w-0">
             <h3 id={titleId} className="font-display text-lg font-bold text-white leading-tight">
@@ -489,9 +489,9 @@ export default function AddToItineraryDialog({
         {/* Scrollable body — the only scroll region. `min-h-0` lets it shrink inside
             the flex column so the pinned footer is never pushed off-screen on short
             viewports. A native scrollbar (no `scrollbar-hide`) makes the
-            overflow discoverable when the content is taller than the viewport. */}
+}            overflow discoverable when the content is taller than the viewport. */
         <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6">
-        {/* Existing placements (modify/remove mode) */}
+        {}/* Existing placements (modify/remove mode) */
         {isModifyMode && (
           <div className="mb-5 space-y-2">
             <span className="text-xs text-white/50 block">Already planned</span>
@@ -564,7 +564,7 @@ export default function AddToItineraryDialog({
 
         <div className="space-y-4">
           {/* Custom mode: editable Title + Location. Source mode keeps these
-              fixed in the header, so this block is only rendered for custom mode. */}
+}              fixed in the header, so this block is only rendered for custom mode. */
           {isCustom && (
             <>
               <div>
@@ -593,7 +593,7 @@ export default function AddToItineraryDialog({
                 />
               </div>
               {/* Google Maps research link-out. Disabled until Title is
-                  non-empty; a URL, not an API — no key, no quota. */}
+}                  non-empty; a URL, not an API — no key, no quota. */
               {mapsUrl ? (
                 <a
                   href={mapsUrl}
@@ -618,7 +618,7 @@ export default function AddToItineraryDialog({
             </>
           )}
 
-          {/* Date select */}
+          {}/* Date select */
           <div>
             <label htmlFor={dateFieldId} className="text-xs text-white/50 mb-1 block">Date *</label>
             <select
@@ -630,14 +630,14 @@ export default function AddToItineraryDialog({
               className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
             >
               {TRIP_DATES.map((d) => (
-                <option key={d} value={d} className="bg-navy-900 text-white">
+                <option key={d} value={d} className="bg-surface text-white">
                   {dateOptionLabel(d)}
                 </option>
               ))}
             </select>
           </div>
 
-          {/* Category grid (same pattern as ItemEditor) */}
+          {}/* Category grid (same pattern as ItemEditor) */
           <div>
             <span id={categoryLabelId} className="text-xs text-white/50 mb-1 block">Category</span>
             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
@@ -663,7 +663,7 @@ export default function AddToItineraryDialog({
             </div>
           </div>
 
-          {/* Time + Duration */}
+          {}/* Time + Duration */
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor={timeFieldId} className="text-xs text-white/50 mb-1 block">Time</label>
@@ -675,7 +675,7 @@ export default function AddToItineraryDialog({
             </div>
           </div>
 
-          {/* Notes */}
+          {}/* Notes */
           <div>
             <label htmlFor={notesFieldId} className="text-xs text-white/50 mb-1 block">Notes</label>
             <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
@@ -686,14 +686,14 @@ export default function AddToItineraryDialog({
         {/* Pinned action footer — OUTSIDE the scroll area, so the confirm button is
             ALWAYS visible and clickable at any viewport height. The top
             border + panel bg give a clean divider so scrolled content doesn't bleed
-            under it. */}
-        <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-navy-900/40">
+}            under it. */
+        <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-surface/40">
           <button
             ref={confirmRef}
             onClick={handleConfirm}
             data-testid="add-item-confirm"
             disabled={confirmDisabled}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gold-500"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gold-500"
           >
             <Check className="w-4 h-4" />
             {editingPlacementId ? 'Update plan' : 'Add to plan'}

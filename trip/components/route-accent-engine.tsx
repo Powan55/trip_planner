@@ -4,30 +4,31 @@ import { useEffect, useRef } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 
+import { getTodayInTrip } from '@/lib/trip-now';
+
 /**
- * Route-driven warm/cool accent engine (formerly `scroll-accent-engine.tsx`,
- * before the sections split into separate pages).
+ * Route-driven warm/cool accent engine ( — formerly
+ * `scroll-accent-engine.tsx`,).
  *
  * Renders nothing. Reads the CURRENT ROUTE (`usePathname()`) and animates the
  * SINGLE scroll accent — the CSS custom property `--accent-scroll` — so
  * the app warms to **himalaya** on /nepal/*, cools to **sakura** on /japan/*,
- * and rests at neutral **gold** on every other route. With the sections split
+ * and rests at neutral **gold** on every other route. With the v1 sections split
  * across five pages, section-scroll can no longer drive a cross-page
  * accent — the route IS the honest signal. The token names (`--accent-scroll`,
  * `--accent-scroll-rgb`, `--shadow-glow`) are unchanged, so every
- * existing consumer (section-heading underline, glow, :focus-visible fallback)
+ * existing consumer (section-heading underline, glow,:focus-visible fallback)
  * is untouched: this is a drop-in INPUT swap, not a consumer migration.
  *
- * The old outer rAF poll for `document.getElementById('nepal')` is retired
- * here — it existed only because the engine consumed
+ * is RETIRED here: the old outer rAF poll for
+ * `document.getElementById('nepal')` existed only because the engine consumed
  * the DOM-anchored `useActiveSection` from the layout root before the page
  * subtree mounted. `usePathname()` has no DOM dependency and is valid
  * immediately, so the outer/inner split and the readiness poll are deleted.
- * (The general rule that a layout-root island consuming a DOM-anchored hook
- * must defer binding remains true as a pattern; it just has no live consumer
- * here.)
+ * ( general rule — a layout-root island consuming a DOM-anchored hook
+ * must defer binding — remains true as a pattern; it just has no live consumer.)
  *
- * Motion — CRITICAL: a route-linked colour shift is NOT
+ * Motion: a route-linked colour shift is NOT
  * auto-neutralised by the app's `MotionConfig`/`LazyMotion`. So we keep the
  * explicit `useReducedMotion()` guard: under `prefers-reduced-motion: reduce`
  * the accent is set to the route's target INSTANTLY (no tween — a single
@@ -35,8 +36,8 @@ import { usePathname } from 'next/navigation';
  * `requestAnimationFrame` HSL tween (~320ms, eased) blends from the current
  * colour to the target.
  *
- * Scope (locked): drives `--accent-scroll` ONLY. shadcn's `--accent`
- * (interactive chrome) stays sakura and is never touched here. Dark-only.
+ * Scope: drives `--accent-scroll` ONLY. shadcn's `--accent`
+ * (interactive chrome) stays sakura and is never touched here. Dark-only
  * SSR-safe: every `document` access is guarded and lives in an effect;
  * the pending rAF is cancelled on every change and on unmount.
  */
@@ -46,9 +47,9 @@ import { usePathname } from 'next/navigation';
 // the `hsl()` var) AND its **authored** `rgb` triplet (`[r, g, b]` 0..255, for
 // the `rgba(var(--accent-scroll-rgb) / a)` var). The RGB is the
 // **pinned literal**, NOT a value derived from the HSL: standard HSL->RGB does
-// not reproduce the brand values (gold rounds to 235,193,76 but the design pins
+// not reproduce the brand values (gold rounds to 235,193,76 but pins
 // 240,199,96 — a visible 20-pt blue gap), so every SETTLED accent must write the
-// authored literal verbatim to match the design tokens byte-for-byte. (Derivation is
+// authored literal verbatim to equal byte-for-byte. (Derivation is
 // only allowed for intermediate, unpinned tween frames — see the tween below.)
 type Hsl = readonly [number, number, number];
 type Rgb = readonly [number, number, number];
@@ -62,7 +63,7 @@ const SAKURA: Accent = { hsl: [347, 85, 80], rgb: [247, 160, 179] }; // Japan (c
  * ROUTE -> accent: only the two destination pages drive the warm/cool
  * shift; every other route rests at neutral gold. Trailing-slash agnostic
  * (`trailingSlash:true` makes `/nepal/` canonical, but compare normalized) and
- * basePath-agnostic (`usePathname()` excludes basePath).
+ * basePath-agnostic (`usePathname()` excludes basePath —).
  */
 function accentForPathname(pathname: string | null): Accent {
   const p = (pathname ?? '/').replace(/\/+$/, '') || '/';
@@ -104,11 +105,11 @@ function writeRgb(root: HTMLElement, [r, g, b]: readonly [number, number, number
 }
 
 /**
- * Write a SETTLED accent — a pinned endpoint (reduced-motion target, the
+ * Write a SETTLED accent — a-pinned endpoint (reduced-motion target, the
  * "already there" no-op, or the final frame of a tween). The HSL var is written
  * from `accent.hsl`; the RGB var is the **authored literal** `accent.rgb` written
- * verbatim (NEVER recomputed from the HSL), so every resting accent matches
- * globals.css byte-for-byte — including the gold default.
+ * verbatim (NEVER recomputed from the HSL), so every resting accent equals
+ * / globals.css byte-for-byte — including the gold default.
  */
 function applySettled(root: HTMLElement, accent: Accent): void {
   writeHsl(root, accent.hsl);
@@ -119,11 +120,21 @@ export default function RouteAccentEngine() {
   const pathname = usePathname();
   const reduceMotion = useReducedMotion();
 
+  // ambient trip phase: stamp `data-trip-phase` on <html> so globals.css's
+  // ambient palette overrides (html[data-trip-phase='nepal'|'japan']) cascade into
+  // the --gradient-aurora lead stops. Read-only consumption of the clock
+  // (getTodayInTrip resolves the `?today=` override), so the visual baselines'
+  // frozen `?today=2026-11-15` deterministically yields 'pre'. Set once per load —
+  // the phase is a calendar-day fact, and every load re-derives it.
+  useEffect(() => {
+    document.documentElement.dataset.tripPhase = getTodayInTrip()?.country ?? 'pre';
+  }, []);
+
   // The LIVE on-screen accent (HSL + RGB), so a tween can blend FROM the exact
   // current colour even if a new target arrives mid-flight — at a settled rest
   // this equals the authored literal; mid-tween it is the current intermediate
   // (which is itself in-flight, so blending on from it is fine — it still ends
-  // on an authored literal). Seeded to gold (the default accent).
+  // on an authored literal). Seeded to gold.
   const liveRef = useRef<{ hsl: Hsl; rgb: Rgb }>({ hsl: GOLD.hsl, rgb: GOLD.rgb });
   const rafRef = useRef<number | null>(null);
 

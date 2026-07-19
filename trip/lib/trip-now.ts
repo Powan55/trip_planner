@@ -1,9 +1,9 @@
 // The SINGLE app-wide clock / trip-day source — the ClockPort ADAPTER.
 //
-// The app is split into a framework-free `core/` and thin
+// As of the app is split into a framework-free `core/` and thin
 // `lib/` adapters. This module is the ADAPTER that implements `core/ports.ts`'s
 // `ClockPort`: it owns all the I/O — reading the real clock AND resolving the `?today=`
-// simulation override (URL / sessionStorage) — and delegates the PURE trip-day
+// simulation override — and delegates the PURE trip-day
 // math to `core/dates` (`dayInTripFor`). The public API here (`getNow`, `getTodayInTrip`,
 // `TripToday`) is BYTE-IDENTICAL to before, so every caller (`hero-section.tsx`,
 // `trip-dashboard.tsx`, `calendar-planner.tsx`, `quick-add-fab.tsx`) is untouched. The
@@ -15,17 +15,17 @@
 // URL override — invisible unless used, ships in ALL builds.
 //
 // Precedence (resolved ONCE per page load, cached in a module var):
-//     URL `?today=YYYY-MM-DD`  >  sessionStorage(`tripPlannerTodayOverride`)  >  real `new Date()`
-//   - A valid `?today=YYYY-MM-DD` is persisted to sessionStorage and used as the clock.
-//     The override Date is LOCAL NOON of that day (`new Date(y, m-1, d, 12, 0, 0)`) to
-//     avoid tz / day-edge ambiguity when we later format it back to a calendar day.
-//   - `?today=off` REMOVES the sessionStorage key (no override; back to the real clock).
-//   - Any absent/invalid `?today` falls back to the persisted key if present, else the
-//     real clock.
+// URL `?today=YYYY-MM-DD` > sessionStorage(`tripPlannerTodayOverride`) > real `new Date()`
+// - A valid `?today=YYYY-MM-DD` is persisted to sessionStorage and used as the clock.
+// The override Date is LOCAL NOON of that day (`new Date(y, m-1, d, 12, 0, 0)`) to
+// avoid tz / day-edge ambiguity when we later format it back to a calendar day.
+// - `?today=off` REMOVES the sessionStorage key (no override; back to the real clock).
+// - Any absent/invalid `?today` falls back to the persisted key if present, else the
+// real clock.
 //
 // Storage rules: sessionStorage ONLY — NEVER localStorage, NEVER
-// shared/reactive state. The `tripPlannerTodayOverride` key + raw sessionStorage
-// access live in the typed storage gateway (`clockOverride`), which is store-aware
+// shared/reactive state. As of the `tripPlannerTodayOverride` key + raw sessionStorage
+// access live in the typed storage gateway, which is store-aware
 // and keeps this key on the SESSION backend. All resolution/validation/
 // precedence logic stays HERE — the gateway is byte-transport only, not policy. The
 // localStorage namespace is untouched. `computeCountdown` stays PURE: callers pass
@@ -124,17 +124,17 @@ export const clock: ClockPort = {
 
 /**
  * "Now" as a UTC epoch-ms instant, re-interpreted at a given place's offset — the ONE clock
- * seam for the place-accurate item comparison (`isPastAtPlace`). Consumed by
+ * seam for the place-accurate item comparison. Consumed by
  * `components/today-panel.tsx` → `nextUp`.
  *
- *   - NO override: `getNow().getTime()` — the real instant. In-zone (during the trip) this is
- *     an exact no-op vs the old device-wall-clock string compare (device == place wall-clock).
- *   - Override active (`?today=`/sessionStorage): the synthetic Date's wall-clock FACE IS the
- *     demo's place wall-clock by declaration, so we re-interpret those hours:minutes at
- *     `placeOffsetMin`. Because the override Date is LOCAL NOON, demo "now" = NOON at the place
- *     — byte-parity with the old `"12:00"` compare, now TZ-deterministic (the frozen `?today=`
- *     countdown/persistence E2E stays green). We do NOT convert the synthetic instant through
- *     the offset — that would break the fake-clock parity.
+ * - NO override: `getNow().getTime()` — the real instant. In-zone (during the trip) this is
+ * an exact no-op vs the old device-wall-clock string compare (device == place wall-clock).
+ * - Override active (`?today=`/sessionStorage): the synthetic Date's wall-clock FACE IS the
+ * demo's place wall-clock by declaration, so we re-interpret those hours:minutes at
+ * `placeOffsetMin`. Because the override Date is LOCAL NOON, demo "now" = NOON at the place
+ * — byte-parity with the old `"12:00"` compare, now TZ-deterministic (the frozen `?today=`
+ * countdown/persistence E2E stays green). We do NOT convert the synthetic instant through
+ * the offset — that would break the fake-clock parity.
  */
 export function getNowUtcMsForPlace(dayDate: string, placeOffsetMin: number): number {
   const now = getNow(); // resolves the override once; returns override-noon or the real clock

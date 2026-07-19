@@ -17,6 +17,10 @@ import {
   ShieldCheck,
   Scroll,
   Settings,
+  Coins,
+  Backpack,
+  Inbox,
+  FileCheck2,
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -33,23 +37,24 @@ import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
 import { loadPlans } from '@/lib/itinerary-storage';
 import { searchPlanItems } from '@/lib/search-plan';
 import { formatDate, type DayPlan } from '@/lib/trip-data';
+import { parseConversionQuery, convertCurrency, type ConversionResult } from '@/lib/currency-convert';
 
 /**
- * ⌘K / Ctrl+K command palette — route-aware navigation.
+ * ⌘K / Ctrl+K command palette.
  *
  * Keyboard-first navigation to any destination in the app. Mounted ONCE at the
- * app root (see app/layout.tsx) so the shortcut works from anywhere. Every
- * target is a `{ route, hash? }` pair: selection navigates via
- * `useRouter().push(route + hash)` (basePath-agnostic).
+ * app root (see app/layout.tsx) so the shortcut works from anywhere. Since the
+ * v2 route split every target is a `{ route, hash? }` pair: selection
+ * navigates via `useRouter().push(route + hash)`.
  * A SAME-route hash keeps the direct `scrollIntoView` path; a CROSS-route hash
  * defers through `scrollToSectionWhenReady` (bounded rAF poll + double-rAF once
- * the `ssr:false` island mounts — the same pattern the navbar uses), because the target
+ * the `ssr:false` island mounts — the navbar pattern), because the target
  * does not exist in the DOM until the destination page's chunks load.
  *
  * A11y: built on the Radix Dialog primitive (via ui/dialog), which traps
  * focus and closes on Esc. Radix does NOT, however, restore focus when the dialog is
  * opened programmatically (no DialogTrigger) — verified in headless Chrome that focus
- * lands on <body> after Esc. So we add explicit focus-return: snapshot
+ * lands on <body> after Esc. So per the brief we add explicit focus-return: snapshot
  * document.activeElement when opening, and in DialogContent's onCloseAutoFocus
  * preventDefault Radix's default and focus the snapshot back. A visually-hidden
  * DialogTitle/Description satisfies Radix's required-title a11y contract without a
@@ -67,12 +72,13 @@ import { formatDate, type DayPlan } from '@/lib/trip-data';
  * fuzzy scorer, which was loose enough to rank "nepal" → "Itinerary Planner" (…Planner)
  * above the actual Nepal item. scoreItem ranks exact label substrings first, keyword
  * aliases below them, and drops weak fuzzy noise — verified in headless Chrome.
+ * scoreItem is UNTOUCHED by.
  *
  * Search-within-plan bridge. This component is mounted OUTSIDE
  * `ItineraryProvider` (see app/layout.tsx), so it cannot call `useItineraryContext()`.
  * Instead, on each OPEN it takes an on-demand READ-ONLY snapshot via
- * `loadPlans()` (the same non-hook storage-backed source `use-itinerary` reads) — no
- * persistent second store, no provider move (never writes). While
+ * `loadPlans()` (the same non-hook Vault-backed source `use-itinerary` reads) — no
+ * persistent second store, no provider move, preserved (never writes). While
  * typing, the snapshot is run through the pure `searchPlanItems` matcher and any hits
  * render as a dynamic "In your plan" `CommandGroup` below the static section groups.
  * Because those items are already pre-filtered by title/notes/category, the dynamic
@@ -82,14 +88,26 @@ import { formatDate, type DayPlan } from '@/lib/trip-data';
  * purely by our own `planResults`. Selecting a result defers to the same
  * close-then-navigate pattern as a section pick, but routes via `?focus=<itemId>`
  * (consumed by calendar-planner.tsx) instead of a hash.
+ *
+ * Currency converter command. A typeahead-parse command, not a separate
+ * popover/panel — the smaller diff against this file's existing static/dynamic-group
+ * shape ( "In your plan" group above is the direct precedent: a computed
+ * `CommandGroup`, `forceMount`ed, shown/hidden purely by our own state rather than
+ * cmdk's filter). Typing "100 usd to jpy" is parsed by the pure `parseConversionQuery`;
+ * a match renders a single result `CommandItem` under a "Currency Converter" heading,
+ * populated by `convertCurrency` (lib/currency-convert.ts), which is a thin wrapper over
+ * `fetchCurrencyRate` (lib/currency-rate.ts) — same cache, same NPR
+ * short-circuit, no second fetch path. Selecting the result is a no-op (there is nowhere
+ * to navigate to; it's a read-only answer), so the palette stays open for editing the
+ * query further.
  */
 
 type Section = {
   route: string; // canonical trailing-slash route ('/', '/plan/', …)
-  hash?: string; // optional sub-anchor WITH the leading '#' (section ids are kept)
+  hash?: string; // optional sub-anchor WITH the leading '#'
   label: string;
   group: 'Plan' | 'Destinations' | 'Guides' | 'More';
-  keywords?: string[]; // extra alias terms for fuzzy matching (static literals)
+  keywords?: string[]; // extra alias terms for fuzzy matching
   icon: React.ComponentType<{ className?: string }>;
 };
 
@@ -109,13 +127,16 @@ const SECTIONS: Section[] = [
   { route: '/nepal/', hash: '#nightlife', label: 'Nightlife & Bars', group: 'Guides', keywords: ['clubs', 'drinks', 'bars', 'night'], icon: Wine },
   { route: '/map/', label: 'Map', group: 'Guides', keywords: ['locations', 'pins', 'regions'], icon: MapIcon },
   { route: '/', hash: '#inspiration', label: 'Travel Essentials', group: 'Guides', keywords: ['inspiration', 'weather', 'ideas'], icon: Sparkles },
-  // The 3 companion routes — deliberately kept off the desktop top row (width
-  // ceiling) and off the mobile tab bar (≥44px floor); the palette is
+  // the 3 companion routes — deliberately kept off the desktop top row (
+  // width ceiling) and off the mobile tab bar; the palette is
   // their desktop discoverability path (the mobile hamburger panel is the other).
   { route: '/journal/', label: 'Journal', group: 'More', keywords: ['diary', 'notes', 'entries'], icon: BookOpen },
   { route: '/safety/', label: 'Safety', group: 'More', keywords: ['emergency', 'embassy', 'phrasebook'], icon: ShieldCheck },
+  { route: '/packing/', label: 'Packing', group: 'More', keywords: ['checklist', 'luggage', 'gear', 'clothes'], icon: Backpack }, //
+  { route: '/checklist/', label: 'Documents', group: 'More', keywords: ['passport', 'visa', 'insurance', 'tickets', 'checklist', 'readiness', 'documents'], icon: FileCheck2 }, //
+  { route: '/share/', label: 'Shared Links', group: 'More', keywords: ['share', 'inbox', 'links', 'shared', 'triage'], icon: Inbox }, //
   { route: '/recap/', label: 'Recap', group: 'More', keywords: ['story', 'summary', 'post-trip'], icon: Scroll },
-  { route: '/settings/', label: 'Settings', group: 'More', keywords: ['identity', 'currency', 'rates', 'sign out', 'clear', 'backup', 'export', 'import'], icon: Settings },
+  { route: '/settings/', label: 'Settings', group: 'More', keywords: ['identity', 'currency', 'rates', 'sign out', 'clear', 'backup', 'export', 'import'], icon: Settings }, //
 ];
 
 // Trailing-slash-agnostic pathname compare (mirrors navbar.tsx).
@@ -161,7 +182,7 @@ export function scoreItem(value: string, search: string, keywords?: string[]): n
   }
 
   // 3) Last resort: a loose subsequence on the LABEL only, but require contiguity-ish
-  //    quality so noise (e.g. "nepal" vs "Itinerary Planner") is rejected.
+  // quality so noise (e.g. "nepal" vs "Itinerary Planner") is rejected.
   return subsequenceScore(label, q);
 }
 
@@ -193,6 +214,12 @@ function subsequenceScore(target: string, q: string): number {
   return 0.3 + contiguity * 0.2; // 0.3..0.5, always below keyword/label tiers
 }
 
+// Trims a converted amount to a readable 2-decimal-max display (no new dependency —
+// Intl.NumberFormat is a native platform feature).
+function formatConvertedAmount(n: number): string {
+  return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
 function prefersReducedMotion(): boolean {
   if (typeof window === 'undefined' || !window.matchMedia) return false;
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -211,11 +238,11 @@ export default function CommandPalette() {
   // so the route push / scroll happens once the overlay is gone (avoids competing with
   // focus teardown).
   const pendingTarget = React.useRef<{ route: string; hash?: string } | null>(null);
-  // Set when a search-within-plan RESULT was picked (instead of a section);
+  // set when a search-within-plan RESULT was picked (instead of a section);
   // consumed the same deferred way, but routes via `?focus=` rather than performNavigate.
   const pendingPlanFocus = React.useRef<string | null>(null);
 
-  // The on-demand, read-only plan snapshot + the live search query. Re-read fresh
+  // the on-demand, read-only plan snapshot + the live search query. Re-read fresh
   // every time the palette opens (loadPlans() is a cheap synchronous localStorage read),
   // so a change made elsewhere in the app is never stale the next time ⌘K opens.
   const [plansSnapshot, setPlansSnapshot] = React.useState<DayPlan[]>([]);
@@ -236,6 +263,27 @@ export default function CommandPalette() {
     () => (query.trim() ? searchPlanItems(plansSnapshot, query) : []),
     [plansSnapshot, query],
   );
+
+  // currency-converter command. `parsedConversion` is a pure, synchronous parse of
+  // the live query ("100 usd to jpy"); `conversionResult` is filled in async (it may need
+  // a fetchCurrencyRate round-trip) and reset to null (→ "Converting…") on every new parse.
+  const parsedConversion = React.useMemo(() => parseConversionQuery(query), [query]);
+  const [conversionResult, setConversionResult] = React.useState<ConversionResult | null>(null);
+
+  React.useEffect(() => {
+    if (!parsedConversion) {
+      setConversionResult(null);
+      return;
+    }
+    setConversionResult(null); // show "Converting…" while this query's lookup is in flight
+    let ignore = false;
+    convertCurrency(parsedConversion).then((result) => {
+      if (!ignore) setConversionResult(result);
+    });
+    return () => {
+      ignore = true;
+    };
+  }, [parsedConversion]);
 
   // Global ⌘K (mac) / Ctrl+K (win/linux) listener. preventDefault stops the browser's
   // own Ctrl+K (focus address bar / search) from firing.
@@ -259,17 +307,17 @@ export default function CommandPalette() {
   }, [snapshotTrigger]);
 
   /**
-   * Route-aware navigation.
+   * route-aware navigation.
    * - SAME route + hash → the section is already mounted: direct scrollIntoView
-   *   (reduced-motion 'auto') + history.replaceState of the hash. (If the island
-   *   hasn't mounted yet — e.g. palette used instantly after load — fall back to
-   *   the bounded poll.)
+   * (reduced-motion 'auto') + history.replaceState of the hash, exactly the
+   * behavior. (If the island hasn't mounted yet — e.g. palette used instantly
+   * after load — fall back to the bounded poll.)
    * - SAME route, no hash → scroll to top (the page IS the destination).
    * - CROSS route → router.push(route + hash). The hash target is a `ssr:false`
-   *   island that does not exist until the destination page mounts, so the scroll
-   *   defers through scrollToSectionWhenReady (bounded rAF poll + double-rAF —
-   *   the same pattern the navbar uses). Fire-and-forget by design: the poll must
-   *   survive the route transition.
+   * island that does not exist until the destination page mounts, so the scroll
+   * defers through scrollToSectionWhenReady (bounded rAF poll + double-rAF —
+   * the navbar pattern). Fire-and-forget by design: the poll must survive
+   * the route transition.
    */
   const performNavigate = React.useCallback((target: { route: string; hash?: string }) => {
     const sameRoute = normalizePath(pathname) === normalizePath(target.route);
@@ -307,7 +355,7 @@ export default function CommandPalette() {
     setOpen(false);
   }, []);
 
-  // A plan-search RESULT was picked — same defer-then-close pattern, routed via
+  // a plan-search RESULT was picked — same defer-then-close pattern, routed via
   // `?focus=<itemId>` instead of a hash (calendar-planner.tsx's `?focus=` reader).
   const handleSelectPlanItem = React.useCallback((itemId: string) => {
     pendingPlanFocus.current = itemId;
@@ -340,9 +388,10 @@ export default function CommandPalette() {
       <DialogContent
         onCloseAutoFocus={handleCloseAutoFocus}
         className="overflow-hidden p-0 shadow-lg max-w-[92vw] sm:max-w-lg"
+        data-testid="command-palette-dialog"
       >
         {/* Visually-hidden labelling satisfies the Radix Dialog a11y contract
-            (required title) without a visible header or a console warning. */}
+}            (required title) without a visible header or a console warning. */
         <DialogTitle className="sr-only">Command palette</DialogTitle>
         <DialogDescription className="sr-only">
           Search and jump to any section of the trip planner. Press Escape to close.
@@ -353,7 +402,7 @@ export default function CommandPalette() {
           // first, keyword aliases below them, loose fuzzy noise is dropped. Replaces
           // cmdk's built-in scorer, which mis-ranked "nepal" → "Itinerary Planner".
           // value = clean label; keywords prop carries the aliases (fed to scoreItem).
-          // globals.css color tokens are untouched here.
+          // globals.css color tokens are untouched.
           filter={scoreItem}
           className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4"
         >
@@ -363,11 +412,12 @@ export default function CommandPalette() {
             onValueChange={setQuery}
           />
           <CommandList>
-            {/* cmdk's own "no results" count only tracks items IT registers/scores
-                (see the CommandGroup below — our dynamic group opts out of that via
-                forceMount), so gate this on OUR OWN planResults too — otherwise "No
-                matching section." could render ALONGSIDE a real "In your plan" hit. */}
-            {planResults.length === 0 && <CommandEmpty>No matching section.</CommandEmpty>}
+            {/* cmdk's own "no results" count only tracks items IT registers/
+                scores (see the CommandGroups below — our dynamic groups opt out of that
+                via forceMount), so gate this on OUR OWN dynamic-group state too —
+                otherwise "No matching section." could render ALONGSIDE a real "In your
+}                plan" or "Currency Converter" hit. */
+            {planResults.length === 0 && !parsedConversion && <CommandEmpty>No matching section.</CommandEmpty>}
             {GROUP_ORDER.map((group) => (
               <CommandGroup key={group} heading={group}>
                 {SECTIONS.filter((s) => s.group === group).map((section) => {
@@ -387,7 +437,7 @@ export default function CommandPalette() {
                 })}
               </CommandGroup>
             ))}
-            {/* Dynamic search-within-plan results, read-only over the on-demand
+            {/* dynamic search-within-plan results, read-only over the on-demand
                 loadPlans() snapshot. WE already decide membership (via our own
                 `searchPlanItems` matcher, computed outside cmdk), so this group and its
                 items are `forceMount`ed — cmdk's OWN filter/score/visibility bookkeeping
@@ -398,7 +448,7 @@ export default function CommandPalette() {
                 conflict for a live-updating search-query keyword match, and fighting
                 cmdk's own filter pass here is more fragile than simply not entering it.
                 Only rendered when there is at least one hit, so an empty query never
-                shows an empty "In your plan" heading. */}
+}                shows an empty "In your plan" heading. */
             {planResults.length > 0 && (
               <CommandGroup heading="In your plan" forceMount>
                 {planResults.map(({ item, date }) => (
@@ -415,6 +465,42 @@ export default function CommandPalette() {
                     <span className="shrink-0 text-xs text-muted-foreground">{formatDate(date)}</span>
                   </CommandItem>
                 ))}
+              </CommandGroup>
+            )}
+            {/* currency-converter command. Same forceMount rationale as "In your
+                plan" above — membership is decided entirely by OUR OWN parse (-aware
+                convertCurrency), not cmdk's filter. A no-op onSelect: this item is a
+}                read-only computed answer, not a navigation target. */
+            {parsedConversion && (
+              <CommandGroup heading="Currency Converter" forceMount>
+                <CommandItem
+                  forceMount
+                  value={`convert-${query}`}
+                  onSelect={() => {}}
+                  className="gap-3"
+                  data-testid="palette-currency-result"
+                  data-conversion-status={conversionResult?.status ?? 'loading'}
+                >
+                  <Coins className="shrink-0 text-gold-400" />
+                  {conversionResult === null && (
+                    <span className="truncate text-muted-foreground">
+                      Converting {parsedConversion.amount} {parsedConversion.from} to {parsedConversion.to}…
+                    </span>
+                  )}
+                  {conversionResult?.status === 'ok' && (
+                    <span className="truncate flex-1">
+                      {parsedConversion.amount} {parsedConversion.from} = {formatConvertedAmount(conversionResult.converted)} {parsedConversion.to}
+                      {conversionResult.stale && (
+                        <span className="ml-2 text-xs text-muted-foreground">(cached, as of {conversionResult.asOf})</span>
+                      )}
+                    </span>
+                  )}
+                  {conversionResult?.status === 'unavailable' && (
+                    <span className="truncate text-muted-foreground">
+                      {conversionResult.currency} rate unavailable — no cached rate yet
+                    </span>
+                  )}
+                </CommandItem>
               </CommandGroup>
             )}
           </CommandList>

@@ -6,6 +6,7 @@ import {
   hasStoredItinerary,
   type VaultConfig,
 } from '@/core/vault/load-save';
+import { keyFor, STORAGE_KEYS } from '@/core/storage/gateway';
 
 /**
  * Single source of truth for the itinerary localStorage contract.
@@ -13,7 +14,7 @@ import {
  * The calendar planner and the dashboard MUST both go through these helpers so they
  * agree on exactly when SAMPLE_ITINERARY is seeded vs. when stored data is respected.
  *
- * The internals delegate to the framework-free
+ * As of the internals delegate to the framework-free
  * Trip Vault (`core/vault/`): a versioned `{ schemaVersion, updatedAt, payload }`
  * envelope, Zod-validated, with an ordered migration runner. The public API here —
  * exported function signatures and the two key constants — is BYTE-IDENTICAL to the
@@ -23,24 +24,24 @@ import {
  *
  * The key insight is preserved and generalized by the Vault: distinguish states by the
  * KEY (and now the on-disk version), not by array length —
- *   1. key ABSENT                     -> first visit / never saved -> seed SAMPLE_ITINERARY.
- *   2. legacy bare array (v2)          -> migrate v2->v3 (lossless identity) -> return verbatim, incl. [].
- *   3. valid v3 envelope               -> return payload verbatim, incl. [].
- *   4. corrupt / parse-fail / Zod-fail / migrate-throw -> quarantine raw -> SAMPLE_ITINERARY.
+ * 1. key ABSENT -> first visit / never saved -> seed SAMPLE_ITINERARY.
+ * 2. legacy bare array (v2) -> migrate v2->v3 (lossless identity) -> return verbatim, incl. [].
+ * 3. valid v3 envelope -> return payload verbatim, incl. [].
+ * 4. corrupt / parse-fail / Zod-fail / migrate-throw -> quarantine raw -> SAMPLE_ITINERARY.
  *
  * A deliberately-emptied itinerary ([]) is a legitimate, persisted state and must
  * survive reloads AND the migration — it must NOT be treated as "no data" and
  * overwritten with samples.
  */
-export const ITINERARY_STORAGE_KEY = 'nepal_japan_itinerary';
+export const ITINERARY_STORAGE_KEY = STORAGE_KEYS.itinerary;
 
 /**
- * Quarantine key for corrupt itinerary payloads (generalized by the Vault).
+ * Quarantine key for corrupt itinerary payloads.
  *
  * `loadPlans()` falls back to SAMPLE_ITINERARY whenever the stored value is corrupt
  * (non-array/non-envelope JSON, a parse error, a failed lenient Zod validation, or a
  * throwing migration step). Historically that fallback discarded the raw bytes outright —
- * and because the store's single write path (`commit()` in
+ * and because the store's single write path ( `commit()` in
  * `hooks/use-itinerary.ts`) always derives its next state from `loadPlans()` and then
  * `savePlans()`s it back to the MAIN key, the very next edit would silently and
  * permanently overwrite the user's real (corrupt-but-recoverable) trip with
@@ -48,32 +49,41 @@ export const ITINERARY_STORAGE_KEY = 'nepal_japan_itinerary';
  *
  * This key preserves the raw, corrupt string verbatim (don't-clobber-first) so it is
  * never lost — a future recovery UI (or manual devtools inspection) can still get the
- * user's bytes back. The Trip Vault folds every migrate/validate failure into this
+ * user's bytes back. Trip Vault folds every migrate/validate failure into this
  * same preserve-before-fallback discipline.
  */
-export const ITINERARY_QUARANTINE_KEY = 'nepal_japan_itinerary_corrupt';
+export const ITINERARY_QUARANTINE_KEY = STORAGE_KEYS.itineraryCorrupt;
 
-/** The Vault slot config for the itinerary — the unchanged keys + the sample fallback. */
-const ITINERARY_VAULT: VaultConfig = {
-  storageKey: ITINERARY_STORAGE_KEY,
-  quarantineKey: ITINERARY_QUARANTINE_KEY,
-  fallback: SAMPLE_ITINERARY,
-};
+/**
+ * Build the itinerary Vault config for the ACTIVE pack, FRESH per call. Routes the
+ * two key literals through `keyFor()` so a non-default pack namespaces to `trip:{id}:itinerary` /
+ * `trip:{id}:itineraryCorrupt`, while the default pack's `keyFor` grandfather (id-equality) returns
+ * the legacy `'nepal_japan_itinerary'` / `'nepal_japan_itinerary_corrupt'` bytes VERBATIM —
+ * so the live trip's on-disk itinerary is untouched. Built per call (not a module-level const)
+ * because the active pack can change across a full reload; the id is read at call time.
+ */
+function itineraryVault(): VaultConfig {
+  return {
+    storageKey: keyFor('itinerary'),
+    quarantineKey: keyFor('itineraryCorrupt'),
+    fallback: SAMPLE_ITINERARY,
+  };
+}
 
 /**
  * Load itinerary plans from localStorage (Vault-backed).
  *
  * - SSR / non-browser: returns SAMPLE_ITINERARY (no window) so first paint matches
- *   the post-hydration "first visit" state.
+ * the post-hydration "first visit" state.
  * - Key absent: SAMPLE_ITINERARY (nothing to quarantine — there was never real data).
  * - Legacy bare array (v2): migrated losslessly to v3 and returned verbatim, incl. [].
  * - Valid v3 envelope: its payload verbatim, incl. [].
  * - Corrupt / unparseable / non-array-non-envelope / lenient-Zod-fail / migrate-throw:
- *   the raw string is quarantined (don't-clobber-first) before falling back to
- *   SAMPLE_ITINERARY, so the corrupt-but-recoverable bytes are never destroyed.
+ * the raw string is quarantined (don't-clobber-first) before falling back to
+ * SAMPLE_ITINERARY, so the corrupt-but-recoverable bytes are never destroyed.
  */
 export function loadPlans(): DayPlan[] {
-  return loadItinerary(ITINERARY_VAULT);
+  return loadItinerary(itineraryVault());
 }
 
 /**
@@ -89,7 +99,7 @@ export function loadPlans(): DayPlan[] {
  * SSR-safe: returns false under no-window (matches loadPlans() returning the sample).
  */
 export function hasStoredPlans(): boolean {
-  return hasStoredItinerary(ITINERARY_VAULT);
+  return hasStoredItinerary(itineraryVault());
 }
 
 /**
@@ -100,5 +110,5 @@ export function hasStoredPlans(): boolean {
  * first save after a migration. No length gate. SSR-safe no-op when there is no window.
  */
 export function savePlans(plans: DayPlan[]): void {
-  saveItinerary(plans, ITINERARY_VAULT);
+  saveItinerary(plans, itineraryVault());
 }

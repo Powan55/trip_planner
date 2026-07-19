@@ -5,19 +5,19 @@ import { useRouter } from 'next/navigation';
 import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
 
 /**
- * Legacy anchor deep-link redirects. Mounted on HOME only.
+ * Legacy v1 anchor deep-link redirects. Mounted on HOME only.
  *
- * The original app was a single page of anchored sections, so old links look like `/#nepal`.
- * The current app splits those sections across five routes. On load, this island maps
+ * v1 was a single page of anchored sections, so old links look like `/#nepal`.
+ * v2 splits those sections across five routes. On load, this island maps
  * a legacy hash to its new home:
  *
- *   #itinerary → /plan/        #photography → /nepal/#photography
- *   #nepal     → /nepal/       #nightlife   → /nepal/#nightlife
- *   #japan     → /japan/       #flights     → /flights/
- *   #map       → /map/
+ * #itinerary → /plan/ #photography → /nepal/#photography
+ * #nepal → /nepal/ #nightlife → /nepal/#nightlife
+ * #japan → /japan/ #flights → /flights/
+ * #map → /map/
  *
- * via `router.replace` (no history entry for the dead URL — basePath-agnostic).
- * Hashes whose sections still live on Home (#hero/#dashboard/#timeline/
+ * via `router.replace` (no history entry for the dead URL — basePath-agnostic,
+ *). Hashes whose sections still live on Home (#hero/#dashboard/#timeline/
  * #inspiration — inspiration is now the travel-essentials section, which
  * keeps the `inspiration` id) scroll locally; an unknown hash no-ops harmlessly.
  *

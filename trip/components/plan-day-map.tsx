@@ -4,7 +4,7 @@
 //
 // A thin host around the reusable <TripMap>: it feeds ONE day's stops as
 // BOTH `markers` (clickable browse pins) and `routeStops` (the numbered polyline),
-// and wires the marker↔list highlight connection. It is loaded as a `dynamic(ssr:false)`
+// and wires the marker↔list highlight seam. It is loaded as a `dynamic(ssr:false)`
 // island from calendar-planner, gated on the map-view toggle, so the ~200 kB
 // maplibre chunk only fetches when the user actually opens the map.
 //
@@ -34,7 +34,7 @@ export default function PlanDayMap({ dayStops, totalItems, highlightId, onMarker
 
   // Re-fit ONLY when the marker SET changes (day switch / add / remove). A pure
   // reorder keeps the same sorted-id key → no re-fit → the camera holds still while
-  // the polyline redraws in the new order (the "no camera jump" guarantee).
+  // the polyline redraws in the new order.
   const idsKey = useMemo(() => markers.map((m) => m.id).sort().join(','), [markers]);
   const [ready, setReady] = useState(false);
   const [fitBounds, setFitBounds] = useState(true);
@@ -79,12 +79,12 @@ export default function PlanDayMap({ dayStops, totalItems, highlightId, onMarker
           don't ALL resolve to a marker (no pin, no name/sourceId match) isn't silently
           missing some. Subsumes the old zero-matched-stops hint (dayStops.length === 0
           reads as "0 of M stops shown"). Non-blocking overlay; static per render, so no
-          aria-live is needed. */}
+}          aria-live is needed. */
       {totalItems > 0 && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-3">
           <span
             data-testid="plan-day-map-count"
-            className="inline-flex items-center gap-1.5 rounded-full bg-navy-900/85 px-3 py-1.5 text-xs text-white/65 backdrop-blur"
+            className="inline-flex items-center gap-1.5 rounded-full bg-surface/85 px-3 py-1.5 text-xs text-white/65 backdrop-blur"
           >
             <MapPinned className="h-3.5 w-3.5" />
             {dayStops.length} of {totalItems} {totalItems === 1 ? 'stop' : 'stops'} shown

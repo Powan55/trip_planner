@@ -1,6 +1,6 @@
 'use client';
 
-// See app/nepal/sections.tsx for why this lives in a client module. Mirror of
+// (Next 15 migration): see app/nepal/sections.tsx — same reason. Mirror of
 // the Nepal islands with the Japan section component.
 import dynamic from 'next/dynamic';
 import SectionSkeleton from '@/components/section-skeleton';

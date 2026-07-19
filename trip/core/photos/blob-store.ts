@@ -2,7 +2,7 @@
  * `BlobStorePort` — the blob-bytes boundary. The ONE seam photo blobs pass
  * through. Two implementations live here: the native-IndexedDB default (`defaultBlobStore`) and a
  * ~15-line in-memory `Map` fake (`makeInMemoryBlobStore`) that unit tests use instead of adding a
- * `fake-indexeddb`/`idb` dependency (free-by-construction — native `indexedDB` only, no dep).
+ * `fake-indexeddb`/`idb` dependency.
  *
  * ZERO EGRESS: NEITHER implementation contains a line of network code. Blobs exist only in
  * this device's IndexedDB; there is no code path from a blob to a socket. This is the structural half
@@ -40,14 +40,14 @@ export function mintPhotoId(): string {
   return `ph-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-// ── In-memory fake (unit tests; no `fake-indexeddb`/`idb` dep) ───────────────────────────
+// ── In-memory fake ───────────────────────────
 /** Extra test affordance on the fake: force the next writes to fail with a given reason. */
 export interface InMemoryBlobStore extends BlobStorePort {
   /** Test-only: make `put` return `{ ok:false, reason }` ('ok' restores normal behavior). */
   __setMode(mode: 'ok' | 'quota' | 'unavailable'): void;
 }
 
-/** A trivial `Map<string,Blob>` `BlobStorePort` for tests (the IDB stand-in). */
+/** A trivial `Map<string,Blob>` `BlobStorePort` for tests. */
 export function makeInMemoryBlobStore(): InMemoryBlobStore {
   const map = new Map<string, Blob>();
   let mode: 'ok' | 'quota' | 'unavailable' = 'ok';

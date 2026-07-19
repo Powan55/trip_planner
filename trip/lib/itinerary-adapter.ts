@@ -12,8 +12,11 @@ import type { FeaturedDestination } from '@/lib/travel-tips-data';
  * duration does this place get" is decided in exactly one place across all four
  * card families. The user still picks date/time in the dialog.
  *
- * "Already added" is a pure `sourceId` equality — no fuzzy matching — resolved at
- * the card via `findPlacements(sourceId)`.
+ * "Already added" is a pure `sourceId` equality — no fuzzy matching —
+ * resolved at the card via `findPlacements(sourceId)`.
+ *
+ * implemented the `'recommendation'` branch; adds the `'photo' | 'map' |
+ * 'featured'` branches WITHOUT touching the recommendation branch or the map.
  */
 
 export type SourceType = 'recommendation' | 'photo' | 'map' | 'featured';
@@ -40,13 +43,13 @@ export function featuredSourceId(name: string): string {
 }
 
 /**
- * Derive a stable, collision-free `sourceId` for a nightlife venue.
- * Nightlife has no `AddToPlanSource` adapter branch, so a custom-add draft used to
- * carry NO sourceId at all (an anti-false-positive guarantee). Namespacing the
- * venue's own id the same way `featuredSourceId` does preserves that guarantee (it
- * can never collide with a recommendation/photo/map/`featured-*` id) while letting
- * nightlife participate in `findPlacements` like every other surface. Exported so
- * any surface deriving a nightlife venue's sourceId gets the same id.
+ * Derive a stable, collision-free `sourceId` for a nightlife venue ( amends
+ *). Nightlife has no `AddToPlanSource` adapter branch, so a custom-add draft
+ * used to carry NO sourceId at all.
+ * Namespacing the venue's own id the same way `featuredSourceId` does preserves that
+ * guarantee (it can never collide with a recommendation/photo/map/`featured-*` id)
+ * while letting nightlife participate in `findPlacements` like every other surface.
+ * Exported so any surface deriving a nightlife venue's sourceId gets the same id.
  */
 export function nightlifeSourceId(id: string): string {
   return `nightlife-${id}`;
@@ -74,13 +77,13 @@ export interface ItineraryDraft {
  * vocabularies) and must collapse to the canonical `ItineraryCategory` union.
  * Keys are LOWERCASED; lookups normalize the input to lowercase. Anything not
  * present here falls through to the default `sightseeing` (covers Attraction,
- * Hidden Gem, Day Trip, Experience, Anime, ...).
+ * Hidden Gem, Day Trip, Experience, Anime,...).
  *
  * `transportation` / `free` / `nightlife` are never produced by the adapter (no
  * source vocabulary maps to them) but remain user-selectable in the dialog.
  *
  * This mapping is DATA, not behavior — extending it for a new source category is
- * a simple additive edit.
+ * an additive edit recorded against.
  */
 export const CATEGORY_MAP: Record<string, ItineraryCategory> = {
   // food family
@@ -133,7 +136,7 @@ export function normalizeCategory(raw: string | undefined | null): ItineraryCate
  * `FeaturedDestination`. The `unknown`/`SourceType` overload is the generic path
  * used by `AddToPlanButton`, which is discriminated by its own `sourceType` prop.
  *
- * @param source     the source record for the given card family
+ * @param source the source record for the given card family
  * @param sourceType which card family produced it
  */
 export function toItineraryDraft(source: Recommendation, sourceType: 'recommendation'): ItineraryDraft;
@@ -190,9 +193,9 @@ export function toItineraryDraft(source: unknown, sourceType: SourceType): Itine
       };
     }
     case 'featured': {
-      // FeaturedDestination {name,country,blurb,emoji,image?} — NO id, NO category:
-      // derive a stable sourceId from the name; category is always 'sightseeing';
-      // location/duration/time are undefined; notes = blurb.
+      // FeaturedDestination {name,country,blurb,emoji,image?} — NO id, NO category
+      // derive a stable sourceId from the name; category is always
+      // 'sightseeing'; location/duration/time are undefined; notes = blurb.
       const dest = source as FeaturedDestination;
       return {
         title: dest.name,

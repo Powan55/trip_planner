@@ -8,21 +8,21 @@ import PhotoAttach from '@/components/photo-attach';
 import { MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
 
 /**
- * The in-trip per-day TEXT journal card.
+ * —: the in-trip per-day TEXT journal card.
  *
  * Renders INSIDE the in-trip Today panel (`components/today-panel.tsx`), below the agenda — so it is
- * intrinsically in-trip-gated (the panel is `null` outside the trip window) and demoable via `?today=`.
+ * intrinsically in-trip-gated (the panel is `null` outside the trip window) and demoable via `?today=`
  * Reads/writes TODAY'S entry through `useJournal()` → the framework-free journal core +
- * the storage gateway (localStorage only). Photos are handled by a separate attach control.
+ * gateway key 12. Photos are OUT (declared future boundary).
  *
  * Two states:
- *   - READ (an entry exists): mood glyph + highlight + body, with an Edit control.
- *   - EMPTY (no entry): a "Write about today" prompt that opens the editor.
+ * - READ (an entry exists): mood glyph + highlight + body, with an Edit control.
+ * - EMPTY (no entry): a "Write about today" prompt that opens the editor.
  * Edit mode: a mood-chip selector (single-select, togglable to clear), a short highlight input, a
  * multiline text area, and Save + Cancel. Save calls `saveEntry(date, {text, mood, highlight})`;
- * clearing everything + Save removes the entry (the empty state returns).
+ * clearing everything + Save removes the entry.
  *
- * A11y (AA): real `<label>`s, visible focus rings (`focus-visible:ring-gold-400`,
+ * A11y: real `<label>`s, visible focus rings (`focus-visible:ring-gold-400`,
  * matching the panel), ≥44px targets, `aria-pressed` on mood chips, an `aria-live` region on the read
  * view. Static markup + CSS-only transitions → reduced-motion-safe by construction (the parent panel
  * owns the already-gated reveal). Design: the panel's glass-card / navy / gold-accent language.
@@ -46,7 +46,7 @@ export default function JournalCard({ date }: { date: string }) {
   const [draftMood, setDraftMood] = useState<Mood | null>(null);
   const [draftHighlight, setDraftHighlight] = useState('');
 
-  // ── Focus management (the PARENT owns focus-return) ────────────────────────
+  // ── focus management ────────────────────────
   // Opening the editor unmounts the trigger (Edit / "Write about today"), which would otherwise
   // drop focus to <body>; Save/Cancel unmount the editor the same way. We hold refs to both
   // triggers, focus the first editor field on open, and on close return focus to whichever trigger
@@ -146,11 +146,12 @@ export default function JournalCard({ date }: { date: string }) {
           Today&apos;s journal
         </h3>
         <div className="flex items-center gap-1.5">
-          {/* The only way to reach the /journal browse view besides a direct URL. */}
+          {/* the only way to reach the /journal browse view besides a direct URL — nav/tab/
+}              palette wiring is an explicit follow-up rider, not this slice's. */
           <Link
             href="/journal/"
             data-testid="journal-view-all"
-            className="inline-flex min-h-[44px] items-center rounded-lg px-2.5 py-2 text-xs font-medium text-white/55 underline-offset-4 outline-none transition-colors duration-200 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+            className="inline-flex min-h-[44px] items-center rounded-lg px-2.5 py-2 text-xs font-medium text-white/55 underline-offset-4 outline-none transition-colors duration-200 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             View all entries
           </Link>
@@ -161,7 +162,7 @@ export default function JournalCard({ date }: { date: string }) {
               onClick={openEditor}
               data-testid="journal-edit"
               aria-label="Edit today's journal entry"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               Edit
@@ -190,7 +191,7 @@ export default function JournalCard({ date }: { date: string }) {
           type="button"
           onClick={openEditor}
           data-testid="journal-write-prompt"
-          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-white/15 bg-white/[0.02] p-3 text-left text-sm text-white/60 outline-none transition-colors duration-200 hover:border-gold-400/40 hover:bg-white/[0.05] hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-white/15 bg-white/[0.02] p-3 text-left text-sm text-white/60 outline-none transition-colors duration-200 hover:border-gold-400/40 hover:bg-white/[0.05] hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Pencil className="h-4 w-4 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
           <span>
@@ -200,8 +201,8 @@ export default function JournalCard({ date }: { date: string }) {
         </button>
       )}
 
-      {/* Day photos (owner keyed by DATE, so they persist independent of the text entry and
-          the recap is a pure owner.date filter). Local-only IndexedDB blobs, zero egress. */}
+      {/* — day photos (owner keyed by DATE, so they persist independent of the text entry and
+}          recap is a pure owner.date filter). Local-only IndexedDB blobs, zero egress. */
       <PhotoAttach owner={{ kind: 'journal', date }} heading="Day photos" altPlaceholder="e.g. Sunset over Boudhanath" />
     </section>
   );
@@ -225,7 +226,7 @@ function JournalReadView({ entry }: { entry: JournalEntry }) {
             </span>
           )}
           {entry.highlight && (
-            // The PARENT also needs min-w-0 + max-w-full — as a flex item of the
+            // DEF-2: the PARENT also needs min-w-0 + max-w-full — as a flex item of the
             // flex-wrap row it otherwise refuses to shrink below the unbroken highlight's
             // intrinsic width (break-words does not affect intrinsic min-content sizing), which
             // left the child's break-words inert and overflowed the page at 360px.
@@ -263,7 +264,7 @@ function JournalEditor({
   text: string;
   mood: Mood | null;
   highlight: string;
-  /** Parent-owned ref for the first-field-on-open focus (parent-owned pattern). */
+  /** Parent-owned ref for the first-field-on-open focus. */
   highlightInputRef: React.RefObject<HTMLInputElement | null>;
   onTextChange: (v: string) => void;
   onMoodChange: (v: Mood | null) => void;
@@ -274,7 +275,7 @@ function JournalEditor({
   return (
     <div data-testid="journal-editor" className="space-y-4">
       {/* Mood chips — single-select radiogroup-style, but each is a togglable button (tap again to
-          clear), so `aria-pressed` (not radio semantics) is the right affordance. */}
+}          clear), so `aria-pressed` (not radio semantics) is the right affordance. */
       <div>
         <p id="journal-mood-label" className="mb-2 text-xs font-medium text-white/60">
           How was today?
@@ -291,7 +292,7 @@ function JournalEditor({
                 aria-pressed={active}
                 aria-label={`Mood: ${meta.label}`}
                 data-testid={`journal-mood-${m}`}
-                className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 ${
+                className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                   active
                     ? 'border-gold-400 bg-gold-400/15 text-gold-400'
                     : 'border-white/15 bg-white/[0.03] text-white/70 hover:border-white/30 hover:text-white'
@@ -305,7 +306,7 @@ function JournalEditor({
         </div>
       </div>
 
-      {/* Highlight of the day — a short single-line input. */}
+      {}/* Highlight of the day — a short single-line input. */
       <div>
         <label htmlFor="journal-highlight-input" className="mb-1.5 block text-xs font-medium text-white/60">
           Highlight of the day <span className="text-white/55">(optional)</span>
@@ -319,11 +320,11 @@ function JournalEditor({
           maxLength={120}
           placeholder="The one thing worth remembering…"
           data-testid="journal-highlight-input"
-          className="w-full min-h-[44px] rounded-lg border border-white/15 bg-navy-900/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+          className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
         />
       </div>
 
-      {/* The free-text body. */}
+      {}/* The free-text body. */
       <div>
         <label htmlFor="journal-text-input" className="mb-1.5 block text-xs font-medium text-white/60">
           Notes
@@ -335,7 +336,7 @@ function JournalEditor({
           rows={4}
           placeholder="What happened today? How did it feel?"
           data-testid="journal-text-input"
-          className="w-full resize-y rounded-lg border border-white/15 bg-navy-900/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+          className="w-full resize-y rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
         />
       </div>
 
@@ -344,7 +345,7 @@ function JournalEditor({
           type="button"
           onClick={onCancel}
           data-testid="journal-cancel"
-          className="inline-flex min-h-[44px] items-center rounded-lg px-4 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+          className="inline-flex min-h-[44px] items-center rounded-lg px-4 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           Cancel
         </button>
@@ -352,7 +353,7 @@ function JournalEditor({
           type="button"
           onClick={onSave}
           data-testid="journal-save"
-          className="inline-flex min-h-[44px] items-center rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-navy-900 outline-none transition-colors duration-200 hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+          className="inline-flex min-h-[44px] items-center rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-surface outline-none transition-colors duration-200 hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           Save
         </button>

@@ -18,7 +18,7 @@ import { burnRate, type BurnRate } from '@/core/budget/burn-rate';
  * `rollUp(model, expensesToSpent(expenses))`) plus the resolved clock instant (`now`) and the home
  * currency. It adds NO second budget/expense load — so it stays perfectly in lockstep with the panel
  * (a currency toggle or a logged expense re-renders the panel, which re-renders this with fresh
- * props). All the math is the pure `core/budget/burn-rate.ts` (`burnRate`); this file is
+ * props). All the math is the pure `core/budget/burn-rate.ts`; this file is
  * display only and TOTAL by construction (the core never returns `NaN`).
  *
  * ── a11y / house style ──────────────────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@ export default function BurnRateView({
       data-testid="burn-rate"
       className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
     >
-      {/* Header + pace badge */}
+      {}/* Header + pace badge */
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Gauge className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />
@@ -122,7 +122,7 @@ export default function BurnRateView({
         </p>
       ) : (
         <>
-          {/* Spent-vs-budget progress bar with a text equivalent. */}
+          {}/* Spent-vs-budget progress bar with a text equivalent. */
           <div className="mb-4">
             <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
               <span className="text-white/60">
@@ -151,10 +151,10 @@ export default function BurnRateView({
             </div>
           </div>
 
-          {/* The figures. F9: the whole 4-figure grid is NO LONGER an aria-live region (announcing
+          {/* The figures.: the whole 4-figure grid is NO LONGER an aria-live region (announcing
               4 numbers on every currency toggle / expense was spam). The single meaningful summary
               — the worded pace badge above — carries aria-live instead, so only "Under/On/Over pace"
-              is announced on a change. */}
+}              is announced on a change. */
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Figure
               testId="burn-rate-days"
@@ -184,7 +184,7 @@ export default function BurnRateView({
             />
           </dl>
 
-          {/* Screen-reader-only plain-language pace summary (the visible badge is the sighted cue). */}
+          {}/* Screen-reader-only plain-language pace summary (the visible badge is the sighted cue). */
           <p className="sr-only" data-testid="burn-rate-pace-sr">
             {pace.sr}
           </p>
@@ -213,9 +213,9 @@ function Figure({
   // Wrapped in a <div> group inside the parent <dl> (an allowed dl grouping element). The <div>
   // may ONLY contain <dt>/<dd> — so the supplementary `sub` is a SECOND <dd> (multiple descriptions
   // for one term are valid), NOT a <p> (axe `definition-list`: a <p> directly inside the group is a
-  // serious violation — surfaced by the in-app axe scan).
+  // serious violation — surfaced by the in-trip axe scan,).
   return (
-    <div className="rounded-lg border border-white/10 bg-navy-900/40 p-3">
+    <div className="rounded-lg border border-white/10 bg-surface/40 p-3">
       <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-white/55">
         {icon && <span className="text-white/40">{icon}</span>}
         {label}

@@ -80,9 +80,9 @@ function VenueCard({ venue, onOpen, isAdded }: { venue: NightlifeVenue; onOpen: 
           </div>
         </div>
 
-        {/* Passive planned-state indicator — decorative only (no nested
+        {/* passive planned-state indicator — decorative only (no nested
             interactive control inside this button; add/modify/remove lives in the
-            detail sheet the tap above opens). Reactive to the shared itinerary store. */}
+}            detail sheet the tap above opens). Reactive to the shared itinerary store. */
         {isAdded && (
           <span
             data-testid={`nightlife-added-${venue.id}`}
@@ -98,16 +98,16 @@ function VenueCard({ venue, onOpen, isAdded }: { venue: NightlifeVenue; onOpen: 
 }
 
 /**
- * Optional `country` filter prop. No prop = both country blocks
- * (original behavior); on /nepal/ and /japan/ only that country's venues show. The show/hide
- * toggle and its `nightlife_section_visible` key/value shape are unchanged; the key +
- * storage access live in the gateway (`uiPrefs`).
+ * optional `country` filter prop. No prop = both country blocks
+ * (v1 behavior); on /nepal/ and /japan/ only that country's venues show. The show/hide
+ * toggle and its `nightlife_section_visible` key/value shape are unchanged; as of
+ * the key + storage access live in the gateway.
  *
- * Also includes a search box, city + vibe chips with live counts, sort, an empty state,
+ * adds a search box, city + vibe chips with live counts, sort, an empty state,
  * must-see badges, and a tap-to-open detail sheet. Nightlife venues have no adapter
  * source, so the detail sheet's add-to-plan uses the
  * CUSTOM add flow: a plain item prefilled with the venue's title/location.
- * The custom draft's sourceId is namespaced (`nightlife-<id>`) so it CAN
+ * namespaces the custom draft's sourceId (`nightlife-<id>`) so it CAN
  * show planned-state feedback — the namespace guarantees it still never trips a
  * false "Added" badge on any curated (recommendation/photo/map/featured) card.
  */
@@ -130,7 +130,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
 
   useEffect(() => {
     setMounted(true);
-    // The `nightlife_section_visible` key + access live in the gateway.
+    // the `nightlife_section_visible` key + access moved to the gateway.
     // The pref is `String(boolean)` on disk (NOT JSON); `uiPrefs.getNightlifeVisible()`
     // parses it leniently (`=== 'true'`) and returns null when absent — so the `visible`
     // default of `true` is only overridden when a value was actually stored, byte-identical
@@ -237,8 +237,8 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
 
   // Custom-add prefill for the detail sheet: nightlife has no adapter source,
   // so we open the custom dialog with the venue title/location prefilled. category
-  // defaults to 'nightlife' since it's the honest category for a venue. sourceId
-  // is the NAMESPACED `nightlife-<id>` (not empty) so this venue can show
+  // defaults to 'nightlife' since it's the honest category for a venue.: sourceId
+  // is now the NAMESPACED `nightlife-<id>` (not empty) so this venue can show
   // planned-state feedback; the namespace guarantees no false "Added" elsewhere.
   const customAddDraft: ItineraryDraft | undefined = selected
     ? {
@@ -259,7 +259,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
     setQuery('');
   };
 
-  // Visibility gate (soft/UI-only, NOT real access control — the content
+  // visibility gate ( soft/UI-only, NOT real access control — the content
   // still ships in the static bundle either way). Hidden entirely (not a teaser) unless
   // a real Trip Token is signed in; `traveler === null` covers both "not mounted yet" and
   // "guest" (a guest never gets past the token-gate wall without EITHER a token OR the
@@ -270,9 +270,9 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
   return (
     <section id="nightlife" data-testid="nightlife-section" aria-labelledby="nightlife-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* Slide-only masthead entrance (opacity pinned to 1) so the axe
+        {/* slide-only masthead entrance (opacity pinned to 1) so the axe
             scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
-            mid-fade as a transient contrast failure. See RecommendationSection. */}
+}            mid-fade as a transient contrast failure. See RecommendationSection. */
         <m.div
           initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -305,7 +305,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
             whole nightlife panel fades up from opacity:0 on every page load — and
             the (non-reduced-motion) axe scan catches its chips/inputs mid-fade at
             ~0.15 opacity as serious contrast failures. Suppressing only the initial
-            mount animation keeps the show/hide toggle transition fully intact. */}
+}            mount animation keeps the show/hide toggle transition fully intact. */
         <AnimatePresence initial={false}>
           {visible && (
             <m.div
@@ -315,7 +315,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden"
             >
-              {/* Search + sort */}
+              {}/* Search + sort */
               <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
@@ -347,13 +347,13 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                     onChange={(e) => setSort(e.target.value as SortKey)}
                     className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
                   >
-                    <option value="mustSee" className="bg-navy-900">Sort: Must-see first</option>
-                    <option value="name" className="bg-navy-900">Sort: Name (A–Z)</option>
+                    <option value="mustSee" className="bg-surface">Sort: Must-see first</option>
+                    <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
                   </select>
                 </div>
               </div>
 
-              {/* City filter chips (only when more than one city is present) */}
+              {}/* City filter chips (only when more than one city is present) */
               {cities.length > 2 && (
                 <div className="flex flex-wrap justify-center gap-2 mb-3">
                   {cities.map((city) => (
@@ -374,7 +374,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                 </div>
               )}
 
-              {/* Vibe filter chips with live counts */}
+              {}/* Vibe filter chips with live counts */
               <div className="flex flex-wrap justify-center gap-2 mb-8">
                 {vibes.map((vibe) => (
                   <button

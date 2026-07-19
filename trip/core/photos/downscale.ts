@@ -1,5 +1,5 @@
 /**
- * Capture downscale pipeline. Browser-facing but dependency-free (native
+ * Capture downscale pipeline. Browser-facing but dependency-free ( — native
  * `createImageBitmap` + Canvas + `toBlob`, no `sharp`/`browser-image-compression`/etc.). A captured
  * `File`/`Blob` is decoded, drawn scaled onto an offscreen canvas, and re-encoded as JPEG q0.8 with a
  * long edge of at most 1600 px BEFORE any `BlobStorePort.put` — original full-size bytes are never
@@ -11,7 +11,7 @@
  */
 
 /** Max long edge of a stored photo: retina-sharp at every in-app surface, ~4× smaller area
- *  than a 12 MP original. */
+ * than a 12 MP original. */
 export const MAX_EDGE = 1600;
 /** JPEG quality: the visually-transparent knee for photographic content. */
 export const JPEG_QUALITY = 0.8;

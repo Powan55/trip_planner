@@ -1,9 +1,9 @@
-// Real confirmed bookings — read-only PRESENTATION data, deliberately
-// kept separate from the user-editable, localStorage-persisted itinerary store.
+// Real confirmed bookings (Lax, M8) — read-only PRESENTATION data, deliberately
+// kept separate from the user-editable, localStorage-persisted itinerary store
 // These are fixed reference facts about the trip (flight numbers,
 // terminals, seats, the hotel); they are NOT an ItineraryItem/DayPlan and are NOT
 // persisted. The only link to the itinerary is human-authored content agreement
-// — never a shared type or store. (Locked.)
+// — never a shared type or store.
 //
 // HARD RULE: time/duration/total labels are rendered VERBATIM. There is no
 // `Date` object, no parsing, no timezone math, no recompute anywhere in this module
@@ -73,7 +73,7 @@ export interface ToBookPlaceholder {
 export const OUTBOUND_JOURNEY: Journey = {
   id: 'outbound', label: 'Outbound — Syracuse to Kathmandu', status: 'booked',
   fromSummary: 'Syracuse (SYR)', toSummary: 'Kathmandu (KTM)',
-  totalDuration: '1d 15m',            // verbatim source string — render as-is, do NOT recompute
+  totalDuration: '1d 15m',            // Lax's verbatim source string — render as-is, do NOT recompute
   legs: [
     { id: 'out-1', flightNumber: 'Delta 5363',
       fromCode: 'SYR', fromName: 'Syracuse Hancock Intl',
@@ -133,7 +133,7 @@ export const TOKYO_TO_OSAKA_JOURNEY: Journey = {
 export const FLIGHT_HOME_JOURNEY: Journey = {
   id: 'flight-home', label: 'Flight home — Tokyo to Syracuse', status: 'booked',
   fromSummary: 'Tokyo (HND)', toSummary: 'Syracuse (SYR)',
-  totalDuration: '19h 23m',           // verbatim source string — render as-is, do NOT recompute
+  totalDuration: '19h 23m',           // Lax's verbatim source string — render as-is, do NOT recompute
   legs: [
     { id: 'home-1', flightNumber: 'Delta 274',
       fromCode: 'HND', fromName: 'Tokyo Haneda', fromTerminal: 'Terminal 3',

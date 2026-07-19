@@ -1,5 +1,5 @@
 /**
- * Core ports — the framework-free boundary interfaces the app's adapters implement.
+ * Core ports — the framework-free boundary interfaces the app's adapters implement
  * "Port" in the hexagonal sense: `core/` states WHAT it
  * needs from the outside world as a plain-TS interface, and a thin `lib/` adapter
  * supplies the actual I/O (URL / web-storage / real clock). Core never imports React,
@@ -9,7 +9,7 @@
  * The single "what instant is it, right now" boundary. `core/clock` decomposition
  * (`computeCountdown`) and `core/dates` day-math are PURE — they take a `now: Date` and
  * never read a clock. The impurity (reading the real clock AND resolving the `?today=`
- * simulation override) is confined to the adapter that implements this
+ * simulation override —) is confined to the adapter that implements this
  * port: `lib/trip-now.ts`. Keeping the read behind a one-method port is what lets the
  * override precedence + once-per-load timing live in exactly one place while the math
  * stays deterministically testable.
@@ -45,7 +45,7 @@ export interface StoragePort<T> {
   load(): T;
   /** Persist a value verbatim — including an empty one; no length gate. */
   save(value: T): void;
-  /** Has a value ever been persisted to this browser? (key-presence.) */
+  /** Has a value ever been persisted to this browser? */
   has(): boolean;
 }
 
@@ -54,20 +54,21 @@ export interface StoragePort<T> {
  * The remote-sync boundary. Two directions, both per-day-DELTA-shaped to match the
  * Firestore/Spark-compatible per-day granularity:
  *
- *   push(prev, next)  — local→remote fan-out, invoked ONLY from the store's single
- *                       `commit()` choke-point AFTER the local `save()`. Diffs
- *                       `prev`→`next` per day; for each changed day it performs the
- *                       merge-aware write (Sync v2). No-op when not
- *                       configured. Never throws (degrades local-only).
- *   subscribe(onApplied) — remote→local read direction. Opens the long-lived Firestore
- *                       `onSnapshot`; on each snapshot it MERGES incoming remote days
- *                       against the current local view and applies via
- *                       `savePlans()`+dispatch DIRECTLY — NEVER via `commit()` — so the
- *                       snapshot path can never re-push (echo-suppression). Returns
- *                       an unsubscribe fn; a no-op unsub when not configured.
- *   isConfigured()    — the dormant/config gate surfaced through the port.
+ * push(prev, next) — local→remote fan-out, invoked ONLY from the store's single
+ * `commit()` choke-point AFTER the local `save()`. Diffs
+ * `prev`→`next` per day; for each changed day it performs the
+ * merge-aware write. No-op when not
+ * configured. Never throws.
+ * subscribe(onApplied) — remote→local read direction. Opens the long-lived Firestore
+ * `onSnapshot`; on each snapshot it MERGES incoming remote days
+ * against the current local view and applies via
+ * `savePlans()`+dispatch DIRECTLY — NEVER via `commit()` — so the
+ * snapshot path can never re-push. Returns
+ * an unsubscribe fn; a no-op unsub when not configured.
+ * isConfigured() — the dormant/config gate surfaced through the port.
  *
- * The remote→local direction was previously an out-of-band `subscribeRemote` the provider
+ * finalizes the shape around. The
+ * remote→local direction was previously an out-of-band `subscribeRemote` the provider
  * called directly; it is now first-class on the port so the whole sync surface is ONE
  * contract. The provider still owns WHEN it subscribes (mount + identity gates) — the port
  * just exposes the operation.

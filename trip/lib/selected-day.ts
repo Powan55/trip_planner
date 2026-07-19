@@ -1,7 +1,7 @@
 // The mobile "selected trip-day" signal.
 //
 // A tiny in-memory module value plus a `plan:selected-date` CustomEvent, mirroring
-// the reactive-signal idiom used elsewhere (module var + window event, no React store).
+// the reactive-signal idiom (module var + window event, no React store).
 //
 // STORAGE RULE: this holds state ONLY in a module variable + fires a
 // window event — NEVER localStorage, NEVER sessionStorage. It is a per-page-load,
@@ -10,10 +10,10 @@
 // from `null` and the FAB falls back to `getTodayInTrip()` / `TRIP_DATES[0]`.
 //
 // Wiring:
-//   - The quick-add FAB READS `getSelectedDay()` and MAY subscribe to
-//     `SELECTED_DATE_EVENT` — graceful `null` until the calendar sets it.
-//   - `calendar-planner.tsx` calls `setSelectedDay(date)` on day selection so the
-//     FAB's preset date follows the day the user is looking at.
+// - (this slice): the quick-add FAB READS `getSelectedDay()` and MAY subscribe to
+// `SELECTED_DATE_EVENT` — graceful `null` until the calendar sets it.
+// -: `calendar-planner.tsx` calls `setSelectedDay(date)` on day selection so the
+// FAB's preset date follows the day the user is looking at.
 //
 // SSR-safe: the `window.dispatchEvent` is guarded so `setSelectedDay` is a no-op event-wise
 // on the server (it still updates the module var, which is harmless there).

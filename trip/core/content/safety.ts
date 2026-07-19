@@ -3,13 +3,12 @@ import { z } from 'zod';
 /**
  * SAFETY-CRITICAL static content — an offline travel-safety reference for the
  * Nepal + Japan legs: emergency/embassy numbers, a romanized phrasebook, and a document
- * checklist. Framework-free: plain TS + zod (already a prod dep — no new dependency).
+ * checklist. Framework-free: plain TS + zod.
  *
- * DELIBERATELY SELF-CONTAINED: this file does NOT import from or extend
- * `core/content/schema.ts` (kept self-contained/out of scope of the itinerary content
- * schema, which is owned separately) — it declares its own local `.strict()` Zod shapes
- * below and `.parse()`s its own data at MODULE LOAD (unlike `core/content/schema.ts`,
- * whose schemas only run authoring/CI-time via
+ * DELIBERATELY SELF-CONTAINED: this file does NOT import from
+ * or extend `core/content/schema.ts` —
+ * it declares its own local `.strict()` Zod shapes below and `.parse()`s its own data at
+ * MODULE LOAD (unlike `core/content/schema.ts`, whose schemas only run authoring/CI-time via
  * `lib/__tests__/content-validation.test.ts` — here the parse is eager, at import time, so a
  * malformed entry fails the build immediately, not just in a separate validate step). Static
  * data only — no fetch, no key, no persistence.
@@ -17,16 +16,16 @@ import { z } from 'zod';
  * ── SAFETY-CRITICAL ACCURACY (read before editing) ─────────────────────────────────────────
  * Every emergency/embassy contact below cites its official source in `sourceUrl` and carries
  * a `verified` flag:
- *   - `verified: true`  — the long-standing, universally-published national emergency number
- *     for that service (Nepal Police 100 / Ambulance 102 / Fire 101; Japan Police 110 /
- *     Fire+Ambulance 119). These have been stable for decades and are corroborated by every
- *     government and embassy travel-safety page; high confidence.
- *   - `verified: false` — a specific switchboard/hotline digit string (a tourist-police line,
- *     an embassy main number, a tourist-info hotline) that this build environment could NOT
- *     re-confirm against a LIVE fetch (no web-browsing tool was available this session) — each
- *     carries a `note` telling the traveler to reconfirm on the linked official page before
- *     relying on it. Flagged for a human spot-check. DO NOT
- *     flip `verified` to `true` without an actual live check against `sourceUrl`.
+ * - `verified: true` — the long-standing, universally-published national emergency number
+ * for that service (Nepal Police 100 / Ambulance 102 / Fire 101; Japan Police 110 /
+ * Fire+Ambulance 119). These have been stable for decades and are corroborated by every
+ * government and embassy travel-safety page; high confidence.
+ * - `verified: false` — a specific switchboard/hotline digit string (a tourist-police line,
+ * an embassy main number, a tourist-info hotline) that this build environment could NOT
+ * re-confirm against a LIVE fetch (no web-browsing tool was available this session) — each
+ * carries a `note` telling the traveler to reconfirm on the linked official page before
+ * relying on it. Flagged explicitly in the for a human spot-check. DO NOT
+ * flip `verified` to `true` without an actual live check against `sourceUrl`.
  */
 
 // ── Emergency & embassy contacts ────────────────────────────────────────────────────────────
@@ -38,7 +37,7 @@ export const emergencyContactSchema = z
     service: z.string().min(1),
     /** Display string, e.g. "100" or "+977-1-423-4000". */
     number: z.string().min(1),
-    /** `tel:` href value — digits only, optional leading "+". */
+    /** `tel:` href value — digits only, optional leading "+". href discipline. */
     tel: z.string().regex(/^\+?[0-9]+$/, 'tel must be a plain [+]digits string'),
     sourceUrl: z.string().url(),
     verified: z.boolean(),
@@ -154,7 +153,7 @@ export const phraseSchema = z
     id: z.string().min(1),
     category: z.enum(phraseCategories),
     english: z.string().min(1),
-    /** Romanized Nepali — no Devanagari (keeps things simple; avoids font/encoding risk). */
+    /** Romanized Nepali — no Devanagari. */
     nepali: z.string().min(1),
     /** Romanized Japanese (romaji) — no kana/kanji. */
     japanese: z.string().min(1),

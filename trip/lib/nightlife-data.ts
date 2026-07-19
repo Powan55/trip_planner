@@ -8,7 +8,7 @@ export interface NightlifeVenue {
   priceRange: string;
   bestDays: string;
   description: string;
-  // --- optional enrichment fields (additive; nothing existing breaks) ---
+  // --- optional enrichment ---
   /** Curated genuine highlight — drives the "Must-see" badge. */
   mustSee?: boolean;
   /** Longer, accurate description shown in the detail sheet. Real facts only. */
@@ -27,9 +27,10 @@ export const NIGHTLIFE_VENUES: NightlifeVenue[] = [
   { id: 'nl9', name: 'Roppongi Hills Club Area', country: 'Japan', location: 'Roppongi, Tokyo', vibe: 'International nightlife hub', musicType: 'Mixed', priceRange: '$$$', bestDays: 'Fri-Sat', description: 'Tokyo\'s famous nightlife district with dozens of clubs and bars. Popular with expats and tourists.' },
   { id: 'nl10', name: 'Zoetrope Whisky Bar', country: 'Japan', location: 'Shinjuku, Tokyo', vibe: 'Whisky haven', musicType: 'Jazz', priceRange: '$$$', bestDays: 'Any night', description: 'Over 200 Japanese whiskies in a tiny, atmospheric bar. Perfect for whisky enthusiasts. Cinema-themed decor.' },
 
-  // Osaka + Kyoto nightlife (boys-trip route). Legal venues/districts only — no
+  // — Osaka + Kyoto nightlife (boys-trip route). Legal venues/districts only — no
   // Tobita Shinchi card (red-light district; not a base, not a place to visit). The
-  // Soemoncho caution is folded into nl13's description below, not given its own card.
+  // Soemoncho caution from the source brief is folded into nl13's description below,
+  // not given its own card (per the brief's own "Important Planning Boundary").
   { id: 'nl11', name: 'Namba/Dotonbori Nightlife Strip', country: 'Japan', location: 'Namba/Dotonbori, Osaka', vibe: 'Late-night food & bar crawl', musicType: 'Mixed / DJ', priceRange: '$-$$', bestDays: 'Any night', description: 'Osaka\'s main nightlife and food strip along the neon-lit Dotonbori canal — bars, standing izakaya and late-night ramen. Best for a first-night orientation walk and casual bar-hopping; confirm prices before sitting down at any bar with a tout out front.' },
   { id: 'nl12', name: 'Shinsaibashi Club Row', country: 'Japan', location: 'Shinsaibashi, Osaka', vibe: 'Club & bar hopping', musicType: 'EDM, Hip-Hop, Top 40', priceRange: '$$-$$$', bestDays: 'Fri-Sat', description: 'Osaka\'s main club-hopping strip, a short walk from the covered Shinsaibashi-suji arcade — the best base for a bigger party night. Cover charges and any bottle/table minimum vary a lot by door; agree the price before going in.' },
   { id: 'nl13', name: 'Amerikamura Bars', country: 'Japan', location: 'Amerikamura, Osaka', vibe: 'Young, streetwear, hip-hop energy', musicType: 'Hip-Hop, Rap', priceRange: '$-$$', bestDays: 'Any night', description: '"Amemura" is Osaka\'s youth-culture quarter — streetwear shops by day, casual hip-hop and rap-leaning bars by night; a relaxed, less touristy alternative to Shinsaibashi\'s bigger clubs. Note: neighbouring Soemoncho, right next to Dotonbori, is an adult-nightlife-adjacent strip with unclear pricing and persistent touts — treat it as a walk-through, not a place to stop for a drink.' },

@@ -1,10 +1,16 @@
-// Trip Token gate — maps a shared "Trip Token" to a known traveler identity.
+// Nickname sign-in — a free-text display name a traveler types to identify themselves.
 //
-// This is *soft* identity (display-only, intentionally spoofable). A token is just a
-// shared word the three of us type to say "this is me"; on a match we reuse the
-// existing display-name pipeline (`setUserName` from ./identity) so attribution
-// (createdBy / updatedBy stamping, "last edited by X") needs zero changes. The token
-// itself is persisted separately so the gate can recognise a returning traveler.
+// This is *soft* identity (display-only, intentionally spoofable). item 3
+// retired the fixed 3-name roster: `resolveToken` now accepts ANY non-empty trimmed name
+// (a reversion to the pre-M10 name-prompt validation), for every pack including the
+// default. On sign-in we reuse the existing display-name pipeline (`setUserName` from
+// /identity) so attribution (createdBy / updatedBy stamping, "last edited by X") needs
+// zero changes. The name itself is persisted separately (the identity "token" slot) so
+// the gate can recognise a returning traveler.
+//
+// NAMING: the capability secret is the "Trip Key" (settings-panel / handshake);
+// this personal identity is a plain "nickname" — the two must never both be called a
+// "token" in UI copy.
 //
 // This module is firebase-free and carries no auth credential — the unspoofable
 // security id (anonymous-auth uid) is a separate, backend-greenlight-only concern and
@@ -17,10 +23,10 @@
 import { setUserName } from './identity';
 import { identityStore } from '@/core/storage/gateway';
 
-// The token key literal AND the raw localStorage access now live in
+// the token key literal AND the raw localStorage access now live in
 // the typed storage gateway (`core/storage/gateway.ts`). The duplicated
 // `tripPlannerUserName` literal that used to sit here is gone — the cross-module clear on
-// sign-out (token + name, owned by ./identity) is `identityStore.clearIdentity()`, which
+// sign-out (token + name, owned by./identity) is `identityStore.clearIdentity()`, which
 // clears BOTH keys. On-disk key strings and value shapes are unchanged.
 
 /**
@@ -39,13 +45,45 @@ function emitIdentityChanged(): void {
 export interface Traveler {
   /** Display name stamped onto items via the identity pipeline. */
   name: string;
-  /** Shared word the traveler types to sign in (matched trim + case-insensitively). */
+  /** The trimmed nickname the traveler typed (persisted so a return visit is recognised). */
   token: string;
-  /** On-brand accent for per-traveler tint/chip. */
+  /** On-brand accent for per-traveler tint/chip — deterministic hash of the name. */
   accent: string;
 }
 
-/** The known travelers. Token == name by design; accents are the three brand families. */
+/**
+ * The existing on-brand accent palette, drawn verbatim from the
+ * three brand families in `tailwind.config.ts` (gold / sakura / himalaya, two shades each).
+ * A nickname hashes deterministically into this fixed set — no per-person hardcoding, no
+ * new dependency, no invented colours.
+ */
+const ACCENT_PALETTE = [
+  '#f0c760', // gold 400 (brand primary)
+  '#d4a843', // gold 500
+  '#f7a0b3', // sakura 400
+  '#ffb7c5', // sakura 300
+  '#ff8c42', // himalaya 400
+  '#e67635', // himalaya 500
+] as const;
+
+/**
+ * Deterministic name → accent. Case-insensitive over the trimmed name so a
+ * traveler keeps the same tint across sign-ins regardless of casing. Pure; safe anywhere.
+ */
+export function accentForName(name: string): string {
+  const key = name.trim().toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+  return ACCENT_PALETTE[hash % ACCENT_PALETTE.length];
+}
+
+/**
+ * The default expense-split roster (the three actual Nepal×Japan friends). This is NO LONGER
+ * the sign-in gate — it survives ONLY as
+ * the fixed member list the expense-split UI (`expense-dialog` / `settle-up-summary` /
+ * `budget-panel`) offers on the default trip. Accents kept as the original brand tints so those
+ * surfaces are visually unchanged. Out of this slice's scope to make dynamic.
+ */
 export const TRAVELERS: readonly Traveler[] = [
   { name: 'Powan', token: 'Powan', accent: '#f0c760' }, // gold (brand primary)
   { name: 'Sushil', token: 'Sushil', accent: '#f7a0b3' }, // sakura
@@ -53,20 +91,21 @@ export const TRAVELERS: readonly Traveler[] = [
 ] as const;
 
 /**
- * Resolve a raw token string to a traveler, or null if it matches none.
- * Pure: trims and matches case-insensitively against each traveler's `token`.
- * No storage access — safe to call anywhere (including during SSR / in tests).
+ * Resolve a raw nickname to a traveler, or null if it is empty/whitespace.
+ * Any non-empty trimmed string is accepted — the name is preserved verbatim (only trimmed),
+ * and its accent is the deterministic name-hash. Pure, no storage — safe anywhere (incl. SSR
+ * / tests).
  */
 export function resolveToken(raw: string): Traveler | null {
-  const candidate = raw.trim().toLowerCase();
-  if (!candidate) return null;
-  return TRAVELERS.find((t) => t.token.toLowerCase() === candidate) ?? null;
+  const name = raw.trim();
+  if (!name) return null;
+  return { name, token: name, accent: accentForName(name) };
 }
 
 /**
- * Sign in with a raw token. On a valid token: persist the display name (via the
- * existing identity pipeline) and the token itself, then return the traveler.
- * Returns null on an invalid token. No-op persistence during SSR or if storage fails.
+ * Sign in with a raw nickname. On a non-empty name: persist the display name (via the
+ * existing identity pipeline) and the name itself, then return the traveler. Returns null
+ * only for an empty/whitespace input. No-op persistence during SSR or if storage fails.
  */
 export function signIn(raw: string): Traveler | null {
   const traveler = resolveToken(raw);

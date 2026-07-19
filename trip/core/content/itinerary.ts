@@ -3,7 +3,7 @@ import type { DayPlan } from '@/lib/trip-data';
 /**
  * THE single authoring source for the trip's day-by-day plan content.
  * Edit THIS file to change what a fresh device sees and what the per-day city map
- * (`core/dates/trip-cities.ts` — DERIVED from here) computes from. Framework-free:
+ * computes from. Framework-free:
  * plain TS, no React / Next / `window`, and — critically — it imports NOTHING from
  * `core/dates` (the one-way arrow keeps the derivation acyclic; `country`-vs-date agreement
  * is a `validate:content` check, not a derivation).
@@ -15,7 +15,7 @@ import type { DayPlan } from '@/lib/trip-data';
  * validation runs authoring/CI-time only, in `core/content/schema.ts` + the validate:content
  * suite). A content/seed swap NEVER rewrites live saved or synced data.
  *
- * See docs/trip-content.md for the edit runbook (edit map, invariants, workflow, danger zone).
+ *
  */
 export const TRIP_ITINERARY: DayPlan[] = [
   {

@@ -33,16 +33,16 @@ import ExpenseLog from '@/components/expense-log';
 import SettleUpSummary from '@/components/settle-up-summary';
 
 /**
- * Budget panel. Mounted on `/plan` between the calendar planner and Backup & Restore
- * via `dynamic({ ssr:false })`.
+ * Budget panel. Mounted on `/plan` between the calendar
+ * planner and Backup & Restore via `dynamic({ ssr:false })`.
  *
- * Lets the traveller SET budgets and rates and SEE the totals — expense logging and
- * burn-rate/overlays live in sibling components. Specifically:
- *   - a total budget per leg (Nepal in NPR, Japan in JPY);
- *   - optional per-category budgets per leg (the 10 canonical ItineraryCategory values);
- *   - the home/display currency (USD / NPR / JPY);
- *   - a manual override of the two exchange rates (NPR-per-USD, JPY-per-USD) — the seeds are
- *     labelled as approximate defaults; there is NO rate API / fetch.
+ * Lets the traveller SET budgets and rates and SEE the totals — no expense LOGGING and no
+ * burn-rate/overlays. Specifically:
+ * - a total budget per leg (Nepal in NPR, Japan in JPY);
+ * - optional per-category budgets per leg;
+ * - the home/display currency (USD / NPR / JPY);
+ * - a manual override of the two exchange rates (NPR-per-USD, JPY-per-USD) — the seeds are
+ * labelled as approximate defaults; there is NO rate API / fetch.
  * Per-leg totals + a grand total roll up into the home currency. Every edit persists through the
  * typed storage gateway via `saveBudget`, so it survives a reload.
  *
@@ -74,9 +74,9 @@ export default function BudgetPanel() {
     setNow(getNow());
   }, []);
 
-  // Persist every change through the store's single commit choke-point (fresh-base
-  // read + fan-out). Gated on `hydrated` INSIDE `commit` (so a first-render seed can't clobber a saved
-  // model before load), which is why the setters can build `next` from the
+  // Persist every change through the store's single commit choke-point ( fresh-base +
+  //). Gated on `hydrated` INSIDE `commit` (so a first-render seed can't clobber a saved
+  // model before load — the discipline), which is why the setters can build `next` from the
   // current `model` and hand it in as a constant compute.
   const persist = (next: BudgetModel) => {
     commit(() => next);
@@ -97,22 +97,22 @@ export default function BudgetPanel() {
     });
   };
 
-  // The home-currency toggle + exchange-rate override moved to the Settings page
+  // the home-currency toggle + exchange-rate override moved to the Settings page
   // (`components/settings-panel.tsx`). The write path is IDENTICAL (still `useBudget().commit`),
-  // so budget sync (`mergeBudget`) is unaffected — only the rendering location changed.
+  // so budget sync is unaffected — only the rendering location changed.
 
-  // The reactive expense store. Its aggregate feeds the `rollUp` `spent` seam, so the
+  // the reactive expense store. Its aggregate feeds the `rollUp` `spent` seam, so the
   // rollup now returns real spent/remaining. The store's CustomEvent makes this update live the
   // instant an expense is logged/edited/deleted from the global dialog (or the list below).
   const { expenses, removeExpense, restoreExpense } = useExpenses();
-  // The sync-on expense Undo re-adds a FRESH-ID copy, so any receipt photo pointed at the
+  // the sync-on expense Undo re-adds a FRESH-ID copy, so any receipt photo pointed at the
   // old id must follow. `repointExpense` is a no-op when the id is unchanged (dormant restore).
   const { repointExpense } = usePhotos();
   const spent = useMemo(() => expensesToSpent(expenses), [expenses]);
   const roll = useMemo(() => rollUp(model, spent), [model, spent]);
   const home = model.homeCurrency;
 
-  // The read-only "who owes whom" settlement over the SAME expenses (per-leg / per-currency).
+  // the read-only "who owes whom" settlement over the SAME expenses (per-leg / per-currency).
   // Separate from the spend rollup above — split never changes totals, only who reimburses whom.
   // `me` (the active traveler) is the payer fallback for a split expense logged without an explicit
   // payer. Empty until ≥1 split expense exists, so the summary stays hidden on the fast path.
@@ -122,7 +122,7 @@ export default function BudgetPanel() {
     [expenses, traveler],
   );
 
-  // Delete an expense immediately (fast-log ethos — no confirm dialog), then offer a sonner
+  // delete an expense immediately (fast-log ethos — no confirm dialog), then offer a sonner
   // Undo that re-inserts the EXACT removed object (same id + createdAt) via the store's
   // restore path. Keeping the removed object captured in the closure is what makes the restore
   // byte-identical rather than a fresh-id re-log.
@@ -140,7 +140,7 @@ export default function BudgetPanel() {
   };
 
   // Open the fast-log dialog (add mode) via the global host. The button that had focus is the
-  // parent-owned focus-return target (the host captures document.activeElement).
+  // parent-owned focus-return target.
   const openLogDialog = () => {
     if (typeof window === 'undefined') return;
     window.dispatchEvent(new CustomEvent(EXPENSE_OPEN_EVENT));
@@ -152,7 +152,7 @@ export default function BudgetPanel() {
     window.dispatchEvent(new CustomEvent(EXPENSE_OPEN_EVENT, { detail: { expense } }));
   };
 
-  // Axe-deterministic reveal: full-opacity slide (opacity pinned to 1) so the axe scan
+  // axe-deterministic reveal: full-opacity slide (opacity pinned to 1) so the axe scan
   // (no reduced motion) never catches the muted budget copy mid-fade below AA. Reduced-motion
   // branch left intact (it only runs under reduced motion, which the scan does not exercise).
   const reveal = prefersReducedMotion
@@ -175,7 +175,7 @@ export default function BudgetPanel() {
         variants={reveal}
         className="glass-card rounded-2xl p-6 sm:p-8"
       >
-        {/* Header */}
+        {}/* Header */
         <div className="mb-6 flex items-start gap-3">
           <Wallet className="mt-0.5 h-6 w-6 shrink-0 text-gold-400" aria-hidden="true" />
           <div>
@@ -192,7 +192,7 @@ export default function BudgetPanel() {
           </div>
         </div>
 
-        {/* Per-leg budgets */}
+        {}/* Per-leg budgets */
         <div className="grid gap-4 lg:grid-cols-2">
           <LegBudgetCard
             leg="nepal"
@@ -216,12 +216,12 @@ export default function BudgetPanel() {
           />
         </div>
 
-        {/* Grand total (budget + spent + remaining, all in the home currency) */}
+        {}/* Grand total (budget + spent + remaining, all in the home currency) */
         <GrandTotal roll={roll} home={home} />
 
         {/* Burn-rate vs plan: rendered from the SAME live `roll` — spent-vs-budget bar, days
             elapsed/remaining, daily avg vs budget, projected end-of-trip total, under/on/over pace.
-            No duplicate budget/expense load — it's fed the panel's reactive totals + the clock. */}
+}            No duplicate budget/expense load — it's fed the panel's reactive totals + the clock. */
         <BurnRateView
           budgetHome={roll.totalBudgetHome}
           spentHome={roll.totalSpentHome}
@@ -229,7 +229,7 @@ export default function BudgetPanel() {
           now={now}
         />
 
-        {/* Expense log — the fast-log trigger + the logged-expense list */}
+        {}/* Expense log — the fast-log trigger + the logged-expense list */
         <ExpenseLog
           expenses={expenses}
           onLog={openLogDialog}
@@ -237,7 +237,7 @@ export default function BudgetPanel() {
           onDelete={handleDeleteExpense}
         />
 
-        {/* Settle up — who owes whom over the split expenses; hidden until ≥1 split. */}
+        {}/* Settle up — who owes whom over the split expenses; hidden until ≥1 split. */
         <SettleUpSummary settlements={settlements} />
       </m.div>
     </section>
@@ -283,11 +283,11 @@ function SpentRemaining({
 }
 
 /**
- * Count-up: a money figure that eases up to its value the first time it scrolls
- * into view (reusing the `use-count-up` hook, exactly like the dashboard
+ * count-up: a money figure that eases up to its value the first time it scrolls
+ * into view (reusing the underused `use-count-up` hook, exactly like the dashboard
  * stats). PRESENTATIONAL ONLY — `formatMoney` still formats the REAL number every
  * frame, and the final frame lands on `amount` exactly, so the displayed value is
- * byte-identical to a plain render once settled. Reduced motion is owned by the hook:
+ * byte-identical to a plain render once settled. Reduced motion is owned by the hook
  * it skips the ramp and reports the final value immediately. In jsdom (unit
  * tests) `useInView` never fires, so the hook reports the live value with no ramp.
  */
@@ -399,7 +399,7 @@ function LegBudgetCard({
         <p className="mt-0.5 text-xs text-white/50">{subtitle}</p>
       </div>
 
-      {/* Leg total budget (in the leg's local currency) */}
+      {}/* Leg total budget (in the leg's local currency) */
       <div className="flex flex-col gap-1">
         <label htmlFor={legInputId} className="text-xs font-medium text-white/70">
           Total budget ({cur})
@@ -421,12 +421,12 @@ function LegBudgetCard({
             value={legTotal === 0 ? '' : String(legTotal)}
             placeholder="0"
             onChange={(e) => onLegBudget(e.target.value)}
-            className={`w-full rounded-lg border border-white/15 bg-navy-900/60 py-2 pr-3 text-sm text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40 ${
+            className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40 ${
               sym === 'Rs' ? 'pl-9' : 'pl-7'
             }`}
           />
         </div>
-        {/* Home-currency echo of this leg's total (presentation-only). */}
+        {}/* Home-currency echo of this leg's total (presentation-only). */
         <p className="text-xs text-white/50" data-testid={`budget-leg-${leg}-home`}>
           {home === cur ? (
             <span className="text-white/55">Shown in {cur}</span>
@@ -437,7 +437,7 @@ function LegBudgetCard({
             </>
           )}
         </p>
-        {/* Spent + remaining for this leg, in the leg's local currency. */}
+        {}/* Spent + remaining for this leg, in the leg's local currency. */
         <SpentRemaining
           spentLocal={legRoll?.spentLocal ?? 0}
           remainingLocal={legRoll?.remainingLocal ?? 0}
@@ -447,8 +447,8 @@ function LegBudgetCard({
         />
       </div>
 
-      {/* Per-category budgets (optional) */}
-      <details className="group rounded-lg border border-white/10 bg-navy-900/40">
+      {}/* Per-category budgets (optional) */
+      <details className="group rounded-lg border border-white/10 bg-surface/40">
         <summary
           data-testid={`budget-leg-${leg}-categories-toggle`}
           className="flex min-h-[44px] cursor-pointer list-none items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40"
@@ -494,7 +494,7 @@ function LegBudgetCard({
                       placeholder="0"
                       aria-label={`${category} budget for the ${leg} leg, in ${cur}`}
                       onChange={(e) => onCategoryBudget(category, e.target.value)}
-                      className={`w-full rounded-lg border border-white/15 bg-navy-900/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40 ${
+                      className={`w-full rounded-lg border border-white/15 bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40 ${
                         sym === 'Rs' ? 'pl-8' : 'pl-6'
                       }`}
                     />

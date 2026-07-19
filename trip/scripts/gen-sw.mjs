@@ -42,35 +42,39 @@ const THEME_COLOR = '#0a0e27';
 // fallback. These MUST all be precached so navigations resolve offline. NOTE: this list is
 // HAND-MAINTAINED, not discovered by the `walk()` below (which only covers _next/static,
 // icons, and the manifest) — a new route's `index.html` must be added here explicitly or it
-// silently falls out of the precache (found + fixed for's `/journal`).
+// silently falls out of the precache.
 const ROUTE_HTML = [
- 'index.html',
- 'plan/index.html',
- 'nepal/index.html',
- 'japan/index.html',
- 'map/index.html',
- 'journal/index.html',
- 'flights/index.html',
- 'safety/index.html',
- 'recap/index.html',
- 'settings/index.html',
- '404.html',
+  'index.html',
+  'plan/index.html',
+  'nepal/index.html',
+  'japan/index.html',
+  'map/index.html',
+  'journal/index.html',
+  'flights/index.html',
+  'safety/index.html',
+  'recap/index.html',
+  'settings/index.html',
+  'travel/index.html', // Travel Mode route — precache 133→134.
+  'packing/index.html', // packing checklist route — precache 144→145.
+  'share/index.html', // share-target inbox route — precache +1 (route html) per.
+  'checklist/index.html', // documents & readiness checklist route — precache +1 (route html).
+  '404.html',
 ];
 
 // -------------------------------------------------------------------------
 // Recursively list every file under a directory as out/-relative POSIX paths.
 async function walk(dir) {
- const out = [];
- const entries = await readdir(dir, { withFileTypes: true });
- for (const entry of entries) {
- const full = join(dir, entry.name);
- if (entry.isDirectory()) {
- out.push(...(await walk(full)));
- } else if (entry.isFile()) {
- out.push(relative(OUT_DIR, full).split(sep).join(posix.sep));
- }
- }
- return out;
+  const out = [];
+  const entries = await readdir(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) {
+      out.push(...(await walk(full)));
+    } else if (entry.isFile()) {
+      out.push(relative(OUT_DIR, full).split(sep).join(posix.sep));
+    }
+  }
+  return out;
 }
 
 // Build the precache list per the contract:
@@ -80,23 +84,23 @@ async function walk(dir) {
 // - icons/** and favicon.svg
 // - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead.
 async function buildPrecacheList(allFiles) {
- const set = new Set();
+  const set = new Set();
 
- for (const rel of ROUTE_HTML) {
- // 404.html always exists; guard the rest but they're expected.
- set.add(rel);
- }
+  for (const rel of ROUTE_HTML) {
+    // 404.html always exists; guard the rest but they're expected.
+    set.add(rel);
+  }
 
- for (const rel of allFiles) {
- if (rel.startsWith('_next/static/')) set.add(rel);
- else if (rel.startsWith('icons/')) set.add(rel);
- else if (rel === 'favicon.svg') set.add(rel);
- else if (rel === 'manifest.webmanifest') set.add(rel);
- // NOTE: images/** deliberately excluded (runtime cache).
- }
+  for (const rel of allFiles) {
+    if (rel.startsWith('_next/static/')) set.add(rel);
+    else if (rel.startsWith('icons/')) set.add(rel);
+    else if (rel === 'favicon.svg') set.add(rel);
+    else if (rel === 'manifest.webmanifest') set.add(rel);
+    // NOTE: images/** deliberately excluded (runtime cache).
+  }
 
- // Deterministic order so the hash is stable across identical builds.
- return [...set].sort();
+  // Deterministic order so the hash is stable across identical builds.
+  return [...set].sort();
 }
 
 // Turn an out/-relative path into the URL the browser will request. Route
@@ -104,49 +108,86 @@ async function buildPrecacheList(allFiles) {
 // so a navigation to /plan/ hits the cached entry; everything else keeps its
 // literal path.
 function toPrecacheUrl(rel) {
- if (rel === 'index.html') return withBase('/');
- if (rel === '404.html') return withBase('/404.html');
- if (rel.endsWith('/index.html')) {
- return withBase('/' + rel.slice(0, -'index.html'.length)); // -> /plan/
- }
- return withBase('/' + rel);
+  if (rel === 'index.html') return withBase('/');
+  if (rel === '404.html') return withBase('/404.html');
+  if (rel.endsWith('/index.html')) {
+    return withBase('/' + rel.slice(0, -'index.html'.length)); // -> /plan/
+  }
+  return withBase('/' + rel);
 }
 
 // -------------------------------------------------------------------------
 async function buildManifest() {
- const manifest = {
- name: 'Nepal × Japan Journey',
- short_name: 'Nepal×Japan',
- description:
- 'Premium offline-capable travel planner for an epic Nepal and Japan adventure.',
- start_url: withBase('/'),
- scope: withBase('/'),
- display: 'standalone',
- orientation: 'portrait-primary',
- background_color: THEME_COLOR,
- theme_color: THEME_COLOR,
- icons: [
- {
- src: withBase('/icons/icon-192.png'),
- sizes: '192x192',
- type: 'image/png',
- purpose: 'any',
- },
- {
- src: withBase('/icons/icon-512.png'),
- sizes: '512x512',
- type: 'image/png',
- purpose: 'any',
- },
- {
- src: withBase('/icons/icon-maskable-512.png'),
- sizes: '512x512',
- type: 'image/png',
- purpose: 'maskable',
- },
- ],
- };
- return JSON.stringify(manifest, null, 2);
+  const manifest = {
+    name: 'Nepal × Japan Journey',
+    short_name: 'Nepal×Japan',
+    description:
+      'Premium offline-capable travel planner for an epic Nepal and Japan adventure.',
+    start_url: withBase('/'),
+    scope: withBase('/'),
+    display: 'standalone',
+    orientation: 'portrait-primary',
+    background_color: THEME_COLOR,
+    theme_color: THEME_COLOR,
+    icons: [
+      {
+        src: withBase('/icons/icon-192.png'),
+        sizes: '192x192',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: withBase('/icons/icon-512.png'),
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'any',
+      },
+      {
+        src: withBase('/icons/icon-maskable-512.png'),
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+    ],
+    // long-press/right-click app-icon shortcuts (W3C manifest `shortcuts`
+    // member) to 3 high-value, already-existing routes. Icons are optional per
+    // spec and deliberately omitted here (keeps this hand-maintained list free
+    // of another icon-path to keep in sync — pattern of staying simple).
+    shortcuts: [
+      {
+        name: "Today's Itinerary",
+        short_name: 'Itinerary',
+        url: withBase('/plan/'),
+      },
+      {
+        name: 'Trip Budget',
+        short_name: 'Budget',
+        url: withBase('/plan/#budget-panel-title'),
+      },
+      {
+        name: 'Countdown',
+        short_name: 'Countdown',
+        url: withBase('/#dashboard'),
+      },
+    ],
+    // register as an OS share target so the installed PWA appears in the
+    // system Share sheet. GET is the ONLY method a static export (output:'export', no
+    // server) can serve — the shared title/text/url arrive as query params on a plain
+    // navigation to /share/, where the ssr:false island captures + persists them (gateway
+    // key 23) then strips the query. Trailing-slash `action` matches how every other static
+    // route resolves (trailingSlash:true). `share/index.html` is added to ROUTE_HTML above
+    // so the receiving surface is precached and resolves offline like every other route.
+    share_target: {
+      action: withBase('/share/'),
+      method: 'GET',
+      params: {
+        title: 'title',
+        text: 'text',
+        url: 'url',
+      },
+    },
+  };
+  return JSON.stringify(manifest, null, 2);
 }
 
 // -------------------------------------------------------------------------
@@ -154,13 +195,13 @@ async function buildManifest() {
 // auditable. The precache URL list and cache name (hashed from that list) are
 // baked in at build time; everything else is static SW logic.
 function buildServiceWorker({ precacheUrls, precacheHash }) {
- const PRECACHE = `trip-precache-${precacheHash}`;
- const IMAGES_CACHE = 'trip-images-v1';
- const IMAGE_CACHE_LIMIT = 80;
- // The navigation fallback: the cached shell for the app root.
- const NAV_FALLBACK = withBase('/');
+  const PRECACHE = `trip-precache-${precacheHash}`;
+  const IMAGES_CACHE = 'trip-images-v1';
+  const IMAGE_CACHE_LIMIT = 80;
+  // The navigation fallback: the cached shell for the app root.
+  const NAV_FALLBACK = withBase('/');
 
- return `/* AUTO-GENERATED by scripts/gen-sw.mjs — do not edit by hand.
+  return `/* AUTO-GENERATED by scripts/gen-sw.mjs — do not edit by hand.
  * Hand-rolled, dependency-free service worker. Precache is content-
  * hashed (${PRECACHE}); a new build with a changed file list yields a new
  * cache name and drives the update-available flow in the registrar.
@@ -181,213 +222,240 @@ const PRECACHE_URLS = ${JSON.stringify(precacheUrls, null, 2)};
 // controller the new worker activates immediately regardless, so there is no
 // reload loop on a clean profile.
 self.addEventListener('install', (event) => {
- event.waitUntil(
- (async () => {
- const cache = await caches.open(PRECACHE);
- // addAll is atomic-ish; if any single request fails the whole install
- // rejects. Use individual puts so one stray 404 can't brick the install.
- await Promise.all(
- PRECACHE_URLS.map(async (url) => {
- try {
- const res = await fetch(url, { cache: 'no-cache' });
- if (res && (res.ok || res.type === 'opaque')) {
- await cache.put(url, res.clone());
- }
- } catch (_) {
- /* ignore individual precache misses (offline-first is best-effort) */
- }
- })
- );
- })()
- );
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(PRECACHE);
+      // addAll is atomic-ish; if any single request fails the whole install
+      // rejects. Use individual puts so one stray 404 can't brick the install.
+      await Promise.all(
+        PRECACHE_URLS.map(async (url) => {
+          try {
+            const res = await fetch(url, { cache: 'no-cache' });
+            if (res && (res.ok || res.type === 'opaque')) {
+              await cache.put(url, res.clone());
+            }
+          } catch (_) {
+            /* ignore individual precache misses (offline-first is best-effort) */
+          }
+        })
+      );
+    })()
+  );
 });
 
 // --- activate: drop stale precaches, take control ------------------------
 self.addEventListener('activate', (event) => {
- event.waitUntil(
- (async () => {
- const keys = await caches.keys();
- await Promise.all(
- keys
- .filter((k) => k.startsWith('trip-precache-') && k !== PRECACHE)
- .map((k) => caches.delete(k))
- );
- await self.clients.claim();
- })()
- );
+  event.waitUntil(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((k) => k.startsWith('trip-precache-') && k !== PRECACHE)
+          .map((k) => caches.delete(k))
+      );
+      await self.clients.claim();
+    })()
+  );
 });
 
 // --- skip-waiting handshake (registrar posts this on "Refresh") ----------
 self.addEventListener('message', (event) => {
- if (event.data && event.data.type === 'SKIP_WAITING') {
- self.skipWaiting();
- }
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });
 
 // --- helpers -------------------------------------------------------------
 // Normalize a same-origin URL to its trailingSlash form so /plan and /plan/
 // both hit the cached /plan/ entry.
 function normalizePath(url) {
- let pathname = url.pathname;
- if (!pathname.endsWith('/') && !pathname.includes('.')) {
- pathname = pathname + '/';
- }
- return pathname;
+  let pathname = url.pathname;
+  if (!pathname.endsWith('/') && !pathname.includes('.')) {
+    pathname = pathname + '/';
+  }
+  return pathname;
 }
 
 function isImageRequest(request, url) {
- if (request.destination === 'image') return true;
- return /\\.(?:png|jpe?g|gif|webp|avif|svg|ico)$/i.test(url.pathname);
+  if (request.destination === 'image') return true;
+  return /\\.(?:png|jpe?g|gif|webp|avif|svg|ico)$/i.test(url.pathname);
 }
 
 // LRU-ish cap on the runtime image cache: evict oldest (insertion order) on
 // overflow. Cache API keys() returns entries in insertion order.
 async function trimImageCache() {
- const cache = await caches.open(IMAGES_CACHE);
- const keys = await cache.keys();
- if (keys.length <= IMAGE_CACHE_LIMIT) return;
- const overflow = keys.length - IMAGE_CACHE_LIMIT;
- for (let i = 0; i < overflow; i++) {
- await cache.delete(keys[i]);
- }
+  const cache = await caches.open(IMAGES_CACHE);
+  const keys = await cache.keys();
+  if (keys.length <= IMAGE_CACHE_LIMIT) return;
+  const overflow = keys.length - IMAGE_CACHE_LIMIT;
+  for (let i = 0; i < overflow; i++) {
+    await cache.delete(keys[i]);
+  }
 }
 
 async function cacheFirst(request, cacheName) {
- const cached = await caches.match(request);
- if (cached) return cached;
- const res = await fetch(request);
- if (res && res.ok && res.type === 'basic') {
- const cache = await caches.open(cacheName);
- cache.put(request, res.clone());
- }
- return res;
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  const res = await fetch(request);
+  if (res && res.ok && res.type === 'basic') {
+    const cache = await caches.open(cacheName);
+    cache.put(request, res.clone());
+  }
+  return res;
+}
+
+// stale-while-revalidate for Frankfurter (api.frankfurter.dev, the Travel Mode Essentials
+// currency rate, lib/currency-rate.ts) — ONE deliberate, hand-added exception (: gen-sw.mjs
+// is hand-maintained) to the cross-origin passthrough just below. Serves the cached response
+// immediately when present (instant, offline-safe) while refreshing it in the background;
+// falls through to a plain network fetch on a cold cache. This is a network-layer NICETY only —
+// \`lib/currency-rate.ts\`'s own localStorage cache is the dormant-safe guarantee
+// (an offline "as of <date>" line even with this SW cache empty); this just avoids a redundant
+// round-trip when a good one is already sitting in the Cache API. No other cross-origin host is
+// touched here — Firebase/gstatic/font hosts still hit the untouched-passthrough line below.
+const FRANKFURTER_CACHE = 'trip-frankfurter-v1';
+async function staleWhileRevalidate(request, cacheName) {
+  const cache = await caches.open(cacheName);
+  const cached = await cache.match(request);
+  const network = fetch(request)
+    .then((res) => {
+      if (res && res.ok) cache.put(request, res.clone());
+      return res;
+    })
+    .catch(() => undefined);
+  return cached || (await network) || Response.error();
 }
 
 // --- fetch routing -------------------------------------------------------
 self.addEventListener('fetch', (event) => {
- const { request } = event;
- const url = new URL(request.url);
+  const { request } = event;
+  const url = new URL(request.url);
 
- // FIRST LINE: cross-origin -> return untouched. This protects
- // Firebase (firestore/identitytoolkit), gstatic, font hosts — the SW must
- // never intercept their traffic, so their offline degradation stays intact.
- if (url.origin !== self.location.origin) {
- return;
- }
+  if (request.method === 'GET' && url.hostname === 'api.frankfurter.dev') {
+    event.respondWith(staleWhileRevalidate(request, FRANKFURTER_CACHE));
+    return;
+  }
 
- // Only GET is cacheable; let the rest hit the network.
- if (request.method !== 'GET') {
- return;
- }
+  // FIRST LINE: cross-origin -> return untouched. This protects
+  // Firebase (firestore/identitytoolkit), gstatic, font hosts — the SW must
+  // never intercept their traffic, so their offline degradation stays intact.
+  if (url.origin !== self.location.origin) {
+    return;
+  }
 
- // Runtime image cache (cache-first, LRU-capped, separate cache).
- if (isImageRequest(request, url)) {
- event.respondWith(
- (async () => {
- const cached = await caches.match(request, { cacheName: IMAGES_CACHE });
- if (cached) return cached;
- try {
- const res = await fetch(request);
- if (res && res.ok && res.type === 'basic') {
- const cache = await caches.open(IMAGES_CACHE);
- await cache.put(request, res.clone());
- trimImageCache();
- }
- return res;
- } catch (err) {
- // Offline and uncached — fall through to a network error (the app's
- // <img onError> fallback art handles the missing image).
- return caches.match(request) || Response.error();
- }
- })()
- );
- return;
- }
+  // Only GET is cacheable; let the rest hit the network.
+  if (request.method !== 'GET') {
+    return;
+  }
 
- // Same-origin navigations: cache-first on the normalized pathname, falling
- // back to the cached app-root shell on a miss (SPA-style offline nav).
- if (request.mode === 'navigate') {
- event.respondWith(
- (async () => {
- const normalized = normalizePath(url);
- const cached = await caches.match(normalized);
- if (cached) return cached;
- try {
- const res = await fetch(request);
- return res;
- } catch (err) {
- const shell = await caches.match(NAV_FALLBACK);
- if (shell) return shell;
- const fallback = await caches.match(${JSON.stringify(withBase('/404.html'))});
- return fallback || Response.error();
- }
- })()
- );
- return;
- }
+  // Runtime image cache (cache-first, LRU-capped, separate cache).
+  if (isImageRequest(request, url)) {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.match(request, { cacheName: IMAGES_CACHE });
+        if (cached) return cached;
+        try {
+          const res = await fetch(request);
+          if (res && res.ok && res.type === 'basic') {
+            const cache = await caches.open(IMAGES_CACHE);
+            await cache.put(request, res.clone());
+            trimImageCache();
+          }
+          return res;
+        } catch (err) {
+          // Offline and uncached — fall through to a network error (the app's
+          // <img onError> fallback art handles the missing image,).
+          return caches.match(request) || Response.error();
+        }
+      })()
+    );
+    return;
+  }
 
- // Same-origin static assets: cache-first.
- event.respondWith(
- (async () => {
- const cached = await caches.match(request);
- if (cached) return cached;
- try {
- return await cacheFirst(request, PRECACHE);
- } catch (err) {
- return Response.error();
- }
- })()
- );
+  // Same-origin navigations: cache-first on the normalized pathname, falling
+  // back to the cached app-root shell on a miss (SPA-style offline nav).
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      (async () => {
+        const normalized = normalizePath(url);
+        const cached = await caches.match(normalized);
+        if (cached) return cached;
+        try {
+          const res = await fetch(request);
+          return res;
+        } catch (err) {
+          const shell = await caches.match(NAV_FALLBACK);
+          if (shell) return shell;
+          const fallback = await caches.match(${JSON.stringify(withBase('/404.html'))});
+          return fallback || Response.error();
+        }
+      })()
+    );
+    return;
+  }
+
+  // Same-origin static assets: cache-first.
+  event.respondWith(
+    (async () => {
+      const cached = await caches.match(request);
+      if (cached) return cached;
+      try {
+        return await cacheFirst(request, PRECACHE);
+      } catch (err) {
+        return Response.error();
+      }
+    })()
+  );
 });
 `;
 }
 
 // -------------------------------------------------------------------------
 async function main() {
- try {
- await stat(OUT_DIR);
- } catch {
- console.error(
- `gen-sw: out/ not found at ${OUT_DIR}. Run \`next build\` first.`
- );
- process.exit(1);
- }
+  try {
+    await stat(OUT_DIR);
+  } catch {
+    console.error(
+      `gen-sw: out/ not found at ${OUT_DIR}. Run \`next build\` first.`
+    );
+    process.exit(1);
+  }
 
- console.log(`gen-sw: basePath = ${BASE_PATH === '' ? '(empty)' : BASE_PATH}`);
+  console.log(`gen-sw: basePath = ${BASE_PATH === '' ? '(empty)' : BASE_PATH}`);
 
- // 1) Emit the manifest FIRST so it lands on disk before we hash the file list
- // (the manifest is itself a precache entry).
- const manifestJson = await buildManifest();
- await writeFile(join(OUT_DIR, 'manifest.webmanifest'), manifestJson, 'utf8');
- console.log('gen-sw: wrote out/manifest.webmanifest');
+  // 1) Emit the manifest FIRST so it lands on disk before we hash the file list
+  // (the manifest is itself a precache entry).
+  const manifestJson = await buildManifest();
+  await writeFile(join(OUT_DIR, 'manifest.webmanifest'), manifestJson, 'utf8');
+  console.log('gen-sw: wrote out/manifest.webmanifest');
 
- // 2) Walk out/, build the precache file list + browser URLs.
- const allFiles = await walk(OUT_DIR);
- const precacheFiles = await buildPrecacheList(allFiles);
- const precacheUrls = precacheFiles.map(toPrecacheUrl);
+  // 2) Walk out/, build the precache file list + browser URLs.
+  const allFiles = await walk(OUT_DIR);
+  const precacheFiles = await buildPrecacheList(allFiles);
+  const precacheUrls = precacheFiles.map(toPrecacheUrl);
 
- // 3) Hash the URL list -> cache name. Any change to the shell (new chunk
- // hashes, new route, changed manifest) changes this, driving the update
- // flow in the registrar.
- const precacheHash = createHash('sha256')
- .update(precacheUrls.join('\n'))
- .digest('hex')
- .slice(0, 12);
+  // 3) Hash the URL list -> cache name. Any change to the shell (new chunk
+  // hashes, new route, changed manifest) changes this, driving the update
+  // flow in the registrar.
+  const precacheHash = createHash('sha256')
+    .update(precacheUrls.join('\n'))
+    .digest('hex')
+    .slice(0, 12);
 
- // 4) Emit the SW.
- const sw = buildServiceWorker({ precacheUrls, precacheHash });
- await writeFile(join(OUT_DIR, 'sw.js'), sw, 'utf8');
- console.log(
- `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries)`
- );
+  // 4) Emit the SW.
+  const sw = buildServiceWorker({ precacheUrls, precacheHash });
+  await writeFile(join(OUT_DIR, 'sw.js'), sw, 'utf8');
+  console.log(
+    `gen-sw: wrote out/sw.js (cache trip-precache-${precacheHash}, ${precacheUrls.length} precache entries)`
+  );
 
- // 5) Log a few sample URLs for the single-prefix proof.
- console.log('gen-sw: manifest start_url/scope =', withBase('/'));
- console.log('gen-sw: sample precache URLs:');
- for (const u of precacheUrls.slice(0, 4)) console.log(' ', u);
+  // 5) Log a few sample URLs for the single-prefix proof.
+  console.log('gen-sw: manifest start_url/scope =', withBase('/'));
+  console.log('gen-sw: sample precache URLs:');
+  for (const u of precacheUrls.slice(0, 4)) console.log('   ', u);
 }
 
 main().catch((err) => {
- console.error('gen-sw FAILED:', err);
- process.exit(1);
+  console.error('gen-sw FAILED:', err);
+  process.exit(1);
 });

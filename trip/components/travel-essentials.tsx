@@ -6,13 +6,13 @@ import { Thermometer, Cloud } from 'lucide-react';
 import { WEATHER_INFO } from '@/lib/travel-tips-data';
 
 /**
- * Travel Essentials — the HOME half of the old `travel-inspiration.tsx` split: the
- * weather outlook. The country-flavored half (featured destinations / foods /
- * etiquette) moved to `country-essentials.tsx` on the /nepal/ and /japan/ pages. The
- * packing checklist half of this section was removed from Home entirely (by direct
- * request) — no relocation, no replacement.
+ * Travel Essentials — the HOME half of the old `travel-inspiration.tsx`
+ * split: the weather outlook. The country-flavored half (featured destinations /
+ * foods / etiquette) moved to `country-essentials.tsx` on the /nepal/ and /japan/
+ * pages. The packing checklist half of this section was removed from Home entirely
+ * — no relocation, no replacement.
  *
- * The section KEEPS the legacy `inspiration` id (every original section id is
+ * The section KEEPS the legacy `inspiration` id (: every v1 section id is
  * preserved; `/#inspiration` scrolls here via the legacy-hash redirect, and the
  * command palette targets it).
  */
@@ -28,7 +28,7 @@ export default function TravelEssentials() {
           subtitle="December weather outlook for the journey."
         />
 
-        {/* Weather Section */}
+        {}/* Weather Section */
         <div className="grid md:grid-cols-2 gap-5">
           {[{ key: 'nepal' as const, label: 'Kathmandu, Nepal', data: WEATHER_INFO.nepal }, { key: 'japan' as const, label: 'Japan (Tokyo/Kyoto)', data: WEATHER_INFO.japan }].map(({ key, label, data }) => (
             <m.div

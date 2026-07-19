@@ -4,15 +4,15 @@
  * This is the GENERALIZATION of `merge-day.ts`'s per-item fold: the
  * conflict resolver (`resolvePair`) and the union-by-id + deterministic ordering were already
  * item-generic — only the `DayPlan` wrapper + day-metadata handling were itinerary-specific.
- * They were EXTRACTED here as `mergeItems<R>` over any id-keyed row carrying the Sync-v2 stamps,
+ * EXTRACTS them here as `mergeItems<R>` over any id-keyed row carrying the Sync-v2 stamps,
  * so expenses (chunked by leg) reuse the exact same merge algebra the itinerary proved. The
- * `merge-day.ts` API is unchanged: `mergeDay` now DELEGATES to `mergeItems` (its original suite passes
+ * `merge-day.ts` API is unchanged: `mergeDay` now DELEGATES to `mergeItems` (its suite passes
  * with ZERO assertion edits — that is the extraction's proof).
  *
  * ── PURITY ─────────────────────────────────────────────────────────────
  * No I/O, no clock, no `window`, no firebase, no React/Next. Imports only the pure HLC helpers.
  *
- * ── CONVERGENCE ──────────────────────────────────────────
+ * ── CONVERGENCE ──────────────────────────────────────
  * COMMUTATIVE (each id's winner is an HLC-determined total-order max, argument-order-independent)
  * and IDEMPOTENT (`mergeItems(x, mergeItems(x,y)) ≡ mergeItems(x,y)`) — a join over a lattice, so
  * all clients converge to the same row-set regardless of the order snapshots arrive.
@@ -33,10 +33,10 @@ export interface SyncedRow {
 /**
  * Delete-vs-edit resolution policy, a single named flag so the choice is
  * reversible without touching the merge internals:
- *   - `'hlc'`   (DEFAULT) — tombstone-wins-BY-HLC: the deleted row stays deleted unless a
- *               STRICTLY-later edit (higher HLC) resurrects it. Deterministic + convergent.
- *   - `'always'`— any tombstone beats any concurrent edit regardless of HLC. Exposed + tested;
- *               NOT the default.
+ * - `'hlc'` (DEFAULT) — tombstone-wins-BY-HLC: the deleted row stays deleted unless a
+ * STRICTLY-later edit (higher HLC) resurrects it. Deterministic + convergent.
+ * - `'always'`— any tombstone beats any concurrent edit regardless of HLC. Exposed + tested;
+ * NOT the default.
  */
 export interface MergePolicy {
   deleteWins: 'hlc' | 'always';
@@ -54,9 +54,9 @@ function rowHlc(row: SyncedRow): Hlc {
 }
 
 /**
- * Resolve two rows with the SAME `id` (one local, one remote) to a single winner.
+ * Resolve two rows with the SAME `id` (one local, one remote) to a single winner
  * This is the whole per-row conflict decision — extracted verbatim
- * from `merge-day.ts`'s former `resolvePair` (behavior-preserving; the original suite pins it).
+ * from `merge-day.ts`'s former `resolvePair`.
  */
 export function resolvePair<R extends SyncedRow>(a: R, b: R, policy: MergePolicy): R {
   const aDel = a.deleted === true;
@@ -77,8 +77,8 @@ export function resolvePair<R extends SyncedRow>(a: R, b: R, policy: MergePolicy
   // Exact HLC tie (same pt/ct/actor). In the REAL protocol this only happens on a genuine ECHO
   // (a===b by value). For ROBUSTNESS we still make the (protocol-impossible) equal-HLC/
   // different-content case deterministic so the merge is UNCONDITIONALLY commutative:
-  //   1. bias the tombstone (a delete is not spuriously resurrected by an equal-HLC live copy);
-  //   2. else break by a stable content fingerprint (higher wins) — argument-order-independent.
+  // 1. bias the tombstone (a delete is not spuriously resurrected by an equal-HLC live copy);
+  // 2. else break by a stable content fingerprint (higher wins) — argument-order-independent.
   if (aDel !== bDel) return aDel ? a : b;
   return contentFingerprint(a) >= contentFingerprint(b) ? a : b;
 }
@@ -96,12 +96,12 @@ function contentFingerprint(row: SyncedRow): string {
 }
 
 /**
- * Merge the local view of an id-keyed row-set with the remote view of the SAME set.
- * Union by `id`; on a same-`id` collision, `resolvePair` picks the winner. Result rows
- * INCLUDE tombstones (they must persist to propagate + win); the caller's exposed
+ * Merge the local view of an id-keyed row-set with the remote view of the SAME set (
+ *). Union by `id`; on a same-`id` collision, `resolvePair` picks the winner. Result rows
+ * INCLUDE tombstones; the caller's exposed
  * selector filters `deleted` out downstream.
  *
- * ORDERING (the chosen rule, extracted from `mergeDay`): live rows sorted by
+ * ORDERING: live rows sorted by
  * their winning `hlc` ASCENDING (oldest first), with `id` as a final deterministic tie-break;
  * tombstones appended after the live rows (same sort). Stable + fully convergent — independent
  * of argument order.
@@ -155,9 +155,9 @@ export const DEFAULT_GC_HORIZON_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
  * INJECTED.
  *
  * Drop a row iff BOTH:
- *   - it is a tombstone (`deleted === true`), AND
- *   - its `hlc.pt` is older than `nowPt - horizonMs`, AND
- *   - no LIVE row shares its `id` (nothing references/supersedes it).
+ * - it is a tombstone (`deleted === true`), AND
+ * - its `hlc.pt` is older than `nowPt - horizonMs`, AND
+ * - no LIVE row shares its `id` (nothing references/supersedes it).
  * Structurally unable to drop a live row (the first guard returns it untouched) or a recent
  * tombstone (still inside the horizon). Conservative + convergent: every client GCs the same row
  * at the same logical point; cross-client `nowPt` skew only delays a drop, never loses data.

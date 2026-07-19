@@ -4,720 +4,2376 @@
     "avif": "/images/featured/arashiyama.avif",
     "blurDataURL": "data:image/webp;base64,UklGRnQAAABXRUJQVlA4IGgAAADwAwCdASoUAA8APu1iqU2ppaQiMAgBMB2JZQC2yB6vFX1uagZ4QFiAAP6DoIT1roks4ccKlXHGWAYepOQtfdGgAZVP0vj7EJ6HWK5Xhm85iNKF5/AFbivLpbA+J1G9z9zRM3XPGEgAAA==",
     "width": 800,
-    "height": 600
+    "height": 600,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/featured/arashiyama-640w.webp",
+        "avif": "/images/featured/arashiyama-640w.avif"
+      },
+      {
+        "width": 800,
+        "webp": "/images/featured/arashiyama.webp",
+        "avif": "/images/featured/arashiyama.avif"
+      }
+    ]
   },
   "/images/featured/boudhanath.jpg": {
     "webp": "/images/featured/boudhanath.webp",
     "avif": "/images/featured/boudhanath.avif",
     "blurDataURL": "data:image/webp;base64,UklGRsAAAABXRUJQVlA4ILQAAACQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JbACdMoGv/i19VUIuJJFcfObN2KAA/t7bzP+2kmxyGnNYqnLx4dHnMTFjGASTDgHUV1NGoMilwnGEhZFMxmyGoWsgNbhRInCOL/SIlRbZrM7YvL97HDTBbmsx01lqhYba6Xsqe26IcN28K6p5p8bOHSXzW8YoS6uKTXZgw4ARu+NCQmfPHJamhcTCp9b4qXo1vruTMwd5YaOAAAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/featured/boudhanath-640w.webp",
+        "avif": "/images/featured/boudhanath-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/featured/boudhanath-1024w.webp",
+        "avif": "/images/featured/boudhanath-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/featured/boudhanath.webp",
+        "avif": "/images/featured/boudhanath.avif"
+      }
+    ]
   },
   "/images/featured/mount-fuji.jpg": {
     "webp": "/images/featured/mount-fuji.webp",
     "avif": "/images/featured/mount-fuji.avif",
     "blurDataURL": "data:image/webp;base64,UklGRmYAAABXRUJQVlA4IFoAAAAwBACdASoUAAoAPu1iqk2ppaQiMAgBMB2JZgCdMoADStPKollTfABrEaAA96Uyrwi2yTGYMNQsx0MCt0laNpqzk3n9kdk5zoCqazjlqTy9KXeXdHrdQK+wAAA=",
     "width": 1200,
-    "height": 587
+    "height": 587,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/featured/mount-fuji-640w.webp",
+        "avif": "/images/featured/mount-fuji-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/featured/mount-fuji-1024w.webp",
+        "avif": "/images/featured/mount-fuji-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/featured/mount-fuji.webp",
+        "avif": "/images/featured/mount-fuji.avif"
+      }
+    ]
   },
   "/images/featured/nagarkot.jpg": {
     "webp": "/images/featured/nagarkot.webp",
     "avif": "/images/featured/nagarkot.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpoAAABXRUJQVlA4II4AAAAwBACdASoUAA0APu1iqU2ppaOiMAgBMB2JYwCdACP87QPPSOjdHiRf3AAAzV8cBkNWrE0aWj+6etKN/ONT3sLrm31AKg1bVZaBwldLW4xmj6VIOK9T0989UQvqXCRi9hRgtCuhdbx1mfBdR+dl+B1TnAHQTnpfm39/yuDoB1xhAyrmMPAMYPEHLgExAAAA",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/featured/nagarkot-640w.webp",
+        "avif": "/images/featured/nagarkot-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/featured/nagarkot-1024w.webp",
+        "avif": "/images/featured/nagarkot-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/featured/nagarkot.webp",
+        "avif": "/images/featured/nagarkot.avif"
+      }
+    ]
   },
   "/images/featured/patan-durbar.jpg": {
     "webp": "/images/featured/patan-durbar.webp",
     "avif": "/images/featured/patan-durbar.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpIAAABXRUJQVlA4IIYAAAAQBACdASoUAA4APu1iqU2ppaOiMAgBMB2JQBOgBA/kF1qBpH1NMmnFAADODqgFTiz7GV6D6l16JlqpcroZT9EpbW51JX5go4z25zdDi8rC4pha1/Qt+XmLcEhF2zonPLs3bfJijfL7XW48bpiXCAvIwjEsN9Aow5IbENV854ODrrGX0wAAAA==",
     "width": 945,
-    "height": 685
+    "height": 685,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/featured/patan-durbar-640w.webp",
+        "avif": "/images/featured/patan-durbar-640w.avif"
+      },
+      {
+        "width": 945,
+        "webp": "/images/featured/patan-durbar.webp",
+        "avif": "/images/featured/patan-durbar.avif"
+      }
+    ]
   },
   "/images/featured/shibuya.jpg": {
     "webp": "/images/featured/shibuya.webp",
     "avif": "/images/featured/shibuya.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpIAAABXRUJQVlA4IIYAAACwAwCdASoUAAsAPu1iqU2ppaQiMAgBMB2JQBdgA6f6PtFgEv/EAAD+ou1Bv7F4r3tDf1HvB/+iSIf90rgQYCtj7UTxzu0cwO7dv4DrnLUcKdsktXNbRvAGCZnyRuqYztZLNKl7onm+ambpi9T6Y1tEe9kHBpnzGWg7F5mAVy/HxKkOMgAAAA==",
     "width": 1200,
-    "height": 675
+    "height": 675,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/featured/shibuya-640w.webp",
+        "avif": "/images/featured/shibuya-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/featured/shibuya-1024w.webp",
+        "avif": "/images/featured/shibuya-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/featured/shibuya.webp",
+        "avif": "/images/featured/shibuya.avif"
+      }
+    ]
   },
   "/images/hero/hero.jpg": {
     "webp": "/images/hero/hero.webp",
     "avif": "/images/hero/hero.avif",
     "blurDataURL": "data:image/webp;base64,UklGRm4AAABXRUJQVlA4IGIAAACQAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JQBOgAmecBcpeKAegAPrN8e9wsOdNAa7NhvQiEV+o222rPC0ahzhmGi89nImb2SI/cAAxys9RyvSsA/GZ/3M7wyeLa9RikiAAAA==",
     "width": 1600,
-    "height": 1066
+    "height": 1066,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/hero/hero-640w.webp",
+        "avif": "/images/hero/hero-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/hero/hero-1024w.webp",
+        "avif": "/images/hero/hero-1024w.avif"
+      },
+      {
+        "width": 1600,
+        "webp": "/images/hero/hero.webp",
+        "avif": "/images/hero/hero.avif"
+      }
+    ]
   },
   "/images/japan/ja1.jpg": {
     "webp": "/images/japan/ja1.webp",
     "avif": "/images/japan/ja1.avif",
     "blurDataURL": "data:image/webp;base64,UklGRp4AAABXRUJQVlA4IJIAAACQBACdASoUAA4APu1iqU2ppaOiMAgBMB2JaACdL1GT/Z/8Bs8dTqh3jWD48NoA/rHUpGOpjtKjebW6rVdaV9UsAGLcb/e2VsUyDLjI5GRRV16BIjL5wNLxMjo89D3dUVE711BkIVzrH2lzPIfN3wi8hsVf/ZrONy3gMC+I5E/ETOYuTqi6MTyAu31tI3hZWaAAAA==",
     "width": 1200,
-    "height": 857
+    "height": 857,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja1-640w.webp",
+        "avif": "/images/japan/ja1-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja1-1024w.webp",
+        "avif": "/images/japan/ja1-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja1.webp",
+        "avif": "/images/japan/ja1.avif"
+      }
+    ]
   },
   "/images/japan/ja10.jpg": {
     "webp": "/images/japan/ja10.webp",
     "avif": "/images/japan/ja10.avif",
     "blurDataURL": "data:image/webp;base64,UklGRnQAAABXRUJQVlA4IGgAAADwAwCdASoUAA8APu1iqU2ppaQiMAgBMB2JZQC2yB6vFX1uagZ4QFiAAP6DoIT1roks4ccKlXHGWAYepOQtfdGgAZVP0vj7EJ6HWK5Xhm85iNKF5/AFbivLpbA+J1G9z9zRM3XPGEgAAA==",
     "width": 800,
-    "height": 600
+    "height": 600,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja10-640w.webp",
+        "avif": "/images/japan/ja10-640w.avif"
+      },
+      {
+        "width": 800,
+        "webp": "/images/japan/ja10.webp",
+        "avif": "/images/japan/ja10.avif"
+      }
+    ]
   },
   "/images/japan/ja11.jpg": {
     "webp": "/images/japan/ja11.webp",
     "avif": "/images/japan/ja11.avif",
     "blurDataURL": "data:image/webp;base64,UklGRogAAABXRUJQVlA4IHwAAACwAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JZQDE2B5Nia+khdABIAD+W8vgv64fVAw4ooWxoXJikljt7vsIDNLo7xaNlszqycWWHDI8ujkLVZPkQIoC7TO9IJz6DxBC4Cv/hxIsHPRoPNpW0u2dru/iTtuAuHWIbepJgAAA",
     "width": 1200,
-    "height": 772
+    "height": 772,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja11-640w.webp",
+        "avif": "/images/japan/ja11-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja11-1024w.webp",
+        "avif": "/images/japan/ja11-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja11.webp",
+        "avif": "/images/japan/ja11.avif"
+      }
+    ]
   },
   "/images/japan/ja12.jpg": {
     "webp": "/images/japan/ja12.webp",
     "avif": "/images/japan/ja12.avif",
     "blurDataURL": "data:image/webp;base64,UklGRuwAAABXRUJQVlA4IOAAAADwBQCdASoUABkAPulcqE2pJKQiN/VYASAdCWQAyJmM0G8CVIi9bLSG1OjNXVWDy4G7bdBzvL5JQAD+9W0lrf8ir9Hy3Njx3Qt2SsUmM3qUTKJ1BcIRqwx3VhIeWnDOxyyEJrH2sFG4PVJ+bGbQUovSJOxhFKmIIIUOdgdYOIxlneEq+HGPq7CTxAHuER/bLPgAJF6tMFOpvvAHHsFmvswmqliTVALRqePeIISAkVenTfsy64TRyODgurmrex507M6yc+5lHIDgMfWEqFSr9EwTOWhfIAVR+GerNoOOhT8mAA==",
     "width": 981,
-    "height": 1200
+    "height": 1200,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja12-640w.webp",
+        "avif": "/images/japan/ja12-640w.avif"
+      },
+      {
+        "width": 981,
+        "webp": "/images/japan/ja12.webp",
+        "avif": "/images/japan/ja12.avif"
+      }
+    ]
   },
   "/images/japan/ja13.jpg": {
     "webp": "/images/japan/ja13.webp",
     "avif": "/images/japan/ja13.avif",
     "blurDataURL": "data:image/webp;base64,UklGRowAAABXRUJQVlA4IIAAAADQAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JZQCdAB6tBQCWgPR1PwAA/bqbGN6zEt7FUPbPINcm7MOUvgE7VVloForzKm9pptKLaoW0ObX1BhcSRW8S5F9fdZSnrALLbzmR3zzdMQLDL138CUijRT9nSmkTDLOhtgGds5Go4iuAAA==",
     "width": 1200,
-    "height": 797
+    "height": 797,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja13-640w.webp",
+        "avif": "/images/japan/ja13-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja13-1024w.webp",
+        "avif": "/images/japan/ja13-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja13.webp",
+        "avif": "/images/japan/ja13.avif"
+      }
+    ]
   },
   "/images/japan/ja14.jpg": {
     "webp": "/images/japan/ja14.webp",
     "avif": "/images/japan/ja14.avif",
     "blurDataURL": "data:image/webp;base64,UklGRn4AAABXRUJQVlA4IHIAAAAQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JZwAAXwxyYQcnvc49y19QAAD+7EdZh6XCvh/6dC2p7VZX3PvI7UURtsHL8DH4NKR7pyT+nwrmBndREQsQbVr0yzVtNh1SxdibJ1OoEHVYxEK+oJ4n4r2yhAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja14-640w.webp",
+        "avif": "/images/japan/ja14-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja14-1024w.webp",
+        "avif": "/images/japan/ja14-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja14.webp",
+        "avif": "/images/japan/ja14.avif"
+      }
+    ]
   },
   "/images/japan/ja15.jpg": {
     "webp": "/images/japan/ja15.webp",
     "avif": "/images/japan/ja15.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpQAAABXRUJQVlA4IIgAAACQBACdASoUAA0APu1iqU2ppaOiMAgBMB2JbACdMoRwFf/gLZucxz5PwOuE3AAA/vEXtb/ZCLIrR++Dzxn6bMd5tD8X3A50nUtUZPjJoEXS3DGjxUEwNfxNav2lXHLvis2p4BYeuihfxblIDzfGaSvIhk+KjxqeofEMkqz+Fc9Spyk7GdLnEAAA",
     "width": 1200,
-    "height": 796
+    "height": 796,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja15-640w.webp",
+        "avif": "/images/japan/ja15-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja15-1024w.webp",
+        "avif": "/images/japan/ja15-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja15.webp",
+        "avif": "/images/japan/ja15.avif"
+      }
+    ]
   },
   "/images/japan/ja16.jpg": {
     "webp": "/images/japan/ja16.webp",
     "avif": "/images/japan/ja16.avif",
     "blurDataURL": "data:image/webp;base64,UklGRqoAAABXRUJQVlA4IJ4AAADwAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JZACsABmVSm+E8rP3mXcAAP0mNcDf/NPUpFZyuQT3T5LdB3QRiNolhEkfwH0yeKVDzRUkDgzPwSmj8whvpOmn0eySPydDwLKp/yjmB7rxlOdZhmxqlsPu3EH8DZ6Fau8GvXe9eoofJisnb3GG7lvifZw5qKp8dl28AzyoS+H67wb5RvrwAA==",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja16-640w.webp",
+        "avif": "/images/japan/ja16-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja16-1024w.webp",
+        "avif": "/images/japan/ja16-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja16.webp",
+        "avif": "/images/japan/ja16.avif"
+      }
+    ]
   },
   "/images/japan/ja17.jpg": {
     "webp": "/images/japan/ja17.webp",
     "avif": "/images/japan/ja17.avif",
     "blurDataURL": "data:image/webp;base64,UklGRmwAAABXRUJQVlA4IGAAAACQAwCdASoUAA0APu1iqk2ppaQiMAgBMB2JYwC/OAx8bEEHVMeAAPfcpvBhtWPSFbRodm0+FTWbNYaPlPej8z8zqMpKXPn9dEoUbtqhDR0hc1cmimfwOVpvURsy2gNPwAA=",
     "width": 1200,
-    "height": 803
+    "height": 803,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja17-640w.webp",
+        "avif": "/images/japan/ja17-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja17-1024w.webp",
+        "avif": "/images/japan/ja17-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja17.webp",
+        "avif": "/images/japan/ja17.avif"
+      }
+    ]
   },
   "/images/japan/ja18.jpg": {
     "webp": "/images/japan/ja18.webp",
     "avif": "/images/japan/ja18.avif",
     "blurDataURL": "data:image/webp;base64,UklGRn4AAABXRUJQVlA4IHIAAABwBACdASoUAA0APu1iqU2ppaOiMAgBMB2JYgCdMoMw2n/AeQT3krplChtbkgD+WX8f2nsx3fl1rENEgrUvDD/gmcnISJn082nfrHU14t+tR4zDY3QSSWLweoeadeGF/DkAmeg8cPPkGzPmEWzDY0IAAAA=",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja18-640w.webp",
+        "avif": "/images/japan/ja18-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja18-1024w.webp",
+        "avif": "/images/japan/ja18-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja18.webp",
+        "avif": "/images/japan/ja18.avif"
+      }
+    ]
   },
   "/images/japan/ja19.jpg": {
     "webp": "/images/japan/ja19.webp",
     "avif": "/images/japan/ja19.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpwAAABXRUJQVlA4IJAAAABwBACdASoUAA4APu1iqU2ppaOiMAgBMB2JZACdL1yB1AvdpfBALGcSRKwd8ADMn5ilk+Fa2rDlcqAXuEXeD6FXAdAkWm5gF2BmyqQmUHHkBSgvl/KAMCszMnwj9hauLFbkhYMvp16JBJ7Oj1zy6SHDIJEaRNxVf07s/2zRa6Wltbf1J1HsoU/aqeLA/38AAAA=",
     "width": 1200,
-    "height": 843
+    "height": 843,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja19-640w.webp",
+        "avif": "/images/japan/ja19-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja19-1024w.webp",
+        "avif": "/images/japan/ja19-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja19.webp",
+        "avif": "/images/japan/ja19.avif"
+      }
+    ]
   },
   "/images/japan/ja2.jpg": {
     "webp": "/images/japan/ja2.webp",
     "avif": "/images/japan/ja2.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoYAAABXRUJQVlA4IHoAAACQBACdASoUAA0APu1iqU2ppaOiMAgBMB2JbACdMoRwACmzpCcprydqnHHTwAAA+khNCi/ePDwS9go5S7qWwXlRYcaIvoqaU8VmjB9dJ4OJ9YxrWIfFnMNd39wrFXWEF02H4een+KC4gByJO3m2ZxzMWMG8h28fe+JQAA==",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja2-640w.webp",
+        "avif": "/images/japan/ja2-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja2-1024w.webp",
+        "avif": "/images/japan/ja2-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja2.webp",
+        "avif": "/images/japan/ja2.avif"
+      }
+    ]
   },
   "/images/japan/ja20.jpg": {
     "webp": "/images/japan/ja20.webp",
     "avif": "/images/japan/ja20.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpAAAABXRUJQVlA4IIQAAAAwBACdASoUAA0APu1iqU2ppaOiMAgBMB2JaAC1CHADA3ewzkynJ0dqbSAA/uQdDqy5wRM/DN38Lyd6+slVpUy3a85UauDGs44Et2bxYzvylJrmNtkCKYxatwYsyjy32Xnbf36wCECulKBERIH2Ose3yrHECBbYeQ/MW2hev/roORwAAAA=",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja20-640w.webp",
+        "avif": "/images/japan/ja20-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja20-1024w.webp",
+        "avif": "/images/japan/ja20-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja20.webp",
+        "avif": "/images/japan/ja20.avif"
+      }
+    ]
   },
   "/images/japan/ja21.jpg": {
     "webp": "/images/japan/ja21.webp",
     "avif": "/images/japan/ja21.avif",
     "blurDataURL": "data:image/webp;base64,UklGRnoAAABXRUJQVlA4IG4AAADwAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JQBOgA2/Bwfh3KQPlWZUAAPxTKQXk4dkLbl+waCX1K/kXjED2jOIX5+anoX2jeeJD2wwGKrMMeZu5hez+2jqX2mHszW+6dLCL6Azt+xSvjv/ae/dAAA==",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja21-640w.webp",
+        "avif": "/images/japan/ja21-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja21-1024w.webp",
+        "avif": "/images/japan/ja21-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja21.webp",
+        "avif": "/images/japan/ja21.avif"
+      }
+    ]
   },
   "/images/japan/ja22.jpg": {
     "webp": "/images/japan/ja22.webp",
     "avif": "/images/japan/ja22.avif",
     "blurDataURL": "data:image/webp;base64,UklGRswAAABXRUJQVlA4IMAAAADwBACdASoUABsAPu1qrlCppaQiqAqpMB2JQBlAAiS/cVCCm3F/40/k1Mbil9p0eAAA/rfDLu0fD6INjIZWI46usTxC68lW4xFdbhaXjCmfCwCu1xSOUzV/MRzZjPa9x04q8S2ghMe6ItbI/NiY/5URwMmN+OidOTI0wG/Rvpmpnh9nR3CsTPt1/+wvq8BPRMmwIolXSXvzIG88TBi2CZsGeymwSGbDA3rZy8q105VV4+nQpQf5QKbB+MOwUNKAAAA=",
     "width": 900,
-    "height": 1200
+    "height": 1200,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja22-640w.webp",
+        "avif": "/images/japan/ja22-640w.avif"
+      },
+      {
+        "width": 900,
+        "webp": "/images/japan/ja22.webp",
+        "avif": "/images/japan/ja22.avif"
+      }
+    ]
   },
   "/images/japan/ja23.jpg": {
     "webp": "/images/japan/ja23.webp",
     "avif": "/images/japan/ja23.avif",
     "blurDataURL": "data:image/webp;base64,UklGRmwAAABXRUJQVlA4IGAAAABQAwCdASoUAA8APu1iqU2ppaQiMAgBMB2JZwAAW5QvA9bg0AD+sj0Ik9f91JVK6jGBrAB6M9jIxuY1pJ3e4w6GCdwZgpO6uH07DyM+XECxPwrIh8VIDf5MzvvTU+ooAAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja23-640w.webp",
+        "avif": "/images/japan/ja23-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja23-1024w.webp",
+        "avif": "/images/japan/ja23-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja23.webp",
+        "avif": "/images/japan/ja23.avif"
+      }
+    ]
   },
   "/images/japan/ja24.jpg": {
     "webp": "/images/japan/ja24.webp",
     "avif": "/images/japan/ja24.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpwAAABXRUJQVlA4IJAAAAAwBACdASoUAA8APu1iqU2ppaOiMAgBMB2JbACdMoACETTp8CnYcHrw3gAA/SP8rgg836/6pLrZb/++XOhORXPRTREUQBRzYmV6RhktTAGLVCBBr0G6g9f8STSrDEq4mMnzkBX+sHyIFd/RqBHi/TaH9/P/PACxEu02wlQ0RgsoYcUBrnuJ/eVxUPllqd7AAAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja24-640w.webp",
+        "avif": "/images/japan/ja24-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja24-1024w.webp",
+        "avif": "/images/japan/ja24-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja24.webp",
+        "avif": "/images/japan/ja24.avif"
+      }
+    ]
   },
   "/images/japan/ja25.jpg": {
     "webp": "/images/japan/ja25.webp",
     "avif": "/images/japan/ja25.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpgAAABXRUJQVlA4IIwAAADwAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JYwCo9CPbb0Ro7KjdMXUAAP7s4Z/ebcH8J+s4Zj+ZczwgNNgE2aApW5r3eDAZtJSEkxEz4TIiTHq79IM+WfoY4kXQUsxjUAx45/2lQToWVn3v8lHN/WHUdMg+sqBmbuKOsw7gs7fEnwg1k+DtKo/FBgAAAA==",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja25-640w.webp",
+        "avif": "/images/japan/ja25-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja25-1024w.webp",
+        "avif": "/images/japan/ja25-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja25.webp",
+        "avif": "/images/japan/ja25.avif"
+      }
+    ]
   },
   "/images/japan/ja26.jpg": {
     "webp": "/images/japan/ja26.webp",
     "avif": "/images/japan/ja26.avif",
     "blurDataURL": "data:image/webp;base64,UklGRp4AAABXRUJQVlA4IJIAAABQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JQBadMYxcDXnY3xEMrXby2zvAAP7ypBcqT0uZOIcMUxYW/1HJkGg18c8iDRN3MS4V47FIBEW9UxEHuUrulzb4mTjzVxcG2rI2ZlRs5O0cWZYL8KHne16jcJvLc5KvFSOSztRPotNcOGT7hBUcjpfFLh0gRIHjTMAAAA==",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja26-640w.webp",
+        "avif": "/images/japan/ja26-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja26-1024w.webp",
+        "avif": "/images/japan/ja26-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja26.webp",
+        "avif": "/images/japan/ja26.avif"
+      }
+    ]
   },
   "/images/japan/ja27.jpg": {
     "webp": "/images/japan/ja27.webp",
     "avif": "/images/japan/ja27.avif",
     "blurDataURL": "data:image/webp;base64,UklGRooAAABXRUJQVlA4IH4AAABQBACdASoUAA0APu1iqU2ppaOiMAgBMB2JYwCdIMimAAq3NOBd587OepvAAP7D6ku9/lmOwl61OJf66qPsYtYQPfZ1r9fWLY/1aObJl2vTNGXH/69iqQKLNlhv9oW4+8+WFA1fyPerjeme8df88up580TXkM1TK809Oy9gAAA=",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja27-640w.webp",
+        "avif": "/images/japan/ja27-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja27-1024w.webp",
+        "avif": "/images/japan/ja27-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja27.webp",
+        "avif": "/images/japan/ja27.avif"
+      }
+    ]
   },
   "/images/japan/ja3.jpg": {
     "webp": "/images/japan/ja3.webp",
     "avif": "/images/japan/ja3.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpIAAABXRUJQVlA4IIYAAACwAwCdASoUAAsAPu1iqU2ppaQiMAgBMB2JQBdgA6f6PtFgEv/EAAD+ou1Bv7F4r3tDf1HvB/+iSIf90rgQYCtj7UTxzu0cwO7dv4DrnLUcKdsktXNbRvAGCZnyRuqYztZLNKl7onm+ambpi9T6Y1tEe9kHBpnzGWg7F5mAVy/HxKkOMgAAAA==",
     "width": 1200,
-    "height": 675
+    "height": 675,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja3-640w.webp",
+        "avif": "/images/japan/ja3-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja3-1024w.webp",
+        "avif": "/images/japan/ja3-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja3.webp",
+        "avif": "/images/japan/ja3.avif"
+      }
+    ]
   },
   "/images/japan/ja4.jpg": {
     "webp": "/images/japan/ja4.webp",
     "avif": "/images/japan/ja4.avif",
     "blurDataURL": "data:image/webp;base64,UklGRsQAAABXRUJQVlA4ILgAAADQBACdASoUABsAPu1sqlGppaOiqAqpMB2JQBadBpw55IRjzpwNbhQpxs1yrH2t4AD3X0oshkC7FcU9rNY85cX8afjDvG/nADCOGb5T1Pt3Q5ohCIm9dVv5KkTN7v+mbhLylDIKkLDj+jHpmnXCwiWQq/9fPWcvu/9tgftzmAnM1SXeUTwNImUj2gDYXTC+niBWaFd5IiVcNtkm4svUHVEZ6f0hKKv84uR0c9SiOXvVWX720BdZAAAA",
     "width": 900,
-    "height": 1200
+    "height": 1200,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja4-640w.webp",
+        "avif": "/images/japan/ja4-640w.avif"
+      },
+      {
+        "width": 900,
+        "webp": "/images/japan/ja4.webp",
+        "avif": "/images/japan/ja4.avif"
+      }
+    ]
   },
   "/images/japan/ja5.jpg": {
     "webp": "/images/japan/ja5.webp",
     "avif": "/images/japan/ja5.avif",
     "blurDataURL": "data:image/webp;base64,UklGRmYAAABXRUJQVlA4IFoAAAAwBACdASoUAAoAPu1iqk2ppaQiMAgBMB2JZgCdMoADStPKollTfABrEaAA96Uyrwi2yTGYMNQsx0MCt0laNpqzk3n9kdk5zoCqazjlqTy9KXeXdHrdQK+wAAA=",
     "width": 1200,
-    "height": 587
+    "height": 587,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja5-640w.webp",
+        "avif": "/images/japan/ja5-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja5-1024w.webp",
+        "avif": "/images/japan/ja5-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja5.webp",
+        "avif": "/images/japan/ja5.avif"
+      }
+    ]
   },
   "/images/japan/ja6.jpg": {
     "webp": "/images/japan/ja6.webp",
     "avif": "/images/japan/ja6.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpgAAABXRUJQVlA4IIwAAADwAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JYwCo9CPbb0Ro7KjdMXUAAP7s4Z/ebcH8J+s4Zj+ZczwgNNgE2aApW5r3eDAZtJSEkxEz4TIiTHq79IM+WfoY4kXQUsxjUAx45/2lQToWVn3v8lHN/WHUdMg+sqBmbuKOsw7gs7fEnwg1k+DtKo/FBgAAAA==",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja6-640w.webp",
+        "avif": "/images/japan/ja6-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja6-1024w.webp",
+        "avif": "/images/japan/ja6-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja6.webp",
+        "avif": "/images/japan/ja6.avif"
+      }
+    ]
   },
   "/images/japan/ja7.jpg": {
     "webp": "/images/japan/ja7.webp",
     "avif": "/images/japan/ja7.avif",
     "blurDataURL": "data:image/webp;base64,UklGRtwAAABXRUJQVlA4INAAAAAQBgCdASoUAB4APu1osFAppaUiqAqpMB2JZACdMoMwK/+U/wL0P62RMfZvRvQOHhi0OU1l/5hUZIAA/vAEDLvLu/AXwuHj3fXCMpnzheqN4VhaRabKiZyktNKRwfdNDsAy8qbEl6mpJEiMoKJH191IbeUUXjzGKkmhQVkYNveK/AxNZWVRoKUMG2Q7E1p2kCUKNKVVACJ8+kVWzRhTTMWSNOiMiulXQHlnJ+8CoNhgvf/OPEZ3yT8N+E3z7sCv/wsrjNCFgVxqG5rADWxXBDgA",
     "width": 800,
-    "height": 1200
+    "height": 1200,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja7-640w.webp",
+        "avif": "/images/japan/ja7-640w.avif"
+      },
+      {
+        "width": 800,
+        "webp": "/images/japan/ja7.webp",
+        "avif": "/images/japan/ja7.avif"
+      }
+    ]
   },
   "/images/japan/ja8.jpg": {
     "webp": "/images/japan/ja8.webp",
     "avif": "/images/japan/ja8.avif",
     "blurDataURL": "data:image/webp;base64,UklGRooAAABXRUJQVlA4IH4AAACwAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JaQAD5KvKwKGdmddegAD7cXgVgdaBkT5x+bPAmLAvOf3xhaElwM5k0LbR50GIJ4DNv+FLjW6ZTh+rypPIjILVmfFs/A5zaFoZBul4oZjqKC30uAe9zrGzpS+gl3WTvtQZWCBwAAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja8-640w.webp",
+        "avif": "/images/japan/ja8-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja8-1024w.webp",
+        "avif": "/images/japan/ja8-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja8.webp",
+        "avif": "/images/japan/ja8.avif"
+      }
+    ]
   },
   "/images/japan/ja9.jpg": {
     "webp": "/images/japan/ja9.webp",
     "avif": "/images/japan/ja9.avif",
     "blurDataURL": "data:image/webp;base64,UklGRooAAABXRUJQVlA4IH4AAAAwBACdASoUAAsAPu1iqU2ppaOiMAgBMB2JQBdmUABwBCx/ldLNUxRBBAAA/qUCfXcDY76YbR6zxvcUhuNVWLVsK+T0NJy5q5co6Qf4MTSkriG8YCLCCoBiyIYa0GzXlsEdLP4iFZxNsOzOAKtJXz0mIBtuyTkHcXZvtXugAAA=",
     "width": 1200,
-    "height": 675
+    "height": 675,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/ja9-640w.webp",
+        "avif": "/images/japan/ja9-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/ja9-1024w.webp",
+        "avif": "/images/japan/ja9-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/ja9.webp",
+        "avif": "/images/japan/ja9.avif"
+      }
+    ]
   },
   "/images/japan/jf1.jpg": {
     "webp": "/images/japan/jf1.webp",
     "avif": "/images/japan/jf1.avif",
     "blurDataURL": "data:image/webp;base64,UklGRqYAAABXRUJQVlA4IJoAAACwBACdASoUAA8APu1iqU2ppaOiMAgBMB2JbACdMoRwAdB87ne2Pe+xVmpSi4BoAO5Sv7Czpv/Ky4gfcy6dbv5EeQ1Jdj7dszl1+PVin6F5K9cUXekC23aBJDdp9IQBL+DwHGZotPS1oHVjKa4mFgmLOB9K7bmJGKSlVZbd3JUi6IkH5o3yCfuOP6tD/mJNkSCRd+do2OXoAAAA",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/jf1-640w.webp",
+        "avif": "/images/japan/jf1-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/jf1-1024w.webp",
+        "avif": "/images/japan/jf1-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/jf1.webp",
+        "avif": "/images/japan/jf1.avif"
+      }
+    ]
   },
   "/images/japan/jf2.jpg": {
     "webp": "/images/japan/jf2.webp",
     "avif": "/images/japan/jf2.avif",
     "blurDataURL": "data:image/webp;base64,UklGRrIAAABXRUJQVlA4IKYAAADQBACdASoUAA0APu1iqU2ppaOiMAgBMB2JbACdMoMYA0fpzWvVkIfTf2THkQMeAAD+44HUuUBqCmStBlX6WLR9nlaMKeGhwx9d2dSsHSs6nhVB+7stLwinIG+hT2t+YzI2ahrivsIHZfbzGQKLDwnIHQD1EQtNP+P/05Zzr7J/881dinzzWKMX4/SCW4wETjWHh9Mm1+OY56c3OgS2RL7f+xgcwAAA",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/jf2-640w.webp",
+        "avif": "/images/japan/jf2-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/jf2-1024w.webp",
+        "avif": "/images/japan/jf2-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/jf2.webp",
+        "avif": "/images/japan/jf2.avif"
+      }
+    ]
   },
   "/images/japan/jf3.jpg": {
     "webp": "/images/japan/jf3.webp",
     "avif": "/images/japan/jf3.avif",
     "blurDataURL": "data:image/webp;base64,UklGRrIAAABXRUJQVlA4IKYAAABwBACdASoUAA8APu1iqU2ppaOiMAgBMB2JQBdmUAXoJmUVuSz5qwLzrwGGAAD7GeNg4loqRcL12H6auLAik5Ctimqu2EymoyDu4DkU6dL4N0J6qopz9JJ5lIjZ/P9XxHJ9Ic5hoeLQcapRcyHdZw41qbnmM6YpV9JT9TJoAUM65Lp5b+KmY2WbPLDDngZWegKc7fqwMxGAa1Dqpa568E7eQq0FwAAA",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/jf3-640w.webp",
+        "avif": "/images/japan/jf3-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/jf3-1024w.webp",
+        "avif": "/images/japan/jf3-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/jf3.webp",
+        "avif": "/images/japan/jf3.avif"
+      }
+    ]
   },
   "/images/japan/jf4.jpg": {
     "webp": "/images/japan/jf4.webp",
     "avif": "/images/japan/jf4.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpgAAABXRUJQVlA4IIwAAADwAwCdASoUAA0APu1iqU2ppaQiMAgBMB2JZACdIHACh0RuQyvtlCqQAP7v7abdI/5F+h0hM3DjCScHeBowf6Xl4L1PU2FpH7+79ejTZA2xjKPbdnXXj8fQk2/GrVUf96tvgOP5DCL0Amkk3uFAOJX5CNqBQpR/Rq/WjVTRDzGT9GTjjNJlhux6nQ9wAA==",
     "width": 800,
-    "height": 534
+    "height": 534,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/jf4-640w.webp",
+        "avif": "/images/japan/jf4-640w.avif"
+      },
+      {
+        "width": 800,
+        "webp": "/images/japan/jf4.webp",
+        "avif": "/images/japan/jf4.avif"
+      }
+    ]
   },
   "/images/japan/jf5.jpg": {
     "webp": "/images/japan/jf5.webp",
     "avif": "/images/japan/jf5.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoQAAABXRUJQVlA4IHgAAADwAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JQBZwBGB0XvudTDoVElgQAP7XOq8DcgDBHVgxk8lbgRebzQV666cpJJaJR27se14fMJcG1tVR5SUjKnn09wpBZ3ZG4EUsqw9SGdAVekuQU6IkUfnZn2twQgD7FdkAAAA=",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/jf5-640w.webp",
+        "avif": "/images/japan/jf5-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/jf5-1024w.webp",
+        "avif": "/images/japan/jf5-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/jf5.webp",
+        "avif": "/images/japan/jf5.avif"
+      }
+    ]
   },
   "/images/japan/jf6.jpg": {
     "webp": "/images/japan/jf6.webp",
     "avif": "/images/japan/jf6.avif",
     "blurDataURL": "data:image/webp;base64,UklGRmYAAABXRUJQVlA4IFoAAAAQBACdASoUABMAPu1sqlGppaOiqAqpMB2JQBj8giObZ3HL6l4dreMIEAD+77X9DsvtKDexj9feyfoyLGdD0I7sQIhDsTmiD8qLtzNZEioBAjU4R7Mw/1FAAAA=",
     "width": 1200,
-    "height": 1157
+    "height": 1157,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/japan/jf6-640w.webp",
+        "avif": "/images/japan/jf6-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/japan/jf6-1024w.webp",
+        "avif": "/images/japan/jf6-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/japan/jf6.webp",
+        "avif": "/images/japan/jf6.avif"
+      }
+    ]
   },
   "/images/map/jp-akihabara.jpg": {
     "webp": "/images/map/jp-akihabara.webp",
     "avif": "/images/map/jp-akihabara.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpgAAABXRUJQVlA4IIwAAADwAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JYwCo9CPbb0Ro7KjdMXUAAP7s4Z/ebcH8J+s4Zj+ZczwgNNgE2aApW5r3eDAZtJSEkxEz4TIiTHq79IM+WfoY4kXQUsxjUAx45/2lQToWVn3v8lHN/WHUdMg+sqBmbuKOsw7gs7fEnwg1k+DtKo/FBgAAAA==",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-akihabara-640w.webp",
+        "avif": "/images/map/jp-akihabara-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/jp-akihabara-1024w.webp",
+        "avif": "/images/map/jp-akihabara-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/jp-akihabara.webp",
+        "avif": "/images/map/jp-akihabara.avif"
+      }
+    ]
   },
   "/images/map/jp-arashiyama.jpg": {
     "webp": "/images/map/jp-arashiyama.webp",
     "avif": "/images/map/jp-arashiyama.avif",
     "blurDataURL": "data:image/webp;base64,UklGRnQAAABXRUJQVlA4IGgAAADwAwCdASoUAA8APu1iqU2ppaQiMAgBMB2JZQC2yB6vFX1uagZ4QFiAAP6DoIT1roks4ccKlXHGWAYepOQtfdGgAZVP0vj7EJ6HWK5Xhm85iNKF5/AFbivLpbA+J1G9z9zRM3XPGEgAAA==",
     "width": 800,
-    "height": 600
+    "height": 600,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-arashiyama-640w.webp",
+        "avif": "/images/map/jp-arashiyama-640w.avif"
+      },
+      {
+        "width": 800,
+        "webp": "/images/map/jp-arashiyama.webp",
+        "avif": "/images/map/jp-arashiyama.avif"
+      }
+    ]
   },
   "/images/map/jp-dotonbori.jpg": {
     "webp": "/images/map/jp-dotonbori.webp",
     "avif": "/images/map/jp-dotonbori.avif",
     "blurDataURL": "data:image/webp;base64,UklGRuwAAABXRUJQVlA4IOAAAADwBQCdASoUABkAPulcqE2pJKQiN/VYASAdCWQAyJmM0G8CVIi9bLSG1OjNXVWDy4G7bdBzvL5JQAD+9W0lrf8ir9Hy3Njx3Qt2SsUmM3qUTKJ1BcIRqwx3VhIeWnDOxyyEJrH2sFG4PVJ+bGbQUovSJOxhFKmIIIUOdgdYOIxlneEq+HGPq7CTxAHuER/bLPgAJF6tMFOpvvAHHsFmvswmqliTVALRqePeIISAkVenTfsy64TRyODgurmrex507M6yc+5lHIDgMfWEqFSr9EwTOWhfIAVR+GerNoOOhT8mAA==",
     "width": 981,
-    "height": 1200
+    "height": 1200,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-dotonbori-640w.webp",
+        "avif": "/images/map/jp-dotonbori-640w.avif"
+      },
+      {
+        "width": 981,
+        "webp": "/images/map/jp-dotonbori.webp",
+        "avif": "/images/map/jp-dotonbori.avif"
+      }
+    ]
   },
   "/images/map/jp-fushimi.jpg": {
     "webp": "/images/map/jp-fushimi.webp",
     "avif": "/images/map/jp-fushimi.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoYAAABXRUJQVlA4IHoAAACQBACdASoUAA0APu1iqU2ppaOiMAgBMB2JbACdMoRwACmzpCcprydqnHHTwAAA+khNCi/ePDwS9go5S7qWwXlRYcaIvoqaU8VmjB9dJ4OJ9YxrWIfFnMNd39wrFXWEF02H4een+KC4gByJO3m2ZxzMWMG8h28fe+JQAA==",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-fushimi-640w.webp",
+        "avif": "/images/map/jp-fushimi-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/jp-fushimi-1024w.webp",
+        "avif": "/images/map/jp-fushimi-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/jp-fushimi.webp",
+        "avif": "/images/map/jp-fushimi.avif"
+      }
+    ]
   },
   "/images/map/jp-hakone.jpg": {
     "webp": "/images/map/jp-hakone.webp",
     "avif": "/images/map/jp-hakone.avif",
     "blurDataURL": "data:image/webp;base64,UklGRn4AAABXRUJQVlA4IHIAAABwBACdASoUAA0APu1iqU2ppaOiMAgBMB2JYgCdMoMw2n/AeQT3krplChtbkgD+WX8f2nsx3fl1rENEgrUvDD/gmcnISJn082nfrHU14t+tR4zDY3QSSWLweoeadeGF/DkAmeg8cPPkGzPmEWzDY0IAAAA=",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-hakone-640w.webp",
+        "avif": "/images/map/jp-hakone-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/jp-hakone-1024w.webp",
+        "avif": "/images/map/jp-hakone-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/jp-hakone.webp",
+        "avif": "/images/map/jp-hakone.avif"
+      }
+    ]
   },
   "/images/map/jp-ichiran.jpg": {
     "webp": "/images/map/jp-ichiran.webp",
     "avif": "/images/map/jp-ichiran.avif",
     "blurDataURL": "data:image/webp;base64,UklGRqYAAABXRUJQVlA4IJoAAACwBACdASoUAA8APu1iqU2ppaOiMAgBMB2JbACdMoRwAdB87ne2Pe+xVmpSi4BoAO5Sv7Czpv/Ky4gfcy6dbv5EeQ1Jdj7dszl1+PVin6F5K9cUXekC23aBJDdp9IQBL+DwHGZotPS1oHVjKa4mFgmLOB9K7bmJGKSlVZbd3JUi6IkH5o3yCfuOP6tD/mJNkSCRd+do2OXoAAAA",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-ichiran-640w.webp",
+        "avif": "/images/map/jp-ichiran-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/jp-ichiran-1024w.webp",
+        "avif": "/images/map/jp-ichiran-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/jp-ichiran.webp",
+        "avif": "/images/map/jp-ichiran.avif"
+      }
+    ]
   },
   "/images/map/jp-kinkakuji.jpg": {
     "webp": "/images/map/jp-kinkakuji.webp",
     "avif": "/images/map/jp-kinkakuji.avif",
     "blurDataURL": "data:image/webp;base64,UklGRtwAAABXRUJQVlA4INAAAAAQBgCdASoUAB4APu1osFAppaUiqAqpMB2JZACdMoMwK/+U/wL0P62RMfZvRvQOHhi0OU1l/5hUZIAA/vAEDLvLu/AXwuHj3fXCMpnzheqN4VhaRabKiZyktNKRwfdNDsAy8qbEl6mpJEiMoKJH191IbeUUXjzGKkmhQVkYNveK/AxNZWVRoKUMG2Q7E1p2kCUKNKVVACJ8+kVWzRhTTMWSNOiMiulXQHlnJ+8CoNhgvf/OPEZ3yT8N+E3z7sCv/wsrjNCFgVxqG5rADWxXBDgA",
     "width": 800,
-    "height": 1200
+    "height": 1200,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-kinkakuji-640w.webp",
+        "avif": "/images/map/jp-kinkakuji-640w.avif"
+      },
+      {
+        "width": 800,
+        "webp": "/images/map/jp-kinkakuji.webp",
+        "avif": "/images/map/jp-kinkakuji.avif"
+      }
+    ]
   },
   "/images/map/jp-nara.jpg": {
     "webp": "/images/map/jp-nara.webp",
     "avif": "/images/map/jp-nara.avif",
     "blurDataURL": "data:image/webp;base64,UklGRogAAABXRUJQVlA4IHwAAACwBACdASoUAA8APu1iqU2ppaQiMAgBMB2JaACdMoMYOGBb/4DyAU00+pris7YAAP7FXgfTw1PW2DqUrPwYOFJlwTIEPdLNpDB2kAFn5+fRnq8Hv7wVm5ms/QmY8xBRv5ZSEgybqJVBWNk4ebJ8x9SEDutAS302XitkgAAA",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-nara-640w.webp",
+        "avif": "/images/map/jp-nara-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/jp-nara-1024w.webp",
+        "avif": "/images/map/jp-nara-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/jp-nara.webp",
+        "avif": "/images/map/jp-nara.avif"
+      }
+    ]
   },
   "/images/map/jp-nishiki.jpg": {
     "webp": "/images/map/jp-nishiki.webp",
     "avif": "/images/map/jp-nishiki.avif",
     "blurDataURL": "data:image/webp;base64,UklGRu4AAABXRUJQVlA4IOIAAAAQBQCdASoUABsAPu1oqVAppiOiqA1RMB2JYgCdAd0KKAS2I29+mXAQ3d80Wodh3HgAAP6msnyjG1esBpI7AvHmfN7RYzIaxwYKiGfg5dgcGNBkpqEvQv8YhOX96nxtEnfGxGtkDtQsg5d3t6fjLnWrc6XMvVlCM/H/eD3xY94riDNKRBTWt6qJjdNS6NULMGMFhcBlmlY4a3bGhcp82Xr9xPiMinuFL3U9wyLS5C6RpCd0zFQEBODM8F9Mrjh0WGoaApkBuk1irNtwnu5z2XXU2AKuaANC3U/+AXOQJmT14AAA",
     "width": 900,
-    "height": 1200
+    "height": 1200,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-nishiki-640w.webp",
+        "avif": "/images/map/jp-nishiki-640w.avif"
+      },
+      {
+        "width": 900,
+        "webp": "/images/map/jp-nishiki.webp",
+        "avif": "/images/map/jp-nishiki.avif"
+      }
+    ]
   },
   "/images/map/jp-osaka-castle.jpg": {
     "webp": "/images/map/jp-osaka-castle.webp",
     "avif": "/images/map/jp-osaka-castle.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoYAAABXRUJQVlA4IHoAAACwAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JYwCsACKfFHEHLRyF4AD5ZqYbElqo3+mO2WiCk9zdKCV1gUPChTaILmQG9YWbVWfL0Ey10PoSV/oteN/thpH3WKd4HtELH4wqcx4Y11eybVKs8E9c6SZS9s3hB19aKnUAAA==",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-osaka-castle-640w.webp",
+        "avif": "/images/map/jp-osaka-castle-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/jp-osaka-castle-1024w.webp",
+        "avif": "/images/map/jp-osaka-castle-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/jp-osaka-castle.webp",
+        "avif": "/images/map/jp-osaka-castle.avif"
+      }
+    ]
   },
   "/images/map/jp-park-hyatt.jpg": {
     "webp": "/images/map/jp-park-hyatt.webp",
     "avif": "/images/map/jp-park-hyatt.avif",
     "blurDataURL": "data:image/webp;base64,UklGRnYAAABXRUJQVlA4IGoAAACwAwCdASoUAAsAPu1iqk2ppaQiMAgBMB2JQBOgA9Bb2YctjKH/wAD8XIYsDnLKeQAuouC23q9lypUlNUGTdiVyAHsgzvGqVLUKbIPPVkNDsmpJ2bl5XyFgRtk52echQhWcitqunx8vngAA",
     "width": 1200,
-    "height": 639
+    "height": 639,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-park-hyatt-640w.webp",
+        "avif": "/images/map/jp-park-hyatt-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/jp-park-hyatt-1024w.webp",
+        "avif": "/images/map/jp-park-hyatt-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/jp-park-hyatt.webp",
+        "avif": "/images/map/jp-park-hyatt.avif"
+      }
+    ]
   },
   "/images/map/jp-sensoji.jpg": {
     "webp": "/images/map/jp-sensoji.webp",
     "avif": "/images/map/jp-sensoji.avif",
     "blurDataURL": "data:image/webp;base64,UklGRp4AAABXRUJQVlA4IJIAAACQBACdASoUAA4APu1iqU2ppaOiMAgBMB2JaACdL1GT/Z/8Bs8dTqh3jWD48NoA/rHUpGOpjtKjebW6rVdaV9UsAGLcb/e2VsUyDLjI5GRRV16BIjL5wNLxMjo89D3dUVE711BkIVzrH2lzPIfN3wi8hsVf/ZrONy3gMC+I5E/ETOYuTqi6MTyAu31tI3hZWaAAAA==",
     "width": 1200,
-    "height": 857
+    "height": 857,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-sensoji-640w.webp",
+        "avif": "/images/map/jp-sensoji-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/jp-sensoji-1024w.webp",
+        "avif": "/images/map/jp-sensoji-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/jp-sensoji.webp",
+        "avif": "/images/map/jp-sensoji.avif"
+      }
+    ]
   },
   "/images/map/jp-shibuya.jpg": {
     "webp": "/images/map/jp-shibuya.webp",
     "avif": "/images/map/jp-shibuya.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpIAAABXRUJQVlA4IIYAAACwAwCdASoUAAsAPu1iqU2ppaQiMAgBMB2JQBdgA6f6PtFgEv/EAAD+ou1Bv7F4r3tDf1HvB/+iSIf90rgQYCtj7UTxzu0cwO7dv4DrnLUcKdsktXNbRvAGCZnyRuqYztZLNKl7onm+ambpi9T6Y1tEe9kHBpnzGWg7F5mAVy/HxKkOMgAAAA==",
     "width": 1200,
-    "height": 675
+    "height": 675,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/jp-shibuya-640w.webp",
+        "avif": "/images/map/jp-shibuya-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/jp-shibuya-1024w.webp",
+        "avif": "/images/map/jp-shibuya-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/jp-shibuya.webp",
+        "avif": "/images/map/jp-shibuya.avif"
+      }
+    ]
   },
   "/images/map/np-bhaktapur.jpg": {
     "webp": "/images/map/np-bhaktapur.webp",
     "avif": "/images/map/np-bhaktapur.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoYAAABXRUJQVlA4IHoAAABwBACdASoUAA0APu1iqU2ppaOiMAgBMB2JaACdMoMYAEQl3GxZQPz2JBfZYAD9j+Rv29NjFBNYebRPQEpkPYiwbhP5/XvF6kx5wF4x7/HPboRIrWEkzuqlRipmaH6n+B02gbIDFUCC/jN1TXn2zVrOztZsyQOXLyT4AA==",
     "width": 1200,
-    "height": 796
+    "height": 796,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-bhaktapur-640w.webp",
+        "avif": "/images/map/np-bhaktapur-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/np-bhaktapur-1024w.webp",
+        "avif": "/images/map/np-bhaktapur-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/np-bhaktapur.webp",
+        "avif": "/images/map/np-bhaktapur.avif"
+      }
+    ]
   },
   "/images/map/np-boudhanath.jpg": {
     "webp": "/images/map/np-boudhanath.webp",
     "avif": "/images/map/np-boudhanath.avif",
     "blurDataURL": "data:image/webp;base64,UklGRsAAAABXRUJQVlA4ILQAAACQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JbACdMoGv/i19VUIuJJFcfObN2KAA/t7bzP+2kmxyGnNYqnLx4dHnMTFjGASTDgHUV1NGoMilwnGEhZFMxmyGoWsgNbhRInCOL/SIlRbZrM7YvL97HDTBbmsx01lqhYba6Xsqe26IcN28K6p5p8bOHSXzW8YoS6uKTXZgw4ARu+NCQmfPHJamhcTCp9b4qXo1vruTMwd5YaOAAAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-boudhanath-640w.webp",
+        "avif": "/images/map/np-boudhanath-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/np-boudhanath-1024w.webp",
+        "avif": "/images/map/np-boudhanath-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/np-boudhanath.webp",
+        "avif": "/images/map/np-boudhanath.avif"
+      }
+    ]
   },
   "/images/map/np-durbar-ktm.jpg": {
     "webp": "/images/map/np-durbar-ktm.webp",
     "avif": "/images/map/np-durbar-ktm.avif",
     "blurDataURL": "data:image/webp;base64,UklGRqIAAABXRUJQVlA4IJYAAACQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JQBOmUAS3AxKer8/4aMdGkzYSOMAA/tXrl1leg3qxGVhB9TkHWmLtJTbAdD2Wi5p8v2TwygIorH8dYRFHsxX3CfrWZ9fT/oqiNdy5mwh2QKElH/gM2L8wI79g9AlXjUZnjBK0sr8zvtL//Vh+Wz1tGgO/aOXJOSluH179AAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-durbar-ktm-640w.webp",
+        "avif": "/images/map/np-durbar-ktm-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/np-durbar-ktm-1024w.webp",
+        "avif": "/images/map/np-durbar-ktm-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/np-durbar-ktm.webp",
+        "avif": "/images/map/np-durbar-ktm.avif"
+      }
+    ]
   },
   "/images/map/np-kopan.jpg": {
     "webp": "/images/map/np-kopan.webp",
     "avif": "/images/map/np-kopan.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoIAAABXRUJQVlA4IHYAAAAQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JYwC7MlUAwLkbEsuXAFhg0AD+832kev8juGsfOuFG9IOgSbPIuESU5ejy6Y5/PmHXaw5ZmmpNtlc5K8YyW0I6qD86YMa+IzbH47cDcPqX3NV0/chPEk0edHQ1AAAA",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-kopan-640w.webp",
+        "avif": "/images/map/np-kopan-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/np-kopan-1024w.webp",
+        "avif": "/images/map/np-kopan-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/np-kopan.webp",
+        "avif": "/images/map/np-kopan.avif"
+      }
+    ]
   },
   "/images/map/np-nagarkot.jpg": {
     "webp": "/images/map/np-nagarkot.webp",
     "avif": "/images/map/np-nagarkot.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpoAAABXRUJQVlA4II4AAAAwBACdASoUAA0APu1iqU2ppaOiMAgBMB2JYwCdACP87QPPSOjdHiRf3AAAzV8cBkNWrE0aWj+6etKN/ONT3sLrm31AKg1bVZaBwldLW4xmj6VIOK9T0989UQvqXCRi9hRgtCuhdbx1mfBdR+dl+B1TnAHQTnpfm39/yuDoB1xhAyrmMPAMYPEHLgExAAAA",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-nagarkot-640w.webp",
+        "avif": "/images/map/np-nagarkot-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/np-nagarkot-1024w.webp",
+        "avif": "/images/map/np-nagarkot-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/np-nagarkot.webp",
+        "avif": "/images/map/np-nagarkot.avif"
+      }
+    ]
   },
   "/images/map/np-newa-kitchen.jpg": {
     "webp": "/images/map/np-newa-kitchen.webp",
     "avif": "/images/map/np-newa-kitchen.avif",
     "blurDataURL": "data:image/webp;base64,UklGRqAAAABXRUJQVlA4IJQAAADwAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JbACdAB4lKO4SyJWMKL/QAP7r/1BK0TOfLQufOKKr9svIHVnS/PD6tLYzp4yxhna3ckLAy7MzMCuQ4xVt/8MoAZkDsLnUVETpwIxkLIMEi5L0PY5mc0KWW4muV2agu84svUODgsJooPKZJRobK5X/LsFxbXozyezQ4gAA",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-newa-kitchen-640w.webp",
+        "avif": "/images/map/np-newa-kitchen-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/np-newa-kitchen-1024w.webp",
+        "avif": "/images/map/np-newa-kitchen-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/np-newa-kitchen.webp",
+        "avif": "/images/map/np-newa-kitchen.avif"
+      }
+    ]
   },
   "/images/map/np-pashupatinath.jpg": {
     "webp": "/images/map/np-pashupatinath.webp",
     "avif": "/images/map/np-pashupatinath.avif",
     "blurDataURL": "data:image/webp;base64,UklGRowAAABXRUJQVlA4IIAAAADwAwCdASoUAAwAPu1iqU2ppaOiMAgBMB2JYwCdMoAC+8oWbHID+XaAAP7U3O98f40+SU3Znt4Tz+0NvMrMY3HU1+VGzjzuN6ad4wgHmUqpqm/Y7814/fDiYnqniwsGjxkYs+pOdAoL4i+QdzhYrfn31q94j36FLUZgHWaw8bAAAA==",
     "width": 1200,
-    "height": 750
+    "height": 750,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-pashupatinath-640w.webp",
+        "avif": "/images/map/np-pashupatinath-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/np-pashupatinath-1024w.webp",
+        "avif": "/images/map/np-pashupatinath-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/np-pashupatinath.webp",
+        "avif": "/images/map/np-pashupatinath.avif"
+      }
+    ]
   },
   "/images/map/np-patan.jpg": {
     "webp": "/images/map/np-patan.webp",
     "avif": "/images/map/np-patan.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpIAAABXRUJQVlA4IIYAAAAQBACdASoUAA4APu1iqU2ppaOiMAgBMB2JQBOgBA/kF1qBpH1NMmnFAADODqgFTiz7GV6D6l16JlqpcroZT9EpbW51JX5go4z25zdDi8rC4pha1/Qt+XmLcEhF2zonPLs3bfJijfL7XW48bpiXCAvIwjEsN9Aow5IbENV854ODrrGX0wAAAA==",
     "width": 945,
-    "height": 685
+    "height": 685,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-patan-640w.webp",
+        "avif": "/images/map/np-patan-640w.avif"
+      },
+      {
+        "width": 945,
+        "webp": "/images/map/np-patan.webp",
+        "avif": "/images/map/np-patan.avif"
+      }
+    ]
   },
   "/images/map/np-swayambhunath.jpg": {
     "webp": "/images/map/np-swayambhunath.webp",
     "avif": "/images/map/np-swayambhunath.avif",
     "blurDataURL": "data:image/webp;base64,UklGRowAAABXRUJQVlA4IIAAAAAwBACdASoUAA0APu1iqU2ppaQiMAgBMB2JagCdMoACxJEnfzjCKv2hw6AA/tPnJ1xt1WL5XfF1oUOLOXNgQtntH/FbhjZl6NShLAhPtXAQS6cu0kvG+8hrS793Uw7wK6RzaMoBDor5BO2XvOHXxfxFsKhzgDgXPIorpC8NnYWAAA==",
     "width": 1200,
-    "height": 774
+    "height": 774,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-swayambhunath-640w.webp",
+        "avif": "/images/map/np-swayambhunath-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/np-swayambhunath-1024w.webp",
+        "avif": "/images/map/np-swayambhunath-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/np-swayambhunath.webp",
+        "avif": "/images/map/np-swayambhunath.avif"
+      }
+    ]
   },
   "/images/map/np-thamel.jpg": {
     "webp": "/images/map/np-thamel.webp",
     "avif": "/images/map/np-thamel.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpQAAABXRUJQVlA4IIgAAADwAwCdASoUAA0APu1iqU2ppaQiMAgBMB2JYgCw7CHvniPt0+FL2Q8AAP6CuxLt/pMSPAanNyzA+MoUX6x2WJuWOWyKeRedE2t+d9RvOWJHRhnNaz1ytmsc1epd5Xdm8voYayW+R407JfD8qdpIrCxVWsQaxEkasvm9q3XQUf6m9hLqO3/JkuAA",
     "width": 1200,
-    "height": 798
+    "height": 798,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-thamel-640w.webp",
+        "avif": "/images/map/np-thamel-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/np-thamel-1024w.webp",
+        "avif": "/images/map/np-thamel-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/np-thamel.webp",
+        "avif": "/images/map/np-thamel.avif"
+      }
+    ]
   },
   "/images/map/np-yangling.jpg": {
     "webp": "/images/map/np-yangling.webp",
     "avif": "/images/map/np-yangling.avif",
     "blurDataURL": "data:image/webp;base64,UklGRq4AAABXRUJQVlA4IKIAAABQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JYgCdAYv+zge1MSiE1c+p9TsAAP4FbN2B+7wiRup1QhMS+FupPPfWVuNOOby8mTpJLvYxk/kyfFm8fER+M6lHQH1SAVuVHfrouGTwU4mvVBXbj5WIqkWr9/WOmLmZni4CSufyt70GlNjla8eKnMP6/bjZKidcP9iaD7XU0rHvskgn0w9ousoAAAA=",
     "width": 1200,
-    "height": 876
+    "height": 876,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/map/np-yangling-640w.webp",
+        "avif": "/images/map/np-yangling-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/map/np-yangling-1024w.webp",
+        "avif": "/images/map/np-yangling-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/map/np-yangling.webp",
+        "avif": "/images/map/np-yangling.avif"
+      }
+    ]
   },
   "/images/nepal/na1.jpg": {
     "webp": "/images/nepal/na1.webp",
     "avif": "/images/nepal/na1.avif",
     "blurDataURL": "data:image/webp;base64,UklGRsAAAABXRUJQVlA4ILQAAACQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JbACdMoGv/i19VUIuJJFcfObN2KAA/t7bzP+2kmxyGnNYqnLx4dHnMTFjGASTDgHUV1NGoMilwnGEhZFMxmyGoWsgNbhRInCOL/SIlRbZrM7YvL97HDTBbmsx01lqhYba6Xsqe26IcN28K6p5p8bOHSXzW8YoS6uKTXZgw4ARu+NCQmfPHJamhcTCp9b4qXo1vruTMwd5YaOAAAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na1-640w.webp",
+        "avif": "/images/nepal/na1-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na1-1024w.webp",
+        "avif": "/images/nepal/na1-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na1.webp",
+        "avif": "/images/nepal/na1.avif"
+      }
+    ]
   },
   "/images/nepal/na10.jpg": {
     "webp": "/images/nepal/na10.webp",
     "avif": "/images/nepal/na10.avif",
     "blurDataURL": "data:image/webp;base64,UklGRmwAAABXRUJQVlA4IGAAAACQAwCdASoUAAkAPu1iqU2ppaOiMAgBMB2JZQCdABSajoaSEkUAAP1q/vQCGzSdQ4yhcdPDu9tM4R7zH2NHjXdhPo+rVcfGXH6rW6VAbJ6GFf+VwIBPaBV4nBfehtAAAAA=",
     "width": 1200,
-    "height": 531
+    "height": 531,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na10-640w.webp",
+        "avif": "/images/nepal/na10-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na10-1024w.webp",
+        "avif": "/images/nepal/na10-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na10.webp",
+        "avif": "/images/nepal/na10.avif"
+      }
+    ]
   },
   "/images/nepal/na11.jpg": {
     "webp": "/images/nepal/na11.webp",
     "avif": "/images/nepal/na11.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpoAAABXRUJQVlA4II4AAADQAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JZACdMoAB7Pq0XTc6LLAA/VIzSbR3a1Kp7v7DvnRs4cPcT4QwVGq7Iu8Am15ztJkf2LtVyWCSK5VOk2VrKIIFwVNS3u0lYU2QoMAgwnKAoFUgF1zqYZ+Q0lAw2CCiCAPRLhssUs3/SEFVako8o8y7NchmgAAA",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na11-640w.webp",
+        "avif": "/images/nepal/na11-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na11-1024w.webp",
+        "avif": "/images/nepal/na11-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na11.webp",
+        "avif": "/images/nepal/na11.avif"
+      }
+    ]
   },
   "/images/nepal/na12.jpg": {
     "webp": "/images/nepal/na12.webp",
     "avif": "/images/nepal/na12.avif",
     "blurDataURL": "data:image/webp;base64,UklGRsIAAABXRUJQVlA4ILYAAADwBQCdASoUABkAPu1oq08ppiOiMBgIATAdiWQAnTLjez3/4B6og4LTv4MVbVGPvVG0IXjyYQwEgAD+jDCTkHdxShje3RKD6rKT1VhUxMNFSjb6J2PW9WlBQENBqFEB9ZrxE4m+C0q3HzYpGMT92h3Gic7mnUJNOlOJrIAiGEvU/aXE3QbcSvH+Wb/Pwi9TU9UsvQiKbMw+LmhqMQ1uuCaA+XbpToqrtwokZGAG9uI+AHZB84AAAA==",
     "width": 938,
-    "height": 1162
+    "height": 1162,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na12-640w.webp",
+        "avif": "/images/nepal/na12-640w.avif"
+      },
+      {
+        "width": 938,
+        "webp": "/images/nepal/na12.webp",
+        "avif": "/images/nepal/na12.avif"
+      }
+    ]
   },
   "/images/nepal/na13.jpg": {
     "webp": "/images/nepal/na13.webp",
     "avif": "/images/nepal/na13.avif",
     "blurDataURL": "data:image/webp;base64,UklGRowAAABXRUJQVlA4IIAAAABQBACdASoUAA0APu1iqU2ppaOiMAgBMB2JYgCdIHACubrWoEQoDaJ4dOWAAPyP9XGzT75nEv1N0+rfHIUkeyqeyTZ1fHZBEiA4a4A/BDvFauD1Kgh+VAHYvD/Iuz46THa+ojDuaWYsXnPXZFxbtt9GfQVkDovJm4UGKA6zawAAAA==",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na13-640w.webp",
+        "avif": "/images/nepal/na13-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na13-1024w.webp",
+        "avif": "/images/nepal/na13-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na13.webp",
+        "avif": "/images/nepal/na13.avif"
+      }
+    ]
   },
   "/images/nepal/na14.jpg": {
     "webp": "/images/nepal/na14.webp",
     "avif": "/images/nepal/na14.avif",
     "blurDataURL": "data:image/webp;base64,UklGRn4AAABXRUJQVlA4IHIAAABwAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JZgCdMoAATEF+DYAA/hmx5E33CjX2GrZXC/73g1CVj528kwJNimowI131LT52SKRnAPdx9zvCweWic44G8TJCpIbz70YUL64EhocNqA1Y5cZWJ8cYwcZkAAA=",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na14-640w.webp",
+        "avif": "/images/nepal/na14-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na14-1024w.webp",
+        "avif": "/images/nepal/na14-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na14.webp",
+        "avif": "/images/nepal/na14.avif"
+      }
+    ]
   },
   "/images/nepal/na15.jpg": {
     "webp": "/images/nepal/na15.webp",
     "avif": "/images/nepal/na15.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoIAAABXRUJQVlA4IHYAAAAQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JYwC7MlUAwLkbEsuXAFhg0AD+832kev8juGsfOuFG9IOgSbPIuESU5ejy6Y5/PmHXaw5ZmmpNtlc5K8YyW0I6qD86YMa+IzbH47cDcPqX3NV0/chPEk0edHQ1AAAA",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na15-640w.webp",
+        "avif": "/images/nepal/na15-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na15-1024w.webp",
+        "avif": "/images/nepal/na15-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na15.webp",
+        "avif": "/images/nepal/na15.avif"
+      }
+    ]
   },
   "/images/nepal/na16.jpg": {
     "webp": "/images/nepal/na16.webp",
     "avif": "/images/nepal/na16.avif",
     "blurDataURL": "data:image/webp;base64,UklGRlgAAABXRUJQVlA4IEwAAACQAwCdASoUAA0APu1mq04ppaQiMAgBMB2JYwCdABtYjkQrdE4AANbe9d4BL7fE/sDq0A+9fsYvuFCVQHFizLix0Y5oonBGEM8FEAAA",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na16-640w.webp",
+        "avif": "/images/nepal/na16-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na16-1024w.webp",
+        "avif": "/images/nepal/na16-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na16.webp",
+        "avif": "/images/nepal/na16.avif"
+      }
+    ]
   },
   "/images/nepal/na17.jpg": {
     "webp": "/images/nepal/na17.webp",
     "avif": "/images/nepal/na17.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpoAAABXRUJQVlA4II4AAAAwBACdASoUAA0APu1iqU2ppaOiMAgBMB2JYwCdACP87QPPSOjdHiRf3AAAzV8cBkNWrE0aWj+6etKN/ONT3sLrm31AKg1bVZaBwldLW4xmj6VIOK9T0989UQvqXCRi9hRgtCuhdbx1mfBdR+dl+B1TnAHQTnpfm39/yuDoB1xhAyrmMPAMYPEHLgExAAAA",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na17-640w.webp",
+        "avif": "/images/nepal/na17-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na17-1024w.webp",
+        "avif": "/images/nepal/na17-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na17.webp",
+        "avif": "/images/nepal/na17.avif"
+      }
+    ]
   },
   "/images/nepal/na18.jpg": {
     "webp": "/images/nepal/na18.webp",
     "avif": "/images/nepal/na18.avif",
     "blurDataURL": "data:image/webp;base64,UklGRlgAAABXRUJQVlA4IEwAAADQAwCdASoUAA0APu1iqk4ppaQiMAgBMB2JYwC06CIfhm3Sd5WsEyAA/t9DTr/D2Z0v1zWnMe4TeJ/wyziFdk8sPNufwZdCD/xF6ggA",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na18-640w.webp",
+        "avif": "/images/nepal/na18-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na18-1024w.webp",
+        "avif": "/images/nepal/na18-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na18.webp",
+        "avif": "/images/nepal/na18.avif"
+      }
+    ]
   },
   "/images/nepal/na19.jpg": {
     "webp": "/images/nepal/na19.webp",
     "avif": "/images/nepal/na19.avif",
     "blurDataURL": "data:image/webp;base64,UklGRlYAAABXRUJQVlA4IEoAAACwAwCdASoUAA8APu1iqU2ppaQiMAgBMB2JQBYdhD0FRx2e3X08+AD+ody9GjS7fpjMeVomRB5HO8CH+W9yxAd8d1yO+FGOxjAAAA==",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na19-640w.webp",
+        "avif": "/images/nepal/na19-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na19-1024w.webp",
+        "avif": "/images/nepal/na19-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na19.webp",
+        "avif": "/images/nepal/na19.avif"
+      }
+    ]
   },
   "/images/nepal/na2.jpg": {
     "webp": "/images/nepal/na2.webp",
     "avif": "/images/nepal/na2.avif",
     "blurDataURL": "data:image/webp;base64,UklGRowAAABXRUJQVlA4IIAAAAAwBACdASoUAA0APu1iqU2ppaQiMAgBMB2JagCdMoACxJEnfzjCKv2hw6AA/tPnJ1xt1WL5XfF1oUOLOXNgQtntH/FbhjZl6NShLAhPtXAQS6cu0kvG+8hrS793Uw7wK6RzaMoBDor5BO2XvOHXxfxFsKhzgDgXPIorpC8NnYWAAA==",
     "width": 1200,
-    "height": 774
+    "height": 774,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na2-640w.webp",
+        "avif": "/images/nepal/na2-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na2-1024w.webp",
+        "avif": "/images/nepal/na2-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na2.webp",
+        "avif": "/images/nepal/na2.avif"
+      }
+    ]
   },
   "/images/nepal/na20.jpg": {
     "webp": "/images/nepal/na20.webp",
     "avif": "/images/nepal/na20.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpYAAABXRUJQVlA4IIoAAABwBACdASoUAA8APu1iqU2ppaOiMAgBMB2JZACdMoGv/gPNhdCVk9b7VWNKgAD80ScexJxHv+UE8wW+wo7ZX88IhAfm7UhWCkFnZYCHQZEjP9NM6zv5E9+qrwXGqsw/RakpuHBsts7YT6JmdViZXNAHujGX5aQ7u9t+QBzU9BU08ZwQzTkDm5nAAAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na20-640w.webp",
+        "avif": "/images/nepal/na20-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na20-1024w.webp",
+        "avif": "/images/nepal/na20-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na20.webp",
+        "avif": "/images/nepal/na20.avif"
+      }
+    ]
   },
   "/images/nepal/na3.jpg": {
     "webp": "/images/nepal/na3.webp",
     "avif": "/images/nepal/na3.avif",
     "blurDataURL": "data:image/webp;base64,UklGRowAAABXRUJQVlA4IIAAAADwAwCdASoUAAwAPu1iqU2ppaOiMAgBMB2JYwCdMoAC+8oWbHID+XaAAP7U3O98f40+SU3Znt4Tz+0NvMrMY3HU1+VGzjzuN6ad4wgHmUqpqm/Y7814/fDiYnqniwsGjxkYs+pOdAoL4i+QdzhYrfn31q94j36FLUZgHWaw8bAAAA==",
     "width": 1200,
-    "height": 750
+    "height": 750,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na3-640w.webp",
+        "avif": "/images/nepal/na3-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na3-1024w.webp",
+        "avif": "/images/nepal/na3-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na3.webp",
+        "avif": "/images/nepal/na3.avif"
+      }
+    ]
   },
   "/images/nepal/na4.jpg": {
     "webp": "/images/nepal/na4.webp",
     "avif": "/images/nepal/na4.avif",
     "blurDataURL": "data:image/webp;base64,UklGRqIAAABXRUJQVlA4IJYAAACQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JQBOmUAS3AxKer8/4aMdGkzYSOMAA/tXrl1leg3qxGVhB9TkHWmLtJTbAdD2Wi5p8v2TwygIorH8dYRFHsxX3CfrWZ9fT/oqiNdy5mwh2QKElH/gM2L8wI79g9AlXjUZnjBK0sr8zvtL//Vh+Wz1tGgO/aOXJOSluH179AAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na4-640w.webp",
+        "avif": "/images/nepal/na4-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na4-1024w.webp",
+        "avif": "/images/nepal/na4-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na4.webp",
+        "avif": "/images/nepal/na4.avif"
+      }
+    ]
   },
   "/images/nepal/na5.jpg": {
     "webp": "/images/nepal/na5.webp",
     "avif": "/images/nepal/na5.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpIAAABXRUJQVlA4IIYAAAAQBACdASoUAA4APu1iqU2ppaOiMAgBMB2JQBOgBA/kF1qBpH1NMmnFAADODqgFTiz7GV6D6l16JlqpcroZT9EpbW51JX5go4z25zdDi8rC4pha1/Qt+XmLcEhF2zonPLs3bfJijfL7XW48bpiXCAvIwjEsN9Aow5IbENV854ODrrGX0wAAAA==",
     "width": 945,
-    "height": 685
+    "height": 685,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na5-640w.webp",
+        "avif": "/images/nepal/na5-640w.avif"
+      },
+      {
+        "width": 945,
+        "webp": "/images/nepal/na5.webp",
+        "avif": "/images/nepal/na5.avif"
+      }
+    ]
   },
   "/images/nepal/na6.jpg": {
     "webp": "/images/nepal/na6.webp",
     "avif": "/images/nepal/na6.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoYAAABXRUJQVlA4IHoAAABwBACdASoUAA0APu1iqU2ppaOiMAgBMB2JaACdMoMYAEQl3GxZQPz2JBfZYAD9j+Rv29NjFBNYebRPQEpkPYiwbhP5/XvF6kx5wF4x7/HPboRIrWEkzuqlRipmaH6n+B02gbIDFUCC/jN1TXn2zVrOztZsyQOXLyT4AA==",
     "width": 1200,
-    "height": 796
+    "height": 796,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na6-640w.webp",
+        "avif": "/images/nepal/na6-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na6-1024w.webp",
+        "avif": "/images/nepal/na6-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na6.webp",
+        "avif": "/images/nepal/na6.avif"
+      }
+    ]
   },
   "/images/nepal/na7.jpg": {
     "webp": "/images/nepal/na7.webp",
     "avif": "/images/nepal/na7.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoQAAABXRUJQVlA4IHgAAADwAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JYgCsEf/gMLdlpGjQ4ChgAP7pWRPZkPyknCDuJFeizajZce+tLoUHwn/f5NCc4pFpPRPuCqYMBlgYVsK6eriMDGbr3/KwvjrGdt1JZ3IRBX9bb8pPp4pPsyzt7YxiAAA=",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na7-640w.webp",
+        "avif": "/images/nepal/na7-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na7-1024w.webp",
+        "avif": "/images/nepal/na7-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na7.webp",
+        "avif": "/images/nepal/na7.avif"
+      }
+    ]
   },
   "/images/nepal/na8.jpg": {
     "webp": "/images/nepal/na8.webp",
     "avif": "/images/nepal/na8.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoQAAABXRUJQVlA4IHgAAABwAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JZwDDNBogWO4L7pAA4loNJG42xZcNGgqXtwKhOqY6D3+7cB+CGni5bHSBoF3gifKrZ4wja487VM8Mr2PCwp/ghT4glXdaCUW4SFpTWmpDSK71B/I74iI5jvI9bO+UAAA=",
     "width": 1200,
-    "height": 808
+    "height": 808,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na8-640w.webp",
+        "avif": "/images/nepal/na8-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na8-1024w.webp",
+        "avif": "/images/nepal/na8-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na8.webp",
+        "avif": "/images/nepal/na8.avif"
+      }
+    ]
   },
   "/images/nepal/na9.jpg": {
     "webp": "/images/nepal/na9.webp",
     "avif": "/images/nepal/na9.avif",
     "blurDataURL": "data:image/webp;base64,UklGRmwAAABXRUJQVlA4IGAAAADQAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JYwC/OCGJN0axPlWL8+AA/uhLMDkh4hZhkN5BhV5cYo/RwUJNrFt6WSRs0Aj5LZC464ufvVFwW1zQ25xqcWyd7uLqK/UAAAA=",
     "width": 1200,
-    "height": 896
+    "height": 896,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/na9-640w.webp",
+        "avif": "/images/nepal/na9-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/na9-1024w.webp",
+        "avif": "/images/nepal/na9-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/na9.webp",
+        "avif": "/images/nepal/na9.avif"
+      }
+    ]
   },
   "/images/nepal/nf1.jpeg": {
     "webp": "/images/nepal/nf1.webp",
     "avif": "/images/nepal/nf1.avif",
     "blurDataURL": "data:image/webp;base64,UklGRq4AAABXRUJQVlA4IKIAAABQBACdASoUAAsAPu1iqU2ppaOiMAgBMB2JbACdMoAlrBLrydjQQKLjrj2AAP6EHbbCXVI/O1uQLPdjHCn6r1eSW0cb9z88sNjDlle5+VtfF1NfcCG6ZVNlvK5EPDpcYxwf1oZHe4bZoBQ8baZxqbpEQ0l5rvjal/8DcJ5TFWCzo3FaJbnXXMPxyHIkW3k+g5OAjOtnLdkXUbNNI5c1E0cyAAA=",
     "width": 800,
-    "height": 450
+    "height": 450,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/nf1-640w.webp",
+        "avif": "/images/nepal/nf1-640w.avif"
+      },
+      {
+        "width": 800,
+        "webp": "/images/nepal/nf1.webp",
+        "avif": "/images/nepal/nf1.avif"
+      }
+    ]
   },
   "/images/nepal/nf2.jpg": {
     "webp": "/images/nepal/nf2.webp",
     "avif": "/images/nepal/nf2.avif",
     "blurDataURL": "data:image/webp;base64,UklGRq4AAABXRUJQVlA4IKIAAABQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JYgCdAYv+zge1MSiE1c+p9TsAAP4FbN2B+7wiRup1QhMS+FupPPfWVuNOOby8mTpJLvYxk/kyfFm8fER+M6lHQH1SAVuVHfrouGTwU4mvVBXbj5WIqkWr9/WOmLmZni4CSufyt70GlNjla8eKnMP6/bjZKidcP9iaD7XU0rHvskgn0w9ousoAAAA=",
     "width": 1200,
-    "height": 876
+    "height": 876,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/nf2-640w.webp",
+        "avif": "/images/nepal/nf2-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/nf2-1024w.webp",
+        "avif": "/images/nepal/nf2-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/nf2.webp",
+        "avif": "/images/nepal/nf2.avif"
+      }
+    ]
   },
   "/images/nepal/nf3.jpg": {
     "webp": "/images/nepal/nf3.webp",
     "avif": "/images/nepal/nf3.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoAAAABXRUJQVlA4IHQAAAAQBACdASoUAAsAPu1iqU2ppaQiMAgBMB2JaACw7CBystrSZE9r0/f3AAD+uxAUXOAlaSdpuJCsC0PrAXJoNWZrA+05YBA/cDbfYl88vpLpbyOA/9J8XMF67U30mn7pSItuKXvGQOWsLdl5nrEcJAqJRQAAAA==",
     "width": 1200,
-    "height": 675
+    "height": 675,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/nf3-640w.webp",
+        "avif": "/images/nepal/nf3-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/nf3-1024w.webp",
+        "avif": "/images/nepal/nf3-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/nf3.webp",
+        "avif": "/images/nepal/nf3.avif"
+      }
+    ]
   },
   "/images/nepal/nf4.jpg": {
     "webp": "/images/nepal/nf4.webp",
     "avif": "/images/nepal/nf4.avif",
     "blurDataURL": "data:image/webp;base64,UklGRqAAAABXRUJQVlA4IJQAAADwAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JbACdAB4lKO4SyJWMKL/QAP7r/1BK0TOfLQufOKKr9svIHVnS/PD6tLYzp4yxhna3ckLAy7MzMCuQ4xVt/8MoAZkDsLnUVETpwIxkLIMEi5L0PY5mc0KWW4muV2agu84svUODgsJooPKZJRobK5X/LsFxbXozyezQ4gAA",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/nf4-640w.webp",
+        "avif": "/images/nepal/nf4-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/nf4-1024w.webp",
+        "avif": "/images/nepal/nf4-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/nf4.webp",
+        "avif": "/images/nepal/nf4.avif"
+      }
+    ]
   },
   "/images/nepal/nf5.jpg": {
     "webp": "/images/nepal/nf5.webp",
     "avif": "/images/nepal/nf5.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoYAAABXRUJQVlA4IHoAAAAQBACdASoUAA0APu1iqU2ppaOiMAgBMB2JaAC7INiCmW8xlzCQCh5qAAD+6akZXatFgVw8KrTdT2SVd2bkE1YAqAdxPfjsRpmNX0rTSFvK+f4fs+crBuCUBJS8t3t8JHhORaYM0YFBmIGXWBjcHIU1apBQpdwDfAAAAA==",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/nf5-640w.webp",
+        "avif": "/images/nepal/nf5-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/nf5-1024w.webp",
+        "avif": "/images/nepal/nf5-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/nf5.webp",
+        "avif": "/images/nepal/nf5.avif"
+      }
+    ]
   },
   "/images/nepal/nf6.jpeg": {
     "webp": "/images/nepal/nf6.webp",
     "avif": "/images/nepal/nf6.avif",
     "blurDataURL": "data:image/webp;base64,UklGRq4AAABXRUJQVlA4IKIAAABQBACdASoUAAsAPu1iqU2ppaOiMAgBMB2JbACdMoAlrBLrydjQQKLjrj2AAP6EHbbCXVI/O1uQLPdjHCn6r1eSW0cb9z88sNjDlle5+VtfF1NfcCG6ZVNlvK5EPDpcYxwf1oZHe4bZoBQ8baZxqbpEQ0l5rvjal/8DcJ5TFWCzo3FaJbnXXMPxyHIkW3k+g5OAjOtnLdkXUbNNI5c1E0cyAAA=",
     "width": 800,
-    "height": 450
+    "height": 450,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/nf6-640w.webp",
+        "avif": "/images/nepal/nf6-640w.avif"
+      },
+      {
+        "width": 800,
+        "webp": "/images/nepal/nf6.webp",
+        "avif": "/images/nepal/nf6.avif"
+      }
+    ]
   },
   "/images/nepal/nf7.jpg": {
     "webp": "/images/nepal/nf7.webp",
     "avif": "/images/nepal/nf7.avif",
     "blurDataURL": "data:image/webp;base64,UklGRnwAAABXRUJQVlA4IHAAAAAQBACdASoUAAwAPu1iqU2ppaOiMAgBMB2JZwAAVL+Rl606p+Dye/P4AAD7mDtbDXhfbhY0N9xyWQuuz5chRVkhNOafyhmvetKgvd/jSVI931egKu+6Gx9/syEVXxGu9/DyMq109kqV5RhtuCaqoAAA",
     "width": 1200,
-    "height": 750
+    "height": 750,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/nepal/nf7-640w.webp",
+        "avif": "/images/nepal/nf7-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/nepal/nf7-1024w.webp",
+        "avif": "/images/nepal/nf7-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/nepal/nf7.webp",
+        "avif": "/images/nepal/nf7.avif"
+      }
+    ]
   },
   "/images/photography/ps1.jpg": {
     "webp": "/images/photography/ps1.webp",
     "avif": "/images/photography/ps1.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpoAAABXRUJQVlA4II4AAAAwBACdASoUAA0APu1iqU2ppaOiMAgBMB2JYwCdACP87QPPSOjdHiRf3AAAzV8cBkNWrE0aWj+6etKN/ONT3sLrm31AKg1bVZaBwldLW4xmj6VIOK9T0989UQvqXCRi9hRgtCuhdbx1mfBdR+dl+B1TnAHQTnpfm39/yuDoB1xhAyrmMPAMYPEHLgExAAAA",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps1-640w.webp",
+        "avif": "/images/photography/ps1-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/photography/ps1-1024w.webp",
+        "avif": "/images/photography/ps1-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/photography/ps1.webp",
+        "avif": "/images/photography/ps1.avif"
+      }
+    ]
   },
   "/images/photography/ps10.jpg": {
     "webp": "/images/photography/ps10.webp",
     "avif": "/images/photography/ps10.avif",
     "blurDataURL": "data:image/webp;base64,UklGRogAAABXRUJQVlA4IHwAAACwAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JZQDE2B5Nia+khdABIAD+W8vgv64fVAw4ooWxoXJikljt7vsIDNLo7xaNlszqycWWHDI8ujkLVZPkQIoC7TO9IJz6DxBC4Cv/hxIsHPRoPNpW0u2dru/iTtuAuHWIbepJgAAA",
     "width": 1200,
-    "height": 772
+    "height": 772,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps10-640w.webp",
+        "avif": "/images/photography/ps10-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/photography/ps10-1024w.webp",
+        "avif": "/images/photography/ps10-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/photography/ps10.webp",
+        "avif": "/images/photography/ps10.avif"
+      }
+    ]
   },
   "/images/photography/ps11.jpg": {
     "webp": "/images/photography/ps11.webp",
     "avif": "/images/photography/ps11.avif",
     "blurDataURL": "data:image/webp;base64,UklGRnQAAABXRUJQVlA4IGgAAADwAwCdASoUAA8APu1iqU2ppaQiMAgBMB2JZQC2yB6vFX1uagZ4QFiAAP6DoIT1roks4ccKlXHGWAYepOQtfdGgAZVP0vj7EJ6HWK5Xhm85iNKF5/AFbivLpbA+J1G9z9zRM3XPGEgAAA==",
     "width": 800,
-    "height": 600
+    "height": 600,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps11-640w.webp",
+        "avif": "/images/photography/ps11-640w.avif"
+      },
+      {
+        "width": 800,
+        "webp": "/images/photography/ps11.webp",
+        "avif": "/images/photography/ps11.avif"
+      }
+    ]
   },
   "/images/photography/ps12.jpg": {
     "webp": "/images/photography/ps12.webp",
     "avif": "/images/photography/ps12.avif",
     "blurDataURL": "data:image/webp;base64,UklGRowAAABXRUJQVlA4IIAAAADwAwCdASoUAAwAPu1iqU2ppaOiMAgBMB2JYwCdMoAC+8oWbHID+XaAAP7U3O98f40+SU3Znt4Tz+0NvMrMY3HU1+VGzjzuN6ad4wgHmUqpqm/Y7814/fDiYnqniwsGjxkYs+pOdAoL4i+QdzhYrfn31q94j36FLUZgHWaw8bAAAA==",
     "width": 1200,
-    "height": 750
+    "height": 750,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps12-640w.webp",
+        "avif": "/images/photography/ps12-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/photography/ps12-1024w.webp",
+        "avif": "/images/photography/ps12-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/photography/ps12.webp",
+        "avif": "/images/photography/ps12.avif"
+      }
+    ]
   },
   "/images/photography/ps2.jpg": {
     "webp": "/images/photography/ps2.webp",
     "avif": "/images/photography/ps2.avif",
     "blurDataURL": "data:image/webp;base64,UklGRowAAABXRUJQVlA4IIAAAAAwBACdASoUAA0APu1iqU2ppaQiMAgBMB2JagCdMoACxJEnfzjCKv2hw6AA/tPnJ1xt1WL5XfF1oUOLOXNgQtntH/FbhjZl6NShLAhPtXAQS6cu0kvG+8hrS793Uw7wK6RzaMoBDor5BO2XvOHXxfxFsKhzgDgXPIorpC8NnYWAAA==",
     "width": 1200,
-    "height": 774
+    "height": 774,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps2-640w.webp",
+        "avif": "/images/photography/ps2-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/photography/ps2-1024w.webp",
+        "avif": "/images/photography/ps2-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/photography/ps2.webp",
+        "avif": "/images/photography/ps2.avif"
+      }
+    ]
   },
   "/images/photography/ps3.jpg": {
     "webp": "/images/photography/ps3.webp",
     "avif": "/images/photography/ps3.avif",
     "blurDataURL": "data:image/webp;base64,UklGRsAAAABXRUJQVlA4ILQAAACQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JbACdMoGv/i19VUIuJJFcfObN2KAA/t7bzP+2kmxyGnNYqnLx4dHnMTFjGASTDgHUV1NGoMilwnGEhZFMxmyGoWsgNbhRInCOL/SIlRbZrM7YvL97HDTBbmsx01lqhYba6Xsqe26IcN28K6p5p8bOHSXzW8YoS6uKTXZgw4ARu+NCQmfPHJamhcTCp9b4qXo1vruTMwd5YaOAAAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps3-640w.webp",
+        "avif": "/images/photography/ps3-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/photography/ps3-1024w.webp",
+        "avif": "/images/photography/ps3-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/photography/ps3.webp",
+        "avif": "/images/photography/ps3.avif"
+      }
+    ]
   },
   "/images/photography/ps4.jpg": {
     "webp": "/images/photography/ps4.webp",
     "avif": "/images/photography/ps4.avif",
     "blurDataURL": "data:image/webp;base64,UklGRpIAAABXRUJQVlA4IIYAAACwAwCdASoUAAsAPu1iqU2ppaQiMAgBMB2JQBdgA6f6PtFgEv/EAAD+ou1Bv7F4r3tDf1HvB/+iSIf90rgQYCtj7UTxzu0cwO7dv4DrnLUcKdsktXNbRvAGCZnyRuqYztZLNKl7onm+ambpi9T6Y1tEe9kHBpnzGWg7F5mAVy/HxKkOMgAAAA==",
     "width": 1200,
-    "height": 675
+    "height": 675,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps4-640w.webp",
+        "avif": "/images/photography/ps4-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/photography/ps4-1024w.webp",
+        "avif": "/images/photography/ps4-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/photography/ps4.webp",
+        "avif": "/images/photography/ps4.avif"
+      }
+    ]
   },
   "/images/photography/ps5.jpg": {
     "webp": "/images/photography/ps5.webp",
     "avif": "/images/photography/ps5.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoYAAABXRUJQVlA4IHoAAACQBACdASoUAA0APu1iqU2ppaOiMAgBMB2JbACdMoRwACmzpCcprydqnHHTwAAA+khNCi/ePDwS9go5S7qWwXlRYcaIvoqaU8VmjB9dJ4OJ9YxrWIfFnMNd39wrFXWEF02H4een+KC4gByJO3m2ZxzMWMG8h28fe+JQAA==",
     "width": 1200,
-    "height": 800
+    "height": 800,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps5-640w.webp",
+        "avif": "/images/photography/ps5-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/photography/ps5-1024w.webp",
+        "avif": "/images/photography/ps5-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/photography/ps5.webp",
+        "avif": "/images/photography/ps5.avif"
+      }
+    ]
   },
   "/images/photography/ps6.jpg": {
     "webp": "/images/photography/ps6.webp",
     "avif": "/images/photography/ps6.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoQAAABXRUJQVlA4IHgAAABwAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JZwDDNBogWO4L7pAA4loNJG42xZcNGgqXtwKhOqY6D3+7cB+CGni5bHSBoF3gifKrZ4wja487VM8Mr2PCwp/ghT4glXdaCUW4SFpTWmpDSK71B/I74iI5jvI9bO+UAAA=",
     "width": 1200,
-    "height": 808
+    "height": 808,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps6-640w.webp",
+        "avif": "/images/photography/ps6-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/photography/ps6-1024w.webp",
+        "avif": "/images/photography/ps6-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/photography/ps6.webp",
+        "avif": "/images/photography/ps6.avif"
+      }
+    ]
   },
   "/images/photography/ps7.jpg": {
     "webp": "/images/photography/ps7.webp",
     "avif": "/images/photography/ps7.avif",
     "blurDataURL": "data:image/webp;base64,UklGRr4AAABXRUJQVlA4ILIAAAAQBQCdASoUABIAPu1qqVAppaOiqA1RMB2JZAC06A+/ZYGIqFpjvmrJ4RRJkwG/fggAAP6pRkHu49riy9pOlgBtV3RMPGnVtTgxhvsl+A8VcX2LFsT9P7ELYoP5KueJHZxlcBO7VONmS5orNRSH9vW30m7raqWM8BYCR6W8mr04BjEBEyDcKpA2yPMt867SsejWsaw2ovOfyrVniv/jNqjQMmQRGi9gNnsbNuwhmoAqwcAA",
     "width": 1200,
-    "height": 1070
+    "height": 1070,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps7-640w.webp",
+        "avif": "/images/photography/ps7-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/photography/ps7-1024w.webp",
+        "avif": "/images/photography/ps7-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/photography/ps7.webp",
+        "avif": "/images/photography/ps7.avif"
+      }
+    ]
   },
   "/images/photography/ps8.jpg": {
     "webp": "/images/photography/ps8.webp",
     "avif": "/images/photography/ps8.avif",
     "blurDataURL": "data:image/webp;base64,UklGRtwAAABXRUJQVlA4INAAAAAQBgCdASoUAB4APu1osFAppaUiqAqpMB2JZACdMoMwK/+U/wL0P62RMfZvRvQOHhi0OU1l/5hUZIAA/vAEDLvLu/AXwuHj3fXCMpnzheqN4VhaRabKiZyktNKRwfdNDsAy8qbEl6mpJEiMoKJH191IbeUUXjzGKkmhQVkYNveK/AxNZWVRoKUMG2Q7E1p2kCUKNKVVACJ8+kVWzRhTTMWSNOiMiulXQHlnJ+8CoNhgvf/OPEZ3yT8N+E3z7sCv/wsrjNCFgVxqG5rADWxXBDgA",
     "width": 800,
-    "height": 1200
+    "height": 1200,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps8-640w.webp",
+        "avif": "/images/photography/ps8-640w.avif"
+      },
+      {
+        "width": 800,
+        "webp": "/images/photography/ps8.webp",
+        "avif": "/images/photography/ps8.avif"
+      }
+    ]
   },
   "/images/photography/ps9.jpg": {
     "webp": "/images/photography/ps9.webp",
     "avif": "/images/photography/ps9.avif",
     "blurDataURL": "data:image/webp;base64,UklGRqIAAABXRUJQVlA4IJYAAACQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JQBOmUAS3AxKer8/4aMdGkzYSOMAA/tXrl1leg3qxGVhB9TkHWmLtJTbAdD2Wi5p8v2TwygIorH8dYRFHsxX3CfrWZ9fT/oqiNdy5mwh2QKElH/gM2L8wI79g9AlXjUZnjBK0sr8zvtL//Vh+Wz1tGgO/aOXJOSluH179AAA=",
     "width": 1200,
-    "height": 900
+    "height": 900,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/photography/ps9-640w.webp",
+        "avif": "/images/photography/ps9-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/photography/ps9-1024w.webp",
+        "avif": "/images/photography/ps9-1024w.avif"
+      },
+      {
+        "width": 1200,
+        "webp": "/images/photography/ps9.webp",
+        "avif": "/images/photography/ps9.avif"
+      }
+    ]
   }
 }

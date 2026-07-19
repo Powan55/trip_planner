@@ -1,5 +1,5 @@
 /**
- * Structured item-time helpers — the ONE framework-free home for all item-time math.
+ * Structured item-time helpers — the ONE framework-free home for all item-time math
  * Nothing else in the codebase does offset math,
  * parses a time string, or formats one. Type-only `lib` import.
  *
@@ -8,13 +8,20 @@
  * is deterministic on every machine regardless of the host timezone.
  */
 import type { ItineraryItem } from '@/lib/trip-data';
+import { getActiveTrip } from '@/core/trips';
+
+// As of the per-leg wall-clock offsets are DERIVED from the active trip pack's legs
+// (`utcOffsetMin`) rather than hardcoded, so a pack authors its own offsets in one place.
+// Byte-identical for the default pack: NPT 345 / JST 540.
+const activeTrip = getActiveTrip();
+const offsetForLeg = (id: string): number => activeTrip.legs.find((l) => l.id === id)!.utcOffsetMin;
 
 /** Nepal Time = UTC+5:45 = +345 min. The `:45` is why B-01 field arithmetic matters. */
-export const NPT_OFFSET_MIN = 345;
+export const NPT_OFFSET_MIN = offsetForLeg('nepal');
 /** Japan Standard Time = UTC+9:00 = +540 min. */
-export const JST_OFFSET_MIN = 540;
+export const JST_OFFSET_MIN = offsetForLeg('japan');
 
-/** The day's place offset from its country (presentation-only badge source). */
+/** The day's place offset from its country. */
 export function offsetForCountry(c: 'nepal' | 'japan'): number {
   return c === 'japan' ? JST_OFFSET_MIN : NPT_OFFSET_MIN;
 }
@@ -26,10 +33,10 @@ export function offsetForCountry(c: 'nepal' | 'japan'): number {
  * MUST agree or the same item renders differently depending on how it arrived.
  *
  * Best-effort = EXACTLY these three shapes, case-insensitive, trimmed:
- *   1. 24h colon  `H:MM` / `HH:MM`   — H 0–23, MM 00–59   ("06:00"→360, "23:59"→1439)
- *   2. 24h dot    `H.MM` / `HH.MM`   — same ranges         ("14.30"→870)
- *   3. 12h am/pm  `h(:mm|.mm)? am/pm` — h 1–12, mm 00–59; optional space, optional periods
- *      ("a.m."); 12am→0, 12pm→720                          ("2pm"→840, "12:30 p.m."→750)
+ * 1. 24h colon `H:MM` / `HH:MM` — H 0–23, MM 00–59 ("06:00"→360, "23:59"→1439)
+ * 2. 24h dot `H.MM` / `HH.MM` — same ranges ("14.30"→870)
+ * 3. 12h am/pm `h(:mm|.mm)? am/pm` — h 1–12, mm 00–59; optional space, optional periods
+ * ("a.m."); 12am→0, 12pm→720 ("2pm"→840, "12:30 p.m."→750)
  *
  * Everything else → `undefined` (bare numbers, ranges, words, trailing text, out-of-range).
  * TOTAL — never throws (guards a non-string too, since the migration runs on raw payload

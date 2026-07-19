@@ -1,21 +1,21 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { STORAGE_KEYS, favoritesStore } from '@/core/storage/gateway';
+import { keyFor, favoritesStore } from '@/core/storage/gateway';
 
 /**
- * Reactive favorites store (guides-scoped bookmarks). A thin React adapter over
+ * Reactive favorites store. A THIN React adapter over
  * the gateway's key-14 `favoritesStore`, mirroring `hooks/use-expenses.ts` /
- * `hooks/use-journal.ts` exactly — simpler still: the persisted value is just a `string[]` of
- * `Recommendation` ids, so there is no separate framework-free domain module (local-only,
- * no sync fan-out, no attribution, by design).
+ * `hooks/use-journal.ts` exactly — SIMPLER still: the persisted value is just a `string[]` of
+ * `Recommendation` ids, so there is no separate framework-free domain module (: local-only,
+ * no sync fan-out, no attribution).
  *
- * Reactivity (same idiom as the other reactive stores, mirrored here):
- *  - `toggle` writes via `favoritesStore.set()` AND dispatches a same-tab CustomEvent
- *    (`FAVORITES_CHANGED_EVENT`) on `window`, so every card + the "Saved" chip (both read this
- *    hook, one instance per `RecommendationSection`) update live.
- *  - The hook listens for that CustomEvent (same-tab liveness) AND the cross-tab `storage`
- *    event, re-reading from storage on either — via the exported key constant, never a literal.
+ * Reactivity:
+ * - `toggle` writes via `favoritesStore.set()` AND dispatches a same-tab CustomEvent
+ * (`FAVORITES_CHANGED_EVENT`) on `window`, so every card + the "Saved" chip (both read this
+ * hook, one instance per `RecommendationSection`) update live.
+ * - The hook listens for that CustomEvent (same-tab liveness) AND the cross-tab `storage`
+ * event, re-reading from storage on either — via the exported key constant, never a literal.
  *
  * SSR-safe + hydrated gate (mirrors `use-expenses.ts`): the list starts `[]` (matching the
  * server render), hydrates from storage in a mount effect, and `toggle` reads the FRESHEST
@@ -77,7 +77,7 @@ export function useFavorites(): FavoritesStoreApi {
     };
     const onCustom = () => reread();
     const onStorage = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEYS.favorites || e.key === null) reread();
+      if (e.key === keyFor('favorites') || e.key === null) reread();
     };
     window.addEventListener(FAVORITES_CHANGED_EVENT, onCustom);
     window.addEventListener('storage', onStorage);

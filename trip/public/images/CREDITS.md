@@ -1,6 +1,6 @@
 # Image Credits
 
-All images bundled under `public/images/` are freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision **D-015**. Each was sourced from Wikimedia Commons / Wikipedia via `scripts/fetch-images.mjs` and is hosted locally (no hotlinking). Attribution below is captured automatically from each file’s Wikimedia `extmetadata`.
+All images bundled under `public/images/` are freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision ****. Each was sourced from Wikimedia Commons / Wikipedia via `scripts/fetch-images.mjs` and is hosted locally (no hotlinking). Attribution below is captured automatically from each file’s Wikimedia `extmetadata`.
 
 Total assets: 103.
 
@@ -22,7 +22,7 @@ Total assets: 103.
 | `/images/nepal/na14.jpg` | Chobhar | Gerd Eichmann | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Chobhar-Terrassenlandschaft-20-2007-gje.jpg/1280px-Chobhar-Terrassenlandschaft-20-2007-gje.jpg) |
 | `/images/nepal/na15.jpg` | Kopan Monastery | Irina Gelbukh | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Kopan_01.JPG/1280px-Kopan_01.JPG) |
 | `/images/nepal/na16.jpg` | Phulchowki Hill, Kathmandu Valley | Shadow Ayush | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Phulchowki_Hill_and_Rainbow.jpg/1280px-Phulchowki_Hill_and_Rainbow.jpg) |
-| `/images/nepal/na17.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg/1280px-2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg) |
+| `/images/nepal/na17.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file] |
 | `/images/nepal/na18.jpg` | Chandragiri Hills cable car | Khemsang | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Chandragiri_Cable_Car_Hills.jpg/1280px-Chandragiri_Cable_Car_Hills.jpg) |
 | `/images/nepal/na19.jpg` | Dhulikhel | Saddam19 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Panoramic_view_of_the_Great_Himalayan_Range_from_Dhulikhel%2C_Nepal_in_2025.jpg/1280px-Panoramic_view_of_the_Great_Himalayan_Range_from_Dhulikhel%2C_Nepal_in_2025.jpg) |
 | `/images/nepal/na2.jpg` | Swayambhunath | Nabin K. Sapkota | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Swayambhunath_2018.jpg/1280px-Swayambhunath_2018.jpg) |
@@ -84,7 +84,7 @@ Total assets: 103.
 
 | Local path | Subject | Author | License | Source |
 |---|---|---|---|---|
-| `/images/photography/ps1.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg/1280px-2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg) |
+| `/images/photography/ps1.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file] |
 | `/images/photography/ps10.jpg` | Tsukiji Market | Kakidai | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/2018_Tsukiji_fish_market.jpg/1280px-2018_Tsukiji_fish_market.jpg) |
 | `/images/photography/ps11.jpg` | Arashiyama | Chris Spackman / TakuyaMurata at en.wikipedia | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) | [file](https://upload.wikimedia.org/wikipedia/commons/d/de/Arashiyama_013.jpg) |
 | `/images/photography/ps12.jpg` | Pashupatinath Temple | Bijay Chaurasia | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Pashupatinath_Temple-2020.jpg/1280px-Pashupatinath_Temple-2020.jpg) |
@@ -104,7 +104,7 @@ Total assets: 103.
 | `/images/featured/arashiyama.jpg` | Arashiyama | Chris Spackman / TakuyaMurata at en.wikipedia | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) | [file](https://upload.wikimedia.org/wikipedia/commons/d/de/Arashiyama_013.jpg) |
 | `/images/featured/boudhanath.jpg` | Boudhanath | Sumitbhatt222 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Boudhanath_stupa_%2C_Kathmandu%2C_Nepal.jpg/1280px-Boudhanath_stupa_%2C_Kathmandu%2C_Nepal.jpg) |
 | `/images/featured/mount-fuji.jpg` | Mount Fuji | Suicasmo | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg/1280px-View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg) |
-| `/images/featured/nagarkot.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg/1280px-2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg) |
+| `/images/featured/nagarkot.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file] |
 | `/images/featured/patan-durbar.jpg` | Patan Durbar Square | Zulufive | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [file](https://upload.wikimedia.org/wikipedia/commons/8/89/Patan_durbar_square.jpg) |
 | `/images/featured/shibuya.jpg` | Shibuya Crossing | David Kernan | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Shibuya_Crossing%2C_Aerial.jpg/1280px-Shibuya_Crossing%2C_Aerial.jpg) |
 
@@ -129,7 +129,7 @@ Total assets: 103.
 | `/images/map/np-boudhanath.jpg` | Boudhanath | Sumitbhatt222 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Boudhanath_stupa_%2C_Kathmandu%2C_Nepal.jpg/1280px-Boudhanath_stupa_%2C_Kathmandu%2C_Nepal.jpg) |
 | `/images/map/np-durbar-ktm.jpg` | Kathmandu Durbar Square | Artha at English Wikipedia | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) | [file](https://upload.wikimedia.org/wikipedia/commons/f/fd/Basantapurpalace.JPG) |
 | `/images/map/np-kopan.jpg` | Kopan Monastery | Irina Gelbukh | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Kopan_01.JPG/1280px-Kopan_01.JPG) |
-| `/images/map/np-nagarkot.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg/1280px-2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg) |
+| `/images/map/np-nagarkot.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file] |
 | `/images/map/np-newa-kitchen.jpg` | Nepalese cuisine | Subhashish Panigrahi | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Nepali_dal-bhat-tarkari.jpg/1280px-Nepali_dal-bhat-tarkari.jpg) |
 | `/images/map/np-pashupatinath.jpg` | Pashupatinath Temple | Bijay Chaurasia | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Pashupatinath_Temple-2020.jpg/1280px-Pashupatinath_Temple-2020.jpg) |
 | `/images/map/np-patan.jpg` | Patan Durbar Square | Zulufive | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [file](https://upload.wikimedia.org/wikipedia/commons/8/89/Patan_durbar_square.jpg) |

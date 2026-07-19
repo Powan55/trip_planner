@@ -1,6 +1,7 @@
-// The "what's-next rail" pure helper, signatured for the place-clock time model.
+// The "what's-next rail" pure helper ( 3; re-signatured for the place-clock
+// time model, /).
 //
-// ── Purity ───────────────────────────────────────────────────────────────────────────────
+// ── Purity ─────────────────────────────────────────────────────────────────
 // `nextUp` is PURE — no clock read, no fetch, no storage. It takes the day's items AND a
 // context carrying the day's date, the place's UTC offset, and the resolved "now" as a UTC
 // epoch-ms instant. The IMPURE "now" (from `getNowUtcMsForPlace`, incl. the `?today=`
@@ -35,9 +36,9 @@ export interface NextUpContext {
  * matches the agenda's top-to-bottom order).
  *
  * Excluded from "next":
- *   - done items (`item.done === true`),
- *   - items with no effective start (missing / unparseable `time` and no valid `startMinutes`),
- *   - items already past at the place.
+ * - done items (`item.done === true`),
+ * - items with no effective start (missing / unparseable `time` and no valid `startMinutes`),
+ * - items already past at the place.
  *
  * Total — never throws; returns `null` when every timed, not-done item is past or nothing is
  * timed. Returns the SAME item reference on the same inputs (no new object built).

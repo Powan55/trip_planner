@@ -7,7 +7,7 @@ import { Reveal } from '@/components/reveal';
  * SectionHeading — the one section masthead, replacing the ~6 hand-copied
  * `font-display text-3xl sm:text-4xl…` mastheads. Renders PIXEL-EQUIVALENT to
  * those (same tag structure, classes, heading id) so adoption drifts no baseline
- * — a display-token type-scale change is left for later, not done here.
+ * — the display-token type-scale change is deferred to not here.
  *
  * `id` is the h2's id (the aria-labelledby target — never change it per section).
  * `title` is a ReactNode so callers keep their inline gradient span. `className`

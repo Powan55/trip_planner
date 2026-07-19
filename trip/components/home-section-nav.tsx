@@ -4,18 +4,18 @@ import { useEffect, useState } from 'react';
 
 /**
  * Home in-page sticky section nav — a slim `position:sticky` strip jumping to Home's
- * sections via their existing, unchanged ids (`hero`/`dashboard`/`timeline`/`inspiration`,
+ * sections via their existing, unchanged ids (`hero`/`dashboard`/`timeline`/`inspiration` —
  * legacy v1 ids). Real `<a href="#id">` anchors: keyboard-focusable and
  * Enter-activated for free, and the smooth-scroll + reduced-motion behavior is ALREADY global
  * (`app/globals.css`: `html{scroll-behavior:smooth}`, neutralized to `auto` under
- * `prefers-reduced-motion`), so this component ships NO scroll JS of its own.
+ * `prefers-reduced-motion` —), so this component ships NO scroll JS of its own.
  * The visible focus ring is also free — the global `:focus-visible` fallback rule in
  * `globals.css` already rings every focusable element that doesn't set its own, so no
  * per-link focus-ring classes are needed here.
  *
  * `aria-current="true"` tracks whichever section occupies the reading band via a small native
- * `IntersectionObserver` (no scroll-spy dependency needed). The below-the-fold sections mount
- * lazily (`LazyVisible`), so their elements can appear a beat after this component
+ * `IntersectionObserver`. The below-the-fold sections mount
+ * lazily, so their elements can appear a beat after this component
  * mounts; a short bounded poll attaches the observer to each target once it exists in the DOM.
  *
  * `position:sticky` (not `fixed`) reserves its own space in normal flow, so it can never

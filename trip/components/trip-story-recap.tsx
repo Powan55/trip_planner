@@ -19,25 +19,25 @@ import SectionSkeleton from '@/components/section-skeleton';
 import type { ItineraryItem } from '@/lib/trip-data';
 
 /**
- * The POST-TRIP STORY: a read-only, scroll-storytelling TEXT recap on its own `/recap`
+ * — the POST-TRIP STORY: a read-only, scroll-storytelling TEXT recap on its own `/recap`
  * route (separate from the compact home `TripRecap` card island, `components/trip-recap.tsx`,
- * which stays untouched — a prose narrative is a different presentation over the SAME pure
- * read-only data layer). Reuses `core/recap/model.ts`'s pure functions and mirrors the read
+ * which stays untouched — a prose narrative is a different presentation over the SAME pure data
+ * layer, read-only). Reuses `core/recap/model.ts`'s pure functions and mirrors the read
  * hooks `trip-recap.tsx` already established; adds nothing new to the persisted domains.
  *
- * Two states, gated on `isPostTrip(nowDateStr)` (the pure fn takes the already-resolved
- * clock string; the clock read itself stays here, the I/O boundary):
- *   - POST-TRIP: the full chronological (Dec 9 -> Jan 9, oldest-first — a narrative reads
- *     forward, the OPPOSITE order of the home card's most-recent-first) day-by-day story, opening
- *     with a trip-level summary and closing with a sign-off.
- *   - PRE/IN-TRIP: a tasteful "your story unlocks after the trip" state — never a half-built
- *     story for a direct-URL visitor mid-trip.
+ * Two states, gated on `isPostTrip(nowDateStr)` (: the pure fn takes the already-
+ * resolved clock string; the clock read itself stays here, the I/O boundary):
+ * - POST-TRIP: the full chronological (Dec 9 -> Jan 9, oldest-first — a narrative reads
+ * forward, the OPPOSITE order of the home card's most-recent-first) day-by-day story, opening
+ * with a trip-level summary and closing with a sign-off.
+ * - PRE/IN-TRIP: a tasteful "your story unlocks after the trip" state — never a half-built
+ * story for a direct-URL visitor mid-trip.
  *
  * Reduced motion: the global `<MotionConfig reducedMotion="user">` (`theme-provider.tsx`)
- * auto-neutralizes every `m.*` transition here — no manual `useReducedMotion` guard needed,
- * matching `presence-bar.tsx` / `offline-banner.tsx`'s established pattern.
+ * auto-neutralizes every `m.*` transition here — no manual `useReducedMotion` guard needed
+ *, matching `presence-bar.tsx` / `offline-banner.tsx`'s established pattern.
  *
- * Each day also gets a READ-ONLY thumbnail strip of that day's journal photos
+ * each day also gets a READ-ONLY thumbnail strip of that day's journal photos
  * (`usePhotos().photosFor({kind:'journal',date})` — a pure filter, no mutator reachable from here).
  * Present only when the day has >=1 photo; an evicted blob (`BlobStorePort.get`->null) renders the
  * placeholder tile, never a broken `<img>`.
@@ -66,7 +66,7 @@ export default function TripStoryRecap() {
   const { photosFor, hydrated: photosHydrated } = usePhotos();
 
   // '' until mount (SSR-safe default) — a single mount read is enough (post-trip status doesn't
-  // change second-to-second; no interval needed).
+  // change second-to-second; no interval needed, per the brief).
   const [nowDateStr, setNowDateStr] = useState<string>('');
   useEffect(() => {
     setNowDateStr(nowDateString());
@@ -123,7 +123,7 @@ export default function TripStoryRecap() {
       className="px-gutter py-section"
     >
       <div className="mx-auto max-w-3xl">
-        {/* The trip-level summary — opens the story. */}
+        {}/* The trip-level summary — opens the story. */
         <header className="mb-10 text-center">
           <p className="text-eyebrow mb-3 uppercase text-gold-400/80">The story, cover to cover</p>
           <h2 id="story-title" className="font-display text-2xl sm:text-3xl font-bold text-white mb-4">
@@ -259,7 +259,7 @@ function DayStory({
         <p className="mt-0.5 text-xs text-white/55">{formatDateLong(date)}</p>
       </header>
 
-      {/* Plan-vs-actual, in prose: the run-rate line + the read-only item list. */}
+      {}/* Plan-vs-actual, in prose: the run-rate line + the read-only item list. */
       {summary.planned === 0 ? (
         <p data-testid={`story-no-plan-${date}`} className="mb-3 text-sm italic text-white/55">
           A free day — nothing was planned.
@@ -292,7 +292,7 @@ function DayStory({
         </>
       )}
 
-      {/* The day's journal reflection, read-only. */}
+      {}/* The day's journal reflection, read-only. */
       {entry && (
         <div data-testid={`story-journal-${date}`} className="mt-3 border-t border-white/10 pt-3">
           <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-gold-400/80">
@@ -332,10 +332,10 @@ function DayStory({
         </div>
       )}
 
-      {/* That day's journal photos, read-only. */}
+      {}/* that day's journal photos, read-only. */
       <StoryPhotos date={date} dayNumber={dayNumber} city={city} photos={photos} />
 
-      {/* The day's logged spend, in the day's leg-local currency — only when >0. */}
+      {}/* The day's logged spend, in the day's leg-local currency — only when >0. */
       {spend > 0 && (
         <p data-testid={`story-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-white/60">
           <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
@@ -347,8 +347,8 @@ function DayStory({
 }
 
 /**
- * The day's journal photos, read-only. `photos` is the already-filtered
- * `photosFor({kind:'journal',date})` result (a pure filter over the local photo index, computed
+ * — the day's journal photos, read-only. `photos` is the already-filtered
+ * `photosFor({kind:'journal',date})` result (a pure filter over the local key-16 index, computed
  * once in `TripStoryRecap`) — this component only renders it. Present ONLY when `photos.length >
  * 0`, mirroring `story-journal-<date>` / `story-spend-<date>`'s presence gating; renders nothing
  * (no empty box) on a photo-less day.
@@ -385,7 +385,7 @@ export function StoryPhotos({
 }
 
 /**
- * One read-only thumbnail: resolves the blob -> object URL (`usePhotoObjectUrl`,
+ * One read-only thumbnail: resolves the blob -> object URL (`usePhotoObjectUrl`, the idiom,
  * revoked on unmount/id-change — no leaks), or degrades to the placeholder tile (alt/caption
  * survive) when the blob was evicted/absent. No delete/edit control — this surface is read-only.
  */
@@ -407,7 +407,7 @@ function StoryPhotoThumb({ meta }: { meta: PhotoMeta }) {
           <span className="sr-only">Photo no longer on this device</span>
         </div>
       ) : url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and image optimization is disabled anyway.
+        // eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and disables optimization anyway.
         <img src={url} alt={meta.altText} className="h-full w-full object-cover" />
       ) : (
         <div className="h-full w-full animate-pulse bg-white/[0.04]" aria-hidden="true" />

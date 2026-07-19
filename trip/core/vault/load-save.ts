@@ -10,11 +10,11 @@
  * strategy for a LIVE, sync-enabled site where the itinerary is real users' only
  * irreplaceable data.
  *
- * The four on-disk states this resolves (mapped through the envelope):
- *   A — key ABSENT               → seed sample (nothing to quarantine).
- *   B — legacy un-enveloped array (v2) → migrate v2→v3 → validate → payload verbatim (incl. []).
- *   C — valid v3 envelope        → validate payload → verbatim (incl. []).
- *   D — corrupt / parse-fail / lenient-Zod-fail / migrate-throw → quarantine → sample.
+ * The four on-disk states this resolves:
+ * A — key ABSENT → seed sample (nothing to quarantine).
+ * B — legacy un-enveloped array (v2) → migrate v2→v3 → validate → payload verbatim (incl. []).
+ * C — valid v3 envelope → validate payload → verbatim (incl. []).
+ * D — corrupt / parse-fail / lenient-Zod-fail / migrate-throw → quarantine → sample.
  * A future `schemaVersion` > current is read LENIENTLY, NEVER down-converted/quarantined.
  */
 import type { DayPlan } from '@/lib/trip-data';
@@ -46,12 +46,12 @@ const defaultNowISO = () => new Date().toISOString();
  * Preserve a corrupt raw payload verbatim so it is never silently lost.
  *
  * - Writes `raw` to the quarantine key ONLY IF that key is currently absent
- *   (don't-clobber-first-capture — the first corruption most likely holds the user's
- *   real, recoverable data).
+ * (don't-clobber-first-capture — the first corruption most likely holds the user's
+ * real, recoverable data).
  * - `console.warn` so the loss is never silent.
  * - NEVER throws — the preserve attempt is itself try/caught (quota / disabled storage
- *   degrade quietly). Fires on ANY failure: parse error, unrecognized shape, failed
- *   lenient Zod validation, or a throwing migration step.
+ * degrade quietly). Fires on ANY failure: parse error, unrecognized shape, failed
+ * lenient Zod validation, or a throwing migration step.
  */
 function quarantineCorrupt(quarantineKey: string, raw: string): void {
   try {
@@ -69,11 +69,11 @@ function quarantineCorrupt(quarantineKey: string, raw: string): void {
 
 /**
  * Detect the on-disk schema version of a parsed value.
- *   - array  ⇒ 2 (legacy un-enveloped, state B)
- *   - object with a numeric `schemaVersion` ⇒ that number (state C or a future version)
- *   - anything else ⇒ null (corrupt, state D)
+ * - array ⇒ 2 (legacy un-enveloped, state B)
+ * - object with a numeric `schemaVersion` ⇒ that number (state C or a future version)
+ * - anything else ⇒ null (corrupt, state D)
  *
- * EXPORTED (export-only — visibility change ONLY, no behavior change) so the
+ * EXPORTED so the
  * whole-trip import path (`core/vault/export-import.ts`) makes the identical
  * migrate-vs-quarantine-vs-verbatim decision as this read path, from ONE source of
  * truth instead of a re-derived copy (drift risk on a data-integrity path).
@@ -92,10 +92,10 @@ export function detectVersion(parsed: unknown): number | null {
 
 /**
  * Extract the payload to validate for a given detected version.
- *   - v2 (state B): the parsed array IS the payload (pre-envelope).
- *   - enveloped (state C / future): the envelope's `.payload`.
+ * - v2 (state B): the parsed array IS the payload (pre-envelope).
+ * - enveloped (state C / future): the envelope's `.payload`.
  *
- * EXPORTED (export-only — visibility change ONLY, no behavior change) — same
+ * EXPORTED — same
  * rationale as `detectVersion`: the import path reuses this instead of a copy.
  */
 export function extractPayload(parsed: unknown, detected: number): unknown {

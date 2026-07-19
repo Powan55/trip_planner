@@ -1,6 +1,6 @@
 'use client';
 
-// See app/nepal/sections.tsx for why this lives in a client module. The
+// (Next 15 migration): see app/nepal/sections.tsx — same reason. The
 // planner/budget/backup islands keep their ssr:false +
 // sized loading skeletons; they read/write localStorage so have no server render.
 import dynamic from 'next/dynamic';

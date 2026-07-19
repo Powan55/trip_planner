@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 
 /**
- * Inline quick-add — the fast path for adding a plan item.
+ * Inline quick-add.
  *
  * A single-line title input: type a title → Enter (or the + button) → `onAdd(trimmedTitle)`.
  * A blank / whitespace-only title is a no-op (Enter does nothing). Everything else about the
@@ -13,13 +13,13 @@ import { Plus } from 'lucide-react';
  * affordance (the "Add Activity" button / quick-add FAB → full editor), never two competing
  * quick adds.
  *
- * Deliberately a native `<input>` + `onKeyDown` Enter rather than a `<form>` (no implicit
- * submit/navigation), no form lib, no new dependency. The caller owns the item shape and the
- * store call; this component only collects a trimmed title. Writing lands through the same
- * `addItem` → `commit()` choke-point as every other add.
+ * Ponytail: native `<input>` + `onKeyDown` Enter — deliberately NOT a `<form>` (no implicit
+ * submit/navigation), no form lib, no new dep. The caller owns the item shape and the store
+ * call; this component only collects a trimmed title. Writing lands through the same
+ * `addItem` → `commit()` choke-point as every other add, so holds.
  *
- * Accessibility: the input is labelled via `aria-label` (the caller passes a day-specific label);
- * the submit button has its own action name; both are keyboard-operable with a visible focus ring.
+ * A11y: the input is labelled via `aria-label` (the caller passes a day-specific label); the
+ * submit button has its own action name; both are keyboard-operable with a visible focus ring.
  */
 export default function QuickAddInput({
   onAdd,
@@ -67,7 +67,7 @@ export default function QuickAddInput({
         disabled={!title.trim()}
         aria-label="Add plan"
         data-testid={`${testId}-submit`}
-        className="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gold-500/90 text-navy-900 hover:bg-gold-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
+        className="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gold-500/90 text-surface hover:bg-gold-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
       >
         <Plus className="w-4 h-4" aria-hidden="true" />
       </button>

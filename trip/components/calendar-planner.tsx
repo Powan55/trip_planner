@@ -54,8 +54,11 @@ import { clashingItemIds } from '@/lib/sort-items-by-time';
 import TimePicker, { DurationField } from '@/components/time-picker';
 import PlanSearch from '@/components/plan-search';
 import type { PlanSearchResult } from '@/lib/search-plan';
+import { getCachedForecastForDate, weatherTagForDay, type WeatherTag } from '@/lib/weather';
+import { haptic } from '@/lib/haptics';
+import { groupItemsByPhase, earliestTimedItem, PHASE_LABELS } from '@/lib/phase-of-day';
 
-// Split-view map pane, mounted as a dynamic(ssr:false) island gated on the
+// split-view map pane, mounted as a dynamic(ssr:false) island gated on the
 // map-view toggle below. Because it is NOT in the initial render tree (showMap is
 // off by default), its chunk — and the ~200 kB maplibre runtime it pulls via
 // trip-map's own `await import('maplibre-gl')` — only fetches when the user opens
@@ -64,7 +67,7 @@ import type { PlanSearchResult } from '@/lib/search-plan';
 const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
   ssr: false,
   loading: () => (
-    <div className="grid h-full w-full place-items-center bg-navy-900 text-white/45">
+    <div className="grid h-full w-full place-items-center bg-surface text-white/45">
       <span className="text-xs">Loading map…</span>
     </div>
   ),
@@ -104,21 +107,21 @@ function AttributionLine({ item }: { item: ItineraryItem }) {
 // Sortable Item
 function SortableItem({ item, date, clashes, selectMode, selected, highlighted, mapVisible, hasMarker, onToggleSelect, onEdit, onDelete, onDuplicate, onLocate }: { item: ItineraryItem; date: string; clashes: boolean; selectMode: boolean; selected: boolean; highlighted: boolean; mapVisible: boolean; hasMarker: boolean; onToggleSelect: () => void; onEdit: () => void; onDelete: () => void; onDuplicate: (targetDate: string) => void; onLocate: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
-  // Duplicate-item ("same dinner, another day"): the Copy button reveals a native
+  // duplicate-item ("same dinner, another day"): the Copy button reveals a native
   // <select> of trip days; picking one calls onDuplicate(targetDate) — a fresh-id copy of
   // this item's content lands on that day (defaults to "this day" for a one-off copy). Native
-  // select = keyboard/SR-accessible with no portal or focus-trap to hand-build.
+  // select = keyboard/SR-accessible with no portal or focus-trap to hand-build (ponytail).
   const [dupOpen, setDupOpen] = useState(false);
   const dupSelectId = useId();
 
-  // Swipe-to-delete (touch/pen only). A horizontal left-swipe on the ROW BODY
+  // swipe-to-delete (touch/pen only). A horizontal left-swipe on the ROW BODY
   // (not the grip — dnd owns that, not the action buttons) past the threshold routes
   // to the SAME onDelete → delete-undo handler; the visible Delete button stays
   // as the non-gesture a11y/keyboard path. It coexists with dnd-kit + scroll cleanly:
-  //   • drag lives on the grip's dnd listeners only → a body swipe never starts a drag;
-  //   • touch-action:pan-y keeps native vertical scroll → we engage ONLY once the move
-  //     is horizontal-dominant (else we bail and let the browser scroll);
-  //   • mouse is ignored (the Delete button is the pointer path), so desktop is untouched.
+  // • drag lives on the grip's dnd listeners only → a body swipe never starts a drag;
+  // • touch-action:pan-y keeps native vertical scroll → we engage ONLY once the move
+  // is horizontal-dominant (else we bail and let the browser scroll);
+  // • mouse is ignored (the Delete button is the pointer path), so desktop is untouched.
   // Snap-back is an instant state reset (no transition) — reduced-motion safe by default.
   const [swipeX, setSwipeX] = useState(0);
   const swipe = useRef<{ x: number; y: number; active: boolean; dx: number } | null>(null);
@@ -238,7 +241,7 @@ function SortableItem({ item, date, clashes, selectMode, selected, highlighted, 
                 onDuplicate(target);
                 setDupOpen(false);
               }}
-              className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-navy-900 border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+              className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
             >
               <option value="" disabled>Copy to day…</option>
               {TRIP_DATES.map((d) => (
@@ -248,9 +251,9 @@ function SortableItem({ item, date, clashes, selectMode, selected, highlighted, 
           </div>
         )}
       </div>
-      {/* "Show on map" — a PERSISTENT (non-hover) affordance, shown only when the
+      {/* "show on map" — a PERSISTENT (non-hover) affordance, shown only when the
           split map is open AND this item resolves to a curated marker. Sets the shared
-          highlight so the map emphasizes the stop; keyboard-focusable + labelled. */}
+}          highlight so the map emphasizes the stop; keyboard-focusable + labelled. */
       {mapVisible && hasMarker && (
         <button
           onClick={onLocate}
@@ -289,7 +292,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
   onCloseRef.current = onClose;
   const [title, setTitle] = useState(item?.title ?? '');
   const [category, setCategory] = useState<ItineraryCategory>(item?.category ?? 'sightseeing');
-  // Time picker state. The trigger shows `effectiveStartMinutes` — the
+  // Time picker state. The trigger shows `effectiveStartMinutes` —
   // fallback parser, so opening the picker on a legacy-`time`-only item pre-positions it
   // correctly — but the SAVE only dual-writes when the user actually touched the picker
   // (`timeTouched`); an untouched item's original `time`/`startMinutes` are preserved
@@ -305,7 +308,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
   // Manual pin-drop. Free-text lat/lng strings so the field can hold an in-progress
   // or invalid value without fighting the input; parsed + range-validated only at render
   // (for the inline hint) and at save (handleSave below). The section starts open whenever
-  // the item already carries a pin, closed otherwise (opt-in, presentation-only).
+  // the item already carries a pin, closed otherwise.
   const [pinOpen, setPinOpen] = useState(item?.lat !== undefined && item?.lng !== undefined);
   const [latText, setLatText] = useState(item?.lat !== undefined ? String(item.lat) : '');
   const [lngText, setLngText] = useState(item?.lng !== undefined ? String(item.lng) : '');
@@ -327,7 +330,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
   // picker idiom (native select / TRIP_DATES — SR/keyboard-friendly, no new dep). The item stays
   // OWNED by its start day; only the render layer expands the band across the covered days (the
   // MERGE INVARIANT — no multi-homing). Section starts open only when the item already spans
-  // (opt-in, presentation-only). If the start day is the last trip day there is no valid
+  // If the start day is the last trip day there is no valid
   // end day → the toggle is disabled.
   const spanDayOptions = TRIP_DATES.filter((d) => d > startDate);
   const canSpan = spanDayOptions.length > 0;
@@ -348,8 +351,8 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
     setDurationTouched(true);
   };
 
-  // Portal mount guard, mirrored from add-to-itinerary-dialog.tsx.
-  // `createPortal(…, document.body)` must not run during the static-export
+  // Portal mount guard ( / mirrored from add-to-itinerary-dialog.tsx /
+  //). `createPortal(…, document.body)` must not run during the static-export
   // prerender, so we only portal after the component has mounted on the client. The
   // editor only ever mounts on a user click (post-hydration), so this is satisfied
   // immediately in practice; it exists purely to keep `document` untouched on the
@@ -357,7 +360,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Present as a slide-up bottom-sheet on `<lg` (the place-detail-sheet idiom) and
+  // present as a slide-up bottom-sheet on `<lg` (the place-detail-sheet idiom) and
   // as the existing centered panel on `lg+`. The layout is Tailwind-responsive (classes
   // below), but framer's entrance variant can't be a media query — so we read the `lg`
   // breakpoint once and pick translate-y (sheet) vs scale (desktop panel). Only runs
@@ -371,7 +374,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
     return () => mq.removeEventListener('change', sync);
   }, []);
 
-  // Google Maps research link-out (parity with the custom-add dialog).
+  // Google Maps research link-out.
   // Reuses the shared, already-exported builder — no reimplementation of the URL
   // scheme. Recomputed live off the editor's own title/location state; null (and
   // therefore disabled) until the title is non-empty.
@@ -402,12 +405,12 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
     if (!title.trim() || !pinReady) return;
     onSave({
       // Spread the original item first so additive source-linkage fields
-      // (sourceId/sourceType) survive an edit of a card-created item.
+      // survive an edit of a card-created item.
       ...item,
       id: item?.id ?? generateItemId(),
       title: title.trim(),
       category,
-      // Dual-write: only when the user actually touched the picker/field —
+      // dual-write: only when the user actually touched the picker/field —
       // otherwise the item's original time/duration fields pass through untouched
       // (preserves an unparseable legacy `time`/`duration` string verbatim).
       time: timeTouched ? (startMinutes !== undefined ? minutesToHHMM(startMinutes) : undefined) : item?.time,
@@ -509,7 +512,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
         aria-labelledby={titleId}
         onKeyDown={handleKeyDown}
         // `<lg`: rises from the bottom (translate-y). `lg+`: the original centered scale.
-        // framer honors prefers-reduced-motion (MotionConfig reducedMotion="user"),
+        // framer honors prefers-reduced-motion,
         // so the transform is skipped under reduce and only opacity fades in.
         initial={isDesktop ? { scale: 0.9, opacity: 0 } : { y: 40, opacity: 0 }}
         animate={isDesktop ? { scale: 1, opacity: 1 } : { y: 0, opacity: 1 }}
@@ -567,9 +570,8 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
           </div>
           {/* Manual pin-drop — opt-in, collapsed unless the item already carries a
               pin. Two free-text numeric fields (inputMode="decimal", NOT type="number" —
-              a number input's spinner/scroll-wheel would silently mutate the value) so a
-              pinned custom item plots on both maps even
-              when its title doesn't match a curated marker. */}
+              wheel-footgun lesson) so a pinned custom item plots on both maps even
+}              when its title doesn't match a curated marker. */
           <div>
             <button
               type="button"
@@ -633,7 +635,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
           {/* Multi-day span — opt-in, collapsed unless the item already spans. A "spans
               multiple days" toggle reveals a native <select> of trip days AFTER the start day.
               The item stays owned by its start day (no multi-homing); only the render layer
-              expands a band across the covered days. Disabled if the start day is the last day. */}
+}              expands a band across the covered days. Disabled if the start day is the last day. */
           <div>
             <button
               type="button"
@@ -655,7 +657,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
                   value={endDate}
                   data-testid="calendar-editor-span-select"
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEndDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-navy-900 border border-white/10 text-white text-sm outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 focus-visible:outline-none"
+                  className="w-full px-3 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <option value="">Single day (no span)</option>
                   {spanDayOptions.map((d) => (
@@ -666,7 +668,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
             )}
           </div>
           {/* Google Maps research link-out. Disabled until Title is
-              non-empty; a URL, not an API — no key, no quota. */}
+}              non-empty; a URL, not an API — no key, no quota. */
           {mapsUrl ? (
             <a
               href={mapsUrl}
@@ -696,7 +698,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
             onClick={handleSave}
             disabled={!title.trim() || !pinReady}
             data-testid="calendar-editor-save"
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
           >
             <Check className="w-4 h-4" />
             {item ? 'Update Item' : 'Add Item'}
@@ -709,7 +711,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
 }
 
 export default function CalendarPlanner() {
-  // Search-within-plan: cross-route focus channel. `?focus=<itemId>` (pushed by
+  // search-within-plan: cross-route focus channel. `?focus=<itemId>` (pushed by
   // the command palette's "In your plan" results, which live OUTSIDE the provider and
   // so cannot share `highlightId` state directly) is read reactively via
   // `useSearchParams` — unlike the module-cached `?today=` override in trip-now.ts,
@@ -736,9 +738,9 @@ export default function CalendarPlanner() {
     reorderItems,
     getDayPlan,
   } = useItineraryContext();
-  // Clear-whole-day confirm gate (Radix AlertDialog — reused primitive, not bespoke).
+  // clear-whole-day confirm gate (Radix AlertDialog — reused primitive, not bespoke).
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
-  // Multi-select mode — OFF/invisible by default. When on, items show a checkbox and a
+  // multi-select mode — OFF/invisible by default. When on, items show a checkbox and a
   // bulk-action bar appears (move / copy-day / delete). Selection is per-day (the calendar
   // shows one day at a time), so every selected id belongs to `selectedDate`.
   const [selectMode, setSelectMode] = useState(false);
@@ -753,17 +755,17 @@ export default function CalendarPlanner() {
   // collapsed by default so the phone lands on the single-day agenda.
   const [showMonthView, setShowMonthView] = useState(false);
 
-  // Split map/list view. OFF by default so the maplibre island stays
-  // interaction-lazy (the chunk only loads once `showMap` mounts PlanDayMap).
+  // split map/list view. OFF by default so the maplibre island stays
+  // interaction-lazy.
   const [showMap, setShowMap] = useState(false);
   // The marker id currently emphasized on the map + ringed in the list — the single
   // shared highlight state that both directions write (row "show on map" ↔ marker click).
-  // `highlightId` also accepts a plain ITEM id (a search result), matched independently
-  // of `showMap`/marker-join in the row's `highlighted` computation below — same state,
-  // same clear-on-day-change effect, same scroll-into-view effect, no second highlight
-  // mechanism.
+  // generalizes what a row match means: `highlightId` also accepts a plain ITEM id
+  // (a search result), matched independently of `showMap`/marker-join in the row's
+  // `highlighted` computation below — same state, same clear-on-day-change effect, same
+  // scroll-into-view effect, no second highlight mechanism.
   const [highlightId, setHighlightId] = useState<string | null>(null);
-  // When a search result lands on a DIFFERENT day than `selectedDate`, we must
+  // when a search result lands on a DIFFERENT day than `selectedDate`, we must
   // set the date first and apply the highlight only once that settles — otherwise the
   // existing clear-highlight effect (below, keyed on `selectedDate`) wipes it out in the
   // same commit (the ordering trap). Consumed by the effect right after that one.
@@ -782,7 +784,7 @@ export default function CalendarPlanner() {
   // persistence operate on the FULL stored set below, unaffected by the active filter.
   const { filter: authorFilter, myName } = useAuthorFilter();
 
-  // Cost overlay — READ-ONLY / DISPLAY-ONLY. A SEPARATE reactive read of the
+  // cost overlay — READ-ONLY / DISPLAY-ONLY. A SEPARATE reactive read of the
   // expense store (NOT the itinerary store): the calendar's CRUD/DnD/select all still operate on
   // `plans` from `useItineraryContext()`, entirely untouched. This adds a per-day leg-local spend
   // figure to the single-day header and a subtle "has spend" marker on month-grid cells. The pure
@@ -815,7 +817,7 @@ export default function CalendarPlanner() {
     if (t) setSelectedDate(t.date);
   }, []);
 
-  // Mirror the focused day into the in-memory selected-day signal so
+  // Seam 3: mirror the focused day into the in-memory selected-day signal so
   // the quick-add FAB presets its date to whatever day the calendar shows. Covers every
   // selection path uniformly — day-strip taps, month-grid clicks, agenda-list clicks,
   // prev/next, and the today-init above — since all of them flow through
@@ -848,10 +850,11 @@ export default function CalendarPlanner() {
     }
     setShowEditor(false);
     setEditingItem(undefined);
+    haptic(); // — subtle pulse on itinerary item save (gated internally on reduced-motion).
   };
 
-  // Duplicate: a fresh-id copy of the item's CONTENT onto the chosen day, through the
-  // SAME addItem → commit() choke-point as every other add. `freshCopyOf` (the shared
+  // duplicate: a fresh-id copy of the item's CONTENT onto the chosen day, through the
+  // SAME addItem → commit() choke-point as every other add. `freshCopyOf` (the
   // stripper, reused verbatim — not re-implemented) drops id/deleted/rev/hlc and mints a new
   // id, so the copy NEVER reuses the source id; addItem then stamps attribution/rev/hlc.
   const handleDuplicateItem = (item: ItineraryItem, targetDate: string) => {
@@ -867,10 +870,10 @@ export default function CalendarPlanner() {
     showUndoToast(`Deleted “${item.title}”`, () => restoreItem(day, item));
   };
 
-  // Clear-whole-day: capture the day's LIVE items BEFORE clearing (so Undo can restore the
+  // clear-whole-day: capture the day's LIVE items BEFORE clearing (so Undo can restore the
   // full list), clearDay (tombstone-all in one commit under sync / physical empty under dormant),
   // then one undo toast whose action restores every captured item (fresh-id under sync). After
-  // the clear the day falls back to the existing empty-state design — never reseeds.
+  // the clear the day falls back to the existing empty-state design.
   const handleClearDay = () => {
     const day = selectedDate;
     const items = getDayPlan(day).items ?? []; // exposed = live items only
@@ -882,7 +885,7 @@ export default function CalendarPlanner() {
     );
   };
 
-  // ── Multi-select handlers ───────────────────────────────────────────────
+  // ── multi-select handlers ───────────────────────────────────────────────
   const toggleSelect = (id: string) =>
     setSelectedIds((prev) => {
       const next = new Set(prev);
@@ -897,14 +900,14 @@ export default function CalendarPlanner() {
   };
 
   // Selection is per-day: clear it whenever the visible day changes, so a stale id from a
-  // previous day can never leak into a bulk op on the new day. The map highlight is
+  // previous day can never leak into a bulk op on the new day.: the map highlight is
   // likewise per-day (a marker from another day must not stay emphasized) — clear it too.
   useEffect(() => {
     setSelectedIds(new Set());
     setHighlightId(null);
   }, [selectedDate]);
 
-  // Consume a pending cross-day search focus. Declared right AFTER the
+  // consume a pending cross-day search focus. Declared right AFTER the
   // clear-highlight effect above (same [selectedDate] dependency) so, within the same
   // commit, the clear runs first and this one runs second — the later `setHighlightId`
   // call wins. Only fires once `selectedDate` has actually settled onto the pending
@@ -918,7 +921,7 @@ export default function CalendarPlanner() {
     }
   }, [selectedDate]);
 
-  // Jump to an item's day + highlight it (shared by both the `/plan` search and
+  // jump to an item's day + highlight it (shared by both the `/plan` search and
   // the `?focus=` param consumed below). Same-day: highlight immediately — the
   // clear-on-day-change effect above never fires because `selectedDate` doesn't change.
   // Cross-day: stash the target in the pending ref and change the day; the effect above
@@ -934,7 +937,7 @@ export default function CalendarPlanner() {
 
   const handleSearchSelect = (result: PlanSearchResult) => focusItem(result.date, result.item.id);
 
-  // Consume `?focus=<itemId>` — the palette's cross-route hand-off (the palette is
+  // consume `?focus=<itemId>` — the palette's cross-route hand-off (the palette is
   // mounted outside ItineraryProvider and cannot call `focusItem` directly). Keyed on the
   // reactive `searchParams` value (not a mount-only effect) so it fires both when
   // navigating to /plan fresh AND when already on /plan and the palette pushes a new
@@ -950,7 +953,7 @@ export default function CalendarPlanner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Track the lg breakpoint so the map renders as the inline split pane (lg+) or the
+  // track the lg breakpoint so the map renders as the inline split pane (lg+) or the
   // bottom-sheet peek (`<lg`) — a single PlanDayMap instance placed by `isDesktop`.
   useEffect(() => {
     const mq = window.matchMedia('(min-width: 1024px)');
@@ -960,7 +963,7 @@ export default function CalendarPlanner() {
     return () => mq.removeEventListener('change', sync);
   }, []);
 
-  // A marker click on the map → emphasize its row + bring it into view. `highlightId`
+  // a marker click on the map → emphasize its row + bring it into view. `highlightId`
   // is a MARKER id (the shared join vocabulary), so the same value drives both the map paint
   // and the list ring — the row whose matched marker equals it lights up.
   const handleMarkerClick = (markerId: string) => setHighlightId(markerId);
@@ -1086,6 +1089,17 @@ export default function CalendarPlanner() {
   const currentPlan = getDayPlan(selectedDate);
   const currentIdx = TRIP_DATES.indexOf(selectedDate);
 
+  // an optional, read-only contextual weather tag for the day header — pure derivation
+  // over the SAME Open-Meteo cache the Essentials/Today panels already fetch,
+  // zero new fetch. Read in an effect (not inline) so server/first-paint render matches the
+  // client before hydration (the gateway is SSR-safe and returns null, but we still avoid
+  // reading it during render to keep this consistent with the rest of the app's localStorage
+  // reads). `null` whenever the city/date isn't in whatever 7-day window was last cached.
+  const [dayWeatherTag, setDayWeatherTag] = useState<WeatherTag | null>(null);
+  useEffect(() => {
+    setDayWeatherTag(weatherTagForDay(getCachedForecastForDate(currentPlan.city, selectedDate)));
+  }, [currentPlan.city, selectedDate]);
+
   const goToPrev = () => {
     if (currentIdx > 0) setSelectedDate(TRIP_DATES[currentIdx - 1] ?? selectedDate);
   };
@@ -1126,11 +1140,11 @@ export default function CalendarPlanner() {
             const dayPlan = getDayPlan(date);
             const hasItems = (dayPlan.items?.length ?? 0) > 0;
             const isSelected = date === selectedDate;
-            // Day-cell pulse: gently pulse the "today" cell (only when inside the trip
+            // day-cell pulse: gently pulse the "today" cell (only when inside the trip
             // window — todayStripDate is null otherwise). CSS `.animate-today-pulse`, hard-
             // neutralized under reduced motion (globals.css → static ring, no breathing).
             const isToday = todayStripDate != null && date === todayStripDate;
-            // Cost overlay (read-only): does this day have logged spend? The marker is a subtle
+            // cost overlay (read-only): does this day have logged spend? The marker is a subtle
             // dot; the actual figure goes to the single-day readout + the aria-label extension below
             // (a full currency figure would break the cramped cell). Leg-local (a day is one leg).
             const daySpend = spendByDate[date] ?? 0;
@@ -1162,9 +1176,9 @@ export default function CalendarPlanner() {
                     ))}
                   </div>
                 )}
-                {/* A subtle "has spend" marker (top-right), sized to fit the cramped cell — a
+                {/* a subtle "has spend" marker (top-right), sized to fit the cramped cell — a
                     small gold dot, NOT a currency figure (that lives in the single-day readout +
-                    aria-label). aria-hidden: the label extension already announces the amount. */}
+}                    aria-label). aria-hidden: the label extension already announces the amount. */
                 {hasSpend && (
                   <span
                     aria-hidden="true"
@@ -1187,14 +1201,25 @@ export default function CalendarPlanner() {
   // we only change what renders and which ids the SortableContext tracks (so a drag inside
   // a filtered view stays consistent with what's visible).
   const visibleItems = filterItemsByAuthor(dayItems, authorFilter, myName);
-  const allItemIds = visibleItems.map((i: ItineraryItem) => i.id);
-  // Warn-only clash badge, computed at the day-render level off the full
+  // phase-of-day grouping: NEVER re-sorts
+  // timed items — the calendar view's manual/stored order stays untouched (sort-clash.spec.ts's
+  // regression net) — only moves untimed items to a trailing "Anytime" run. `isNewPhase` marks
+  // where the render layer inserts a subtle phase header. SortableContext's `items` below is
+  // this GROUPED order so dnd-kit's index math matches the actual DOM order.
+  const phaseGroups = useMemo(() => groupItemsByPhase(visibleItems), [visibleItems]);
+  const allItemIds = phaseGroups.map((g) => g.item.id);
+  // day-at-a-glance pill row: item count + first-start time (composed alongside the
+  // existing spend/weather pills at the day header, below). Derived from the FULL stored set
+  // (dayItems), matching the spend/weather pills' day-level (not author-filtered) scope.
+  const firstTimedItem = useMemo(() => earliestTimedItem(dayItems), [dayItems]);
+  const firstStartInfo = firstTimedItem ? describeItemTime(firstTimedItem, selectedDate) : null;
+  // warn-only clash badge, computed at the day-render level off the full
   // stored set (order-independent) — presentation-only, never touches the manual
   // drag-order (`handleDragEnd`/`arrayMove`/`SortableContext` are all untouched below).
   const dayClashIds = useMemo(() => clashingItemIds(dayItems), [dayItems]);
 
-  // Multi-day spans — a PURE view-layer render derivation off the existing `plans` (no
-  // store write, no multi-homing). For the selected day, collect every spanning item
+  // multi-day spans — a PURE view-layer render derivation off the existing `plans` (no
+  // store write, no multi-homing;). For the selected day, collect every spanning item
   // (an item carrying an `endDate` genuinely after its start day) whose inclusive
   // [startDay..endDate] window COVERS `selectedDate`. ISO `YYYY-MM-DD` strings compare
   // lexicographically, so the date math is plain string comparison. `isStartDay` marks the day
@@ -1213,12 +1238,12 @@ export default function CalendarPlanner() {
     return bands;
   }, [plans, selectedDate]);
 
-  // Day-scoped map data: the selected day's coordinate stops (marker-matched),
+  // day-scoped map data: the selected day's coordinate stops (marker-matched),
   // re-derived from the live plan so a reorder yields a new ordered array → PlanDayMap
-  // re-passes it → TripMap redraws the polyline (no store write — presentation only).
+  // re-passes it → TripMap redraws the polyline.
   const dayStops = useMemo(() => buildItineraryStops([currentPlan]), [currentPlan]);
   // Per-item matched marker id — the same stopMarkerFor join buildItineraryStops uses (pin
-  // BEATS name/sourceId match), so a row and its map stop always agree. Drives the
+  // BEATS name/sourceId match,), so a row and its map stop always agree. Drives the
   // row ring + the "show on map" affordance.
   const markerIdFor = (item: ItineraryItem) =>
     stopMarkerFor(item, currentPlan.country === 'nepal' ? 'Nepal' : 'Japan')?.id ?? null;
@@ -1255,13 +1280,13 @@ export default function CalendarPlanner() {
           subtitle="Plan every day of the journey. Drag items to reorder or move between days."
         />
 
-        {/* Search-within-plan: read-only over titles/notes/categories across
+        {/* search-within-plan: read-only over titles/notes/categories across
             every day. A cross-day pick jumps `selectedDate` and highlights the row via
-            `focusItem` (the highlight/scroll path, generalized to item ids above). */}
+}            `focusItem`. */
         <PlanSearch plans={plans} onSelect={handleSearchSelect} />
 
         {/* View Toggle — desktop only (`lg+`). On phones the day-strip + collapsible
-            month view replace this Calendar/Agenda switch, so it is hidden below `lg`. */}
+}            month view replace this Calendar/Agenda switch, so it is hidden below `lg`. */
         <div className="hidden lg:flex flex-wrap justify-center gap-2 mb-6">
           <button
             onClick={() => setViewMode('calendar')}
@@ -1283,12 +1308,12 @@ export default function CalendarPlanner() {
 
         {/* Author filter: presentational, read-only. Self-hides when no item is
             attributed (dormant/portfolio build unchanged). Narrows the day-detail list
-            below AND the timeline (shared selection via lib/author-filter). */}
+}            below AND the timeline (shared selection via lib/author-filter). */
         <AuthorFilterControl plans={plans} className="mb-6" />
 
-        {/* Split map/list toggle. OFF by default → the maplibre island stays
+        {/* split map/list toggle. OFF by default → the maplibre island stays
             interaction-lazy. On → the selected day's stops + polyline render on
-            <TripMap> beside the list (lg+) or in a bottom-sheet peek (`<lg`). */}
+}            <TripMap> beside the list (lg+) or in a bottom-sheet peek (`<lg`). */
         <div className="flex justify-center mb-6">
           <button
             type="button"
@@ -1307,11 +1332,11 @@ export default function CalendarPlanner() {
         </div>
 
         <div className="grid lg:grid-cols-[340px_1fr] gap-6">
-          {/* Left: Calendar or Date list */}
+          {}/* Left: Calendar or Date list */
           <div className="min-w-0">
             {/* Mobile picker (`<lg`): the one-handed day-strip agenda picker replaces the
                 desktop month grid. The month grid is demoted to a collapsible "Month view",
-                collapsed by default. Desktop (`lg+`) never sees this block. */}
+}                collapsed by default. Desktop (`lg+`) never sees this block. */
             <div className="lg:hidden space-y-3">
               <DayStrip
                 dates={TRIP_DATES}
@@ -1334,7 +1359,7 @@ export default function CalendarPlanner() {
             </div>
 
             {/* Desktop left pane (`lg+`): the existing month-grid / agenda-list two-pane,
-                pixel-equivalent to before — now gated to `lg+` since the day-strip owns `<lg`. */}
+}                pixel-equivalent to before — now gated to `lg+` since the day-strip owns `<lg`. */
             <div className="hidden lg:block">
             {viewMode === 'calendar' ? renderCalendar() : (
               <div className="glass-card rounded-2xl p-4 max-h-[600px] overflow-y-auto scrollbar-hide space-y-1">
@@ -1366,11 +1391,11 @@ export default function CalendarPlanner() {
           </div>
 
           {/* Right region: the day detail + the optional inline map pane. When the
-              map is open on lg+ they sit side-by-side at xl and stack at lg. */}
+}              map is open on lg+ they sit side-by-side at xl and stack at lg. */
           <div className={`min-w-0 ${showMap && isDesktop ? 'grid grid-cols-1 xl:grid-cols-[1fr_minmax(300px,360px)] gap-6 items-start' : ''}`}>
-          {/* Right: Day Detail with DnD */}
+          {}/* Right: Day Detail with DnD */
           <div className="min-w-0 glass-card rounded-2xl p-4 sm:p-6">
-            {/* Day Header */}
+            {}/* Day Header */
             <div className="flex items-center justify-between gap-1 mb-5">
               <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
@@ -1378,27 +1403,65 @@ export default function CalendarPlanner() {
                 <p className="text-xs text-white/40">
                   Day {currentIdx + 1} • {currentPlan.city}, {currentPlan.country === 'nepal' ? 'Nepal' : 'Japan'}
                 </p>
-                {/* Cost overlay (read-only): this day's total logged spend, in the day's
-                    leg-local currency (a single day is one leg). Renders only when there is spend;
-                    an unplanned/no-spend day shows nothing extra. Purely derived from useExpenses(). */}
-                {(spendByDate[selectedDate] ?? 0) > 0 && (
-                  <p
-                    data-testid="calendar-day-spend-total"
-                    className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-2.5 py-0.5 text-xs font-medium text-gold-300"
-                  >
-                    <span aria-hidden="true">•</span>
-                    <span>
-                      {formatMoney(spendByDate[selectedDate] ?? 0, legCurrency(currentPlan.country))} spent
+                {/* day-at-a-glance pill row — composes the existing spend pill +
+                    weather pill (unchanged testids/markup below) alongside two new pills (item
+                    count, first-start time). A flex-wrap row so it degrades gracefully on narrow
+}                    viewports; renders nothing when the day has none of the four facts. */
+                <div
+                  data-testid="calendar-day-glance"
+                  className="mt-1 flex flex-wrap justify-center items-center gap-1.5"
+                >
+                  {dayItems.length > 0 && (
+                    <span
+                      data-testid="calendar-day-glance-count"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/70"
+                    >
+                      {dayItems.length} item{dayItems.length === 1 ? '' : 's'}
                     </span>
-                  </p>
-                )}
+                  )}
+                  {firstStartInfo && (
+                    <span
+                      data-testid="calendar-day-glance-first-start"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/70"
+                    >
+                      From {firstStartInfo.label}
+                    </span>
+                  )}
+                  {/* cost overlay (read-only): this day's total logged spend, in the day's
+                      leg-local currency (a single day is one leg). Renders only when there is spend;
+}                      an unplanned/no-spend day shows nothing extra. Purely derived from useExpenses(). */
+                  {(spendByDate[selectedDate] ?? 0) > 0 && (
+                    <span
+                      data-testid="calendar-day-spend-total"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-2.5 py-0.5 text-xs font-medium text-gold-300"
+                    >
+                      <span aria-hidden="true">•</span>
+                      <span>
+                        {formatMoney(spendByDate[selectedDate] ?? 0, legCurrency(currentPlan.country))} spent
+                      </span>
+                    </span>
+                  )}
+                  {/* quiet contextual weather tag — pure derivation over whatever the
+                      Open-Meteo cache (already fetched elsewhere, e.g. the Today/Essentials
+                      panel) happens to cover for this exact city/date. No cache hit → nothing
+}                      rendered, no layout shift. */
+                  {dayWeatherTag && (
+                    <span
+                      data-testid="calendar-day-weather-tag"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/70"
+                    >
+                      <span aria-hidden="true">{dayWeatherTag.icon}</span>
+                      <span>{dayWeatherTag.label}</span>
+                    </span>
+                  )}
+                </div>
               </div>
               <button onClick={goToNext} disabled={currentIdx >= TRIP_DATES.length - 1} aria-label="Next day" data-testid="calendar-next-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><ChevronRight className="w-5 h-5" /></button>
             </div>
 
-            {/* Day toolbar (Clear day + Select). Both appear only when the day has
+            {/* Day toolbar. Both appear only when the day has
                 items. Select toggles the multi-select mode (OFF by default — no change to the
-                normal single-item flow when off). */}
+}                normal single-item flow when off). */
             {dayItems.length > 0 && (
               <div className="flex justify-between items-center gap-2 mb-3">
                 <button
@@ -1427,11 +1490,11 @@ export default function CalendarPlanner() {
               </div>
             )}
 
-            {/* Bulk-action bar — visible only in select mode. Keyboard-operable; the
+            {/* bulk-action bar — visible only in select mode. Keyboard-operable; the
                 selected count is announced via aria-live. Move/Delete act on the SELECTION;
                 Copy day copies the WHOLE day (a day-level op parked here for convenience). The
                 day pickers reuse the native <select> idiom (SR/keyboard-friendly, no
-                portal/focus-trap to hand-build). */}
+}                portal/focus-trap to hand-build). */
             {selectMode && (
               <div
                 role="region"
@@ -1454,7 +1517,7 @@ export default function CalendarPlanner() {
                   disabled={selectedIds.size === 0}
                   data-testid="calendar-bulk-move-select"
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleBulkMove(e.target.value)}
-                  className="px-2 py-1.5 rounded-lg bg-navy-900 border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none disabled:opacity-40"
+                  className="px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none disabled:opacity-40"
                 >
                   <option value="" disabled>Move to day…</option>
                   {TRIP_DATES.filter((d) => d !== selectedDate).map((d) => (
@@ -1467,7 +1530,7 @@ export default function CalendarPlanner() {
                   value=""
                   data-testid="calendar-bulk-copy-select"
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleCopyDay(e.target.value)}
-                  className="px-2 py-1.5 rounded-lg bg-navy-900 border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                  className="px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
                 >
                   <option value="" disabled>Copy day to…</option>
                   {TRIP_DATES.filter((d) => d !== selectedDate).map((d) => (
@@ -1487,7 +1550,7 @@ export default function CalendarPlanner() {
               </div>
             )}
 
-            {/* Bulk-delete confirm (reused Radix AlertDialog, same as clear-day). */}
+            {}/* bulk-delete confirm. */
             <AlertDialog open={confirmBulkDeleteOpen} onOpenChange={setConfirmBulkDeleteOpen}>
               <AlertDialogContent className="glass-card-dark border-white/10 text-white" data-testid="calendar-bulk-delete-confirm">
                 <AlertDialogHeader>
@@ -1529,12 +1592,12 @@ export default function CalendarPlanner() {
               </AlertDialogContent>
             </AlertDialog>
 
-            {/* Multi-day span bands — the view-layer expansion of spanning items across the
+            {/* multi-day span bands — the view-layer expansion of spanning items across the
                 days they cover. Rendered ABOVE the timed list on every covered day (including the
                 start day, where the item ALSO appears as an editable row below). On non-start days
                 this band is the ONLY trace of the item — it is never re-inserted into the list, so
                 the item stays owned by its single start-day doc. Each band carries an accessible
-                label describing the span. */}
+}                label describing the span. */
             {spanBands.length > 0 && (
               <div className="space-y-2 mb-3" data-testid="calendar-span-bands">
                 {spanBands.map(({ item, spanStart, spanEnd, isStartDay }) => {
@@ -1557,7 +1620,7 @@ export default function CalendarPlanner() {
               </div>
             )}
 
-            {/* Items */}
+            {}/* Items */
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -1578,7 +1641,7 @@ export default function CalendarPlanner() {
                           </>
                         ) : (
                           /* Day HAS items, but none match the active author filter (read-only
-                             view filter) — the stored items are untouched. */
+                             view filter,) — the stored items are untouched. */
                           <>
                             <p className="text-white/30 text-sm">No activities match this filter</p>
                             <p className="text-white/20 text-xs mt-1">Switch the author filter to “All” to see every item</p>
@@ -1586,25 +1649,38 @@ export default function CalendarPlanner() {
                         )}
                       </div>
                     ) : (
-                      visibleItems.map((item: ItineraryItem) => {
+                      phaseGroups.map(({ item, phase, isNewPhase }) => {
                         const markerId = markerIdFor(item);
                         return (
-                        <SortableItem
-                          key={item.id}
-                          item={item}
-                          date={selectedDate}
-                          clashes={dayClashIds.has(item.id)}
-                          selectMode={selectMode}
-                          selected={selectedIds.has(item.id)}
-                          highlighted={item.id === highlightId || (showMap && markerId != null && markerId === highlightId)}
-                          mapVisible={showMap}
-                          hasMarker={markerId != null}
-                          onToggleSelect={() => toggleSelect(item.id)}
-                          onEdit={() => handleEditItem(item)}
-                          onDelete={() => handleDeleteItem(item)}
-                          onDuplicate={(targetDate) => handleDuplicateItem(item, targetDate)}
-                          onLocate={() => setHighlightId((cur) => (cur === markerId ? null : markerId))}
-                        />
+                        <div key={item.id}>
+                          {/* phase-of-day header — subtle, non-interactive, shown only at a
+                              phase boundary in the rendered order (: timed items keep their
+                              exact stored order; only untimed items move to the trailing "Anytime"
+}                              run — see lib/phase-of-day.ts). Not a sortable/draggable node. */
+                          {isNewPhase && (
+                            <p
+                              data-testid={`calendar-phase-header-${phase}-${item.id}`}
+                              className="mt-3 mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-white/35 first:mt-0"
+                            >
+                              {PHASE_LABELS[phase]}
+                            </p>
+                          )}
+                          <SortableItem
+                            item={item}
+                            date={selectedDate}
+                            clashes={dayClashIds.has(item.id)}
+                            selectMode={selectMode}
+                            selected={selectedIds.has(item.id)}
+                            highlighted={item.id === highlightId || (showMap && markerId != null && markerId === highlightId)}
+                            mapVisible={showMap}
+                            hasMarker={markerId != null}
+                            onToggleSelect={() => toggleSelect(item.id)}
+                            onEdit={() => handleEditItem(item)}
+                            onDelete={() => handleDeleteItem(item)}
+                            onDuplicate={(targetDate) => handleDuplicateItem(item, targetDate)}
+                            onLocate={() => setHighlightId((cur) => (cur === markerId ? null : markerId))}
+                          />
+                        </div>
                         );
                       })
                     )}
@@ -1626,11 +1702,11 @@ export default function CalendarPlanner() {
               </DragOverlay>
             </DndContext>
 
-            {/* Inline quick-add (fast path) — title → Enter → addItem on
+            {/* Inline quick-add — title → Enter → addItem on
                 the selected day. This is the single FAST, title-only affordance; the "Add
                 Activity" button below (and the phone quick-add FAB) open the FULL editor for
                 detailed adds, so the surface has one fast path + one detailed path, not two
-                competing quick adds. Writes through the same commit() choke-point. */}
+}                competing quick adds. Writes through the same commit() choke-point → holds. */
             <div className="mt-4">
               <QuickAddInput
                 label={`Quick-add a plan for ${formatDateLong(selectedDate)}`}
@@ -1639,7 +1715,7 @@ export default function CalendarPlanner() {
               />
             </div>
 
-            {/* Add Button — the DETAILED path (full editor: time, category, location, notes). */}
+            {}/* Add Button — the DETAILED path (full editor: time, category, location, notes). */
             <button
               onClick={handleAddItem}
               data-testid="calendar-add-item"
@@ -1650,8 +1726,8 @@ export default function CalendarPlanner() {
             </button>
           </div>
 
-          {/* Desktop inline map pane (lg+). Sticky + tall; stacks under the day
-              detail at lg, sits beside it at xl. Mobile (`<lg`) uses the sheet below. */}
+          {/* desktop inline map pane (lg+). Sticky + tall; stacks under the day
+}              detail at lg, sits beside it at xl. Mobile (`<lg`) uses the sheet below. */
           {showMap && isDesktop && (
             <aside
               aria-label={`Map of stops for ${formatDateLong(selectedDate)}`}
@@ -1664,10 +1740,10 @@ export default function CalendarPlanner() {
         </div>
       </div>
 
-      {/* Mobile map bottom-sheet peek (`<lg`). Reuses the rounded-t-2xl glass sheet
-          idiom (place-detail-sheet): a non-modal peek fixed to the bottom that the
+      {/* mobile map bottom-sheet peek (`<lg`). Reuses the rounded-t-2xl glass sheet
+          idiom: a non-modal peek fixed to the bottom that the
           page scrolls behind, expandable to near-full height. Rendered only when the map is
-          on AND we're on a phone — so exactly one PlanDayMap instance exists (see mapEl). */}
+}          on AND we're on a phone — so exactly one PlanDayMap instance exists (see mapEl). */
       {showMap && !isDesktop && (
         <div
           data-testid="plan-map-sheet"
@@ -1709,7 +1785,7 @@ export default function CalendarPlanner() {
           Focus returns to the trigger via onExitComplete — i.e. only after the
           editor has fully animated out and unmounted. Doing it earlier (in the
           editor's own effect cleanup) raced framer-motion's exit and left the
-          dialog stuck open when close was initiated from inside the panel. */}
+}          dialog stuck open when close was initiated from inside the panel. */
       <AnimatePresence
         onExitComplete={() => {
           triggerRef.current?.focus?.();

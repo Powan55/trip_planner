@@ -15,7 +15,7 @@ import AddToPlanButton from '@/components/add-to-plan-button';
  * (etiquette additionally includes the 'Both' tips). The Home half (weather
  * outlook) lives in `travel-essentials.tsx`.
  *
- * FeaturedCard / FoodCard moved here VERBATIM (shared micro-interaction recipe,
+ * FeaturedCard / FoodCard moved here VERBATIM ( micro-interaction recipe,
  * add-to-plan affordance on Featured only). All Tailwind classes stay
  * static whole-string literals.
  */
@@ -36,7 +36,7 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
       }`}
     >
       {destination.image && !imgError && (
-        <div className="relative -mx-5 -mt-5 mb-3 aspect-[16/9] overflow-hidden rounded-t-2xl bg-navy-800 motion-reduce:[&_img]:!transform-none">
+        <div className="relative -mx-5 -mt-5 mb-3 aspect-[16/9] overflow-hidden rounded-t-2xl bg-surface-raised motion-reduce:[&_img]:!transform-none">
           <OptimizedImage
             src={destination.image}
             alt={destination.name}
@@ -45,7 +45,7 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
             className="object-cover transition-transform duration-500 group-hover:scale-105"
             onError={() => setImgError(true)}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-navy-900/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
         </div>
       )}
       <div
@@ -66,7 +66,7 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
         <p className="mt-2 text-xs text-white/40 leading-relaxed">{destination.blurb}</p>
         {/* Add-to-plan affordance — additive; only Featured cards get
             it (not food/etiquette/weather). Featured has no id/category;
-            the adapter derives sourceId from the name and uses 'sightseeing'. */}
+}            the adapter derives sourceId from the name and uses 'sightseeing'. */
         <AddToPlanButton
           source={destination}
           sourceType="featured"
@@ -123,7 +123,7 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
           subtitle={`Featured spots, local flavors, and cultural know-how for ${country}.`}
         />
 
-        {/* Featured Destinations */}
+        {}/* Featured Destinations */
         <div className="mb-12">
           <h3 className="font-display text-xl font-bold text-white mb-6 flex items-center gap-2 justify-center">
             <MapPin className="w-5 h-5 text-gold-400" /> Featured Destinations
@@ -135,7 +135,7 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
           </div>
         </div>
 
-        {/* Foods to Try */}
+        {}/* Foods to Try */
         <div className="mb-12">
           <h3 className="font-display text-xl font-bold text-white mb-6 flex items-center gap-2 justify-center">
             <Utensils className="w-5 h-5 text-gold-400" /> Local Foods to Try
@@ -147,7 +147,7 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
           </div>
         </div>
 
-        {/* Etiquette */}
+        {}/* Etiquette */
         <div className="glass-card rounded-2xl p-5 max-w-3xl mx-auto">
           <h3 className="font-display text-lg font-bold text-white mb-4 flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-gold-400" /> Cultural Etiquette

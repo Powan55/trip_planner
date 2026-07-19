@@ -1,20 +1,20 @@
-// Micro-interaction — "add to plan" flying chip.
+// micro-interaction — "add to plan" flying chip.
 //
 // When an item is added to the itinerary, a small chip flies from the trigger toward
 // the plan target (the mobile bottom tab bar, or the bottom-centre on desktop) and
 // fades out — the premium "it went into your plan" cue.
 //
-// Design choices:
-//   • NATIVE Web Animations API (element.animate), not framer — so it pulls no
-//     animation lib into any route, and it lives OUTSIDE React so it survives the
-//     add-dialog unmounting on confirm (the dialog closes immediately after add).
-//   • Reduced-motion: the ONE gate — if the user prefers reduced motion we
-//     return without creating anything (no-op, no flight, no DOM node).
-//   • Z-ladder: the chip sits at z-50 (the nav/tab-bar/dialog tier) and is
-//     pointer-events:none + aria-hidden, so it never blocks input, never punches above
-//     a dialog incorrectly, and is invisible to assistive tech (purely decorative).
-//   • Self-cleaning: removed on animation finish/cancel; if WAAPI is unavailable
-//     (e.g. jsdom) it removes immediately — never leaves an orphan node.
+// Design choices (ponytail + the brief's constraints):
+// • NATIVE Web Animations API (element.animate), not framer — so it pulls no
+// animation lib into any route, and it lives OUTSIDE React so it survives the
+// add-dialog unmounting on confirm (the dialog closes immediately after add).
+// • Reduced-motion: the ONE gate — if the user prefers reduced motion we
+// return without creating anything (no-op, no flight, no DOM node).
+// • z-ladder: the chip sits at z-50 (the nav/tab-bar/dialog tier) and is
+// pointer-events:none + aria-hidden, so it never blocks input, never punches above
+// a dialog incorrectly, and is invisible to assistive tech (purely decorative).
+// • Self-cleaning: removed on animation finish/cancel; if WAAPI is unavailable
+// (e.g. jsdom) it removes immediately — never leaves an orphan node.
 
 export interface FlyChipOptions {
   /** Short label shown in the chip (e.g. the item title). Truncated for safety. */

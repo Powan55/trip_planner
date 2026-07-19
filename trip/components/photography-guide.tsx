@@ -33,7 +33,7 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
         className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded-xl"
       >
         {spot.image && !imgError && (
-          <div className="relative -mx-5 -mt-5 mb-4 aspect-[16/10] overflow-hidden rounded-t-2xl bg-navy-800 motion-safe:group-hover:[&_img]:scale-105 [&_img]:transition-transform [&_img]:duration-500">
+          <div className="relative -mx-5 -mt-5 mb-4 aspect-[16/10] overflow-hidden rounded-t-2xl bg-surface-raised motion-safe:group-hover:[&_img]:scale-105 [&_img]:transition-transform [&_img]:duration-500">
             <OptimizedImage
               src={spot.image}
               alt={`${spot.name}, ${spot.city}`}
@@ -44,8 +44,8 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
             {spot.mustSee && (
-              <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-navy-900 text-[10px] font-bold uppercase tracking-wide">
-                <Star className="w-3 h-3 fill-navy-900" />
+              <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                <Star className="w-3 h-3 fill-surface" />
                 Must-see
               </span>
             )}
@@ -90,7 +90,7 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
         </div>
       </button>
 
-      {/* Add-to-plan affordance — additive; a sibling of the details button. */}
+      {}/* Add-to-plan affordance — additive; a sibling of the details button. */
       <AddToPlanButton
         source={spot}
         sourceType="photo"
@@ -101,9 +101,9 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
 }
 
 /**
- * Optional `country` filter prop. No prop = every spot (whole-page
+ * optional `country` filter prop. No prop = every spot (v1, whole-page
  * behavior); on the /nepal/ and /japan/ pages the guide shows only that country's
- * spots. Also includes city + category chips with live counts, a search box, sort, an
+ * spots. adds city + category chips with live counts, a search box, sort, an
  * empty state, must-see badges, and a tap-to-open detail sheet. Category/city chips
  * derive from the country-filtered set so a page never renders a dead filter.
  */
@@ -224,7 +224,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
           subtitle="Capture the perfect shot at every destination with expert shooting tips and gear suggestions."
         />
 
-        {/* Search + sort */}
+        {}/* Search + sort */
         <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
@@ -256,13 +256,13 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
               onChange={(e) => setSort(e.target.value as SortKey)}
               className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
             >
-              <option value="mustSee" className="bg-navy-900">Sort: Must-see first</option>
-              <option value="name" className="bg-navy-900">Sort: Name (A–Z)</option>
+              <option value="mustSee" className="bg-surface">Sort: Must-see first</option>
+              <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
             </select>
           </div>
         </div>
 
-        {/* City filter chips (only when more than one city is present) */}
+        {}/* City filter chips (only when more than one city is present) */
         {cities.length > 2 && (
           <div className="flex flex-wrap justify-center gap-2 mb-3">
             {cities.map((city) => (
@@ -283,7 +283,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
           </div>
         )}
 
-        {/* Category filter chips with live counts */}
+        {}/* Category filter chips with live counts */
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           {categories.map((cat) => (
             <button

@@ -17,7 +17,7 @@ import type { PhotoMeta, PhotoOwner } from '@/core/photos/model';
  * ZERO EGRESS: everything here reads/writes ONLY `usePhotos` (key-16 meta) + the local
  * `BlobStorePort` (IndexedDB) — no network, no sync, no export path.
  *
- * A11y (AA): labelled file input + alt/caption fields, `alt` on every `<img>`, ≥44px
+ * A11y: labelled file input + alt/caption fields, `alt` on every `<img>`, ≥44px
  * targets, visible gold focus rings, an `aria-live` error region. CSS-only transitions → reduced-motion
  * safe by construction.
  */
@@ -112,7 +112,7 @@ export default function PhotoAttach({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           data-testid="photo-add-button"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Camera className="h-4 w-4" aria-hidden="true" />
           Add photo
@@ -129,9 +129,9 @@ export default function PhotoAttach({
         />
       </div>
 
-      {/* Alt-text (required) + caption (optional) prompt, shown after a file is picked. */}
+}      {/* Alt-text (required) + caption (optional) prompt, shown after a file is picked. */
       {pending && (
-        <div data-testid="photo-prompt" className="mb-3 space-y-3 rounded-lg border border-white/15 bg-navy-900/60 p-3">
+        <div data-testid="photo-prompt" className="mb-3 space-y-3 rounded-lg border border-white/15 bg-surface/60 p-3">
           <div>
             <label htmlFor={altId} className="mb-1.5 block text-xs font-medium text-white/60">
               Describe this photo <span className="text-gold-300/90">(required)</span>
@@ -145,7 +145,7 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder={altPlaceholder}
               data-testid="photo-alt-input"
-              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-navy-900/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
             />
           </div>
           <div>
@@ -160,7 +160,7 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder="A note to remember it by…"
               data-testid="photo-caption-input"
-              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-navy-900/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
             />
           </div>
           <div className="flex items-center justify-end gap-2">
@@ -178,7 +178,7 @@ export default function PhotoAttach({
               onClick={savePending}
               disabled={!alt.trim() || saving}
               data-testid="photo-save"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-navy-900 outline-none transition-colors duration-200 hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-surface outline-none transition-colors duration-200 hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Check className="h-4 w-4" aria-hidden="true" />
               {saving ? 'Saving…' : 'Save photo'}
@@ -193,7 +193,7 @@ export default function PhotoAttach({
         </p>
       )}
 
-      {/* Thumbnails. Empty (and no pending prompt) → a quiet hint; blobs resolve per-mount. */}
+      {}/* Thumbnails. Empty (and no pending prompt) → a quiet hint; blobs resolve per-mount. */
       {photos.length > 0 ? (
         <ul data-testid="photo-grid" className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((meta) => (
@@ -235,7 +235,7 @@ function PhotoThumb({ meta, onDelete }: { meta: PhotoMeta; onDelete: () => void 
           <span className="sr-only">Photo no longer on this device</span>
         </div>
       ) : url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and the static export disables optimization anyway.
+        // eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and disables optimization anyway.
         <img
           src={url}
           alt={meta.altText}

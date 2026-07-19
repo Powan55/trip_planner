@@ -11,7 +11,7 @@
  * ── PURITY ─────────────────────────────────────────────────────────────
  * No I/O, no clock, no `window`, no firebase, no React/Next. Imports only the pure HLC helpers.
  *
- * ── CONVERGENCE (per field) ──────────────────────────────────
+ * ── CONVERGENCE ──────────────────────────────────
  * Each path's winner is an HLC-determined total-order max (argument-order-independent), with a
  * canonical-JSON tie-break on the protocol-impossible equal-HLC/different-value case — so the merge
  * is COMMUTATIVE + IDEMPOTENT: every client converges to the same field map regardless of the order

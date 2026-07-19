@@ -1,6 +1,6 @@
 /**
  * Journal persistence adapter — the ONE load/save path for the `JournalEntry[]`,
- * over the typed storage gateway's key-12 `journalStore`. Kept tiny + framework-free:
+ * over the typed storage gateway's key-12 `journalStore`. Kept tiny + framework-free
  * it wires the byte-transport gateway to the domain's `sanitizeEntries`, so a corrupt or
  * partially-valid on-disk slot always resolves to a valid list (the "make it safe" policy lives in
  * the domain, not the transport). Mirrors `core/budget/storage.ts`'s expenses adapter exactly.
@@ -11,7 +11,7 @@
  * caller value from ever reaching disk.
  */
 
-import { journalStore, hasKey, STORAGE_KEYS } from '@/core/storage/gateway';
+import { journalStore, hasKey, keyFor } from '@/core/storage/gateway';
 import type { StoragePort } from '@/core/ports';
 import { sanitizeEntries, type JournalEntry } from '@/core/journal/model';
 
@@ -35,5 +35,5 @@ export function saveJournal(entries: JournalEntry[]): void {
 export const journalStoragePort: StoragePort<JournalEntry[]> = {
   load: loadJournal,
   save: saveJournal,
-  has: () => hasKey('local', STORAGE_KEYS.journal),
+  has: () => hasKey('local', keyFor('journal')),
 };

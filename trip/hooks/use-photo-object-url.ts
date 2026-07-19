@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { defaultBlobStore } from '@/core/photos/blob-store';
 
 /**
- * Resolves a stored photo id (`BlobStorePort`) to a render-ready object URL. Extracted from the
+ * Resolves a stored photo id (`BlobStorePort`) to a render-ready object URL. Extracted from
  * `PhotoAttach` `PhotoThumb` idiom so both the editable capture grid and the read-only
  * story strip share one blob→objectURL→revoke lifecycle instead of two copies.
  *

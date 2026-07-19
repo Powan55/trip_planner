@@ -11,13 +11,13 @@
  * `@/core/dates` is a core→core dependency (the SAME date backbone the itinerary + clock use), so
  * the trip window stays configured in ONE place rather than hard-coded here.
  *
- * ── What this consumes (no reshape) ─────────────────────────────────
+ * ── What this consumes ─────────────────────────────────
  * `rollUp(model, spent)` already returns `totalBudgetHome` / `totalSpentHome` in the home
  * currency; the budget panel computes it live off the reactive `model` + `useExpenses()`. This
  * module's `burnRate(budgetHome, spentHome, now)` takes those two home-currency figures + the clock
  * instant and derives the TIME dimension: how far into the trip we are, the daily average vs the
  * daily budget, the projected end-of-trip total at the current pace, and an under/on/over indicator.
- * `expensesByDate(expenses)` buckets the raw `Expense[]` into leg-local per-day sums for the
+ * `expensesByDate(expenses)` buckets raw `Expense[]` into leg-local per-day sums for the
  * calendar cost overlay (undated expenses are excluded from the per-day map but still count in the
  * leg/total spend that `rollUp` reports — the two views agree on the total, differ only on "which
  * day").
@@ -25,9 +25,9 @@
  * ── daysElapsed derivation ─────────────────────────────
  * `daysElapsed` is an INCLUSIVE calendar-day count from the trip's first day up to and including the
  * day `now` falls on, clamped to `[0, daysTotal]`:
- *   - strictly before the trip (now < the first trip day)      → 0   (the trip hasn't started)
- *   - on trip day K (1-based, e.g. Dec 9 = day 1, Dec 12 = 4)  → K
- *   - on/after the last trip day                                → daysTotal (32; the trip is done)
+ * - strictly before the trip (now < the first trip day) → 0 (the trip hasn't started)
+ * - on trip day K (1-based, e.g. Dec 9 = day 1, Dec 12 = 4) → K
+ * - on/after the last trip day → daysTotal (32; the trip is done)
  * Inclusive because on the morning of Day 1 you have already had one day of the trip to spend on, so
  * `dailyAvgSpent = spentHome / daysElapsed` is well-defined (÷1, not ÷0) and reads honestly from the
  * very first day. The diff is computed from LOCAL date parts (matching `core/dates`' local-noon
@@ -106,9 +106,9 @@ function elapsedInclusiveDays(now: Date): number {
 /**
  * The burn-rate summary for a given budget, spend, and clock instant. PURE + TOTAL.
  *
- * @param budgetHome  home-currency total budget (`rollUp().totalBudgetHome`) — sanitized to ≥0.
- * @param spentHome   home-currency total spend  (`rollUp().totalSpentHome`)  — sanitized to ≥0.
- * @param now         the resolved clock instant (`getNow()`, incl. the `?today=` override).
+ * @param budgetHome home-currency total budget (`rollUp().totalBudgetHome`) — sanitized to ≥0.
+ * @param spentHome home-currency total spend (`rollUp().totalSpentHome`) — sanitized to ≥0.
+ * @param now the resolved clock instant (`getNow()`, incl. the `?today=` override).
  *
  * Budget-0 safety: with no budget set, `dailyBudget`/`percentSpent` are 0 and `pace` is 'on' when
  * nothing is spent, 'over' the instant any spend exists (you're over a zero budget) — never a divide
@@ -130,8 +130,8 @@ export function burnRate(budgetHome: unknown, spentHome: unknown, now: Date): Bu
   const percentSpent = budget > 0 ? spent / budget : 0;
 
   // Pace: compare the projected end-of-trip total to the budget with a small symmetric band.
-  //  - no budget: 'on' while nothing is spent, 'over' once anything is (over a zero budget).
-  //  - otherwise: within ±band of the budget → 'on'; below → 'under'; above → 'over'.
+  // - no budget: 'on' while nothing is spent, 'over' once anything is (over a zero budget).
+  // - otherwise: within ±band of the budget → 'on'; below → 'under'; above → 'over'.
   let pace: BurnRate['pace'];
   if (budget <= 0) {
     pace = spent > 0 ? 'over' : 'on';

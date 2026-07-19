@@ -1,6 +1,6 @@
 'use client';
 
-// See app/nepal/sections.tsx for why this lives in a client module. The
+// (Next 15 migration): see app/nepal/sections.tsx — same reason. The
 // flights/hotels island, ssr:false, with its sized loading skeleton.
 import dynamic from 'next/dynamic';
 import SectionSkeleton from '@/components/section-skeleton';

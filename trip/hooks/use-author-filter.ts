@@ -15,13 +15,13 @@ import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
  * React binding for the shared, presentational author filter.
  *
  * Reads the module-level selection from `lib/author-filter` and re-renders on the
- * same-tab `author-filter:changed` CustomEvent — the same lightweight pattern the
+ * same-tab `author-filter:changed` CustomEvent — the SAME lightweight pattern the
  * itinerary store uses for `itinerary:changed`, kept in a separate module so it
  * never entangles the itinerary store or `itinerary-provider.tsx`. Because both the
- * calendar and the timeline use this hook against the one module-level value, one
- * selection narrows both surfaces.
+ * calendar and the timeline use this hook against the one module-level value, ONE
+ * selection narrows BOTH surfaces.
  *
- * Read-only: nothing here writes localStorage or calls an itinerary mutator.
+ * READ-ONLY: nothing here writes localStorage or calls an itinerary mutator.
  *
  * SSR-safe: `useSyncExternalStore`'s server snapshot returns the inert ALL_FILTER, and
  * the display name is resolved post-mount (localStorage is client-only) so first paint is

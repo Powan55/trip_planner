@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
  *
  * SSR-safe: the server has no network state, so the initial value is always
  * `true` (online) — matching the server-rendered / first-client-paint DOM
- * (banner renders nothing). A mount effect corrects it to the real
+ * (banner renders nothing). A mount effect corrects it to the REAL
  * `navigator.onLine` reading and then tracks the browser `online`/`offline`
  * events for the component's lifetime. Listeners are removed on unmount —
  * no leak across route changes (this hook is used from a root-layout-mounted

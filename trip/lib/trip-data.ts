@@ -1,15 +1,15 @@
 // Trip date constants and utilities.
 //
-// The framework-free date BACKBONE (constants, `TRIP_DATES`, `TRIP_DATE_LABEL`,
+// As of the framework-free date BACKBONE (constants, `TRIP_DATES`, `TRIP_DATE_LABEL`,
 // the TZ-safe `getCountryForDate`, and `formatDate`/`formatDateLong`) lives in the
 // framework-free `core/dates/` package. This module RE-EXPORTS every
 // one of those symbols byte-identically so the many `@/lib/trip-data` callers (components,
-// hooks, tests) are untouched — the same delegate pattern `itinerary-storage.ts` uses for
-// the Vault. One implementation in core, the same public surface here.
+// hooks, tests) are untouched — the `itinerary-storage.ts`→Vault delegate pattern.
+// One implementation in core, the same public surface here.
 //
 // The itinerary DOMAIN types + category maps below (`ItineraryItem`, `DayPlan`,
 // `CATEGORY_COLORS`, `CATEGORY_ICONS`, …) intentionally STAY here — they are not date
-// backbone and belong to the itinerary layer, not `core/dates`.
+// backbone and belong to the itinerary slice, not `core/dates`.
 export {
   TRIP_START,
   TRIP_END,
@@ -32,13 +32,13 @@ export interface ItineraryItem {
   category: ItineraryCategory;
   time?: string;
   duration?: string;
-  // Structured time model — additive-optional; every existing item
-  // stays valid with both absent. `startMinutes` = 0–1439 minutes-from-midnight, wall-clock
-  // at the day's place (never TZ-converted for display). `durationMinutes` = elapsed
+  // Structured time model ( — additive-optional per; every existing item
+  // stays valid with both absent). `startMinutes` = 0–1439 minutes-from-midnight, wall-clock
+  // at the day's place. `durationMinutes` = elapsed
   // minutes, > 0. `time?`/`duration?` are RETAINED FOREVER (fallback display + migration
-  // source + mixed-fleet surface). Range is enforced at ONE runtime point
+  // source + mixed-fleet surface,). Range is enforced at ONE runtime point
   // (`effectiveStartMinutes`, core/dates/item-time.ts) — an out-of-range value degrades to
-  // untimed, never quarantines. Backfilled losslessly at the relevant Vault migration
+  // untimed, never quarantines. Backfilled losslessly at the Vault v4→v5 migration
   // and via the runtime fallback parser for sync-ingest/seed items that bypass migrations.
   startMinutes?: number;
   durationMinutes?: number;
@@ -54,20 +54,20 @@ export interface ItineraryItem {
   createdBy?: string;
   updatedBy?: string;
   updatedAt?: string; // ISO timestamp
-  // Sync v2 per-item merge fields — additive; every existing item
-  // stays valid with all three absent. See core/sync/{hlc,merge-day}.ts. Not yet wired
-  // into the store. Defaulted losslessly at the relevant Vault migration / read boundary.
+  // Sync v2 per-item merge fields ( — additive per; every existing item
+  // stays valid with all three absent). See core/sync/{hlc,merge-day}.ts. Not yet wired
+  // into the store. Defaulted losslessly at the Vault v3→v4 migration / read boundary.
   rev?: number; // monotonic per-item revision counter; starts at 1 on create.
   hlc?: string; // Hybrid Logical Clock stamp (serialized) — the primary cross-client order key.
   deleted?: boolean; // tombstone; true ⇒ deleted-but-retained so the delete can propagate + win.
-  // Trip OS done-tracking — additive OPTIONAL, no Vault migration / version bump needed. Absent
+  // done-tracking. Absent
   // = not done (falsy); `done === true` = checked off on the Today screen. Toggled via the
-  // existing `updateItem(date, id, { done })` path, so sync-on it rides rev/hlc for free
-  // (last-write-wins). No backfill needed (unlike the sync fields), so the lenient passthrough
-  // schema tolerates it and the on-disk envelope stays at v4 (see core/vault/schema.ts).
+  // existing `updateItem(date, id, { done })` path, so sync-on it rides rev/hlc for free (LWW,
+  //). No backfill needed (unlike the sync fields), so the lenient passthrough schema
+  // tolerates it and the on-disk envelope stays at v4 (see core/vault/schema.ts).
   done?: boolean;
-  // Manual pin-drop — additive OPTIONAL, no Vault migration / version bump, mirrors the
-  // `done` precedent above. Absent = un-pinned (the item plots, if at all, via the existing
+  // Manual pin-drop ( — additive OPTIONAL, NO Vault migration / version bump, mirrors the
+  // `done` precedent above). Absent = un-pinned (the item plots, if at all, via the existing
   // sourceId/name-match join in lib/itinerary-map.ts). When BOTH are defined the item plots at
   // these exact WGS84 coords instead — a pin always beats a fuzzy name match (buildItineraryStops).
   // Toggled via the existing `updateItem(date, id, { lat, lng })` path, so it rides rev/hlc for
@@ -75,8 +75,8 @@ export interface ItineraryItem {
   // ItemEditor UI, not here — the type itself stays a plain optional number, same as `done`.
   lat?: number;
   lng?: number;
-  // Multi-day span — additive OPTIONAL, no Vault migration / version bump, mirrors the
-  // `lat`/`lng` precedent above. ISO `YYYY-MM-DD`, the INCLUSIVE last day the item spans.
+  // Multi-day span ( — additive OPTIONAL, NO Vault migration / version bump, mirrors the
+  // `lat`/`lng` precedent above). ISO `YYYY-MM-DD`, the INCLUSIVE last day the item spans.
   // Absent = single-day (today's behavior, unchanged). THE MERGE INVARIANT: a spanning
   // item stays stored in EXACTLY ONE DayPlan.items[] — its start day (the DayPlan.date whose
   // items[] holds it) — and is NEVER copied/multi-homed onto the other days it covers. The span

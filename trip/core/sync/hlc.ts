@@ -12,11 +12,11 @@
  * TS. That is what keeps the ops deterministically unit-testable and dormant-safe.
  *
  * ── The value ───────────────────────────────────────────────
- *   HLC = { pt: number, ct: number, actor: string }
- *   serialized: `${pad(pt)}:${pad(ct)}:${actor}`
- *     pt    — physical time, ms since epoch (the "physical" half).
- *     ct    — logical counter, a non-negative integer (the "logical" half).
- *     actor — the editing device's stable id (anon-auth uid) — the final tie-break.
+ * HLC = { pt: number, ct: number, actor: string }
+ * serialized: `${pad(pt)}:${pad(ct)}:${actor}`
+ * pt — physical time, ms since epoch (the "physical" half).
+ * ct — logical counter, a non-negative integer (the "logical" half).
+ * actor — the editing device's stable id — the final tie-break.
  *
  * `pad(pt)` / `pad(ct)` are fixed-width zero-padded so a plain STRING compare of two
  * serialized stamps equals the structured tuple compare (`compareHlc`). That lets the
@@ -29,7 +29,7 @@ export interface Hlc {
   pt: number;
   /** Logical counter, a non-negative integer. The "logical" half; breaks equal-`pt` ties. */
   ct: number;
-  /** Editing device id (anon-auth uid). Final deterministic tie-break. */
+  /** Editing device id. Final deterministic tie-break. */
   actor: string;
 }
 
@@ -37,7 +37,7 @@ export interface Hlc {
  * Fixed-width zero-pad widths.
  *
  * `PT_WIDTH = 15`: ms-since-epoch fits in 15 digits until year ~33658 (10^15 ms ≈ 31.7 k
- * years past 1970) — comfortably well past any realistic horizon. Any real trip
+ * years past 1970) — comfortably "well past year 5000" per the. Any real trip
  * `pt` is 13 digits today (`Date.now()` ≈ 1.7e12), so 15 digits leaves 2 orders of
  * headroom before the width would ever be exceeded.
  *
@@ -52,7 +52,7 @@ export const CT_WIDTH = 6;
 /**
  * The largest `ct` that still serializes within `CT_WIDTH` digits.
  *
- * `ct` overflow behavior (documented, astronomically unlikely): reaching
+ * `ct` overflow behavior: reaching
  * `CT_MAX` would require 1,000,000 events in a single unchanging millisecond. If it ever
  * did, `pad(ct)` would produce a 7-digit field and the string-sort==tuple-sort invariant
  * would break at that boundary only. The structured `compareHlc` (used inside the pure
@@ -72,7 +72,7 @@ function pad(value: number, width: number): string {
 
 /**
  * Serialize an HLC to a fixed-width, lexicographically-sortable string.
- * `serialize(a) < serialize(b)` iff `compareHlc(a, b) < 0` (proven over a fuzz set).
+ * `serialize(a) < serialize(b)` iff `compareHlc(a, b) < 0`.
  */
 export function serialize(hlc: Hlc): string {
   return `${pad(hlc.pt, PT_WIDTH)}:${pad(hlc.ct, CT_WIDTH)}:${hlc.actor}`;
@@ -105,7 +105,7 @@ export function parse(serialized: string): Hlc {
  * The strict total order over HLCs: `pt` → `ct` → `actor` (string
  * compare), higher wins. Returns <0 if `a` sorts before `b`, >0 if after, 0 iff equal.
  *
- * Antisymmetric, transitive, total (proven over a random fuzz set). This total
+ * Antisymmetric, transitive, total. This total
  * order is what makes each same-`id` winner deterministic and therefore the merge
  * convergent: every client computes the identical winner for any pair.
  */
@@ -120,11 +120,11 @@ export function compareHlc(a: Hlc, b: Hlc): number {
  * (a) LOCAL EVENT: this device makes an edit. Advance our clock strictly
  * past our last stamp. `pt` ratchets to `max(physicalNow, last.pt)` (never runs backward
  * under a slow clock); `ct` increments when `pt` did not advance (rapid/offline edits),
- * else resets to 0. The result is ALWAYS strictly greater than `last` (monotonic).
+ * else resets to 0. The result is ALWAYS strictly greater than `last`.
  *
- * @param last        our previous stamp for this item, or null on first create.
+ * @param last our previous stamp for this item, or null on first create.
  * @param physicalNow injected ms-since-epoch (ClockPort.now().getTime()).
- * @param actor       this device's uid — stamped onto the new HLC.
+ * @param actor this device's uid — stamped onto the new HLC.
  */
 export function hlcSendOrLocal(last: Hlc | null, physicalNow: number, actor: string): Hlc {
   const lastPt = last?.pt ?? 0;
@@ -144,8 +144,8 @@ export function hlcSendOrLocal(last: Hlc | null, physicalNow: number, actor: str
  * when we had no prior stamp) — the caller re-stamps `actor` on a genuine local event; a
  * pure receive is a clock-absorption step, not an authorship claim.
  *
- * @param local       our current HLC state for this item, or null.
- * @param remote      the observed remote HLC.
+ * @param local our current HLC state for this item, or null.
+ * @param remote the observed remote HLC.
  * @param physicalNow injected ms-since-epoch (ClockPort.now().getTime()).
  */
 export function hlcReceive(local: Hlc | null, remote: Hlc, physicalNow: number): Hlc {

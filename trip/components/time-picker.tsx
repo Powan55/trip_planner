@@ -13,11 +13,11 @@ import {
 } from '@/lib/time-picker-format';
 
 /**
- * The one hand-rolled AM/PM time picker in the app.
+ * — the ONE hand-rolled AM/PM time picker.
  *
  * Three keyboard-operable columns (Hour 1-12 / Minute 00-59 full list / AM-PM), no
  * native `input[type=time]`, no new dependency. Renders its OWN small
- * portaled overlay (like `ItemEditor`/`AddToItineraryDialog`) so it
+ * portaled overlay so it
  * is never clipped by an ancestor editor panel's `overflow-y-auto`/`overflow-hidden`.
  *
  * Nested-modal Esc handling: unlike the two existing dialogs, this picker's Esc is
@@ -69,7 +69,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
     setOpen(false);
   };
 
-  // Focus-in on open: focus the Hour column's currently-selected option.
+  // focus-in: on open, focus the Hour column's currently-selected option.
   useEffect(() => {
     if (!open) return;
     const timer = setTimeout(() => {
@@ -210,7 +210,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
                       type="button"
                       onClick={() => setOpen(false)}
                       data-testid="time-picker-done"
-                      className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gold-500 text-navy-900 hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
+                      className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gold-500 text-surface hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
                     >
                       <Check className="w-3.5 h-3.5" aria-hidden="true" />
                       Done
@@ -226,7 +226,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
   );
 }
 
-/** One keyboard-operable listbox column (44px touch targets, roving tabindex,
+/** One keyboard-operable listbox column ( a11y floor: 44px targets, roving tabindex,
  * arrow/Home/End within the column, Tab moves between columns via the single roving stop). */
 function TimeColumn<T extends string | number>({
   label,
@@ -302,7 +302,7 @@ function TimeColumn<T extends string | number>({
               onClick={() => onSelect(opt)}
               onKeyDown={(e) => onKeyDown(e, idx)}
               className={`w-full min-h-[44px] flex items-center justify-center rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                selected ? 'bg-gold-500 text-navy-900' : 'text-white/70 hover:bg-white/10'
+                selected ? 'bg-gold-500 text-surface' : 'text-white/70 hover:bg-white/10'
               }`}
             >
               {format(opt)}
@@ -315,9 +315,9 @@ function TimeColumn<T extends string | number>({
 }
 
 /**
- * Duration entry (follows the duration dual-write rule; widget shape here is
- * a plain minutes number input, matching the numeric nature of the field,
- * over a second 2-column hour/minute picker — that's only worth building once
+ * Duration entry ( duration dual-write rule; widget shape is this slice's
+ * call — a plain minutes number input, matching the numeric nature of the field,
+ * over a second 2-column hour/minute picker YAGNI would only earn back once
  * clash-warnings make duration entry a primary flow). Empty input = clear
  * (both `durationMinutes` and the canonical `duration` text -> undefined).
  */

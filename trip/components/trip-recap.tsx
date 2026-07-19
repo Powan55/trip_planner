@@ -14,21 +14,21 @@ import { useExpenses } from '@/hooks/use-expenses';
 import { legCurrency, formatMoney } from '@/core/budget/model';
 
 /**
- * The read-only plan-vs-actual DAY RECAP island.
+ * —: the read-only plan-vs-actual DAY RECAP island.
  *
- * A Home island that, for each trip day that has already HAPPENED (as of the app clock, incl. a
+ * A Home island that, for each trip day that has already HAPPENED (as of the app clock, incl. the
  * `?today=` override), pairs three things — READ-ONLY:
- *   - the PLAN: that day's itinerary items (`useItineraryContext().getDayPlan(date).items`),
- *   - the ACTUAL: which items are marked done (`item.done`) + a "{done} of {planned} done" line,
- *   - the REFLECTION: that day's journal entry (`useJournal().getEntry(date)`) rendered read-only.
+ * - the PLAN: that day's itinerary items (`useItineraryContext().getDayPlan(date).items`,),
+ * - the ACTUAL: which items are marked done + a "{done} of {planned} done" line,
+ * - the REFLECTION: that day's journal entry (`useJournal().getEntry(date)`,) rendered read-only.
  *
  * It appears DURING and AFTER the trip (so you can look back over the days you've lived) and renders
  * `null` PRE-trip (Home is byte-unchanged before Dec 9) or before all stores hydrate. It MUTATES
  * NOTHING — editing the plan stays in the calendar, editing the journal stays in the Today panel,
  * expenses are logged from the budget panel; this is a pure surface over the persisted domains
- * (no writes, no re-seed).
+ *.
  *
- * There's also a fourth, purely additive read: a per-day SPEND line (`core/recap/model.ts`'s
+ * adds a fourth, purely additive read: a per-day SPEND line (`core/recap/model.ts`'s
  * `sumExpensesForDate`, summing the expense store's entries for that date), shown only on days
  * that have logged spend — READ-ONLY, same as the plan/journal reads above.
  *
@@ -38,13 +38,13 @@ import { legCurrency, formatMoney } from '@/core/budget/model';
  * midnight day-rollover self-corrects without a reload — the elapsed-day set only changes at a day
  * boundary, so minute cadence is plenty (a reload also suffices).
  *
- * A11y: a section `h2`, per-day `h3`s, list semantics for items, `aria-hidden` decorative
+ * A11y AA: a section `h2`, per-day `h3`s, list semantics for items, `aria-hidden` decorative
  * glyphs, visible focus rings on the one navigation link. Static markup + CSS-only transitions →
  * reduced-motion-safe by construction (the reveal is framer, already reduced-motion gated).
  */
 
 // The mood glyph + label — re-expressed here to render the journal read-view WITHOUT importing
-// journal-card.tsx's private internals (consume the journal via `getEntry`, don't reach into
+// journal-card.tsx's private internals (: consume the journal via `getEntry`, don't reach into
 // its component). Kept in MOODS order, matching journal-card's MOOD_META.
 const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
   great: { glyph: '🤩', label: 'Great' },
@@ -63,7 +63,7 @@ function nowDateString(): string {
 export default function TripRecap() {
   const { getDayPlan, hydrated: itineraryHydrated } = useItineraryContext();
   const { getEntry, hydrated: journalHydrated } = useJournal();
-  // The per-day spend line reads the expense store, READ-ONLY (no mutator consumed).
+  // the per-day spend line reads the expense store, READ-ONLY (no mutator consumed).
   const { expenses, hydrated: expensesHydrated } = useExpenses();
   const prefersReducedMotion = useReducedMotion();
 
@@ -77,7 +77,7 @@ export default function TripRecap() {
     return () => clearInterval(timer);
   }, []);
 
-  // The trip days that have already happened, oldest-first (pure). Empty pre-trip / pre-mount.
+  // The trip days that have already happened, oldest-first. Empty pre-trip / pre-mount.
   const elapsed = elapsedTripDates(nowDateStr);
 
   // Pre-trip / pre-mount (nothing elapsed) → render NOTHING (Home byte-unchanged before the trip).
@@ -85,11 +85,11 @@ export default function TripRecap() {
   if (elapsed.length === 0) return null;
 
   // During/after the trip but a store hasn't hydrated yet: reserve a min-height instead of null so
-  // the island mount doesn't collapse→expand (CLS). Presentation only; all three hydration gates
-  // matter because the recap pairs the plan + journal + expense domains.
+  // the island mount doesn't collapse→expand. Presentation only; all three
+  // hydration gates matter because the recap pairs the plan + journal + expense domains.
   if (!itineraryHydrated || !journalHydrated || !expensesHydrated) {
     return (
-      <section id="recap" aria-hidden="true" className="relative bg-navy-900 py-12 sm:py-16 px-4 sm:px-6">
+      <section id="recap" aria-hidden="true" className="relative bg-surface py-12 sm:py-16 px-4 sm:px-6">
         <div
           data-testid="trip-recap-skeleton"
           className="mx-auto min-h-[320px] max-w-3xl rounded-2xl glass-card"
@@ -99,7 +99,7 @@ export default function TripRecap() {
   }
 
   // Most-recent-first for display (Day N at the top). The pure core returns chronological order; the
-  // ordering policy lives here in the view (keeps the core order-agnostic).
+  // ordering policy lives here in the view.
   const daysDesc = [...elapsed].reverse();
 
   // Optional top summary — a pure roll-up across every elapsed day (activities done vs planned).
@@ -111,8 +111,8 @@ export default function TripRecap() {
     plannedTotal += s.planned;
   }
 
-  // Accessibility-deterministic reveal: full-opacity slide (opacity pinned to 1) so a contrast
-  // scan (no reduced motion) never catches muted card text mid-fade below AA. Reduced-motion branch
+  // axe-deterministic reveal: full-opacity slide (opacity pinned to 1) so the axe scan
+  // (no reduced motion) never catches muted card text mid-fade below AA. Reduced-motion branch
   // left intact (it only runs under reduced motion, which the scan does not exercise).
   const reveal = prefersReducedMotion
     ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
@@ -126,10 +126,10 @@ export default function TripRecap() {
       id="recap"
       aria-labelledby="recap-title"
       data-testid="trip-recap"
-      className="relative bg-navy-900 py-12 sm:py-16 px-4 sm:px-6"
+      className="relative bg-surface py-12 sm:py-16 px-4 sm:px-6"
     >
       <div className="max-w-3xl mx-auto">
-        {/* Section header — the days you've lived, and the run-rate across them. */}
+        {}/* Section header — the days you've lived, and the run-rate across them. */
         <header className="mb-6">
           <p className="text-xs uppercase tracking-widest text-gold-400/80 mb-2 flex items-center gap-1.5">
             <History className="h-3.5 w-3.5" aria-hidden="true" />
@@ -190,7 +190,7 @@ function RecapCard({
   dayNumber: number;
   items: ItineraryItem[];
   entry: JournalEntry | null;
-  /** That day's logged-expense total, in the day's leg-local currency. 0 = nothing logged. */
+  /** — that day's logged-expense total, in the day's leg-local currency. 0 = nothing logged. */
   spend: number;
   // The framer reveal variants built by the parent (the same shape the Today panel builds); the
   // reveal is reduced-motion gated by the parent's `prefersReducedMotion`.
@@ -209,7 +209,7 @@ function RecapCard({
       data-testid={`recap-card-${date}`}
       className="glass-card rounded-2xl p-5 sm:p-6"
     >
-      {/* Header — "Day N — {city}" + the long date, mirroring the Today panel's header language. */}
+      {}/* Header — "Day N — {city}" + the long date, mirroring the Today panel's header language. */
       <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
         <div>
           <h3 id={headingId} className="font-display text-lg sm:text-xl font-bold text-white leading-tight">
@@ -231,7 +231,7 @@ function RecapCard({
         )}
       </header>
 
-      {/* Plan + actual: the day's items, each with a done/not-done tick (read-only — no toggle). */}
+      {}/* Plan + actual: the day's items, each with a done/not-done tick (read-only — no toggle). */
       {items.length === 0 ? (
         <p data-testid={`recap-no-plan-${date}`} className="text-sm text-white/55 italic">
           No plans this day — a free day.
@@ -248,7 +248,7 @@ function RecapCard({
         </ul>
       )}
 
-      {/* The day's logged-expense total (read-only over the expense store) — only when >0. */}
+      {}/* the day's logged-expense total — only when >0. */
       {spend > 0 && (
         <p data-testid={`recap-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-white/60">
           <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
@@ -257,7 +257,7 @@ function RecapCard({
         </p>
       )}
 
-      {/* Reflection: the day's journal entry (read-only), mirroring journal-card's read view. */}
+      {}/* Reflection: the day's journal entry (read-only), mirroring journal-card's read view. */
       <RecapReflection date={date} entry={entry} />
     </m.article>
   );
@@ -276,11 +276,11 @@ function RecapItem({ item }: { item: ItineraryItem }) {
         done ? 'border-emerald-500/25 bg-emerald-500/[0.04]' : 'border-white/10 bg-white/[0.02]'
       }`}
     >
-      {/* The done indicator — read-only status, not a control. */}
+      {}/* The done indicator — read-only status, not a control. */
       <span
         aria-hidden="true"
         className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border ${
-          done ? 'border-emerald-400 bg-emerald-400 text-navy-900' : 'border-white/20 text-transparent'
+          done ? 'border-emerald-400 bg-emerald-400 text-surface' : 'border-white/20 text-transparent'
         }`}
       >
         <Check className="h-3.5 w-3.5" strokeWidth={3} />
@@ -303,7 +303,7 @@ function RecapItem({ item }: { item: ItineraryItem }) {
           </span>
         )}
       </span>
-      {/* SR-only status so the done state reads without relying on the color-only tick. */}
+      {}/* SR-only status so the done state reads without relying on the color-only tick. */
       <span className="sr-only">{done ? '— done' : '— not done'}</span>
     </li>
   );

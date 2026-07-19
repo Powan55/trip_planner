@@ -4,14 +4,14 @@ import type { EmergencyContact, Phrase, ChecklistItem } from '@/core/content/saf
 /**
  * TravelSafetyKit — the offline travel-safety reference rendered on `/safety`:
  * emergency & embassy contacts, a romanized Nepali/Japanese phrasebook, and a document
- * checklist. Pure presentational — no state, no fetch, no persistence. Static markup
- * only (no motion-only affordance), so it is reduced-motion-safe by construction.
+ * checklist. Pure presentational — no state, no fetch, no persistence. Static
+ * markup only (no motion-only affordance), so it is reduced-motion-safe by construction.
  *
- * A11y floor: each of the three sections is its own `<section>` with a real `h2`,
- * grouped content gets an `h3`; `tel:` links carry an explicit `aria-label` (accessible
- * name) distinct from their visible digit string; every interactive `tel:` link is
- * ≥44px tall; tables get a scroll wrapper so they never force page-level horizontal
- * overflow at narrow widths.
+ * A11y: each of the three sections is its own `<section>` with a real
+ * `h2`, grouped content gets an `h3`; `tel:` links carry an explicit `aria-label` (accessible
+ * name) distinct from their visible digit string; every interactive
+ * `tel:` link is ≥44px tall; tables get a scroll wrapper so they never force page-level
+ * horizontal overflow at narrow widths.
  */
 export default function TravelSafetyKit() {
   const contactsByCountry = groupBy(EMERGENCY_CONTACTS, (c) => c.country);
@@ -20,7 +20,7 @@ export default function TravelSafetyKit() {
 
   return (
     <div data-testid="safety-kit" className="mx-auto w-full max-w-4xl px-4 pb-20 sm:px-6">
-      {/* ── 1. Emergency & embassy contacts ─────────────────────────────────────────────── */}
+      {}/* ── 1. Emergency & embassy contacts ─────────────────────────────────────────────── */
       <section aria-labelledby="safety-emergency-heading" className="mb-14">
         <h2 id="safety-emergency-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Emergency &amp; Embassy Contacts
@@ -44,7 +44,7 @@ export default function TravelSafetyKit() {
         </div>
       </section>
 
-      {/* ── 2. Phrasebook ────────────────────────────────────────────────────────────────── */}
+      {}/* ── 2. Phrasebook ────────────────────────────────────────────────────────────────── */
       <section aria-labelledby="safety-phrasebook-heading" className="mb-14">
         <h2 id="safety-phrasebook-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Phrasebook
@@ -79,7 +79,7 @@ export default function TravelSafetyKit() {
         </div>
       </section>
 
-      {/* ── 3. Document checklist ────────────────────────────────────────────────────────── */}
+      {}/* ── 3. Document checklist ────────────────────────────────────────────────────────── */
       <section aria-labelledby="safety-checklist-heading">
         <h2 id="safety-checklist-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Document Checklist
@@ -111,7 +111,7 @@ function ContactRow({ contact }: { contact: EmergencyContact }) {
         <a
           href={`tel:${contact.tel}`}
           aria-label={`Call ${contact.service}, ${contact.number}`}
-          className="inline-flex min-h-[44px] items-center rounded-lg bg-gold-500/15 px-3 font-mono text-sm font-semibold text-gold-300 outline-none transition-colors hover:bg-gold-500/25 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900"
+          className="inline-flex min-h-[44px] items-center rounded-lg bg-gold-500/15 px-3 font-mono text-sm font-semibold text-gold-300 outline-none transition-colors hover:bg-gold-500/25 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           {contact.number}
         </a>

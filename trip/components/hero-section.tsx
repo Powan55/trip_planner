@@ -6,9 +6,15 @@ import { m, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { MapPin, Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
 import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
+import { ringFraction } from '@/lib/countdown-ring';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import OptimizedImage from '@/components/optimized-image';
+import CountdownRing from '@/components/countdown-ring';
 import { useCountUp } from '@/hooks/use-count-up';
+import { useEnterTravelMode } from '@/hooks/use-travel-mode';
+import { haptic } from '@/lib/haptics';
+import { crossedIntoComplete } from '@/lib/celebration';
+import CelebrationBurst from '@/components/celebration-burst';
 
 const COUNTDOWN_UNITS = [
   { key: 'months', label: 'Months' },
@@ -50,13 +56,13 @@ const padUnit = (n: number) => String(n).padStart(2, '0');
 const identity = (n: number) => n;
 
 /**
- * Hero entrance reveal variants.
+ * — Hero entrance reveal variants (M11 Tier 2).
  *
  * A single cohesive, staggered reveal for the hero content block, replacing the
  * old per-element `delay` props. The container staggers its direct children; each
  * child rises a few px while fading in with a premium ease.
  *
- * Reduced-motion (HARD FENCE): a scroll/translate reveal is NOT gated by
+ * Reduced-motion: a scroll/translate reveal is NOT gated by
  * the app's declarative `<MotionConfig reducedMotion="user">` automatically for
  * the `y` offset we author here, so we swap to opacity-only variants when the user
  * prefers reduced motion (`hiddenReduced`/`showReduced`) — no translate, instant
@@ -72,9 +78,9 @@ const containerVariants = {
 };
 
 const itemVariants = {
-  // Axe-deterministic reveal (the trip-recap/budget-panel pattern): a full-opacity
+  // axe-deterministic reveal (the trip-recap/budget-panel pattern): a full-opacity
   // SLIDE — opacity pinned to 1 — so the axe scan can never sample the CTA/countdown text
-  // mid-fade below AA (seen on a real run on Next 15: the "/plan/" CTA flagged
+  // mid-fade below AA (seen on a real run post-/Next-15: the "/plan/" CTA flagged
   // color-contrast 1.49 at ~50% opacity, a ~50% flake). Reduced-motion branch below is
   // untouched (it only runs under reduced motion, which the scan does not exercise).
   hidden: { opacity: 1, y: 24 },
@@ -100,9 +106,21 @@ export default function HeroSection() {
   // default) and while outside the window; recomputed on the same 1s tick as the
   // countdown so it self-corrects at midnight without a reload.
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
+  // — countdown-hits-zero micro-celebration + haptic pulse. Fires only on an OBSERVED
+  // "not arrived" → "arrived" edge (the countdown grid → Day-N panel swap, live, while
+  // watching). The ref starts null and the effect skips until `mounted` (the first real clock
+  // read), so a page loaded ALREADY mid-trip only seeds the baseline — it must not celebrate
+  // on every Home visit for the whole trip window — and later 1s ticks never re-fire
+  //.
+  const hadArrivedRef = useRef<boolean | null>(null);
+  const [celebrate, setCelebrate] = useState(false);
 
   const sectionRef = useRef<HTMLElement>(null);
   const prefersReducedMotion = useReducedMotion();
+
+  // the Home hero entry surfaces (the always-present CTA + the on-trip card) share
+  // the one entry path — records the origin route, arms the gateway flag (guest-blocked), pushes.
+  const enterTravel = useEnterTravelMode();
 
   useEffect(() => {
     setMounted(true);
@@ -116,6 +134,22 @@ export default function HeroSection() {
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // — arrival edge detection (see hadArrivedRef above), separate from the 1s clock tick.
+  // `mounted` and `todayInTrip` are set together in the mount effect (batched), so the first
+  // run past this guard sees the REAL clock state and only seeds the null baseline.
+  useEffect(() => {
+    if (!mounted) return;
+    const arrived = todayInTrip != null;
+    if (crossedIntoComplete(hadArrivedRef.current, arrived)) {
+      setCelebrate(true);
+      haptic();
+      const t = setTimeout(() => setCelebrate(false), 650);
+      hadArrivedRef.current = arrived;
+      return () => clearTimeout(t);
+    }
+    hadArrivedRef.current = arrived;
+  }, [mounted, todayInTrip]);
 
   // Scroll-linked parallax. `scrollYProgress` runs 0 → 1 as the hero scrolls
   // from "pinned at the top of the viewport" to "fully scrolled out the top"
@@ -149,9 +183,9 @@ export default function HeroSection() {
   return (
     <section ref={sectionRef} id="hero" aria-labelledby="hero-heading" className="relative min-h-screen flex items-center justify-center overflow-hidden">
       {/* Decorative CSS + SVG backdrop — Himalayan warmth blending into Japan
-          winter-neon. Purely decorative and aria-hidden; no external imagery. */}
+}          winter-neon. Purely decorative and aria-hidden; no external imagery. */
       <div className="absolute inset-0" aria-hidden="true">
-        {/* Base multi-stop gradient: warm gold/himalaya dawn at the horizon → deep navy night sky */}
+        {}/* Base multi-stop gradient: warm gold/himalaya dawn at the horizon → deep navy night sky */
         <div
           className="absolute inset-0"
           style={{
@@ -163,8 +197,8 @@ export default function HeroSection() {
             glows so the gradient tints it and the SVG + dark overlays render on
             top. Tuned to ~45% so the title and countdown stay legible. On error
             (or if the asset is absent) the original CSS/SVG art shows through.
-            the PARENT div is a parallax layer (drifts slow + scales subtly,
-            reading as the deepest plane); the image element itself is untouched. */}
+           : the PARENT div is a parallax layer (drifts slow + scales subtly,
+}            reading as the deepest plane); the image element itself is untouched. */
         {!heroImgError && (
           <m.div className="absolute inset-0" style={{ y: photoY, scale: photoScale }}>
             <OptimizedImage
@@ -179,20 +213,25 @@ export default function HeroSection() {
           </m.div>
         )}
         {/* Soft radial glows — a Himalayan "sun" on the left, a sakura/neon bloom on the right.
-            drifts UP slightly and fades as the hero leaves, a mid-depth plane. */}
+           : drifts UP slightly and fades as the hero leaves, a mid-depth plane.
+           : under reduced motion the scroll-linked MotionValues are NOT bound at all —
+            framer hardware-accelerates the scroll-linked `opacity` into a WAAPI ViewTimeline
+            animation, which stays permanently "running" even with the ranges collapsed to a
+            constant. rule (reduced motion never renders a scroll-timeline path) makes
+            the static style the correct branch; the rendered pixels are identical (y=0,
+}            opacity=1 — the collapsed ranges' resting values). */
         <m.div
           className="absolute inset-0"
           style={{
-            y: glowY,
-            opacity: glowOpacity,
+            ...(prefersReducedMotion ? {} : { y: glowY, opacity: glowOpacity }),
             background:
               'radial-gradient(60% 50% at 22% 86%, rgba(244,196,107,0.45) 0%, rgba(244,196,107,0) 60%), radial-gradient(45% 40% at 82% 30%, rgba(244,143,177,0.30) 0%, rgba(244,143,177,0) 65%), radial-gradient(40% 35% at 95% 70%, rgba(99,179,237,0.22) 0%, rgba(99,179,237,0) 70%)',
           }}
         />
 
         {/* Layered mountain-range / skyline silhouette.
-            wrapped in a parallax m.div that drifts DOWN the most slowly of the
-            backdrop planes (deepest fixed scenery feel). The SVG art is unchanged. */}
+           : wrapped in a parallax m.div that drifts DOWN the most slowly of the
+}            backdrop planes (deepest fixed scenery feel). The SVG art is unchanged. */
         <m.div className="absolute inset-x-0 bottom-0 w-full h-[62%]" style={{ y: silhouetteY }}>
         <svg
           className="absolute inset-0 w-full h-full"
@@ -215,7 +254,7 @@ export default function HeroSection() {
             </linearGradient>
           </defs>
 
-          {/* Far Himalayan ridge with snow-lit peaks */}
+          {}/* Far Himalayan ridge with snow-lit peaks */
           <path
             fill="url(#rangeFar)"
             d="M0 330 L120 250 L240 300 L360 200 L470 280 L600 170 L720 250 L850 190 L980 270 L1110 210 L1240 280 L1360 230 L1440 290 L1440 600 L0 600 Z"
@@ -226,13 +265,13 @@ export default function HeroSection() {
             d="M360 200 L392 232 L376 230 L408 252 L344 252 L340 232 Z M600 170 L636 206 L618 204 L652 232 L568 232 L566 206 Z M850 190 L884 222 L868 220 L900 246 L820 246 L816 222 Z M1110 210 L1140 240 L1126 238 L1154 262 L1082 262 L1080 240 Z"
           />
 
-          {/* Mid ridge */}
+          {}/* Mid ridge */
           <path
             fill="url(#rangeMid)"
             d="M0 420 L160 360 L320 410 L460 340 L620 400 L780 350 L940 410 L1100 360 L1260 405 L1440 360 L1440 600 L0 600 Z"
           />
 
-          {/* Near skyline silhouette — a few modern towers nodding to Tokyo, fading into the foreground */}
+          {}/* Near skyline silhouette — a few modern towers nodding to Tokyo, fading into the foreground */
           <path
             fill="url(#rangeNear)"
             d="M0 600 L0 470 L80 470 L80 430 L120 430 L120 470 L210 470 L210 410 L240 410 L240 470 L340 470
@@ -242,7 +281,7 @@ export default function HeroSection() {
                L1440 470 L1440 600 Z"
           />
 
-          {/* Sparse "neon" window lights on the near skyline */}
+          {}/* Sparse "neon" window lights on the near skyline */
           <g fill="#f4cf8e" opacity="0.6">
             <rect x="92" y="442" width="4" height="6" />
             <rect x="102" y="452" width="4" height="6" />
@@ -263,29 +302,29 @@ export default function HeroSection() {
         </svg>
         </m.div>
 
-        {/* Existing dark overlays — keep the title/countdown legible over the art */}
+        {}/* Existing dark overlays — keep the title/countdown legible over the art */
         <div className="absolute inset-0 hero-gradient" />
-        <div className="absolute inset-0 bg-gradient-to-t from-navy-900 via-transparent to-navy-900/50" />
+        <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-surface/50" />
       </div>
 
-      {/* Floating Decorative Elements — lifted as the foreground parallax plane
+      {/* Floating Decorative Elements —: lifted as the foreground parallax plane
           (drifts UP the most), wrapped in a single parallax m.div so the orbs read
-          as the nearest layer. The orbs keep their existing animate-float CSS. */}
+}          as the nearest layer. The orbs keep their existing animate-float CSS. */
       <m.div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ y: orbsY }}>
         <div className="absolute top-20 left-10 w-32 h-32 rounded-full bg-gold-400/5 blur-3xl animate-float" />
         <div className="absolute bottom-40 right-10 w-48 h-48 rounded-full bg-sakura-400/5 blur-3xl animate-float" style={{ animationDelay: '3s' }} />
       </m.div>
 
-      {/* Hero content — a single staggered entrance (container staggers its
+      {/* Hero content —: a single staggered entrance (container staggers its
           children; each rises + fades with a premium ease, or opacity-only under
-          reduced motion). The countdown numbers inside remain the live CountUpNumber. */}
+}          reduced motion). The countdown numbers inside remain the live CountUpNumber. */
       <m.div
         variants={containerVariants}
         initial="hidden"
         animate="show"
         className="relative z-10 max-w-[1200px] mx-auto px-4 sm:px-6 text-center pt-24 pb-16"
       >
-        {/* Badge */}
+        {}/* Badge */
         <m.div
           variants={reveal}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
@@ -294,7 +333,7 @@ export default function HeroSection() {
           <span className="text-sm text-gold-400 font-medium">{TRIP_DATE_LABEL}</span>
         </m.div>
 
-        {/* Title */}
+        {}/* Title */
         <m.h1
           variants={reveal}
           id="hero-heading"
@@ -305,7 +344,7 @@ export default function HeroSection() {
           <span className="text-white">Japan</span>
         </m.h1>
 
-        {/* Subtitle */}
+        {}/* Subtitle */
         <m.p
           variants={reveal}
           className="text-lg sm:text-xl text-white/60 max-w-2xl mx-auto mb-3"
@@ -314,7 +353,7 @@ export default function HeroSection() {
           A journey across ancient peaks and futuristic cities.
         </m.p>
 
-        {/* Quote */}
+        {}/* Quote */
         <m.p
           variants={reveal}
           className="text-sm italic text-white/40 mb-10"
@@ -326,9 +365,10 @@ export default function HeroSection() {
             client-only clock never renders on the server (no hydration mismatch — the
             Day-N panel only ever appears post-mount). When the app clock is inside the
             trip window, `todayInTrip` is non-null and the "Day N — {city}" panel replaces
-            the countdown grid; otherwise the live countdown shows. */}
+}            the countdown grid; otherwise the live countdown shows. */
         {mounted && (todayInTrip ? (
-          <m.div variants={reveal} className="mb-10">
+          <m.div variants={reveal} className="relative mb-10">
+            <CelebrationBurst active={celebrate} testId="hero-arrival-celebration" />
             <p className="text-sm text-gold-400/80 mb-4 uppercase tracking-widest">You're on the trip</p>
             <div data-testid="hero-travel-mode" className="inline-flex flex-col items-center gap-2 glass-card rounded-2xl px-6 sm:px-10 py-5 sm:py-6 max-w-full">
               <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
@@ -338,15 +378,27 @@ export default function HeroSection() {
               </div>
               <p className="text-sm sm:text-base text-white/50">{formatDateLong(todayInTrip.date)}</p>
             </div>
-            <div className="mt-5">
+            {/* on-trip entry surfaces — "Open today's plan" plus the Travel Mode
+                card. This whole panel only renders in-trip (todayInTrip non-null), so the Travel
+}                Mode card is inherently hidden off-trip per the brief. */
+            <div data-testid="home-intrip-travel-card" className="mt-5 flex flex-wrap justify-center gap-3">
               <Link
                 href="/plan/"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
               >
                 <Calendar className="w-4 h-4" />
                 Open today's plan
                 <span aria-hidden="true">→</span>
               </Link>
+              <button
+                type="button"
+                onClick={() => enterTravel()}
+                data-testid="home-intrip-travel"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl glass-card text-white font-semibold hover:bg-white/10 transition-all duration-200 hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+              >
+                <Compass className="w-4 h-4 text-gold-400" />
+                Open Travel Mode
+              </button>
             </div>
           </m.div>
         ) : (
@@ -365,25 +417,37 @@ export default function HeroSection() {
                 </div>
               ))}
             </div>
-            <p className="text-sm text-white/40">
-              <span data-testid="countdown-total-days" className="font-mono text-gold-400 font-semibold">
-                <CountUpNumber live={timeLeft.totalDays} active={mounted} format={identity} />
-              </span> total days until adventure begins
-            </p>
+            {/* — radial progress ring wrapping the existing total-days digit. `ringFraction`
+                is a pure derivation over the SAME computeCountdown() output driving the digit
+}                grid above — see lib/countdown-ring.ts for the formula. */
+            <div className="flex flex-col items-center gap-1.5">
+              <CountdownRing
+                fraction={ringFraction(timeLeft.totalDays, timeLeft.isPast)}
+                reducedMotion={!!prefersReducedMotion}
+              >
+                <div className="flex flex-col items-center">
+                  <span data-testid="countdown-total-days" className="font-mono text-xl sm:text-2xl text-gold-400 font-bold leading-none">
+                    <CountUpNumber live={timeLeft.totalDays} active={mounted} format={identity} />
+                  </span>
+                  <span className="text-[9px] uppercase tracking-widest text-white/40 mt-1">days to go</span>
+                </div>
+              </CountdownRing>
+              <p className="text-sm text-white/40">until adventure begins</p>
+            </div>
           </m.div>
         ))}
 
-        {/* CTA Buttons */}
+        {}/* CTA Buttons */
         <m.div
           variants={reveal}
           className="flex flex-wrap justify-center gap-3"
         >
-          {/* Itinerary + destinations moved to their own routes, so
+          {/* itinerary + destinations moved to their own routes, so
               these CTAs are real next/link navigations (trailing-slash canonical);
-              the dashboard stays on Home and keeps the local smooth scroll. */}
+}              the dashboard stays on Home and keeps the local smooth scroll. */
           <Link
             href="/plan/"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-navy-900 font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
+            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
           >
             <Calendar className="w-4 h-4" />
             View Itinerary
@@ -402,10 +466,20 @@ export default function HeroSection() {
             <MapPin className="w-4 h-4 text-sakura-400" />
             Open Dashboard
           </button>
+          {/* secondary Travel Mode entry from the hero, present in EVERY trip phase
+}              (pre/in/post). Guests reach the existing guest-route wall. */
+          <button
+            onClick={() => enterTravel()}
+            data-testid="hero-travel-entry"
+            className="flex items-center gap-2 px-6 py-3 rounded-xl glass-card text-white font-semibold hover:bg-white/10 transition-all duration-200 hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          >
+            <Compass className="w-4 h-4 text-gold-400" />
+            Travel Mode
+          </button>
         </m.div>
       </m.div>
 
-      {/* Scroll indicator */}
+      {}/* Scroll indicator */
       <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

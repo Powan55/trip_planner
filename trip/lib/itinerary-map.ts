@@ -3,8 +3,8 @@
 // PURE data/helper module — no maplibre-gl, no React — so BOTH map consumers
 // build their coordinate stops here and hand the result to <TripMap> as the
 // `routeStops` prop:
-//   • /map (MapSection)  → the whole trip's stops when "My itinerary" is on.
-//   • /plan               → a single day's stops, re-derived on reorder.
+// • /map (MapSection) → the whole trip's stops when "My itinerary" is on.
+// • /plan → a single day's stops, re-derived on reorder.
 // TripMap only RENDERS the stops it's given; the plan→coordinate matching lives
 // here so the join stays testable and shared. Lifted verbatim from the prior
 // map-section.tsx engine.
@@ -13,7 +13,7 @@ import { MAP_MARKERS, type MapMarker, type MarkerCategory } from '@/lib/map-data
 import type { DayPlan, ItineraryItem, ItineraryCategory } from '@/lib/trip-data';
 
 // Planned items match a curated marker by (a) sourceId when present (card-created
-// items), else (b) a name match against the marker vocabulary so the rich
+// items,), else (b) a name match against the marker vocabulary so the rich
 // SAMPLE_ITINERARY (which predates sourceId) still plots. Items with no coordinate
 // match (custom/transport/food-at-a-non-marker) are simply skipped — never crash.
 export const MARKER_BY_ID = new Map(MAP_MARKERS.map((mk) => [mk.id, mk]));
@@ -70,8 +70,7 @@ const PIN_CATEGORY: Partial<Record<ItineraryCategory, MarkerCategory>> = {
 
 // Synthesize a MapMarker from an item's manual pin. Only called when BOTH lat/lng are
 // defined (see stopMarkerFor). `x`/`y` are the legacy 0-100% mock-panel fields — harmless
-// zeros, same as every real curated marker now that the mock panel is gone (nothing
-// renders them anymore).
+// zeros, same as every real curated marker post- (nothing renders them anymore).
 function pinMarker(item: ItineraryItem, country: 'Nepal' | 'Japan'): MapMarker {
   return {
     id: item.id,
@@ -90,7 +89,7 @@ function pinMarker(item: ItineraryItem, country: 'Nepal' | 'Japan'): MapMarker {
 // Resolve the map marker a plan item plots at: a manual pin (lat/lng BOTH set)
 // BEATS the curated name/sourceId match — an explicit pin is unambiguous intent, so it
 // wins even if the title also happens to contain a curated marker's name. An un-pinned
-// item falls back to the existing `matchMarker` join, byte-identical to prior
+// item falls back to the existing `matchMarker` join, byte-identical to pre-
 // behavior. `country` comes from the item's own day (DayPlan.country), the correct
 // source of truth for a synthesized marker's cosmetic country styling.
 export function stopMarkerFor(item: ItineraryItem, country: 'Nepal' | 'Japan'): MapMarker | null {

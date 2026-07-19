@@ -1,28 +1,30 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import AddToItineraryDialog from '@/components/add-to-itinerary-dialog';
 import type { ItineraryDraft } from '@/lib/itinerary-adapter';
+import { isTravelRoute } from '@/lib/travel-route';
 
 /**
  * Global, invisible host for the custom "add your own plan" flow.
  *
- * Mounted ONCE in the root layout (this component does NOT mount
+ * Mounted ONCE in the root layout by at (this component does NOT mount
  * itself). It renders nothing until an event arrives; it listens on `window` for the
- * CustomEvent `quickadd:open` — emitted by the quick-add FAB and by the calendar
+ * CustomEvent `quickadd:open` — emitted by's quick-add FAB and by the calendar
  * FAB — and opens `AddToItineraryDialog` in CUSTOM mode preset to the requested day:
  *
- *   window.dispatchEvent(new CustomEvent('quickadd:open', { detail: { date: '2026-12-22' } }))
+ * window.dispatchEvent(new CustomEvent('quickadd:open', { detail: { date: '2026-12-22' } }))
  *
  * `detail.date` is optional; when absent (or not a valid trip date) the dialog falls
  * back to the first trip date (the dialog validates `presetDate` against TRIP_DATES).
  *
- * The dialog itself owns the full modal contract it inherits: document-level
+ * The dialog itself owns the full modal contract it inherits: (document-level
  * Esc, Tab-trap, first-field autofocus, parent-owned focus-return on
- * `AnimatePresence onExitComplete`, a pinned action footer, a portal to
- * `document.body`, and the `body[data-dialog-open]` flag. Focus-return here is
- * parent-owned: we capture `document.activeElement` when the event fires and
+ * `AnimatePresence onExitComplete`), (pinned action footer), (portal to
+ * `document.body`), and the `body[data-dialog-open]` seam flag. Focus-return here is
+ * parent-owned per: we capture `document.activeElement` when the event fires and
  * refocus it once the exit animation completes.
  *
  * Custom items are plain ItineraryItems with NO sourceId/sourceType, so the
@@ -32,7 +34,7 @@ import type { ItineraryDraft } from '@/lib/itinerary-adapter';
  */
 
 // A minimal empty draft for custom mode. sourceId/sourceType are placeholders the
-// custom path never persists (handleConfirm in custom mode omits them entirely).
+// custom path never persists.
 const EMPTY_CUSTOM_DRAFT: ItineraryDraft = {
   title: '',
   location: undefined,
@@ -51,6 +53,10 @@ interface QuickAddDetail {
 export const QUICKADD_OPEN_EVENT = 'quickadd:open';
 
 export default function QuickAddHost() {
+  // Travel Mode zero-chrome-leakage (TM-9) — this invisible dialog host is
+  // suppressed under `/travel`. Nothing in Phase-2 dispatches `quickadd:open` there;
+  // a later TM slice that wants the global add-flow lifts this guard deliberately.
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [presetDate, setPresetDate] = useState<string | undefined>(undefined);
   // Parent-owned focus-return target: captured when the event fires (the FAB or
@@ -67,6 +73,9 @@ export default function QuickAddHost() {
     window.addEventListener(QUICKADD_OPEN_EVENT, onQuickAddOpen);
     return () => window.removeEventListener(QUICKADD_OPEN_EVENT, onQuickAddOpen);
   }, []);
+
+  // After all hooks (unconditional order): suppress the host's render under Travel Mode.
+  if (isTravelRoute(pathname)) return null;
 
   return (
     <AnimatePresence

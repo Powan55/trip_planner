@@ -5,7 +5,7 @@
  * to a valid list. Mirrors `core/journal/storage.ts` exactly. Blob BYTES are NOT here (IndexedDB).
  */
 
-import { photosStore, hasKey, STORAGE_KEYS } from '@/core/storage/gateway';
+import { photosStore, hasKey, keyFor } from '@/core/storage/gateway';
 import type { StoragePort } from '@/core/ports';
 import { sanitizePhotos, type PhotoMeta } from '@/core/photos/model';
 
@@ -23,5 +23,5 @@ export function savePhotos(metas: PhotoMeta[]): void {
 export const photosStoragePort: StoragePort<PhotoMeta[]> = {
   load: loadPhotos,
   save: savePhotos,
-  has: () => hasKey('local', STORAGE_KEYS.photos),
+  has: () => hasKey('local', keyFor('photos')),
 };

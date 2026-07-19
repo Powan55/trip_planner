@@ -1,5 +1,6 @@
 /**
- * Expense domain + the pure aggregator that feeds the budget rollup (expense LOGGING).
+ * Expense domain + the pure aggregator that feeds budget rollup (slice —
+ * expense LOGGING).
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,
  * no fetch, no clock, no id generation, no storage. `import type` from `@/lib/trip-data`
@@ -8,14 +9,14 @@
  * (a bad / NaN / negative / missing input degrades to a safe value, never a throw), so the store
  * can never crash on a corrupt slot and the panel can never render `NaN`.
  *
- * ── The rollup seam (the whole point on the math side) ──────────────────────────────────────
- * `rollUp(model, spent?: SpentInput)` already returns spent/remaining on every
+ * ── The seam (the whole point on the math side) ──────────────────────────────────────
+ * built `rollUp(model, spent?: SpentInput)` which already returns spent/remaining on every
  * leg + category line + the grand total. This module's `expensesToSpent(expenses)` computes that
  * `SpentInput` by summing logged expenses per leg + per (leg, category). Amounts are stored in
  * each leg's LOCAL currency, mirroring the budget model, so the aggregator needs NO
- * currency conversion — it just sums. The rollup shape is unchanged; this module only consumes the seam.
+ * currency conversion — it just sums. The rollup shape is unchanged; only consumes the seam.
  *
- * ── id / timestamp injection ──────────────────────────────────────────────────────────────
+ * ── id / timestamp injection ──────────────────────────────────
  * The CRUD transforms (`addExpense` / `updateExpense` / `removeExpense`) are pure `Expense[]`
  * functions: the CALLER (the React hook) supplies the new `id` + `createdAt` timestamp, so this
  * core stays deterministic and unit-testable without stubbing a clock or a random source.
@@ -49,10 +50,10 @@ export interface Expense {
   createdAt: string;
 
   // ── Split / settlement fields — ADDITIVE + OPTIONAL, dormant-absent ───────────────
-  // Who owes whom. Both absent = the FAST PATH (paid by me, not split) = byte-identical to a
-  // pre-split expense. They ride the row merge for free (just more row fields) and
+  // Who owes whom. Both absent = the FAST PATH (paid by me, not split) = byte-identical to a pre-
+  // expense. They ride the `mergeItems` row merge for free (just more row fields) and
   // are settlement-only: they do NOT affect `amount` or `expensesToSpent` — an expense's amount
-  // still counts fully toward spend regardless of split (split = who reimburses whom, local to the leg).
+  // still counts fully toward spend regardless of split.
   /** TRAVELERS id who fronted the money. Absent ⇒ the current traveler ("me"). */
   paidBy?: string;
   /** TRAVELERS ids the cost is shared EVENLY among. Absent ⇒ not split (no settlement row). */
@@ -60,7 +61,7 @@ export interface Expense {
 
   // ── Sync v2 fields — ALL additive + optional ──────────────
   // Written ONLY when remote sync is configured (the hook gates on `isRemoteConfigured()`);
-  // a dormant expense carries NONE of these, so the dormant on-disk bytes stay byte-identical.
+  // a dormant expense carries NONE of these, so the dormant on-disk bytes stay byte-identical
   // Old clients ignore unknown fields. `sanitizeExpense` PASSES THEM THROUGH
   // (a load-bearing line — silently stripping `hlc` would break merge ordering).
   /** Monotonic per-row revision counter; starts at 1 on create (sync only). */
@@ -129,9 +130,9 @@ export function sanitizeExpense(value: unknown): Expense | null {
     if (members.length > 0) expense.split = members;
   }
 
-  // ── Sync v2 passthrough ──────────────────────────────────────────────
+  // ── Sync v2 passthrough ──────────────────────────────
   // Pass the additive sync/attribution fields through UNCHANGED when present. Dropping `hlc`
-  // here would break merge ordering and violate the stamped-bytes expectation. A dormant
+  // here would break merge ordering and violate stamped-bytes expectation. A dormant
   // expense has none of these ⇒ nothing is added ⇒ byte-identical.
   if (typeof v.rev === 'number' && Number.isFinite(v.rev)) expense.rev = v.rev;
   if (typeof v.hlc === 'string') expense.hlc = v.hlc;
@@ -156,7 +157,7 @@ export function sanitizeExpenses(value: unknown): Expense[] {
   return out;
 }
 
-// ── The aggregator (the `SpentInput` seam consumer) ─────────────────────────────────
+// ── The aggregator ─────────────────────────────────
 /**
  * Sum logged expenses into the `SpentInput` shape `rollUp(model, spent?)` already accepts:
  * `byLeg[leg]` = total spent on that leg, `byCategory[leg][category]` = total on that (leg,
@@ -194,7 +195,7 @@ export function expensesToSpent(expenses: readonly Expense[] | null | undefined)
   return spent;
 }
 
-// ── Pure CRUD transforms (id + timestamp INJECTED by the caller) ─────────────────
+// ── Pure CRUD transforms ─────────────────
 /**
  * The fields the caller provides when logging a NEW expense — everything except the injected
  * `id` + `createdAt` (which the pure core must not generate). `amount` is sanitized on add.
@@ -213,7 +214,7 @@ const noStamp: ExpenseStamper = (e) => e;
 
 /**
  * Append a sanitized new expense to the list. The caller injects `id` + `createdAt` (so the core
- * stays deterministic) and an optional `stamp` (attribution + sync fields). Newest-first is
+ * stays deterministic) and an optional `stamp`. Newest-first is
  * NOT imposed here — the list keeps insertion order; the UI sorts by `createdAt`. Returns a NEW
  * array (never mutates). TOTAL: a malformed input (invalid leg/category) is dropped, returning the
  * list unchanged.
@@ -232,7 +233,7 @@ export function addExpense(
 
 /**
  * Update an existing expense by id with a partial patch (any of leg/category/amount/date/note),
- * then apply the optional `stamp` (attribution + sync fields; a tombstone under sync is an
+ * then apply the optional `stamp` (attribution + sync fields —; a tombstone under sync is an
  * `updateExpense` with an empty patch + a delete stamper, mirroring the itinerary `removeItem`
  * sync path). The `id` + `createdAt` are preserved. Returns a NEW array; a non-matching id is a
  * no-op. TOTAL: if the patch would make the entry unsalvageable it is left unchanged.

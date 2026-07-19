@@ -6,7 +6,7 @@
 // It is deliberately thin: the RESTORE semantics (same-id vs fresh-id under sync) live
 // with the caller's store method, not here. This only owns the toast + action wiring.
 //
-// Micro-interaction — undo progress ring: the toast's icon is a small SVG ring
+// micro-interaction — undo progress ring: the toast's icon is a small SVG ring
 // that depletes over the (default 4s) undo window as a subtle "time left to undo" cue.
 // PRESENTATIONAL ONLY: it does NOT set or change the toast's duration/timing (sonner's
 // default lifetime is unchanged), so undo behavior is byte-identical to before. The ring
@@ -24,11 +24,11 @@ function UndoRing() {
       aria-hidden="true"
       className="-rotate-90 shrink-0"
     >
-      {/* Track */}
+      {}/* Track */
       <circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="2" />
       {/* Depleting arc — base dashoffset 0 (full ring); the keyframe sweeps it to 44
           (2πr ≈ 44) over the undo window. Under reduced motion the animation is off,
-          so it holds the base full ring. */}
+}          so it holds the base full ring. */
       <circle
         cx="9"
         cy="9"

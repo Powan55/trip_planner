@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { m, AnimatePresence } from 'framer-motion';
 import { X, MapPin, Clock, Star, ExternalLink, Tag, CalendarClock, Coins, Check, CalendarDays } from 'lucide-react';
@@ -19,27 +19,28 @@ import { formatDate } from '@/lib/trip-data';
  * an add-to-plan action.
  *
  * It inherits the full modal contract of the add-to-plan dialog:
- *  - Portal to `document.body` (mount-guarded, SSR-safe under output:'export'),
- *    so it escapes the transformed / overflow-hidden card ancestors.
- *  - Document-level Esc (via `onCloseRef`), a Tab-trap inside the panel,
- *    first-element autofocus, and PARENT-OWNED focus-return — the opening card captures
- *    the trigger and refocuses it on `AnimatePresence onExitComplete` (NOT here).
- *  - Flex-column with a NON-scrolling pinned footer holding the add action, so
- *    it stays visible/clickable at any viewport height.
- *  - It also sets the `body[data-dialog-open]` seam flag (the FAB hides on it).
+ * -: portal to `document.body` (mount-guarded, SSR-safe under output:'export'),
+ * so it escapes the transformed / overflow-hidden card ancestors.
+ * -: document-level Esc (via `onCloseRef`), a Tab-trap inside the panel,
+ * first-element autofocus, and PARENT-OWNED focus-return — the opening card captures
+ * the trigger and refocuses it on `AnimatePresence onExitComplete` (NOT here).
+ * -: flex-column with a NON-scrolling pinned footer holding the add action, so
+ * it stays visible/clickable at any viewport height.
+ * - It also sets the `body[data-dialog-open]` seam flag.
  *
  * Add-to-plan (two shapes, so all card families reuse it):
- *  - `addSource` + `addSourceType`: a source-linked place (recommendation / photo) —
- *    renders the shared state-aware `AddToPlanButton` (gets the "Added" badge).
- *  - `customAddDraft`: a place with no adapter source (nightlife) — opens the custom
- *    add dialog prefilled with the venue's title/location. When the
- *    draft carries a (namespaced) sourceId, the footer control mirrors the source-linked
- *    state-aware "Added"/modify/remove treatment; an empty-sourceId draft (none today,
- *    kept for shape-compat) still gets the plain static button.
+ * - `addSource` + `addSourceType`: a source-linked place (recommendation / photo) —
+ * renders the shared state-aware `AddToPlanButton`.
+ * - `customAddDraft`: a place with no adapter source (nightlife) — opens the custom
+ * add dialog prefilled with the venue's title/location.: when the
+ * draft carries a (namespaced) sourceId, the footer control mirrors the source-linked
+ * state-aware "Added"/modify/remove treatment; an empty-sourceId draft (none today,
+ * kept for shape-compat) still gets the plain static button.
  *
  * Reduced-motion: entrance/exit use opacity + a small translate; the global
  * reduced-motion CSS guard neutralizes transitions, and framer honors prefers-reduced-
- * motion, so nothing is left stuck at opacity-0. Tailwind classes are static literals.
+ * motion, so nothing is left stuck at opacity-0. Tailwind classes are static literals
+ *.
  */
 
 export interface PlaceDetailData {
@@ -52,13 +53,13 @@ export interface PlaceDetailData {
   location?: string;
   /** Country accent — 'Nepal' → himalaya, 'Japan' → sakura. */
   country: 'Nepal' | 'Japan';
-  /** Root-relative image path (rendered via OptimizedImage). */
+  /** Root-relative image path. */
   image?: string;
   /** Short one-liner (the card's existing description). */
   description?: string;
   /** Longer, accurate description. Falls back to `description`. */
   longDescription?: string;
-  /** Practical rows — filled with real facts; each optional (omit if unknown). */
+  /** Practical rows — filled with real facts; each optional. */
   bestTime?: string;
   duration?: string;
   priceHint?: string;
@@ -102,7 +103,7 @@ export default function PlaceDetailSheet({
   const [customOpen, setCustomOpen] = useState(false);
   const customTriggerRef = useRef<HTMLButtonElement | null>(null);
 
-  // Reactive "already added" lookup for a non-empty-sourceId customAddDraft
+  // reactive "already added" lookup for a non-empty-sourceId customAddDraft
   // (nightlife). Empty sourceId (none today, kept for shape-compat) never matches —
   // `findPlacements('')` reads as "not planned", so this stays a no-op for that shape.
   const { findPlacements } = useItineraryContext();
@@ -150,7 +151,7 @@ export default function PlaceDetailSheet({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, customOpen]);
 
-  // body[data-dialog-open] seam flag while the sheet is open (the FAB hides on it).
+  // body[data-dialog-open] seam flag while the sheet is open.
   useEffect(() => {
     if (!open) return;
     document.body.dataset.dialogOpen = '1';
@@ -229,10 +230,13 @@ export default function PlaceDetailSheet({
                 max-h-[38vh] + object-cover crops the image instead, keeping BOTH
                 footer actions on-screen. On tall viewports (390×844, 1280×900)
                 38vh always exceeds the natural height, so the cap never binds and
-                the 16/10 framing is unchanged. */}
+}                the 16/10 framing is unchanged. */
             <div className="shrink-0 relative">
               {place.image ? (
-                <div className="relative aspect-[16/10] max-h-[38vh] bg-navy-800 overflow-hidden">
+                <div
+                  className="vt-shared relative aspect-[16/10] max-h-[38vh] bg-surface-raised overflow-hidden"
+                  style={{ ['--vt-name']: `place-photo-${place.id}` } as CSSProperties}
+                >
                   <OptimizedImage
                     src={place.image}
                     alt={place.name}
@@ -240,10 +244,10 @@ export default function PlaceDetailSheet({
                     sizes="(min-width: 640px) 440px, 100vw"
                     className="object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-navy-900/90 via-navy-900/20 to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-surface/90 via-surface/20 to-transparent" />
                 </div>
               ) : (
-                <div className={`aspect-[16/10] max-h-[38vh] flex items-center justify-center ${isNepal ? 'bg-gradient-to-br from-himalaya-900/40 to-navy-800' : 'bg-gradient-to-br from-sakura-900/30 to-navy-800'}`}>
+                <div className={`aspect-[16/10] max-h-[38vh] flex items-center justify-center ${isNepal ? 'bg-gradient-to-br from-himalaya-900/40 to-surface-raised' : 'bg-gradient-to-br from-sakura-900/30 to-surface-raised'}`}>
                   <MapPin className={`w-10 h-10 opacity-30 ${accentText}`} />
                 </div>
               )}
@@ -258,17 +262,21 @@ export default function PlaceDetailSheet({
                 <X className="w-5 h-5" />
               </button>
               {place.mustSee && (
-                <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-navy-900 text-[10px] font-bold uppercase tracking-wide">
-                  <Star className="w-3 h-3 fill-navy-900" />
+                <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                  <Star className="w-3 h-3 fill-surface" />
                   Must-see
                 </span>
               )}
             </div>
 
-            {/* Scrollable body — the only scroll region. */}
+            {}/* Scrollable body — the only scroll region. */
             <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4">
               <div className="flex items-start justify-between gap-3 mb-1">
-                <h3 id={titleId} className="font-display text-xl font-bold text-white leading-tight">
+                <h3
+                  id={titleId}
+                  className="vt-shared font-display text-xl font-bold text-white leading-tight"
+                  style={{ ['--vt-name']: `place-title-${place.id}` } as CSSProperties}
+                >
                   {place.name}
                 </h3>
               </div>
@@ -292,7 +300,7 @@ export default function PlaceDetailSheet({
               )}
 
               {/* Practical info rows — each optional; omitted when unknown.
-                  axe's `only-dlitems` requires every direct `<dl>` child to be a
+                 : axe's `only-dlitems` requires every direct `<dl>` child to be a
                   `dt`/`dd` (or a wrapping div holding ONLY dt/dd) — the decorative icon
                   used to sit as a THIRD sibling in that wrapping div, which violated it.
                   Fix: each icon now lives INSIDE its `<dt>` (still purely decorative, no
@@ -301,7 +309,7 @@ export default function PlaceDetailSheet({
                   now a `<span>` inside the dt) so it wraps exactly as before; `dt` just
                   flexes the icon and that span together with the same `gap-2.5` the icon
                   used to have as a dl-row sibling — so `<dd>` still starts at the same
-                  x-offset (icon 16px + gap 10px + label 96px + gap 10px, unchanged). */}
+}                  x-offset (icon 16px + gap 10px + label 96px + gap 10px, unchanged). */
               {(place.bestTime || place.duration || place.priceHint || typeof place.rating === 'number') && (
                 <dl className="space-y-2.5 mb-2">
                   {place.bestTime && (
@@ -348,8 +356,8 @@ export default function PlaceDetailSheet({
               )}
             </div>
 
-            {/* Pinned footer — Maps link + add-to-plan, always visible. */}
-            <div className="shrink-0 px-5 sm:px-6 pt-3 pb-5 border-t border-white/10 bg-navy-900/40 space-y-2.5">
+            {}/* Pinned footer — Maps link + add-to-plan, always visible. */
+            <div className="shrink-0 px-5 sm:px-6 pt-3 pb-5 border-t border-white/10 bg-surface/40 space-y-2.5">
               {mapsUrl && (
                 <a
                   href={mapsUrl}
@@ -362,17 +370,17 @@ export default function PlaceDetailSheet({
                 </a>
               )}
 
-              {/* Source-linked add (recs / photos) — the shared state-aware control. */}
+              {}/* Source-linked add (recs / photos) — the shared state-aware control. */
               {addSource && addSourceType && (
                 <div data-testid="place-detail-add-to-plan" className="[&>button]:mt-0">
                   <AddToPlanButton source={addSource} sourceType={addSourceType} accentColor={accentText} />
                 </div>
               )}
 
-              {/* Custom add (nightlife) — opens the custom dialog prefilled.
+              {/* Custom add (nightlife) — opens the custom dialog prefilled.:
                   a non-empty sourceId (the namespaced nightlife id) gets the same
                   state-aware "Added"/modify-remove treatment as AddToPlanButton; an
-                  empty-sourceId draft (none today) keeps the plain static button. */}
+}                  empty-sourceId draft (none today) keeps the plain static button. */
               {customAddDraft && (
                 customAddDraft.sourceId ? (
                   <button
@@ -423,7 +431,7 @@ export default function PlaceDetailSheet({
           </m.div>
 
           {/* Custom-add dialog (nightlife path). Portals over the sheet; parent-owned
-              focus-return to the trigger button on exit-complete. */}
+}              focus-return to the trigger button on exit-complete. */
           {customAddDraft && (
             <AnimatePresence
               onExitComplete={() => {

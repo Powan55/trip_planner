@@ -4,8 +4,8 @@ import PageHero from '@/components/page-hero';
 // flex column stretches the section to fill at least the viewport so the map
 // reads as the page's centerpiece (PageHero is a <header>, so the
 // [&>section]:flex-1 selector leaves it at natural height).
-// The ssr:false MapSection island lives in ./sections (client
-// module); this Server Component page exports metadata.
+// (Next 15): the ssr:false MapSection island lives in./sections (client
+// module); this Server Component page exports metadata./ skeleton kept.
 import { MapSection } from './sections';
 
 export const metadata = {
@@ -15,9 +15,9 @@ export const metadata = {
 
 export default function MapPage() {
   return (
-    <main className="min-h-screen bg-navy-900 flex flex-col [&>section]:flex-1">
-      {/* PageHero supplies the page's <h1> (earlier pages shipped
-          without one — an accessibility fix). Section components keep their own <h2>s. */}
+    <main className="min-h-screen bg-surface flex flex-col [&>section]:flex-1">
+      {/* PageHero supplies the page's <h1> ( pages shipped
+}          without one — a11y win). Section components keep their own <h2>s. */
       <PageHero
         variant="map"
         title="Trip Map"

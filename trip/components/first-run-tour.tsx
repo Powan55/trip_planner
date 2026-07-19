@@ -20,7 +20,7 @@ import { NAV_ITEMS, isRouteActive, type NavItem } from '@/lib/nav-items';
  * guest-route wall is still up. Using the looser `traveler || isGuest` check would render
  * this dialog UNDERNEATH TokenGate's still-active wall on a guest's gated route (two
  * `role="dialog"` nodes at once — caught by `e2e/guest-route-gate.spec.ts`'s generic wall
- * locator during a full-pack run). `isRouteActive(pathname, '/')` is the
+ * locator during this slice's own full-pack run). `isRouteActive(pathname, '/')` is the
  * exact same helper `token-gate.tsx` uses for its own mode derivation. Post-mount gated
  * (the `mounted` flag, exactly like TokenGate) so the tour never flashes during SSR/first
  * paint.
@@ -31,9 +31,9 @@ import { NAV_ITEMS, isRouteActive, type NavItem } from '@/lib/nav-items';
  * mobile tab bar/hamburger have DIFFERENT DOM for the same destination, and Budget has NO
  * nav element at all — it's a section on `/plan`, see below) — brittle for a one-time,
  * low-stakes intro. A centered card is simpler, robust across breakpoints, and still
- * teaches the five destinations. No tour framework, no spotlight engine.
+ * teaches the five destinations. Ponytail: no tour framework, no spotlight engine.
  *
- * GUEST-COPY CALL: a guest is Home-confined (TokenGate's guest-route wall) —
+ * GUEST-COPY CALL: a guest is Home-confined —
  * they cannot actually click into Plan/Journal/Map yet, so the tour only ever fires for a
  * guest ON Home (the `gatePassed` derivation above — everywhere else the real wall is still
  * up and this dialog correctly stays dark). Where it DOES fire for a guest, it still shows
@@ -307,7 +307,7 @@ function TourPanel({
           {stop.blurb}
         </p>
 
-        {/* Progress dots — decorative only, the "Step N of M" text above is the accessible source. */}
+        {}/* Progress dots — decorative only, the "Step N of M" text above is the accessible source. */
         <div className="mt-5 flex items-center gap-1.5" aria-hidden="true">
           {Array.from({ length: total }).map((_, i) => (
             <span
@@ -337,7 +337,7 @@ function TourPanel({
             type="button"
             onClick={onNext}
             data-testid="tour-next"
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-gold-500 px-5 py-2.5 font-semibold text-navy-900 outline-none transition-colors hover:bg-gold-400 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-navy-900 focus-visible:outline-none"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-gold-500 px-5 py-2.5 font-semibold text-surface outline-none transition-colors hover:bg-gold-400 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
           >
             {isLast ? (
               <>

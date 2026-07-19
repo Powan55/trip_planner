@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { AnimatePresence } from 'framer-motion';
 import ExpenseDialog from '@/components/expense-dialog';
+import { isTravelRoute } from '@/lib/travel-route';
 import { getTodayInTrip } from '@/lib/trip-now';
 import { getSelectedDay } from '@/lib/selected-day';
 import { getCountryForDate } from '@/core/dates';
@@ -18,13 +20,13 @@ import type { Expense } from '@/core/budget/expenses';
  * the budget panel's "Log expense" button (add) and its per-row "Edit" button (edit) — and opens
  * `ExpenseDialog` preset to the resolved leg/date (add) or to the passed expense (edit):
  *
- *   window.dispatchEvent(new CustomEvent('expense:open'))                       // add, auto leg
- *   window.dispatchEvent(new CustomEvent('expense:open', { detail: { expense } })) // edit
+ * window.dispatchEvent(new CustomEvent('expense:open')) // add, auto leg
+ * window.dispatchEvent(new CustomEvent('expense:open', { detail: { expense } })) // edit
  *
  * This is a PARALLEL trigger to the itinerary quick-add FAB (its OWN event + host + dialog) — the
- * itinerary FAB is left single-purpose. The dialog owns the full modal contract
- * (portal + Esc/Tab-trap + the `body[data-dialog-open]` flag); focus-return is parent-owned here:
- * we capture `document.activeElement` when the event fires (the "Log expense" / "Edit"
+ * itinerary FAB is left single-purpose per /. The dialog owns the full modal contract
+ *; focus-return is parent-owned here
+ * per: we capture `document.activeElement` when the event fires (the "Log expense" / "Edit"
  * button) and refocus it once the exit animation completes.
  *
  * LEG PRESET (usually right with zero taps): `getTodayInTrip()?.country` when we're mid-trip, else
@@ -58,6 +60,10 @@ function resolveDate(): string {
 }
 
 export default function ExpenseLogHost() {
+  // Travel Mode zero-chrome-leakage (TM-9) — this invisible expense-dialog host
+  // is suppressed under `/travel`. Nothing in Phase-2 dispatches `expense:open` there;
+  // a later TM slice that wants the global expense-log lifts this guard deliberately.
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [presetLeg, setPresetLeg] = useState<Leg>('nepal');
   const [presetDate, setPresetDate] = useState<string | undefined>(undefined);
@@ -85,6 +91,9 @@ export default function ExpenseLogHost() {
     window.addEventListener(EXPENSE_OPEN_EVENT, onOpen);
     return () => window.removeEventListener(EXPENSE_OPEN_EVENT, onOpen);
   }, []);
+
+  // After all hooks (unconditional order): suppress the host's render under Travel Mode.
+  if (isTravelRoute(pathname)) return null;
 
   return (
     <AnimatePresence

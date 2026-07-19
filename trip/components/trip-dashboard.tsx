@@ -21,7 +21,7 @@ interface StatCardProps {
   suffix?: string;
   color: string;
   delay: number;
-  // Stable E2E hook, distinct per card and namespaced `dashboard-*` so it never
+  // stable E2E hook, distinct per card and namespaced `dashboard-*` so it never
   // collides with the hero's `countdown-*` hooks (both can render on `/`).
   testId: string;
 }
@@ -30,8 +30,8 @@ function AnimatedCounter({ target, duration = 2000 }: { target: number; duration
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true });
   // Shared eased count-up (cubic ease-out). The hook owns the reduced-motion
-  // guard: under `prefers-reduced-motion: reduce` it skips the rAF loop and
-  // reports the final value instantly — closing the gap where this counter
+  // guard: under `prefers-reduced-motion: reduce` it skips the rAF loop
+  // and reports the final value instantly — closing the gap where this counter
   // previously animated regardless of the user's motion preference. The dashboard
   // stats are static once revealed, so `done` is unused here; `count` settles on
   // `target` exactly at the final frame.
@@ -89,10 +89,10 @@ export default function TripDashboard() {
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [tripStatus, setTripStatus] = useState('Upcoming');
 
-  // Card 9 (planned days) derives from the shared reactive store instead of a
-  // mount-only loadPlans() + cross-tab storage listener. A same-tab calendar (or
-  // card) edit fans out via the store's CustomEvent, so this count updates live
-  // without a reload.
+  // Card 9 (planned days) now derives from the shared reactive store instead
+  // of a mount-only loadPlans() + cross-tab storage listener. A same-tab calendar (or,
+  // from card) edit fans out via the store's CustomEvent, so this count updates
+  // live without a reload — this is the visible proof is closed.
   const { plans } = useItineraryContext();
   const plannedDays = useMemo(() => countPlannedDays(plans), [plans]);
 
@@ -148,9 +148,9 @@ export default function TripDashboard() {
   return (
     <section id="dashboard" aria-labelledby="dashboard-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* Slide-only masthead entrance (opacity pinned to 1) so an accessibility
-            contrast scan (no reduced-motion) can't catch the muted `text-white/50`
-            subtitle mid-fade as a transient contrast failure. See RecommendationSection. */}
+        {/* slide-only masthead entrance (opacity pinned to 1) so the axe
+            scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
+}            mid-fade as a transient contrast failure. See RecommendationSection. */
         <m.div
           initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

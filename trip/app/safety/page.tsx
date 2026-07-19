@@ -1,10 +1,10 @@
 // TRAVEL SAFETY KIT: an offline, static travel-safety reference — emergency/embassy
 // numbers, a romanized phrasebook, and a document checklist (`core/content/safety.ts`,
-// static-only, no persistence needed). The island is lazy + ssr:false, mirroring
-// app/journal/sections.tsx; the ssr:false dynamic import lives in ./sections (a client
-// module); this Server Component page exports metadata. Reached via a direct URL only
-// for now — deliberately not wired into `lib/nav-items.ts` / the navbar / tab bar /
-// command palette, left as a deliberate follow-up, same deferral as `/journal`.
+// static-only). The island is lazy + ssr:false, mirroring app/journal/sections.tsx; Next 15
+// the ssr:false dynamic import lives in./sections (a client module); this
+// Server Component page exports metadata. Reached via a direct URL only this slice —
+// deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar / command palette
+// (those files are fenced — a follow-up rider, per the brief; same deferral as `/journal`).
 import { SafetyKit } from './sections';
 
 export const metadata = {
@@ -14,11 +14,11 @@ export const metadata = {
 
 export default function SafetyPage() {
   return (
-    <main className="min-h-screen bg-navy-900">
+    <main className="min-h-screen bg-surface">
       {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
           text-gradient-gold / animate-reveal-up) directly rather than extending PageHero's
-          closed `HeroVariant` union (page-hero.tsx is deliberately not extended).
-          Supplies the page's <h1> (mirrors the PageHero convention / app/journal/page.tsx). */}
+          closed `HeroVariant` union.
+}          Supplies the page's <h1>. */
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
         <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
           <span

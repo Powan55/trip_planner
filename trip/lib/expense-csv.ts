@@ -2,14 +2,14 @@ import { legCurrency } from '@/core/budget/model';
 import type { Expense } from '@/core/budget/expenses';
 
 /**
- * Expense → CSV export — a pure, framework-free serializer (no CSV dependency needed;
+ * Expense → CSV export — a pure, framework-free serializer (: no CSV dependency;
  * this is a few lines of native string-building). The caller Blob-downloads the result
  * (`components/settings-panel.tsx`, mirroring `core/vault/export-import.ts`'s existing
  * `exportItinerary()`/Blob idiom).
  *
  * RFC-4180: CRLF (`\r\n`) row separators, a field is quoted iff it contains a comma, a double
  * quote, or a line break, and an interior double quote is escaped by doubling it. Currency is
- * DERIVED from the leg (`legCurrency` — amounts are already leg-local; no conversion).
+ * DERIVED from the leg.
  * `paidBy`/`split` are flattened read-only: `Paid By` as-is, `Split With` the
  * member names semicolon-joined; both are absent on the (default) unsplit fast path.
  *

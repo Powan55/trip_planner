@@ -1,8 +1,8 @@
-// Interactive-map data. The map is a REAL MapLibre GL map, so every marker
-// carries genuine WGS84 `lng`/`lat` for a famous, well-known place. This is a PURE
-// data module — no imports with side effects — so it stays dormant-safe and
-// tree-shakeable (map-section.tsx is the only consumer that mounts the GL canvas,
-// and it does so client-only).
+// Interactive-map data. The map is now a REAL MapLibre GL map (
+// superseded), so every marker carries genuine WGS84 `lng`/`lat` for a famous,
+// well-known place. This is a PURE data module — no imports with side effects —
+// so it stays dormant-safe and tree-shakeable (map-section.tsx is the only
+// consumer that mounts the GL canvas, and it does so client-only).
 //
 // The legacy `x`/`y` fields (0-100 % positions on the former CSS/SVG mock panel)
 // are kept as harmless, unused metadata; nothing renders them once the mock is
@@ -24,15 +24,15 @@ export interface MapMarker {
   country: 'Nepal' | 'Japan';
   area: string;
   description: string;
-  /** Real longitude (WGS84). Source of truth for map placement. */
+  /** Real longitude. Source of truth for map placement. */
   lng: number;
-  /** Real latitude (WGS84). Source of truth for map placement. */
+  /** Real latitude. Source of truth for map placement. */
   lat: number;
   /** Legacy 0-100 % X on the former mock panel — unused, kept harmless. */
   x: number;
   /** Legacy 0-100 % Y on the former mock panel — unused, kept harmless. */
   y: number;
-  /** Optional bundled photo for the popup (root-relative). */
+  /** Optional bundled photo for the popup. */
   image?: string;
 }
 

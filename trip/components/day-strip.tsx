@@ -5,10 +5,10 @@
 // month grid. It is strictly PRESENTATIONAL — a pure consumer: it subscribes to NO
 // store, holds no persistence, and simply renders the props it is handed and calls
 // `onSelect` on tap. All selection/persistence stays in `calendar-planner.tsx`
-// — no storage literals here.
+//.
 //
 // The strip scrolls INSIDE itself (`overflow-x-auto`), so it never pushes the page
-// wider than the viewport (min-w-0 discipline on the scroll container).
+// wider than the viewport.
 
 import { useEffect, useRef } from 'react';
 import { useReducedMotion } from 'framer-motion';
@@ -32,7 +32,7 @@ export interface DayStripProps {
   onSelect: (date: string) => void;
   /** Per-date country + item-count meta, keyed by date (order need not match). */
   meta: DayStripDateMeta[];
-  /** Today's trip date when inside the trip window, else null (Today marker). */
+  /** Today's trip date when inside the trip window, else null. */
   todayDate: string | null;
 }
 
@@ -72,7 +72,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
       role="group"
       aria-label="Select a trip day"
       data-testid="day-strip"
-      // Snap physics: decisive mandatory
+      // snap physics: decisive mandatory
       // snapping with scroll-padding so chips settle centred, plus overscroll
       // containment so a horizontal flick never chains to the page scroll. Pure CSS —
       // snapping is instant positioning (not vestibular motion), and the JS auto-centre
@@ -109,27 +109,33 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
                   : 'text-white/50 hover:bg-white/5'
             }`}
           >
-            {/* Today marker: a small pill above the weekday, on the matching chip only. */}
+            {}/* Today marker: a small pill above the weekday, on the matching chip only. */
             {isToday && (
               <span
-                className="absolute -top-1.5 px-1.5 py-px rounded-full bg-gold-500 text-navy-900 text-[8px] font-bold uppercase tracking-wide leading-none"
+                className="absolute -top-1.5 px-1.5 py-px rounded-full bg-gold-500 text-surface text-[8px] font-bold uppercase tracking-wide leading-none"
                 aria-hidden="true"
               >
                 Today
               </span>
             )}
-            <span className="text-[10px] uppercase tracking-wide text-white/40">{weekday}</span>
+            {/* bumped from /40 to /60 — axe flagged the /40 weekday label (~3.5-3.8:1)
+                below the WCAG AA 4.5:1 minimum. It went unnoticed until now because every
+                prior consumer (`/plan`'s mobile strip) hides it at `lg+` via a CSS `lg:hidden`
+                wrapper, above which the axe pack always runs; Travel Mode has no such wrapper
+                (the strip is the ONLY day picker, at every width), so it's genuinely visible to
+}                a real user and must clear contrast on its own. */
+            <span className="text-[10px] uppercase tracking-wide text-white/60">{weekday}</span>
             <span className="text-base leading-none">{dayNum}</span>
-            {/* Country dot: himalaya (nepal) / sakura (japan). */}
+            {}/* Country dot: himalaya (nepal) / sakura (japan). */
             <span
               className={`w-1.5 h-1.5 rounded-full ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`}
               aria-hidden="true"
             />
-            {/* Item-count badge, only when the day has items. */}
+            {}/* Item-count badge, only when the day has items. */
             {count > 0 && (
               <span
                 className={`absolute top-1 right-1 min-w-[1rem] h-4 px-1 flex items-center justify-center rounded-full text-[9px] font-semibold ${
-                  isSelected ? 'bg-gold-500 text-navy-900' : 'bg-white/10 text-white/70'
+                  isSelected ? 'bg-gold-500 text-surface' : 'bg-white/10 text-white/70'
                 }`}
                 aria-hidden="true"
               >

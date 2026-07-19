@@ -1,9 +1,10 @@
 import PageHero from '@/components/page-hero';
 
-// FLIGHTS: a dedicated page for the flights/hotels booking overview, split off
-// from Home. `flights-section.tsx` itself is untouched — only where it's mounted changed.
-// The ssr:false FlightsSection island lives in ./sections (client
-// module); this Server Component page exports metadata.
+// FLIGHTS: a dedicated page for the
+// flights/hotels booking overview, previously mounted on Home. `flights-section.tsx`
+// itself is untouched — only WHERE it's mounted changed.
+// (Next 15): the ssr:false FlightsSection island lives in./sections (client
+// module); this Server Component page exports metadata./ skeleton kept.
 import { FlightsSection } from './sections';
 
 export const metadata = {
@@ -13,9 +14,9 @@ export const metadata = {
 
 export default function FlightsPage() {
   return (
-    <main className="min-h-screen bg-navy-900">
-      {/* PageHero supplies the page's <h1> (earlier pages shipped
-          without one — an accessibility fix). Section components keep their own <h2>s. */}
+    <main className="min-h-screen bg-surface">
+      {/* PageHero supplies the page's <h1> ( pages shipped
+}          without one — a11y win). Section components keep their own <h2>s. */
       <PageHero
         variant="flights"
         title="Flights"

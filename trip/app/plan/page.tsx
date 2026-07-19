@@ -2,10 +2,10 @@ import PageHero from '@/components/page-hero';
 
 // PLAN: the calendar/itinerary planner. Its author-filter control
 // mounts inside CalendarPlanner (unchanged); the activity feed stays inside
-// TripTimeline on Home — each stays wherever it currently mounts.
-// The ssr:false planner/budget/backup islands
-// live in ./sections (client module); this Server Component page exports
-// metadata. Same sized skeletons keep the initial shell light.
+// TripTimeline on Home — both "wherever they currently mount" per the brief.
+// (Next 15): the ssr:false planner/budget/backup islands (
+//) live in./sections (client module); this Server Component page exports
+// metadata. Same/ sized skeletons keep the initial shell light.
 import { CalendarPlanner, BudgetPanel, BackupRestore } from './sections';
 
 export const metadata = {
@@ -15,9 +15,9 @@ export const metadata = {
 
 export default function PlanPage() {
   return (
-    <main className="min-h-screen bg-navy-900">
-      {/* PageHero supplies the page's <h1> (earlier pages shipped
-          without one — an accessibility fix). Section components keep their own <h2>s. */}
+    <main className="min-h-screen bg-surface">
+      {/* PageHero supplies the page's <h1> ( pages shipped
+}          without one — a11y win). Section components keep their own <h2>s. */
       <PageHero
         variant="plan"
         title="Trip Planner"

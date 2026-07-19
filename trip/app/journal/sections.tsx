@@ -1,6 +1,6 @@
 'use client';
 
-// `ssr:false` dynamic imports are only allowed in a client module —
+// pattern (Next 15): `ssr:false` dynamic imports are only allowed in a client module —
 // see app/plan/sections.tsx / app/nepal/sections.tsx for the precedent. The journal browse
 // island is localStorage-only, so it has no meaningful server render.
 import dynamic from 'next/dynamic';
