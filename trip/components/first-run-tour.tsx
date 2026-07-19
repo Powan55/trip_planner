@@ -307,7 +307,7 @@ function TourPanel({
           {stop.blurb}
         </p>
 
-        {}/* Progress dots — decorative only, the "Step N of M" text above is the accessible source. */
+        {/* Progress dots — decorative only, the "Step N of M" text above is the accessible source. */}
         <div className="mt-5 flex items-center gap-1.5" aria-hidden="true">
           {Array.from({ length: total }).map((_, i) => (
             <span

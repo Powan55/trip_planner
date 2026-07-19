@@ -150,7 +150,7 @@ export default function TripDashboard() {
       <div className="max-w-[1200px] mx-auto">
         {/* slide-only masthead entrance (opacity pinned to 1) so the axe
             scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
-}            mid-fade as a transient contrast failure. See RecommendationSection. */
+            mid-fade as a transient contrast failure. See RecommendationSection. */}
         <m.div
           initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

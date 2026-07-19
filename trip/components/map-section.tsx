@@ -361,7 +361,7 @@ export default function MapSection() {
           subtitle="A real, pannable map of every place across the Kathmandu Valley and Japan. Filter by category, tap a pin for details, or flip on your itinerary to see the plan take shape day by day."
         />
 
-        {}/* Category filter chips. */
+        {/* Category filter chips. */}
         <div className="flex flex-wrap justify-center gap-2 mb-4">
           {filters.map((value) => {
             const isActive = filter === value;
@@ -391,7 +391,7 @@ export default function MapSection() {
 
           {/* "Saved" filter chip — mirrors the guide idiom: only rendered once
               favorites have hydrated AND >=1 map marker is favorited; cuts across
-}              categories (composes as an AND with the active category filter). */
+              categories (composes as an AND with the active category filter). */}
           {favoritesReady && savedCount > 0 && (
             <button
               type="button"
@@ -411,10 +411,10 @@ export default function MapSection() {
           )}
         </div>
 
-        {}/* Overlay + search + fullscreen controls. */
+        {/* Overlay + search + fullscreen controls. */}
         <div className="flex flex-wrap justify-center items-center gap-2 mb-5">
           {/* search-within-map: an icon toggle that reveals a small
-}              client-side search over MAP_MARKERS (name/area/country). */
+              client-side search over MAP_MARKERS (name/area/country). */}
           <div className="relative">
             <button
               type="button"
@@ -506,7 +506,7 @@ export default function MapSection() {
 
         {/* schematic-line caveat — an honest passive note, only while the
             itinerary overlay is on (the drawn line is a schematic day-order
-}            connection between stops, not a routed driving/transit path). */
+            connection between stops, not a routed driving/transit path). */}
         {showItinerary && (
           <p
             data-testid="map-route-caveat"
@@ -528,7 +528,7 @@ export default function MapSection() {
 
         {/* offline stale-tile hint — passive, connectivity-only (useOnline()),
             matching the geoNote banner's calm styling. The SW caches the map tiles;
-}            this only reports connectivity, not real cache state. */
+            this only reports connectivity, not real cache state. */}
         {!online && (
           <div
             role="status"
@@ -545,13 +545,13 @@ export default function MapSection() {
               lives here in normal mode and is relocated into the portaled
               fullscreen shell on expand — see the relocation effect. This slot
               keeps the layout box (definite height) so the card doesn't collapse
-}              while the host is away in fullscreen. */
+              while the host is away in fullscreen. */}
           <div
             ref={inlineSlotRef}
             className="relative w-full h-[560px] sm:h-[600px] rounded-2xl overflow-hidden border border-white/10"
           />
 
-          {}/* Legend — color/icon → category. */
+          {/* Legend — color/icon → category. */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-5 pt-4 border-t border-white/5">
             <span className="text-[11px] uppercase tracking-wider text-white/30 font-mono">
               Legend
@@ -581,7 +581,7 @@ export default function MapSection() {
             day (desktop pointer) OR use the popup's day <select> + Anchor button
             (keyboard/touch). The dropped/selected pin is added to that day via the
             existing itinerary CRUD and becomes the day's ANCHOR — the day's stops
-}            then re-order by client-side haversine distance. */
+            then re-order by client-side haversine distance. */}
         <div className="mt-6" data-testid="map-day-strip">
           <div className="flex items-center gap-1.5 mb-2 text-xs font-medium text-white/60">
             <CalendarPlus className="w-3.5 h-3.5 text-gold-400" />
@@ -655,7 +655,7 @@ export default function MapSection() {
 
           {/* Ordered-stop panel for the selected day. When the day is anchored the
               order is nearest-first from the anchor (with a distance label); otherwise
-}              it is the plain day order. Empty days show a calm hint. */
+              it is the plain day order. Empty days show a calm hint. */}
           {selectedDay && (
             <div
               data-testid="map-day-order"
@@ -725,7 +725,7 @@ export default function MapSection() {
           fullscreen (fixed inset-0 → resolves against the VIEWPORT because its
           parent is the body-portaled shell, escaping the glass-card
           backdrop-filter containing block). The fullscreen buttons are direct
-}          children so they travel with the host and stay clickable in both modes. */
+          children so they travel with the host and stay clickable in both modes. */}
       <div
         ref={mapHostRef}
         data-testid="map-shell"
@@ -748,7 +748,7 @@ export default function MapSection() {
         />
 
         {/* Fullscreen toggle (visible on the map, keyboard-accessible). Travels
-}            with the host, so it stays clickable inline and in fullscreen. */
+            with the host, so it stays clickable inline and in fullscreen. */}
         <button
           type="button"
           onClick={() => setIsFullscreen((v) => !v)}
@@ -784,7 +784,7 @@ export default function MapSection() {
           Kept mounted for the component's whole lifetime (not gated on
           isFullscreen) so React never tears down a slot while the imperatively-
           moved map-host is still inside it — the host relocates back to the
-}          inline slot first, then this stays as an empty, harmless mount point. */
+          inline slot first, then this stays as an empty, harmless mount point. */}
       {mounted
         ? createPortal(
             <div ref={fullscreenSlotRef} data-map-fullscreen-slot="" />,

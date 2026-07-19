@@ -91,7 +91,7 @@ export default function ExpenseLog({
                   </p>
                   {e.note && <p className="truncate text-xs text-white/50">{e.note}</p>}
                   {/* "Logged by {name}" attribution — present only on a synced
-}                      expense stamped by an active traveler; dormant rows carry no createdBy. */
+                      expense stamped by an active traveler; dormant rows carry no createdBy. */}
                   {e.createdBy && (
                     <p className="truncate text-[0.7rem] text-white/40" data-testid={`expense-item-${e.id}-author`}>
                       logged by {e.createdBy}

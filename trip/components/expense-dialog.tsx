@@ -271,7 +271,7 @@ export default function ExpenseDialog({
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
         className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
       >
-        {}/* Pinned header */
+        {/* Pinned header */}
         <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
           <div className="min-w-0">
             <h3 id={titleId} className="font-display text-lg font-bold text-white leading-tight">
@@ -292,10 +292,10 @@ export default function ExpenseDialog({
           </button>
         </div>
 
-        {}/* Scrollable body */
+        {/* Scrollable body */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6">
           <div className="space-y-4 pb-1">
-            {}/* Amount — the autofocused, "type first" field */
+            {/* Amount — the autofocused, "type first" field */}
             <div>
               <label htmlFor={amountFieldId} className="text-xs text-white/50 mb-1 block">
                 Amount ({cur}) *
@@ -331,7 +331,7 @@ export default function ExpenseDialog({
               </div>
             </div>
 
-            {}/* Leg toggle — preset, one tap to override */
+            {/* Leg toggle — preset, one tap to override */}
             <div>
               <span id={legLabelId} className="text-xs text-white/50 mb-1 block">Leg</span>
               <div
@@ -364,7 +364,7 @@ export default function ExpenseDialog({
               </div>
             </div>
 
-            {}/* Category chips — one-tap, always a value (required, no empty state) */
+            {/* Category chips — one-tap, always a value (required, no empty state) */}
             <div>
               <span id={categoryLabelId} className="text-xs text-white/50 mb-1 block">Category *</span>
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
@@ -391,7 +391,7 @@ export default function ExpenseDialog({
               </div>
             </div>
 
-            {}/* Note (optional) */
+            {/* Note (optional) */}
             <div>
               <label htmlFor={noteFieldId} className="text-xs text-white/50 mb-1 block">Note</label>
               <input
@@ -405,7 +405,7 @@ export default function ExpenseDialog({
               />
             </div>
 
-            {}/* Split — opt-in. Collapsed = the fast path (nothing written). */
+            {/* Split — opt-in. Collapsed = the fast path (nothing written). */}
             <div className="rounded-lg border border-white/10 bg-white/[0.02]">
               <button
                 type="button"
@@ -425,7 +425,7 @@ export default function ExpenseDialog({
 
               {splitOn && (
                 <div className="flex flex-col gap-3 px-3 pb-3 pt-1" data-testid="expense-split-panel">
-                  {}/* Payer */
+                  {/* Payer */}
                   <div>
                     <span id={`${baseId}-payer-label`} className="text-xs text-white/50 mb-1 block">Paid by</span>
                     <div role="radiogroup" aria-labelledby={`${baseId}-payer-label`} className="flex flex-wrap gap-2">
@@ -451,7 +451,7 @@ export default function ExpenseDialog({
                     </div>
                   </div>
 
-                  {}/* Members (split evenly among) */
+                  {/* Members (split evenly among) */}
                   <div>
                     <span id={`${baseId}-members-label`} className="text-xs text-white/50 mb-1 block">Split evenly among</span>
                     <div role="group" aria-labelledby={`${baseId}-members-label`} className="flex flex-wrap gap-2">
@@ -492,7 +492,7 @@ export default function ExpenseDialog({
 
             {/* — receipt photos. Edit-mode only: a receipt attaches by the expense's id, which
                 exists only after the row is saved (log first, then edit to add a receipt). Local-only
-}                IndexedDB blobs, zero egress — no photo field ever touches the synced Expense. */
+                IndexedDB blobs, zero egress — no photo field ever touches the synced Expense. */}
             {isEdit && expense && (
               <PhotoAttach
                 owner={{ kind: 'expense', expenseId: expense.id }}
@@ -503,7 +503,7 @@ export default function ExpenseDialog({
           </div>
         </div>
 
-        {}/* Pinned action footer */
+        {/* Pinned action footer */}
         <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-surface/40">
           <button
             onClick={handleSave}

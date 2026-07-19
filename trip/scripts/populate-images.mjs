@@ -93,7 +93,7 @@ function idsForArea(area) {
     // Append after the `y: number;` field doc/line inside MapMarker.
     src = src.replace(
       /(\/\*\* 0-100 — vertical % position on that country's mock panel\. \*\/\n\s*y: number;)/,
-      `$1\n  \n  image?: string;`,/** Optional bundled photo for the popup. */
+      `$1\n  /** Optional bundled photo for the popup. */\n  image?: string;`,
     );
   }
   const { out, count } = injectImages(src, idsForArea('map'));

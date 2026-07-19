@@ -126,7 +126,7 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
       data-phase={state.phase}
       className="mx-auto mt-6 max-w-2xl rounded-2xl glass-card p-6 sm:p-8"
     >
-      {}/* Day header — consistent with today-panel's "Day N — City". */
+      {/* Day header — consistent with today-panel's "Day N — City". */}
       <header className="mb-5">
         <p className="text-xs uppercase tracking-widest text-gold-400/80">Now &amp; next</p>
         <h2
@@ -151,7 +151,7 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
 
       {/* Manual recalculate — the backgrounded-app stale fix. A deliberate ≥44px target that
           re-reads the clock and re-derives (not pull-to-refresh). Present whenever there is a
-}          live schedule to recompute. `aria-live` sibling announces the refresh. */
+          live schedule to recompute. `aria-live` sibling announces the refresh. */}
       {(state.phase === 'now' || state.phase === 'upcoming' || state.phase === 'done') && (
         <div className="mt-5 flex justify-end">
           <button
@@ -276,7 +276,7 @@ function PhaseContent({
 
   return (
     <div>
-      {}/* Compact header is the expand toggle — a native button (keyboard-operable, aria-expanded). */
+      {/* Compact header is the expand toggle — a native button (keyboard-operable, aria-expanded). */}
       <button
         type="button"
         onClick={onToggleExpand}
@@ -330,7 +330,7 @@ function PhaseContent({
       </button>
 
       {/* Inline progress bar — elapsed/remaining, only while something is in progress.
-}          Pure width from the injected clock; CSS transition is reduced-motion-neutralised app-wide. */
+          Pure width from the injected clock; CSS transition is reduced-motion-neutralised app-wide. */}
       {isNow && state.progress !== null && (
         <div className="mt-3 px-1" data-testid="travel-hero-progress-wrap">
           <div
@@ -356,7 +356,7 @@ function PhaseContent({
       )}
 
       {/* Expanded details — inline (not a navigation). Notes / category / duration and,
-}          while in "now", the following "then" line. */
+          while in "now", the following "then" line. */}
       {expanded && (
         <div
           id="travel-hero-details"
@@ -372,7 +372,7 @@ function PhaseContent({
           {!headline.notes && !headline.location && (
             <p className="text-white/45">No extra details for this one.</p>
           )}
-          {}/* The "then" line: while in "now", name what follows. */
+          {/* The "then" line: while in "now", name what follows. */}
           {isNow && state.next && (
             <p className="border-t border-white/10 pt-2 text-white/60" data-testid="travel-hero-then">
               <span className="text-gold-400/80">Then:</span> {state.next.title}

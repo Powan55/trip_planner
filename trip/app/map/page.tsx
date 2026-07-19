@@ -17,7 +17,7 @@ export default function MapPage() {
   return (
     <main className="min-h-screen bg-surface flex flex-col [&>section]:flex-1">
       {/* PageHero supplies the page's <h1> ( pages shipped
-}          without one — a11y win). Section components keep their own <h2>s. */
+          without one — a11y win). Section components keep their own <h2>s. */}
       <PageHero
         variant="map"
         title="Trip Map"

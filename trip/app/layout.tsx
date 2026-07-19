@@ -94,10 +94,10 @@ export default function RootLayout({
         >
           <ItineraryProvider>
             {/* App chrome: one persistent navbar/footer around the routed
-}                page content. TokenGate + PresenceBar render inside the provider. */
+                page content. TokenGate + PresenceBar render inside the provider. */}
             <Navbar />
             {/* routed content + footer must clear the fixed mobile
-}                tab bar; 64px fallback = the bar's published height contract. */
+                tab bar; 64px fallback = the bar's published height contract. */}
             <div className="pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] md:pb-0">
               {children}
               <Footer />
@@ -105,30 +105,30 @@ export default function RootLayout({
             <BottomTabBar />
             <QuickAddFab />
             <QuickAddHost />
-            {}/* the expense-log dialog host (its own event/dialog, beside QuickAddHost). */
+            {/* the expense-log dialog host (its own event/dialog, beside QuickAddHost). */}
             <ExpenseLogHost />
           </ItineraryProvider>
           {/* ⌘K / Ctrl+K command palette. Mounted once
-}              at the app root so the shortcut works from anywhere. */
+              at the app root so the shortcut works from anywhere. */}
           <CommandPalette />
           {/* `?trip=` shared-link join handshake. Renders null unless a
-}              `?trip=` link is opened. Root-level (needs no ItineraryProvider). */
+              `?trip=` link is opened. Root-level (needs no ItineraryProvider). */}
           <TripJoinHandshake />
           {/* Route-driven warm/cool accent engine. Renders null;
               reads usePathname() and drives --accent-scroll himalaya↔gold↔sakura.
-}              Reduced-motion sets it instantly. */
+              Reduced-motion sets it instantly. */}
           <RouteAccentEngine />
           <Toaster />
           <ChunkLoadErrorHandler />
           {/* registers /sw.js in production only; drives the
-}              toast-based update flow (no silent refresh). Renders null. */
+              toast-based update flow (no silent refresh). Renders null. */}
           <ServiceWorkerRegistrar />
           {/* app-wide navigator.onLine banner. Renders nothing while online
               (incl. server/first paint — no SSR mismatch); appears on every route
-}              the instant connectivity drops. */
+              the instant connectivity drops. */}
           <OfflineBanner />
           {/* app-wide offline-push outbox status pill. Renders nothing on a dormant/guest
-}              build or before anything has ever synced; top-right, below the navbar. */
+              build or before anything has ever synced; top-right, below the navbar. */}
           <SyncStatusBadge />
         </ThemeProvider>
       </body>

@@ -147,7 +147,7 @@ export default function TodayPanel() {
         variants={reveal}
         className="max-w-3xl mx-auto glass-card rounded-2xl p-6 sm:p-8"
       >
-        {}/* Header — "Day N — {city}", consistent with the hero's travel mode. */
+        {/* Header — "Day N — {city}", consistent with the hero's travel mode. */}
         <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
           <div>
             <p className="text-xs uppercase tracking-widest text-gold-400/80 mb-2">Today on the trip</p>
@@ -168,14 +168,14 @@ export default function TodayPanel() {
           )}
         </header>
 
-        {}/* Weather + golden-hour for today's city — sits above the agenda. */
+        {/* Weather + golden-hour for today's city — sits above the agenda. */}
         <div className="mb-6">
           <WeatherCard result={weather} loading={weatherLoading} />
         </div>
 
         {/* "Up next" rail — the next upcoming item by the resolved clock, above the
             agenda. Only rendered when there ARE items (a zero-item day keeps the empty state
-}            below); shows the next item when one is upcoming, else an "all caught up" line. */
+            below); shows the next item when one is upcoming, else an "all caught up" line. */}
         {items.length > 0 && (
           <div className="mb-6">
             <NextUpRail item={upcoming} date={todayInTrip.date} />
@@ -184,7 +184,7 @@ export default function TodayPanel() {
 
         {/* The agenda list — extracted to the shared `TripAgenda` (today variant is
             byte-equivalent to the pre- markup). The done-toggle routes through the SAME
-}            `updateItem` store method as before. */
+            `updateItem` store method as before. */}
         <TripAgenda
           variant="today"
           items={items}
@@ -198,7 +198,7 @@ export default function TodayPanel() {
             addItem on today's date, through the same commit() choke-point. The Today agenda
             previously had NO add affordance; this is the fast title-only path (detail is
             editable later in the /plan editor). Available in both the empty and populated
-}            states so a free day can be filled without leaving Home. */
+            states so a free day can be filled without leaving Home. */}
         <div className="mt-6">
           <QuickAddInput
             label={`Quick-add a plan for today, ${formatDateLong(todayInTrip.date)}`}
@@ -209,7 +209,7 @@ export default function TodayPanel() {
 
         {/* In-trip per-day TEXT journal — below the agenda. Reads/writes today's entry via
             useJournal() (gateway key 12, localStorage-only); intrinsically in-trip-gated by the
-}            panel. Photos are OUT (declared future boundary). */
+            panel. Photos are OUT (declared future boundary). */}
         <JournalCard date={todayInTrip.date} />
       </m.div>
     </section>

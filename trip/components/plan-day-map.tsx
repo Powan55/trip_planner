@@ -79,7 +79,7 @@ export default function PlanDayMap({ dayStops, totalItems, highlightId, onMarker
           don't ALL resolve to a marker (no pin, no name/sourceId match) isn't silently
           missing some. Subsumes the old zero-matched-stops hint (dayStops.length === 0
           reads as "0 of M stops shown"). Non-blocking overlay; static per render, so no
-}          aria-live is needed. */
+          aria-live is needed. */}
       {totalItems > 0 && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-3">
           <span

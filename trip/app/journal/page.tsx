@@ -18,7 +18,7 @@ export default function JournalPage() {
           text-gradient-gold / animate-reveal-up) directly rather than extending PageHero's
           closed `HeroVariant` union (`app/plan/`, `/nepal/`, `/japan/`, `/map/` only — fenced
           per the brief: "do not extend page-hero.tsx"). Supplies the page's <h1> (mirrors
-}          the PageHero convention — a route without its own <h1> gets one here). */
+          the PageHero convention — a route without its own <h1> gets one here). */}
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
         <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
           <span

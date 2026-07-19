@@ -104,7 +104,7 @@ export default function PageHero({
         className="glass-panel animate-reveal-up relative overflow-hidden mx-auto max-w-[1200px] px-6 py-8 sm:px-10 sm:py-12"
       >
         {/* Decorative brand wash — a tint layered over the glass fill. Absolutely
-}            positioned + pointer-events-none, adds no layout box (0-overflow safe). */
+            positioned + pointer-events-none, adds no layout box (0-overflow safe). */}
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"

@@ -20,7 +20,7 @@ export default function ChecklistPage() {
     <main className="min-h-screen bg-surface">
       {/* Local page header — reuses the PageHero design tokens directly rather than extending
           page-hero.tsx's closed variant union. Supplies the page's <h1>
-}          (mirrors app/packing/page.tsx). */
+          (mirrors app/packing/page.tsx). */}
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
         <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
           <span

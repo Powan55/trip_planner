@@ -80,7 +80,7 @@ export default function HomeBento() {
           Trip at a glance
         </h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {}/* Next up — spans 2 cols on every breakpoint (the widest tile). In-trip only. */
+          {/* Next up — spans 2 cols on every breakpoint (the widest tile). In-trip only. */}
           <BentoTile
             testId="home-bento-next-up"
             className="col-span-2"
@@ -99,7 +99,7 @@ export default function HomeBento() {
             )}
           </BentoTile>
 
-          {}/* Budget spent-so-far. */
+          {/* Budget spent-so-far. */}
           <BentoTile testId="home-bento-budget" icon={<Wallet className="w-4 h-4" aria-hidden="true" />} label="Budget">
             {roll.totalBudgetHome > 0 ? (
               <p className="text-sm font-semibold text-white">
@@ -111,7 +111,7 @@ export default function HomeBento() {
             )}
           </BentoTile>
 
-          {}/* Weather now (cache-derived, no new fetch) — in-trip only. */
+          {/* Weather now (cache-derived, no new fetch) — in-trip only. */}
           <BentoTile testId="home-bento-weather" icon={<CloudSun className="w-4 h-4" aria-hidden="true" />} label="Weather">
             {weatherTag ? (
               <p className="text-sm font-semibold text-white">
@@ -124,7 +124,7 @@ export default function HomeBento() {
             )}
           </BentoTile>
 
-          {}/* Packing checklist %. */
+          {/* Packing checklist %. */}
           <BentoTile testId="home-bento-packing" icon={<Backpack className="w-4 h-4" aria-hidden="true" />} label="Packing">
             {!packingHydrated ? (
               <EmptyLine>Loading…</EmptyLine>
@@ -135,7 +135,7 @@ export default function HomeBento() {
             )}
           </BentoTile>
 
-          {}/* Docs checklist %. */
+          {/* Docs checklist %. */}
           <BentoTile testId="home-bento-docs" icon={<FileCheck2 className="w-4 h-4" aria-hidden="true" />} label="Docs">
             {!docsHydrated ? (
               <EmptyLine>Loading…</EmptyLine>
@@ -146,7 +146,7 @@ export default function HomeBento() {
             )}
           </BentoTile>
 
-          {}/* Mini map/photo link tile — spans 2 cols, decorative gradient art. */
+          {/* Mini map/photo link tile — spans 2 cols, decorative gradient art. */}
           <Link
             href="/map/"
             data-testid="home-bento-map"
@@ -167,7 +167,7 @@ export default function HomeBento() {
             <ArrowRight className="relative w-4 h-4 text-white/40 group-hover:text-gold-400 group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
           </Link>
 
-          {}/* Travel Mode entry — spans 2 cols, shares the ONE entry path. */
+          {/* Travel Mode entry — spans 2 cols, shares the ONE entry path. */}
           <button
             type="button"
             onClick={() => enterTravel()}

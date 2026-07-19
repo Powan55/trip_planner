@@ -175,7 +175,7 @@ export default function BudgetPanel() {
         variants={reveal}
         className="glass-card rounded-2xl p-6 sm:p-8"
       >
-        {}/* Header */
+        {/* Header */}
         <div className="mb-6 flex items-start gap-3">
           <Wallet className="mt-0.5 h-6 w-6 shrink-0 text-gold-400" aria-hidden="true" />
           <div>
@@ -192,7 +192,7 @@ export default function BudgetPanel() {
           </div>
         </div>
 
-        {}/* Per-leg budgets */
+        {/* Per-leg budgets */}
         <div className="grid gap-4 lg:grid-cols-2">
           <LegBudgetCard
             leg="nepal"
@@ -216,12 +216,12 @@ export default function BudgetPanel() {
           />
         </div>
 
-        {}/* Grand total (budget + spent + remaining, all in the home currency) */
+        {/* Grand total (budget + spent + remaining, all in the home currency) */}
         <GrandTotal roll={roll} home={home} />
 
         {/* Burn-rate vs plan: rendered from the SAME live `roll` — spent-vs-budget bar, days
             elapsed/remaining, daily avg vs budget, projected end-of-trip total, under/on/over pace.
-}            No duplicate budget/expense load — it's fed the panel's reactive totals + the clock. */
+            No duplicate budget/expense load — it's fed the panel's reactive totals + the clock. */}
         <BurnRateView
           budgetHome={roll.totalBudgetHome}
           spentHome={roll.totalSpentHome}
@@ -229,7 +229,7 @@ export default function BudgetPanel() {
           now={now}
         />
 
-        {}/* Expense log — the fast-log trigger + the logged-expense list */
+        {/* Expense log — the fast-log trigger + the logged-expense list */}
         <ExpenseLog
           expenses={expenses}
           onLog={openLogDialog}
@@ -237,7 +237,7 @@ export default function BudgetPanel() {
           onDelete={handleDeleteExpense}
         />
 
-        {}/* Settle up — who owes whom over the split expenses; hidden until ≥1 split. */
+        {/* Settle up — who owes whom over the split expenses; hidden until ≥1 split. */}
         <SettleUpSummary settlements={settlements} />
       </m.div>
     </section>
@@ -399,7 +399,7 @@ function LegBudgetCard({
         <p className="mt-0.5 text-xs text-white/50">{subtitle}</p>
       </div>
 
-      {}/* Leg total budget (in the leg's local currency) */
+      {/* Leg total budget (in the leg's local currency) */}
       <div className="flex flex-col gap-1">
         <label htmlFor={legInputId} className="text-xs font-medium text-white/70">
           Total budget ({cur})
@@ -426,7 +426,7 @@ function LegBudgetCard({
             }`}
           />
         </div>
-        {}/* Home-currency echo of this leg's total (presentation-only). */
+        {/* Home-currency echo of this leg's total (presentation-only). */}
         <p className="text-xs text-white/50" data-testid={`budget-leg-${leg}-home`}>
           {home === cur ? (
             <span className="text-white/55">Shown in {cur}</span>
@@ -437,7 +437,7 @@ function LegBudgetCard({
             </>
           )}
         </p>
-        {}/* Spent + remaining for this leg, in the leg's local currency. */
+        {/* Spent + remaining for this leg, in the leg's local currency. */}
         <SpentRemaining
           spentLocal={legRoll?.spentLocal ?? 0}
           remainingLocal={legRoll?.remainingLocal ?? 0}
@@ -447,7 +447,7 @@ function LegBudgetCard({
         />
       </div>
 
-      {}/* Per-category budgets (optional) */
+      {/* Per-category budgets (optional) */}
       <details className="group rounded-lg border border-white/10 bg-surface/40">
         <summary
           data-testid={`budget-leg-${leg}-categories-toggle`}

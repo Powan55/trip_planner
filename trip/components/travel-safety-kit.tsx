@@ -20,7 +20,7 @@ export default function TravelSafetyKit() {
 
   return (
     <div data-testid="safety-kit" className="mx-auto w-full max-w-4xl px-4 pb-20 sm:px-6">
-      {}/* ── 1. Emergency & embassy contacts ─────────────────────────────────────────────── */
+      {/* ── 1. Emergency & embassy contacts ─────────────────────────────────────────────── */}
       <section aria-labelledby="safety-emergency-heading" className="mb-14">
         <h2 id="safety-emergency-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Emergency &amp; Embassy Contacts
@@ -44,7 +44,7 @@ export default function TravelSafetyKit() {
         </div>
       </section>
 
-      {}/* ── 2. Phrasebook ────────────────────────────────────────────────────────────────── */
+      {/* ── 2. Phrasebook ────────────────────────────────────────────────────────────────── */}
       <section aria-labelledby="safety-phrasebook-heading" className="mb-14">
         <h2 id="safety-phrasebook-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Phrasebook
@@ -79,7 +79,7 @@ export default function TravelSafetyKit() {
         </div>
       </section>
 
-      {}/* ── 3. Document checklist ────────────────────────────────────────────────────────── */
+      {/* ── 3. Document checklist ────────────────────────────────────────────────────────── */}
       <section aria-labelledby="safety-checklist-heading">
         <h2 id="safety-checklist-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Document Checklist

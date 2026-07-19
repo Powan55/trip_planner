@@ -253,7 +253,7 @@ function SortableItem({ item, date, clashes, selectMode, selected, highlighted, 
       </div>
       {/* "show on map" — a PERSISTENT (non-hover) affordance, shown only when the
           split map is open AND this item resolves to a curated marker. Sets the shared
-}          highlight so the map emphasizes the stop; keyboard-focusable + labelled. */
+          highlight so the map emphasizes the stop; keyboard-focusable + labelled. */}
       {mapVisible && hasMarker && (
         <button
           onClick={onLocate}
@@ -571,7 +571,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
           {/* Manual pin-drop — opt-in, collapsed unless the item already carries a
               pin. Two free-text numeric fields (inputMode="decimal", NOT type="number" —
               wheel-footgun lesson) so a pinned custom item plots on both maps even
-}              when its title doesn't match a curated marker. */
+              when its title doesn't match a curated marker. */}
           <div>
             <button
               type="button"
@@ -635,7 +635,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
           {/* Multi-day span — opt-in, collapsed unless the item already spans. A "spans
               multiple days" toggle reveals a native <select> of trip days AFTER the start day.
               The item stays owned by its start day (no multi-homing); only the render layer
-}              expands a band across the covered days. Disabled if the start day is the last day. */
+              expands a band across the covered days. Disabled if the start day is the last day. */}
           <div>
             <button
               type="button"
@@ -668,7 +668,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
             )}
           </div>
           {/* Google Maps research link-out. Disabled until Title is
-}              non-empty; a URL, not an API — no key, no quota. */
+              non-empty; a URL, not an API — no key, no quota. */}
           {mapsUrl ? (
             <a
               href={mapsUrl}
@@ -1178,7 +1178,7 @@ export default function CalendarPlanner() {
                 )}
                 {/* a subtle "has spend" marker (top-right), sized to fit the cramped cell — a
                     small gold dot, NOT a currency figure (that lives in the single-day readout +
-}                    aria-label). aria-hidden: the label extension already announces the amount. */
+                    aria-label). aria-hidden: the label extension already announces the amount. */}
                 {hasSpend && (
                   <span
                     aria-hidden="true"
@@ -1282,11 +1282,11 @@ export default function CalendarPlanner() {
 
         {/* search-within-plan: read-only over titles/notes/categories across
             every day. A cross-day pick jumps `selectedDate` and highlights the row via
-}            `focusItem`. */
+            `focusItem`. */}
         <PlanSearch plans={plans} onSelect={handleSearchSelect} />
 
         {/* View Toggle — desktop only (`lg+`). On phones the day-strip + collapsible
-}            month view replace this Calendar/Agenda switch, so it is hidden below `lg`. */
+            month view replace this Calendar/Agenda switch, so it is hidden below `lg`. */}
         <div className="hidden lg:flex flex-wrap justify-center gap-2 mb-6">
           <button
             onClick={() => setViewMode('calendar')}
@@ -1308,12 +1308,12 @@ export default function CalendarPlanner() {
 
         {/* Author filter: presentational, read-only. Self-hides when no item is
             attributed (dormant/portfolio build unchanged). Narrows the day-detail list
-}            below AND the timeline (shared selection via lib/author-filter). */
+            below AND the timeline (shared selection via lib/author-filter). */}
         <AuthorFilterControl plans={plans} className="mb-6" />
 
         {/* split map/list toggle. OFF by default → the maplibre island stays
             interaction-lazy. On → the selected day's stops + polyline render on
-}            <TripMap> beside the list (lg+) or in a bottom-sheet peek (`<lg`). */
+            <TripMap> beside the list (lg+) or in a bottom-sheet peek (`<lg`). */}
         <div className="flex justify-center mb-6">
           <button
             type="button"
@@ -1332,11 +1332,11 @@ export default function CalendarPlanner() {
         </div>
 
         <div className="grid lg:grid-cols-[340px_1fr] gap-6">
-          {}/* Left: Calendar or Date list */
+          {/* Left: Calendar or Date list */}
           <div className="min-w-0">
             {/* Mobile picker (`<lg`): the one-handed day-strip agenda picker replaces the
                 desktop month grid. The month grid is demoted to a collapsible "Month view",
-}                collapsed by default. Desktop (`lg+`) never sees this block. */
+                collapsed by default. Desktop (`lg+`) never sees this block. */}
             <div className="lg:hidden space-y-3">
               <DayStrip
                 dates={TRIP_DATES}
@@ -1359,7 +1359,7 @@ export default function CalendarPlanner() {
             </div>
 
             {/* Desktop left pane (`lg+`): the existing month-grid / agenda-list two-pane,
-}                pixel-equivalent to before — now gated to `lg+` since the day-strip owns `<lg`. */
+                pixel-equivalent to before — now gated to `lg+` since the day-strip owns `<lg`. */}
             <div className="hidden lg:block">
             {viewMode === 'calendar' ? renderCalendar() : (
               <div className="glass-card rounded-2xl p-4 max-h-[600px] overflow-y-auto scrollbar-hide space-y-1">
@@ -1391,11 +1391,11 @@ export default function CalendarPlanner() {
           </div>
 
           {/* Right region: the day detail + the optional inline map pane. When the
-}              map is open on lg+ they sit side-by-side at xl and stack at lg. */
+              map is open on lg+ they sit side-by-side at xl and stack at lg. */}
           <div className={`min-w-0 ${showMap && isDesktop ? 'grid grid-cols-1 xl:grid-cols-[1fr_minmax(300px,360px)] gap-6 items-start' : ''}`}>
-          {}/* Right: Day Detail with DnD */
+          {/* Right: Day Detail with DnD */}
           <div className="min-w-0 glass-card rounded-2xl p-4 sm:p-6">
-            {}/* Day Header */
+            {/* Day Header */}
             <div className="flex items-center justify-between gap-1 mb-5">
               <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
@@ -1406,7 +1406,7 @@ export default function CalendarPlanner() {
                 {/* day-at-a-glance pill row — composes the existing spend pill +
                     weather pill (unchanged testids/markup below) alongside two new pills (item
                     count, first-start time). A flex-wrap row so it degrades gracefully on narrow
-}                    viewports; renders nothing when the day has none of the four facts. */
+                    viewports; renders nothing when the day has none of the four facts. */}
                 <div
                   data-testid="calendar-day-glance"
                   className="mt-1 flex flex-wrap justify-center items-center gap-1.5"
@@ -1429,7 +1429,7 @@ export default function CalendarPlanner() {
                   )}
                   {/* cost overlay (read-only): this day's total logged spend, in the day's
                       leg-local currency (a single day is one leg). Renders only when there is spend;
-}                      an unplanned/no-spend day shows nothing extra. Purely derived from useExpenses(). */
+                      an unplanned/no-spend day shows nothing extra. Purely derived from useExpenses(). */}
                   {(spendByDate[selectedDate] ?? 0) > 0 && (
                     <span
                       data-testid="calendar-day-spend-total"
@@ -1444,7 +1444,7 @@ export default function CalendarPlanner() {
                   {/* quiet contextual weather tag — pure derivation over whatever the
                       Open-Meteo cache (already fetched elsewhere, e.g. the Today/Essentials
                       panel) happens to cover for this exact city/date. No cache hit → nothing
-}                      rendered, no layout shift. */
+                      rendered, no layout shift. */}
                   {dayWeatherTag && (
                     <span
                       data-testid="calendar-day-weather-tag"
@@ -1461,7 +1461,7 @@ export default function CalendarPlanner() {
 
             {/* Day toolbar. Both appear only when the day has
                 items. Select toggles the multi-select mode (OFF by default — no change to the
-}                normal single-item flow when off). */
+                normal single-item flow when off). */}
             {dayItems.length > 0 && (
               <div className="flex justify-between items-center gap-2 mb-3">
                 <button
@@ -1494,7 +1494,7 @@ export default function CalendarPlanner() {
                 selected count is announced via aria-live. Move/Delete act on the SELECTION;
                 Copy day copies the WHOLE day (a day-level op parked here for convenience). The
                 day pickers reuse the native <select> idiom (SR/keyboard-friendly, no
-}                portal/focus-trap to hand-build). */
+                portal/focus-trap to hand-build). */}
             {selectMode && (
               <div
                 role="region"
@@ -1550,7 +1550,7 @@ export default function CalendarPlanner() {
               </div>
             )}
 
-            {}/* bulk-delete confirm. */
+            {/* bulk-delete confirm. */}
             <AlertDialog open={confirmBulkDeleteOpen} onOpenChange={setConfirmBulkDeleteOpen}>
               <AlertDialogContent className="glass-card-dark border-white/10 text-white" data-testid="calendar-bulk-delete-confirm">
                 <AlertDialogHeader>
@@ -1597,7 +1597,7 @@ export default function CalendarPlanner() {
                 start day, where the item ALSO appears as an editable row below). On non-start days
                 this band is the ONLY trace of the item — it is never re-inserted into the list, so
                 the item stays owned by its single start-day doc. Each band carries an accessible
-}                label describing the span. */
+                label describing the span. */}
             {spanBands.length > 0 && (
               <div className="space-y-2 mb-3" data-testid="calendar-span-bands">
                 {spanBands.map(({ item, spanStart, spanEnd, isStartDay }) => {
@@ -1620,7 +1620,7 @@ export default function CalendarPlanner() {
               </div>
             )}
 
-            {}/* Items */
+            {/* Items */}
             <DndContext
               sensors={sensors}
               collisionDetection={closestCenter}
@@ -1656,7 +1656,7 @@ export default function CalendarPlanner() {
                           {/* phase-of-day header — subtle, non-interactive, shown only at a
                               phase boundary in the rendered order (: timed items keep their
                               exact stored order; only untimed items move to the trailing "Anytime"
-}                              run — see lib/phase-of-day.ts). Not a sortable/draggable node. */
+                              run — see lib/phase-of-day.ts). Not a sortable/draggable node. */}
                           {isNewPhase && (
                             <p
                               data-testid={`calendar-phase-header-${phase}-${item.id}`}
@@ -1706,7 +1706,7 @@ export default function CalendarPlanner() {
                 the selected day. This is the single FAST, title-only affordance; the "Add
                 Activity" button below (and the phone quick-add FAB) open the FULL editor for
                 detailed adds, so the surface has one fast path + one detailed path, not two
-}                competing quick adds. Writes through the same commit() choke-point → holds. */
+                competing quick adds. Writes through the same commit() choke-point → holds. */}
             <div className="mt-4">
               <QuickAddInput
                 label={`Quick-add a plan for ${formatDateLong(selectedDate)}`}
@@ -1715,7 +1715,7 @@ export default function CalendarPlanner() {
               />
             </div>
 
-            {}/* Add Button — the DETAILED path (full editor: time, category, location, notes). */
+            {/* Add Button — the DETAILED path (full editor: time, category, location, notes). */}
             <button
               onClick={handleAddItem}
               data-testid="calendar-add-item"
@@ -1727,7 +1727,7 @@ export default function CalendarPlanner() {
           </div>
 
           {/* desktop inline map pane (lg+). Sticky + tall; stacks under the day
-}              detail at lg, sits beside it at xl. Mobile (`<lg`) uses the sheet below. */
+              detail at lg, sits beside it at xl. Mobile (`<lg`) uses the sheet below. */}
           {showMap && isDesktop && (
             <aside
               aria-label={`Map of stops for ${formatDateLong(selectedDate)}`}
@@ -1743,7 +1743,7 @@ export default function CalendarPlanner() {
       {/* mobile map bottom-sheet peek (`<lg`). Reuses the rounded-t-2xl glass sheet
           idiom: a non-modal peek fixed to the bottom that the
           page scrolls behind, expandable to near-full height. Rendered only when the map is
-}          on AND we're on a phone — so exactly one PlanDayMap instance exists (see mapEl). */
+          on AND we're on a phone — so exactly one PlanDayMap instance exists (see mapEl). */}
       {showMap && !isDesktop && (
         <div
           data-testid="plan-map-sheet"
@@ -1785,7 +1785,7 @@ export default function CalendarPlanner() {
           Focus returns to the trigger via onExitComplete — i.e. only after the
           editor has fully animated out and unmounted. Doing it earlier (in the
           editor's own effect cleanup) raced framer-motion's exit and left the
-}          dialog stuck open when close was initiated from inside the panel. */
+          dialog stuck open when close was initiated from inside the panel. */}
       <AnimatePresence
         onExitComplete={() => {
           triggerRef.current?.focus?.();

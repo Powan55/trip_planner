@@ -104,7 +104,7 @@ export default function AddToPlanButton({ source, sourceType, accentColor }: Add
       )}
 
       {/* One dialog instance per card; only one is open at a time in practice.
-}          Focus returns to the trigger on exit-complete. */
+          Focus returns to the trigger on exit-complete. */}
       <AnimatePresence
         onExitComplete={() => {
           triggerRef.current?.focus?.();

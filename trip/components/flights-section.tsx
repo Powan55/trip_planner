@@ -37,7 +37,7 @@ function StatusChip({ status }: { status: 'booked' | 'to-book' }) {
 function LegRow({ leg }: { leg: FlightLeg }) {
   return (
     <li className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
-      {}/* Flight number + cabin */
+      {/* Flight number + cabin */}
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 min-w-0">
           <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-300 shrink-0">
@@ -51,7 +51,7 @@ function LegRow({ leg }: { leg: FlightLeg }) {
         </span>
       </div>
 
-      {}/* From -> To, with airport names + terminals */
+      {/* From -> To, with airport names + terminals */}
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="font-mono font-bold text-white text-base">{leg.fromCode}</div>
@@ -66,7 +66,7 @@ function LegRow({ leg }: { leg: FlightLeg }) {
         </div>
       </div>
 
-      {}/* Depart -> Arrive + duration. Verbatim labels — never parsed/recomputed. */
+      {/* Depart -> Arrive + duration. Verbatim labels — never parsed/recomputed. */}
       <div className="mt-3 pt-3 border-t border-white/5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
         <span className="text-white/55">
           <span className="text-white/40">Depart</span> {leg.departLabel}
@@ -79,7 +79,7 @@ function LegRow({ leg }: { leg: FlightLeg }) {
         </span>
       </div>
 
-      {}/* Seats — only when present. */
+      {/* Seats — only when present. */}
       {leg.seats && leg.seats.length > 0 && (
         <div className="mt-2 flex items-center gap-1.5 text-[11px] text-white/45">
           <Armchair className="w-3 h-3 text-cyan-300/70" aria-hidden="true" />
@@ -151,7 +151,7 @@ function JourneyCard({ journey, index }: { journey: Journey; index: number }) {
       {/* Ordered legs interleaved with layovers: layover[i] sits between leg[i] and leg[i+1].
           LegRow / LayoverRow each render a single <li> LISTITEM (: the layover's
           `role="separator"` now lives on an inner span, not the <li>), so every DIRECT
-}          child of this <ol> is a valid listitem (axe `only-listitems`). */
+          child of this <ol> is a valid listitem (axe `only-listitems`). */}
       <ol className="space-y-2">
         {journey.legs.map((leg, i) => (
           <Fragment key={leg.id}>
@@ -256,7 +256,7 @@ export default function FlightsSection() {
         {/* slide-only masthead entrance (opacity pinned to 1) — see the
             RecommendationSection masthead for the full rationale. Prevents the
             (non-reduced-motion) axe scan from catching the muted `text-white/50`
-}            subtitle mid-fade and flagging a transient contrast failure. */
+            subtitle mid-fade and flagging a transient contrast failure. */}
         <m.div
           initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -274,14 +274,14 @@ export default function FlightsSection() {
 
         {mounted && (
           <>
-            {}/* Two journey cards. */
+            {/* Two journey cards. */}
             <div className="grid lg:grid-cols-2 gap-5 mb-5">
               {JOURNEYS.map((journey, i) => (
                 <JourneyCard key={journey.id} journey={journey} index={i} />
               ))}
             </div>
 
-            {}/* Stays + Japan to-book, side by side on wide screens. */
+            {/* Stays + Japan to-book, side by side on wide screens. */}
             <div className="grid lg:grid-cols-2 gap-5">
               <div className="min-w-0">
                 <h3 className="sr-only">Accommodation</h3>

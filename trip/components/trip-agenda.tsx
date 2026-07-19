@@ -99,7 +99,7 @@ function TodayAgendaItem({ item, date, onToggle }: { item: ItineraryItem; date: 
             suppresses any mount animation; the scale keyframe fires only on the
             done→ transition. Reduced motion is handled app-wide by
             <MotionConfig reducedMotion="user"> → it lands on the final scale
-}            with no pop; the color/state change (the real affordance) is unaffected. */
+            with no pop; the color/state change (the real affordance) is unaffected. */}
         <m.span
           aria-hidden="true"
           initial={false}

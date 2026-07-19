@@ -230,7 +230,7 @@ export default function PlaceDetailSheet({
                 max-h-[38vh] + object-cover crops the image instead, keeping BOTH
                 footer actions on-screen. On tall viewports (390×844, 1280×900)
                 38vh always exceeds the natural height, so the cap never binds and
-}                the 16/10 framing is unchanged. */
+                the 16/10 framing is unchanged. */}
             <div className="shrink-0 relative">
               {place.image ? (
                 <div
@@ -269,7 +269,7 @@ export default function PlaceDetailSheet({
               )}
             </div>
 
-            {}/* Scrollable body — the only scroll region. */
+            {/* Scrollable body — the only scroll region. */}
             <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4">
               <div className="flex items-start justify-between gap-3 mb-1">
                 <h3
@@ -309,7 +309,7 @@ export default function PlaceDetailSheet({
                   now a `<span>` inside the dt) so it wraps exactly as before; `dt` just
                   flexes the icon and that span together with the same `gap-2.5` the icon
                   used to have as a dl-row sibling — so `<dd>` still starts at the same
-}                  x-offset (icon 16px + gap 10px + label 96px + gap 10px, unchanged). */
+                  x-offset (icon 16px + gap 10px + label 96px + gap 10px, unchanged). */}
               {(place.bestTime || place.duration || place.priceHint || typeof place.rating === 'number') && (
                 <dl className="space-y-2.5 mb-2">
                   {place.bestTime && (
@@ -356,7 +356,7 @@ export default function PlaceDetailSheet({
               )}
             </div>
 
-            {}/* Pinned footer — Maps link + add-to-plan, always visible. */
+            {/* Pinned footer — Maps link + add-to-plan, always visible. */}
             <div className="shrink-0 px-5 sm:px-6 pt-3 pb-5 border-t border-white/10 bg-surface/40 space-y-2.5">
               {mapsUrl && (
                 <a
@@ -370,7 +370,7 @@ export default function PlaceDetailSheet({
                 </a>
               )}
 
-              {}/* Source-linked add (recs / photos) — the shared state-aware control. */
+              {/* Source-linked add (recs / photos) — the shared state-aware control. */}
               {addSource && addSourceType && (
                 <div data-testid="place-detail-add-to-plan" className="[&>button]:mt-0">
                   <AddToPlanButton source={addSource} sourceType={addSourceType} accentColor={accentText} />
@@ -380,7 +380,7 @@ export default function PlaceDetailSheet({
               {/* Custom add (nightlife) — opens the custom dialog prefilled.:
                   a non-empty sourceId (the namespaced nightlife id) gets the same
                   state-aware "Added"/modify-remove treatment as AddToPlanButton; an
-}                  empty-sourceId draft (none today) keeps the plain static button. */
+                  empty-sourceId draft (none today) keeps the plain static button. */}
               {customAddDraft && (
                 customAddDraft.sourceId ? (
                   <button
@@ -431,7 +431,7 @@ export default function PlaceDetailSheet({
           </m.div>
 
           {/* Custom-add dialog (nightlife path). Portals over the sheet; parent-owned
-}              focus-return to the trigger button on exit-complete. */
+              focus-return to the trigger button on exit-complete. */}
           {customAddDraft && (
             <AnimatePresence
               onExitComplete={() => {

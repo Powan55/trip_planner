@@ -203,7 +203,7 @@ function MarkerPopupContent({
           {/* `/40`→`/55` — axe
               caught this pre-existing AA contrast fail (3.72:1) once a real E2E
               scanned the popup with content OPEN for the first time (the earlier
-}              /map axe pack never opens a popup, so this was never exercised). */
+              /map axe pack never opens a popup, so this was never exercised). */}
           <p className="flex items-center gap-1 text-[11px] text-white/55 mb-1.5">
             <MapPin className="w-3 h-3" />
             {marker.area} · {marker.country}
@@ -252,7 +252,7 @@ function MarkerPopupContent({
           the day <select> + Assign button is the keyboard AND touch path (HTML5 drag
           never fires on touch); the drag handle is a desktop-pointer convenience that
           drops onto the day strip (map-section.tsx). enableDayAssign gates the whole
-}          block to /map — /plan's day-map omits it (like enablePopupFavorite). */
+          block to /map — /plan's day-map omits it (like enablePopupFavorite). */}
       {enableDayAssign && assignDays && assignDays.length > 0 && (
         <div
           data-testid={`map-popup-assign-${marker.id}`}
@@ -260,7 +260,7 @@ function MarkerPopupContent({
         >
           <div className="flex items-stretch gap-1.5">
             {/* Desktop-pointer drag handle (drops onto the day strip). Hidden from the
-}                a11y tree — the select+button below is the equivalent, keyboard/touch path. */
+                a11y tree — the select+button below is the equivalent, keyboard/touch path. */}
             <span
               draggable
               onDragStart={(e) => {
@@ -859,7 +859,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           `.maplibregl-map { position: relative }` onto this node, which would
           defeat inset-0 sizing and collapse the container to 0px. An explicit
           full-size box sizes correctly under either position, given the host
-}          has a definite height (inline slot h-[560px] / fixed inset-0). */
+          has a definite height (inline slot h-[560px] / fixed inset-0). */}
       <div
         ref={containerRef}
         className="h-full w-full"
@@ -867,11 +867,11 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         role="application"
       />
 
-      {}/* Loading skeleton until the GL canvas is ready. */
+      {/* Loading skeleton until the GL canvas is ready. */}
       {!mapReady && (
         <div className="absolute inset-0 grid place-items-center bg-surface">
           {/* loading label `/40`→`/55` so "Loading map…" clears AA (3.76→6.22)
-}              on the navy skeleton while the GL canvas mounts. */
+              on the navy skeleton while the GL canvas mounts. */}
           <div className="flex flex-col items-center gap-3 text-white/55">
             <MapPin className="w-6 h-6 motion-safe:animate-pulse" />
             <span className="text-xs">Loading map…</span>
@@ -880,7 +880,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       )}
 
       {/* Popup content portal: stays in this React tree so context flows
-}          to AddToPlanButton, while its DOM lives inside the MapLibre Popup. */
+          to AddToPlanButton, while its DOM lives inside the MapLibre Popup. */}
       {popupNode && popupMarker
         ? createPortal(
             <MarkerPopupContent
@@ -897,7 +897,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       {/* Scoped dark-brand overrides for the MapLibre popup + controls. A plain
           <style> element (local to this component, not globals.css which
           owns) — the default popup/control chrome is light, so we retint it to
-}          the navy/gold palette. */
+          the navy/gold palette. */}
       <style>{`
         .njp-map-popup .maplibregl-popup-content {
           background: ${BRAND.navy800};

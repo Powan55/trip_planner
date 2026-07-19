@@ -22,7 +22,7 @@ export default function RecapPage() {
           text-gradient-gold / animate-reveal-up) directly rather than extending PageHero's
           closed `HeroVariant` union (fenced per the brief, mirroring app/journal/page.tsx
           and app/safety/page.tsx). Supplies the page's <h1>; the island's own headings (trip
-}          summary / per-day) nest under it as h2/h3. */
+          summary / per-day) nest under it as h2/h3. */}
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
         <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
           <span
@@ -47,7 +47,7 @@ export default function RecapPage() {
       </header>
       <TripStoryRecap />
       {/* — the "Trip Wrapped" capstone: an entry card + headline-stat panels, composed BELOW
-}          the day-by-day story (additive, does not touch TripStoryRecap's own markup/behavior). */
+          the day-by-day story (additive, does not touch TripStoryRecap's own markup/behavior). */}
       <WrappedStory />
     </main>
   );

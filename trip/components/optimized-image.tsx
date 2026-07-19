@@ -184,7 +184,7 @@ export default function OptimizedImage({
 
   return (
     <>
-      {}/* LQIP backdrop — fades OUT as the real image fades in. aria-hidden; decorative. */
+      {/* LQIP backdrop — fades OUT as the real image fades in. aria-hidden; decorative. */}
       {blur && (
         <img
           src={blur}

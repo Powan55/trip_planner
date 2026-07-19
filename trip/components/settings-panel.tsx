@@ -277,7 +277,7 @@ function TripGroup() {
 
   return (
     <div className="flex flex-col gap-4">
-      {}/* On a non-default pack only: banner + a way back to the grandfathered main trip. */
+      {/* On a non-default pack only: banner + a way back to the grandfathered main trip. */}
       {onSharedTrip && (
         <div
           data-testid="settings-trip-shared-banner"
@@ -302,7 +302,7 @@ function TripGroup() {
         </div>
       )}
 
-      {}/* Current Trip Key — the shareable secret for THIS trip. */
+      {/* Current Trip Key — the shareable secret for THIS trip. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">This trip&rsquo;s key</h3>
         <p className="mt-1 flex items-start gap-1.5 text-xs text-white/50">
@@ -352,7 +352,7 @@ function TripGroup() {
         </div>
       </div>
 
-      {}/* Create a brand-new trip. */
+      {/* Create a brand-new trip. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">Start a new trip</h3>
         <p className="mt-1 max-w-2xl text-sm text-white/60">
@@ -370,7 +370,7 @@ function TripGroup() {
         </button>
       </div>
 
-      {}/* Join an existing trip by pasting its Trip Key. */
+      {/* Join an existing trip by pasting its Trip Key. */}
       <form
         onSubmit={join}
         className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
@@ -435,7 +435,7 @@ function CurrencyGroup() {
 
   return (
     <div className="grid gap-4 lg:grid-cols-2">
-      {}/* Home / display currency toggle */
+      {/* Home / display currency toggle */}
       <fieldset className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <legend className="px-1 text-sm font-semibold text-white">Show totals in</legend>
         <div
@@ -468,7 +468,7 @@ function CurrencyGroup() {
         </div>
       </fieldset>
 
-      {}/* Exchange rates (manual override; seeded) */
+      {/* Exchange rates (manual override; seeded) */}
       <fieldset className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <legend className="px-1 text-sm font-semibold text-white">Exchange rates</legend>
         <p className="mt-1 flex items-center gap-1.5 text-xs text-white/50">
@@ -567,11 +567,11 @@ function DataGroup() {
 
   return (
     <div className="flex flex-col gap-6">
-      {}/* Export / Import — the reused panel, discoverable from settings. */
+      {/* Export / Import — the reused panel, discoverable from settings. */}
       <BackupRestore />
 
       {/* Expense CSV export — a spreadsheet-ready sibling to the whole-trip JSON export
-}          above. Disabled when there is nothing to export (empty-safe: no zero-row file). */
+          above. Disabled when there is nothing to export (empty-safe: no zero-row file). */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">Export expenses</h3>
         <p className="mt-1 max-w-2xl text-sm text-white/60">
@@ -590,10 +590,10 @@ function DataGroup() {
       </div>
 
       {/* Expenses backup / restore JSON — expenses get their OWN export
-}          file/schema, NOT an extension of the itinerary Vault above. */
+          file/schema, NOT an extension of the itinerary Vault above. */}
       <ExpensesBackupRestore expenses={expenses} restoreExpenses={restoreExpenses} />
 
-      {}/* Per-domain clears — each behind a Radix AlertDialog confirm. */
+      {/* Per-domain clears — each behind a Radix AlertDialog confirm. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">Clear trip data</h3>
         <p className="mt-1 max-w-2xl text-sm text-white/60">

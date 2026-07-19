@@ -90,7 +90,7 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
         </div>
       </button>
 
-      {}/* Add-to-plan affordance — additive; a sibling of the details button. */
+      {/* Add-to-plan affordance — additive; a sibling of the details button. */}
       <AddToPlanButton
         source={spot}
         sourceType="photo"
@@ -224,7 +224,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
           subtitle="Capture the perfect shot at every destination with expert shooting tips and gear suggestions."
         />
 
-        {}/* Search + sort */
+        {/* Search + sort */}
         <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
@@ -262,7 +262,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
           </div>
         </div>
 
-        {}/* City filter chips (only when more than one city is present) */
+        {/* City filter chips (only when more than one city is present) */}
         {cities.length > 2 && (
           <div className="flex flex-wrap justify-center gap-2 mb-3">
             {cities.map((city) => (
@@ -283,7 +283,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
           </div>
         )}
 
-        {}/* Category filter chips with live counts */
+        {/* Category filter chips with live counts */}
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           {categories.map((cat) => (
             <button

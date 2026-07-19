@@ -28,7 +28,7 @@ export default function TravelEssentials() {
           subtitle="December weather outlook for the journey."
         />
 
-        {}/* Weather Section */
+        {/* Weather Section */}
         <div className="grid md:grid-cols-2 gap-5">
           {[{ key: 'nepal' as const, label: 'Kathmandu, Nepal', data: WEATHER_INFO.nepal }, { key: 'japan' as const, label: 'Japan (Tokyo/Kyoto)', data: WEATHER_INFO.japan }].map(({ key, label, data }) => (
             <m.div

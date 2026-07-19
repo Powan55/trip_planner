@@ -70,7 +70,7 @@ export default function SectionSkeleton({
       style={{ minHeight: height }}
     >
       <div className="glass-subtle mx-auto flex max-w-[1200px] flex-col gap-6 rounded-3xl p-6 sm:p-10">
-        {}/* Eyebrow + title placeholders (matches the section header rhythm). */
+        {/* Eyebrow + title placeholders (matches the section header rhythm). */}
         <div className="flex flex-col items-center gap-3">
           <span
             className="animate-shimmer h-3 w-24 rounded-full"
@@ -82,7 +82,7 @@ export default function SectionSkeleton({
           />
         </div>
 
-        {}/* Content-row placeholders. */
+        {/* Content-row placeholders. */}
         <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: rows }).map((_, i) => (
             <div

@@ -80,7 +80,7 @@ export default function AuthorFilterControl({
         aria-label="Filter itinerary items by author"
         className="flex flex-wrap items-center justify-center gap-1.5"
       >
-        {}/* All — always present, the inert default. */
+        {/* All — always present, the inert default. */}
         <button
           type="button"
           onClick={() => setFilter({ kind: 'all' })}
@@ -90,7 +90,7 @@ export default function AuthorFilterControl({
           All
         </button>
 
-        {}/* My edits — only when a display name is set and present in the data. */
+        {/* My edits — only when a display name is set and present in the data. */}
         {showMine && (
           <button
             type="button"
@@ -103,7 +103,7 @@ export default function AuthorFilterControl({
           </button>
         )}
 
-        {}/* One chip per distinct author present in the itinerary. */
+        {/* One chip per distinct author present in the itinerary. */}
         {authorOptions.map((name) => (
           <button
             key={name}

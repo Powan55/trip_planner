@@ -82,7 +82,7 @@ function VenueCard({ venue, onOpen, isAdded }: { venue: NightlifeVenue; onOpen: 
 
         {/* passive planned-state indicator — decorative only (no nested
             interactive control inside this button; add/modify/remove lives in the
-}            detail sheet the tap above opens). Reactive to the shared itinerary store. */
+            detail sheet the tap above opens). Reactive to the shared itinerary store. */}
         {isAdded && (
           <span
             data-testid={`nightlife-added-${venue.id}`}
@@ -272,7 +272,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
       <div className="max-w-[1200px] mx-auto">
         {/* slide-only masthead entrance (opacity pinned to 1) so the axe
             scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
-}            mid-fade as a transient contrast failure. See RecommendationSection. */
+            mid-fade as a transient contrast failure. See RecommendationSection. */}
         <m.div
           initial={{ opacity: 1, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -305,7 +305,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
             whole nightlife panel fades up from opacity:0 on every page load — and
             the (non-reduced-motion) axe scan catches its chips/inputs mid-fade at
             ~0.15 opacity as serious contrast failures. Suppressing only the initial
-}            mount animation keeps the show/hide toggle transition fully intact. */
+            mount animation keeps the show/hide toggle transition fully intact. */}
         <AnimatePresence initial={false}>
           {visible && (
             <m.div
@@ -315,7 +315,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
               exit={{ opacity: 0, height: 0 }}
               className="overflow-hidden"
             >
-              {}/* Search + sort */
+              {/* Search + sort */}
               <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
                 <div className="relative flex-1">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
@@ -353,7 +353,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                 </div>
               </div>
 
-              {}/* City filter chips (only when more than one city is present) */
+              {/* City filter chips (only when more than one city is present) */}
               {cities.length > 2 && (
                 <div className="flex flex-wrap justify-center gap-2 mb-3">
                   {cities.map((city) => (
@@ -374,7 +374,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                 </div>
               )}
 
-              {}/* Vibe filter chips with live counts */
+              {/* Vibe filter chips with live counts */}
               <div className="flex flex-wrap justify-center gap-2 mb-8">
                 {vibes.map((vibe) => (
                   <button

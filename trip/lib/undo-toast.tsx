@@ -24,11 +24,11 @@ function UndoRing() {
       aria-hidden="true"
       className="-rotate-90 shrink-0"
     >
-      {}/* Track */
+      {/* Track */}
       <circle cx="9" cy="9" r="7" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="2" />
       {/* Depleting arc — base dashoffset 0 (full ring); the keyframe sweeps it to 44
           (2πr ≈ 44) over the undo window. Under reduced motion the animation is off,
-}          so it holds the base full ring. */
+          so it holds the base full ring. */}
       <circle
         cx="9"
         cy="9"

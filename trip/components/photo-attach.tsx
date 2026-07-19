@@ -129,7 +129,7 @@ export default function PhotoAttach({
         />
       </div>
 
-}      {/* Alt-text (required) + caption (optional) prompt, shown after a file is picked. */
+      {/* Alt-text (required) + caption (optional) prompt, shown after a file is picked. */}
       {pending && (
         <div data-testid="photo-prompt" className="mb-3 space-y-3 rounded-lg border border-white/15 bg-surface/60 p-3">
           <div>
@@ -193,7 +193,7 @@ export default function PhotoAttach({
         </p>
       )}
 
-      {}/* Thumbnails. Empty (and no pending prompt) → a quiet hint; blobs resolve per-mount. */
+      {/* Thumbnails. Empty (and no pending prompt) → a quiet hint; blobs resolve per-mount. */}
       {photos.length > 0 ? (
         <ul data-testid="photo-grid" className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((meta) => (

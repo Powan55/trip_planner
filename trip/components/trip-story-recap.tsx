@@ -123,7 +123,7 @@ export default function TripStoryRecap() {
       className="px-gutter py-section"
     >
       <div className="mx-auto max-w-3xl">
-        {}/* The trip-level summary — opens the story. */
+        {/* The trip-level summary — opens the story. */}
         <header className="mb-10 text-center">
           <p className="text-eyebrow mb-3 uppercase text-gold-400/80">The story, cover to cover</p>
           <h2 id="story-title" className="font-display text-2xl sm:text-3xl font-bold text-white mb-4">
@@ -259,7 +259,7 @@ function DayStory({
         <p className="mt-0.5 text-xs text-white/55">{formatDateLong(date)}</p>
       </header>
 
-      {}/* Plan-vs-actual, in prose: the run-rate line + the read-only item list. */
+      {/* Plan-vs-actual, in prose: the run-rate line + the read-only item list. */}
       {summary.planned === 0 ? (
         <p data-testid={`story-no-plan-${date}`} className="mb-3 text-sm italic text-white/55">
           A free day — nothing was planned.
@@ -292,7 +292,7 @@ function DayStory({
         </>
       )}
 
-      {}/* The day's journal reflection, read-only. */
+      {/* The day's journal reflection, read-only. */}
       {entry && (
         <div data-testid={`story-journal-${date}`} className="mt-3 border-t border-white/10 pt-3">
           <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-gold-400/80">
@@ -332,10 +332,10 @@ function DayStory({
         </div>
       )}
 
-      {}/* that day's journal photos, read-only. */
+      {/* that day's journal photos, read-only. */}
       <StoryPhotos date={date} dayNumber={dayNumber} city={city} photos={photos} />
 
-      {}/* The day's logged spend, in the day's leg-local currency — only when >0. */
+      {/* The day's logged spend, in the day's leg-local currency — only when >0. */}
       {spend > 0 && (
         <p data-testid={`story-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-white/60">
           <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />

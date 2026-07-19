@@ -235,7 +235,7 @@ function WeatherBody({ data }: { data: WeatherNow }) {
         Weather in {data.city}
       </h3>
 
-      {}/* Current conditions — temp + condition + hi/lo. */
+      {/* Current conditions — temp + condition + hi/lo. */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <Thermometer className="h-6 w-6 text-gold-400" aria-hidden="true" />
@@ -261,7 +261,7 @@ function WeatherBody({ data }: { data: WeatherNow }) {
         </p>
       </div>
 
-      {}/* Golden hour — highlighted for photographers (the app's photography theme). */
+      {/* Golden hour — highlighted for photographers (the app's photography theme). */}
       <div className="mt-4 space-y-2" data-testid="weather-golden-hour">
         <p className="text-[10px] uppercase tracking-widest text-gold-400/70">
           Golden hour · {data.city}
@@ -283,12 +283,12 @@ function WeatherBody({ data }: { data: WeatherNow }) {
       </div>
 
       {/* 7-day outlook — compact, collapsed-by-default, never dominates the card. Absent
-}          (not an error) when the response didn't carry a usable forecast. */
+          (not an error) when the response didn't carry a usable forecast. */}
       {data.forecast && data.forecast.length > 0 && (
         <ForecastOutlook days={data.forecast} stale={data.stale} />
       )}
 
-      {}/* Offline / cached indicator — only when we're showing stale data. */
+      {/* Offline / cached indicator — only when we're showing stale data. */}
       {data.stale && (
         <p
           data-testid="weather-cached-indicator"

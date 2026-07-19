@@ -461,7 +461,7 @@ export default function AddToItineraryDialog({
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
         className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
       >
-        {}/* Non-scrolling header — stays pinned at the top of the panel. */
+        {/* Non-scrolling header — stays pinned at the top of the panel. */}
         <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
           <div className="min-w-0">
             <h3 id={titleId} className="font-display text-lg font-bold text-white leading-tight">
@@ -489,9 +489,9 @@ export default function AddToItineraryDialog({
         {/* Scrollable body — the only scroll region. `min-h-0` lets it shrink inside
             the flex column so the pinned footer is never pushed off-screen on short
             viewports. A native scrollbar (no `scrollbar-hide`) makes the
-}            overflow discoverable when the content is taller than the viewport. */
+            overflow discoverable when the content is taller than the viewport. */}
         <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6">
-        {}/* Existing placements (modify/remove mode) */
+        {/* Existing placements (modify/remove mode) */}
         {isModifyMode && (
           <div className="mb-5 space-y-2">
             <span className="text-xs text-white/50 block">Already planned</span>
@@ -564,7 +564,7 @@ export default function AddToItineraryDialog({
 
         <div className="space-y-4">
           {/* Custom mode: editable Title + Location. Source mode keeps these
-}              fixed in the header, so this block is only rendered for custom mode. */
+              fixed in the header, so this block is only rendered for custom mode. */}
           {isCustom && (
             <>
               <div>
@@ -593,7 +593,7 @@ export default function AddToItineraryDialog({
                 />
               </div>
               {/* Google Maps research link-out. Disabled until Title is
-}                  non-empty; a URL, not an API — no key, no quota. */
+                  non-empty; a URL, not an API — no key, no quota. */}
               {mapsUrl ? (
                 <a
                   href={mapsUrl}
@@ -618,7 +618,7 @@ export default function AddToItineraryDialog({
             </>
           )}
 
-          {}/* Date select */
+          {/* Date select */}
           <div>
             <label htmlFor={dateFieldId} className="text-xs text-white/50 mb-1 block">Date *</label>
             <select
@@ -637,7 +637,7 @@ export default function AddToItineraryDialog({
             </select>
           </div>
 
-          {}/* Category grid (same pattern as ItemEditor) */
+          {/* Category grid (same pattern as ItemEditor) */}
           <div>
             <span id={categoryLabelId} className="text-xs text-white/50 mb-1 block">Category</span>
             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
@@ -663,7 +663,7 @@ export default function AddToItineraryDialog({
             </div>
           </div>
 
-          {}/* Time + Duration */
+          {/* Time + Duration */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label htmlFor={timeFieldId} className="text-xs text-white/50 mb-1 block">Time</label>
@@ -675,7 +675,7 @@ export default function AddToItineraryDialog({
             </div>
           </div>
 
-          {}/* Notes */
+          {/* Notes */}
           <div>
             <label htmlFor={notesFieldId} className="text-xs text-white/50 mb-1 block">Notes</label>
             <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
@@ -686,7 +686,7 @@ export default function AddToItineraryDialog({
         {/* Pinned action footer — OUTSIDE the scroll area, so the confirm button is
             ALWAYS visible and clickable at any viewport height. The top
             border + panel bg give a clean divider so scrolled content doesn't bleed
-}            under it. */
+            under it. */}
         <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-surface/40">
           <button
             ref={confirmRef}

@@ -50,7 +50,7 @@ const DialogContent = React.forwardRef<
           open-palette visual baseline this slice adds — visual.spec.ts). This is the
           shared Radix close reachable only via command-palette.tsx; the
           5 other dialogs (calendar editor, add-to-itinerary, expense log, place detail,
-}          time picker) render their own inline close buttons and are untouched. */
+          time picker) render their own inline close buttons and are untouched. */}
       <DialogPrimitive.Close className="absolute right-4 top-4 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>

@@ -46,7 +46,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                 {LEG_LABEL[s.leg] ?? s.leg} · {s.currency}
               </p>
 
-              {}/* Per-person net */
+              {/* Per-person net */}
               <ul className="flex flex-wrap gap-2" data-testid={`settle-up-balances-${s.leg}`}>
                 {balances.map(([id, net]) => {
                   const settled = Math.abs(net) < 0.5;
@@ -76,7 +76,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                 })}
               </ul>
 
-              {}/* Minimal transfers */
+              {/* Minimal transfers */}
               {s.transfers.length === 0 ? (
                 <p className="text-xs text-white/50" data-testid={`settle-up-even-${s.leg}`}>
                   All square — nobody owes anybody.

@@ -391,7 +391,7 @@ export default function CommandPalette() {
         data-testid="command-palette-dialog"
       >
         {/* Visually-hidden labelling satisfies the Radix Dialog a11y contract
-}            (required title) without a visible header or a console warning. */
+            (required title) without a visible header or a console warning. */}
         <DialogTitle className="sr-only">Command palette</DialogTitle>
         <DialogDescription className="sr-only">
           Search and jump to any section of the trip planner. Press Escape to close.
@@ -416,7 +416,7 @@ export default function CommandPalette() {
                 scores (see the CommandGroups below — our dynamic groups opt out of that
                 via forceMount), so gate this on OUR OWN dynamic-group state too —
                 otherwise "No matching section." could render ALONGSIDE a real "In your
-}                plan" or "Currency Converter" hit. */
+                plan" or "Currency Converter" hit. */}
             {planResults.length === 0 && !parsedConversion && <CommandEmpty>No matching section.</CommandEmpty>}
             {GROUP_ORDER.map((group) => (
               <CommandGroup key={group} heading={group}>
@@ -448,7 +448,7 @@ export default function CommandPalette() {
                 conflict for a live-updating search-query keyword match, and fighting
                 cmdk's own filter pass here is more fragile than simply not entering it.
                 Only rendered when there is at least one hit, so an empty query never
-}                shows an empty "In your plan" heading. */
+                shows an empty "In your plan" heading. */}
             {planResults.length > 0 && (
               <CommandGroup heading="In your plan" forceMount>
                 {planResults.map(({ item, date }) => (
@@ -470,7 +470,7 @@ export default function CommandPalette() {
             {/* currency-converter command. Same forceMount rationale as "In your
                 plan" above — membership is decided entirely by OUR OWN parse (-aware
                 convertCurrency), not cmdk's filter. A no-op onSelect: this item is a
-}                read-only computed answer, not a navigation target. */
+                read-only computed answer, not a navigation target. */}
             {parsedConversion && (
               <CommandGroup heading="Currency Converter" forceMount>
                 <CommandItem

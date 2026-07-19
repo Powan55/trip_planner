@@ -163,7 +163,7 @@ export default function BackupRestore() {
             >
               Backup &amp; Restore
             </h2>
-            {}/* Most-muted caption — text-white/60 clears AA on #0a0e27. */
+            {/* Most-muted caption — text-white/60 clears AA on #0a0e27. */}
             <p className="mt-1 max-w-2xl text-sm text-white/60">
               Save your whole itinerary to a file, or restore it from a backup. Everything is stored
               on this device — a backup lets you keep a copy or move your trip to another browser.
@@ -172,7 +172,7 @@ export default function BackupRestore() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {}/* Export */
+          {/* Export */}
           <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <h3 className="text-sm font-semibold text-white">Export</h3>
             <p className="text-sm text-white/70">
@@ -189,7 +189,7 @@ export default function BackupRestore() {
             </button>
           </div>
 
-          {}/* Import */
+          {/* Import */}
           <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <h3 className="text-sm font-semibold text-white">Import</h3>
             <p className="text-sm text-white/70">
@@ -207,7 +207,7 @@ export default function BackupRestore() {
             </button>
             {/* Real, keyboard-reachable file input. Visually hidden (not display:none, so
                 it stays focusable/labelled); the button above opens it, and E2E drives it
-}                directly via setInputFiles. */
+                directly via setInputFiles. */}
             <input
               ref={fileInputRef}
               type="file"
@@ -220,7 +220,7 @@ export default function BackupRestore() {
           </div>
         </div>
 
-        {}/* Status line (success/error). aria-live so a screen reader announces the outcome. */
+        {/* Status line (success/error). aria-live so a screen reader announces the outcome. */}
         <div aria-live="polite" className="mt-4 min-h-[1.25rem]">
           {status.kind === 'success' && (
             <p data-testid="backup-status" className="text-sm font-medium text-green-300">
@@ -244,7 +244,7 @@ export default function BackupRestore() {
           import is pending. Portaling lifts this `fixed` overlay out of /plan's
           `.animate-route-fade` stacking context so the app <footer> can't paint over /
           capture its buttons when the page is scrolled down. Explicit
-}          shared-trip copy. */
+          shared-trip copy. */}
       {mounted &&
         pendingImport &&
         createPortal(

@@ -109,7 +109,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
                   : 'text-white/50 hover:bg-white/5'
             }`}
           >
-            {}/* Today marker: a small pill above the weekday, on the matching chip only. */
+            {/* Today marker: a small pill above the weekday, on the matching chip only. */}
             {isToday && (
               <span
                 className="absolute -top-1.5 px-1.5 py-px rounded-full bg-gold-500 text-surface text-[8px] font-bold uppercase tracking-wide leading-none"
@@ -123,15 +123,15 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
                 prior consumer (`/plan`'s mobile strip) hides it at `lg+` via a CSS `lg:hidden`
                 wrapper, above which the axe pack always runs; Travel Mode has no such wrapper
                 (the strip is the ONLY day picker, at every width), so it's genuinely visible to
-}                a real user and must clear contrast on its own. */
+                a real user and must clear contrast on its own. */}
             <span className="text-[10px] uppercase tracking-wide text-white/60">{weekday}</span>
             <span className="text-base leading-none">{dayNum}</span>
-            {}/* Country dot: himalaya (nepal) / sakura (japan). */
+            {/* Country dot: himalaya (nepal) / sakura (japan). */}
             <span
               className={`w-1.5 h-1.5 rounded-full ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`}
               aria-hidden="true"
             />
-            {}/* Item-count badge, only when the day has items. */
+            {/* Item-count badge, only when the day has items. */}
             {count > 0 && (
               <span
                 className={`absolute top-1 right-1 min-w-[1rem] h-4 px-1 flex items-center justify-center rounded-full text-[9px] font-semibold ${

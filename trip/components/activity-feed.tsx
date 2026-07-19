@@ -108,14 +108,14 @@ export default function ActivityFeed({ className = '' }: { className?: string })
             const relative = formatRelativeTime(entry.updatedAt);
             return (
               <li key={entry.id} className="flex items-start gap-2.5 text-left">
-                {}/* Small category cue (cheap — reuses the shared color map). Decorative. */
+                {/* Small category cue (cheap — reuses the shared color map). Decorative. */}
                 <span
                   className={`shrink-0 mt-1 w-2 h-2 rounded-full ${colors.bg} ring-1 ${colors.border}`}
                   aria-hidden="true"
                 />
                 <div className="min-w-0 flex-1">
                   {/* "{author} edited {title}" — author and title both truncate so a long
-}                      name or title can never overflow the row. */
+                      name or title can never overflow the row. */}
                   <p className="text-sm text-white/80 leading-snug truncate">
                     <span className="font-medium text-white">{entry.author}</span>
                     <span className="text-white/50"> edited </span>

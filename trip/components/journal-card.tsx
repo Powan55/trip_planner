@@ -147,7 +147,7 @@ export default function JournalCard({ date }: { date: string }) {
         </h3>
         <div className="flex items-center gap-1.5">
           {/* the only way to reach the /journal browse view besides a direct URL — nav/tab/
-}              palette wiring is an explicit follow-up rider, not this slice's. */
+              palette wiring is an explicit follow-up rider, not this slice's. */}
           <Link
             href="/journal/"
             data-testid="journal-view-all"
@@ -202,7 +202,7 @@ export default function JournalCard({ date }: { date: string }) {
       )}
 
       {/* — day photos (owner keyed by DATE, so they persist independent of the text entry and
-}          recap is a pure owner.date filter). Local-only IndexedDB blobs, zero egress. */
+          recap is a pure owner.date filter). Local-only IndexedDB blobs, zero egress. */}
       <PhotoAttach owner={{ kind: 'journal', date }} heading="Day photos" altPlaceholder="e.g. Sunset over Boudhanath" />
     </section>
   );
@@ -275,7 +275,7 @@ function JournalEditor({
   return (
     <div data-testid="journal-editor" className="space-y-4">
       {/* Mood chips — single-select radiogroup-style, but each is a togglable button (tap again to
-}          clear), so `aria-pressed` (not radio semantics) is the right affordance. */
+          clear), so `aria-pressed` (not radio semantics) is the right affordance. */}
       <div>
         <p id="journal-mood-label" className="mb-2 text-xs font-medium text-white/60">
           How was today?
@@ -306,7 +306,7 @@ function JournalEditor({
         </div>
       </div>
 
-      {}/* Highlight of the day — a short single-line input. */
+      {/* Highlight of the day — a short single-line input. */}
       <div>
         <label htmlFor="journal-highlight-input" className="mb-1.5 block text-xs font-medium text-white/60">
           Highlight of the day <span className="text-white/55">(optional)</span>
@@ -324,7 +324,7 @@ function JournalEditor({
         />
       </div>
 
-      {}/* The free-text body. */
+      {/* The free-text body. */}
       <div>
         <label htmlFor="journal-text-input" className="mb-1.5 block text-xs font-medium text-white/60">
           Notes

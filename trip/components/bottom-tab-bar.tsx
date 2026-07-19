@@ -100,7 +100,7 @@ export default function BottomTabBar() {
                 // dynamic Tailwind class. Inactive tabs use a static muted white.
                 style={isActive ? { color: 'hsl(var(--accent-scroll))' } : undefined}
               >
-                {}/* Active top hairline in the same accent (decorative). */
+                {/* Active top hairline in the same accent (decorative). */}
                 {isActive && (
                   <span
                     aria-hidden="true"

@@ -239,7 +239,7 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
             : undefined
         }
       >
-        {}/* Boarding-pass header: ticket-stub iconography + trip title. */
+        {/* Boarding-pass header: ticket-stub iconography + trip title. */}
         <div className="flex items-center gap-3 mb-1">
           <span
             className="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-gold-500/15 text-gold-400"
@@ -261,12 +261,12 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
           </div>
         </div>
 
-        {}/* Compact live countdown to departure. */
+        {/* Compact live countdown to departure. */}
         <div className="mt-4 mb-5">
           <CompactCountdown />
         </div>
 
-        {}/* Perforation line — the boarding-pass tear. Decorative, no layout box of its own. */
+        {/* Perforation line — the boarding-pass tear. Decorative, no layout box of its own. */}
         <div className="relative my-5" aria-hidden="true">
           <div className="border-t border-dashed border-white/15" />
         </div>
@@ -330,7 +330,7 @@ function TokenGateWall({ mode }: { mode: GateMode }) {
           </button>
         </form>
 
-        {}/* Secondary control — differs by mode. */
+        {/* Secondary control — differs by mode. */}
         {mode === 'guest-route' ? (
           // "Back to Home": the guest's escape hatch. A REAL focusable control ≥44px
           // — full-width ghost button, not a quiet text link.

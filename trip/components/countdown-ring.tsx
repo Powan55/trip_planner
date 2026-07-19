@@ -48,7 +48,7 @@ export default function CountdownRing({
             <stop offset="100%" stopColor="#f48fb1" />
           </linearGradient>
         </defs>
-        {}/* Track */
+        {/* Track */}
         <circle
           cx={size / 2}
           cy={size / 2}
@@ -58,7 +58,7 @@ export default function CountdownRing({
           strokeWidth={strokeWidth}
         />
         {/* Progress — CSS-driven transition, skipped entirely under reduced motion so the
-}            ring never sweeps, only snaps to the live value. */
+            ring never sweeps, only snaps to the live value. */}
         <circle
           cx={size / 2}
           cy={size / 2}

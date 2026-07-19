@@ -16,7 +16,7 @@ export default function Footer() {
     // spacing rhythm, and legibility-tuned muted type. Content/logic unchanged.
     <footer className="relative py-18 px-gutter border-t border-white/[0.06]">
       {/* Route-accent hairline: a soft gradient rule keyed to --accent-scroll so
-}          the footer warms/cools with the page. Decorative, adds no layout box. */
+          the footer warms/cools with the page. Decorative, adds no layout box. */}
       <span
         aria-hidden="true"
         className="pointer-events-none absolute inset-x-0 top-0 h-px"
@@ -35,7 +35,7 @@ export default function Footer() {
         </p>
         {/* muted footer type brightened to meet WCAG AA on the navy field
             (#0a0e27). Quieter copyright `/30`→`/50` (2.63:1 → 5.32:1), staying
-}            clearly muted vs. the white wordmark above. */
+            clearly muted vs. the white wordmark above. */}
         <p className="text-xs text-white/50">
           &copy; {new Date().getFullYear()} Lax
           {' '}&middot;{' '}

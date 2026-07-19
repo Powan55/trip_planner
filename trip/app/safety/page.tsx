@@ -18,7 +18,7 @@ export default function SafetyPage() {
       {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
           text-gradient-gold / animate-reveal-up) directly rather than extending PageHero's
           closed `HeroVariant` union.
-}          Supplies the page's <h1>. */
+          Supplies the page's <h1>. */}
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
         <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
           <span

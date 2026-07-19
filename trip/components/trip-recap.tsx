@@ -129,7 +129,7 @@ export default function TripRecap() {
       className="relative bg-surface py-12 sm:py-16 px-4 sm:px-6"
     >
       <div className="max-w-3xl mx-auto">
-        {}/* Section header — the days you've lived, and the run-rate across them. */
+        {/* Section header — the days you've lived, and the run-rate across them. */}
         <header className="mb-6">
           <p className="text-xs uppercase tracking-widest text-gold-400/80 mb-2 flex items-center gap-1.5">
             <History className="h-3.5 w-3.5" aria-hidden="true" />
@@ -209,7 +209,7 @@ function RecapCard({
       data-testid={`recap-card-${date}`}
       className="glass-card rounded-2xl p-5 sm:p-6"
     >
-      {}/* Header — "Day N — {city}" + the long date, mirroring the Today panel's header language. */
+      {/* Header — "Day N — {city}" + the long date, mirroring the Today panel's header language. */}
       <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
         <div>
           <h3 id={headingId} className="font-display text-lg sm:text-xl font-bold text-white leading-tight">
@@ -231,7 +231,7 @@ function RecapCard({
         )}
       </header>
 
-      {}/* Plan + actual: the day's items, each with a done/not-done tick (read-only — no toggle). */
+      {/* Plan + actual: the day's items, each with a done/not-done tick (read-only — no toggle). */}
       {items.length === 0 ? (
         <p data-testid={`recap-no-plan-${date}`} className="text-sm text-white/55 italic">
           No plans this day — a free day.
@@ -248,7 +248,7 @@ function RecapCard({
         </ul>
       )}
 
-      {}/* the day's logged-expense total — only when >0. */
+      {/* the day's logged-expense total — only when >0. */}
       {spend > 0 && (
         <p data-testid={`recap-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-white/60">
           <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
@@ -257,7 +257,7 @@ function RecapCard({
         </p>
       )}
 
-      {}/* Reflection: the day's journal entry (read-only), mirroring journal-card's read view. */
+      {/* Reflection: the day's journal entry (read-only), mirroring journal-card's read view. */}
       <RecapReflection date={date} entry={entry} />
     </m.article>
   );
@@ -276,7 +276,7 @@ function RecapItem({ item }: { item: ItineraryItem }) {
         done ? 'border-emerald-500/25 bg-emerald-500/[0.04]' : 'border-white/10 bg-white/[0.02]'
       }`}
     >
-      {}/* The done indicator — read-only status, not a control. */
+      {/* The done indicator — read-only status, not a control. */}
       <span
         aria-hidden="true"
         className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border ${
@@ -303,7 +303,7 @@ function RecapItem({ item }: { item: ItineraryItem }) {
           </span>
         )}
       </span>
-      {}/* SR-only status so the done state reads without relying on the color-only tick. */
+      {/* SR-only status so the done state reads without relying on the color-only tick. */}
       <span className="sr-only">{done ? '— done' : '— not done'}</span>
     </li>
   );

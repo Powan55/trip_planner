@@ -336,7 +336,7 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
           triggers. This is the SINGLE gate mount in the app. Content stays mounted BEHIND
           it so localStorage hydration / first paint happen normally.
           z-[70] sits above name-prompt's z-[60]. Dormant-safe: imports only pure modules,
-}          never firebase. */
+          never firebase. */}
       <TokenGate />
       {/* First-run guided tour. A sibling of <TokenGate />, so it is present on
           every route behind the gate. Renders nothing until the gate has passed AND the
@@ -344,17 +344,17 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
           exactly like TokenGate so it never flashes during SSR/first paint. z-[65] sits
           below the gate (z-[70], mutually exclusive with this dialog since the tour only
           shows once the gate has resolved) and above the other z-[60] dialogs/scroll
-}          progress bar. */
+          progress bar. */}
       <FirstRunTour />
       {/* PWA-relaunch re-enter (behavioral, renders null) + the on-trip arrival
           auto-suggest toast, behind one lazy boundary. Siblings of the tour so they ride every
-}          route behind the gate; both are guest-blocked and self-suppress on /travel. */
+          route behind the gate; both are guest-blocked and self-suppress on /travel. */}
       <TravelModeMounts />
       {/* Active-traveler presence bar. Renders nothing — and pulls no
           firebase — when dormant or guest (usePresence short-circuits on the same gate as
           the remote subscribe). A small fixed bottom-left cluster at z-40, clear of the
           navbar (z-50), gate (z-[70]) and bottom-right toasts. The heartbeat WRITE side is
-}          driven by the effect above; this is the READ side. */
+          driven by the effect above; this is the READ side. */}
       <PresenceBar />
     </ItineraryContext.Provider>
   );

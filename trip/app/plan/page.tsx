@@ -17,7 +17,7 @@ export default function PlanPage() {
   return (
     <main className="min-h-screen bg-surface">
       {/* PageHero supplies the page's <h1> ( pages shipped
-}          without one — a11y win). Section components keep their own <h2>s. */
+          without one — a11y win). Section components keep their own <h2>s. */}
       <PageHero
         variant="plan"
         title="Trip Planner"

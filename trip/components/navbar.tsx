@@ -229,7 +229,7 @@ export default function Navbar() {
             <div className="hidden md:flex items-center gap-1">
               {/* the desktop top row stays at the 6 primary routes (no
                   tablet overflow); the 3 companion routes (Journal/Safety/Recap) are
-}                  reachable via the command palette + the mobile hamburger panel below. */
+                  reachable via the command palette + the mobile hamburger panel below. */}
               {PRIMARY_NAV_ITEMS.map((item) => {
                 const isActive = isRouteActive(pathname, item.href);
                 return (
@@ -260,12 +260,12 @@ export default function Navbar() {
 
             {/* Right cluster: identity (desktop) · Travel Mode entry (all widths) · hamburger
                 (mobile). Grouped so justify-between keeps the logo left and this pinned right,
-}                and the Travel Mode button never floats mid-bar on mobile. */
+                and the Travel Mode button never floats mid-bar on mobile. */}
             <div className="flex items-center gap-1 sm:gap-2">
               {/* Identity chip — desktop. "You are {name}" tinted with the traveler's
                   accent, + sign-out.
                   Guest → a quiet "Guest · Sign in" affordance that returns to the gate.
-}                  Reactive via identity:changed so sign-in/out reflect live (no reload). */
+                  Reactive via identity:changed so sign-in/out reflect live (no reload). */}
               <div className="hidden md:flex items-center shrink-0">
                 {traveler ? (
                   <TravelerChip name={traveler.name} accent={traveler.accent} onSignOut={handleSignOut} />
@@ -279,7 +279,7 @@ export default function Navbar() {
                   (top row, z-50) — always above the sync-status pill, so
                   they never share space at any viewport. Guests reach the existing guest-route wall
                  ; the gateway flag is not armed for them. Label collapses to icon-only below
-}                  `sm` (the aria-label carries the name), staying a ≥44px target. */
+                  `sm` (the aria-label carries the name), staying a ≥44px target. */}
               <button
                 type="button"
                 onClick={() => enterTravel(navigate)}
@@ -315,7 +315,7 @@ export default function Navbar() {
                 (aria-hidden); the menu items carry the a11y. Opacity-only fade, so
                 <MotionConfig reducedMotion="user"> renders it instantly (no transform)
                 under prefers-reduced-motion. `inset-0` introduces no overflow
-}               . Stays under the Trip Token gate (z-70) and toasts. */
+               . Stays under the Trip Token gate (z-70) and toasts. */}
             <m.div
               key="mobile-nav-scrim"
               aria-hidden="true"
@@ -338,7 +338,7 @@ export default function Navbar() {
               <div className="p-4 space-y-1">
                 {/* the mobile hamburger panel maps the FULL NAV_ITEMS (all 9) — a
                     vertical panel has no width limit, so this is where mobile users reach
-}                    the companion routes (Journal/Safety/Recap). */
+                    the companion routes (Journal/Safety/Recap). */}
                 {NAV_ITEMS.map((item) => {
                   const isActive = isRouteActive(pathname, item.href);
                   return (
@@ -369,7 +369,7 @@ export default function Navbar() {
                   );
                 })}
 
-                {}/* Identity row — mobile. Same reactive states as desktop. */
+                {/* Identity row — mobile. Same reactive states as desktop. */}
                 {(traveler || isGuest) && (
                   <div className="mt-2 pt-2 border-t border-white/5">
                     {traveler ? (

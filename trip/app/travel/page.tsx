@@ -31,18 +31,18 @@ export default function TravelPage() {
       <div className="mx-auto flex max-w-2xl items-center justify-between gap-2">
         <h1 className="font-display text-display-lg text-gradient-gold">Travel Mode</h1>
         <div className="flex shrink-0 items-center gap-1">
-          {}/* outdoor high-legibility toggle — TM-local, chrome-free header row. */
+          {/* outdoor high-legibility toggle — TM-local, chrome-free header row. */}
           <TravelLegibilityToggle />
-          {}/* exit X — restores the prior route, no history trap. */
+          {/* exit X — restores the prior route, no history trap. */}
           <TravelExitButton />
         </div>
       </div>
-      {}/* date picker (day-strip + preview/pre-trip banners) → hero → agenda. */
+      {/* date picker (day-strip + preview/pre-trip banners) → hero → agenda. */}
       <TravelDatePicker />
       {/* thumb-zone contract: TM primary actions ( enter/exit, later
           quick actions) pin to this fixed bottom band — ≥44×44px targets clear of the
           home indicator via env(safe-area-inset-bottom). Empty this slice (no actions yet);
-}          the class exists so later slices drop controls in without re-deriving the offset. */
+          the class exists so later slices drop controls in without re-deriving the offset. */}
       <div className="tm-thumb-zone" aria-hidden="true" />
     </main>
   );

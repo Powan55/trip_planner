@@ -70,7 +70,7 @@ function RecommendationCard({
       className="glass-card rounded-2xl overflow-hidden group transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)]"
     >
       {/* The image + text (down to notes) is a single button that opens the detail
-}          sheet. The AddToPlanButton stays a sibling so it isn't nested in a button. */
+          sheet. The AddToPlanButton stays a sibling so it isn't nested in a button. */}
       <button
         type="button"
         onClick={onOpen}
@@ -138,13 +138,13 @@ function RecommendationCard({
         </div>
       </button>
       <div className="px-4 pb-4 flex items-start gap-2">
-        {}/* Add-to-plan affordance — additive; a sibling of the details button. */
+        {/* Add-to-plan affordance — additive; a sibling of the details button. */}
         <div className="flex-1 min-w-0">
           <AddToPlanButton source={item} sourceType="recommendation" accentColor={accentColor} />
         </div>
         {/* Favorite/bookmark toggle — a sibling of AddToPlanButton, real <button>, and
             gated on the favorites hook's hydration so server/first-client-paint always match
-}            (starts unfavorited on both, avoiding a hydration mismatch). */
+            (starts unfavorited on both, avoiding a hydration mismatch). */}
         {favoritesReady && (
           <button
             type="button"
@@ -294,7 +294,7 @@ export default function RecommendationSection({
           subtitle={subtitle}
         />
 
-        {}/* Search + sort */
+        {/* Search + sort */}
         <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
@@ -334,7 +334,7 @@ export default function RecommendationSection({
           </div>
         </div>
 
-        {}/* City filter chips (only when more than one city is present) */
+        {/* City filter chips (only when more than one city is present) */}
         {cities.length > 2 && (
           <div className="flex flex-wrap justify-center gap-2 mb-3">
             {cities.map((city) => (
@@ -358,7 +358,7 @@ export default function RecommendationSection({
 
         {/* "Saved" filter chip — cuts across categories, so it's a separate boolean
             toggle rather than folded into the `categories` chip row. Only rendered once
-}            favorites have hydrated AND this section has >=1 favorited item. */
+            favorites have hydrated AND this section has >=1 favorited item. */}
         {favoritesReady && savedCount > 0 && (
           <div className="flex flex-wrap justify-center gap-2 mb-3">
             <button
@@ -379,7 +379,7 @@ export default function RecommendationSection({
           </div>
         )}
 
-        {}/* Category filter chips with live counts */
+        {/* Category filter chips with live counts */}
         <div className="flex flex-wrap justify-center gap-2 mb-8">
           {categories.map((cat) => (
             <button
@@ -399,7 +399,7 @@ export default function RecommendationSection({
           ))}
         </div>
 
-        {}/* iOS motion-tilt opt-in — unobtrusive, one per section, iOS-only. */
+        {/* iOS motion-tilt opt-in — unobtrusive, one per section, iOS-only. */}
         {gyro.show && (
           <div className="flex justify-center mb-6">
             <button
@@ -414,7 +414,7 @@ export default function RecommendationSection({
           </div>
         )}
 
-        {}/* Cards Grid or empty state */
+        {/* Cards Grid or empty state */}
         {filtered.length > 0 ? (
           <div data-testid="guide-results" className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((item) => (

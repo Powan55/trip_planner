@@ -96,7 +96,7 @@ export default function BurnRateView({
       data-testid="burn-rate"
       className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
     >
-      {}/* Header + pace badge */
+      {/* Header + pace badge */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Gauge className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />
@@ -122,7 +122,7 @@ export default function BurnRateView({
         </p>
       ) : (
         <>
-          {}/* Spent-vs-budget progress bar with a text equivalent. */
+          {/* Spent-vs-budget progress bar with a text equivalent. */}
           <div className="mb-4">
             <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
               <span className="text-white/60">
@@ -154,7 +154,7 @@ export default function BurnRateView({
           {/* The figures.: the whole 4-figure grid is NO LONGER an aria-live region (announcing
               4 numbers on every currency toggle / expense was spam). The single meaningful summary
               — the worded pace badge above — carries aria-live instead, so only "Under/On/Over pace"
-}              is announced on a change. */
+              is announced on a change. */}
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Figure
               testId="burn-rate-days"
@@ -184,7 +184,7 @@ export default function BurnRateView({
             />
           </dl>
 
-          {}/* Screen-reader-only plain-language pace summary (the visible badge is the sighted cue). */
+          {/* Screen-reader-only plain-language pace summary (the visible badge is the sighted cue). */}
           <p className="sr-only" data-testid="burn-rate-pace-sr">
             {pace.sr}
           </p>
