@@ -6,21 +6,26 @@ rules_version = '2';
 // a capability-link model ("anyone with the link can edit"). There is NO
 // per-user check: request.auth is never read; Firebase Auth is not required.
 //
-// The model rests on tripId being unguessable and unenumerable, so listing the
-// top-level trips collection is explicitly denied. Collection-group queries
-// across all trips are denied by omission (no rule grants them).
+// The model rests on tripId being unguessable and UNENUMERABLE. No rule below
+// grants 'list' at /trips/{tripId}, so the top-level trips collection cannot be
+// queried/enumerated — a client can only reach a trip whose id it already holds.
+// CAUTION: rules_version 2 recursive wildcards match ZERO or more segments, so
+// a single "match /trips/{tripId}/{document=**} { allow list }" WOULD also
+// grant list on /trips/{tripId} itself and expose every token. Hence the split
+// below: the trip doc gets everything except list; subtrees get full access.
+// Collection-group queries across all trips are denied by omission.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Deny discovering trips by listing the top-level collection.
-    match /trips {
-      allow list: if false;
-    }
+    // The trip doc itself: reachable and writable by direct id only — never listable.
+    match /trips/{tripId} {
+      allow get, create, update, delete: if true;
 
-    // A single known trip and everything under it: full read+write to anyone
-    // who has the tripId. No request.auth check.
-    match /trips/{tripId}/{document=**} {
-      allow get, list, write: if true;
+      // Everything under a known trip (days/{date}, budget/model, expenses/{leg},
+      // presence/{deviceId}): full read+write, including subcollection queries.
+      match /{sub}/{document=**} {
+        allow get, list, write: if true;
+      }
     }
   }
 }
