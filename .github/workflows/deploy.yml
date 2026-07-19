@@ -15,7 +15,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Every deploy must carry a version number that has never been live before.
+  # The marker for "was live" is a git tag v<version>, pushed only AFTER a
+  # successful deploy (see the deploy job) — so re-running a failed deploy of
+  # the same version is still allowed, but forgetting to bump before shipping
+  # new bytes fails fast here.
+  version-gate:
+    name: Version must not already be deployed
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Assert this version has no successful-deploy tag yet
+        run: |
+          VERSION=$(node -p "require('./trip/package.json').version")
+          TAG="v$VERSION"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "::error::Version $VERSION was already deployed (tag $TAG exists). Bump trip/package.json before shipping."
+            exit 1
+          fi
+          echo "OK — $VERSION not yet deployed ($TAG absent)."
+
   build:
+    needs: version-gate
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -51,9 +75,33 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    # contents: write is needed only to push the success-marker tag below; the
+    # job-level block overrides the read-only default, so pages/id-token
+    # (required by deploy-pages) are restated here.
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+      # Only reached if deploy-pages succeeded (a failed step halts the job),
+      # so the tag records a genuinely-live version, never a failed attempt.
+      - uses: actions/checkout@v4
+        with:
+          fetch-tags: true
+      - name: Tag this version as successfully deployed
+        run: |
+          VERSION=$(node -p "require('./trip/package.json').version")
+          TAG="v$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            echo "Tag $TAG already exists — nothing to record."
+          else
+            git tag -a "$TAG" -m "Successful GitHub Pages deploy of $TAG"
+            git push origin "refs/tags/$TAG"
+          fi
