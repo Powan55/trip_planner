@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, type MouseEvent as ReactMouseEvent } from 'react';
 import Link from 'next/link';
+import dynamic from 'next/dynamic';
 import { useViewTransition } from '@/hooks/use-view-transition';
 import { usePathname } from 'next/navigation';
 import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -13,6 +14,11 @@ import { sessionGate } from '@/core/storage/gateway';
 import { NAV_ITEMS, PRIMARY_NAV_ITEMS, isRouteActive } from '@/lib/nav-items';
 import { isTravelRoute } from '@/lib/travel-route';
 import { useEnterTravelMode } from '@/hooks/use-travel-mode';
+
+// the AI concierge trigger + panel. A separate chunk (Radix Dialog + the chat hook), lazy
+// client-only — it self-gates to `null` (dormant/guest) so most builds/sessions never even
+// render its DOM, but the dynamic() split also keeps that chunk out of Navbar's own bundle.
+const ConciergeChat = dynamic(() => import('@/components/concierge-chat'), { ssr: false });
 
 // Clearing the guest opt-in re-arms the gate: with no active traveler and the guest flag
 // gone, TokenGate's identity:changed listener re-evaluates `!traveler && !guest` → re-shows
@@ -280,6 +286,8 @@ export default function Navbar() {
                   they never share space at any viewport. Guests reach the existing guest-route wall
                  ; the gateway flag is not armed for them. Label collapses to icon-only below
                   `sm` (the aria-label carries the name), staying a ≥44px target. */}
+              <ConciergeChat />
+
               <button
                 type="button"
                 onClick={() => enterTravel(navigate)}
