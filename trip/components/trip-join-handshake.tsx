@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { setActiveTripId } from '@/core/storage/gateway';
+import { joinTrip } from '@/core/trips/registry';
 import { getTripId } from '@/lib/firebase-config';
+import { withBasePath } from '@/lib/utils';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -21,9 +22,10 @@ import {
  * silently switching on page load) is the deliberate safety net against a stray/malicious link
  * quietly reassigning someone's active trip.
  *
- * - "Join" = the switch primitive exactly: `setActiveTripId(token)` + a full reload (here a
- * `location.replace` to the SAME route with the `?trip=` param stripped, so the switch happens
- * AND the secret token does not linger in the address bar / history).
+ * - "Join" = the switch primitive via the registry: `joinTrip(token, 'Shared trip')`
+ * (register + write the pointer) + a full reload via `location.replace` to the HOME dashboard
+ * (`withBasePath('/')`,), so the switch happens, the browser lands somewhere oriented, AND
+ * the secret token does not linger in the address bar / history.
  * - "Cancel" (button, Esc, or outside-click via Radix) = strip the param via `history.replaceState`
  * and stay on the current trip — no switch, no reload.
  *
@@ -59,10 +61,10 @@ export default function TripJoinHandshake() {
 
   const handleJoin = () => {
     if (!token) return;
-    setActiveTripId(token); // write the pointer...
-    const url = new URL(window.location.href);
-    url.searchParams.delete('trip');
-    window.location.replace(url.toString()); // ..then full reload to the clean (param-stripped) URL.
+    joinTrip(token, 'Shared trip'); // register + write the pointer...
+    // ..then full reload, landing on the HOME dashboard — a clean, param-free
+    // target, so the secret token does not linger in the address bar / history either.
+    window.location.replace(withBasePath('/'));
   };
 
   if (!token) return null;
@@ -83,7 +85,8 @@ export default function TripJoinHandshake() {
             You opened a shared Trip Key (
             <span className="font-mono text-white/80">{shortToken}</span>). Joining switches this
             browser to that trip — your current view is replaced. You can switch back any time from
-            Settings.
+            Settings. Keys can&rsquo;t be verified in advance — if the trip opens empty, the key may
+            be mistyped or the trip is brand new.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

@@ -47,6 +47,10 @@ const LegacyHashRedirect = dynamic(() => import('@/components/legacy-hash-redire
 // ~200ms of hydration regardless of scroll (same guarantee as every other deferred section),
 // so it is present effectively immediately in practice.
 const HomeSectionNav = dynamic(() => import('@/components/home-section-nav'), { ssr: false });
+// — the compact "Your trips" chip strip (multi-trip on first paint; null for guests).
+// Same lazy-island recipe as HomeSectionNav above: Home's First Load JS has ~zero
+// headroom, so even this small component must stay OUT of the initial required-chunk set.
+const HomeTripStrip = dynamic(() => import('@/components/home-trip-strip'), { ssr: false });
 // — the "at a glance" bento grid (read-only composition of existing hooks: next-up,
 // budget spent, cached weather, packing/docs %, map link, Travel Mode entry). Same
 // dynamic(ssr:false) + LazyVisible island pattern as every other below-fold Home section
@@ -75,6 +79,7 @@ const TravelEssentials = dynamic(() => import('@/components/travel-essentials'),
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-surface">
+      <LazyVisible component={HomeTripStrip} minHeight="56px" />
       <HeroSection />
       <LazyVisible component={HomeSectionNav} minHeight="56px" />
       <LazyVisible component={HomeBento} minHeight="clamp(16rem, 46vh, 22rem)" />

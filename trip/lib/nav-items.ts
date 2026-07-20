@@ -8,6 +8,7 @@ import {
   BookOpen,
   ShieldCheck,
   Scroll,
+  Luggage,
   Settings,
   type LucideIcon,
 } from 'lucide-react';
@@ -53,6 +54,7 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Journal', href: '/journal/', icon: BookOpen, primary: false },
   { label: 'Safety', href: '/safety/', icon: ShieldCheck, primary: false },
   { label: 'Recap', href: '/recap/', icon: Scroll, primary: false },
+  { label: 'Trips', href: '/trips/', icon: Luggage, primary: false }, // — companion (hamburger + palette)
   { label: 'Settings', href: '/settings/', icon: Settings, primary: false }, // — companion (hamburger + palette)
 ];
 

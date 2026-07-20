@@ -21,6 +21,7 @@ import {
   Backpack,
   Inbox,
   FileCheck2,
+  Luggage,
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -136,6 +137,7 @@ const SECTIONS: Section[] = [
   { route: '/checklist/', label: 'Documents', group: 'More', keywords: ['passport', 'visa', 'insurance', 'tickets', 'checklist', 'readiness', 'documents'], icon: FileCheck2 }, //
   { route: '/share/', label: 'Shared Links', group: 'More', keywords: ['share', 'inbox', 'links', 'shared', 'triage'], icon: Inbox }, //
   { route: '/recap/', label: 'Recap', group: 'More', keywords: ['story', 'summary', 'post-trip'], icon: Scroll },
+  { route: '/trips/', label: 'Trips', group: 'More', keywords: ['switch', 'create', 'join', 'share', 'key', 'manage'], icon: Luggage }, //
   { route: '/settings/', label: 'Settings', group: 'More', keywords: ['identity', 'currency', 'rates', 'sign out', 'clear', 'backup', 'export', 'import'], icon: Settings }, //
 ];
 

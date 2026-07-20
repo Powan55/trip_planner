@@ -58,6 +58,7 @@ const ROUTE_HTML = [
   'packing/index.html', // packing checklist route — precache 144→145.
   'share/index.html', // share-target inbox route — precache +1 (route html) per.
   'checklist/index.html', // documents & readiness checklist route — precache +1 (route html).
+  'trips/index.html', // trips hub route — precache +1 (route html).
   '404.html',
 ];
 
@@ -434,13 +435,18 @@ async function main() {
   const precacheFiles = await buildPrecacheList(allFiles);
   const precacheUrls = precacheFiles.map(toPrecacheUrl);
 
-  // 3) Hash the URL list -> cache name. Any change to the shell (new chunk
-  // hashes, new route, changed manifest) changes this, driving the update
-  // flow in the registrar.
-  const precacheHash = createHash('sha256')
-    .update(precacheUrls.join('\n'))
-    .digest('hex')
-    .slice(0, 12);
+  // 3) Hash the precached files' CONTENTS (rel path + '\0' + bytes, over the
+  // already-sorted list) -> cache name. Hashing only the URL list (the old
+  // scheme) missed builds where a stable-URL file's BYTES changed — e.g.
+  // route HTML at /, /plan/, … changes every build without changing the
+  // chunk set — leaving the cache-first nav handler serving a stale shell.
+  // Any byte change anywhere in the precache set now yields a new cache
+  // name, driving the update flow in the registrar.
+  const h = createHash('sha256');
+  for (const rel of precacheFiles) {
+    h.update(rel).update('\0').update(await readFile(join(OUT_DIR, rel)));
+  }
+  const precacheHash = h.digest('hex').slice(0, 12);
 
   // 4) Emit the SW.
   const sw = buildServiceWorker({ precacheUrls, precacheHash });

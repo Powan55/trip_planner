@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   User,
   LogOut,
@@ -21,7 +22,8 @@ import {
 } from 'lucide-react';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signOut } from '@/lib/token-auth';
-import { setActiveTripId, getActiveTripId, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
+import { getActiveTripId, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
+import { joinTrip } from '@/core/trips/registry';
 import { getTripId } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
 import { useBudget } from '@/hooks/use-budget';
@@ -253,9 +255,10 @@ function TripGroup() {
     }
   };
 
-  // switch: write the pointer, then full reload (this route) — the pack re-hydrates fresh.
+  // switch via the registry: register + write the pointer, then full reload (this
+  // route) — the pack re-hydrates fresh and the trip is remembered in the known-trips list.
   const createTrip = () => {
-    setActiveTripId(crypto.randomUUID());
+    joinTrip(crypto.randomUUID(), 'New trip');
     window.location.reload();
   };
 
@@ -263,7 +266,7 @@ function TripGroup() {
     e.preventDefault();
     const id = joinValue.trim();
     if (!id) return; // non-empty is the only possible/needed validation
-    setActiveTripId(id);
+    joinTrip(id, 'Shared trip');
     window.location.reload();
   };
 
@@ -271,7 +274,7 @@ function TripGroup() {
   // getActiveTripId() id-equal the default, so keyFor() grandfathers every slot back to the legacy
   // literal keys and the user sees their own main-trip data again. switch = write + reload.
   const switchToMain = () => {
-    setActiveTripId(DEFAULT_TRIP_ID);
+    joinTrip(DEFAULT_TRIP_ID);
     window.location.reload();
   };
 
@@ -404,6 +407,16 @@ function TripGroup() {
           </button>
         </div>
       </form>
+
+      {/* Settings stays the secondary surface — the full list/rename/switch UX lives on
+          the dedicated /trips/ hub. Standard internal-link pattern (next/link, basePath-aware). */}
+      <Link
+        href="/trips/"
+        data-testid="settings-trip-manage-link"
+        className="inline-flex min-h-[44px] items-center gap-1 self-start rounded-lg px-1 text-sm font-semibold text-gold-400 transition-colors hover:text-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+      >
+        Manage all trips &rarr;
+      </Link>
     </div>
   );
 }

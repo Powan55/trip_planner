@@ -258,6 +258,13 @@ export const STORAGE_KEYS = {
    * configured build (the hook self-gates), so the dormant/guest slot stays byte-identical.
    * ADDITIVE: a brand-new key, no back-compat surface change and NO migration. */
   docsChecklist: 'nepal_japan_docs_checklist',
+  /**
+   * localStorage — JSON `TripMeta[]` of known trips. APP-SCOPED (NOT in
+   * `TripScopedSlot` — it is the list the pointer selects from, like `activeTrip`). Local-only,
+   * additive, no migration. Value shape (parse/sanitize/default-first/self-heal) is owned by
+   * `core/trips/registry.ts`.
+   */
+  knownTrips: 'tripPlannerKnownTrips',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -284,6 +291,20 @@ export function getActiveTripId(): string {
  */
 export function setActiveTripId(id: string): void {
   writeString('local', STORAGE_KEYS.activeTrip, id);
+}
+
+/**
+ * Raw known-trips accessor pair — byte-transport only, mirroring the
+ * `activeTrip` pointer pattern. ALL shape/sanitize/policy logic (TripMeta parse, default-pack-
+ * first, self-heal) lives in `core/trips/registry.ts`. APP-SCOPED like the pointer:
+ * the list the pointer selects from is itself never namespaced. SSR-safe, never throws.
+ */
+export function getKnownTripsRaw(): string | null {
+  return readString('local', STORAGE_KEYS.knownTrips);
+}
+
+export function setKnownTripsRaw(raw: string): void {
+  writeString('local', STORAGE_KEYS.knownTrips, raw);
 }
 
 /**
