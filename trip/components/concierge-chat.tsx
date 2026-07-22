@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { Fragment, useState, type FormEvent } from 'react';
 import { m } from 'framer-motion';
 import { Sparkles, Send, AlertTriangle } from 'lucide-react';
 import {
@@ -14,6 +14,46 @@ import {
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { isConciergeConfigured } from '@/lib/concierge-config';
 import { useConciergeChat } from '@/hooks/use-concierge-chat';
+
+/**
+ * Tiny inline markdown-lite renderer for assistant replies — NOT a markdown parser,
+ * just the handful of things the model actually emits that were rendering as raw punctuation
+ * in a single text node: `**bold**` spans, `# heading` / `* `/`- ` bullet LINES. Runs per-line
+ * so it composes with the bubble's `whitespace-pre-wrap` (each line still wraps/breaks as
+ * plain text; this only swaps `**…**` runs for a `<strong>` and normalizes bullet markers).
+ * Pure over the assembled string — safe to re-run on every streamed delta.
+ */
+function renderAssistantContent(text: string) {
+  const lines = text.split('\n');
+  return lines.map((line, i) => {
+    let content = line;
+    let isHeading = false;
+    const headingMatch = /^#{1,6}\s+(.*)$/.exec(content);
+    if (headingMatch) {
+      content = headingMatch[1];
+      isHeading = true;
+    }
+    const bulletMatch = /^[*-]\s+(.*)$/.exec(content);
+    if (bulletMatch) {
+      content = `• ${bulletMatch[1]}`;
+    }
+
+    // Split on **bold** runs, keeping the delimited groups so we can map them to <strong>.
+    const parts = content.split(/(\*\*[^*]+\*\*)/g).map((part, j) => {
+      const boldMatch = /^\*\*([^*]+)\*\*$/.exec(part);
+      if (boldMatch) return <strong key={j}>{boldMatch[1]}</strong>;
+      return <Fragment key={j}>{part}</Fragment>;
+    });
+
+    const rendered = isHeading ? <strong>{parts}</strong> : parts;
+    return (
+      <Fragment key={i}>
+        {rendered}
+        {i < lines.length - 1 ? '\n' : null}
+      </Fragment>
+    );
+  });
+}
 
 /**
  * AI concierge chat — the client surface for the Cloudflare Worker's `POST` relay
@@ -100,11 +140,17 @@ export function ConciergeChat() {
               data-testid={`concierge-turn-${turn.role}`}
               className={
                 turn.role === 'user'
-                  ? 'ml-6 rounded-2xl rounded-br-sm bg-gold-400/15 px-3 py-2 text-sm text-white'
-                  : 'mr-6 rounded-2xl rounded-bl-sm bg-white/5 px-3 py-2 text-sm text-white/85'
+                  ? 'ml-6 whitespace-pre-wrap rounded-2xl rounded-br-sm bg-gold-400/15 px-3 py-2 text-sm text-white'
+                  : 'mr-6 whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/5 px-3 py-2 text-sm text-white/85'
               }
             >
-              {turn.content || (turn.role === 'assistant' && status === 'streaming' ? '…' : '')}
+              {turn.role === 'assistant'
+                ? turn.content
+                  ? renderAssistantContent(turn.content)
+                  : status === 'streaming'
+                    ? '…'
+                    : ''
+                : turn.content}
             </m.div>
           ))}
         </div>

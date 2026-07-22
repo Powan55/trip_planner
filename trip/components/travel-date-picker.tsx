@@ -36,6 +36,19 @@ const TravelEssentialsCard = dynamic(() => import('@/components/travel-essential
   ),
 });
 
+// — two small night-out affordances (plan-audit-nightlife-2026-07-21.md), same nested
+// dynamic(ssr:false) pattern as TravelEssentialsCard just above: both are
+// pure/clock-driven reads with nothing to render server-side, so they split off the initial
+// `/travel` chunk too.
+const TravelLastTrainChip = dynamic(() => import('@/components/travel-last-train-chip'), {
+  ssr: false,
+  loading: () => <div aria-hidden="true" className="mx-auto mt-3 h-4 max-w-2xl" />,
+});
+const TravelTonightCard = dynamic(() => import('@/components/travel-tonight-card'), {
+  ssr: false,
+  loading: () => <div aria-hidden="true" className="mx-auto mt-4 min-h-0 max-w-2xl" />,
+});
+
 /** Rebuild the current query string with `date` set/cleared, preserving every other param
  * — mirrors calendar-planner's `?focus=` strip-and-replace. */
 function withDateParam(current: URLSearchParams, date: string | null): string {
@@ -162,7 +175,13 @@ export default function TravelDatePicker() {
       )}
 
       <TravelHeroCard date={selectedDate} />
+      {/* today's evening item, only rendered once it's actually evening (component's own
+          check) — a real `?date=` preview of another day naturally shows nothing, since "tonight"
+          is about the real today-in-trip, not the previewed day. */}
+      <TravelTonightCard />
       <TravelAgendaCard date={selectedDate} />
+      {/* Japan-phase-only static last-train chip for the day being viewed. */}
+      <TravelLastTrainChip date={selectedDate} />
       <TravelEssentialsCard date={selectedDate} />
     </>
   );

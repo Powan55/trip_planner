@@ -864,3 +864,12 @@ html[data-vt-active] .animate-route-fade {
   min-width: 44px;
   min-height: 44px;
 }
+
+/* iOS Safari auto-zooms the page when a focused form control's font-size < 16px. App-wide
+   fix: Tailwind's text-sm (14px) inputs across the app (concierge chat, quick-add,
+   plan-search, expense-dialog, journal, settings, …) were tripping this on iPhone, everywhere
+   except the homepage. @supports(-webkit-touch-callout) is iOS-Safari-only, so desktop/Android
+   typography is untouched; !important is needed to beat the Tailwind text-sm utility. */
+@supports (-webkit-touch-callout: none) {
+  input, select, textarea { font-size: 16px !important; }
+}

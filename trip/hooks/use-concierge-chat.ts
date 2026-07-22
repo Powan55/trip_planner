@@ -4,10 +4,45 @@ import { useCallback, useRef, useState } from 'react';
 import { getActiveTripId } from '@/core/storage/gateway';
 import { CONCIERGE_URL } from '@/lib/concierge-config';
 import { SSELineBuffer, extractDeltaText } from '@/lib/concierge-sse';
+import { TRIP_DATE_LABEL, TRIP_DATES } from '@/core/dates/trip-dates';
+import { getCityForDate } from '@/core/dates/trip-cities';
+import { itineraryStoragePort } from '@/lib/itinerary-ports';
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
+}
+
+const DIGEST_CAP = 1500;
+const HISTORY_CAP = 12;
+
+/**
+ * Compact plain-text trip-context digest — sent as `context` alongside each concierge
+ * call so the model can answer trip-specific questions without the client hand-rolling a
+ * bespoke prompt format. Reads the SAME storage path `components/itinerary-provider.tsx`'s
+ * store is built on (`itineraryStoragePort.load()` — the Vault gateway, `core/storage/gateway`
+ * beneath it) rather than duplicating the load logic; dates/cities come straight from
+ * `core/dates`, so there is exactly one source for each fact. Filters tombstoned
+ * items (`deleted === true`) the same way `use-itinerary.ts`'s `visiblePlans` does, since the
+ * raw Vault load can carry them under sync. Hard-capped at `DIGEST_CAP` chars (truncate + '…')
+ * — this is a token-budget guard for the Worker call, not a data-shape decision.
+ */
+function buildTripDigest(): string {
+  const lines: string[] = [`Trip: ${TRIP_DATE_LABEL}`];
+
+  const plans = itineraryStoragePort.load();
+  const byDate = new Map(plans.map((d) => [d.date, d]));
+
+  for (const date of TRIP_DATES) {
+    const day = byDate.get(date);
+    const city = day?.city ?? getCityForDate(date);
+    const items = (day?.items ?? []).filter((i) => i.deleted !== true);
+    const titles = items.map((i) => i.title).join(', ');
+    lines.push(titles ? `${date} (${city}): ${titles}` : `${date} (${city}): unplanned`);
+  }
+
+  const digest = lines.join('\n');
+  return digest.length > DIGEST_CAP ? `${digest.slice(0, DIGEST_CAP - 1)}…` : digest;
 }
 
 export type ChatStatus = 'idle' | 'streaming' | 'error';
@@ -55,10 +90,11 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       setError(null);
 
       try {
+        const context = buildTripDigest();
         const res = await fetchImpl(CONCIERGE_URL, {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'X-Trip-Token': getActiveTripId() },
-          body: JSON.stringify({ message: trimmed, history }),
+          body: JSON.stringify({ message: trimmed, history: history.slice(-HISTORY_CAP), context }),
         });
 
         if (!res.ok || !res.body) {

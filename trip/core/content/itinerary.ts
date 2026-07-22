@@ -52,6 +52,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'n3-4', title: 'Lunch — momos at Yangling', category: 'food', time: '13:00', duration: '1h', notes: 'Legendary Thamel momo spot; try the jhol (soup) momos', location: 'Thamel' },
       { id: 'n3-5', title: 'Asan Bazaar street photography', category: 'photography', time: '14:30', duration: '2h', notes: 'Oldest market in the city — spices, fabrics and hidden temples; ask permission for portraits', location: 'Asan, Kathmandu' },
       { id: 'n3-6', title: 'Sunset at Boudhanath Stupa', category: 'sightseeing', time: '16:30', duration: '2h', notes: 'Walk clockwise with the pilgrims; shoot the golden-hour dome from a rooftop cafe', location: 'Boudha, Kathmandu' },
+      { id: 'n3-7', title: 'Live music at Purple Haze Rock Bar', category: 'nightlife', time: '20:00', duration: '2.5h', notes: "First full Kathmandu night — Purple Haze's live rock/blues bands in Thamel. Thamel bars wind down ~23:00-midnight (loosely enforced); verify hours/cover before going.", location: 'Thamel, Kathmandu' },
     ],
   },
   {
@@ -76,6 +77,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'n5-3', title: 'Lunch at Cafe Swotha', category: 'food', time: '13:30', duration: '1.5h', notes: 'Newari set meal in a beautifully restored heritage courtyard', location: 'Patan' },
       { id: 'n5-4', title: 'Patan alley courtyards & metalwork', category: 'shopping', time: '15:30', duration: '1.5h', notes: 'Wander the back lanes for hidden bahals and workshops; Patan is famous for handmade bronze and silver', location: 'Patan' },
       { id: 'n5-5', title: 'Golden-hour street photography in Patan', category: 'photography', time: '17:00', duration: '1.5h', notes: 'Warm side light filters through the narrow streets and brick facades', location: 'Patan' },
+      { id: 'n5-6', title: "Sam's Bar social night", category: 'nightlife', time: '20:00', duration: '2h', notes: "Cheap drinks, pool tables and a mix of travelers — Thamel's easiest casual night. Verify hours/cover before going.", location: 'Thamel, Kathmandu' },
     ],
   },
   {
@@ -113,6 +115,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'n8-3', title: 'Pottery Square & lunch in Bhaktapur', category: 'food', time: '12:30', duration: '1.5h', notes: 'Watch potters at the wheel, then a Newari lunch in the old town', location: 'Bhaktapur' },
       { id: 'n8-4', title: 'Taudaha Lake birdwatching', category: 'nature', time: '15:30', duration: '1.5h', notes: 'Tranquil lake on the valley rim — December is best for migratory birds; tea stalls along the shore', location: 'Chobhar' },
       { id: 'n8-5', title: 'Quiet dinner near the hotel', category: 'food', time: '19:00', duration: '1.5h', notes: 'Low-key evening to recharge before the final days', location: 'Keshar Mahal Marga, Kathmandu' },
+      { id: 'n8-6', title: 'Thamel bar crawl — Purple Haze to Sam\'s', category: 'nightlife', time: '20:30', duration: '2h', notes: 'A softer Wednesday night — still beats staying in. Verify hours/cover before going.', location: 'Thamel, Kathmandu' },
     ],
   },
   {
@@ -125,6 +128,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'n9-3', title: 'Lunch back in Patan', category: 'food', time: '13:00', duration: '1h', notes: 'Refuel on the way back into the city', location: 'Patan' },
       { id: 'n9-4', title: 'Chobhar Gorge & Jal Binayak', category: 'sightseeing', time: '15:00', duration: '2h', notes: 'Dramatic gorge where the Bagmati cuts the valley rim; vintage suspension bridge and a riverside temple in soft afternoon light', location: 'Chobhar' },
       { id: 'n9-5', title: 'Farewell dinner at OR2K rooftop', category: 'food', time: '18:30', duration: '1.5h', notes: 'A relaxed last proper Nepal dinner with sunset rooftop views', location: 'Thamel' },
+      { id: 'n9-6', title: 'Kathmandu send-off at Club Fahrenheit', category: 'nightlife', time: '20:30', duration: '3h', notes: "The last Nepal night — Thursday is Fahrenheit's/LOD's night. Verify hours/cover before going.", location: 'Durbarmarg, Kathmandu' },
     ],
   },
   {
@@ -151,7 +155,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j1-3b', title: 'Fly Tokyo Haneda (HND) → Osaka Itami (ITM) — Japan Airlines 127', category: 'transportation', time: '16:25', duration: '1h 10m', notes: 'HND Terminal 1 → ITM · Japan Airlines 127 · arrives 5:35pm · Economy (Q). Real booked domestic flight — render the times exactly as booked', location: 'Tokyo Haneda (HND T1) → Osaka Itami (ITM)' },
       { id: 'j1-4', title: 'Check in to Hotel The Grandee Shinsaibashi', category: 'hotel', time: '18:15', duration: '1h', notes: 'Real booked hotel — 1-6-28 Higashi-Shinsaibashi, Osaka, 542-0083 Japan. Drop bags and freshen up before the first Osaka night out', location: 'Hotel The Grandee Shinsaibashi, Osaka' },
       { id: 'j1-5', title: 'Dotonbori evening walk & the Glico sign', category: 'sightseeing', time: '19:00', duration: '1.5h', notes: 'First look at the neon canal-front strip — the Glico Running Man sign, the giant crab and puffer-fish signs; an easy, low-effort orientation for jet-lagged legs', location: 'Dotonbori, Osaka' },
-      { id: 'j1-6', title: 'Namba/Shinsaibashi bars & late-night food', category: 'nightlife', time: '21:00', duration: '3h', notes: 'Ease into the trip with a first round of Namba/Shinsaibashi bars, then ramen or takoyaki to close out night one — confirm cover charges and drink prices before sitting down', location: 'Namba/Shinsaibashi, Osaka' },
+      { id: 'j1-6', title: 'Namba/Shinsaibashi bars & late-night food', category: 'nightlife', time: '21:00', duration: '3h', notes: 'Ease into the trip with a first round of Namba/Shinsaibashi bars, then ramen or takoyaki to close out night one — confirm cover charges and drink prices before sitting down. Last train ~00:00, first ~05:00 — taxi or plan to stay out.', location: 'Namba/Shinsaibashi, Osaka' },
     ],
   },
   {
@@ -163,7 +167,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j2-2', title: 'Lunch near Namba', category: 'food', time: '12:00', duration: '1h', notes: 'Casual bite before the afternoon shopping run', location: 'Namba, Osaka' },
       { id: 'j2-3', title: 'Shinsaibashi shopping & Amerikamura', category: 'shopping', time: '13:30', duration: '2.5h', notes: "The long covered Shinsaibashi-suji arcade for shopping, then Amerikamura's streetwear blocks and casual cafes next door", location: 'Shinsaibashi & Amerikamura, Osaka' },
       { id: 'j2-4', title: 'Dotonbori dinner', category: 'food', time: '18:00', duration: '1.5h', notes: 'Takoyaki, okonomiyaki and the canal-front neon before the night out', location: 'Dotonbori, Osaka' },
-      { id: 'j2-5', title: 'Shinsaibashi/Amerikamura party night', category: 'nightlife', time: '21:00', duration: '3h', notes: 'The first big party night — bar and club hopping through Shinsaibashi and Amerikamura; agree the cover charge and any drink minimum before going in', location: 'Shinsaibashi/Amerikamura, Osaka' },
+      { id: 'j2-5', title: 'Shinsaibashi/Amerikamura party night', category: 'nightlife', time: '21:00', duration: '3h', notes: "The first big party night — try Club Bambi (young, cheap, hip-hop-inclusive) or GHOST Ultra Lounge tonight (verify hours/cover before going); agree the cover charge and any drink minimum before going in. Cap the night with Kinryu Ramen Dotonbori (24h). Last train ~00:00, first ~05:00 — taxi or stay out till first train.", location: 'Shinsaibashi/Amerikamura, Osaka' },
     ],
   },
   {
@@ -174,7 +178,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j3-1', title: 'Universal Studios Japan — Super Nintendo World', category: 'sightseeing', time: '09:00', duration: '8h', notes: 'A full day at USJ; prioritize Super Nintendo World and an Express Pass if available — check current anime/game collaborations closer to the date', location: 'Universal Studios Japan, Konohana, Osaka' },
       { id: 'j3-2', title: 'Lunch inside the park', category: 'food', time: '13:00', duration: '1h', notes: 'Quick refuel between rides', location: 'Universal Studios Japan, Osaka' },
       { id: 'j3-3', title: 'Dinner near Namba', category: 'food', time: '19:00', duration: '1.5h', notes: 'Recover from a long theme-park day before a lighter night', location: 'Namba, Osaka' },
-      { id: 'j3-4', title: 'Lighter Namba night', category: 'nightlife', time: '21:00', duration: '2h', notes: 'A lower-key night after USJ — late food and a couple of easy bars in Namba', location: 'Namba, Osaka' },
+      { id: 'j3-4', title: 'Lighter Namba night', category: 'nightlife', time: '21:00', duration: '2h', notes: 'A lower-key night after USJ — late food and a couple of easy bars in Namba. Last train ~00:00, first ~05:00 — taxi or stay out till first train.', location: 'Namba, Osaka' },
     ],
   },
   {
@@ -185,7 +189,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j4-1', title: 'Den Den Town / Nipponbashi anime shopping', category: 'shopping', time: '10:30', duration: '3h', notes: "Osaka's anime and electronics district — hunt for One Piece, Naruto and Dragon Ball Z figures and collectibles across the arcade's specialty shops", location: 'Nipponbashi, Osaka' },
       { id: 'j4-2', title: 'Lunch in Nipponbashi', category: 'food', time: '13:30', duration: '1h', notes: 'Casual lunch between the figure shops', location: 'Nipponbashi, Osaka' },
       { id: 'j4-3', title: 'Dotonbori food crawl', category: 'food', time: '18:00', duration: '2h', notes: 'A second pass through Dotonbori for more street food before the night out', location: 'Dotonbori, Osaka' },
-      { id: 'j4-4', title: 'Namba/Shinsaibashi bars & clubs', category: 'nightlife', time: '21:00', duration: '3h', notes: 'Another round through Namba and Shinsaibashi — mix up the venues from the first party night', location: 'Namba/Shinsaibashi, Osaka' },
+      { id: 'j4-4', title: 'Namba/Shinsaibashi bars & clubs', category: 'nightlife', time: '21:00', duration: '3h', notes: "Another round through Namba and Shinsaibashi — try Pure Osaka (Dotonbori) tonight, rotating off the first party night's venues (verify before going). Cap it with Kinryu Ramen Dotonbori (24h). Last train ~00:00, first ~05:00 — taxi or stay out till first train.", location: 'Namba/Shinsaibashi, Osaka' },
     ],
   },
   {
@@ -196,7 +200,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j5-1', title: 'Shinsekai & Spa World flex day', category: 'sightseeing', time: '10:30', duration: '4h', notes: 'The retro Shinsekai district under Tsutenkaku Tower for kushikatsu and old-Osaka atmosphere, then an afternoon soak at the Spa World bathhouse complex — a relaxed recovery day before the last Osaka night', location: 'Shinsekai, Osaka' },
       { id: 'j5-2', title: 'Lunch — kushikatsu in Shinsekai', category: 'food', time: '13:00', duration: '1h', notes: "Deep-fried skewers, Osaka's other signature street food; the rule is no double-dipping the sauce", location: 'Shinsekai, Osaka' },
       { id: 'j5-3', title: 'Dinner before the final Osaka night', category: 'food', time: '18:30', duration: '1.5h', notes: 'Fuel up before the biggest party night of the Osaka leg', location: 'Namba, Osaka' },
-      { id: 'j5-4', title: 'Biggest Osaka party night', category: 'nightlife', time: '21:30', duration: '3.5h', notes: "The final and biggest Osaka night out across Shinsaibashi, Amerikamura and Namba before the move to Kyoto — pace the group for tomorrow's checkout", location: 'Shinsaibashi/Amerikamura/Namba, Osaka' },
+      { id: 'j5-4', title: 'Biggest Osaka party night', category: 'nightlife', time: '21:30', duration: '3.5h', notes: "The final and biggest Osaka night out — try GHOST Ultra Lounge or Club Bambi across Shinsaibashi, Amerikamura and Namba before the move to Kyoto (verify hours/cover before going); pace the group for tomorrow's checkout. One more round of Kinryu Ramen Dotonbori (24h) before calling it. Last train ~00:00, first ~05:00 — taxi or stay out till first train.", location: 'Shinsaibashi/Amerikamura/Namba, Osaka' },
     ],
   },
   {
@@ -208,7 +212,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j6-2', title: 'Osaka → Kyoto by JR train', category: 'transportation', time: '11:30', duration: '45min', notes: 'JR Special Rapid (or Shinkansen, depending on exact hotel locations) from Osaka/Umeda to Kyoto Station; a light travel day — keep Christmas Eve easy', location: 'Osaka → Kyoto' },
       { id: 'j6-3', title: 'Check in to Hotel Forza Kyoto Shijo Kawaramachi', category: 'hotel', time: '14:00', duration: '1h', notes: 'Real booked hotel (official check-in 2:00pm) — Shijo-Dori, Fuya, Nishihairu, Tachiuri, Kyoto, 600-8005 Japan. Drop bags and rest before the Christmas Eve evening', location: 'Hotel Forza Kyoto Shijo Kawaramachi, Kyoto' },
       { id: 'j6-4', title: 'Pontocho Christmas Eve dinner', category: 'food', time: '18:30', duration: '2h', notes: 'Dinner down the narrow riverside lane — obanzai (Kyoto home cooking) or a casual yudofu hot-pot to warm up; reserve ahead if possible', location: 'Pontocho, Kyoto' },
-      { id: 'j6-5', title: 'Kiyamachi-dori bars', category: 'nightlife', time: '21:00', duration: '2.5h', notes: "Kyoto's main drinking street for a lighter first night — keep it easy after the transfer day", location: 'Kiyamachi-dori, Kyoto' },
+      { id: 'j6-5', title: 'Kiyamachi-dori bars', category: 'nightlife', time: '21:00', duration: '2.5h', notes: "Kyoto's main drinking street for a lighter first night — keep it easy after the transfer day. Kyoto's last buses/subway run earlier than Tokyo/Osaka (well before midnight) — plan a taxi back if you're out late.", location: 'Kiyamachi-dori, Kyoto' },
     ],
   },
   {
@@ -220,7 +224,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j7-2', title: 'Inari-style breakfast & tea', category: 'food', time: '09:30', duration: '1h', notes: 'Kitsune udon and inari-zushi at a shrine-approach stall after the climb', location: 'Fushimi, Kyoto' },
       { id: 'j7-3', title: 'Higashiyama & Kiyomizu-dera', category: 'cultural', time: '12:00', duration: '2.5h', notes: 'Hilltop temple with its wooden stage over the valley, then the preserved Sannenzaka/Ninenzaka slopes down through Higashiyama', location: 'Higashiyama, Kyoto' },
       { id: 'j7-4', title: 'Gion evening walk', category: 'sightseeing', time: '17:00', duration: '1.5h', notes: 'Stroll the lantern-lit lanes of Gion and Hanamikoji as they light up for Christmas evening', location: 'Gion, Kyoto' },
-      { id: 'j7-5', title: 'Pontocho/Kawaramachi bars', category: 'nightlife', time: '20:30', duration: '2.5h', notes: 'Christmas night bars along Pontocho and Kawaramachi — traditional atmosphere with an easy night out', location: 'Pontocho/Kawaramachi, Kyoto' },
+      { id: 'j7-5', title: 'Pontocho/Kawaramachi bars', category: 'nightlife', time: '20:30', duration: '2.5h', notes: "Christmas night bars along Pontocho and Kawaramachi — traditional atmosphere with an easy night out. Kyoto's transit stops earlier than Tokyo/Osaka — a taxi back is the safe call late.", location: 'Pontocho/Kawaramachi, Kyoto' },
     ],
   },
   {
@@ -232,7 +236,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j8-2', title: 'Tenryu-ji garden & Togetsukyo Bridge', category: 'nature', time: '08:45', duration: '1.5h', notes: 'Zen garden with borrowed-scenery mountains, then the riverside Togetsukyo Bridge with the winter hills behind. Optional: the Iwatayama Monkey Park across the bridge', location: 'Arashiyama, Kyoto' },
       { id: 'j8-3', title: 'Lunch — yudofu by the river', category: 'food', time: '11:00', duration: '1h', notes: 'Simmering tofu hot-pot, an Arashiyama winter speciality, beside the Hozu River', location: 'Arashiyama, Kyoto' },
       { id: 'j8-4', title: 'Nishiki Market & Kawaramachi', category: 'shopping', time: '14:00', duration: '2h', notes: '"Kyoto\'s Kitchen" covered arcade for pickles, knives, yuba and sweets, spilling into the Kawaramachi shopping streets', location: 'Nishiki Market & Kawaramachi, Kyoto' },
-      { id: 'j8-5', title: 'Final Kyoto night — Gion/Kiyamachi', category: 'nightlife', time: '20:00', duration: '3h', notes: "The final Kyoto night out — Gion's traditional bars into the Kiyamachi strip before the move to Tokyo tomorrow", location: 'Gion/Kiyamachi-dori, Kyoto' },
+      { id: 'j8-5', title: 'Final Kyoto night — Gion/Kiyamachi', category: 'nightlife', time: '20:00', duration: '3h', notes: "The final Kyoto night out — Gion's traditional bars into the Kiyamachi strip before the move to Tokyo tomorrow. Kyoto's transit stops earlier than Tokyo/Osaka — a taxi back is the safe call late.", location: 'Gion/Kiyamachi-dori, Kyoto' },
     ],
   },
   {
@@ -244,7 +248,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j9-2', title: 'Kyoto → Tokyo by Shinkansen', category: 'transportation', time: '12:30', duration: '2.5h', notes: 'Tokaido Shinkansen from Kyoto Station to Tokyo/Shinagawa; book seats ahead — this is New Year travel season. Right-side seats for a Mt Fuji glimpse past Shizuoka', location: 'Kyoto → Tokyo' },
       { id: 'j9-3', title: 'Check in to Tokyo hotel (Shinjuku/Kabukicho edge)', category: 'hotel', time: '15:30', duration: '1h', notes: 'Not yet booked at itinerary-writing time — target the Shinjuku/Kabukicho edge (Higashi-Shinjuku, Seibu-Shinjuku or Shinjuku-sanchome) for easy walking access to nightlife; 3 separate rooms, same hotel (see the to-book list)', location: 'Shinjuku, Tokyo' },
       { id: 'j9-4', title: 'Omoide Yokocho food & drinks', category: 'food', time: '18:30', duration: '1.5h', notes: '"Memory Lane" — lantern-lit yakitori stalls under the Shinjuku tracks; an easy orientation dinner. Cash only', location: 'Shinjuku, Tokyo' },
-      { id: 'j9-5', title: 'Kabukicho walk, Golden Gai & Shinjuku bars', category: 'nightlife', time: '20:30', duration: '3h', notes: "Orientation night — walk Kabukicho's neon blocks, then bar-hop through Golden Gai's tiny alleys; look for an English-friendly sign", location: 'Kabukicho & Golden Gai, Shinjuku' },
+      { id: 'j9-5', title: 'Kabukicho walk, Golden Gai & Shinjuku bars', category: 'nightlife', time: '20:30', duration: '3h', notes: "Orientation night — walk Kabukicho's neon blocks, then bar-hop through Golden Gai's tiny alleys; look for an English-friendly sign. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.", location: 'Kabukicho & Golden Gai, Shinjuku' },
     ],
   },
   {
@@ -256,7 +260,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j10-2', title: 'Lunch in Asakusa', category: 'food', time: '12:00', duration: '1h', notes: 'Casual bite near the temple before heading to Ueno', location: 'Asakusa, Tokyo' },
       { id: 'j10-3', title: 'Ueno Park & Ameyoko Market', category: 'sightseeing', time: '13:30', duration: '2.5h', notes: 'A relaxed park stroll, then the bustling Ameyoko market street under the train tracks for snacks and cheap finds', location: 'Ueno, Tokyo' },
       { id: 'j10-4', title: 'Dinner in Shinjuku', category: 'food', time: '18:30', duration: '1.5h', notes: 'Back to the home base for dinner', location: 'Shinjuku, Tokyo' },
-      { id: 'j10-5', title: 'Easy Shinjuku night', category: 'nightlife', time: '21:00', duration: '2.5h', notes: 'A lighter night after a sightseeing-heavy day — an easy Shinjuku bar round', location: 'Shinjuku, Tokyo' },
+      { id: 'j10-5', title: 'Easy Shinjuku night', category: 'nightlife', time: '21:00', duration: '2.5h', notes: 'A lighter night after a sightseeing-heavy day — an easy Shinjuku bar round. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.', location: 'Shinjuku, Tokyo' },
     ],
   },
   {
@@ -268,7 +272,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j11-2', title: 'Lunch in Akihabara', category: 'food', time: '14:00', duration: '1h', notes: 'Quick curry or a themed anime cafe between the figure shops', location: 'Akihabara, Tokyo' },
       { id: 'j11-3', title: 'GiGO arcade & gachapon', category: 'free', time: '15:30', duration: '1.5h', notes: 'Floors of UFO-catchers, rhythm games and retro cabinets; bring a stack of 100-yen coins', location: 'Akihabara, Tokyo' },
       { id: 'j11-4', title: 'Dinner in Shinjuku', category: 'food', time: '18:30', duration: '1.5h', notes: 'Reset before the night out', location: 'Shinjuku, Tokyo' },
-      { id: 'j11-5', title: 'Shinjuku/Kabukicho bars & nightlife', category: 'nightlife', time: '21:00', duration: '3h', notes: 'Another round through the Shinjuku/Kabukicho base — try a different strip of bars each night', location: 'Shinjuku/Kabukicho, Tokyo' },
+      { id: 'j11-5', title: 'Shinjuku/Kabukicho bars & nightlife', category: 'nightlife', time: '21:00', duration: '3h', notes: 'Another round through the Shinjuku/Kabukicho base — try WARP Shinjuku (Kabukicho mega-club, EDM/hip-hop, a 5-min walk from the hotel zone; verify hours/cover before going). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.', location: 'Shinjuku/Kabukicho, Tokyo' },
     ],
   },
   {
@@ -279,7 +283,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j12-1', title: 'Shibuya Crossing & Shibuya Sky', category: 'sightseeing', time: '10:00', duration: '2h', notes: "The world's busiest crossing from ground level, then the open-air Shibuya Sky observation deck for the view down onto it", location: 'Shibuya, Tokyo' },
       { id: 'j12-2', title: 'Harajuku — Takeshita-dori & Omotesando', category: 'shopping', time: '12:30', duration: '2h', notes: 'Youth-fashion chaos on Takeshita-dori, then the tree-lined Omotesando; check for anime pop-ups and Jump-related events along the way', location: 'Harajuku, Tokyo' },
       { id: 'j12-3', title: 'Shibuya dinner', category: 'food', time: '18:00', duration: '1.5h', notes: 'Fuel up before the big club night', location: 'Shibuya, Tokyo' },
-      { id: 'j12-4', title: 'Shibuya or Roppongi club night', category: 'nightlife', time: '21:00', duration: '3.5h', notes: "Prioritize rap/hip-hop events if available — Shibuya's younger club scene, or Roppongi as the international backup", location: 'Shibuya/Roppongi, Tokyo' },
+      { id: 'j12-4', title: 'Shibuya or Roppongi club night', category: 'nightlife', time: '21:00', duration: '3.5h', notes: "Prioritize rap/hip-hop events if available — try Harlem (Shibuya, the hip-hop institution since 1997) or Club Camelot (3 floors, hip-hop/R&B, young crowd); arrive 23:30-01:00 for peak sets, ¥1,000-3,500 door with drinks (verify before going). Roppongi is the international backup. Cap the night with Ichiran or Nagi ramen (both 24h). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.", location: 'Shibuya/Roppongi, Tokyo' },
     ],
   },
   {
@@ -289,7 +293,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
     items: [
       { id: 'j13-1', title: 'Late brunch & easy shopping', category: 'free', time: '11:00', duration: '2h', notes: 'Keep the daytime light — rest up for the big night ahead', location: 'Shinjuku, Tokyo' },
       { id: 'j13-2', title: 'Pre-game dinner', category: 'food', time: '18:00', duration: '1.5h', notes: 'A relaxed dinner in Shinjuku or Shibuya before the countdown', location: 'Shinjuku/Shibuya, Tokyo' },
-      { id: 'j13-3', title: "New Year's Eve club/event", category: 'nightlife', time: '21:30', duration: '4h', notes: 'Book NYE tickets in advance if a strong event is found in Shinjuku, Shibuya or Roppongi — avoid relying on random street promoters', location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
+      { id: 'j13-3', title: "New Year's Eve club/event", category: 'nightlife', time: '21:30', duration: '4h', notes: "Shibuya's street countdown is fenced off/cancelled — do not plan on it. Book ahead instead: Club Camelot NYE (hip-hop/R&B — best vibe match) or WOMB's countdown (bigger, techno/house); tickets typically go on sale ~Nov, so grab them the week they drop. Free backup: the Shinjuku Tokyo Met-Gov building's official countdown. Verify lineups/tickets before relying on any of these.", location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
       { id: 'j13-4', title: 'New Year countdown', category: 'nightlife', time: '23:45', duration: '1h', notes: "See in 2027 with the club/event crowd; trains run all night on New Year's Eve", location: 'Tokyo' },
     ],
   },
@@ -301,7 +305,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j14-1', title: 'Recovery morning', category: 'free', time: '11:00', duration: '2h', notes: "A deliberately late start after New Year's Eve", location: 'Shinjuku, Tokyo' },
       { id: 'j14-2', title: 'Meiji Shrine hatsumode (if energy allows)', category: 'cultural', time: '14:00', duration: '2h', notes: 'The first shrine visit of the year draws big New Year crowds; many places keep holiday hours, so treat this as optional if the group needs the extra rest', location: 'Harajuku, Tokyo' },
       { id: 'j14-3', title: 'New Year lunch', category: 'food', time: '16:30', duration: '1h', notes: 'Note many restaurants shut on Jan 1 — a hotel-area spot or konbini is a reliable backup', location: 'Shinjuku, Tokyo' },
-      { id: 'j14-4', title: 'Low-pressure Shinjuku bars', category: 'nightlife', time: '20:00', duration: '2h', notes: 'A calmer chill night — some venues may be closed for the holiday, so keep expectations light', location: 'Shinjuku, Tokyo' },
+      { id: 'j14-4', title: 'Low-pressure Shinjuku bars', category: 'nightlife', time: '20:00', duration: '2h', notes: 'A calmer chill night — some venues may be closed for the holiday, so keep expectations light. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.', location: 'Shinjuku, Tokyo' },
     ],
   },
   {
@@ -312,7 +316,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j15-1', title: 'Ikebukuro & Sunshine City anime day', category: 'shopping', time: '10:30', duration: '3h', notes: 'Anime stores, the Pokémon Center, gashapon walls and character-goods pop-ups; holiday and New Year limited-edition merch appears in early January', location: 'Ikebukuro, Tokyo' },
       { id: 'j15-2', title: 'Lunch in Ikebukuro', category: 'food', time: '14:00', duration: '1h', notes: 'Easy lunch between the shops', location: 'Ikebukuro, Tokyo' },
       { id: 'j15-3', title: 'Dinner in Shinjuku', category: 'food', time: '18:30', duration: '1.5h', notes: 'Back to the home base for dinner', location: 'Shinjuku, Tokyo' },
-      { id: 'j15-4', title: 'Kabukicho/Shinjuku nightlife', category: 'nightlife', time: '21:00', duration: '3h', notes: "Another Shinjuku/Kabukicho night — the group's reliable go-to base", location: 'Kabukicho, Shinjuku' },
+      { id: 'j15-4', title: 'Kabukicho/Shinjuku nightlife', category: 'nightlife', time: '21:00', duration: '3h', notes: "Another Shinjuku/Kabukicho night — the group's reliable go-to base, WARP Shinjuku or Golden Gai if you want a change of pace. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.", location: 'Kabukicho, Shinjuku' },
     ],
   },
   {
@@ -323,7 +327,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j16-1', title: "Nakano Broadway collectors' run", category: 'shopping', time: '10:30', duration: '2.5h', notes: 'Retro multi-floor mall — the original Mandarake, vintage manga, cels and rare Dragon Ball/Naruto/One Piece figures; quieter than Akihabara', location: 'Nakano, Tokyo' },
       { id: 'j16-2', title: 'Koenji thrift & streetwear (optional)', category: 'free', time: '13:30', duration: '1.5h', notes: 'An optional afternoon detour nearby for thrift shops, streetwear and low-key bar culture', location: 'Koenji, Tokyo' },
       { id: 'j16-3', title: 'Omoide Yokocho dinner', category: 'food', time: '18:00', duration: '1.5h', notes: 'A second round of yakitori-alley food before the last stretch of nights', location: 'Shinjuku, Tokyo' },
-      { id: 'j16-4', title: 'Golden Gai & Kabukicho', category: 'nightlife', time: '20:30', duration: '3h', notes: 'Bar-hop a different corner of Golden Gai, then into Kabukicho', location: 'Golden Gai & Kabukicho, Shinjuku' },
+      { id: 'j16-4', title: 'Golden Gai & Kabukicho', category: 'nightlife', time: '20:30', duration: '3h', notes: 'Bar-hop a different corner of Golden Gai, then into Kabukicho. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.', location: 'Golden Gai & Kabukicho, Shinjuku' },
     ],
   },
   {
@@ -334,7 +338,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j17-1', title: 'Tokyo Tower & Roppongi Hills/Mori', category: 'sightseeing', time: '10:30', duration: '3h', notes: "Daytime look at the 333m Tokyo Tower and the Roppongi Hills/Mori area ahead of tonight's nightlife focus", location: 'Roppongi/Minato, Tokyo' },
       { id: 'j17-2', title: 'Lunch near Roppongi', category: 'food', time: '14:00', duration: '1h', notes: 'Casual lunch before the afternoon wind-down', location: 'Roppongi, Tokyo' },
       { id: 'j17-3', title: 'Roppongi dinner', category: 'food', time: '18:30', duration: '1.5h', notes: 'Dinner near the lights before the club night', location: 'Roppongi, Tokyo' },
-      { id: 'j17-4', title: 'Roppongi clubs/bars', category: 'nightlife', time: '21:00', duration: '3.5h', notes: "Roppongi's foreigner-friendly, international club scene — prioritize hip-hop/rap events where available; watch for overcharging and tout traps in this district", location: 'Roppongi, Tokyo' },
+      { id: 'j17-4', title: 'Roppongi clubs/bars', category: 'nightlife', time: '21:00', duration: '3.5h', notes: "Roppongi's foreigner-friendly, international club scene — try V2 Tokyo or Jumanji 55 (cheap, rowdy); prioritize hip-hop/rap events where available; watch for overcharging and tout traps in this district (verify hours/cover before going). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.", location: 'Roppongi, Tokyo' },
     ],
   },
   {
@@ -345,7 +349,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j18-1', title: 'Warner Bros. Studio Tour Tokyo', category: 'sightseeing', time: '10:00', duration: '4h', notes: 'The Harry Potter studio-tour attraction — a major themed day out; alternative is the Ghibli Museum or an anime cafe/pop-up day if tickets are unavailable', location: 'Toshimaen, Nerima, Tokyo' },
       { id: 'j18-2', title: 'Lunch at the studio tour', category: 'food', time: '14:30', duration: '1h', notes: 'On-site cafe between the sets', location: 'Toshimaen, Tokyo' },
       { id: 'j18-3', title: 'Dinner in Shinjuku', category: 'food', time: '18:30', duration: '1.5h', notes: 'Back to base for dinner', location: 'Shinjuku, Tokyo' },
-      { id: 'j18-4', title: 'Shinjuku nightlife', category: 'nightlife', time: '21:00', duration: '3h', notes: 'An easy Shinjuku night to close out the day', location: 'Shinjuku, Tokyo' },
+      { id: 'j18-4', title: 'Shinjuku nightlife', category: 'nightlife', time: '21:00', duration: '3h', notes: 'An easy Shinjuku night to close out the day. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.', location: 'Shinjuku, Tokyo' },
     ],
   },
   {
@@ -356,7 +360,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j19-1', title: 'TeamLab (Borderless or Planets)', category: 'sightseeing', time: '10:00', duration: '3h', notes: 'Immersive digital-art museum of ever-changing light and projection rooms; pre-booked timed ticket, wear white/light colours for the best effect', location: 'Azabudai Hills / Toyosu, Tokyo' },
       { id: 'j19-2', title: 'Lunch nearby', category: 'food', time: '13:30', duration: '1h', notes: 'Casual bite after the museum', location: 'Tokyo' },
       { id: 'j19-3', title: 'Dinner', category: 'food', time: '18:00', duration: '1.5h', notes: "Pick the neighbourhood based on tonight's best event", location: 'Tokyo' },
-      { id: 'j19-4', title: 'Shibuya, Roppongi or Shinjuku night', category: 'nightlife', time: '20:30', duration: '3.5h', notes: 'Choose the venue closest to wherever the best event is tonight', location: 'Shibuya/Roppongi/Shinjuku, Tokyo' },
+      { id: 'j19-4', title: 'Shibuya, Roppongi or Shinjuku night', category: 'nightlife', time: '20:30', duration: '3.5h', notes: 'Choose the venue closest to wherever the best event is tonight — Harlem/Camelot (Shibuya), WARP (Shinjuku) or V2/Jumanji 55 (Roppongi) are the standing options. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.', location: 'Shibuya/Roppongi/Shinjuku, Tokyo' },
     ],
   },
   {
@@ -367,7 +371,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j20-1', title: 'Last souvenir & anime-merch shopping', category: 'shopping', time: '10:00', duration: '3h', notes: 'Shibuya, Harajuku, Akihabara, Nakano or Ikebukuro — whichever still has gaps to fill; souvenirs, streetwear and gifts', location: 'Tokyo' },
       { id: 'j20-2', title: 'Lunch', category: 'food', time: '13:30', duration: '1h', notes: 'Quick refuel between shopping stops', location: 'Tokyo' },
       { id: 'j20-3', title: 'Final dinner', category: 'food', time: '18:30', duration: '2h', notes: 'A proper final-full-day dinner to mark the trip winding down; reserve ahead', location: 'Shinjuku, Tokyo' },
-      { id: 'j20-4', title: 'Final major club/bar night', category: 'nightlife', time: '21:00', duration: '4h', notes: 'The last big scheduled night — Shinjuku, Shibuya or Roppongi, whichever has the best event', location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
+      { id: 'j20-4', title: 'Final major club/bar night', category: 'nightlife', time: '21:00', duration: '4h', notes: 'The last big scheduled night — Shinjuku, Shibuya or Roppongi, whichever has the best event; Harlem/Camelot (Shibuya) or WARP (Shinjuku) are the standing picks. Cap it with Ichiran or Nagi ramen (both 24h). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.', location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
     ],
   },
   {
@@ -377,7 +381,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
     items: [
       { id: 'j21-1', title: 'Tokyo DisneySea', category: 'sightseeing', time: '09:00', duration: '8h', notes: 'A relaxed bonus day at Tokyo DisneySea — themed lands, rides and parades; a lighter, change-of-pace day before the very last night out', location: 'Urayasu, Chiba' },
       { id: 'j21-2', title: 'Dinner near the hotel', category: 'food', time: '19:00', duration: '1.5h', notes: 'Reset after a full park day', location: 'Shinjuku, Tokyo' },
-      { id: 'j21-3', title: 'One more big night out', category: 'nightlife', time: '21:00', duration: '4h', notes: "The group's \"party 95% of nights\" preference gets one more full night — Shinjuku, Shibuya or Roppongi, whichever still has the best energy; Jan 9 is not an early flight, so there's no need to hold back", location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
+      { id: 'j21-3', title: 'One more big night out', category: 'nightlife', time: '21:00', duration: '4h', notes: "The group's \"party 95% of nights\" preference gets one more full night — Shinjuku, Shibuya or Roppongi, whichever still has the best energy; Harlem/Camelot (Shibuya) or WARP (Shinjuku) if undecided. Cap it with Ichiran or Nagi ramen (both 24h). Jan 9 is not an early flight, so there's no need to hold back. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.", location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
     ],
   },
   {

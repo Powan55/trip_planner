@@ -35,3 +35,12 @@ export const TravelExitButton = dynamic(() => import('@/components/travel-exit-b
   ssr: false,
   loading: () => <div aria-hidden="true" className="h-11 w-11 shrink-0 rounded-lg" />,
 });
+
+// two small night-out affordances (TravelLastTrainChip, TravelTonightCard) are NOT
+// re-exported here: they need the SAME resolved `?date=`/today-in-trip state that only
+// `components/travel-date-picker.tsx` computes, and that module is itself dynamically
+// imported from THIS file (`TravelDatePicker` above) — a static import back from
+// `travel-date-picker.tsx` to this module would be a module cycle. Instead they're defined as
+// their OWN nested `dynamic(ssr:false)` islands directly inside `travel-date-picker.tsx`,
+// exactly like `TravelEssentialsCard` — same lazy-split pattern,
+// no cycle.
