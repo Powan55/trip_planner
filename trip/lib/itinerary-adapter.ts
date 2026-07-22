@@ -1,4 +1,4 @@
-import type { ItineraryCategory } from '@/lib/trip-data';
+import { formatDate, type ItineraryCategory } from '@/lib/trip-data';
 import type { Recommendation } from '@/lib/nepal-data';
 import type { PhotoSpot } from '@/lib/photography-data';
 import type { MapMarker } from '@/lib/map-data';
@@ -53,6 +53,21 @@ export function featuredSourceId(name: string): string {
  */
 export function nightlifeSourceId(id: string): string {
   return `nightlife-${id}`;
+}
+
+/**
+ * Compact "where it's planned" summary shared by every added-state control (
+ * button, place-detail sheet, nightlife card badge): "" for none, "On Dec 12" for a
+ * single day (weekday stripped for a tight pill), "On N days" for several. One copy
+ * so the vocabulary can never drift across surfaces.
+ */
+export function formatPlacementSummary(placements: ReadonlyArray<{ date: string }>): string {
+  if (placements.length === 0) return '';
+  if (placements.length === 1) {
+    // formatDate -> "Tue, Dec 12"; drop the weekday for a tight pill.
+    return `On ${formatDate(placements[0].date).replace(/^[A-Za-z]+,\s*/, '')}`;
+  }
+  return `On ${placements.length} days`;
 }
 
 /**

@@ -3,11 +3,13 @@
 import { useMemo, useRef, useState, type CSSProperties } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import { SectionHeading } from '@/components/section-heading';
-import { Star, Clock, MapPin, Camera, Search, X, SlidersHorizontal, SearchX, Heart } from 'lucide-react';
+import { Star, Clock, MapPin, Camera, Search, X, SlidersHorizontal, SearchX, Heart, Check } from 'lucide-react';
 import { Recommendation } from '@/lib/nepal-data';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
+import AddedBadge from '@/components/added-badge';
 import PlaceDetailSheet, { type PlaceDetailData } from '@/components/place-detail-sheet';
+import { useItineraryContext } from '@/components/itinerary-provider';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useCardTilt, useGyroOptIn } from '@/hooks/use-card-tilt';
 
@@ -42,6 +44,7 @@ function RecommendationCard({
   favorited,
   onToggleFavorite,
   favoritesReady,
+  added,
 }: {
   item: Recommendation;
   accentColor: string;
@@ -50,6 +53,8 @@ function RecommendationCard({
   onToggleFavorite: () => void;
   /** Gate the favorite toggle's render on hook hydration (no SSR/first-paint mismatch). */
   favoritesReady: boolean;
+  /** Whether this place is already in the plan — drives the card-corner chip. */
+  added: boolean;
 }) {
   const [imgError, setImgError] = useState(false);
   const reduce = useReducedMotion();
@@ -96,22 +101,28 @@ function RecommendationCard({
               <Camera className="w-3 h-3 text-gold-400" />
               <span className="text-xs font-mono text-gold-400">{item.photoRating}/5</span>
             </div>
-            {item.mustSee && (
-              <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                <Star className="w-3 h-3 fill-surface" />
-                Must-see
-              </span>
-            )}
+            <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+              {item.mustSee && (
+                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                  <Star className="w-3 h-3 fill-surface" />
+                  Must-see
+                </span>
+              )}
+              <AddedBadge added={added} testId={`guide-added-${item.id}`} />
+            </div>
           </div>
         ) : (
           <div className="aspect-[16/10] bg-gradient-to-br from-surface-raised to-surface-overlay flex items-center justify-center relative">
             <MapPin className={`w-8 h-8 ${accentColor} opacity-30`} />
-            {item.mustSee && (
-              <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                <Star className="w-3 h-3 fill-surface" />
-                Must-see
-              </span>
-            )}
+            <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+              {item.mustSee && (
+                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                  <Star className="w-3 h-3 fill-surface" />
+                  Must-see
+                </span>
+              )}
+              <AddedBadge added={added} testId={`guide-added-${item.id}`} />
+            </div>
           </div>
         )}
         <div className="p-4 pb-0">
@@ -174,7 +185,10 @@ export default function RecommendationSection({
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('rating');
   const [savedOnly, setSavedOnly] = useState(false);
+  const [plannedOnly, setPlannedOnly] = useState(false);
   const { favorites, toggle: toggleFavorite, hydrated: favoritesReady } = useFavorites();
+  // Reactive planned-state lookup — same mechanism AddToPlanButton uses.
+  const { findPlacements } = useItineraryContext();
   // — one iOS motion opt-in for the whole section (renders only on iOS, sensor
   // not yet granted, motion allowed). Desktop/Android/reduced-motion → nothing renders.
   const gyro = useGyroOptIn();
@@ -185,6 +199,11 @@ export default function RecommendationSection({
     () => items.filter((i) => favorites.includes(i.id)).length,
     [items, favorites],
   );
+
+  // How many of THIS section's items are already in the plan — drives the "Planned"
+  // chip's visibility + live count. A plain per-render expression is fine at this scale
+  //.
+  const plannedCount = items.filter((i) => findPlacements(i.id).length > 0).length;
 
   // Cities present in this data set (from location), sorted, with an "All" head.
   const cities = useMemo(() => {
@@ -238,6 +257,7 @@ export default function RecommendationSection({
         (activeCategory === 'All' || i.category === activeCategory) &&
         (activeCity === 'All' || cityOf(i.location) === activeCity) &&
         (!savedOnly || favorites.includes(i.id)) &&
+        (!plannedOnly || findPlacements(i.id).length > 0) &&
         matchesSearch(i),
     );
     out.sort((a, b) =>
@@ -245,7 +265,7 @@ export default function RecommendationSection({
     );
     return out;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, activeCategory, activeCity, q, sort, savedOnly, favorites]);
+  }, [items, activeCategory, activeCity, q, sort, savedOnly, favorites, plannedOnly]);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<Recommendation | null>(null);
@@ -282,6 +302,7 @@ export default function RecommendationSection({
     setActiveCity('All');
     setQuery('');
     setSavedOnly(false);
+    setPlannedOnly(false);
   };
 
   return (
@@ -356,26 +377,46 @@ export default function RecommendationSection({
           </div>
         )}
 
-        {/* "Saved" filter chip — cuts across categories, so it's a separate boolean
-            toggle rather than folded into the `categories` chip row. Only rendered once
-            favorites have hydrated AND this section has >=1 favorited item. */}
-        {favoritesReady && savedCount > 0 && (
+        {/* Cross-cutting boolean filter chips (Saved / Planned) — separate toggles rather
+            than folded into the `categories` chip row since each cuts across categories.
+            They share one row for visual consistency; each renders only when it has >=1
+            matching item ("Saved" also waits for favorites to hydrate). */}
+        {((favoritesReady && savedCount > 0) || plannedCount > 0) && (
           <div className="flex flex-wrap justify-center gap-2 mb-3">
-            <button
-              type="button"
-              onClick={() => setSavedOnly((v) => !v)}
-              aria-pressed={savedOnly}
-              data-testid="guide-filter-saved"
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                savedOnly
-                  ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                  : 'text-white/55 hover:bg-white/5 hover:text-white/80'
-              }`}
-            >
-              <Heart className={`w-3 h-3 ${savedOnly ? 'fill-current' : ''}`} />
-              Saved
-              <span className="ml-0.5 text-white/50 font-mono">{savedCount}</span>
-            </button>
+            {favoritesReady && savedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setSavedOnly((v) => !v)}
+                aria-pressed={savedOnly}
+                data-testid="guide-filter-saved"
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                  savedOnly
+                    ? `${accentColor} bg-white/10 ring-1 ring-current/30`
+                    : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                }`}
+              >
+                <Heart className={`w-3 h-3 ${savedOnly ? 'fill-current' : ''}`} />
+                Saved
+                <span className="ml-0.5 text-white/50 font-mono">{savedCount}</span>
+              </button>
+            )}
+            {plannedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setPlannedOnly((v) => !v)}
+                aria-pressed={plannedOnly}
+                data-testid="guide-filter-planned"
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                  plannedOnly
+                    ? `${accentColor} bg-white/10 ring-1 ring-current/30`
+                    : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                }`}
+              >
+                <Check className="w-3 h-3" />
+                Planned
+                <span className="ml-0.5 text-white/50 font-mono">{plannedCount}</span>
+              </button>
+            )}
           </div>
         )}
 
@@ -426,6 +467,7 @@ export default function RecommendationSection({
                 favorited={favorites.includes(item.id)}
                 onToggleFavorite={() => toggleFavorite(item.id)}
                 favoritesReady={favoritesReady}
+                added={findPlacements(item.id).length > 0}
               />
             ))}
           </div>

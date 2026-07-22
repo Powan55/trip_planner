@@ -4,11 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import {
   Music, Eye, EyeOff, MapPin, DollarSign, Calendar, Headphones,
-  Search, X, SlidersHorizontal, SearchX, Star, Check,
+  Search, X, SlidersHorizontal, SearchX, Star, Check, CalendarDays,
 } from 'lucide-react';
 import { NIGHTLIFE_VENUES, NightlifeVenue } from '@/lib/nightlife-data';
 import PlaceDetailSheet, { type PlaceDetailData } from '@/components/place-detail-sheet';
-import { nightlifeSourceId, type ItineraryDraft } from '@/lib/itinerary-adapter';
+import { nightlifeSourceId, formatPlacementSummary, type ItineraryDraft } from '@/lib/itinerary-adapter';
+import type { ItineraryStore } from '@/hooks/use-itinerary';
 import { uiPrefs } from '@/core/storage/gateway';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { useItineraryContext } from '@/components/itinerary-provider';
@@ -21,8 +22,18 @@ function cityOf(loc: string): string {
   return parts.length ? parts[parts.length - 1] : loc;
 }
 
-function VenueCard({ venue, onOpen, isAdded }: { venue: NightlifeVenue; onOpen: () => void; isAdded: boolean }) {
+function VenueCard({
+  venue,
+  onOpen,
+  placements,
+}: {
+  venue: NightlifeVenue;
+  onOpen: () => void;
+  placements: ReturnType<ItineraryStore['findPlacements']>;
+}) {
   const isNepal = venue.country === 'Nepal';
+  const isAdded = placements.length > 0;
+  const summary = formatPlacementSummary(placements);
   return (
     <m.div
       initial={{ opacity: 0, y: 20 }}
@@ -89,7 +100,12 @@ function VenueCard({ venue, onOpen, isAdded }: { venue: NightlifeVenue; onOpen: 
             className="mt-3 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gold-500/15 border border-gold-400/40 text-gold-300 text-[11px] font-medium"
           >
             <Check className="w-3 h-3 shrink-0" />
-            Added
+            <span>Added</span>
+            <span className="text-gold-400/60" aria-hidden="true">·</span>
+            <span className="flex items-center gap-1 text-gold-300/80">
+              <CalendarDays className="w-3 h-3 shrink-0" />
+              {summary}
+            </span>
           </span>
         )}
       </button>
@@ -400,7 +416,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                       key={v.id}
                       venue={v}
                       onOpen={() => openDetail(v)}
-                      isAdded={findPlacements(nightlifeSourceId(v.id)).length > 0}
+                      placements={findPlacements(nightlifeSourceId(v.id))}
                     />
                   ))}
                 </div>

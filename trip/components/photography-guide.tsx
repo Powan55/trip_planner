@@ -7,11 +7,13 @@ import { Camera, Clock, Aperture, Search, X, SlidersHorizontal, SearchX, Star } 
 import { PHOTO_SPOTS, PHOTO_CATEGORIES, PhotoSpot } from '@/lib/photography-data';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
+import AddedBadge from '@/components/added-badge';
 import PlaceDetailSheet, { type PlaceDetailData } from '@/components/place-detail-sheet';
+import { useItineraryContext } from '@/components/itinerary-provider';
 
 type SortKey = 'mustSee' | 'name';
 
-function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
+function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => void; added: boolean }) {
   const isNepal = spot.country === 'Nepal';
   const [imgError, setImgError] = useState(false);
   const reduce = useReducedMotion();
@@ -43,12 +45,15 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
               onError={() => setImgError(true)}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-            {spot.mustSee && (
-              <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                <Star className="w-3 h-3 fill-surface" />
-                Must-see
-              </span>
-            )}
+            <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+              {spot.mustSee && (
+                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                  <Star className="w-3 h-3 fill-surface" />
+                  Must-see
+                </span>
+              )}
+              <AddedBadge added={added} testId={`photo-added-${spot.id}`} />
+            </div>
           </div>
         )}
 
@@ -65,9 +70,13 @@ function PhotoCard({ spot, onOpen }: { spot: PhotoSpot; onOpen: () => void }) {
               <p className="text-[11px] text-white/40">{spot.city}, {spot.country}</p>
             </div>
           </div>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
-            {spot.category}
-          </span>
+          <div className="flex flex-col items-end gap-1.5">
+            <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
+              {spot.category}
+            </span>
+            {/* No-image cards have no top-left overlay stack, so surface the chip here. */}
+            {(!spot.image || imgError) && <AddedBadge added={added} testId={`photo-added-${spot.id}`} />}
+          </div>
         </div>
 
         <div className="space-y-2 text-xs">
@@ -112,6 +121,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
   const [activeCity, setActiveCity] = useState('All');
   const [query, setQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('mustSee');
+  const { findPlacements } = useItineraryContext();
 
   const spots = useMemo(
     () => (country ? PHOTO_SPOTS.filter((s) => s.country === country) : PHOTO_SPOTS),
@@ -305,7 +315,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
         {filtered.length > 0 ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {filtered.map((spot) => (
-              <PhotoCard key={spot.id} spot={spot} onOpen={() => openDetail(spot)} />
+              <PhotoCard key={spot.id} spot={spot} onOpen={() => openDetail(spot)} added={findPlacements(spot.id).length > 0} />
             ))}
           </div>
         ) : (

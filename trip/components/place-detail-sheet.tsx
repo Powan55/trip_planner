@@ -7,9 +7,8 @@ import { X, MapPin, Clock, Star, ExternalLink, Tag, CalendarClock, Coins, Check,
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import AddToItineraryDialog, { buildMapsSearchUrl } from '@/components/add-to-itinerary-dialog';
-import type { AddToPlanSource, SourceType, ItineraryDraft } from '@/lib/itinerary-adapter';
+import { formatPlacementSummary, type AddToPlanSource, type SourceType, type ItineraryDraft } from '@/lib/itinerary-adapter';
 import { useItineraryContext } from '@/components/itinerary-provider';
-import { formatDate } from '@/lib/trip-data';
 
 /**
  * Shared, responsive place-detail sheet — ONE component that renders as a
@@ -109,11 +108,7 @@ export default function PlaceDetailSheet({
   const { findPlacements } = useItineraryContext();
   const customPlacements = customAddDraft?.sourceId ? findPlacements(customAddDraft.sourceId) : [];
   const customIsAdded = customPlacements.length > 0;
-  const customSummary = customIsAdded
-    ? customPlacements.length === 1
-      ? `On ${formatDate(customPlacements[0].date).replace(/^[A-Za-z]+,\s*/, '')}`
-      : `On ${customPlacements.length} days`
-    : '';
+  const customSummary = formatPlacementSummary(customPlacements);
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;

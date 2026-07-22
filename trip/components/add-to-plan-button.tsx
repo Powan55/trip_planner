@@ -3,9 +3,8 @@
 import { useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Plus, Check, CalendarDays } from 'lucide-react';
-import { formatDate } from '@/lib/trip-data';
 import { useItineraryContext } from '@/components/itinerary-provider';
-import { toItineraryDraft, type SourceType, type AddToPlanSource } from '@/lib/itinerary-adapter';
+import { toItineraryDraft, formatPlacementSummary, type SourceType, type AddToPlanSource } from '@/lib/itinerary-adapter';
 import AddToItineraryDialog from '@/components/add-to-itinerary-dialog';
 
 /**
@@ -53,15 +52,7 @@ export default function AddToPlanButton({ source, sourceType, accentColor }: Add
   const isAdded = placements.length > 0;
 
   // Compact where-it's-planned summary: "On Dec 12" for one day, "On N days" for more.
-  const summary = useMemo(() => {
-    if (placements.length === 0) return '';
-    if (placements.length === 1) {
-      // formatDate -> "Tue, Dec 12"; drop the weekday for a tight pill.
-      const label = formatDate(placements[0].date).replace(/^[A-Za-z]+,\s*/, '');
-      return `On ${label}`;
-    }
-    return `On ${placements.length} days`;
-  }, [placements]);
+  const summary = useMemo(() => formatPlacementSummary(placements), [placements]);
 
   const handleOpen = () => {
     // Capture the trigger BEFORE the dialog mounts/autofocuses, so focus
