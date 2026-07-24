@@ -4,6 +4,8 @@ import { createContext, useContext, useEffect } from 'react';
 import { useItinerary, type ItineraryStore } from '@/hooks/use-itinerary';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler, IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
+import { getActiveTripId, DEFAULT_TRIP_ID, tripMetaSelfHealGuard, getSyncCode } from '@/core/storage/gateway';
+import { getKnownTrip, renameKnownTrip, setTripConfig, SHARED_NAME } from '@/core/trips/registry';
 import { itineraryStoragePort, itineraryOutboxSync, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { expensesSyncPort, expensesOutboxSync, expensesStoragePort } from '@/lib/expenses-ports';
 import { budgetSyncPort, budgetOutboxSync, budgetStoragePort } from '@/lib/budget-ports';
@@ -269,6 +271,76 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('online', onOnline);
       document.removeEventListener('visibilitychange', onVisible);
       teardown();
+    };
+  }, []);
+
+  // TRIP-META SELF-HEAL. A joiner who switched to a non-default trip (the
+  // `?trip=` handshake or the trips-hub "Join" form) but has NO local config for it — e.g. a
+  // fresh browser, or a `pushTripMeta` write that never landed — fetches the trip's remote
+  // name/config ONCE and applies it, then reloads exactly once so every config-reading surface
+  // (countdown target, dashboard dates, destinations) picks it up. Unlike the domain subscribes
+  // above, this does NOT gate on an active traveler: it is a single READ of public trip identity
+  // (the whole point is to orient a brand-new guest/traveler who has nothing local yet), not a
+  // continuous sync channel. `tripMetaSelfHealGuard` (sessionStorage, per trip id) caps this to
+  // one attempt per trip per session, so a genuinely never-synced trip (no remote meta doc yet)
+  // does not loop-reload. Dynamically imports `lib/trips-remote` so the dormant/default-pack
+  // build pulls no firebase — this effect's own gate check runs before that import.
+  useEffect(() => {
+    if (!isRemoteConfigured()) return;
+    const activeId = getActiveTripId();
+    if (activeId === DEFAULT_TRIP_ID) return; // default pack has no remote TripConfigBlock flow
+    if (getKnownTrip(activeId)?.config) return; // already has a local config — nothing to heal
+    if (tripMetaSelfHealGuard.hasRun(activeId)) return; // already tried this trip this session
+
+    let cancelled = false;
+    void import('@/lib/trips-remote')
+      .then(({ fetchTripMeta }) => fetchTripMeta(activeId))
+      .then((remote) => {
+        if (cancelled) return;
+        tripMetaSelfHealGuard.markRun(activeId);
+        if (!remote) return;
+        const current = getKnownTrip(activeId);
+        // Only overwrite the local name if it's still the join-time placeholder — never clobber
+        // a name the user (or a peer's own rename push) already set.
+        if (current?.name === SHARED_NAME) renameKnownTrip(activeId, remote.name);
+        if (remote.config) setTripConfig(activeId, remote.config);
+        window.location.reload(); // one guarded reload so every config-reading surface re-hydrates
+      })
+      .catch((err) => {
+        console.warn('[itinerary-provider] trip meta self-heal failed:', err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // SYNC-CODE trip-list subscription. Mirrors the self-heal effect's gating shape,
+  // but opens a LIVE `onSnapshot` on `trips/{syncCode}/profile/tripList` instead of a one-shot read:
+  // it merges the owner's known-trips list across their devices (a trip created on one device shows
+  // up on all of them). Gated on `isRemoteConfigured()` AND a stored Sync Code AND an active traveler
+  // Dynamically imports `lib/trips-remote` so the
+  // dormant/no-code build pulls no firebase; the gate check runs before the import. Mount-
+  // once (a mint/enter in Settings reloads or seeds directly), so no identity-change re-arm is needed.
+  useEffect(() => {
+    if (!isRemoteConfigured()) return;
+    const code = getSyncCode();
+    if (!code || !getActiveTraveler()) return;
+
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+    void import('@/lib/trips-remote')
+      .then(({ subscribeTripList }) => {
+        if (cancelled) return;
+        unsubscribe = subscribeTripList(code);
+      })
+      .catch((err) => {
+        console.warn('[itinerary-provider] sync-code subscribe unavailable:', err);
+      });
+
+    return () => {
+      cancelled = true;
+      if (unsubscribe) unsubscribe();
     };
   }, []);
 

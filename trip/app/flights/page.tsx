@@ -1,4 +1,5 @@
 import PageHero from '@/components/page-hero';
+import DefaultTripOnly from '@/components/default-trip-only';
 
 // FLIGHTS: a dedicated page for the
 // flights/hotels booking overview, previously mounted on Home. `flights-section.tsx`
@@ -23,7 +24,9 @@ export default function FlightsPage() {
         eyebrow="Bookings"
         subtitle="Every leg of the journey — flights, layovers, and hotel stays across Nepal and Japan."
       />
-      <FlightsSection />
+      <DefaultTripOnly>
+        <FlightsSection />
+      </DefaultTripOnly>
     </main>
   );
 }

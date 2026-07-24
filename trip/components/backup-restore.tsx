@@ -3,8 +3,9 @@
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { exportItinerary, importItinerary, parseBackup } from '@/core/vault/export-import';
-import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
+import { exportTripBackup, importTripBackup } from '@/core/vault/backup';
+import { supportsCompression } from '@/core/vault/compression';
+import { savePlans } from '@/lib/itinerary-storage';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { useItineraryContext } from '@/components/itinerary-provider';
@@ -12,20 +13,18 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 /**
  * Backup & Restore panel — mounted on `/plan`.
  *
- * Two user-facing controls over the WHOLE itinerary:
- * - EXPORT: downloads the current trip as `nepal-japan-trip.json` (a v3 Vault
- * envelope) via a client-side Blob URL — no server.
- * - IMPORT: a file <input> → read text → an explicit CONFIRM dialog (this is a
- * destructive, and on a synced trip a shared, replace) → `importItinerary()` →
- * success or a SAFE error. A rejected import never touches the live trip.
+ * Two user-facing controls over the WHOLE TRIP:
+ * - EXPORT: downloads the active trip as a single `nepal-japan-trip-backup.json.gz` file via a
+ * client-side Blob URL. It carries EVERYTHING local: itinerary, journal,
+ * PHOTOS (meta + bytes), expenses, budget, checklists, favorites, map anchors, share inbox.
+ * - IMPORT: a file <input> → an explicit CONFIRM dialog (this REPLACES the active trip) →
+ * `importTripBackup(file)` → on success the page reloads to re-hydrate every store.
+ * A rejected/garbage file never touches live data, and a single malformed domain is dropped,
+ * not fatal.
  *
- * Sync note: Restore now works under
- * sync. On a synced, signed-in build a Restore is applied as a tombstone-replace MERGE, not an
- * ingest-overwrite: `parseBackup()` validates the file with the same trust boundary, then the
- * store's `restorePlans()` tombstones the current items and re-adds the backup's items as fresh-id
- * copies through the normal `commit()`/outbox fan-out — so it PROPAGATES to the shared trip and
- * survives the next snapshot. Dormant/guest keep the plain local `importItinerary` overwrite
- * (nothing to unwind). Export stays always available.
+ * PRIVACY: photos are device-local, zero-egress. The copy below states PLAINLY that the
+ * backup includes journal AND photos, so downloading a backup can never silently exfiltrate photos —
+ * the file only ever lives on the user's own device.
  *
  * A11y / contrast: dark glassmorphism; the most-muted caption is `text-white/60`
  * (well above the AA 4.5:1 floor of `/50` = 5.32:1 on `#0a0e27`); status/error use their
@@ -42,11 +41,11 @@ import { useItineraryContext } from '@/components/itinerary-provider';
  * static-export prerender.
  */
 
-const EXPORT_FILENAME = 'nepal-japan-trip.json';
+const EXPORT_FILENAME = 'nepal-japan-trip-backup.json';
 // gzip-compressed exports (native CompressionStream) get a `.gz` filename; the bytes
 // stay auto-detected on import by gzip magic bytes regardless of what a user renames the
 // file to (see `core/vault/compression.ts`).
-const EXPORT_FILENAME_GZ = 'nepal-japan-trip.json.gz';
+const EXPORT_FILENAME_GZ = 'nepal-japan-trip-backup.json.gz';
 
 type Status =
   | { kind: 'idle' }
@@ -57,21 +56,22 @@ export default function BackupRestore() {
   const { restorePlans } = useItineraryContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
-  // The picked file's text, held while the confirm dialog is open (so Confirm can
-  // import it and Cancel can discard it without re-reading the file).
-  const [pendingImport, setPendingImport] = useState<{ text: string; name: string } | null>(null);
+  // The picked file, held while the confirm dialog is open (so Confirm can import it and Cancel can
+  // discard it). importTripBackup decompresses + parses the raw file itself, so we don't pre-read.
+  const [pendingImport, setPendingImport] = useState<{ file: File; name: string } | null>(null);
+  // Guards the confirm button while the async restore runs (a restore reads/writes IndexedDB blobs).
+  const [importing, setImporting] = useState(false);
   // Portal mount guard: document.body is only touched after mount, never during
   // the static-export prerender. The `dynamic({ssr:false})` mount on /plan already keeps
   // this off the server render, and this guard is the belt-and-suspenders convention match.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Whether this build is syncing for a signed-in traveler. Under sync a Restore is a
-  // tombstone-replace MERGE via `restorePlans` (propagates + survives the next snapshot); dormant/
-  // guest it is the plain local `importItinerary` overwrite. Computed post-mount (getActiveTraveler
-  // reads localStorage → client-only) to avoid a hydration mismatch; the dormant build + guests
-  // always resolve `false`. Drives only the confirm-dialog copy + which restore path runs — Restore
-  // is ENABLED in every mode now.
+  // Whether this build is syncing for a signed-in traveler. Under sync the itinerary is
+  // restored via `restorePlans` (tombstone-replace MERGE — propagates + survives the next snapshot);
+  // dormant/guest it is the plain local `savePlans` overwrite. Computed post-mount (getActiveTraveler
+  // reads localStorage → client-only) to avoid a hydration mismatch. Drives ONLY which itinerary
+  // commit path importTripBackup uses — every other domain is local-only regardless.
   const [synced, setSynced] = useState(false);
   useEffect(() => {
     setSynced(isRemoteConfigured() && !!getActiveTraveler());
@@ -79,10 +79,9 @@ export default function BackupRestore() {
 
   const handleExport = async () => {
     try {
-      const json = exportItinerary();
-      // gzip via native CompressionStream when supported (compressToBlob feature-
-      // detects and falls back to a plain-text Blob — same bytes as before — when not).
-      const blob = await compressToBlob(json);
+      // the WHOLE trip (itinerary + journal + photos + every local domain), gzip-packed via the
+      // existing compression pipeline (falls back to plain JSON where CompressionStream is absent).
+      const blob = await exportTripBackup();
       const filename = supportsCompression() ? EXPORT_FILENAME_GZ : EXPORT_FILENAME;
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -92,57 +91,54 @@ export default function BackupRestore() {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
-      setStatus({ kind: 'success', message: `Exported your trip to ${filename}.` });
+      setStatus({ kind: 'success', message: `Backed up your whole trip (including journal and photos) to ${filename}.` });
     } catch {
-      setStatus({ kind: 'error', message: 'Could not export your trip. Please try again.' });
+      setStatus({ kind: 'error', message: 'Could not back up your trip. Please try again.' });
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     // Reset the input value NOW so picking the same file twice still fires `change`.
     e.target.value = '';
     if (!file) return;
-    try {
-      // auto-detects gzip vs plain by magic bytes (not extension), so both a
-      // freshly-compressed export AND an old pre- plain-JSON export import here.
-      const text = await decompressBlobOrText(file);
-      setStatus({ kind: 'idle' });
-      setPendingImport({ text, name: file.name });
-    } catch {
-      setStatus({ kind: 'error', message: 'Could not read that file. No changes were made to your trip.' });
-    }
+    setStatus({ kind: 'idle' });
+    setPendingImport({ file, name: file.name });
   };
 
-  const confirmImport = () => {
-    if (!pendingImport) return;
-    // SYNC: validate with the same trust boundary, then apply as a tombstone-replace merge
-    // through the store so the restore propagates + survives the next snapshot. DORMANT/guest: the
-    // plain local overwrite (`importItinerary`), which also writes + fires the change event.
-    let result: { ok: true } | { ok: false; error: string };
-    if (synced) {
-      const parsed = parseBackup(pendingImport.text);
-      if (parsed.ok) {
-        restorePlans(parsed.plans);
-        result = { ok: true };
-      } else {
-        result = parsed;
-      }
-    } else {
-      result = importItinerary(pendingImport.text);
-    }
+  const confirmImport = async () => {
+    if (!pendingImport || importing) return;
+    setImporting(true);
+    // Full-trip restore into the ACTIVE trip. Never-destroy: garbage/malformed data leaves the
+    // live trip untouched. The itinerary commit follows the DUAL PATH — `restorePlans` (propagating
+    // tombstone-replace) under sync, `savePlans` (local overwrite) otherwise. On success we
+    // reload to re-hydrate every store.
+    const result = await importTripBackup(
+      pendingImport.file,
+      undefined,
+      synced ? restorePlans : savePlans,
+    );
+    setImporting(false);
     setPendingImport(null);
     if (result.ok) {
+      const skipped =
+        result.photosSkipped > 0
+          ? ` ${result.photosSkipped} photo${result.photosSkipped === 1 ? '' : 's'} could not be restored (storage limit).`
+          : '';
       setStatus({
         kind: 'success',
-        message: 'Trip imported. Your planner has been updated with the imported itinerary.',
+        message: `Trip restored — itinerary, journal, photos and more are back.${skipped} Reloading…`,
       });
+      // Reload so every store re-hydrates from the freshly-written localStorage/IndexedDB. A
+      // short delay lets the aria-live status announce before the navigation.
+      setTimeout(() => window.location.reload(), 600);
     } else {
       setStatus({ kind: 'error', message: result.error });
     }
   };
 
   const cancelImport = () => {
+    if (importing) return;
     setPendingImport(null);
     setStatus({ kind: 'idle' });
   };
@@ -165,8 +161,10 @@ export default function BackupRestore() {
             </h2>
             {/* Most-muted caption — text-white/60 clears AA on #0a0e27. */}
             <p className="mt-1 max-w-2xl text-sm text-white/60">
-              Save your whole itinerary to a file, or restore it from a backup. Everything is stored
-              on this device — a backup lets you keep a copy or move your trip to another browser.
+              Save your <strong className="font-semibold text-white/80">whole trip</strong> to a single
+              file — itinerary, journal, photos, expenses, budget and checklists — or restore it all
+              from a backup. Everything is stored on this device; a backup lets you keep a copy or move
+              your trip to another browser.
             </p>
           </div>
         </div>
@@ -176,7 +174,8 @@ export default function BackupRestore() {
           <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <h3 className="text-sm font-semibold text-white">Export</h3>
             <p className="text-sm text-white/70">
-              Download your entire trip as a <code className="text-gold-400">.json</code> file.
+              Download your entire trip — <strong className="text-white">including your journal and
+              photos</strong> — as a single backup file.
             </p>
             <button
               type="button"
@@ -185,7 +184,7 @@ export default function BackupRestore() {
               className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gold-400 px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
-              Export trip
+              Back up whole trip
             </button>
           </div>
 
@@ -193,8 +192,8 @@ export default function BackupRestore() {
           <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <h3 className="text-sm font-semibold text-white">Import</h3>
             <p className="text-sm text-white/70">
-              Restore from a backup file. This <strong className="text-white">replaces</strong>{' '}
-              {synced ? 'the shared trip' : 'your current trip'}.
+              Restore everything from a backup — itinerary, journal and photos. This{' '}
+              <strong className="text-white">replaces your current trip</strong>.
             </p>
             <button
               type="button"
@@ -211,7 +210,7 @@ export default function BackupRestore() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="application/json,.json"
+              accept="application/json,.json,.gz,application/gzip"
               onChange={handleFileChange}
               data-testid="backup-import-input"
               aria-label="Choose a trip backup file to import"
@@ -264,38 +263,31 @@ export default function BackupRestore() {
               </div>
               <p className="text-sm text-white/70">
                 Importing <span className="font-medium text-white">{pendingImport.name}</span> will
-                overwrite your current itinerary with the contents of that file.
+                replace your current trip — <strong className="text-white">itinerary, journal, photos</strong>,
+                expenses, budget and checklists — with the contents of that file.
               </p>
               <p className="mt-2 text-sm text-white/70">
-                {synced ? (
-                  <>
-                    This replaces the{' '}
-                    <strong className="text-white">shared trip for everyone</strong>. This cannot be
-                    undone.
-                  </>
-                ) : (
-                  <>
-                    This replaces the itinerary{' '}
-                    <strong className="text-white">on this device</strong>. This cannot be undone.
-                  </>
-                )}
+                This replaces the trip <strong className="text-white">on this device</strong> and cannot
+                be undone. The page will reload once it&apos;s restored.
               </p>
               <div className="mt-6 flex justify-end gap-3">
                 <button
                   type="button"
                   onClick={cancelImport}
+                  disabled={importing}
                   data-testid="backup-confirm-cancel"
-                  className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={confirmImport}
+                  disabled={importing}
                   data-testid="backup-confirm-import"
-                  className="rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  className="rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-60"
                 >
-                  Replace trip
+                  {importing ? 'Restoring…' : 'Replace trip'}
                 </button>
               </div>
             </div>

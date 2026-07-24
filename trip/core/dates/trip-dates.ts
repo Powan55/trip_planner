@@ -26,8 +26,13 @@
 import { getActiveTrip, legForDate } from '@/core/trips';
 
 const activeTrip = getActiveTrip();
-const nepalLeg = activeTrip.legs.find((l) => l.id === 'nepal')!;
-const japanLeg = activeTrip.legs.find((l) => l.id === 'japan')!;
+// A single-leg pack has neither a 'nepal' nor a 'japan' leg — the old
+// non-null `.find(...)!` crashed at module load on it. Fall back to the first / last leg so a
+// generic pack derives a coherent (single-leg) date backbone. The DEFAULT pack still finds its
+// two named legs, so every derived constant below stays byte-identical (parity gate: trips-pack).
+const nepalLeg = activeTrip.legs.find((l) => l.id === 'nepal') ?? activeTrip.legs[0];
+const japanLeg =
+  activeTrip.legs.find((l) => l.id === 'japan') ?? activeTrip.legs[activeTrip.legs.length - 1];
 
 export const TRIP_START = new Date(activeTrip.start + 'T00:00:00');
 export const TRIP_END = new Date(activeTrip.end + 'T23:59:59');
@@ -69,10 +74,11 @@ export const TRIP_DATE_LABEL = `${formatLabelPart(TRIP_START)} – ${formatLabel
 // misclassify it as 'nepal'). As of the boundary lives in the trip pack's legs and the
 // classification delegates to `legForDate`, which does the SAME lexicographic ISO compare —
 // so the behavior is byte-identical (`dateStr <= '2026-12-18' ? 'nepal': 'japan'` for the
-// default pack) while the dates stay configured in one place. The published return
-// type stays the legacy `'nepal' | 'japan'` union — it is the default pack's leg-id set.
-export function getCountryForDate(dateStr: string): 'nepal' | 'japan' {
-  return legForDate(activeTrip, dateStr).id as 'nepal' | 'japan';
+// default pack) while the dates stay configured in one place. The return type is a
+// generic `string`; for
+// the DEFAULT pack the values are still exactly `'nepal' | 'japan'`, so callers are unaffected.
+export function getCountryForDate(dateStr: string): string {
+  return legForDate(activeTrip, dateStr).id;
 }
 
 export function formatDate(dateStr: string): string {

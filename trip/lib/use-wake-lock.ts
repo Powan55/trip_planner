@@ -38,7 +38,10 @@ export function useWakeLock(active: boolean): WakeLockState {
         }
         lockRef.current = lock;
         setHeld(true);
-        lock.addEventListener('release', () => setHeld(false));
+        lock.addEventListener('release', () => {
+          setHeld(false);
+          lockRef.current = null;
+        });
       } catch {
         // Permission denied / unsupported at call-time / battery saver — quiet no-op.
       }

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Music, MapPin } from 'lucide-react';
 import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-now';
+import { useTravelTick } from '@/lib/travel-tick';
 import {
   offsetForCountry,
   getCountryForDate,
@@ -30,16 +31,13 @@ export default function TravelTonightCard() {
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
   const [nowUtcMs, setNowUtcMs] = useState<number>(0);
 
+  // recompute on the shared `/travel` tick (base 20s) instead of a private 1s interval.
+  const tickN = useTravelTick();
   useEffect(() => {
-    const tick = () => {
-      const t = getTodayInTrip();
-      setTodayInTrip(t);
-      if (t) setNowUtcMs(getNowUtcMsForPlace(t.date, offsetForCountry(getCountryForDate(t.date))));
-    };
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    const t = getTodayInTrip();
+    setTodayInTrip(t);
+    if (t) setNowUtcMs(getNowUtcMsForPlace(t.date, offsetForCountry(getCountryForDate(t.date))));
+  }, [tickN]);
 
   if (!hydrated || !todayInTrip) return null;
 

@@ -153,9 +153,17 @@ const NEPAL_JAPAN_2026_CONTENT: TripContent = {
   },
 };
 
-/** Static registry — one pack today; a second pack's content is a future concern, not now. */
+/**
+ * Explicit EMPTY content pack — a custom trip's `contentRef: 'empty'` resolves
+ * HERE instead of hitting the unknown-ref fallback (which would hand it the Nepal×Japan guides).
+ * No itinerary, no legs ⇒ every `getLegContent` lookup falls to empty attractions/food/categories.
+ */
+const EMPTY_CONTENT: TripContent = { itinerary: [], legs: {} };
+
+/** Static registry — the default pack + the empty pack. More packs are a future concern. */
 export const CONTENT_PACKS: Record<string, TripContent> = {
   [DEFAULT_CONTENT_REF]: NEPAL_JAPAN_2026_CONTENT,
+  empty: EMPTY_CONTENT,
 };
 
 /** TOTAL — an unknown `contentRef` falls back to the default pack's content, never throws. */

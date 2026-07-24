@@ -24,3 +24,8 @@ export const CountryEssentials = dynamic(() => import('@/components/country-esse
   ssr: false,
   loading: () => <SectionSkeleton />,
 });
+// — the user's imported "My places" for the Nepal leg. No `loading:` skeleton: the section
+// renders null when this leg has no places (or pre-hydration), so a reserved box would be wrong.
+export const MyPlacesSection = dynamic(() => import('@/components/my-places-section'), {
+  ssr: false,
+});

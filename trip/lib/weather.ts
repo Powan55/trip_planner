@@ -166,6 +166,23 @@ export function weatherTagForDay(day: ForecastDay | null): WeatherTag | null {
   return { icon: WEATHER_TAG_ICONS[day.condition] ?? '', label: day.condition };
 }
 
+/**
+ * Format a `fetchedAt` ISO timestamp into the short "as of" age string the UI renders next to
+ * stale/cached weather (/P6 — mirrors `currency-rate.ts`'s `asOf` label so a cached value
+ * never looks current). PURE given the timestamp. Invalid input degrades to `''` rather
+ * than "Invalid Date" — total, never throws.
+ */
+export function formatWeatherAsOf(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
 /** The golden-hour half-window length: ~50 minutes on either side of sunrise/sunset. */
 const GOLDEN_MINUTES = 50;
 

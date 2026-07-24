@@ -16,7 +16,9 @@ export interface TripToday {
   date: string;
   dayNumber: number;
   city: string;
-  country: 'nepal' | 'japan';
+  // Leg id (: `string`, not the `'nepal' | 'japan'` union — a custom trip's single leg is
+  // `'main'`). For the DEFAULT pack it is still exactly nepal/japan.
+  country: string;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -24,15 +26,26 @@ const pad = (n: number) => String(n).padStart(2, '0');
 /**
  * The trip-day for the given `now`, or `null` when it falls outside the trip window.
  *
- * Formats `now` to a LOCAL calendar-day string from local parts (NOT `toISOString()`,
- * which is UTC and can slip a day at the edges), then looks it up in TRIP_DATES — the
- * single date source. Day N = index + 1. The `city` comes from `getCityForDate`
- * — the SAME per-day city source `synthesizeDay` (`core/itinerary/crud.ts`) uses —
- * so the hero travel-mode label, the Today header, and the stored day plans all agree,
- * now showing the REAL day-trip city (Nagarkot, Kyoto, …), not just the base city.
+ * `offsetMin` is INJECTED by the `lib/trip-now.ts` adapter — this function
+ * stays pure/`page.clock`-testable, the impure clock/leg read stays in the adapter:
+ * - `null`/omitted (default): the calendar day from `now`'s LOCAL parts (NOT
+ * `toISOString()`, which is UTC and can slip a day at the edges) — byte-identical to
+ * the pre- behavior. Used for the `?today=` override and custom
+ * trips (no known geography).
+ * - a number: the destination-leg wall-clock day via `utcDayAtOffset` — the real clock,
+ * re-derived at the trip's own fixed offset so a home-time phone shows the right day.
+ *
+ * Either way the day string is looked up in TRIP_DATES — the single date source.
+ * Day N = index + 1. The `city` comes from `getCityForDate` — the SAME per-day city
+ * source `synthesizeDay` (`core/itinerary/crud.ts`) uses — so the hero travel-mode label,
+ * the Today header, and the stored day plans all agree, now showing the REAL day-trip city
+ * (Nagarkot, Kyoto, …), not just the base city.
  */
-export function dayInTripFor(now: Date): TripToday | null {
-  const s = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+export function dayInTripFor(now: Date, offsetMin?: number | null): TripToday | null {
+  const s =
+    offsetMin == null
+      ? `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` // device-local (unchanged)
+      : utcDayAtOffset(now, offsetMin);
   const i = TRIP_DATES.indexOf(s);
   if (i < 0) return null;
   const country = getCountryForDate(s);
@@ -42,4 +55,14 @@ export function dayInTripFor(now: Date): TripToday | null {
     country,
     city: getCityForDate(s),
   };
+}
+
+/**
+ * Destination calendar day for a UTC instant read at a fixed wall-clock offset (
+ *). B-01-safe: shift the epoch-ms, then UTC getters only (never `new Date(string)`,
+ * never a local getter) — TZ-deterministic regardless of device TZ.
+ */
+export function utcDayAtOffset(now: Date, offsetMin: number): string {
+  const t = new Date(now.getTime() + offsetMin * 60000);
+  return `${t.getUTCFullYear()}-${pad(t.getUTCMonth() + 1)}-${pad(t.getUTCDate())}`;
 }

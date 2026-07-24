@@ -22,6 +22,7 @@ import {
   Inbox,
   FileCheck2,
   Luggage,
+  MapPin,
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -39,6 +40,7 @@ import { loadPlans } from '@/lib/itinerary-storage';
 import { searchPlanItems } from '@/lib/search-plan';
 import { formatDate, type DayPlan } from '@/lib/trip-data';
 import { parseConversionQuery, convertCurrency, type ConversionResult } from '@/lib/currency-convert';
+import { isDefaultTrip } from '@/core/trips';
 
 /**
  * ⌘K / Ctrl+K command palette.
@@ -136,6 +138,7 @@ const SECTIONS: Section[] = [
   { route: '/packing/', label: 'Packing', group: 'More', keywords: ['checklist', 'luggage', 'gear', 'clothes'], icon: Backpack }, //
   { route: '/checklist/', label: 'Documents', group: 'More', keywords: ['passport', 'visa', 'insurance', 'tickets', 'checklist', 'readiness', 'documents'], icon: FileCheck2 }, //
   { route: '/share/', label: 'Shared Links', group: 'More', keywords: ['share', 'inbox', 'links', 'shared', 'triage'], icon: Inbox }, //
+  { route: '/share/', label: 'Import a place', group: 'More', keywords: ['import', 'place', 'google', 'maps', 'link', 'paste'], icon: MapPin }, //
   { route: '/recap/', label: 'Recap', group: 'More', keywords: ['story', 'summary', 'post-trip'], icon: Scroll },
   { route: '/trips/', label: 'Trips', group: 'More', keywords: ['switch', 'create', 'join', 'share', 'key', 'manage'], icon: Luggage }, //
   { route: '/settings/', label: 'Settings', group: 'More', keywords: ['identity', 'currency', 'rates', 'sign out', 'clear', 'backup', 'export', 'import'], icon: Settings }, //
@@ -148,6 +151,11 @@ function normalizePath(p: string | null): string {
 }
 
 const GROUP_ORDER: Section['group'][] = ['Plan', 'Destinations', 'Guides', 'More'];
+
+// (Plan D10): routes that only exist for the default N×J trip — dropped from the
+// palette on a custom trip (Nepal/Japan/Flights, plus their #photography/#nightlife
+// sub-anchors which target /nepal/).
+const DEFAULT_TRIP_ONLY_ROUTES = new Set(['/nepal/', '/japan/', '/flights/']);
 
 /**
  * Deterministic matcher passed to cmdk's `filter`. cmdk's built-in command-score is
@@ -250,6 +258,21 @@ export default function CommandPalette() {
   const [plansSnapshot, setPlansSnapshot] = React.useState<DayPlan[]>([]);
   const [query, setQuery] = React.useState('');
 
+  // (Plan D10): CommandPalette is imported directly into the root layout (a Server
+  // Component), so — unlike Navbar/BottomTabBar — it DOES render server-side. SSR always
+  // resolves the default pack (`core/trips/index.ts`), so the un-mounted render below must
+  // keep the full SECTIONS list to match; after mount we re-evaluate against the real
+  // active-trip pointer and drop the N×J-specific entries on a custom trip.
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  const sections = React.useMemo(
+    () =>
+      mounted && !isDefaultTrip()
+        ? SECTIONS.filter((s) => !DEFAULT_TRIP_ONLY_ROUTES.has(s.route))
+        : SECTIONS,
+    [mounted],
+  );
+
   const snapshotTrigger = React.useCallback(() => {
     triggerRef.current = (document.activeElement as HTMLElement) ?? null;
   }, []);
@@ -301,6 +324,22 @@ export default function CommandPalette() {
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
+  }, [snapshotTrigger]);
+
+  // the desktop navbar's "More" menu Search row has no DOM trigger of its own
+  // to snapshot-focus-then-click (Radix normally wants a real `<button>` in the DOM to
+  // treat as opener) — it closes ITS OWN menu first (returning focus to the More
+  // toggle), then fires this plain `window` CustomEvent so the palette opens as a
+  // clean second action. Snapshot the opener the same way the ⌘K path does, since by
+  // the time this fires `document.activeElement` is already back on the More toggle
+  // (closeMore's synchronous focus-return runs before the event dispatch).
+  React.useEffect(() => {
+    const onPaletteOpen = () => {
+      snapshotTrigger();
+      setOpen(true);
+    };
+    window.addEventListener('palette:open', onPaletteOpen);
+    return () => window.removeEventListener('palette:open', onPaletteOpen);
   }, [snapshotTrigger]);
 
   const handleOpenChange = React.useCallback((next: boolean) => {
@@ -420,13 +459,15 @@ export default function CommandPalette() {
                 otherwise "No matching section." could render ALONGSIDE a real "In your
                 plan" or "Currency Converter" hit. */}
             {planResults.length === 0 && !parsedConversion && <CommandEmpty>No matching section.</CommandEmpty>}
-            {GROUP_ORDER.map((group) => (
+            {GROUP_ORDER.filter((group) => sections.some((s) => s.group === group)).map((group) => (
               <CommandGroup key={group} heading={group}>
-                {SECTIONS.filter((s) => s.group === group).map((section) => {
+                {sections.filter((s) => s.group === group).map((section) => {
                   const Icon = section.icon;
                   return (
                     <CommandItem
-                      key={`${section.route}${section.hash ?? ''}`}
+                      // Key on the (unique) label — two entries now share the /share/ route
+                      //, so route+hash is no longer unique.
+                      key={section.label}
                       value={section.label}
                       keywords={section.keywords}
                       onSelect={() => handleSelect({ route: section.route, hash: section.hash })}
@@ -491,9 +532,16 @@ export default function CommandPalette() {
                   )}
                   {conversionResult?.status === 'ok' && (
                     <span className="truncate flex-1">
+                      {conversionResult.source === 'reference' ? '≈ ' : ''}
                       {parsedConversion.amount} {parsedConversion.from} = {formatConvertedAmount(conversionResult.converted)} {parsedConversion.to}
-                      {conversionResult.stale && (
-                        <span className="ml-2 text-xs text-muted-foreground">(cached, as of {conversionResult.asOf})</span>
+                      {conversionResult.source === 'reference' ? (
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          (reference rate, as of {conversionResult.asOf} — not a live quote)
+                        </span>
+                      ) : (
+                        conversionResult.stale && (
+                          <span className="ml-2 text-xs text-muted-foreground">(cached, as of {conversionResult.asOf})</span>
+                        )
                       )}
                     </span>
                   )}

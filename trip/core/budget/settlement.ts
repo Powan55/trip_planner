@@ -22,7 +22,7 @@
  */
 
 import type { Expense } from './expenses';
-import { legCurrency, type CurrencyCode, type Leg } from './model';
+import { legCurrency, LEGS, type CurrencyCode, type Leg } from './model';
 
 /** One "from pays to amount" reimbursement (leg-local currency). */
 export interface Transfer {
@@ -44,8 +44,6 @@ export interface LegSettlement {
 // Sub-unit tolerance: NPR/JPY are whole-unit at trip scale, so anything under half a unit is noise
 // (an even division remainder). Balances within EPS of 0 are treated as settled.
 const EPS = 0.005;
-
-const LEGS: readonly Leg[] = ['nepal', 'japan'] as const;
 
 function uniq(ids: readonly string[]): string[] {
   return Array.from(new Set(ids));

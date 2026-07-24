@@ -1,4 +1,5 @@
 import PageHero from '@/components/page-hero';
+import DefaultTripOnly from '@/components/default-trip-only';
 
 // NEPAL: recommendations · photography (Nepal) · nightlife (Nepal)
 // · foods/etiquette/featured (Nepal). Section ids (#nepal/#photography/
@@ -11,6 +12,7 @@ import {
   PhotographyGuide,
   NightlifeSection,
   CountryEssentials,
+  MyPlacesSection,
 } from './sections';
 
 export const metadata = {
@@ -29,10 +31,13 @@ export default function NepalPage() {
         eyebrow="Dec 9 – 18"
         subtitle="Kathmandu Valley — temples, markets, photography spots, nightlife, and local flavors."
       />
-      <NepalSection />
-      <PhotographyGuide country="Nepal" />
-      <NightlifeSection country="Nepal" />
-      <CountryEssentials country="Nepal" />
+      <DefaultTripOnly>
+        <NepalSection />
+        <MyPlacesSection legId="nepal" />
+        <PhotographyGuide country="Nepal" />
+        <NightlifeSection country="Nepal" />
+        <CountryEssentials country="Nepal" />
+      </DefaultTripOnly>
     </main>
   );
 }

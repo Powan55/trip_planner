@@ -36,10 +36,27 @@
  */
 
 import type { ItineraryCategory } from '@/lib/trip-data';
+import { getActiveTrip } from '@/core/trips';
 
 // ── Types ───────────────────────────────────────────────────────────────────
 export type CurrencyCode = 'NPR' | 'JPY' | 'USD';
-export type Leg = 'nepal' | 'japan'; // === DayPlan.country
+// a leg id is a generic `string` (=== DayPlan.country). The DEFAULT pack's ids are still
+// exactly 'nepal' | 'japan'; a custom single-leg trip's id is 'main'. `LEGS` / `legCurrency` are
+// DERIVED from the active pack's legs (below) rather than hardcoded, so the same math serves any
+// pack while the default-pack derivation stays byte-identical (the budget suites are the gate).
+export type Leg = string; // === DayPlan.country
+
+/**
+ * The active pack's leg ids, in order — resolved ONCE at module load (a trip switch is a full
+ * reload, so there is no cache to invalidate). For the DEFAULT pack this is
+ * `['nepal', 'japan']`; for a custom trip it is `['main']`.
+ */
+export const LEGS: readonly Leg[] = getActiveTrip().legs.map((l) => l.id);
+
+/** Each leg's fixed LOCAL currency, derived from the active pack. */
+const LEG_CURRENCY: Record<Leg, CurrencyCode> = Object.fromEntries(
+  getActiveTrip().legs.map((l) => [l.id, normalizeCurrency(l.currency)]),
+);
 
 /** All three display-currency choices, in a stable order for the toggle. */
 export const CURRENCIES: readonly CurrencyCode[] = ['USD', 'NPR', 'JPY'] as const;
@@ -87,20 +104,21 @@ export interface BudgetModel {
 /** Approximate mid-2026 seed rates (units of local currency per 1 USD). Clearly a default. */
 export const SEED_RATES: { NPR: number; JPY: number } = { NPR: 138, JPY: 155 };
 
-/** The seeded default model a fresh visitor sees (no budgets set yet, USD display). */
+/** The seeded default model a fresh visitor sees (no budgets set yet, USD display). `legBudgets`
+ * is keyed by the ACTIVE pack's legs — `{ nepal: 0, japan: 0 }` for the default pack. */
 export const DEFAULT_BUDGET: BudgetModel = {
   version: 1,
   homeCurrency: 'USD',
   rates: { ...SEED_RATES },
-  legBudgets: { nepal: 0, japan: 0 },
+  legBudgets: Object.fromEntries(LEGS.map((leg) => [leg, 0])),
   categoryBudgets: {},
 };
 
 // ── Pure helpers ─────────────────────────────────────────────────────────────
 
-/** The fixed LOCAL currency of a leg (Nepal→NPR, Japan→JPY). Total. */
+/** The fixed LOCAL currency of a leg, derived from the active pack (Nepal→NPR, Japan→JPY). Total. */
 export function legCurrency(leg: Leg): CurrencyCode {
-  return leg === 'nepal' ? 'NPR' : 'JPY';
+  return LEG_CURRENCY[leg] ?? 'USD';
 }
 
 /**
@@ -205,8 +223,6 @@ export interface SpentInput {
   byCategory?: Partial<Record<Leg, Partial<Record<ItineraryCategory, number>>>>;
 }
 
-const LEGS: readonly Leg[] = ['nepal', 'japan'] as const;
-
 /**
  * The single rollup: per-leg + per-category budgets and (optionally) logged spend, plus a
  * grand total in the home currency. PURE + TOTAL — a malformed model degrades every field to
@@ -307,10 +323,8 @@ export function normalizeModel(value: unknown): BudgetModel {
   const v = value as Partial<BudgetModel>;
 
   const legBudgetsRaw = (v.legBudgets ?? {}) as Partial<Record<Leg, unknown>>;
-  const legBudgets: Record<Leg, number> = {
-    nepal: safeAmount(legBudgetsRaw.nepal),
-    japan: safeAmount(legBudgetsRaw.japan),
-  };
+  const legBudgets: Record<Leg, number> = {};
+  for (const leg of LEGS) legBudgets[leg] = safeAmount(legBudgetsRaw[leg]);
 
   const catRaw = (v.categoryBudgets ?? {}) as Partial<
     Record<Leg, Partial<Record<ItineraryCategory, unknown>>>

@@ -17,8 +17,9 @@ import { useReducedMotion } from 'framer-motion';
 export interface DayStripDateMeta {
   /** 'YYYY-MM-DD' trip date. */
   date: string;
-  /** Country for the country dot (himalaya = nepal, sakura = japan). */
-  country: 'nepal' | 'japan';
+  /** Leg id for the country dot (himalaya = nepal, sakura = japan).: `string` — a custom
+   * trip's single leg is `'main'`; for the default pack it is still exactly nepal/japan. */
+  country: string;
   /** Number of planned items on this day (drives the count badge; 0 = no badge). */
   count: number;
 }

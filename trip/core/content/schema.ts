@@ -39,9 +39,17 @@ export const itineraryCategories = [
 ] as const;
 
 // STRICTER than the runtime ItineraryItem type on purpose: seed content must NOT carry the
-// user-data / sync lifecycle fields (sourceId/sourceType/createdBy/updatedBy/updatedAt/rev/
-// hlc/deleted/done). Those belong to persisted user items, never to authored seed content;
-// `.strict()` enforces that for free. (Verified: today's seed carries none of them.)
+// user-data / sync lifecycle fields (createdBy/updatedBy/updatedAt/rev/hlc/deleted/done).
+// Those belong to persisted user items, never to authored seed content; `.strict()` enforces
+// that for free.
+//
+// `sourceId` is the ONE exception: it is a back-link from a hardcoded seed item to the
+// place record it represents ( — `findPlacements(sourceId)` pure equality, no
+// fuzzy matching), so the "Added" badge fires for seed items too. It is optional, validated
+// only for non-emptiness here (the guard test in lib/__tests__/seed-sourceids.test.ts checks it
+// actually resolves to a real recommendation/photo/map/featured/nightlife id — a cross-content
+// check that doesn't belong in this single-domain schema). `sourceType` stays excluded: no seed
+// item sets it today, and the badge only needs sourceId equality.
 export const contentItineraryItemSchema = z
   .object({
     id: z.string().min(1),
@@ -51,6 +59,11 @@ export const contentItineraryItemSchema = z
     duration: z.string().min(1).optional(),
     notes: z.string().min(1).optional(),
     location: z.string().min(1).optional(),
+    sourceId: z.string().min(1).optional(),
+    // Per-item place-offset override — see the `tzOffsetMin` doc on
+    // `ItineraryItem` (lib/trip-data.ts). Minutes east of UTC; only set for the rare item
+    // whose wall-clock time is physically in a different place than the day's country.
+    tzOffsetMin: z.number().int().optional(),
   })
   .strict();
 

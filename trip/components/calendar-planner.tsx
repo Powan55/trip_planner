@@ -7,21 +7,13 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { m, AnimatePresence } from 'framer-motion';
 import { SectionHeading } from '@/components/section-heading';
 import {
-  Calendar, Plus, Trash2, Edit3, GripVertical, Save, Copy,
+  Calendar, Plus, Trash2,
   MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
   Landmark, Plane, Hotel, Coffee, Music, X, Check, ChevronLeft, ChevronRight, ChevronDown,
-  ExternalLink, AlertTriangle, Map as MapIcon,
+  ExternalLink, Map as MapIcon,
 } from 'lucide-react';
-import {
-  DndContext, closestCenter, KeyboardSensor, PointerSensor,
-  useSensor, useSensors, DragEndEvent, DragOverEvent,
-  DragStartEvent, DragOverlay, useDroppable,
-} from '@dnd-kit/core';
-import {
-  arrayMove, SortableContext, sortableKeyboardCoordinates,
-  verticalListSortingStrategy, useSortable,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import {
   TRIP_DATES, getCountryForDate, formatDate, formatDateLong,
   ItineraryItem, ItineraryCategory, CATEGORY_COLORS,
@@ -31,7 +23,11 @@ import { buildItineraryStops, stopMarkerFor } from '@/lib/itinerary-map';
 import { showUndoToast } from '@/lib/undo-toast';
 import { getTodayInTrip } from '@/lib/trip-now';
 import { setSelectedDay } from '@/lib/selected-day';
-import DayStrip, { DayStripDateMeta } from '@/components/day-strip';
+import { DayStripDateMeta } from '@/components/day-strip';
+import { SortableItem, DroppableDay, CATEGORY_ICON_MAP } from '@/components/calendar-sortable-item';
+import { CalendarBulkToolbar } from '@/components/calendar-bulk-toolbar';
+import { CalendarDayPicker } from '@/components/calendar-day-picker';
+import { useCalendarDnd } from '@/hooks/use-calendar-dnd';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { freshCopyOf } from '@/hooks/use-itinerary';
 import QuickAddInput from '@/components/quick-add-input';
@@ -39,7 +35,6 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { formatRelativeTime } from '@/lib/relative-time';
 import { filterItemsByAuthor } from '@/lib/author-filter';
 import { useAuthorFilter } from '@/hooks/use-author-filter';
 import AuthorFilterControl from '@/components/author-filter';
@@ -73,216 +68,7 @@ const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
   ),
 });
 
-const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
-  sightseeing: <MapPin className="w-3.5 h-3.5" />,
-  food: <UtensilsCrossed className="w-3.5 h-3.5" />,
-  photography: <Camera className="w-3.5 h-3.5" />,
-  shopping: <ShoppingBag className="w-3.5 h-3.5" />,
-  nature: <Trees className="w-3.5 h-3.5" />,
-  cultural: <Landmark className="w-3.5 h-3.5" />,
-  transportation: <Plane className="w-3.5 h-3.5" />,
-  hotel: <Hotel className="w-3.5 h-3.5" />,
-  free: <Coffee className="w-3.5 h-3.5" />,
-  nightlife: <Music className="w-3.5 h-3.5" />,
-};
-
 const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography', 'shopping', 'nature', 'cultural', 'transportation', 'hotel', 'free', 'nightlife'];
-
-// Cross-friend attribution line: a small, muted
-// "by {updatedBy} · {relative time}" under each item. Renders NOTHING when the item
-// has no `updatedBy` — which is exactly the dormant / local-only-no-name case
-// (attribution fields stay undefined there), so the portfolio build is unchanged.
-// Static Tailwind classes; muted but contrast-safe on the card bg.
-function AttributionLine({ item }: { item: ItineraryItem }) {
-  if (!item.updatedBy) return null;
-  const rel = formatRelativeTime(item.updatedAt);
-  return (
-    <p className="text-[11px] text-white/40 mt-1 truncate">
-      by {item.updatedBy}
-      {rel ? ` · ${rel}` : ''}
-    </p>
-  );
-}
-
-// Sortable Item
-function SortableItem({ item, date, clashes, selectMode, selected, highlighted, mapVisible, hasMarker, onToggleSelect, onEdit, onDelete, onDuplicate, onLocate }: { item: ItineraryItem; date: string; clashes: boolean; selectMode: boolean; selected: boolean; highlighted: boolean; mapVisible: boolean; hasMarker: boolean; onToggleSelect: () => void; onEdit: () => void; onDelete: () => void; onDuplicate: (targetDate: string) => void; onLocate: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
-  // duplicate-item ("same dinner, another day"): the Copy button reveals a native
-  // <select> of trip days; picking one calls onDuplicate(targetDate) — a fresh-id copy of
-  // this item's content lands on that day (defaults to "this day" for a one-off copy). Native
-  // select = keyboard/SR-accessible with no portal or focus-trap to hand-build (ponytail).
-  const [dupOpen, setDupOpen] = useState(false);
-  const dupSelectId = useId();
-
-  // swipe-to-delete (touch/pen only). A horizontal left-swipe on the ROW BODY
-  // (not the grip — dnd owns that, not the action buttons) past the threshold routes
-  // to the SAME onDelete → delete-undo handler; the visible Delete button stays
-  // as the non-gesture a11y/keyboard path. It coexists with dnd-kit + scroll cleanly:
-  // • drag lives on the grip's dnd listeners only → a body swipe never starts a drag;
-  // • touch-action:pan-y keeps native vertical scroll → we engage ONLY once the move
-  // is horizontal-dominant (else we bail and let the browser scroll);
-  // • mouse is ignored (the Delete button is the pointer path), so desktop is untouched.
-  // Snap-back is an instant state reset (no transition) — reduced-motion safe by default.
-  const [swipeX, setSwipeX] = useState(0);
-  const swipe = useRef<{ x: number; y: number; active: boolean; dx: number } | null>(null);
-  const SWIPE_DELETE_PX = 96;
-  const onSwipeDown = (e: React.PointerEvent) => {
-    if (e.pointerType === 'mouse' || selectMode) return;
-    swipe.current = { x: e.clientX, y: e.clientY, active: false, dx: 0 };
-  };
-  const onSwipeMove = (e: React.PointerEvent) => {
-    const s = swipe.current;
-    if (!s) return;
-    const dx = e.clientX - s.x;
-    const dy = e.clientY - s.y;
-    if (!s.active) {
-      // First real movement decides the gesture: vertical-dominant → release to the
-      // browser (native scroll); horizontal-dominant → claim it as a swipe.
-      if (Math.abs(dy) > 8 && Math.abs(dy) >= Math.abs(dx)) {
-        swipe.current = null;
-        return;
-      }
-      if (Math.abs(dx) < 8) return;
-      s.active = true;
-      try {
-        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-      } catch {
-        /* capture is best-effort (dispatched events under test have no live pointer) */
-      }
-    }
-    s.dx = dx;
-    // Left swipe drives the delete; a right pull is resisted (×0.25) so the row barely moves.
-    setSwipeX(dx < 0 ? dx : dx * 0.25);
-  };
-  const onSwipeEnd = () => {
-    const s = swipe.current;
-    swipe.current = null;
-    if (s && s.active && s.dx <= -SWIPE_DELETE_PX) onDelete();
-    setSwipeX(0);
-  };
-
-  const dragTransform = CSS.Transform.toString(transform);
-  const style = {
-    transform: swipeX ? `${dragTransform ?? ''} translateX(${swipeX}px)`.trim() : (dragTransform ?? undefined),
-    transition,
-    opacity: isDragging ? 0.3 : swipeX < 0 ? Math.max(0.4, 1 + swipeX / 240) : 1,
-  };
-  const colors = CATEGORY_COLORS[item.category] ?? CATEGORY_COLORS.free;
-  // Display rule: effectiveStartMinutes -> AM/PM + day-country
-  // badge; legacy-only `time` -> verbatim, unbadged; else nothing.
-  const timeInfo = describeItemTime(item, date);
-
-  return (
-    <div ref={setNodeRef} style={style} data-testid={`calendar-item-${item.id}`} data-highlighted={highlighted ? 'true' : undefined} className={`flex items-start gap-2 p-3 rounded-xl ${colors.bg} border ${selected ? 'border-gold-400 ring-1 ring-gold-400/50' : highlighted ? 'border-gold-400/70 ring-2 ring-gold-400/70' : colors.border} group hover:scale-[1.01] transition-transform`}>
-      {selectMode ? (
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggleSelect}
-          aria-label={`Select ${item.title}`}
-          data-testid={`calendar-item-select-${item.id}`}
-          className="mt-1 h-4 w-4 shrink-0 accent-gold-500 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded"
-        />
-      ) : (
-        <button {...attributes} {...listeners} aria-label={`Reorder ${item.title}`} className="mt-1 cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 touch-none outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded">
-          <GripVertical className="w-4 h-4" />
-        </button>
-      )}
-      <div
-        className="flex-1 min-w-0"
-        data-testid={`calendar-row-swipe-${item.id}`}
-        style={{ touchAction: 'pan-y' }}
-        onPointerDown={onSwipeDown}
-        onPointerMove={onSwipeMove}
-        onPointerUp={onSwipeEnd}
-        onPointerCancel={onSwipeEnd}
-      >
-        <div className="flex items-center gap-2 mb-1">
-          <span className={colors.text}>{CATEGORY_ICON_MAP[item.category]}</span>
-          <span className="text-sm font-medium text-white truncate">{item.title}</span>
-        </div>
-        <div className="flex flex-wrap gap-2 text-xs text-white/40" data-testid={`calendar-item-time-${item.id}`}>
-          {timeInfo && (
-            <span>
-              {timeInfo.label}
-              {timeInfo.badge && (
-                <span className="ml-1 text-[10px] uppercase tracking-wide text-white/55" data-testid={`calendar-item-time-badge-${item.id}`}>
-                  {timeInfo.badge}
-                </span>
-              )}
-            </span>
-          )}
-          {item.duration && <span>• {item.duration}</span>}
-          {item.location && <span>• {item.location}</span>}
-          {clashes && (
-            <span
-              title="Overlaps another timed item"
-              aria-label="Overlaps another timed item"
-              data-testid={`calendar-item-clash-${item.id}`}
-              className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded-full px-1.5 py-0.5"
-            >
-              <AlertTriangle className="w-3 h-3" aria-hidden="true" />
-              Overlap
-            </span>
-          )}
-        </div>
-        {item.notes && <p className="text-xs text-white/30 mt-1 line-clamp-1">{item.notes}</p>}
-        <AttributionLine item={item} />
-        {dupOpen && (
-          <div className="mt-2 flex items-center gap-2" data-testid={`calendar-item-duplicate-picker-${item.id}`}>
-            <label htmlFor={dupSelectId} className="sr-only">{`Duplicate ${item.title} to a day`}</label>
-            <select
-              id={dupSelectId}
-              defaultValue=""
-              data-testid={`calendar-item-duplicate-select-${item.id}`}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                const target = e.target.value;
-                if (!target) return;
-                onDuplicate(target);
-                setDupOpen(false);
-              }}
-              className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-            >
-              <option value="" disabled>Copy to day…</option>
-              {TRIP_DATES.map((d) => (
-                <option key={d} value={d}>{formatDate(d)}{d === date ? ' (this day)' : ''}</option>
-              ))}
-            </select>
-          </div>
-        )}
-      </div>
-      {/* "show on map" — a PERSISTENT (non-hover) affordance, shown only when the
-          split map is open AND this item resolves to a curated marker. Sets the shared
-          highlight so the map emphasizes the stop; keyboard-focusable + labelled. */}
-      {mapVisible && hasMarker && (
-        <button
-          onClick={onLocate}
-          aria-label={`Show ${item.title} on map`}
-          aria-pressed={highlighted}
-          data-testid={`calendar-item-locate-${item.id}`}
-          className={`shrink-0 mt-0.5 p-1.5 rounded hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${highlighted ? 'text-gold-400' : 'text-white/40 hover:text-gold-400'}`}
-        >
-          <MapPin className="w-3.5 h-3.5" />
-        </button>
-      )}
-      <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-        <button onClick={() => setDupOpen((v) => !v)} aria-label={`Duplicate ${item.title}`} aria-expanded={dupOpen} data-testid={`calendar-item-duplicate-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><Copy className="w-3.5 h-3.5" /></button>
-        <button onClick={onEdit} aria-label={`Edit ${item.title}`} data-testid={`calendar-item-edit-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
-        <button onClick={onDelete} aria-label={`Delete ${item.title}`} data-testid={`calendar-item-delete-${item.id}`} className="p-1.5 rounded hover:bg-red-500/20 text-white/40 hover:text-red-400 outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
-      </div>
-    </div>
-  );
-}
-
-// Droppable Day Column
-function DroppableDay({ dateStr, children }: { dateStr: string; children: React.ReactNode }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `day-${dateStr}` });
-  return (
-    <div ref={setNodeRef} className={`min-h-[60px] rounded-xl p-2 transition-colors ${isOver ? 'bg-gold-400/10 ring-1 ring-gold-400/30' : ''}`}>
-      {children}
-    </div>
-  );
-}
 
 // Item Editor Modal
 function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem; startDate: string; onSave: (item: ItineraryItem) => void; onClose: () => void }) {
@@ -749,11 +535,7 @@ export default function CalendarPlanner() {
   const [selectedDate, setSelectedDate] = useState<string>(TRIP_DATES[0]);
   const [editingItem, setEditingItem] = useState<ItineraryItem | undefined>(undefined);
   const [showEditor, setShowEditor] = useState(false);
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'calendar' | 'agenda'>('calendar');
-  // Mobile-only (`<lg`): the month grid is demoted to a collapsible "Month view",
-  // collapsed by default so the phone lands on the single-day agenda.
-  const [showMonthView, setShowMonthView] = useState(false);
 
   // split map/list view. OFF by default so the maplibre island stays
   // interaction-lazy.
@@ -798,10 +580,14 @@ export default function CalendarPlanner() {
   // the exit animation completes. See AnimatePresence onExitComplete below.
   const triggerRef = useRef<HTMLElement | null>(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
+  // drag-and-drop wiring (sensors, active-drag id, reorder / move-between-days
+  // handlers) lives in a co-located hook now — same logic, lifted out to shrink this file.
+  const { sensors, activeItem, handleDragStart, handleDragOver, handleDragEnd } = useCalendarDnd({
+    plans,
+    getDayPlan,
+    moveItem,
+    reorderItems,
+  });
 
   // Load/save effects and the local getDayPlan/updateDayPlan are gone — the store
   // owns load-on-mount, the savePlans-on-write + CustomEvent fan-out, and
@@ -1007,85 +793,6 @@ export default function CalendarPlanner() {
     exitSelectMode();
   };
 
-  // Find which day an item belongs to
-  const findDayForItem = (itemId: string): string | null => {
-    for (const plan of plans) {
-      if ((plan.items ?? []).some((i: ItineraryItem) => i.id === itemId)) {
-        return plan.date;
-      }
-    }
-    return null;
-  };
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event?.active?.id as string);
-  };
-
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event ?? {};
-    if (!over || !active) return;
-    const overId = String(over.id ?? '');
-    const activeId = String(active.id ?? '');
-
-    // If dropping over a day container
-    if (overId.startsWith('day-')) {
-      const targetDate = overId.replace('day-', '');
-      const sourceDate = findDayForItem(activeId);
-      if (sourceDate && sourceDate !== targetDate) {
-        // Move item between days (remove from source, append to target) — the store
-        // moveItem reproduces the former two-updateDayPlan sequence atomically.
-        moveItem(activeId, sourceDate, targetDate);
-      }
-    }
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event ?? {};
-    setActiveId(null);
-    if (!over || !active) return;
-
-    const activeIdStr = String(active.id ?? '');
-    const overIdStr = String(over.id ?? '');
-
-    if (activeIdStr === overIdStr) return;
-
-    // Reorder within same day
-    if (!overIdStr.startsWith('day-')) {
-      const activeDate = findDayForItem(activeIdStr);
-      const overDate = findDayForItem(overIdStr);
-
-      if (activeDate && overDate && activeDate === overDate) {
-        // Reorder within the same day: compute the new id order with arrayMove
-        // (identical to the former in-place splice) and apply via reorderItems.
-        const items = [...(getDayPlan(activeDate).items ?? [])];
-        const oldIdx = items.findIndex((i: ItineraryItem) => i.id === activeIdStr);
-        const newIdx = items.findIndex((i: ItineraryItem) => i.id === overIdStr);
-        if (oldIdx >= 0 && newIdx >= 0) {
-          const orderedIds = arrayMove(items, oldIdx, newIdx).map((i) => i.id);
-          reorderItems(activeDate, orderedIds);
-        }
-      } else if (activeDate && overDate && activeDate !== overDate) {
-        // Move between days, inserting at the hovered item's index (as before).
-        // Compute the target's intended final id order from the current snapshot,
-        // then move (append) + reorder; the store reads the freshest persisted state
-        // on each commit, so these two ops compose without a stale-snapshot clobber.
-        const sourcePlan = getDayPlan(activeDate);
-        const item = (sourcePlan.items ?? []).find((i: ItineraryItem) => i.id === activeIdStr);
-        if (item) {
-          const targetItems = [...(getDayPlan(overDate).items ?? [])];
-          const targetIdx = targetItems.findIndex((i: ItineraryItem) => i.id === overIdStr);
-          const insertAt = targetIdx >= 0 ? targetIdx : targetItems.length;
-          const orderedIds = targetItems.map((i) => i.id);
-          orderedIds.splice(insertAt, 0, item.id);
-          moveItem(activeIdStr, activeDate, overDate);
-          reorderItems(overDate, orderedIds);
-        }
-      }
-    }
-  };
-
-  const activeItem = activeId ? plans.flatMap((p) => p.items ?? []).find((i: ItineraryItem) => i.id === activeId) : null;
-
   const currentPlan = getDayPlan(selectedDate);
   const currentIdx = TRIP_DATES.indexOf(selectedDate);
 
@@ -1105,93 +812,6 @@ export default function CalendarPlanner() {
   };
   const goToNext = () => {
     if (currentIdx < TRIP_DATES.length - 1) setSelectedDate(TRIP_DATES[currentIdx + 1] ?? selectedDate);
-  };
-
-  // Calendar Grid
-  const renderCalendar = () => {
-    const weeks: string[][] = [];
-    let currentWeek: string[] = [];
-    const firstDate = new Date(TRIP_DATES[0] + 'T12:00:00');
-    const startDay = firstDate.getDay();
-    for (let i = 0; i < startDay; i++) currentWeek.push('');
-    for (const date of TRIP_DATES) {
-      currentWeek.push(date);
-      if (currentWeek.length === 7) {
-        weeks.push(currentWeek);
-        currentWeek = [];
-      }
-    }
-    if (currentWeek.length > 0) {
-      while (currentWeek.length < 7) currentWeek.push('');
-      weeks.push(currentWeek);
-    }
-
-    return (
-      <div className="glass-card rounded-2xl p-3 sm:p-6">
-        <div className="grid grid-cols-7 gap-1 mb-2">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-            <div key={d} className="min-w-0 text-center text-[10px] sm:text-xs text-white/30 py-1">{d}</div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {weeks.flat().map((date, i) => {
-            if (!date) return <div key={`empty-${i}`} className="min-w-0 aspect-square" />;
-            const country = getCountryForDate(date);
-            const dayPlan = getDayPlan(date);
-            const hasItems = (dayPlan.items?.length ?? 0) > 0;
-            const isSelected = date === selectedDate;
-            // day-cell pulse: gently pulse the "today" cell (only when inside the trip
-            // window — todayStripDate is null otherwise). CSS `.animate-today-pulse`, hard-
-            // neutralized under reduced motion (globals.css → static ring, no breathing).
-            const isToday = todayStripDate != null && date === todayStripDate;
-            // cost overlay (read-only): does this day have logged spend? The marker is a subtle
-            // dot; the actual figure goes to the single-day readout + the aria-label extension below
-            // (a full currency figure would break the cramped cell). Leg-local (a day is one leg).
-            const daySpend = spendByDate[date] ?? 0;
-            const hasSpend = daySpend > 0;
-            const spendLabel = hasSpend ? `, ${formatMoney(daySpend, legCurrency(country))} spent` : '';
-
-            return (
-              <button
-                key={date}
-                onClick={() => setSelectedDate(date)}
-                aria-pressed={isSelected}
-                aria-label={`${formatDateLong(date)}${hasItems ? `, ${dayPlan.items?.length ?? 0} activities planned` : ', no activities planned'}${spendLabel}`}
-                data-testid={`calendar-day-${date}`}
-                className={`min-w-0 aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${isToday ? 'animate-today-pulse ' : ''}${
-                  isSelected
-                    ? 'bg-gold-500/20 ring-2 ring-gold-400 text-white font-bold scale-105'
-                    : hasItems
-                      ? country === 'nepal'
-                        ? 'bg-himalaya-500/10 text-himalaya-400 hover:bg-himalaya-500/20'
-                        : 'bg-sakura-400/10 text-sakura-400 hover:bg-sakura-400/20'
-                      : 'text-white/40 hover:bg-white/5'
-                }`}
-              >
-                {new Date(date + 'T12:00:00').getDate()}
-                {hasItems && (
-                  <div className="absolute bottom-1 flex gap-0.5">
-                    {(dayPlan.items ?? []).slice(0, 3).map((_: any, j: number) => (
-                      <div key={j} className={`w-1 h-1 rounded-full ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`} />
-                    ))}
-                  </div>
-                )}
-                {/* a subtle "has spend" marker (top-right), sized to fit the cramped cell — a
-                    small gold dot, NOT a currency figure (that lives in the single-day readout +
-                    aria-label). aria-hidden: the label extension already announces the amount. */}
-                {hasSpend && (
-                  <span
-                    aria-hidden="true"
-                    data-testid={`calendar-day-${date}-spend`}
-                    className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-gold-400 ring-2 ring-gold-400/25"
-                  />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-    );
   };
 
   // The selected day's full stored item set (unfiltered — this is the CRUD/DnD target).
@@ -1332,63 +952,17 @@ export default function CalendarPlanner() {
         </div>
 
         <div className="grid lg:grid-cols-[340px_1fr] gap-6">
-          {/* Left: Calendar or Date list */}
-          <div className="min-w-0">
-            {/* Mobile picker (`<lg`): the one-handed day-strip agenda picker replaces the
-                desktop month grid. The month grid is demoted to a collapsible "Month view",
-                collapsed by default. Desktop (`lg+`) never sees this block. */}
-            <div className="lg:hidden space-y-3">
-              <DayStrip
-                dates={TRIP_DATES}
-                selectedDate={selectedDate}
-                onSelect={setSelectedDate}
-                meta={dayStripMeta}
-                todayDate={todayStripDate}
-              />
-              <button
-                type="button"
-                onClick={() => setShowMonthView((v) => !v)}
-                aria-expanded={showMonthView}
-                className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white/50 hover:text-white/80 hover:bg-white/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                Month view
-                <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMonthView ? 'rotate-180' : ''}`} />
-              </button>
-              {showMonthView && renderCalendar()}
-            </div>
-
-            {/* Desktop left pane (`lg+`): the existing month-grid / agenda-list two-pane,
-                pixel-equivalent to before — now gated to `lg+` since the day-strip owns `<lg`. */}
-            <div className="hidden lg:block">
-            {viewMode === 'calendar' ? renderCalendar() : (
-              <div className="glass-card rounded-2xl p-4 max-h-[600px] overflow-y-auto scrollbar-hide space-y-1">
-                {TRIP_DATES.map((date) => {
-                  const country = getCountryForDate(date);
-                  const dayPlan = getDayPlan(date);
-                  const hasItems = (dayPlan.items?.length ?? 0) > 0;
-                  const isSelected = date === selectedDate;
-                  return (
-                    <button
-                      key={date}
-                      onClick={() => setSelectedDate(date)}
-                      aria-pressed={isSelected}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                        isSelected ? 'bg-gold-500/20 ring-1 ring-gold-400/30 text-white' : 'text-white/60 hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`} />
-                        <span>{formatDate(date)}</span>
-                      </div>
-                      {hasItems && <span className="text-xs text-white/30">{dayPlan.items?.length ?? 0} items</span>}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            </div>
-          </div>
+          {/* Left: the day selector — extracted the mobile day-strip block + desktop
+              month-grid / agenda-list into CalendarDayPicker (pure move, same markup). */}
+          <CalendarDayPicker
+            selectedDate={selectedDate}
+            onSelectDate={setSelectedDate}
+            viewMode={viewMode}
+            getDayPlan={getDayPlan}
+            spendByDate={spendByDate}
+            todayStripDate={todayStripDate}
+            dayStripMeta={dayStripMeta}
+          />
 
           {/* Right region: the day detail + the optional inline map pane. When the
               map is open on lg+ they sit side-by-side at xl and stack at lg. */}
@@ -1490,64 +1064,16 @@ export default function CalendarPlanner() {
               </div>
             )}
 
-            {/* bulk-action bar — visible only in select mode. Keyboard-operable; the
-                selected count is announced via aria-live. Move/Delete act on the SELECTION;
-                Copy day copies the WHOLE day (a day-level op parked here for convenience). The
-                day pickers reuse the native <select> idiom (SR/keyboard-friendly, no
-                portal/focus-trap to hand-build). */}
+            {/* bulk-action bar — extracted to CalendarBulkToolbar (pure move). Visible
+                only in select mode; the parent still owns the selection + the delete confirm. */}
             {selectMode && (
-              <div
-                role="region"
-                aria-label="Bulk actions"
-                data-testid="calendar-bulk-bar"
-                className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-xl bg-white/5 border border-white/10"
-              >
-                <span
-                  aria-live="polite"
-                  data-testid="calendar-bulk-count"
-                  className="text-xs font-medium text-white/70 px-1"
-                >
-                  {selectedIds.size} selected
-                </span>
-                <div className="flex-1" />
-                <label className="sr-only" htmlFor="calendar-bulk-move">Move selected items to a day</label>
-                <select
-                  id="calendar-bulk-move"
-                  value=""
-                  disabled={selectedIds.size === 0}
-                  data-testid="calendar-bulk-move-select"
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleBulkMove(e.target.value)}
-                  className="px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none disabled:opacity-40"
-                >
-                  <option value="" disabled>Move to day…</option>
-                  {TRIP_DATES.filter((d) => d !== selectedDate).map((d) => (
-                    <option key={d} value={d}>{formatDate(d)}</option>
-                  ))}
-                </select>
-                <label className="sr-only" htmlFor="calendar-bulk-copy">Copy this whole day to another day</label>
-                <select
-                  id="calendar-bulk-copy"
-                  value=""
-                  data-testid="calendar-bulk-copy-select"
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => handleCopyDay(e.target.value)}
-                  className="px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-                >
-                  <option value="" disabled>Copy day to…</option>
-                  {TRIP_DATES.filter((d) => d !== selectedDate).map((d) => (
-                    <option key={d} value={d}>{formatDate(d)}</option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  onClick={() => setConfirmBulkDeleteOpen(true)}
-                  disabled={selectedIds.size === 0}
-                  data-testid="calendar-bulk-delete"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-white/50 hover:text-rose-300 hover:bg-rose-400/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none disabled:opacity-40 disabled:hover:bg-transparent"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Delete selected
-                </button>
-              </div>
+              <CalendarBulkToolbar
+                selectedCount={selectedIds.size}
+                selectedDate={selectedDate}
+                onBulkMove={handleBulkMove}
+                onCopyDay={handleCopyDay}
+                onRequestDelete={() => setConfirmBulkDeleteOpen(true)}
+              />
             )}
 
             {/* bulk-delete confirm. */}

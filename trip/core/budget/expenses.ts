@@ -24,7 +24,7 @@
 
 import type { ItineraryCategory } from '@/lib/trip-data';
 import type { Leg, SpentInput } from '@/core/budget/model';
-import { BUDGET_CATEGORIES, safeAmount } from '@/core/budget/model';
+import { BUDGET_CATEGORIES, LEGS, safeAmount } from '@/core/budget/model';
 
 // ── The Expense shape (gateway key 11 stores an `Expense[]`) ─────────────────────────────
 /**
@@ -76,12 +76,9 @@ export interface Expense {
   updatedBy?: string;
 }
 
-// The two legs, in a stable order.
-const LEGS: readonly Leg[] = ['nepal', 'japan'] as const;
-
-/** Type guard: the value is one of the two legs. */
+/** Type guard: the value is one of the ACTIVE pack's legs. */
 function isLeg(value: unknown): value is Leg {
-  return value === 'nepal' || value === 'japan';
+  return typeof value === 'string' && LEGS.includes(value);
 }
 
 /** Type guard: the value is one of the 10 canonical categories. */

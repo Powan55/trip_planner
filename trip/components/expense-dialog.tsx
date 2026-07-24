@@ -17,7 +17,7 @@ import { useExpenses } from '@/hooks/use-expenses';
 import PhotoAttach from '@/components/photo-attach';
 import type { Expense } from '@/core/budget/expenses';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
-import { TRAVELERS } from '@/lib/token-auth';
+import { rosterForActiveTrip, rosterAccent } from '@/lib/token-auth';
 
 /**
  * Fast expense-log dialog. A NEW, lightweight modal, deliberately
@@ -72,13 +72,15 @@ export default function ExpenseDialog({
   expense,
   onClose,
 }: ExpenseDialogProps) {
-  const { addExpense, updateExpense } = useExpenses();
+  const { addExpense, updateExpense, expenses } = useExpenses();
   const { traveler } = useActiveTraveler();
   const isEdit = expense != null;
-  // The "me" default for the payer (the active traveler; falls back to the first roster name for a
-  // guest — the /plan gate means an active traveler is the norm). All roster names for the members.
-  const meName = traveler?.name ?? TRAVELERS[0].name;
-  const allNames = TRAVELERS.map((t) => t.name);
+  // The split roster for the ACTIVE trip: fixed TRAVELERS on the default pack,
+  // derived from expense history + self on a custom trip. The "me" default for the payer is the
+  // active traveler, else the first roster name (a guest — the /plan gate means an active traveler
+  // is the norm; a custom trip with no history + no traveler yields an empty roster and no split UI).
+  const allNames = rosterForActiveTrip(expenses);
+  const meName = traveler?.name ?? allNames[0] ?? '';
 
   // Portal mount guard: `createPortal(…, document.body)` must not run during the
   // static-export prerender. The dialog only mounts on a user action (post-hydration), so this
@@ -429,22 +431,22 @@ export default function ExpenseDialog({
                   <div>
                     <span id={`${baseId}-payer-label`} className="text-xs text-white/50 mb-1 block">Paid by</span>
                     <div role="radiogroup" aria-labelledby={`${baseId}-payer-label`} className="flex flex-wrap gap-2">
-                      {TRAVELERS.map((t) => {
-                        const active = paidBy === t.name;
+                      {allNames.map((name) => {
+                        const active = paidBy === name;
                         return (
                           <button
-                            key={t.name}
+                            key={name}
                             type="button"
                             role="radio"
                             aria-checked={active}
-                            onClick={() => setPaidBy(t.name)}
-                            data-testid={`expense-payer-${t.name}`}
+                            onClick={() => setPaidBy(name)}
+                            data-testid={`expense-payer-${name}`}
                             className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 ${
                               active ? 'border-gold-400 bg-gold-400/15 text-gold-300' : 'border-white/15 text-white/70 hover:bg-white/5'
                             }`}
                           >
-                            <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: t.accent }} />
-                            {t.name}
+                            <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />
+                            {name}
                           </button>
                         );
                       })}
@@ -455,21 +457,21 @@ export default function ExpenseDialog({
                   <div>
                     <span id={`${baseId}-members-label`} className="text-xs text-white/50 mb-1 block">Split evenly among</span>
                     <div role="group" aria-labelledby={`${baseId}-members-label`} className="flex flex-wrap gap-2">
-                      {TRAVELERS.map((t) => {
-                        const active = splitMembers.includes(t.name);
+                      {allNames.map((name) => {
+                        const active = splitMembers.includes(name);
                         return (
                           <button
-                            key={t.name}
+                            key={name}
                             type="button"
                             aria-pressed={active}
-                            onClick={() => toggleMember(t.name)}
-                            data-testid={`expense-split-member-${t.name}`}
+                            onClick={() => toggleMember(name)}
+                            data-testid={`expense-split-member-${name}`}
                             className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 ${
                               active ? 'border-gold-400 bg-gold-400/15 text-gold-300' : 'border-white/15 text-white/50 hover:bg-white/5'
                             }`}
                           >
-                            <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: t.accent }} />
-                            {t.name}
+                            <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />
+                            {name}
                           </button>
                         );
                       })}

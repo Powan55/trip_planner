@@ -13,7 +13,7 @@ export const NYE_DATE = '2026-12-31';
  * The last-train chip text for a trip day, or `null` when it shouldn't render (Nepal phase).
  * PURE — no clock read; `country` is the caller-resolved `getCountryForDate(date)`.
  */
-export function lastTrainNotice(date: string, country: 'nepal' | 'japan'): string | null {
+export function lastTrainNotice(date: string, country: string): string | null {
   if (country !== 'japan') return null;
   if (date === NYE_DATE) return "Dec 31: trains run all night — no last-train cutoff tonight.";
   return 'Last trains ~00:00 · first ~05:00';

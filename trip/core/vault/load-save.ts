@@ -24,6 +24,7 @@ import {
   CURRENT_ITINERARY_VERSION,
   runItineraryMigrations,
 } from './migrations';
+import { isQuotaError, notifyQuotaExceeded } from '@/core/storage/gateway';
 
 /**
  * Configuration for a Vault-backed storage slot. The itinerary passes its unchanged
@@ -186,6 +187,10 @@ export function saveItinerary(plans: DayPlan[], config: VaultConfig): void {
     // Behavior unchanged (degrade quietly — never throw), but surface the reason so a lost save
     // (quota exceeded / storage disabled) is at least diagnosable rather than silently vanishing.
     console.warn('[vault] save failed (quota?):', err);
+    // the itinerary is the most important data — fire the SAME reactive event the
+    // gateway's writeString fires on a detected quota failure (raw localStorage here, not
+    // routed through the gateway primitives, so this call site needs its own guarded dispatch).
+    if (isQuotaError(err)) notifyQuotaExceeded(storageKey);
   }
 }
 

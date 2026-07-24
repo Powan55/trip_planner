@@ -11,6 +11,7 @@
 import dynamic from 'next/dynamic';
 import LazyVisible from '@/components/lazy-visible';
 import SectionSkeleton from '@/components/section-skeleton';
+import DefaultTripOnly from '@/components/default-trip-only';
 
 // HOME: hero · trip-dashboard · trip-timeline · travel-essentials,
 // plus the legacy v1 hash redirect. Navbar/Footer live in the root layout now.
@@ -76,6 +77,23 @@ const TravelEssentials = dynamic(() => import('@/components/travel-essentials'),
   loading: () => <SectionSkeleton height="clamp(34rem, 90vh, 54rem)" />,
 });
 
+// — the user's imported "My places" for a CUSTOM trip's home (custom trips have no guide pages;
+// the default pack shows My Places on /nepal/ + /japan/ instead). Rendered through LazyVisible as a
+// COMPONENT REFERENCE (like every other deferred section) so the gate + section chunk stay OUT of
+// Home's First Load JS; the island itself returns null on the default pack.
+const CustomTripMyPlaces = dynamic(() => import('@/components/custom-trip-my-places'), { ssr: false });
+
+// (Plan D10): TravelEssentials is N×J-specific — gated behind DefaultTripOnly. LazyVisible
+// takes its section as a COMPONENT REFERENCE (never JSX, see lazy-visible.tsx), so the gate is
+// wrapped into its own small reference component rather than JSX children at the call site.
+function GatedTravelEssentials() {
+  return (
+    <DefaultTripOnly>
+      <TravelEssentials />
+    </DefaultTripOnly>
+  );
+}
+
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-surface">
@@ -87,7 +105,10 @@ export default function HomePage() {
       <TripRecap />
       <LazyVisible component={TripDashboard} minHeight="clamp(34rem, 90vh, 52rem)" />
       <LazyVisible component={TripTimeline} minHeight="clamp(34rem, 90vh, 54rem)" />
-      <LazyVisible component={TravelEssentials} minHeight="clamp(34rem, 90vh, 54rem)" />
+      <LazyVisible component={GatedTravelEssentials} minHeight="clamp(34rem, 90vh, 54rem)" />
+      {/* Custom-trip-only "My places" (renders null on the default pack). minHeight 0 so the
+          default pack reserves no visible box while the gate resolves. */}
+      <LazyVisible component={CustomTripMyPlaces} minHeight="0px" />
       <LegacyHashRedirect />
     </main>
   );

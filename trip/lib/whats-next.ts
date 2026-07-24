@@ -14,7 +14,7 @@
 // for items that never got a structured `startMinutes` (sync-ingest / seed / pre-migration).
 
 import type { ItineraryItem } from '@/lib/trip-data';
-import { effectiveStartMinutes, isPastAtPlace } from '@/core/dates';
+import { effectiveOffsetMin, effectiveStartMinutes, isPastAtPlace } from '@/core/dates';
 
 /** The resolved-clock context for a single trip day (all injected — no clock read here). */
 export interface NextUpContext {
@@ -50,7 +50,7 @@ export function nextUp(items: ItineraryItem[], ctx: NextUpContext): ItineraryIte
     if (item.done === true) continue;
     const min = effectiveStartMinutes(item);
     if (min === undefined) continue; // no scheduled slot
-    if (isPastAtPlace(ctx.dayDate, min, ctx.placeOffsetMin, ctx.nowUtcMs)) continue; // passed
+    if (isPastAtPlace(ctx.dayDate, min, effectiveOffsetMin(item, ctx.placeOffsetMin), ctx.nowUtcMs)) continue; // passed
     if (min < bestMin) {
       best = item;
       bestMin = min;

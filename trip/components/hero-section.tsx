@@ -8,6 +8,10 @@ import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { ringFraction } from '@/lib/countdown-ring';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
+import { isDefaultTrip } from '@/core/trips';
+import { getKnownTrip } from '@/core/trips/registry';
+import { vibeFor } from '@/core/trips/custom';
+import { getActiveTripId } from '@/core/storage/gateway';
 import OptimizedImage from '@/components/optimized-image';
 import CountdownRing from '@/components/countdown-ring';
 import { useCountUp } from '@/hooks/use-count-up';
@@ -180,17 +184,29 @@ export default function HeroSection() {
 
   const reveal = prefersReducedMotion ? itemVariantsReduced : itemVariants;
 
+  // — custom (non-default-pack) trips get a versatile vibe hero: no Nepal×Japan art/copy.
+  // Mount-gated (SSR always renders the default pack's prerendered content,/SSG hydration
+  // note) so `isDefaultTrip()` — a client-only gateway read — never causes a hydration mismatch.
+  const custom = mounted && !isDefaultTrip();
+  const customMeta = custom ? getKnownTrip(getActiveTripId()) : undefined;
+  const customVibe = custom ? vibeFor(customMeta?.config?.vibe) : undefined;
+  const customName = customMeta?.name ?? 'Your Trip';
+  const customDestinations = customMeta?.config?.destinations?.join(' × ') ?? '';
+
   return (
-    <section ref={sectionRef} id="hero" aria-labelledby="hero-heading" className="relative min-h-screen flex items-center justify-center overflow-hidden">
+    <section ref={sectionRef} id="hero" aria-labelledby="hero-heading" className="relative min-h-[100svh] flex items-center justify-center overflow-hidden">
       {/* Decorative CSS + SVG backdrop — Himalayan warmth blending into Japan
           winter-neon. Purely decorative and aria-hidden; no external imagery. */}
       <div className="absolute inset-0" aria-hidden="true">
-        {/* Base multi-stop gradient: warm gold/himalaya dawn at the horizon → deep navy night sky */}
+        {/* Base multi-stop gradient: warm gold/himalaya dawn at the horizon → deep navy night sky.
+           : a custom (non-default-pack) trip re-tints this SAME div with its vibe's gradient
+            stops instead — no separate layer, per D8 ("reuse the existing base-gradient div"). */}
         <div
           className="absolute inset-0"
           style={{
-            background:
-              'linear-gradient(180deg, #0b1020 0%, #15203c 32%, #2a3252 52%, #6e5a78 70%, #b9786b 82%, #e8a86a 92%, #f4cf8e 100%)',
+            background: custom
+              ? `linear-gradient(180deg, ${customVibe!.gradient.join(', ')})`
+              : 'linear-gradient(180deg, #0b1020 0%, #15203c 32%, #2a3252 52%, #6e5a78 70%, #b9786b 82%, #e8a86a 92%, #f4cf8e 100%)',
           }}
         />
         {/* Bundled Himalayan photo layer — sits between the base gradient and the
@@ -198,8 +214,10 @@ export default function HeroSection() {
             top. Tuned to ~45% so the title and countdown stay legible. On error
             (or if the asset is absent) the original CSS/SVG art shows through.
            : the PARENT div is a parallax layer (drifts slow + scales subtly,
-            reading as the deepest plane); the image element itself is untouched. */}
-        {!heroImgError && (
+            reading as the deepest plane); the image element itself is untouched.
+           : custom trips skip this layer entirely — the vibe gradient IS the backdrop
+            (D8: "NO photo/SVG art" for a custom trip). */}
+        {!custom && !heroImgError && (
           <m.div className="absolute inset-0" style={{ y: photoY, scale: photoScale }}>
             <OptimizedImage
               src="/images/hero/hero.jpg"
@@ -231,7 +249,9 @@ export default function HeroSection() {
 
         {/* Layered mountain-range / skyline silhouette.
            : wrapped in a parallax m.div that drifts DOWN the most slowly of the
-            backdrop planes (deepest fixed scenery feel). The SVG art is unchanged. */}
+            backdrop planes (deepest fixed scenery feel). The SVG art is unchanged.
+           : custom trips skip this SVG entirely (D8: "NO photo/SVG art"). */}
+        {!custom && (
         <m.div className="absolute inset-x-0 bottom-0 w-full h-[62%]" style={{ y: silhouetteY }}>
         <svg
           className="absolute inset-0 w-full h-full"
@@ -301,6 +321,7 @@ export default function HeroSection() {
           </g>
         </svg>
         </m.div>
+        )}
 
         {/* Existing dark overlays — keep the title/countdown legible over the art */}
         <div className="absolute inset-0 hero-gradient" />
@@ -322,7 +343,7 @@ export default function HeroSection() {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="relative z-10 max-w-[1200px] mx-auto px-4 sm:px-6 text-center pt-24 pb-16"
+        className="relative z-10 max-w-[1200px] mx-auto px-4 sm:px-6 text-center pt-16 min-[420px]:pt-20 sm:pt-24 pb-10 min-[420px]:pb-16"
       >
         {/* Badge */}
         <m.div
@@ -333,30 +354,38 @@ export default function HeroSection() {
           <span className="text-sm text-gold-400 font-medium">{TRIP_DATE_LABEL}</span>
         </m.div>
 
-        {/* Title */}
+        {/* Title —: a custom trip shows its own name, no Nepal×Japan branding. */}
         <m.h1
           variants={reveal}
           id="hero-heading"
           className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-4"
         >
-          <span className="text-white">Nepal</span>
-          <span className="text-gradient-gold mx-3">×</span>
-          <span className="text-white">Japan</span>
+          {custom ? (
+            <span className="text-white">{customName}</span>
+          ) : (
+            <>
+              <span className="text-white">Nepal</span>
+              <span className="text-gradient-gold mx-3">×</span>
+              <span className="text-white">Japan</span>
+            </>
+          )}
         </m.h1>
 
-        {/* Subtitle */}
+        {/* Subtitle —: a custom trip shows its destinations + vibe tagline. */}
         <m.p
           variants={reveal}
           className="text-lg sm:text-xl text-white/60 max-w-2xl mx-auto mb-3"
         >
-          From the mystical temples of Kathmandu to the neon-lit streets of Tokyo.
-          A journey across ancient peaks and futuristic cities.
+          {custom
+            ? [customDestinations, customVibe?.tagline].filter(Boolean).join(' — ')
+            : 'From the mystical temples of Kathmandu to the neon-lit streets of Tokyo. A journey across ancient peaks and futuristic cities.'}
         </m.p>
 
-        {/* Quote */}
+        {/* Quote — hidden below xs (~420px) so the first CTA clears the fold on 360-wide
+            phones. CSS-only; countdown math untouched. */}
         <m.p
           variants={reveal}
-          className="text-sm italic text-white/40 mb-10"
+          className="hidden min-[420px]:block text-sm italic text-white/40 mb-10"
         >
           "The world is a book and those who do not travel read only one page." — St. Augustine
         </m.p>
@@ -407,7 +436,7 @@ export default function HeroSection() {
             className="mb-10"
           >
             <p className="text-sm text-white/50 mb-4 uppercase tracking-widest">Countdown to Departure</p>
-            <div className="flex flex-wrap justify-center gap-3 sm:gap-4 mb-4">
+            <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center gap-3 sm:gap-4 mb-4">
               {COUNTDOWN_UNITS.map(({ key, label }) => (
                 <div key={key} className="glass-card rounded-xl px-3 sm:px-5 py-3 sm:py-4 min-w-[70px] sm:min-w-[90px] animate-pulse-glow">
                   <div data-testid={`countdown-${key}`} className="font-mono text-2xl sm:text-3xl md:text-4xl font-bold text-gold-400">
@@ -420,7 +449,7 @@ export default function HeroSection() {
             {/* — radial progress ring wrapping the existing total-days digit. `ringFraction`
                 is a pure derivation over the SAME computeCountdown() output driving the digit
                 grid above — see lib/countdown-ring.ts for the formula. */}
-            <div className="flex flex-col items-center gap-1.5">
+            <div className="hidden min-[420px]:flex flex-col items-center gap-1.5">
               <CountdownRing
                 fraction={ringFraction(timeLeft.totalDays, timeLeft.isPast)}
                 reducedMotion={!!prefersReducedMotion}
@@ -452,8 +481,9 @@ export default function HeroSection() {
             <Calendar className="w-4 h-4" />
             View Itinerary
           </Link>
+          {/* a custom trip has no Nepal guide — retarget to the (universal) map. */}
           <Link
-            href="/nepal/"
+            href={custom ? '/map/' : '/nepal/'}
             className="flex items-center gap-2 px-6 py-3 rounded-xl glass-card text-white font-semibold hover:bg-white/10 transition-all duration-200 hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
           >
             <Compass className="w-4 h-4 text-himalaya-400" />
@@ -484,7 +514,7 @@ export default function HeroSection() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 2 }}
-        className="absolute bottom-8 left-1/2 -translate-x-1/2"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden sm:block"
       >
         <m.div
           animate={{ y: [0, 8, 0] }}

@@ -3,6 +3,7 @@
 import { Sunrise, Sunset, Thermometer, WifiOff, CloudOff, ChevronDown } from 'lucide-react';
 import {
   OPEN_METEO_ATTRIBUTION,
+  formatWeatherAsOf,
   type ForecastDay,
   type WeatherNow,
   type WeatherResult,
@@ -41,18 +42,6 @@ function formatClock(iso: string): string {
   h = h % 12;
   if (h === 0) h = 12;
   return `${h}:${min} ${ampm}`;
-}
-
-/** Format the "last updated" timestamp for the offline indicator (short local date + time). */
-function formatUpdated(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
 }
 
 /** Label a forecast row's date: "Today" / "Tomorrow" / a short weekday name. Display-only —
@@ -296,7 +285,7 @@ function WeatherBody({ data }: { data: WeatherNow }) {
           aria-live="polite"
         >
           <WifiOff className="h-3 w-3" aria-hidden="true" />
-          Offline — last updated {formatUpdated(data.fetchedAt)}
+          Offline — last updated {formatWeatherAsOf(data.fetchedAt)}
         </p>
       )}
 

@@ -22,6 +22,12 @@ export type PutResult =
 export interface BlobStorePort {
   /** Store an (already-downscaled) blob; mints and returns the photo id. Never rejects. */
   put(blob: Blob): Promise<PutResult>;
+  /**
+   * Store a blob under a CALLER-SUPPLIED id. Id-preserving so a restored
+   * meta↔blob link survives and a re-import overwrites rather than duplicates. `put`-with-a-mint is
+   * the capture path; this is its idempotent-by-key sibling. Never rejects (quota/unavailable → result).
+   */
+  putWithId(id: string, blob: Blob): Promise<PutResult>;
   /** The blob, or null: absent, EVICTED, SSR, or IndexedDB unavailable. Never rejects. */
   get(id: string): Promise<Blob | null>;
   /** Idempotent; resolves even if absent/unavailable. Never rejects. */
@@ -56,6 +62,11 @@ export function makeInMemoryBlobStore(): InMemoryBlobStore {
       if (mode !== 'ok') return { ok: false, reason: mode };
       const id = mintPhotoId();
       map.set(id, blob);
+      return { ok: true, id };
+    },
+    async putWithId(id, blob) {
+      if (mode !== 'ok') return { ok: false, reason: mode };
+      map.set(id, blob); // idempotent by key
       return { ok: true, id };
     },
     async get(id) {
@@ -151,6 +162,19 @@ export const defaultBlobStore: BlobStorePort = {
     const id = mintPhotoId();
     try {
       await tx(db, 'readwrite', (store) => store.put(blob, id));
+    } catch (err) {
+      const name = (err as DOMException | null)?.name;
+      return { ok: false, reason: name === 'QuotaExceededError' ? 'quota' : 'unavailable' };
+    }
+    requestPersistOnce();
+    return { ok: true, id };
+  },
+
+  async putWithId(id, blob) {
+    const db = await openDb();
+    if (!db) return { ok: false, reason: 'unavailable' };
+    try {
+      await tx(db, 'readwrite', (store) => store.put(blob, id)); // out-of-line key = the given id
     } catch (err) {
       const name = (err as DOMException | null)?.name;
       return { ok: false, reason: name === 'QuotaExceededError' ? 'quota' : 'unavailable' };

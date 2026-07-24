@@ -13,9 +13,12 @@
 import type { TripConfig } from './model';
 import { NEPAL_JAPAN_2026 } from './packs/nepal-japan-2026';
 import { getActiveTripId, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
+import { getKnownTrip } from './registry';
+import { customTripConfig } from './custom';
 
 export type { TripConfig, TripLeg } from './model';
 export { legForDate } from './model';
+export { buildDayShells } from './custom';
 
 /** Default pack id === lib/firebase-config.ts's NEXT_PUBLIC_TRIP_ID default.
  * Single source of truth is the gateway; re-exported here for existing importers. */
@@ -26,12 +29,22 @@ export const TRIP_PACKS: Record<string, TripConfig> = {
   [DEFAULT_TRIP_ID]: NEPAL_JAPAN_2026,
 };
 
-/** TOTAL — an unknown id falls back to the default pack, never throws. */
+/**
+ * TOTAL — resolve a trip's config. Precedence: a registered static PACK, else a
+ * CUSTOM trip's synthesized single-leg config (from its TripMeta config block), else the default
+ * pack. The default pack short-circuits on the first lookup, so its path is unchanged (no registry
+ * read, no side effect) and byte-identical to pre-. Never throws.
+ */
 export function getTripConfig(id: string): TripConfig {
-  return TRIP_PACKS[id] ?? NEPAL_JAPAN_2026;
+  return TRIP_PACKS[id] ?? customTripConfig(getKnownTrip(id)) ?? NEPAL_JAPAN_2026;
 }
 
 /** The active trip — resolved through the gateway pointer. Unknown/unset ⇒ default pack. */
 export function getActiveTrip(): TripConfig {
   return getTripConfig(getActiveTripId());
+}
+
+/** True when the active trip is the default pack — gates the SAMPLE_ITINERARY seed. */
+export function isDefaultTrip(): boolean {
+  return getActiveTripId() === DEFAULT_TRIP_ID;
 }

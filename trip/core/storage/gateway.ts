@@ -265,6 +265,60 @@ export const STORAGE_KEYS = {
    * `core/trips/registry.ts`.
    */
   knownTrips: 'tripPlannerKnownTrips',
+  /**
+   * sessionStorage — comma-joined `string[]` of trip ids that have already run the trip-meta
+   * SELF-HEAL reload once this session (trip-meta-self-heal, key 27). Mirrors `chunkReloadOnce`'s
+   * session-scoped one-shot-guard shape, but keyed per trip id (not a single
+   * flag) since a session can legitimately switch between several trips, each deserving its own
+   * one-shot heal attempt. Cleared naturally when the tab closes. APP-SCOPED. ADDITIVE: a
+   * brand-new key, no back-compat surface change.
+   */
+  tripMetaSelfHeal: 'trip_meta_self_heal_once',
+  /**
+   * localStorage — the personal Sync Code. A high-entropy capability token
+   * (`crypto.randomUUID()`, minted on first reveal) that mirrors THIS browser's known-trips list to
+   * `trips/{syncCode}/profile/tripList`; entering the same code on another device merges the list
+   * there, so trips created on one device appear on all of them. APP-SCOPED (NOT in `TripScopedSlot`)
+   * — it identifies the OWNER's device-set, not a trip, and is never namespaced by pack (mirrors
+   * `knownTrips`/`activeTrip`). Just another `trips/{id}` subtree, so the existing Firestore rules
+   * cover it (NO rules change). Value shape/merge policy lives in `core/trips/registry.ts` +
+   * `lib/trips-remote.ts`. ADDITIVE: a brand-new key, no
+   * back-compat surface change. Key 27 was taken by `tripMetaSelfHeal` guard.
+   */
+  syncCode: 'tripPlannerSyncCode',
+  /**
+   * localStorage — JSON `RemovedTrip[]` (`[{ id, removedAt }]`) trip-forget tombstones (removedTrips,
+   * key 29;). When a trip is forgotten it is dropped from `knownTrips` (key 26) AND a
+   * tombstone is recorded here, so the Sync Code merge (`trips/{code}/profile/tripList`) can DROP the
+   * trip from the additive union instead of resurrecting it — a re-join (newer entry) still beats a
+   * stale tombstone. APP-SCOPED (NOT in `TripScopedSlot`, like `knownTrips`/`syncCode`). Local-only
+   * transport; shape/policy (sanitize, LWW-by-removedAt, default-pack exclusion) lives in
+   * `core/trips/registry.ts`. Never deletes remote trip
+   * DATA (only the local list entry). ADDITIVE: a brand-new key, no back-compat surface change.
+   */
+  removedTrips: 'tripPlannerRemovedTrips',
+  /**
+   * localStorage — a one-shot-ever presence flag for the install-to-Home-Screen education hint
+   * Mirrors `firstRunTour`'s exact shape (
+   * presence signal, LOCAL store so the dismissal survives a reload/new tab forever). Written by
+   * `components/storage-persistence.tsx` when the user dismisses the hint. APP-SCOPED (NOT in
+   * `TripScopedSlot` — installation is a device fact, not a trip fact). ADDITIVE: a brand-new
+   * key, no back-compat surface change.
+   */
+  installHintDismissed: 'nepal_japan_install_hint_dismissed',
+  /**
+   * localStorage — JSON `MyPlace[]` user-imported Google places. A place
+   * shared/pasted from a Google Maps link becomes a user-owned "My place" card in its country leg.
+   * TRIP-SCOPED (added to the `TripScopedSlot` union, resolved via `keyFor('myPlaces')`) so a custom
+   * trip's places never bleed into the default pack. Held NEWEST-FIRST, capped at 200 (drop-oldest,
+   * `core/places/model.ts` `PLACES_CAP`) so the value stays small. localStorage backend;
+   * additive, no migration, LOCAL-ONLY (NOT part of the itinerary Vault, NOT part of any sync path —
+   * cross-device sync is the deferred S-d). Value shape owned by `core/places/model.ts` (the gateway
+   * is byte-transport only). ADDITIVE: a brand-new key, no back-compat surface changes. Mirrors
+   * `shareInboxStore`/`favoritesStore` exactly. NOTE: the plan text sketched "key 30", but
+   * `installHintDismissed` took 30 first — this is the next free number, key 31.
+   */
+  myPlaces: 'nepal_japan_my_places',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -308,6 +362,34 @@ export function setKnownTripsRaw(raw: string): void {
 }
 
 /**
+ * Personal Sync Code accessor pair — byte-transport only, mirroring `knownTrips`.
+ * Minting (`crypto.randomUUID()` on first reveal) + all sync policy live in the caller
+ * (`components/settings-panel.tsx` reveal + `lib/trips-remote.ts` push/subscribe); the gateway just
+ * reads/writes the raw string. APP-SCOPED, never namespaced. `null` when never minted. Never throws.
+ */
+export function getSyncCode(): string | null {
+  return readString('local', STORAGE_KEYS.syncCode);
+}
+
+export function setSyncCode(code: string): void {
+  writeString('local', STORAGE_KEYS.syncCode, code);
+}
+
+/**
+ * Removed-trips tombstone accessor pair — byte-transport only, mirroring
+ * `knownTrips`. ALL shape/sanitize/policy logic (RemovedTrip parse, LWW-by-removedAt, default-pack
+ * exclusion, the merge) lives in `core/trips/registry.ts`. APP-SCOPED, never namespaced.
+ * SSR-safe, never throws.
+ */
+export function getRemovedTripsRaw(): string | null {
+  return readString('local', STORAGE_KEYS.removedTrips);
+}
+
+export function setRemovedTripsRaw(raw: string): void {
+  writeString('local', STORAGE_KEYS.removedTrips, raw);
+}
+
+/**
  * The trip-scoped slots — the ONLY slots `keyFor` accepts. App-scoped slots (`userName`, `token`,
  * `guest`, `todayOverride`, `chunkReloadOnce`, `firstRunTour`, `nightlifeVisible`, `activeTrip`)
  * are STRUCTURALLY excluded: they are not in this union, so passing one to `keyFor` is a compile
@@ -326,7 +408,8 @@ export type TripScopedSlot =
   | 'docsChecklist'
   | 'packing'
   | 'dayAnchors'
-  | 'shareInbox';
+  | 'shareInbox'
+  | 'myPlaces';
 
 /**
  * Resolve the on-disk key for a trip-scoped slot under the ACTIVE pack:
@@ -359,14 +442,44 @@ export function readString(store: Store, key: string): string | null {
   }
 }
 
+/**
+ * Detect a QUOTA-exceeded failure specifically (vs. disabled storage / privacy mode, which
+ * throw too but must stay silent — no event). Chrome/Safari/Edge: `DOMException` with
+ * `name === 'QuotaExceededError'` (code 22). Firefox (older): `name === 'NS_ERROR_DOM_QUOTA_REACHED'`
+ * (code 1014). Guards for non-`DOMException` throws.
+ */
+export function isQuotaError(e: unknown): boolean {
+  if (!(e instanceof DOMException)) return false;
+  return e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED';
+}
+
+/**
+ * Defensive, never-throw notification that a write was dropped specifically because of a
+ * quota failure — the REACTIVE complement to `storage-persistence.tsx`'s PROACTIVE
+ * `estimate()` warning. `core/` stays framework-free (no sonner/React import here); the one
+ * sonner toast lives in that island's `trip:quota-exceeded` listener. Wrapped so a missing
+ * `CustomEvent` (old browser) or a throwing listener can NEVER propagate out of a write — the
+ * never-throw invariant is absolute and takes priority over delivering this signal.
+ */
+export function notifyQuotaExceeded(key: string): void {
+  try {
+    if (typeof window === 'undefined' || typeof CustomEvent !== 'function') return;
+    window.dispatchEvent(new CustomEvent('trip:quota-exceeded', { detail: { key } }));
+  } catch {
+    /* never throw out of a write path */
+  }
+}
+
 /** Write a raw string. No-op during SSR or if storage is unavailable. Never throws. */
 export function writeString(store: Store, key: string, value: string): void {
   const s = backing(store);
   if (s === null) return;
   try {
     s.setItem(key, value);
-  } catch {
-    /* ignore (quota / disabled storage) */
+  } catch (err) {
+    // ignore (quota / disabled storage) — but surface a quota failure specifically;
+    // writeJson delegates here, so this one call site covers both primitives.
+    if (isQuotaError(err)) notifyQuotaExceeded(key);
   }
 }
 
@@ -617,6 +730,26 @@ export const chunkReloadGuard = {
 } as const;
 
 /**
+ * Trip-meta self-heal guard — a per-trip one-shot-per-session flag so the
+ * joiner self-heal (`ItineraryProvider`) fetches remote trip meta + reloads AT MOST once per
+ * trip id per session, refusing to loop when the remote genuinely has no meta doc yet. Mirrors
+ * `chunkReloadGuard`'s session-scoped shape, extended to a comma-joined id set (a session can
+ * switch between several trips). SSR-safe + never-throw (inherited).
+ */
+export const tripMetaSelfHealGuard = {
+  hasRun(tripId: string): boolean {
+    const raw = readString('session', STORAGE_KEYS.tripMetaSelfHeal);
+    return raw !== null && raw.split(',').includes(tripId);
+  },
+  markRun(tripId: string): void {
+    const raw = readString('session', STORAGE_KEYS.tripMetaSelfHeal);
+    const ids = raw ? raw.split(',') : [];
+    if (!ids.includes(tripId)) ids.push(tripId);
+    writeString('session', STORAGE_KEYS.tripMetaSelfHeal, ids.join(','));
+  },
+} as const;
+
+/**
  * Favorites slot — the guides-scoped bookmarked-recommendation `string[]` of
  * ids. localStorage backend; additive, no migration, NOT part of the itinerary Vault,
  * NOT part of any sync path. Mirrors `journalStore`/`expensesStore` exactly.
@@ -793,6 +926,28 @@ export const docsStore = {
     writeJson('local', keyFor('docsChecklist'), items);
   },
 } as const;
+
+/**
+ * Install-to-Home hint slot — a one-shot-ever presence flag. Mirrors `tourStore`
+ * (key 17) exactly: LOCAL store so the dismissal survives a reload/new tab forever.
+ * `hasBeenDismissed()` reads presence (any stored value counts); `markDismissed()` writes the
+ * `'1'` flag. SSR-safe + never-throw (inherited from `hasKey`/`writeString`).
+ */
+export const installHintStore = {
+  hasBeenDismissed(): boolean {
+    return hasKey('local', STORAGE_KEYS.installHintDismissed);
+  },
+  markDismissed(): void {
+    writeString('local', STORAGE_KEYS.installHintDismissed, '1');
+  },
+} as const;
+
+// NOTE: the my-places accessor for key 31 (`myPlacesStore`) does NOT live here — it is in
+// `core/storage/my-places-store.ts`, for the SAME bundle reason as the Travel Mode accessors below:
+// `gateway.ts` sits in the app-wide First Load chunk, and `myPlacesStore` is consumed ONLY by the
+// non-shared, lazy My Places island + import sheet. Keeping its object literal out of this shared
+// module holds the route budgets at the 107 kB line (it otherwise tipped several routes 107→108).
+// The KEY literal (`STORAGE_KEYS.myPlaces`) + the `TripScopedSlot` union entry stay here.
 
 // NOTE: the Travel Mode accessors for keys 19/20 (`travelModeGate` / `travelReturn`) do NOT
 // live here — they are in `core/storage/travel-mode-store.ts`. They compose THIS file's primitives

@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, type MouseEvent as ReactMouseEvent } from 'react';
+import { useCallback, useEffect, useMemo, type MouseEvent as ReactMouseEvent } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { PRIMARY_NAV_ITEMS, isRouteActive } from '@/lib/nav-items';
+import { primaryItemsForActiveTrip, isRouteActive } from '@/lib/nav-items';
 import { useViewTransition } from '@/hooks/use-view-transition';
 import { isTravelRoute } from '@/lib/travel-route';
 
@@ -47,6 +47,12 @@ const TAB_BAR_HEIGHT_PX = 64;
 export default function BottomTabBar() {
   const pathname = usePathname();
 
+  // BottomTabBar is `dynamic(ssr:false)` (see
+  // app/chrome-islands.tsx) — it never renders server-side, so there is no hydration
+  // mismatch to gate against here. The active-trip pointer only changes via a full reload
+  //, so it's stable for the component's lifetime — computed once.
+  const items = useMemo(() => primaryItemsForActiveTrip(), []);
+
   // route changes run through the View Transitions helper (progressive
   // enhancement; plain router.push everywhere VT is unsupported or reduced motion is
   // on). `<Link>` stays for prefetch + real-href semantics; only a plain primary click
@@ -84,7 +90,7 @@ export default function BottomTabBar() {
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <ul className="flex items-stretch" style={{ height: `${TAB_BAR_HEIGHT_PX}px` }}>
-        {PRIMARY_NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const isActive = isRouteActive(pathname, item.href);
           const Icon = item.icon;
           return (

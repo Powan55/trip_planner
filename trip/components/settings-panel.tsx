@@ -19,10 +19,11 @@ import {
   Check,
   Share2,
   ShieldAlert,
+  Smartphone,
 } from 'lucide-react';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signOut } from '@/lib/token-auth';
-import { getActiveTripId, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
+import { getActiveTripId, DEFAULT_TRIP_ID, getSyncCode, setSyncCode } from '@/core/storage/gateway';
 import { joinTrip } from '@/core/trips/registry';
 import { getTripId } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
@@ -114,6 +115,15 @@ export default function SettingsPanel() {
           summary="Create a new trip, join one by key, or share this trip"
         >
           <TripGroup />
+        </SettingsGroup>
+
+        <SettingsGroup
+          testId="settings-group-sync"
+          icon={<Smartphone className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />}
+          title="Sync across devices"
+          summary="Show your trips on your phone and laptop with a personal sync code"
+        >
+          <SyncGroup />
         </SettingsGroup>
 
         <SettingsGroup
@@ -417,6 +427,141 @@ function TripGroup() {
       >
         Manage all trips &rarr;
       </Link>
+    </div>
+  );
+}
+
+/**
+ * Sync-across-devices group — a personal Sync Code that mirrors this browser's
+ * known-trips list to `trips/{syncCode}/profile/tripList`. Three actions:
+ * - REVEAL/MINT: masked until revealed; the first reveal mints a `crypto.randomUUID()` capability
+ * token (mirrors the create-trip mint) and best-effort seeds the remote list with this device's
+ * trips. Subsequent reveals just unmask the stored code.
+ * - COPY: the existing clipboard idiom (copy-then-confirm, degrades silently when blocked).
+ * - ENTER A CODE: paste the code from another device → replaces the local code + reloads, so the
+ * provider re-subscribes and merges that device's list in.
+ *
+ * A11y / house style matches TripGroup verbatim (glass card, ≥44px targets, focus rings, aria-live).
+ * Storage is read post-mount only (ssr:false island). Dormant-safe: minting/entering is a pure local
+ * write; the push/subscribe self-gate on `isRemoteConfigured()`, so the code is inert until sync is
+ * configured.
+ */
+function SyncGroup() {
+  const [code, setCode] = useState<string | null>(null);
+  const [revealed, setRevealed] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [enterValue, setEnterValue] = useState('');
+
+  useEffect(() => setCode(getSyncCode()), []);
+
+  const reveal = () => {
+    let c = getSyncCode();
+    if (!c) {
+      c = crypto.randomUUID();
+      setSyncCode(c);
+      // Best-effort: seed the remote list with this device's trips so the code is usable at once.
+      // Dynamically imported so /settings never pulls firebase eagerly; self-gates dormant.
+      const minted = c;
+      void import('@/lib/trips-remote').then(({ pushTripList }) => pushTripList(minted));
+    }
+    setCode(c);
+    setRevealed(true);
+  };
+
+  const copy = async () => {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked (permissions / insecure context) — the value stays visible to select. */
+    }
+  };
+
+  const enter = (e: React.FormEvent) => {
+    e.preventDefault();
+    const next = enterValue.trim();
+    if (!next) return; // non-empty is the only needed validation (an unknown code just syncs nothing)
+    setSyncCode(next);
+    window.location.reload(); // provider re-subscribes with the new code → merges that device's list
+  };
+
+  return (
+    <div className="flex flex-col gap-4" data-testid="settings-sync-card">
+      {/* Your sync code — masked until revealed. */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+        <h3 className="text-sm font-semibold text-white">Your sync code</h3>
+        <p className="mt-1 flex items-start gap-1.5 text-xs text-white/50">
+          <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          Treat this like a password — anyone with it can see the list of trips you&rsquo;ve created
+          or joined. Enter it on another device to see the same trips there.
+        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <code
+            data-testid="settings-sync-code"
+            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white/80"
+          >
+            {code === null ? 'Not set up yet' : revealed ? code : '•'.repeat(24)}
+          </code>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={reveal}
+              data-testid="settings-sync-reveal"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            >
+              {code === null ? 'Create my code' : revealed ? 'Showing' : 'Reveal code'}
+            </button>
+            <button
+              type="button"
+              onClick={copy}
+              disabled={code === null || !revealed}
+              data-testid="settings-sync-copy"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+            >
+              {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
+              {copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+        </div>
+        <div aria-live="polite" className="sr-only">
+          {copied ? 'Sync code copied to clipboard' : ''}
+        </div>
+      </div>
+
+      {/* Enter a code from another device. */}
+      <form onSubmit={enter} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+        <h3 className="text-sm font-semibold text-white">Enter a code</h3>
+        <p className="mt-1 max-w-2xl text-sm text-white/60">
+          Paste the sync code from your other device to bring its trips onto this one. This replaces
+          this device&rsquo;s code with the one you enter.
+        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <label htmlFor="settings-sync-enter" className="sr-only">
+            Sync code from another device
+          </label>
+          <input
+            id="settings-sync-enter"
+            value={enterValue}
+            onChange={(e) => setEnterValue(e.target.value)}
+            placeholder="Paste a sync code"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            data-testid="settings-sync-enter-input"
+            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40"
+          />
+          <button
+            type="submit"
+            disabled={!enterValue.trim()}
+            data-testid="settings-sync-enter-submit"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            Sync this device
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

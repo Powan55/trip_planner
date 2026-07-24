@@ -27,7 +27,7 @@ import { settle } from '@/core/budget/settlement';
 import { EXPENSE_OPEN_EVENT } from '@/components/expense-log-host';
 import { getNow } from '@/lib/trip-now';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
-import { TRAVELERS } from '@/lib/token-auth';
+import { rosterForActiveTrip } from '@/lib/token-auth';
 import BurnRateView from '@/components/burn-rate-view';
 import ExpenseLog from '@/components/expense-log';
 import SettleUpSummary from '@/components/settle-up-summary';
@@ -118,7 +118,7 @@ export default function BudgetPanel() {
   // payer. Empty until ≥1 split expense exists, so the summary stays hidden on the fast path.
   const { traveler } = useActiveTraveler();
   const settlements = useMemo(
-    () => settle(expenses, TRAVELERS.map((t) => t.name), traveler?.name),
+    () => settle(expenses, rosterForActiveTrip(expenses), traveler?.name),
     [expenses, traveler],
   );
 

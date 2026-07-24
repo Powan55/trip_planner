@@ -34,6 +34,14 @@ export interface CurrencyRateNow {
   stale: boolean;
   /** ISO timestamp the value was fetched (for the "as of" indicator). */
   fetchedAt: string;
+  /**
+   * (P6): `'reference'` for a currency Frankfurter doesn't carry (a hand-set static
+   * figure, never a live quote — see `STATIC_REFERENCE_RATES`); `'live'` for an actual
+   * Frankfurter fetch. Optional/absent on values written before this field existed (older
+   * cached entries) — the renderer treats a missing `source` as `'live'`, matching prior
+   * behavior exactly.
+   */
+  source?: 'live' | 'reference';
 }
 
 export type CurrencyRateResult =
@@ -106,9 +114,29 @@ export function parseFrankfurter(
 const UNSUPPORTED_CURRENCIES = new Set(['NPR']);
 
 /**
+ * (P6): hand-set static reference rates for currencies Frankfurter doesn't carry, so the
+ * Essentials currency panel isn't dead for the whole Nepal leg (10/10 days were `unavailable`
+ * before this). NOT a live feed — free-tools-only stays intact, no paid FX API added, no
+ * fetch issued (see `UNSUPPORTED_CURRENCIES`'s doc comment for why NPR must never be requested).
+ * `fetchCurrencyRate` flags every value from here `source: 'reference'` so the UI can render it
+ * distinctly ("≈ reference rate") and NEVER present it as a live quote.
+ *
+ * ponytail: `rate`/`asOf` are a hand-set calibration knob, not derived from anything live — NPR
+ * has held roughly 133-136/USD through 2026 under the NRB's currency-board peg to INR. Set
+ * 134.5 as-of 2026-07-24 (today, this slice). Refresh both fields if the real rate visibly
+ * drifts from this band; there is no automated way to know it has (that's the whole reason NPR
+ * needs a reference value instead of a feed).
+ */
+const STATIC_REFERENCE_RATES: Record<string, { rate: number; asOf: string }> = {
+  NPR: { rate: 134.5, asOf: '2026-07-24' },
+};
+
+/**
  * Load the live USD→`currency` rate. Total + never-throws:
  * 0. A currency Frankfurter is confirmed not to carry (`UNSUPPORTED_CURRENCIES`) → skip the
- * fetch entirely, return the cached last-good value if any (stale:true) else `unavailable`.
+ * fetch entirely. A cached live-ish value still wins if present (stale:true); else fall
+ * back to a hand-set `STATIC_REFERENCE_RATES` entry (`source:'reference'`) if one exists;
+ * else `unavailable`.
  * 1. Fetch OK + parses + carries the symbol → write-through the fresh value, return `ok`.
  * 2. Fetch fails / non-200 / unparsable / symbol unexpectedly absent → return the cached
  * last-good value if any (stale:true), else `unavailable`.
@@ -122,7 +150,22 @@ export async function fetchCurrencyRate(
 ): Promise<CurrencyRateResult> {
   if (UNSUPPORTED_CURRENCIES.has(currency)) {
     const cached = readCache(currency);
-    return cached ? { status: 'ok', data: { ...cached, stale: true } } : { status: 'unavailable', currency };
+    if (cached) return { status: 'ok', data: { ...cached, stale: true } };
+    const reference = STATIC_REFERENCE_RATES[currency];
+    if (reference) {
+      return {
+        status: 'ok',
+        data: {
+          currency,
+          rate: reference.rate,
+          asOf: reference.asOf,
+          stale: false,
+          fetchedAt: new Date().toISOString(),
+          source: 'reference',
+        },
+      };
+    }
+    return { status: 'unavailable', currency };
   }
   try {
     const url = `${FRANKFURTER_URL}?base=USD&symbols=${encodeURIComponent(currency)}`;
@@ -137,6 +180,7 @@ export async function fetchCurrencyRate(
       asOf: parsed.asOf,
       stale: false,
       fetchedAt: new Date().toISOString(),
+      source: 'live',
     };
     writeCacheEntry(currency, value);
     return { status: 'ok', data: value };

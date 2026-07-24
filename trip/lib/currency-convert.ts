@@ -35,7 +35,7 @@ export function parseConversionQuery(raw: string): ParsedConversionQuery | null 
 }
 
 export type ConversionResult =
-  | { status: 'ok'; converted: number; asOf: string; stale: boolean }
+  | { status: 'ok'; converted: number; asOf: string; stale: boolean; source: 'live' | 'reference' }
   | { status: 'unavailable'; currency: string };
 
 /** Units of `currency` per 1 USD, sourced from `fetchCurrencyRate`. USD itself is always
@@ -43,19 +43,30 @@ export type ConversionResult =
 async function usdRateOf(
   currency: string,
   fetchImpl: typeof fetch,
-): Promise<{ rate: number; asOf: string; stale: boolean } | 'unavailable'> {
+): Promise<{ rate: number; asOf: string; stale: boolean; source: 'live' | 'reference' } | 'unavailable'> {
   if (currency === 'USD') {
-    return { rate: 1, asOf: new Date().toISOString().slice(0, 10), stale: false };
+    return { rate: 1, asOf: new Date().toISOString().slice(0, 10), stale: false, source: 'live' };
   }
   const result: CurrencyRateResult = await fetchCurrencyRate(currency, fetchImpl);
   if (result.status === 'unavailable') return 'unavailable';
-  return { rate: result.data.rate, asOf: result.data.asOf, stale: result.data.stale };
+  // (P6): an older cache entry written before `source` existed has no field — treat that
+  // as `'live'`, matching what it always meant before this slice.
+  return {
+    rate: result.data.rate,
+    asOf: result.data.asOf,
+    stale: result.data.stale,
+    source: result.data.source ?? 'live',
+  };
 }
 
 /**
  * Converts `parsed.amount` from `parsed.from` to `parsed.to`, reusing `fetchCurrencyRate`
  * for each side's USD-anchored rate. Total — never throws. `unavailable` names whichever
- * side actually has no rate (fresh or cached) — e.g. NPR with no prior cache.
+ * side actually has no rate (fresh or cached) — e.g. NPR with no prior cache used to be
+ * `unavailable` outcome; as of it instead resolves via the labeled static
+ * reference rate (`source: 'reference'` on either side flips the whole conversion's
+ * `source` to `'reference'`, so the command palette never presents a hand-set NPR figure
+ * as a live quote).
  */
 export async function convertCurrency(
   parsed: ParsedConversionQuery,
@@ -68,5 +79,6 @@ export async function convertCurrency(
   if (fromRate === 'unavailable') return { status: 'unavailable', currency: parsed.from };
   if (toRate === 'unavailable') return { status: 'unavailable', currency: parsed.to };
   const converted = (parsed.amount / fromRate.rate) * toRate.rate;
-  return { status: 'ok', converted, asOf: toRate.asOf, stale: fromRate.stale || toRate.stale };
+  const source = fromRate.source === 'reference' || toRate.source === 'reference' ? 'reference' : 'live';
+  return { status: 'ok', converted, asOf: toRate.asOf, stale: fromRate.stale || toRate.stale, source };
 }

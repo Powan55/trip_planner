@@ -6,7 +6,7 @@ import { Cloud, Wallet, ShieldAlert, Plane } from 'lucide-react';
 import { getCountryForDate, getCityForDate } from '@/core/dates';
 import { legCurrency } from '@/core/budget/model';
 import { EMERGENCY_CONTACTS } from '@/core/content/safety';
-import { fetchWeather, weatherCodeToLabel, type WeatherResult } from '@/lib/weather';
+import { fetchWeather, weatherCodeToLabel, formatWeatherAsOf, type WeatherResult } from '@/lib/weather';
 import { fetchCurrencyRate, type CurrencyRateResult } from '@/lib/currency-rate';
 import {
   OUTBOUND_JOURNEY,
@@ -17,6 +17,8 @@ import {
 } from '@/lib/booking-data';
 import { buildFlightTrackerUrl, buildRome2RioUrl, buildGoogleFlightsUrl } from '@/lib/flight-deep-links';
 import { useWakeLock } from '@/lib/use-wake-lock';
+import { useOnline } from '@/hooks/use-online';
+import { cn } from '@/lib/utils';
 
 /**
  * — Travel Mode Essentials block. Mounts BELOW the agenda on `/travel` (a lazy island,
@@ -137,7 +139,7 @@ function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult 
           {weatherCodeToLabel(weather.data.weatherCode)}
           {weather.data.stale && (
             <span className="ml-1.5 text-xs text-white/40" data-testid="travel-essentials-weather-stale">
-              (cached)
+              (cached — as of {formatWeatherAsOf(weather.data.fetchedAt)})
             </span>
           )}
         </p>
@@ -168,10 +170,21 @@ function CurrencyPanel({ currency, rate }: { currency: string; rate: CurrencyRat
       )}
       {rate?.status === 'ok' && (
         <p className="mt-2 text-sm text-white/85">
-          <span className="font-semibold text-white">1 USD = {rate.data.rate.toLocaleString()} {currency}</span>
+          <span className="font-semibold text-white">
+            {rate.data.source === 'reference' ? '≈ ' : ''}
+            1 USD = {rate.data.rate.toLocaleString()} {currency}
+          </span>
           <span className="mt-0.5 block text-xs text-white/40" data-testid="travel-essentials-currency-asof">
-            as of {rate.data.asOf}
-            {rate.data.stale ? ' (cached)' : ''}
+            {rate.data.source === 'reference' ? (
+              <span data-testid="travel-essentials-currency-reference">
+                reference rate, as of {rate.data.asOf} — not a live quote
+              </span>
+            ) : (
+              <>
+                as of {rate.data.asOf}
+                {rate.data.stale ? ' (cached)' : ''}
+              </>
+            )}
           </span>
         </p>
       )}
@@ -222,7 +235,46 @@ function SafetyPanel({
   );
 }
 
+/**
+ * (P9): an external booking/tracking deep-link that goes dead the instant the device is
+ * offline (it opens a new tab that can't load). Rather than remove it, dim it in place and mark
+ * it `aria-disabled` + intercept the click — re-enables automatically the moment `useOnline()`
+ * flips back (no remount needed, `online` is just a prop). The disabled state is conveyed via
+ * BOTH the dimmed/grayscale styling AND an `sr-only` text suffix — never color alone.
+ */
+export function DeepLink({
+  href,
+  online,
+  testId,
+  className,
+  children,
+}: {
+  href: string;
+  online: boolean;
+  testId: string;
+  className: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      data-testid={testId}
+      aria-disabled={online ? undefined : true}
+      onClick={(e) => {
+        if (!online) e.preventDefault();
+      }}
+      className={cn(className, !online && 'pointer-events-none opacity-40 grayscale')}
+    >
+      {children}
+      {!online && <span className="sr-only"> (unavailable offline)</span>}
+    </a>
+  );
+}
+
 function FlightCard({ journey }: { journey: Journey }) {
+  const online = useOnline();
   const r2r = buildRome2RioUrl(journey.fromSummary, journey.toSummary);
   const gflights = buildGoogleFlightsUrl(journey.fromSummary, journey.toSummary);
 
@@ -244,39 +296,36 @@ function FlightCard({ journey }: { journey: Journey }) {
                 {leg.flightNumber} &middot; {leg.fromCode}&rarr;{leg.toCode} &middot; {leg.departLabel}
               </span>
               {tracker && (
-                <a
+                <DeepLink
                   href={tracker}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-testid={`travel-essentials-tracker-${leg.id}`}
+                  online={online}
+                  testId={`travel-essentials-tracker-${leg.id}`}
                   className="inline-flex min-h-[36px] items-center rounded-lg px-2 text-xs font-medium text-gold-300 outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
                 >
                   Track flight
-                </a>
+                </DeepLink>
               )}
             </li>
           );
         })}
       </ul>
       <div className="mt-3 flex flex-wrap gap-3 text-xs">
-        <a
+        <DeepLink
           href={r2r}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-testid={`travel-essentials-rome2rio-${journey.id}`}
+          online={online}
+          testId={`travel-essentials-rome2rio-${journey.id}`}
           className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
         >
           Plan this route (Rome2Rio)
-        </a>
-        <a
+        </DeepLink>
+        <DeepLink
           href={gflights}
-          target="_blank"
-          rel="noopener noreferrer"
-          data-testid={`travel-essentials-gflights-${journey.id}`}
+          online={online}
+          testId={`travel-essentials-gflights-${journey.id}`}
           className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
         >
           Google Flights
-        </a>
+        </DeepLink>
       </div>
     </div>
   );

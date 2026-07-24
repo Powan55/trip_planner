@@ -1,4 +1,5 @@
 import PageHero from '@/components/page-hero';
+import DefaultTripOnly from '@/components/default-trip-only';
 
 // JAPAN: mirror of /nepal/ with country="Japan". Section ids
 // (#japan/#photography/#nightlife/#essentials) are kept for sub-anchors + the
@@ -10,6 +11,7 @@ import {
   PhotographyGuide,
   NightlifeSection,
   CountryEssentials,
+  MyPlacesSection,
 } from './sections';
 
 export const metadata = {
@@ -28,10 +30,13 @@ export default function JapanPage() {
         eyebrow="Dec 19 – Jan 9"
         subtitle="Winter Japan — Tokyo neon, Kyoto temples, photo spots, nightlife, and local etiquette."
       />
-      <JapanSection />
-      <PhotographyGuide country="Japan" />
-      <NightlifeSection country="Japan" />
-      <CountryEssentials country="Japan" />
+      <DefaultTripOnly>
+        <JapanSection />
+        <MyPlacesSection legId="japan" />
+        <PhotographyGuide country="Japan" />
+        <NightlifeSection country="Japan" />
+        <CountryEssentials country="Japan" />
+      </DefaultTripOnly>
     </main>
   );
 }

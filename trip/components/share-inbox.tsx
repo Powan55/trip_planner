@@ -1,11 +1,14 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { Inbox, Link2, Trash2, CalendarDays } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { Inbox, Link2, Trash2, CalendarDays, MapPin } from 'lucide-react';
 import { useShare } from '@/hooks/use-share';
 import type { ShareItem } from '@/core/share/model';
 import { TRIP_DATES, formatDate } from '@/core/dates';
+import { isGooglePlaceUrl } from '@/core/places/model';
 import { haptic } from '@/lib/haptics';
+import ImportPlaceSheet from '@/components/import-place-sheet';
 
 /**
  * ShareInbox — the `/share` route's dual surface: the OS-share-target RECEIVER and the
@@ -40,6 +43,27 @@ function dayLabel(day: string): string {
 export default function ShareInbox() {
   const { items, hydrated, addShare, removeShare, assignDay } = useShare();
   const processedRef = useRef(false);
+  // Import-a-place entry into the shared ImportPlaceSheet. Two ways in:
+  // • "Paste a Google Maps link" header button — iOS + desktop have no OS share_target, so
+  // the paste path is first-class; the sheet opens with an EDITABLE URL field.
+  // • "Import as place" on a Google-host inbox row — the sheet opens SEEDED with that row's
+  // url (read-only, auto-resolved); on a SUCCESSFUL save the source row is removed.
+  // One `importState` drives the single shared mount (never a second sheet). Parent-owned focus
+  // return: snapshot the active trigger on open, refocus it on the sheet's exit-complete.
+  const [importState, setImportState] = useState<{ url: string; editable: boolean; rowId?: string } | null>(null);
+  const importTriggerRef = useRef<HTMLElement | null>(null);
+  const openImport = () => {
+    importTriggerRef.current = (document.activeElement as HTMLElement) ?? null;
+    setImportState({ url: '', editable: true });
+  };
+  const openRowImport = (item: ShareItem) => {
+    importTriggerRef.current = (document.activeElement as HTMLElement) ?? null;
+    setImportState({ url: item.url ?? '', editable: false, rowId: item.id });
+  };
+  // Remove the source inbox row only on a real import (the sheet's onImported fires before onClose).
+  const handleImported = () => {
+    if (importState?.rowId) removeShare(importState.rowId);
+  };
 
   // Receiver: runs ONCE after hydration (commit gates on hydrated, so we must wait for it).
   useEffect(() => {
@@ -100,6 +124,16 @@ export default function ShareInbox() {
             ? 'Anything you share to this app from your phone lands here.'
             : `${items.length} item${items.length === 1 ? '' : 's'} — assign each to a trip day or clear it out.`}
         </p>
+        <button
+          type="button"
+          data-testid="share-paste-link"
+          onClick={openImport}
+          aria-haspopup="dialog"
+          className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gold-400/40 bg-gold-500/10 px-4 text-sm font-medium text-gold-300 outline-none transition-colors hover:bg-gold-500/20 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+        >
+          <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Paste a Google Maps link
+        </button>
       </header>
 
       {items.length === 0 ? (
@@ -130,10 +164,26 @@ export default function ShareInbox() {
                 removeShare(item.id);
                 haptic();
               }}
+              onImport={() => openRowImport(item)}
             />
           ))}
         </ul>
       )}
+
+      {/* Import-a-place confirm sheet. Paste mode: editable URL field.
+          Row mode: seeded read-only url, source row removed on a successful import.
+          Focus returns to the trigger on exit-complete. */}
+      <AnimatePresence onExitComplete={() => importTriggerRef.current?.focus?.()}>
+        {importState && (
+          <ImportPlaceSheet
+            open={importState !== null}
+            initialUrl={importState.url}
+            urlEditable={importState.editable}
+            onImported={handleImported}
+            onClose={() => setImportState(null)}
+          />
+        )}
+      </AnimatePresence>
     </section>
   );
 }
@@ -142,13 +192,17 @@ function ShareRow({
   item,
   onAssign,
   onDelete,
+  onImport,
 }: {
   item: ShareItem;
   onAssign: (day: string | undefined) => void;
   onDelete: () => void;
+  onImport: () => void;
 }) {
   const heading = item.title || item.text || item.url || 'Shared item';
   const selectId = `share-day-${item.id}`;
+  // "Import as place" only on rows whose url is a Google place link (same allow-list as the sheet).
+  const canImport = isGooglePlaceUrl(item.url);
 
   return (
     <li data-testid={`share-item-${item.id}`} className="glass-subtle rounded-2xl p-4 sm:p-5">
@@ -208,6 +262,21 @@ function ShareRow({
           ))}
         </select>
       </div>
+
+      {canImport && (
+        <div className="mt-3">
+          <button
+            type="button"
+            data-testid={`share-item-import-${item.id}`}
+            onClick={onImport}
+            aria-haspopup="dialog"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gold-400/40 bg-gold-500/10 px-4 text-sm font-medium text-gold-300 outline-none transition-colors hover:bg-gold-500/20 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+          >
+            <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+            Import as place
+          </button>
+        </div>
+      )}
     </li>
   );
 }

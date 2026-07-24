@@ -20,7 +20,7 @@
 // has no "next" to end it.
 
 import type { ItineraryItem } from '@/lib/trip-data';
-import { effectiveStartMinutes, placeWallClockToUtcMs } from '@/core/dates';
+import { effectiveOffsetMin, effectiveStartMinutes, placeWallClockToUtcMs } from '@/core/dates';
 import { nextUp, type NextUpContext } from '@/lib/whats-next';
 
 /** Cap for an open-ended (`durationMinutes`-absent) current activity — 2 hours. */
@@ -94,8 +94,9 @@ function currentActivity(timed: Timed[], ctx: NextUpContext): Current | null {
   let bestStart = -Infinity;
   for (const t of timed) {
     if (t.item.done === true) continue;
-    const startMs = placeWallClockToUtcMs(ctx.dayDate, t.startMin, ctx.placeOffsetMin);
-    const endMs = placeWallClockToUtcMs(ctx.dayDate, effectiveEndMin(t, starts), ctx.placeOffsetMin);
+    const offsetMin = effectiveOffsetMin(t.item, ctx.placeOffsetMin);
+    const startMs = placeWallClockToUtcMs(ctx.dayDate, t.startMin, offsetMin);
+    const endMs = placeWallClockToUtcMs(ctx.dayDate, effectiveEndMin(t, starts), offsetMin);
     if (startMs <= ctx.nowUtcMs && ctx.nowUtcMs < endMs && t.startMin > bestStart) {
       const span = endMs - startMs;
       best = {
@@ -174,7 +175,7 @@ export function deriveRowPhases(items: ItineraryItem[], ctx: NextUpContext): Tra
     if (cur && cur.item === item) return 'now';
     const startMin = effectiveStartMinutes(item);
     if (startMin === undefined) return 'untimed';
-    const startMs = placeWallClockToUtcMs(ctx.dayDate, startMin, ctx.placeOffsetMin);
+    const startMs = placeWallClockToUtcMs(ctx.dayDate, startMin, effectiveOffsetMin(item, ctx.placeOffsetMin));
     return startMs > ctx.nowUtcMs ? 'upcoming' : 'past';
   });
 }

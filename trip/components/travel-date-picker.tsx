@@ -19,6 +19,7 @@ import { useSearchParams } from 'next/navigation';
 import { Calendar } from 'lucide-react';
 import { TRIP_DATE_LABEL, formatDateLong } from '@/core/dates';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
+import { useTravelTick } from '@/lib/travel-tick';
 import { resolveTravelDate } from '@/lib/travel-date';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import TravelDayStrip from '@/components/travel-day-strip';
@@ -66,15 +67,12 @@ export default function TravelDatePicker() {
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
   const [nowMs, setNowMs] = useState<number>(0);
 
+  // recompute on the shared `/travel` tick (base 20s) instead of a private 1s interval.
+  const tickN = useTravelTick();
   useEffect(() => {
-    const tick = () => {
-      setTodayInTrip(getTodayInTrip());
-      setNowMs(getNow().getTime());
-    };
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, []);
+    setTodayInTrip(getTodayInTrip());
+    setNowMs(getNow().getTime());
+  }, [tickN]);
 
   if (!hydrated) {
     return (

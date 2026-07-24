@@ -74,7 +74,10 @@ export const dayPlanSchema = z
   .object({
     date: z.string(),
     city: z.string(),
-    country: z.enum(['nepal', 'japan']),
+    // Leg id (: widened from `z.enum(['nepal','japan'])` to a generic non-empty string — a
+    // custom trip's single leg persists `country: 'main'`). Backward compatible: every existing
+    // nepal/japan value still validates. Lenient-read discipline is preserved.
+    country: z.string().min(1),
     items: z.array(itineraryItemSchema),
   })
   .passthrough();

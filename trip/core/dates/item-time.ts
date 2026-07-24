@@ -14,16 +14,34 @@ import { getActiveTrip } from '@/core/trips';
 // (`utcOffsetMin`) rather than hardcoded, so a pack authors its own offsets in one place.
 // Byte-identical for the default pack: NPT 345 / JST 540.
 const activeTrip = getActiveTrip();
-const offsetForLeg = (id: string): number => activeTrip.legs.find((l) => l.id === id)!.utcOffsetMin;
+// a single-leg custom pack has neither a 'nepal' nor a 'japan' leg — fall back to the
+// first leg's offset so this never crashes at module load (same guard as trip-dates.ts). The
+// DEFAULT pack still finds both named legs, so NPT/JST stay byte-identical (345 / 540).
+const offsetForLeg = (id: string): number =>
+  (activeTrip.legs.find((l) => l.id === id) ?? activeTrip.legs[0]).utcOffsetMin;
 
 /** Nepal Time = UTC+5:45 = +345 min. The `:45` is why B-01 field arithmetic matters. */
 export const NPT_OFFSET_MIN = offsetForLeg('nepal');
 /** Japan Standard Time = UTC+9:00 = +540 min. */
 export const JST_OFFSET_MIN = offsetForLeg('japan');
 
-/** The day's place offset from its country. */
-export function offsetForCountry(c: 'nepal' | 'japan'): number {
-  return c === 'japan' ? JST_OFFSET_MIN : NPT_OFFSET_MIN;
+/** The day's place offset from its leg. Looks the leg up
+ * by id in the active pack; an unknown id defaults to
+ * NPT. For the default pack, `'nepal'` → 345 and `'japan'` → 540 exactly as before. */
+export function offsetForCountry(c: string): number {
+  const leg = activeTrip.legs.find((l) => l.id === c);
+  return leg ? leg.utcOffsetMin : NPT_OFFSET_MIN;
+}
+
+/**
+ * The offset (minutes east of UTC) to use for ONE item's UTC-instant math: the item's
+ * own `tzOffsetMin` override when present — the rare item whose wall-clock time is physically
+ * in a different place than the day's country (e.g. a Guangzhou layover logged on a Japan
+ * day) — else the day's place offset unchanged. Every item without the override is
+ * byte-identical to before (falls straight through to `dayOffsetMin`).
+ */
+export function effectiveOffsetMin(item: ItineraryItem, dayOffsetMin: number): number {
+  return typeof item.tzOffsetMin === 'number' ? item.tzOffsetMin : dayOffsetMin;
 }
 
 /**

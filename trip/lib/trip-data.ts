@@ -85,12 +85,22 @@ export interface ItineraryItem {
   // means "genuine span" (used by the clash-exclusion in lib/sort-items-by-time.ts). Rides the
   // existing updateItem path (rev/hlc) for free like every other field here.
   endDate?: string;
+  // Per-item place-offset override ( — additive OPTIONAL, NO Vault migration / version
+  // bump, mirrors the `lat`/`lng`/`endDate` precedent above). Minutes east of UTC for the ONE
+  // item whose wall-clock time is physically in a different place than the day's `country`
+  // (e.g. a Guangzhou layover logged on a Japan day). Absent = today's behavior unchanged: the
+  // UTC-instant math (`core/dates/item-time.ts`'s `effectiveOffsetMin`) falls back to the day's
+  // `offsetForCountry`. Display is UNAFFECTED (: the badge stays day-country-derived,
+  // never per-item) — this only corrects Travel Mode's now/next/progress instant compare.
+  tzOffsetMin?: number;
 }
 
 export interface DayPlan {
   date: string;
   city: string;
-  country: 'nepal' | 'japan';
+  // Leg id of the day (: `string`, not the `'nepal' | 'japan'` union — a custom trip's
+  // single leg is `'main'`). For the DEFAULT pack the values are still exactly nepal/japan.
+  country: string;
   items: ItineraryItem[];
 }
 

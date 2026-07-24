@@ -22,6 +22,8 @@
 
 import { setUserName } from './identity';
 import { identityStore } from '@/core/storage/gateway';
+import { isDefaultTrip } from '@/core/trips';
+import type { Expense } from '@/core/budget/expenses';
 
 // the token key literal AND the raw localStorage access now live in
 // the typed storage gateway (`core/storage/gateway.ts`). The duplicated
@@ -89,6 +91,55 @@ export const TRAVELERS: readonly Traveler[] = [
   { name: 'Sushil', token: 'Sushil', accent: '#f7a0b3' }, // sakura
   { name: 'Uttam', token: 'Uttam', accent: '#ff8c42' }, // himalaya
 ] as const;
+
+/**
+ * Accent for a split/settlement chip. A default-pack TRAVELER keeps its
+ * fixed hand-assigned brand tint (so the default trip's split/settle surfaces are
+ * PIXEL-IDENTICAL), any other name (a custom trip's derived roster) falls back to the
+ * deterministic `accentForName` hash — no new colours. Case-insensitive match.
+ */
+export function rosterAccent(name: string): string {
+  const match = TRAVELERS.find((t) => t.name.toLowerCase() === name.trim().toLowerCase());
+  return match?.accent ?? accentForName(name);
+}
+
+/**
+ * The expense-split roster for the ACTIVE trip.
+ *
+ * Default pack → exactly the fixed `TRAVELERS` names (pixel-identical, zero behaviour change).
+ * Custom trip → the distinct union, in first-seen order, of the current traveler's name ("me",
+ * listed FIRST so a zero-expense custom trip still offers self to create the first split) and
+ * every name that appears in the trip's expense history: each expense's `paidBy`, its `split[]`
+ * members, and `createdBy`. De-dupe is case-insensitive (first-seen casing wins), matching the
+ * presence bar's name-collapse. Guest (no active traveler) on a custom trip with no expenses ⇒
+ * an empty roster — the same honest degrade the default trip's split UI has always shown a guest
+ * (no new UI); the /plan gate makes a signed-in traveler the norm.
+ *
+ * Reads `isDefaultTrip()` + `getActiveTraveler()` (the gateway pointer + identity slot) — callers
+ * already sit behind the client-only expense surfaces, and SSR resolves the default pack.
+ */
+export function rosterForActiveTrip(expenses: readonly Expense[]): string[] {
+  if (isDefaultTrip()) return TRAVELERS.map((t) => t.name);
+
+  const seen = new Set<string>();
+  const roster: string[] = [];
+  const add = (raw: string | undefined | null) => {
+    const name = raw?.trim();
+    if (!name) return;
+    const key = name.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    roster.push(name);
+  };
+
+  add(getActiveTraveler()?.name); // "me" first — the zero-expense self case
+  for (const e of expenses) {
+    add(e.paidBy);
+    if (Array.isArray(e.split)) for (const m of e.split) add(m);
+    add(e.createdBy);
+  }
+  return roster;
+}
 
 /**
  * Resolve a raw nickname to a traveler, or null if it is empty/whitespace.

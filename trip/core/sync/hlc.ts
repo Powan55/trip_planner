@@ -63,6 +63,15 @@ export const CT_WIDTH = 6;
  */
 export const CT_MAX = 10 ** CT_WIDTH - 1;
 
+/**
+ * Max plausible clock skew absorbed into the device RUNNING clock. `pt` is UTC
+ * epoch-ms, so timezone/DST are NOT skew sources — this bounds a genuinely wrong clock.
+ * 24h covers real drift / a clock mis-set by hours / plausible offline-ahead edits;
+ * year-3000 (~300000x over) is clamped. Calibration knob, not a fixed truth.
+ * ponytail: single tunable; only re-evaluate if a real device is seen legitimately >24h ahead.
+ */
+export const MAX_SKEW_MS = 24 * 60 * 60 * 1000;
+
 function pad(value: number, width: number): string {
   // Guard against negatives / non-finite so serialization never emits `NaN`/`-`.
   const n = Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
@@ -150,7 +159,12 @@ export function hlcSendOrLocal(last: Hlc | null, physicalNow: number, actor: str
  */
 export function hlcReceive(local: Hlc | null, remote: Hlc, physicalNow: number): Hlc {
   const localPt = local?.pt ?? 0;
-  const pt = Math.max(physicalNow, localPt, remote.pt);
+  // clamp an IMPLAUSIBLE remote clock out of our RUNNING clock only. A peer ≤ MAX_SKEW_MS
+  // ahead is absorbed unchanged (min is a no-op → no update lost); a far-future peer is capped so
+  // it can't poison this device's future local stamps. The STORED merge stamp is decided by
+  // compareHlc on raw stored hlc elsewhere and is deliberately NOT clamped (convergence).
+  const cappedRemotePt = Math.min(remote.pt, physicalNow + MAX_SKEW_MS);
+  const pt = Math.max(physicalNow, localPt, cappedRemotePt);
   let ct: number;
   if (pt === (local?.pt ?? -1) && pt === remote.pt) {
     ct = Math.max(local?.ct ?? 0, remote.ct) + 1;

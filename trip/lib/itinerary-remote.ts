@@ -220,7 +220,7 @@ export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void>
 
   try {
     const { db, fs } = await getRemote();
-    const { doc, deleteDoc, runTransaction } = fs;
+    const { doc, deleteDoc } = fs;
 
     const prevByDate = new Map(prev.map((d) => [d.date, d]));
     const nextByDate = new Map(next.map((d) => [d.date, d]));

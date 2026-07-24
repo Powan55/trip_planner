@@ -8,6 +8,7 @@ import { ChunkLoadErrorHandler } from '@/components/chunk-load-error-handler'
 import CommandPalette from '@/components/command-palette'
 import RouteAccentEngine from '@/components/route-accent-engine'
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
+import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
 import { SyncStatusBadge } from '@/components/sync-status-badge'
 import { withBasePath } from '@/lib/utils'
@@ -123,6 +124,10 @@ export default function RootLayout({
           {/* registers /sw.js in production only; drives the
               toast-based update flow (no silent refresh). Renders null. */}
           <ServiceWorkerRegistrar />
+          {/* (R1): storage-reliability island — requests persistent storage after the
+              first interaction, warns once per load when storage nears quota, and shows a
+              once-ever install-to-Home-Screen hint. Renders nothing. */}
+          <StoragePersistence />
           {/* app-wide navigator.onLine banner. Renders nothing while online
               (incl. server/first paint — no SSR mismatch); appears on every route
               the instant connectivity drops. */}

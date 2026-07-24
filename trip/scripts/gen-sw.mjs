@@ -17,10 +17,18 @@
 // script is the SINGLE prefix source at build time: read
 // NEXT_PUBLIC_BASE_PATH once and prefix every emitted URL EXACTLY once
 // (precache entries, manifest start_url/scope/icon src). Never double-prefix.
+//
+// TD-07 / (behavior change): this script also deletes Next's nomodule
+// polyfill chunk (out/_next/static/chunks/polyfills-*.js, ~112KB) and strips
+// its <script... nomodule> tag from every route HTML post-build. This DROPS
+// support for pre-ES-module (legacy, nomodule-only) browsers — support the app
+// never really had, since any Service-Worker-capable browser is already a
+// module browser and never executes a nomodule script. Net: 112KB less shipped
+// and precached per installed client. See stripPolyfills() below.
 
 import { fileURLToPath } from 'node:url';
 import { dirname, join, relative, sep, posix } from 'node:path';
-import { readdir, readFile, writeFile, stat } from 'node:fs/promises';
+import { readdir, readFile, writeFile, stat, rm } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -37,30 +45,6 @@ const withBase = (p) => `${BASE_PATH}${p}`;
 // tailwind.config.ts; body className bg-navy-900 in app/layout.tsx). Same hex
 // as gen-icons.mjs so installed app + splash + address bar all agree.
 const THEME_COLOR = '#0a0e27';
-
-// The real route HTMLs (trailingSlash:true => nested index.html) + the export's 404
-// fallback. These MUST all be precached so navigations resolve offline. NOTE: this list is
-// HAND-MAINTAINED, not discovered by the `walk()` below (which only covers _next/static,
-// icons, and the manifest) — a new route's `index.html` must be added here explicitly or it
-// silently falls out of the precache.
-const ROUTE_HTML = [
-  'index.html',
-  'plan/index.html',
-  'nepal/index.html',
-  'japan/index.html',
-  'map/index.html',
-  'journal/index.html',
-  'flights/index.html',
-  'safety/index.html',
-  'recap/index.html',
-  'settings/index.html',
-  'travel/index.html', // Travel Mode route — precache 133→134.
-  'packing/index.html', // packing checklist route — precache 144→145.
-  'share/index.html', // share-target inbox route — precache +1 (route html) per.
-  'checklist/index.html', // documents & readiness checklist route — precache +1 (route html).
-  'trips/index.html', // trips hub route — precache +1 (route html).
-  '404.html',
-];
 
 // -------------------------------------------------------------------------
 // Recursively list every file under a directory as out/-relative POSIX paths.
@@ -79,21 +63,29 @@ async function walk(dir) {
 }
 
 // Build the precache list per the contract:
-// - every route HTML (5 routes + 404.html)
+// - every route HTML (trailingSlash:true => <route>/index.html) + 404.html
 // - ALL of _next/static/**
 // - manifest.webmanifest
 // - icons/** and favicon.svg
 // - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead.
+//
+// TD-04: route HTML is DISCOVERED by walking out/ (below), not a hand-kept
+// literal. Every route MUST be precached so navigations resolve offline; the
+// old ROUTE_HTML array silently dropped any new route someone forgot to add
+// Discovery removes that footgun.
 async function buildPrecacheList(allFiles) {
   const set = new Set();
 
-  for (const rel of ROUTE_HTML) {
-    // 404.html always exists; guard the rest but they're expected.
-    set.add(rel);
-  }
-
   for (const rel of allFiles) {
-    if (rel.startsWith('_next/static/')) set.add(rel);
+    // Route HTML: top-level index.html + every nested <route>/index.html, plus
+    // the export's 404.html fallback. EXCLUDE 404/index.html: Next emits BOTH
+    // 404.html (the canonical fallback the nav handler serves — see
+    // NAV_FALLBACK/404 logic) and a redundant 404/index.html route dir;
+    // precaching the fallback alone matches historical behavior and avoids a
+    // duplicate /404/ precache entry.
+    if (rel === 'index.html' || rel === '404.html') set.add(rel);
+    else if (rel.endsWith('/index.html') && rel !== '404/index.html') set.add(rel);
+    else if (rel.startsWith('_next/static/')) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
     else if (rel === 'favicon.svg') set.add(rel);
     else if (rel === 'manifest.webmanifest') set.add(rel);
@@ -226,33 +218,46 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(PRECACHE);
-      // addAll is atomic-ish; if any single request fails the whole install
-      // rejects. Use individual puts so one stray 404 can't brick the install.
+      // ATOMIC install (P3, R5.2): every precache URL is same-origin, so a
+      // healthy build MUST fetch each one OK. If ANY entry fails to fetch OK,
+      // THROW so this waitUntil rejects -- the worker then never reaches the
+      // activate handler, so the previous good precache (deleted ONLY in
+      // activate, below) stays fully intact and the last good build keeps
+      // serving. This is the torn-state guard: GitHub Pages deploys are not
+      // atomic, so a client can fetch a manifest from build N and an asset still
+      // on build N+1; we refuse to commit a half-populated shell rather than
+      // silently cache a miss (the classic SW bug that permanently serves the
+      // wrong shell). No opaque special-case: precache URLs are never opaque.
       await Promise.all(
         PRECACHE_URLS.map(async (url) => {
-          try {
-            const res = await fetch(url, { cache: 'no-cache' });
-            if (res && (res.ok || res.type === 'opaque')) {
-              await cache.put(url, res.clone());
-            }
-          } catch (_) {
-            /* ignore individual precache misses (offline-first is best-effort) */
+          const res = await fetch(url, { cache: 'no-cache' });
+          if (!res || !res.ok) {
+            throw new Error(
+              'precache fetch failed: ' + url + ' -> ' + (res ? res.status : 'no response')
+            );
           }
+          await cache.put(url, res.clone());
         })
       );
     })()
   );
 });
 
-// --- activate: drop stale precaches, take control ------------------------
+// --- activate: drop every non-allowlisted cache, take control ------------
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
+      // ALLOWLIST cleanup (R5.3): delete ANY cache key not in the current set —
+      // the active precache PLUS the two runtime caches. This drops the previous
+      // build's trip-precache-* (atomic activation) AND garbage-collects renamed
+      // runtime caches (e.g. a bumped trip-images-v1 -> v2, or a retired
+      // frankfurter cache) that the old prefix-only filter would have leaked
+      // forever. FRANKFURTER_CACHE is declared lower in this file; it is only
+      // read here at activate time (well after module eval), so no TDZ issue.
+      const allowlist = new Set([PRECACHE, IMAGES_CACHE, FRANKFURTER_CACHE]);
       const keys = await caches.keys();
       await Promise.all(
-        keys
-          .filter((k) => k.startsWith('trip-precache-') && k !== PRECACHE)
-          .map((k) => caches.delete(k))
+        keys.filter((k) => !allowlist.has(k)).map((k) => caches.delete(k))
       );
       await self.clients.claim();
     })()
@@ -383,6 +388,17 @@ self.addEventListener('fetch', (event) => {
         if (cached) return cached;
         try {
           const res = await fetch(request);
+          // Nav backfill (P3): a route missed at install (or added between
+          // builds) is cached under its normalized path on first successful
+          // online visit, so it resolves offline next time instead of falling
+          // back to the app-root shell. Only OK, same-origin ('basic')
+          // responses — never backfill an error/opaque/redirect response into
+          // the precache. Fire-and-forget (mirrors cacheFirst) so it never
+          // delays the navigation response.
+          if (res && res.ok && res.type === 'basic') {
+            const copy = res.clone(); // clone NOW, before the browser locks the body
+            caches.open(PRECACHE).then((cache) => cache.put(normalized, copy));
+          }
           return res;
         } catch (err) {
           const shell = await caches.match(NAV_FALLBACK);
@@ -412,6 +428,50 @@ self.addEventListener('fetch', (event) => {
 }
 
 // -------------------------------------------------------------------------
+// TD-07 /: delete the nomodule polyfill chunk and strip its <script>
+// tag from every HTML file under out/. Runs BEFORE the precache walk so the
+// deleted chunk falls out of the precache list automatically (TD-04 walk).
+// Fail-soft: 0 deletions is not an error, but WARN so a future Next filename
+// change (polyfill glob matches nothing) stays visible.
+async function stripPolyfills() {
+  const chunksDir = join(OUT_DIR, '_next', 'static', 'chunks');
+  let deleted = 0;
+  try {
+    for (const name of await readdir(chunksDir)) {
+      if (/^polyfills-.*\.js$/.test(name)) {
+        await rm(join(chunksDir, name));
+        deleted++;
+      }
+    }
+  } catch {
+    /* chunks dir absent (unexpected) — nothing to delete */
+  }
+
+  // Strip any <script...polyfills-*...></script> tag from every HTML file. The
+  // src is basePath-prefixed in prod, so match on the filename, not a full URL.
+  const htmlFiles = (await walk(OUT_DIR)).filter((r) => r.endsWith('.html'));
+  let stripped = 0;
+  for (const rel of htmlFiles) {
+    const p = join(OUT_DIR, rel);
+    const html = await readFile(p, 'utf8');
+    const next = html.replace(/<script\b[^>]*polyfills-[^>]*><\/script>/gi, '');
+    if (next !== html) {
+      await writeFile(p, next, 'utf8');
+      stripped++;
+    }
+  }
+
+  if (deleted === 0) {
+    console.warn(
+      'gen-sw: WARN (TD-07) matched NO polyfills-*.js chunk — Next may have renamed the polyfill pattern; verify the glob so the strip does not silently no-op.'
+    );
+  }
+  console.log(
+    `gen-sw: TD-07 dropped nomodule polyfill — deleted ${deleted} chunk(s), stripped tag from ${stripped} HTML file(s)`
+  );
+}
+
+// -------------------------------------------------------------------------
 async function main() {
   try {
     await stat(OUT_DIR);
@@ -423,6 +483,10 @@ async function main() {
   }
 
   console.log(`gen-sw: basePath = ${BASE_PATH === '' ? '(empty)' : BASE_PATH}`);
+
+  // 0) TD-07: strip the nomodule polyfill (chunk + HTML tags) BEFORE the walk
+  // so it never enters the precache list.
+  await stripPolyfills();
 
   // 1) Emit the manifest FIRST so it lands on disk before we hash the file list
   // (the manifest is itself a precache entry).

@@ -1,17 +1,17 @@
-'use client';
-
 // TRIPS HUB: the first-class create / join / manage surface for the known-trips
-// registry — fixes "cannot see create trip button or page". Thin client page per the
-// app/page.tsx recipe: the hub is a single `dynamic({ssr:false})` island, so its chunk
-// stays out of every other route's First Load JS (and Next 15 requires the ssr:false dynamic
-// to live in a client module — hence the 'use client' page, which also means no metadata export;
-// the root layout's default title applies). The static header below reuses the /settings page's
+// registry — fixes "cannot see create trip button or page". Per the /settings split pattern
+// the `ssr:false` dynamic island lives in./sections (a client module) so this
+// Server Component page can export per-route metadata; the static header below reuses the /settings
 // header tokens verbatim (glass-panel / text-display-lg / text-gradient-gold) and supplies the
 // page's <h1>. Guests never see this page: the TokenGate guest-route wall default-denies every
 // non-Home pathname — zero per-route work here.
-import dynamic from 'next/dynamic';
+import { TripsHub } from './sections';
 
-const TripsHub = dynamic(() => import('@/components/trips-hub'), { ssr: false });
+export const metadata = {
+  title: 'Trips · Nepal × Japan Journey',
+  description:
+    'Switch between the trips this browser knows, start a brand-new one with its own shareable key, or join a trip someone shared with you.',
+};
 
 export default function TripsPage() {
   return (

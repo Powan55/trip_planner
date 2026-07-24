@@ -3,7 +3,7 @@
 import { ArrowRight, Users } from 'lucide-react';
 import { formatMoney } from '@/core/budget/model';
 import type { LegSettlement } from '@/core/budget/settlement';
-import { TRAVELERS } from '@/lib/token-auth';
+import { rosterAccent } from '@/lib/token-auth';
 
 /**
  * "Settle up" summary — the read-only who-owes-whom view over the split expenses.
@@ -16,11 +16,6 @@ import { TRAVELERS } from '@/lib/token-auth';
  *
  * Per leg: each participant's net (owed to them / they owe), then the minimal "A → B ¥X" transfers.
  */
-
-/** Brand accent for a traveler chip (falls back to gold for an unknown id). */
-function accentFor(id: string): string {
-  return TRAVELERS.find((t) => t.name === id)?.accent ?? '#f0c760';
-}
 
 const LEG_LABEL: Record<string, string> = { nepal: 'Nepal', japan: 'Japan' };
 
@@ -59,7 +54,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                       <span
                         aria-hidden="true"
                         className="h-2 w-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: accentFor(id) }}
+                        style={{ backgroundColor: rosterAccent(id) }}
                       />
                       <span className="font-medium text-white/80">{id}</span>
                       {settled ? (

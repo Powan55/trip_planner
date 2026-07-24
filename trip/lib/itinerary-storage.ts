@@ -7,6 +7,7 @@ import {
   type VaultConfig,
 } from '@/core/vault/load-save';
 import { keyFor, STORAGE_KEYS } from '@/core/storage/gateway';
+import { isDefaultTrip, getActiveTrip, buildDayShells } from '@/core/trips';
 
 /**
  * Single source of truth for the itinerary localStorage contract.
@@ -66,7 +67,10 @@ function itineraryVault(): VaultConfig {
   return {
     storageKey: keyFor('itinerary'),
     quarantineKey: keyFor('itineraryCorrupt'),
-    fallback: SAMPLE_ITINERARY,
+    // Default pack keeps the Nepal×Japan sample seed (byte-identical). A CUSTOM trip seeds
+    // an EMPTY itinerary — one blank DayPlan per date in its span — so it never inherits N×J days.
+    // This is the VAULT FALLBACK only (no writes); the empty shells persist on the first real edit.
+    fallback: isDefaultTrip() ? SAMPLE_ITINERARY : buildDayShells(getActiveTrip()),
   };
 }
 

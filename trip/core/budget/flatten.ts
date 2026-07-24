@@ -17,6 +17,7 @@
 
 import {
   BUDGET_CATEGORIES,
+  LEGS,
   normalizeModel,
   type BudgetModel,
   type CurrencyCode,
@@ -26,8 +27,6 @@ import type { ItineraryCategory } from '@/lib/trip-data';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
 import { nextSyncStamp } from '@/core/sync/stamp';
 import type { BudgetFields } from '@/core/sync/merge-budget';
-
-const LEGS: readonly Leg[] = ['nepal', 'japan'] as const;
 
 /** A leaf value carried in the flattened map. */
 type FieldValue = number | string;
@@ -42,9 +41,9 @@ export function flattenBudget(model: BudgetModel): Record<string, FieldValue> {
     homeCurrency: model.homeCurrency,
     'rates.NPR': model.rates.NPR,
     'rates.JPY': model.rates.JPY,
-    'legBudgets.nepal': model.legBudgets.nepal,
-    'legBudgets.japan': model.legBudgets.japan,
   };
+  // `legBudgets.{leg}` for each ACTIVE-pack leg — `.nepal` + `.japan` for the default pack.
+  for (const leg of LEGS) flat[`legBudgets.${leg}`] = model.legBudgets[leg] ?? 0;
   for (const leg of LEGS) {
     const cats = model.categoryBudgets[leg];
     if (!cats) continue;
@@ -56,21 +55,25 @@ export function flattenBudget(model: BudgetModel): Record<string, FieldValue> {
   return flat;
 }
 
-const CATEGORY_PATH = /^categoryBudgets\.(nepal|japan)\.(.+)$/;
+// Generic leg segment — a leg id is any dot-free slug; membership is checked against LEGS.
+const CATEGORY_PATH = /^categoryBudgets\.([^.]+)\.(.+)$/;
 
 /** Rebuild a `BudgetModel` from a leaf-path map (inverse of `flattenBudget`; NOT normalized). */
 export function unflattenBudget(flat: Record<string, FieldValue>): BudgetModel {
+  const legBudgets: Record<Leg, number> = {};
+  for (const leg of LEGS) legBudgets[leg] = Number(flat[`legBudgets.${leg}`] ?? 0);
   const model: BudgetModel = {
     version: 1,
     homeCurrency: (flat.homeCurrency as CurrencyCode) ?? 'USD',
     rates: { NPR: Number(flat['rates.NPR']), JPY: Number(flat['rates.JPY']) },
-    legBudgets: { nepal: Number(flat['legBudgets.nepal'] ?? 0), japan: Number(flat['legBudgets.japan'] ?? 0) },
+    legBudgets,
     categoryBudgets: {},
   };
   for (const [path, v] of Object.entries(flat)) {
     const m = CATEGORY_PATH.exec(path);
     if (!m) continue;
     const leg = m[1] as Leg;
+    if (!LEGS.includes(leg)) continue; // ignore a path for a leg not in the active pack
     const cat = m[2] as ItineraryCategory;
     (model.categoryBudgets[leg] ??= {})[cat] = Number(v);
   }

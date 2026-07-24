@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-now';
+import { useTravelTick } from '@/lib/travel-tick';
 import { offsetForCountry, getCountryForDate, getCityForDate, TRIP_DATES } from '@/core/dates';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import TripAgenda from '@/components/trip-agenda';
@@ -26,17 +27,15 @@ export default function TravelAgendaCard({ date }: { date?: string } = {}) {
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
   const [nowUtcMs, setNowUtcMs] = useState<number>(0);
 
+  // recompute on the shared `/travel` tick (base 20s) — and immediately on a `date` change —
+  // instead of a private 1s interval. `getNowUtcMsForPlace` still reads the real clock each run.
+  const tickN = useTravelTick();
   useEffect(() => {
-    const tick = () => {
-      const t = getTodayInTrip();
-      setTodayInTrip(t);
-      const target = date ?? t?.date;
-      if (target) setNowUtcMs(getNowUtcMsForPlace(target, offsetForCountry(getCountryForDate(target))));
-    };
-    tick();
-    const timer = setInterval(tick, 1000);
-    return () => clearInterval(timer);
-  }, [date]);
+    const t = getTodayInTrip();
+    setTodayInTrip(t);
+    const target = date ?? t?.date;
+    if (target) setNowUtcMs(getNowUtcMsForPlace(target, offsetForCountry(getCountryForDate(target))));
+  }, [tickN, date]);
 
   // Reserve height before hydration so the island mount doesn't collapse→expand.
   if (!hydrated) {

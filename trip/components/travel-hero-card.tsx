@@ -10,6 +10,7 @@ import {
   type ItineraryItem,
 } from '@/lib/trip-data';
 import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-now';
+import { useTravelTick, requestFastTick } from '@/lib/travel-tick';
 import { offsetForCountry, getCountryForDate, getCityForDate, TRIP_DATES } from '@/core/dates';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { describeItemTime } from '@/lib/item-time-display';
@@ -61,12 +62,14 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
     if (target) setNowUtcMs(getNowUtcMsForPlace(target, offsetForCountry(getCountryForDate(target))));
   };
 
+  // recompute on the shared `/travel` tick (base 20s) — and immediately on a `date` change —
+  // instead of a private 1s interval. The per-second progress bar drives the fast rate itself
+  // (the <ProgressFastTick/> sentinel below), so idle time labels no longer wake once a second.
+  const tickN = useTravelTick();
   useEffect(() => {
     recalc();
-    const timer = setInterval(recalc, 1000);
-    return () => clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [date]);
+  }, [tickN, date]);
 
   // Before hydration, reserve height so the island mount doesn't collapse→expand.
   if (!hydrated) {
@@ -191,6 +194,7 @@ function HeroBody({
       date={date}
       expanded={expanded}
       onToggleExpand={onToggleExpand}
+      prefersReducedMotion={prefersReducedMotion}
     />
   );
 
@@ -218,16 +222,29 @@ function HeroBody({
   );
 }
 
+/**
+ * — the one genuinely per-second element on `/travel`. Mounted ONLY while the current-activity
+ * progress bar is on screen; on mount it holds the shared tick's fast (1s) rate, and its unmount
+ * cleanup releases it (ref-counted), so the smooth progress animation gets 1 Hz while everything
+ * else stays on the 20s base. Renders nothing.
+ */
+function ProgressFastTick() {
+  useEffect(() => requestFastTick(), []);
+  return null;
+}
+
 function PhaseContent({
   state,
   date,
   expanded,
   onToggleExpand,
+  prefersReducedMotion,
 }: {
   state: TravelHeroState;
   date: string;
   expanded: boolean;
   onToggleExpand: () => void;
+  prefersReducedMotion: boolean;
 }) {
   if (state.phase === 'empty') {
     return (
@@ -333,6 +350,11 @@ function PhaseContent({
           Pure width from the injected clock; CSS transition is reduced-motion-neutralised app-wide. */}
       {isNow && state.progress !== null && (
         <div className="mt-3 px-1" data-testid="travel-hero-progress-wrap">
+          {/* escalate the shared tick to 1s while this bar animates. Under reduced motion the
+              CSS transition is already neutralised and less motion is preferred, so we keep the 20s
+              base — the width still lands on the correct value at each tick, it just steps instead
+              of gliding (a frequency choice, never a wrong time). */}
+          {!prefersReducedMotion && <ProgressFastTick />}
           <div
             role="progressbar"
             aria-label={`${headline.title} — elapsed`}
