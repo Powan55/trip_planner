@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, type MouseEvent as ReactMouseEvent } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { primaryItemsForActiveTrip, isRouteActive } from '@/lib/nav-items';
+import { Menu } from 'lucide-react';
+import { primaryItemsForActiveTrip, isRouteActive, type NavItem } from '@/lib/nav-items';
 import { useViewTransition } from '@/hooks/use-view-transition';
 import { isTravelRoute } from '@/lib/travel-route';
 
@@ -11,18 +12,19 @@ import { isTravelRoute } from '@/lib/travel-route';
  * Mobile bottom tab bar.
  *
  * The phone's primary navigation: a fixed, thumb-reach tab bar shown only `<md` (desktop
- * keeps the top navbar). Five routes, each an app-like icon + label, ≥44×44 target, with a
- * live `aria-current="page"` active state and the same warm/cool accent tint the navbar uses.
+ * keeps the top navbar).: FIVE tabs — the 4 shared primaries (Today · Plan ·
+ * Map · Guides) plus a synthetic `More → /more/` tab — each an app-like icon + label,
+ * ≥44×44 target, live `aria-current="page"`, and the same warm/cool accent tint the navbar uses.
  *
  * DESIGN CONTRACT / SEAMS
  * - Route array + active-match helper are imported from `lib/nav-items.ts` ( — the
  * navbar and this bar previously each carried a byte-identical local copy; closed
  * by unifying on the single shared module). Both navs consume the same source module, so
  * they can never drift out of sync.
- * -: this bar maps `PRIMARY_NAV_ITEMS` (the 6 daily-use routes), NOT the full
- * `NAV_ITEMS` (9) — adding the 3 companion routes (Journal/Safety/Recap) here would drop
- * each tab below the ≥44px touch-target floor at a 360px viewport. Companions are reachable
- * via the mobile hamburger panel + command palette instead.
+ * -: this bar maps `primaryItemsForActiveTrip()` (the shared primaries), NOT the
+ * full `NAV_ITEMS` — the long tail would drop each tab below the ≥44px touch-target floor.
+ * Companions re-home to the `/more/` route (the appended 5th tab); desktop reaches them via
+ * the navbar's "More" dropdown + the command palette.
  * - Active state mirrors the navbar EXACTLY: trailing-slash-agnostic `isRouteActive` (Home
  * exact; others `===` or `startsWith(target + '/')`), driven by `usePathname()` (which
  * excludes basePath — the whole bar is basePath-agnostic).
@@ -44,6 +46,14 @@ import { isTravelRoute } from '@/lib/travel-route';
 /** The published height contract: consumers use `var(--tab-bar-h, 64px)`. */
 const TAB_BAR_HEIGHT_PX = 64;
 
+/**
+ * the synthetic 5th tab. NOT a `NAV_ITEMS` entry — it's a mobile-only
+ * affordance, appended
+ * AFTER the memoized primaries so once-computed memo + null-under-/travel
+ * both stay intact. `/more/` is a plain route.
+ */
+const MORE_TAB: NavItem = { label: 'More', href: '/more/', icon: Menu };
+
 export default function BottomTabBar() {
   const pathname = usePathname();
 
@@ -51,7 +61,7 @@ export default function BottomTabBar() {
   // app/chrome-islands.tsx) — it never renders server-side, so there is no hydration
   // mismatch to gate against here. The active-trip pointer only changes via a full reload
   //, so it's stable for the component's lifetime — computed once.
-  const items = useMemo(() => primaryItemsForActiveTrip(), []);
+  const items = useMemo(() => [...primaryItemsForActiveTrip(), MORE_TAB], []);
 
   // route changes run through the View Transitions helper (progressive
   // enhancement; plain router.push everywhere VT is unsupported or reduced motion is

@@ -13,13 +13,14 @@ import LazyVisible from '@/components/lazy-visible';
 import SectionSkeleton from '@/components/section-skeleton';
 import DefaultTripOnly from '@/components/default-trip-only';
 
-// HOME: hero · trip-dashboard · trip-timeline · travel-essentials,
+// HOME: hero · today/recap content · trip-dashboard · bento · travel-essentials,
 // plus the legacy v1 hash redirect. Navbar/Footer live in the root layout now.
 // The calendar/destination/map/flights sections moved to their own routes
 //.
+// the 32-day trip-timeline moved off Home to /plan/; the page is now content-first.
 //
 // the BELOW-THE-FOLD sections
-// (TripDashboard, TripTimeline, TravelEssentials) stay
+// (TripDashboard, TravelEssentials, HomeBento) stay
 // `dynamic({ssr:false})` at module scope (SSG-safe), but are rendered THROUGH
 // <LazyVisible>, which passes each as a COMPONENT REFERENCE and only instantiates
 // `<Component/>` once the section nears the viewport (or a post-hydration idle beat).
@@ -64,13 +65,12 @@ const HomeBento = dynamic(() => import('@/components/home-bento'), {
 // deferred sections — each keeps a sized `loading:` skeleton so the chunk-fetch gap
 // (once its LazyVisible trigger fires) shows a placeholder of the same reserved height,
 // preventing any layout jump.
+// — the dashboard is now 3 temporal cards (was 9), so its reserved skeleton is
+// shorter. The 32-day TripTimeline was MOVED off Home to /plan (app/plan/), dropping its
+// chunk out of Home's First Load JS entirely.
 const TripDashboard = dynamic(() => import('@/components/trip-dashboard'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="clamp(34rem, 90vh, 52rem)" />,
-});
-const TripTimeline = dynamic(() => import('@/components/trip-timeline'), {
-  ssr: false,
-  loading: () => <SectionSkeleton height="clamp(34rem, 90vh, 54rem)" />,
+  loading: () => <SectionSkeleton height="clamp(22rem, 60vh, 40rem)" />,
 });
 const TravelEssentials = dynamic(() => import('@/components/travel-essentials'), {
   ssr: false,
@@ -97,14 +97,18 @@ function GatedTravelEssentials() {
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-surface">
+      {/* — content-first order. The real content (TodayPanel/TripRecap, in-trip
+          agenda + plan-vs-actual, null pre-trip per) sits directly under the hero,
+          ABOVE the interface-heavy stat dashboard and the "at a glance" bento, which are
+          now demoted below it. Every section keeps its dynamic(ssr:false)+LazyVisible
+          reference island so nothing re-enters Home's First Load JS. */}
       <LazyVisible component={HomeTripStrip} minHeight="56px" />
       <HeroSection />
       <LazyVisible component={HomeSectionNav} minHeight="56px" />
-      <LazyVisible component={HomeBento} minHeight="clamp(16rem, 46vh, 22rem)" />
       <TodayPanel />
       <TripRecap />
-      <LazyVisible component={TripDashboard} minHeight="clamp(34rem, 90vh, 52rem)" />
-      <LazyVisible component={TripTimeline} minHeight="clamp(34rem, 90vh, 54rem)" />
+      <LazyVisible component={TripDashboard} minHeight="clamp(22rem, 60vh, 40rem)" />
+      <LazyVisible component={HomeBento} minHeight="clamp(16rem, 46vh, 22rem)" />
       <LazyVisible component={GatedTravelEssentials} minHeight="clamp(34rem, 90vh, 54rem)" />
       {/* Custom-trip-only "My places" (renders null on the default pack). minHeight 0 so the
           default pack reserves no visible box while the gate resolves. */}

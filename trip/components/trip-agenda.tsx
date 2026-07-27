@@ -7,6 +7,29 @@ import { CATEGORY_COLORS, type ItineraryItem } from '@/lib/trip-data';
 import { describeItemTime } from '@/lib/item-time-display';
 import { deriveRowPhases, type TravelRowPhase } from '@/lib/travel-hero';
 import type { NextUpContext } from '@/lib/whats-next';
+import { formatRelativeTime } from '@/lib/relative-time';
+
+/**
+ * Completion attribution footer. Renders ONLY when the item is done. Shows
+ * `✓ Completed · {doneBy} · {relative doneAt}` — `doneBy` is the display-name string, rendered
+ * VERBATIM. With no name set `doneBy`/`doneAt` are absent (dormant
+ * build) ⇒ a nameless "✓ Completed". Returns null when not done so no card footer appears.
+ */
+function CompletedFooter({ item }: { item: ItineraryItem }) {
+  if (item.done !== true) return null;
+  const when = formatRelativeTime(item.doneAt);
+  return (
+    <span
+      data-testid="completed-attribution"
+      className="mt-1 inline-flex items-center gap-1 text-[11px] text-emerald-400/80"
+    >
+      <Check className="h-3 w-3" aria-hidden="true" strokeWidth={3} />
+      Completed
+      {item.doneBy && <span className="text-white/45">· {item.doneBy}</span>}
+      {when && <span className="text-white/35">· {when}</span>}
+    </span>
+  );
+}
 
 /**
  * — the shared trip-agenda list, extracted out of `today-panel.tsx`.
@@ -141,6 +164,7 @@ function TodayAgendaItem({ item, date, onToggle }: { item: ItineraryItem; date: 
               <span className={`inline-flex rounded-full px-2 py-0.5 ${cat.bg} ${cat.text}`}>{item.category}</span>
             )}
           </span>
+          <CompletedFooter item={item} />
         </span>
       </button>
     </li>
@@ -285,6 +309,7 @@ function TravelAgendaItem({
               <span className={`inline-flex rounded-full px-2 py-0.5 ${cat.bg} ${cat.text}`}>{item.category}</span>
             )}
           </span>
+          <CompletedFooter item={item} />
         </span>
       </button>
     </li>

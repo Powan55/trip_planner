@@ -6,7 +6,7 @@ import dynamic from 'next/dynamic';
 import { useViewTransition } from '@/hooks/use-view-transition';
 import { usePathname } from 'next/navigation';
 import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { MapPin, Menu, X, LogOut, UserRound, Compass, ChevronDown, Search } from 'lucide-react';
+import { MapPin, LogOut, UserRound, Compass, ChevronDown, Search } from 'lucide-react';
 import ScrollProgress from '@/components/scroll-progress';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signOut, IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
@@ -37,7 +37,6 @@ function exitGuest(): void {
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
   // route-driven active state. usePathname() excludes basePath.
   const pathname = usePathname();
   // Reactive identity: the chip reflects sign-in / sign-out LIVE via identity:changed.
@@ -50,9 +49,9 @@ export default function Navbar() {
   const primaryItems = useMemo(() => primaryItemsForActiveTrip(), []);
   const navItems = useMemo(() => navItemsForActiveTrip(), []);
   // the desktop "More" disclosure lists whatever companions this trip's
-  // navItems carries that AREN'T already one of the 6 primary seats — same
-  // source as the mobile hamburger panel (navItemsForActiveTrip), so a custom
-  // trip's promoted companions show correctly here too.
+  // navItems carries that AREN'T already one of the 6 primary seats — sourced
+  // from navItemsForActiveTrip, so a custom trip's promoted companions
+  // show correctly here too.
   const moreItems = useMemo(
     () => navItems.filter((item) => !primaryItems.includes(item)),
     [navItems, primaryItems],
@@ -68,27 +67,22 @@ export default function Navbar() {
   // hydration mismatch). A trip-aware Worker prompt is a separate later slice.
   const isDefault = useMemo(() => isDefaultTrip(), []);
 
-  // — reduced-motion-aware panel motion. <MotionConfig reducedMotion="user">
-  // neutralizes animated TRANSITIONS under reduce, but a declared `initial={{ y:-20 }}`
-  // still paints one transform frame before snapping. So under reduce we drop the `y`
-  // offset entirely → the panel is OPACITY-ONLY (no transform-based motion at any frame).
-  // The scrim is already opacity-only. `prefersReducedMotion` is null during SSR/first
-  // paint (treated as "no preference"); the panel only renders after a user opens it.
+  // Reduced-motion-aware panel motion for the desktop "More" dropdown.
+  // <MotionConfig reducedMotion="user"> neutralizes animated TRANSITIONS under
+  // reduce, but a declared `initial={{ y:-20 }}` still paints one transform frame
+  // before snapping. So under reduce we drop the `y` offset entirely → the panel is
+  // OPACITY-ONLY (no transform-based motion at any frame). `prefersReducedMotion` is
+  // null during SSR/first paint (treated as "no preference"); the panel only renders
+  // after the user opens the dropdown.
   const prefersReducedMotion = useReducedMotion();
   const panelInitial = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -20 };
   const panelAnimate = prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
   const panelExit = prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -20 };
 
-  // — the hamburger toggle and the open
-  // panel (so the Tab-trap can scope its focusables to the menu).
-  const toggleRef = useRef<HTMLButtonElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
-
   // — the desktop-only "More" disclosure. Hand-rolled (Plan D9: no new
-  // dependency), the SAME recipe as the mobile hamburger above: trigger +
-  // aria-expanded/aria-controls, outside-click + Escape close, focus return
-  // to the trigger. No scroll-lock/Tab-trap here — it's a small
-  // inline dropdown, not a full-screen overlay; plain tab order is fine.
+  // dependency): trigger + aria-expanded/aria-controls, outside-click + Escape
+  // close, focus return to the trigger. No scroll-lock/Tab-trap here —
+  // it's a small inline dropdown, not a full-screen overlay; plain tab order is fine.
   const [moreOpen, setMoreOpen] = useState(false);
   const moreToggleRef = useRef<HTMLButtonElement>(null);
   const morePanelRef = useRef<HTMLDivElement>(null);
@@ -155,112 +149,11 @@ export default function Navbar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // — single close path. Returns focus to the hamburger toggle so a
-  // keyboard user lands back on the control that opened the menu, regardless of
-  // whether close came from Esc, the scrim, the X, or a nav item. `preventScroll`
-  // because the scroll-lock effect (below) pins the body with position:fixed;
-  // focusing while still pinned must not nudge the viewport before the offset is
-  // restored on the same tick by the effect cleanup.
-  const closeMobile = useCallback(() => {
-    setMobileOpen(false);
-    toggleRef.current?.focus({ preventScroll: true });
-  }, []);
-
-  // — while the menu is open: lock background scroll, listen for Escape, and
-  // trap Tab within the panel. SSR-guarded; everything is torn down on close so
-  // there is no residual listener or locked body.
-  //
-  // Scroll-lock technique: on THIS page the scrolling element is <html>, so a bare
-  // `body { overflow:hidden }` does NOT stop the viewport (verified — the page
-  // still scrolled behind the open menu). We instead PIN the body with
-  // `position:fixed; top:-<scrollY>px; width:100%`, which truly freezes the
-  // background, and on close we remove the pin and `scrollTo` the saved offset —
-  // so scroll POSITION is preserved exactly (brief: the sanctioned position:fixed
-  // path). No layout shift / no horizontal overflow (width:100% + the page already
-  // hides the scrollbar via.scrollbar-hide / hidden OS scrollbars).
-  useEffect(() => {
-    if (typeof document === 'undefined' || !mobileOpen) return;
-
-    const body = document.body;
-    const scrollY = window.scrollY;
-    const prev = {
-      position: body.style.position,
-      top: body.style.top,
-      left: body.style.left,
-      right: body.style.right,
-      width: body.style.width,
-      overflow: body.style.overflow,
-    };
-    body.style.position = 'fixed';
-    body.style.top = `-${scrollY}px`;
-    body.style.left = '0';
-    body.style.right = '0';
-    body.style.width = '100%';
-    body.style.overflow = 'hidden';
-
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        closeMobile();
-        return;
-      }
-      if (e.key === 'Tab') {
-        // Minimal focus-trap: cycle Tab/Shift+Tab within the open panel so focus
-        // can't escape behind the scrim into the page underneath ( logical
-        // tab order). The hamburger toggle stays the focus-return target on close.
-        const panel = panelRef.current;
-        if (!panel) return;
-        const focusables = panel.querySelectorAll<HTMLElement>(
-          'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-        );
-        if (focusables.length === 0) return;
-        const first = focusables[0];
-        const last = focusables[focusables.length - 1];
-        const active = document.activeElement;
-        if (e.shiftKey) {
-          if (active === first || !panel.contains(active)) {
-            e.preventDefault();
-            last.focus();
-          }
-        } else {
-          if (active === last || !panel.contains(active)) {
-            e.preventDefault();
-            first.focus();
-          }
-        }
-      }
-    };
-
-    document.addEventListener('keydown', onKeyDown);
-
-    return () => {
-      document.removeEventListener('keydown', onKeyDown);
-      // Unpin and restore the exact prior scroll offset.
-      body.style.position = prev.position;
-      body.style.top = prev.top;
-      body.style.left = prev.left;
-      body.style.right = prev.right;
-      body.style.width = prev.width;
-      body.style.overflow = prev.overflow;
-      window.scrollTo(0, scrollY);
-    };
-  }, [mobileOpen, closeMobile]);
-
-  // nav items are real <Link>s now (route navigation, not scroll), so the
-  // old handleNav/scrollIntoView path is gone. Mobile links close the overlay via
-  // onClick={closeMobile} — the scroll-lock cleanup unpins the body synchronously
-  // on that same commit, and the router's own scroll-to-top runs after the
-  // (async) route render, so the two never fight. Focus returns to the toggle
-  //, which lives in the persistent layout navbar and survives the route
-  // change.
-
   const handleSignOut = () => {
-    closeMobile();
     signOut(); // dispatches identity:changed → gate re-shows, chip clears, remote tears down
   };
 
   const handleSignIn = () => {
-    closeMobile();
     exitGuest(); // clears guest flag + dispatches identity:changed → gate returns
   };
 
@@ -305,9 +198,12 @@ export default function Navbar() {
             </Link>
 
             <div className="hidden md:flex items-center gap-1">
-              {/* the desktop top row stays at exactly 6 slots — the daily-use
-                  routes on the default trip; on a custom trip the N×J-specific seats are
-                  refilled by promoted companions. */}
+              {/* the desktop top row consolidates to the 4 shared primaries
+                  (Today · Plan · Map · Guides) from the SAME source the mobile tab bar reads
+                 . Nepal/Japan are reachable via the Guides link; Flights/
+                  Documents/Shared Links live in the "More" dropdown below (which sources
+                  navItems − primary). On a custom trip Guides is dropped and refilled by the
+                  promoted companion (Journal), still via primaryItemsForActiveTrip. */}
               {primaryItems.map((item) => {
                 const isActive = isRouteActive(pathname, item.href);
                 return (
@@ -421,9 +317,10 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Right cluster: identity (desktop) · Travel Mode entry (all widths) · hamburger
-                (mobile). Grouped so justify-between keeps the logo left and this pinned right,
-                and the Travel Mode button never floats mid-bar on mobile. */}
+            {/* Right cluster: identity (desktop) · Travel Mode entry (all widths). Grouped so
+                justify-between keeps the logo left and this pinned right, and the Travel Mode
+                button never floats mid-bar on mobile. Mobile primary nav is the bottom tab bar
+                — the mobile hamburger was removed in. */}
             <div className="flex items-center gap-1 sm:gap-2">
               {/* Identity chip — desktop. "You are {name}" tinted with the traveler's
                   accent, + sign-out.
@@ -438,7 +335,7 @@ export default function Navbar() {
               </div>
 
               {/* — persistent Travel Mode entry, on EVERY page and EVERY trip phase,
-                  reachable at both widths WITHOUT opening the hamburger. Sits inside the navbar bar
+                  reachable at both widths directly in the bar. Sits inside the navbar bar
                   (top row, z-50) — always above the sync-status pill, so
                   they never share space at any viewport. Guests reach the existing guest-route wall
                  ; the gateway flag is not armed for them. Label collapses to icon-only below
@@ -455,126 +352,10 @@ export default function Navbar() {
                 <Compass className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Travel Mode</span>
               </button>
-
-              <button
-                ref={toggleRef}
-                data-testid="navbar-menu-toggle"
-                onClick={() => (mobileOpen ? closeMobile() : setMobileOpen(true))}
-                aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
-                aria-expanded={mobileOpen}
-                aria-controls="mobile-nav-menu"
-                className="md:hidden inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-              >
-                {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
             </div>
           </div>
         </div>
       </m.nav>
-
-      <AnimatePresence>
-        {mobileOpen && (
-          <>
-            {/* Scrim. Sits BELOW the panel (z-40) and the nav (z-50) but above
-                page content — tap/click anywhere off the menu to dismiss. Decorative
-                (aria-hidden); the menu items carry the a11y. Opacity-only fade, so
-                <MotionConfig reducedMotion="user"> renders it instantly (no transform)
-                under prefers-reduced-motion. `inset-0` introduces no overflow
-               . Stays under the Trip Token gate (z-70) and toasts. */}
-            <m.div
-              key="mobile-nav-scrim"
-              aria-hidden="true"
-              onClick={closeMobile}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 z-30 bg-surface/70 backdrop-blur-md md:hidden"
-            />
-
-            <m.div
-              ref={panelRef}
-              id="mobile-nav-menu"
-              initial={panelInitial}
-              animate={panelAnimate}
-              exit={panelExit}
-              className="fixed inset-x-0 top-16 z-40 bg-surface/90 backdrop-blur-xl backdrop-saturate-150 border-b border-white/[0.08] shadow-2xl md:hidden"
-            >
-              <div className="p-4 space-y-1">
-                {/* the mobile hamburger panel maps the FULL catalog — a vertical panel
-                    has no width limit, so this is where mobile users reach the companion
-                    routes.: on a custom trip navItems drops the N×J-specific entries. */}
-                {navItems.map((item) => {
-                  const isActive = isRouteActive(pathname, item.href);
-                  return (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      onClick={(e) => {
-                        closeMobile();
-                        vtClick(item.href)(e);
-                      }}
-                      data-testid={`navbar-link-mobile-${item.label.toLowerCase()}`}
-                      aria-current={isActive ? 'page' : undefined}
-                      data-active={isActive ? 'true' : undefined}
-                      className={`relative flex items-center gap-3 w-full min-h-[44px] px-4 py-3 rounded-lg transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                        isActive ? 'text-white bg-white/5' : 'text-white/80 hover:text-white hover:bg-white/5'
-                      }`}
-                    >
-                      {isActive && (
-                        <span
-                          aria-hidden="true"
-                          className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full"
-                          style={{ backgroundColor: 'hsl(var(--accent-scroll))' }}
-                        />
-                      )}
-                      <item.icon className="w-5 h-5 text-gold-400" />
-                      {item.label}
-                    </Link>
-                  );
-                })}
-
-                {/* Identity row — mobile. Same reactive states as desktop. */}
-                {(traveler || isGuest) && (
-                  <div className="mt-2 pt-2 border-t border-white/5">
-                    {traveler ? (
-                      <div className="flex items-center justify-between gap-2 px-4 py-3 min-h-[44px]">
-                        <span className="flex items-center gap-2 min-w-0 text-sm text-white/80">
-                          <span
-                            aria-hidden="true"
-                            className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full"
-                            style={{ backgroundColor: `${traveler.accent}26`, color: traveler.accent }}
-                          >
-                            <UserRound className="w-4 h-4" />
-                          </span>
-                          <span className="truncate">
-                            You are <span className="font-semibold text-white">{traveler.name}</span>
-                          </span>
-                        </span>
-                        <button
-                          onClick={handleSignOut}
-                          className="shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-3 py-2 rounded-lg text-sm text-white/70 hover:text-white hover:bg-white/5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-                        >
-                          <LogOut className="w-4 h-4" aria-hidden="true" />
-                          Sign out
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={handleSignIn}
-                        className="flex items-center gap-3 w-full min-h-[44px] px-4 py-3 rounded-lg text-white/80 hover:text-white hover:bg-white/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-                      >
-                        <UserRound className="w-5 h-5 text-white/50" aria-hidden="true" />
-                        <span className="text-sm">Guest · <span className="text-gold-400">Sign in</span></span>
-                      </button>
-                    )}
-                  </div>
-                )}
-              </div>
-            </m.div>
-          </>
-        )}
-      </AnimatePresence>
     </>
   );
 }

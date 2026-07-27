@@ -7,7 +7,7 @@ import { getUserName } from '@/lib/identity';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { clock } from '@/lib/trip-now';
-import { stampCreated, stampUpdated } from '@/lib/attribution';
+import { stampCreated, stampUpdated, stampDone } from '@/lib/attribution';
 import { stampSyncCreated, stampSyncUpdated, stampSyncDeleted } from '@/core/sync/stamp';
 import { itineraryStoragePort, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
@@ -170,7 +170,13 @@ export function useItinerary(): ItineraryStore {
       // MERGED item via the injected stamper; no-op attribution when no name is set.
       commit((current) =>
         itinerary.updateItem(current, date, itemId, patch, (i) => {
-          const attributed = stampUpdated(i, getUserName);
+          // stampUpdated → stampDone → stampSyncUpdated
+          // (rev/hlc). All three land on ONE merged item / ONE commit, so done + doneBy/doneAt +
+          // updatedBy + rev/hlc stay atomic. ponytail: patch-gated on
+          // `patch.done` — the whole-row toggle always sends `{ done: !current }` so patch === the
+          // real transition today; if a future writer ever sets `done` idempotently, switch to a
+          // prev→next compare inside core.updateItem.
+          const attributed = stampDone(stampUpdated(i, getUserName), patch, getUserName);
           return syncEnabled()
             ? stampSyncUpdated(attributed, clock.now().getTime(), syncActor())
             : attributed;

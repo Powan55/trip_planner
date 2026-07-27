@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useId, useRef, useState, type CSSProperties } from 'react';
-import { createPortal } from 'react-dom';
-import { m, AnimatePresence } from 'framer-motion';
+import { useId, useRef, useState, type CSSProperties } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import Sheet from '@/components/ui/sheet-dark';
 import { X, MapPin, Clock, Star, ExternalLink, Tag, CalendarClock, Coins, Check, CalendarDays } from 'lucide-react';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
@@ -94,11 +94,10 @@ export default function PlaceDetailSheet({
   customAddDraft,
   onExitComplete,
 }: PlaceDetailSheetProps) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
   // Custom-add dialog open state (nightlife path). The sheet stays open behind it; the
   // dialog portals over everything. Focus-return for the dialog is parent-owned here.
+  // While it is open, the Sheet primitive's Escape is suppressed (disableEscape) so one
+  // Esc closes the topmost layer at a time (the nested dialog owns its own Esc).
   const [customOpen, setCustomOpen] = useState(false);
   const customTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -110,77 +109,10 @@ export default function PlaceDetailSheet({
   const customIsAdded = customPlacements.length > 0;
   const customSummary = formatPlacementSummary(customPlacements);
 
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
-
-  const panelRef = useRef<HTMLDivElement>(null);
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
-
   const baseId = useId();
   const titleId = `${baseId}-sheet-title`;
 
   const isNepal = place?.country === 'Nepal';
-
-  // First-element autofocus on open: the close button is a safe first focusable.
-  useEffect(() => {
-    if (!open) return;
-    const timer = setTimeout(() => {
-      const panel = panelRef.current;
-      if (panel && !panel.contains(document.activeElement)) {
-        closeBtnRef.current?.focus();
-      }
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [open]);
-
-  // Document-level Esc. When the custom dialog is open it owns Esc; the sheet's
-  // handler no-ops so one Esc closes the topmost layer at a time.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && open && !customOpen) {
-        e.preventDefault();
-        onCloseRef.current();
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [open, customOpen]);
-
-  // body[data-dialog-open] seam flag while the sheet is open.
-  useEffect(() => {
-    if (!open) return;
-    document.body.dataset.dialogOpen = '1';
-    return () => {
-      delete document.body.dataset.dialogOpen;
-    };
-  }, [open]);
-
-  // Tab-trap inside the panel, identical pattern to the add dialog.
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Tab') return;
-    const panel = panelRef.current;
-    if (!panel) return;
-    const focusable = Array.from(
-      panel.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ),
-    ).filter((el) => el.offsetParent !== null || el === document.activeElement);
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement as HTMLElement;
-    if (e.shiftKey) {
-      if (active === first || !panel.contains(active)) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else if (active === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-
-  if (!mounted) return null;
 
   const mapsUrl = place ? buildMapsSearchUrl(place.name, place.location) : null;
   const bodyText = place?.longDescription || place?.description;
@@ -192,32 +124,20 @@ export default function PlaceDetailSheet({
     setCustomOpen(true);
   };
 
-  return createPortal(
-    <AnimatePresence onExitComplete={onExitComplete}>
-      {open && place && (
-        <m.div
-          key="scrim"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end bg-black/60 backdrop-blur-sm"
-          onClick={onClose}
-        >
-          <m.div
-            ref={panelRef}
-            data-testid="place-detail-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            onKeyDown={handleKeyDown}
-            // Mobile: rises from the bottom (bottom sheet). Desktop (sm+): slides in
-            // from the right (side panel). One element, two transforms.
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0, x: 0 }}
-            exit={{ opacity: 0, y: 40 }}
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            className="w-full sm:w-[440px] sm:max-w-full sm:h-full glass-card-dark rounded-t-2xl sm:rounded-t-none sm:rounded-l-2xl shadow-2xl max-h-[88vh] sm:max-h-none flex flex-col overflow-hidden"
-          >
+  return (
+    <Sheet
+      open={open && place != null}
+      onClose={onClose}
+      onExitComplete={onExitComplete}
+      labelledBy={titleId}
+      side="right"
+      disableEscape={customOpen}
+      testId="place-detail-sheet"
+      // Mobile: rises from the bottom (bottom sheet). Desktop (sm+): right side panel.
+      className="w-full sm:w-[440px] sm:max-w-full sm:h-full rounded-t-2xl sm:rounded-t-none sm:rounded-l-2xl max-h-[88vh] sm:max-h-none"
+    >
+      {place && (
+        <>
             {/* Non-scrolling header. The image is capped at 38vh: on
                 ultra-short viewports (e.g. 740×360 landscape) the natural
                 aspect-[16/10] height (~275px at the 440px panel width) would
@@ -247,7 +167,6 @@ export default function PlaceDetailSheet({
                 </div>
               )}
               <button
-                ref={closeBtnRef}
                 type="button"
                 data-testid="place-detail-close"
                 onClick={onClose}
@@ -264,8 +183,10 @@ export default function PlaceDetailSheet({
               )}
             </div>
 
-            {/* Scrollable body — the only scroll region. */}
-            <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4">
+            {/* Scrollable body — the only scroll region. tabIndex=0 keeps it
+                keyboard-reachable (axe scrollable-region-focusable): the body holds only
+                read-only text, so at 17px it can scroll with no focusable child of its own. */}
+            <div tabIndex={0} className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4">
               <div className="flex items-start justify-between gap-3 mb-1">
                 <h3
                   id={titleId}
@@ -423,30 +344,29 @@ export default function PlaceDetailSheet({
                 )
               )}
             </div>
-          </m.div>
-
-          {/* Custom-add dialog (nightlife path). Portals over the sheet; parent-owned
-              focus-return to the trigger button on exit-complete. */}
-          {customAddDraft && (
-            <AnimatePresence
-              onExitComplete={() => {
-                customTriggerRef.current?.focus?.();
-              }}
-            >
-              {customOpen && (
-                <AddToItineraryDialog
-                  open={customOpen}
-                  mode="custom"
-                  draft={customAddDraft}
-                  existingPlacements={customPlacements}
-                  onClose={() => setCustomOpen(false)}
-                />
-              )}
-            </AnimatePresence>
-          )}
-        </m.div>
+        </>
       )}
-    </AnimatePresence>,
-    document.body,
+
+      {/* Custom-add dialog (nightlife path). Portals over the sheet (via its own
+          createPortal), so it stacks above regardless of JSX position; parent-owned
+          focus-return to the trigger button on exit-complete. */}
+      {customAddDraft && (
+        <AnimatePresence
+          onExitComplete={() => {
+            customTriggerRef.current?.focus?.();
+          }}
+        >
+          {customOpen && (
+            <AddToItineraryDialog
+              open={customOpen}
+              mode="custom"
+              draft={customAddDraft}
+              existingPlacements={customPlacements}
+              onClose={() => setCustomOpen(false)}
+            />
+          )}
+        </AnimatePresence>
+      )}
+    </Sheet>
   );
 }

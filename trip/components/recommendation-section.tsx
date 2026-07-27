@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useRef, useState, type CSSProperties } from 'react';
+import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
+import Sheet from '@/components/ui/sheet-dark';
 import { SectionHeading } from '@/components/section-heading';
 import { Star, Clock, MapPin, Camera, Search, X, SlidersHorizontal, SearchX, Heart, Check } from 'lucide-react';
 import { Recommendation } from '@/lib/nepal-data';
@@ -177,6 +178,53 @@ function RecommendationCard({
   );
 }
 
+/**
+ * FilterSheet — the
+ * guide-filter facets collapsed behind ONE "Filters · n" trigger. All the
+ * plumbing (portal, Esc, Tab-trap, autofocus, focus-return, seam flag) now lives in
+ * `components/ui/sheet.tsx`; this just supplies the header + facets as the body.
+ * Right-side drawer on desktop, bottom sheet on mobile.
+ */
+function FilterSheet({
+  open,
+  onClose,
+  onExitComplete,
+  titleId,
+  children,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onExitComplete: () => void;
+  titleId: string;
+  children: ReactNode;
+}) {
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      onExitComplete={onExitComplete}
+      labelledBy={titleId}
+      side="right"
+      testId="guide-filters-sheet"
+      className="w-full sm:w-[440px] sm:max-w-full sm:h-full rounded-t-2xl sm:rounded-t-none sm:rounded-l-2xl max-h-[85vh] sm:max-h-none"
+    >
+      <div className="shrink-0 flex items-center justify-between gap-3 px-5 sm:px-6 pt-5 pb-4 border-b border-white/10">
+        <h3 id={titleId} className="font-display text-lg font-bold text-white">Filters</h3>
+        <button
+          type="button"
+          data-testid="guide-filters-close"
+          onClick={onClose}
+          aria-label="Close filters"
+          className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/60 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-5">{children}</div>
+    </Sheet>
+  );
+}
+
 export default function RecommendationSection({
   id, title, titleGradient, subtitle, items, categories, accentColor, glassClass,
 }: RecommendationSectionProps) {
@@ -305,6 +353,27 @@ export default function RecommendationSection({
     setPlannedOnly(false);
   };
 
+  // S322G — the filter facets (sort + city + Saved/Planned + category chips) collapse
+  // behind ONE "Filters · n" trigger + sheet; search stays pinned above the grid (a query,
+  // not a facet). `n` counts the active SHEET facets only — category≠All, city≠All,
+  // savedOnly, plannedOnly, and a non-default sort — so the trigger's badge/aria mirror what
+  // the user has narrowed by inside the sheet (search has its own visible clear affordance).
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filtersTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const filtersTitleId = `${id}-filters-title`;
+  const activeFilterCount =
+    (activeCategory !== 'All' ? 1 : 0) +
+    (activeCity !== 'All' ? 1 : 0) +
+    (savedOnly ? 1 : 0) +
+    (plannedOnly ? 1 : 0) +
+    (sort !== 'rating' ? 1 : 0);
+  // "Clear all" inside the sheet resets the facets AND sort (kept out of resetFilters so the
+  // empty-state "Clear filters" path stays byte-identical to its prior behavior).
+  const clearAllFilters = () => {
+    resetFilters();
+    setSort('rating');
+  };
+
   return (
     <section id={id} aria-labelledby={`${id}-heading`} className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
@@ -315,8 +384,10 @@ export default function RecommendationSection({
           subtitle={subtitle}
         />
 
-        {/* Search + sort */}
-        <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
+        {/* Pinned search + the single "Filters · n" trigger. Search stays visible
+            (a query, not a facet); every facet (sort + city + Saved/Planned + category) lives
+            one tap away in the sheet so the grid is content-first. */}
+        <div className="flex gap-3 mb-8 max-w-2xl mx-auto">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
             <input
@@ -339,106 +410,167 @@ export default function RecommendationSection({
               </button>
             )}
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <SlidersHorizontal className="w-4 h-4 text-white/30" />
-            <label htmlFor={`${id}-sort`} className="sr-only">Sort</label>
-            <select
-              id={`${id}-sort`}
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortKey)}
-              data-testid="guide-sort-select"
-              className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
-            >
-              <option value="rating" className="bg-surface">Sort: Top rated</option>
-              <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
-            </select>
-          </div>
+          <button
+            ref={filtersTriggerRef}
+            type="button"
+            onClick={() => setFiltersOpen(true)}
+            data-testid="guide-filters-trigger"
+            aria-haspopup="dialog"
+            aria-expanded={filtersOpen}
+            aria-label={activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : 'Filters'}
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          >
+            <SlidersHorizontal className="w-4 h-4 text-white/50" />
+            <span>Filters</span>
+            {activeFilterCount > 0 && (
+              <span className={`ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-xs font-mono bg-white/10 ${accentColor}`}>
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* City filter chips (only when more than one city is present) */}
-        {cities.length > 2 && (
-          <div className="flex flex-wrap justify-center gap-2 mb-3">
-            {cities.map((city) => (
-              <button
-                key={city}
-                onClick={() => setActiveCity(city)}
-                aria-pressed={activeCity === city}
-                data-testid={`guide-filter-city-${city.toLowerCase()}`}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                  activeCity === city
-                    ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                    : 'text-white/55 hover:bg-white/5 hover:text-white/80'
-                }`}
+        {/* The facets, collapsed into the sheet. Every testid + live count + the
+            aria-pressed semantics are unchanged — only their location moved from a permanent
+            stack above the grid into this one-tap sheet. */}
+        <FilterSheet
+          open={filtersOpen}
+          onClose={() => setFiltersOpen(false)}
+          onExitComplete={() => filtersTriggerRef.current?.focus?.()}
+          titleId={filtersTitleId}
+        >
+          <div className="space-y-6">
+            {/* Sort */}
+            <div>
+              <label htmlFor={`${id}-sort`} className="text-xs font-medium text-white/50 mb-2 block">Sort</label>
+              <select
+                id={`${id}-sort`}
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                data-testid="guide-sort-select"
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
               >
-                {city === 'All' ? 'All cities' : city}
-                <span className="ml-1.5 text-white/50 font-mono">{cityCounts[city] ?? 0}</span>
-              </button>
-            ))}
-          </div>
-        )}
+                <option value="rating" className="bg-surface">Sort: Top rated</option>
+                <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
+              </select>
+            </div>
 
-        {/* Cross-cutting boolean filter chips (Saved / Planned) — separate toggles rather
-            than folded into the `categories` chip row since each cuts across categories.
-            They share one row for visual consistency; each renders only when it has >=1
-            matching item ("Saved" also waits for favorites to hydrate). */}
-        {((favoritesReady && savedCount > 0) || plannedCount > 0) && (
-          <div className="flex flex-wrap justify-center gap-2 mb-3">
-            {favoritesReady && savedCount > 0 && (
+            {/* City filter chips (only when more than one city is present) */}
+            {cities.length > 2 && (
+              <div>
+                <span className="text-xs font-medium text-white/50 mb-2 block">City</span>
+                <div className="flex flex-wrap gap-2">
+                  {cities.map((city) => (
+                    <button
+                      key={city}
+                      onClick={() => setActiveCity(city)}
+                      aria-pressed={activeCity === city}
+                      data-testid={`guide-filter-city-${city.toLowerCase()}`}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                        activeCity === city
+                          ? `${accentColor} bg-white/10 ring-1 ring-current/30`
+                          : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                      }`}
+                    >
+                      {city === 'All' ? 'All cities' : city}
+                      <span className="ml-1.5 text-white/50 font-mono">{cityCounts[city] ?? 0}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Cross-cutting boolean filter chips (Saved / Planned) — separate toggles rather
+                than folded into the `categories` chip row since each cuts across categories.
+                Each renders only when it has >=1 matching item ("Saved" also waits for
+                favorites to hydrate). */}
+            {((favoritesReady && savedCount > 0) || plannedCount > 0) && (
+              <div>
+                <span className="text-xs font-medium text-white/50 mb-2 block">Status</span>
+                <div className="flex flex-wrap gap-2">
+                  {favoritesReady && savedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setSavedOnly((v) => !v)}
+                      aria-pressed={savedOnly}
+                      data-testid="guide-filter-saved"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                        savedOnly
+                          ? `${accentColor} bg-white/10 ring-1 ring-current/30`
+                          : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                      }`}
+                    >
+                      <Heart className={`w-3 h-3 ${savedOnly ? 'fill-current' : ''}`} />
+                      Saved
+                      <span className="ml-0.5 text-white/50 font-mono">{savedCount}</span>
+                    </button>
+                  )}
+                  {plannedCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPlannedOnly((v) => !v)}
+                      aria-pressed={plannedOnly}
+                      data-testid="guide-filter-planned"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                        plannedOnly
+                          ? `${accentColor} bg-white/10 ring-1 ring-current/30`
+                          : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                      }`}
+                    >
+                      <Check className="w-3 h-3" />
+                      Planned
+                      <span className="ml-0.5 text-white/50 font-mono">{plannedCount}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Category filter chips with live counts */}
+            <div>
+              <span className="text-xs font-medium text-white/50 mb-2 block">Category</span>
+              <div className="flex flex-wrap gap-2">
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveCategory(cat)}
+                    aria-pressed={activeCategory === cat}
+                    data-testid={`guide-filter-category-${cat.toLowerCase()}`}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                      activeCategory === cat
+                        ? `${accentColor} bg-white/10 ring-1 ring-current/30`
+                        : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                    }`}
+                  >
+                    {cat}
+                    <span className="ml-1.5 text-white/50 font-mono">{categoryCounts[cat] ?? 0}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Sheet actions — clear every facet (incl. sort) or apply + close. */}
+            <div className="flex items-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => setSavedOnly((v) => !v)}
-                aria-pressed={savedOnly}
-                data-testid="guide-filter-saved"
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                  savedOnly
-                    ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                    : 'text-white/55 hover:bg-white/5 hover:text-white/80'
-                }`}
+                onClick={clearAllFilters}
+                disabled={activeFilterCount === 0}
+                data-testid="guide-filters-clear"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white/70 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <Heart className={`w-3 h-3 ${savedOnly ? 'fill-current' : ''}`} />
-                Saved
-                <span className="ml-0.5 text-white/50 font-mono">{savedCount}</span>
+                Clear all
               </button>
-            )}
-            {plannedCount > 0 && (
               <button
                 type="button"
-                onClick={() => setPlannedOnly((v) => !v)}
-                aria-pressed={plannedOnly}
-                data-testid="guide-filter-planned"
-                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                  plannedOnly
-                    ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                    : 'text-white/55 hover:bg-white/5 hover:text-white/80'
-                }`}
+                onClick={() => setFiltersOpen(false)}
+                data-testid="guide-filters-apply"
+                className={`flex-1 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${accentColor}`}
               >
-                <Check className="w-3 h-3" />
-                Planned
-                <span className="ml-0.5 text-white/50 font-mono">{plannedCount}</span>
+                Show {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
               </button>
-            )}
+            </div>
           </div>
-        )}
-
-        {/* Category filter chips with live counts */}
-        <div className="flex flex-wrap justify-center gap-2 mb-8">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              aria-pressed={activeCategory === cat}
-              data-testid={`guide-filter-category-${cat.toLowerCase()}`}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                activeCategory === cat
-                  ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                  : 'text-white/55 hover:bg-white/5 hover:text-white/80'
-              }`}
-            >
-              {cat}
-              <span className="ml-1.5 text-white/50 font-mono">{categoryCounts[cat] ?? 0}</span>
-            </button>
-          ))}
-        </div>
+        </FilterSheet>
 
         {/* iOS motion-tilt opt-in — unobtrusive, one per section, iOS-only. */}
         {gyro.show && (

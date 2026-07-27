@@ -33,8 +33,9 @@ import ExpenseLog from '@/components/expense-log';
 import SettleUpSummary from '@/components/settle-up-summary';
 
 /**
- * Budget panel. Mounted on `/plan` between the calendar
- * planner and Backup & Restore via `dynamic({ ssr:false })`.
+ * Budget panel. Mounted on `/plan` below the trip timeline
+ * via `dynamic({ ssr:false })`. (A4): its four money sub-views (budget · expenses · burn ·
+ * settle) sit behind a segmented control — one at a time — so `/plan` stays calendar-first.
  *
  * Lets the traveller SET budgets and rates and SEE the totals — no expense LOGGING and no
  * burn-rate/overlays. Specifically:
@@ -73,6 +74,13 @@ export default function BudgetPanel() {
   useEffect(() => {
     setNow(getNow());
   }, []);
+
+  // (A4): the four money sub-views (budget · expenses · burn · settle) show ONE AT A TIME
+  // behind a real tablist, instead of the old single long stacked scroll — so /plan stays
+  // calendar-first. Default = Budget: the planning primitive you set first (the section's own
+  // seed state + <h2> "Trip Budget"), and the logical head of the money flow (set target → track
+  // spend → check pace → settle up). Every view stays reachable; all money math is unchanged.
+  const [view, setView] = useState<MoneyView>('budget');
 
   // Persist every change through the store's single commit choke-point ( fresh-base +
   //). Gated on `hydrated` INSIDE `commit` (so a first-render seed can't clobber a saved
@@ -186,61 +194,178 @@ export default function BudgetPanel() {
               Trip Budget
             </h2>
             <p className="mt-1 max-w-2xl text-sm text-white/60">
-              Set a budget for each leg (Nepal in Rupees, Japan in Yen) and see it all in one
-              currency. Everything is saved on this device.
+              Track your budget, spending, pace, and who owes whom — all in one place, saved on this
+              device.
             </p>
           </div>
         </div>
 
-        {/* Per-leg budgets */}
-        <div className="grid gap-4 lg:grid-cols-2">
-          <LegBudgetCard
-            leg="nepal"
-            title="Nepal leg"
-            subtitle="Dec 9 – 18 · Kathmandu & around"
-            model={model}
-            home={home}
-            legRoll={roll.legs[0]}
-            onLegBudget={(v) => setLegBudget('nepal', v)}
-            onCategoryBudget={(c, v) => setCategoryBudget('nepal', c, v)}
-          />
-          <LegBudgetCard
-            leg="japan"
-            title="Japan leg"
-            subtitle="Dec 19 – Jan 9 · Tokyo, Kyoto & more"
-            model={model}
-            home={home}
-            legRoll={roll.legs[1]}
-            onLegBudget={(v) => setLegBudget('japan', v)}
-            onCategoryBudget={(c, v) => setCategoryBudget('japan', c, v)}
-          />
+        {/* the money views behind a real, keyboard-operable tablist (one at a time). */}
+        <MoneyTabs view={view} onChange={setView} />
+
+        {/* Budget: per-leg budgets + grand total */}
+        <div
+          role="tabpanel"
+          id="budget-view-panel-budget"
+          aria-labelledby="budget-view-tab-budget"
+          hidden={view !== 'budget'}
+          tabIndex={0}
+          className="mt-6 focus-visible:outline-none"
+        >
+          <div className="grid gap-4 lg:grid-cols-2">
+            <LegBudgetCard
+              leg="nepal"
+              title="Nepal leg"
+              subtitle="Dec 9 – 18 · Kathmandu & around"
+              model={model}
+              home={home}
+              legRoll={roll.legs[0]}
+              onLegBudget={(v) => setLegBudget('nepal', v)}
+              onCategoryBudget={(c, v) => setCategoryBudget('nepal', c, v)}
+            />
+            <LegBudgetCard
+              leg="japan"
+              title="Japan leg"
+              subtitle="Dec 19 – Jan 9 · Tokyo, Kyoto & more"
+              model={model}
+              home={home}
+              legRoll={roll.legs[1]}
+              onLegBudget={(v) => setLegBudget('japan', v)}
+              onCategoryBudget={(c, v) => setCategoryBudget('japan', c, v)}
+            />
+          </div>
+          <GrandTotal roll={roll} home={home} />
         </div>
 
-        {/* Grand total (budget + spent + remaining, all in the home currency) */}
-        <GrandTotal roll={roll} home={home} />
+        {/* Expenses: the fast-log trigger + the logged-expense list */}
+        <div
+          role="tabpanel"
+          id="budget-view-panel-expenses"
+          aria-labelledby="budget-view-tab-expenses"
+          hidden={view !== 'expenses'}
+          tabIndex={0}
+          className="mt-6 focus-visible:outline-none"
+        >
+          <ExpenseLog
+            expenses={expenses}
+            onLog={openLogDialog}
+            onEdit={openEditDialog}
+            onDelete={handleDeleteExpense}
+          />
+        </div>
 
         {/* Burn-rate vs plan: rendered from the SAME live `roll` — spent-vs-budget bar, days
             elapsed/remaining, daily avg vs budget, projected end-of-trip total, under/on/over pace.
             No duplicate budget/expense load — it's fed the panel's reactive totals + the clock. */}
-        <BurnRateView
-          budgetHome={roll.totalBudgetHome}
-          spentHome={roll.totalSpentHome}
-          home={home}
-          now={now}
-        />
+        <div
+          role="tabpanel"
+          id="budget-view-panel-burn"
+          aria-labelledby="budget-view-tab-burn"
+          hidden={view !== 'burn'}
+          tabIndex={0}
+          className="mt-6 focus-visible:outline-none"
+        >
+          <BurnRateView
+            budgetHome={roll.totalBudgetHome}
+            spentHome={roll.totalSpentHome}
+            home={home}
+            now={now}
+          />
+          {roll.totalBudgetHome <= 0 && (
+            <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
+              Set a budget on the <strong className="font-semibold text-white/80">Budget</strong> tab
+              to see how your spending is tracking against plan.
+            </p>
+          )}
+        </div>
 
-        {/* Expense log — the fast-log trigger + the logged-expense list */}
-        <ExpenseLog
-          expenses={expenses}
-          onLog={openLogDialog}
-          onEdit={openEditDialog}
-          onDelete={handleDeleteExpense}
-        />
-
-        {/* Settle up — who owes whom over the split expenses; hidden until ≥1 split. */}
-        <SettleUpSummary settlements={settlements} />
+        {/* Settle up — who owes whom over the split expenses; empty until ≥1 split. */}
+        <div
+          role="tabpanel"
+          id="budget-view-panel-settle"
+          aria-labelledby="budget-view-tab-settle"
+          hidden={view !== 'settle'}
+          tabIndex={0}
+          className="mt-6 focus-visible:outline-none"
+        >
+          <SettleUpSummary settlements={settlements} />
+          {settlements.length === 0 && (
+            <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
+              Log a <strong className="font-semibold text-white/80">split</strong> expense on the
+              Expenses tab and this shows who owes whom.
+            </p>
+          )}
+        </div>
       </m.div>
     </section>
+  );
+}
+
+// the four money views. Order = the money flow: set budget → log spend → check pace → settle.
+type MoneyView = 'budget' | 'expenses' | 'burn' | 'settle';
+const MONEY_TABS: { id: MoneyView; label: string }[] = [
+  { id: 'budget', label: 'Budget' },
+  { id: 'expenses', label: 'Expenses' },
+  { id: 'burn', label: 'Burn' },
+  { id: 'settle', label: 'Settle' },
+];
+
+/**
+ * Money segmented control — a real WAI-ARIA tablist with roving tabindex + arrow/Home/End
+ * keys, so only one money view shows at a time and /plan stays calendar-first. Hand-rolled (no
+ * Radix/new dep — the repo has no shared Tabs primitive) but follows the same roving-tabindex a11y
+ * contract as `time-picker.tsx`. Reduced-motion-safe (no transitions gate content); focus-visible
+ * rings on every tab; ≥44px touch targets. Activation is on click/Arrow (automatic), the common
+ * pattern for cheap, already-mounted panels.
+ */
+function MoneyTabs({ view, onChange }: { view: MoneyView; onChange: (v: MoneyView) => void }) {
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    const idx = MONEY_TABS.findIndex((t) => t.id === view);
+    let next = idx;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx + 1) % MONEY_TABS.length;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp')
+      next = (idx - 1 + MONEY_TABS.length) % MONEY_TABS.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = MONEY_TABS.length - 1;
+    else return;
+    e.preventDefault();
+    const nextId = MONEY_TABS[next].id;
+    onChange(nextId);
+    // Move focus to the newly-selected tab (roving tabindex).
+    (e.currentTarget.querySelector(`#budget-view-tab-${nextId}`) as HTMLElement | null)?.focus();
+  };
+
+  return (
+    <div
+      role="tablist"
+      aria-label="Money views"
+      onKeyDown={onKeyDown}
+      className="flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-surface/40 p-1"
+    >
+      {MONEY_TABS.map((t) => {
+        const active = t.id === view;
+        return (
+          <button
+            key={t.id}
+            id={`budget-view-tab-${t.id}`}
+            data-testid={`budget-view-tab-${t.id}`}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            aria-controls={`budget-view-panel-${t.id}`}
+            tabIndex={active ? 0 : -1}
+            onClick={() => onChange(t.id)}
+            className={`min-h-[44px] flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 ${
+              active
+                ? 'bg-gold-400 text-surface'
+                : 'text-white/70 hover:bg-white/5 hover:text-white'
+            }`}
+          >
+            {t.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

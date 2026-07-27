@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { AnimatePresence } from 'framer-motion';
 import { Inbox, Link2, Trash2, CalendarDays, MapPin } from 'lucide-react';
 import { useShare } from '@/hooks/use-share';
 import type { ShareItem } from '@/core/share/model';
@@ -173,17 +172,17 @@ export default function ShareInbox() {
       {/* Import-a-place confirm sheet. Paste mode: editable URL field.
           Row mode: seeded read-only url, source row removed on a successful import.
           Focus returns to the trigger on exit-complete. */}
-      <AnimatePresence onExitComplete={() => importTriggerRef.current?.focus?.()}>
-        {importState && (
-          <ImportPlaceSheet
-            open={importState !== null}
-            initialUrl={importState.url}
-            urlEditable={importState.editable}
-            onImported={handleImported}
-            onClose={() => setImportState(null)}
-          />
-        )}
-      </AnimatePresence>
+      {/* the shared Sheet primitive owns the exit AnimatePresence + focus-
+          return, so the sheet stays mounted and toggles `open` (unmounting it would skip
+          the exit animation and never fire onExitComplete). */}
+      <ImportPlaceSheet
+        open={importState !== null}
+        initialUrl={importState?.url}
+        urlEditable={importState?.editable ?? false}
+        onImported={handleImported}
+        onClose={() => setImportState(null)}
+        onExitComplete={() => importTriggerRef.current?.focus?.()}
+      />
     </section>
   );
 }

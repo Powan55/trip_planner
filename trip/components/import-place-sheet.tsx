@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { m } from 'framer-motion';
 import { toast } from 'sonner';
+import Sheet from '@/components/ui/sheet-dark';
 import { X, Check, Link2, Search, Loader2, ChevronDown } from 'lucide-react';
 import {
   TRIP_DATES,
@@ -63,9 +62,11 @@ export interface ImportPlaceSheetProps {
   /** Fires AFTER a successful save (before onClose). The inbox path uses it to drop the source
    * row only on a real import — onClose alone can't distinguish a save from a cancel. */
   onImported?(): void;
+  /** parent-owned focus-return, fired on the Sheet's exit-complete. */
+  onExitComplete?(): void;
 }
 
-export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false, onClose, onImported }: ImportPlaceSheetProps) {
+export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false, onClose, onImported, onExitComplete }: ImportPlaceSheetProps) {
   const { addPlace } = useMyPlaces();
   const { addItem } = useItineraryContext();
 
@@ -74,13 +75,6 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
   const config = useMemo(() => getActiveTrip(), []);
   const legs = config.legs;
   const multiLeg = legs.length > 1;
-
-  // Portal mount guard — never touch `document` during the static-export prerender.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
 
   // Form state.
   const [url, setUrl] = useState(initialUrl ?? '');
@@ -154,7 +148,9 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
   const dateFieldId = `${baseId}-date`;
   const catLabelId = `${baseId}-cat`;
 
-  const panelRef = useRef<HTMLDivElement>(null);
+  // Autofocus target on open (passed to the Sheet primitive): the URL input in paste
+  // mode, else the Name input. The shared Sheet owns the rest of the contract
+  // (portal, Esc, Tab-trap, body-flag, focus-return) —.
   const firstFieldRef = useRef<HTMLInputElement>(null);
 
   const nameValid = name.trim().length > 0;
@@ -189,89 +185,23 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
     onClose();
   };
 
-  // Autofocus the first field: the URL input in paste mode, else the Name input.
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      const panel = panelRef.current;
-      if (panel && !panel.contains(document.activeElement)) firstFieldRef.current?.focus();
-    }, 50);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // body[data-dialog-open] flag (cross-lane seam) — the quick-add FAB hides while set.
-  useEffect(() => {
-    document.body.dataset.dialogOpen = '1';
-    return () => {
-      delete document.body.dataset.dialogOpen;
-    };
-  }, []);
-
-  // Esc closes at the document level so it fires wherever focus sits.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onCloseRef.current();
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, []);
-
-  // Lightweight Tab-trap inside the panel (no new deps), identical to the dialog.
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Tab') return;
-    const panel = panelRef.current;
-    if (!panel) return;
-    const focusable = Array.from(
-      panel.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ),
-    ).filter((el) => el.offsetParent !== null || el === document.activeElement);
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement as HTMLElement;
-    if (e.shiftKey) {
-      if (active === first || !panel.contains(active)) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else if (active === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
-
-  if (!mounted) return null;
-
   const statusLine =
     status === 'resolving' ? 'Reading this link…'
       : status === 'found' ? 'Found this place — check the details below.'
         : status === 'notfound' ? "Couldn't read this link — fill in the name yourself."
           : null;
 
-  return createPortal(
-    <m.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
-      onClick={onClose}
+  return (
+    <Sheet
+      open={open}
+      onClose={onClose}
+      onExitComplete={onExitComplete}
+      labelledBy={titleId}
+      side="center"
+      initialFocusRef={firstFieldRef}
+      testId="import-place-sheet"
+      className="w-full max-w-md rounded-2xl max-h-[90vh]"
     >
-      <m.div
-        ref={panelRef}
-        data-testid="import-place-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onKeyDown={handleKeyDown}
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
-      >
         {/* Header */}
         <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
           <div className="min-w-0">
@@ -480,8 +410,6 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
             Save place
           </button>
         </div>
-      </m.div>
-    </m.div>,
-    document.body,
+    </Sheet>
   );
 }

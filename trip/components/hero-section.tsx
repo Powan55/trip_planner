@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { m, useScroll, useTransform, useReducedMotion } from 'framer-motion';
-import { MapPin, Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
+import { Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
 import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { ringFraction } from '@/lib/countdown-ring';
@@ -178,10 +178,6 @@ export default function HeroSection() {
   const glowOpacity = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [1, 1] : [1, 0.55]);
   const orbsY = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, -70]);
 
-  const scrollTo = (id: string) => {
-    document.querySelector(id)?.scrollIntoView?.({ behavior: 'smooth' });
-  };
-
   const reveal = prefersReducedMotion ? itemVariantsReduced : itemVariants;
 
   // — custom (non-default-pack) trips get a versatile vibe hero: no Nepal×Japan art/copy.
@@ -343,12 +339,12 @@ export default function HeroSection() {
         variants={containerVariants}
         initial="hidden"
         animate="show"
-        className="relative z-10 max-w-[1200px] mx-auto px-4 sm:px-6 text-center pt-16 min-[420px]:pt-20 sm:pt-24 pb-10 min-[420px]:pb-16"
+        className="relative z-10 max-w-[1200px] mx-auto px-4 sm:px-6 text-center pt-2 min-[420px]:pt-20 sm:pt-24 pb-10 min-[420px]:pb-16"
       >
         {/* Badge */}
         <m.div
           variants={reveal}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-6"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-2 min-[420px]:mb-6"
         >
           <Plane className="w-4 h-4 text-gold-400" />
           <span className="text-sm text-gold-400 font-medium">{TRIP_DATE_LABEL}</span>
@@ -381,14 +377,8 @@ export default function HeroSection() {
             : 'From the mystical temples of Kathmandu to the neon-lit streets of Tokyo. A journey across ancient peaks and futuristic cities.'}
         </m.p>
 
-        {/* Quote — hidden below xs (~420px) so the first CTA clears the fold on 360-wide
-            phones. CSS-only; countdown math untouched. */}
-        <m.p
-          variants={reveal}
-          className="hidden min-[420px]:block text-sm italic text-white/40 mb-10"
-        >
-          "The world is a book and those who do not travel read only one page." — St. Augustine
-        </m.p>
+        {/* the decorative quote was dropped to keep the hero calm and content-first
+            (one obvious action, less above-fold noise). The subtitle above carries the mood. */}
 
         {/* Countdown ⇄ Travel mode. Both are gated behind `mounted` so the
             client-only clock never renders on the server (no hydration mismatch — the
@@ -407,25 +397,18 @@ export default function HeroSection() {
               </div>
               <p className="text-sm sm:text-base text-white/50">{formatDateLong(todayInTrip.date)}</p>
             </div>
-            {/* on-trip entry surfaces — "Open today's plan" plus the Travel Mode
-                card. This whole panel only renders in-trip (todayInTrip non-null), so the Travel
-                Mode card is inherently hidden off-trip per the brief. */}
-            <div data-testid="home-intrip-travel-card" className="mt-5 flex flex-wrap justify-center gap-3">
-              <Link
-                href="/plan/"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
-              >
-                <Calendar className="w-4 h-4" />
-                Open today's plan
-                <span aria-hidden="true">→</span>
-              </Link>
+            {/* in-trip, the ONE obvious action is Travel Mode — the
+                purpose-built on-trip experience. Collapsed from two buttons to this single
+                primary (the planner is one tap away in the tab bar). Only renders in-trip
+                (todayInTrip non-null), so it is inherently hidden off-trip. */}
+            <div data-testid="home-intrip-travel-card" className="mt-5 flex justify-center">
               <button
                 type="button"
                 onClick={() => enterTravel()}
                 data-testid="home-intrip-travel"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl glass-card text-white font-semibold hover:bg-white/10 transition-all duration-200 hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
               >
-                <Compass className="w-4 h-4 text-gold-400" />
+                <Compass className="w-4 h-4" />
                 Open Travel Mode
               </button>
             </div>
@@ -433,10 +416,10 @@ export default function HeroSection() {
         ) : (
           <m.div
             variants={reveal}
-            className="mb-10"
+            className="mb-2 min-[420px]:mb-10"
           >
-            <p className="text-sm text-white/50 mb-4 uppercase tracking-widest">Countdown to Departure</p>
-            <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center gap-3 sm:gap-4 mb-4">
+            <p className="text-sm text-white/50 mb-2 min-[420px]:mb-4 uppercase tracking-widest">Countdown to Departure</p>
+            <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center gap-3 sm:gap-4 mb-2 min-[420px]:mb-4">
               {COUNTDOWN_UNITS.map(({ key, label }) => (
                 <div key={key} className="glass-card rounded-xl px-3 sm:px-5 py-3 sm:py-4 min-w-[70px] sm:min-w-[90px] animate-pulse-glow">
                   <div data-testid={`countdown-${key}`} className="font-mono text-2xl sm:text-3xl md:text-4xl font-bold text-gold-400">
@@ -466,47 +449,22 @@ export default function HeroSection() {
           </m.div>
         ))}
 
-        {/* CTA Buttons */}
-        <m.div
-          variants={reveal}
-          className="flex flex-wrap justify-center gap-3"
-        >
-          {/* itinerary + destinations moved to their own routes, so
-              these CTAs are real next/link navigations (trailing-slash canonical);
-              the dashboard stays on Home and keeps the local smooth scroll. */}
-          <Link
-            href="/plan/"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
-          >
-            <Calendar className="w-4 h-4" />
-            View Itinerary
-          </Link>
-          {/* a custom trip has no Nepal guide — retarget to the (universal) map. */}
-          <Link
-            href={custom ? '/map/' : '/nepal/'}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl glass-card text-white font-semibold hover:bg-white/10 transition-all duration-200 hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-          >
-            <Compass className="w-4 h-4 text-himalaya-400" />
-            Explore Destinations
-          </Link>
-          <button
-            onClick={() => scrollTo('#dashboard')}
-            className="flex items-center gap-2 px-6 py-3 rounded-xl glass-card text-white font-semibold hover:bg-white/10 transition-all duration-200 hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-          >
-            <MapPin className="w-4 h-4 text-sakura-400" />
-            Open Dashboard
-          </button>
-          {/* secondary Travel Mode entry from the hero, present in EVERY trip phase
-              (pre/in/post). Guests reach the existing guest-route wall. */}
-          <button
-            onClick={() => enterTravel()}
-            data-testid="hero-travel-entry"
-            className="flex items-center gap-2 px-6 py-3 rounded-xl glass-card text-white font-semibold hover:bg-white/10 transition-all duration-200 hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-          >
-            <Compass className="w-4 h-4 text-gold-400" />
-            Travel Mode
-          </button>
-        </m.div>
+        {/* — ONE obvious action (was 4 competing CTAs). Pre-/post-trip the single
+            primary is "Open Planner" → the itinerary, the useful next step before you travel.
+            In-trip this is suppressed: the on-trip card above already carries the single
+            Travel Mode action for that state. Every other former CTA (Explore/Dashboard/
+            Travel Mode) is reachable from the tab bar, so nothing is stranded. */}
+        {!(mounted && todayInTrip) && (
+          <m.div variants={reveal} className="flex justify-center">
+            <Link
+              href="/plan/"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+            >
+              <Calendar className="w-4 h-4" />
+              Open Planner
+            </Link>
+          </m.div>
+        )}
       </m.div>
 
       {/* Scroll indicator */}

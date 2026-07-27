@@ -41,9 +41,13 @@
  */
 
 import { TRIP_ITINERARY } from '../content/itinerary';
-import { getActiveTrip, legForDate } from '@/core/trips';
+import { getActiveTrip, isDefaultTrip, legForDate } from '@/core/trips';
 
+// Both captured at MODULE LOAD — correct by design: a trip switch is a pointer write + full page
+// reload, so a fresh module graph re-captures the new active trip. (Mirrors the
+// core/budget/model.ts module-load pattern; the custom-trip unit test re-imports via vi.resetModules.)
 const activeTrip = getActiveTrip();
+const activeIsDefault = isDefaultTrip();
 
 /**
  * PURE: `DayPlan[]` (only `date` + `city` are read) → the per-day ISO-date → city map.
@@ -63,14 +67,21 @@ export function deriveTripCities(
 export const TRIP_CITIES: Record<string, string> = deriveTripCities(TRIP_ITINERARY);
 
 /**
- * The city for a trip date (PURE, TOTAL). For any date IN the map returns its authoritative
- * city; for any UNMAPPED date (defensive — should never happen for an in-trip date) falls
- * back to the active leg's `fallbackCity`. As of that fallback is `legForDate(date).
- * fallbackCity` (the field exists precisely to keep this byte-identical: 'Kathmandu' for the
- * Nepal leg, 'Tokyo' for the Japan leg — the exact pre- `'nepal' ? 'Kathmandu': 'Tokyo'`).
+ * The city for a trip date (PURE, TOTAL). TRIP_SCOPED: the default-pack per-day
+ * map (`TRIP_CITIES`) is authored for the DEFAULT trip only, so it is consulted ONLY when the
+ * active trip is the default pack. For a non-default (custom) trip — which has no authored
+ * per-day cities, just legs with `fallbackCity` — every date resolves via
+ * `legForDate(activeTrip, date).fallbackCity` (its own leg city), so a custom trip overlapping
+ * the default Dec 9 – Jan 9 window no longer wrongly shows Kathmandu/Osaka/Tokyo.
+ *
+ * DEFAULT path is byte-identical to pre-: map hit → authoritative city; UNMAPPED date
+ * (defensive — never happens for an in-trip default date) → the active leg's `fallbackCity`
+ *.
  */
 export function getCityForDate(dateStr: string): string {
-  const mapped = TRIP_CITIES[dateStr];
-  if (mapped !== undefined) return mapped;
+  if (activeIsDefault) {
+    const mapped = TRIP_CITIES[dateStr];
+    if (mapped !== undefined) return mapped;
+  }
   return legForDate(activeTrip, dateStr).fallbackCity;
 }

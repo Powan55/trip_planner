@@ -1,16 +1,12 @@
 'use client';
 
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { m, useInView } from 'framer-motion';
 import { useCountUp } from '@/hooks/use-count-up';
-import { Calendar, MapPin, Camera, UtensilsCrossed, Clock, Globe, Bookmark, Sun, Compass } from 'lucide-react';
-import { TRIP_START, TRIP_END, TRIP_DATES, DayPlan } from '@/lib/trip-data';
+import { Calendar, Clock, Compass } from 'lucide-react';
+import { TRIP_START, TRIP_END, TRIP_DATES } from '@/lib/trip-data';
 import { computeCountdown } from '@/lib/countdown';
 import { getNow } from '@/lib/trip-now';
-import { NEPAL_ATTRACTIONS, NEPAL_FOOD } from '@/lib/nepal-data';
-import { JAPAN_ATTRACTIONS, JAPAN_FOOD } from '@/lib/japan-data';
-import { PHOTO_SPOTS } from '@/lib/photography-data';
-import { useItineraryContext } from '@/components/itinerary-provider';
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -67,82 +63,38 @@ function StatCard({ icon, label, value, display, suffix = '', color, delay, test
   );
 }
 
-// --- Pure, data-derived counts (module/render scope, no clock, no localStorage) ---
-// Card 4: distinct countries present in the photography data set (Nepal + Japan = 2).
-function distinctCountries(): number {
-  return new Set(PHOTO_SPOTS.map((s) => s.country)).size;
-}
-// Card 5: distinct cities present in the photography data set
-// (Nagarkot, Kathmandu, Tokyo, Kyoto = 4).
-function distinctCities(): number {
-  return new Set(PHOTO_SPOTS.map((s) => s.city)).size;
-}
-
-// A day counts as "planned" when it has at least one itinerary item.
-function countPlannedDays(plans: DayPlan[]): number {
-  return plans.filter((p) => Array.isArray(p.items) && p.items.length > 0).length;
-}
-
+/**
+ * — the Home stat dashboard, trimmed from 9 cards to the 3 highest-value TEMPORAL
+ * facts: how long the trip is, how long until it starts, and where in its lifecycle it
+ * sits. The former six catalog counts (countries/cities/attractions/restaurants/photo
+ * spots/planned-days) were vanity metrics; the actionable "at a glance" data
+ * (budget/packing/next-up/weather) already lives in the retained HomeBento, so the
+ * dashboard deliberately does NOT duplicate it. Only Cards 2 (days-remaining) and 3
+ * (status) touch the clock; Card 1 (duration) is a constant.
+ */
 export default function TripDashboard() {
   const [mounted, setMounted] = useState(false);
-  // Card 2 (days until departure) and Card 3 (status) depend on the clock.
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [tripStatus, setTripStatus] = useState('Upcoming');
 
-  // Card 9 (planned days) now derives from the shared reactive store instead
-  // of a mount-only loadPlans() + cross-tab storage listener. A same-tab calendar (or,
-  // from card) edit fans out via the store's CustomEvent, so this count updates
-  // live without a reload — this is the visible proof is closed.
-  const { plans } = useItineraryContext();
-  const plannedDays = useMemo(() => countPlannedDays(plans), [plans]);
-
-  // Data-derived, clock/storage-independent counts.
   const totalDays = TRIP_DATES.length;
-  const countries = useMemo(distinctCountries, []);
-  const cities = useMemo(distinctCities, []);
-  const attractionsSaved = useMemo(() => NEPAL_ATTRACTIONS.length + JAPAN_ATTRACTIONS.length, []);
-  const restaurantsListed = useMemo(() => NEPAL_FOOD.length + JAPAN_FOOD.length, []);
-  const photoSpotsSaved = PHOTO_SPOTS.length;
 
   useEffect(() => {
     setMounted(true);
 
-    const refreshTimeValues = () => {
-      const now = getNow();
-      // Reuse the shared, tested countdown helper instead of recomputing inline.
-      setDaysRemaining(computeCountdown(TRIP_START, now).totalDays);
-      // Status text derived from now vs. the trip window.
-      if (now < TRIP_START) setTripStatus('Upcoming');
-      else if (now <= TRIP_END) setTripStatus('On the trip');
-      else setTripStatus('Completed');
-    };
-
-    refreshTimeValues();
+    const now = getNow();
+    // Reuse the shared, tested countdown helper instead of recomputing inline.
+    setDaysRemaining(computeCountdown(TRIP_START, now).totalDays);
+    // Status text derived from now vs. the trip window.
+    if (now < TRIP_START) setTripStatus('Upcoming');
+    else if (now <= TRIP_END) setTripStatus('On the trip');
+    else setTripStatus('Completed');
   }, []);
 
-  const unplannedDays = Math.max(0, totalDays - plannedDays);
-
-  // Dashboard stat cards.
   const stats: StatCardProps[] = [
     { icon: <Calendar className="w-5 h-5 text-gold-400" />, label: 'Total Trip Duration', value: totalDays, suffix: ' days', color: 'bg-gold-500/10', delay: 0, testId: 'dashboard-trip-duration' },
     { icon: <Clock className="w-5 h-5 text-sakura-400" />, label: 'Days Until Departure', value: mounted ? daysRemaining : 0, color: 'bg-sakura-400/10', delay: 0.1, testId: 'dashboard-days-remaining' },
     { icon: <Compass className="w-5 h-5 text-teal-400" />, label: 'Trip Status', display: mounted ? tripStatus : 'Upcoming', color: 'bg-teal-500/10', delay: 0.2, testId: 'dashboard-trip-status' },
-    { icon: <Globe className="w-5 h-5 text-blue-400" />, label: 'Countries to Visit', value: countries, color: 'bg-blue-500/10', delay: 0.3, testId: 'dashboard-countries' },
-    { icon: <MapPin className="w-5 h-5 text-himalaya-400" />, label: 'Cities to Explore', value: cities, color: 'bg-himalaya-400/10', delay: 0.4, testId: 'dashboard-cities' },
-    { icon: <Bookmark className="w-5 h-5 text-green-400" />, label: 'Attractions Saved', value: attractionsSaved, color: 'bg-green-500/10', delay: 0.5, testId: 'dashboard-attractions-saved' },
-    { icon: <UtensilsCrossed className="w-5 h-5 text-orange-400" />, label: 'Restaurants Listed', value: restaurantsListed, color: 'bg-orange-500/10', delay: 0.6, testId: 'dashboard-restaurants-listed' },
-    { icon: <Camera className="w-5 h-5 text-purple-400" />, label: 'Photo Spots Saved', value: photoSpotsSaved, color: 'bg-purple-500/10', delay: 0.7, testId: 'dashboard-photo-spots-saved' },
-    // Planned days: days with at least one item, shown as planned / total; the
-    // unplanned remainder is surfaced in the label.
-    {
-      icon: <Sun className="w-5 h-5 text-yellow-400" />,
-      label: mounted ? `Planned Days (${unplannedDays} unplanned)` : 'Planned Days',
-      value: mounted ? plannedDays : 0,
-      suffix: ` / ${totalDays}`,
-      color: 'bg-yellow-500/10',
-      delay: 0.8,
-      testId: 'dashboard-planned-days',
-    },
   ];
 
   return (
@@ -161,11 +113,11 @@ export default function TripDashboard() {
             Trip <span className="text-gradient-gold">Dashboard</span>
           </h2>
           <p className="text-white/50 max-w-xl mx-auto">
-            Your adventure at a glance — track every detail of the journey ahead.
+            Your adventure at a glance — how long, how soon, and where in the journey you are.
           </p>
         </m.div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {stats.map((stat, i) => (
             <StatCard key={i} {...stat} />
           ))}

@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 
 /**
  * Home in-page sticky section nav — a slim `position:sticky` strip jumping to Home's
- * sections via their existing, unchanged ids (`hero`/`dashboard`/`timeline`/`inspiration` —
- * legacy v1 ids). Real `<a href="#id">` anchors: keyboard-focusable and
+ * sections via their existing, unchanged ids (`hero`/`dashboard`/`inspiration` —
+ * legacy v1 ids; the `timeline` anchor left with move to /plan). Real
+ * `<a href="#id">` anchors: keyboard-focusable and
  * Enter-activated for free, and the smooth-scroll + reduced-motion behavior is ALREADY global
  * (`app/globals.css`: `html{scroll-behavior:smooth}`, neutralized to `auto` under
  * `prefers-reduced-motion` —), so this component ships NO scroll JS of its own.
@@ -29,10 +30,10 @@ import { useEffect, useState } from 'react';
  * rather than inline Tailwind utility strings repeated in the page's own JS chunk.
  */
 
+// the 32-day timeline moved off Home to /plan/, so its in-page anchor is gone.
 const SECTIONS = [
   { id: 'hero', label: 'Overview' },
   { id: 'dashboard', label: 'Dashboard' },
-  { id: 'timeline', label: 'Timeline' },
   { id: 'inspiration', label: 'Essentials' },
 ] as const;
 

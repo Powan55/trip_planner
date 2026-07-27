@@ -25,6 +25,8 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import TravelDayStrip from '@/components/travel-day-strip';
 import TravelHeroCard from '@/components/travel-hero-card';
 import TravelAgendaCard from '@/components/travel-agenda-card';
+import TravelSyncLine from '@/components/travel-sync-line';
+import TravelLogDifferent from '@/components/travel-log-different';
 
 // the Essentials block (weather/currency/safety/flight deep-links) is its OWN lazy
 // island — a nested dynamic(ssr:false) import (fine inside a Client Component, unlike inside a
@@ -172,14 +174,31 @@ export default function TravelDatePicker() {
         </div>
       )}
 
+      {/* connection line — a visible "are my changes safe" signal for the during-trip screen
+          (honest online/offline state; no last-sync timestamp is tracked — see travel-sync-line.tsx). */}
+      <TravelSyncLine />
+
+      {/* the hero shrank to a ONE-LINE now/next strip so the checklist below is the primary
+          surface. Its off-trip fallback still renders above (resolution.date === null branch). */}
       <TravelHeroCard date={selectedDate} />
-      {/* today's evening item, only rendered once it's actually evening (component's own
-          check) — a real `?date=` preview of another day naturally shows nothing, since "tonight"
-          is about the real today-in-trip, not the previewed day. */}
-      <TravelTonightCard />
+
+      {/* CHECKLIST-FIRST — the day's plan is
+          now the primary thing on screen. */}
       <TravelAgendaCard date={selectedDate} />
-      {/* Japan-phase-only static last-train chip for the day being viewed. */}
+
+      {/* — the "Log something different" quick-add (T3): an inline ≤2-field add (title +
+          optional category) that lands an item on the viewed day ALREADY checked `done` (
+          "✓ Completed · <name>" footer). INLINE inside the TM root — no modal/portal. */}
+      <TravelLogDifferent date={selectedDate} />
+
+      {/* secondary affordances — demoted below the checklist so they never compete with it for
+          primary attention. Tonight only shows once it's actually evening (its own check); a
+          real `?date=` preview of another day shows nothing since "tonight" is about the real
+          today-in-trip. The last-train chip is Japan-phase only for the viewed day. */}
+      <TravelTonightCard />
       <TravelLastTrainChip date={selectedDate} />
+
+      {/* Essentials collapsed to ONE expandable row (closed by default). */}
       <TravelEssentialsCard date={selectedDate} />
     </>
   );

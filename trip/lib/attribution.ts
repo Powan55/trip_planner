@@ -65,3 +65,37 @@ export function stampUpdated(
   if (!name) return item;
   return { ...item, updatedBy: name, updatedAt: nowIso };
 }
+
+/**
+ * Stamp COMPLETION attribution. Transition-gated on the `patch.done`:
+ * - patch flips done false→true: stamp `doneBy = getName()` + `doneAt = now ISO`.
+ * - patch flips done true→false: CLEAR BOTH (delete the keys).
+ * - patch does not change `done`: return the item untouched (the whole point vs `updatedBy`).
+ *
+ * Name-gate mirrors `stampUpdated`: no display name set ⇒ stamping is a NO-OP (both stay absent),
+ * so the dormant/portfolio build (no name) is byte-identical — a done toggle changes only `done`.
+ * Clearing always runs (deleting an absent key is a no-op).
+ *
+ * @param item the item being edited (already merged with the patch)
+ * @param patch the update patch
+ * @param getName name source (store injects lib/identity getUserName)
+ * @param nowIso ISO timestamp to stamp (defaults to now; injectable for tests)
+ */
+export function stampDone(
+  item: ItineraryItem,
+  patch: Partial<ItineraryItem>,
+  getName: NameSource,
+  nowIso: string = new Date().toISOString(),
+): ItineraryItem {
+  if (!('done' in patch)) return item;
+  if (patch.done === false) {
+    const { doneBy: _b, doneAt: _a, ...rest } = item;
+    return rest;
+  }
+  if (patch.done === true) {
+    const name = getName();
+    if (!name) return item;
+    return { ...item, doneBy: name, doneAt: nowIso };
+  }
+  return item;
+}

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Cloud, Wallet, ShieldAlert, Plane } from 'lucide-react';
+import { Cloud, Wallet, ShieldAlert, Plane, ChevronDown } from 'lucide-react';
 import { getCountryForDate, getCityForDate } from '@/core/dates';
 import { legCurrency } from '@/core/budget/model';
 import { EMERGENCY_CONTACTS } from '@/core/content/safety';
@@ -39,7 +39,7 @@ import { cn } from '@/lib/utils';
 /** The 4 travel days of the default pack, each mapped to its confirmed Journey(ies)
  * (`lib/booking-data.ts`). Dec 18 = departure from Kathmandu; Dec 19 = arrival in Tokyo AND
  * the Tokyo→Osaka domestic hop the same day — both journeys surface on Dec 19. */
-const TRAVEL_DAY_JOURNEYS: Record<string, Journey[]> = {
+export const TRAVEL_DAY_JOURNEYS: Record<string, Journey[]> = {
   '2026-12-09': [OUTBOUND_JOURNEY],
   '2026-12-18': [RETURN_TO_JAPAN_JOURNEY],
   '2026-12-19': [RETURN_TO_JAPAN_JOURNEY, TOKYO_TO_OSAKA_JOURNEY],
@@ -84,37 +84,55 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
 
   const journeys = TRAVEL_DAY_JOURNEYS[date] ?? [];
 
+  // Essentials collapses to ONE row (a native <details>, closed by default) so the day's
+  // checklist is the primary surface. Content stays mounted while collapsed — the weather/currency
+  // fetch effects above still run — it is only visually folded behind the summary.
   return (
-    <section
-      aria-labelledby="travel-essentials-title"
+    <details
       data-testid="travel-essentials"
-      className="mx-auto mt-4 max-w-2xl rounded-2xl glass-card p-6 sm:p-8"
+      className="group mx-auto mt-4 max-w-2xl overflow-hidden rounded-2xl glass-card"
     >
-      <h2 id="travel-essentials-title" className="font-display text-xl font-bold text-white">
-        Essentials
-      </h2>
+      <summary
+        data-testid="travel-essentials-summary"
+        className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-inset focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+      >
+        <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+          <h2 id="travel-essentials-title" className="font-display text-base font-bold text-white">
+            Essentials
+          </h2>
+          <span className="text-xs text-white/45">
+            weather &middot; currency &middot; safety{journeys.length > 0 ? ' · flights' : ''}
+          </span>
+        </span>
+        <ChevronDown
+          className="h-5 w-5 shrink-0 text-white/40 transition-transform duration-200 group-open:rotate-180"
+          aria-hidden="true"
+        />
+      </summary>
 
-      {wakeLock.supported && wakeLock.held && (
-        <p data-testid="travel-wake-lock-hint" className="mt-1 text-xs text-white/40">
-          Screen stays awake while Travel Mode is open
-        </p>
-      )}
+      <div className="px-5 pb-5 sm:px-6 sm:pb-6">
+        {wakeLock.supported && wakeLock.held && (
+          <p data-testid="travel-wake-lock-hint" className="text-xs text-white/40">
+            Screen stays awake while Travel Mode is open
+          </p>
+        )}
 
-      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <WeatherPanel city={city} weather={weather} />
-        <CurrencyPanel currency={currency} rate={rate} />
-      </div>
-
-      <SafetyPanel country={country === 'nepal' ? 'Nepal' : 'Japan'} contacts={contacts} />
-
-      {journeys.length > 0 && (
-        <div className="mt-5 flex flex-col gap-4" data-testid="travel-essentials-flights">
-          {journeys.map((journey) => (
-            <FlightCard key={journey.id} journey={journey} />
-          ))}
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <WeatherPanel city={city} weather={weather} />
+          <CurrencyPanel currency={currency} rate={rate} />
         </div>
-      )}
-    </section>
+
+        <SafetyPanel country={country === 'nepal' ? 'Nepal' : 'Japan'} contacts={contacts} />
+
+        {journeys.length > 0 && (
+          <div className="mt-5 flex flex-col gap-4" data-testid="travel-essentials-flights">
+            {journeys.map((journey) => (
+              <FlightCard key={journey.id} journey={journey} />
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
 

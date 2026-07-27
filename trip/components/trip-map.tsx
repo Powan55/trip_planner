@@ -133,6 +133,12 @@ function markersToGeoJSON(markers: MapMarker[]) {
   };
 }
 
+// camera offset (px, [x, y]) applied when a marker is centred for its popup.
+// Positive y seats the marker BELOW the container centre, leaving room ABOVE it for
+// the bottom-anchored popup so its top controls stay inside the shell / below the
+// fixed navbar. Sized for the tallest realistic popup after A5's 17px body bump.
+const POPUP_VIEW_OFFSET: [number, number] = [0, 150];
+
 // ── Popup content (React, portaled into the MapLibre popup node) ──────────────
 // Rendered via createPortal so it stays in TripMap's React tree (context flows
 // → AddToPlanButton works) while its DOM lives inside the in-canvas Popup.
@@ -470,7 +476,12 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     setPopupNode(holder);
     setPopupMarker(marker);
     if (!prefersReducedMotion()) {
-      map.easeTo({ center: [marker.lng, marker.lat], duration: 400 });
+      // seat the marker BELOW the container centre so the popup (anchored
+      // above the marker) opens fully inside the map-shell — clear of the shell's
+      // own `overflow-hidden` clip AND of the fixed navbar band. A5's 17px body grew
+      // the popup enough that a centred marker pushed its top controls (the favourite
+      // heart) above the shell/under the navbar, where they were click-intercepted.
+      map.easeTo({ center: [marker.lng, marker.lat], offset: POPUP_VIEW_OFFSET, duration: 400 });
     }
   }, []);
 
@@ -486,10 +497,12 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       if (!map || !maplibregl) return;
       const zoom = Math.max(map.getZoom(), 12);
       if (prefersReducedMotion()) {
-        map.jumpTo({ center: [marker.lng, marker.lat], zoom });
+        // easeTo(duration:0) is an instant jump that ALSO honours `offset` (jumpTo
+        // does not), so the marker lands below-centre and the popup opens in-shell.
+        map.easeTo({ center: [marker.lng, marker.lat], zoom, offset: POPUP_VIEW_OFFSET, duration: 0 });
         openPopup(maplibregl, marker);
       } else {
-        map.flyTo({ center: [marker.lng, marker.lat], zoom, duration: 900 });
+        map.flyTo({ center: [marker.lng, marker.lat], zoom, offset: POPUP_VIEW_OFFSET, duration: 900 });
         map.once('moveend', () => openPopup(maplibregl, marker));
       }
     },
@@ -912,6 +925,12 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
              which made a re-opened popup's controls fail Playwright's stability check. */
           max-height: 70vh;
           overflow-y: auto;
+          /* if anything DOES scroll a popup control into view (Playwright's
+             scrollIntoViewIfNeeded, or a keyboard user tabbing to the heart), leave
+             room for the fixed navbar (h-16 = 4rem, ~4.25rem at the 17px root) so the
+             control never parks under it and gets pointer-intercepted. */
+          scroll-margin-top: 5.5rem;
+          scroll-margin-bottom: 2rem;
         }
         .njp-map-popup .maplibregl-popup-tip {
           border-top-color: ${BRAND.navy800};

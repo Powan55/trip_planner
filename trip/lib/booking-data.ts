@@ -36,6 +36,11 @@ export interface Layover {
   airportCode: string;        // 'JFK'
   airportName?: string;       // 'New York JFK'
   duration: string;           // '4h 53m'
+  // AUTHORED human judgment of the connection's comfort. NOT derived from
+  // `duration` — a naive minutes threshold can't see immigration / terminal-change
+  // tightness (a 2h55m international→international hop is tighter than 6h domestic).
+  // Absent → the UI shows the duration only. Never parsed; a static color/label record maps it.
+  verdict?: 'relaxed' | 'normal' | 'tight';
 }
 
 export interface Journey {
@@ -45,6 +50,12 @@ export interface Journey {
   fromSummary: string;        // 'Syracuse (SYR)'
   toSummary: string;          // 'Kathmandu (KTM)'
   totalDuration: string;      // render verbatim; do NOT recompute
+  // AUTHORED date-only anchor for the phase strip + proximity countdown. A member
+  // of TRIP_DATES; authored by READING the first leg's human `departLabel` (never computed
+  // in code). Date-only — no time, no timezone, no `Date` object here — so it cannot recompute
+  // the date-line-crossing time/duration/total labels protects. The card's trip-clock
+  // (getNow + computeCountdown, core/dates) targets THIS, never a booking time label.
+  departDate: string;         // 'YYYY-MM-DD'
   legs: FlightLeg[];          // ordered
   layovers: Layover[];        // ordered, length === legs.length - 1; positionally between legs[i] and legs[i+1]
 }
@@ -74,6 +85,7 @@ export const OUTBOUND_JOURNEY: Journey = {
   id: 'outbound', label: 'Outbound — Syracuse to Kathmandu', status: 'booked',
   fromSummary: 'Syracuse (SYR)', toSummary: 'Kathmandu (KTM)',
   totalDuration: '1d 15m',            // Lax's verbatim source string — render as-is, do NOT recompute
+  departDate: '2026-12-09',           // authored from leg out-1 '5:30am Wed Dec 9' (= TRIP_DATES[0])
   legs: [
     { id: 'out-1', flightNumber: 'Delta 5363',
       fromCode: 'SYR', fromName: 'Syracuse Hancock Intl',
@@ -92,8 +104,11 @@ export const OUTBOUND_JOURNEY: Journey = {
       duration: '1h 45m', seats: ['26D', '26E', '26F'], cabin: 'Economy', cabinCode: 'W' },
   ],
   layovers: [
-    { airportCode: 'JFK', airportName: 'New York JFK', duration: '4h 53m' },
-    { airportCode: 'DEL', airportName: 'Delhi Indira Gandhi Intl', duration: '1h 10m' },
+    // 4h53m at JFK, same-terminal (T4) onward to Air India — comfortable buffer.
+    { airportCode: 'JFK', airportName: 'New York JFK', duration: '4h 53m', verdict: 'relaxed' },
+    // 1h10m at Delhi to make an international onward flight (arrive T3 13:20 → depart T3 14:30) —
+    // razor-thin for an intl connection even same-terminal.
+    { airportCode: 'DEL', airportName: 'Delhi Indira Gandhi Intl', duration: '1h 10m', verdict: 'tight' },
   ],
 };
 
@@ -101,6 +116,7 @@ export const RETURN_TO_JAPAN_JOURNEY: Journey = {
   id: 'return-to-japan', label: 'Kathmandu to Tokyo', status: 'booked',
   fromSummary: 'Kathmandu (KTM)', toSummary: 'Tokyo (HND)',
   totalDuration: '10h 50m',
+  departDate: '2026-12-18',           // authored from leg ret-1 '11:30pm Fri Dec 18'
   legs: [
     { id: 'ret-1', flightNumber: 'China Southern 3068',
       fromCode: 'KTM', fromName: 'Kathmandu Tribhuvan Intl', fromTerminal: 'Terminal I',
@@ -113,13 +129,16 @@ export const RETURN_TO_JAPAN_JOURNEY: Journey = {
       departLabel: '8:50am Sat Dec 19', arriveLabel: '1:35pm Sat Dec 19',
       duration: '3h 45m', cabin: 'Economy', cabinCode: 'L' },   // no seats given
   ],
-  layovers: [{ airportCode: 'CAN', airportName: 'Guangzhou Baiyun Intl', duration: '2h 55m' }],
+  // 2h55m at Guangzhou is an international→international transfer (immigration/security
+  // recheck) — tighter than a long domestic gap despite the clock; not razor-thin → normal.
+  layovers: [{ airportCode: 'CAN', airportName: 'Guangzhou Baiyun Intl', duration: '2h 55m', verdict: 'normal' }],
 };
 
 export const TOKYO_TO_OSAKA_JOURNEY: Journey = {
   id: 'tokyo-to-osaka', label: 'Tokyo to Osaka', status: 'booked',
   fromSummary: 'Tokyo (HND)', toSummary: 'Osaka (ITM)',
   totalDuration: '1h 10m',
+  departDate: '2026-12-19',           // authored from leg dom-1 '4:25pm Sat Dec 19'
   legs: [
     { id: 'dom-1', flightNumber: 'Japan Airlines 127',
       fromCode: 'HND', fromName: 'Tokyo Haneda', fromTerminal: 'Terminal 1',
@@ -134,6 +153,7 @@ export const FLIGHT_HOME_JOURNEY: Journey = {
   id: 'flight-home', label: 'Flight home — Tokyo to Syracuse', status: 'booked',
   fromSummary: 'Tokyo (HND)', toSummary: 'Syracuse (SYR)',
   totalDuration: '19h 23m',           // Lax's verbatim source string — render as-is, do NOT recompute
+  departDate: '2027-01-09',           // authored from leg home-1 '5:35pm Sat Jan 9'
   legs: [
     { id: 'home-1', flightNumber: 'Delta 274',
       fromCode: 'HND', fromName: 'Tokyo Haneda', fromTerminal: 'Terminal 3',
@@ -146,7 +166,8 @@ export const FLIGHT_HOME_JOURNEY: Journey = {
       departLabel: '9:35pm Sat Jan 9', arriveLabel: '10:58pm Sat Jan 9',
       duration: '1h 23m', cabin: 'Economy', cabinCode: 'E' },   // no seats given
   ],
-  layovers: [{ airportCode: 'DTW', airportName: 'Detroit Metropolitan Wayne County', duration: '6h' }],
+  // 6h at Detroit — a domestic connection AFTER US customs clearance; ample. → relaxed.
+  layovers: [{ airportCode: 'DTW', airportName: 'Detroit Metropolitan Wayne County', duration: '6h', verdict: 'relaxed' }],
 };
 
 export const NEPAL_STAY: Stay = {

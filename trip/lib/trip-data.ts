@@ -66,6 +66,14 @@ export interface ItineraryItem {
   //). No backfill needed (unlike the sync fields), so the lenient passthrough schema
   // tolerates it and the on-disk envelope stays at v4 (see core/vault/schema.ts).
   done?: boolean;
+  // Completion attribution.
+  // Stamped on the `done` false→true transition, CLEARED on true→false, untouched on any other
+  // edit — unlike `updatedBy` which every edit overwrites, so it durably answers "who
+  // checked this off". `doneBy` = the getUserName() display nickname (SAME identity as updatedBy,
+  //), rendered verbatim (NO uid→name lookup). `doneAt` = ISO via toISOString(). Both
+  // absent = no completion attribution.
+  doneBy?: string;
+  doneAt?: string; // ISO timestamp of the completion
   // Manual pin-drop ( — additive OPTIONAL, NO Vault migration / version bump, mirrors the
   // `done` precedent above). Absent = un-pinned (the item plots, if at all, via the existing
   // sourceId/name-match join in lib/itinerary-map.ts). When BOTH are defined the item plots at

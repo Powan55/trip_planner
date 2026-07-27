@@ -51,6 +51,12 @@ export const itineraryItemSchema = z
     // assertions remain `toBe(4)`. `.passthrough()` already tolerated it on read; declaring it
     // makes the accepted surface explicit + typed.
     done: z.boolean().optional(),
+    // Completion attribution.
+    // NO migration and NO version bump — CURRENT_ITINERARY_VERSION STAYS 5. Both absent = no
+    // completion attribution (like `done` absent = not done). `.passthrough()` already tolerated
+    // them on read; declaring them makes the surface explicit + typed.
+    doneBy: z.string().optional(),
+    doneAt: z.string().optional(),
     // Manual pin-drop ( — additive OPTIONAL, per lenient-read rule, mirrors the
     // `done` entry above). NO migration and NO version bump: an item with lat/lng absent is
     // trivially un-pinned, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION STAYS

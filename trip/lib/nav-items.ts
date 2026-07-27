@@ -1,16 +1,17 @@
 import {
   Home,
   Calendar,
-  Mountain,
-  Compass,
   Map,
   Plane,
   BookOpen,
+  BookMarked,
   ShieldCheck,
   Scroll,
   Luggage,
   Settings,
   Backpack,
+  FileCheck2,
+  Inbox,
   type LucideIcon,
 } from 'lucide-react';
 import { isDefaultTrip } from '@/core/trips';
@@ -31,44 +32,54 @@ import { isDefaultTrip } from '@/core/trips';
  *
  * `/journal`, `/safety`, `/recap` were shipped with their nav
  * wiring deliberately deferred. Adding them to NAV_ITEMS naively would push the mobile
- * tab bar to 9 tabs — at a 360px viewport that's ≈40px each, BELOW the ≥44px floor
- * So NAV_ITEMS stays the full 9-item catalog (consumed by the constrained-
- * width-agnostic surfaces: the mobile hamburger panel + the command palette), while the
- * 6 "primary" (daily-use) items are re-exported as `PRIMARY_NAV_ITEMS` for the two
+ * tab bar past the ≥44px floor. So NAV_ITEMS stays the full companion catalog (consumed by
+ * the width-agnostic surfaces: the `/more/` page + the command palette), while the
+ * "primary" (daily-use) items are re-exported as `PRIMARY_NAV_ITEMS` for the two
  * width/slot-constrained surfaces (the bottom tab bar and the desktop top row).
+ *
+ * the mobile IA is now 5 tabs —
+ * Today · Plan · Map · Guides · More. `Home` relabels to `Today`; `Nepal`/`Japan` leave
+ * NAV_ITEMS and a
+ * single `Guides` primary takes their place; `Flights` drops to a companion; `Documents`
+ * (`/checklist/`) and `Shared Links` (`/share/`), previously palette-only, join as
+ * companions. `PRIMARY_NAV_ITEMS` now yields FOUR primaries (Today · Plan · Map · Guides),
+ * consumed by BOTH the desktop top row AND the mobile tab bar (which appends one synthetic
+ * `More → /more/` tab → 5). The `/more/` page renders `navItems − primary`.
  */
 export type NavItem = {
   label: string;
   href: string;
   icon: LucideIcon;
   /** Absent/true = a primary item (tab bar + desktop top row). false = companion-only
-   * (mobile hamburger panel + command palette), see above. */
+   * (the `/more/` page + command palette), see / above. */
   primary?: boolean;
   /** (Plan D10): N×J-specific — hidden on every nav surface on a CUSTOM trip. */
   defaultTripOnly?: true;
-  /**: on a CUSTOM trip this companion is promoted into the 6-slot primary
-   * set (tab bar + desktop top row) to fill the seats vacated by the defaultTripOnly
-   * items. Ignored on the default trip (unused there — it already fills all 6 seats). */
+  /**: on a CUSTOM trip this companion is promoted into the primary
+   * set (tab bar + desktop top row) to fill the seat vacated by the defaultTripOnly
+   * `Guides`. Ignored on the default trip (already full). Now only `Journal` carries it —
+   * Packing/Trips fell to the `/more/` page. */
   customPrimary?: true;
 };
 
 export const NAV_ITEMS: NavItem[] = [
-  { label: 'Home', href: '/', icon: Home },
+  { label: 'Today', href: '/', icon: Home },
   { label: 'Plan', href: '/plan/', icon: Calendar },
-  { label: 'Flights', href: '/flights/', icon: Plane, defaultTripOnly: true },
-  { label: 'Nepal', href: '/nepal/', icon: Mountain, defaultTripOnly: true },
-  { label: 'Japan', href: '/japan/', icon: Compass, defaultTripOnly: true },
   { label: 'Map', href: '/map/', icon: Map },
+  { label: 'Guides', href: '/guides/', icon: BookMarked, defaultTripOnly: true }, // — fronts Nepal/Japan
+  { label: 'Flights', href: '/flights/', icon: Plane, primary: false, defaultTripOnly: true },
   { label: 'Journal', href: '/journal/', icon: BookOpen, primary: false, customPrimary: true },
   { label: 'Safety', href: '/safety/', icon: ShieldCheck, primary: false },
   { label: 'Recap', href: '/recap/', icon: Scroll, primary: false },
-  { label: 'Packing', href: '/packing/', icon: Backpack, primary: false, customPrimary: true }, //
-  { label: 'Trips', href: '/trips/', icon: Luggage, primary: false, customPrimary: true }, //
-  { label: 'Settings', href: '/settings/', icon: Settings, primary: false }, // — companion (hamburger + palette)
+  { label: 'Packing', href: '/packing/', icon: Backpack, primary: false }, // →: no longer customPrimary
+  { label: 'Documents', href: '/checklist/', icon: FileCheck2, primary: false }, // — was palette-only
+  { label: 'Shared Links', href: '/share/', icon: Inbox, primary: false }, // — was palette-only
+  { label: 'Trips', href: '/trips/', icon: Luggage, primary: false }, // →: no longer customPrimary
+  { label: 'Settings', href: '/settings/', icon: Settings, primary: false }, // — companion (More page + palette)
 ];
 
-/** The 6 daily-use items for the width/slot-constrained surfaces (tab bar, desktop top row)
- * ON THE DEFAULT TRIP. Byte-identical to pre-. */
+/** The daily-use primaries for the width/slot-constrained surfaces (tab bar, desktop top row)
+ * ON THE DEFAULT TRIP.: Today · Plan · Map · Guides (4). */
 export const PRIMARY_NAV_ITEMS: NavItem[] = NAV_ITEMS.filter((item) => item.primary !== false);
 
 /**
@@ -83,11 +94,11 @@ export function navItemsForActiveTrip(): NavItem[] {
 }
 
 /**
- * — the primary tab-bar/desktop-row set for the ACTIVE
- * trip. Default pack: `PRIMARY_NAV_ITEMS` verbatim (6 items, unchanged). Custom trip: the 3
- * `defaultTripOnly` seats (Flights/Nepal/Japan) are dropped and refilled by the 3
- * `customPrimary` companions (Journal/Packing/Trips), in NAV_ITEMS declaration order —
- * Home, Plan, Map, Journal, Packing, Trips. Still exactly 6.
+ * — the primary tab-bar/desktop-row set for the ACTIVE trip. Default
+ * pack: `PRIMARY_NAV_ITEMS` verbatim (Today · Plan · Map · Guides). Custom trip: the
+ * `defaultTripOnly` `Guides` seat is dropped and refilled by the one `customPrimary`
+ * companion (Journal), in NAV_ITEMS declaration order — Today · Plan · Map · Journal (4).
+ * The FORMULA is unchanged from; only the flag DATA above changed what it yields.
  */
 export function primaryItemsForActiveTrip(): NavItem[] {
   if (isDefaultTrip()) return PRIMARY_NAV_ITEMS;

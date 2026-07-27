@@ -3,42 +3,69 @@
 import { useCallback, useRef, useState } from 'react';
 import { getActiveTripId } from '@/core/storage/gateway';
 import { CONCIERGE_URL } from '@/lib/concierge-config';
-import { SSELineBuffer, extractDeltaText } from '@/lib/concierge-sse';
 import { TRIP_DATE_LABEL, TRIP_DATES } from '@/core/dates/trip-dates';
 import { getCityForDate } from '@/core/dates/trip-cities';
 import { itineraryStoragePort } from '@/lib/itinerary-ports';
+import type { Op } from '@/lib/concierge-ops';
 
 export interface ChatTurn {
   role: 'user' | 'assistant';
   content: string;
+  // the RAW ops the Worker attached to this (assistant) turn, as received — NOT yet
+  // validated. Validation is STATE-dependent and must
+  // run against the LIVE itinerary at chip-render time, which this hook has no access to; so the
+  // consuming component (`concierge-chat.tsx`) runs `validateOps(turn.ops, plans)` before showing a
+  // chip. Absent on user turns and on assistant turns that carried no ops (pure chat).
+  ops?: Op[];
 }
 
-const DIGEST_CAP = 1500;
+// Client digest char cap. Coupled to the Worker's CONTEXT_TRUNCATE_LENGTH (worker/src/
+// providers.ts) — BOTH are CHARACTER caps, and the Worker re-slices `context` to its own
+// ceiling before folding it into the system prompt. This cap MUST stay ≤ the Worker ceiling.
+// raised BOTH to 7000 (from 2000) so the whole fully-planned 32-day digest —
+// measured it at 6517 chars — fits without mid-trip truncation. Keep these two constants equal;
+// a higher client cap would ship bytes the server silently discards. (They land + deploy together
+// per the coupling; don't raise one without the other.)
+const DIGEST_CAP = 7000;
 const HISTORY_CAP = 12;
 
 /**
- * Compact plain-text trip-context digest — sent as `context` alongside each concierge
- * call so the model can answer trip-specific questions without the client hand-rolling a
- * bespoke prompt format. Reads the SAME storage path `components/itinerary-provider.tsx`'s
- * store is built on (`itineraryStoragePort.load()` — the Vault gateway, `core/storage/gateway`
- * beneath it) rather than duplicating the load logic; dates/cities come straight from
- * `core/dates`, so there is exactly one source for each fact. Filters tombstoned
- * items (`deleted === true`) the same way `use-itinerary.ts`'s `visiblePlans` does, since the
- * raw Vault load can carry them under sync. Hard-capped at `DIGEST_CAP` chars (truncate + '…')
- * — this is a token-budget guard for the Worker call, not a data-shape decision.
+ * Compact plain-text trip-context digest — sent as `context`
+ * alongside each concierge call so the model can answer trip-specific questions without the client
+ * hand-rolling a bespoke prompt format. Reads the SAME storage path
+ * `components/itinerary-provider.tsx`'s store is built on (`itineraryStoragePort.load()` — the
+ * Vault gateway, `core/storage/gateway` beneath it) rather than duplicating the load logic;
+ * dates/cities come straight from `core/dates`, so there is exactly one source for
+ * each fact. Filters tombstoned items (`deleted === true`) the same way `use-itinerary.ts`'s
+ * `visiblePlans` does, since the raw Vault load can carry them under sync.
+ *
+ * format changes (client-only, read-only — no write, no extra request):
+ * - Each planned item carries its STABLE `ItineraryItem.id` compactly as ` #<id>` so the agent
+ * can address items by real id, never a positional index.
+ * - UNPLANNED days are OMITTED entirely instead of printing a `date (city): unplanned` line each
+ * (32 empty lines wasted ~hundreds of chars). The header states the full range + that any
+ * unlisted date is unplanned, so no information is lost — the model mostly needs the frame plus
+ * the PLANNED items. For a realistically-planned trip (many empty days) this reclaims most of
+ * the budget for real content.
+ * Hard-capped at `DIGEST_CAP` chars (truncate + '…') — a token-budget guard for the Worker call.
+ * NOTE: for a FULLY-planned 32-day trip the whole digest still exceeds 2000 chars, so it truncates
+ * mid-trip; full-trip visibility is completed by D2/ (raise the coupled server+client caps).
  */
-function buildTripDigest(): string {
-  const lines: string[] = [`Trip: ${TRIP_DATE_LABEL}`];
+export function buildTripDigest(): string {
+  const lines: string[] = [
+    `Trip: ${TRIP_DATE_LABEL} (${TRIP_DATES.length} days). Any date not listed below is unplanned. Items tagged #id.`,
+  ];
 
   const plans = itineraryStoragePort.load();
   const byDate = new Map(plans.map((d) => [d.date, d]));
 
   for (const date of TRIP_DATES) {
     const day = byDate.get(date);
-    const city = day?.city ?? getCityForDate(date);
     const items = (day?.items ?? []).filter((i) => i.deleted !== true);
-    const titles = items.map((i) => i.title).join(', ');
-    lines.push(titles ? `${date} (${city}): ${titles}` : `${date} (${city}): unplanned`);
+    if (items.length === 0) continue; // omit unplanned days (frame already covers them)
+    const city = day?.city ?? getCityForDate(date);
+    const entries = items.map((i) => `${i.title} #${i.id}`).join('; ');
+    lines.push(`${date} ${city}: ${entries}`);
   }
 
   const digest = lines.join('\n');
@@ -97,7 +124,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
           body: JSON.stringify({ message: trimmed, history: history.slice(-HISTORY_CAP), context }),
         });
 
-        if (!res.ok || !res.body) {
+        if (!res.ok) {
           const raw = await res.text().catch(() => '');
           let reason = `Concierge is unavailable (${res.status}).`;
           try {
@@ -109,29 +136,23 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
           throw new Error(reason);
         }
 
-        const reader = res.body.getReader();
-        const decoder = new TextDecoder();
-        const buffer = new SSELineBuffer();
-        let assembled = '';
+        // the structured turn returns ONE `application/json` object `{reply, ops}`, not
+        // SSE (constrained JSON can't cleanly interleave streamed prose + a terminal ops block).
+        // `lib/concierge-sse.ts` is now unused for this route — left in place, flagged for later
+        // removal per the brief (do NOT delete this slice).
+        const data = (await res.json().catch(() => ({}))) as { reply?: unknown; ops?: unknown };
+        const reply = typeof data.reply === 'string' ? data.reply : '';
+        // Surface ops RAW (unvalidated) on the assistant turn — the component validates against the
+        // LIVE itinerary at chip-render time (see the ChatTurn.ops comment). Keep only a plain array.
+        const ops: Op[] = Array.isArray(data.ops) ? (data.ops as Op[]) : [];
 
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const events = buffer.push(decoder.decode(value, { stream: true }));
-          for (const evt of events) {
-            const delta = extractDeltaText(evt);
-            if (!delta) continue;
-            assembled += delta;
-            const snapshot = assembled;
-            setMessages((prev) => {
-              const next = prev.slice();
-              next[next.length - 1] = { role: 'assistant', content: snapshot };
-              return next;
-            });
-          }
-        }
-
-        historyRef.current = [...history, userTurn, { role: 'assistant', content: assembled }];
+        setMessages((prev) => {
+          const next = prev.slice();
+          next[next.length - 1] = { role: 'assistant', content: reply, ops };
+          return next;
+        });
+        // History carries the reply text only.
+        historyRef.current = [...history, userTurn, { role: 'assistant', content: reply }];
         setStatus('idle');
       } catch (err) {
         setStatus('error');

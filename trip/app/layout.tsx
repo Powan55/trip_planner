@@ -1,4 +1,4 @@
-import { DM_Sans, Plus_Jakarta_Sans, JetBrains_Mono } from 'next/font/google'
+import { DM_Sans } from 'next/font/google'
 import type { Viewport } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -26,9 +26,9 @@ import {
   TripJoinHandshake,
 } from './chrome-islands'
 
+// ONE font family. `font-display`/`font-mono` now alias `--font-sans`
+// in tailwind.config, so the Plus Jakarta + JetBrains downloads are dropped.
 const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-sans' })
-const jakartaSans = Plus_Jakarta_Sans({ subsets: ['latin'], variable: '--font-display' })
-const jetbrainsMono = JetBrains_Mono({ subsets: ['latin'], variable: '--font-mono' })
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
@@ -74,6 +74,16 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  ///A6 (behavior 6, keyboard-offset): native, zero-JS keyboard handling. The
+  // default ('resizes-visual') leaves the LAYOUT viewport (and any 100vh/100dvh
+  // fixed sheet/dialog sized against it — quick-add, expense dialog, concierge
+  // chat, the dark Sheet) full-height UNDER the keyboard, so a bottom-hugging
+  // input can end up covered. 'resizes-content' shrinks the layout viewport itself
+  // when the on-screen keyboard opens, so those same dvh-sized surfaces reflow
+  // to fit above it — no visualViewport listener/JS needed. Progressive: browsers
+  // that don't recognize the value ignore it and keep today's ('resizes-visual')
+  // behavior, so this can never break anything where it's unsupported.
+  interactiveWidget: 'resizes-content',
   // surface — the visible app surface color (matches the PWA
   // manifest's theme_color/background_color emitted by gen-sw.mjs).
   themeColor: '#0a0e27',
@@ -86,7 +96,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
-      <body className={`${dmSans.variable} ${jakartaSans.variable} ${jetbrainsMono.variable} font-sans bg-surface`}>
+      <body className={`${dmSans.variable} font-sans bg-surface`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -115,9 +125,10 @@ export default function RootLayout({
           {/* `?trip=` shared-link join handshake. Renders null unless a
               `?trip=` link is opened. Root-level (needs no ItineraryProvider). */}
           <TripJoinHandshake />
-          {/* Route-driven warm/cool accent engine. Renders null;
-              reads usePathname() and drives --accent-scroll himalaya↔gold↔sakura.
-              Reduced-motion sets it instantly. */}
+          {/* Trip-phase ambient island. Renders null.
+              Chrome accent is now ONE static gold (route sweep retired); this only
+              stamps data-trip-phase on <html> so the decorative aurora backdrop
+              warms/cools by trip leg (content wayfinding, not chrome). */}
           <RouteAccentEngine />
           <Toaster />
           <ChunkLoadErrorHandler />

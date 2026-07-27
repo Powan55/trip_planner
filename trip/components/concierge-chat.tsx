@@ -2,7 +2,7 @@
 
 import { Fragment, useState, type FormEvent } from 'react';
 import { m } from 'framer-motion';
-import { Sparkles, Send, AlertTriangle } from 'lucide-react';
+import { Sparkles, Send, AlertTriangle, Check, X } from 'lucide-react';
 import {
   Sheet,
   SheetContent,
@@ -14,6 +14,9 @@ import {
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { isConciergeConfigured } from '@/lib/concierge-config';
 import { useConciergeChat } from '@/hooks/use-concierge-chat';
+import { useItinerary } from '@/hooks/use-itinerary';
+import { validateOps, describeOp, applyOp, type Op } from '@/lib/concierge-ops';
+import { showUndoToast } from '@/lib/undo-toast';
 
 /**
  * Tiny inline markdown-lite renderer for assistant replies — NOT a markdown parser,
@@ -82,8 +85,34 @@ export function ConciergeChat() {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const { messages, status, error, send } = useConciergeChat();
+  // The itinerary store is read directly here (not via useItineraryContext) so this self-contained
+  // navbar panel stays independently mountable/testable. createReactiveStore backs both instances
+  // on the SAME localStorage + `itinerary:changed` event bus, so a write here re-reads into
+  // the context copy the calendar/dashboard show — fully consistent, no divergence.
+  const store = useItinerary();
+  const { plans } = store;
+  // Which proposal chips the user has already acted on (confirmed OR dismissed), so they don't
+  // re-render. Keyed per turn + op content (validateOps re-runs each render against LIVE plans, so
+  // a positional index would be unstable; content is stable regardless of which ops survive).
+  const [resolvedOps, setResolvedOps] = useState<Set<string>>(new Set());
 
   if (!isConciergeConfigured() || !traveler) return null;
+
+  const opKey = (turnIndex: number, op: Op) => `${turnIndex}::${JSON.stringify(op)}`;
+  const resolve = (key: string) =>
+    setResolvedOps((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+
+  // Execute ONLY on explicit confirm: route through useItinerary(), then
+  // offer undo capturing pre-state. Dismiss just drops the chip — nothing mutates.
+  const confirmOp = (key: string, op: Op) => {
+    const { message, undo } = applyOp(op, store, plans);
+    showUndoToast(message, undo);
+    resolve(key);
+  };
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -132,26 +161,68 @@ export function ConciergeChat() {
             </p>
           )}
           {messages.map((turn, i) => (
-            <m.div
-              key={i}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2 }}
-              data-testid={`concierge-turn-${turn.role}`}
-              className={
-                turn.role === 'user'
-                  ? 'ml-6 whitespace-pre-wrap rounded-2xl rounded-br-sm bg-gold-400/15 px-3 py-2 text-sm text-white'
-                  : 'mr-6 whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/5 px-3 py-2 text-sm text-white/85'
-              }
-            >
-              {turn.role === 'assistant'
-                ? turn.content
-                  ? renderAssistantContent(turn.content)
-                  : status === 'streaming'
-                    ? '…'
-                    : ''
-                : turn.content}
-            </m.div>
+            <Fragment key={i}>
+              <m.div
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.2 }}
+                data-testid={`concierge-turn-${turn.role}`}
+                className={
+                  turn.role === 'user'
+                    ? 'ml-6 whitespace-pre-wrap rounded-2xl rounded-br-sm bg-gold-400/15 px-3 py-2 text-sm text-white'
+                    : 'mr-6 whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/5 px-3 py-2 text-sm text-white/85'
+                }
+              >
+                {turn.role === 'assistant'
+                  ? turn.content
+                    ? renderAssistantContent(turn.content)
+                    : status === 'streaming'
+                      ? '…'
+                      : ''
+                  : turn.content}
+              </m.div>
+
+              {/* Proposal chips — validated against LIVE plans at render time so a stale
+                  op (target since deleted) silently drops. Nothing mutates until Confirm. */}
+              {turn.role === 'assistant' &&
+                turn.ops &&
+                validateOps(turn.ops, plans).map((op) => {
+                  const key = opKey(i, op);
+                  if (resolvedOps.has(key)) return null;
+                  const label = describeOp(op, plans);
+                  return (
+                    <div
+                      key={key}
+                      role="group"
+                      aria-label={`Proposed change: ${label}`}
+                      data-testid="concierge-op-chip"
+                      className="mr-6 flex items-center justify-between gap-2 rounded-xl border border-gold-400/25 bg-gold-400/5 px-3 py-2"
+                    >
+                      <span className="text-sm text-white/90">{label}</span>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          data-testid="concierge-op-confirm"
+                          onClick={() => confirmOp(key, op)}
+                          aria-label={`Confirm: ${label}`}
+                          className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg bg-gold-500 text-surface outline-none transition-colors hover:bg-gold-400 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                        >
+                          <Check className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="concierge-op-dismiss"
+                          onClick={() => resolve(key)}
+                          aria-label={`Dismiss: ${label}`}
+                          className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                        >
+                          <X className="h-4 w-4" aria-hidden="true" />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+            </Fragment>
           ))}
         </div>
 

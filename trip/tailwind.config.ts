@@ -10,9 +10,15 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
+        // ONE family (DM Sans). `display` + `mono` now ALIAS the sans
+        // var, so all 85 `font-display` + 42 `font-mono` usages resolve to DM Sans
+        // with zero component edits (the Plus Jakarta / JetBrains downloads are
+        // dropped in layout.tsx). `mono` keeps tabular figures via the `tnum`
+        // OpenType feature so numerals (countdown/budget/flights) still align
+        // without a monospace face.
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-display)', 'var(--font-sans)', 'sans-serif'],
-        mono: ['var(--font-mono)', 'ui-monospace', 'monospace'],
+        display: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        mono: [['var(--font-sans)', 'ui-monospace', 'monospace'], { fontFeatureSettings: '"tnum"' }],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
@@ -38,10 +44,19 @@ const config: Config = {
         '2xl': 'var(--shadow-2xl)',
       },
       fontSize: {
-        // v2 editorial DISPLAY scale — additive keys only. Default text-base/lg/xl…
-        // are intentionally NOT redefined (that would shift existing components and
-        // risk overflow). Heroes pair these with font-display +.text-gradient-*;
-        // section overlines use `text-eyebrow uppercase`.
+        // type scale collapsed to ~6 core steps. Rather than remap
+        // every `text-*` across dozens of components, the redundant near-duplicate
+        // keys are re-pointed DOWNWARD onto a neighbour (shrink-only, so no new
+        // overflow risk at the new 17px base): xl→lg, 3xl→2xl, 5xl→4xl. The six
+        // discrete core sizes are then: text-xs · text-sm · text-base(17px) ·
+        // text-lg · text-2xl · text-4xl, plus the editorial `display-*` hero clamps
+        // (below) and the `eyebrow` overline (a distinct role, not a size).
+        // Zero component edits; the collapse is entirely at the token layer.
+        'xl': ['1.125rem', { lineHeight: '1.75rem' }],   // → text-lg
+        '3xl': ['1.5rem', { lineHeight: '2rem' }],       // → text-2xl
+        '5xl': ['2.25rem', { lineHeight: '2.5rem' }],    // → text-4xl
+        // Editorial DISPLAY scale (hero clamps — additive keys). Heroes pair these
+        // with font-display +.text-gradient-*; overlines use `text-eyebrow uppercase`.
         'display-2xl': ['clamp(2.75rem, 6vw, 4.5rem)', { lineHeight: '1.02', letterSpacing: '-0.03em', fontWeight: '600' }],
         'display-xl': ['clamp(2.25rem, 4.6vw, 3.5rem)', { lineHeight: '1.05', letterSpacing: '-0.025em', fontWeight: '600' }],
         'display-lg': ['clamp(1.875rem, 3.4vw, 2.75rem)', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '600' }],

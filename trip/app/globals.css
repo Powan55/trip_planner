@@ -22,17 +22,15 @@
     --secondary-foreground: 210 40% 98%;
     --muted: 220 24% 14%;
     --muted-foreground: 214 20% 68%;
-    /* shadcn interactive-fill accent (menus/toggles/selected) — UNCHANGED hue
-       (sakura). This is the Radix/shadcn "accent" surface token; the scroll
-       warm/cool engine uses the separate --accent-scroll var below so we don't
-       recolor interactive chrome.: stays 340 60% 65%. */
-    --accent: 340 60% 65%;
-    /* accent-foreground flipped light -> DARK. White-on-sakura
-       composited to ~2.97:1 (under the 4.5:1 AA floor) on the cmdk selected item
-       — and every other bg-accent consumer (dropdown/context/menubar/select/
-       toggle focus+on states) pairs the same two tokens, so the ONE token flip
-       fixes them all. Value = the --primary-foreground dark navy; measured
-       ~6.0:1 on the sakura accent. accent HUE (340 60% 65%) untouched. */
+    /* shadcn interactive-fill accent (menus/toggles/selected).: unified
+       to GOLD — the single chrome accent site-wide. This RETIRES sakura
+       interactive-fill; the sakura/himalaya hues survive only as CONTENT wayfinding
+       (section tints, guide cards, map legs), never on interactive chrome. */
+    --accent: 44 80% 61%;
+    /* accent-foreground stays the dark navy. Gold (44 80% 61%) is
+       LIGHTER than the former sakura, so dark-on-accent contrast RISES, not falls —
+       every bg-accent consumer (cmdk selected item, dropdown/menubar/select/toggle)
+       stays ≥AA under the switch. */
     --accent-foreground: 222 36% 6%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
@@ -65,8 +63,15 @@
 
     /* ---- Brand accent channels (HSL triplets, for hsl()/rgba() reuse) ---- */
     --gold: 44 80% 61%;
-    --sakura: 344 80% 78%;     /* Japan accent */
-    --himalaya: 22 100% 63%;   /* Nepal accent */
+    --sakura: 344 80% 78%;     /* Japan — CONTENT wayfinding only, never chrome */
+    --himalaya: 22 100% 63%;   /* Nepal — CONTENT wayfinding only, never chrome */
+
+    /* ---- hairline separator — ONE token for de-glassed content edges.
+       Space-separated RGB channels + alpha so `rgb(var(--hairline))` resolves
+      . Replaces the per-glass gradient border
+       edges the de-glass removes. Nav/tab-bar/input `border-white/1x` literals are
+       left as-is for A5 (nav layer; a later Lane-E tidy). */
+    --hairline: 255 255 255 / 0.08;
 
     /* ---- semantic tokens ----
        --accent-scroll: the SINGLE scroll-driven accent. Defaults to gold;
@@ -106,13 +111,17 @@
        Blended via background-blend-mode — no extra element, no layout box. */
     --grain-soft: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
 
-    /* ---- Elevation tiers (deeper, layered shadows for premium depth) ---- */
+    /* ---- Elevation tiers —: collapsed to TWO (resting + elevated).
+       --shadow-sm = resting (content surfaces); --shadow-lg = elevated (sheets,
+       dialogs, nav). --shadow-md/-xl/-2xl are ALIASES so every existing
+       `shadow-*` utility + glass box-shadow resolves through the two survivors
+       with zero component edits. --shadow-glow (below) is a separate accent
+       EFFECT, not an elevation tier — kept. */
     --shadow-sm: 0 1px 2px rgba(3, 6, 18, 0.40);
-    --shadow-md: 0 6px 18px -4px rgba(3, 6, 18, 0.50), 0 2px 6px -2px rgba(3, 6, 18, 0.35);
     --shadow-lg: 0 16px 40px -8px rgba(3, 6, 18, 0.58), 0 4px 12px -4px rgba(3, 6, 18, 0.40);
-    --shadow-xl: 0 28px 64px -12px rgba(3, 6, 18, 0.66), 0 8px 20px -6px rgba(3, 6, 18, 0.45);
-    /* v2: deepest elevation ramp for hero/panel surfaces (additive key). */
-    --shadow-2xl: 0 40px 90px -20px rgba(2, 5, 16, 0.72), 0 12px 30px -10px rgba(2, 5, 16, 0.55);
+    --shadow-md: var(--shadow-sm);
+    --shadow-xl: var(--shadow-lg);
+    --shadow-2xl: var(--shadow-lg);
     /* Glow keyed to the scroll accent so it warms/cools with the page,
        nudged a touch richer in v2 (still sized within prior glow footprint). */
     --shadow-glow: 0 0 0 1px hsl(var(--accent-scroll) / 0.22), 0 0 34px hsl(var(--accent-scroll) / 0.26);
@@ -239,115 +248,121 @@
 }
 
 html {
+  /* body base 17px (iOS-native density). Tailwind's rem-based scale
+     derives from this, so 106.25% (=17/16) scales the whole type system uniformly.
+     The full 0-overflow matrix is re-run at 360/390/414 for this change.
+     (The TM legibility toggle's 112.5% override stays more specific and still wins
+     while stamped; iOS input-zoom fix pins inputs at 16px, unaffected.) */
+  font-size: 106.25%;
   scroll-behavior: smooth;
+  /*/A6 · behavior 4 (tap-highlight): iOS/Android paint a grey flash rect on any
+     tappable element on `touchstart`. Suppressed app-wide — the app already has its
+     own hover/active states plus the `:focus-visible` ring below for keyboard, so
+     nothing here removes focus, it only removes the redundant tap flash. */
+  -webkit-tap-highlight-color: transparent;
+  /*/A6 · behavior 3 (standalone overscroll): stop the page's own scroll from
+     CHAINING to the browser/OS chrome (the pull-past-top/bottom "rubber-band bleed"
+     that's most visible once installed as a standalone PWA,). Native iOS
+     Safari has no CSS property that kills the bounce ITSELF (see the identical
+     caveat on `.travel-mode-root`,) — this only stops the chain-through. */
+  overscroll-behavior-y: contain;
 }
 
-/* ---- Glass hierarchy ----
-   A three-tier translucent surface system. Each surface gets a richer multi-stop
-   navy/tint fill, a GRADIENT HAIRLINE EDGE, a stronger inner top-highlight, and
-   layered drop shadow.
+/* ---- Surfaces ------------------------------------
+   Apple-HIG correction: glass/vibrancy belongs on the NAV/OVERLAY layer, not on
+   CONTENT. The former six translucent `.glass-*` tiers are gutted to SOLID
+   `surface-raised` fills with a flat `--hairline` edge and the resting shadow —
+   edited at the class BODY, so every one of the ~60 consumers repaints solid with
+   ZERO component edits. Removing the translucent scrim makes text sit on a darker,
+   fully-opaque fill, so contrast RISES.
 
-   Gradient-edge technique (no extra element, no layout box, so 0-overflow @360/
-   390/414 holds —): a transparent 1px border is painted by TWO stacked
-   backgrounds — the fill clipped to `padding-box` and the edge gradient clipped
-   to `border-box`. Insets in `box-shadow` also add no layout box. Brand tint per
-   surface is preserved (gold / white / himalaya / sakura). */
-/* Glass 2.0: every tier keeps its 1px gradient border + fill, gains the
-   film-grain NOISE as a top background layer (var(--grain-soft), blended with
-   `background-blend-mode: overlay` — per-layer, no extra element, holds),
-   and drops to a SUBTLER blur (-6px per tier) so content behind glass reads as
-   depth, not mush. Fill/edge gradient literals unchanged. */
-.glass-card {
-  background:
-    var(--grain-soft) padding-box,
-    linear-gradient(180deg, rgba(28, 36, 84, 0.66) 0%, rgba(16, 21, 60, 0.60) 100%) padding-box,
-    linear-gradient(150deg, rgba(240, 199, 96, 0.22) 0%, rgba(255, 255, 255, 0.06) 55%, rgba(240, 199, 96, 0.05) 100%) border-box;
-  background-size: 140px 140px, auto, auto;
-  background-blend-mode: overlay, normal, normal;
-  border: 1px solid transparent;
-  backdrop-filter: blur(14px) saturate(130%);
-  -webkit-backdrop-filter: blur(14px) saturate(130%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-    var(--shadow-lg);
+   The ONE surviving glass recipe lives in `.sheet-surface` (below) and is consumed
+   only by the Sheet primitive — the nav/overlay layer, HIG-legal. The
+   navbar/tab-bar hand-roll their own `backdrop-blur` and are untouched.
+
+   Country tints (himalaya/sakura) survive as CONTENT wayfinding: `.glass-nepal`
+   /`.glass-japan` keep a SOLID low-alpha brand tint over the navy fill. */
+.glass-card,
+.glass-subtle {
+  background: rgb(var(--surface-raised));
+  border: 1px solid rgb(var(--hairline));
+  box-shadow: var(--shadow-sm);
 }
 
+/* Elevated content/overlay consumers (dialogs, content panels) — solid + the
+   elevated shadow. Its former sheet glass moved to `.sheet-surface`. */
 .glass-card-dark {
+  background: rgb(var(--surface-raised));
+  border: 1px solid rgb(var(--hairline));
+  box-shadow: var(--shadow-lg);
+}
+
+/* Nepal — solid himalaya tint over the navy fill (content wayfinding, not chrome). */
+.glass-nepal {
+  background: linear-gradient(0deg, rgb(255 140 66 / 0.10), rgb(255 140 66 / 0.10)), rgb(var(--surface-raised));
+  border: 1px solid rgb(var(--hairline));
+  box-shadow: var(--shadow-sm);
+}
+
+/* Japan — solid sakura tint over the navy fill (content wayfinding, not chrome). */
+.glass-japan {
+  background: linear-gradient(0deg, rgb(247 160 179 / 0.10), rgb(247 160 179 / 0.10)), rgb(var(--surface-raised));
+  border: 1px solid rgb(var(--hairline));
+  box-shadow: var(--shadow-sm);
+}
+
+/* Page heroes/panels — solid, larger radius preserved, resting shadow. */
+.glass-panel {
+  background: rgb(var(--surface-raised));
+  border: 1px solid rgb(var(--hairline));
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-sm);
+}
+
+/* ---- The ONE surviving glass recipe --------------------------
+   Consumed ONLY by the shared dark `Sheet` primitive (components/ui/sheet.tsx) —
+   the nav/overlay layer (place-detail / import-place / guide-filter sheets), which
+   is HIG-legal for glass. This is the former `.glass-card-dark` glass body, minus
+   the grain layer; the 1px gradient edge + blur + elevated shadow are kept. */
+.sheet-surface {
   background:
-    var(--grain-soft) padding-box,
     linear-gradient(180deg, rgba(13, 18, 48, 0.88) 0%, rgba(9, 13, 36, 0.86) 100%) padding-box,
     linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 55%, rgba(255, 255, 255, 0.02) 100%) border-box;
-  background-size: 140px 140px, auto, auto;
-  background-blend-mode: overlay, normal, normal;
   border: 1px solid transparent;
   backdrop-filter: blur(18px) saturate(130%);
   -webkit-backdrop-filter: blur(18px) saturate(130%);
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
-    var(--shadow-xl);
-}
-
-.glass-nepal {
-  background:
-    var(--grain-soft) padding-box,
-    linear-gradient(180deg, rgba(255, 140, 66, 0.12) 0%, rgba(230, 118, 53, 0.06) 100%) padding-box,
-    linear-gradient(150deg, rgba(255, 140, 66, 0.34) 0%, rgba(255, 200, 160, 0.10) 55%, rgba(255, 140, 66, 0.08) 100%) border-box;
-  background-size: 140px 140px, auto, auto;
-  background-blend-mode: overlay, normal, normal;
-  border: 1px solid transparent;
-  backdrop-filter: blur(11px) saturate(125%);
-  -webkit-backdrop-filter: blur(11px) saturate(125%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 210, 175, 0.10),
     var(--shadow-lg);
 }
 
-.glass-japan {
-  background:
-    var(--grain-soft) padding-box,
-    linear-gradient(180deg, rgba(247, 160, 179, 0.12) 0%, rgba(247, 160, 179, 0.06) 100%) padding-box,
-    linear-gradient(150deg, rgba(247, 160, 179, 0.34) 0%, rgba(255, 220, 230, 0.10) 55%, rgba(247, 160, 179, 0.08) 100%) border-box;
-  background-size: 140px 140px, auto, auto;
-  background-blend-mode: overlay, normal, normal;
-  border: 1px solid transparent;
-  backdrop-filter: blur(11px) saturate(125%);
-  -webkit-backdrop-filter: blur(11px) saturate(125%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 225, 233, 0.10),
-    var(--shadow-lg);
-}
+/* ---- · AA floor for low-opacity tertiary text ------------------
+   The de-glass replaced the gradient background-IMAGE fills — which axe cannot
+   flatten, so it returned "incomplete" (NOT a violation) for text on them — with
+   SOLID surfaces axe CAN evaluate. That exposed pre-existing sub-AA tertiary text:
+   `text-white/25..45` maxes at ~3.7:1 even over pure black, so NO surface darken
+   saves it. This floors those low tiers to
+   an AA-passing alpha on the dark navy surfaces (≥4.5:1 verified against the
+   lightest realistic fill — a `bg-white/10` chip over `surface-raised`). Monotonic
+   RAISE only, so it never lowers contrast anywhere it applies.
 
-/* v2 optional tiers (additive — consumed by hero/skeleton, and available for
-   progressive adoption). Nothing renamed to introduce these. */
-.glass-panel {
-  background:
-    var(--grain-soft) padding-box,
-    linear-gradient(180deg, rgba(24, 31, 74, 0.70) 0%, rgba(14, 19, 54, 0.64) 100%) padding-box,
-    linear-gradient(150deg, rgba(240, 199, 96, 0.26) 0%, rgba(255, 255, 255, 0.07) 55%, rgba(240, 199, 96, 0.06) 100%) border-box;
-  background-size: 140px 140px, auto, auto;
-  background-blend-mode: overlay, normal, normal;
-  border: 1px solid transparent;
-  border-radius: var(--radius-2xl);
-  backdrop-filter: blur(18px) saturate(135%);
-  -webkit-backdrop-filter: blur(18px) saturate(135%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.09),
-    var(--shadow-2xl);
-}
-
-.glass-subtle {
-  background:
-    var(--grain-soft) padding-box,
-    linear-gradient(180deg, rgba(24, 31, 72, 0.42) 0%, rgba(16, 21, 58, 0.38) 100%) padding-box,
-    linear-gradient(150deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 60%, rgba(255, 255, 255, 0.02) 100%) border-box;
-  background-size: 140px 140px, auto, auto;
-  background-blend-mode: overlay, normal, normal;
-  border: 1px solid transparent;
-  backdrop-filter: blur(9px) saturate(120%);
-  -webkit-backdrop-filter: blur(9px) saturate(120%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
-    var(--shadow-sm);
+   Placed in `@layer utilities` (not unlayered) DELIBERATELY: at equal specificity
+   it beats Tailwind's own `text-white/NN` utility by later source order, but a
+   `hover:text-white` (specificity 0,2,0) still wins — so hover brightening is
+   preserved with NO `!important`. The `~=` matcher targets the exact base token,
+   leaving `border-white/NN` and responsive/variant tokens untouched. TM's
+   legibility `!important` rule still overrides this under `data-tm-legibility`. */
+@layer utilities {
+  [class~='text-white/25'],
+  [class~='text-white/30'],
+  [class~='text-white/35'],
+  [class~='text-white/40'],
+  [class~='text-white/45'],
+  [class~='text-white/50'],
+  [class~='text-white/55'],
+  [class~='text-white/60'] {
+    color: rgb(255 255 255 / 0.62);
+  }
 }
 
 /* companion: secondary text INSIDE the cmdk selected item (e.g. the
@@ -872,4 +887,36 @@ html[data-vt-active] .animate-route-fade {
    typography is untouched; !important is needed to beat the Tailwind text-sm utility. */
 @supports (-webkit-touch-callout: none) {
   input, select, textarea { font-size: 16px !important; }
+}
+
+/* ──/A6 · behavior 2 (safe-area insets) ──────────────────────────────────
+   Audited, no gap: `viewport-fit=cover` is already set app-wide (app/layout.tsx,
+  ); `env(safe-area-inset-*)` is already used across the tab bar (bottom,
+  ), the Sonner toaster, and `.travel-mode-root`/
+   `.tm-thumb-zone`. Nothing added here — re-adding a
+   left/right inset to the navbar/tab-bar's own responsive `px-4`/`sm:px-6`
+   padding via a blind CSS override risks REPLACING (not adding to) that padding
+   at breakpoints where the inset is 0, which would be a regression, not a fix. */
+
+/* ──/A6 · behavior 7 (reduced-transparency fallback) ─────────────────────
+   left exactly ONE glass recipe standing: `.sheet-surface` (the dark
+   Sheet primitive) plus the navbar/tab-bar's own hand-rolled `backdrop-blur`
+  . Under the OS "reduce
+   transparency" setting, degrade JUST that surviving nav-layer glass to an opaque
+   solid — content is already de-glassed at the token layer and is NOT
+   touched here, so this can never reintroduce glass on content. Plain (unlayered)
+   CSS, so it wins over the Tailwind utility layer without needing `!important`
+   (same idiom as `.glass-card`/`.sheet-surface` above). */
+@media (prefers-reduced-transparency: reduce) {
+  .sheet-surface {
+    background: rgb(var(--surface-raised));
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  [data-testid="navbar"],
+  [data-testid="tab-bar"] {
+    background: rgb(var(--navy-900) / 0.98);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
 }
