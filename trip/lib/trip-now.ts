@@ -155,7 +155,7 @@ function tripOffsetMinFor(now: Date): number | null {
   const trip = getActiveTrip();
   if (!trip.legs.some((l) => l.utcOffsetMin !== 0)) return null; // custom: no geography → device-local
   const seed = trip.legs[0].utcOffsetMin; // Nepal +345 for the default pack
-  const provisional = utcDayAtOffset(now, seed); // ponytail: two-pass assumes
+  const provisional = utcDayAtOffset(now, seed); // two-pass assumes
   return legForDate(trip, provisional).utcOffsetMin; // chronological, non-decreasing (eastbound) legs
 }
 

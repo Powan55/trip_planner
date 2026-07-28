@@ -579,7 +579,7 @@ html[data-vt-active] .animate-route-fade {
    any live route-nav transition valid (duplicate names abort a VT). If `--vt-name` is
    unset the property is invalid-at-computed-value → `none` (initial), so the class is
    harmless on any element that hasn't opted a name in.
-   ponytail: card↔detail here is groundwork only — the sheet-open path is not yet
+  : card↔detail here is groundwork only — the sheet-open path is not yet
    VT-wrapped (out of this slice's nav-trigger scope). Wire it when the detail open
    itself runs inside startViewTransition. */
 @supports (view-transition-name: none) {
@@ -848,7 +848,7 @@ html[data-vt-active] .animate-route-fade {
      variance without hardcoding a per-model number. */
 
   /* — overscroll containment. `contain` stops scroll-chaining out of the TM root to
-     the document/body. KNOWN LIMITATION (ponytail: partial, no upgrade in CSS): iOS Safari
+     the document/body. KNOWN LIMITATION: iOS Safari
      has NO property that fully kills the elastic rubber-band at the very top/bottom edge —
      `overscroll-behavior` there only prevents chaining, not the bounce itself. Full
      rubber-band suppression would need a JS touch-handler (deferred; not worth it for a
@@ -874,6 +874,12 @@ html[data-vt-active] .animate-route-fade {
 }
 .tm-thumb-zone:empty {
   display: none;
+}
+/* — once the band actually holds an action (the concierge trigger), reserve room for it so
+   the fixed band never sits on top of the last card. Inert while the band is empty (every dormant
+   build today), so the collapsed-band layout above is unchanged. */
+.travel-mode-root:has(> .tm-thumb-zone > *) {
+  padding-bottom: calc(4rem + env(safe-area-inset-bottom));
 }
 .tm-thumb-zone > * {
   min-width: 44px;

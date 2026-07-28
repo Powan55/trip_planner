@@ -7,7 +7,7 @@ import { useOnline } from '@/hooks/use-online';
  * — Travel Mode connection line. A visible, honest "are my changes safe" indicator on the
  * during-trip screen (this screen gets used on dead connections).
  *
- * ponytail: no last-sync TIMESTAMP is tracked anywhere to show a literal "synced HH:MM" — the
+ * no last-sync TIMESTAMP is tracked anywhere to show a literal "synced HH:MM" — the
  * itinerary/expenses/budget/docs sync layer is fire-and-forget (flushOutbox + onSnapshot in
  * itinerary-provider), and nothing persists or exposes a `pushedAt`/`pulledAt` on the store. So
  * this shows honest CONNECTION state from the one existing signal (`useOnline()` ← navigator.onLine),

@@ -196,6 +196,9 @@ export const layoverSchema = z
     airportCode: z.string().min(1),
     airportName: z.string().min(1).optional(),
     duration: z.string().min(1), // verbatim — NEVER recomputed
+    // authored human judgement about the layover, never derived from `duration`
+    // Optional — most layovers carry no verdict.
+    verdict: z.enum(['relaxed', 'normal', 'tight']).optional(),
   })
   .strict();
 
@@ -209,6 +212,9 @@ export const journeySchema = z
     totalDuration: z.string().min(1), // verbatim — NEVER recomputed
     legs: z.array(flightLegSchema).min(1),
     layovers: z.array(layoverSchema),
+    // the authored ISO departure day the flight-phase clock targets. Authored, never
+    // parsed out of the verbatim labels — that is the whole point of.
+    departDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
   })
   .strict()
   // The documented positional contract (booking-data.ts): layovers sit BETWEEN legs, so there

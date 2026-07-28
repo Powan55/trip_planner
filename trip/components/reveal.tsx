@@ -35,7 +35,7 @@ import type { ReactNode } from 'react';
  * emit the framer path (hydration-consistent), and supporting browsers swap to
  * the CSS element right after mount — mirrors scroll-progress.tsx exactly.
  *
- * ponytail: unlike the framer path's `viewport:{once:true}` (plays once, then
+ * unlike the framer path's `viewport:{once:true}` (plays once, then
  * stays revealed forever), a native view-timeline has no "play once" primitive
  * — it is a pure function of current scroll position, so scrolling an
  * already-revealed section back OUT of its `entry` range and back in will

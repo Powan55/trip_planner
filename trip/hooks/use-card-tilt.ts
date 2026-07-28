@@ -66,7 +66,7 @@ const gyroSubs = new Set<GyroSub>();
 let gyroListening = false;
 let gyroGranted = false;
 
-// ponytail: gyro calibration is untunable without a physical device — a phone held
+// gyro calibration is untunable without a physical device — a phone held
 // at a ~45° reading angle should sit flat. These are the tuning knobs; adjust on
 // real-device feedback if the neutral or sensitivity feels off.
 const GYRO_NEUTRAL_BETA = 45; // front-back angle treated as "flat"

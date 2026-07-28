@@ -21,6 +21,8 @@ import { TRIP_DATE_LABEL, formatDateLong } from '@/core/dates';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
 import { resolveTravelDate } from '@/lib/travel-date';
+import { useActiveTraveler } from '@/hooks/use-active-traveler';
+import { withBasePath } from '@/lib/utils';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import TravelDayStrip from '@/components/travel-day-strip';
 import TravelHeroCard from '@/components/travel-hero-card';
@@ -52,6 +54,16 @@ const TravelTonightCard = dynamic(() => import('@/components/travel-tonight-card
   loading: () => <div aria-hidden="true" className="mx-auto mt-4 min-h-0 max-w-2xl" />,
 });
 
+// — the day's map (a collapsed <details> hosting the existing <PlanDayMap>). Same nested
+// dynamic(ssr:false) island pattern as the three above: its own chunk, and the maplibre
+// runtime inside it stays interaction-lazy because the pane only renders once the row is opened.
+const TravelDayMap = dynamic(() => import('@/components/travel-day-map'), {
+  ssr: false,
+  loading: () => (
+    <div aria-hidden="true" className="mx-auto mt-4 min-h-[48px] max-w-2xl rounded-2xl glass-card" />
+  ),
+});
+
 /** Rebuild the current query string with `date` set/cleared, preserving every other param
  * — mirrors calendar-planner's `?focus=` strip-and-replace. */
 function withDateParam(current: URLSearchParams, date: string | null): string {
@@ -65,6 +77,14 @@ function withDateParam(current: URLSearchParams, date: string | null): string {
 export default function TravelDatePicker() {
   const { hydrated } = useItineraryContext();
   const searchParams = useSearchParams();
+  // Travel Mode stays guest-blocked. Until a guest reaching `/travel` was caught
+  // by TokenGate's guest-route wall; that wall is gone (guests now roam every other route), so the
+  // block lives HERE — one guard on the island that owns the whole page, covering every entry point
+  // (nav button, bento, in-trip card, PWA relaunch, direct URL) instead of each affordance.
+  const { isGuest } = useActiveTraveler();
+  useEffect(() => {
+    if (isGuest) window.location.replace(withBasePath('/'));
+  }, [isGuest]);
 
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
   const [nowMs, setNowMs] = useState<number>(0);
@@ -185,6 +205,11 @@ export default function TravelDatePicker() {
       {/* CHECKLIST-FIRST — the day's plan is
           now the primary thing on screen. */}
       <TravelAgendaCard date={selectedDate} />
+
+      {/* — the day's stops on a map, directly under the checklist they belong to. Scoped to
+          `selectedDate` ONLY (one day plan in, one day's pins out) and re-scoped automatically on
+          every chip tap, since this whole subtree re-renders with the new resolved date. */}
+      <TravelDayMap date={selectedDate} />
 
       {/* — the "Log something different" quick-add (T3): an inline ≤2-field add (title +
           optional category) that lands an item on the viewed day ALREADY checked `done` (

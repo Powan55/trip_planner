@@ -12,7 +12,7 @@ import { getTodayInTrip } from '@/lib/trip-now';
  * simply rests at its gold default in globals.css and nothing re-colours it, so
  * every consumer (section-heading underline, `:focus-visible` ring, `--shadow-glow`,
  * today-pulse, drag glow, cmdk) is uniformly gold, route-independent. The whole
- * rAF HSL tween + per-route accent table are deleted (ponytail: dead once chrome
+ * rAF HSL tween + per-route accent table are deleted (: dead once chrome
  * unified).
  *
  * What survives is the AMBIENT backdrop's leg colouring — CONTENT wayfinding, not

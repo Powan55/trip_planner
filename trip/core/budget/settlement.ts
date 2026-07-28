@@ -18,7 +18,7 @@
  * result is one `LegSettlement` per leg that has ≥1 attributable split expense. NPR and JPY are
  * NEVER summed — each leg carries its own `currency` for display.
  *
- * Even-split only (ponytail: a boys-trip settles even; weighted split is a rare later affordance).
+ * Even-split only.
  */
 
 import type { Expense } from './expenses';
@@ -103,8 +103,8 @@ export function settle(
 /**
  * Greedy minimal-transfer solver: repeatedly settle the largest creditor against the largest
  * debtor. Each step exhausts at least one party, so it emits ≤ (creditors+debtors)−1 ≤ participants−1
- * transfers. Not an LP optimum (ponytail: greedy is correct + minimal for the ≤3-person trip case).
- * ponytail: O(n log n) greedy; swap for an exact solver only if a many-person split ever ships.
+ * transfers. Not an LP optimum.
+ * O(n log n) greedy; swap for an exact solver only if a many-person split ever ships.
  */
 function minimalTransfers(balances: Record<string, number>, order: readonly string[]): Transfer[] {
   const rank = (id: string) => {

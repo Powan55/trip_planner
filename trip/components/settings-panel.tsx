@@ -22,7 +22,7 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
-import { signOut } from '@/lib/token-auth';
+import { signOut, exitGuest } from '@/lib/token-auth';
 import { getActiveTripId, DEFAULT_TRIP_ID, getSyncCode, setSyncCode } from '@/core/storage/gateway';
 import { joinTrip } from '@/core/trips/registry';
 import { getTripId } from '@/lib/firebase-config';
@@ -91,6 +91,16 @@ export default function SettingsPanel() {
   useEffect(() => setMounted(true), []);
   const name = mounted ? traveler?.name ?? null : null;
 
+  /**
+   * a capability SECRET — this trip's Trip Token, its `?trip=` share link, and the
+   * personal User Token — requires an identified traveler, as does every trip-mutating registry
+   * action (create / add / switch). Under a guest now roams to `/settings/`, and these
+   * surfaces render the DEFAULT pack's live write capability; showing them to an anonymous visitor
+   * would hand over the friends' trip. Guests get the sign-in affordance instead. False until
+   * mounted so nothing flashes before storage is read.
+   */
+  const identified = mounted && traveler !== null;
+
   return (
     <section
       aria-labelledby="settings-title"
@@ -112,18 +122,18 @@ export default function SettingsPanel() {
           testId="settings-group-trip"
           icon={<KeyRound className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />}
           title="Trip"
-          summary="Create a new trip, join one by key, or share this trip"
+          summary="Create a trip, add one by Trip Token, or share this trip"
         >
-          <TripGroup />
+          {identified ? <TripGroup /> : <GuestGate what="trip" />}
         </SettingsGroup>
 
         <SettingsGroup
           testId="settings-group-sync"
           icon={<Smartphone className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />}
-          title="Sync across devices"
-          summary="Show your trips on your phone and laptop with a personal sync code"
+          title="Your User Token"
+          summary="Your account key — log in with it on another device to see the same trips"
         >
-          <SyncGroup />
+          {identified ? <SyncGroup /> : <GuestGate what="sync" />}
         </SettingsGroup>
 
         <SettingsGroup
@@ -191,7 +201,36 @@ function SettingsGroup({
   );
 }
 
-/** Identity group: the signed-in traveler + a Sign out control. */
+/**
+ * What a GUEST sees where a capability secret would be. No key, no link, no code,
+ * no create/join — just an honest explanation and the one control that gets them identified
+ *.
+ */
+function GuestGate({ what }: { what: 'trip' | 'sync' }) {
+  return (
+    <div
+      data-testid={`settings-guest-gate-${what}`}
+      className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+    >
+      <h3 className="text-sm font-semibold text-white">Log in to unlock this</h3>
+      <p className="mt-1 max-w-2xl text-sm text-white/60">
+        {what === 'trip'
+          ? 'You’re exploring the demo. A trip’s Trip Token lets anyone view and edit that trip, so it’s only shown to a logged-in user — log in to see this trip’s Trip Token, create a trip, or add one.'
+          : 'You’re exploring the demo. A User Token is an account credential, so it’s only shown to the logged-in user it belongs to.'}
+      </p>
+      <button
+        type="button"
+        onClick={exitGuest}
+        data-testid={`settings-guest-signin-${what}`}
+        className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+      >
+        Log in or create an account
+      </button>
+    </div>
+  );
+}
+
+/** Identity group: the signed-in traveler + a Sign out control (Sign IN for a guest). */
 function IdentityGroup({ name }: { name: string | null }) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -207,30 +246,34 @@ function IdentityGroup({ name }: { name: string | null }) {
         <p className="mt-1 max-w-md text-sm text-white/60">
           {name
             ? 'Your itinerary edits are attributed to you across the shared trip.'
-            : 'You are browsing locally. Sign in with a nickname to attribute your edits.'}
+            : 'You are browsing the demo locally. Log in with your User Token to attribute your edits.'}
         </p>
       </div>
+      {/* for a GUEST, "Sign out" was a dead control (it clears an identity that isn't there
+          and leaves the guest flag set, so no wall returns). Now that guests roam to /settings/
+         , the same slot offers the transition that actually applies: exit the demo. */}
       <button
         type="button"
-        onClick={() => signOut()}
-        data-testid="settings-sign-out"
+        onClick={() => (name ? signOut() : exitGuest())}
+        data-testid={name ? 'settings-sign-out' : 'settings-sign-in'}
         className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
       >
         <LogOut className="h-4 w-4" aria-hidden="true" />
-        Sign out
+        {name ? 'Sign out' : 'Sign in'}
       </button>
     </div>
   );
 }
 
 /**
- * Trip group — create a new trip, join one by its Trip Key, and share the
- * current trip. All three reuse the pack-switch primitive VERBATIM: `setActiveTripId(id)`
- * then a full page reload (no live re-hydration). Create mints a fresh `crypto.randomUUID()`
- * capability token; join accepts a pasted key (only non-empty is validated — an
- * unknown key just resolves to an empty, harmless, never-synced trip,). The current Trip Key
- * is `getTripId()` (the REMOTE capability token) — treated as a SECRET in copy: anyone holding it
- * can read+write this trip.
+ * Trip group — create a trip, add one by its Trip Token, and share
+ * the current trip. All three reuse the pack-switch primitive VERBATIM: `setActiveTripId(id)`
+ * then a full page reload (no live re-hydration). Create mints a fresh `crypto.randomUUID()` Trip
+ * Token; add accepts a pasted Trip Token (only non-empty is validated — an unknown one just
+ * resolves to an empty, harmless, never-synced trip,). The current Trip Token is `getTripId()`
+ * (the REMOTE capability) — treated as a SECRET in copy: anyone holding it can read+write this trip
+ * It is NOT the User Token, which is the account credential
+ * and lives in its own group below — the two are never mixed.
  *
  * Deliberately NOT inside `TokenGate`: the front-door wall stays a zero-regression surface;
  * trip management is an opt-in Settings action most default-pack demo visitors never touch.
@@ -241,7 +284,7 @@ function TripGroup() {
   const [copied, setCopied] = useState<'key' | 'link' | null>(null);
   // True once mounted iff the browser is on a non-default (shared/created) pack — drives the
   // "Switch to my main trip" affordance. SSR-false so the button never flashes on the
-  // grandfathered default pack; read client-side like the trip key below.
+  // grandfathered default pack; read client-side like the Trip Token below.
   const [onSharedTrip, setOnSharedTrip] = useState(false);
 
   // Read the active trip's remote token + pack identity after mount (client-only; ssr:false island).
@@ -315,12 +358,13 @@ function TripGroup() {
         </div>
       )}
 
-      {/* Current Trip Key — the shareable secret for THIS trip. */}
+      {/* Current Trip Token — the shareable secret for THIS trip (and only this trip). */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">This trip&rsquo;s key</h3>
+        <h3 className="text-sm font-semibold text-white">This trip&rsquo;s Trip Token</h3>
         <p className="mt-1 flex items-start gap-1.5 text-xs text-white/50">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          Treat this like a password — anyone with this key can view and edit this trip.
+          Share this to invite someone to THIS trip &mdash; anyone holding it can view and edit it.
+          It opens nothing else in your account.
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <code
@@ -342,7 +386,7 @@ function TripGroup() {
               ) : (
                 <Copy className="h-4 w-4" aria-hidden="true" />
               )}
-              {copied === 'key' ? 'Copied' : 'Copy key'}
+              {copied === 'key' ? 'Copied' : 'Copy Trip Token'}
             </button>
             <button
               type="button"
@@ -361,16 +405,16 @@ function TripGroup() {
           </div>
         </div>
         <div aria-live="polite" className="sr-only">
-          {copied === 'key' ? 'Trip key copied to clipboard' : copied === 'link' ? 'Share link copied to clipboard' : ''}
+          {copied === 'key' ? 'Trip Token copied to clipboard' : copied === 'link' ? 'Share link copied to clipboard' : ''}
         </div>
       </div>
 
       {/* Create a brand-new trip. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">Start a new trip</h3>
+        <h3 className="text-sm font-semibold text-white">Create a trip</h3>
         <p className="mt-1 max-w-2xl text-sm text-white/60">
-          Creates a fresh, empty trip with its own key. You&rsquo;ll switch to it now; share its key
-          to plan together.
+          Creates a fresh, empty trip with its own Trip Token. You&rsquo;ll switch to it now; share
+          that Trip Token to plan together.
         </p>
         <button
           type="button"
@@ -383,24 +427,25 @@ function TripGroup() {
         </button>
       </div>
 
-      {/* Join an existing trip by pasting its Trip Key. */}
+      {/* Add an existing trip by pasting its Trip Token. */}
       <form
         onSubmit={join}
         className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
       >
-        <h3 className="text-sm font-semibold text-white">Join a trip</h3>
+        <h3 className="text-sm font-semibold text-white">Add a trip by Trip Token</h3>
         <p className="mt-1 max-w-2xl text-sm text-white/60">
-          Paste a Trip Key someone shared with you to switch this browser to their trip.
+          Paste the Trip Token a friend shared with you to add their trip and switch to it. Your own
+          User Token is a login, not a trip &mdash; it never goes here.
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
           <label htmlFor="settings-trip-join" className="sr-only">
-            Trip key to join
+            Trip Token to add
           </label>
           <input
             id="settings-trip-join"
             value={joinValue}
             onChange={(e) => setJoinValue(e.target.value)}
-            placeholder="Paste a Trip Key"
+            placeholder="Paste a Trip Token"
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
@@ -413,7 +458,7 @@ function TripGroup() {
             data-testid="settings-trip-join-submit"
             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Join trip
+            Add trip
           </button>
         </div>
       </form>
@@ -432,25 +477,31 @@ function TripGroup() {
 }
 
 /**
- * Sync-across-devices group — a personal Sync Code that mirrors this browser's
- * known-trips list to `trips/{syncCode}/profile/tripList`. Three actions:
- * - REVEAL/MINT: masked until revealed; the first reveal mints a `crypto.randomUUID()` capability
- * token (mirrors the create-trip mint) and best-effort seeds the remote list with this device's
- * trips. Subsequent reveals just unmask the stored code.
- * - COPY: the existing clipboard idiom (copy-then-confirm, degrades silently when blocked).
- * - ENTER A CODE: paste the code from another device → replaces the local code + reloads, so the
- * provider re-subscribes and merges that device's list in.
+ * "Your User Token" group ( → S338B; promotes Sync Code to the ACCOUNT credential
+ * — SAME on-disk key `tripPlannerSyncCode`, gateway key 28, so nothing migrates and the accessor
+ * names `getSyncCode`/`setSyncCode` stay as documented internal misnomers). It owns the account's
+ * trip list at `trips/{userToken}/profile/tripList`. Two actions:
+ * - REVEAL/MINT: masked until revealed; the first reveal mints a `crypto.randomUUID()` and
+ * best-effort seeds the remote list with this device's trips. This doubles as the
+ * GRANDFATHERED path for a traveler who signed in before accounts existed. Subsequent reveals
+ * just unmask the stored token.
+ * - COPY: the existing clipboard idiom (copy-then-confirm, degrades silently when blocked) —
+ * framed for "your other device" with a NEVER-SHARE warning, because unlike a Trip Token this
+ * opens the whole account.
+ *
+ * The old "Enter a code" form is DELETED: entering a User Token is LOGGING IN, and the
+ * front door owns that. Switching accounts = sign out → log in, which keeps one entry point for the
+ * one credential instead of a second, unlabelled back door in Settings.
  *
  * A11y / house style matches TripGroup verbatim (glass card, ≥44px targets, focus rings, aria-live).
- * Storage is read post-mount only (ssr:false island). Dormant-safe: minting/entering is a pure local
- * write; the push/subscribe self-gate on `isRemoteConfigured()`, so the code is inert until sync is
+ * Storage is read post-mount only (ssr:false island). Dormant-safe: minting is a pure local write;
+ * the push/subscribe self-gate on `isRemoteConfigured()`, so the token is inert until sync is
  * configured.
  */
 function SyncGroup() {
   const [code, setCode] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [enterValue, setEnterValue] = useState('');
 
   useEffect(() => setCode(getSyncCode()), []);
 
@@ -479,23 +530,16 @@ function SyncGroup() {
     }
   };
 
-  const enter = (e: React.FormEvent) => {
-    e.preventDefault();
-    const next = enterValue.trim();
-    if (!next) return; // non-empty is the only needed validation (an unknown code just syncs nothing)
-    setSyncCode(next);
-    window.location.reload(); // provider re-subscribes with the new code → merges that device's list
-  };
-
   return (
     <div className="flex flex-col gap-4" data-testid="settings-sync-card">
-      {/* Your sync code — masked until revealed. */}
+      {/* Your User Token — masked until revealed. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">Your sync code</h3>
+        <h3 className="text-sm font-semibold text-white">Your User Token</h3>
         <p className="mt-1 flex items-start gap-1.5 text-xs text-white/50">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          Treat this like a password — anyone with it can see the list of trips you&rsquo;ve created
-          or joined. Enter it on another device to see the same trips there.
+          This is how you log in. <strong className="font-semibold text-white/80">Never share it</strong>{' '}
+          &mdash; it opens your whole account and every trip in it. Copy it only to log in on your own
+          other device; to invite someone to a trip, share that trip&rsquo;s Trip Token instead.
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <code
@@ -511,7 +555,7 @@ function SyncGroup() {
               data-testid="settings-sync-reveal"
               className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
-              {code === null ? 'Create my code' : revealed ? 'Showing' : 'Reveal code'}
+              {code === null ? 'Create my User Token' : revealed ? 'Showing' : 'Reveal'}
             </button>
             <button
               type="button"
@@ -526,42 +570,13 @@ function SyncGroup() {
           </div>
         </div>
         <div aria-live="polite" className="sr-only">
-          {copied ? 'Sync code copied to clipboard' : ''}
+          {copied ? 'User Token copied to clipboard' : ''}
         </div>
-      </div>
-
-      {/* Enter a code from another device. */}
-      <form onSubmit={enter} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">Enter a code</h3>
-        <p className="mt-1 max-w-2xl text-sm text-white/60">
-          Paste the sync code from your other device to bring its trips onto this one. This replaces
-          this device&rsquo;s code with the one you enter.
+        <p className="mt-3 max-w-2xl text-xs text-white/50">
+          To use this account on another device, log out there (or open the app fresh) and enter this
+          User Token at the front door.
         </p>
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <label htmlFor="settings-sync-enter" className="sr-only">
-            Sync code from another device
-          </label>
-          <input
-            id="settings-sync-enter"
-            value={enterValue}
-            onChange={(e) => setEnterValue(e.target.value)}
-            placeholder="Paste a sync code"
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            data-testid="settings-sync-enter-input"
-            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40"
-          />
-          <button
-            type="submit"
-            disabled={!enterValue.trim()}
-            data-testid="settings-sync-enter-submit"
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Sync this device
-          </button>
-        </div>
-      </form>
+      </div>
     </div>
   );
 }

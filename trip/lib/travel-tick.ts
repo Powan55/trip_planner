@@ -18,7 +18,7 @@
 
 import { useEffect, useState } from 'react';
 
-// ponytail: base cadence 20s — the tunable. Most `/travel` labels don't move per-second; 20s keeps
+// base cadence 20s — the tunable. Most `/travel` labels don't move per-second; 20s keeps
 // "in N min"/day-boundary self-correction feeling live while cutting ~19 wakeups in 20 vs 1 Hz.
 // Drop it if a future label needs finer idle granularity.
 const BASE_MS = 20_000;

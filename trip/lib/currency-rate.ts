@@ -121,7 +121,7 @@ const UNSUPPORTED_CURRENCIES = new Set(['NPR']);
  * `fetchCurrencyRate` flags every value from here `source: 'reference'` so the UI can render it
  * distinctly ("≈ reference rate") and NEVER present it as a live quote.
  *
- * ponytail: `rate`/`asOf` are a hand-set calibration knob, not derived from anything live — NPR
+ * `rate`/`asOf` are a hand-set calibration knob, not derived from anything live — NPR
  * has held roughly 133-136/USD through 2026 under the NRB's currency-board peg to INR. Set
  * 134.5 as-of 2026-07-24 (today, this slice). Refresh both fields if the real rate visibly
  * drifts from this band; there is no automated way to know it has (that's the whole reason NPR

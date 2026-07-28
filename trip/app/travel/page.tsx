@@ -15,7 +15,12 @@
 //
 // the Now/Next hero, agenda, and `?date=` picker mount as ONE client island via
 // the sibling `sections.tsx`; this page stays a static Server Component.
-import { TravelDatePicker, TravelLegibilityToggle, TravelExitButton } from './sections';
+import {
+  TravelDatePicker,
+  TravelLegibilityToggle,
+  TravelExitButton,
+  TravelConcierge,
+} from './sections';
 
 export const metadata = {
   title: 'Travel Mode · Nepal × Japan Journey',
@@ -39,11 +44,14 @@ export default function TravelPage() {
       </div>
       {/* date picker (day-strip + preview/pre-trip banners) → hero → agenda. */}
       <TravelDatePicker />
-      {/* thumb-zone contract: TM primary actions ( enter/exit, later
-          quick actions) pin to this fixed bottom band — ≥44×44px targets clear of the
-          home indicator via env(safe-area-inset-bottom). Empty this slice (no actions yet);
-          the class exists so later slices drop controls in without re-deriving the offset. */}
-      <div className="tm-thumb-zone" aria-hidden="true" />
+      {/* thumb-zone contract: TM primary actions pin to this fixed bottom band —
+          ≥44×44px targets clear of the home indicator via env(safe-area-inset-bottom).
+          places the first one: the concierge trigger (self-gating — dormant builds, custom
+          trips and guests render nothing, leaving the band `:empty` → display:none, exactly as
+          before). `aria-hidden` is gone with it: the band now holds a real control. */}
+      <div className="tm-thumb-zone">
+        <TravelConcierge />
+      </div>
     </main>
   );
 }

@@ -24,6 +24,7 @@ import {
   QuickAddHost,
   ExpenseLogHost,
   TripJoinHandshake,
+  GuestConvert,
 } from './chrome-islands'
 
 // ONE font family. `font-display`/`font-mono` now alias `--font-sans`
@@ -125,6 +126,10 @@ export default function RootLayout({
           {/* `?trip=` shared-link join handshake. Renders null unless a
               `?trip=` link is opened. Root-level (needs no ItineraryProvider). */}
           <TripJoinHandshake />
+          {/* guest → account conversion ("Keep this trip"). Renders null
+              unless the guest flag is set; hosts the mobile CTA + the one conversion dialog (the
+              navbar's guest chip opens the same dialog by event). Root-level like the handshake. */}
+          <GuestConvert />
           {/* Trip-phase ambient island. Renders null.
               Chrome accent is now ONE static gold (route sweep retired); this only
               stamps data-trip-phase on <html> so the decorative aurora backdrop

@@ -53,7 +53,11 @@ const HISTORY_CAP = 12;
  */
 export function buildTripDigest(): string {
   const lines: string[] = [
-    `Trip: ${TRIP_DATE_LABEL} (${TRIP_DATES.length} days). Any date not listed below is unplanned. Items tagged #id.`,
+    // the header states the ISO format + the exact valid range explicitly. The human-readable
+    // TRIP_DATE_LABEL alone was letting the model echo "Dec 20" or a wrong YEAR back in an op's
+    // date, which `validateOps` then dropped silently — the user just saw a reply
+    // with no proposal chip. Cheap (~55 chars, well inside DIGEST_CAP) and it costs no extra call.
+    `Trip: ${TRIP_DATE_LABEL} (${TRIP_DATES.length} days). Dates are YYYY-MM-DD between ${TRIP_DATES[0]} and ${TRIP_DATES[TRIP_DATES.length - 1]}. Any date not listed below is unplanned. Items tagged #id.`,
   ];
 
   const plans = itineraryStoragePort.load();

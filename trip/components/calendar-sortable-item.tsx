@@ -58,7 +58,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
   // duplicate-item ("same dinner, another day"): the Copy button reveals a native
   // <select> of trip days; picking one calls onDuplicate(targetDate) — a fresh-id copy of
   // this item's content lands on that day (defaults to "this day" for a one-off copy). Native
-  // select = keyboard/SR-accessible with no portal or focus-trap to hand-build (ponytail).
+  // select = keyboard/SR-accessible with no portal or focus-trap to hand-build.
   const [dupOpen, setDupOpen] = useState(false);
   const dupSelectId = useId();
 

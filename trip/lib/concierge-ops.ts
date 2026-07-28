@@ -65,10 +65,23 @@ const isTripDate = (v: unknown): v is string => typeof v === 'string' && TRIP_DA
 const isCategory = (v: unknown): v is ItineraryCategory =>
   typeof v === 'string' && CATEGORY_SET.has(v);
 
-/** A LIVE (non-tombstoned) item on `date`, or undefined. `plans` is the exposed/tombstone-filtered
- * selector (`useItinerary().plans`), but we re-guard `deleted` defensively so a raw list is safe. */
-function liveItem(plans: DayPlan[], date: string, itemId: string): ItineraryItem | undefined {
-  return plans.find((d) => d.date === date)?.items.find((i) => i.id === itemId && i.deleted !== true);
+/**
+ * The LIVE (non-tombstoned) item with `itemId` ANYWHERE in `plans`, plus the date it actually sits
+ * on — the single target resolver for update/remove/move.
+ *
+ * GLOBAL BY ID, not (date,id): item ids are globally unique — `generateItemId()` mints a uuid and
+ * the merge invariant keeps a given id in exactly ONE `DayPlan.items[]` (multi-day items are
+ * a render-time span, never multi-homed). Requiring the model to also restate the item's CURRENT
+ * date was therefore a pure liability: it dropped otherwise-perfect ops whenever the model echoed a
+ * wrong-year/non-ISO date or put the NEW date on an updateItem. The op's `date`
+ * is now a hint only. `deleted` is re-guarded defensively so a raw (unfiltered) list is safe.
+ */
+function resolveLive(plans: DayPlan[], itemId: string): { date: string; item: ItineraryItem } | undefined {
+  for (const day of plans) {
+    const item = day.items.find((i) => i.id === itemId && i.deleted !== true);
+    if (item) return { date: day.date, item };
+  }
+  return undefined;
 }
 
 // shared range guard — applies whenever the field is present + non-null, for any verb.
@@ -106,8 +119,9 @@ function isValidOp(raw: unknown, plans: DayPlan[]): raw is Op {
       return isTripDate(o.date) && isNonEmptyString(o.title) && isCategory(o.category);
 
     case 'updateItem': {
-      // Rule 3 (itemId,date,≥1 patch) + Rule 4 + Rule 6 (target exists) + Rule 8 (≥1 non-null patch).
-      if (!isNonEmptyString(o.itemId) || !isTripDate(o.date)) return false;
+      // Rule 3 (itemId + ≥1 patch) + Rule 6 (target resolves by id) + Rule 8 (≥1 non-null patch).
+      // No Rule 4 date check: the target's date comes from the ITINERARY, not from the op.
+      if (!isNonEmptyString(o.itemId)) return false;
       // Any present patch field must be well-typed; collect whether ≥1 valid patch exists (Rule 8).
       let patchCount = 0;
       for (const k of CONTENT_KEYS) {
@@ -119,20 +133,22 @@ function isValidOp(raw: unknown, plans: DayPlan[]): raw is Op {
         patchCount += 1;
       }
       if (patchCount === 0) return false; // Rule 8
-      return liveItem(plans, o.date, o.itemId) !== undefined; // Rule 6
+      return resolveLive(plans, o.itemId) !== undefined; // Rule 6
     }
 
     case 'removeItem':
-      // Rule 3 (itemId,date) + Rule 4 + Rule 6.
-      if (!isNonEmptyString(o.itemId) || !isTripDate(o.date)) return false;
-      return liveItem(plans, o.date, o.itemId) !== undefined;
+      // Rule 3 (itemId) + Rule 6.
+      if (!isNonEmptyString(o.itemId)) return false;
+      return resolveLive(plans, o.itemId) !== undefined;
 
-    case 'moveItem':
-      // Rule 3 (itemId,fromDate,toDate) + Rule 4 (both dates) + Rule 6 (exists on fromDate).
-      // toDate ≠ fromDate.
-      if (!isNonEmptyString(o.itemId) || !isTripDate(o.fromDate) || !isTripDate(o.toDate)) return false;
-      if (o.fromDate === o.toDate) return false;
-      return liveItem(plans, o.fromDate as string, o.itemId) !== undefined;
+    case 'moveItem': {
+      // Rule 3 (itemId,toDate) + Rule 4 (toDate — a REAL new date, so it must be a trip date) +
+      // Rule 6 (target resolves). `fromDate` is a hint;'s toDate ≠ fromDate is enforced
+      // against the item's RESOLVED current day, which is the day the move would actually leave.
+      if (!isNonEmptyString(o.itemId) || !isTripDate(o.toDate)) return false;
+      const found = resolveLive(plans, o.itemId);
+      return found !== undefined && found.date !== o.toDate;
+    }
   }
 }
 
@@ -161,26 +177,24 @@ function contentPatch(op: Op): Partial<ItineraryItem> {
 
 /**
  * A human-readable chip label for a proposal. update/remove/move resolve the target's live title
- * from `plans` (the op only carries an id); addItem uses its own title. Time (if any) is shown as
- * a 12h clock label via the shared `formatTimeAmPm`.
+ * AND its real date from `plans` by id (the op's own date is only a hint — see `resolveLive`);
+ * addItem uses its own title/date. Time (if any) is shown as a 12h clock label via the shared
+ * `formatTimeAmPm`. The chip must state the day the change will ACTUALLY land on.
  */
 export function describeOp(op: Op, plans: DayPlan[]): string {
   const timeSuffix = op.startMinutes != null ? ` · ${formatTimeAmPm(op.startMinutes)}` : '';
+  if (op.type === 'addItem') return `Add “${op.title}” to ${formatDate(op.date as string)}${timeSuffix}`;
+
+  const found = resolveLive(plans, op.itemId as string);
+  const title = found?.item.title ?? 'item';
+  const onDate = found?.date ?? (op.date ?? op.fromDate) as string;
   switch (op.type) {
-    case 'addItem':
-      return `Add “${op.title}” to ${formatDate(op.date as string)}${timeSuffix}`;
-    case 'updateItem': {
-      const title = liveItem(plans, op.date as string, op.itemId as string)?.title ?? 'item';
-      return `Update “${title}” on ${formatDate(op.date as string)}${timeSuffix}`;
-    }
-    case 'removeItem': {
-      const title = liveItem(plans, op.date as string, op.itemId as string)?.title ?? 'item';
-      return `Remove “${title}” from ${formatDate(op.date as string)}`;
-    }
-    case 'moveItem': {
-      const title = liveItem(plans, op.fromDate as string, op.itemId as string)?.title ?? 'item';
+    case 'updateItem':
+      return `Update “${title}” on ${formatDate(onDate)}${timeSuffix}`;
+    case 'removeItem':
+      return `Remove “${title}” from ${formatDate(onDate)}`;
+    case 'moveItem':
       return `Move “${title}” to ${formatDate(op.toDate as string)}`;
-    }
   }
 }
 
@@ -212,9 +226,12 @@ export function applyOp(
       return { message: `Added “${item.title}”`, undo: () => store.removeItem(date, item.id) };
     }
     case 'updateItem': {
-      const date = op.date as string;
       const itemId = op.itemId as string;
-      const prev = liveItem(plans, date, itemId);
+      const found = resolveLive(plans, itemId);
+      // The item's REAL day — never `op.date`, which the model routinely gets wrong (and,
+      // on an updateItem, may be the day the user asked to move to; a move needs `moveItem`).
+      const date = found?.date ?? (op.date as string);
+      const prev = found?.item;
       const patch = contentPatch(op);
       // Capture the PRIOR value of exactly the patched keys so undo restores them (including
       // undefined → back to untimed/cleared). prev is guaranteed present.
@@ -229,9 +246,10 @@ export function applyOp(
       };
     }
     case 'removeItem': {
-      const date = op.date as string;
       const itemId = op.itemId as string;
-      const prev = liveItem(plans, date, itemId); // capture full item BEFORE removing (undo restores it)
+      const found = resolveLive(plans, itemId); // capture full item BEFORE removing (undo restores it)
+      const date = found?.date ?? (op.date as string);
+      const prev = found?.item;
       store.removeItem(date, itemId);
       return {
         message: `Removed “${prev?.title ?? 'item'}”`,
@@ -241,12 +259,13 @@ export function applyOp(
       };
     }
     case 'moveItem': {
-      const fromDate = op.fromDate as string;
       const toDate = op.toDate as string;
       const itemId = op.itemId as string;
-      const prev = liveItem(plans, fromDate, itemId);
+      const found = resolveLive(plans, itemId);
+      const fromDate = found?.date ?? (op.fromDate as string); // resolved day, not the model's hint
+      const prev = found?.item;
       store.moveItem(itemId, fromDate, toDate);
-      // ponytail: undo moves back by the ORIGINAL id — correct in the dormant/default build where
+      // undo moves back by the ORIGINAL id — correct in the dormant/default build where
       // moveItem preserves the id. Under sync moveItem mints a fresh target id, so an inverse by the
       // original id no-ops (the toast shows but does nothing). Fix when needed: have moveItem return
       // the minted target id and invert against that. The shipped/portfolio build is dormant.

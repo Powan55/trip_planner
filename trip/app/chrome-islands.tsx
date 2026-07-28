@@ -26,3 +26,8 @@ export const ExpenseLogHost = dynamic(() => import('@/components/expense-log-hos
 // null unless a `?trip=` link is opened — dynamic ssr:false so its Radix AlertDialog stays off
 // the per-route First Load budget.
 export const TripJoinHandshake = dynamic(() => import('@/components/trip-join-handshake'), { ssr: false });
+
+// the guest → account conversion host — the mobile "Keep this trip" CTA
+// plus the one conversion dialog every surface opens via `guest-convert:open`. Renders null unless
+// the guest flag is set; same ssr:false island discipline as the handshake above.
+export const GuestConvert = dynamic(() => import('@/components/guest-convert'), { ssr: false });

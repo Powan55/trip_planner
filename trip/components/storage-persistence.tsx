@@ -35,7 +35,7 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { installHintStore } from '@/core/storage/gateway';
 
-// ponytail: 0.9 (90% of the StorageManager quota) is a heuristic threshold, not measured
+// 0.9 (90% of the StorageManager quota) is a heuristic threshold, not measured
 // against any real device's actual eviction point — it exists to leave headroom for one more
 // journal/expense/photo write before the browser starts throwing or evicting. Tune this constant
 // if real-world quota reports come in tighter or looser than expected; no other change needed.

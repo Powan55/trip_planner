@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { joinTrip } from '@/core/trips/registry';
 import { getTripId } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
+import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import {
   AlertDialog,
   AlertDialogContent,
@@ -40,13 +41,26 @@ import {
  */
 export default function TripJoinHandshake() {
   const [token, setToken] = useState<string | null>(null);
+  const { traveler, isGuest } = useActiveTraveler();
+  // Depend on the BOOLEAN, not the traveler object: `useActiveTraveler` re-resolves a fresh object
+  // on every identity:changed, which would re-run this effect for no reason.
+  const identified = traveler !== null;
 
   useEffect(() => {
+    // / + S338B /: adding a trip is a trip-MUTATING registry action (it moves
+    // the active-trip pointer) and, per the two-token rule, requires a LOGGED-IN user. So this
+    // dialog is for an identified traveler only:
+    // - GUEST: letting them "join" would move the pointer while `keyFor` still sandboxes every
+    // byte, i.e. a broken half-state. The dialog stays down; the demo continues.
+    // - UNIDENTIFIED: the front door owns this case now — `token-gate.tsx` reads the
+    // same `?trip=` param, HOLDS it through log-in / create-account, and joins before its
+    // reload. Bailing here keeps a second, invisible dialog from mounting behind the wall.
+    if (isGuest || !identified) return;
     const raw = new URLSearchParams(window.location.search).get('trip');
     const t = raw?.trim();
     // Prompt only for a non-empty token that is NOT the trip we are already on.
     if (t && t !== getTripId()) setToken(t);
-  }, []);
+  }, [isGuest, identified]);
 
   const stripParam = () => {
     const url = new URL(window.location.href);
@@ -80,13 +94,13 @@ export default function TripJoinHandshake() {
         data-testid="trip-join-dialog"
       >
         <AlertDialogHeader>
-          <AlertDialogTitle>Join this trip?</AlertDialogTitle>
+          <AlertDialogTitle>Add this trip?</AlertDialogTitle>
           <AlertDialogDescription className="text-white/60">
-            You opened a shared Trip Key (
-            <span className="font-mono text-white/80">{shortToken}</span>). Joining switches this
+            You opened a shared Trip Token (
+            <span className="font-mono text-white/80">{shortToken}</span>). Adding it switches this
             browser to that trip — your current view is replaced. You can switch back any time from
-            Settings. Keys can&rsquo;t be verified in advance — if the trip opens empty, the key may
-            be mistyped or the trip is brand new.
+            your Trips page. A Trip Token can&rsquo;t be verified in advance — if the trip opens
+            empty, it may be mistyped or the trip is brand new.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -98,7 +112,7 @@ export default function TripJoinHandshake() {
             onClick={handleJoin}
             className="min-h-[44px] bg-gold-500 text-surface hover:bg-gold-400"
           >
-            Join trip
+            Add trip
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

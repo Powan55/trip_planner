@@ -172,7 +172,7 @@ export function useItinerary(): ItineraryStore {
         itinerary.updateItem(current, date, itemId, patch, (i) => {
           // stampUpdated → stampDone → stampSyncUpdated
           // (rev/hlc). All three land on ONE merged item / ONE commit, so done + doneBy/doneAt +
-          // updatedBy + rev/hlc stay atomic. ponytail: patch-gated on
+          // updatedBy + rev/hlc stay atomic.: patch-gated on
           // `patch.done` — the whole-row toggle always sends `{ done: !current }` so patch === the
           // real transition today; if a future writer ever sets `done` idempotently, switch to a
           // prev→next compare inside core.updateItem.

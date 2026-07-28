@@ -12,6 +12,7 @@
  */
 import {
   DEFAULT_TRIP_ID,
+  GUEST_SANDBOX_ID,
   getActiveTripId,
   setActiveTripId,
   getKnownTripsRaw,
@@ -245,7 +246,10 @@ export function setTripConfig(id: string, config: TripConfigBlock): void {
 
 /** Add a trip if missing; an existing entry keeps its name (rename is explicit, below). */
 export function upsertKnownTrip(id: string, name?: string): void {
-  if (!id) return;
+  // /: `guest-sandbox` is a reserved KEY NAMESPACE, never a trip. Refusing it here (and
+  // in `joinTrip`) is defense-in-depth: a pasted "guest-sandbox" Trip Key must not mint a registry
+  // entry / pointer that collides with the sandbox prefix or a `trips/guest-sandbox` remote path.
+  if (!id || id === GUEST_SANDBOX_ID) return;
   const stored = readStored();
   if (stored.some((t) => t.id === id)) return;
   // The default pack keeps its canonical name regardless of the caller's label (e.g. pasting the
@@ -274,6 +278,7 @@ export function renameKnownTrip(id: string, name: string): void {
  * Does NOT reload — the caller performs the full page reload.
  */
 export function joinTrip(id: string, name?: string): void {
+  if (!id || id === GUEST_SANDBOX_ID) return; // reserved namespace, never a trip
   upsertKnownTrip(id, name);
   setActiveTripId(id);
 }
@@ -293,7 +298,7 @@ export function removeKnownTrip(id: string): void {
   writeStored(readStored().filter((t) => t.id !== id));
   const removed = readRemoved().filter((r) => r.id !== id);
   removed.push({ id, removedAt: Date.now() });
-  writeRemoved(removed); // ponytail: tombstones grow unbounded; a purge-when-no-device-has-it pass needs a device set we don't track
+  writeRemoved(removed); // tombstones grow unbounded; a purge-when-no-device-has-it pass needs a device set we don't track
 }
 
 /**

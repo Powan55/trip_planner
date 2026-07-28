@@ -68,7 +68,7 @@ export const CT_MAX = 10 ** CT_WIDTH - 1;
  * epoch-ms, so timezone/DST are NOT skew sources — this bounds a genuinely wrong clock.
  * 24h covers real drift / a clock mis-set by hours / plausible offline-ahead edits;
  * year-3000 (~300000x over) is clamped. Calibration knob, not a fixed truth.
- * ponytail: single tunable; only re-evaluate if a real device is seen legitimately >24h ahead.
+ * single tunable; only re-evaluate if a real device is seen legitimately >24h ahead.
  */
 export const MAX_SKEW_MS = 24 * 60 * 60 * 1000;
 

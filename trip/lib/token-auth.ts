@@ -21,7 +21,7 @@
 // `resolveToken` is deliberately pure (no storage) so it can be unit-tested anywhere.
 
 import { setUserName } from './identity';
-import { identityStore } from '@/core/storage/gateway';
+import { identityStore, sessionGate } from '@/core/storage/gateway';
 import { isDefaultTrip } from '@/core/trips';
 import type { Expense } from '@/core/budget/expenses';
 
@@ -163,6 +163,11 @@ export function signIn(raw: string): Traveler | null {
   if (!traveler) return null;
   setUserName(traveler.name);
   identityStore.setToken(traveler.token);
+  // INVARIANT (a): a token and the guest flag must NEVER coexist —
+  // otherwise a later signOut() would drop the traveler into guest mode (and, since into the
+  // guest SANDBOX key namespace) instead of the front door. Clearing here, in the ONE sign-in
+  // function every surface routes through, makes the invariant structural rather than per-caller.
+  sessionGate.clearGuest();
   // Reactive signal: let the chip / gate / remote-subscribe pick up the sign-in
   // live. Dispatched after persistence so any listener that re-reads sees the new token.
   emitIdentityChanged();
@@ -185,6 +190,18 @@ export function getActiveTraveler(): Traveler | null {
  * createdBy / updatedBy on stored items are historical and are NOT touched. No-op / never
  * throws during SSR or with disabled storage (handled inside the gateway).
  */
+/**
+ * Leave the guest demo: clear the guest flag and signal, so `TokenGate` re-derives
+ * `!traveler && !isGuest` and the front door returns wherever the user is. The ONE home for this
+ * transition (navbar chip, Settings identity row, the /trips hub sign-in affordance all call it).
+ * The sandbox keys are deliberately left on disk — they are wiped on the NEXT guest opt-in (
+ * lifecycle) and adopted by the conversion flow.
+ */
+export function exitGuest(): void {
+  sessionGate.clearGuest();
+  emitIdentityChanged();
+}
+
 export function signOut(): void {
   identityStore.clearIdentity();
   // Reactive signal: re-show the gate + clear the chip + tear down remote-subscribe

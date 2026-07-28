@@ -331,6 +331,16 @@ export const STORAGE_KEYS = {
 export const DEFAULT_TRIP_ID = 'nepal-japan-2026';
 
 /**
+ * Reserved key NAMESPACE for the guest demo sandbox — NOT a trip id. It never enters
+ * the `activeTrip` pointer, `knownTrips`, `joinTrip`, a share link, or a Firestore path: it exists
+ * only as the `trip:guest-sandbox:*` key prefix `keyFor` returns while the guest flag is set, so a
+ * guest's edits are isolated from the default pack's grandfathered literals. `core/trips/registry.ts`
+ * REFUSES this id in `joinTrip`/`upsertKnownTrip` as defense-in-depth against a pasted "guest-sandbox"
+ * Trip Key.
+ */
+export const GUEST_SANDBOX_ID = 'guest-sandbox';
+
+/**
  * Read the active pack id, or `DEFAULT_TRIP_ID` when the pointer is unset / SSR / unreadable.
  * TOTAL, never-throws (inherits `readString`). Read per call — the id only changes across a full
  * reload, so there is no cache to invalidate and SSR/first-paint ordering stays trivial.
@@ -362,10 +372,19 @@ export function setKnownTripsRaw(raw: string): void {
 }
 
 /**
- * Personal Sync Code accessor pair — byte-transport only, mirroring `knownTrips`.
- * Minting (`crypto.randomUUID()` on first reveal) + all sync policy live in the caller
- * (`components/settings-panel.tsx` reveal + `lib/trips-remote.ts` push/subscribe); the gateway just
- * reads/writes the raw string. APP-SCOPED, never namespaced. `null` when never minted. Never throws.
+ * USER TOKEN accessor pair — byte-transport only, mirroring `knownTrips`.
+ *
+ * PROMOTED this value from "personal Sync Code" to the **User Token**: the account credential
+ * the front door logs in with, owning the cross-device trip list. Deliberately the SAME on-disk key
+ * (`tripPlannerSyncCode`) and the same remote path — so every device that ever minted a Sync Code is
+ * already an account, with zero migration and zero Firestore-rules change. These two accessor names
+ * are therefore documented INTERNAL MISNOMERS, kept because renaming them is churn with no behavior
+ * It is NEVER a Trip Token and never shareable.
+ *
+ * Minting (`crypto.randomUUID()`) + all policy live in the callers (`components/token-gate.tsx`
+ * create-account, `components/trips-hub.tsx` grandfathered upgrade, `components/settings-panel.tsx`
+ * reveal, `lib/trips-remote.ts` push/subscribe); the gateway just reads/writes the raw string.
+ * APP-SCOPED, never namespaced. `null` when never minted. Never throws.
  */
 export function getSyncCode(): string | null {
   return readString('local', STORAGE_KEYS.syncCode);
@@ -423,8 +442,81 @@ export type TripScopedSlot =
  * is untouched. TOTAL, never-throws.
  */
 export function keyFor(slot: TripScopedSlot): string {
+  // /: a GUEST writes to the reserved sandbox namespace, AHEAD of pointer resolution —
+  // the guest keeps the DEFAULT pointer (so every `isDefaultTrip()` content gate keeps showing the
+  // full showcase), but no guest byte can ever land on the default pack's live keys. The empty
+  // sandbox falls back to SAMPLE_ITINERARY et al., which IS the showcase seed. Guest-flag
+  // transitions ride a full reload, so this branch never flips mid-session.
+  if (sessionGate.isGuest()) return `trip:${GUEST_SANDBOX_ID}:${slot}`;
   const id = getActiveTripId();
   return id === DEFAULT_TRIP_ID ? STORAGE_KEYS[slot] : `trip:${id}:${slot}`;
+}
+
+/**
+ * Remove every `trip:guest-sandbox:*` localStorage key — called on each fresh guest
+ * opt-in so "Explore the demo" always starts from a pristine showcase. PREFIX-ENUMERATED (not a
+ * hardcoded slot list) so a future `TripScopedSlot` can never be forgotten. Collects first, deletes
+ * after, because removing while iterating re-indexes `key(i)`. SSR-safe, never throws.
+ */
+export function wipeSandbox(): void {
+  const s = backing('local');
+  if (s === null) return;
+  try {
+    const prefix = `trip:${GUEST_SANDBOX_ID}:`;
+    const doomed: string[] = [];
+    for (let i = 0; i < s.length; i++) {
+      const k = s.key(i);
+      if (k !== null && k.startsWith(prefix)) doomed.push(k);
+    }
+    for (const k of doomed) s.removeItem(k);
+  } catch {
+    /* disabled storage / privacy mode — never throw out of the gateway */
+  }
+}
+
+/**
+ * ADOPT the guest sandbox into a brand-new trip — the storage
+ * half of "Keep this trip". Every `trip:guest-sandbox:{suffix}` localStorage key is copied to
+ * `trip:{newTripId}:{suffix}` and then removed, so the demo session's bytes become a normal
+ * capability-token trip's bytes and the sandbox namespace is left empty.
+ *
+ * PREFIX-ENUMERATED, exactly like `wipeSandbox` — **the key list IS the scan**, never a hardcoded
+ * slot enumeration. That is the whole point: a `TripScopedSlot` added years from now is adopted for
+ * free, because a future slot can never be missing from a list nobody remembered to update.
+ *
+ * Photo blobs need no copy: they live in IndexedDB keyed by photo id, app-scoped, and the adopted
+ * `photos` metadata resolves them unchanged.
+ *
+ * REFUSES the reserved sandbox namespace itself, an empty id, and `DEFAULT_TRIP_ID` — the default
+ * pack's keys are the grandfathered LITERALS (`keyFor`), so "adopting into the default trip" would
+ * write `trip:nepal-japan-2026:*` keys nothing ever reads while silently deleting the guest's data.
+ * Conversion always mints a fresh uuid, so these are defense-in-depth (mirroring `joinTrip`'s).
+ *
+ * Copies ENTRY-BY-ENTRY, writing the destination before deleting its source: if a write fails
+ * mid-way (quota), the remaining sandbox keys stay on disk rather than being deleted into nothing.
+ * Collects the key list first, because removing while iterating re-indexes `key(i)`. SSR-safe,
+ * never throws.
+ */
+export function adoptSandbox(newTripId: string): void {
+  if (!newTripId || newTripId === GUEST_SANDBOX_ID || newTripId === DEFAULT_TRIP_ID) return;
+  const s = backing('local');
+  if (s === null) return;
+  try {
+    const prefix = `trip:${GUEST_SANDBOX_ID}:`;
+    const sandboxKeys: string[] = [];
+    for (let i = 0; i < s.length; i++) {
+      const k = s.key(i);
+      if (k !== null && k.startsWith(prefix)) sandboxKeys.push(k);
+    }
+    for (const k of sandboxKeys) {
+      const value = s.getItem(k);
+      if (value === null) continue;
+      s.setItem(`trip:${newTripId}:${k.slice(prefix.length)}`, value);
+      s.removeItem(k);
+    }
+  } catch {
+    /* disabled storage / privacy mode / quota — never throw out of the gateway */
+  }
 }
 
 // ── Low-level typed primitives (store-aware, SSR-safe, never-throw) ──────────

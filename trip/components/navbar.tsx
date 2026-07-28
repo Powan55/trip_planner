@@ -9,8 +9,7 @@ import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { MapPin, LogOut, UserRound, Compass, ChevronDown, Search } from 'lucide-react';
 import ScrollProgress from '@/components/scroll-progress';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
-import { signOut, IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
-import { sessionGate } from '@/core/storage/gateway';
+import { signOut } from '@/lib/token-auth';
 import { navItemsForActiveTrip, primaryItemsForActiveTrip, isRouteActive } from '@/lib/nav-items';
 import { isTravelRoute } from '@/lib/travel-route';
 import { useEnterTravelMode } from '@/hooks/use-travel-mode';
@@ -23,17 +22,9 @@ import { getActiveTripId } from '@/core/storage/gateway';
 // render its DOM, but the dynamic() split also keeps that chunk out of Navbar's own bundle.
 const ConciergeChat = dynamic(() => import('@/components/concierge-chat'), { ssr: false });
 
-// Clearing the guest opt-in re-arms the gate: with no active traveler and the guest flag
-// gone, TokenGate's identity:changed listener re-evaluates `!traveler && !guest` → re-shows
-// the wall.: the RAW `tripPlannerGuest` literal that used to sit here is gone —
-// the clear is `sessionGate.clearGuest()` (SSR-safe, never-throws inside the gateway). The
-// reactive dispatch stays here as app logic, guarded for SSR parity.
-function exitGuest(): void {
-  sessionGate.clearGuest();
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(IDENTITY_CHANGED_EVENT));
-  }
-}
+// the guest→front-door transition (clear the flag + dispatch identity:changed, so TokenGate
+// re-derives `!traveler && !isGuest` and the wall returns) moved to `lib/token-auth::exitGuest` —
+// Settings and the /trips hub now offer the same affordance, and one home keeps them identical.
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -153,8 +144,13 @@ export default function Navbar() {
     signOut(); // dispatches identity:changed → gate re-shows, chip clears, remote tears down
   };
 
-  const handleSignIn = () => {
-    exitGuest(); // clears guest flag + dispatches identity:changed → gate returns
+  // the desktop guest affordance is now the CONVERSION entry — "Keep this
+  // trip" opens the one `guest-convert.tsx` dialog (which adopts the sandbox, mints the account, and
+  // still offers "log in instead" for someone who already has a User Token). Dispatched as a raw
+  // event name, exactly like `palette:open` above, so app-wide navbar chrome never imports that
+  // island's Radix dialog into its bundle.
+  const handleKeepTrip = () => {
+    window.dispatchEvent(new CustomEvent('guest-convert:open'));
   };
 
   // Travel Mode is a chrome-free route — the persistent navbar renders null
@@ -330,7 +326,7 @@ export default function Navbar() {
                 {traveler ? (
                   <TravelerChip name={traveler.name} accent={traveler.accent} onSignOut={handleSignOut} />
                 ) : isGuest ? (
-                  <GuestChip onSignIn={handleSignIn} />
+                  <GuestChip onKeepTrip={handleKeepTrip} />
                 ) : null}
               </div>
 
@@ -403,18 +399,23 @@ function TravelerChip({
 }
 
 /**
- * Guest affordance: a quiet "Guest · Sign in" pill. Clicking clears the
- * guest opt-in and fires identity:changed → the gate returns so the guest can sign in.
+ * Guest affordance: a quiet "Guest · Keep this trip" pill — the DESKTOP end
+ * of the explorer→owner funnel. Clicking opens the conversion dialog, which
+ * turns the demo session into an account + a trip of the guest's own, and which also carries the
+ * "log in instead" path this chip used to be (so nothing was removed, only re-aimed at the action
+ * a guest actually wants). Below `md` the whole identity cluster is hidden, so the mobile CTA is a
+ * pill rendered by `guest-convert.tsx` itself.
  */
-function GuestChip({ onSignIn }: { onSignIn: () => void }) {
+function GuestChip({ onKeepTrip }: { onKeepTrip: () => void }) {
   return (
     <button
-      onClick={onSignIn}
-      className="flex items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 hover:text-white hover:border-white/20 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+      onClick={onKeepTrip}
+      data-testid="navbar-guest-keep-trip"
+      className="flex min-h-[44px] items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 hover:text-white hover:border-white/20 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
     >
       <UserRound className="w-3.5 h-3.5" aria-hidden="true" />
       <span>
-        Guest · <span className="text-gold-400 font-medium">Sign in</span>
+        Guest · <span className="text-gold-400 font-medium">Keep this trip</span>
       </span>
     </button>
   );

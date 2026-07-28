@@ -4,7 +4,7 @@
 // the plan target (the mobile bottom tab bar, or the bottom-centre on desktop) and
 // fades out — the premium "it went into your plan" cue.
 //
-// Design choices (ponytail + the brief's constraints):
+// Design choices:
 // • NATIVE Web Animations API (element.animate), not framer — so it pulls no
 // animation lib into any route, and it lives OUTSIDE React so it survives the
 // add-dialog unmounting on confirm (the dialog closes immediately after add).

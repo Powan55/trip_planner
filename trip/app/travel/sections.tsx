@@ -36,6 +36,14 @@ export const TravelExitButton = dynamic(() => import('@/components/travel-exit-b
   loading: () => <div aria-hidden="true" className="h-11 w-11 shrink-0 rounded-lg" />,
 });
 
+// — the concierge, mounted into the reserved `.tm-thumb-zone` band. Its own island (same
+// ssr:false pattern as the toggle/exit above) with NO loading placeholder on purpose: while the
+// chunk streams — and forever, in a dormant build where it renders null — the thumb-zone band
+// stays `:empty` and therefore `display:none`, so it adds no visual box.
+export const TravelConcierge = dynamic(() => import('@/components/travel-concierge'), {
+  ssr: false,
+});
+
 // two small night-out affordances (TravelLastTrainChip, TravelTonightCard) are NOT
 // re-exported here: they need the SAME resolved `?date=`/today-in-trip state that only
 // `components/travel-date-picker.tsx` computes, and that module is itself dynamically
