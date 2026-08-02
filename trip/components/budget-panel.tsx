@@ -31,6 +31,7 @@ import { rosterForActiveTrip } from '@/lib/token-auth';
 import BurnRateView from '@/components/burn-rate-view';
 import ExpenseLog from '@/components/expense-log';
 import SettleUpSummary from '@/components/settle-up-summary';
+import { FADE_FLOOR } from '@/lib/motion';
 
 /**
  * Budget panel. Mounted on `/plan` below the trip timeline
@@ -160,13 +161,14 @@ export default function BudgetPanel() {
     window.dispatchEvent(new CustomEvent(EXPENSE_OPEN_EVENT, { detail: { expense } }));
   };
 
-  // axe-deterministic reveal: full-opacity slide (opacity pinned to 1) so the axe scan
-  // (no reduced motion) never catches the muted budget copy mid-fade below AA. Reduced-motion
-  // branch left intact (it only runs under reduced motion, which the scan does not exercise).
+  // FLOORED fade.
+  // The animated branch now runs FADE_FLOOR → 1: shallow enough that the axe scan (which
+  // runs WITHOUT reduced motion and can sample mid-animation) still sees the muted budget
+  // copy ≥AA at the darkest frame. Reduced-motion branch left intact — it lands at 1.
   const reveal = prefersReducedMotion
     ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
     : {
-        hidden: { opacity: 1, y: 16 },
+        hidden: { opacity: FADE_FLOOR, y: 16 },
         show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
       };
 
@@ -185,7 +187,7 @@ export default function BudgetPanel() {
       >
         {/* Header */}
         <div className="mb-6 flex items-start gap-3">
-          <Wallet className="mt-0.5 h-6 w-6 shrink-0 text-gold-400" aria-hidden="true" />
+          <Wallet className="mt-0.5 h-6 w-6 shrink-0 text-muted-foreground" aria-hidden="true" />
           <div>
             <h2
               id="budget-panel-title"
@@ -355,9 +357,9 @@ function MoneyTabs({ view, onChange }: { view: MoneyView; onChange: (v: MoneyVie
             aria-controls={`budget-view-panel-${t.id}`}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.id)}
-            className={`min-h-[44px] flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 ${
+            className={`min-h-[44px] flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               active
-                ? 'bg-gold-400 text-surface'
+                ? 'bg-primary text-primary-foreground'
                 : 'text-white/70 hover:bg-white/5 hover:text-white'
             }`}
           >
@@ -444,17 +446,17 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
   return (
     <div
       data-testid="budget-grand-total"
-      className="mt-6 flex flex-col gap-3 rounded-xl border border-gold-400/25 bg-gold-400/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between"
+      className="mt-6 flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-5 sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
-        <p className="text-xs uppercase tracking-widest text-gold-400/80">Total trip budget</p>
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">Total trip budget</p>
         <p className="mt-1 text-sm text-white/50">Nepal + Japan, converted to {home}</p>
       </div>
       <div className="sm:text-right">
         <p
           data-testid="budget-grand-total-value"
           aria-live="polite"
-          className="font-display text-3xl font-bold text-gradient-gold"
+          className="font-mono text-3xl font-bold text-display-emphasis"
         >
           {formatMoney(roll.totalBudgetHome, home)}
         </p>
@@ -546,7 +548,7 @@ function LegBudgetCard({
             value={legTotal === 0 ? '' : String(legTotal)}
             placeholder="0"
             onChange={(e) => onLegBudget(e.target.value)}
-            className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40 ${
+            className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-9' : 'pl-7'
             }`}
           />
@@ -576,7 +578,7 @@ function LegBudgetCard({
       <details className="group rounded-lg border border-white/10 bg-surface/40">
         <summary
           data-testid={`budget-leg-${leg}-categories-toggle`}
-          className="flex min-h-[44px] cursor-pointer list-none items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40"
+          className="flex min-h-[44px] cursor-pointer list-none items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           <span>Break down by category (optional)</span>
           <span aria-hidden="true" className="text-white/40 transition-transform group-open:rotate-90">
@@ -619,7 +621,7 @@ function LegBudgetCard({
                       placeholder="0"
                       aria-label={`${category} budget for the ${leg} leg, in ${cur}`}
                       onChange={(e) => onCategoryBudget(category, e.target.value)}
-                      className={`w-full rounded-lg border border-white/15 bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40 ${
+                      className={`w-full rounded-lg border border-white/15 bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
                         sym === 'Rs' ? 'pl-8' : 'pl-6'
                       }`}
                     />

@@ -20,8 +20,8 @@ import { readString, writeString, removeKey, STORAGE_KEYS } from '@/core/storage
  * longer active, still seen → no re-enter and no toast); `markSeen()` writes `'seen'` ONLY when
  * absent (the toast-dismiss path — never clobbers an `'active'` flag).
  *
- * SSR-safe + never-throw (inherited from the primitives). The CALLER (the entry hook) owns the guest
- * block — this transport layer just writes whatever it is told.
+ * SSR-safe + never-throw (inherited from the primitives). The CALLER (the entry hook) decides
+ * whether to arm the flag — this transport layer just writes whatever it is told.
  */
 export const travelModeGate = {
   isActive(): boolean {

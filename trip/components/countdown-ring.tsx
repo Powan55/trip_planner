@@ -43,9 +43,16 @@ export default function CountdownRing({
     >
       <svg width={size} height={size} className="-rotate-90" aria-hidden="true">
         <defs>
+          {/* these two stops used to be hand-picked hexes (#f4c46b/#f48fb1) that
+              belong to NO scale — near-misses for gold-400/sakura-400, invisible to every
+              class-name and scale-hex grep, and by a warm ring against cyan chrome on the
+              app's centrepiece. Both now key off `--accent-scroll`, the SAME var the countdown's
+              own pulse-glow uses (globals.css `@keyframes pulse-glow`), so ring and glow cannot
+              disagree and the warm/cool engine drives both together. The sweep is carried by
+              alpha, not by a second colour — one token, no invented hue. */}
           <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#f4c46b" />
-            <stop offset="100%" stopColor="#f48fb1" />
+            <stop offset="0%" stopColor="hsl(var(--accent-scroll) / 0.45)" />
+            <stop offset="100%" stopColor="hsl(var(--accent-scroll))" />
           </linearGradient>
         </defs>
         {/* Track */}

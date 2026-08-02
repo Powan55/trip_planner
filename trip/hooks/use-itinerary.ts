@@ -523,7 +523,7 @@ export function useItinerary(): ItineraryStore {
   // propagate + win over a concurrent edit. The value handed to consumers — and every
   // selector below — is filtered to `!deleted` items ONLY, so the calendar, dashboard,
   // timeline, findPlacements, and every card render live items exactly as before, with ZERO
-  // consumer edits (this is the ONLY selector change the whole slice makes). Dormant items
+  // consumer edits (this is the ONLY selector change the whole change makes). Dormant items
   // never carry `deleted` (physical remove, gated), so `visiblePlans === plans` byte-for-byte
   // in the dormant build; the filter only ever removes anything when sync is on.
   const visiblePlans = useCallback(

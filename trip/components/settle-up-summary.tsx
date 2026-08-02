@@ -28,7 +28,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
       className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
     >
       <div className="mb-4 flex items-center gap-2">
-        <Users className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />
+        <Users className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <h3 className="text-sm font-semibold text-white sm:text-base">Settle up</h3>
       </div>
 
@@ -64,7 +64,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                           is owed {formatMoney(net, s.currency)}
                         </span>
                       ) : (
-                        <span className="text-gold-300/90">owes {formatMoney(-net, s.currency)}</span>
+                        <span className="text-gold-400/90">owes {formatMoney(-net, s.currency)}</span>
                       )}
                     </li>
                   );
@@ -87,7 +87,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                       <span className="font-semibold text-white">{t.from}</span>
                       <ArrowRight className="h-3.5 w-3.5 shrink-0 text-white/40" aria-hidden="true" />
                       <span className="font-semibold text-white">{t.to}</span>
-                      <span className="ml-auto font-semibold text-gold-300">
+                      <span className="ml-auto font-semibold text-foreground">
                         {formatMoney(t.amount, s.currency)}
                       </span>
                     </li>

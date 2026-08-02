@@ -1,6 +1,6 @@
 // scripts/populate-images.mjs
 //
-// One-shot data populator for slice. Reads scripts/image-map.json and
+// One-shot data populator for. Reads scripts/image-map.json and
 // injects `image: '/images/<area>/<id>.<ext>'` into each RESOLVED record across
 // the four data files. Idempotent: it never adds a duplicate `image` to a record
 // that already has one, and it only touches ids that resolved (skips keep their

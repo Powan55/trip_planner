@@ -49,7 +49,7 @@ const LegacyHashRedirect = dynamic(() => import('@/components/legacy-hash-redire
 // ~200ms of hydration regardless of scroll (same guarantee as every other deferred section),
 // so it is present effectively immediately in practice.
 const HomeSectionNav = dynamic(() => import('@/components/home-section-nav'), { ssr: false });
-// — the compact "Your trips" chip strip (multi-trip on first paint; null for guests).
+// — the compact "Your trips" chip strip (multi-trip on first paint; null when signed out).
 // Same lazy-island recipe as HomeSectionNav above: Home's First Load JS has ~zero
 // headroom, so even this small component must stay OUT of the initial required-chunk set.
 const HomeTripStrip = dynamic(() => import('@/components/home-trip-strip'), { ssr: false });

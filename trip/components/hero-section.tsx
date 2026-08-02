@@ -6,6 +6,7 @@ import { m, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
 import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
+import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import { isDefaultTrip } from '@/core/trips';
@@ -60,7 +61,7 @@ const padUnit = (n: number) => String(n).padStart(2, '0');
 const identity = (n: number) => n;
 
 /**
- * — Hero entrance reveal variants (M11 Tier 2).
+ * — Hero entrance reveal variants.
  *
  * A single cohesive, staggered reveal for the hero content block, replacing the
  * old per-element `delay` props. The container staggers its direct children; each
@@ -82,12 +83,13 @@ const containerVariants = {
 };
 
 const itemVariants = {
-  // axe-deterministic reveal (the trip-recap/budget-panel pattern): a full-opacity
-  // SLIDE — opacity pinned to 1 — so the axe scan can never sample the CTA/countdown text
-  // mid-fade below AA (seen on a real run post-/Next-15: the "/plan/" CTA flagged
-  // color-contrast 1.49 at ~50% opacity, a ~50% flake). Reduced-motion branch below is
-  // untouched (it only runs under reduced motion, which the scan does not exercise).
-  hidden: { opacity: 1, y: 24 },
+  // FLOORED fade (was a opacity PIN at 1 — a slide that never
+  // faded). The reveal now runs FADE_FLOOR → 1 instead of 1 → 1. The axe-race guarantee
+  // bought is intact: the scan runs WITHOUT reduced motion and could sample this
+  // mid-animation (it once flagged the "/plan/" CTA at color-contrast 1.49 on a real
+  // post- run), but the darkest frame is now FADE_FLOOR, not ~0.5, which holds ≥AA
+  // for the muted copy in this subtree. Reduced-motion branch below is untouched.
+  hidden: { opacity: FADE_FLOOR, y: 24 },
   show: {
     opacity: 1,
     y: 0,
@@ -123,7 +125,7 @@ export default function HeroSection() {
   const prefersReducedMotion = useReducedMotion();
 
   // the Home hero entry surfaces (the always-present CTA + the on-trip card) share
-  // the one entry path — records the origin route, arms the gateway flag (guest-blocked), pushes.
+  // the one entry path — records the origin route, arms the gateway flag, pushes.
   const enterTravel = useEnterTravelMode();
 
   useEffect(() => {
@@ -195,7 +197,7 @@ export default function HeroSection() {
           winter-neon. Purely decorative and aria-hidden; no external imagery. */}
       <div className="absolute inset-0" aria-hidden="true">
         {/* Base multi-stop gradient: warm gold/himalaya dawn at the horizon → deep navy night sky.
-           : a custom (non-default-pack) trip re-tints this SAME div with its vibe's gradient
+            a custom (non-default-pack) trip re-tints this SAME div with its vibe's gradient
             stops instead — no separate layer, per D8 ("reuse the existing base-gradient div"). */}
         <div
           className="absolute inset-0"
@@ -209,9 +211,9 @@ export default function HeroSection() {
             glows so the gradient tints it and the SVG + dark overlays render on
             top. Tuned to ~45% so the title and countdown stay legible. On error
             (or if the asset is absent) the original CSS/SVG art shows through.
-           : the PARENT div is a parallax layer (drifts slow + scales subtly,
+            the PARENT div is a parallax layer (drifts slow + scales subtly,
             reading as the deepest plane); the image element itself is untouched.
-           : custom trips skip this layer entirely — the vibe gradient IS the backdrop
+            custom trips skip this layer entirely — the vibe gradient IS the backdrop
             (D8: "NO photo/SVG art" for a custom trip). */}
         {!custom && !heroImgError && (
           <m.div className="absolute inset-0" style={{ y: photoY, scale: photoScale }}>
@@ -227,8 +229,8 @@ export default function HeroSection() {
           </m.div>
         )}
         {/* Soft radial glows — a Himalayan "sun" on the left, a sakura/neon bloom on the right.
-           : drifts UP slightly and fades as the hero leaves, a mid-depth plane.
-           : under reduced motion the scroll-linked MotionValues are NOT bound at all —
+            drifts UP slightly and fades as the hero leaves, a mid-depth plane.
+            under reduced motion the scroll-linked MotionValues are NOT bound at all —
             framer hardware-accelerates the scroll-linked `opacity` into a WAAPI ViewTimeline
             animation, which stays permanently "running" even with the ranges collapsed to a
             constant. rule (reduced motion never renders a scroll-timeline path) makes
@@ -244,9 +246,9 @@ export default function HeroSection() {
         />
 
         {/* Layered mountain-range / skyline silhouette.
-           : wrapped in a parallax m.div that drifts DOWN the most slowly of the
+            wrapped in a parallax m.div that drifts DOWN the most slowly of the
             backdrop planes (deepest fixed scenery feel). The SVG art is unchanged.
-           : custom trips skip this SVG entirely (D8: "NO photo/SVG art"). */}
+            custom trips skip this SVG entirely (D8: "NO photo/SVG art"). */}
         {!custom && (
         <m.div className="absolute inset-x-0 bottom-0 w-full h-[62%]" style={{ y: silhouetteY }}>
         <svg
@@ -326,10 +328,13 @@ export default function HeroSection() {
 
       {/* Floating Decorative Elements —: lifted as the foreground parallax plane
           (drifts UP the most), wrapped in a single parallax m.div so the orbs read
-          as the nearest layer. The orbs keep their existing animate-float CSS. */}
+          as the nearest layer.: the orbs keep the scroll-linked parallax (a
+          one-shot, input-driven transform) but LOSE `.animate-float` — that was a 6s
+          infinite bob on a pair of 5%-alpha blurred circles, i.e. a forever loop for
+          decoration nobody can see move. */}
       <m.div className="absolute inset-0 pointer-events-none" aria-hidden="true" style={{ y: orbsY }}>
-        <div className="absolute top-20 left-10 w-32 h-32 rounded-full bg-gold-400/5 blur-3xl animate-float" />
-        <div className="absolute bottom-40 right-10 w-48 h-48 rounded-full bg-sakura-400/5 blur-3xl animate-float" style={{ animationDelay: '3s' }} />
+        <div className="absolute top-20 left-10 w-32 h-32 rounded-full bg-gold-400/5 blur-3xl" />
+        <div className="absolute bottom-40 right-10 w-48 h-48 rounded-full bg-sakura-400/5 blur-3xl" />
       </m.div>
 
       {/* Hero content —: a single staggered entrance (container staggers its
@@ -346,8 +351,8 @@ export default function HeroSection() {
           variants={reveal}
           className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-2 min-[420px]:mb-6"
         >
-          <Plane className="w-4 h-4 text-gold-400" />
-          <span className="text-sm text-gold-400 font-medium">{TRIP_DATE_LABEL}</span>
+          <Plane className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+          <span className="text-sm text-muted-foreground font-medium">{TRIP_DATE_LABEL}</span>
         </m.div>
 
         {/* Title —: a custom trip shows its own name, no Nepal×Japan branding. */}
@@ -361,7 +366,7 @@ export default function HeroSection() {
           ) : (
             <>
               <span className="text-white">Nepal</span>
-              <span className="text-gradient-gold mx-3">×</span>
+              <span className="text-display-emphasis mx-3">×</span>
               <span className="text-white">Japan</span>
             </>
           )}
@@ -388,10 +393,10 @@ export default function HeroSection() {
         {mounted && (todayInTrip ? (
           <m.div variants={reveal} className="relative mb-10">
             <CelebrationBurst active={celebrate} testId="hero-arrival-celebration" />
-            <p className="text-sm text-gold-400/80 mb-4 uppercase tracking-widest">You're on the trip</p>
+            <p className="text-sm text-muted-foreground mb-4 uppercase tracking-widest">You're on the trip</p>
             <div data-testid="hero-travel-mode" className="inline-flex flex-col items-center gap-2 glass-card rounded-2xl px-6 sm:px-10 py-5 sm:py-6 max-w-full">
               <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
-                Day <span data-testid="hero-day-number" className="text-gradient-gold">{todayInTrip.dayNumber}</span>
+                Day <span data-testid="hero-day-number" className="text-display-emphasis">{todayInTrip.dayNumber}</span>
                 <span className="text-white/40 mx-2 sm:mx-3">—</span>
                 {todayInTrip.city}
               </div>
@@ -406,7 +411,7 @@ export default function HeroSection() {
                 type="button"
                 onClick={() => enterTravel()}
                 data-testid="home-intrip-travel"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all duration-200 hover:scale-105 shadow-lg shadow-primary/20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
               >
                 <Compass className="w-4 h-4" />
                 Open Travel Mode
@@ -420,9 +425,12 @@ export default function HeroSection() {
           >
             <p className="text-sm text-white/50 mb-2 min-[420px]:mb-4 uppercase tracking-widest">Countdown to Departure</p>
             <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center gap-3 sm:gap-4 mb-2 min-[420px]:mb-4">
+              {/* the cells lost `.animate-pulse-glow` — a 3s infinite box-shadow breathe
+                  on all six. They already read as a group via.glass-card; the glow added
+                  nothing but a permanent repaint. */}
               {COUNTDOWN_UNITS.map(({ key, label }) => (
-                <div key={key} className="glass-card rounded-xl px-3 sm:px-5 py-3 sm:py-4 min-w-[70px] sm:min-w-[90px] animate-pulse-glow">
-                  <div data-testid={`countdown-${key}`} className="font-mono text-2xl sm:text-3xl md:text-4xl font-bold text-gold-400">
+                <div key={key} className="glass-card rounded-xl px-3 sm:px-5 py-3 sm:py-4 min-w-[70px] sm:min-w-[90px]">
+                  <div data-testid={`countdown-${key}`} className="font-mono text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">
                     <CountUpNumber live={timeLeft[key] ?? 0} active={mounted} format={padUnit} />
                   </div>
                   <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider mt-1">{label}</div>
@@ -438,7 +446,7 @@ export default function HeroSection() {
                 reducedMotion={!!prefersReducedMotion}
               >
                 <div className="flex flex-col items-center">
-                  <span data-testid="countdown-total-days" className="font-mono text-xl sm:text-2xl text-gold-400 font-bold leading-none">
+                  <span data-testid="countdown-total-days" className="font-mono text-xl sm:text-2xl text-foreground font-bold leading-none">
                     <CountUpNumber live={timeLeft.totalDays} active={mounted} format={identity} />
                   </span>
                   <span className="text-[9px] uppercase tracking-widest text-white/40 mt-1">days to go</span>
@@ -458,7 +466,7 @@ export default function HeroSection() {
           <m.div variants={reveal} className="flex justify-center">
             <Link
               href="/plan/"
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-all duration-200 hover:scale-105 shadow-lg shadow-gold-500/20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all duration-200 hover:scale-105 shadow-lg shadow-primary/20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
             >
               <Calendar className="w-4 h-4" />
               Open Planner
@@ -467,19 +475,17 @@ export default function HeroSection() {
         )}
       </m.div>
 
-      {/* Scroll indicator */}
+      {/* Scroll indicator.: the chevron's `repeat: Infinity` bounce is deleted —
+          it was the app's only framer-driven forever loop, and a cue that never stops
+          bouncing stops reading as a cue. The one-shot delayed fade-in stays: it is
+          what actually draws the eye, and it settles. */}
       <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 2 }}
         className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden sm:block"
       >
-        <m.div
-          animate={{ y: [0, 8, 0] }}
-          transition={{ repeat: Infinity, duration: 2 }}
-        >
-          <ChevronDown className="w-6 h-6 text-white/30" />
-        </m.div>
+        <ChevronDown className="w-6 h-6 text-white/30" />
       </m.div>
     </section>
   );

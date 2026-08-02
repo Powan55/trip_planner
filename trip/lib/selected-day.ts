@@ -10,7 +10,7 @@
 // from `null` and the FAB falls back to `getTodayInTrip()` / `TRIP_DATES[0]`.
 //
 // Wiring:
-// - (this slice): the quick-add FAB READS `getSelectedDay()` and MAY subscribe to
+// - (this change): the quick-add FAB READS `getSelectedDay()` and MAY subscribe to
 // `SELECTED_DATE_EVENT` — graceful `null` until the calendar sets it.
 // -: `calendar-planner.tsx` calls `setSelectedDay(date)` on day selection so the
 // FAB's preset date follows the day the user is looking at.

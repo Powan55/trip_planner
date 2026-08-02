@@ -1,13 +1,13 @@
 // TRAVEL MODE — route SHELL. The chrome-free `/travel` surface every
-// later Phase-2 slice mounts into: hero card, agenda, `?date=` picking,
-// essentials, legibility toggle, enter/exit affordances. This slice is the SHELL
+// later change mounts into: hero card, agenda, `?date=` picking,
+// essentials, legibility toggle, enter/exit affordances. This change is the SHELL
 // ONLY — a TM root container, an <h1>, and an honest placeholder line. No hero card, no
 // agenda, no entry button, no exit X, no `?date=` logic.
 //
 // Chrome-free: the six chrome-islands (navbar/footer/tab-bar/FAB + the two invisible
 // event-hosts) each render null under `/travel` via `lib/travel-route.ts` `isTravelRoute()`,
 // so this page renders WITHOUT app chrome. It stays a plain static Server Component (no
-// client island needed yet — nothing here reads state); later slices add a sibling
+// client island needed yet — nothing here reads state); later changes add a sibling
 // `sections.tsx` client module and mount their ssr:false islands INSIDE `.travel-mode-root`.
 //
 // Safe-area + iPhone-15-Pro hardening live in the `.travel-mode-root` / `.tm-thumb-zone`
@@ -34,7 +34,7 @@ export default function TravelPage() {
       className="travel-mode-root min-h-[100dvh] bg-surface px-gutter"
     >
       <div className="mx-auto flex max-w-2xl items-center justify-between gap-2">
-        <h1 className="font-display text-display-lg text-gradient-gold">Travel Mode</h1>
+        <h1 className="font-display text-display-lg text-display-emphasis">Travel Mode</h1>
         <div className="flex shrink-0 items-center gap-1">
           {/* outdoor high-legibility toggle — TM-local, chrome-free header row. */}
           <TravelLegibilityToggle />
@@ -47,8 +47,8 @@ export default function TravelPage() {
       {/* thumb-zone contract: TM primary actions pin to this fixed bottom band —
           ≥44×44px targets clear of the home indicator via env(safe-area-inset-bottom).
           places the first one: the concierge trigger (self-gating — dormant builds, custom
-          trips and guests render nothing, leaving the band `:empty` → display:none, exactly as
-          before). `aria-hidden` is gone with it: the band now holds a real control. */}
+          trips and signed-out sessions render nothing, leaving the band `:empty` → display:none,
+          exactly as before). `aria-hidden` is gone with it: the band now holds a real control. */}
       <div className="tm-thumb-zone">
         <TravelConcierge />
       </div>

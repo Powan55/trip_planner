@@ -60,12 +60,14 @@ export default function AuthorFilterControl({
     return true;
   };
 
-  // Shared chip classes — static literals. Active = gold pill (brand primary);
-  // inactive = muted, hover-lit. `transition-colors` is neutralized under reduced motion.
+  // Shared chip classes — static literals. Active = primary-token pill (cyan chrome;:
+  // this comment used to say "gold pill (brand primary)" — moved brand primary off gold, the
+  // code beneath was already correct, only the prose had rotted). Inactive = muted, hover-lit.
+  // `transition-colors` is neutralized under reduced motion.
   const chip = (active: boolean) =>
-    `px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+    `px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
       active
-        ? 'bg-gold-500/20 text-gold-400 ring-1 ring-gold-400/30'
+        ? 'bg-primary/20 text-primary ring-1 ring-ring/30'
         : 'text-white/50 hover:bg-white/5 hover:text-white/70'
     }`;
 

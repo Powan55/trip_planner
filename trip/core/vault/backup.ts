@@ -45,10 +45,17 @@ import { sanitizeItems as sanitizeShare } from '@/core/share/model';
 import { sanitizePhotos, type PhotoMeta } from '@/core/photos/model';
 import { loadPhotos, savePhotos } from '@/core/photos/storage';
 import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
-import { compressToBlob, decompressBlobOrText } from '@/core/vault/compression';
+import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
 import { exportItinerary, parseBackup } from '@/core/vault/export-import';
 import { savePlans } from '@/lib/itinerary-storage';
 import type { DayPlan } from '@/lib/trip-data';
+
+/** Export filenames (moved here from `backup-restore.tsx` — Ruling 2 pure lift, so the ONE
+ * caller-side download helper below owns the filename choice, not each call site.) */
+const EXPORT_FILENAME = 'nepal-japan-trip-backup.json';
+// gzip-compressed exports (native CompressionStream) get a `.gz` filename; the bytes stay
+// auto-detected on import by gzip magic bytes regardless of what a user renames the file to.
+const EXPORT_FILENAME_GZ = 'nepal-japan-trip-backup.json.gz';
 
 /**
  * How the itinerary domain is committed on import — the DUAL PATH. Defaults to the local Vault
@@ -213,6 +220,33 @@ export async function exportTripBackup(blobStore: BlobStorePort = defaultBlobSto
     photos: { meta, blobs },
   };
   return compressToBlob(JSON.stringify(envelope));
+}
+
+/**
+ * Download the active trip's whole-trip backup as a file ( Ruling 2 — a PURE LIFT of
+ * `backup-restore.tsx`'s prior `handleExport`, verbatim: same `exportTripBackup()` call, same
+ * `supportsCompression() ?.gz:.json` filename choice, same `createObjectURL` → `<a download>` →
+ * `click()` → `revokeObjectURL` dance). Exists so a second caller (the sign-out confirm dialog's
+ * backup offer) can reuse it without duplicating those lines.
+ *
+ * Can THROW (e.g. a `FileReader` failure reading a stored photo, or an unguarded
+ * `CompressionStream` failure in `core/vault/compression.ts`) — the CALLER owns try/catch and any
+ * user-facing error copy, exactly as `backup-restore.tsx` did before this was lifted out. Returns
+ * the filename used, so a caller can build its own success message without recomputing
+ * `supportsCompression()` itself.
+ */
+export async function downloadTripBackup(blobStore: BlobStorePort = defaultBlobStore): Promise<string> {
+  const blob = await exportTripBackup(blobStore);
+  const filename = supportsCompression() ? EXPORT_FILENAME_GZ : EXPORT_FILENAME;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  return filename;
 }
 
 // ── Import ──────────────────────────────────────────────────────────────────

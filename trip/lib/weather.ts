@@ -168,7 +168,7 @@ export function weatherTagForDay(day: ForecastDay | null): WeatherTag | null {
 
 /**
  * Format a `fetchedAt` ISO timestamp into the short "as of" age string the UI renders next to
- * stale/cached weather (/P6 — mirrors `currency-rate.ts`'s `asOf` label so a cached value
+ * stale/cached weather ( — mirrors `currency-rate.ts`'s `asOf` label so a cached value
  * never looks current). PURE given the timestamp. Invalid input degrades to `''` rather
  * than "Invalid Date" — total, never throws.
  */

@@ -15,7 +15,7 @@ import { legibilityPrefs } from '@/core/storage/gateway';
  * stamped on `<html>` as `"high"` while ON, ABSENT while off. It is mounted exclusively inside
  * the `/travel` client island tree (`app/travel/page.tsx`, TM-local), so the attribute only ever
  * exists while a traveler is actually on `/travel`; the unmount cleanup removes it unconditionally
- * (route leave), which is this slice's main risk (a leaked attribute recoloring the rest of the
+ * (route leave), which is this change's main risk (a leaked attribute recoloring the rest of the
  * app — forbids that). `globals.css`'s `html[data-tm-legibility='high']` block does the
  * actual re-tinting/re-sizing; this component is pure state + the attribute handshake.
  *
@@ -34,7 +34,7 @@ export default function TravelLegibilityToggle() {
   }, []);
 
   // Stamp/remove the root attribute to match `high`, and ALWAYS remove it on unmount
-  // (route leave) regardless of the last value — the leak this slice must not allow.
+  // (route leave) regardless of the last value — the leak this change must not allow.
   useEffect(() => {
     if (!ready) return;
     if (high) {
@@ -60,9 +60,9 @@ export default function TravelLegibilityToggle() {
       aria-pressed={high}
       aria-label="High legibility"
       data-testid="travel-legibility-toggle"
-      className={`inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+      className={`inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
         high
-          ? 'bg-gold-400/20 text-gold-300 hover:bg-gold-400/25'
+          ? 'bg-primary/20 text-primary hover:bg-primary/25'
           : 'text-white/60 hover:bg-white/10 hover:text-white'
       }`}
     >

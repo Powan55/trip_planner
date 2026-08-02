@@ -27,7 +27,7 @@ import { resolvePlaceLink } from '@/lib/place-resolve';
  *
  * It works FULLY MANUALLY: the Worker resolution (`lib/place-resolve.ts`) only PRE-FILLS the fields
  * and NEVER blocks — if it returns null (dormant Worker / unreachable / format drift) the user just
- * types the name themselves. This is why the feature ships before the Worker's /resolve route (S-a).
+ * types the name themselves. This is why the feature ships before the Worker's /resolve route.
  *
  * Confirm ALWAYS writes the `MyPlace` (via `useMyPlaces`); it ALSO writes a plan item (via
  * `useItineraryContext().addItem`, `sourceId: 'myplace-'+id`, `sourceType: 'recommendation'` — the
@@ -176,6 +176,15 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
         category,
         sourceId: `myplace-${id}`,
         sourceType: 'recommendation',
+        // — the actual link->pin bug: coords were resolved into local state (already used
+        // above to pre-select the country leg) but never carried onto the plan item itself, so
+        // even a perfect resolve produced no marker. stopMarkerFor (lib/itinerary-map.ts) already
+        // prefers a manual pin over the name/sourceId join, so passing them through here is the
+        // whole fix — the item plots immediately and the pin is reload-persistent like any other
+        // item's lat/lng. Both undefined
+        // is a no-op, same as never setting the field.
+        lat: coords.lat,
+        lng: coords.lng,
       });
       toast.success(`Saved “${trimmedName}” and added it to ${formatDate(selectedDate)}`);
     } else {
@@ -185,11 +194,31 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
     onClose();
   };
 
-  const statusLine =
-    status === 'resolving' ? 'Reading this link…'
-      : status === 'found' ? 'Found this place — check the details below.'
+  // AMENDMENT: a successful resolve very often returns a name with NO coordinates — the
+  // dominant `share.google` share form has no pin anywhere in its redirect target, live-verified
+  // in. That is the expected ceiling, not a bug, so it gets its own calm line rather than the
+  // generic "Found this place" text implying a pin landed.
+  const resolvedHasPin = typeof coords.lat === 'number' && typeof coords.lng === 'number';
+
+  // A non-Google url typed into the editable field is an INPUT problem, not a resolve outcome —
+  // derived straight off the current text (not `status`) so it updates the instant the field
+  // becomes invalid/valid again, independent of whatever an earlier resolve on different text said.
+  // Only meaningful in paste mode (urlEditable) — the read-only inbox path is always pre-screened.
+  const invalidLink = urlEditable && url.trim() !== '' && !isGooglePlaceUrl(url.trim());
+
+  const statusLine = invalidLink
+    ? "That doesn't look like a Google Maps share link — open the place in Google Maps, tap Share, and paste that link."
+    : status === 'resolving' ? 'Reading this link…'
+      : status === 'found'
+        ? resolvedHasPin
+          ? 'Found this place — check the details below.'
+          : "Found this place — no map pin came with this link. The name's filled in; you can add a pin yourself later."
         : status === 'notfound' ? "Couldn't read this link — fill in the name yourself."
           : null;
+
+  // "notfound" and an invalid link are the two states that need the user to do something
+  // differently; a coords-less "found" is a success path and must NOT read as a warning.
+  const statusIsWarning = status === 'notfound' || invalidLink;
 
   return (
     <Sheet
@@ -215,7 +244,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
             data-testid="import-place-cancel"
             onClick={onClose}
             aria-label="Close dialog"
-            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <X className="w-5 h-5" />
           </button>
@@ -246,14 +275,14 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                     inputMode="url"
                     autoComplete="off"
                     placeholder="https://maps.app.goo.gl/…"
-                    className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                    className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
                   />
                   <button
                     type="button"
                     data-testid="import-place-lookup"
                     onClick={() => void runResolve(url)}
                     disabled={!isGooglePlaceUrl(url.trim()) || status === 'resolving'}
-                    className="shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-white/80 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-white/80 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     {status === 'resolving' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                     Look up
@@ -265,7 +294,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                   data-testid="import-place-url-readonly"
                   className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-white/70"
                 >
-                  <Link2 className="w-3.5 h-3.5 shrink-0 text-gold-400/70" aria-hidden="true" />
+                  <Link2 className="w-3.5 h-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="truncate break-all">{url || 'No link'}</span>
                 </p>
               )}
@@ -273,7 +302,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                 <p
                   data-testid="import-place-status"
                   role="status"
-                  className={`mt-1.5 text-xs ${status === 'notfound' ? 'text-amber-300/80' : 'text-white/50'}`}
+                  className={`mt-1.5 text-xs ${statusIsWarning ? 'text-amber-300/80' : 'text-white/50'}`}
                 >
                   {statusLine}
                 </p>
@@ -291,7 +320,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
                 autoComplete="off"
                 placeholder="e.g., Fushimi Inari Shrine"
-                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
               />
             </div>
 
@@ -310,8 +339,8 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                         aria-checked={active}
                         data-testid={`import-place-leg-${leg.id}`}
                         onClick={() => setLegId(leg.id)}
-                        className={`min-h-[44px] px-4 rounded-lg text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                          active ? 'bg-gold-500/15 border border-gold-400/40 text-gold-300' : 'bg-white/5 border border-white/10 text-white/60 hover:bg-white/10'
+                        className={`min-h-[44px] px-4 rounded-lg text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                          active ? 'bg-primary/10 border border-ring/40 text-primary' : 'bg-white/5 border border-white/10 text-white/60 hover:bg-white/10'
                         }`}
                       >
                         {leg.countryLabel}
@@ -332,7 +361,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
                 rows={2}
                 placeholder="Why you saved it…"
-                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 resize-none"
+                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 resize-none"
               />
             </div>
 
@@ -343,7 +372,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                 data-testid="import-place-toggle-plan"
                 onClick={() => setShowAddToPlan((v) => !v)}
                 aria-expanded={showAddToPlan}
-                className="w-full flex items-center justify-between gap-2 min-h-[44px] px-3 text-sm text-white/80 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded-xl"
+                className="w-full flex items-center justify-between gap-2 min-h-[44px] px-3 text-sm text-white/80 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-xl"
               >
                 <span>Also add to plan</span>
                 <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${showAddToPlan ? 'rotate-180' : ''}`} />
@@ -357,7 +386,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                       data-testid="import-place-day-select"
                       value={selectedDate}
                       onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
                     >
                       {TRIP_DATES.map((d) => (
                         <option key={d} value={d} className="bg-surface text-white">
@@ -380,7 +409,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                             aria-pressed={active}
                             aria-label={`Category: ${cat}`}
                             data-testid={`import-place-cat-${cat}`}
-                            className={`min-h-[44px] px-1 rounded-lg text-[10px] capitalize leading-tight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                            className={`min-h-[44px] px-1 rounded-lg text-[10px] capitalize leading-tight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                               active ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-white/40 hover:bg-white/5'
                             }`}
                           >
@@ -404,7 +433,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
             onClick={handleConfirm}
             data-testid="import-place-confirm"
             disabled={!nameValid}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gold-500"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary"
           >
             <Check className="w-4 h-4" />
             Save place

@@ -78,8 +78,11 @@ function contentTypeFor(filePath) {
 /**
  * Resolve a URL pathname to an on-disk file under OUT_DIR, mirroring
  * trailingSlash:true's export layout. Returns null if nothing matches (404).
+ *
+ * Costs up to 3 candidates x 2 SYNC disk ops (`existsSync` + `statSync`). Call
+ * `resolveFile` below — the memoized entry point — rather than this directly.
  */
-function resolveFile(pathname) {
+function resolveUncached(pathname) {
   // Strip query/hash (http.request URLs already exclude these, but be safe).
   const decoded = decodeURIComponent(pathname.split('?')[0].split('#')[0]);
 
@@ -109,6 +112,33 @@ function resolveFile(pathname) {
     }
   }
   return null;
+}
+
+/**
+ * URL -> resolved-path memo, and the entry point the request handler calls.
+ *
+ * Correct by `out/`'s own lifecycle: it is a FINISHED build artifact, served
+ * read-only for the whole life of this process (the harness runs `npm run
+ * build` first, then starts this server), so a URL's resolution — the file path
+ * OR the `null` that means 404 — cannot change under us. `null` is memoized
+ * too; a 404 otherwise re-pays the full 6 sync stats on every repeat.
+ *
+ * Why it is worth memoizing: `resolveUncached` runs SYNCHRONOUSLY inside the
+ * request handler, so every miss head-of-line-blocks Node's single event loop
+ * on disk. One page load is an HTML request plus dozens of chunk requests, and
+ * the E2E specs set `serviceWorkers: 'block'`, so no cache absorbs the repeats.
+ * Measured effect: docs/plans/serve-out-latency-2026-08-02.md.
+ *
+ * unbounded Map. Fine for a local harness serving a fixed URL set —
+ * add an LRU cap only if this ever faces a client that can invent URLs.
+ */
+const resolveCache = new Map();
+
+function resolveFile(pathname) {
+  if (resolveCache.has(pathname)) return resolveCache.get(pathname);
+  const resolved = resolveUncached(pathname);
+  resolveCache.set(pathname, resolved);
+  return resolved;
 }
 
 const server = http.createServer((req, res) => {

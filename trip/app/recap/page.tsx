@@ -5,7 +5,7 @@
 // (`components/trip-story-recap.tsx`). Localstorage-only — the island is lazy +
 // ssr:false, mirroring app/journal/. Next 15: the ssr:false dynamic import
 // lives in./sections (a client module); this Server Component page exports metadata.
-// Reached via a direct URL only this slice — deliberately NOT wired into `lib/nav-items.ts` /
+// Reached via a direct URL only this change — deliberately NOT wired into `lib/nav-items.ts` /
 // the navbar / tab bar / command palette (those files are fenced — a follow-up rider, same
 // deferral as `/journal` and `/safety`).
 import { TripStoryRecap, WrappedStory } from './sections';
@@ -19,7 +19,7 @@ export default function RecapPage() {
   return (
     <main className="min-h-screen bg-surface">
       {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
-          text-gradient-gold / animate-reveal-up) directly rather than extending PageHero's
+          text-display-emphasis / animate-reveal-up) directly rather than extending PageHero's
           closed `HeroVariant` union (fenced per the brief, mirroring app/journal/page.tsx
           and app/safety/page.tsx). Supplies the page's <h1>; the island's own headings (trip
           summary / per-day) nest under it as h2/h3. */}
@@ -37,7 +37,7 @@ export default function RecapPage() {
             <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
               The whole journey
             </p>
-            <h1 className="font-display text-display-lg text-gradient-gold">Trip Story</h1>
+            <h1 className="font-display text-display-lg text-display-emphasis">Trip Story</h1>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
               A day-by-day narrative of Nepal and Japan — what was planned, what actually happened,
               what you wrote, and what you spent. Unlocks once the trip wraps.

@@ -1,5 +1,20 @@
 const path = require('path');
 
+// bundle attribution behind an explicit opt-in. Disabled, the wrapper
+// returns nextConfig UNCHANGED (@next/bundle-analyzer/index.js: `if (!enabled)
+// return nextConfig`) — no webpack plugin is pushed, so the normal build stays
+// byte-identical. That byte-identity is the decision, not a nicety.
+// Second trigger: `ANALYZE=1 next build` is not a runnable npm script on
+// Windows (npm runs scripts via cmd.exe, where inline VAR=value is a syntax
+// error) and no cross-env dependency is permitted, so `npm run analyze` keys off
+// npm_lifecycle_event instead and works on every platform.
+// Reports ->.next/analyze/*.html (gitignored). openAnalyzer:false so an
+// unattended run never tries to spawn a browser.
+const withBundleAnalyzer = require('@next/bundle-analyzer')({
+  enabled: process.env.ANALYZE === '1' || process.env.npm_lifecycle_event === 'analyze',
+  openAnalyzer: false,
+});
+
 // Single source of truth for the GitHub Pages project-page basePath.
 // Empty for local dev; CI sets NEXT_PUBLIC_BASE_PATH=/<repo> for deploys.
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
@@ -39,4 +54,4 @@ const nextConfig = {
   },
 };
 
-module.exports = nextConfig;
+module.exports = withBundleAnalyzer(nextConfig);

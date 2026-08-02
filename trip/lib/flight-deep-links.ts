@@ -4,21 +4,21 @@
 // Nothing here is fetched; every export is a byte-exact `<a href>` built from the confirmed
 // booking data (`lib/booking-data.ts`) or a plain city-pair.
 
-/** IATA carrier codes for the airlines that actually appear in `lib/booking-data.ts` —
- * deliberately BOUNDED to the 4 real carriers on this trip, not a general lookup. An
+/** IATA-style carrier codes for the airlines used in `lib/booking-data.ts` — deliberately
+ * BOUNDED to the 4 carriers that appear in this trip's data, not a general lookup. An
  * airline outside this map yields no tracker link (never a guessed/broken href). */
 const AIRLINE_IATA: Record<string, string> = {
-  Delta: 'DL',
-  'Air India': 'AI',
-  'China Southern': 'CZ',
-  'Japan Airlines': 'JL',
+  'Meridian Air': 'MD',
+  'Skyline Continental': 'SK',
+  'Pacific Crown Air': 'PC',
+  'Nova Air': 'NV',
 };
 
 /**
  * Build a FlightRadar24 flight-tracker URL from a booking `flightNumber` string
- * (e.g. `'Delta 5363'` → `https://www.flightradar24.com/data/flights/dl5363`). Returns `null`
- * when the airline isn't in the bounded IATA map above or the string doesn't split cleanly —
- * total, never throws, never guesses.
+ * (e.g. `'Meridian Air 4471'` → `https://www.flightradar24.com/data/flights/md4471`). Returns
+ * `null` when the airline isn't in the bounded IATA map above or the string doesn't split
+ * cleanly — total, never throws, never guesses.
  */
 export function buildFlightTrackerUrl(flightNumber: string): string | null {
   const trimmed = flightNumber.trim();

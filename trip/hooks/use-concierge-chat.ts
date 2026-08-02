@@ -5,6 +5,9 @@ import { getActiveTripId } from '@/core/storage/gateway';
 import { CONCIERGE_URL } from '@/lib/concierge-config';
 import { TRIP_DATE_LABEL, TRIP_DATES } from '@/core/dates/trip-dates';
 import { getCityForDate } from '@/core/dates/trip-cities';
+import { effectiveStartMinutes } from '@/core/dates/item-time';
+import { getTodayInTrip } from '@/lib/trip-now';
+import { minutesToHHMM } from '@/lib/time-picker-format';
 import { itineraryStoragePort } from '@/lib/itinerary-ports';
 import type { Op } from '@/lib/concierge-ops';
 
@@ -17,17 +20,70 @@ export interface ChatTurn {
   // consuming component (`concierge-chat.tsx`) runs `validateOps(turn.ops, plans)` before showing a
   // chip. Absent on user turns and on assistant turns that carried no ops (pure chat).
   ops?: Op[];
+  // which model answered, Worker-stamped and
+  // shown as the raw id with no friendly-name map. Absent on user turns, and on ANY assistant
+  // turn when the field wasn't a non-empty string on the wire — the deployed Worker (v1.4.0) sends
+  // no `model` yet, and that must render as nothing, not a placeholder.
+  model?: string;
 }
 
 // Client digest char cap. Coupled to the Worker's CONTEXT_TRUNCATE_LENGTH (worker/src/
 // providers.ts) — BOTH are CHARACTER caps, and the Worker re-slices `context` to its own
 // ceiling before folding it into the system prompt. This cap MUST stay ≤ the Worker ceiling.
-// raised BOTH to 7000 (from 2000) so the whole fully-planned 32-day digest —
-// measured it at 6517 chars — fits without mid-trip truncation. Keep these two constants equal;
-// a higher client cap would ship bytes the server silently discards. (They land + deploy together
-// per the coupling; don't raise one without the other.)
-const DIGEST_CAP = 7000;
+// raised BOTH to 7000 (from 2000) so the whole fully-planned 32-day digest fits
+// without mid-trip truncation. raised BOTH to 9500, because the digest now carries a
+// per-item `HH:MM category ` prefix. MEASURED, not estimated:
+// fully-planned 32-day sample trip, 158 items: 6611 chars BEFORE → 9025 AFTER (+15.3/item).
+// Both numbers are pinned EXACTLY by the "MEASUREMENT" test in
+// lib/__tests__/concierge-digest-s327.test.ts (constants MEASURED_DIGEST_BEFORE/AFTER), so the
+// slack claim below is backed by a test that goes red rather than by a run someone did once —
+// change what the digest emits and that test fails and asks you to re-measure.
+// So 7000 would truncate a third of the trip, and 9000 — the number this change was originally
+// scoped with, derived from a stale 6517 estimate — would still have cut the last day's tail off
+// by 25 chars. 9500 clears the real digest with 475 chars of slack for items the user adds.
+// Keep these two constants equal; a higher client cap would ship bytes the server silently
+// discards. (They land + deploy together per the coupling; don't raise one without
+// the other.)
+// WHY THAT COUPLING IS THE WHOLE PROTECTION: while the two are equal, the server's
+// `context.slice(0, CONTEXT_TRUNCATE_LENGTH)` (worker/src/providers.ts) is structurally
+// UNREACHABLE — `context` IS this digest, so the client cannot send more than the server keeps.
+// That guard has therefore never fired in production and no test covers it, nor can one while
+// the caps match. Raise the client cap alone and the branch flips from inert to silently active
+// with nothing turning red — and it degrades WITH TRIP SIZE, so small fixtures stay under the
+// limit and only real, fully-planned trips lose their tail. The equality is the protection;
+// the slice() is not a backstop.
+const DIGEST_CAP = 9500;
+
+// Outgoing-history caps — TWO bounds, both applied (see `capHistory`).
+// `HISTORY_CAP` is the conversational one: the last 12 turns, unchanged since.
+// `HISTORY_CHAR_CAP` is the BYTE-BUDGET one and exists only to protect the Worker's
+// `MAX_BODY_BYTES = 16 * 1024` (worker/src/index.ts:24), which 413s on the WHOLE JSON string —
+// digest AND history AND message together. 12 turns bounds the turn COUNT but not their length,
+// so one long pasted exchange was the wildcard that could push a request over the limit; raising
+// DIGEST_CAP 7000 → 9500 ate 2500 chars of what used to be slack, which is what makes bounding it
+// worth doing now.
+//
+// SIZED AGAINST THE CLIENT'S OWN `DIGEST_CAP` (9500), NOT the Worker's CONTEXT_TRUNCATE_LENGTH.
+// That distinction is load-bearing: the Worker's 413 check runs on the raw request body BEFORE it
+// truncates `context`, so a smaller server-side context ceiling buys this budget nothing at all —
+// the bytes still have to leave the client. Budget measured, not guessed (the MEASUREMENT test in
+// lib/__tests__/concierge-digest-s327.test.ts builds the real worst-case body and asserts it):
+// 9500 digest (multi-byte inflated) + ≤3000 history + 2000 message + JSON keys/escapes
+// ≈ 14.1 KB of 16384, leaving ~2.2 KB of genuine headroom.
+// 3000 rather than 4000 for that extra ~1 KB of margin: JSON escaping inflates unpredictably, and
+// a normal 12-turn conversation (~80-char asks, ~400-char replies ≈ 2.9 KB) still fits whole, so
+// the bound only bites on the long pasted exchanges that are the actual 413 risk.
 const HISTORY_CAP = 12;
+const HISTORY_CHAR_CAP = 3000;
+
+// Abort ceiling for the chat POST. The sibling `lib/place-resolve.ts` uses AbortSignal.timeout
+// (8s) for a link resolve; this call is NOT comparable — it waits on a language model, and the
+// Worker's fallback ladder (worker/src/providers.ts: Gemini → Groq 120b → Groq 20b) can try three
+// providers SEQUENTIALLY with no per-leg timeout of its own, so this client abort is the only
+// bound on the whole ladder. 45s ≈ three ~15s legs: a legitimately slow full fall-through still
+// completes, and anything past it is genuinely hung. Without it a hung upstream pinned the UI in
+// its (misnamed) 'streaming' state forever with no way out.
+const CHAT_TIMEOUT_MS = 45_000;
 
 /**
  * Compact plain-text trip-context digest — sent as `context`
@@ -47,9 +103,16 @@ const HISTORY_CAP = 12;
  * unlisted date is unplanned, so no information is lost — the model mostly needs the frame plus
  * the PLANNED items. For a realistically-planned trip (many empty days) this reclaims most of
  * the budget for real content.
+ * format change — each item is now `HH:MM category Title #id` instead of bare `Title #id`.
+ * Titles alone told the model *that* something sits on Dec 20 but not *when* or *what kind*, so it
+ * could not answer "what should I do tomorrow evening?" without risking a double-booking, nor spot
+ * a free afternoon. Costs ~2400 chars on a fully-planned trip (6611 → 9025 measured, hence
+ * DIGEST_CAP 7000 → 9500) and
+ * no extra request. Deliberately NOT abbreviated: the full ISO date stays on every day line even
+ * though `12-20` would save ~160 chars, because a non-ISO date echoed back into an op is dropped
+ * silently by `validateOps` — the bug class, not worth reintroducing.
+ *
  * Hard-capped at `DIGEST_CAP` chars (truncate + '…') — a token-budget guard for the Worker call.
- * NOTE: for a FULLY-planned 32-day trip the whole digest still exceeds 2000 chars, so it truncates
- * mid-trip; full-trip visibility is completed by D2/ (raise the coupled server+client caps).
  */
 export function buildTripDigest(): string {
   const lines: string[] = [
@@ -57,8 +120,26 @@ export function buildTripDigest(): string {
     // TRIP_DATE_LABEL alone was letting the model echo "Dec 20" or a wrong YEAR back in an op's
     // date, which `validateOps` then dropped silently — the user just saw a reply
     // with no proposal chip. Cheap (~55 chars, well inside DIGEST_CAP) and it costs no extra call.
-    `Trip: ${TRIP_DATE_LABEL} (${TRIP_DATES.length} days). Dates are YYYY-MM-DD between ${TRIP_DATES[0]} and ${TRIP_DATES[TRIP_DATES.length - 1]}. Any date not listed below is unplanned. Items tagged #id.`,
+    `Trip: ${TRIP_DATE_LABEL} (${TRIP_DATES.length} days). Dates are YYYY-MM-DD between ${TRIP_DATES[0]} and ${TRIP_DATES[TRIP_DATES.length - 1]}. Any date not listed below is unplanned.`,
+    // one line teaching the per-item encoding, which also subsumes the old trailing
+    // "Items tagged #id." The Worker's system prompt is written against this exact
+    // wording — the two halves must describe the same format or the model mis-parses the digest.
+    'Each item is "HH:MM category Title #id". A missing HH:MM means no set time yet.',
   ];
+
+  // the starter chip "What's the plan for tomorrow?" is unanswerable without the model
+  // knowing where "now" sits inside the trip range above — it only had the range, never today's
+  // position in it. `getTodayInTrip()` (lib/trip-now.ts) is the SAME clock+leg-offset adapter
+  // every other "what day is it" caller uses (hero-section/calendar-planner/quick-add-fab): it
+  // reads the destination-local wall-clock day (Nepal/Japan offset), not the device's, so a
+  // traveler checking from bed still gets the correct calendar day — a Worker-side `new Date()`
+  // (UTC at the edge) cannot do this. Outside the trip window (before Dec 9 / after Jan 9) it's
+  // `null` and this line is omitted entirely: there is no trip-local "today" to report, same as
+  // every other today-dependent feature in the app.
+  const today = getTodayInTrip();
+  if (today) {
+    lines.push(`Today is ${today.date} (Day ${today.dayNumber} of ${TRIP_DATES.length}, ${today.city}).`);
+  }
 
   const plans = itineraryStoragePort.load();
   const byDate = new Map(plans.map((d) => [d.date, d]));
@@ -68,12 +149,35 @@ export function buildTripDigest(): string {
     const items = (day?.items ?? []).filter((i) => i.deleted !== true);
     if (items.length === 0) continue; // omit unplanned days (frame already covers them)
     const city = day?.city ?? getCityForDate(date);
-    const entries = items.map((i) => `${i.title} #${i.id}`).join('; ');
+    const entries = items
+      .map((i) => {
+        // `effectiveStartMinutes`, not a raw `i.startMinutes` read: it is the ONE range-validation
+        // + legacy-`time` fallback point, and the SEED itinerary
+        // (core/content/itinerary.ts, returned verbatim by the Vault fallback with no migration)
+        // carries `time: '05:30'` and NO `startMinutes` at all — reading the raw field would emit
+        // a timeless digest on every fresh device, i.e. the whole point of this change, silently
+        // lost. Untimed items get NO token rather than `00:00`, which would read as midnight.
+        const minutes = effectiveStartMinutes(i);
+        const time = minutes === undefined ? '' : `${minutesToHHMM(minutes)} `;
+        return `${time}${i.category} ${i.title} #${i.id}`;
+      })
+      .join('; ');
     lines.push(`${date} ${city}: ${entries}`);
   }
 
   const digest = lines.join('\n');
   return digest.length > DIGEST_CAP ? `${digest.slice(0, DIGEST_CAP - 1)}…` : digest;
+}
+
+/**
+ * The outgoing history: the last `HISTORY_CAP` turns, then oldest-first dropped until the
+ * serialized result fits `HISTORY_CHAR_CAP`. Both bounds matter — see the constants above.
+ * Newest turns are the ones the model actually needs, so the drop order is never in question.
+ */
+export function capHistory(turns: ChatTurn[]): ChatTurn[] {
+  let out = turns.slice(-HISTORY_CAP);
+  while (out.length > 0 && JSON.stringify(out).length > HISTORY_CHAR_CAP) out = out.slice(1);
+  return out;
 }
 
 export type ChatStatus = 'idle' | 'streaming' | 'error';
@@ -125,7 +229,10 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         const res = await fetchImpl(CONCIERGE_URL, {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'X-Trip-Token': getActiveTripId() },
-          body: JSON.stringify({ message: trimmed, history: history.slice(-HISTORY_CAP), context }),
+          body: JSON.stringify({ message: trimmed, history: capHistory(history), context }),
+          // The POST stays at the BARE origin with no path suffix — the Worker accepts `POST /`
+          // specifically because of this. Do not "tidy" it into `${CONCIERGE_URL}/chat`.
+          signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
         });
 
         if (!res.ok) {
@@ -142,17 +249,26 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
 
         // the structured turn returns ONE `application/json` object `{reply, ops}`, not
         // SSE (constrained JSON can't cleanly interleave streamed prose + a terminal ops block).
-        // `lib/concierge-sse.ts` is now unused for this route — left in place, flagged for later
-        // removal per the brief (do NOT delete this slice).
-        const data = (await res.json().catch(() => ({}))) as { reply?: unknown; ops?: unknown };
+        // `model` joins the envelope, optional on the wire — a client shipped before
+        // the Worker's model-stamping version receives replies with no `model` field at all.
+        const data = (await res.json().catch(() => ({}))) as {
+          reply?: unknown;
+          ops?: unknown;
+          model?: unknown;
+        };
         const reply = typeof data.reply === 'string' ? data.reply : '';
         // Surface ops RAW (unvalidated) on the assistant turn — the component validates against the
         // LIVE itinerary at chip-render time (see the ChatTurn.ops comment). Keep only a plain array.
         const ops: Op[] = Array.isArray(data.ops) ? (data.ops as Op[]) : [];
+        // absent / non-string / blank all collapse to `undefined` HERE — the one place that
+        // decides "is this a real model id" — so `concierge-chat.tsx` renders on plain truthiness
+        // with no second guard to keep in sync (: a mechanism in one place, not a claim
+        // repeated at two call sites).
+        const model = typeof data.model === 'string' && data.model.trim() !== '' ? data.model : undefined;
 
         setMessages((prev) => {
           const next = prev.slice();
-          next[next.length - 1] = { role: 'assistant', content: reply, ops };
+          next[next.length - 1] = { role: 'assistant', content: reply, ops, model };
           return next;
         });
         // History carries the reply text only.
@@ -160,7 +276,20 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         setStatus('idle');
       } catch (err) {
         setStatus('error');
-        setError(err instanceof Error ? err.message : 'Concierge is unavailable.');
+        // A CHAT_TIMEOUT_MS abort surfaces as a DOMException whose raw message ("signal timed out")
+        // is useless to a traveler — swap in a friendly, actionable one. Everything else keeps the
+        // Worker's own `error` text, which is the whole point of the non-200 branch above.
+        // Matched on `.name` WITHOUT an `instanceof Error` guard on purpose: whether a DOMException
+        // subclasses Error varies by implementation (jsdom's does not), and this must not depend on
+        // that — `.name === 'TimeoutError'` is the part the spec actually pins.
+        const timedOut = (err as { name?: unknown } | null)?.name === 'TimeoutError';
+        setError(
+          timedOut
+            ? 'The concierge took too long to respond. Try again.'
+            : err instanceof Error
+              ? err.message
+              : 'Concierge is unavailable.',
+        );
         // Drop the empty in-flight assistant bubble so the error state doesn't leave a blank turn.
         setMessages((prev) => prev.slice(0, -1));
       } finally {

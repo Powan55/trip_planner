@@ -29,7 +29,7 @@ import type { MarkerCategory } from '@/lib/map-data';
 // not write it. Kept here so GL paint properties (which take raw colors, not
 // Tailwind classes) stay in one place.
 export const BRAND = {
-  navy900: '#0a0e27',
+  navy900: '#0b0c0e',
   navy800: '#111640',
   navy700: '#1a2050',
   gold400: '#f0c760',
@@ -46,7 +46,7 @@ export const CATEGORY_COLOR: Record<MarkerCategory, string> = {
   Restaurant: '#e67635', // himalaya-500
   Hotel: '#6366f1', // indigo-500
   'Photo Spot': '#a855f7', // purple-500
-  'Day Trip': '#06b6d4', // cyan-500
+  'Day Trip': '#22c55e', // green-500
   Shopping: '#e88fa2', // sakura-500
   Cultural: '#f59e0b', // amber-500
 };

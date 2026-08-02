@@ -63,7 +63,7 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
         data-phase="off-trip"
         className="mx-auto mt-4 max-w-2xl rounded-2xl glass-card p-5 sm:p-6"
       >
-        <p className="text-[11px] uppercase tracking-widest text-gold-400/80">Now &amp; next</p>
+        <p className="text-[11px] uppercase tracking-widest text-muted-foreground">Now &amp; next</p>
         <h2 id="travel-hero-title" className="mt-1 font-display text-lg font-bold text-white">
           Not on the road yet
         </h2>
@@ -93,7 +93,7 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
     >
       <div className="flex items-center justify-between gap-3">
         <h2 id="travel-hero-title" className="font-display text-sm font-bold leading-tight text-white">
-          Day <span className="text-gradient-gold">{resolvedDayNumber}</span>
+          Day <span className="text-display-emphasis">{resolvedDayNumber}</span>
           <span className="mx-1.5 text-white/40">—</span>
           {resolvedCity}
         </h2>
@@ -115,7 +115,7 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
         Nothing planned yet.
         <Link
           href="/plan/"
-          className="rounded font-medium text-gold-300 underline decoration-white/20 underline-offset-2 outline-none hover:text-gold-200 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          className="rounded font-medium text-primary underline decoration-white/20 underline-offset-2 outline-none hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Open the planner
         </Link>
@@ -126,7 +126,7 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
   if (state.phase === 'untimed') {
     return (
       <p data-testid="travel-hero-untimed" className="mt-1 text-sm text-white/70">
-        <span className="font-semibold text-gold-400">{state.untimedCount}</span>{' '}
+        <span className="font-semibold text-foreground">{state.untimedCount}</span>{' '}
         {state.untimedCount === 1 ? 'thing' : 'things'} planned today — no set times.
       </p>
     );
@@ -170,7 +170,7 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
       </p>
       {isNow && state.next && (
         <p className="mt-0.5 truncate text-xs text-white/45" data-testid="travel-hero-then">
-          <span className="text-gold-400/70">Then ·</span> {state.next.title}
+          <span className="text-muted-foreground">Then ·</span> {state.next.title}
         </p>
       )}
     </div>

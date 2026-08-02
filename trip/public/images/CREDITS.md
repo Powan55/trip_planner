@@ -1,8 +1,10 @@
 # Image Credits
 
-All images bundled under `public/images/` are freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision ****. Each was sourced from Wikimedia Commons / Wikipedia via `scripts/fetch-images.mjs` and is hosted locally (no hotlinking). Attribution below is captured automatically from each file’s Wikimedia `extmetadata`.
+Almost every image bundled under `public/images/` is freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision ****, sourced from Wikimedia Commons / Wikipedia via `scripts/fetch-images.mjs` and hosted locally (no hotlinking). Attribution in the tables below is captured automatically from each file’s Wikimedia `extmetadata`.
 
-Total assets: 103.
+**The exception is `public/images/landing/` — see the last section. Those three are self-generated, not sourced, and no Wikimedia attribution applies to them.**
+
+Total assets: 106 — 103 Wikimedia-sourced (tabulated below) + 3 self-generated landing screenshots.
 
 ## Hero
 
@@ -137,3 +139,29 @@ Total assets: 103.
 | `/images/map/np-thamel.jpg` | Thamel | Sergey Ashmarin | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/3/34/Thamel_at_night_-_Kathmandu%2C_Nepal_-_panoramio_%281%29.jpg/1280px-Thamel_at_night_-_Kathmandu%2C_Nepal_-_panoramio_%281%29.jpg) |
 | `/images/map/np-yangling.jpg` | Momo (food) | Kushal Goyal | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Momo_nepal.jpg/1280px-Momo_nepal.jpg) |
 
+
+## Landing screenshots
+
+These three are screenshots of **this app**, produced by `e2e/landing-shots.spec.ts` against a
+purpose-built **fictional** trip and fed through `npm run gen:images` like every other raster. No
+third party holds any right in them, so there is nothing to attribute and "freely licensed,
+Wikimedia-sourced" statement does not describe them.
+
+Two things worth knowing before regenerating them:
+
+- **The seeded trip must stay fictional.** They render on the PUBLIC logged-out landing page. The
+  itinerary, the expenses and the three names (Sam / Alex / Rina — deliberately *not* the `TRAVELERS`
+  roster) are authored inside the shoot spec. Re-shooting against real trip data would publish it to
+  every visitor, and **no test, lint or grep in this repo can read text inside a PNG** — every check
+  would stay green. `lib/sample-itinerary.ts` is *not* a demo fixture; it re-exports the real content
+  pack. Do not seed from it.
+- **One basemap frame carries third-party map data.** `shot-3-map.png` contains CARTO dark-matter
+  raster tiles rendered from OpenStreetMap data. The required attribution ("© OpenStreetMap
+  contributors © CARTO") is visible **inside the image**, as it is in the live map — that is the
+  attribution, and cropping it out would break the licence.
+
+| Local path | Subject | Author | License | Source |
+|---|---|---|---|---|
+| `/images/landing/shot-1-day-planner.png` | The day planner, a fictional morning in Kathmandu | This project | Own work | `e2e/landing-shots.spec.ts` |
+| `/images/landing/shot-2-expenses.png` | The shared expense list, a fictional split dinner | This project | Own work | `e2e/landing-shots.spec.ts` |
+| `/images/landing/shot-3-map.png` | The trip map, fictional stops pinned over CARTO/OSM tiles | This project; basemap © OpenStreetMap contributors © CARTO | Own work; basemap ODbL / CC BY | `e2e/landing-shots.spec.ts` |

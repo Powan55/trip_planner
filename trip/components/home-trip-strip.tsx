@@ -15,9 +15,9 @@ import { useActiveTraveler } from '@/hooks/use-active-traveler';
  * `location.reload()` IS the full navigation); `+ New` links to the `/trips/` hub for
  * everything beyond switching.
  *
- * GUESTS see no strip (`traveler === null` → null, the concierge-chat gate pattern) — the
- * registry is meaningless for local-only demo viewers. Storage is read post-mount only
- * (ssr:false island; mount-gate mirrors trips-hub).
+ * Renders null when signed out (`traveler === null`) — with no guest mode this is
+ * unreachable in practice; the registry needs an identified traveler regardless. Storage is
+ * read post-mount only (ssr:false island; mount-gate mirrors trips-hub).
  *
  * Mounted in `app/page.tsx` through the SAME `LazyVisible` + `dynamic(ssr:false)` island
  * recipe as `HomeSectionNav`: Home's First Load JS sits at the 107 kB boundary
@@ -59,7 +59,7 @@ export default function HomeTripStrip() {
               key={t.id}
               aria-current="true"
               data-testid={`home-trip-chip-${i}`}
-              className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-gold-400/60 bg-gold-400/10 px-3.5 text-sm font-semibold text-gold-400"
+              className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-ring/60 bg-primary/10 px-3.5 text-sm font-semibold text-primary"
             >
               <span className="max-w-[12rem] truncate">{t.name}</span>
             </span>
@@ -70,7 +70,7 @@ export default function HomeTripStrip() {
               onClick={() => switchTo(t.id)}
               aria-label={`Switch to trip ${t.name}`}
               data-testid={`home-trip-chip-${i}`}
-              className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-white/15 px-3.5 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+              className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-white/15 px-3.5 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="max-w-[12rem] truncate">{t.name}</span>
             </button>
@@ -79,7 +79,7 @@ export default function HomeTripStrip() {
         <Link
           href="/trips/"
           data-testid="home-trip-new"
-          className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3.5 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+          className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3.5 text-sm font-medium text-white/70 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           New

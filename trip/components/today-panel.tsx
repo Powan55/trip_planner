@@ -19,6 +19,7 @@ import JournalCard from '@/components/journal-card';
 import TripAgenda from '@/components/trip-agenda';
 import { fetchWeather, type WeatherResult } from '@/lib/weather';
 import { describeItemTime } from '@/lib/item-time-display';
+import { FADE_FLOOR } from '@/lib/motion';
 
 /**
  * —: the "Today" screen (the operational core).
@@ -123,13 +124,14 @@ export default function TodayPanel() {
     nowUtcMs,
   });
 
-  // axe-deterministic reveal: the non-reduced-motion variant slides from y:16 at
-  // FULL opacity (opacity pinned to 1), so the axe scan (which runs WITHOUT reduced motion)
-  // can never catch the muted subtitle mid-fade below AA. Reduced-motion branch unchanged.
+  // FLOORED fade.
+  // The animated branch now runs FADE_FLOOR → 1: shallow enough that the axe scan (which
+  // runs WITHOUT reduced motion and can sample mid-animation) still sees the muted subtitle
+  // ≥AA at the darkest frame. Reduced-motion branch unchanged — it lands at 1.
   const reveal = prefersReducedMotion
     ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
     : {
-        hidden: { opacity: 1, y: 16 },
+        hidden: { opacity: FADE_FLOOR, y: 16 },
         show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
       };
 
@@ -150,9 +152,9 @@ export default function TodayPanel() {
         {/* Header — "Day N — {city}", consistent with the hero's travel mode. */}
         <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
           <div>
-            <p className="text-xs uppercase tracking-widest text-gold-400/80 mb-2">Today on the trip</p>
+            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Today on the trip</p>
             <h2 id="today-title" className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
-              Day <span className="text-gradient-gold">{todayInTrip.dayNumber}</span>
+              Day <span className="text-display-emphasis">{todayInTrip.dayNumber}</span>
               <span className="text-white/40 mx-2">—</span>
               {todayInTrip.city}
             </h2>
@@ -160,7 +162,7 @@ export default function TodayPanel() {
           </div>
           {items.length > 0 && (
             <p className="text-sm text-white/50" aria-live="polite">
-              <span className="font-semibold text-gold-400">{doneCount}</span>
+              <span className="font-semibold text-foreground">{doneCount}</span>
               <span aria-hidden="true"> / </span>
               <span className="sr-only"> of </span>
               {items.length} done
@@ -234,19 +236,19 @@ function NextUpRail({ item, date }: { item: ItineraryItem | null; date: string }
     <div
       data-testid="today-next-up"
       aria-live="polite"
-      className="rounded-xl border border-gold-400/25 bg-gold-400/[0.06] p-4"
+      className="rounded-xl border border-border bg-muted/40 p-4"
     >
-      <p className="text-[11px] uppercase tracking-widest text-gold-400/80 mb-2 flex items-center gap-1.5">
+      <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         Up next
       </p>
       {item ? (
         <div className="flex items-start gap-3">
           {timeInfo && (
-            <span className="flex-shrink-0 font-mono text-lg font-bold text-gold-400 leading-tight">
+            <span className="flex-shrink-0 font-mono text-lg font-bold text-foreground leading-tight">
               {timeInfo.label}
               {timeInfo.badge && (
-                <span className="block text-[10px] font-sans font-normal uppercase tracking-wide text-gold-400/80 leading-tight">
+                <span className="block text-[10px] font-sans font-normal uppercase tracking-wide text-muted-foreground leading-tight">
                   {timeInfo.badge}
                 </span>
               )}

@@ -14,7 +14,7 @@ import type { PhotoMeta } from '@/core/photos/model';
  * — the journal BROWSE view (`/journal`, `app/journal/page.tsx`). Lists every persisted
  * journal entry (`useJournal().entries`, localStorage-only per-day text journal),
  * NEWEST-FIRST, each as a read-only summary row (date / mood / highlight / text). Reached via a
- * direct URL or the "View all entries" link on `journal-card.tsx` (S113D fence: no nav/tab/
+ * direct URL or the "View all entries" link on `journal-card.tsx` ( fence: no nav/tab/
  * palette wiring here — that's an explicit follow-up rider).
  *
  * Editing reuses the REAL `journal-card.tsx` primitive, not a re-implementation: tapping a row's
@@ -26,7 +26,7 @@ import type { PhotoMeta } from '@/core/photos/model';
  * date, so mounting more than one at once would duplicate ids (an axe violation); this is why
  * every OTHER row stays a plain summary, never another `JournalCard` instance.
  *
- * KNOWN LIMITATION (flagged, not fixed — out of this slice's fence, which scoped journal-card.tsx
+ * KNOWN LIMITATION (flagged, not fixed — out of this change's fence, which scoped journal-card.tsx
  * changes to "entry link only"): while editing a PAST day from this list, the mounted
  * `JournalCard`'s heading still reads "Today's journal" (a hardcoded literal in that component,
  * unconditioned on the actual date) — cosmetically wrong for a non-today day, though every
@@ -88,12 +88,12 @@ export default function JournalBrowse() {
       className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6"
     >
       <header className="mb-6">
-        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-gold-400/80">
+        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
           <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
           Every day, in your words
         </p>
         <h2 id="journal-browse-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
-          All journal <span className="text-gradient-gold">entries</span>
+          All journal <span className="text-display-emphasis">entries</span>
         </h2>
       </header>
 
@@ -156,7 +156,7 @@ function JournalRow({
           onClick={onEdit}
           data-testid={`journal-browse-edit-${date}`}
           aria-label={`Edit journal entry for ${formatDateLong(date)}`}
-          className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
           Edit
@@ -168,7 +168,7 @@ function JournalRow({
           {mood && (
             <span
               data-testid={`journal-browse-mood-${date}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-gold-400/25 bg-gold-400/[0.08] px-2.5 py-1 text-xs font-medium text-gold-400"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground"
             >
               <span aria-hidden="true">{mood.glyph}</span>
               {mood.label}
@@ -179,7 +179,7 @@ function JournalRow({
               data-testid={`journal-browse-highlight-${date}`}
               className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-white/90"
             >
-              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
+              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="min-w-0 break-words">{entry.highlight}</span>
             </span>
           )}
@@ -211,7 +211,7 @@ export function JournalPhotoStrip({ date, photos }: { date: string; photos: Phot
 
   return (
     <div data-testid={`journal-browse-photos-${date}`} className="mt-3 border-t border-white/10 pt-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-gold-400/80">
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         <Camera className="h-3.5 w-3.5" aria-hidden="true" />
         Photos
       </p>

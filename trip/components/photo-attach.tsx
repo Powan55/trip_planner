@@ -103,7 +103,7 @@ export default function PhotoAttach({
   return (
     <section data-testid="photo-attach" aria-label={heading} className="mt-4">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h4 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-gold-400/90">
+        <h4 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
           <Camera className="h-3.5 w-3.5" aria-hidden="true" />
           {heading}
         </h4>
@@ -112,7 +112,7 @@ export default function PhotoAttach({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           data-testid="photo-add-button"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Camera className="h-4 w-4" aria-hidden="true" />
           Add photo
@@ -134,7 +134,7 @@ export default function PhotoAttach({
         <div data-testid="photo-prompt" className="mb-3 space-y-3 rounded-lg border border-white/15 bg-surface/60 p-3">
           <div>
             <label htmlFor={altId} className="mb-1.5 block text-xs font-medium text-white/60">
-              Describe this photo <span className="text-gold-300/90">(required)</span>
+              Describe this photo <span className="text-foreground">(required)</span>
             </label>
             <input
               ref={altInputRef}
@@ -145,7 +145,7 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder={altPlaceholder}
               data-testid="photo-alt-input"
-              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div>
@@ -160,7 +160,7 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder="A note to remember it by…"
               data-testid="photo-caption-input"
-              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div className="flex items-center justify-end gap-2">
@@ -168,7 +168,7 @@ export default function PhotoAttach({
               type="button"
               onClick={cancelPending}
               data-testid="photo-cancel"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="h-4 w-4" aria-hidden="true" />
               Cancel
@@ -178,7 +178,7 @@ export default function PhotoAttach({
               onClick={savePending}
               disabled={!alt.trim() || saving}
               data-testid="photo-save"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-surface outline-none transition-colors duration-200 hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground outline-none transition-colors duration-200 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Check className="h-4 w-4" aria-hidden="true" />
               {saving ? 'Saving…' : 'Save photo'}
@@ -188,7 +188,7 @@ export default function PhotoAttach({
       )}
 
       {error && (
-        <p data-testid="photo-error" role="status" aria-live="polite" className="mb-3 text-xs text-gold-300">
+        <p data-testid="photo-error" role="status" aria-live="polite" className="mb-3 text-xs text-destructive">
           {error}
         </p>
       )}

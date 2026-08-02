@@ -124,7 +124,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
         aria-haspopup="dialog"
         aria-expanded={open}
         data-testid={testId ?? 'time-picker-trigger'}
-        className="w-full min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 focus-visible:outline-none"
+        className="w-full min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:outline-none"
       >
         <Clock className="w-4 h-4 text-white/40 shrink-0" aria-hidden="true" />
         <span className={value !== undefined ? 'text-white' : 'text-white/55'}>{label}</span>
@@ -161,7 +161,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
                       onClick={() => setOpen(false)}
                       aria-label="Close time picker"
                       data-testid="time-picker-close"
-                      className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                      className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -202,7 +202,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
                       type="button"
                       onClick={clear}
                       data-testid="time-picker-clear"
-                      className="flex-1 min-h-[44px] px-3 py-2 rounded-lg text-xs font-medium text-white/70 bg-white/5 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                      className="flex-1 min-h-[44px] px-3 py-2 rounded-lg text-xs font-medium text-white/70 bg-white/5 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       Clear time
                     </button>
@@ -210,7 +210,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
                       type="button"
                       onClick={() => setOpen(false)}
                       data-testid="time-picker-done"
-                      className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-gold-500 text-surface hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+                      className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
                     >
                       <Check className="w-3.5 h-3.5" aria-hidden="true" />
                       Done
@@ -301,8 +301,8 @@ function TimeColumn<T extends string | number>({
               tabIndex={selected ? 0 : -1}
               onClick={() => onSelect(opt)}
               onKeyDown={(e) => onKeyDown(e, idx)}
-              className={`w-full min-h-[44px] flex items-center justify-center rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                selected ? 'bg-gold-500 text-surface' : 'text-white/70 hover:bg-white/10'
+              className={`w-full min-h-[44px] flex items-center justify-center rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                selected ? 'bg-primary text-primary-foreground' : 'text-white/70 hover:bg-white/10'
               }`}
             >
               {format(opt)}
@@ -315,7 +315,7 @@ function TimeColumn<T extends string | number>({
 }
 
 /**
- * Duration entry ( duration dual-write rule; widget shape is this slice's
+ * Duration entry ( duration dual-write rule; widget shape is this change's
  * call — a plain minutes number input, matching the numeric nature of the field,
  * over a second 2-column hour/minute picker YAGNI would only earn back once
  * clash-warnings make duration entry a primary flow). Empty input = clear
@@ -351,7 +351,7 @@ export function DurationField({
         onChange(Number.isFinite(n) && n > 0 ? n : undefined);
       }}
       data-testid={testId ?? 'duration-field-input'}
-      className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+      className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
       placeholder="e.g., 120"
     />
   );

@@ -357,7 +357,7 @@ export default function MapSection() {
         <SectionHeading
           id="map-heading"
           className="mb-8"
-          title={<>Interactive <span className="text-gradient-gold">Map</span></>}
+          title={<>Interactive <span className="text-display-emphasis">Map</span></>}
           subtitle="A real, pannable map of every place across the Kathmandu Valley and Japan. Filter by category, tap a pin for details, or flip on your itinerary to see the plan take shape day by day."
         />
 
@@ -375,7 +375,7 @@ export default function MapSection() {
                 onClick={() => handleFilter(value)}
                 aria-pressed={isActive}
                 data-testid={`map-filter-${value.toLowerCase().replace(/\s+/g, '-')}`}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                   isActive
                     ? value === 'All'
                       ? 'bg-white/10 text-white border-white/20'
@@ -398,9 +398,9 @@ export default function MapSection() {
               onClick={() => setSavedOnly((v) => !v)}
               aria-pressed={savedOnly}
               data-testid="map-filter-saved"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                 savedOnly
-                  ? 'bg-gold-500/20 text-gold-300 border-gold-500/40'
+                  ? 'bg-primary/20 text-primary border-primary/40'
                   : 'text-white/55 border-transparent hover:bg-white/5 hover:text-white/80'
               }`}
             >
@@ -422,7 +422,7 @@ export default function MapSection() {
               aria-label={searchOpen ? 'Close map search' : 'Search places on map'}
               aria-expanded={searchOpen}
               data-testid="map-search-toggle"
-              className="flex items-center justify-center w-8 h-8 rounded-lg text-white/50 border border-white/10 hover:bg-white/5 hover:text-white/70 transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60"
+              className="flex items-center justify-center w-8 h-8 rounded-lg text-white/50 border border-white/10 hover:bg-white/5 hover:text-white/70 transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <Search className="w-3.5 h-3.5" />
             </button>
@@ -446,7 +446,7 @@ export default function MapSection() {
                   }}
                   placeholder="Search places…"
                   data-testid="map-search-input"
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-xs text-white placeholder:text-white/30 outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60"
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-xs text-white placeholder:text-white/30 outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                 />
                 {searchQuery.trim() && (
                   <ul data-testid="map-search-results" className="mt-1.5 max-h-56 overflow-y-auto">
@@ -461,7 +461,7 @@ export default function MapSection() {
                             type="button"
                             onClick={() => selectSearchResult(mk)}
                             data-testid={`map-search-result-${mk.id}`}
-                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/75 hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60"
+                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/75 hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                           >
                             <span className="block font-medium">{mk.name}</span>
                             <span className="block text-white/40 text-[11px]">
@@ -484,9 +484,9 @@ export default function MapSection() {
             data-testid="map-itinerary-toggle"
             data-stop-count={plannedCount}
             data-total-count={totalItineraryItems}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               showItinerary
-                ? 'bg-gold-500/20 text-gold-300 border-gold-500/40'
+                ? 'bg-primary/20 text-primary border-primary/40'
                 : 'text-white/50 border-white/10 hover:bg-white/5 hover:text-white/70'
             }`}
           >
@@ -495,7 +495,7 @@ export default function MapSection() {
             {showItinerary && totalItineraryItems > 0 && (
               <span
                 data-testid="map-itinerary-count"
-                className="text-gold-400/80"
+                className="text-muted-foreground"
                 aria-hidden="true"
               >
                 · {plannedCount} of {totalItineraryItems} {totalItineraryItems === 1 ? 'stop' : 'stops'} shown
@@ -584,7 +584,7 @@ export default function MapSection() {
             then re-order by client-side haversine distance. */}
         <div className="mt-6" data-testid="map-day-strip">
           <div className="flex items-center gap-1.5 mb-2 text-xs font-medium text-white/60">
-            <CalendarPlus className="w-3.5 h-3.5 text-gold-400" />
+            <CalendarPlus className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
             <span>Plan a day around a pin</span>
             <span className="text-white/55 font-normal">
               — drag a pin here, or use a pin&apos;s “Anchor” menu
@@ -624,11 +624,11 @@ export default function MapSection() {
                     aria-label={`${label}, ${count} ${count === 1 ? 'stop' : 'stops'}${
                       anchored ? ', anchored' : ''
                     }. Drop a pin to anchor this day, or view its ordered stops.`}
-                    className={`flex flex-col items-start gap-0.5 min-w-[92px] min-h-[44px] px-3 py-2 rounded-xl border text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 ${
+                    className={`flex flex-col items-start gap-0.5 min-w-[92px] min-h-[44px] px-3 py-2 rounded-xl border text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                       isDropTarget
-                        ? 'border-gold-400 bg-gold-500/20 ring-2 ring-gold-400/50'
+                        ? 'border-ring bg-primary/20 ring-2 ring-ring/50'
                         : isSelected
-                          ? 'border-gold-400/50 bg-gold-500/10 text-gold-200'
+                          ? 'border-ring/50 bg-primary/10 text-primary'
                           : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
                     }`}
                   >
@@ -636,7 +636,7 @@ export default function MapSection() {
                       Day {i + 1}
                       {anchored && (
                         <span
-                          className="w-1.5 h-1.5 rounded-full bg-gold-400"
+                          className="w-1.5 h-1.5 rounded-full bg-primary"
                           aria-hidden="true"
                         />
                       )}
@@ -670,12 +670,12 @@ export default function MapSection() {
                 return (
                   <>
                     <p className="text-xs font-medium text-white/70 mb-2 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-gold-400" />
+                      <MapPin className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
                       Day {dayNo}
                       {anchorMarker ? (
                         <span className="text-white/60 font-normal">
                           · ordered by distance from{' '}
-                          <span className="text-gold-300">{anchorMarker.name}</span>
+                          <span className="text-foreground">{anchorMarker.name}</span>
                         </span>
                       ) : (
                         <span className="text-white/55 font-normal">· stops in day order</span>
@@ -695,7 +695,7 @@ export default function MapSection() {
                               data-testid={`map-day-order-stop-${s.marker.id}`}
                               className="flex items-center gap-2 text-[11px] text-white/70"
                             >
-                              <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-gold-500/20 text-gold-300 font-mono text-[10px]">
+                              <span className="grid place-items-center w-5 h-5 shrink-0 rounded-full bg-muted text-foreground font-mono text-[10px]">
                                 {idx + 1}
                               </span>
                               <span className="min-w-0 truncate text-white/80">{s.marker.name}</span>
@@ -755,7 +755,7 @@ export default function MapSection() {
           aria-label={isFullscreen ? 'Exit fullscreen map' : 'Open map fullscreen'}
           aria-pressed={isFullscreen}
           data-testid="map-fullscreen-toggle"
-          className="absolute top-3 left-3 z-10 grid place-items-center w-9 h-9 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-white/80 hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+          className="absolute top-3 left-3 z-10 grid place-items-center w-9 h-9 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-white/80 hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {isFullscreen ? (
             <Minimize2 className="w-4 h-4" />
@@ -768,7 +768,7 @@ export default function MapSection() {
           <button
             type="button"
             onClick={() => setIsFullscreen(false)}
-            className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-white/80 text-xs hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+            className="absolute top-3 right-3 z-10 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-white/80 text-xs hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="w-4 h-4" />
             Close

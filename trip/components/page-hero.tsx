@@ -9,9 +9,10 @@
  *
  * Treatment:
  * - `.glass-panel` shell (max-elevation v2 tier: radius-2xl + shadow-2xl,
- * gradient hairline edge) sitting on the app-wide aurora/grain field.
- * - `text-eyebrow uppercase` overline in the route accent (`--accent-scroll`,
- * which the route-accent-engine warms/cools per page — gold/himalaya/sakura).
+ * gradient hairline edge) sitting on the app-wide page field (: that field
+ * is now the flat `bg-background` fill — the aurora/grain layers are deleted).
+ * - `text-eyebrow uppercase` overline in the route accent (`--accent-scroll`, a
+ * single static value since retired the per-route warm/cool sweep).
  * - `text-display-lg` title using the variant's static brand gradient
  * (nepal→himalaya, japan→sakura, plan/map→gold).
  * - `.animate-reveal-up` entrance. The wrapper's BASE opacity is 1 (the
@@ -49,7 +50,7 @@ interface PageHeroProps {
 /**
  * Per-variant treatment. `titleGradient` is a STATIC brand gradient (the page's
  * identity color, independent of scroll), while the eyebrow/accents key off the
- * live `--accent-scroll` var so they agree with the route-accent-engine at rest.
+ * `--accent-scroll` var so they agree with every other chrome accent site.
  * `wash` is a subtle full-panel tint layered under the glass fill to lean the
  * whole hero warm (nepal) / cool (japan) / neutral (plan, map).
  */
@@ -68,19 +69,19 @@ const VARIANTS: Record<
     wash: 'radial-gradient(120% 140% at 0% 0%, rgba(247,160,179,0.14) 0%, transparent 55%)',
   },
   plan: {
-    titleGradient: 'text-gradient-gold',
+    titleGradient: 'text-display-emphasis',
     // gold 240,199,96 — neutral-premium wash
     wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.12) 0%, transparent 55%)',
   },
   map: {
-    titleGradient: 'text-gradient-gold',
+    titleGradient: 'text-display-emphasis',
     // gold, more restrained
     wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.08) 0%, transparent 55%)',
   },
   flights: {
-    // S113D: reuses the neutral-premium gold treatment (same tier as 'plan') —
+    // reuses the neutral-premium gold treatment (same tier as 'plan') —
     // Flights has no country identity of its own, so a distinct wash isn't warranted.
-    titleGradient: 'text-gradient-gold',
+    titleGradient: 'text-display-emphasis',
     wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.12) 0%, transparent 55%)',
   },
 };

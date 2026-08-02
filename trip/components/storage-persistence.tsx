@@ -77,7 +77,7 @@ export function StoragePersistence() {
           .persisted()
           .then((already) => (already ? undefined : navigator.storage.persist()))
           .catch(() => {
-            /* quiet no-op — persist is best-effort (R1: no-op on iOS Safari regardless) */
+            /* quiet no-op — persist is best-effort */
           });
       };
       const onFirstInteraction = () => {

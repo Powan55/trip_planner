@@ -9,7 +9,7 @@ import { addPlace, removePlace, type MyPlace } from '@/core/places/model';
 /**
  * Reactive my-places store. A THIN React adapter over the framework-free places core
  * (`core/places/model.ts`) + the load/save adapter (`core/places/storage.ts`, gateway key 31).
- * Local-only (no sync port — cross-device places are the deferred S-d), wiring `createReactiveStore`
+ * Local-only, wiring `createReactiveStore`
  * exactly like `hooks/use-share.ts` — the shared factory owns hydrate/listen/commit;
  * this file owns only the place-specific mutators + the id/timestamp injection (an I/O concern that
  * stays out of the pure core).

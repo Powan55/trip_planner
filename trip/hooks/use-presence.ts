@@ -40,7 +40,7 @@ export interface ActivePresence {
   lastSeen: number | null;
 }
 
-const FALLBACK_ACCENT = '#f0c760'; // gold (brand primary) — only if a name doesn't resolve
+const FALLBACK_ACCENT = '#f0c760'; // gold — only if a name doesn't resolve
 const ACTIVE_WINDOW_MS = 3 * 60_000; // mirror lib/presence ACTIVE_WINDOW_MS (eviction tick)
 
 /** Map a traveler name → its brand accent. Case-insensitive, defensive. */

@@ -1,4 +1,4 @@
-// The remote-sync seam — the ONLY new architectural surface for M9.
+// The remote-sync seam — the ONLY new architectural surface for.
 //
 // This module wraps the existing store; it never replaces it. It has two
 // directions:
@@ -212,8 +212,8 @@ export function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boole
  */
 export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void> {
   // Dormant gate: with no config, never touch firebase.
-  // GUEST gate: a guest (Continue-as-guest, no active traveler) must NEVER push
-  // edits into the friends' shared trip — their sample-day edits would otherwise pollute it via the
+  // NO-ACTIVE-TRAVELER gate: a session with no active traveler must NEVER push
+  // edits into the friends' shared trip — unattributed edits would otherwise pollute it via the
   // union merge. `getActiveTraveler` is firebase-free (token-auth), so this stays dormant-safe. This
   // mirrors the subscribe gate: sync requires BOTH config AND an identified traveler.
   if (!isRemoteConfigured() || !getActiveTraveler()) return;

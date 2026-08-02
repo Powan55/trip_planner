@@ -111,12 +111,12 @@ export default function ShareInbox() {
       className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6"
     >
       <header className="mb-6">
-        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-gold-400/80">
+        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
           <Inbox className="h-3.5 w-3.5" aria-hidden="true" />
           Triage inbox
         </p>
         <h2 id="share-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
-          Shared <span className="text-gradient-gold">links</span>
+          Shared <span className="text-display-emphasis">links</span>
         </h2>
         <p className="mt-3 text-sm text-white/70">
           {items.length === 0
@@ -128,7 +128,7 @@ export default function ShareInbox() {
           data-testid="share-paste-link"
           onClick={openImport}
           aria-haspopup="dialog"
-          className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gold-400/40 bg-gold-500/10 px-4 text-sm font-medium text-gold-300 outline-none transition-colors hover:bg-gold-500/20 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+          className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-ring/40 bg-primary/10 px-4 text-sm font-medium text-primary outline-none transition-colors hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
         >
           <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
           Paste a Google Maps link
@@ -140,7 +140,7 @@ export default function ShareInbox() {
           data-testid="share-empty"
           className="glass-subtle flex flex-col items-center rounded-2xl px-6 py-14 text-center"
         >
-          <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gold-500/10 text-gold-400">
+          <span className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-muted/40 text-muted-foreground">
             <Inbox className="h-7 w-7" aria-hidden="true" />
           </span>
           <h3 className="font-display text-lg font-bold text-white">Nothing shared yet</h3>
@@ -213,14 +213,14 @@ function ShareRow({
           )}
           {item.url && (
             <p className="mt-2 flex items-center gap-1.5 text-sm">
-              <Link2 className="h-3.5 w-3.5 shrink-0 text-gold-400/70" aria-hidden="true" />
+              <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
               {isHttpUrl(item.url) ? (
                 <a
                   data-testid={`share-item-link-${item.id}`}
                   href={item.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="truncate text-gold-300 underline underline-offset-2 outline-none hover:text-gold-200 focus-visible:ring-2 focus-visible:ring-gold-400 rounded"
+                  className="truncate text-primary underline underline-offset-2 outline-none hover:text-primary/80 focus-visible:ring-2 focus-visible:ring-ring rounded"
                 >
                   {item.url}
                 </a>
@@ -235,7 +235,7 @@ function ShareRow({
           data-testid={`share-item-delete-${item.id}`}
           onClick={onDelete}
           aria-label={`Delete shared item: ${heading}`}
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/60 outline-none transition-colors hover:bg-white/10 hover:text-red-300 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/60 outline-none transition-colors hover:bg-white/10 hover:text-red-300 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Trash2 className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -251,7 +251,7 @@ function ShareRow({
           data-testid={`share-item-day-${item.id}`}
           value={item.day ?? ''}
           onChange={(e) => onAssign(e.target.value === '' ? undefined : e.target.value)}
-          className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85 outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+          className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85 outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <option value="">Unassigned</option>
           {TRIP_DATES.map((day) => (
@@ -269,7 +269,7 @@ function ShareRow({
             data-testid={`share-item-import-${item.id}`}
             onClick={onImport}
             aria-haspopup="dialog"
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-gold-400/40 bg-gold-500/10 px-4 text-sm font-medium text-gold-300 outline-none transition-colors hover:bg-gold-500/20 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-ring/40 bg-primary/10 px-4 text-sm font-medium text-primary outline-none transition-colors hover:bg-primary/20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
           >
             <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
             Import as place

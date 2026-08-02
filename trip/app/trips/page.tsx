@@ -2,9 +2,9 @@
 // registry — fixes "cannot see create trip button or page". Per the /settings split pattern
 // the `ssr:false` dynamic island lives in./sections (a client module) so this
 // Server Component page can export per-route metadata; the static header below reuses the /settings
-// header tokens verbatim (glass-panel / text-display-lg / text-gradient-gold) and supplies the
-// page's <h1>. Guests never see this page: the TokenGate guest-route wall default-denies every
-// non-Home pathname — zero per-route work here.
+// header tokens verbatim (glass-panel / text-display-lg / text-display-emphasis) and supplies the
+// page's <h1>. Nobody without an active traveler reaches this page: TokenGate is the
+// unconditional, pathname-free wall — it covers /trips like every route, zero per-route work here.
 import { TripsHub } from './sections';
 
 export const metadata = {
@@ -30,7 +30,7 @@ export default function TripsPage() {
             <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
               Plan together
             </p>
-            <h1 className="font-display text-display-lg text-gradient-gold">Trips</h1>
+            <h1 className="font-display text-display-lg text-display-emphasis">Trips</h1>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
               Switch between the trips this browser knows, start a brand-new one with its own
               shareable key, or join a trip someone shared with you.

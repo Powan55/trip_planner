@@ -6,7 +6,7 @@ import Sheet from '@/components/ui/sheet-dark';
 import { X, MapPin, Clock, Star, ExternalLink, Tag, CalendarClock, Coins, Check, CalendarDays } from 'lucide-react';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
-import AddToItineraryDialog, { buildMapsSearchUrl } from '@/components/add-to-itinerary-dialog';
+import AddToItineraryDialog, { buildMapsPlaceUrl } from '@/components/add-to-itinerary-dialog';
 import { formatPlacementSummary, type AddToPlanSource, type SourceType, type ItineraryDraft } from '@/lib/itinerary-adapter';
 import { useItineraryContext } from '@/components/itinerary-provider';
 
@@ -114,7 +114,10 @@ export default function PlaceDetailSheet({
 
   const isNepal = place?.country === 'Nepal';
 
-  const mapsUrl = place ? buildMapsSearchUrl(place.name, place.location) : null;
+  // coordinate-first when a pin is known. `PlaceDetailData` carries no lat/lng today, so
+  // this is currently always the buildMapsSearchUrl(name, location) fallback — swapped for
+  // consistency with the other two link-out sites (add-to-itinerary-dialog, calendar-planner).
+  const mapsUrl = place ? buildMapsPlaceUrl(place.name, undefined, undefined, place.location) : null;
   const bodyText = place?.longDescription || place?.description;
   const accentText = isNepal ? 'text-himalaya-400' : 'text-sakura-400';
   const accentChipBg = isNepal ? 'bg-himalaya-400/10' : 'bg-sakura-400/10';
@@ -162,7 +165,7 @@ export default function PlaceDetailSheet({
                   <div className="absolute inset-0 bg-gradient-to-t from-surface/90 via-surface/20 to-transparent" />
                 </div>
               ) : (
-                <div className={`aspect-[16/10] max-h-[38vh] flex items-center justify-center ${isNepal ? 'bg-gradient-to-br from-himalaya-900/40 to-surface-raised' : 'bg-gradient-to-br from-sakura-900/30 to-surface-raised'}`}>
+                <div className={`aspect-[16/10] max-h-[38vh] flex items-center justify-center ${isNepal ? 'bg-gradient-to-br from-himalaya-500/20 to-surface-raised' : 'bg-gradient-to-br from-sakura-500/20 to-surface-raised'}`}>
                   <MapPin className={`w-10 h-10 opacity-30 ${accentText}`} />
                 </div>
               )}
@@ -171,7 +174,7 @@ export default function PlaceDetailSheet({
                 data-testid="place-detail-close"
                 onClick={onClose}
                 aria-label="Close details"
-                className="absolute top-3 right-3 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-black/50 hover:bg-black/70 text-white/80 backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                className="absolute top-3 right-3 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-black/50 hover:bg-black/70 text-white/80 backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -216,7 +219,7 @@ export default function PlaceDetailSheet({
               )}
 
               {/* Practical info rows — each optional; omitted when unknown.
-                 : axe's `only-dlitems` requires every direct `<dl>` child to be a
+                  axe's `only-dlitems` requires every direct `<dl>` child to be a
                   `dt`/`dd` (or a wrapping div holding ONLY dt/dd) — the decorative icon
                   used to sit as a THIRD sibling in that wrapping div, which violated it.
                   Fix: each icon now lives INSIDE its `<dt>` (still purely decorative, no
@@ -231,7 +234,7 @@ export default function PlaceDetailSheet({
                   {place.bestTime && (
                     <div className="flex items-center gap-2.5 text-sm">
                       <dt className="flex items-center gap-2.5 shrink-0">
-                        <Clock className="w-4 h-4 text-gold-400 shrink-0" aria-hidden="true" />
+                        <Clock className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
                         <span className="text-white/40 w-24 shrink-0">Best time</span>
                       </dt>
                       <dd className="text-white/70">{place.bestTime}</dd>
@@ -258,12 +261,12 @@ export default function PlaceDetailSheet({
                   {typeof place.rating === 'number' && place.rating > 0 && (
                     <div className="flex items-center gap-2.5 text-sm">
                       <dt className="flex items-center gap-2.5 shrink-0">
-                        <Star className="w-4 h-4 text-gold-400 shrink-0" aria-hidden="true" />
+                        <Star className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
                         <span className="text-white/40 w-24 shrink-0">Photo rating</span>
                       </dt>
                       <dd className="flex items-center gap-0.5">
                         {Array.from({ length: Math.min(5, Math.max(0, Math.round(place.rating))) }).map((_, i) => (
-                          <Star key={i} className="w-3 h-3 fill-gold-400 text-gold-400" />
+                          <Star key={i} className="w-3 h-3 fill-current text-muted-foreground" />
                         ))}
                       </dd>
                     </div>
@@ -279,7 +282,7 @@ export default function PlaceDetailSheet({
                   href={mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-gold-300 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                  className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-primary hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                   Search on Google Maps
@@ -312,16 +315,16 @@ export default function PlaceDetailSheet({
                     }
                     className={
                       customIsAdded
-                        ? 'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-gold-500/15 border border-gold-400/40 text-gold-300 text-xs font-medium hover:bg-gold-500/25 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none'
-                        : `w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none hover:bg-white/10 ${accentText}`
+                        ? 'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-ring/40 text-primary text-xs font-medium hover:bg-primary/25 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
+                        : `w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none hover:bg-white/10 ${accentText}`
                     }
                   >
                     {customIsAdded ? (
                       <>
                         <Check className="w-3.5 h-3.5 shrink-0" />
                         <span>Added</span>
-                        <span className="text-gold-400/60" aria-hidden="true">·</span>
-                        <span className="flex items-center gap-1 text-gold-300/80">
+                        <span className="text-muted-foreground" aria-hidden="true">·</span>
+                        <span className="flex items-center gap-1 text-foreground">
                           <CalendarDays className="w-3 h-3 shrink-0" />
                           {customSummary}
                         </span>
@@ -337,7 +340,7 @@ export default function PlaceDetailSheet({
                     data-testid="place-detail-add-to-plan"
                     onClick={handleCustomAdd}
                     aria-haspopup="dialog"
-                    className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none hover:bg-white/10 ${accentText}`}
+                    className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none hover:bg-white/10 ${accentText}`}
                   >
                     Add to plan
                   </button>

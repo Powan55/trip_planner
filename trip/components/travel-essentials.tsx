@@ -24,7 +24,7 @@ export default function TravelEssentials() {
         <SectionHeading
           id="inspiration-heading"
           className="mb-12"
-          title={<>Travel <span className="text-gradient-gold">Essentials</span></>}
+          title={<>Travel <span className="text-display-emphasis">Essentials</span></>}
           subtitle="December weather outlook for the journey."
         />
 

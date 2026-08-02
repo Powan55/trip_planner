@@ -44,7 +44,7 @@ const withBase = (p) => `${BASE_PATH}${p}`;
 // The navy-900 the app's <body> actually paints (Tailwind token `navy-900`,
 // tailwind.config.ts; body className bg-navy-900 in app/layout.tsx). Same hex
 // as gen-icons.mjs so installed app + splash + address bar all agree.
-const THEME_COLOR = '#0a0e27';
+const THEME_COLOR = '#0b0c0e';
 
 // -------------------------------------------------------------------------
 // Recursively list every file under a directory as out/-relative POSIX paths.
@@ -62,9 +62,467 @@ async function walk(dir) {
   return out;
 }
 
+// the _next/static assets that the PRECACHED ROUTES actually reference —
+// i.e. every `_next/static/...` mentioned by any route HTML, plus everything the
+// CSS among them url()-references (the woff2 fonts). Returned as out/-relative
+// paths WITHOUT a leading slash, so the match is basePath-agnostic (: the
+// HTML carries the prefix, disk paths do not, and the pattern starts at `_next/`).
+//
+// This DROPS the per-route lazy chunks (maplibre's ~1 MB bundle, the heaviest
+// single win) while KEEPING every route's own eager `app/<route>/page-*.js`.
+//
+// It must be EVERY route HTML, not just index.html. Scraping only index.html
+// costs ~17 more entries but silently breaks the/TD-04 + invariant:
+// a route's HTML would still be precached and would still serve offline with the
+// correct <title>, but without its own page chunk React cannot render it, so the
+// route paints the error boundary ("The app hit a problem") instead of the page.
+// Measured, not theorised: index.html-only scraping failed
+// `e2e/pwa-torn-update.spec.ts` Part A 6 runs out of 8 — it passed at all only
+// when Next's <Link> prefetch happened to warm the chunk before the test cut the
+// network, i.e. it turned a hard guarantee into a race. See e2e/sw-shell-scope.spec.ts.
+//
+// What legitimately falls out (per-route LAZY chunks) is backfilled by the
+// static-asset cacheFirst handler on its first successful ONLINE fetch — that
+// handler plus the nav backfill is the safety argument for the rest.
+//
+// 🔴: this scrape is NOT the whole shell, and must never again be treated as
+// if it were. It cannot see a `dynamic(..., {ssr:false})` island — that island is
+// absent from the HTML BY CONSTRUCTION — and the ROOT LAYOUT's entire chrome is
+// declared that way. `islandAssets()` below covers it; the two are unioned
+// in buildPrecacheList. The backfill argument above does NOT rescue the root
+// layout: a cold install that goes offline before browsing has backfilled nothing,
+// and a missing root-layout chunk is a crash, not a degraded route.
+async function eagerStaticAssets(htmlFiles) {
+  const REF = /_next\/static\/[A-Za-z0-9._\/-]+/g;
+  const set = new Set();
+  for (const rel of htmlFiles) {
+    const html = await readFile(join(OUT_DIR, rel), 'utf8');
+    for (const ref of html.match(REF) ?? []) set.add(ref);
+  }
+  for (const rel of [...set]) {
+    if (!rel.endsWith('.css')) continue;
+    const css = await readFile(join(OUT_DIR, rel), 'utf8');
+    for (const ref of css.match(REF) ?? []) set.add(ref);
+  }
+  // Fail-LOUD floor (mirrors stripPolyfills' WARN): if a future Next output
+  // shape stops matching REF, this silently drops the whole shell from the
+  // precache and offline rendering degrades with a still-green build.
+  if (set.size < 5) {
+    console.warn(
+      `gen-sw: WARNING — only ${set.size} eager asset(s) scraped from route HTML; ` +
+        'the _next/static reference shape may have changed.'
+    );
+  }
+  return set;
+}
+
+// +: the chunks the app's `dynamic(..., { ssr:false })` islands need —
+// the ROOT LAYOUT's chrome AND every ROUTE's own sections.
+//
+// 🔴 THE REGRESSION THIS REPAIRS. `eagerStaticAssets` above scrapes route HTML.
+// `app/layout.tsx` renders its chrome — Navbar, Footer, BottomTabBar, QuickAddFab,
+// QuickAddHost, ExpenseLogHost, TripJoinHandshake via `app/chrome-islands.tsx`, plus
+// TravelModeMounts via `components/itinerary-provider.tsx` — and declares EVERY one
+// of them `ssr:false`. An ssr:false island is BY
+// CONSTRUCTION absent from server-rendered HTML, so an HTML scrape can never see
+// its chunks. therefore dropped the entire app chrome from the precache, and
+// a COLD-OFFLINE install (install → offline without browsing first, so the worker
+// never saw a single chunk fetch and never backfilled one) crashed on EVERY route:
+// the root layout threw ChunkLoadError, which is the ONE crash `app/error.tsx`
+// cannot catch, so `app/global-error.tsx` painted instead of the app.
+//
+// SOURCE OF TRUTH: `.next/react-loadable-manifest.json`, emitted by `next build`,
+// which maps every `next/dynamic` CALL SITE — keyed "<source file> -> <specifier>"
+// — to the exact chunk files that import needs. READ, never hand-maintained: a
+// hand-kept list is the/TD-04 failure mode this file already fixed once for
+// route HTML, and it is how a new island would silently fall out again.
+//
+// 🔴 SCOPE — and this is the part that must NOT be hand-picked. The obvious seed
+// is `app/chrome-islands.tsx`, and it is WRONG BY MEASUREMENT: seeding only that
+// module still left the app crashing cold-offline, because `<TravelModeMounts />`
+// is an EIGHTH root-layout ssr:false island, declared in
+// `components/itinerary-provider.tsx` (which `app/layout.tsx` mounts) and rendered
+// unconditionally there. Any list a human writes has that shape of hole — which is
+// the/TD-04 failure mode this file already fixed once for route HTML. So the
+// seed is DERIVED:
+//
+// 1. walk the STATIC import graph, over local modules, of `app/layout.tsx` PLUS
+// every `app/**/page.tsx` ( — seeded the layout ALONE, which precached
+// the chrome but left every route BODY crashing cold-offline on app/error.tsx).
+// That graph IS "what the app mounts", read off the source. Route entries are
+// themselves DISCOVERED by walking app/ (routeEntryFiles) — never hand-listed;
+// 2. intersect it with the manifest's call-site sources — those are the dynamic
+// islands the app can render;
+// 3. follow only specifiers resolving under `components/`, transitively.
+//
+// Step 3 is the render-path/promise-path distinction and it is what keeps the
+// shell small: a `dynamic()` COMPONENT throws during render if its chunk is missing
+// (→ global-error from the layout, app/error.tsx from a route), whereas
+// `import('@/lib/presence')` or `import('firebase/app')` is loaded inside an
+// effect and merely rejects a promise the caller already handles. `lib/presence.ts`
+// IS in the layout's static graph, so without step 3 this would sweep ~600 KB of
+// Firebase into the offline shell. DO NOT LOOSEN IT.
+//
+// 🔴 maplibre — CHANGED THE MECHANISM, read this before trusting it.
+// Under maplibre was excluded "twice over": `maplibre-gl` is a bare specifier
+// (step 3 stops there), AND it was reached only from `app/map/sections.tsx`, which
+// was not in the layout's graph at all. **The second of those is no longer true** —
+// seeds every route entry, so `app/map/sections.tsx -> @/components/map-section`
+// IS walked now. Only the bare-specifier stop still applies, and it alone is NOT
+// enough: `map-section`'s own chunk list carries maplibre-bearing chunks. So the
+// exclusion is now EXPLICIT and by CONTENT — see isMaplibreChunk() below — and the
+// call sites it reduces are printed at build time, because a reduced call site
+// THROWS cold-offline unless it is wrapped in components/map-island-boundary.tsx.
+//
+// Entries this returns that are NOT on disk are ignored for free: `buildPrecacheList`
+// iterates the real out/ walk and only membership-tests this set, so a stale manifest
+// row can never inject a URL that 404s and break the atomic install.
+const NEXT_DIR = join(ROOT, '.next'); // next.config.js: distDir = '.next'
+const APP_DIR = 'app';
+const ROOT_LAYOUT = 'app/layout.tsx';
+const SOURCE_EXTS = ['.tsx', '.ts', '.jsx', '.js'];
+
+// every ROUTE ENTRY POINT under app/ — `app/**​/page.tsx` — DISCOVERED by
+// walking the directory, never hand-listed. Same TD-04 rule the route-HTML walk
+// already follows, and for the same measured reason: proved a hand-picked
+// seed grows a hole (it missed TravelModeMounts, and that build LOOKED fixed).
+// A route's `page.tsx` statically imports its `./sections` client module, so
+// seeding page.tsx reaches every route's ssr:false island declarations through
+// the existing static-graph walk in step 1 — no second mechanism needed.
+async function routeEntryFiles() {
+  const found = [];
+  const walkDir = async (rel) => {
+    let entries;
+    try {
+      entries = await readdir(join(ROOT, rel), { withFileTypes: true });
+    } catch {
+      return; // app/ missing is caught by the zero-call-sites floor below
+    }
+    for (const entry of entries) {
+      const child = posix.join(rel, entry.name);
+      if (entry.isDirectory()) await walkDir(child);
+      else if (entry.name === 'page.tsx') found.push(child);
+    }
+  };
+  await walkDir(APP_DIR);
+  return found;
+}
+
+// maplibre's engine chunks must NEVER enter the precache — ~1008 KiB
+// for a page many users never open, and an offline map engine with no cached tiles
+// paints a blank canvas anyway.
+//
+// Matched by CONTENT, never by filename: next.config.js sets
+// `output.chunkFilename = 'static/chunks/[contenthash:16].js'`, so async chunk
+// filenames carry no name at all and any filename-pattern approach is a non-starter.
+//
+// Scoped to `.js` DELIBERATELY, and this is measured, not theoretical: 2 built CSS
+// files also contain `maplibregl` (maplibre's stylesheet is bundled into the app's
+// CSS), so an all-file-types grep would withhold the app's OWN stylesheet and ship a
+// completely unstyled offline app. is about the ENGINE, which is JS.
+const MAPLIBRE_MARKER = 'maplibregl';
+async function isMaplibreChunk(file) {
+  if (!file.endsWith('.js')) return false;
+  try {
+    const source = await readFile(join(OUT_DIR, '_next', file), 'utf8');
+    return source.includes(MAPLIBRE_MARKER);
+  } catch {
+    return false; // not on disk => cannot be precached anyway
+  }
+}
+// `import x from 'y'` / `import 'y'` / `import type … from 'y'`. Deliberately a
+// regex and not a TS parse: we only need local module EDGES, and every import in
+// this codebase is a plain static one at the top of the file.
+const STATIC_IMPORT_RE = /(?:^|\n)\s*import\s+(?:[\s\S]*?\s+from\s+)?['"]([^'"]+)['"]/g;
+
+async function islandAssets() {
+  const onDisk = async (rel) => {
+    try {
+      await stat(join(ROOT, rel));
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  // Resolve a local specifier to a repo-relative source file. '@/x' is the tsconfig
+  // path alias for './x' (tsconfig.json `paths`). A BARE package specifier
+  // (maplibre-gl, firebase/app, next/dynamic) returns null and ends the walk.
+  const resolveLocal = async (fromFile, specifier) => {
+    let base;
+    if (specifier.startsWith('@/')) base = specifier.slice(2);
+    else if (specifier.startsWith('./') || specifier.startsWith('../')) {
+      base = posix.normalize(posix.join(posix.dirname(fromFile), specifier));
+    } else return null;
+    for (const ext of SOURCE_EXTS) if (await onDisk(base + ext)) return base + ext;
+    for (const ext of SOURCE_EXTS) if (await onDisk(`${base}/index${ext}`)) return `${base}/index${ext}`;
+    return null;
+  };
+
+  // 1) The static import graph of the root layout AND every route entry = the
+  // modules the app can mount. widened the seed here ( seeded only
+  // ROOT_LAYOUT, which precached the chrome but left every route BODY crashing
+  // cold-offline on app/error.tsx). The WALK is unchanged — only the seed grew.
+  const seeds = [ROOT_LAYOUT, ...(await routeEntryFiles())];
+  const sourceGraph = new Set();
+  const graphQueue = [...seeds];
+  while (graphQueue.length) {
+    const file = graphQueue.shift();
+    if (sourceGraph.has(file)) continue;
+    sourceGraph.add(file);
+    let source;
+    try {
+      source = await readFile(join(ROOT, file), 'utf8');
+    } catch {
+      continue;
+    }
+    for (const match of source.matchAll(STATIC_IMPORT_RE)) {
+      const resolved = await resolveLocal(file, match[1]);
+      if (resolved && !sourceGraph.has(resolved)) graphQueue.push(resolved);
+    }
+  }
+
+  // 2) Next's own call-site → chunk-files map. Keys are "<source> -> <specifier>",
+  // and the source half uses the HOST separator (backslashes on Windows,
+  // forward on CI) — normalize before matching.
+  let manifest;
+  try {
+    manifest = JSON.parse(
+      await readFile(join(NEXT_DIR, 'react-loadable-manifest.json'), 'utf8')
+    );
+  } catch (err) {
+    // was console.warn + return empty. Now a THROW — see the zero-call-sites
+    // floor below for the reasoning (a silent zero here ships an app that crashes on
+    // every route cold-offline, under a green build).
+    throw new Error(
+      'gen-sw — could not read .next/react-loadable-manifest.json, so the app\'s ' +
+        'ssr:false islands (Navbar/Footer/BottomTabBar/TravelModeMounts/every route section) ' +
+        'CANNOT be precached and a cold-offline install would crash on EVERY route. Next may ' +
+        `have renamed or dropped this manifest; find its replacement before shipping. (${err})`
+    );
+  }
+  const bySource = new Map();
+  for (const [key, entry] of Object.entries(manifest)) {
+    const normalized = key.split('\\').join('/');
+    const at = normalized.indexOf(' -> ');
+    if (at === -1) continue;
+    const source = normalized.slice(0, at);
+    if (!bySource.has(source)) bySource.set(source, []);
+    bySource.get(source).push({
+      specifier: normalized.slice(at + 4),
+      files: entry.files ?? [],
+    });
+  }
+
+  // 3) Walk those modules → their dynamic COMPONENT islands, transitively.
+  const files = new Set();
+  const visited = new Set();
+  const queue = [...sourceGraph].filter((f) => bySource.has(f));
+  const sites = [];
+  // the call sites whose chunk set the maplibre exclusion REDUCED.
+  // This list is the load-bearing output of this function besides the file set:
+  // it is EXACTLY the set of call sites that can still throw a ChunkLoadError at
+  // render time, so it is exactly the set that needs an island error boundary
+  // (components/map-island-boundary.tsx). Derived, so it self-maintains — add a
+  // new map island next month and the build names it for the next person.
+  const mapReduced = [];
+  while (queue.length) {
+    const source = queue.shift();
+    if (visited.has(source)) continue;
+    visited.add(source);
+    for (const { specifier, files: chunkFiles } of bySource.get(source) ?? []) {
+      const target = await resolveLocal(source, specifier);
+      if (!target || !target.startsWith('components/')) continue; // render path only
+      sites.push(`${source} -> ${specifier}`);
+      let withheld = 0;
+      for (const file of chunkFiles) {
+        if (await isMaplibreChunk(file)) {
+          withheld++; // the engine stays out
+          continue;
+        }
+        files.add(`_next/${file}`);
+      }
+      if (withheld > 0) mapReduced.push({ site: `${source} -> ${specifier}`, withheld });
+      if (bySource.has(target)) queue.push(target);
+    }
+  }
+
+  // Fail-LOUD floor. turned this from console.warn into a THROW: a warning
+  // nobody reads is a weak floor, and the symptom of a silent zero here is a GREEN
+  // build that crashes on every route cold-offline — the exact ship-blocker
+  // had to fix. The e2e guard in e2e/pwa.spec.ts does have teeth now, but it runs
+  // at gate time on one machine; this throw runs on EVERY build, including CI and
+  // the deploy workflow. Zero call sites means the derivation lost its grip (the
+  // root layout moved out of app/layout.tsx, app/ was restructured, islands were
+  // re-declared outside components/, or Next changed the manifest shape).
+  if (sites.length === 0) {
+    throw new Error(
+      `gen-sw — derived ZERO dynamic islands from ${seeds.length} seed(s) ` +
+        `(${ROOT_LAYOUT} + every app/**/page.tsx; static graph: ${sourceGraph.size} module(s)). ` +
+        "The app's ssr:false chrome and route sections would NOT be precached, so a " +
+        'cold-offline install would crash on EVERY route. Check ROOT_LAYOUT/APP_DIR and the ' +
+        '.next/react-loadable-manifest.json key shape.'
+    );
+  }
+  console.log(
+    `gen-sw: render-path islands — ${seeds.length} seed(s) (root layout + app/**/page.tsx), ` +
+      `${sourceGraph.size} module(s) in the static graph, ${sites.length} dynamic island call site(s), ` +
+      `${files.size} chunk file(s)`
+  );
+  for (const site of sites) console.log(`    island ${site}`);
+
+  // report. These call sites render a component whose chunk is DELIBERATELY
+  // absent from the precache, so React.lazy THROWS there cold-offline and the throw
+  // escapes to app/error.tsx — taking the whole route down, hero included — unless
+  // the call site is wrapped in an island error boundary.
+  console.log(
+    `gen-sw: maplibre withheld from ${mapReduced.length} call site(s) — each MUST be ` +
+      'wrapped in components/map-island-boundary.tsx or it crashes its route cold-offline:'
+  );
+  for (const { site, withheld } of mapReduced) {
+    console.log(`    map-reduced ${site}  (${withheld} chunk(s) withheld)`);
+  }
+  // and the report is now ENFORCED, not just printed (see assertMapIslandsWrapped).
+  await assertMapIslandsWrapped(mapReduced);
+  return files;
+}
+
+// — PROVE each maplibre-reduced call site is actually wrapped, and fail the
+// build if it is not.
+//
+// 🔴 WHY THIS REPLACED A PRINTED LINE. printed the map-reduced list with a
+// "MUST be wrapped" instruction and stopped there. That is the same object as the
+// `console.warn` floors itself converted to `throw`s on the grounds that "a
+// warning nobody reads is a weak floor": add a map island next month without
+// wrapping it and the build prints the instruction, stays GREEN, and the route
+// crashes cold-offline for anyone who installed the PWA.
+//
+// 🔴 IT MUST FAIL CLOSED, AND THAT IS THE WHOLE DESIGN. The obvious check —
+// "does the declaring file contain the string MapIslandBoundary?" — is what
+// used as a manual probe, and it is NOT good enough to ship as a gate: it
+// passes when the file imports the boundary but wraps a DIFFERENT island, when the
+// name only appears in a comment, or when the wrap was deleted but the import left
+// behind. A gate that can be fooled by ordinary refactoring is worse than the
+// printed line, because it LOOKS enforced. So this resolves the island's actual
+// local identifier and requires every JSX use of it to sit inside a boundary region.
+//
+// Every way it can be wrong points the SAME way — at a failed build, never at a
+// silent pass:
+// - boundary not imported -> throw
+// - island declaration not found -> throw (cannot verify => refuse)
+// - ZERO JSX uses of the island -> throw (rendered via createElement or
+// re-exported for someone else to render;
+// either way this file cannot prove the wrap)
+// - any JSX use outside a boundary -> throw
+// - boundaries nested (naive pairing yields a SHORTER region) -> throw
+// The false-negative cost is a loud build failure a human resolves in a minute.
+// The false-positive cost is a route that dies offline on a mountain in Nepal.
+//
+// lexical, single-file check — it cannot follow an island exported
+// unwrapped from file A and wrapped in file B (that arrangement fails the build
+// and must be restructured, or excluded here deliberately). Upgrade path if that
+// ever becomes a real pattern: parse with the TS compiler already in devDeps
+// instead of matching text.
+const MAP_BOUNDARY_MODULE = '@/components/map-island-boundary';
+
+// Blank out comments IN PLACE — same length, newlines kept — so offsets and reported
+// line numbers stay exact while prose that merely MENTIONS a component stops matching.
+// This is not hypothetical tidying: the first run of this check failed the build on
+// components/calendar-planner.tsx because a comment reads "one <PlanDayMap> instance,
+// placed responsively". Docblocks in this codebase name components constantly.
+// blanks block comments and WHOLE-LINE `//` comments, which is every case in
+// this repo. A trailing `code(); // <Foo />` would still match — it fails the build
+// (safe direction), and the fix is to reword the comment.
+const blankComments = (src) =>
+  src
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/^([ \t]*)\/\/[^\n]*/gm, (m, indent) => indent + ' '.repeat(m.length - indent.length));
+
+async function assertMapIslandsWrapped(mapReduced) {
+  for (const { site } of mapReduced) {
+    const [source, specifier] = site.split(' -> ');
+    const fix =
+      `FIX: in ${source}, import ${MAP_BOUNDARY_MODULE} and wrap every render of the ` +
+      `${specifier} island in <MapIslandBoundary label="…">…</MapIslandBoundary>. ` +
+      'See app/map/sections.tsx for the shape.';
+    const why =
+      `gen-sw withholds ${specifier}'s maplibre chunk from the precache, so cold-offline ` +
+      'React.lazy THROWS at this call site and app/error.tsx replaces the ENTIRE route.';
+
+    let src;
+    try {
+      src = blankComments(await readFile(join(ROOT, source), 'utf8'));
+    } catch {
+      throw new Error(
+        `gen-sw — ${site} is maplibre-reduced but ${source} could not be read, ` +
+          `so the island error boundary CANNOT be verified. ${why} ${fix}`
+      );
+    }
+
+    // 1) The boundary's LOCAL name in this file (a rename still verifies).
+    const boundary = src.match(
+      new RegExp(`import\\s+(\\w+)\\s+from\\s+['"]${MAP_BOUNDARY_MODULE}['"]`)
+    )?.[1];
+    if (!boundary) {
+      throw new Error(
+        `gen-sw — ${site} is maplibre-reduced but ${source} does not import ` +
+          `${MAP_BOUNDARY_MODULE}. ${why} ${fix}`
+      );
+    }
+
+    // 2) The island's LOCAL identifier, resolved from its own dynamic() declaration
+    // rather than guessed, so this checks THE island and not merely "some island".
+    const island = src.match(
+      new RegExp(
+        `(?:const|let|var)\\s+(\\w+)\\s*=\\s*dynamic\\s*\\(\\s*\\(\\s*\\)\\s*=>\\s*import\\s*\\(\\s*['"]${specifier}['"]`
+      )
+    )?.[1];
+    if (!island) {
+      throw new Error(
+        `gen-sw — ${site} is maplibre-reduced but its \`const X = dynamic(() => ` +
+          `import('${specifier}'))\` declaration was not found in ${source}, so the boundary ` +
+          `CANNOT be verified. ${why} ${fix}`
+      );
+    }
+
+    // 3) Boundary regions. MapIslandBoundary is never nested in itself; naive pairing
+    // of each opening with the NEXT close therefore yields the true region, and if
+    // someone ever does nest it, the region computed is SHORTER — which fails the
+    // build rather than waving something through.
+    const regions = [];
+    for (let i = src.indexOf(`<${boundary}`); i !== -1; i = src.indexOf(`<${boundary}`, i + 1)) {
+      const close = src.indexOf(`</${boundary}>`, i);
+      if (close === -1) break;
+      regions.push([i, close]);
+    }
+
+    // 4) Every JSX use of the island must sit inside one — and there must BE one.
+    const uses = [];
+    for (let i = src.indexOf(`<${island}`); i !== -1; i = src.indexOf(`<${island}`, i + 1)) {
+      // `<Foo` must not match `<FooBar`.
+      if (!/[\s/>]/.test(src[i + island.length + 1] ?? '')) continue;
+      uses.push(i);
+    }
+    const naked = uses.filter((at) => !regions.some(([a, b]) => at > a && at < b));
+    if (uses.length === 0 || naked.length > 0) {
+      const lineOf = (at) => src.slice(0, at).split('\n').length;
+      const detail =
+        uses.length === 0
+          ? `no JSX <${island} …> render was found in ${source}`
+          : `<${island} …> is rendered OUTSIDE <${boundary}> at ${source}:` +
+            naked.map(lineOf).join(', ');
+      throw new Error(
+        `gen-sw — ${site} is maplibre-reduced and UNPROTECTED: ${detail}. ${why} ${fix}`
+      );
+    }
+    console.log(`    map-guard OK  ${site}  (<${island}> inside <${boundary}>)`);
+  }
+}
+
 // Build the precache list per the contract:
 // - every route HTML (trailingSlash:true => <route>/index.html) + 404.html
-// - ALL of _next/static/**
+// - the _next/static assets the precached routes reference,
+// UNION the root layout's ssr:false island chunks ( — invisible to that
+// scrape by construction; without them every route crashes cold-offline)
 // - manifest.webmanifest
 // - icons/** and favicon.svg
 // - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead.
@@ -73,8 +531,18 @@ async function walk(dir) {
 // literal. Every route MUST be precached so navigations resolve offline; the
 // old ROUTE_HTML array silently dropped any new route someone forgot to add
 // Discovery removes that footgun.
+//
+// _next/static/** is NOT precached wholesale — only what the precached
+// routes actually reference (see eagerStaticAssets above). Route HTML itself is
+// untouched and still precached in full: that is the/TD-04 contract and
+// the torn-update invariant, NOT a side effect of scoping chunks.
 async function buildPrecacheList(allFiles) {
   const set = new Set();
+  const eager = await eagerStaticAssets(allFiles.filter((r) => r.endsWith('.html')));
+  // UNION in the root layout's ssr:false island chunks, which the HTML scrape
+  // above cannot see by construction (see islandAssets). A Set union, so an
+  // asset both arms name is precached exactly once.
+  for (const rel of await islandAssets()) eager.add(rel);
 
   for (const rel of allFiles) {
     // Route HTML: top-level index.html + every nested <route>/index.html, plus
@@ -85,7 +553,7 @@ async function buildPrecacheList(allFiles) {
     // duplicate /404/ precache entry.
     if (rel === 'index.html' || rel === '404.html') set.add(rel);
     else if (rel.endsWith('/index.html') && rel !== '404/index.html') set.add(rel);
-    else if (rel.startsWith('_next/static/')) set.add(rel);
+    else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
     else if (rel === 'favicon.svg') set.add(rel);
     else if (rel === 'manifest.webmanifest') set.add(rel);
@@ -218,7 +686,7 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     (async () => {
       const cache = await caches.open(PRECACHE);
-      // ATOMIC install (P3, R5.2): every precache URL is same-origin, so a
+      // ATOMIC install: every precache URL is same-origin, so a
       // healthy build MUST fetch each one OK. If ANY entry fails to fetch OK,
       // THROW so this waitUntil rejects -- the worker then never reaches the
       // activate handler, so the previous good precache (deleted ONLY in
@@ -247,7 +715,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      // ALLOWLIST cleanup (R5.3): delete ANY cache key not in the current set —
+      // ALLOWLIST cleanup: delete ANY cache key not in the current set —
       // the active precache PLUS the two runtime caches. This drops the previous
       // build's trip-precache-* (atomic activation) AND garbage-collects renamed
       // runtime caches (e.g. a bumped trip-images-v1 -> v2, or a retired
@@ -388,7 +856,7 @@ self.addEventListener('fetch', (event) => {
         if (cached) return cached;
         try {
           const res = await fetch(request);
-          // Nav backfill (P3): a route missed at install (or added between
+          // Nav backfill: a route missed at install (or added between
           // builds) is cached under its normalized path on first successful
           // online visit, so it resolves offline next time instead of falling
           // back to the app-root shell. Only OK, same-origin ('basic')

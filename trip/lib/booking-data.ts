@@ -17,7 +17,7 @@ export type CabinClass = 'Economy' | 'Premium Economy' | 'Business' | 'First';
 
 export interface FlightLeg {
   id: string;                 // stable, e.g. 'out-1', 'ret-2'
-  flightNumber: string;       // 'Delta 5363', 'Air India 102', 'China Southern 3068'
+  flightNumber: string;       // 'Meridian Air 4471', 'Skyline Continental 512', 'Pacific Crown Air 8823'
   fromCode: string;           // 'SYR'
   fromName: string;           // 'Syracuse Hancock Intl'
   fromTerminal?: string;      // 'Terminal 4' (omit when not given)
@@ -27,7 +27,7 @@ export interface FlightLeg {
   departLabel: string;        // human label, exactly as the booking reads: '5:30am Wed Dec 9'
   arriveLabel: string;        // '7:02am Wed Dec 9'
   duration: string;           // '1h 32m'
-  seats?: string[];           // ['11A','11B','11C']; omit on legs with no seats given
+  seats?: string[];           // e.g. ['14A','14B']; omit on legs with no seats given (this dataset omits it throughout)
   cabin: CabinClass;          // 'Economy'
   cabinCode?: string;         // 'V','W','L' (fare/booking class letter from the booking)
 }
@@ -62,10 +62,10 @@ export interface Journey {
 
 export interface Stay {
   id: string;                 // 'nepal-hotel'
-  name: string;               // 'Tulsi Kathmandu Hotel'
+  name: string;               // 'Thamel Garden Hotel'
   stars: number | null;       // 3 (null only if genuinely unrated)
   address?: string;           // full street address when known
-  area?: string;              // 'Keshar Mahal Marga — beside Garden of Dreams / Thamel'
+  area?: string;              // 'Thamel — beside Garden of Dreams'
   city: string;               // 'Kathmandu'
   country: 'nepal' | 'japan'; // lowercase, matching DayPlan.country
   status: BookingStatus;      // 'booked'
@@ -87,24 +87,24 @@ export const OUTBOUND_JOURNEY: Journey = {
   totalDuration: '1d 15m',            // verbatim source string — render as-is, do NOT recompute
   departDate: '2026-12-09',           // authored from leg out-1 '5:30am Wed Dec 9' (= TRIP_DATES[0])
   legs: [
-    { id: 'out-1', flightNumber: 'Delta 5363',
+    { id: 'out-1', flightNumber: 'Meridian Air 4471',
       fromCode: 'SYR', fromName: 'Syracuse Hancock Intl',
       toCode: 'JFK', toName: 'New York JFK', toTerminal: 'Terminal 4',
       departLabel: '5:30am Wed Dec 9', arriveLabel: '7:02am Wed Dec 9',
-      duration: '1h 32m', seats: ['11A', '11B', '11C'], cabin: 'Economy', cabinCode: 'V' },
-    { id: 'out-2', flightNumber: 'Air India 102',
+      duration: '1h 32m', cabin: 'Economy', cabinCode: 'V' },
+    { id: 'out-2', flightNumber: 'Skyline Continental 512',
       fromCode: 'JFK', fromName: 'New York JFK', fromTerminal: 'Terminal 4',
       toCode: 'DEL', toName: 'Delhi Indira Gandhi Intl', toTerminal: 'Terminal 3',
       departLabel: '11:55am Wed Dec 9', arriveLabel: '1:20pm Thu Dec 10',
-      duration: '14h 55m', seats: ['31D', '31E', '31G'], cabin: 'Economy', cabinCode: 'W' },
-    { id: 'out-3', flightNumber: 'Air India 219',
+      duration: '14h 55m', cabin: 'Economy', cabinCode: 'W' },
+    { id: 'out-3', flightNumber: 'Skyline Continental 618',
       fromCode: 'DEL', fromName: 'Delhi Indira Gandhi Intl', fromTerminal: 'Terminal 3',
       toCode: 'KTM', toName: 'Kathmandu Tribhuvan Intl', toTerminal: 'Terminal I',
       departLabel: '2:30pm Thu Dec 10', arriveLabel: '4:30pm Thu Dec 10',
-      duration: '1h 45m', seats: ['26D', '26E', '26F'], cabin: 'Economy', cabinCode: 'W' },
+      duration: '1h 45m', cabin: 'Economy', cabinCode: 'W' },
   ],
   layovers: [
-    // 4h53m at JFK, same-terminal (T4) onward to Air India — comfortable buffer.
+    // 4h53m at JFK, same-terminal (T4) onward to the connecting flight — comfortable buffer.
     { airportCode: 'JFK', airportName: 'New York JFK', duration: '4h 53m', verdict: 'relaxed' },
     // 1h10m at Delhi to make an international onward flight (arrive T3 13:20 → depart T3 14:30) —
     // razor-thin for an intl connection even same-terminal.
@@ -118,12 +118,12 @@ export const RETURN_TO_JAPAN_JOURNEY: Journey = {
   totalDuration: '10h 50m',
   departDate: '2026-12-18',           // authored from leg ret-1 '11:30pm Fri Dec 18'
   legs: [
-    { id: 'ret-1', flightNumber: 'China Southern 3068',
+    { id: 'ret-1', flightNumber: 'Pacific Crown Air 8823',
       fromCode: 'KTM', fromName: 'Kathmandu Tribhuvan Intl', fromTerminal: 'Terminal I',
       toCode: 'CAN', toName: 'Guangzhou Baiyun Intl', toTerminal: 'Terminal 2',
       departLabel: '11:30pm Fri Dec 18', arriveLabel: '5:55am Sat Dec 19',
       duration: '4h 10m', cabin: 'Economy', cabinCode: 'L' },   // no seats given — omit the seats line in UI
-    { id: 'ret-2', flightNumber: 'China Southern 385',
+    { id: 'ret-2', flightNumber: 'Pacific Crown Air 8845',
       fromCode: 'CAN', fromName: 'Guangzhou Baiyun Intl', fromTerminal: 'Terminal 2',
       toCode: 'HND', toName: 'Tokyo Haneda', toTerminal: 'Terminal 3',
       departLabel: '8:50am Sat Dec 19', arriveLabel: '1:35pm Sat Dec 19',
@@ -140,7 +140,7 @@ export const TOKYO_TO_OSAKA_JOURNEY: Journey = {
   totalDuration: '1h 10m',
   departDate: '2026-12-19',           // authored from leg dom-1 '4:25pm Sat Dec 19'
   legs: [
-    { id: 'dom-1', flightNumber: 'Japan Airlines 127',
+    { id: 'dom-1', flightNumber: 'Nova Air 640',
       fromCode: 'HND', fromName: 'Tokyo Haneda', fromTerminal: 'Terminal 1',
       toCode: 'ITM', toName: 'Osaka Itami',
       departLabel: '4:25pm Sat Dec 19', arriveLabel: '5:35pm Sat Dec 19',
@@ -155,12 +155,12 @@ export const FLIGHT_HOME_JOURNEY: Journey = {
   totalDuration: '19h 23m',           // verbatim source string — render as-is, do NOT recompute
   departDate: '2027-01-09',           // authored from leg home-1 '5:35pm Sat Jan 9'
   legs: [
-    { id: 'home-1', flightNumber: 'Delta 274',
+    { id: 'home-1', flightNumber: 'Meridian Air 1928',
       fromCode: 'HND', fromName: 'Tokyo Haneda', fromTerminal: 'Terminal 3',
       toCode: 'DTW', toName: 'Detroit Metropolitan Wayne County', toTerminal: 'Terminal M',
       departLabel: '5:35pm Sat Jan 9', arriveLabel: '3:35pm Sat Jan 9',
       duration: '12h', cabin: 'Economy', cabinCode: 'E' },   // no seats given — omit the seats line in UI
-    { id: 'home-2', flightNumber: 'Delta 1689',
+    { id: 'home-2', flightNumber: 'Meridian Air 2054',
       fromCode: 'DTW', fromName: 'Detroit Metropolitan Wayne County', fromTerminal: 'Terminal M',
       toCode: 'SYR', toName: 'Syracuse Hancock Intl',
       departLabel: '9:35pm Sat Jan 9', arriveLabel: '10:58pm Sat Jan 9',
@@ -171,31 +171,31 @@ export const FLIGHT_HOME_JOURNEY: Journey = {
 };
 
 export const NEPAL_STAY: Stay = {
-  id: 'nepal-hotel', name: 'Tulsi Kathmandu Hotel', stars: 3,
-  address: 'Keshar Mahal Marga, Kathmandu, Bagmati 44600',
-  area: 'Keshar Mahal Marga — beside Garden of Dreams / Thamel',
+  id: 'nepal-hotel', name: 'Thamel Garden Hotel', stars: 3,
+  address: 'Thamel, Kathmandu',
+  area: 'Thamel — beside Garden of Dreams',
   city: 'Kathmandu', country: 'nepal', status: 'booked',
 };
 
 export const OSAKA_STAY: Stay = {
-  id: 'osaka-hotel', name: 'Hotel The Grandee Shinsaibashi', stars: null,
-  address: '1-6-28 Higashi-Shinsaibashi, Osaka, 542-0083 Japan',
+  id: 'osaka-hotel', name: 'Shinsaibashi Grand Hotel', stars: null,
+  address: 'Shinsaibashi, Osaka',
   city: 'Osaka', country: 'japan', status: 'booked',
   checkIn: '3:00pm Sat Dec 19',
   note: '5 nights · 3 adults · 3 rooms',
 };
 
 export const KYOTO_STAY: Stay = {
-  id: 'kyoto-hotel', name: 'Hotel Forza Kyoto Shijo Kawaramachi', stars: null,
-  address: 'Shijo-Dori, Fuya, Nishihairu, Tachiuri, Kyoto, 600-8005 Japan',
+  id: 'kyoto-hotel', name: 'Kawaramachi Riverside Hotel', stars: null,
+  address: 'Kawaramachi, Kyoto',
   city: 'Kyoto', country: 'japan', status: 'booked',
   checkIn: '2:00pm Thu Dec 24',
   note: '3 nights · 3 adults · 3 rooms',
 };
 
 export const TOKYO_STAY: Stay = {
-  id: 'tokyo-hotel', name: 'APA Hotel Shinjuku Kabukicho Chuo', stars: null,
-  address: '2-26-5, Kabukicho, Tokyo, 160-0021 Japan',
+  id: 'tokyo-hotel', name: 'Shinjuku Skyline Hotel', stars: null,
+  address: 'Kabukicho, Shinjuku, Tokyo',
   city: 'Tokyo', country: 'japan', status: 'booked',
   checkIn: '3:00pm Sun Dec 27',
   checkOut: '10:00am Sat Jan 9',

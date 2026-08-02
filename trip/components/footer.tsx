@@ -27,8 +27,8 @@ export default function Footer() {
       />
       <div className="max-w-[1200px] mx-auto text-center">
         <div className="flex items-center justify-center gap-2 mb-4">
-          <MapPin className="w-4 h-4 text-gold-400" />
-          <span className="font-display font-bold tracking-tight text-white">Nepal <span className="text-gold-400">×</span> Japan Journey</span>
+          <MapPin className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+          <span className="font-display font-bold tracking-tight text-white">Nepal <span className="text-muted-foreground">×</span> Japan Journey</span>
         </div>
         <p className="text-sm text-muted-foreground mb-4">
           {TRIP_DATE_LABEL}

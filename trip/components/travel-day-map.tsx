@@ -22,6 +22,7 @@ import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { ChevronDown, MapPinned } from 'lucide-react';
 import { useItineraryContext } from '@/components/itinerary-provider';
+import MapIslandBoundary from '@/components/map-island-boundary';
 import { buildItineraryStops } from '@/lib/itinerary-map';
 
 const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
@@ -60,11 +61,11 @@ export default function TravelDayMap({ date }: { date: string }) {
     >
       <summary
         data-testid="travel-day-map-summary"
-        className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-inset focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+        className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none [&::-webkit-details-marker]:hidden"
       >
         <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <h2 className="flex items-center gap-1.5 font-display text-base font-bold text-white">
-            <MapPinned className="h-4 w-4 text-gold-400/80" aria-hidden="true" />
+            <MapPinned className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             Today&rsquo;s map
           </h2>
           <span className="text-xs text-white/45" data-testid="travel-day-map-count">
@@ -90,14 +91,20 @@ export default function TravelDayMap({ date }: { date: string }) {
           // Rendered ONLY while open: the maplibre chunk stays interaction-lazy, and a
           // collapsed <details> would otherwise keep it mounted (its content is hidden, not
           // unmounted). Sized here because PlanDayMap is h-full/w-full.
+          // /: wrapped, because this is one of the 3 call sites gen-sw.mjs
+          // reports as maplibre-reduced. Its chunk is deliberately not precached, so
+          // cold-offline React.lazy throws here; unwrapped, Travel Mode's whole
+          // /travel/ route would drop to app/error.tsx when someone opens the day map.
           <div className="h-[300px] overflow-hidden rounded-xl sm:h-[360px]">
             {open && (
-              <PlanDayMap
-                dayStops={dayStops}
-                totalItems={totalItems}
-                highlightId={highlightId}
-                onMarkerClick={setClickedId}
-              />
+              <MapIslandBoundary label="The day map">
+                <PlanDayMap
+                  dayStops={dayStops}
+                  totalItems={totalItems}
+                  highlightId={highlightId}
+                  onMarkerClick={setClickedId}
+                />
+              </MapIslandBoundary>
             )}
           </div>
         )}

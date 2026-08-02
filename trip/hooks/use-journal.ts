@@ -54,7 +54,7 @@ export function useJournal(): JournalStore {
   // Read against the freshest persisted state (not a stale closure), so a caller that reads right
   // after a save sees the write; falls back to React state under SSR/pre-hydrate.
   //
-  // P3: the per-call `loadJournal()` parse was O(callers) per render — the recap
+  // the per-call `loadJournal()` parse was O(callers) per render — the recap
   // browse renders one card PER elapsed day, each calling `getEntry`, so up to ~32 full parses per
   // render. Memoize the parsed source via a VERSION-STAMPED ref keyed on the `entries` identity:
   // `entries` gets a fresh reference on every `commit()` (setValue(next)) AND every event re-read

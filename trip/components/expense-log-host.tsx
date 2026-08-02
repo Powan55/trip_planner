@@ -61,8 +61,8 @@ function resolveDate(): string {
 
 export default function ExpenseLogHost() {
   // Travel Mode zero-chrome-leakage (TM-9) — this invisible expense-dialog host
-  // is suppressed under `/travel`. Nothing in Phase-2 dispatches `expense:open` there;
-  // a later TM slice that wants the global expense-log lifts this guard deliberately.
+  // is suppressed under `/travel`. Nothing in dispatches `expense:open` there;
+  // a later TM change that wants the global expense-log lifts this guard deliberately.
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [presetLeg, setPresetLeg] = useState<Leg>('nepal');

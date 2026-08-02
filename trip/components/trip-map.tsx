@@ -82,10 +82,14 @@ export const CATEGORY_STYLES: Record<
     pin: 'bg-purple-500 text-white',
     badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
   },
+  // was cyan-500 — the SAME hue as the interactive signal (hsl 189), so a
+  // "Day Trip" chip could not be told from a focused control by hue. Moved to green-500 (142
+  // deg, 47 deg off the signal). MUST stay byte-in-sync with CATEGORY_COLOR in lib/map-style.ts
+  // (the GL paint layer) — that mirror is hand-synced with no compiler tie.
   'Day Trip': {
     icon: Bus,
-    pin: 'bg-cyan-500 text-surface',
-    badge: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+    pin: 'bg-green-500 text-surface',
+    badge: 'bg-green-500/20 text-green-300 border-green-500/30',
   },
   Shopping: {
     icon: ShoppingBag,
@@ -222,9 +226,9 @@ function MarkerPopupContent({
             aria-pressed={favorited}
             aria-label={favorited ? `Remove ${marker.name} from saved` : `Save ${marker.name}`}
             data-testid={`map-popup-favorite-${marker.id}`}
-            className={`ml-auto shrink-0 p-1.5 rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 ${
+            className={`ml-auto shrink-0 p-1.5 rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               favorited
-                ? 'bg-gold-500/15 border-gold-400/40 text-gold-300 hover:bg-gold-500/25'
+                ? 'bg-primary/10 border-ring/40 text-primary hover:bg-primary/25'
                 : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'
             }`}
           >
@@ -240,7 +244,7 @@ function MarkerPopupContent({
         target="_blank"
         rel="noopener noreferrer"
         data-testid="map-popup-directions"
-        className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-gold-400 hover:text-gold-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60 rounded"
+        className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
       >
         <Navigation className="w-3.5 h-3.5" strokeWidth={2.5} />
         Directions
@@ -277,7 +281,7 @@ function MarkerPopupContent({
               data-testid={`map-popup-drag-${marker.id}`}
               aria-hidden="true"
               title="Drag onto a day below to anchor it"
-              className="hidden sm:grid place-items-center w-7 shrink-0 rounded-lg bg-white/5 border border-white/10 text-gold-400/70 cursor-grab active:cursor-grabbing hover:bg-white/10 hover:text-gold-300 transition-colors"
+              className="hidden sm:grid place-items-center w-7 shrink-0 rounded-lg bg-white/5 border border-white/10 text-muted-foreground cursor-grab active:cursor-grabbing hover:bg-white/10 hover:text-primary transition-colors"
             >
               <CalendarPlus className="w-3.5 h-3.5" />
             </span>
@@ -289,7 +293,7 @@ function MarkerPopupContent({
               value={assignDate}
               onChange={(e) => setAssignDate(e.target.value)}
               data-testid={`map-popup-assign-select-${marker.id}`}
-              className="min-w-0 flex-1 px-2 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-[11px] text-white outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60"
+              className="min-w-0 flex-1 px-2 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-[11px] text-white outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               {assignDays.map((d) => (
                 <option key={d.date} value={d.date} className="bg-surface text-white">
@@ -302,7 +306,7 @@ function MarkerPopupContent({
               onClick={() => assignDate && onAssignDay?.(marker, assignDate)}
               data-testid={`map-popup-assign-confirm-${marker.id}`}
               aria-label={`Anchor a day around ${marker.name}`}
-              className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gold-500/15 border border-gold-400/40 text-gold-300 text-[11px] font-medium hover:bg-gold-500/25 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400/60"
+              className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 border border-ring/40 text-primary text-[11px] font-medium hover:bg-primary/25 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               Anchor
             </button>
@@ -397,6 +401,15 @@ export interface TripMapProps {
   enableDayAssign?: boolean;
   assignDays?: AssignDayOption[];
   onAssignDay?: (marker: MapMarker, date: string) => void;
+  /**
+   * pin-pick seam: while true the canvas is a coordinate picker — the cursor turns to
+   * a crosshair, marker/cluster clicks stop opening popups (a click on a pin must PLACE a
+   * pin, not browse one), and every click reports its lng/lat through `onMapClick`. Default
+   * undefined ⇒ browse behavior is byte-identical for every other consumer.
+   */
+  pickMode?: boolean;
+  /** Fired with the clicked coordinate, ONLY while `pickMode` is on. */
+  onMapClick?: (lngLat: { lng: number; lat: number }) => void;
 }
 
 // ── TripMap: the reusable MapLibre engine ─────────────────────────────────────
@@ -420,6 +433,8 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     enableDayAssign,
     assignDays,
     onAssignDay,
+    pickMode,
+    onMapClick,
   },
   ref,
 ) {
@@ -450,6 +465,12 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   onViewChangeRef.current = onViewChange;
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
+  // the once-registered canvas handlers below read pick state through refs, so
+  // arming/disarming the picker never re-initializes GL (same idiom as onMarkerClickRef).
+  const pickModeRef = useRef(pickMode);
+  pickModeRef.current = pickMode;
+  const onMapClickRef = useRef(onMapClick);
+  onMapClickRef.current = onMapClick;
 
   // Open (or move) the in-canvas popup for a marker, and expose its content node
   // so React can portal the interactive content in.
@@ -673,17 +694,20 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         });
 
         // Cursor affordances.
+        // in pick mode the crosshair wins over the browse pointer, so hovering a
+        // marker while placing a pin doesn't promise a click that no longer browses.
         for (const id of ['clusters', 'unclustered']) {
           map!.on('mouseenter', id, () => {
-            map!.getCanvas().style.cursor = 'pointer';
+            map!.getCanvas().style.cursor = pickModeRef.current ? 'crosshair' : 'pointer';
           });
           map!.on('mouseleave', id, () => {
-            map!.getCanvas().style.cursor = '';
+            map!.getCanvas().style.cursor = pickModeRef.current ? 'crosshair' : '';
           });
         }
 
         // Cluster click → expand to the cluster's zoom.
         map!.on('click', 'clusters', (e) => {
+          if (pickModeRef.current) return; // a pick click places a pin, never zooms
           const features = map!.queryRenderedFeatures(e.point, {
             layers: ['clusters'],
           });
@@ -704,12 +728,22 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
         // Unclustered point click → open a rich popup (+ notify the host).
         map!.on('click', 'unclustered', (e) => {
+          if (pickModeRef.current) return; // a pick click places a pin, never browses
           const f = e.features?.[0] as MapGeoJSONFeature | undefined;
           const id = f?.properties?.id as string | undefined;
           const marker = id ? MARKER_BY_ID.get(id) : undefined;
           if (!marker) return;
           openPopup(maplibregl, marker);
           onMarkerClickRef.current?.(marker);
+        });
+
+        // pin-pick: ANY click on the canvas reports its coordinate while the picker is
+        // armed. Registered on the map (not a layer) so empty water/street clicks count too —
+        // that is the whole point of dropping a pin somewhere with no curated marker. Inert
+        // (a ref read + early return) for every consumer that never sets `pickMode`.
+        map!.on('click', (e) => {
+          if (!pickModeRef.current) return;
+          onMapClickRef.current?.({ lng: e.lngLat.lng, lat: e.lngLat.lat });
         });
 
         // view seam: report camera center/zoom on every settle (+ once now),
@@ -736,6 +770,15 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // paint the crosshair while the picker is armed (and hand the cursor back on
+  // disarm). Separate from the once-only init effect because `pickMode` changes over the
+  // map's lifetime and must not tear down GL.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    map.getCanvas().style.cursor = pickMode ? 'crosshair' : '';
+  }, [pickMode, mapReady]);
 
   // ── Markers → update the source data + camera to the given set ──────────────
   useEffect(() => {

@@ -1,6 +1,6 @@
 /**
- * Recap domain — the pure, framework-free plan-vs-actual day-recap core (slice —
- * the second and final slice of proposal #11's in-trip core).
+ * Recap domain — the pure, framework-free plan-vs-actual day-recap core ( —
+ * the second and final change of proposal #11's in-trip core).
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,
  * no fetch, no clock, no storage. Every function is TOTAL (a bad / missing / corrupt input

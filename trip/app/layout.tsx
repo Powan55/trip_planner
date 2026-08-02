@@ -1,4 +1,4 @@
-import { DM_Sans } from 'next/font/google'
+import { Geist, Instrument_Serif } from 'next/font/google'
 import type { Viewport } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -6,7 +6,6 @@ import { ItineraryProvider } from '@/components/itinerary-provider'
 import { Toaster } from '@/components/ui/sonner'
 import { ChunkLoadErrorHandler } from '@/components/chunk-load-error-handler'
 import CommandPalette from '@/components/command-palette'
-import RouteAccentEngine from '@/components/route-accent-engine'
 import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
 import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
@@ -24,12 +23,24 @@ import {
   QuickAddHost,
   ExpenseLogHost,
   TripJoinHandshake,
-  GuestConvert,
 } from './chrome-islands'
 
-// ONE font family. `font-display`/`font-mono` now alias `--font-sans`
-// in tailwind.config, so the Plus Jakarta + JetBrains downloads are dropped.
-const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-sans' })
+// TWO faces — a text family and a display family.
+// `--font-sans` = Geist (variable weight axis, OFL, one download) carries the whole
+// UI, including `font-mono`, which aliases it + `tnum` in tailwind.config (Geist has
+// real tabular figures, so numerals still align with NO monospace download).
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
+// `--font-display` = Instrument Serif, headings ONLY (never a data value —
+// standing rule). `preload: false` is LOAD-BEARING: it is what keeps the second face
+// off the critical path and is what made affordable at all. Do not remove it.
+// The family ships weight 400 only; heading sites that pair `font-display` with
+// `font-bold`/`font-semibold` get a synthesized bold.
+const instrumentSerif = Instrument_Serif({
+  weight: '400',
+  subsets: ['latin'],
+  preload: false,
+  variable: '--font-display',
+})
 
 export const metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
@@ -87,7 +98,7 @@ export const viewport: Viewport = {
   interactiveWidget: 'resizes-content',
   // surface — the visible app surface color (matches the PWA
   // manifest's theme_color/background_color emitted by gen-sw.mjs).
-  themeColor: '#0a0e27',
+  themeColor: '#0b0c0e',
 }
 
 export default function RootLayout({
@@ -97,7 +108,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
-      <body className={`${dmSans.variable} font-sans bg-surface`}>
+      <body className={`${geist.variable} ${instrumentSerif.variable} font-sans bg-surface`}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -126,21 +137,15 @@ export default function RootLayout({
           {/* `?trip=` shared-link join handshake. Renders null unless a
               `?trip=` link is opened. Root-level (needs no ItineraryProvider). */}
           <TripJoinHandshake />
-          {/* guest → account conversion ("Keep this trip"). Renders null
-              unless the guest flag is set; hosts the mobile CTA + the one conversion dialog (the
-              navbar's guest chip opens the same dialog by event). Root-level like the handshake. */}
-          <GuestConvert />
-          {/* Trip-phase ambient island. Renders null.
-              Chrome accent is now ONE static gold (route sweep retired); this only
-              stamps data-trip-phase on <html> so the decorative aurora backdrop
-              warms/cools by trip leg (content wayfinding, not chrome). */}
-          <RouteAccentEngine />
+          {/* <RouteAccentEngine /> deleted. had already retired its chrome
+              sweep, leaving it stamping html[data-trip-phase] for exactly ONE consumer —
+              the aurora's lead stops. That aurora is gone, so the island was a corpse. */}
           <Toaster />
           <ChunkLoadErrorHandler />
           {/* registers /sw.js in production only; drives the
               toast-based update flow (no silent refresh). Renders null. */}
           <ServiceWorkerRegistrar />
-          {/* (R1): storage-reliability island — requests persistent storage after the
+          {/* storage-reliability island — requests persistent storage after the
               first interaction, warns once per load when storage nears quota, and shows a
               once-ever install-to-Home-Screen hint. Renders nothing. */}
           <StoragePersistence />

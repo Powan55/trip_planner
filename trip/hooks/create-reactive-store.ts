@@ -36,7 +36,7 @@ import type { StoragePort, SyncPort } from '@/core/ports';
  * one handler compose (each sees the prior's already-persisted write).
  * 4. PUSH PLACEMENT — `sync.push(prev, next)` fires ONLY from `commit()`, AFTER the
  * local save + dispatch, fire-and-forget, never throwing to the caller. Absent `sync` ⇒
- * local-only (journal/expenses/budget in this slice).
+ * local-only (journal/expenses/budget in this change).
  */
 
 export interface ReactiveStoreConfig<T> {

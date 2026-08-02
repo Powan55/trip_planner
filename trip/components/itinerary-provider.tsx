@@ -11,6 +11,8 @@ import { expensesSyncPort, expensesOutboxSync, expensesStoragePort } from '@/lib
 import { budgetSyncPort, budgetOutboxSync, budgetStoragePort } from '@/lib/budget-ports';
 import { docsSyncPort, docsOutboxSync, docsStoragePort } from '@/lib/docs-ports';
 import { flushOutbox } from '@/core/sync/outbox';
+import { withBasePath } from '@/lib/utils';
+import { toast } from 'sonner';
 import TokenGate from '@/components/token-gate';
 import PresenceBar from '@/components/presence-bar';
 import FirstRunTour from '@/components/first-run-tour';
@@ -41,6 +43,69 @@ const TravelModeMounts = dynamic(() => import('@/components/travel-mode-mounts')
 
 const ItineraryContext = createContext<ItineraryStore | null>(null);
 
+/**
+ * A5: consume the one-shot `name-hint` flag that `token-gate`'s token-only login leaves
+ * when the display name silently defaulted to "Traveler". Cleared BEFORE the toast so a reload
+ * can never double-fire. Exported so the behavior has a runnable unit check without mounting the
+ * whole provider tree. SSR-safe (no-op without `window`).
+ */
+export function consumeNameHint(): void {
+  if (typeof window === 'undefined') return;
+  if (sessionStorage.getItem('name-hint') !== '1') return;
+  sessionStorage.removeItem('name-hint');
+  toast("You're signed in as Traveler — rename yourself in Settings.", {
+    action: {
+      label: 'Settings',
+      onClick: () => window.location.assign(withBasePath('/settings/')),
+    },
+  });
+}
+
+/**
+ * the sync-code trip-list subscription lifecycle, extracted so its
+ * identity-change teardown/re-arm has a runnable unit check without mounting the whole provider.
+ * Returns `{ activate, teardown }`; the provider effect wires them to mount + `identity:changed`,
+ * matching the four sibling domain sync effects (which inline the same shape via their SyncPorts).
+ *
+ * `signOut()` fires `identity:changed` WITHOUT a reload, so a mount-once subscription would keep
+ * merging remote trip-list changes into a signed-out session — violating the "guest/signed-
+ * out never syncs" posture. `activate()` re-checks all gates each call (`isRemoteConfigured()` AND
+ * a stored Sync Code AND an active traveler); `teardown()` closes any open subscription.
+ * Firebase-gated: `activate()` short-circuits before the lazy `import('@/lib/trips-remote')` on the
+ * dormant build, so the shipped build is byte-identical — latent-correctness only. A
+ * `loadToken` invalidates a late import resolve across teardown/re-arm.
+ */
+export function createSyncCodeTripListSync(): { activate: () => void; teardown: () => void } {
+  let unsubscribe: (() => void) | null = null;
+  let loadToken = 0;
+
+  const teardown = () => {
+    loadToken++; // ignore any import() still in flight for the prior identity
+    if (unsubscribe) {
+      unsubscribe();
+      unsubscribe = null;
+    }
+  };
+
+  const activate = () => {
+    if (!isRemoteConfigured()) return;
+    const code = getSyncCode();
+    if (!code || !getActiveTraveler()) return;
+    if (unsubscribe) return; // already subscribed for the current identity
+    const token = ++loadToken;
+    void import('@/lib/trips-remote')
+      .then(({ subscribeTripList }) => {
+        if (token !== loadToken) return; // torn down / re-armed since this import began
+        unsubscribe = subscribeTripList(code);
+      })
+      .catch((err) => {
+        console.warn('[itinerary-provider] sync-code subscribe unavailable:', err);
+      });
+  };
+
+  return { activate, teardown };
+}
+
 export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   const store = useItinerary();
 
@@ -61,7 +126,7 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   // immediately). The dormant-safe property is unchanged: `activate()` short-circuits
   // before any firebase import unless `isRemoteConfigured()` AND an active traveler.
   //
-  // P3: the subscribe now routes through `itinerarySyncPort.subscribe` (which already owns the
+  // the subscribe now routes through `itinerarySyncPort.subscribe` (which already owns the
   // gated dynamic `import('@/lib/itinerary-remote')` + the cancel-proxy unsub), so the port's
   // subscribe surface is LIVE and its dead twin is gone — this effect matches the expense/budget
   // effects below exactly. Behavior is byte-identical: the port returns a synchronous proxy unsub,
@@ -122,7 +187,7 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
 
   // Gated EXPENSE remote sync. Mirrors the itinerary effect above and its
   // dormant/guest gates: flush-then-subscribe on mount + reactively on
-  // `identity:changed`, driven through the expense SyncPort's own `subscribe` ( P3 —
+  // `identity:changed`, driven through the expense SyncPort's own `subscribe` ( —
   // one subscribe surface, no dead twin). `expensesSyncPort.subscribe` self-gates on
   // `isRemoteConfigured()` (a no-op unsub when dormant, pulling NO firebase); we add the traveler
   // gate here to match the itinerary (a guest never opens the expense subscription). Flush no-ops
@@ -315,33 +380,34 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // SYNC-CODE trip-list subscription. Mirrors the self-heal effect's gating shape,
-  // but opens a LIVE `onSnapshot` on `trips/{syncCode}/profile/tripList` instead of a one-shot read:
-  // it merges the owner's known-trips list across their devices (a trip created on one device shows
-  // up on all of them). Gated on `isRemoteConfigured()` AND a stored Sync Code AND an active traveler
-  // Dynamically imports `lib/trips-remote` so the
-  // dormant/no-code build pulls no firebase; the gate check runs before the import. Mount-
-  // once (a mint/enter in Settings reloads or seeds directly), so no identity-change re-arm is needed.
+  // SYNC-CODE trip-list subscription. Mirrors the self-heal effect's
+  // gating shape, but opens a LIVE `onSnapshot` on `trips/{syncCode}/profile/tripList` instead of a
+  // one-shot read: it merges the owner's known-trips list across their devices (a trip created on
+  // one device shows up on all of them). Gated on `isRemoteConfigured()` AND a stored Sync Code AND
+  // an active traveler.
+  // Dynamically imports `lib/trips-remote` so the dormant/no-code build pulls no firebase;
+  // the gate check runs before the import.
+  //
+  // driven REACTIVELY by `identity:changed`, like the four domain sync effects + the presence
+  // heartbeat above (see `createSyncCodeTripListSync` for the why — sign-out fires identity:changed
+  // without a reload, so a mount-once subscription would outlive the session).
   useEffect(() => {
-    if (!isRemoteConfigured()) return;
-    const code = getSyncCode();
-    if (!code || !getActiveTraveler()) return;
-
-    let cancelled = false;
-    let unsubscribe: (() => void) | null = null;
-    void import('@/lib/trips-remote')
-      .then(({ subscribeTripList }) => {
-        if (cancelled) return;
-        unsubscribe = subscribeTripList(code);
-      })
-      .catch((err) => {
-        console.warn('[itinerary-provider] sync-code subscribe unavailable:', err);
-      });
-
-    return () => {
-      cancelled = true;
-      if (unsubscribe) unsubscribe();
+    const { activate, teardown } = createSyncCodeTripListSync();
+    activate();
+    const onIdentityChanged = () => {
+      teardown();
+      activate();
     };
+    window.addEventListener(IDENTITY_CHANGED_EVENT, onIdentityChanged);
+    return () => {
+      window.removeEventListener(IDENTITY_CHANGED_EVENT, onIdentityChanged);
+      teardown();
+    };
+  }, []);
+
+  // A5: consume the post-login "Traveler" name hint once, after the login reload.
+  useEffect(() => {
+    consumeNameHint();
   }, []);
 
   // Gated presence HEARTBEAT. Mirrors the remote-subscribe effect above and
@@ -400,15 +466,15 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   return (
     <ItineraryContext.Provider value={store}>
       {children}
-      {/* Trip Token landing gate ( M10 /··; two modes since S113E,
-         ). The app's front-door WALL when there's no active traveler and the
-          user isn't a guest, AND the guest-route wall confining guests to Home (every
-          non-Home pathname is gated). Mounted UNCONDITIONALLY — the component derives its
-          own mode from useActiveTraveler() + usePathname() and renders null when neither
-          triggers. This is the SINGLE gate mount in the app. Content stays mounted BEHIND
-          it so localStorage hydration / first paint happen normally.
-          z-[70] sits above name-prompt's z-[60]. Dormant-safe: imports only pure modules,
-          never firebase. */}
+      {/* Trip Token landing gate. No guest mode since
+          — every logged-out visitor sees this wall. Mounted UNCONDITIONALLY —
+          the component derives its state from useActiveTraveler() alone (`show = mounted &&
+          (held || !traveler)`), with NO pathname term, so it already covers /travel exactly
+          like every other route — which is why travel-date-picker.tsx deliberately carries
+          no identity redirect of its own. This is the SINGLE gate mount in the app.
+          Content stays mounted BEHIND it so localStorage hydration / first paint happen
+          normally. z-[70] sits above name-prompt's z-[60]. Dormant-safe:
+          imports only pure modules, never firebase. */}
       <TokenGate />
       {/* First-run guided tour. A sibling of <TokenGate />, so it is present on
           every route behind the gate. Renders nothing until the gate has passed AND the

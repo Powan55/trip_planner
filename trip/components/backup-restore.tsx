@@ -3,8 +3,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { exportTripBackup, importTripBackup } from '@/core/vault/backup';
-import { supportsCompression } from '@/core/vault/compression';
+import { downloadTripBackup, importTripBackup } from '@/core/vault/backup';
 import { savePlans } from '@/lib/itinerary-storage';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
@@ -41,12 +40,6 @@ import { useItineraryContext } from '@/components/itinerary-provider';
  * static-export prerender.
  */
 
-const EXPORT_FILENAME = 'nepal-japan-trip-backup.json';
-// gzip-compressed exports (native CompressionStream) get a `.gz` filename; the bytes
-// stay auto-detected on import by gzip magic bytes regardless of what a user renames the
-// file to (see `core/vault/compression.ts`).
-const EXPORT_FILENAME_GZ = 'nepal-japan-trip-backup.json.gz';
-
 type Status =
   | { kind: 'idle' }
   | { kind: 'success'; message: string }
@@ -81,16 +74,9 @@ export default function BackupRestore() {
     try {
       // the WHOLE trip (itinerary + journal + photos + every local domain), gzip-packed via the
       // existing compression pipeline (falls back to plain JSON where CompressionStream is absent).
-      const blob = await exportTripBackup();
-      const filename = supportsCompression() ? EXPORT_FILENAME_GZ : EXPORT_FILENAME;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      // the download mechanics were lifted to `downloadTripBackup()` (a pure lift, same
+      // behaviour/error surface) so the sign-out confirm dialog's backup offer can reuse them.
+      const filename = await downloadTripBackup();
       setStatus({ kind: 'success', message: `Backed up your whole trip (including journal and photos) to ${filename}.` });
     } catch {
       setStatus({ kind: 'error', message: 'Could not back up your trip. Please try again.' });
@@ -151,7 +137,7 @@ export default function BackupRestore() {
     >
       <div className="glass-card rounded-2xl p-6 sm:p-8">
         <div className="mb-5 flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-gold-400" aria-hidden="true" />
+          <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-muted-foreground" aria-hidden="true" />
           <div>
             <h2
               id="backup-restore-title"
@@ -181,7 +167,7 @@ export default function BackupRestore() {
               type="button"
               onClick={handleExport}
               data-testid="backup-export-button"
-              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-gold-400 px-4 py-2.5 text-sm font-semibold text-surface transition-colors hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
               Back up whole trip
@@ -199,7 +185,7 @@ export default function BackupRestore() {
               type="button"
               onClick={() => fileInputRef.current?.click()}
               data-testid="backup-import-trigger"
-              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               <Upload className="h-4 w-4" aria-hidden="true" />
               Choose backup file
@@ -256,6 +242,9 @@ export default function BackupRestore() {
           >
             <div className="glass-card-dark w-full max-w-md rounded-2xl p-6">
               <div className="mb-3 flex items-center gap-2">
+                {/* gold is the warning/danger surface colour generally. This is the
+                    destructive-confirm ("cannot be undone") affordance, so it STAYS gold — unlike the
+                    reassurance ShieldCheck above, which is decoration and went to ink. */}
                 <AlertTriangle className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />
                 <h3 id="backup-confirm-title" className="font-display text-lg font-bold text-white">
                   Replace your current trip?
@@ -285,7 +274,7 @@ export default function BackupRestore() {
                   onClick={confirmImport}
                   disabled={importing}
                   data-testid="backup-confirm-import"
-                  className="rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-surface transition-colors hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-60"
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-60"
                 >
                   {importing ? 'Restoring…' : 'Replace trip'}
                 </button>

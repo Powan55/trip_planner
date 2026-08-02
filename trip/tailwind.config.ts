@@ -6,26 +6,55 @@ const config: Config = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    // 🔴 — `lib/` IS a class-name source and must stay scanned. DO NOT prune this as an
+    // over-broad glob. `lib/trip-data.ts`'s CATEGORY_COLORS holds the 30 itinerary-chip classes
+    // (and `lib/fly-chip.ts` a few more); every component that renders a chip reads them from
+    // there rather than writing them inline ( forbids interpolating class names, so the
+    // table is the right home). While this glob was missing, those utilities emitted CSS only
+    // when some component happened to contain the byte-identical string — 4 of the 10 categories
+    // had NEVER rendered their declared colour, and `transportation` rendered purely because
+    // trip-map.tsx carried the same cyan trio for its "Day Trip" badge. re-hued that badge,
+    // which destroyed the coincidence and would have left the chip colourless. Measured evidence:
+    // docs/plans/s353c-sweep-evidence-2026-08-01.md.
+    './lib/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
       fontFamily: {
-        // ONE family (DM Sans). `display` + `mono` now ALIAS the sans
-        // var, so all 85 `font-display` + 42 `font-mono` usages resolve to DM Sans
-        // with zero component edits (the Plus Jakarta / JetBrains downloads are
-        // dropped in layout.tsx). `mono` keeps tabular figures via the `tnum`
-        // OpenType feature so numerals (countdown/budget/flights) still align
-        // without a monospace face.
+        // a SECOND family is admitted, for DISPLAY ONLY.
+        // `sans` = Geist (variable, OFL); `display` = Instrument Serif 400 latin,
+        // loaded with `preload:false` (layout.tsx) — that flag is what makes the
+        // second face affordable and must not be removed.
+        //
+        // The flip is gated on the font audit, which resolved REPAIR-THEN-FLIP:
+        // there are 80 live `font-display` sites (NOT the 85 this comment used to
+        // claim, and not the plan's 84 — reconciled by two independent audits), of
+        // which 4 were leaks where `font-display` had been reached for to get WEIGHT
+        // on a data VALUE. Those four are repaired in the same commit as this flip
+        // (token-gate/budget-panel -> font-mono; weather-card/flight-journey-card ->
+        // dropped). Inheritance was walked across all 30 container sites: no
+        // `font-display` sits on a page/section/card wrapper, so the serif cannot
+        // leak onto descendants.
+        //
+        // STANDING RULE: `font-display` is for HEADINGS, never for a value.
+        // A value that must align or be read for precision takes `font-mono`.
+        //
+        // `mono` still ALIASES the sans var + the `tnum` OpenType feature — Geist
+        // ships real tabular figures, so the 42 `font-mono` sites keep aligning with
+        // NO third download. Countdown/budget/flights are the domains that depend on
+        // it, and all three had a `font-display` instance that escaped it until now.
         sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
-        display: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'Georgia', 'serif'],
         mono: [['var(--font-sans)', 'ui-monospace', 'monospace'], { fontFeatureSettings: '"tnum"' }],
+        // the concierge's code face. System fonts ONLY — zero download, no new webfont — kept
+        // distinct from `mono` above (which deliberately ALIASES the sans var for tabular numerals).
+        code: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-conic':
           'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
-        // refined aurora backdrop
-        aurora: 'var(--gradient-aurora)',
+        // the `bg-aurora` key is gone with --gradient-aurora (decoration removal).
       },
       borderRadius: {
         lg: 'var(--radius)',
@@ -148,6 +177,16 @@ const config: Config = {
         fast: 'var(--duration-fast)',
         normal: 'var(--duration-normal)',
         slow: 'var(--duration-slow)',
+        // retire the 64 HARDCODED duration utilities with zero component
+        // edits. `extend` overrides a built-in at the SAME key, so re-pointing
+        // Tailwind's own '200'/'300'/'500' at the motion vars sweeps every existing
+        // `duration-200` (47 sites), `duration-300` (12) and `duration-500` (5) onto
+        // the token scale in place. Counted in-repo across app/ + components/; those
+        // three are the ONLY numeric duration utilities used anywhere (no -75/-100/
+        // -150/-700/-1000), so this covers 100% of them.
+        '200': 'var(--duration-normal)',
+        '300': 'var(--duration-slow)',
+        '500': 'var(--duration-slower)',
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',

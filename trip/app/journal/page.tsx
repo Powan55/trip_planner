@@ -3,7 +3,7 @@
 // ssr:false dynamic import lives in./sections (a client module); this Server Component page
 // exports metadata. Reached via a direct URL or the "View all entries" link on
 // `journal-card.tsx`; deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar /
-// command palette in this slice (those files are fenced — a follow-up rider, per the brief).
+// command palette in this change (those files are fenced — a follow-up rider, per the brief).
 import { JournalBrowse } from './sections';
 
 export const metadata = {
@@ -15,7 +15,7 @@ export default function JournalPage() {
   return (
     <main className="min-h-screen bg-surface">
       {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
-          text-gradient-gold / animate-reveal-up) directly rather than extending PageHero's
+          text-display-emphasis / animate-reveal-up) directly rather than extending PageHero's
           closed `HeroVariant` union (`app/plan/`, `/nepal/`, `/japan/`, `/map/` only — fenced
           per the brief: "do not extend page-hero.tsx"). Supplies the page's <h1> (mirrors
           the PageHero convention — a route without its own <h1> gets one here). */}
@@ -33,7 +33,7 @@ export default function JournalPage() {
             <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
               Every day, in your words
             </p>
-            <h1 className="font-display text-display-lg text-gradient-gold">Journal</h1>
+            <h1 className="font-display text-display-lg text-display-emphasis">Journal</h1>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
               Browse and edit every trip-day entry you've written — private, on this device only.
             </p>

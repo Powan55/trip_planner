@@ -70,12 +70,12 @@ export default function AddToPlanButton({ source, sourceType, accentColor }: Add
           onClick={handleOpen}
           aria-haspopup="dialog"
           aria-label={`${draft.title} is planned ${summary.toLowerCase()}. Modify or remove.`}
-          className="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-gold-500/15 border border-gold-400/40 text-gold-300 text-xs font-medium hover:bg-gold-500/25 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          className="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-ring/40 text-primary text-xs font-medium hover:bg-primary/25 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Check className="w-3.5 h-3.5 shrink-0" />
           <span>Added</span>
-          <span className="text-gold-400/60" aria-hidden="true">·</span>
-          <span className="flex items-center gap-1 text-gold-300/80">
+          <span className="text-muted-foreground" aria-hidden="true">·</span>
+          <span className="flex items-center gap-1 text-foreground">
             <CalendarDays className="w-3 h-3 shrink-0" />
             {summary}
           </span>
@@ -87,7 +87,7 @@ export default function AddToPlanButton({ source, sourceType, accentColor }: Add
           onClick={handleOpen}
           aria-haspopup="dialog"
           aria-label={`Add ${draft.title} to your trip plan`}
-          className={`w-full mt-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none hover:bg-white/10 ${accentColor ?? 'text-white/70'}`}
+          className={`w-full mt-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none hover:bg-white/10 ${accentColor ?? 'text-white/70'}`}
         >
           <Plus className="w-3.5 h-3.5 shrink-0" />
           Add to plan

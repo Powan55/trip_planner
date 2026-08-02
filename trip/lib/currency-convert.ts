@@ -49,8 +49,8 @@ async function usdRateOf(
   }
   const result: CurrencyRateResult = await fetchCurrencyRate(currency, fetchImpl);
   if (result.status === 'unavailable') return 'unavailable';
-  // (P6): an older cache entry written before `source` existed has no field — treat that
-  // as `'live'`, matching what it always meant before this slice.
+  // an older cache entry written before `source` existed has no field — treat that
+  // as `'live'`, matching what it always meant before this change.
   return {
     rate: result.data.rate,
     asOf: result.data.asOf,

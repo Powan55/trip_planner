@@ -22,8 +22,9 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
-import { signOut, exitGuest } from '@/lib/token-auth';
+import { signIn } from '@/lib/token-auth';
 import { getActiveTripId, DEFAULT_TRIP_ID, getSyncCode, setSyncCode } from '@/core/storage/gateway';
+import SignOutConfirm from '@/components/sign-out-confirm';
 import { joinTrip } from '@/core/trips/registry';
 import { getTripId } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
@@ -58,10 +59,15 @@ import {
  * `/settings` island, mounted once via `app/settings/sections.tsx`. Collapsible
  * groups built on native `<details>/<summary>`:
  *
- * 1. IDENTITY — the active traveler's name + Sign out (clears the nickname via `signOut`,
- * which fires `identity:changed` → `TokenGate` re-shows the front-door wall). A sign-out is
- * recoverable by re-entering the token, so it needs no confirm.
+ * 1. IDENTITY — the active traveler's name + Sign out. made sign-out a FULL LOCAL
+ * TEARDOWN, not just an identity clear (`wipeAllTripData()` — every trip-scoped domain in
+ * BOTH namespaces, plus the app-scoped pointers/lists and `travelMode`) — the previous
+ * traveler's trip data must not leak to the next person on a shared device. That makes it a
+ * real, unrecoverable-in-this-window destructive action, so it is confirm-gated (via the
+ * shared `<SignOutConfirm>`) with a backup offer, not the old no-confirm click. "Forget this
+ * device" goes further still and also deletes every photo stored on this device.
  *
+
  * 2. CURRENCY & RATES — the home/display-currency toggle + the two exchange-rate overrides,
  * RELOCATED verbatim from `budget-panel.tsx`. The write path is IDENTICAL — still
  * `useBudget().commit(() => next)` — so budget sync is
@@ -94,10 +100,10 @@ export default function SettingsPanel() {
   /**
    * a capability SECRET — this trip's Trip Token, its `?trip=` share link, and the
    * personal User Token — requires an identified traveler, as does every trip-mutating registry
-   * action (create / add / switch). Under a guest now roams to `/settings/`, and these
-   * surfaces render the DEFAULT pack's live write capability; showing them to an anonymous visitor
-   * would hand over the friends' trip. Guests get the sign-in affordance instead. False until
-   * mounted so nothing flashes before storage is read.
+   * action (create / add / switch). With no guest mode, an unidentified visitor never
+   * visibly reaches this page — TokenGate's wall covers it — but `{children}` still mounts
+   * underneath the wall, so this gate is kept as defense-in-depth against showing a capability
+   * secret on that hidden render. False until mounted so nothing flashes before storage is read.
    */
   const identified = mounted && traveler !== null;
 
@@ -110,7 +116,7 @@ export default function SettingsPanel() {
       <div className="flex flex-col gap-4">
         <SettingsGroup
           testId="settings-group-identity"
-          icon={<User className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />}
+          icon={<User className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
           title="Identity"
           summary="Who your edits are attributed to"
           defaultOpen
@@ -120,25 +126,25 @@ export default function SettingsPanel() {
 
         <SettingsGroup
           testId="settings-group-trip"
-          icon={<KeyRound className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />}
+          icon={<KeyRound className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
           title="Trip"
           summary="Create a trip, add one by Trip Token, or share this trip"
         >
-          {identified ? <TripGroup /> : <GuestGate what="trip" />}
+          {identified ? <TripGroup /> : <SignInRequired what="trip" />}
         </SettingsGroup>
 
         <SettingsGroup
           testId="settings-group-sync"
-          icon={<Smartphone className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />}
-          title="Your User Token"
+          icon={<Smartphone className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
+          title="Your key"
           summary="Your account key — log in with it on another device to see the same trips"
         >
-          {identified ? <SyncGroup /> : <GuestGate what="sync" />}
+          {identified ? <SyncGroup /> : <SignInRequired what="sync" />}
         </SettingsGroup>
 
         <SettingsGroup
           testId="settings-group-currency"
-          icon={<Coins className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />}
+          icon={<Coins className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
           title="Currency & rates"
           summary="Display currency and exchange-rate overrides"
         >
@@ -147,7 +153,7 @@ export default function SettingsPanel() {
 
         <SettingsGroup
           testId="settings-group-data"
-          icon={<DatabaseZap className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />}
+          icon={<DatabaseZap className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
           title="Data management"
           summary="Back up, restore, or clear your trip data"
         >
@@ -182,7 +188,7 @@ function SettingsGroup({
     >
       <summary
         data-testid={`${testId}-toggle`}
-        className="flex min-h-[44px] cursor-pointer list-none items-center gap-3 px-6 py-4 transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold-400/50 sm:px-8"
+        className="flex min-h-[44px] cursor-pointer list-none items-center gap-3 px-6 py-4 transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 sm:px-8"
       >
         {icon}
         <span className="min-w-0 flex-1">
@@ -202,66 +208,128 @@ function SettingsGroup({
 }
 
 /**
- * What a GUEST sees where a capability secret would be. No key, no link, no code,
- * no create/join — just an honest explanation and the one control that gets them identified
- *.
+ * Placeholder for where a capability secret would be, shown only if this ever rendered without
+ * an identified traveler. With no guest mode this is unreachable in
+ * practice — TokenGate's wall already covers the whole viewport whenever `!traveler` — kept as
+ * defense-in-depth. No key, no link, no code: just an honest explanation. The wall itself (not
+ * this page) is where a visitor actually logs in, so there is no action to offer here.
  */
-function GuestGate({ what }: { what: 'trip' | 'sync' }) {
+function SignInRequired({ what }: { what: 'trip' | 'sync' }) {
   return (
     <div
-      data-testid={`settings-guest-gate-${what}`}
+      data-testid={`settings-signin-required-${what}`}
       className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
     >
       <h3 className="text-sm font-semibold text-white">Log in to unlock this</h3>
       <p className="mt-1 max-w-2xl text-sm text-white/60">
         {what === 'trip'
-          ? 'You’re exploring the demo. A trip’s Trip Token lets anyone view and edit that trip, so it’s only shown to a logged-in user — log in to see this trip’s Trip Token, create a trip, or add one.'
-          : 'You’re exploring the demo. A User Token is an account credential, so it’s only shown to the logged-in user it belongs to.'}
+          ? 'A trip’s Trip Token lets anyone view and edit that trip, so it’s only shown to a logged-in user.'
+          : 'Your key is an account credential, so it’s only shown to the logged-in user it belongs to.'}
       </p>
-      <button
-        type="button"
-        onClick={exitGuest}
-        data-testid={`settings-guest-signin-${what}`}
-        className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-      >
-        Log in or create an account
-      </button>
     </div>
   );
 }
 
-/** Identity group: the signed-in traveler + a Sign out control (Sign IN for a guest). */
+/** Identity group: the signed-in traveler + a Sign out control. Unreachable unidentified. */
 function IdentityGroup({ name }: { name: string | null }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <p className="text-xs uppercase tracking-widest text-white/40">Signed in as</p>
-        <p
-          data-testid="settings-identity-name"
-          aria-live="polite"
-          className="mt-1 font-display text-2xl font-bold text-gradient-gold"
-        >
-          {name ?? 'Guest'}
-        </p>
-        <p className="mt-1 max-w-md text-sm text-white/60">
-          {name
-            ? 'Your itinerary edits are attributed to you across the shared trip.'
-            : 'You are browsing the demo locally. Log in with your User Token to attribute your edits.'}
-        </p>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-xs uppercase tracking-widest text-white/40">Signed in as</p>
+          <p
+            data-testid="settings-identity-name"
+            aria-live="polite"
+            className="mt-1 font-display text-2xl font-bold text-display-emphasis"
+          >
+            {name ?? 'Not signed in'}
+          </p>
+          <p className="mt-1 max-w-md text-sm text-white/60">
+            {name
+              ? 'Your itinerary edits are attributed to you across the shared trip.'
+              : 'Log in with your key to attribute your edits.'}
+          </p>
+        </div>
+        {/* With no guest mode this page is only ever visibly reached signed-in, so `name`
+            is always truthy here in practice.: sign-out is now a confirm-gated full
+            teardown (see the module doc comment), not a bare onClick. */}
+        <SignOutConfirm testId={name ? 'settings-sign-out' : 'settings-sign-in'}>
+          <button
+            type="button"
+            data-testid={name ? 'settings-sign-out' : 'settings-sign-in'}
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          >
+            <LogOut className="h-4 w-4" aria-hidden="true" />
+            {name ? 'Sign out' : 'Sign in'}
+          </button>
+        </SignOutConfirm>
       </div>
-      {/* for a GUEST, "Sign out" was a dead control (it clears an identity that isn't there
-          and leaves the guest flag set, so no wall returns). Now that guests roam to /settings/
-         , the same slot offers the transition that actually applies: exit the demo. */}
-      <button
-        type="button"
-        onClick={() => (name ? signOut() : exitGuest())}
-        data-testid={name ? 'settings-sign-out' : 'settings-sign-in'}
-        className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-      >
-        <LogOut className="h-4 w-4" aria-hidden="true" />
-        {name ? 'Sign out' : 'Sign in'}
-      </button>
+      {/* Rename: login is now token-only, so the display name defaults to "Traveler"
+          on a fresh device — this is where a signed-in traveler sets/changes it. `signIn` rewrites
+          both identity slots + fires identity:changed, so the chip/attribution update live (no reload). */}
+      {name && <RenameIdentity current={name} />}
+      {/* "Forget this device" — settings-only, strictly more destructive than sign-out: ALSO
+          deletes every locally-stored photo (IndexedDB, app-scoped). Gated on `name` like Rename
+          above (meaningless when not signed in). */}
+      {name && (
+        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+          <h3 className="text-sm font-semibold text-white">Forget this device</h3>
+          <p className="mt-1 max-w-2xl text-sm text-white/60">
+            Signs out and permanently deletes every photo stored on this device. Use this before
+            handing the device to someone else or giving it away.
+          </p>
+          <SignOutConfirm testId="settings-forget-device" forgetDevice>
+            <button
+              type="button"
+              data-testid="settings-forget-device"
+              className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-rose-400/40 px-4 py-2.5 text-sm font-semibold text-rose-300 transition-colors hover:bg-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            >
+              <Trash2 className="h-4 w-4" aria-hidden="true" />
+              Forget this device
+            </button>
+          </SignOutConfirm>
+        </div>
+      )}
     </div>
+  );
+}
+
+/** Editable display name for a signed-in traveler. `signIn` is the one primitive that writes both
+ * identity slots (name + token) the app reads, so a rename is just a re-sign-in with the new name. */
+function RenameIdentity({ current }: { current: string }) {
+  const [value, setValue] = useState(current);
+  const trimmed = value.trim();
+  const dirty = trimmed !== '' && trimmed !== current;
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (dirty) signIn(trimmed);
+      }}
+      className="flex flex-col gap-2 sm:flex-row sm:items-end"
+    >
+      <label className="flex-1">
+        <span className="text-xs uppercase tracking-widest text-white/40">Display name</span>
+        <input
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          maxLength={24}
+          autoComplete="off"
+          autoCapitalize="words"
+          spellCheck={false}
+          data-testid="settings-identity-rename-input"
+          className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-ring"
+        />
+      </label>
+      <button
+        type="submit"
+        disabled={!dirty}
+        data-testid="settings-identity-rename-save"
+        className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        Save
+      </button>
+    </form>
   );
 }
 
@@ -351,7 +419,7 @@ function TripGroup() {
             type="button"
             onClick={switchToMain}
             data-testid="settings-trip-switch-main"
-            className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             Switch to my main trip
           </button>
@@ -379,7 +447,7 @@ function TripGroup() {
               onClick={() => tripKey && copy(tripKey, 'key')}
               disabled={!tripKey}
               data-testid="settings-trip-key-copy"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
             >
               {copied === 'key' ? (
                 <Check className="h-4 w-4" aria-hidden="true" />
@@ -393,7 +461,7 @@ function TripGroup() {
               onClick={() => shareLink && copy(shareLink, 'link')}
               disabled={!shareLink}
               data-testid="settings-trip-link-copy"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
             >
               {copied === 'link' ? (
                 <Check className="h-4 w-4" aria-hidden="true" />
@@ -420,7 +488,7 @@ function TripGroup() {
           type="button"
           onClick={createTrip}
           data-testid="settings-trip-create"
-          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Create new trip
@@ -435,7 +503,7 @@ function TripGroup() {
         <h3 className="text-sm font-semibold text-white">Add a trip by Trip Token</h3>
         <p className="mt-1 max-w-2xl text-sm text-white/60">
           Paste the Trip Token a friend shared with you to add their trip and switch to it. Your own
-          User Token is a login, not a trip &mdash; it never goes here.
+          key is a login, not a trip &mdash; it never goes here.
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row">
           <label htmlFor="settings-trip-join" className="sr-only">
@@ -450,13 +518,13 @@ function TripGroup() {
             autoCapitalize="off"
             spellCheck={false}
             data-testid="settings-trip-join-input"
-            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40"
+            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           />
           <button
             type="submit"
             disabled={!joinValue.trim()}
             data-testid="settings-trip-join-submit"
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
           >
             Add trip
           </button>
@@ -468,7 +536,7 @@ function TripGroup() {
       <Link
         href="/trips/"
         data-testid="settings-trip-manage-link"
-        className="inline-flex min-h-[44px] items-center gap-1 self-start rounded-lg px-1 text-sm font-semibold text-gold-400 transition-colors hover:text-gold-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+        className="inline-flex min-h-[44px] items-center gap-1 self-start rounded-lg px-1 text-sm font-semibold text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
       >
         Manage all trips &rarr;
       </Link>
@@ -477,7 +545,7 @@ function TripGroup() {
 }
 
 /**
- * "Your User Token" group ( → S338B; promotes Sync Code to the ACCOUNT credential
+ * "Your User Token" group ( →; promotes Sync Code to the ACCOUNT credential
  * — SAME on-disk key `tripPlannerSyncCode`, gateway key 28, so nothing migrates and the accessor
  * names `getSyncCode`/`setSyncCode` stay as documented internal misnomers). It owns the account's
  * trip list at `trips/{userToken}/profile/tripList`. Two actions:
@@ -534,7 +602,7 @@ function SyncGroup() {
     <div className="flex flex-col gap-4" data-testid="settings-sync-card">
       {/* Your User Token — masked until revealed. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">Your User Token</h3>
+        <h3 className="text-sm font-semibold text-white">Your key</h3>
         <p className="mt-1 flex items-start gap-1.5 text-xs text-white/50">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           This is how you log in. <strong className="font-semibold text-white/80">Never share it</strong>{' '}
@@ -553,16 +621,16 @@ function SyncGroup() {
               type="button"
               onClick={reveal}
               data-testid="settings-sync-reveal"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
-              {code === null ? 'Create my User Token' : revealed ? 'Showing' : 'Reveal'}
+              {code === null ? 'Create my key' : revealed ? 'Showing' : 'Reveal'}
             </button>
             <button
               type="button"
               onClick={copy}
               disabled={code === null || !revealed}
               data-testid="settings-sync-copy"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
             >
               {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
               {copied ? 'Copied' : 'Copy'}
@@ -570,11 +638,11 @@ function SyncGroup() {
           </div>
         </div>
         <div aria-live="polite" className="sr-only">
-          {copied ? 'User Token copied to clipboard' : ''}
+          {copied ? 'Your key copied to clipboard' : ''}
         </div>
         <p className="mt-3 max-w-2xl text-xs text-white/50">
           To use this account on another device, log out there (or open the app fresh) and enter this
-          User Token at the front door.
+          key at the front door.
         </p>
       </div>
     </div>
@@ -627,9 +695,9 @@ function CurrencyGroup() {
                 aria-checked={active}
                 onClick={() => setHomeCurrency(cur)}
                 data-testid={`budget-currency-${cur.toLowerCase()}`}
-                className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+                className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                   active
-                    ? 'border-gold-400 bg-gold-400/15 text-gold-300'
+                    ? 'border-ring bg-primary/10 text-primary'
                     : 'border-white/15 text-white/70 hover:bg-white/5'
                 }`}
               >
@@ -668,7 +736,7 @@ function CurrencyGroup() {
           type="button"
           onClick={resetRates}
           data-testid="budget-rate-reset"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
           Reset to defaults
@@ -710,7 +778,7 @@ function RateField({
         value={display}
         placeholder={String(seed)}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/30 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400/40"
+        className="w-full rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       />
     </div>
   );
@@ -755,7 +823,7 @@ function DataGroup() {
           onClick={handleExportCsv}
           disabled={expenses.length === 0}
           data-testid="settings-export-expenses-csv"
-          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           Export expenses (CSV)
@@ -896,7 +964,7 @@ function ExpensesBackupRestore({
           type="button"
           onClick={handleExport}
           data-testid="settings-export-expenses-json"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           Export expenses (JSON)
@@ -905,7 +973,7 @@ function ExpensesBackupRestore({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           data-testid="settings-import-expenses-trigger"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gold-400/60 px-4 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Upload className="h-4 w-4" aria-hidden="true" />
           Restore expenses

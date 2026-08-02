@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { m, AnimatePresence } from 'framer-motion';
+import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import {
   Music, Eye, EyeOff, MapPin, DollarSign, Calendar, Headphones,
   Search, X, SlidersHorizontal, SearchX, Star, Check, CalendarDays,
@@ -13,6 +13,7 @@ import type { ItineraryStore } from '@/hooks/use-itinerary';
 import { uiPrefs } from '@/core/storage/gateway';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { useItineraryContext } from '@/components/itinerary-provider';
+import { FADE_FLOOR } from '@/lib/motion';
 
 type SortKey = 'mustSee' | 'name';
 
@@ -47,7 +48,7 @@ function VenueCard({
         onClick={onOpen}
         data-testid={`nightlife-add-${venue.id}`}
         aria-label={`View details for ${venue.name}`}
-        className="block w-full text-left p-5 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded-2xl"
+        className="block w-full text-left p-5 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-2xl"
       >
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
@@ -57,7 +58,8 @@ function VenueCard({
             <div>
               <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
                 {venue.name}
-                {venue.mustSee && <Star className="w-3 h-3 fill-gold-400 text-gold-400" />}
+                {/* same content-semantic "must-see" label as the gold ribbon. */}
+                {venue.mustSee && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
               </h3>
               <p className="text-[11px] text-white/40 flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
@@ -86,7 +88,7 @@ function VenueCard({
             <span>{venue.vibe}</span>
           </div>
           <div className="flex items-center gap-1.5 text-white/40">
-            <Calendar className="w-3 h-3 text-gold-400" />
+            <Calendar className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
             <span>{venue.bestDays}</span>
           </div>
         </div>
@@ -97,12 +99,12 @@ function VenueCard({
         {isAdded && (
           <span
             data-testid={`nightlife-added-${venue.id}`}
-            className="mt-3 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-gold-500/15 border border-gold-400/40 text-gold-300 text-[11px] font-medium"
+            className="mt-3 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-ring/40 text-primary text-[11px] font-medium"
           >
             <Check className="w-3 h-3 shrink-0" />
             <span>Added</span>
-            <span className="text-gold-400/60" aria-hidden="true">·</span>
-            <span className="flex items-center gap-1 text-gold-300/80">
+            <span className="text-muted-foreground" aria-hidden="true">·</span>
+            <span className="flex items-center gap-1 text-foreground">
               <CalendarDays className="w-3 h-3 shrink-0" />
               {summary}
             </span>
@@ -128,6 +130,7 @@ function VenueCard({
  * false "Added" badge on any curated (recommendation/photo/map/featured) card.
  */
 export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Japan' }) {
+  const prefersReducedMotion = useReducedMotion();
   const { traveler } = useActiveTraveler();
   const { findPlacements } = useItineraryContext();
   const [visible, setVisible] = useState(true);
@@ -277,20 +280,21 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
 
   // visibility gate ( soft/UI-only, NOT real access control — the content
   // still ships in the static bundle either way). Hidden entirely (not a teaser) unless
-  // a real Trip Token is signed in; `traveler === null` covers both "not mounted yet" and
-  // "guest" (a guest never gets past the token-gate wall without EITHER a token OR the
-  // guest flag, so reaching this component with `traveler === null` only happens on the
-  // guest path — exactly the case this hides).
+  // a real Trip Token is signed in. With no guest mode, `traveler === null` only
+  // ever means "not mounted yet" in practice — TokenGate's wall blocks every other case.
   if (!mounted || !traveler) return null;
 
   return (
     <section id="nightlife" data-testid="nightlife-section" aria-labelledby="nightlife-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* slide-only masthead entrance (opacity pinned to 1) so the axe
-            scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
-            mid-fade as a transient contrast failure. See RecommendationSection. */}
+        {/* masthead entrance now FLOORS the fade (FADE_FLOOR → 1) instead of
+            pinning it at 1. The floor is shallow enough that the (non-reduced-motion) axe
+            scan still sees the muted `text-white/50` subtitle ≥AA at the darkest frame —
+            the guarantee, preserved. Under reduce we keep the pin outright:
+            MotionConfig neutralises `y` but not opacity, so an un-forked floor would
+            strand an off-screen reveal at 0.7. */}
         <m.div
-          initial={{ opacity: 1, y: 20 }}
+          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: FADE_FLOOR, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-10"
@@ -305,7 +309,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
             onClick={toggleVisible}
             aria-expanded={visible}
             aria-controls="nightlife-content"
-            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               visible
                 ? 'bg-fuchsia-500/20 text-fuchsia-300 ring-1 ring-fuchsia-500/30 hover:bg-fuchsia-500/30'
                 : 'bg-white/5 text-white/55 hover:bg-white/10 hover:text-white/80'
@@ -322,15 +326,23 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
             the (non-reduced-motion) axe scan catches its chips/inputs mid-fade at
             ~0.15 opacity as serious contrast failures. Suppressing only the initial
             mount animation keeps the show/hide toggle transition fully intact. */}
+        {/* the panel below was `height: 0 → 'auto'`, which framer resolves by measuring
+            the content and animating a pixel height — a layout pass on EVERY frame of the
+            toggle. Swapped to a `grid-template-rows: 0fr → 1fr` transition: the grid track
+            interpolates without measurement and still collapses to exactly the content height
+            with no magic number. The inner `min-h-0` is required — a grid item's default
+            `min-height: auto` refuses to shrink below its content, so the collapse would
+            otherwise do nothing. */}
         <AnimatePresence initial={false}>
           {visible && (
             <m.div
               id="nightlife-content"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="overflow-hidden"
+              initial={{ opacity: 0, gridTemplateRows: '0fr' }}
+              animate={{ opacity: 1, gridTemplateRows: '1fr' }}
+              exit={{ opacity: 0, gridTemplateRows: '0fr' }}
+              className="grid overflow-hidden"
             >
+              <div className="min-h-0">
               {/* Search + sort */}
               <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
                 <div className="relative flex-1">
@@ -341,14 +353,14 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search bars, clubs, music…"
                     aria-label="Search nightlife venues"
-                    className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                    className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
                   />
                   {query && (
                     <button
                       type="button"
                       onClick={() => setQuery('')}
                       aria-label="Clear search"
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/40 hover:text-white/70 hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/40 hover:text-white/70 hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -361,7 +373,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                     id="nightlife-sort"
                     value={sort}
                     onChange={(e) => setSort(e.target.value as SortKey)}
-                    className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                    className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
                   >
                     <option value="mustSee" className="bg-surface">Sort: Must-see first</option>
                     <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
@@ -377,7 +389,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                       key={city}
                       onClick={() => setActiveCity(city)}
                       aria-pressed={activeCity === city}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         activeCity === city
                           ? 'text-fuchsia-300 bg-fuchsia-500/15 ring-1 ring-fuchsia-500/30'
                           : 'text-white/55 hover:bg-white/5 hover:text-white/80'
@@ -397,7 +409,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                     key={vibe}
                     onClick={() => setActiveVibe(vibe)}
                     aria-pressed={activeVibe === vibe}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       activeVibe === vibe
                         ? 'text-fuchsia-300 bg-fuchsia-500/15 ring-1 ring-fuchsia-500/30'
                         : 'text-white/55 hover:bg-white/5 hover:text-white/80'
@@ -428,12 +440,13 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                   <button
                     type="button"
                     onClick={resetFilters}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-fuchsia-300 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-fuchsia-300 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     Clear filters
                   </button>
                 </div>
               )}
+              </div>
             </m.div>
           )}
         </AnimatePresence>

@@ -32,6 +32,8 @@ export interface BlobStorePort {
   get(id: string): Promise<Blob | null>;
   /** Idempotent; resolves even if absent/unavailable. Never rejects. */
   delete(id: string): Promise<void>;
+  /** Delete every stored blob. Idempotent; no-op if unavailable/empty. Never rejects. */
+  clear(): Promise<void>;
   /** Stored ids (source of truth for what survived eviction). [] on unavailable. */
   list(): Promise<string[]>;
   /** Rough footprint for the storage UI. Zeros on unavailable. */
@@ -74,6 +76,9 @@ export function makeInMemoryBlobStore(): InMemoryBlobStore {
     },
     async delete(id) {
       map.delete(id);
+    },
+    async clear() {
+      map.clear();
     },
     async list() {
       return [...map.keys()];
@@ -199,6 +204,16 @@ export const defaultBlobStore: BlobStorePort = {
     if (!db) return;
     try {
       await tx(db, 'readwrite', (store) => store.delete(id));
+    } catch {
+      /* idempotent — absent/unavailable is a no-op */
+    }
+  },
+
+  async clear() {
+    const db = await openDb();
+    if (!db) return;
+    try {
+      await tx(db, 'readwrite', (store) => store.clear());
     } catch {
       /* idempotent — absent/unavailable is a no-op */
     }

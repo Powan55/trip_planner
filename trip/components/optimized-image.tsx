@@ -40,7 +40,7 @@
  * caller passes `sizes`, we build a multi-entry `srcset` from those variants via the
  * pure `buildSrcSet` helper so mobile viewports fetch a smaller derivative. When a
  * caller does NOT pass `sizes` (the vast majority of existing call sites, unchanged by
- * this slice), behavior is byte-for-byte what it was before: a single-URL srcSet
+ * this change), behavior is byte-for-byte what it was before: a single-URL srcSet
  * at native resolution — fully backward compatible, zero call-site changes required.
  */
 

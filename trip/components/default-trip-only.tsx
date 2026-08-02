@@ -38,6 +38,17 @@ export default function DefaultTripOnly({ children }: { children: ReactNode }) {
 
   if (isDefault !== false) return <>{children}</>;
 
+  // Switch the active trip back to the default pack, then full-reload so this guide (and every
+  // config-reading surface) re-hydrates with its content. Gateway is loaded LAZILY inside the
+  // handler — same bundle discipline as the effect above; an eager gateway import measured
+  // +5-7 kB across the four gated routes.
+  const switchToDefault = () => {
+    void import('@/core/storage/gateway').then((g) => {
+      g.setActiveTripId(g.DEFAULT_TRIP_ID);
+      window.location.reload();
+    });
+  };
+
   return (
     <div
       data-testid="default-trip-only-empty-state"
@@ -50,17 +61,18 @@ export default function DefaultTripOnly({ children }: { children: ReactNode }) {
         Your current trip doesn&apos;t use this section.
       </p>
       <div className="mt-6 flex items-center justify-center gap-3">
-        <a
-          href={withBasePath('/plan/')}
-          data-testid="default-trip-only-plan-link"
-          className="inline-flex min-h-[44px] items-center rounded-lg border border-gold-400/40 px-4 text-sm font-medium text-gold-300 outline-none transition-colors hover:bg-gold-400/10 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+        <button
+          type="button"
+          onClick={switchToDefault}
+          data-testid="default-trip-only-switch"
+          className="inline-flex min-h-[44px] items-center rounded-lg border border-ring/40 px-4 text-sm font-medium text-primary outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
-          Go to Plan
-        </a>
+          Switch to the Nepal × Japan trip
+        </button>
         <a
           href={withBasePath('/trips/')}
           data-testid="default-trip-only-trips-link"
-          className="inline-flex min-h-[44px] items-center rounded-lg border border-white/15 px-4 text-sm font-medium text-white/80 outline-none transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          className="inline-flex min-h-[44px] items-center rounded-lg border border-white/15 px-4 text-sm font-medium text-white/80 outline-none transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Manage trips
         </a>

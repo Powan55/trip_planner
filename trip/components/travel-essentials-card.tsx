@@ -94,7 +94,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
     >
       <summary
         data-testid="travel-essentials-summary"
-        className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-inset focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+        className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none [&::-webkit-details-marker]:hidden"
       >
         <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <h2 id="travel-essentials-title" className="font-display text-base font-bold text-white">
@@ -142,7 +142,7 @@ function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult 
       data-testid="travel-essentials-weather"
       className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
     >
-      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-gold-400/80">
+      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
         <Cloud className="h-3.5 w-3.5" aria-hidden="true" />
         Weather — {city}
       </p>
@@ -177,7 +177,7 @@ function CurrencyPanel({ currency, rate }: { currency: string; rate: CurrencyRat
       data-testid="travel-essentials-currency"
       className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
     >
-      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-gold-400/80">
+      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
         <Wallet className="h-3.5 w-3.5" aria-hidden="true" />
         Currency
       </p>
@@ -224,7 +224,7 @@ function SafetyPanel({
 }) {
   return (
     <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4" data-testid="travel-essentials-safety">
-      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-gold-400/80">
+      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
         <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
         Emergency — {country}
       </p>
@@ -235,7 +235,7 @@ function SafetyPanel({
               href={`tel:${c.tel}`}
               aria-label={`Call ${c.service}, ${c.number}`}
               data-testid={`travel-essentials-safety-${c.id}`}
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-gold-500/15 px-3 font-mono text-sm font-semibold text-gold-300 outline-none transition-colors hover:bg-gold-500/25 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-primary/10 px-3 font-mono text-sm font-semibold text-primary outline-none transition-colors hover:bg-primary/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               {c.service}: {c.number}
             </a>
@@ -245,7 +245,7 @@ function SafetyPanel({
       <Link
         href="/safety/"
         data-testid="travel-essentials-safety-link"
-        className="mt-3 inline-flex min-h-[44px] items-center text-sm font-medium text-white/60 underline decoration-white/20 underline-offset-2 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+        className="mt-3 inline-flex min-h-[44px] items-center text-sm font-medium text-white/60 underline decoration-white/20 underline-offset-2 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         Full safety kit &amp; phrasebook &rarr;
       </Link>
@@ -254,7 +254,7 @@ function SafetyPanel({
 }
 
 /**
- * (P9): an external booking/tracking deep-link that goes dead the instant the device is
+ * an external booking/tracking deep-link that goes dead the instant the device is
  * offline (it opens a new tab that can't load). Rather than remove it, dim it in place and mark
  * it `aria-disabled` + intercept the click — re-enables automatically the moment `useOnline()`
  * flips back (no remount needed, `online` is just a prop). The disabled state is conveyed via
@@ -299,9 +299,9 @@ function FlightCard({ journey }: { journey: Journey }) {
   return (
     <div
       data-testid={`travel-essentials-flight-${journey.id}`}
-      className="rounded-xl border border-gold-400/20 bg-gold-400/[0.05] p-4"
+      className="rounded-xl border border-border bg-muted/40 p-4"
     >
-      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-gold-400/80">
+      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
         <Plane className="h-3.5 w-3.5" aria-hidden="true" />
         Travel day — {journey.label}
       </p>
@@ -318,7 +318,7 @@ function FlightCard({ journey }: { journey: Journey }) {
                   href={tracker}
                   online={online}
                   testId={`travel-essentials-tracker-${leg.id}`}
-                  className="inline-flex min-h-[36px] items-center rounded-lg px-2 text-xs font-medium text-gold-300 outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                  className="inline-flex min-h-[36px] items-center rounded-lg px-2 text-xs font-medium text-primary outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   Track flight
                 </DeepLink>
@@ -332,7 +332,7 @@ function FlightCard({ journey }: { journey: Journey }) {
           href={r2r}
           online={online}
           testId={`travel-essentials-rome2rio-${journey.id}`}
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Plan this route (Rome2Rio)
         </DeepLink>
@@ -340,7 +340,7 @@ function FlightCard({ journey }: { journey: Journey }) {
           href={gflights}
           online={online}
           testId={`travel-essentials-gflights-${journey.id}`}
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Google Flights
         </DeepLink>

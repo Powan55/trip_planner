@@ -2,7 +2,7 @@
 // numbers, a romanized phrasebook, and a document checklist (`core/content/safety.ts`,
 // static-only). The island is lazy + ssr:false, mirroring app/journal/sections.tsx; Next 15
 // the ssr:false dynamic import lives in./sections (a client module); this
-// Server Component page exports metadata. Reached via a direct URL only this slice —
+// Server Component page exports metadata. Reached via a direct URL only this change —
 // deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar / command palette
 // (those files are fenced — a follow-up rider, per the brief; same deferral as `/journal`).
 import { SafetyKit } from './sections';
@@ -16,7 +16,7 @@ export default function SafetyPage() {
   return (
     <main className="min-h-screen bg-surface">
       {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
-          text-gradient-gold / animate-reveal-up) directly rather than extending PageHero's
+          text-display-emphasis / animate-reveal-up) directly rather than extending PageHero's
           closed `HeroVariant` union.
           Supplies the page's <h1>. */}
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
@@ -33,7 +33,7 @@ export default function SafetyPage() {
             <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
               In case you need it
             </p>
-            <h1 className="font-display text-display-lg text-gradient-gold">Travel Safety Kit</h1>
+            <h1 className="font-display text-display-lg text-display-emphasis">Travel Safety Kit</h1>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
               Emergency and embassy numbers, a Nepali/Japanese phrasebook, and a document
               checklist — works offline once loaded.

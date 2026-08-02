@@ -5,54 +5,75 @@
 @layer base {
   :root {
     /* ---- Core surfaces ----
-       v2: a marginally DEEPER, richer navy night field
-       with the card surface lifted a touch further off the background so the new
-       glass elevation ramp reads. Brand hue (navy ~220) preserved. */
-    --background: 222 41% 5%;
-    --foreground: 210 40% 98%;
-    --card: 221 33% 10%;
-    --card-foreground: 210 40% 98%;
-    --popover: 221 33% 10%;
-    --popover-foreground: 210 40% 98%;
-    /* Gold primary, nudged a hair warmer/brighter for a premium metallic feel
-       (43->44 hue, +2% sat, +1% light). Still unmistakably the brand gold. */
-    --primary: 44 80% 61%;
-    --primary-foreground: 222 36% 6%;
-    --secondary: 220 24% 16%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 220 24% 14%;
-    --muted-foreground: 214 20% 68%;
-    /* shadcn interactive-fill accent (menus/toggles/selected).: unified
-       to GOLD — the single chrome accent site-wide. This RETIRES sakura
-       interactive-fill; the sakura/himalaya hues survive only as CONTENT wayfinding
-       (section tints, guide cards, map legs), never on interactive chrome. */
-    --accent: 44 80% 61%;
-    /* accent-foreground stays the dark navy. Gold (44 80% 61%) is
-       LIGHTER than the former sakura, so dark-on-accent contrast RISES, not falls —
-       every bg-accent consumer (cmdk selected item, dropdown/menubar/select/toggle)
-       stays ≥AA under the switch. */
-    --accent-foreground: 222 36% 6%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    /* Borders/inputs: crisper luminous hairline against the deeper bg + glass. */
-    --border: 220 26% 24%;
-    --input: 220 26% 24%;
-    --ring: 44 80% 61%;
-    --radius: 0.75rem;
-    --radius-sm: 0.5rem;
-    --radius-lg: 1rem;
-    /* v2 larger radii for panels/heroes (additive keys — do not touch --radius). */
-    --radius-xl: 1.25rem;      /* panels, heroes */
-    --radius-2xl: 1.75rem;     /* full-bleed hero cards */
+       the v2 BLUE navy field is retired for a near-neutral charcoal ramp at a
+       single hue (220) with the saturation pulled right down, so the chrome reads
+       as material rather than as brand colour. Brand hue survives only as a trace
+       (10-14% sat); all warmth/identity now comes from CONTENT (himalaya/sakura),
+       never from the surfaces. Steps are deliberately close together — the
+       elevation ramp is carried by the hairline ring (--shadow-sm), not by fills. */
+    --background: 220 12% 5%;
+    --foreground: 210 20% 96%;
+    --card: 220 10% 9%;
+    --card-foreground: 210 20% 96%;
+    --popover: 220 10% 9%;
+    --popover-foreground: 210 20% 96%;
+    /* the chrome accent moves GOLD -> winter-neon cyan. Gold is demoted to a
+       warning/attention colour (--gold below) and is no longer the interactive hue. */
+    --primary: 189 90% 60%;
+    --primary-foreground: 220 12% 5%;
+    --secondary: 220 14% 12%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 220 14% 16%;
+    --muted-foreground: 218 10% 56%;
+    /* shadcn interactive-fill accent (menus/toggles/selected). unified
+       this to ONE chrome accent site-wide; keeps the one-accent rule and just
+       re-points it to cyan. The sakura/himalaya hues remain CONTENT wayfinding
+       (section tints, guide cards, map legs), never interactive chrome. */
+    --accent: 189 90% 60%;
+    /* accent-foreground is the darkest surface step. Cyan (189 90% 60%)
+       is LIGHTER than the gold it replaces, so dark-on-accent contrast RISES, not
+       falls — every bg-accent consumer (cmdk selected item, dropdown/menubar/select/
+       toggle) stays ≥AA under the switch. */
+    --accent-foreground: 220 12% 5%;
+    --destructive: 356 82% 65%;
+    --destructive-foreground: 210 20% 96%;
+    /* Borders/inputs: a low-saturation hairline that reads as an edge, not a glow. */
+    --border: 220 14% 20%;
+    --input: 220 14% 20%;
+    --ring: 189 90% 60%;
+    /* radii: tightened and FLATTENED. Everything at `lg` and above collapses
+       onto 8/12px so the app stops reading as pill-soft. NOTE:
+       `--radius-sm` is a DEAD token — Tailwind's `rounded-sm` key resolves through
+       `calc(var(--radius) - 4px)` (tailwind.config.ts:36), not through this var.
+       It is kept (name-stability rule) and set to the value that calc already
+       produces, so the two can never disagree if a consumer ever picks it up. */
+    --radius: 0.5rem;
+    --radius-sm: 0.25rem;
+    --radius-lg: 0.75rem;
+    /* -xl/-2xl now ALIAS -lg: `rounded-2xl` (72 sites) and `rounded-3xl` (6 sites)
+       flatten onto the same 12px as `rounded-xl` (128 sites). Zero component edits. */
+    --radius-xl: var(--radius-lg);
+    --radius-2xl: var(--radius-lg);
 
-    /* ---- Brand navy surface scale ----
-       Single source for the navy night-field steps, as space-separated RGB
-       channels so rgb(var(--x) / <alpha>) opacity modifiers resolve. Values are
-       the EXACT former tailwind navy-900/800/700 hexes (#0a0e27 / #111640 /
-       #1a2050) — pixel-identical, no recolor. */
-    --navy-900: 10 14 39;
-    --navy-800: 17 22 64;
-    --navy-700: 26 32 80;
+    /* ---- Brand surface scale ----
+       Single source for the night-field steps, as space-separated RGB channels so
+       rgb(var(--x) / <alpha>) opacity modifiers resolve.
+
+       FINDING — this channel, not the shadcn --background/--card tokens, is
+       where the app's surfaces ACTUALLY come from: `bg-surface` has 86 sites (the
+       <body> itself), `text-surface` 36, and the six `.glass-*` recipes below (131
+       class sites) all fill from `rgb(var(--surface-raised))`. `bg-card` has ZERO
+       sites. So re-valuing only the shadcn tokens would have repainted almost
+       nothing. These three are re-valued to the SAME ramp, in RGB:
+         --navy-900 = hsl(220 12% 5%) = --background
+         --navy-800 = hsl(220 10% 9%) = --card
+         --navy-700 = hsl(220 14% 12%) = --secondary
+       The `navy-*` NAMES are now a misnomer (the ramp is neutral charcoal), but
+       renaming is forbidden — they are referenced by --surface*,.home-nav, the
+       maplibre attribution pill and the reduced-transparency nav fallback. */
+    --navy-900: 11 12 14;
+    --navy-800: 21 22 25;
+    --navy-700: 26 29 35;
     /* Semantic surface tier — components reference INTENT, not palette steps.
        surface = deepest page/base field; -raised = lifted panels/fills;
        -overlay = top overlay/hairline step. Each aliases one navy step above so
@@ -61,14 +82,25 @@
     --surface-raised: var(--navy-800);
     --surface-overlay: var(--navy-700);
 
-    /* ---- Brand accent channels (HSL triplets, for hsl()/rgba() reuse) ---- */
-    --gold: 44 80% 61%;
-    --sakura: 344 80% 78%;     /* Japan — CONTENT wayfinding only, never chrome */
-    --himalaya: 22 100% 63%;   /* Nepal — CONTENT wayfinding only, never chrome */
+    /* ---- Brand accent channels (HSL triplets, for hsl()/rgba() reuse) ----
+       FINDING: these three vars have ZERO consumers — the live brand colours
+       are the Tailwind hex scales plus the.text-gradient-* literals below.
+       re-valued them, which was a no-op at render time; then did the actual
+       component-layer sweep the note below called for.
+
+       the 843 gold/sakura/himalaya class sites were SORTED, not repainted
+       wholesale — cyan (--primary/--ring) for interaction, gold for semantic status,
+       ink (--muted-foreground) for decoration. The scales in tailwind.config.ts:101-103
+       are deliberately UNTOUCHED: one config edit would have repainted all 843 at once,
+       and the identical class name carried two different intents. `gold-400` is now
+       ~40 sites, all Bucket 2 status/wayfinding. These three vars remain unconsumed. */
+    --gold: 38 95% 60%;        /* DEMOTED: warning/attention only, no longer chrome */
+    --sakura: 344 85% 74%;     /* Japan — CONTENT wayfinding only, never chrome */
+    --himalaya: 18 92% 62%;    /* Nepal — CONTENT wayfinding only, never chrome */
 
     /* ---- hairline separator — ONE token for de-glassed content edges.
        Space-separated RGB channels + alpha so `rgb(var(--hairline))` resolves
-      . Replaces the per-glass gradient border
+       Replaces the per-glass gradient border
        edges the de-glass removes. Nav/tab-bar/input `border-white/1x` literals are
        left as-is for A5 (nav layer; a later Lane-E tidy). */
     --hairline: 255 255 255 / 0.08;
@@ -77,48 +109,42 @@
        --accent-scroll: the SINGLE scroll-driven accent. Defaults to gold;
        animates it himalaya<->sakura by scroll position. Consumers reference this
        var only, so the warm/cool engine has one hook. --accent-scroll-rgb mirrors
-       it as an "r, g, b" list for rgba(var(--accent-scroll-rgb) / a) usage. */
-    --accent-scroll: 44 80% 61%;
-    --accent-scroll-rgb: 240, 199, 96;
+       it as an "r, g, b" list for rgba(var(--accent-scroll-rgb) / a) usage.
 
-    /* ---- Glass 2.0 ambient phase palette ----
-       The two LEAD stops of the aurora backdrop are now var-driven so the ambient
-       background follows the TRIP PHASE (html[data-trip-phase], set by
-       route-accent-engine.tsx from core/dates via getTodayInTrip). Defaults are
-       the EXACT former literals (pre-trip = gold + sakura), so pre-trip renders
-       byte-identically to the parameterization; the nepal/japan overrides below
-       warm/cool the field. Pure CSS custom properties — no JS animation. */
-    --ambient-a: 44 80% 61%;   /* lead stop — pre-trip: gold */
-    --ambient-b: 344 80% 78%;  /* second stop — pre-trip: sakura */
+       — a deliberate call, and a one-line revert if it is wrong: before this change,
+       --gold, --primary, --accent, --ring, --accent-scroll and --ambient-a were all
+       the IDENTICAL literal `44 80% 61%` — one accent expressed six times. This is
+       the copy that actually paints the chrome::focus-visible's app-wide outline,
+       every page's eyebrow, the bottom-tab-bar active tint, the h2 section
+       underline, --shadow-glow, today-pulse and the drag overlay (40 sites), vs 5
+       for `ring-ring`. Moving primary/accent/ring to cyan but leaving THIS gold
+       would mean the chrome accent never actually moves. Moved as one unit. */
+    --accent-scroll: 189 90% 60%;
+    --accent-scroll-rgb: 61, 217, 245;
 
-    /* v2 aurora backdrop gradient (warm gold -> sakura -> himalaya -> cool navy).
-       Enriched with a 4th cool stop + slightly higher opacities for more ambient
-       presence; still decorative/subtle. Feeds.bg-aurora + Tailwind bg-aurora.
-      : lead stops phase-driven (--ambient-*). */
-    --gradient-aurora:
-      radial-gradient(58% 52% at 16% 10%, hsl(var(--ambient-a) / 0.16) 0%, transparent 60%),
-      radial-gradient(48% 44% at 84% 16%, hsl(var(--ambient-b) / 0.14) 0%, transparent 62%),
-      radial-gradient(52% 48% at 78% 88%, hsl(22 100% 63% / 0.12) 0%, transparent 65%),
-      radial-gradient(40% 40% at 50% 50%, hsl(220 60% 30% / 0.10) 0%, transparent 70%),
-      linear-gradient(180deg, hsl(222 42% 4%) 0%, hsl(221 36% 7%) 100%);
-
-    /* Film grain — inline SVG feTurbulence noise (no dependency, no extra request).
-       Applied app-wide via body::after at low opacity/overlay for premium texture. */
-    --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-    /* Glass 2.0: the SAME feTurbulence tile at a much lower baked opacity,
-       for stacking directly INTO the glass-surface background lists (a background
-       layer can't take its own opacity, so the softness is baked into the SVG).
-       Blended via background-blend-mode — no extra element, no layout box. */
-    --grain-soft: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.07'/%3E%3C/svg%3E");
+    /* the ambient-phase palette
+       (--ambient-a/-b), the 5-layer --gradient-aurora, and both feTurbulence grain
+       tiles (--grain / --grain-soft) are DELETED. The aurora was the app's actual
+       page field (via body::before) and carried a 90s infinite drift loop; the new
+       identity is a flat, near-black material field, so the page background is now
+       `bg-background` alone. --grain-soft had already been dead since the
+       de-glass removed the glass background lists it stacked into. Do not re-add:
+       decoration that costs an infinite animation is exactly what this change retired. */
 
     /* ---- Elevation tiers —: collapsed to TWO (resting + elevated).
        --shadow-sm = resting (content surfaces); --shadow-lg = elevated (sheets,
        dialogs, nav). --shadow-md/-xl/-2xl are ALIASES so every existing
        `shadow-*` utility + glass box-shadow resolves through the two survivors
        with zero component edits. --shadow-glow (below) is a separate accent
-       EFFECT, not an elevation tier — kept. */
-    --shadow-sm: 0 1px 2px rgba(3, 6, 18, 0.40);
-    --shadow-lg: 0 16px 40px -8px rgba(3, 6, 18, 0.58), 0 4px 12px -4px rgba(3, 6, 18, 0.40);
+       EFFECT, not an elevation tier — kept.
+
+       the resting tier stops being a BLUR and becomes a HAIRLINE RING. On a
+       near-black neutral field a drop shadow is invisible anyway (it was 0 1px 2px
+       of near-black on near-black); a 1px ring is what actually separates a resting
+       surface from the page. --shadow-lg keeps its blur and is reserved for
+       genuinely floating surfaces (sheets, dialogs, nav). */
+    --shadow-sm: 0 0 0 1px hsl(220 14% 18%);
+    --shadow-lg: 0 16px 40px -8px rgba(0, 0, 0, 0.58), 0 4px 12px -4px rgba(0, 0, 0, 0.40);
     --shadow-md: var(--shadow-sm);
     --shadow-xl: var(--shadow-lg);
     --shadow-2xl: var(--shadow-lg);
@@ -126,11 +152,21 @@
        nudged a touch richer in v2 (still sized within prior glow footprint). */
     --shadow-glow: 0 0 0 1px hsl(var(--accent-scroll) / 0.22), 0 0 34px hsl(var(--accent-scroll) / 0.26);
 
-    --duration-fast: 150ms;
-    --duration-normal: 250ms;
-    --duration-slow: 350ms;
-    /* v2 editorial reveal duration (anti-pattern: fast/cheap). */
-    --duration-slower: 500ms;
+    /* motion values — roughly halved across the board. The v2 scale was tuned
+       for "editorial"; the new identity is crisp, so every tier tightens. The 64
+       HARDCODED `duration-200/300/500` utility sites (47/12/5 — counted in-repo)
+       are retired without a single component edit by aliasing those three Tailwind
+       keys onto these vars in tailwind.config.ts (`extend` overrides the built-in
+       at the same key), so they move with this scale from now on. */
+    --duration-fast: 90ms;
+    --duration-normal: 180ms;
+    --duration-slow: 240ms;
+    --duration-slower: 320ms;
+    /* (new): exits are faster than entrances and use an accelerating curve —
+       a thing leaving should not linger. Declared here; the CONSUMERS are
+      , so nothing references these two yet by design. */
+    --duration-exit: 160ms;
+    --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 
     /* ---- v2 motion vocabulary (spring; reduced-motion aware) ----
        Consumed by keyframe utilities and hero/skeleton/transition
@@ -139,21 +175,10 @@
     --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);    /* expo-ish settle */
   }
 
-  /* ambient trip-phase overrides. The attribute is written by
-     route-accent-engine.tsx (the existing app-wide chrome island) from
-     getTodayInTrip(): 'pre' (default vars above) / 'nepal' / 'japan'.
-     Nepal leg: Himalayan warmth (himalaya + gold). Japan leg: winter-neon
-     cool (neon cyan + sakura). Custom-property substitution happens at the
-     use site (body::before /.bg-aurora), so these cascade into
-     --gradient-aurora with no further wiring. */
-  html[data-trip-phase='nepal'] {
-    --ambient-a: 22 100% 63%;  /* himalaya */
-    --ambient-b: 44 80% 61%;   /* gold */
-  }
-  html[data-trip-phase='japan'] {
-    --ambient-a: 197 90% 62%;  /* winter-neon cyan */
-    --ambient-b: 344 80% 78%;  /* sakura */
-  }
+  /* the ambient trip-phase overrides are deleted with the aurora they
+     re-coloured — they only ever re-pointed --ambient-a/-b, whose sole consumer was
+     --gradient-aurora. `components/route-accent-engine.tsx`, the island that stamped
+     html[data-trip-phase], is deleted in the same change (it had no other effect). */
 
   /* ---- — Travel Mode outdoor high-legibility toggle ----
      v5's deliberate substitute for a site-wide light mode: `/travel`'s toggle
@@ -207,39 +232,13 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* Establish a stacking context so the fixed z-index:-1 ambient layers below
-       sit behind content but in front of the page canvas. */
+    /* the two fixed z-index:-1 ambient layers this stacking context was
+       created for (body::before aurora + body::after grain) are DELETED — the page
+       field is now the flat `bg-background` fill alone. `position: relative` STAYS
+       deliberately: it is also the containing block for any absolutely-positioned
+       descendant with no nearer positioned ancestor, so dropping it would be a
+       layout change, not a cleanup. Kept on purpose, not by oversight. */
     position: relative;
-  }
-  /* ---- v2 app-wide ambient depth (aurora + grain) ----
-     Two fixed, non-interactive, negative-z decorative layers. They paint the
-     backdrop only: NO layout box is added (fixed + inset:0 + pointer-events:none),
-     so 0-overflow @360/390/414 holds.
-     The static aurora here is distinct from the opt-in.animate-aurora drift. */
-  body::before {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background: var(--gradient-aurora);
-    /* ambient drift: the radial fields are oversized and drift VERY slowly
-       (90s loop) via background-position — pure CSS, GPU-cheap, decorative.
-       INFINITE, so it is hard-neutralized in the reduced-motion block below
-       (animation:none → rests static at the base 0%-frame position). */
-    background-size: 150% 150%, 150% 150%, 150% 150%, 150% 150%, 100% 100%;
-    animation: ambient-drift 90s ease-in-out infinite;
-  }
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-    pointer-events: none;
-    background-image: var(--grain);
-    background-size: 140px 140px;
-    opacity: 0.035;
-    mix-blend-mode: overlay;
   }
 }
 
@@ -248,7 +247,7 @@
 }
 
 html {
-  /* body base 17px (iOS-native density). Tailwind's rem-based scale
+  /* body base 17px. Tailwind's rem-based scale
      derives from this, so 106.25% (=17/16) scales the whole type system uniformly.
      The full 0-overflow matrix is re-run at 360/390/414 for this change.
      (The TM legibility toggle's 112.5% override stays more specific and still wins
@@ -325,8 +324,11 @@ html {
    is HIG-legal for glass. This is the former `.glass-card-dark` glass body, minus
    the grain layer; the 1px gradient edge + blur + elevated shadow are kept. */
 .sheet-surface {
+  /* the two fill stops were hardcoded blue-navy literals; re-expressed
+     against the re-valued surface channel so the one surviving glass recipe sits
+     on the new neutral ramp instead of the retired navy. Alphas unchanged. */
   background:
-    linear-gradient(180deg, rgba(13, 18, 48, 0.88) 0%, rgba(9, 13, 36, 0.86) 100%) padding-box,
+    linear-gradient(180deg, rgb(var(--navy-800) / 0.88) 0%, rgb(var(--navy-900) / 0.86) 100%) padding-box,
     linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 55%, rgba(255, 255, 255, 0.02) 100%) border-box;
   border: 1px solid transparent;
   backdrop-filter: blur(18px) saturate(130%);
@@ -336,6 +338,12 @@ html {
     var(--shadow-lg);
 }
 
+/* CONSIDERED DELETING THIS BLOCK AND REJECTED IT. The plan
+   claimed it was an obsolete `!important` shim, dead once --muted-foreground
+   reached 5.3:1 on card. All three parts of that are false: it uses NO `!important`
+   (it wins by @layer utilities source order — see below), it is not
+   and it protects STATIC, permanent, animation-independent sub-AA text. The floored
+   fade introduced has no bearing on it. Do not re-derive that conclusion. */
 /* ---- · AA floor for low-opacity tertiary text ------------------
    The de-glass replaced the gradient background-IMAGE fills — which axe cannot
    flatten, so it returned "incomplete" (NOT a violation) for text on them — with
@@ -373,11 +381,15 @@ html {
   color: hsl(var(--accent-foreground));
 }
 
-.text-gradient-gold {
-  background: linear-gradient(135deg, #f0c760 0%, #d4a843 50%, #f0c760 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+/* the gold display gradient is RETIRED (34 class sites renamed onto the class
+   below). A gold gradient on every <h1> was the old luxury-travel-blog identity fighting the
+   new one — under the display serif IS the flourish (that is what bought
+   with Instrument Serif), so a gradient on top of it is redundant. The class was RENAMED, not
+   just re-valued: a class whose name promises a gradient and a hue it no longer has is exactly
+   the lying-name defect this wave punishes. The sakura/himalaya siblings below are Bucket 2
+   country identity and KEEP their gradients. */
+.text-display-emphasis {
+  color: hsl(var(--foreground));
 }
 
 .text-gradient-sakura {
@@ -394,19 +406,19 @@ html {
   background-clip: text;
 }
 
+/* Full-bleed dark scrim (home hero overlay + the token-gate overlay).: the
+   four stops were hardcoded copies of the navy-900/800/700 steps at alpha, so once
+   the channel was re-valued they would have painted the RETIRED blue over the new
+   neutral hero. Re-expressed against the channel itself — same alphas, same stops,
+   and they can never drift from the ramp again. */
 .hero-gradient {
   background: linear-gradient(
     135deg,
-    rgba(8, 11, 32, 0.95) 0%,
-    rgba(17, 22, 64, 0.84) 30%,
-    rgba(26, 32, 80, 0.68) 60%,
-    rgba(8, 11, 32, 0.92) 100%
+    rgb(var(--navy-900) / 0.95) 0%,
+    rgb(var(--navy-800) / 0.84) 30%,
+    rgb(var(--navy-700) / 0.68) 60%,
+    rgb(var(--navy-900) / 0.92) 100%
   );
-}
-
-/* Refined aurora backdrop wash — opt-in utility, decorative. */
-.bg-aurora {
-  background-image: var(--gradient-aurora);
 }
 
 /* ---- --accent-scroll consumers ---- */
@@ -440,44 +452,12 @@ h2[id$="-heading"]::after {
   outline-offset: 2px;
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-10px); }
-}
-
-/* pulse-glow now keys off --shadow-glow / --accent-scroll so the countdown glow
-   warms/cools with the page. Values stay within the prior glow size. */
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px hsl(var(--accent-scroll) / 0.20); }
-  50% { box-shadow: 0 0 40px hsl(var(--accent-scroll) / 0.38); }
-}
-
-/* New in: a slow aurora drift for the optional.bg-aurora wash. Suppressed
-   under prefers-reduced-motion. */
-/* the app-wide ambient backdrop drift (body::before). 5 background layers
-   (4 oversized radials + the base linear, which stays pinned at 0 0 / 100%). */
-@keyframes ambient-drift {
-  0%, 100% { background-position: 0% 50%, 100% 50%, 50% 100%, 50% 50%, 0 0; }
-  50%      { background-position: 16% 42%, 84% 58%, 58% 84%, 44% 56%, 0 0; }
-}
-
-@keyframes aurora-shift {
-  0%, 100% { background-position: 0% 50%, 100% 50%, 50% 100%, 0 0; }
-  50% { background-position: 20% 40%, 80% 60%, 60% 80%, 0 0; }
-}
-
-.animate-float {
-  animation: float 6s ease-in-out infinite;
-}
-
-.animate-pulse-glow {
-  animation: pulse-glow 3s ease-in-out infinite;
-}
-
-.animate-aurora {
-  background-size: 160% 160%, 160% 160%, 160% 160%, 100% 100%;
-  animation: aurora-shift 18s ease-in-out infinite;
-}
+/* — four decorative INFINITE loops deleted with their keyframes:
+     · `ambient-drift` (90s, body::before) · `float` /.animate-float (6s, hero orbs)
+     · `pulse-glow` /.animate-pulse-glow (3s) · `aurora-shift` /.animate-aurora (18s)
+   Each ran forever, settled at nothing and burned battery for decoration the identity retired. `.animate-shimmer` (busy-state sweep) and
+   `.animate-today-pulse` (calendar today cell) are a DIFFERENT category — both are
+   state indicators, both survive, both stay neutralized in the reduced-motion block. */
 
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -514,7 +494,7 @@ h2[id$="-heading"]::after {
   animation: shimmer 1.6s linear infinite;
 }
 
-/* ── micro-interactions pack (CSS-cheap effects) ────────────────────────
+/* ── micro-interactions pack ────────────────────────
    The cheap effects live here as CSS keyframes (perf: no framer pulled into any
    route). Each is neutralized under prefers-reduced-motion in the @media block
    below — the infinite/forwards ones need the explicit `animation:none`
@@ -573,14 +553,14 @@ html[data-vt-active] .animate-route-fade {
    style-only, GATED on VT support (@supports) so it is fully inert everywhere the
    feature is absent. A destination card's photo/title and the matching place-detail
    hero/title each carry a UNIQUE per-place name via `--vt-name` (set inline), so when
-   a future slice wraps the card→detail open in a view transition the shared elements
+   a future change wraps the card→detail open in a view transition the shared elements
    MORPH instead of hard-cutting. `view-transition-name` has zero rendered effect
    outside a running transition, so visual baselines are unchanged. Unique names keep
    any live route-nav transition valid (duplicate names abort a VT). If `--vt-name` is
    unset the property is invalid-at-computed-value → `none` (initial), so the class is
    harmless on any element that hasn't opted a name in.
-  : card↔detail here is groundwork only — the sheet-open path is not yet
-   VT-wrapped (out of this slice's nav-trigger scope). Wire it when the detail open
+   card↔detail here is groundwork only — the sheet-open path is not yet
+   VT-wrapped (out of this change's nav-trigger scope). Wire it when the detail open
    itself runs inside startViewTransition. */
 @supports (view-transition-name: none) {
   .vt-shared {
@@ -671,10 +651,10 @@ html[data-vt-active] .animate-route-fade {
      otherwise leave it running one ultra-fast iteration. The v2 one-shot
      entrances (reveal-up, route-fade) intentionally stay in the universal
      collapse path and land on their opacity:1 end-state (never stuck at 0). */
-  body::before, /* ambient-drift — infinite backdrop loop, rest static */
-  .animate-aurora,
-  .animate-float,
-  .animate-pulse-glow,
+  /* body::before /.animate-aurora /.animate-float /.animate-pulse-glow were
+     removed from this list because the rules THEMSELVES are deleted — keeping a
+     selector here for a class that no longer animates would make this block look
+     load-bearing where it is inert. The survivors below are all still live. */
   .animate-shimmer,
   /* micro-interactions — infinite/forwards keyframes hard-stopped so they rest
      at their base state (today cell static, undo ring full, overlay lifted-but-still). */
@@ -809,7 +789,10 @@ html[data-vt-active] .animate-route-fade {
   background: rgb(255 255 255 / 0.05);
 }
 .home-nav-link[aria-current='true'] {
-  color: #f0c760; /* gold-400 */
+  /* was the #f0c760 gold-400 literal. The active-section tint is chrome, and
+     chrome is now the cyan accent — pointed at the same var the tab-bar's active
+     tint and the focus ring use, so it can't drift from them. */
+  color: hsl(var(--accent-scroll));
 }
 
 /* Anchor-jump landing offset: a bare hash jump aligns the target's TOP edge flush with
@@ -830,7 +813,7 @@ html[data-vt-active] .animate-route-fade {
 
 /* ── Travel Mode root — chrome-free `/travel` shell ──────────────
    Safe-area + the four iPhone-15-Pro hardening contracts the SHELL establishes
-   for every Phase-2 slice that mounts inside it. `viewportFit:'cover'` is already
+   for every change that mounts inside it. `viewportFit:'cover'` is already
    set app-wide, so env(safe-area-inset-*) resolves here. */
 .travel-mode-root {
   /* — top inset with a HARDCODED ~20px min fallback. In landscape, iOS reports
@@ -859,7 +842,7 @@ html[data-vt-active] .animate-route-fade {
 /* — thumb-zone contract for TM primary actions.
    A fixed bottom band pinned inside env(safe-area-inset-bottom); each action inside must be
    ≥44×44px. Empty in (no actions yet) — the class
-   is the published contract so later slices place controls without re-deriving the offset.
+   is the published contract so later changes place controls without re-deriving the offset.
    Hidden until it has children so the empty band adds no visual box (0 baseline drift). */
 .tm-thumb-zone {
   position: fixed;
@@ -907,7 +890,7 @@ html[data-vt-active] .animate-route-fade {
 /* ──/A6 · behavior 7 (reduced-transparency fallback) ─────────────────────
    left exactly ONE glass recipe standing: `.sheet-surface` (the dark
    Sheet primitive) plus the navbar/tab-bar's own hand-rolled `backdrop-blur`
-  . Under the OS "reduce
+   Under the OS "reduce
    transparency" setting, degrade JUST that surviving nav-layer glass to an opaque
    solid — content is already de-glassed at the token layer and is NOT
    touched here, so this can never reintroduce glass on content. Plain (unlayered)

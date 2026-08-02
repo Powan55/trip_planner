@@ -5,7 +5,7 @@
 // lazy + ssr:false, mirroring app/journal/sections.tsx; Next 15: the ssr:false
 // dynamic import lives in./sections (a client module); this Server Component page exports
 // metadata. Reached via a direct URL or the command palette's "Packing" entry —
-// deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar in this slice (those
+// deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar in this change (those
 // files are fenced — a follow-up rider, same historical pattern as).
 import { PackingChecklist } from './sections';
 
@@ -18,7 +18,7 @@ export default function PackingPage() {
   return (
     <main className="min-h-screen bg-surface">
       {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
-          text-gradient-gold / animate-reveal-up) directly rather than extending PageHero's
+          text-display-emphasis / animate-reveal-up) directly rather than extending PageHero's
           closed `HeroVariant` union (fenced per the precedent: "do not extend
           page-hero.tsx"). Supplies the page's <h1> (mirrors app/journal/page.tsx). */}
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
@@ -35,7 +35,7 @@ export default function PackingPage() {
             <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
               Two legs, one bag
             </p>
-            <h1 className="font-display text-display-lg text-gradient-gold">Packing Checklist</h1>
+            <h1 className="font-display text-display-lg text-display-emphasis">Packing Checklist</h1>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
               Nepal-leg, Japan-leg, and universal items — check them off as you pack. Saved on
               this device only.

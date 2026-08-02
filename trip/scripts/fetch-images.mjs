@@ -1,6 +1,6 @@
 // scripts/fetch-images.mjs
 //
-// One-shot image fetcher for slice. Sources freely-licensed photos for the
+// One-shot image fetcher for. Sources freely-licensed photos for the
 // trip-planner's four image areas from Wikipedia/Wikimedia Commons — no API key
 // required. Run from nextjs_space/: node scripts/fetch-images.mjs
 //

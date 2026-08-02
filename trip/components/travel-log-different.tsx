@@ -79,7 +79,7 @@ export default function TravelLogDifferent({ date }: { date: string }) {
           type="button"
           onClick={() => setOpen(true)}
           data-testid="travel-log-different-trigger"
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-sm font-medium text-white/60 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white/80 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-sm font-medium text-white/60 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Log something different
@@ -95,7 +95,7 @@ export default function TravelLogDifferent({ date }: { date: string }) {
               onClick={() => setOpen(false)}
               aria-label="Collapse log something different"
               data-testid="travel-log-different-collapse"
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white/40 outline-none transition-colors hover:bg-white/10 hover:text-white/70 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white/40 outline-none transition-colors hover:bg-white/10 hover:text-white/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -107,7 +107,7 @@ export default function TravelLogDifferent({ date }: { date: string }) {
               onChange={(e) => setCategory(e.target.value as ItineraryCategory)}
               aria-label={`Category for what you logged on ${dayLabel}`}
               data-testid="travel-log-different-category"
-              className="min-h-[44px] shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm capitalize text-white outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 focus-visible:ring-gold-400 sm:w-40"
+              className="min-h-[44px] shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm capitalize text-white outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring sm:w-40"
             >
               {CATEGORY_OPTIONS.map((c) => (
                 <option key={c} value={c} className="bg-surface capitalize text-white">

@@ -1,5 +1,5 @@
 /**
- * Expense domain + the pure aggregator that feeds budget rollup (slice —
+ * Expense domain + the pure aggregator that feeds budget rollup ( —
  * expense LOGGING).
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,

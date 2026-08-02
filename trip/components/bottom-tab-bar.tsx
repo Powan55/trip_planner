@@ -111,7 +111,7 @@ export default function BottomTabBar() {
                 data-testid={`tab-bar-${item.label.toLowerCase()}`}
                 aria-current={isActive ? 'page' : undefined}
                 data-active={isActive ? 'true' : undefined}
-                className="relative flex h-full min-h-[44px] w-full flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-medium outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold-400 focus-visible:outline-none"
+                className="relative flex h-full min-h-[44px] w-full flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-medium outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
                 // the active color is dynamic (route-accent var) → inline style, never a
                 // dynamic Tailwind class. Inactive tabs use a static muted white.
                 style={isActive ? { color: 'hsl(var(--accent-scroll))' } : undefined}

@@ -54,8 +54,8 @@ export const QUICKADD_OPEN_EVENT = 'quickadd:open';
 
 export default function QuickAddHost() {
   // Travel Mode zero-chrome-leakage (TM-9) — this invisible dialog host is
-  // suppressed under `/travel`. Nothing in Phase-2 dispatches `quickadd:open` there;
-  // a later TM slice that wants the global add-flow lifts this guard deliberately.
+  // suppressed under `/travel`. Nothing in dispatches `quickadd:open` there;
+  // a later TM change that wants the global add-flow lifts this guard deliberately.
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [presetDate, setPresetDate] = useState<string | undefined>(undefined);

@@ -41,8 +41,15 @@ export interface Op {
 }
 
 // The category 10-set. Duplicated as literals from `ItineraryCategory`
-// (lib/trip-data.ts) — the source of truth — because a Set membership check is what validation
-// needs; a `satisfies` tie keeps the two from drifting silently.
+// (lib/itinerary-category.ts, re-exported via lib/trip-data.ts) — the source of truth — because a
+// Set membership check is what validation needs.
+//
+// `as const satisfies readonly ItineraryCategory[]` below only catches an INVALID member of this
+// list; it is silent when a category is instead ADDED to `ItineraryCategory` and NOT to this list
+// — the direction this function (dropping ops for unknown categories) actually depends on. That
+// used to be "guarded" by a comment claiming a `satisfies` tie kept the two from drifting; it did
+// not, and is the rule this file now carries: a comment naming a mechanism is only as good
+// as a check that actually runs. The `Exclude` guard right after the array is that check.
 const CATEGORIES = [
   'sightseeing',
   'food',
@@ -55,6 +62,10 @@ const CATEGORIES = [
   'free',
   'nightlife',
 ] as const satisfies readonly ItineraryCategory[];
+// Fails to compile — naming the offending category in the error — if `ItineraryCategory` gains a
+// member absent from `CATEGORIES` (the direction the `satisfies` above misses).
+type _MissingFromCategories = Exclude<ItineraryCategory, (typeof CATEGORIES)[number]>;
+const _assertNoMissingCategories: _MissingFromCategories extends never ? true : _MissingFromCategories = true;
 const CATEGORY_SET: ReadonlySet<string> = new Set(CATEGORIES);
 
 // Content fields a patch/add can carry (everything except the addressing fields).

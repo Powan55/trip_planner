@@ -82,7 +82,7 @@ function RecommendationCard({
         onClick={onOpen}
         data-testid={`guide-card-${item.id}`}
         aria-label={`View details for ${item.name}`}
-        className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded-2xl"
+        className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-2xl"
       >
         {item.image && !imgError ? (
           <div
@@ -99,8 +99,8 @@ function RecommendationCard({
             />
             <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
             <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
-              <Camera className="w-3 h-3 text-gold-400" />
-              <span className="text-xs font-mono text-gold-400">{item.photoRating}/5</span>
+              <Camera className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+              <span className="text-xs font-mono text-foreground">{item.photoRating}/5</span>
             </div>
             <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
               {item.mustSee && (
@@ -142,7 +142,7 @@ function RecommendationCard({
             <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{item.duration}</span>
             <span className="flex items-center gap-1">
               {Array.from({ length: item.photoRating }).map((_, i) => (
-                <Star key={i} className="w-2.5 h-2.5 fill-gold-400 text-gold-400" />
+                <Star key={i} className="w-2.5 h-2.5 fill-current text-muted-foreground" />
               ))}
             </span>
           </div>
@@ -164,9 +164,9 @@ function RecommendationCard({
             aria-pressed={favorited}
             aria-label={favorited ? `Remove ${item.name} from saved` : `Save ${item.name}`}
             data-testid={`guide-favorite-${item.id}`}
-            className={`mt-3 shrink-0 p-2 rounded-xl border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+            className={`mt-3 shrink-0 p-2 rounded-xl border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               favorited
-                ? 'bg-gold-500/15 border-gold-400/40 text-gold-300 hover:bg-gold-500/25'
+                ? 'bg-primary/10 border-ring/40 text-primary hover:bg-primary/25'
                 : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'
             }`}
           >
@@ -215,7 +215,7 @@ function FilterSheet({
           data-testid="guide-filters-close"
           onClick={onClose}
           aria-label="Close filters"
-          className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/60 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/60 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <X className="w-5 h-5" />
         </button>
@@ -353,7 +353,7 @@ export default function RecommendationSection({
     setPlannedOnly(false);
   };
 
-  // S322G — the filter facets (sort + city + Saved/Planned + category chips) collapse
+  // — the filter facets (sort + city + Saved/Planned + category chips) collapse
   // behind ONE "Filters · n" trigger + sheet; search stays pinned above the grid (a query,
   // not a facet). `n` counts the active SHEET facets only — category≠All, city≠All,
   // savedOnly, plannedOnly, and a non-default sort — so the trigger's badge/aria mirror what
@@ -397,14 +397,14 @@ export default function RecommendationSection({
               placeholder="Search by name or description…"
               aria-label={`Search ${title} guide`}
               data-testid="guide-search-input"
-              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/40 hover:text-white/70 hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/40 hover:text-white/70 hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -418,7 +418,7 @@ export default function RecommendationSection({
             aria-haspopup="dialog"
             aria-expanded={filtersOpen}
             aria-label={activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : 'Filters'}
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <SlidersHorizontal className="w-4 h-4 text-white/50" />
             <span>Filters</span>
@@ -448,7 +448,7 @@ export default function RecommendationSection({
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
                 data-testid="guide-sort-select"
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
               >
                 <option value="rating" className="bg-surface">Sort: Top rated</option>
                 <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
@@ -466,7 +466,7 @@ export default function RecommendationSection({
                       onClick={() => setActiveCity(city)}
                       aria-pressed={activeCity === city}
                       data-testid={`guide-filter-city-${city.toLowerCase()}`}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         activeCity === city
                           ? `${accentColor} bg-white/10 ring-1 ring-current/30`
                           : 'text-white/55 hover:bg-white/5 hover:text-white/80'
@@ -494,7 +494,7 @@ export default function RecommendationSection({
                       onClick={() => setSavedOnly((v) => !v)}
                       aria-pressed={savedOnly}
                       data-testid="guide-filter-saved"
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         savedOnly
                           ? `${accentColor} bg-white/10 ring-1 ring-current/30`
                           : 'text-white/55 hover:bg-white/5 hover:text-white/80'
@@ -511,7 +511,7 @@ export default function RecommendationSection({
                       onClick={() => setPlannedOnly((v) => !v)}
                       aria-pressed={plannedOnly}
                       data-testid="guide-filter-planned"
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         plannedOnly
                           ? `${accentColor} bg-white/10 ring-1 ring-current/30`
                           : 'text-white/55 hover:bg-white/5 hover:text-white/80'
@@ -536,7 +536,7 @@ export default function RecommendationSection({
                     onClick={() => setActiveCategory(cat)}
                     aria-pressed={activeCategory === cat}
                     data-testid={`guide-filter-category-${cat.toLowerCase()}`}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       activeCategory === cat
                         ? `${accentColor} bg-white/10 ring-1 ring-current/30`
                         : 'text-white/55 hover:bg-white/5 hover:text-white/80'
@@ -556,7 +556,7 @@ export default function RecommendationSection({
                 onClick={clearAllFilters}
                 disabled={activeFilterCount === 0}
                 data-testid="guide-filters-clear"
-                className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white/70 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white/70 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Clear all
               </button>
@@ -564,7 +564,7 @@ export default function RecommendationSection({
                 type="button"
                 onClick={() => setFiltersOpen(false)}
                 data-testid="guide-filters-apply"
-                className={`flex-1 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${accentColor}`}
+                className={`flex-1 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${accentColor}`}
               >
                 Show {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
               </button>
@@ -579,7 +579,7 @@ export default function RecommendationSection({
               type="button"
               onClick={gyro.request}
               data-testid="guide-tilt-optin"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/55 bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white/80 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/55 bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white/80 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <SlidersHorizontal className="w-3 h-3" />
               Enable motion tilt
@@ -611,7 +611,7 @@ export default function RecommendationSection({
             <button
               type="button"
               onClick={resetFilters}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${accentColor}`}
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${accentColor}`}
             >
               Clear filters
             </button>

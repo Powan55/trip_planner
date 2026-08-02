@@ -52,7 +52,7 @@ const activeIsDefault = isDefaultTrip();
 /**
  * PURE: `DayPlan[]` (only `date` + `city` are read) → the per-day ISO-date → city map.
  * Exported so the derivation-identity test can assert `TRIP_CITIES ≡ deriveTripCities(...)`
- * and no future slice can silently re-hand-author the map or decouple the delegate.
+ * and no future change can silently re-hand-author the map or decouple the delegate.
  */
 export function deriveTripCities(
   days: readonly { date: string; city: string }[],

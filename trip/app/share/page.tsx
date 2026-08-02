@@ -5,7 +5,7 @@
 //, mirroring
 // app/packing/sections.tsx. Reached via a direct URL / the OS Share sheet / the command palette's
 // "Shared Links" entry — deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar in
-// this slice.
+// this change.
 import { ShareInbox } from './sections';
 
 export const metadata = {
@@ -17,7 +17,7 @@ export default function SharePage() {
   return (
     <main className="min-h-screen bg-surface">
       {/* Local page header — reuses the PageHero design tokens directly (glass-panel /
-          text-display-lg / text-gradient-gold / animate-reveal-up) rather than extending
+          text-display-lg / text-display-emphasis / animate-reveal-up) rather than extending
           PageHero's closed `HeroVariant` union. Supplies
           the page's <h1> (mirrors app/packing/page.tsx). */}
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
@@ -34,7 +34,7 @@ export default function SharePage() {
             <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
               Shared to your trip
             </p>
-            <h1 className="font-display text-display-lg text-gradient-gold">Shared Links</h1>
+            <h1 className="font-display text-display-lg text-display-emphasis">Shared Links</h1>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
               Links and notes you share from your phone land here. Assign each to a trip day or
               clear it out. Saved on this device only.

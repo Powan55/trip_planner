@@ -57,7 +57,7 @@ function DocRow({
     <li className="border-b border-white/5 py-1 last:border-b-0">
       <label
         htmlFor={`docs-item-${item.id}`}
-        className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-white/85 outline-none transition-colors duration-200 hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold-400 has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface"
+        className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-white/85 outline-none transition-colors duration-200 hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface"
       >
         <input
           id={`docs-item-${item.id}`}
@@ -68,7 +68,7 @@ function DocRow({
             onToggle(item.id);
             haptic();
           }}
-          className="h-5 w-5 flex-shrink-0 rounded border-white/30 bg-transparent text-gold-400 outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+          className="h-5 w-5 flex-shrink-0 rounded border-white/30 bg-transparent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
         <span className={item.checked ? 'text-white/50 line-through' : undefined}>{item.label}</span>
       </label>
@@ -87,7 +87,7 @@ function DocRow({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commitNote}
           placeholder="Add a note — expiry, policy #, reference…"
-          className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/75 placeholder:text-white/30 outline-none transition-colors focus-visible:border-gold-400/60 focus-visible:ring-1 focus-visible:ring-gold-400/60"
+          className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/75 placeholder:text-white/30 outline-none transition-colors focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/60"
         />
       </div>
     </li>
@@ -137,12 +137,12 @@ export default function DocsChecklist() {
     <section aria-labelledby="docs-heading" data-testid="docs-checklist" className="relative mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
       <CelebrationBurst active={celebrate} testId="docs-celebration" />
       <header className="mb-6">
-        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-gold-400/80">
+        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
           <FileCheck2 className="h-3.5 w-3.5" aria-hidden="true" />
           Before you fly
         </p>
         <h2 id="docs-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
-          Documents &amp; <span className="text-gradient-gold">readiness</span>
+          Documents &amp; <span className="text-display-emphasis">readiness</span>
         </h2>
         <p data-testid="docs-progress" className="mt-3 text-sm font-medium text-white/70">
           {completion.done}/{completion.total} ready
@@ -156,12 +156,12 @@ export default function DocsChecklist() {
           className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
         >
           <div
-            className="h-full rounded-full bg-gold-400 transition-[width] duration-300 motion-reduce:transition-none"
+            className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none"
             style={{ width: completion.total > 0 ? `${(completion.done / completion.total) * 100}%` : '0%' }}
           />
         </div>
         {allDone && (
-          <p data-testid="docs-complete" className="mt-3 text-sm font-medium text-gold-400">
+          <p data-testid="docs-complete" className="mt-3 text-sm font-medium text-foreground">
             All set — you&apos;re ready to fly. ✈
           </p>
         )}
@@ -179,9 +179,9 @@ export default function DocsChecklist() {
             <div key={section} data-testid={`docs-section-${section}`} className="glass-subtle rounded-2xl p-5">
               <div className="flex items-baseline justify-between gap-3">
                 <div>
-                  <p className="mb-1 text-[0.65rem] uppercase tracking-widest text-gold-400/70">{meta.eyebrow}</p>
+                  <p className="mb-1 text-[0.65rem] uppercase tracking-widest text-muted-foreground">{meta.eyebrow}</p>
                   <h3 id={headingId} className="flex items-center gap-2 font-display text-lg font-bold text-white">
-                    <Icon className="h-4 w-4 text-gold-400/80" aria-hidden="true" />
+                    <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                     {meta.label}
                   </h3>
                 </div>

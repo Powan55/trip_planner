@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { m } from 'framer-motion';
+import { m, useReducedMotion } from 'framer-motion';
 import { Hotel, Clock, Star, MapPin } from 'lucide-react';
 import { JOURNEYS, BOOKED_STAYS, type Stay } from '@/lib/booking-data';
 import { FlightJourneyCard } from '@/components/flight-journey-card';
+import { FADE_FLOOR } from '@/lib/motion';
 
 // --- Static class records: never interpolate Tailwind class names. ---
 // Status chip styling, keyed by booking status (stays only; journeys use the phase strip).
@@ -49,7 +50,7 @@ function StayCard({ stay }: { stay: Stay }) {
       {stay.stars !== null && (
         <div className="flex items-center gap-1 mb-3" aria-label={`${stay.stars} star hotel`}>
           {Array.from({ length: stay.stars }).map((_, i) => (
-            <Star key={i} className="w-3.5 h-3.5 fill-gold-400 text-gold-400" aria-hidden="true" />
+            <Star key={i} className="w-3.5 h-3.5 fill-current text-muted-foreground" aria-hidden="true" />
           ))}
           <span className="ml-1 text-[11px] text-white/40">{stay.stars}-star</span>
         </div>
@@ -84,6 +85,7 @@ function StayCard({ stay }: { stay: Stay }) {
 }
 
 export default function FlightsSection() {
+  const prefersReducedMotion = useReducedMotion();
   // Mount guard for parity with neighbor sections (this section is static/SSR-safe,
   // but it is loaded ssr:false per; the guard avoids any flash before mount).
   const [mounted, setMounted] = useState(false);
@@ -92,18 +94,20 @@ export default function FlightsSection() {
   return (
     <section id="flights" aria-labelledby="flights-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* slide-only masthead entrance (opacity pinned to 1) — see the
-            RecommendationSection masthead for the full rationale. Prevents the
-            (non-reduced-motion) axe scan from catching the muted `text-white/50`
-            subtitle mid-fade and flagging a transient contrast failure. */}
+        {/* masthead entrance now FLOORS the fade (FADE_FLOOR → 1) instead of
+            pinning it at 1. The floor is shallow enough that the (non-reduced-motion) axe
+            scan still sees the muted `text-white/50` subtitle ≥AA at the darkest frame —
+            the guarantee, preserved. Under reduce we keep the pin outright:
+            MotionConfig neutralises `y` but not opacity, so an un-forked floor would
+            strand an off-screen reveal at 0.7. */}
         <m.div
-          initial={{ opacity: 1, y: 20 }}
+          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: FADE_FLOOR, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-10"
         >
           <h2 id="flights-heading" className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
-            Flights <span className="text-gradient-gold">&amp; Stays</span>
+            Flights <span className="text-display-emphasis">&amp; Stays</span>
           </h2>
           <p className="text-white/50 max-w-xl mx-auto">
             Every confirmed booking for the journey — each flight leg with its layovers, seats and

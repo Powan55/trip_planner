@@ -69,12 +69,12 @@ export default function PackingChecklist() {
     <section aria-labelledby="packing-heading" data-testid="packing-checklist" className="relative mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
       <CelebrationBurst active={celebrate} testId="packing-celebration" />
       <header className="mb-6">
-        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-gold-400/80">
+        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
           <Backpack className="h-3.5 w-3.5" aria-hidden="true" />
           Two legs, one bag
         </p>
         <h2 id="packing-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
-          Packing <span className="text-gradient-gold">checklist</span>
+          Packing <span className="text-display-emphasis">checklist</span>
         </h2>
         <p data-testid="packing-progress" className="mt-3 text-sm font-medium text-white/70">
           {progress.checked}/{progress.total} packed
@@ -88,7 +88,7 @@ export default function PackingChecklist() {
           className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
         >
           <div
-            className="h-full rounded-full bg-gold-400 transition-[width] duration-300 motion-reduce:transition-none"
+            className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none"
             style={{ width: progress.total > 0 ? `${(progress.checked / progress.total) * 100}%` : '0%' }}
           />
         </div>
@@ -104,7 +104,7 @@ export default function PackingChecklist() {
           return (
             <div key={category} data-testid={`packing-group-${category}`} className="glass-subtle rounded-2xl p-5">
               <h3 id={headingId} className="flex items-center gap-2 font-display text-lg font-bold text-white">
-                <Icon className="h-4 w-4 text-gold-400/80" aria-hidden="true" />
+                <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 {meta.label}
               </h3>
               <ul aria-labelledby={headingId} className="mt-3 flex flex-col gap-1">
@@ -112,7 +112,7 @@ export default function PackingChecklist() {
                   <li key={item.id}>
                     <label
                       htmlFor={`packing-item-${item.id}`}
-                      className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-white/85 outline-none transition-colors duration-200 hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-gold-400 has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface"
+                      className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-white/85 outline-none transition-colors duration-200 hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface"
                     >
                       <input
                         id={`packing-item-${item.id}`}
@@ -123,7 +123,7 @@ export default function PackingChecklist() {
                           toggleItem(item.id);
                           haptic();
                         }}
-                        className="h-5 w-5 flex-shrink-0 rounded border-white/30 bg-transparent text-gold-400 outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+                        className="h-5 w-5 flex-shrink-0 rounded border-white/30 bg-transparent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
                       <span className={item.checked ? 'text-white/50 line-through' : undefined}>{item.label}</span>
                     </label>

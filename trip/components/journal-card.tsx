@@ -22,7 +22,7 @@ import { MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
  * multiline text area, and Save + Cancel. Save calls `saveEntry(date, {text, mood, highlight})`;
  * clearing everything + Save removes the entry.
  *
- * A11y: real `<label>`s, visible focus rings (`focus-visible:ring-gold-400`,
+ * A11y: real `<label>`s, visible focus rings (`focus-visible:ring-ring`,
  * matching the panel), ≥44px targets, `aria-pressed` on mood chips, an `aria-live` region on the read
  * view. Static markup + CSS-only transitions → reduced-motion-safe by construction (the parent panel
  * owns the already-gated reveal). Design: the panel's glass-card / navy / gold-accent language.
@@ -140,18 +140,18 @@ export default function JournalCard({ date }: { date: string }) {
       <header className="mb-3 flex items-center justify-between gap-3">
         <h3
           id="journal-heading"
-          className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-gold-400/90"
+          className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
         >
           <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
           Today&apos;s journal
         </h3>
         <div className="flex items-center gap-1.5">
           {/* the only way to reach the /journal browse view besides a direct URL — nav/tab/
-              palette wiring is an explicit follow-up rider, not this slice's. */}
+              palette wiring is an explicit follow-up rider, not this change's. */}
           <Link
             href="/journal/"
             data-testid="journal-view-all"
-            className="inline-flex min-h-[44px] items-center rounded-lg px-2.5 py-2 text-xs font-medium text-white/55 underline-offset-4 outline-none transition-colors duration-200 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="inline-flex min-h-[44px] items-center rounded-lg px-2.5 py-2 text-xs font-medium text-white/55 underline-offset-4 outline-none transition-colors duration-200 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             View all entries
           </Link>
@@ -162,7 +162,7 @@ export default function JournalCard({ date }: { date: string }) {
               onClick={openEditor}
               data-testid="journal-edit"
               aria-label="Edit today's journal entry"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               Edit
@@ -191,9 +191,9 @@ export default function JournalCard({ date }: { date: string }) {
           type="button"
           onClick={openEditor}
           data-testid="journal-write-prompt"
-          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-white/15 bg-white/[0.02] p-3 text-left text-sm text-white/60 outline-none transition-colors duration-200 hover:border-gold-400/40 hover:bg-white/[0.05] hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-white/15 bg-white/[0.02] p-3 text-left text-sm text-white/60 outline-none transition-colors duration-200 hover:border-ring/40 hover:bg-white/[0.05] hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
-          <Pencil className="h-4 w-4 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
+          <Pencil className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
           <span>
             Write about today
             {hydrated ? '' : '…'}
@@ -219,7 +219,7 @@ function JournalReadView({ entry }: { entry: JournalEntry }) {
           {mood && (
             <span
               data-testid="journal-mood-display"
-              className="inline-flex items-center gap-1.5 rounded-full border border-gold-400/25 bg-gold-400/[0.08] px-2.5 py-1 text-xs font-medium text-gold-400"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground"
             >
               <span aria-hidden="true">{mood.glyph}</span>
               {mood.label}
@@ -234,7 +234,7 @@ function JournalReadView({ entry }: { entry: JournalEntry }) {
               data-testid="journal-highlight-display"
               className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-white/90"
             >
-              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
+              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="break-words min-w-0">{entry.highlight}</span>
             </span>
           )}
@@ -292,9 +292,9 @@ function JournalEditor({
                 aria-pressed={active}
                 aria-label={`Mood: ${meta.label}`}
                 data-testid={`journal-mood-${m}`}
-                className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+                className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                   active
-                    ? 'border-gold-400 bg-gold-400/15 text-gold-400'
+                    ? 'border-ring bg-primary/10 text-primary'
                     : 'border-white/15 bg-white/[0.03] text-white/70 hover:border-white/30 hover:text-white'
                 }`}
               >
@@ -320,7 +320,7 @@ function JournalEditor({
           maxLength={120}
           placeholder="The one thing worth remembering…"
           data-testid="journal-highlight-input"
-          className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+          className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
@@ -336,7 +336,7 @@ function JournalEditor({
           rows={4}
           placeholder="What happened today? How did it feel?"
           data-testid="journal-text-input"
-          className="w-full resize-y rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-gold-400/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+          className="w-full resize-y rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
@@ -345,7 +345,7 @@ function JournalEditor({
           type="button"
           onClick={onCancel}
           data-testid="journal-cancel"
-          className="inline-flex min-h-[44px] items-center rounded-lg px-4 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center rounded-lg px-4 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           Cancel
         </button>
@@ -353,7 +353,7 @@ function JournalEditor({
           type="button"
           onClick={onSave}
           data-testid="journal-save"
-          className="inline-flex min-h-[44px] items-center rounded-lg bg-gold-400 px-4 py-2 text-sm font-semibold text-surface outline-none transition-colors duration-200 hover:bg-gold-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground outline-none transition-colors duration-200 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           Save
         </button>

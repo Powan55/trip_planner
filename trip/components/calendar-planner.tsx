@@ -10,7 +10,7 @@ import {
   Calendar, Plus, Trash2,
   MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
   Landmark, Plane, Hotel, Coffee, Music, X, Check, ChevronLeft, ChevronRight, ChevronDown,
-  ExternalLink, Map as MapIcon,
+  ExternalLink, Map as MapIcon, MoreHorizontal,
 } from 'lucide-react';
 import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -23,7 +23,7 @@ import { buildItineraryStops, stopMarkerFor } from '@/lib/itinerary-map';
 import { showUndoToast } from '@/lib/undo-toast';
 import { getTodayInTrip } from '@/lib/trip-now';
 import { setSelectedDay } from '@/lib/selected-day';
-import { DayStripDateMeta } from '@/components/day-strip';
+import DayStrip, { DayStripDateMeta } from '@/components/day-strip';
 import { SortableItem, DroppableDay, CATEGORY_ICON_MAP } from '@/components/calendar-sortable-item';
 import { CalendarBulkToolbar } from '@/components/calendar-bulk-toolbar';
 import { CalendarDayPicker } from '@/components/calendar-day-picker';
@@ -31,6 +31,7 @@ import { useCalendarDnd } from '@/hooks/use-calendar-dnd';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { freshCopyOf } from '@/hooks/use-itinerary';
 import QuickAddInput from '@/components/quick-add-input';
+import MapIslandBoundary from '@/components/map-island-boundary';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
@@ -38,12 +39,13 @@ import {
 import { filterItemsByAuthor } from '@/lib/author-filter';
 import { useAuthorFilter } from '@/hooks/use-author-filter';
 import AuthorFilterControl from '@/components/author-filter';
-import { buildMapsSearchUrl } from '@/lib/maps-link';
+import { buildMapsPlaceUrl } from '@/lib/maps-link';
 import { useExpenses } from '@/hooks/use-expenses';
 import { expensesByDate } from '@/core/budget/burn-rate';
 import { legCurrency, formatMoney } from '@/core/budget/model';
 import { effectiveStartMinutes } from '@/core/dates';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
+import { extractQuickAddTime } from '@/lib/quick-add-parse';
 import { describeItemTime } from '@/lib/item-time-display';
 import { clashingItemIds } from '@/lib/sort-items-by-time';
 import TimePicker, { DurationField } from '@/components/time-picker';
@@ -71,7 +73,19 @@ const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
 const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography', 'shopping', 'nature', 'cultural', 'transportation', 'hotel', 'free', 'nightlife'];
 
 // Item Editor Modal
-function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem; startDate: string; onSave: (item: ItineraryItem) => void; onClose: () => void }) {
+function ItemEditor({ item, startDate, onSave, onClose, hidden, pickedPin, onRequestPin }: {
+  item?: ItineraryItem;
+  startDate: string;
+  onSave: (item: ItineraryItem) => void;
+  onClose: () => void;
+  /**: the map picker is armed — step aside VISUALLY but stay mounted, so every
+   * field the user has already typed survives the trip to the map and back. */
+  hidden?: boolean;
+  /**: the coordinate the picker returned (a fresh object per pick). */
+  pickedPin?: { lat: number; lng: number } | null;
+  /**: arm the picker on the map pane the parent owns. */
+  onRequestPin?: () => void;
+}) {
   // Live ref to the latest onClose so the once-registered Esc listener always
   // calls the current closure without re-binding on every render.
   const onCloseRef = useRef(onClose);
@@ -91,25 +105,21 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
   const [location, setLocation] = useState(item?.location ?? '');
   const [notes, setNotes] = useState(item?.notes ?? '');
 
-  // Manual pin-drop. Free-text lat/lng strings so the field can hold an in-progress
-  // or invalid value without fighting the input; parsed + range-validated only at render
-  // (for the inline hint) and at save (handleSave below). The section starts open whenever
-  // the item already carries a pin, closed otherwise.
-  const [pinOpen, setPinOpen] = useState(item?.lat !== undefined && item?.lng !== undefined);
-  const [latText, setLatText] = useState(item?.lat !== undefined ? String(item.lat) : '');
-  const [lngText, setLngText] = useState(item?.lng !== undefined ? String(item.lng) : '');
-  const parsedLat = latText.trim() === '' ? undefined : Number(latText);
-  const parsedLng = lngText.trim() === '' ? undefined : Number(lngText);
-  const latValid = parsedLat === undefined || (Number.isFinite(parsedLat) && parsedLat >= -90 && parsedLat <= 90);
-  const lngValid = parsedLng === undefined || (Number.isFinite(parsedLng) && parsedLng >= -180 && parsedLng <= 180);
-  // A pin is only saved when BOTH fields resolve to a valid number — a lone value (or an
-  // out-of-range one) never silently becomes a half-pin; the save button disables instead.
-  const pinComplete = parsedLat !== undefined && parsedLng !== undefined;
-  const pinReady = latValid && lngValid && (pinComplete || (parsedLat === undefined && parsedLng === undefined));
-  const clearPin = () => {
-    setLatText('');
-    setLngText('');
-  };
+  // Manual pin-drop. The pin is now a single lat/lng PAIR chosen on
+  // the map, never two typed decimals: free-text fields could hold a half-entered or
+  // out-of-range pin, which is why they needed range validation, an inline error and a
+  // save-disable. Picking a coordinate off the map makes all three states unrepresentable —
+  // a pin is either absent or a complete, in-range pair, because it came from a real
+  // projection. `null` = no pin.
+  const [pin, setPin] = useState<{ lat: number; lng: number } | null>(
+    item?.lat !== undefined && item?.lng !== undefined ? { lat: item.lat, lng: item.lng } : null,
+  );
+  // A coordinate handed back by the map picker (a fresh object per pick, so re-picking the
+  // same spot still lands). The parent owns the picker because the map pane it drives lives
+  // out there — see `pickingPin` in CalendarPlanner.
+  useEffect(() => {
+    if (pickedPin) setPin({ lat: pickedPin.lat, lng: pickedPin.lng });
+  }, [pickedPin]);
 
   // Multi-day span. Opt-in toggle → a native <select> of trip days strictly AFTER the
   // item's start day (`startDate` = the day this editor operates on). Reuses the duplicate-
@@ -164,7 +174,22 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
   // Reuses the shared, already-exported builder — no reimplementation of the URL
   // scheme. Recomputed live off the editor's own title/location state; null (and
   // therefore disabled) until the title is non-empty.
-  const mapsUrl = buildMapsSearchUrl(title, location);
+  // coordinate-first once the item carries a pin (the same value Save would persist) —
+  // falls back to the existing title+location text search otherwise, byte-identical to
+  // pre- behavior.: the pin is now a single nullable pair, so the former
+  // `pinComplete` half-pin guard has nothing left to guard.
+  const mapsUrl = buildMapsPlaceUrl(title, pin?.lat, pin?.lng, location);
+
+  // which of the collapsed fields actually hold something, named in the disclosure's
+  // own label so a closed "More details" never hides data silently. Read off the LIVE editor
+  // state, so it updates as you type rather than describing the item as it was opened.
+  const filledDetails = [
+    durationMinutes !== undefined ? 'Duration' : null,
+    location.trim() ? 'Location' : null,
+    pin ? 'Pin' : null,
+    effectiveEndDate ? 'Multi-day' : null,
+    notes.trim() ? 'Notes' : null,
+  ].filter((v): v is string => v !== null);
 
   // Stable, collision-free ids so each <label htmlFor> binds to its input and
   // the dialog can be labelled by its title heading.
@@ -176,8 +201,6 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
   const locationFieldId = `${baseId}-location`;
   const notesFieldId = `${baseId}-notes`;
   const categoryLabelId = `${baseId}-category-label`;
-  const latFieldId = `${baseId}-lat`;
-  const lngFieldId = `${baseId}-lng`;
   const endDateFieldId = `${baseId}-enddate`;
 
   // Refs for focus management: the panel (focus-trap boundary) and the first
@@ -186,9 +209,17 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
   // raced framer-motion's exit animation and grabbed the wrong element.
   const panelRef = useRef<HTMLDivElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  // the control that armed the picker, so focus comes back to it when the editor
+  // returns from the map.
+  const pinButtonRef = useRef<HTMLButtonElement>(null);
+  const wasHidden = useRef(false);
+  useEffect(() => {
+    if (wasHidden.current && !hidden) pinButtonRef.current?.focus();
+    wasHidden.current = !!hidden;
+  }, [hidden]);
 
   const handleSave = () => {
-    if (!title.trim() || !pinReady) return;
+    if (!title.trim()) return;
     onSave({
       // Spread the original item first so additive source-linkage fields
       // survive an edit of a card-created item.
@@ -207,11 +238,11 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
       durationMinutes: durationTouched ? durationMinutes : item?.durationMinutes,
       location: location || undefined,
       notes: notes || undefined,
-      // Manual pin-drop: saved only when BOTH resolve (pinComplete); otherwise both
-      // explicitly undefined (overriding the `...item` spread above) — clearing the fields
-      // and saving removes a pin the item previously had.
-      lat: pinComplete ? parsedLat : undefined,
-      lng: pinComplete ? parsedLng : undefined,
+      // Manual pin-drop: the chosen pair, or both explicitly
+      // undefined (overriding the `...item` spread above) — clearing the pin and saving
+      // removes a pin the item previously had.
+      lat: pin?.lat,
+      lng: pin?.lng,
       // Multi-day span: the resolved end day (strictly after the start day, in-range)
       // or undefined — overriding the `...item` spread so turning the toggle off / clearing the
       // select removes a span the item previously had. Written onto the START-day doc only.
@@ -235,9 +266,14 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
   // Esc closes the dialog, handled at the document level so it fires wherever
   // focus sits (even if the panel never holds it). onClose only flips parent
   // state; the parent returns focus once the exit animation completes.
+  // while the picker is armed this editor is off-screen and Escape belongs to the
+  // pick bar (it cancels the pick and brings the editor back) — closing the whole editor
+  // there would throw away everything the user typed before going to the map.
+  const hiddenRef = useRef(hidden);
+  hiddenRef.current = hidden;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
+      if (e.key === 'Escape' && !hiddenRef.current) {
         e.preventDefault();
         onCloseRef.current();
       }
@@ -255,7 +291,9 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
     if (!panel) return;
     const focusable = Array.from(
       panel.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        // `summary` is natively focusable and puts one in the panel ("More details"),
+        // so it must be part of the trap's first/last computation or Tab could escape past it.
+        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
       ),
     ).filter((el) => el.offsetParent !== null || el === document.activeElement);
 
@@ -287,7 +325,10 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-end justify-center lg:items-center lg:p-4 bg-black/60 backdrop-blur-sm"
+      // `invisible` (not unmount) while the map picker is armed — React keeps every
+      // field's state, and visibility:hidden takes the dialog out of hit-testing AND out of
+      // the a11y tree, so the map underneath is genuinely reachable by pointer and by AT.
+      className={`fixed inset-0 z-50 flex items-end justify-center lg:items-center lg:p-4 bg-black/60 backdrop-blur-sm ${hidden ? 'invisible pointer-events-none' : ''}`}
       onClick={onClose}
     >
       <m.div
@@ -308,12 +349,12 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
       >
         <div className="flex items-center justify-between mb-5">
           <h3 id={titleId} className="font-display text-lg font-bold text-white">{item ? 'Edit Item' : 'Add Item'}</h3>
-          <button type="button" onClick={onClose} aria-label="Close editor" data-testid="calendar-editor-cancel" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><X className="w-5 h-5" /></button>
+          <button type="button" onClick={onClose} aria-label="Close editor" data-testid="calendar-editor-cancel" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><X className="w-5 h-5" /></button>
         </div>
         <div className="space-y-4">
           <div>
             <label htmlFor={titleFieldId} className="text-xs text-white/50 mb-1 block">Title *</label>
-            <input id={titleFieldId} ref={titleInputRef} autoFocus value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} data-testid="calendar-editor-title-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., Visit Boudhanath Stupa" />
+            <input id={titleFieldId} ref={titleInputRef} autoFocus value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} data-testid="calendar-editor-title-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2" placeholder="e.g., Visit Boudhanath Stupa" />
           </div>
           <div>
             <span id={categoryLabelId} className="text-xs text-white/50 mb-1 block">Category</span>
@@ -329,7 +370,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
                     aria-pressed={isActive}
                     aria-label={`Category: ${cat}`}
                     data-testid={`calendar-editor-category-${cat}`}
-                    className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                    className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-white/40 hover:bg-white/5'
                     }`}
                   >
@@ -340,83 +381,83 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
               })}
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label htmlFor={timeFieldId} className="text-xs text-white/50 mb-1 block">Time</label>
-              <TimePicker id={timeFieldId} value={startMinutes} onChange={handleTimeChange} testId="calendar-editor-time-input" />
-            </div>
-            <div>
-              <label htmlFor={durationFieldId} className="text-xs text-white/50 mb-1 block">Duration (min)</label>
-              <DurationField id={durationFieldId} value={durationMinutes} onChange={handleDurationChange} testId="calendar-editor-duration-input" />
-            </div>
+          <div>
+            <label htmlFor={timeFieldId} className="text-xs text-white/50 mb-1 block">Time</label>
+            <TimePicker id={timeFieldId} value={startMinutes} onChange={handleTimeChange} testId="calendar-editor-time-input" />
+          </div>
+          {/* — the editor opens as THREE fields (Title, Category, Time). Everything else
+              lives behind this one disclosure. Native <details>/<summary>: no state, no new dep,
+              keyboard-operable and screen-reader-announced for free (the default marker is
+              hidden and replaced by the chevron). It starts CLOSED even on a populated item, so
+              the summary names which of these fields actually hold something (: the label
+              carries the meaning, not a colour) — nothing is hidden without saying so.
+              The enclosed fields keep their original indentation: this change only WRAPS them,
+              and an unindented diff is what makes that reviewable. */}
+          <details className="group rounded-lg border border-white/10 bg-white/[0.02]" data-testid="calendar-editor-more">
+            <summary
+              data-testid="calendar-editor-more-toggle"
+              className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-3 py-2.5 text-xs text-white/50 transition-colors hover:text-white/75 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+            >
+              <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" aria-hidden="true" />
+              More details
+              {filledDetails.length > 0 && (
+                <span className="text-white/35">· {filledDetails.join(', ')}</span>
+              )}
+            </summary>
+            <div className="space-y-4 px-3 pb-3">
+          <div>
+            <label htmlFor={durationFieldId} className="text-xs text-white/50 mb-1 block">Duration (min)</label>
+            <DurationField id={durationFieldId} value={durationMinutes} onChange={handleDurationChange} testId="calendar-editor-duration-input" />
           </div>
           <div>
             <label htmlFor={locationFieldId} className="text-xs text-white/50 mb-1 block">Location</label>
-            <input id={locationFieldId} value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} data-testid="calendar-editor-location-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2" placeholder="e.g., Thamel, Kathmandu" />
+            <input id={locationFieldId} value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} data-testid="calendar-editor-location-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2" placeholder="e.g., Thamel, Kathmandu" />
           </div>
-          {/* Manual pin-drop — opt-in, collapsed unless the item already carries a
-              pin. Two free-text numeric fields (inputMode="decimal", NOT type="number" —
-              wheel-footgun lesson) so a pinned custom item plots on both maps even
-              when its title doesn't match a curated marker. */}
+          {/* Pin an exact location. Typing two decimals was
+              the only way to place a pin and nobody knows their coordinates — so the fields
+              are gone and the pin comes off the map instead. "Drop a pin" arms the picker on
+              the map pane that ALREADY exists on this route (desktop aside / mobile sheet),
+              so maplibre stays behind its interaction-lazy boundary and there is no
+              second map surface. The chosen pair is echoed here as text (and on
+              `data-lat`/`data-lng`) so the value is legible without a map, and readable by a
+              screen reader — the picked coordinate is never write-only. */}
           <div>
-            <button
-              type="button"
-              onClick={() => setPinOpen((v) => !v)}
-              aria-expanded={pinOpen}
-              data-testid="calendar-editor-pin-toggle"
-              className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white/75 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 rounded-lg focus-visible:outline-none"
-            >
-              <MapPin className="w-3.5 h-3.5" />
+            <span className="mb-1 flex items-center gap-1.5 text-xs text-white/50">
+              <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
               Pin exact location (optional)
-              <ChevronDown className={`w-3.5 h-3.5 transition-transform ${pinOpen ? 'rotate-180' : ''}`} />
-            </button>
-            {pinOpen && (
-              <div className="mt-2 space-y-2">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label htmlFor={latFieldId} className="text-xs text-white/50 mb-1 block">Latitude</label>
-                    <input
-                      id={latFieldId}
-                      type="text"
-                      inputMode="decimal"
-                      value={latText}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLatText(e.target.value)}
-                      data-testid="calendar-editor-lat-input"
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
-                      placeholder="e.g., 27.7215"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor={lngFieldId} className="text-xs text-white/50 mb-1 block">Longitude</label>
-                    <input
-                      id={lngFieldId}
-                      type="text"
-                      inputMode="decimal"
-                      value={lngText}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLngText(e.target.value)}
-                      data-testid="calendar-editor-lng-input"
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
-                      placeholder="e.g., 85.3620"
-                    />
-                  </div>
-                </div>
-                {!pinReady && (
-                  <p data-testid="calendar-editor-pin-error" className="text-xs text-red-400">
-                    Enter both latitude (-90 to 90) and longitude (-180 to 180), or clear both to remove the pin.
-                  </p>
-                )}
-                {(latText || lngText) && (
+            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                ref={pinButtonRef}
+                onClick={() => onRequestPin?.()}
+                data-testid="calendar-editor-pin-drop"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-white/15 px-3 text-xs font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              >
+                <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
+                {pin ? 'Move pin' : 'Drop a pin'}
+              </button>
+              {pin && (
+                <>
+                  <span
+                    data-testid="calendar-editor-pin-value"
+                    data-lat={String(pin.lat)}
+                    data-lng={String(pin.lng)}
+                    className="text-xs tabular-nums text-white/60"
+                  >
+                    {pin.lat.toFixed(4)}, {pin.lng.toFixed(4)}
+                  </span>
                   <button
                     type="button"
-                    onClick={clearPin}
+                    onClick={() => setPin(null)}
                     data-testid="calendar-editor-pin-clear"
-                    className="text-xs text-white/40 hover:text-white/60 underline underline-offset-2 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 rounded focus-visible:outline-none"
+                    className="inline-flex min-h-[44px] items-center rounded px-1 text-xs text-white/40 underline underline-offset-2 transition-colors hover:text-white/60 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     Clear pin
                   </button>
-                )}
-              </div>
-            )}
+                </>
+              )}
+            </div>
           </div>
           {/* Multi-day span — opt-in, collapsed unless the item already spans. A "spans
               multiple days" toggle reveals a native <select> of trip days AFTER the start day.
@@ -429,7 +470,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
               aria-expanded={spanOpen}
               disabled={!canSpan}
               data-testid="calendar-editor-span-toggle"
-              className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white/75 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 rounded-lg focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white/75 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Calendar className="w-3.5 h-3.5" />
               Spans multiple days (optional)
@@ -443,7 +484,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
                   value={endDate}
                   data-testid="calendar-editor-span-select"
                   onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setEndDate(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 focus-visible:outline-none"
+                  className="w-full px-3 py-2 rounded-lg bg-surface border border-white/10 text-white text-sm outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:outline-none"
                 >
                   <option value="">Single day (no span)</option>
                   {spanDayOptions.map((d) => (
@@ -461,7 +502,7 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
               target="_blank"
               rel="noopener noreferrer"
               data-testid="calendar-editor-maps-link"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gold-300 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-primary hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <ExternalLink className="w-3.5 h-3.5 shrink-0" />
               Search on Google Maps
@@ -478,13 +519,15 @@ function ItemEditor({ item, startDate, onSave, onClose }: { item?: ItineraryItem
           )}
           <div>
             <label htmlFor={notesFieldId} className="text-xs text-white/50 mb-1 block">Notes</label>
-            <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} data-testid="calendar-editor-notes-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
+            <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} data-testid="calendar-editor-notes-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
           </div>
+            </div>
+          </details>
           <button
             onClick={handleSave}
-            disabled={!title.trim() || !pinReady}
+            disabled={!title.trim()}
             data-testid="calendar-editor-save"
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
           >
             <Check className="w-4 h-4" />
             {item ? 'Update Item' : 'Add Item'}
@@ -536,6 +579,15 @@ export default function CalendarPlanner() {
   const [editingItem, setEditingItem] = useState<ItineraryItem | undefined>(undefined);
   const [showEditor, setShowEditor] = useState(false);
   const [viewMode, setViewMode] = useState<'calendar' | 'agenda'>('calendar');
+  // Row 2: under 640px the toolbar's secondary controls fold into a disclosure. One
+  // boolean and a Tailwind breakpoint — at `sm+` the panel is always laid out inline and
+  // this flag is inert, so the controls are declared once and never duplicated per width.
+  const [overflowOpen, setOverflowOpen] = useState(false);
+  const overflowPanelId = useId();
+  // the mobile month-grid expander, lifted out of CalendarDayPicker with the strip
+  // (see Row 1 below and the prop doc in calendar-day-picker.tsx). Collapsed by default so
+  // the phone still lands on the single-day agenda.
+  const [showMonthView, setShowMonthView] = useState(false);
 
   // split map/list view. OFF by default so the maplibre island stays
   // interaction-lazy.
@@ -560,6 +612,21 @@ export default function CalendarPlanner() {
   );
   const [mapExpanded, setMapExpanded] = useState(false);
   const listRef = useRef<HTMLDivElement | null>(null);
+
+  // pin-pick. The editor asks for a coordinate; the MAP PANE (which lives out here,
+  // not in the portal) collects it. While `pickingPin` the editor is visually hidden but
+  // still mounted, so the trip to the map costs nothing the user has typed. `pickedPin` is
+  // a fresh object per pick so re-picking the identical spot still reaches the editor.
+  const [pickingPin, setPickingPin] = useState(false);
+  const [pickedPin, setPickedPin] = useState<{ lat: number; lng: number } | null>(null);
+  const handleRequestPin = () => {
+    setShowMap(true); // reuses the one lazy pane; a no-op if the map is already open
+    setPickingPin(true);
+  };
+  const handleMapPick = (ll: { lng: number; lat: number }) => {
+    setPickedPin({ lat: ll.lat, lng: ll.lng });
+    setPickingPin(false);
+  };
 
   // Presentational author filter: READ-ONLY. It only narrows which items
   // are SHOWN; it never touches `plans`/localStorage or any store mutator. CRUD, DnD and
@@ -615,12 +682,32 @@ export default function CalendarPlanner() {
   const handleAddItem = () => {
     triggerRef.current = (document.activeElement as HTMLElement) ?? null;
     setEditingItem(undefined);
+    // a pick left over from the last editor session must not seed the next one —
+    // the editor applies `pickedPin` on mount as well as on change.
+    setPickedPin(null);
     setShowEditor(true);
+  };
+
+  // composer add: peel a leading/trailing time token off the typed text (the pinned
+  // `parseTimeString` is anchored and stays that way —), then write the SAME structured
+  // pair the editor writes, so a
+  // composer-created item and an editor-created one are byte-identical on disk. No time in the
+  // text → an untimed item, exactly as before. Same addItem → commit() choke-point.
+  const handleQuickAdd = (text: string) => {
+    const { title, startMinutes } = extractQuickAddTime(text);
+    if (!title) return;
+    addItem(selectedDate, {
+      id: generateItemId(),
+      title,
+      category: 'sightseeing',
+      ...(startMinutes !== undefined ? { startMinutes, time: minutesToHHMM(startMinutes) } : {}),
+    });
   };
 
   const handleEditItem = (item: ItineraryItem) => {
     triggerRef.current = (document.activeElement as HTMLElement) ?? null;
     setEditingItem(item);
+    setPickedPin(null); // see handleAddItem
     setShowEditor(true);
   };
 
@@ -872,22 +959,41 @@ export default function CalendarPlanner() {
   // pure presentational consumer — same country + item-count source the month grid uses
   // (full stored set, unaffected by the read-only author filter). The Today marker date
   // comes from the single trip-clock.
-  const dayStripMeta: DayStripDateMeta[] = TRIP_DATES.map((date) => ({
-    date,
-    country: getCountryForDate(date),
-    count: getDayPlan(date).items?.length ?? 0,
-  }));
+  // memoized — this walks all 32 trip days and calls getDayPlan on each, and it ran on
+  // EVERY render (a keystroke in the composer, a hover, a highlight change). `getDayPlan` is
+  // `useCallback([plans])` in use-itinerary, so its identity IS the itinerary version tick:
+  // the scan re-runs exactly when the itinerary changes and not once more.
+  const dayStripMeta: DayStripDateMeta[] = useMemo(
+    () =>
+      TRIP_DATES.map((date) => ({
+        date,
+        country: getCountryForDate(date),
+        count: getDayPlan(date).items?.length ?? 0,
+      })),
+    [getDayPlan],
+  );
   const todayStripDate = getTodayInTrip()?.date ?? null;
 
   // ONE PlanDayMap instance, placed either in the desktop inline pane or the
   // mobile bottom-sheet by `isDesktop` — never both, so there is a single GL context.
+  //
+  // /: wrapped, because this is one of the 3 call sites gen-sw.mjs reports
+  // as maplibre-reduced ("gen-sw: maplibre withheld from N call site(s)") — the
+  // chunk is deliberately not precached, so cold-offline React.lazy throws HERE, and
+  // unwrapped that throw escapes to app/error.tsx and takes the whole /plan/ route
+  // down (planner, timeline, budget and all) the moment someone toggles map view.
   const mapEl = (
-    <PlanDayMap
-      dayStops={dayStops}
-      totalItems={dayItems.length}
-      highlightId={highlightId}
-      onMarkerClick={handleMarkerClick}
-    />
+    <MapIslandBoundary label="The day map">
+      <PlanDayMap
+        dayStops={dayStops}
+        totalItems={dayItems.length}
+        highlightId={highlightId}
+        onMarkerClick={handleMarkerClick}
+        pickMode={pickingPin}
+        onPick={handleMapPick}
+        onCancelPick={() => setPickingPin(false)}
+      />
+    </MapIslandBoundary>
   );
 
   return (
@@ -896,7 +1002,7 @@ export default function CalendarPlanner() {
         <SectionHeading
           id="itinerary-heading"
           className="mb-10"
-          title={<>Itinerary <span className="text-gradient-gold">Planner</span></>}
+          title={<>Itinerary <span className="text-display-emphasis">Planner</span></>}
           subtitle="Plan every day of the journey. Drag items to reorder or move between days."
         />
 
@@ -905,50 +1011,155 @@ export default function CalendarPlanner() {
             `focusItem`. */}
         <PlanSearch plans={plans} onSelect={handleSearchSelect} />
 
-        {/* View Toggle — desktop only (`lg+`). On phones the day-strip + collapsible
-            month view replace this Calendar/Agenda switch, so it is hidden below `lg`. */}
-        <div className="hidden lg:flex flex-wrap justify-center gap-2 mb-6">
+        {/* ── ROW 1: the sticky date strip (`<lg`) ────────────────────────────────
+            Lifted out of the left grid cell to get here. `position:sticky` only sticks
+            within its own containing block, and the strip's block used to be the day-picker
+            pane — a box exactly as tall as the strip, so `sticky` was a no-op there. As a
+            direct child of the planner container it now stays pinned under the navbar for
+            the whole scroll, which is the point: the day you are editing is always visible.
+            `top-16` is the fixed navbar's height (h-16); `h-[76px]` is declared, not
+            incidental, because the composer below parks at exactly navbar+strip (see its
+            `top-[140px]`). Desktop keeps the month grid as its picker and never renders this. */}
+        <div className="sticky top-16 z-20 -mx-4 mb-4 flex h-[76px] items-center gap-2 border-b border-white/5 bg-surface/90 px-4 backdrop-blur-sm sm:-mx-6 sm:px-6 lg:hidden">
+          <div className="min-w-0 flex-1">
+            <DayStrip
+              dates={TRIP_DATES}
+              selectedDate={selectedDate}
+              onSelect={setSelectedDate}
+              meta={dayStripMeta}
+              todayDate={todayStripDate}
+            />
+          </div>
           <button
-            onClick={() => setViewMode('calendar')}
-            aria-pressed={viewMode === 'calendar'}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${viewMode === 'calendar' ? 'bg-gold-500/20 text-gold-400 ring-1 ring-gold-400/30' : 'text-white/50 hover:bg-white/5'}`}
+            type="button"
+            onClick={() => setShowMonthView((v) => !v)}
+            aria-expanded={showMonthView}
+            aria-label="Month view"
+            data-testid="calendar-month-view-toggle"
+            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 flex-col items-center justify-center rounded-lg text-[10px] font-medium text-white/50 transition-all hover:bg-white/5 hover:text-white/80 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
-            <Calendar className="w-4 h-4 inline mr-1.5" />
-            Calendar View
-          </button>
-          <button
-            onClick={() => setViewMode('agenda')}
-            aria-pressed={viewMode === 'agenda'}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${viewMode === 'agenda' ? 'bg-gold-500/20 text-gold-400 ring-1 ring-gold-400/30' : 'text-white/50 hover:bg-white/5'}`}
-          >
-            <MapPin className="w-4 h-4 inline mr-1.5" />
-            Agenda View
+            <Calendar className="w-4 h-4" aria-hidden="true" />
+            <ChevronDown className={`w-3 h-3 transition-transform ${showMonthView ? 'rotate-180' : ''}`} aria-hidden="true" />
           </button>
         </div>
 
-        {/* Author filter: presentational, read-only. Self-hides when no item is
-            attributed (dormant/portfolio build unchanged). Narrows the day-detail list
-            below AND the timeline (shared selection via lib/author-filter). */}
-        <AuthorFilterControl plans={plans} className="mb-6" />
-
-        {/* split map/list toggle. OFF by default → the maplibre island stays
-            interaction-lazy. On → the selected day's stops + polyline render on
-            <TripMap> beside the list (lg+) or in a bottom-sheet peek (`<lg`). */}
-        <div className="flex justify-center mb-6">
+        {/* ── ROW 2: the one planner toolbar ──────────────────────────────────────
+            Before this change the planner stacked its controls as separate full-width
+            strata: a Calendar/Agenda switch, the author filter, the map toggle, the month-
+            view expander, and — inside the day card, a third of the way down the page — the
+            Select / Clear-day pair. Five bands of chrome between the heading and the plan.
+            They are now ONE 44px row (`min-h-[44px]`, the project's touch-target floor),
+            with the day-scoped actions sitting beside the view-scoped ones because from the
+            user's side they are all "things I do to this day".
+            Under `sm` (640px) everything but the map toggle folds into an overflow
+            disclosure. The controls are declared ONCE and the SAME nodes are either laid
+            out inline (`sm:`) or dropped into the panel — duplicating them per breakpoint
+            would double every testid and break Playwright's strict mode. */}
+        <div
+          role="group"
+          aria-label="Plan tools"
+          data-testid="calendar-toolbar"
+          className="relative mb-6 flex min-h-[44px] flex-wrap items-center justify-center gap-2"
+        >
+          {/* split map/list toggle. OFF by default → the maplibre island stays
+              interaction-lazy. On → the selected day's stops + polyline render on
+              <TripMap> beside the list (lg+) or in a bottom-sheet peek (`<lg`). Kept out of
+              the overflow at every width: it is the toolbar's primary action and the one
+              the pin picker arms. */}
           <button
             type="button"
             onClick={() => setShowMap((v) => !v)}
             aria-pressed={showMap}
             data-testid="plan-map-toggle"
-            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+            className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-4 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               showMap
-                ? 'bg-gold-500/20 text-gold-300 border-gold-500/40'
+                ? 'bg-primary/20 text-primary border-primary/40'
                 : 'text-white/50 border-white/10 hover:bg-white/5 hover:text-white/80'
             }`}
           >
-            <MapIcon className="w-4 h-4" />
+            <MapIcon className="w-4 h-4" aria-hidden="true" />
             {showMap ? 'Hide map' : 'Show map'}
           </button>
+
+          <button
+            type="button"
+            onClick={() => setOverflowOpen((v) => !v)}
+            aria-expanded={overflowOpen}
+            aria-controls={overflowPanelId}
+            data-testid="calendar-toolbar-overflow"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-white/10 px-3 text-sm font-medium text-white/50 transition-all hover:bg-white/5 hover:text-white/80 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:hidden"
+          >
+            <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
+            More
+          </button>
+
+          <div
+            id={overflowPanelId}
+            data-testid="calendar-toolbar-panel"
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === 'Escape') setOverflowOpen(false);
+            }}
+            className={`${
+              overflowOpen
+                ? 'absolute right-0 top-full z-20 mt-1 w-56 flex-col items-stretch gap-1 rounded-xl border border-white/10 bg-surface/95 p-2 shadow-xl backdrop-blur flex'
+                : 'hidden'
+            } sm:static sm:z-auto sm:mt-0 sm:w-auto sm:flex-row sm:items-center sm:gap-2 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none sm:flex`}
+          >
+            {/* View Toggle — desktop only (`lg+`). On phones the day-strip + collapsible
+                month view replace this Calendar/Agenda switch, so it is hidden below `lg`. */}
+            <button
+              onClick={() => setViewMode('calendar')}
+              aria-pressed={viewMode === 'calendar'}
+              className={`hidden min-h-[44px] items-center rounded-lg px-4 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:inline-flex ${viewMode === 'calendar' ? 'bg-primary/20 text-primary ring-1 ring-ring/30' : 'text-white/50 hover:bg-white/5'}`}
+            >
+              <Calendar className="w-4 h-4 inline mr-1.5" />
+              Calendar View
+            </button>
+            <button
+              onClick={() => setViewMode('agenda')}
+              aria-pressed={viewMode === 'agenda'}
+              className={`hidden min-h-[44px] items-center rounded-lg px-4 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:inline-flex ${viewMode === 'agenda' ? 'bg-primary/20 text-primary ring-1 ring-ring/30' : 'text-white/50 hover:bg-white/5'}`}
+            >
+              <MapPin className="w-4 h-4 inline mr-1.5" />
+              Agenda View
+            </button>
+
+            {/* Author filter: presentational, read-only. Self-hides when no item is
+                attributed (dormant/portfolio build unchanged). Narrows the day-detail list
+                below AND the timeline (shared selection via lib/author-filter). */}
+            <AuthorFilterControl plans={plans} />
+
+            {/* Clear day + Select — moved out of the day card into this row. Both
+                still appear only when the day has items, and Select still toggles the
+                multi-select mode (OFF by default, no change to the single-item flow). */}
+            {dayItems.length > 0 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+                  aria-pressed={selectMode}
+                  data-testid="calendar-select-toggle"
+                  className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                    selectMode
+                      ? 'bg-primary/20 text-primary ring-1 ring-ring/30'
+                      : 'text-white/50 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Check className="w-4 h-4" aria-hidden="true" />
+                  {selectMode ? 'Done' : 'Select'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmClearOpen(true)}
+                  data-testid="calendar-clear-day"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm text-white/50 transition-colors hover:text-rose-300 hover:bg-rose-400/10 outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none"
+                >
+                  <Trash2 className="w-4 h-4" aria-hidden="true" />
+                  Clear day
+                </button>
+              </>
+            )}
+          </div>
         </div>
 
         <div className="grid lg:grid-cols-[340px_1fr] gap-6">
@@ -961,7 +1172,7 @@ export default function CalendarPlanner() {
             getDayPlan={getDayPlan}
             spendByDate={spendByDate}
             todayStripDate={todayStripDate}
-            dayStripMeta={dayStripMeta}
+            showMonthView={showMonthView}
           />
 
           {/* Right region: the day detail + the optional inline map pane. When the
@@ -971,7 +1182,7 @@ export default function CalendarPlanner() {
           <div className="min-w-0 glass-card rounded-2xl p-4 sm:p-6">
             {/* Day Header */}
             <div className="flex items-center justify-between gap-1 mb-5">
-              <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
+              <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
                 <h3 className="font-display text-base sm:text-lg font-bold text-white leading-snug">{formatDateLong(selectedDate)}</h3>
                 <p className="text-xs text-white/40">
@@ -1007,7 +1218,7 @@ export default function CalendarPlanner() {
                   {(spendByDate[selectedDate] ?? 0) > 0 && (
                     <span
                       data-testid="calendar-day-spend-total"
-                      className="inline-flex items-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-2.5 py-0.5 text-xs font-medium text-gold-300"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-0.5 text-xs font-medium text-foreground"
                     >
                       <span aria-hidden="true">•</span>
                       <span>
@@ -1030,39 +1241,64 @@ export default function CalendarPlanner() {
                   )}
                 </div>
               </div>
-              <button onClick={goToNext} disabled={currentIdx >= TRIP_DATES.length - 1} aria-label="Next day" data-testid="calendar-next-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><ChevronRight className="w-5 h-5" /></button>
+              <button onClick={goToNext} disabled={currentIdx >= TRIP_DATES.length - 1} aria-label="Next day" data-testid="calendar-next-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronRight className="w-5 h-5" /></button>
             </div>
 
-            {/* Day toolbar. Both appear only when the day has
-                items. Select toggles the multi-select mode (OFF by default — no change to the
-                normal single-item flow when off). */}
-            {dayItems.length > 0 && (
-              <div className="flex justify-between items-center gap-2 mb-3">
+            {/* — the composer. Moved out from under the list to directly under the day
+                header and made STICKY, so on a long day the primary add path never scrolls away.
+                `top-16` is the fixed navbar's exact height (h-16), so it parks just below it;
+                `z-10` keeps it inside this card's stacking context, far under the editor portal
+                (z-50) and the map sheet (z-40). Full-bleed via -mx to cover the card's padding
+                gutters while rows scroll behind it.
+                Type a title → Enter → the item lands on the selected day through the same
+                addItem → commit() choke-point as every other write. A leading or
+                trailing time token ("7pm dinner", "dinner 19:00") is peeled by
+                `extractQuickAddTime` and dual-written as time + startMinutes, exactly
+                the pair the editor writes. "Details" opens the FULL editor for anything one
+                line can't say — it is the same trigger the dashed "Add Activity" button was,
+                relocated, not removed (it is the ONLY path to a blank editor). */}
+            {/* parks at navbar (64px) + sticky day strip (76px) below `lg`, where both
+                bands are pinned; at `lg+` there is no strip so it returns to the navbar. */}
+            <div className="sticky top-[140px] lg:top-16 z-10 -mx-4 sm:-mx-6 mb-3 border-b border-white/5 bg-surface/90 px-4 py-2 backdrop-blur-sm sm:px-6">
+              <div className="flex items-center gap-2">
+                <QuickAddInput
+                  className="min-w-0 flex-1"
+                  // The accessible name carries the time hint in full; the placeholder cannot,
+                  // because at 390px this row also holds the submit + Details buttons and
+                  // anything longer than ~20 characters truncates mid-word (measured).
+                  label={`Quick-add a plan for ${formatDateLong(selectedDate)} — begin or end with a time like 7pm to set it`}
+                  placeholder="Add a plan…"
+                  testId="calendar-quick-add"
+                  onAdd={handleQuickAdd}
+                />
                 <button
                   type="button"
-                  onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                  aria-pressed={selectMode}
-                  data-testid="calendar-select-toggle"
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                    selectMode
-                      ? 'bg-gold-500/20 text-gold-300 ring-1 ring-gold-400/30'
-                      : 'text-white/40 hover:text-white hover:bg-white/5'
-                  }`}
+                  onClick={handleAddItem}
+                  data-testid="calendar-add-item"
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-white/10 px-3 py-2.5 text-xs text-white/50 transition-all hover:border-ring/30 hover:bg-primary/5 hover:text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
-                  <Check className="w-3.5 h-3.5" />
-                  {selectMode ? 'Done' : 'Select'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmClearOpen(true)}
-                  data-testid="calendar-clear-day"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-white/40 hover:text-rose-300 hover:bg-rose-400/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  Clear day
+                  <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                  Details
                 </button>
               </div>
-            )}
+              {/* — the visible affordance for the time syntax. had to cut the hint
+                  from the placeholder because at 390px the input shares its row with the submit
+                  and Details buttons and anything past ~20 characters truncated MID-WORD, and it
+                  moved the hint into the accessible name — which left the feature's whole value
+                  invisible to everyone not using a screen reader.
+                  On its own line the constraint disappears: the hint owns the full row width, and
+                  it WRAPS rather than truncates (no `truncate`/`text-ellipsis`/`whitespace-nowrap`
+                  here, deliberately) so no width can ever clip it mid-word. */}
+              <p
+                data-testid="calendar-quick-add-hint"
+                className="mt-1 text-[11px] leading-snug text-white/40"
+              >
+                Tip: start with a time — “7pm dinner”
+              </p>
+            </div>
+
+            {/* the Select / Clear-day pair that used to sit here is now in the one
+                planner toolbar above (Row 2), beside the map and filter controls. */}
 
             {/* bulk-action bar — extracted to CalendarBulkToolbar (pure move). Visible
                 only in select mode; the parent still owns the selection + the delete confirm. */}
@@ -1228,28 +1464,6 @@ export default function CalendarPlanner() {
               </DragOverlay>
             </DndContext>
 
-            {/* Inline quick-add — title → Enter → addItem on
-                the selected day. This is the single FAST, title-only affordance; the "Add
-                Activity" button below (and the phone quick-add FAB) open the FULL editor for
-                detailed adds, so the surface has one fast path + one detailed path, not two
-                competing quick adds. Writes through the same commit() choke-point → holds. */}
-            <div className="mt-4">
-              <QuickAddInput
-                label={`Quick-add a plan for ${formatDateLong(selectedDate)}`}
-                testId="calendar-quick-add"
-                onAdd={(title) => addItem(selectedDate, { id: generateItemId(), title, category: 'sightseeing' })}
-              />
-            </div>
-
-            {/* Add Button — the DETAILED path (full editor: time, category, location, notes). */}
-            <button
-              onClick={handleAddItem}
-              data-testid="calendar-add-item"
-              className="w-full mt-3 flex items-center justify-center gap-2 py-3 rounded-xl border border-dashed border-white/10 text-white/40 hover:text-gold-400 hover:border-gold-400/30 hover:bg-gold-400/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-            >
-              <Plus className="w-4 h-4" />
-              Add Activity
-            </button>
           </div>
 
           {/* desktop inline map pane (lg+). Sticky + tall; stacks under the day
@@ -1288,7 +1502,7 @@ export default function CalendarPlanner() {
                 aria-expanded={mapExpanded}
                 aria-label={mapExpanded ? 'Collapse map' : 'Expand map'}
                 data-testid="plan-map-sheet-expand"
-                className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <ChevronDown className={`w-4 h-4 transition-transform ${mapExpanded ? '' : 'rotate-180'}`} />
               </button>
@@ -1297,7 +1511,7 @@ export default function CalendarPlanner() {
                 onClick={() => setShowMap(false)}
                 aria-label="Hide map"
                 data-testid="plan-map-sheet-close"
-                className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -1323,7 +1537,10 @@ export default function CalendarPlanner() {
             item={editingItem}
             startDate={selectedDate}
             onSave={handleSaveItem}
-            onClose={() => { setShowEditor(false); setEditingItem(undefined); }}
+            onClose={() => { setShowEditor(false); setEditingItem(undefined); setPickingPin(false); setPickedPin(null); }}
+            hidden={pickingPin}
+            pickedPin={pickedPin}
+            onRequestPin={handleRequestPin}
           />
         )}
       </AnimatePresence>

@@ -44,7 +44,7 @@ const PACE_META: Record<
   },
   on: {
     label: 'On pace',
-    badge: 'border-gold-400/40 bg-gold-400/10 text-gold-300',
+    badge: 'border-gold-400/40 bg-gold-400/10 text-gold-400',
     bar: 'bg-gold-400/80',
     Icon: Minus,
     sr: 'You are spending right around your daily budget — projected to finish close to budget.',
@@ -99,7 +99,7 @@ export default function BurnRateView({
       {/* Header + pace badge */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <Gauge className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />
+          <Gauge className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <h3 className="text-sm font-semibold text-white sm:text-base">Spending pace</h3>
         </div>
         <span

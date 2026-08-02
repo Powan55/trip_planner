@@ -111,7 +111,7 @@ function ContactRow({ contact }: { contact: EmergencyContact }) {
         <a
           href={`tel:${contact.tel}`}
           aria-label={`Call ${contact.service}, ${contact.number}`}
-          className="inline-flex min-h-[44px] items-center rounded-lg bg-gold-500/15 px-3 font-mono text-sm font-semibold text-gold-300 outline-none transition-colors hover:bg-gold-500/25 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center rounded-lg bg-primary/10 px-3 font-mono text-sm font-semibold text-primary outline-none transition-colors hover:bg-primary/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           {contact.number}
         </a>
@@ -136,7 +136,7 @@ function PhraseRow({ phrase }: { phrase: Phrase }) {
 function ChecklistRow({ item }: { item: ChecklistItem }) {
   return (
     <li data-testid={`safety-checklist-${item.id}`} className="flex gap-2 text-sm">
-      <span aria-hidden="true" className="mt-0.5 text-gold-400">
+      <span aria-hidden="true" className="mt-0.5 text-muted-foreground">
         ✓
       </span>
       <span>

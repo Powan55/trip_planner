@@ -100,9 +100,9 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             aria-pressed={isSelected}
             aria-label={`${long}${todayLabel}${activityLabel}`}
             data-testid={`day-strip-${date}`}
-            className={`snap-center shrink-0 w-16 relative flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-xl text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+            className={`snap-center shrink-0 w-16 relative flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-xl text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               isSelected
-                ? 'bg-gold-500/20 ring-2 ring-gold-400 text-white font-bold'
+                ? 'bg-primary/20 ring-2 ring-ring text-white font-bold'
                 : count > 0
                   ? country === 'nepal'
                     ? 'bg-himalaya-500/10 text-himalaya-400 hover:bg-himalaya-500/20'
@@ -136,7 +136,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             {count > 0 && (
               <span
                 className={`absolute top-1 right-1 min-w-[1rem] h-4 px-1 flex items-center justify-center rounded-full text-[9px] font-semibold ${
-                  isSelected ? 'bg-gold-500 text-surface' : 'bg-white/10 text-white/70'
+                  isSelected ? 'bg-primary text-primary-foreground' : 'bg-white/10 text-white/70'
                 }`}
                 aria-hidden="true"
               >

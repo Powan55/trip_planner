@@ -13,7 +13,7 @@
  * on-disk key *strings* and value *shapes* are byte-identical to the pre-gateway code.
  * The gateway is a typed wrapper over the SAME bytes — the only thing that moved is
  * where each string constant is declared, not what it is. Every deployed browser reads
- * guest flag / name / token / nightlife-pref / today-override identically.
+ * name / token / nightlife-pref / today-override identically.
  *
  * Store-per-key: the gateway spans BOTH web-storage backends because
  * `tripPlannerTodayOverride` is genuinely sessionStorage. Each slot declares its
@@ -44,13 +44,12 @@ function backing(store: Store): Storage | null {
 /**
  * Every persisted web-storage key literal lives here and NOWHERE else. Each entry pins
  * the exact on-disk string (unchanged) and its store. The previously duplicated raw
- * literals (`tripPlannerGuest` across navbar/token-gate/use-active-traveler,
- * `tripPlannerUserName` across identity/token-auth) now collapse to a single reference
- * each.
+ * literal `tripPlannerUserName` (across identity/token-auth) now collapses to a single
+ * reference.
  *
  * NOTE: the itinerary keys (`nepal_japan_itinerary` + `…_corrupt`) are deliberately NOT
  * here — they stay owned by `lib/itinerary-storage.ts` / the Vault. The
- * `packing_checklist` slot (formerly key 6) was removed in S113D along with the Home
+ * `packing_checklist` slot (formerly key 6) was removed in along with the Home
  * packing checklist feature; the key numbering (7 onward) is kept as historical
  * documentation rather than renumbered. This registry is the SIX non-itinerary
  * persisted keys only.
@@ -60,8 +59,6 @@ export const STORAGE_KEYS = {
   userName: 'tripPlannerUserName',
   /** localStorage — plain traveler-token string (identity, key 4). */
   token: 'tripPlannerToken',
-  /** localStorage — presence flag `'1'` for guest browsing (session/gate, key 5). */
-  guest: 'tripPlannerGuest',
   /** localStorage — boolean-as-string (`String(next)`) nightlife visibility (ui-prefs, key 7). */
   nightlifeVisible: 'nightlife_section_visible',
   /** sessionStorage — `YYYY-MM-DD` `?today=` override. */
@@ -128,7 +125,7 @@ export const STORAGE_KEYS = {
    * so an offline edit survives a reload and is re-pushed exactly once on reconnect. STATE-
    * based (dirty-chunk sets), NOT an op-log. Client-side only; the value shape is owned by
    * `core/sync/outbox.ts` (the gateway is byte-transport only). Written ONLY on a configured +
-   * identified-traveler build (the outbox self-gates), so the dormant/guest build NEVER touches
+   * identified-traveler build (the outbox self-gates), so the dormant build NEVER touches
    * this key and stays byte-identical. ADDITIVE: a brand-new key, no back-compat
    * surface changes and NO migration (it is NOT part of the itinerary Vault). NOTE: the
    * sketched key 14 for this slot, but favorites took 14 first — the outbox is
@@ -147,7 +144,7 @@ export const STORAGE_KEYS = {
    * localStorage — presence flag `'1'` marking the first-run guided tour has been seen
    * Gates a ≤5-step coach-mark stepper (Today · Plan ·
    * Budget · Journal · Map) shown exactly once, right after the TokenGate first resolves
-   * (a traveler signs in OR opts into guest). Local-only (mirrors `chunkReloadGuard`'s
+   * (a traveler signs in). Local-only (mirrors `chunkReloadGuard`'s
    * presence-flag shape, but on the LOCAL store since this must survive a reload, unlike
    * the session-scoped chunk guard) — NOT part of any sync path. `tourStore.hasSeenTour()`
    * is the presence read; `markTourSeen()` sets it on Skip OR finishing the last step —
@@ -182,8 +179,8 @@ export const STORAGE_KEYS = {
    * (suppress the toast forever, and NO PWA-relaunch re-enter); `'active'` = currently IN Travel
    * Mode (a PWA relaunch re-enters `/travel`). Folded into ONE key deliberately ( — no extra
    * key for "seen"): `'active'` implies seen, so `hasSeen()` is mere key-presence. LOCAL store so it
-   * survives a reload/relaunch (unlike the session-scoped chunk guard). GUEST-BLOCKED — never written
-   * for a guest. ADDITIVE: brand-new key, no back-compat surface change and NO migration. */
+   * survives a reload/relaunch (unlike the session-scoped chunk guard). Never written for an
+   * unidentified visitor. ADDITIVE: brand-new key, no back-compat surface change and NO migration. */
   travelMode: 'nepal_japan_travel_mode',
   /**
    * sessionStorage — the route to restore when Travel Mode is EXITED (travel-return, key 20;
@@ -255,7 +252,7 @@ export const STORAGE_KEYS = {
    * single doc `trips/{tripId}/docs/checklist`, `lib/docs-remote.ts`). TRIP-SCOPED (paired with the
    * remote per-trip doc, like `expenses`/`budget`). Value shape owned by `core/docs/model.ts` (the
    * gateway is byte-transport only). The additive sync stamps (rev/hlc) are written ONLY on a
-   * configured build (the hook self-gates), so the dormant/guest slot stays byte-identical.
+   * configured build (the hook self-gates), so the dormant slot stays byte-identical.
    * ADDITIVE: a brand-new key, no back-compat surface change and NO migration. */
   docsChecklist: 'nepal_japan_docs_checklist',
   /**
@@ -313,7 +310,7 @@ export const STORAGE_KEYS = {
    * trip's places never bleed into the default pack. Held NEWEST-FIRST, capped at 200 (drop-oldest,
    * `core/places/model.ts` `PLACES_CAP`) so the value stays small. localStorage backend;
    * additive, no migration, LOCAL-ONLY (NOT part of the itinerary Vault, NOT part of any sync path —
-   * cross-device sync is the deferred S-d). Value shape owned by `core/places/model.ts` (the gateway
+   * cross-device sync is the deferred). Value shape owned by `core/places/model.ts` (the gateway
    * is byte-transport only). ADDITIVE: a brand-new key, no back-compat surface changes. Mirrors
    * `shareInboxStore`/`favoritesStore` exactly. NOTE: the plan text sketched "key 30", but
    * `installHintDismissed` took 30 first — this is the next free number, key 31.
@@ -329,16 +326,6 @@ export const STORAGE_KEYS = {
  * reads it. Must equal `firebase-config.ts`'s `NEXT_PUBLIC_TRIP_ID` default string.
  */
 export const DEFAULT_TRIP_ID = 'nepal-japan-2026';
-
-/**
- * Reserved key NAMESPACE for the guest demo sandbox — NOT a trip id. It never enters
- * the `activeTrip` pointer, `knownTrips`, `joinTrip`, a share link, or a Firestore path: it exists
- * only as the `trip:guest-sandbox:*` key prefix `keyFor` returns while the guest flag is set, so a
- * guest's edits are isolated from the default pack's grandfathered literals. `core/trips/registry.ts`
- * REFUSES this id in `joinTrip`/`upsertKnownTrip` as defense-in-depth against a pasted "guest-sandbox"
- * Trip Key.
- */
-export const GUEST_SANDBOX_ID = 'guest-sandbox';
 
 /**
  * Read the active pack id, or `DEFAULT_TRIP_ID` when the pointer is unset / SSR / unreadable.
@@ -410,7 +397,7 @@ export function setRemovedTripsRaw(raw: string): void {
 
 /**
  * The trip-scoped slots — the ONLY slots `keyFor` accepts. App-scoped slots (`userName`, `token`,
- * `guest`, `todayOverride`, `chunkReloadOnce`, `firstRunTour`, `nightlifeVisible`, `activeTrip`)
+ * `todayOverride`, `chunkReloadOnce`, `firstRunTour`, `nightlifeVisible`, `activeTrip`)
  * are STRUCTURALLY excluded: they are not in this union, so passing one to `keyFor` is a compile
  * error.
  */
@@ -431,6 +418,39 @@ export type TripScopedSlot =
   | 'myPlaces';
 
 /**
+ * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
+ * `wipeAllTripData()` (below) and the trip-scope test suites import, replacing two hand-maintained
+ * copies that had already drifted from the type itself (both were missing `myPlaces`, later
+ * addition — see the for the exact drift). `TripScopedSlot` is compile-time-only, so a
+ * runtime array needs its own exhaustiveness guarantee: `satisfies` rejects a typo/invalid member
+ * below, and the `_ExhaustiveTripScopedSlots` check rejects a MISSING one — add a member to
+ * `TripScopedSlot` without adding it here and `tsc` fails, so a slot can never silently escape a wipe.
+ */
+const ALL_TRIP_SCOPED_SLOTS = [
+  'weatherCache',
+  'budget',
+  'expenses',
+  'journal',
+  'favorites',
+  'syncOutbox',
+  'photos',
+  'itinerary',
+  'itineraryCorrupt',
+  'docsChecklist',
+  'packing',
+  'dayAnchors',
+  'shareInbox',
+  'myPlaces',
+] as const satisfies readonly TripScopedSlot[];
+type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
+  ? true
+  : never;
+const _exhaustiveTripScopedSlots: _ExhaustiveTripScopedSlots = true;
+void _exhaustiveTripScopedSlots;
+
+export const TRIP_SCOPED_SLOTS: readonly TripScopedSlot[] = ALL_TRIP_SCOPED_SLOTS;
+
+/**
  * Resolve the on-disk key for a trip-scoped slot under the ACTIVE pack:
  * - default pack (id-equality with `DEFAULT_TRIP_ID`, NOT key-absence) ⇒ the legacy literal from
  * `STORAGE_KEYS[slot]` VERBATIM — grandfather, forever byte-identical;
@@ -442,81 +462,60 @@ export type TripScopedSlot =
  * is untouched. TOTAL, never-throws.
  */
 export function keyFor(slot: TripScopedSlot): string {
-  // /: a GUEST writes to the reserved sandbox namespace, AHEAD of pointer resolution —
-  // the guest keeps the DEFAULT pointer (so every `isDefaultTrip()` content gate keeps showing the
-  // full showcase), but no guest byte can ever land on the default pack's live keys. The empty
-  // sandbox falls back to SAMPLE_ITINERARY et al., which IS the showcase seed. Guest-flag
-  // transitions ride a full reload, so this branch never flips mid-session.
-  if (sessionGate.isGuest()) return `trip:${GUEST_SANDBOX_ID}:${slot}`;
   const id = getActiveTripId();
   return id === DEFAULT_TRIP_ID ? STORAGE_KEYS[slot] : `trip:${id}:${slot}`;
 }
 
 /**
- * Remove every `trip:guest-sandbox:*` localStorage key — called on each fresh guest
- * opt-in so "Explore the demo" always starts from a pristine showcase. PREFIX-ENUMERATED (not a
- * hardcoded slot list) so a future `TripScopedSlot` can never be forgotten. Collects first, deletes
- * after, because removing while iterating re-indexes `key(i)`. SSR-safe, never throws.
+ * Full local teardown for sign-out. Clears
+ * EVERY on-disk trace of the previous traveler's TRIP DATA on this device — not just the active pack:
+ *
+ * - BOTH trip-scoped namespaces: the `trip:*` prefix sweep (every non-default pack) AND the 14 bare
+ * `STORAGE_KEYS[slot]` literals from `TRIP_SCOPED_SLOTS` (the default pack's data — `keyFor`
+ * grandfathers it to the UNPREFIXED literal, so a `trip:` sweep ALONE misses it entirely;
+ * the default pack is the common case on a fresh/shared device, not an edge case).
+ * - `itineraryCorrupt` IS included in both passes above — a deliberate
+ * reversal of an earlier "must exclude" reading. The slot holds the ORIGINAL bytes of the previous
+ * traveler's itinerary, kept for a migration-crash recovery path that has no reader once the trip
+ * itself is wiped; leaving it behind would be simultaneously a privacy leak (a verbatim copy of
+ * their plan surviving a "wipe this device" action) and orphaned data — exactly what this teardown
+ * exists to remove. "independent lifecycle" clause protects the slot DURING migration; it
+ * was never a rule about a deliberate, user-initiated device teardown. EVERY OTHER code path still
+ * leaves the slot untouched (pinned at `gateway-trip-scope.test.ts`) — do not "restore" an exclusion
+ * here, it was overturned on purpose.
+ * - The app-scoped pointers/lists: `activeTrip`, `knownTrips`, `removedTrips`, `syncCode`.
+ * - `travelMode` (Ruling 4): a stale `'active'` flag with no identity check is what made the
+ * Travel Mode redirect loop reachable by ordinary use — clearing it on sign-out removes the trigger
+ * state at its source.
+ *
+ * Deliberately NOT cleared: identity (the caller, `signOut()`, clears that itself) and photo blobs
+ * (IndexedDB, app-scoped — cleared only by "Forget this device": a photo is expensive to re-acquire
+ * and is not identity-linked).
+ *
+ * SSR-safe, never throws. Mirrors the deleted `wipeSandbox`'s collect-then-delete shape for the prefix
+ * sweep — removing while iterating re-indexes `s.key(i)` and silently skips half the keys.
  */
-export function wipeSandbox(): void {
+export function wipeAllTripData(): void {
   const s = backing('local');
-  if (s === null) return;
-  try {
-    const prefix = `trip:${GUEST_SANDBOX_ID}:`;
-    const doomed: string[] = [];
-    for (let i = 0; i < s.length; i++) {
-      const k = s.key(i);
-      if (k !== null && k.startsWith(prefix)) doomed.push(k);
+  if (s !== null) {
+    try {
+      const prefix = 'trip:';
+      const doomed: string[] = [];
+      for (let i = 0; i < s.length; i++) {
+        const k = s.key(i);
+        if (k !== null && k.startsWith(prefix)) doomed.push(k);
+      }
+      for (const k of doomed) s.removeItem(k);
+    } catch {
+      /* disabled storage / privacy mode — never throw out of the gateway */
     }
-    for (const k of doomed) s.removeItem(k);
-  } catch {
-    /* disabled storage / privacy mode — never throw out of the gateway */
   }
-}
-
-/**
- * ADOPT the guest sandbox into a brand-new trip — the storage
- * half of "Keep this trip". Every `trip:guest-sandbox:{suffix}` localStorage key is copied to
- * `trip:{newTripId}:{suffix}` and then removed, so the demo session's bytes become a normal
- * capability-token trip's bytes and the sandbox namespace is left empty.
- *
- * PREFIX-ENUMERATED, exactly like `wipeSandbox` — **the key list IS the scan**, never a hardcoded
- * slot enumeration. That is the whole point: a `TripScopedSlot` added years from now is adopted for
- * free, because a future slot can never be missing from a list nobody remembered to update.
- *
- * Photo blobs need no copy: they live in IndexedDB keyed by photo id, app-scoped, and the adopted
- * `photos` metadata resolves them unchanged.
- *
- * REFUSES the reserved sandbox namespace itself, an empty id, and `DEFAULT_TRIP_ID` — the default
- * pack's keys are the grandfathered LITERALS (`keyFor`), so "adopting into the default trip" would
- * write `trip:nepal-japan-2026:*` keys nothing ever reads while silently deleting the guest's data.
- * Conversion always mints a fresh uuid, so these are defense-in-depth (mirroring `joinTrip`'s).
- *
- * Copies ENTRY-BY-ENTRY, writing the destination before deleting its source: if a write fails
- * mid-way (quota), the remaining sandbox keys stay on disk rather than being deleted into nothing.
- * Collects the key list first, because removing while iterating re-indexes `key(i)`. SSR-safe,
- * never throws.
- */
-export function adoptSandbox(newTripId: string): void {
-  if (!newTripId || newTripId === GUEST_SANDBOX_ID || newTripId === DEFAULT_TRIP_ID) return;
-  const s = backing('local');
-  if (s === null) return;
-  try {
-    const prefix = `trip:${GUEST_SANDBOX_ID}:`;
-    const sandboxKeys: string[] = [];
-    for (let i = 0; i < s.length; i++) {
-      const k = s.key(i);
-      if (k !== null && k.startsWith(prefix)) sandboxKeys.push(k);
-    }
-    for (const k of sandboxKeys) {
-      const value = s.getItem(k);
-      if (value === null) continue;
-      s.setItem(`trip:${newTripId}:${k.slice(prefix.length)}`, value);
-      s.removeItem(k);
-    }
-  } catch {
-    /* disabled storage / privacy mode / quota — never throw out of the gateway */
-  }
+  for (const slot of TRIP_SCOPED_SLOTS) removeKey('local', STORAGE_KEYS[slot]);
+  removeKey('local', STORAGE_KEYS.activeTrip);
+  removeKey('local', STORAGE_KEYS.knownTrips);
+  removeKey('local', STORAGE_KEYS.removedTrips);
+  removeKey('local', STORAGE_KEYS.syncCode);
+  removeKey('local', STORAGE_KEYS.travelMode);
 }
 
 // ── Low-level typed primitives (store-aware, SSR-safe, never-throw) ──────────
@@ -559,6 +558,9 @@ export function notifyQuotaExceeded(key: string): void {
     window.dispatchEvent(new CustomEvent('trip:quota-exceeded', { detail: { key } }));
   } catch {
     /* never throw out of a write path */
+    // ..and therefore never assert inside a `trip:quota-exceeded` listener: this catch swallows a
+    // thrown `expect()` into silence, so the test passes no matter what. Assert on what the
+    // listener recorded, after the call returns.
   }
 }
 
@@ -658,24 +660,6 @@ export const identityStore = {
   clearIdentity(): void {
     removeKey('local', STORAGE_KEYS.token);
     removeKey('local', STORAGE_KEYS.userName);
-  },
-} as const;
-
-/**
- * Guest/session gate slot (key 5). The flag is a presence string `'1'`; `isGuest` matches
- * the exact prior semantics (`=== '1'`). `setGuest` writes `'1'`; `clearGuest` removes it
- * (re-arming the Trip Token wall). This is the single home for the flag that previously
- * appeared in THREE places, including the raw literal in `navbar.tsx` (risk 1).
- */
-export const sessionGate = {
-  isGuest(): boolean {
-    return readString('local', STORAGE_KEYS.guest) === '1';
-  },
-  setGuest(): void {
-    writeString('local', STORAGE_KEYS.guest, '1');
-  },
-  clearGuest(): void {
-    removeKey('local', STORAGE_KEYS.guest);
   },
 } as const;
 
@@ -1045,8 +1029,10 @@ export const installHintStore = {
 // live here — they are in `core/storage/travel-mode-store.ts`. They compose THIS file's primitives
 // (`readString`/`writeString`/`removeKey`) over the `STORAGE_KEYS.travelMode` / `.travelReturn`
 // literals declared above, so holds (raw storage + key literals stay in this module). They
-// were split out for ONE reason: `gateway.ts` sits in the app-wide First Load chunk (via
-// `sessionGate` → `use-active-traveler` → `TokenGate`), and only the non-shared Travel Mode code
-// (Home hero / the lazy navbar + toast/exit/relaunch islands) consume these accessors — keeping the
-// object literals out of the shared module holds the route budgets at the 106/107 kB line (they were
-// otherwise retained in the shared chunk, +~0.6 kB, tipping several routes 106→107).
+// were split out for ONE reason: `gateway.ts` sits in the app-wide First Load chunk (`token-gate.tsx`
+// imports `getSyncCode`/`setSyncCode` from here directly, and is itself mounted unconditionally by
+// `itinerary-provider.tsx`, which is static in the root `app/layout.tsx`), and only the non-shared
+// Travel Mode code (Home hero / the lazy navbar + toast/exit/relaunch islands) consume these
+// accessors — keeping the object literals out of the shared module holds the route budgets at the
+// 106/107 kB line (they were otherwise retained in the shared chunk, +~0.6 kB, tipping several routes
+// 106→107).

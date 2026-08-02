@@ -18,18 +18,18 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import { showUndoToast } from '@/lib/undo-toast';
 import { flyChip } from '@/lib/fly-chip';
 import type { ItineraryDraft } from '@/lib/itinerary-adapter';
-import { buildMapsSearchUrl } from '@/lib/maps-link';
+import { buildMapsSearchUrl, buildMapsPlaceUrl } from '@/lib/maps-link';
 import { effectiveStartMinutes } from '@/core/dates';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { describeItemTime } from '@/lib/item-time-display';
 import TimePicker, { DurationField } from '@/components/time-picker';
 
-// Back-compat re-export: `buildMapsSearchUrl` was hoisted to the pure, React-free
-// `@/lib/maps-link` module (so eager consumers like the calendar can use it without
-// dragging this component + framer-motion into their first-load bundle). Re-exported
-// here so existing importers (e.g. place-detail-sheet) keep resolving it from this
-// module unchanged. This module's own JSX below still calls it via the import above.
-export { buildMapsSearchUrl };
+// Back-compat re-export: `buildMapsSearchUrl`/`buildMapsPlaceUrl` were hoisted to the pure,
+// React-free `@/lib/maps-link` module (so eager consumers like the calendar can use them without
+// dragging this component + framer-motion into their first-load bundle). Re-exported here so
+// existing importers (e.g. place-detail-sheet) keep resolving them from this module unchanged.
+// This module's own JSX below still calls buildMapsPlaceUrl via the import above.
+export { buildMapsSearchUrl, buildMapsPlaceUrl };
 
 /**
  * Shared "Add to plan" dialog — a NEW, lightweight, source-aware dialog,
@@ -241,7 +241,11 @@ export default function AddToItineraryDialog({
   // editable fields; source mode reads the fixed draft (unchanged behavior).
   const effectiveTitle = isCustom ? customTitle : draft.title;
   const effectiveLocation = isCustom ? (customLocation || undefined) : draft.location;
-  const mapsUrl = buildMapsSearchUrl(effectiveTitle, effectiveLocation);
+  // coordinate-first when a pin is known. Neither `draft: ItineraryDraft` nor the custom-add
+  // fields carry lat/lng today, so this is currently always the buildMapsSearchUrl(title, location)
+  // fallback — swapped for consistency with the other two link-out sites and so a future draft that
+  // does carry a pin gets the more reliable link with no further change here.
+  const mapsUrl = buildMapsPlaceUrl(effectiveTitle, undefined, undefined, effectiveLocation);
   // Confirm is blocked in custom mode until a non-empty title.
   const confirmDisabled = isCustom && effectiveTitle.trim().length === 0;
 
@@ -481,7 +485,7 @@ export default function AddToItineraryDialog({
               </>
             )}
           </div>
-          <button type="button" data-testid="add-item-cancel" onClick={onClose} aria-label="Close dialog" className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none">
+          <button type="button" data-testid="add-item-cancel" onClick={onClose} aria-label="Close dialog" className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -501,7 +505,7 @@ export default function AddToItineraryDialog({
                 <div
                   key={p.item.id}
                   className={`flex items-center gap-2 p-2.5 rounded-xl border transition-colors ${
-                    isEditing ? 'bg-gold-500/15 border-gold-400/40' : 'bg-white/5 border-white/10'
+                    isEditing ? 'bg-primary/10 border-ring/40' : 'bg-white/5 border-white/10'
                   }`}
                 >
                   <div className="flex-1 min-w-0">
@@ -519,7 +523,7 @@ export default function AddToItineraryDialog({
                     type="button"
                     onClick={() => startEditingPlacement(p)}
                     aria-pressed={isEditing}
-                    className="shrink-0 px-2.5 py-1 rounded-lg text-xs text-white/70 bg-white/5 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                    className="shrink-0 px-2.5 py-1 rounded-lg text-xs text-white/70 bg-white/5 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     Modify
                   </button>
@@ -550,9 +554,9 @@ export default function AddToItineraryDialog({
               type="button"
               onClick={startAddingNew}
               aria-pressed={editingPlacementId === null}
-              className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+              className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                 editingPlacementId === null
-                  ? 'border-gold-400/40 text-gold-400 bg-gold-400/5'
+                  ? 'border-ring/40 text-primary bg-primary/5'
                   : 'border-white/10 text-white/40 hover:text-white/70 hover:border-white/20'
               }`}
             >
@@ -575,7 +579,7 @@ export default function AddToItineraryDialog({
                   data-testid="add-item-title-input"
                   value={customTitle}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
                   placeholder="e.g., Ramen Nagi"
                   autoComplete="off"
                 />
@@ -587,7 +591,7 @@ export default function AddToItineraryDialog({
                   data-testid="add-item-location-input"
                   value={customLocation}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomLocation(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
                   placeholder="e.g., Shinjuku"
                   autoComplete="off"
                 />
@@ -600,7 +604,7 @@ export default function AddToItineraryDialog({
                   data-testid="add-item-maps-link"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-gold-300 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-primary hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                   Search on Google Maps
@@ -627,7 +631,7 @@ export default function AddToItineraryDialog({
               data-testid="add-item-day-select"
               value={selectedDate}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+              className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
             >
               {TRIP_DATES.map((d) => (
                 <option key={d} value={d} className="bg-surface text-white">
@@ -651,7 +655,7 @@ export default function AddToItineraryDialog({
                     onClick={() => setCategory(cat)}
                     aria-pressed={isActive}
                     aria-label={`Category: ${cat}`}
-                    className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                    className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-white/40 hover:bg-white/5'
                     }`}
                   >
@@ -678,7 +682,7 @@ export default function AddToItineraryDialog({
           {/* Notes */}
           <div>
             <label htmlFor={notesFieldId} className="text-xs text-white/50 mb-1 block">Notes</label>
-            <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
+            <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
           </div>
         </div>
         </div>
@@ -693,7 +697,7 @@ export default function AddToItineraryDialog({
             onClick={handleConfirm}
             data-testid="add-item-confirm"
             disabled={confirmDisabled}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gold-500"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary"
           >
             <Check className="w-4 h-4" />
             {editingPlacementId ? 'Update plan' : 'Add to plan'}

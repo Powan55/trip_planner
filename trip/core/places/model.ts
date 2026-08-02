@@ -1,5 +1,5 @@
 /**
- * My-places domain — the pure, framework-free "imported Google place" core (slice plan
+ * My-places domain — the pure, framework-free "imported Google place" core ( plan
  * `docs/plans/place-link-import-plan.md`). Gateway key 31 stores a `MyPlace[]`
  * (`nepal_japan_my_places`), TRIP-SCOPED + LOCAL-ONLY.
  *
@@ -168,17 +168,16 @@ export function inferLegId(config: TripConfig, lat?: number, lng?: number): stri
   return undefined;
 }
 
-// ── Google place-link host allow-list ───────────────────────────
-// Exact-match host set (no suffix matching) for a shareable Google place link. Shared by the import
-// sheet's paste-a-link entry and the /share inbox row's "Import as place" action.
-const GOOGLE_PLACE_HOSTS: ReadonlySet<string> = new Set([
-  'share.google',
-  'goo.gl',
-  'maps.app.goo.gl',
-  'google.com',
-  'www.google.com',
-  'maps.google.com',
-]);
+// ── Google place-link host allow-list ────────────
+// DUPLICATED from the Worker's `worker/src/resolve.ts` `isAllowedGoogleHost` on purpose: that
+// copy is the actual security boundary (re-applied server-side to the resolved final URL before
+// it's ever echoed back); THIS copy is a UX affordance — it decides whether "Look up" enables and
+// whether the rejection line shows. The two lists must stay in agreement; widen one, widen the
+// other. Anchored both ends so `evil-google.com` / `google.com.attacker.net` never match. The
+// regex admits Google's ccTLD hosts (`google.co.jp`, `google.de`) because a share link copied on
+// a phone abroad carries the local domain — a plain exact-match set silently rejected those.
+const GOOGLE_HOST_RE = /^(www\.|maps\.)?google\.(com|co\.[a-z]{2}|[a-z]{2,3})$/;
+const GOOGLE_SHORT_HOSTS: ReadonlySet<string> = new Set(['share.google', 'goo.gl', 'maps.app.goo.gl']);
 
 /**
  * True iff `url` is an `https:` URL whose host is in the Google place-link allow-list. TOTAL —
@@ -188,7 +187,7 @@ export function isGooglePlaceUrl(url: unknown): boolean {
   if (typeof url !== 'string') return false;
   try {
     const u = new URL(url);
-    return u.protocol === 'https:' && GOOGLE_PLACE_HOSTS.has(u.hostname);
+    return u.protocol === 'https:' && (GOOGLE_SHORT_HOSTS.has(u.hostname) || GOOGLE_HOST_RE.test(u.hostname));
   } catch {
     return false;
   }

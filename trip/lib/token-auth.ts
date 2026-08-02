@@ -2,7 +2,7 @@
 //
 // This is *soft* identity (display-only, intentionally spoofable). item 3
 // retired the fixed 3-name roster: `resolveToken` now accepts ANY non-empty trimmed name
-// (a reversion to the pre-M10 name-prompt validation), for every pack including the
+//, for every pack including the
 // default. On sign-in we reuse the existing display-name pipeline (`setUserName` from
 // /identity) so attribution (createdBy / updatedBy stamping, "last edited by X") needs
 // zero changes. The name itself is persisted separately (the identity "token" slot) so
@@ -21,7 +21,7 @@
 // `resolveToken` is deliberately pure (no storage) so it can be unit-tested anywhere.
 
 import { setUserName } from './identity';
-import { identityStore, sessionGate } from '@/core/storage/gateway';
+import { identityStore, wipeAllTripData } from '@/core/storage/gateway';
 import { isDefaultTrip } from '@/core/trips';
 import type { Expense } from '@/core/budget/expenses';
 
@@ -60,7 +60,7 @@ export interface Traveler {
  * new dependency, no invented colours.
  */
 const ACCENT_PALETTE = [
-  '#f0c760', // gold 400 (brand primary)
+  '#f0c760', // gold 400
   '#d4a843', // gold 500
   '#f7a0b3', // sakura 400
   '#ffb7c5', // sakura 300
@@ -84,10 +84,10 @@ export function accentForName(name: string): string {
  * the sign-in gate — it survives ONLY as
  * the fixed member list the expense-split UI (`expense-dialog` / `settle-up-summary` /
  * `budget-panel`) offers on the default trip. Accents kept as the original brand tints so those
- * surfaces are visually unchanged. Out of this slice's scope to make dynamic.
+ * surfaces are visually unchanged. Out of this change's scope to make dynamic.
  */
 export const TRAVELERS: readonly Traveler[] = [
-  { name: 'Powan', token: 'Powan', accent: '#f0c760' }, // gold (brand primary)
+  { name: 'Powan', token: 'Powan', accent: '#f0c760' }, // gold
   { name: 'Sushil', token: 'Sushil', accent: '#f7a0b3' }, // sakura
   { name: 'Uttam', token: 'Uttam', accent: '#ff8c42' }, // himalaya
 ] as const;
@@ -111,8 +111,8 @@ export function rosterAccent(name: string): string {
  * listed FIRST so a zero-expense custom trip still offers self to create the first split) and
  * every name that appears in the trip's expense history: each expense's `paidBy`, its `split[]`
  * members, and `createdBy`. De-dupe is case-insensitive (first-seen casing wins), matching the
- * presence bar's name-collapse. Guest (no active traveler) on a custom trip with no expenses ⇒
- * an empty roster — the same honest degrade the default trip's split UI has always shown a guest
+ * presence bar's name-collapse. No active traveler on a custom trip with no expenses ⇒
+ * an empty roster — the same honest degrade the default trip's split UI has always shown
  * (no new UI); the /plan gate makes a signed-in traveler the norm.
  *
  * Reads `isDefaultTrip()` + `getActiveTraveler()` (the gateway pointer + identity slot) — callers
@@ -163,11 +163,6 @@ export function signIn(raw: string): Traveler | null {
   if (!traveler) return null;
   setUserName(traveler.name);
   identityStore.setToken(traveler.token);
-  // INVARIANT (a): a token and the guest flag must NEVER coexist —
-  // otherwise a later signOut() would drop the traveler into guest mode (and, since into the
-  // guest SANDBOX key namespace) instead of the front door. Clearing here, in the ONE sign-in
-  // function every surface routes through, makes the invariant structural rather than per-caller.
-  sessionGate.clearGuest();
   // Reactive signal: let the chip / gate / remote-subscribe pick up the sign-in
   // live. Dispatched after persistence so any listener that re-reads sees the new token.
   emitIdentityChanged();
@@ -184,27 +179,34 @@ export function getActiveTraveler(): Traveler | null {
 }
 
 /**
- * Sign out: clear the persisted token AND the display name via the gateway's
- * `clearIdentity` (which removes both keys 4 + 3 — the cross-module ownership the gateway
- * now centralizes; behavior byte-identical to the prior direct removals). Already-stamped
- * createdBy / updatedBy on stored items are historical and are NOT touched. No-op / never
- * throws during SSR or with disabled storage (handled inside the gateway).
+ * Sign out: a FULL LOCAL TEARDOWN, not just an identity clear — a shared/handed-down
+ * device must not leak the previous traveler's trip names, dates, itinerary, budget, journal or
+ * account/sync pointers to the next person. Clears, in order:
+ * 1. Identity (`identityStore.clearIdentity()` — keys 3 + 4).
+ * 2. Every trip-scoped domain in BOTH namespaces + the app-scoped pointers/lists + `travelMode`
+ * (`wipeAllTripData()` — see `core/storage/gateway.ts` for the full list and the reasoning).
+ * 3. The reactive signal (step 4 below).
+ *
+ * ORDERING IS LOAD-BEARING: the wipe runs BETWEEN `clearIdentity()` and `emitIdentityChanged()`.
+ * Emitting first would re-render every listener (the gate, the chip, the remote-subscribe teardown)
+ * against HALF-DELETED state. Already-stamped createdBy / updatedBy on data written before this
+ * sign-out are historical and are not (and cannot be) touched.
+ *
+ * Deliberately does NOT reload here — mirrors (a trip-pointer switch's pure function doesn't
+ * reload either; the UI CALLER does, after this returns) so this stays a plain, SSR-safe, always-
+ * unit-testable function. Every call site (Settings identity row, the navbar desktop chip, the
+ * mobile `/more/` row) confirms first via `<SignOutConfirm>`, which reloads after calling this
+ * (Ruling 3 — the local domain stores only re-read on their own event or a cross-tab `storage`
+ * event, which never fires in the tab that made the write, so a reload is what makes every mounted
+ * store stop showing stale data).
+ *
+ * No-op / never throws during SSR or with disabled storage (handled inside the gateway).
  */
-/**
- * Leave the guest demo: clear the guest flag and signal, so `TokenGate` re-derives
- * `!traveler && !isGuest` and the front door returns wherever the user is. The ONE home for this
- * transition (navbar chip, Settings identity row, the /trips hub sign-in affordance all call it).
- * The sandbox keys are deliberately left on disk — they are wiped on the NEXT guest opt-in (
- * lifecycle) and adopted by the conversion flow.
- */
-export function exitGuest(): void {
-  sessionGate.clearGuest();
-  emitIdentityChanged();
-}
-
 export function signOut(): void {
   identityStore.clearIdentity();
+  wipeAllTripData();
   // Reactive signal: re-show the gate + clear the chip + tear down remote-subscribe
-  // live, no reload. Dispatched after the keys are cleared so listeners re-read "signed out."
+  // live. Dispatched after every key is cleared so listeners re-read "signed out" against
+  // fully-torn-down state, never half-deleted.
   emitIdentityChanged();
 }

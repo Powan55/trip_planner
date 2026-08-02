@@ -1,12 +1,12 @@
-// Client caller for the Worker's `GET /resolve?url=…` place-link resolver (slice plan
+// Client caller for the Worker's `GET /resolve?url=…` place-link resolver ( plan
 // `docs/plans/place-link-import-plan.md`). Reuses the concierge client's worker-origin/token
 // plumbing: the same deployed Worker (`CONCIERGE_URL` from `lib/concierge-config.ts`) and the same
 // `x-trip-token: getActiveTripId()` header the chat route uses ( — token-possession IS
 // the authorization). No new secret, no new dependency.
 //
 // NEVER THROWS — degrades to `null` on ANY failure (unconfigured Worker, 404/non-200, timeout,
-// abort, bad JSON, `ok:false`). This total contract is WHY slice S-b ships before the Worker's
-// `/resolve` route exists (S-a): with `CONCIERGE_URL` unset (today's dormant default) this returns
+// abort, bad JSON, `ok:false`). This total contract is WHY ships before the Worker's
+// `/resolve` route exists: with `CONCIERGE_URL` unset (today's dormant default) this returns
 // `null` immediately, so the import sheet simply falls back to manual entry — never a dead end.
 // The client treats every returned field as a best-effort hint.
 

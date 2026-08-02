@@ -75,7 +75,7 @@ function ForecastRow({ day, index }: { day: ForecastDay; index: number }) {
         {day.highC}° / {day.lowC}°
       </span>
       <span
-        className="flex items-center gap-1 text-[11px] text-gold-400/80"
+        className="flex items-center gap-1 text-[11px] text-muted-foreground"
         aria-label={`Golden hour: morning ${formatClock(day.goldenMorning.start)}, evening ${formatClock(
           day.goldenEvening.end,
         )}`}
@@ -99,7 +99,7 @@ function ForecastRow({ day, index }: { day: ForecastDay; index: number }) {
 function ForecastOutlook({ days, stale }: { days: ForecastDay[]; stale: boolean }) {
   return (
     <details data-testid="weather-forecast" className="group mt-4">
-      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-medium text-white/70 outline-none transition-colors duration-200 hover:text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-medium text-white/70 outline-none transition-colors duration-200 hover:text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
         <span>
           7-day outlook
           {stale && <span className="sr-only"> (cached — offline)</span>}
@@ -136,13 +136,13 @@ function GoldenRow({
   return (
     <div
       data-testid={testId}
-      className="flex items-center gap-2 rounded-lg border border-gold-400/20 bg-gold-400/[0.06] px-3 py-2"
+      className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2"
     >
-      <span className="text-gold-400" aria-hidden="true">
+      <span className="text-muted-foreground" aria-hidden="true">
         {icon}
       </span>
       <span className="flex-1 text-xs font-medium text-white/70">{label}</span>
-      <span className="text-sm font-semibold text-gold-300" aria-label={`${label}: ${range}`}>
+      <span className="text-sm font-semibold text-foreground" aria-label={`${label}: ${range}`}>
         {range}
       </span>
     </div>
@@ -157,7 +157,7 @@ function Attribution() {
       target="_blank"
       rel="noopener noreferrer"
       data-testid="weather-attribution"
-      className="mt-3 inline-block text-[10px] text-white/50 hover:text-white/70 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded"
+      className="mt-3 inline-block text-[10px] text-white/50 hover:text-white/70 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded"
     >
       {OPEN_METEO_ATTRIBUTION.label}
     </a>
@@ -227,12 +227,12 @@ function WeatherBody({ data }: { data: WeatherNow }) {
       {/* Current conditions — temp + condition + hi/lo. */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3">
-          <Thermometer className="h-6 w-6 text-gold-400" aria-hidden="true" />
+          <Thermometer className="h-6 w-6 text-muted-foreground" aria-hidden="true" />
           <div>
             <p className="leading-none">
               <span
                 data-testid="weather-temp"
-                className="font-display text-3xl font-bold text-white"
+                className="text-3xl font-bold text-white"
               >
                 {data.tempC}°
               </span>
@@ -252,7 +252,7 @@ function WeatherBody({ data }: { data: WeatherNow }) {
 
       {/* Golden hour — highlighted for photographers (the app's photography theme). */}
       <div className="mt-4 space-y-2" data-testid="weather-golden-hour">
-        <p className="text-[10px] uppercase tracking-widest text-gold-400/70">
+        <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
           Golden hour · {data.city}
         </p>
         <GoldenRow

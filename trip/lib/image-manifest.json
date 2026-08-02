@@ -919,6 +919,48 @@
       }
     ]
   },
+  "/images/landing/shot-1-day-planner.png": {
+    "webp": "/images/landing/shot-1-day-planner.webp",
+    "avif": "/images/landing/shot-1-day-planner.avif",
+    "blurDataURL": "data:image/webp;base64,UklGRq4AAABXRUJQVlA4IKIAAADQBQCdASoUACsAPu1mp02ppaOiMBVdUTAdiUAYYyuQH6xwd7Dkc8uyeuaZboBaEnOJpOk4pncAAP7syJhFTeAndoRjTUN7pJOKD/XStBxnJwhkQFG57gaJ1Z049YHA7LbiviUCiRxsWq2+lZUWdPvZG28HmLIajQ8/92jGMbXQ4SGIAsSLAiM0JZhJDwe/o/By+m5LFaFbsV5vbtgmiDAAAAA=",
+    "width": 390,
+    "height": 844,
+    "variants": [
+      {
+        "width": 390,
+        "webp": "/images/landing/shot-1-day-planner.webp",
+        "avif": "/images/landing/shot-1-day-planner.avif"
+      }
+    ]
+  },
+  "/images/landing/shot-2-expenses.png": {
+    "webp": "/images/landing/shot-2-expenses.webp",
+    "avif": "/images/landing/shot-2-expenses.avif",
+    "blurDataURL": "data:image/webp;base64,UklGRrwAAABXRUJQVlA4ILAAAACwBQCdASoUACsAPu1uqFCppqOiqrgMATAdiWMA0JAL693rNiDWKE/03vvlNkQbrCxGB1YBlgAA/u9c0SH6ZVGVxPTzqrjUJ93SjZa02yXhu5InM/2T1dhz4jzxNSVLKSmQIyilTJ5vEDHG3453jN7ljU0Qn9MyjNIqCz6HB1YIRGVn6JcjlEC7oldO6skWnI4we6Qvk/UrdVDs9QPP/kndFc32OJBnNElC/M5MtAAAAA==",
+    "width": 390,
+    "height": 844,
+    "variants": [
+      {
+        "width": 390,
+        "webp": "/images/landing/shot-2-expenses.webp",
+        "avif": "/images/landing/shot-2-expenses.avif"
+      }
+    ]
+  },
+  "/images/landing/shot-3-map.png": {
+    "webp": "/images/landing/shot-3-map.webp",
+    "avif": "/images/landing/shot-3-map.avif",
+    "blurDataURL": "data:image/webp;base64,UklGRsQAAABXRUJQVlA4ILgAAAAQBQCdASoUACsAPuFko02opiMiNVv4ARAcCWVkP+aHBAGHr+UkHgh8gs/ZMbEvMawAAP7wtR1+kbxFRtSel6HaQ39yDiQ83G1MrJKtRdSQNy3B9ViJz6hOwSOhtMY6h29hUypA7UArhqIciZM+CJaAl9aoPLPQoe+oROwVCknLP7kT0zHQ8dBp20fIgSxmbOtes8gxX7sQiSQcZTzAY+d/rmtMLM5Azu7IbxCnD1iGaxk8XlviBMAA",
+    "width": 390,
+    "height": 844,
+    "variants": [
+      {
+        "width": 390,
+        "webp": "/images/landing/shot-3-map.webp",
+        "avif": "/images/landing/shot-3-map.avif"
+      }
+    ]
+  },
   "/images/map/jp-akihabara.jpg": {
     "webp": "/images/map/jp-akihabara.webp",
     "avif": "/images/map/jp-akihabara.avif",

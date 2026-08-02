@@ -98,7 +98,7 @@ export default function ActivityFeed({ className = '' }: { className?: string })
           id="activity-feed-heading"
           className="inline-flex items-center gap-2 text-sm font-semibold text-white/80 mb-3"
         >
-          <History className="w-4 h-4 text-gold-400" aria-hidden="true" />
+          <History className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
           Recent changes
         </h3>
 

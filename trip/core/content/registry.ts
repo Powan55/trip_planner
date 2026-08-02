@@ -1,12 +1,12 @@
 /**
- * `core/content/registry.ts` — `contentRef` → `TripContent` resolution (v5 Phase-1
+ * `core/content/registry.ts` — `contentRef` → `TripContent` resolution (v5
  *;). Framework-free: plain TS, no React/Next/`window`. Static-import registry
  * — one pack today; code-splitting a hypothetical second pack is a future concern, not now.
  *
  * `TripContent.legs` is keyed by `TripLeg.contentKey` ('nepal' | 'japan' for the default pack —
  * see `core/trips/packs/nepal-japan-2026.ts`). `LegContent` mirrors EXACTLY what
- * `lib/nepal-data.ts` / `lib/japan-data.ts` already exported before this slice (attractions +
- * food + the category filter list) — this is an indirection slice, not a content redesign.
+ * `lib/nepal-data.ts` / `lib/japan-data.ts` already exported before (attractions +
+ * food + the category filter list) — this is an indirection layer, not a content redesign.
  *
  * The literal guide data used to live directly in `lib/nepal-data.ts` / `lib/japan-data.ts`;
  * it now lives HERE (byte-identical values) and those two `lib/` files become thin re-export
@@ -20,8 +20,6 @@
  *.
  */
 import type { Recommendation } from '@/lib/nepal-data';
-import type { DayPlan } from '@/lib/trip-data';
-import { TRIP_ITINERARY } from './itinerary';
 
 // ── Nepal guide content (moved byte-identically from the former lib/nepal-data.ts) ──────────
 
@@ -39,7 +37,7 @@ export const NEPAL_ATTRACTIONS: Recommendation[] = [
   { id: 'na6', image: '/images/nepal/na6.jpg', name: 'Bhaktapur Durbar Square', category: 'Must-Visit', description: 'Best preserved medieval city in the Kathmandu Valley. 55-Window Palace, Nyatapola Temple, and traditional pottery squares.', bestTime: 'Full day visit', duration: '5-6 hours', photoRating: 5, notes: 'Try the famous Juju Dhau (King Curd). Least touristy of the three squares.', mustSee: true, longDescription: 'Bhaktapur is the best-preserved medieval town in the Kathmandu Valley, a UNESCO site where car-free brick lanes open onto three linked squares. The Durbar Square holds the 55-Window Palace and the Golden Gate; nearby Taumadhi Square is dominated by the five-tiered Nyatapola, Nepal\'s tallest pagoda, while Pottery Square is still lined with potters spinning clay in the open air. It is famous for its creamy Juju Dhau ("king curd").' },
 
   // --- Hidden Gems ---
-  { id: 'na7', image: '/images/nepal/na7.jpg', name: 'Garden of Dreams', category: 'Hidden Gem', description: 'A neo-classical garden oasis in the heart of Kathmandu. Fountains, pergolas, and peaceful pavilions away from city chaos.', bestTime: 'Afternoon', duration: '1-2 hours', photoRating: 4, notes: 'Perfect escape from bustling Thamel. Small entry fee.', location: 'Keshar Mahal, Kathmandu', longDescription: 'A restored 1920s neo-classical garden built by a Rana general, the Garden of Dreams is a walled Edwardian oasis of pavilions, pergolas, fountains and a lily pond right beside Thamel. Beautifully renovated with Austrian support, it is a favourite spot to escape the noise of the city with a coffee at the Kaiser Cafe. It sits directly next to the Tulsi Kathmandu Hotel area.' },
+  { id: 'na7', image: '/images/nepal/na7.jpg', name: 'Garden of Dreams', category: 'Hidden Gem', description: 'A neo-classical garden oasis in the heart of Kathmandu. Fountains, pergolas, and peaceful pavilions away from city chaos.', bestTime: 'Afternoon', duration: '1-2 hours', photoRating: 4, notes: 'Perfect escape from bustling Thamel. Small entry fee.', location: 'Kaiser Mahal, Kathmandu', longDescription: 'A restored 1920s neo-classical garden built by a Rana general, the Garden of Dreams is a walled Edwardian oasis of pavilions, pergolas, fountains and a lily pond right beside Thamel. Beautifully renovated with Austrian support, it is a favourite spot to escape the noise of the city with a coffee at the Kaiser Cafe. It sits directly next to the Thamel hotel area.' },
   { id: 'na8', image: '/images/nepal/na8.jpg', name: 'Asan Bazaar', category: 'Hidden Gem', description: 'The oldest and most vibrant market in Kathmandu. Spices, vegetables, fabrics, and hidden temples in narrow alleyways.', bestTime: 'Morning', duration: '2 hours', photoRating: 5, notes: 'Best street photography spot in KTM. Follow the ancient trade route.', location: 'Asan, Kathmandu', longDescription: 'Asan is the oldest and busiest bazaar in Kathmandu, a six-way junction on the historic trade route to Tibet. Its dense lanes overflow with vendors selling spices, grains, textiles, brass and fresh produce, and the small Annapurna and Ganesh temples at its centre are still active. Go in the morning for the most energetic scenes — it is widely regarded as the best street-photography spot in the city.' },
   { id: 'na13', image: '/images/nepal/na13.jpg', name: 'Pharping & Asura Cave', category: 'Hidden Gem', description: 'A serene cluster of Buddhist monasteries and the sacred Asura Cave where Guru Rinpoche meditated, set in pine-forested hills south of the valley.', bestTime: 'Morning', duration: 'Half day', photoRating: 4, notes: 'Combine with the Dakshinkali temple nearby. Peaceful and rarely crowded.', location: 'Pharping' },
 
@@ -128,50 +126,5 @@ export const JAPAN_FOOD: Recommendation[] = [
 
 export const JAPAN_CATEGORIES = ['All', 'Must-See', 'Hidden Gem', 'Winter', 'Anime', 'Cultural', 'Scenic', 'Shopping', 'Experience', 'Food', 'Ramen', 'Sushi', 'Street Food', 'Restaurant', 'Dessert'];
 
-// ── The registry itself ───────────────────────────────────────────────────────
-
-/** Mirrors what `lib/nepal-data.ts` / `lib/japan-data.ts` already export — not a redesign. */
-export interface LegContent {
-  attractions: Recommendation[];
-  food: Recommendation[];
-  categories: string[];
-}
-
-export interface TripContent {
-  itinerary: DayPlan[];
-  legs: Record<string, LegContent>;
-}
-
 /** === `TripConfig.contentRef` for the default pack (core/trips/packs/nepal-japan-2026.ts). */
 export const DEFAULT_CONTENT_REF = 'nepal-japan-2026';
-
-const NEPAL_JAPAN_2026_CONTENT: TripContent = {
-  itinerary: TRIP_ITINERARY,
-  legs: {
-    nepal: { attractions: NEPAL_ATTRACTIONS, food: NEPAL_FOOD, categories: NEPAL_CATEGORIES },
-    japan: { attractions: JAPAN_ATTRACTIONS, food: JAPAN_FOOD, categories: JAPAN_CATEGORIES },
-  },
-};
-
-/**
- * Explicit EMPTY content pack — a custom trip's `contentRef: 'empty'` resolves
- * HERE instead of hitting the unknown-ref fallback (which would hand it the Nepal×Japan guides).
- * No itinerary, no legs ⇒ every `getLegContent` lookup falls to empty attractions/food/categories.
- */
-const EMPTY_CONTENT: TripContent = { itinerary: [], legs: {} };
-
-/** Static registry — the default pack + the empty pack. More packs are a future concern. */
-export const CONTENT_PACKS: Record<string, TripContent> = {
-  [DEFAULT_CONTENT_REF]: NEPAL_JAPAN_2026_CONTENT,
-  empty: EMPTY_CONTENT,
-};
-
-/** TOTAL — an unknown `contentRef` falls back to the default pack's content, never throws. */
-export function getContent(contentRef: string): TripContent {
-  return CONTENT_PACKS[contentRef] ?? NEPAL_JAPAN_2026_CONTENT;
-}
-
-/** TOTAL — an unknown `contentKey` within a resolved TripContent falls back to empty content. */
-export function getLegContent(content: TripContent, contentKey: string): LegContent {
-  return content.legs[contentKey] ?? { attractions: [], food: [], categories: [] };
-}

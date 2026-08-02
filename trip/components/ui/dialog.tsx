@@ -47,7 +47,7 @@ const DialogContent = React.forwardRef<
       {/* hit-area-only fix — inline-flex + min-h/w-[44px]
           grows the invisible CLICKABLE box only; the icon size and corner anchoring
           (right-4 top-4) are unchanged, so no visible pixels shift (proved by the
-          open-palette visual baseline this slice adds — visual.spec.ts). This is the
+          open-palette visual baseline this change adds — visual.spec.ts). This is the
           shared Radix close reachable only via command-palette.tsx; the
           5 other dialogs (calendar editor, add-to-itinerary, expense log, place detail,
           time picker) render their own inline close buttons and are untouched. */}

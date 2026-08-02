@@ -1,5 +1,5 @@
 /**
- * Journal domain — the pure, framework-free per-day text-journal core (slice —
+ * Journal domain — the pure, framework-free per-day text-journal core ( —
  * the L-core of proposal #11). Gateway key 12 stores a `JournalEntry[]`.
  *
  * FRAMEWORK-FREE: plain TypeScript — no React, no window, no next,
@@ -19,7 +19,7 @@
  * `upsertEntry` takes `nowIso` from the CALLER (the React hook injects `new Date().toISOString()`),
  * so this core stays deterministic and unit-testable without stubbing a clock. `createdAt` is set
  * only on create; `updatedAt` moves to `nowIso` on every write. Photos / IndexedDB are explicitly
- * OUT of this slice (the XL photo/story phase of #11 is a declared future boundary; keeps the
+ * OUT of this change (the XL photo/story phase of #11 is a declared future boundary; keeps the
  * journal localStorage-only, which is the whole reason the photo phase is held out).
  */
 

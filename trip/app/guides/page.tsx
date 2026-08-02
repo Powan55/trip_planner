@@ -74,7 +74,7 @@ export default function GuidesPage() {
                   <div className="relative">
                     <Link
                       href={c.href}
-                      className="group inline-flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                      className="group inline-flex items-center gap-3 rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5">
                         <Icon className="h-5 w-5 text-white" aria-hidden="true" />
@@ -102,9 +102,9 @@ export default function GuidesPage() {
                             <Link
                               href={`${c.href}${e.hash}`}
                               data-testid={`guides-${c.name.toLowerCase()}-${e.label.toLowerCase()}`}
-                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white/80 outline-none transition-colors hover:border-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white/80 outline-none transition-colors hover:border-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             >
-                              <EIcon className="h-4 w-4 text-gold-400" aria-hidden="true" />
+                              <EIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                               {e.label}
                             </Link>
                           </li>

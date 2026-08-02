@@ -7,12 +7,11 @@
  * future surface can switch trips without registering them. It does NOT reload — the caller
  * performs the full page reload.
  *
- * Trip NAME is local-only in this slice (no Firestore sync). (/trips hub) and (home
+ * Trip NAME is local-only in this change (no Firestore sync). (/trips hub) and (home
  * trip strip) consume `listKnownTrips()`.
  */
 import {
   DEFAULT_TRIP_ID,
-  GUEST_SANDBOX_ID,
   getActiveTripId,
   setActiveTripId,
   getKnownTripsRaw,
@@ -246,10 +245,7 @@ export function setTripConfig(id: string, config: TripConfigBlock): void {
 
 /** Add a trip if missing; an existing entry keeps its name (rename is explicit, below). */
 export function upsertKnownTrip(id: string, name?: string): void {
-  // /: `guest-sandbox` is a reserved KEY NAMESPACE, never a trip. Refusing it here (and
-  // in `joinTrip`) is defense-in-depth: a pasted "guest-sandbox" Trip Key must not mint a registry
-  // entry / pointer that collides with the sandbox prefix or a `trips/guest-sandbox` remote path.
-  if (!id || id === GUEST_SANDBOX_ID) return;
+  if (!id) return;
   const stored = readStored();
   if (stored.some((t) => t.id === id)) return;
   // The default pack keeps its canonical name regardless of the caller's label (e.g. pasting the
@@ -278,10 +274,18 @@ export function renameKnownTrip(id: string, name: string): void {
  * Does NOT reload — the caller performs the full page reload.
  */
 export function joinTrip(id: string, name?: string): void {
-  if (!id || id === GUEST_SANDBOX_ID) return; // reserved namespace, never a trip
+  if (!id) return;
   upsertKnownTrip(id, name);
   setActiveTripId(id);
 }
+
+/**
+ * Tombstone cap. The prior "grows unbounded" gap proposed a purge pass keyed on
+ * a device set this app doesn't track; a fixed cap needs none. Mirrors `PLACES_CAP`'s exact idiom
+ * (`core/places/model.ts`'s `addPlace`): prepend-newest then `.slice(0, CAP)` on a newest-first
+ * array — NOT a FIFO shift.
+ */
+const REMOVED_TRIPS_CAP = 200;
 
 /**
  * Forget a trip: drop it from the local known list AND record a tombstone (key 29), so
@@ -296,9 +300,8 @@ export function removeKnownTrip(id: string): void {
   if (!id || id === DEFAULT_TRIP_ID) return;
   if (getActiveTripId() === id) setActiveTripId(DEFAULT_TRIP_ID);
   writeStored(readStored().filter((t) => t.id !== id));
-  const removed = readRemoved().filter((r) => r.id !== id);
-  removed.push({ id, removedAt: Date.now() });
-  writeRemoved(removed); // tombstones grow unbounded; a purge-when-no-device-has-it pass needs a device set we don't track
+  const removed = [{ id, removedAt: Date.now() }, ...readRemoved().filter((r) => r.id !== id)];
+  writeRemoved(removed.slice(0, REMOVED_TRIPS_CAP)); // newest-first, drop-oldest cap
 }
 
 /**

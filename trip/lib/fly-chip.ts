@@ -51,7 +51,7 @@ export function flyChip(from: { x: number; y: number }, opts: FlyChipOptions = {
   const el = document.createElement('div');
   el.setAttribute('aria-hidden', 'true');
   el.textContent = `+ ${label}`;
-  el.className = `glass-card-dark ${opts.colorClass ?? 'text-gold-300'}`;
+  el.className = `glass-card-dark ${opts.colorClass ?? 'text-muted-foreground'}`;
   el.style.cssText = [
     'position:fixed',
     `left:${from.x}px`,

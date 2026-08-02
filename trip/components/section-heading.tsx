@@ -32,7 +32,7 @@ export function SectionHeading({
   return (
     <Reveal className={className ? `${alignClass} ${className}` : alignClass}>
       {eyebrow != null && (
-        <p className="text-sm font-medium uppercase tracking-wider text-gold-400 mb-2">
+        <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground mb-2">
           {eyebrow}
         </p>
       )}

@@ -126,7 +126,7 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
         {/* Featured Destinations */}
         <div className="mb-12">
           <h3 className="font-display text-xl font-bold text-white mb-6 flex items-center gap-2 justify-center">
-            <MapPin className="w-5 h-5 text-gold-400" /> Featured Destinations
+            <MapPin className="w-5 h-5 text-muted-foreground" aria-hidden="true" /> Featured Destinations
           </h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {featured.map((destination) => (
@@ -138,7 +138,7 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
         {/* Foods to Try */}
         <div className="mb-12">
           <h3 className="font-display text-xl font-bold text-white mb-6 flex items-center gap-2 justify-center">
-            <Utensils className="w-5 h-5 text-gold-400" /> Local Foods to Try
+            <Utensils className="w-5 h-5 text-muted-foreground" aria-hidden="true" /> Local Foods to Try
           </h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {foods.map((food) => (
@@ -150,7 +150,7 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
         {/* Etiquette */}
         <div className="glass-card rounded-2xl p-5 max-w-3xl mx-auto">
           <h3 className="font-display text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-gold-400" /> Cultural Etiquette
+            <BookOpen className="w-5 h-5 text-muted-foreground" aria-hidden="true" /> Cultural Etiquette
           </h3>
           <div className="space-y-3">
             {etiquette.map((tip) => (

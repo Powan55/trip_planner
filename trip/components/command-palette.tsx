@@ -473,7 +473,7 @@ export default function CommandPalette() {
                       onSelect={() => handleSelect({ route: section.route, hash: section.hash })}
                       className="gap-3"
                     >
-                      <Icon className="shrink-0 text-gold-400" />
+                      <Icon className="shrink-0 text-muted-foreground" />
                       <span className="truncate">{section.label}</span>
                     </CommandItem>
                   );
@@ -503,7 +503,7 @@ export default function CommandPalette() {
                     className="gap-3"
                     data-testid={`palette-plan-result-${item.id}`}
                   >
-                    <Calendar className="shrink-0 text-gold-400" />
+                    <Calendar className="shrink-0 text-muted-foreground" />
                     <span className="truncate flex-1">{item.title}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">{formatDate(date)}</span>
                   </CommandItem>
@@ -524,7 +524,7 @@ export default function CommandPalette() {
                   data-testid="palette-currency-result"
                   data-conversion-status={conversionResult?.status ?? 'loading'}
                 >
-                  <Coins className="shrink-0 text-gold-400" />
+                  <Coins className="shrink-0 text-muted-foreground" />
                   {conversionResult === null && (
                     <span className="truncate text-muted-foreground">
                       Converting {parsedConversion.amount} {parsedConversion.from} to {parsedConversion.to}…

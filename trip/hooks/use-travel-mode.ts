@@ -2,7 +2,6 @@
 
 import { useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { travelModeGate, travelReturn } from '@/core/storage/travel-mode-store';
 
 /**
@@ -18,24 +17,21 @@ import { travelModeGate, travelReturn } from '@/core/storage/travel-mode-store';
  * the origin route. `navigate` is used when passed,
  * else a plain `router.push`; either way it is a push.
  *
- * GUESTS ARE BLOCKED: for a guest we neither arm the flag nor record a return route — we just
- * navigate, and TokenGate's guest-route wall handles `/travel`. So a guest can never
- * trigger a relaunch re-enter, and the "seen" marker is never set behind the wall.
+ * With no guest mode, every caller who can reach this hook is already an identified
+ * traveler (TokenGate's wall blocks everyone else), so the flag is armed and the return route
+ * recorded unconditionally.
  */
 export function useEnterTravelMode(): (navigate?: (href: string) => void) => void {
   const router = useRouter();
   const pathname = usePathname();
-  const { isGuest } = useActiveTraveler();
 
   return useCallback(
     (navigate?: (href: string) => void) => {
-      if (!isGuest) {
-        const search = typeof window !== 'undefined' ? window.location.search : '';
-        travelReturn.set(`${pathname ?? '/'}${search}`);
-        travelModeGate.enter();
-      }
+      const search = typeof window !== 'undefined' ? window.location.search : '';
+      travelReturn.set(`${pathname ?? '/'}${search}`);
+      travelModeGate.enter();
       (navigate ?? router.push)('/travel/');
     },
-    [router, pathname, isGuest],
+    [router, pathname],
   );
 }

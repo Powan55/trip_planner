@@ -79,7 +79,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
           className="text-center mb-10"
         >
           <h2 id="timeline-heading" className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
-            Trip <span className="text-gradient-gold">Timeline</span>
+            Trip <span className="text-display-emphasis">Timeline</span>
           </h2>
           <p className="text-white/50">32 days across two incredible countries</p>
         </m.div>
@@ -120,15 +120,15 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                   <div key={date} className="flex items-center">
                     {isTransition && (
                       <div className="flex flex-col items-center mx-1">
-                        <Plane className="w-4 h-4 text-gold-400 mb-1 -rotate-12" />
-                        <div className="w-px h-8 bg-gold-400/30" />
+                        <Plane className="w-4 h-4 text-muted-foreground mb-1 -rotate-12" aria-hidden="true" />
+                        <div className="w-px h-8 bg-border" />
                       </div>
                     )}
                     <button
                       onClick={() => handleDateClick(date)}
                       aria-pressed={isSelected}
                       aria-label={`Day ${dayNum}, ${formatDate(date)}`}
-                      className={`flex flex-col items-center px-2 py-2 rounded-lg transition-all duration-200 min-w-[48px] outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                      className={`flex flex-col items-center px-2 py-2 rounded-lg transition-all duration-200 min-w-[48px] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         isSelected
                           ? country === 'nepal'
                             ? 'bg-himalaya-500/30 ring-2 ring-himalaya-400 scale-110'
@@ -274,7 +274,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                 {/* the planner lives on /plan/ now — real route link. */}
                 <Link
                   href="/plan/"
-                  className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-gold-400 hover:text-gold-300 transition-colors rounded outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                  className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium text-primary hover:text-primary/80 transition-colors rounded outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <ListPlus className="w-4 h-4" />
                   Plan this day in the itinerary

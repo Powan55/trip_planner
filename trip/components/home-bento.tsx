@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Compass, Wallet, CloudSun, Backpack, FileCheck2, Map as MapIcon, ArrowRight } from 'lucide-react';
 import { getTodayInTrip, getNowUtcMsForPlace, type TripToday } from '@/lib/trip-now';
-import { offsetForCountry } from '@/core/dates';
+import { offsetForCountry, formatDate } from '@/core/dates';
 import { nextUp } from '@/lib/whats-next';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useBudget } from '@/hooks/use-budget';
@@ -45,7 +45,7 @@ export default function HomeBento() {
     return () => clearInterval(timer);
   }, []);
 
-  const { getDayPlan, hydrated: itineraryHydrated } = useItineraryContext();
+  const { plans, getDayPlan, hydrated: itineraryHydrated } = useItineraryContext();
   const { model } = useBudget();
   const { expenses } = useExpenses();
   const { progress: packingProgress, hydrated: packingHydrated } = usePacking();
@@ -65,6 +65,19 @@ export default function HomeBento() {
       : null;
   const upcomingTime = upcoming && todayInTrip ? describeItemTime(upcoming, todayInTrip.date) : null;
 
+  // — pre-trip, "Next up" used to say "Appears once your trip begins", which is a tile
+  // spending a whole card to tell you it has nothing. The genuinely useful answer to "next up"
+  // before departure is the FIRST thing on the itinerary, and we already hold it: `plans` is on
+  // the store's public surface, so this is presentation-only.
+  // Sorted defensively — persisted day order is not guaranteed to be date order.
+  const firstPlanned = useMemo(() => {
+    if (!itineraryHydrated) return null;
+    const day = [...plans]
+      .filter((p) => p.items?.length)
+      .sort((a, b) => a.date.localeCompare(b.date))[0];
+    return day ? { date: day.date, item: day.items[0] } : null;
+  }, [plans, itineraryHydrated]);
+
   const cachedForecast = todayInTrip
     ? getCachedForecastForDate(todayInTrip.city, todayInTrip.date)
     : null;
@@ -80,7 +93,12 @@ export default function HomeBento() {
           Trip at a glance
         </h2>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {/* Next up — spans 2 cols on every breakpoint (the widest tile). In-trip only. */}
+          {/* Next up — spans 2 cols on every breakpoint (the widest tile).: no longer
+              in-trip only, and no longer a "come back later" placeholder. In-trip it is the
+              next upcoming item; PRE-trip it is the first thing on the itinerary. If there is
+              genuinely nothing to say (an emptied itinerary, pre-trip) the whole tile is not
+              rendered — a card whose only content is an apology is worse than no card. */}
+          {(todayInTrip || firstPlanned) && (
           <BentoTile
             testId="home-bento-next-up"
             className="col-span-2"
@@ -88,7 +106,12 @@ export default function HomeBento() {
             label="Next up"
           >
             {!todayInTrip ? (
-              <EmptyLine>Appears once your trip begins</EmptyLine>
+              firstPlanned && (
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white truncate">{firstPlanned.item.title}</p>
+                  <p className="text-xs text-white/50 mt-0.5">First up &middot; {formatDate(firstPlanned.date)}</p>
+                </div>
+              )
             ) : upcoming ? (
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{upcoming.title}</p>
@@ -98,6 +121,7 @@ export default function HomeBento() {
               <EmptyLine>You&rsquo;re all caught up today</EmptyLine>
             )}
           </BentoTile>
+          )}
 
           {/* Budget spent-so-far. */}
           <BentoTile testId="home-bento-budget" icon={<Wallet className="w-4 h-4" aria-hidden="true" />} label="Budget">
@@ -111,18 +135,22 @@ export default function HomeBento() {
             )}
           </BentoTile>
 
-          {/* Weather now (cache-derived, no new fetch) — in-trip only. */}
+          {/* Weather now (cache-derived, no new fetch) — in-trip only, and makes that
+              literal: the forecast cache only ever holds trip days, so pre-trip there is no
+              useful thing to show and the tile is simply not rendered (it used to spend a card
+              saying "Appears once you're on the trip"). In-trip with a cold cache it still
+              says so honestly — that state IS informative, because a fetch is expected. */}
+          {todayInTrip && (
           <BentoTile testId="home-bento-weather" icon={<CloudSun className="w-4 h-4" aria-hidden="true" />} label="Weather">
             {weatherTag ? (
               <p className="text-sm font-semibold text-white">
                 <span aria-hidden="true">{weatherTag.icon}</span> {weatherTag.label}
               </p>
-            ) : todayInTrip ? (
-              <EmptyLine>No cached forecast yet</EmptyLine>
             ) : (
-              <EmptyLine>Appears once you&rsquo;re on the trip</EmptyLine>
+              <EmptyLine>No cached forecast yet</EmptyLine>
             )}
           </BentoTile>
+          )}
 
           {/* Packing checklist %. */}
           <BentoTile testId="home-bento-packing" icon={<Backpack className="w-4 h-4" aria-hidden="true" />} label="Packing">
@@ -150,7 +178,7 @@ export default function HomeBento() {
           <Link
             href="/map/"
             data-testid="home-bento-map"
-            className="col-span-2 group relative overflow-hidden rounded-2xl glass-card p-4 flex items-center justify-between gap-3 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+            className="col-span-2 group relative overflow-hidden rounded-2xl glass-card p-4 flex items-center justify-between gap-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <div
               aria-hidden="true"
@@ -161,10 +189,10 @@ export default function HomeBento() {
               }}
             />
             <div className="relative flex items-center gap-2">
-              <MapIcon className="w-4 h-4 text-gold-400" aria-hidden="true" />
+              <MapIcon className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
               <span className="text-sm font-semibold text-white">Open the map</span>
             </div>
-            <ArrowRight className="relative w-4 h-4 text-white/40 group-hover:text-gold-400 group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+            <ArrowRight className="relative w-4 h-4 text-white/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
           </Link>
 
           {/* Travel Mode entry — spans 2 cols, shares the ONE entry path. */}
@@ -172,10 +200,10 @@ export default function HomeBento() {
             type="button"
             onClick={() => enterTravel()}
             data-testid="home-bento-travel-mode"
-            className="col-span-2 flex items-center justify-between gap-3 rounded-2xl glass-card p-4 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+            className="col-span-2 flex items-center justify-between gap-3 rounded-2xl glass-card p-4 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <span className="flex items-center gap-2">
-              <Compass className="w-4 h-4 text-gold-400" aria-hidden="true" />
+              <Compass className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
               <span className="text-sm font-semibold text-white">Open Travel Mode</span>
             </span>
             <ArrowRight className="w-4 h-4 text-white/40" aria-hidden="true" />
@@ -205,7 +233,7 @@ function BentoTile({
       className={`rounded-2xl glass-card p-4 flex flex-col justify-between min-h-[5.5rem] ${className ?? ''}`}
     >
       <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-white/40 mb-2">
-        <span className="text-gold-400">{icon}</span>
+        <span className="text-muted-foreground">{icon}</span>
         {label}
       </p>
       {children}
@@ -224,7 +252,7 @@ function PctBar({ pct, testId }: { pct: number; testId: string }) {
       <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden" role="presentation">
         <div
           data-testid={testId}
-          className="h-full rounded-full bg-gold-400"
+          className="h-full rounded-full bg-primary"
           style={{ width: `${pct}%` }}
         />
       </div>

@@ -61,8 +61,21 @@ const LEG_CURRENCY: Record<Leg, CurrencyCode> = Object.fromEntries(
 /** All three display-currency choices, in a stable order for the toggle. */
 export const CURRENCIES: readonly CurrencyCode[] = ['USD', 'NPR', 'JPY'] as const;
 
-/** The 10 canonical itinerary categories — reused for per-category budgets. */
-export const BUDGET_CATEGORIES: readonly ItineraryCategory[] = [
+/**
+ * The 10 canonical itinerary categories — reused for per-category budgets, and the set
+ * `isCategory` (core/budget/expenses.ts) checks USER DATA against before `sanitizeExpense` trusts
+ * it — a category that fails that check silently drops the WHOLE expense, on the read,
+ * write, restore-from-backup AND import paths.
+ *
+ * NO `: readonly ItineraryCategory[]` annotation here, and that absence is load-bearing, not an
+ * omission: adding one back WIDENS this array's type to the full `ItineraryCategory`
+ * union, which makes `typeof BUDGET_CATEGORIES[number]` equal `ItineraryCategory` itself — so the
+ * `Exclude` guard below becomes unconditionally `never` and can NEVER fire, while still compiling
+ * clean and reading as coverage. `as const satisfies` keeps the literal 10-string tuple type (so
+ * the guard has something narrower than the union to compare against) while still checking every
+ * member is a valid `ItineraryCategory`.
+ */
+export const BUDGET_CATEGORIES = [
   'sightseeing',
   'food',
   'photography',
@@ -73,7 +86,18 @@ export const BUDGET_CATEGORIES: readonly ItineraryCategory[] = [
   'hotel',
   'free',
   'nightlife',
-] as const;
+] as const satisfies readonly ItineraryCategory[];
+// Fails to compile — naming the offending category in the error — if `ItineraryCategory` gains a
+// member absent from `BUDGET_CATEGORIES` (the direction `satisfies` above misses; same shape as
+// lib/concierge-ops.ts / worker/src/providers.ts). Also fires if a member is DROPPED from this
+// list while `ItineraryCategory` keeps it. This replaces a runtime test
+// (lib/__tests__/budget-model.test.ts) that compared this array against a hardcoded copy of
+// itself with NO tie to `ItineraryCategory` — impossible to fix at runtime since types are erased;
+// this compile-time guard is the actual mechanism.
+type _MissingFromBudgetCategories = Exclude<ItineraryCategory, (typeof BUDGET_CATEGORIES)[number]>;
+const _assertNoMissingBudgetCategories: _MissingFromBudgetCategories extends never
+  ? true
+  : _MissingFromBudgetCategories = true;
 
 /**
  * The persisted budget model (typed storage gateway key 10). `version` is a cheap internal

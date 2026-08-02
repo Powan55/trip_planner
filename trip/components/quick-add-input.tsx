@@ -59,7 +59,7 @@ export default function QuickAddInput({
         aria-label={label}
         placeholder={placeholder}
         data-testid={testId}
-        className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2 focus-visible:ring-gold-400"
+        className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
       />
       <button
         type="button"
@@ -67,7 +67,7 @@ export default function QuickAddInput({
         disabled={!title.trim()}
         aria-label="Add plan"
         data-testid={`${testId}-submit`}
-        className="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gold-500/90 text-surface hover:bg-gold-400 disabled:opacity-40 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+        className="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/90 text-primary-foreground hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
       >
         <Plus className="w-4 h-4" aria-hidden="true" />
       </button>

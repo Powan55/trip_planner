@@ -35,7 +35,7 @@ export interface CurrencyRateNow {
   /** ISO timestamp the value was fetched (for the "as of" indicator). */
   fetchedAt: string;
   /**
-   * (P6): `'reference'` for a currency Frankfurter doesn't carry (a hand-set static
+   * `'reference'` for a currency Frankfurter doesn't carry (a hand-set static
    * figure, never a live quote — see `STATIC_REFERENCE_RATES`); `'live'` for an actual
    * Frankfurter fetch. Optional/absent on values written before this field existed (older
    * cached entries) — the renderer treats a missing `source` as `'live'`, matching prior
@@ -114,7 +114,7 @@ export function parseFrankfurter(
 const UNSUPPORTED_CURRENCIES = new Set(['NPR']);
 
 /**
- * (P6): hand-set static reference rates for currencies Frankfurter doesn't carry, so the
+ * hand-set static reference rates for currencies Frankfurter doesn't carry, so the
  * Essentials currency panel isn't dead for the whole Nepal leg (10/10 days were `unavailable`
  * before this). NOT a live feed — free-tools-only stays intact, no paid FX API added, no
  * fetch issued (see `UNSUPPORTED_CURRENCIES`'s doc comment for why NPR must never be requested).
@@ -123,7 +123,7 @@ const UNSUPPORTED_CURRENCIES = new Set(['NPR']);
  *
  * `rate`/`asOf` are a hand-set calibration knob, not derived from anything live — NPR
  * has held roughly 133-136/USD through 2026 under the NRB's currency-board peg to INR. Set
- * 134.5 as-of 2026-07-24 (today, this slice). Refresh both fields if the real rate visibly
+ * 134.5 as-of 2026-07-24 (today, this change). Refresh both fields if the real rate visibly
  * drifts from this band; there is no automated way to know it has (that's the whole reason NPR
  * needs a reference value instead of a feed).
  */

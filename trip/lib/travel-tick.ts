@@ -1,6 +1,6 @@
 'use client';
 
-// — ONE shared tick source for `/travel` (P7 battery). Replaces the four independent
+// — ONE shared tick source for `/travel`. Replaces the four independent
 // per-card `setInterval(…, 1000)` clocks (hero / agenda / tonight / date-picker) with a single
 // module-level interval every subscribing card reads from. A slow base cadence covers every
 // time label ("in 2h", agenda, next-up, tonight, day-strip); the ONE genuinely per-second thing

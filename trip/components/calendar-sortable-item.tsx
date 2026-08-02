@@ -121,7 +121,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
   const timeInfo = describeItemTime(item, date);
 
   return (
-    <div ref={setNodeRef} style={style} data-testid={`calendar-item-${item.id}`} data-highlighted={highlighted ? 'true' : undefined} className={`flex items-start gap-2 p-3 rounded-xl ${colors.bg} border ${selected ? 'border-gold-400 ring-1 ring-gold-400/50' : highlighted ? 'border-gold-400/70 ring-2 ring-gold-400/70' : colors.border} group hover:scale-[1.01] transition-transform`}>
+    <div ref={setNodeRef} style={style} data-testid={`calendar-item-${item.id}`} data-highlighted={highlighted ? 'true' : undefined} className={`flex items-start gap-2 p-3 rounded-xl ${colors.bg} border ${selected ? 'border-ring ring-1 ring-ring/50' : highlighted ? 'border-ring/70 ring-2 ring-ring/70' : colors.border} group hover:scale-[1.01] transition-transform`}>
       {selectMode ? (
         <input
           type="checkbox"
@@ -129,10 +129,10 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
           onChange={onToggleSelect}
           aria-label={`Select ${item.title}`}
           data-testid={`calendar-item-select-${item.id}`}
-          className="mt-1 h-4 w-4 shrink-0 accent-gold-500 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded"
+          className="mt-1 h-4 w-4 shrink-0 accent-primary cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded"
         />
       ) : (
-        <button {...attributes} {...listeners} aria-label={`Reorder ${item.title}`} className="mt-1 cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 touch-none outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded">
+        <button {...attributes} {...listeners} aria-label={`Reorder ${item.title}`} className="mt-1 cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded">
           <GripVertical className="w-4 h-4" />
         </button>
       )}
@@ -189,7 +189,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
                 onDuplicate(target);
                 setDupOpen(false);
               }}
-              className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+              className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <option value="" disabled>Copy to day…</option>
               {TRIP_DATES.map((d) => (
@@ -208,14 +208,14 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
           aria-label={`Show ${item.title} on map`}
           aria-pressed={highlighted}
           data-testid={`calendar-item-locate-${item.id}`}
-          className={`shrink-0 mt-0.5 p-1.5 rounded hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${highlighted ? 'text-gold-400' : 'text-white/40 hover:text-gold-400'}`}
+          className={`shrink-0 mt-0.5 p-1.5 rounded hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${highlighted ? 'text-primary' : 'text-white/40 hover:text-primary'}`}
         >
           <MapPin className="w-3.5 h-3.5" />
         </button>
       )}
       <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-        <button onClick={() => setDupOpen((v) => !v)} aria-label={`Duplicate ${item.title}`} aria-expanded={dupOpen} data-testid={`calendar-item-duplicate-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><Copy className="w-3.5 h-3.5" /></button>
-        <button onClick={onEdit} aria-label={`Edit ${item.title}`} data-testid={`calendar-item-edit-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
+        <button onClick={() => setDupOpen((v) => !v)} aria-label={`Duplicate ${item.title}`} aria-expanded={dupOpen} data-testid={`calendar-item-duplicate-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Copy className="w-3.5 h-3.5" /></button>
+        <button onClick={onEdit} aria-label={`Edit ${item.title}`} data-testid={`calendar-item-edit-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
         <button onClick={onDelete} aria-label={`Delete ${item.title}`} data-testid={`calendar-item-delete-${item.id}`} className="p-1.5 rounded hover:bg-red-500/20 text-white/40 hover:text-red-400 outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
     </div>
@@ -226,7 +226,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
 export function DroppableDay({ dateStr, children }: { dateStr: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${dateStr}` });
   return (
-    <div ref={setNodeRef} className={`min-h-[60px] rounded-xl p-2 transition-colors ${isOver ? 'bg-gold-400/10 ring-1 ring-gold-400/30' : ''}`}>
+    <div ref={setNodeRef} className={`min-h-[60px] rounded-xl p-2 transition-colors ${isOver ? 'bg-primary/10 ring-1 ring-ring/30' : ''}`}>
       {children}
     </div>
   );

@@ -14,7 +14,7 @@ export default function AddedBadge({ added, testId }: { added: boolean; testId: 
   return (
     <span
       data-testid={testId}
-      className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/50 backdrop-blur-sm border border-gold-400/40 text-gold-300 text-[10px] font-semibold uppercase tracking-wide"
+      className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/50 backdrop-blur-sm border border-primary/40 text-primary text-[10px] font-semibold uppercase tracking-wide"
     >
       <Check className="w-3 h-3 shrink-0" />
       Added

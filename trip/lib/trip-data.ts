@@ -9,7 +9,7 @@
 //
 // The itinerary DOMAIN types + category maps below (`ItineraryItem`, `DayPlan`,
 // `CATEGORY_COLORS`, `CATEGORY_ICONS`, …) intentionally STAY here — they are not date
-// backbone and belong to the itinerary slice, not `core/dates`.
+// backbone and belong to the itinerary change, not `core/dates`.
 export {
   TRIP_START,
   TRIP_END,
@@ -24,7 +24,12 @@ export {
   formatDateLong,
 } from '@/core/dates';
 
-export type ItineraryCategory = 'sightseeing' | 'food' | 'photography' | 'shopping' | 'nature' | 'cultural' | 'transportation' | 'hotel' | 'free' | 'nightlife';
+// imported (for local use below, e.g. `ItineraryItem.category`) AND re-exported (for the
+// many `@/lib/trip-data` callers) from the zero-import leaf, not re-declared — see
+// lib/itinerary-category.ts for why re-declaring the union here instead would silently detach
+// concierge-ops.ts's guard.
+import type { ItineraryCategory } from './itinerary-category';
+export type { ItineraryCategory };
 
 export interface ItineraryItem {
   id: string;
@@ -112,6 +117,17 @@ export interface DayPlan {
   items: ItineraryItem[];
 }
 
+// 🔴 FINDING — these 30 class names are NOT scanned by Tailwind. `tailwind.config.ts`
+// content =./pages./components./app only; `lib/` is absent, so each utility here emits CSS
+// ONLY when some component/app file happens to contain the byte-identical string. Measured on
+// the 1a3958c build: 14 of the 31 colour utilities under lib/ emit nothing at all — sightseeing,
+// food, shopping and free render completely uncoloured today, and nature/nightlife are partial.
+// `transportation` rendered only because components/trip-map.tsx carried the same cyan trio for
+// its "Day Trip" map badge; re-hues both, so this row is now dead too until the one-line
+// root fix lands (add './lib/**/*.{ts,tsx}' to the content globs — deliberately NOT done here:
+// it would revive 13 dead utilities across six categories at once, which needs its own visual
+// pass). Do not "fix" a single row by copying its classes into a component — that is exactly the
+// accidental coupling that made this invisible for so long.
 export const CATEGORY_COLORS: Record<ItineraryCategory, { bg: string; text: string; border: string }> = {
   sightseeing: { bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/30' },
   food: { bg: 'bg-orange-500/20', text: 'text-orange-300', border: 'border-orange-500/30' },
@@ -119,7 +135,9 @@ export const CATEGORY_COLORS: Record<ItineraryCategory, { bg: string; text: stri
   shopping: { bg: 'bg-pink-500/20', text: 'text-pink-300', border: 'border-pink-500/30' },
   nature: { bg: 'bg-green-500/20', text: 'text-green-300', border: 'border-green-500/30' },
   cultural: { bg: 'bg-amber-500/20', text: 'text-amber-300', border: 'border-amber-500/30' },
-  transportation: { bg: 'bg-cyan-500/20', text: 'text-cyan-300', border: 'border-cyan-500/30' },
+  // cyan-500 is hsl(189) — the interaction signal's own hue. Moved to lime
+  // (83 deg): 106 deg off the signal, 45 deg off cultural/amber, 59 deg off nature/green.
+  transportation: { bg: 'bg-lime-500/20', text: 'text-lime-300', border: 'border-lime-500/30' },
   hotel: { bg: 'bg-indigo-500/20', text: 'text-indigo-300', border: 'border-indigo-500/30' },
   free: { bg: 'bg-gray-500/20', text: 'text-gray-300', border: 'border-gray-500/30' },
   nightlife: { bg: 'bg-fuchsia-500/20', text: 'text-fuchsia-300', border: 'border-fuchsia-500/30' },

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, useCa
 import Link from 'next/link';
 import { LogOut } from 'lucide-react';
 import { navItemsForActiveTrip, primaryItemsForActiveTrip, type NavItem } from '@/lib/nav-items';
-import { signOut } from '@/lib/token-auth';
+import SignOutConfirm from '@/components/sign-out-confirm';
 import { useViewTransition } from '@/hooks/use-view-transition';
 
 /**
@@ -23,8 +23,9 @@ import { useViewTransition } from '@/hooks/use-view-transition';
  * placeholder until mounted, then compute — no hydration mismatch (same pattern as
  * DefaultTripOnly / home-trip-strip). A route page is static-export-safe this way.
  *
- * Sign-out mirrors `navbar.handleSignOut`: a `<button>` calling `signOut()` (token-auth fires
- * `identity:changed` → the gate re-shows). Desktop keeps sign-out in the TravelerChip.
+ * Sign-out mirrors the navbar's `TravelerChip`: a `<button>` wrapped in the shared
+ * `<SignOutConfirm>` ( — sign-out is now a confirm-gated full local teardown, not a bare
+ * `onClick`). Desktop keeps sign-out in the TravelerChip.
  */
 
 // Group definitions keyed by href. Labels/icons come from the catalog.
@@ -89,9 +90,9 @@ export default function MoreList() {
                         href={item.href}
                         onClick={vtClick(item.href)}
                         data-testid={`more-link-${item.label.toLowerCase().replace(/[^a-z]+/g, '-')}`}
-                        className="flex min-h-[52px] items-center gap-3 px-4 text-sm text-white/85 outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold-400 focus-visible:outline-none"
+                        className="flex min-h-[52px] items-center gap-3 px-4 text-sm text-white/85 outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
                       >
-                        <Icon className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />
+                        <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                         <span className="flex-1">{item.label}</span>
                       </Link>
                     </li>
@@ -99,15 +100,16 @@ export default function MoreList() {
                 })}
                 {isAccount && (
                   <li>
-                    <button
-                      type="button"
-                      onClick={() => signOut()}
-                      data-testid="more-sign-out"
-                      className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-sm text-white/85 outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-gold-400 focus-visible:outline-none"
-                    >
-                      <LogOut className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />
-                      <span className="flex-1">Sign out</span>
-                    </button>
+                    <SignOutConfirm testId="more-sign-out">
+                      <button
+                        type="button"
+                        data-testid="more-sign-out"
+                        className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-sm text-white/85 outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
+                      >
+                        <LogOut className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        <span className="flex-1">Sign out</span>
+                      </button>
+                    </SignOutConfirm>
                   </li>
                 )}
               </ul>

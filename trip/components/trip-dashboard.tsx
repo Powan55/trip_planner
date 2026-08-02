@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { m, useInView } from 'framer-motion';
+import { m, useInView, useReducedMotion } from 'framer-motion';
 import { useCountUp } from '@/hooks/use-count-up';
 import { Calendar, Clock, Compass } from 'lucide-react';
 import { TRIP_START, TRIP_END, TRIP_DATES } from '@/lib/trip-data';
 import { computeCountdown } from '@/lib/countdown';
 import { getNow } from '@/lib/trip-now';
+import { FADE_FLOOR } from '@/lib/motion';
 
 interface StatCardProps {
   icon: React.ReactNode;
@@ -73,6 +74,7 @@ function StatCard({ icon, label, value, display, suffix = '', color, delay, test
  * (status) touch the clock; Card 1 (duration) is a constant.
  */
 export default function TripDashboard() {
+  const prefersReducedMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   const [daysRemaining, setDaysRemaining] = useState(0);
   const [tripStatus, setTripStatus] = useState('Upcoming');
@@ -100,17 +102,20 @@ export default function TripDashboard() {
   return (
     <section id="dashboard" aria-labelledby="dashboard-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* slide-only masthead entrance (opacity pinned to 1) so the axe
-            scan (no reduced-motion) can't catch the muted `text-white/50` subtitle
-            mid-fade as a transient contrast failure. See RecommendationSection. */}
+        {/* masthead entrance now FLOORS the fade (FADE_FLOOR → 1) instead of
+            pinning it at 1. The axe scan runs WITHOUT reduced motion and can sample this
+            mid-animation, so the floor — not a pin — is what keeps the muted `text-white/50`
+            subtitle ≥AA at the darkest frame. Under reduce
+            we keep the pin outright: MotionConfig neutralises `y` but not opacity, so an
+            un-forked floor would strand an off-screen reveal at 0.7. */}
         <m.div
-          initial={{ opacity: 1, y: 20 }}
+          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: FADE_FLOOR, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           className="text-center mb-12"
         >
           <h2 id="dashboard-heading" className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
-            Trip <span className="text-gradient-gold">Dashboard</span>
+            Trip <span className="text-display-emphasis">Dashboard</span>
           </h2>
           <p className="text-white/50 max-w-xl mx-auto">
             Your adventure at a glance — how long, how soon, and where in the journey you are.

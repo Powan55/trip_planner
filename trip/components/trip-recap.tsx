@@ -12,6 +12,7 @@ import { type Mood, type JournalEntry } from '@/core/journal/model';
 import { summarizePlan, elapsedTripDates, sumExpensesForDate } from '@/core/recap/model';
 import { useExpenses } from '@/hooks/use-expenses';
 import { legCurrency, formatMoney } from '@/core/budget/model';
+import { FADE_FLOOR } from '@/lib/motion';
 
 /**
  * —: the read-only plan-vs-actual DAY RECAP island.
@@ -111,13 +112,14 @@ export default function TripRecap() {
     plannedTotal += s.planned;
   }
 
-  // axe-deterministic reveal: full-opacity slide (opacity pinned to 1) so the axe scan
-  // (no reduced motion) never catches muted card text mid-fade below AA. Reduced-motion branch
-  // left intact (it only runs under reduced motion, which the scan does not exercise).
+  // FLOORED fade.
+  // The animated branch now runs FADE_FLOOR → 1: shallow enough that the axe scan (which
+  // runs WITHOUT reduced motion and can sample mid-animation) still sees the muted card text
+  // ≥AA at the darkest frame. Reduced-motion branch left intact — it lands at 1.
   const reveal = prefersReducedMotion
     ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
     : {
-        hidden: { opacity: 1, y: 16 },
+        hidden: { opacity: FADE_FLOOR, y: 16 },
         show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
       };
 
@@ -131,16 +133,16 @@ export default function TripRecap() {
       <div className="max-w-3xl mx-auto">
         {/* Section header — the days you've lived, and the run-rate across them. */}
         <header className="mb-6">
-          <p className="text-xs uppercase tracking-widest text-gold-400/80 mb-2 flex items-center gap-1.5">
+          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
             <History className="h-3.5 w-3.5" aria-hidden="true" />
             Days so far
           </p>
           <h2 id="recap-title" className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
-            The trip, <span className="text-gradient-gold">day by day</span>
+            The trip, <span className="text-display-emphasis">day by day</span>
           </h2>
           {plannedTotal > 0 && (
             <p data-testid="recap-summary" className="text-sm text-white/50 mt-2" aria-live="polite">
-              <span className="font-semibold text-gold-400">{doneTotal}</span>
+              <span className="font-semibold text-foreground">{doneTotal}</span>
               <span className="sr-only"> of </span>
               <span aria-hidden="true"> of </span>
               {plannedTotal} activities done across {elapsed.length}{' '}
@@ -213,7 +215,7 @@ function RecapCard({
       <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
         <div>
           <h3 id={headingId} className="font-display text-lg sm:text-xl font-bold text-white leading-tight">
-            Day <span className="text-gold-400">{dayNumber}</span>
+            Day <span className="text-foreground">{dayNumber}</span>
             <span className="text-white/40 mx-2" aria-hidden="true">
               —
             </span>
@@ -223,7 +225,7 @@ function RecapCard({
         </div>
         {summary.planned > 0 && (
           <p data-testid={`recap-done-count-${date}`} className="text-sm text-white/50 flex-shrink-0">
-            <span className="font-semibold text-gold-400">{summary.done}</span>
+            <span className="font-semibold text-foreground">{summary.done}</span>
             <span className="sr-only"> of </span>
             <span aria-hidden="true"> of </span>
             {summary.planned} done
@@ -251,7 +253,7 @@ function RecapCard({
       {/* the day's logged-expense total — only when >0. */}
       {spend > 0 && (
         <p data-testid={`recap-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-white/60">
-          <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
+          <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
           Spent{' '}
           <span className="font-semibold text-white/85">{formatMoney(spend, legCurrency(getCountryForDate(date)))}</span>
         </p>
@@ -315,7 +317,7 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
 
   return (
     <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-gold-400/80">
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
         Reflection
       </p>
@@ -327,7 +329,7 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
               {mood && (
                 <span
                   data-testid={`recap-journal-mood-${date}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-gold-400/25 bg-gold-400/[0.08] px-2.5 py-1 text-xs font-medium text-gold-400"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground"
                 >
                   <span aria-hidden="true">{mood.glyph}</span>
                   {mood.label}
@@ -340,7 +342,7 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
                   data-testid={`recap-journal-highlight-${date}`}
                   className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-white/90"
                 >
-                  <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
+                  <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="break-words min-w-0">{entry.highlight}</span>
                 </span>
               )}

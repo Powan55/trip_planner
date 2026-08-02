@@ -6,10 +6,10 @@ import dynamic from 'next/dynamic';
 import { useViewTransition } from '@/hooks/use-view-transition';
 import { usePathname } from 'next/navigation';
 import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { MapPin, LogOut, UserRound, Compass, ChevronDown, Search } from 'lucide-react';
+import { MapPin, LogOut, Compass, ChevronDown, Search } from 'lucide-react';
 import ScrollProgress from '@/components/scroll-progress';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
-import { signOut } from '@/lib/token-auth';
+import SignOutConfirm from '@/components/sign-out-confirm';
 import { navItemsForActiveTrip, primaryItemsForActiveTrip, isRouteActive } from '@/lib/nav-items';
 import { isTravelRoute } from '@/lib/travel-route';
 import { useEnterTravelMode } from '@/hooks/use-travel-mode';
@@ -22,16 +22,12 @@ import { getActiveTripId } from '@/core/storage/gateway';
 // render its DOM, but the dynamic() split also keeps that chunk out of Navbar's own bundle.
 const ConciergeChat = dynamic(() => import('@/components/concierge-chat'), { ssr: false });
 
-// the guest→front-door transition (clear the flag + dispatch identity:changed, so TokenGate
-// re-derives `!traveler && !isGuest` and the wall returns) moved to `lib/token-auth::exitGuest` —
-// Settings and the /trips hub now offer the same affordance, and one home keeps them identical.
-
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   // route-driven active state. usePathname() excludes basePath.
   const pathname = usePathname();
   // Reactive identity: the chip reflects sign-in / sign-out LIVE via identity:changed.
-  const { traveler, isGuest } = useActiveTraveler();
+  const { traveler } = useActiveTraveler();
 
   // Navbar is `dynamic(ssr:false)` (see app/chrome-islands.tsx) — it
   // never renders server-side, so there is no SSR/CSR mismatch to gate against here (unlike
@@ -55,7 +51,7 @@ export default function Navbar() {
   // (TD-08): the concierge speaks a hardcoded N×J boys-trip persona (Worker
   // SYSTEM_PROMPT), so it only belongs on the default pack. Same source + mount-safe
   // once-computed pattern as `brand`/`primaryItems` above (Navbar is ssr:false → no
-  // hydration mismatch). A trip-aware Worker prompt is a separate later slice.
+  // hydration mismatch). A trip-aware Worker prompt is a separate later change.
   const isDefault = useMemo(() => isDefaultTrip(), []);
 
   // Reduced-motion-aware panel motion for the desktop "More" dropdown.
@@ -114,7 +110,7 @@ export default function Navbar() {
   const navigate = useViewTransition();
 
   // the persistent Travel Mode entry. Records the origin route + arms the gateway
-  // flag (guest-blocked internally) then pushes /travel through the same VT helper the nav links use.
+  // flag, then pushes /travel through the same VT helper the nav links use.
   const enterTravel = useEnterTravelMode();
   const vtClick = useCallback(
     (href: string) => (e: ReactMouseEvent<HTMLAnchorElement>) => {
@@ -135,23 +131,21 @@ export default function Navbar() {
   );
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener('scroll', handleScroll);
+    // `passive` lets the browser scroll without waiting to see if this listener
+    // calls preventDefault(); the rAF gate coalesces a burst of scroll events into one
+    // state read per frame (setScrolled is idempotent, so extra frames are free).
+    let queued = false;
+    const handleScroll = () => {
+      if (queued) return;
+      queued = true;
+      requestAnimationFrame(() => {
+        queued = false;
+        setScrolled(window.scrollY > 50);
+      });
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const handleSignOut = () => {
-    signOut(); // dispatches identity:changed → gate re-shows, chip clears, remote tears down
-  };
-
-  // the desktop guest affordance is now the CONVERSION entry — "Keep this
-  // trip" opens the one `guest-convert.tsx` dialog (which adopts the sandbox, mints the account, and
-  // still offers "log in instead" for someone who already has a User Token). Dispatched as a raw
-  // event name, exactly like `palette:open` above, so app-wide navbar chrome never imports that
-  // island's Radix dialog into its bundle.
-  const handleKeepTrip = () => {
-    window.dispatchEvent(new CustomEvent('guest-convert:open'));
-  };
 
   // Travel Mode is a chrome-free route — the persistent navbar renders null
   // under `/travel`. Placed AFTER all hooks above (unconditional hook order) so only the
@@ -178,8 +172,8 @@ export default function Navbar() {
       >
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" onClick={vtClick('/')} aria-label={brand ? `${brand} — home` : 'Nepal × Japan — home'} className="flex items-center gap-2.5 group rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none">
-              <MapPin className="w-5 h-5 text-gold-400 group-hover:scale-110 transition-transform" />
+            <Link href="/" onClick={vtClick('/')} aria-label={brand ? `${brand} — home` : 'Nepal × Japan — home'} className="flex items-center gap-2.5 group rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+              <MapPin className="w-5 h-5 text-muted-foreground group-hover:scale-110 transition-transform" />
               {/* on a custom trip the brand is the trip's own name (mount-safe — Navbar
                   never SSRs, see the primaryItems/brand comment above). Default trip: unchanged. */}
               {brand ? (
@@ -188,7 +182,7 @@ export default function Navbar() {
                 </span>
               ) : (
                 <span data-testid="navbar-brand" className="font-display font-bold text-lg tracking-tight text-white">
-                  Nepal <span className="text-gold-400">×</span> Japan
+                  Nepal <span className="text-muted-foreground">×</span> Japan
                 </span>
               )}
             </Link>
@@ -196,7 +190,7 @@ export default function Navbar() {
             <div className="hidden md:flex items-center gap-1">
               {/* the desktop top row consolidates to the 4 shared primaries
                   (Today · Plan · Map · Guides) from the SAME source the mobile tab bar reads
-                 . Nepal/Japan are reachable via the Guides link; Flights/
+                  Nepal/Japan are reachable via the Guides link; Flights/
                   Documents/Shared Links live in the "More" dropdown below (which sources
                   navItems − primary). On a custom trip Guides is dropped and refilled by the
                   promoted companion (Journal), still via primaryItemsForActiveTrip. */}
@@ -210,7 +204,7 @@ export default function Navbar() {
                     data-testid={`navbar-link-${item.label.toLowerCase()}`}
                     aria-current={isActive ? 'page' : undefined}
                     data-active={isActive ? 'true' : undefined}
-                    className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                    className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       isActive ? 'text-white' : 'text-white/70 hover:text-white hover:bg-white/5'
                     }`}
                   >
@@ -243,7 +237,7 @@ export default function Navbar() {
                     aria-expanded={moreOpen}
                     aria-controls="navbar-more-menu"
                     aria-haspopup="true"
-                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none text-white/70 hover:text-white hover:bg-white/5"
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none text-white/70 hover:text-white hover:bg-white/5"
                   >
                     More
                     <ChevronDown
@@ -278,11 +272,11 @@ export default function Navbar() {
                               data-testid={`navbar-more-link-${item.label.toLowerCase()}`}
                               role="menuitem"
                               aria-current={isActive ? 'page' : undefined}
-                              className={`flex items-center gap-2.5 w-full min-h-[40px] px-3 py-2 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                              className={`flex items-center gap-2.5 w-full min-h-[40px] px-3 py-2 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                                 isActive ? 'text-white bg-white/5' : 'text-white/80 hover:text-white hover:bg-white/5'
                               }`}
                             >
-                              <item.icon className="w-4 h-4 text-gold-400" aria-hidden="true" />
+                              <item.icon className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
                               {item.label}
                             </Link>
                           );
@@ -298,10 +292,10 @@ export default function Navbar() {
                             closeMore();
                             window.dispatchEvent(new CustomEvent('palette:open'));
                           }}
-                          className="flex items-center justify-between gap-2.5 w-full min-h-[40px] px-3 py-2 rounded-lg text-sm text-white/80 hover:text-white hover:bg-white/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                          className="flex items-center justify-between gap-2.5 w-full min-h-[40px] px-3 py-2 rounded-lg text-sm text-white/80 hover:text-white hover:bg-white/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         >
                           <span className="flex items-center gap-2.5">
-                            <Search className="w-4 h-4 text-gold-400" aria-hidden="true" />
+                            <Search className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
                             Search
                           </span>
                           <span className="text-xs text-white/40">⌘K / Ctrl+K</span>
@@ -319,23 +313,21 @@ export default function Navbar() {
                 — the mobile hamburger was removed in. */}
             <div className="flex items-center gap-1 sm:gap-2">
               {/* Identity chip — desktop. "You are {name}" tinted with the traveler's
-                  accent, + sign-out.
-                  Guest → a quiet "Guest · Sign in" affordance that returns to the gate.
+                  accent, + sign-out. With no
+                  guest mode an unidentified visitor never reaches this render in practice
+                  (TokenGate's wall covers it), so there is nothing to show when `traveler` is null.
                   Reactive via identity:changed so sign-in/out reflect live (no reload). */}
               <div className="hidden md:flex items-center shrink-0">
-                {traveler ? (
-                  <TravelerChip name={traveler.name} accent={traveler.accent} onSignOut={handleSignOut} />
-                ) : isGuest ? (
-                  <GuestChip onKeepTrip={handleKeepTrip} />
-                ) : null}
+                {traveler && <TravelerChip name={traveler.name} accent={traveler.accent} />}
               </div>
 
               {/* — persistent Travel Mode entry, on EVERY page and EVERY trip phase,
                   reachable at both widths directly in the bar. Sits inside the navbar bar
                   (top row, z-50) — always above the sync-status pill, so
-                  they never share space at any viewport. Guests reach the existing guest-route wall
-                 ; the gateway flag is not armed for them. Label collapses to icon-only below
-                  `sm` (the aria-label carries the name), staying a ≥44px target. */}
+                  they never share space at any viewport. With no guest mode, only an
+                  identified traveler ever reaches this button — the front-door wall covers everyone
+                  else. Label collapses to icon-only below `sm` (the aria-label carries the name),
+                  staying a ≥44px target. */}
               {isDefault && <ConciergeChat />}
 
               <button
@@ -343,7 +335,7 @@ export default function Navbar() {
                 onClick={() => enterTravel(navigate)}
                 data-testid="navbar-travel-mode"
                 aria-label="Enter Travel Mode"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-gold-400/30 bg-gold-400/10 px-2.5 text-sm font-medium text-gold-200 outline-none transition-colors hover:bg-gold-400/20 hover:text-gold-100 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none sm:px-3.5"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-ring/30 bg-primary/10 px-2.5 text-sm font-medium text-primary outline-none transition-colors hover:bg-primary/20 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-3.5"
               >
                 <Compass className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Travel Mode</span>
@@ -360,17 +352,11 @@ export default function Navbar() {
  * "You are {name}" chip. The traveler's `accent` tints a subtle pill
  * background + dot via INLINE style, so any
  * of the three brand accents renders correctly without a safelist. Carries a sign-out
- * control; `signOut()` then fires identity:changed → the gate re-shows and this chip clears.
+ * control —: sign-out is now a full local teardown, so the button is confirm-gated
+ * via the shared `<SignOutConfirm>` (which itself calls `signOut()` then reloads) rather than a
+ * bare onClick.
  */
-function TravelerChip({
-  name,
-  accent,
-  onSignOut,
-}: {
-  name: string;
-  accent: string;
-  onSignOut: () => void;
-}) {
+function TravelerChip({ name, accent }: { name: string; accent: string }) {
   return (
     <div
       className="flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full border bg-white/5"
@@ -386,37 +372,16 @@ function TravelerChip({
           You are <span className="font-semibold text-white">{name}</span>
         </span>
       </span>
-      <button
-        onClick={onSignOut}
-        aria-label={`Sign out ${name}`}
-        title="Sign out"
-        className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-      >
-        <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
-      </button>
+      <SignOutConfirm testId="navbar-sign-out">
+        <button
+          aria-label={`Sign out ${name}`}
+          title="Sign out"
+          data-testid="navbar-sign-out"
+          className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        >
+          <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
+        </button>
+      </SignOutConfirm>
     </div>
-  );
-}
-
-/**
- * Guest affordance: a quiet "Guest · Keep this trip" pill — the DESKTOP end
- * of the explorer→owner funnel. Clicking opens the conversion dialog, which
- * turns the demo session into an account + a trip of the guest's own, and which also carries the
- * "log in instead" path this chip used to be (so nothing was removed, only re-aimed at the action
- * a guest actually wants). Below `md` the whole identity cluster is hidden, so the mobile CTA is a
- * pill rendered by `guest-convert.tsx` itself.
- */
-function GuestChip({ onKeepTrip }: { onKeepTrip: () => void }) {
-  return (
-    <button
-      onClick={onKeepTrip}
-      data-testid="navbar-guest-keep-trip"
-      className="flex min-h-[44px] items-center gap-1.5 pl-2.5 pr-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs text-white/60 hover:text-white hover:border-white/20 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-    >
-      <UserRound className="w-3.5 h-3.5" aria-hidden="true" />
-      <span>
-        Guest · <span className="text-gold-400 font-medium">Keep this trip</span>
-      </span>
-    </button>
   );
 }

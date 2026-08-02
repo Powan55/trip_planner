@@ -19,7 +19,7 @@
 // inner box and pad the rest with the brand background so no glyph pixels fall
 // in the mask-clipped border.
 //
-// Background = navy-900 (#0a0e27), the color the app's <body> actually paints
+// Background = navy-900 (#0b0c0e), the color the app's <body> actually paints
 // (Tailwind token `navy-900`, tailwind.config.ts; body className bg-navy-900 in
 // app/layout.tsx). Same hex feeds the manifest theme/background_color in
 // gen-sw.mjs, so the installed app, splash, and address bar all agree.
@@ -35,7 +35,7 @@ const SVG_PATH = join(ROOT, 'public', 'favicon.svg');
 const OUT_DIR = join(ROOT, 'public', 'icons');
 
 // The app's navy-900 (matches manifest background_color/theme_color).
-const BG = { r: 0x0a, g: 0x0e, b: 0x27, alpha: 1 };
+const BG = { r: 0x0b, g: 0x0c, b: 0x0e, alpha: 1 };
 
 async function renderGlyph(svgBuffer, size) {
   // Render the SVG crisply at the requested edge length.

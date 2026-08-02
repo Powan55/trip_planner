@@ -76,7 +76,7 @@ function TodayAgenda({ items, date, dayNumber, city, onToggle }: CommonProps) {
       <p className="text-white/55 text-xs mt-1">A free day — or head to the planner to add something.</p>
       <Link
         href="/plan/"
-        className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg glass-card text-white text-sm font-medium hover:bg-white/10 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+        className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg glass-card text-white text-sm font-medium hover:bg-white/10 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <Calendar className="w-4 h-4" aria-hidden="true" />
         Open the planner
@@ -111,7 +111,7 @@ function TodayAgendaItem({ item, date, onToggle }: { item: ItineraryItem; date: 
         aria-pressed={done}
         aria-label={`${done ? 'Mark not done' : 'Mark done'}: ${item.title}`}
         data-testid={`today-done-toggle-${item.id}`}
-        className={`group flex w-full items-center gap-3 rounded-xl border p-3 text-left min-h-[44px] transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+        className={`group flex w-full items-center gap-3 rounded-xl border p-3 text-left min-h-[44px] transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
           done
             ? 'border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10'
             : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]'
@@ -190,7 +190,7 @@ function TravelAgenda({ items, date, dayNumber, city, onToggle, ctx }: CommonPro
         <p className="text-sm text-white/60">No agenda for today — a free day.</p>
         <Link
           href="/plan/"
-          className="mt-4 inline-flex items-center gap-2 rounded-lg glass-card px-4 py-2 text-sm font-medium text-white outline-none transition-colors duration-200 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          className="mt-4 inline-flex items-center gap-2 rounded-lg glass-card px-4 py-2 text-sm font-medium text-white outline-none transition-colors duration-200 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Calendar className="h-4 w-4" aria-hidden="true" />
           Open the planner
@@ -209,11 +209,11 @@ function TravelAgenda({ items, date, dayNumber, city, onToggle, ctx }: CommonPro
       className="mx-auto mt-4 max-w-2xl"
     >
       <header className="mb-3 flex items-end justify-between px-1">
-        <h2 id="travel-agenda-title" className="text-xs uppercase tracking-widest text-gold-400/80">
+        <h2 id="travel-agenda-title" className="text-xs uppercase tracking-widest text-muted-foreground">
           Today&rsquo;s agenda
         </h2>
         <p className="text-xs text-white/50" aria-live="polite">
-          <span className="font-semibold text-gold-400">{doneCount}</span>
+          <span className="font-semibold text-foreground">{doneCount}</span>
           <span aria-hidden="true"> / </span>
           <span className="sr-only"> of </span>
           {items.length} done
@@ -263,7 +263,7 @@ function TravelAgendaItem({
         aria-label={`${done ? 'Mark not done' : 'Mark done'}: ${item.title}`}
         data-testid={`travel-done-toggle-${item.id}`}
         data-row-phase={phase}
-        className={`group flex w-full items-center gap-3 rounded-xl border p-3 text-left min-h-[48px] transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${TM_ROW_CLASS[phase]}`}
+        className={`group flex w-full items-center gap-3 rounded-xl border p-3 text-left min-h-[48px] transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${TM_ROW_CLASS[phase]}`}
       >
         <span
           aria-hidden="true"

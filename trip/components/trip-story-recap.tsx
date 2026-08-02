@@ -125,14 +125,14 @@ export default function TripStoryRecap() {
       <div className="mx-auto max-w-3xl">
         {/* The trip-level summary — opens the story. */}
         <header className="mb-10 text-center">
-          <p className="text-eyebrow mb-3 uppercase text-gold-400/80">The story, cover to cover</p>
+          <p className="text-eyebrow mb-3 uppercase text-muted-foreground">The story, cover to cover</p>
           <h2 id="story-title" className="font-display text-2xl sm:text-3xl font-bold text-white mb-4">
-            <span className="text-gradient-gold">{days.length} days</span>, one journey
+            <span className="text-display-emphasis">{days.length} days</span>, one journey
           </h2>
           <p data-testid="story-trip-summary" className="mx-auto max-w-2xl text-base leading-relaxed text-white/65">
             {totalPlanned > 0 ? (
               <>
-                <span className="font-semibold text-gold-400">{totalDone}</span> of {totalPlanned} planned
+                <span className="font-semibold text-foreground">{totalDone}</span> of {totalPlanned} planned
                 activities done
               </>
             ) : (
@@ -195,7 +195,7 @@ function StoryLocked({ nowDateStr }: { nowDateStr: string }) {
       className="px-gutter py-section"
     >
       <div data-testid="trip-story-locked" className="glass-card mx-auto max-w-2xl rounded-3xl p-8 text-center sm:p-12">
-        <p className="text-eyebrow mb-3 uppercase text-gold-400/80">Coming soon</p>
+        <p className="text-eyebrow mb-3 uppercase text-muted-foreground">Coming soon</p>
         <h2 id="story-locked-title" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Your story unlocks after the trip
         </h2>
@@ -206,7 +206,7 @@ function StoryLocked({ nowDateStr }: { nowDateStr: string }) {
         </p>
         {elapsed.length > 0 && (
           <p className="mt-4 text-sm text-white/45">
-            So far you&apos;ve lived <span className="font-semibold text-gold-400">{elapsed.length}</span> of{' '}
+            So far you&apos;ve lived <span className="font-semibold text-foreground">{elapsed.length}</span> of{' '}
             {TRIP_DATES.length} trip days — come back once the trip wraps to read the whole story.
           </p>
         )}
@@ -250,7 +250,7 @@ function DayStory({
     >
       <header className="mb-4">
         <h3 id={headingId} className="font-display text-lg font-bold leading-tight text-white sm:text-xl">
-          Day <span className="text-gold-400">{dayNumber}</span>
+          Day <span className="text-foreground">{dayNumber}</span>
           <span className="mx-2 text-white/40" aria-hidden="true">
             —
           </span>
@@ -267,7 +267,7 @@ function DayStory({
       ) : (
         <>
           <p data-testid={`story-plan-summary-${date}`} className="mb-2 text-sm text-white/70">
-            <span className="font-semibold text-gold-400">{summary.done}</span> of {summary.planned} planned{' '}
+            <span className="font-semibold text-foreground">{summary.done}</span> of {summary.planned} planned{' '}
             {summary.planned === 1 ? 'activity' : 'activities'} done.
           </p>
           <ul data-testid={`story-plan-${date}`} className="mb-3 space-y-1" aria-label={`Plan for Day ${dayNumber}, ${city}`}>
@@ -295,7 +295,7 @@ function DayStory({
       {/* The day's journal reflection, read-only. */}
       {entry && (
         <div data-testid={`story-journal-${date}`} className="mt-3 border-t border-white/10 pt-3">
-          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-gold-400/80">
+          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
             <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
             Reflection
           </p>
@@ -304,7 +304,7 @@ function DayStory({
               {mood && (
                 <span
                   data-testid={`story-journal-mood-${date}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-gold-400/25 bg-gold-400/[0.08] px-2.5 py-1 text-xs font-medium text-gold-400"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground"
                 >
                   <span aria-hidden="true">{mood.glyph}</span>
                   {mood.label}
@@ -315,7 +315,7 @@ function DayStory({
                   data-testid={`story-journal-highlight-${date}`}
                   className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-white/90"
                 >
-                  <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
+                  <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0 break-words">{entry.highlight}</span>
                 </span>
               )}
@@ -338,7 +338,7 @@ function DayStory({
       {/* The day's logged spend, in the day's leg-local currency — only when >0. */}
       {spend > 0 && (
         <p data-testid={`story-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-white/60">
-          <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-gold-400/80" aria-hidden="true" />
+          <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
           Spent <span className="font-semibold text-white/85">{formatMoney(spend, legCurrency(country))}</span>
         </p>
       )}
@@ -368,7 +368,7 @@ export function StoryPhotos({
 
   return (
     <div data-testid={`story-photos-${date}`} className="mt-3 border-t border-white/10 pt-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-gold-400/80">
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         <Camera className="h-3.5 w-3.5" aria-hidden="true" />
         Photos
       </p>

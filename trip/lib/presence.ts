@@ -1,7 +1,7 @@
 // The presence seam — "who else is on the trip right now".
 //
 // This module is the presence analog of lib/itinerary-remote.ts. It owns the ONLY new
-// Firestore collection M10/M13 adds: a heartbeat doc per traveler at
+// Firestore collection adds: a heartbeat doc per traveler at
 // `trips/{TRIP_ID}/presence/{uid}`, shape
 // `{ name, lastSeen: serverTimestamp() }`. It never touches the `days` model or its
 // per-day LWW. It has two directions:
@@ -326,6 +326,9 @@ export function subscribePresence(
       firestoreUnsub = onSnapshot(
         presenceCol,
         (snapshot) => {
+          // Never route an `expect()` through this callback (incl. through `onChange`): the catch
+          // below swallows anything thrown here into a console.warn, so a FAILING assertion still
+          // scores as a passing test. Assert on what the subscriber received, after the await.
           try {
             const records: PresenceRecord[] = snapshot.docs.map((d) => {
               const data = d.data() as Record<string, unknown>;

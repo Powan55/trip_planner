@@ -133,12 +133,6 @@ export function PressScale({
   )
 }
 
-export function SkeletonPulse({ className }: { className?: string }) {
-  return (
-    <m.div
-      animate={{ opacity: [0.4, 1, 0.4] }}
-      transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-      className={`rounded-md bg-muted ${className ?? ''}`}
-    />
-  )
-}
+// `SkeletonPulse` deleted — a framer `repeat: Infinity` opacity loop with ZERO
+// usages tree-wide. The app's real loading affordance is `.animate-shimmer`
+// (globals.css) via SectionSkeleton / WeatherCard.

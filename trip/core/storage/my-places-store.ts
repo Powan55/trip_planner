@@ -13,7 +13,7 @@
  * type is a caller-supplied generic `T`, owned by `core/places/model.ts`. `get(fallback)` returns the
  * parsed slot or `fallback` (absent / SSR / corrupt JSON); the CALLER sanitizes (`sanitizePlaces`).
  * `set(places)` writes the whole list as JSON. TRIP-SCOPED + LOCAL-ONLY (cross-device sync is the
- * deferred S-d). Never throws (inherits `readJson`/`writeJson`).
+ * deferred). Never throws (inherits `readJson`/`writeJson`).
  */
 import { readJson, writeJson, keyFor } from '@/core/storage/gateway';
 

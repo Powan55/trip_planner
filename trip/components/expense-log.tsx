@@ -34,14 +34,14 @@ export default function ExpenseLog({
     <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5" data-testid="expense-log">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <ReceiptText className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />
+          <ReceiptText className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <h3 className="text-sm font-semibold text-white sm:text-base">Logged expenses</h3>
         </div>
         <button
           type="button"
           onClick={onLog}
           data-testid="expense-log-open"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-gold-500 px-3.5 py-2 text-sm font-semibold text-surface transition-colors hover:bg-gold-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Log expense
@@ -75,8 +75,20 @@ export default function ExpenseLog({
                 >
                   {e.category}
                 </span>
+                {/* 🔴 — MOBILE-ONLY UNCLIP. Measured on a real 390px shoot: this row spends
+                    ~150 of its ~241px inner width on the shrink-0 category chip + the two 44px
+                    (a11y-floor) icon buttons + three 12px gaps, leaving the text column ~89px. With
+                    `truncate` unconditional, EVERY line ellipsised — `¥11,700…`, `Izakaya, …`,
+                    `logged by…` — and the `split N` chip, which lives inside the amount line, was
+                    clipped away ENTIRELY. No check in this repo could see it: `innerText` returns
+                    the full string regardless of a CSS ellipsis, so `e2e/budget.spec.ts` is green on
+                    a row a phone user cannot read. Gating the clamp at `sm:` lets the lines WRAP
+                    below 640px (nothing hidden, row just gets taller — correct for mobile) and
+                    leaves ≥640px byte-identical to the shipped behaviour. This is a root-cause fix
+                    for a live mobile defect, not a screenshot tweak — but is what surfaced it,
+                    and a marketing shot of a clipped row is why it could not be deferred. */}
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-white" data-testid={`expense-item-${e.id}-amount`}>
+                  <p className="text-sm font-semibold text-white sm:truncate" data-testid={`expense-item-${e.id}-amount`}>
                     {formatMoney(e.amount, cur)}
                     <span className="ml-1.5 text-xs font-normal capitalize text-white/40">· {e.leg}</span>
                     {splitCount > 0 && (
@@ -89,11 +101,18 @@ export default function ExpenseLog({
                       </span>
                     )}
                   </p>
-                  {e.note && <p className="truncate text-xs text-white/50">{e.note}</p>}
+                  {e.note && (
+                    <p
+                      className="text-xs text-white/50 sm:truncate"
+                      data-testid={`expense-item-${e.id}-note`}
+                    >
+                      {e.note}
+                    </p>
+                  )}
                   {/* "Logged by {name}" attribution — present only on a synced
                       expense stamped by an active traveler; dormant rows carry no createdBy. */}
                   {e.createdBy && (
-                    <p className="truncate text-[0.7rem] text-white/40" data-testid={`expense-item-${e.id}-author`}>
+                    <p className="text-[0.7rem] text-white/40 sm:truncate" data-testid={`expense-item-${e.id}-author`}>
                       logged by {e.createdBy}
                     </p>
                   )}
@@ -103,7 +122,7 @@ export default function ExpenseLog({
                   onClick={() => onEdit(e)}
                   data-testid={`expense-item-edit-${e.id}`}
                   aria-label={`Edit ${e.category} expense of ${formatMoney(e.amount, cur)}`}
-                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
                 </button>

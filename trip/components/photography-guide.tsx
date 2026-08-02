@@ -32,7 +32,7 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
         type="button"
         onClick={onOpen}
         aria-label={`View details for ${spot.name}`}
-        className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded-xl"
+        className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-xl"
       >
         {spot.image && !imgError && (
           <div className="relative -mx-5 -mt-5 mb-4 aspect-[16/10] overflow-hidden rounded-t-2xl bg-surface-raised motion-safe:group-hover:[&_img]:scale-105 [&_img]:transition-transform [&_img]:duration-500">
@@ -65,7 +65,9 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
             <div>
               <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
                 {spot.name}
-                {spot.mustSee && !spot.image && <Star className="w-3 h-3 fill-gold-400 text-gold-400" />}
+                {/* this is the "Must-see" RIBBON's no-image fallback — the same
+                    content-semantic label in icon form — so it keeps the ribbon's gold. */}
+                {spot.mustSee && !spot.image && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
               </h3>
               <p className="text-[11px] text-white/40">{spot.city}, {spot.country}</p>
             </div>
@@ -81,7 +83,7 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
 
         <div className="space-y-2 text-xs">
           <div className="flex items-center gap-2 text-white/50">
-            <Clock className="w-3.5 h-3.5 text-gold-400" />
+            <Clock className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
             <span>{spot.bestTime}</span>
           </div>
           <div className="flex items-center gap-2 text-white/50">
@@ -230,7 +232,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
         <SectionHeading
           id="photography-heading"
           className="mb-10"
-          title={<>Photography <span className="text-gradient-gold">Guide</span></>}
+          title={<>Photography <span className="text-display-emphasis">Guide</span></>}
           subtitle="Capture the perfect shot at every destination with expert shooting tips and gear suggestions."
         />
 
@@ -244,14 +246,14 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search spots, styles, tips…"
               aria-label="Search photography guide"
-              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/40 hover:text-white/70 hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/40 hover:text-white/70 hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -264,7 +266,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
               id="photo-sort"
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
-              className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+              className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
             >
               <option value="mustSee" className="bg-surface">Sort: Must-see first</option>
               <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
@@ -280,9 +282,9 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
                 key={city}
                 onClick={() => setActiveCity(city)}
                 aria-pressed={activeCity === city}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                   activeCity === city
-                    ? 'text-gold-400 bg-gold-400/10 ring-1 ring-gold-400/30'
+                    ? 'text-primary bg-primary/10 ring-1 ring-ring/30'
                     : 'text-white/55 hover:bg-white/5 hover:text-white/80'
                 }`}
               >
@@ -300,9 +302,9 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
               key={cat}
               onClick={() => setActiveCategory(cat)}
               aria-pressed={activeCategory === cat}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                 activeCategory === cat
-                  ? 'text-gold-400 bg-gold-400/10 ring-1 ring-gold-400/30'
+                  ? 'text-primary bg-primary/10 ring-1 ring-ring/30'
                   : 'text-white/55 hover:bg-white/5 hover:text-white/80'
               }`}
             >
@@ -326,7 +328,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
             <button
               type="button"
               onClick={resetFilters}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-gold-400 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-primary hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               Clear filters
             </button>

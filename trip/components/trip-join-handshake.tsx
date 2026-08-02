@@ -41,26 +41,24 @@ import {
  */
 export default function TripJoinHandshake() {
   const [token, setToken] = useState<string | null>(null);
-  const { traveler, isGuest } = useActiveTraveler();
+  const { traveler } = useActiveTraveler();
   // Depend on the BOOLEAN, not the traveler object: `useActiveTraveler` re-resolves a fresh object
   // on every identity:changed, which would re-run this effect for no reason.
   const identified = traveler !== null;
 
   useEffect(() => {
-    // / + S338B /: adding a trip is a trip-MUTATING registry action (it moves
-    // the active-trip pointer) and, per the two-token rule, requires a LOGGED-IN user. So this
-    // dialog is for an identified traveler only:
-    // - GUEST: letting them "join" would move the pointer while `keyFor` still sandboxes every
-    // byte, i.e. a broken half-state. The dialog stays down; the demo continues.
-    // - UNIDENTIFIED: the front door owns this case now — `token-gate.tsx` reads the
-    // same `?trip=` param, HOLDS it through log-in / create-account, and joins before its
-    // reload. Bailing here keeps a second, invisible dialog from mounting behind the wall.
-    if (isGuest || !identified) return;
+    // / + /: adding a trip is a trip-MUTATING registry action (it moves
+    // the active-trip pointer) and, per the two-token rule, requires a LOGGED-IN user. With no
+    // guest mode, UNIDENTIFIED is the only bail case: the front door owns it —
+    // `token-gate.tsx` reads the same `?trip=` param, HOLDS it through log-in / create-account, and
+    // joins before its reload. Bailing here keeps a second, invisible dialog from mounting behind
+    // the wall.
+    if (!identified) return;
     const raw = new URLSearchParams(window.location.search).get('trip');
     const t = raw?.trim();
     // Prompt only for a non-empty token that is NOT the trip we are already on.
     if (t && t !== getTripId()) setToken(t);
-  }, [isGuest, identified]);
+  }, [identified]);
 
   const stripParam = () => {
     const url = new URL(window.location.href);
@@ -110,7 +108,7 @@ export default function TripJoinHandshake() {
           <AlertDialogAction
             data-testid="trip-join-confirm"
             onClick={handleJoin}
-            className="min-h-[44px] bg-gold-500 text-surface hover:bg-gold-400"
+            className="min-h-[44px] bg-primary text-primary-foreground hover:bg-primary/90"
           >
             Add trip
           </AlertDialogAction>

@@ -193,9 +193,9 @@ export default function WrappedStory() {
           <div className="relative">
             <div data-testid="wrapped-entry" className="glass-card mx-auto rounded-3xl p-8 text-center sm:p-12">
               <CelebrationBurst active={celebrate && !reducedMotion} testId="wrapped-celebration" />
-              <p className="text-eyebrow mb-3 uppercase text-gold-400/80">{copy.eyebrow}</p>
+              <p className="text-eyebrow mb-3 uppercase text-muted-foreground">{copy.eyebrow}</p>
               <h2 id="wrapped-title" className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
-                <span className="text-gradient-gold">{copy.title}</span>
+                <span className="text-display-emphasis">{copy.title}</span>
               </h2>
               <p data-testid="wrapped-blurb" className="mx-auto max-w-xl text-base leading-relaxed text-white/65">
                 {copy.blurb(stats)}
@@ -204,7 +204,7 @@ export default function WrappedStory() {
                 type="button"
                 data-testid="wrapped-share"
                 onClick={() => void shareWrapped(stats)}
-                className="mt-6 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-gold-400/30 bg-gold-400/[0.08] px-5 py-2.5 text-sm font-semibold text-gold-400 transition-colors hover:bg-gold-400/[0.14] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                className="mt-6 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-ring/30 bg-primary/10 px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               >
                 <Share2 className="h-4 w-4" aria-hidden="true" />
                 Share your wrapped
@@ -216,13 +216,13 @@ export default function WrappedStory() {
         <div className="mt-6 grid gap-4 sm:grid-cols-2">
           <Reveal>
             <StatPanel testId="wrapped-stat-days" icon={<MapPin className="h-4 w-4" aria-hidden="true" />} label="Days lived">
-              <span className="font-semibold text-gold-400">{stats.daysElapsed}</span> of {stats.totalTripDays} trip days
+              <span className="font-semibold text-foreground">{stats.daysElapsed}</span> of {stats.totalTripDays} trip days
             </StatPanel>
           </Reveal>
 
           <Reveal>
             <StatPanel testId="wrapped-stat-activities" icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />} label="Activities">
-              <span className="font-semibold text-gold-400">{stats.activitiesDone}</span> of {stats.activitiesPlanned} planned{' '}
+              <span className="font-semibold text-foreground">{stats.activitiesDone}</span> of {stats.activitiesPlanned} planned{' '}
               activities done
             </StatPanel>
           </Reveal>
@@ -241,33 +241,33 @@ export default function WrappedStory() {
 
           <Reveal>
             <StatPanel testId="wrapped-stat-journal" icon={<BookOpen className="h-4 w-4" aria-hidden="true" />} label="Journal">
-              <span className="font-semibold text-gold-400">{stats.journalCount}</span>{' '}
+              <span className="font-semibold text-foreground">{stats.journalCount}</span>{' '}
               {stats.journalCount === 1 ? 'entry' : 'entries'} written
             </StatPanel>
           </Reveal>
 
           <Reveal>
             <StatPanel testId="wrapped-stat-photos" icon={<Camera className="h-4 w-4" aria-hidden="true" />} label="Photos">
-              <span className="font-semibold text-gold-400">{stats.photoCount}</span>{' '}
+              <span className="font-semibold text-foreground">{stats.photoCount}</span>{' '}
               {stats.photoCount === 1 ? 'photo' : 'photos'} captured
             </StatPanel>
           </Reveal>
 
           <Reveal>
             <StatPanel testId="wrapped-stat-packing" icon={<Backpack className="h-4 w-4" aria-hidden="true" />} label="Packing">
-              <span className="font-semibold text-gold-400">{stats.packing.checked}</span> of {stats.packing.total} packed
+              <span className="font-semibold text-foreground">{stats.packing.checked}</span> of {stats.packing.total} packed
             </StatPanel>
           </Reveal>
 
           <Reveal>
             <StatPanel testId="wrapped-stat-docs" icon={<FileCheck2 className="h-4 w-4" aria-hidden="true" />} label="Documents">
-              <span className="font-semibold text-gold-400">{stats.docs.done}</span> of {stats.docs.total} ready
+              <span className="font-semibold text-foreground">{stats.docs.done}</span> of {stats.docs.total} ready
             </StatPanel>
           </Reveal>
         </div>
 
         <footer className="mt-8 flex items-center justify-center gap-1.5 text-center text-sm italic text-white/45">
-          <Sparkles className="h-3.5 w-3.5 text-gold-400/60" aria-hidden="true" />
+          <Sparkles className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           That&rsquo;s the trip, wrapped up in numbers.
         </footer>
       </div>
@@ -288,7 +288,7 @@ function StatPanel({
 }) {
   return (
     <div data-testid={testId} className="glass-card h-full rounded-2xl p-5">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-gold-400/80">
+      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
         <span aria-hidden="true">{icon}</span>
         {label}
       </p>
@@ -302,7 +302,7 @@ function LegSpendLine({ leg, spend }: { leg: 'nepal' | 'japan'; spend: WrappedSt
   return (
     <span data-testid={`wrapped-spend-${leg}`}>
       <span className="font-semibold text-white/90">{capitalize(leg)}:</span>{' '}
-      <span className="font-semibold text-gold-400">{formatMoney(spend.total, legCurrency(leg))}</span>
+      <span className="font-semibold text-foreground">{formatMoney(spend.total, legCurrency(leg))}</span>
       {spend.topCategory && (
         <span className="text-white/55"> — top category {capitalize(spend.topCategory.category)}</span>
       )}

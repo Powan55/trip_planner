@@ -26,7 +26,7 @@ import { isDefaultTrip } from '@/core/trips';
  * (`trailingSlash:true`). next/link handles basePath; active state comes from
  * usePathname() (which EXCLUDES basePath), so the whole nav is basePath-agnostic.
  *
- * S113D: Flights added as a sixth route-driven item (moved off Home onto its own
+ * Flights added as a sixth route-driven item (moved off Home onto its own
  * `/flights/` page) — measured to still clear the ≥44px mobile touch-target floor
  * at a 360px viewport, so it stays in the shared bottom-tab-bar too.
  *

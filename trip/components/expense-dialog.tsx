@@ -77,8 +77,8 @@ export default function ExpenseDialog({
   const isEdit = expense != null;
   // The split roster for the ACTIVE trip: fixed TRAVELERS on the default pack,
   // derived from expense history + self on a custom trip. The "me" default for the payer is the
-  // active traveler, else the first roster name (a guest — the /plan gate means an active traveler
-  // is the norm; a custom trip with no history + no traveler yields an empty roster and no split UI).
+  // active traveler, else the first roster name (the /plan gate means an active traveler is the
+  // norm; a custom trip with no history + no traveler yields an empty roster and no split UI).
   const allNames = rosterForActiveTrip(expenses);
   const meName = traveler?.name ?? allNames[0] ?? '';
 
@@ -288,7 +288,7 @@ export default function ExpenseDialog({
             data-testid="expense-cancel"
             onClick={onClose}
             aria-label="Close dialog"
-            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <X className="w-5 h-5" />
           </button>
@@ -328,7 +328,7 @@ export default function ExpenseDialog({
                   }}
                   placeholder="0"
                   autoComplete="off"
-                  className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-white/30 focus:outline-none focus-visible:border-gold-400/60 focus-visible:ring-2 focus-visible:ring-gold-400/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
+                  className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-white/30 focus:outline-none focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
                 />
               </div>
             </div>
@@ -352,9 +352,9 @@ export default function ExpenseDialog({
                       aria-checked={active}
                       onClick={() => setLeg(l)}
                       data-testid={`expense-leg-${l}`}
-                      className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none ${
+                      className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none ${
                         active
-                          ? 'border-gold-400 bg-gold-400/15 text-gold-300'
+                          ? 'border-ring bg-primary/10 text-primary'
                           : 'border-white/15 text-white/70 hover:bg-white/5'
                       }`}
                     >
@@ -381,7 +381,7 @@ export default function ExpenseDialog({
                       aria-pressed={isActive}
                       aria-label={`Category: ${cat}`}
                       data-testid={`expense-category-${cat}`}
-                      className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
+                      className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-white/60 hover:bg-white/5'
                       }`}
                     >
@@ -401,7 +401,7 @@ export default function ExpenseDialog({
                 data-testid="expense-note-input"
                 value={note}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNote(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold-400 focus-visible:ring-2"
+                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
                 placeholder="e.g., Ramen at Ichiran"
                 autoComplete="off"
               />
@@ -414,10 +414,10 @@ export default function ExpenseDialog({
                 data-testid="expense-split-toggle"
                 aria-expanded={splitOn}
                 onClick={() => setSplitOn((v) => !v)}
-                className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold-400"
+                className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-gold-400" aria-hidden="true" />
+                  <Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   Split with others
                 </span>
                 <span aria-hidden="true" className={`text-white/40 transition-transform ${splitOn ? 'rotate-90' : ''}`}>
@@ -441,8 +441,8 @@ export default function ExpenseDialog({
                             aria-checked={active}
                             onClick={() => setPaidBy(name)}
                             data-testid={`expense-payer-${name}`}
-                            className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 ${
-                              active ? 'border-gold-400 bg-gold-400/15 text-gold-300' : 'border-white/15 text-white/70 hover:bg-white/5'
+                            className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                              active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-white/70 hover:bg-white/5'
                             }`}
                           >
                             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />
@@ -466,8 +466,8 @@ export default function ExpenseDialog({
                             aria-pressed={active}
                             onClick={() => toggleMember(name)}
                             data-testid={`expense-split-member-${name}`}
-                            className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 ${
-                              active ? 'border-gold-400 bg-gold-400/15 text-gold-300' : 'border-white/15 text-white/50 hover:bg-white/5'
+                            className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                              active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-white/50 hover:bg-white/5'
                             }`}
                           >
                             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />
@@ -477,7 +477,7 @@ export default function ExpenseDialog({
                       })}
                     </div>
                     {splitMembers.length === 0 ? (
-                      <p className="mt-1.5 text-xs text-gold-300/80" data-testid="expense-split-hint">
+                      <p className="mt-1.5 text-xs text-gold-400/80" data-testid="expense-split-hint">
                         Pick at least one person, or this stays a personal expense.
                       </p>
                     ) : (
@@ -511,7 +511,7 @@ export default function ExpenseDialog({
             onClick={handleSave}
             data-testid="expense-save"
             disabled={saveDisabled}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-gold-500"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary"
           >
             <Check className="w-4 h-4" />
             {isEdit ? 'Update expense' : 'Save expense'}

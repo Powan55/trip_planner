@@ -4,20 +4,28 @@ import { useEffect, useState } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import type { ReactNode } from 'react';
 
+import { FADE_FLOOR } from '@/lib/motion';
+
 /**
  * Reveal — the ONE canonical section-masthead entrance (; scroll-driven CSS
  * conversion extending dual-path idiom from the page-progress bar
  * (`components/scroll-progress.tsx`) — read that file's doc comment first, this
  * mirrors it exactly).
  *
- * Slide-only: translates up from y:20 with opacity PINNED at 1 (never an
- * opacity:0 state), on BOTH paths. This encodes / the convention —
- * a fade drops a muted subtitle's computed opacity mid-animation, and the axe
- * scan (which does NOT run under reduced-motion) races that transition and flags
- * the partially-faded text as a transient contrast failure. Sliding at full
- * opacity keeps the reveal feel while guaranteeing content is always scannable
- * at AA. The CSS path only ever animates `transform`, never `opacity`, so this
- * guarantee holds structurally there too.
+ * — the reveal now FLOORS its fade instead of pinning it. / the
+ * convention pinned opacity at 1 on both paths (a slide that never faded)
+ * because the axe scan does NOT run under reduced motion, so it races the
+ * transition and flags a mid-fade muted subtitle as a transient contrast failure.
+ * A floor keeps that guarantee without killing the motion: the framer path animates
+ * `FADE_FLOOR → 1`, and FADE_FLOOR is shallow enough that even the most muted body
+ * copy in a revealed subtree stays ≥AA at the animation's darkest frame.
+ *
+ * The CSS path is DELIBERATELY not floored — it still animates `transform` only.
+ * A view-timeline animation is a pure function of scroll position and re-plays
+ * every time the element re-enters its range, so an
+ * opacity fade there would flicker on every scroll-by instead of revealing once.
+ * Net effect: on Chromium the floored fade is only seen on the reduced-motion /
+ * no-support framer path; Firefox/Safari get it on every reveal.
  *
  * — two rendering paths, feature-detected at runtime:
  * - **CSS path** (Chromium): a plain `<div class="reveal-view-css">` whose
@@ -53,13 +61,15 @@ import type { ReactNode } from 'react';
  * motion` we simply never render the CSS element — the framer path is used
  * instead, and that path's y-transform is what the app-wide `<MotionConfig
  * reducedMotion="user">` (theme-provider.tsx) already neutralizes to a static
- * render, so no per-caller guard is needed there. `useReducedMotion` is
- * called here ONLY to gate which path renders (mirrors scroll-progress.tsx);
- * it does not touch the framer path's own props, which stay byte-identical to
- * pre-.
+ * render.
  *
- * Stays byte-identical (framer path) to the inline mastheads replaced
- * (same m.div props + viewport) so this introduces ~0 visual drift there.
+ * CORRECTION to the sentence that used to sit here — `useReducedMotion` is NO
+ * LONGER only a path gate. MotionConfig neutralizes the `y` TRANSFORM; it does not
+ * hold OPACITY at 1. Once floored the fade, an un-forked reveal that had not
+ * yet intersected rested at FADE_FLOOR under reduce — measured, not theorised: the
+ * negative-control run read 0.7 off the off-screen photography masthead on
+ * /nepal/. So `reduceMotion` now also forks the framer path's `initial`, landing
+ * reduced-motion users at full opacity. e2e/reveal.spec.ts asserts it.
  */
 export function Reveal({
   children,
@@ -93,7 +103,14 @@ export function Reveal({
   return (
     <m.div
       data-scroll-driven="js"
-      initial={{ opacity: 1, y: 20 }}
+      // the floor is for the ANIMATED path only. Under reduce we keep the old
+      // pin (settle at full opacity, no fade, no slide) — `MotionConfig
+      // reducedMotion="user"` neutralises the `y` transform but NOT opacity, so an
+      // un-forked floor would leave any not-yet-intersected reveal resting at 0.7 for
+      // exactly the users least able to tolerate it. Measured, not assumed: the
+      // negative-control run read 0.7 off the off-screen photography masthead before this
+      // fork existed. Asserted in e2e/reveal.spec.ts.
+      initial={reduceMotion ? { opacity: 1 } : { opacity: FADE_FLOOR, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       className={className}

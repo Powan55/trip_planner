@@ -3,18 +3,28 @@
 import { useState, useEffect, useRef, useId } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { Plane, KeyRound, User, ArrowRight } from 'lucide-react';
-import { signIn, IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
-import { sessionGate, wipeSandbox, getSyncCode, setSyncCode } from '@/core/storage/gateway';
+import { signIn } from '@/lib/token-auth';
+import { getUserName } from '@/lib/identity';
+import { getSyncCode, setSyncCode } from '@/core/storage/gateway';
 import { joinTrip } from '@/core/trips/registry';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
 import { TRIP_START } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import UserTokenShowOnce from '@/components/user-token-show-once';
+import LandingPage from '@/components/landing-page';
 
 /**
- * The front door — the app's cinematic boarding-pass WALL, shown iff
- * `!traveler && !isGuest`.
+ * The front door — the app's WALL, shown iff
+ * `!traveler`. There is no guest mode: a logged-out visitor sees this wall on every
+ * route, with no bypass.
+ *
+ * TWO VIEWS: the wall opens on the marketing LANDING (`components/landing-page.tsx`,
+ * zero live trip data) and swaps to the boarding-pass AUTH card when a landing CTA is pressed. Both
+ * views render inside the SAME `role="dialog"` panel, which is the whole point of — the
+ * landing inherits the focus trap, aria wiring and Esc capture instead of rebuilding them.
+ * The dialog's `aria-labelledby`/`aria-describedby` targets move with the view: the landing puts
+ * them on its <h1>/lead paragraph, the auth view on its own heading/blurb.
  *
  * TWO TOKENS, NEVER MIXED:
  * - **User Token** = the ACCOUNT credential. It is the promoted Sync Code — SAME on-disk key
@@ -27,28 +37,26 @@ import UserTokenShowOnce from '@/components/user-token-show-once';
  * a Trip Token pasted here yields a working-but-empty account, losslessly recoverable by signing
  * out and logging in again.
  *
- * THREE PATHS, all ending in a FULL reload ( shape — the reload is what re-arms the
+ * TWO PATHS, both ending in a FULL reload ( shape — the reload is what re-arms the
  * provider's trip-list subscribe with code + traveler both present, so the door itself never needs
  * the network):
- * (a) **Log in** — User Token + name → `setSyncCode` → `signIn` → reload landing `/trips/`.
- * Offers this device's stored key-28 token when present ( soft security; prevents orphan
- * accounts after a sign-out with an unsaved token).
+ * (a) **Log in** — User Token ONLY →
+ * `setSyncCode` → `signIn(displayName)` → reload landing `/trips/`. The display name is not
+ * asked for here: it is reused from this device's identity slot if present, else defaults to
+ * "Traveler" (renamable in Settings → Identity). The name is still load-bearing — it is the
+ * identity slot `getActiveTraveler` reads to dismiss the wall and to attribute edits — the door
+ * just no longer collects it. Offers this device's stored key-28 token when present ( soft
+ * security; prevents orphan accounts after a sign-out with an unsaved token).
  * (b) **Create an account** — name → mint `crypto.randomUUID()` → `setSyncCode` + `signIn` →
  * SHOW-ONCE screen (shared `UserTokenShowOnce`) → explicit confirm → reload landing `/trips/`.
  * The door does NOT create a trip: account creation and trip creation are separate acts
  * (trip creation lives on `/trips`).
- * (c) **Explore the demo** — `wipeSandbox()` → `setGuest()` → reload to `/`.
  *
  * `?trip=` INVITATION: an unidentified visitor opening a share link has the pending Trip
  * Token read straight off the URL here (the door is on the same page as the link) and HELD; on
  * completion of (a) or (b) we `joinTrip(pending)` BEFORE the reload and land on `/` — the join IS
  * the selection. `trip-join-handshake.tsx` correspondingly skips unidentified visitors: joining now
  * requires a login, so the door owns that case.
- *
- * ONE MODE since: the S113E `'guest-route'` mode — which confined a guest to Home and
- * re-walled every other route — is deleted with. A guest roams the whole app with every
- * trip-scoped write namespaced to `trip:guest-sandbox:*` by `keyFor`. Invariant (a) is STRUCTURAL:
- * `signIn` itself clears the guest flag, so identity and the guest flag never coexist.
  *
  * ALWAYS-ON + DORMANT-SAFE: this shows in EVERY build, and imports ONLY pure
  * modules (token-auth · gateway · trips/registry · trip-data · countdown · the show-once view) and
@@ -66,30 +74,17 @@ import UserTokenShowOnce from '@/components/user-token-show-once';
  * card is sized to never overflow @360/390/414. Countdown reuses the shared pure helper.
  */
 
-// the `tripPlannerGuest` key + raw localStorage access live in the typed
-// storage gateway. `setGuest` here delegates to `sessionGate`; the guest OPT-IN still fires
-// identity:changed so the navbar affordance updates live — that reactive dispatch is app logic
-//, NOT storage.
-
-/** Persist the guest choice so a reload does NOT re-show the wall (documented design). */
-function setGuest(): void {
-  sessionGate.setGuest();
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(IDENTITY_CHANGED_EVENT));
-  }
-}
-
 export default function TokenGate() {
-  const { traveler, isGuest } = useActiveTraveler();
+  const { traveler } = useActiveTraveler();
 
-  // SSR-safe first paint: `useActiveTraveler` yields the inert `{null,false}` snapshot on the
+  // SSR-safe first paint: `useActiveTraveler` yields the inert `{traveler:null}` snapshot on the
   // server and the first client render, which would spuriously show the wall for EVERYONE for one
   // frame. Gate on a post-mount flag.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   /**
-   * S338B: the wall must OUTLIVE `signIn`. Every identified path signs in *before* it is finished
+   * the wall must OUTLIVE `signIn`. Every identified path signs in *before* it is finished
    * with the user — path (b) still owes them the show-once screen, and both paths still owe a full
    * reload. `signIn` dispatches identity:changed, so without this hold the derived `show` would
    * drop mid-flow and dissolve the wall (flashing the app behind, and unmounting the show-once
@@ -98,7 +93,7 @@ export default function TokenGate() {
    */
   const [held, setHeld] = useState(false);
 
-  const show = mounted && (held || (!traveler && !isGuest));
+  const show = mounted && (held || !traveler);
 
   return (
     <AnimatePresence>{show && <TokenGateWall onHold={() => setHeld(true)} />}</AnimatePresence>
@@ -106,9 +101,16 @@ export default function TokenGate() {
 }
 
 type Mode = 'login' | 'create';
+/**: the wall opens on the marketing landing; a CTA swaps it to the auth card. */
+type View = 'landing' | 'auth';
 
 function TokenGateWall({ onHold }: { onHold: () => void }) {
-  const [mode, setMode] = useState<Mode>('login');
+  const [view, setView] = useState<View>('landing');
+  // First-timer default: a device with no stored User Token has nothing to paste, so open on
+  // "Create". A returning device (key-28 present) opens on "Log in". SSR-safe: `TokenGateWall`
+  // only ever mounts client-side (parent `TokenGate` gates on `mounted`), so this initializer
+  // never runs on the server — no hydration mismatch.
+  const [mode, setMode] = useState<Mode>(() => (getSyncCode() ? 'login' : 'create'));
   const [userToken, setUserToken] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -139,16 +141,26 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
   // Focus the first field on open and whenever the form swaps (login ⇄ create); re-assert shortly
   // after in case the open animation steals focus, but only if focus isn't
   // already in the panel. Skipped once the show-once screen is up — it autofocuses its own control.
+  // the landing view has no field, but it still MUST take focus. The Tab-trap below is
+  // an `onKeyDown` on the panel, so it only engages once focus is already inside — leaving focus on
+  // <body> let the very first Tab walk straight out of the wall into the page mounted behind it
+  // (caught by `e2e/login.spec.ts`, "Tab never escapes the wall"). Landing on the primary CTA is
+  // also the standard aria-modal entry: the dialog's labelledby/describedby announce the H1 and the
+  // lead paragraph on entry, so nothing is skipped.
   useEffect(() => {
     if (minted) return;
     const timer = setTimeout(() => {
       const panel = panelRef.current;
       if (panel && !panel.contains(document.activeElement)) {
-        firstFieldRef.current?.focus();
+        const target =
+          view === 'landing'
+            ? panel.querySelector<HTMLElement>('button:not([disabled])')
+            : firstFieldRef.current;
+        target?.focus();
       }
     }, 50);
     return () => clearTimeout(timer);
-  }, [mode, minted]);
+  }, [mode, minted, view]);
 
   // WALL DIVERGENCE: Esc is captured at the document level so it never falls through to
   // anything behind the wall, but it does NOT dismiss — the wall is the front door.
@@ -203,20 +215,28 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     window.location.replace(withBasePath('/trips/'));
   };
 
-  /** Path (a) — log in with the USER token. */
+  /** Path (a) — log in with the USER token ONLY. */
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
     const token = userToken.trim();
-    const who = name.trim();
-    if (!token || !who) return;
+    if (!token) return;
     setBusy(true);
     onHold();
     setSyncCode(token); // key 28 — the account credential (Trip Tokens never come here)
+    // The door no longer collects a name: reuse this device's saved display name, else default
+    // (renamable in Settings → Identity). `signIn` needs a non-empty name — it IS the identity slot.
+    const stored = getUserName()?.trim();
+    const who = stored || 'Traveler';
     if (!signIn(who)) {
       setBusy(false);
       return;
     }
+    // A5: when the name truly defaulted to "Traveler" (nothing stored), leave a one-shot
+    // cross-reload flag. The provider consumes it after the reload and nudges the traveler to
+    // rename themselves — otherwise they're never told their edits are attributed to "Traveler".
+    // (`signIn` above has since written "Traveler" into the slot, so capture `stored` pre-sign-in.)
+    if (!stored) sessionStorage.setItem('name-hint', '1');
     finish();
   };
 
@@ -237,21 +257,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     setMinted(token); // the wall becomes the show-once screen; `finish` runs on its confirm
   };
 
-  /**
-   * Path (c) "Explore the demo": wipe any stale sandbox so every opt-in starts
-   * from a pristine showcase, set the flag, then FULL-reload. The reload is load-bearing —
-   * `keyFor`'s guest branch changes which keys the whole app reads, and that must not flip
-   * mid-session.
-   */
-  const handleGuest = () => {
-    if (busy) return;
-    setBusy(true);
-    wipeSandbox();
-    setGuest();
-    window.location.replace(withBasePath('/'));
-  };
-
-  const canSubmit = mode === 'login' ? !!userToken.trim() && !!name.trim() : !!name.trim();
+  const canSubmit = mode === 'login' ? !!userToken.trim() : !!name.trim();
 
   return (
     <m.div
@@ -261,7 +267,12 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
       transition={{ duration: 0.4 }}
       // Full-screen WALL. NO onClick-to-close (divergence): clicks on the backdrop do nothing.
       // z-[70] sits above name-prompt's z-[60].
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 overflow-y-auto hero-gradient bg-aurora animate-aurora"
+      // merge seam: `bg-aurora animate-aurora` removed — deleted both
+      // declarations from globals.css along with the rest of the ambient decoration, and
+      // this file was fenced to the lane at the time, so its engineer could not follow.
+      // Left in place they were class names resolving to no CSS. `hero-gradient` stays and
+      // still paints the wall, so this flattens the backdrop rather than blanking it.
+      className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 overflow-y-auto hero-gradient"
     >
       <m.div
         ref={panelRef}
@@ -274,12 +285,51 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.96, opacity: 0, y: -8 }}
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className="relative w-full max-w-md glass-card-dark rounded-3xl p-6 sm:p-8 shadow-2xl my-auto"
+        className={`relative w-full glass-card-dark rounded-3xl p-6 sm:p-8 shadow-2xl my-auto ${
+          view === 'landing' ? 'max-w-5xl' : 'max-w-md'
+        }`}
       >
+        {/* The `?trip=` invitation acknowledgement. hoists it ABOVE the view switch so an
+            invitee sees it the moment they arrive, not only after they pick a path — the landing
+            is where they actually land. Suppressed on the show-once screen, which owes them one
+            thing at a time. */}
+        {pendingTrip && !minted && (
+          <p
+            data-testid="token-gate-invite"
+            className="mb-4 rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-xs leading-relaxed text-white/70"
+          >
+            Someone shared a trip with you. Log in or create an account and we&rsquo;ll add it to
+            your trips.
+          </p>
+        )}
+
+        {view === 'landing' ? (
+          <LandingPage
+            titleId={titleId}
+            descId={descId}
+            onCreate={() => {
+              setMode('create');
+              setView('auth');
+            }}
+            onLogin={() => {
+              setMode('login');
+              setView('auth');
+            }}
+            // "Someone shared a trip with me" names no path, so it opens the auth card on this
+            // device's default: "Log in" if a key is already stored here, else "Create".
+            onJoin={() => setView('auth')}
+          />
+        ) : (
+          /* ── The boarding-pass AUTH card: the wall's second view. Unchanged from apart
+                from the "your key" rename — this change moves it behind a CTA, it does not
+                rewrite it. Kept inline (NOT extracted into an inner component) on purpose: an
+                inner function component is a new type on every parent render, which would
+                remount the inputs on every keystroke. ── */
+          <>
         {/* Boarding-pass header: ticket-stub iconography + trip title. */}
         <div className="flex items-center gap-3 mb-1">
           <span
-            className="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-gold-500/15 text-gold-400"
+            className="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-muted/40 text-foreground"
             aria-hidden="true"
           >
             <Plane className="w-6 h-6 -rotate-12" />
@@ -292,7 +342,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
               id={titleId}
               className="font-display text-xl sm:text-2xl font-bold text-white leading-tight truncate"
             >
-              Nepal <span className="text-gradient-gold">×</span> Japan Journey
+              Nepal <span className="text-display-emphasis">×</span> Japan Journey
             </h2>
           </div>
         </div>
@@ -317,19 +367,8 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
         ) : (
           <>
             <p id={descId} className="text-sm text-white/55 mb-4 leading-relaxed">
-              Log in with your User Token to reach your trips, or create an account. Just looking?
-              Explore the demo.
+              Log in with your key to reach your trips, or create an account.
             </p>
-
-            {pendingTrip && (
-              <p
-                data-testid="token-gate-invite"
-                className="mb-4 rounded-xl border border-gold-400/40 bg-gold-400/[0.06] px-3 py-2.5 text-xs leading-relaxed text-white/70"
-              >
-                Someone shared a trip with you. Log in or create an account and we&rsquo;ll add it to
-                your trips.
-              </p>
-            )}
 
             {/* Path switch. Two plain buttons with aria-pressed — no roving-tabindex tablist needed
                 for a two-way toggle that swaps a form (each stays individually tabbable). */}
@@ -340,9 +379,9 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                 aria-pressed={mode === 'login'}
                 disabled={busy}
                 data-testid="token-gate-mode-login"
-                className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 disabled:opacity-50 ${
+                className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
                   mode === 'login'
-                    ? 'border-gold-400/60 bg-gold-400/10 text-gold-400'
+                    ? 'border-ring/60 bg-primary/10 text-primary'
                     : 'border-white/15 text-white/70 hover:bg-white/5'
                 }`}
               >
@@ -354,9 +393,9 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                 aria-pressed={mode === 'create'}
                 disabled={busy}
                 data-testid="token-gate-mode-create"
-                className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 disabled:opacity-50 ${
+                className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
                   mode === 'create'
-                    ? 'border-gold-400/60 bg-gold-400/10 text-gold-400'
+                    ? 'border-ring/60 bg-primary/10 text-primary'
                     : 'border-white/15 text-white/70 hover:bg-white/5'
                 }`}
               >
@@ -368,7 +407,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
               {mode === 'login' && (
                 <>
                   <label htmlFor={tokenFieldId} className="text-xs text-white/50 mb-1.5 block">
-                    Your User Token
+                    Your key
                   </label>
                   <div className="relative">
                     <KeyRound
@@ -384,9 +423,9 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                       autoCapitalize="off"
                       spellCheck={false}
                       readOnly={busy}
-                      placeholder="Paste your User Token"
+                      placeholder="Paste your key"
                       data-testid="token-gate-user-token"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-mono text-sm placeholder:text-white/30 placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-gold-400 focus-visible:ring-2"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-mono text-sm placeholder:text-white/30 placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
                     />
                   </div>
                   {savedToken !== null && savedToken !== userToken && (
@@ -395,46 +434,49 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                       onClick={() => setUserToken(savedToken)}
                       disabled={busy}
                       data-testid="token-gate-use-saved"
-                      className="mt-2 text-xs text-gold-400 hover:text-gold-300 underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-gold-400 rounded disabled:opacity-50"
+                      className="mt-2 text-xs text-primary hover:text-primary/80 underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring rounded disabled:opacity-50"
                     >
-                      Use this device&rsquo;s saved User Token
+                      Use this device&rsquo;s saved key
                     </button>
                   )}
                 </>
               )}
 
-              <label
-                htmlFor={nameFieldId}
-                className={`text-xs text-white/50 mb-1.5 block ${mode === 'login' ? 'mt-3' : ''}`}
-              >
-                Your name
-              </label>
-              <div className="relative">
-                <User
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35"
-                  aria-hidden="true"
-                />
-                <input
-                  id={nameFieldId}
-                  ref={mode === 'create' ? firstFieldRef : undefined}
-                  value={name}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
-                  maxLength={24}
-                  autoComplete="off"
-                  autoCapitalize="words"
-                  spellCheck={false}
-                  readOnly={busy}
-                  placeholder="Enter your name"
-                  data-testid="token-gate-name"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-gold-400 focus-visible:ring-2"
-                />
-              </div>
+              {/* Name is collected ONLY when creating an account ( 2026-07-30 — login is token-
+                  only). On login the display name is reused from the device / defaults, not asked. */}
+              {mode === 'create' && (
+                <>
+                  <label htmlFor={nameFieldId} className="text-xs text-white/50 mb-1.5 block">
+                    Your name
+                  </label>
+                  <div className="relative">
+                    <User
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35"
+                      aria-hidden="true"
+                    />
+                    <input
+                      id={nameFieldId}
+                      ref={firstFieldRef}
+                      value={name}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+                      maxLength={24}
+                      autoComplete="off"
+                      autoCapitalize="words"
+                      spellCheck={false}
+                      readOnly={busy}
+                      placeholder="Enter your name"
+                      data-testid="token-gate-name"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
+                    />
+                  </div>
+                </>
+              )}
 
               <button
                 type="submit"
                 disabled={!canSubmit || busy}
                 data-testid="token-gate-submit"
-                className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-gold-500 text-surface font-semibold hover:bg-gold-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+                className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
               >
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 {mode === 'login' ? 'Log in' : 'Create account'}
@@ -444,23 +486,12 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                   goes. There is nothing to validate — both are UUIDs and the door is offline. */}
               <p className="mt-3 text-xs leading-relaxed text-white/45">
                 {mode === 'login'
-                  ? 'Your User Token is your account — it opens every trip you have. A Trip Token is not a login: add one from your Trips page after you log in.'
-                  : 'We’ll mint your User Token — the key to your account — and show it to you once. Trips (and their Trip Tokens) come next, on your Trips page.'}
+                  ? 'Your key is your account — it opens every trip you have. A Trip Token is not a login: add one from your Trips page after you log in.'
+                  : 'We’ll make your key — the one way back into your account — and show it to you once. Trips (and their Trip Tokens) come next, on your Trips page.'}
               </p>
             </form>
-
-            {/* Quiet secondary: explore the demo (local-only, sandboxed). Reachable by keyboard. */}
-            <div className="mt-4 text-center">
-              <button
-                type="button"
-                onClick={handleGuest}
-                disabled={busy}
-                data-testid="token-gate-demo"
-                className="text-xs text-white/45 hover:text-white/70 underline underline-offset-4 decoration-white/20 hover:decoration-white/40 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none rounded disabled:opacity-50"
-              >
-                Explore the demo
-              </button>
-            </div>
+          </>
+        )}
           </>
         )}
       </m.div>
@@ -499,7 +530,7 @@ function CompactCountdown() {
 
   if (cd.isPast) {
     return (
-      <p className="text-sm font-medium text-gold-300 text-center" role="status">
+      <p className="text-sm font-medium text-foreground text-center" role="status">
         The journey has begun.
       </p>
     );
@@ -513,7 +544,7 @@ function CompactCountdown() {
             key={u.label}
             className="flex flex-col items-center rounded-lg bg-white/5 border border-white/10 py-1.5"
           >
-            <span className="font-display text-base sm:text-lg font-bold text-white tabular-nums leading-none">
+            <span className="font-mono text-base sm:text-lg font-bold text-white tabular-nums leading-none">
               {String(u.value).padStart(2, '0')}
             </span>
             <span className="mt-0.5 text-[9px] uppercase tracking-wider text-white/40">

@@ -35,7 +35,7 @@ export default function ChecklistPage() {
             <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
               Before you fly
             </p>
-            <h1 className="font-display text-display-lg text-gradient-gold">Documents &amp; Readiness</h1>
+            <h1 className="font-display text-display-lg text-display-emphasis">Documents &amp; Readiness</h1>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
               Your critical travel documents and day-zero departure checklist — tick each one off as
               it&apos;s handled. Saved on this device and synced across your travelers.

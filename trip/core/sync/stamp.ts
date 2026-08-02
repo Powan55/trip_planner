@@ -14,7 +14,7 @@
  *
  * ── STATUS: PROVIDED + UNIT-TESTED, NOT YET WIRED ────────────────────────
  * These helpers are complete and covered, but does NOT call them from the store — the
- * store mutators stay untouched this slice.
+ * store mutators stay untouched this change.
  *
  * ── DORMANT-GATE DECISION for ──────
  * RECOMMENDED: at gate `hlc` stamping on the caller's `isRemoteConfigured()` — i.e.

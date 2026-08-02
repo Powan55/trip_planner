@@ -9,9 +9,6 @@
 // The `showMonthView` collapse is local here (nothing outside the pane read it); every other
 // input (selectedDate, viewMode, per-day data) stays owned by the parent and is passed in.
 
-import { useState } from 'react';
-import { Calendar, ChevronDown } from 'lucide-react';
-import DayStrip, { DayStripDateMeta } from '@/components/day-strip';
 import {
   TRIP_DATES, getCountryForDate, formatDate, formatDateLong, DayPlan,
 } from '@/lib/trip-data';
@@ -26,15 +23,16 @@ interface CalendarDayPickerProps {
   spendByDate: Record<string, number>;
   /** Today's trip date when inside the trip window, else null. */
   todayStripDate: string | null;
-  /** Precomputed per-date country + item-count meta for the mobile strip. */
-  dayStripMeta: DayStripDateMeta[];
+  /**
+   * is the mobile "Month view" expanded? The strip and its expander moved up into
+   * the planner's sticky Row 1 — a `position:sticky` box only sticks inside its own
+   * containing block, and here that block was this pane, which is exactly as tall as the
+   * strip. So the strip had to leave the grid cell, and its open/closed flag came with it.
+   */
+  showMonthView: boolean;
 }
 
-export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDayPlan, spendByDate, todayStripDate, dayStripMeta }: CalendarDayPickerProps) {
-  // Mobile-only (`<lg`): the month grid is demoted to a collapsible "Month view",
-  // collapsed by default so the phone lands on the single-day agenda.
-  const [showMonthView, setShowMonthView] = useState(false);
-
+export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDayPlan, spendByDate, todayStripDate, showMonthView }: CalendarDayPickerProps) {
   // Calendar Grid
   const renderCalendar = () => {
     const weeks: string[][] = [];
@@ -86,9 +84,9 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
                 aria-pressed={isSelected}
                 aria-label={`${formatDateLong(date)}${hasItems ? `, ${dayPlan.items?.length ?? 0} activities planned` : ', no activities planned'}${spendLabel}`}
                 data-testid={`calendar-day-${date}`}
-                className={`min-w-0 aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${isToday ? 'animate-today-pulse ' : ''}${
+                className={`min-w-0 aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${isToday ? 'animate-today-pulse ' : ''}${
                   isSelected
-                    ? 'bg-gold-500/20 ring-2 ring-gold-400 text-white font-bold scale-105'
+                    ? 'bg-primary/20 ring-2 ring-ring text-white font-bold scale-105'
                     : hasItems
                       ? country === 'nepal'
                         ? 'bg-himalaya-500/10 text-himalaya-400 hover:bg-himalaya-500/20'
@@ -124,29 +122,10 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
 
   return (
     <div className="min-w-0">
-      {/* Mobile picker (`<lg`): the one-handed day-strip agenda picker replaces the
-          desktop month grid. The month grid is demoted to a collapsible "Month view",
-          collapsed by default. Desktop (`lg+`) never sees this block. */}
-      <div className="lg:hidden space-y-3">
-        <DayStrip
-          dates={TRIP_DATES}
-          selectedDate={selectedDate}
-          onSelect={onSelectDate}
-          meta={dayStripMeta}
-          todayDate={todayStripDate}
-        />
-        <button
-          type="button"
-          onClick={() => setShowMonthView((v) => !v)}
-          aria-expanded={showMonthView}
-          className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium text-white/50 hover:text-white/80 hover:bg-white/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
-        >
-          <Calendar className="w-3.5 h-3.5" />
-          Month view
-          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMonthView ? 'rotate-180' : ''}`} />
-        </button>
-        {showMonthView && renderCalendar()}
-      </div>
+      {/* Mobile picker (`<lg`): the day-strip and its "Month view" expander now live in the
+          planner's sticky Row 1. What stays here is the expanded month grid itself,
+          which is too tall for a sticky band. Desktop (`lg+`) never sees this block. */}
+      {showMonthView && <div className="lg:hidden">{renderCalendar()}</div>}
 
       {/* Desktop left pane (`lg+`): the existing month-grid / agenda-list two-pane,
           pixel-equivalent to before — now gated to `lg+` since the day-strip owns `<lg`. */}
@@ -163,8 +142,8 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
                 key={date}
                 onClick={() => onSelectDate(date)}
                 aria-pressed={isSelected}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none ${
-                  isSelected ? 'bg-gold-500/20 ring-1 ring-gold-400/30 text-white' : 'text-white/60 hover:bg-white/5'
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                  isSelected ? 'bg-primary/20 ring-1 ring-ring/30 text-white' : 'text-white/60 hover:bg-white/5'
                 }`}
               >
                 <div className="flex items-center gap-2">

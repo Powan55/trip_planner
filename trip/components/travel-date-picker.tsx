@@ -21,8 +21,6 @@ import { TRIP_DATE_LABEL, formatDateLong } from '@/core/dates';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
 import { resolveTravelDate } from '@/lib/travel-date';
-import { useActiveTraveler } from '@/hooks/use-active-traveler';
-import { withBasePath } from '@/lib/utils';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import TravelDayStrip from '@/components/travel-day-strip';
 import TravelHeroCard from '@/components/travel-hero-card';
@@ -77,14 +75,17 @@ function withDateParam(current: URLSearchParams, date: string | null): string {
 export default function TravelDatePicker() {
   const { hydrated } = useItineraryContext();
   const searchParams = useSearchParams();
-  // Travel Mode stays guest-blocked. Until a guest reaching `/travel` was caught
-  // by TokenGate's guest-route wall; that wall is gone (guests now roam every other route), so the
-  // block lives HERE — one guard on the island that owns the whole page, covering every entry point
-  // (nav button, bento, in-trip card, PWA relaunch, direct URL) instead of each affordance.
-  const { isGuest } = useActiveTraveler();
-  useEffect(() => {
-    if (isGuest) window.location.replace(withBasePath('/'));
-  }, [isGuest]);
+  // / /: deliberately NO traveler redirect here. TokenGate's wall (mounted
+  // unconditionally, no pathname term — `components/token-gate.tsx`'s
+  // `show = mounted && (held || !traveler)`) already covers an unidentified visitor on /travel
+  // exactly like every other route; `{children}` (this component included) stays mounted BEHIND
+  // it, unrendered to the eye — the same "hidden render needs no action" reasoning
+  // `trips-hub.tsx`'s `canManage` already uses. A redirect used to live here as "defense-in-depth
+  // against the hidden render," but a hidden render needs no NAVIGATION response — and paired
+  // with `travel-mode-relaunch.tsx`'s un-guarded PWA-boot bounce, the two `replace` calls formed
+  // an inescapable reload loop for a signed-out visitor with a stale `travelMode` flag (sign-out
+  // never clears it). Do not reintroduce a traveler check here without re-reading that file's
+  // docstring first.
 
   const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
   const [nowMs, setNowMs] = useState<number>(0);
@@ -142,7 +143,7 @@ export default function TravelDatePicker() {
           type="button"
           onClick={() => goTo(null)}
           data-testid="travel-date-empty-return"
-          className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg glass-card px-4 py-2 text-sm font-medium text-white outline-none transition-colors duration-200 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+          className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg glass-card px-4 py-2 text-sm font-medium text-white outline-none transition-colors duration-200 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Back to today
         </button>
@@ -180,14 +181,14 @@ export default function TravelDatePicker() {
       {resolution.isPreview && (
         <div
           data-testid="travel-preview-banner"
-          className="mx-auto mt-3 flex max-w-2xl items-center justify-between gap-3 rounded-xl border border-gold-400/20 bg-gold-400/[0.06] px-4 py-2 text-sm text-gold-100"
+          className="mx-auto mt-3 flex max-w-2xl items-center justify-between gap-3 rounded-xl border border-gold-400/20 bg-gold-400/[0.06] px-4 py-2 text-sm"
         >
           <span>Previewing {formatDateLong(selectedDate)} — not today</span>
           <button
             type="button"
             onClick={() => goTo(null)}
             data-testid="travel-preview-back"
-            className="shrink-0 rounded-lg px-3 py-1.5 font-medium text-gold-300 outline-none transition-colors duration-200 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-gold-400 focus-visible:outline-none"
+            className="shrink-0 rounded-lg px-3 py-1.5 font-medium text-primary outline-none transition-colors duration-200 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             Back to today
           </button>

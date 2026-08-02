@@ -9,7 +9,7 @@
 // Gating is deliberately identical to the navbar's: `isDefaultTrip()` (TD-08 — the Worker's
 // persona is a hardcoded Nepal × Japan one, so a custom trip must not get it). Everything else —
 // `isConciergeConfigured()` (dormant unless `NEXT_PUBLIC_CONCIERGE_URL` is inlined) and the
-// non-guest traveler check — stays INSIDE ConciergeChat, which renders null when they fail, so
+// active-traveler check — stays INSIDE ConciergeChat, which renders null when they fail, so
 // there is exactly one copy of those rules.
 //
 // Mounted into `/travel`'s reserved `.tm-thumb-zone` band: the
