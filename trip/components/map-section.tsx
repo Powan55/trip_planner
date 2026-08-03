@@ -526,9 +526,11 @@ export default function MapSection() {
           </div>
         )}
 
-        {/* offline stale-tile hint — passive, connectivity-only (useOnline()),
-            matching the geoNote banner's calm styling. The SW caches the map tiles;
-            this only reports connectivity, not real cache state. */}
+        {/* offline connectivity hint — passive, connectivity-only (useOnline()),
+            matching the geoNote banner's calm styling. The SW never caches the map's
+            cross-origin tiles (: basemaps.cartocdn.com hits the SW's cross-origin
+            passthrough untouched); this only reports connectivity, never tile or map
+            availability. */}
         {!online && (
           <div
             role="status"
@@ -536,7 +538,7 @@ export default function MapSection() {
             className="max-w-md mx-auto mb-4 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60"
           >
             <WifiOff className="w-3.5 h-3.5 shrink-0 mt-0.5 text-white/40" />
-            <span>You&apos;re offline — showing cached map tiles.</span>
+            <span>You&apos;re offline — the map needs a connection.</span>
           </div>
         )}
 
