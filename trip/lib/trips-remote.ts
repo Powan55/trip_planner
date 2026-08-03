@@ -6,14 +6,29 @@
 // is RESERVED within a trip doc, alongside the-future `profile` subcollection — never reuse
 // either name for a different purpose).
 //
-// WRITE (local → remote): `pushTripMeta(tripId, meta)` — best-effort `setDoc`, fire-and-forget.
-// NO outbox domain (unlike itinerary/expenses/budget/docs): a lost write self-heals on the
-// next rename/config change (trips-hub) or via the fetch-based self-heal below. Callers
-// must NOT await this for correctness; failures are swallowed to console.warn.
+// WRITE (local → remote): `pushTripMeta(tripId, meta)` — best-effort `setDoc`; never rejects
+// (failures are swallowed to console.warn). NO outbox domain (unlike itinerary/expenses/
+// budget/docs). A lost write has two recovery paths: (A) the next rename/config change
+// re-pushes it (trips-hub `saveRename` — this one WORKS, and is why renaming a broken trip
+// fixes it), and (B) the fetch-based self-heal below, which retries on each page load
+// until it finds the doc.
+//
+// ⚠ — AWAIT IT IF YOU ARE ABOUT TO NAVIGATE. This used to read "callers must NOT
+// await this for correctness", and that instruction shipped the defect: `window.location.
+// assign` unloads the page in 370–740 ms, but this function must first `await getRemote()`
+// (a ~456 kB dynamic import + initializeApp + a WebChannel handshake) before `setDoc` is
+// even issued, so the write died in flight — measured absent after 20 s on 5 of 6 creates,
+// vs 179 ms to land when the caller did not navigate. Every trip shared before its first
+// rename was affected: the joiner's /plan rendered no day cells. A NAVIGATING caller must
+// now await this under a timeout (see `CREATE_PUSH_BUDGET_MS` in components/trips-hub);
+// a caller that stays on the page (`saveRename`) is still correctly fire-and-forget.
 // READ (remote → local): `fetchTripMeta(tripId)` — a ONE-SHOT `getDoc` (no subscribe — this is
-// a joiner's single self-heal read, not a live sync channel), sanitized via the registry's
+// a joiner's self-heal read, not a live sync channel), sanitized via the registry's
 // own `sanitizeTripConfig` so a malformed remote doc degrades to `undefined`/a name-only
-// result rather than corrupting local state.
+// result rather than corrupting local state. Its caller (`runTripMetaSelfHeal` in
+// components/itinerary-provider) runs it at most ONCE PER PAGE LOAD and — since —
+// marks its per-session guard only when a doc was actually FOUND, so "the creator's write
+// hasn't landed yet" stays retryable instead of dead-ending the joiner's whole session.
 //
 // DORMANT-SAFE: firebase is reached ONLY through the shared `getRemote()` (lazy, gated on
 // `isRemoteConfigured()`). This module is itself imported only dynamically (from trips-hub's
@@ -41,10 +56,13 @@ import { getRemote } from './itinerary-remote';
 export type TripMetaPayload = { name: string; config?: TripConfigBlock };
 
 /**
- * Best-effort push of a trip's name/config to `trips/{tripId}/meta/info`. Fire-and-forget: never
- * rejects to the caller (a failed push is swallowed to console.warn — no outbox, per Plan D7).
- * `tripId` is caller-supplied (NOT read from the active-trip pointer) because a rename can target
- * any known trip row, not only the currently-active one.
+ * Best-effort push of a trip's name/config to `trips/{tripId}/meta/info`. Never rejects to the
+ * caller (a failed push is swallowed to console.warn — no outbox, per Plan D7). `tripId` is
+ * caller-supplied (NOT read from the active-trip pointer) because a rename can target any known
+ * trip row, not only the currently-active one.
+ *
+ * The returned promise settles only after the lazy firebase load AND the `setDoc` ack, so a caller
+ * that is about to unload the page must await it under a timeout.
  */
 export async function pushTripMeta(tripId: string, meta: TripMetaPayload): Promise<void> {
   if (!isRemoteConfigured() || !tripId) return;

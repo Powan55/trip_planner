@@ -43,6 +43,34 @@ const addDaysIso = (iso: string, days: number): string => {
 };
 
 /**
+ * — how long trip creation waits for its remote writes before navigating anyway.
+ *
+ * WHY A BUDGET AT ALL: `window.location.assign` unloads the page in 370–740 ms, which aborts an
+ * unawaited `pushTripMeta` mid-flight (measured: the doc was absent after 20 s of polling on 5 of
+ * 6 creates; the identical call WITHOUT navigating landed in 179 ms). So the create path must
+ * await. But a dead or crawling network must never make "create a trip" hang, hence the cap.
+ *
+ * WHY 5 s: 179 ms is the WARM number and is NOT the case to size for. It is warm because creating
+ * requires being logged in, so the provider's domain-sync effects have already pulled the ~456 kB
+ * firebase chunk and opened the WebChannel by the time this form is submitted — the create-time
+ * cost is then one `setDoc` round-trip. 5 s covers ~10 round-trips at a 500 ms hotel-wifi RTT, and
+ * leaves headroom for a partially-cold import. It does NOT cover a fully cold 456 kB fetch on a
+ * throttled link (~9 s at 400 kbit/s); that case times out, navigates anyway, and falls back to
+ * the two recovery paths in lib/trips-remote's header (the creator's next rename re-pushes; the
+ * joiner's self-heal retries every page load).
+ */
+const CREATE_PUSH_BUDGET_MS = 5000;
+
+/** Resolve when every push has settled, or when `ms` elapses — whichever is first. Never rejects
+ * (`allSettled`), so a failing push can never leave the caller stranded before its navigation. */
+function settleWithin(pushes: Promise<unknown>[], ms: number): Promise<unknown> {
+  return Promise.race([
+    Promise.allSettled(pushes),
+    new Promise((resolve) => setTimeout(resolve, ms)),
+  ]);
+}
+
+/**
  * `/trips/` hub island — the POST-LOGIN landing
  * and the first-class select / create / add surface over the known-trips registry. Three
  * stacked cards, reusing the Settings TripGroup card/input/button styling verbatim so the
@@ -65,7 +93,9 @@ const addDaysIso = (iso: string, days: number): string => {
  * that env is unset (dormant build, sync unconfigured) the default pack simply has no
  * shareable token, so its copy button is not rendered.
  * 2. CREATE A TRIP — required name → `joinTrip(uuid,
- * name)` + navigate Home. The minted uuid IS that trip's Trip Token.
+ * name)`, then AWAIT the remote meta push under a budget, then navigate Home ( — the
+ * navigation used to abort that push in flight and leave joiners with a contentless trip;
+ * see `CREATE_PUSH_BUDGET_MS`). The minted uuid IS that trip's Trip Token.
  * 3. ADD A TRIP BY TRIP TOKEN — pasted Trip Token + optional name → `joinTrip(token, name)` +
  * navigate Home, with honest copy about the reality: a Trip Token cannot be
  * verified in advance.
@@ -97,6 +127,9 @@ export default function TripsHub() {
   const [createDestinations, setCreateDestinations] = useState('');
   const [createVibe, setCreateVibe] = useState('');
   const [dateError, setDateError] = useState(false);
+  /**: create now awaits its remote pushes (bounded) before navigating — so the button has a
+   * real pending state, and a second submit during that window must not mint a second trip. */
+  const [creating, setCreating] = useState(false);
   const [joinKey, setJoinKey] = useState('');
   const [joinName, setJoinName] = useState('');
   const [forgetId, setForgetId] = useState<string | null>(null);
@@ -129,11 +162,17 @@ export default function TripsHub() {
    * REMOTE token via `shareTokenFor` (not the local id verbatim) — the default pack's local id
    * and its remote path differ; a null token (unconfigured default pack) is a silent
    * no-op. Dynamically imported so the /trips route never pulls firebase eagerly.
+   *
+   * RETURNS the in-flight promise (and never rejects) so a caller that is about to navigate
+   * can await it under a budget — an unawaited push dies with the page. Callers that stay on the
+   * page (`saveRename`) keep voiding it; that path was never broken.
    */
-  const pushMetaFor = (id: string, name: string, config?: TripConfigBlock) => {
+  const pushMetaFor = (id: string, name: string, config?: TripConfigBlock): Promise<void> => {
     const token = shareTokenFor(id);
-    if (!token) return;
-    void import('@/lib/trips-remote').then(({ pushTripMeta }) => pushTripMeta(token, { name, config }));
+    if (!token) return Promise.resolve();
+    return import('@/lib/trips-remote')
+      .then(({ pushTripMeta }) => pushTripMeta(token, { name, config }))
+      .catch((err) => console.warn('[trips-hub] trip meta push unavailable:', err));
   };
 
   /**
@@ -141,11 +180,14 @@ export default function TripsHub() {
    * Code, promoted by — same key 28, same remote path) after any
    * list-changing action, so the change reaches their other devices. No-op when no code is set.
    * Dynamically imported so /trips never pulls firebase eagerly; self-gates dormant.
+   * returns the in-flight promise (never rejects), same reason as `pushMetaFor`.
    */
-  const pushSyncList = () => {
+  const pushSyncList = (): Promise<void> => {
     const code = getSyncCode();
-    if (!code) return;
-    void import('@/lib/trips-remote').then(({ pushTripList }) => pushTripList(code));
+    if (!code) return Promise.resolve();
+    return import('@/lib/trips-remote')
+      .then(({ pushTripList }) => pushTripList(code))
+      .catch((err) => console.warn('[trips-hub] trip list push unavailable:', err));
   };
 
   const copyLink = async (id: string) => {
@@ -204,15 +246,18 @@ export default function TripsHub() {
     const name = renameValue.trim();
     if (name) {
       renameKnownTrip(id, name);
-      pushMetaFor(id, name, getKnownTrip(id)?.config);
-      pushSyncList();
+      // Stays on the page, so fire-and-forget is correct here (and is the recovery path that
+      // makes a rename fix a trip whose create-time meta push was lost) —.
+      void pushMetaFor(id, name, getKnownTrip(id)?.config);
+      void pushSyncList();
     }
     setTrips(listKnownTrips());
     setRenamingId(null);
   };
 
-  const create = (e: React.FormEvent) => {
+  const create = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (creating) return; // the button is disabled too, but Enter-in-the-field bypasses that
     const name = createName.trim();
     if (!name) return;
     // D2 defaults: dates → today..today+30d, destinations → the trip name, vibe → first VIBES key.
@@ -238,8 +283,12 @@ export default function TripsHub() {
     };
     joinTrip(id, name);
     setTripConfig(id, config);
-    pushMetaFor(id, name, config);
-    pushSyncList();
+    // — the trip is registered locally above; the remote meta doc is what a JOINER reads to
+    // learn the trip's dates/destinations. Navigating without awaiting the push aborted it in
+    // flight, so the joiner's /plan rendered no day cells at all. Await both pushes under one
+    // shared budget, then navigate whatever happened (see CREATE_PUSH_BUDGET_MS).
+    setCreating(true);
+    await settleWithin([pushMetaFor(id, name, config), pushSyncList()], CREATE_PUSH_BUDGET_MS);
     window.location.assign(withBasePath('/'));
   };
 
@@ -254,7 +303,7 @@ export default function TripsHub() {
     if (!id) return;
     const wasActive = id === activeId;
     removeKnownTrip(id);
-    pushSyncList();
+    void pushSyncList();
     setForgetId(null);
     if (wasActive) {
       window.location.assign(withBasePath('/'));
@@ -268,7 +317,11 @@ export default function TripsHub() {
     const id = joinKey.trim();
     if (!id) return; // non-empty is the only possible/needed validation
     joinTrip(id, joinName.trim() || undefined);
-    pushSyncList();
+    // same unawaited-push-then-navigate shape as create was, but NOT the defect —
+    // the trip-list push self-heals on the next load (subscribeTripList re-pushes local extras),
+    // and no peer depends on it. Left fire-and-forget deliberately; revisit only if that
+    // self-heal is ever shown not to fire.
+    void pushSyncList();
     window.location.assign(withBasePath('/'));
   };
 
@@ -605,12 +658,13 @@ export default function TripsHub() {
 
             <button
               type="submit"
-              disabled={!createName.trim()}
+              disabled={!createName.trim() || creating}
+              aria-busy={creating}
               data-testid="trips-hub-create"
               className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
-              Create trip
+              {creating ? 'Creating trip…' : 'Create trip'}
             </button>
           </div>
         </form>

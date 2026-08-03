@@ -106,6 +106,63 @@ export function createSyncCodeTripListSync(): { activate: () => void; teardown: 
   return { activate, teardown };
 }
 
+/**
+ * TRIP-META SELF-HEAL. A joiner who switched to a non-default trip
+ * (the `?trip=` handshake or the trips-hub "Join" form) but has NO local config for it — a fresh
+ * browser, or a `pushTripMeta` write that never landed — fetches the trip's remote name/config and
+ * applies it, then reloads exactly once so every config-reading surface (countdown target,
+ * dashboard dates, destinations) picks it up. Unlike the domain subscribes it does NOT gate on an
+ * active traveler: it is a single READ of public trip identity (the whole point is to orient a
+ * brand-new joiner who has nothing local yet), not a continuous sync channel. Dynamically imports
+ * `lib/trips-remote` so the dormant/default-pack build pulls no firebase — every gate is
+ * checked before that import. Returns the effect cleanup (cancels a late resolve).
+ *
+ * — WHAT THE GUARD MEANS, AND WHY IT MOVED. `tripMetaSelfHealGuard` is sessionStorage-backed
+ * and is now set only when the fetch actually FOUND a doc. It previously ran before the existence
+ * check, which turned "the creator's write hasn't landed yet" into a PERMANENT dead trip for the
+ * whole session: no day cells, and a reload could not recover because the guard outlives it. The
+ * guard's real job is narrower — stop a reload LOOP when the found doc has a name but no config
+ * (nothing is written locally, so the `?.config` gate below stays open on the next load) — and
+ * that still holds, because every reload path is downstream of `markRun`.
+ *
+ * RETRY CADENCE this creates: the provider mounts in the root layout, so this runs ONCE PER FULL
+ * DOCUMENT LOAD (client-side route changes do not remount it). A trip still missing its meta doc
+ * therefore costs at most one `getDoc` per page load, and stops entirely the moment either gate
+ * closes (config present, or a doc found). No timer, no interval, no listener — it cannot storm.
+ * in-session recovery needs a reload; deliberately no poll/visibilitychange retry, which
+ * is exactly the unbounded request path this fix must not introduce.
+ */
+export function runTripMetaSelfHeal(): () => void {
+  const noop = () => {};
+  if (!isRemoteConfigured()) return noop;
+  const activeId = getActiveTripId();
+  if (activeId === DEFAULT_TRIP_ID) return noop; // default pack has no remote TripConfigBlock flow
+  if (getKnownTrip(activeId)?.config) return noop; // already has a local config — nothing to heal
+  if (tripMetaSelfHealGuard.hasRun(activeId)) return noop; // already healed this trip this session
+
+  let cancelled = false;
+  void import('@/lib/trips-remote')
+    .then(({ fetchTripMeta }) => fetchTripMeta(activeId))
+    .then((remote) => {
+      if (cancelled) return;
+      if (!remote) return; // not there YET (or unreachable) — leave the guard unset so a later load retries
+      tripMetaSelfHealGuard.markRun(activeId); // found it: caps the reload below to one per session
+      const current = getKnownTrip(activeId);
+      // Only overwrite the local name if it's still the join-time placeholder — never clobber
+      // a name the user (or a peer's own rename push) already set.
+      if (current?.name === SHARED_NAME) renameKnownTrip(activeId, remote.name);
+      if (remote.config) setTripConfig(activeId, remote.config);
+      window.location.reload(); // one guarded reload so every config-reading surface re-hydrates
+    })
+    .catch((err) => {
+      console.warn('[itinerary-provider] trip meta self-heal failed:', err);
+    });
+
+  return () => {
+    cancelled = true;
+  };
+}
+
 export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   const store = useItinerary();
 
@@ -339,46 +396,9 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // TRIP-META SELF-HEAL. A joiner who switched to a non-default trip (the
-  // `?trip=` handshake or the trips-hub "Join" form) but has NO local config for it — e.g. a
-  // fresh browser, or a `pushTripMeta` write that never landed — fetches the trip's remote
-  // name/config ONCE and applies it, then reloads exactly once so every config-reading surface
-  // (countdown target, dashboard dates, destinations) picks it up. Unlike the domain subscribes
-  // above, this does NOT gate on an active traveler: it is a single READ of public trip identity
-  // (the whole point is to orient a brand-new guest/traveler who has nothing local yet), not a
-  // continuous sync channel. `tripMetaSelfHealGuard` (sessionStorage, per trip id) caps this to
-  // one attempt per trip per session, so a genuinely never-synced trip (no remote meta doc yet)
-  // does not loop-reload. Dynamically imports `lib/trips-remote` so the dormant/default-pack
-  // build pulls no firebase — this effect's own gate check runs before that import.
-  useEffect(() => {
-    if (!isRemoteConfigured()) return;
-    const activeId = getActiveTripId();
-    if (activeId === DEFAULT_TRIP_ID) return; // default pack has no remote TripConfigBlock flow
-    if (getKnownTrip(activeId)?.config) return; // already has a local config — nothing to heal
-    if (tripMetaSelfHealGuard.hasRun(activeId)) return; // already tried this trip this session
-
-    let cancelled = false;
-    void import('@/lib/trips-remote')
-      .then(({ fetchTripMeta }) => fetchTripMeta(activeId))
-      .then((remote) => {
-        if (cancelled) return;
-        tripMetaSelfHealGuard.markRun(activeId);
-        if (!remote) return;
-        const current = getKnownTrip(activeId);
-        // Only overwrite the local name if it's still the join-time placeholder — never clobber
-        // a name the user (or a peer's own rename push) already set.
-        if (current?.name === SHARED_NAME) renameKnownTrip(activeId, remote.name);
-        if (remote.config) setTripConfig(activeId, remote.config);
-        window.location.reload(); // one guarded reload so every config-reading surface re-hydrates
-      })
-      .catch((err) => {
-        console.warn('[itinerary-provider] trip meta self-heal failed:', err);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  // TRIP-META SELF-HEAL — see `runTripMetaSelfHeal` (extracted so it has a runnable unit check
+  // without mounting the whole provider tree, same as `createSyncCodeTripListSync` above).
+  useEffect(() => runTripMetaSelfHeal(), []);
 
   // SYNC-CODE trip-list subscription. Mirrors the self-heal effect's
   // gating shape, but opens a LIVE `onSnapshot` on `trips/{syncCode}/profile/tripList` instead of a
