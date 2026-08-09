@@ -8,13 +8,15 @@
 // override) is supplied by the caller (`components/today-panel.tsx`), never read here — so
 // this stays trivially unit-testable in isolation (no time mocking).
 //
-// The comparison is place-accurate: "upcoming" is decided by an INSTANT compare via
-// `isPastAtPlace` (correct across a day boundary for a viewer far from the trip zone), and the
-// ordering key is `effectiveStartMinutes` — the ONE shared fallback that parses legacy `time`
-// for items that never got a structured `startMinutes` (sync-ingest / seed / pre-migration).
+// The comparison is place-accurate: BOTH "is it past" and "which comes first" are
+// decided by the SAME absolute-instant key — `placeWallClockToUtcMs` over
+// `effectiveStartMinutes` (the ONE shared fallback that parses legacy `time` for items that
+// never got a structured `startMinutes`) resolved through `effectiveOffsetMin`. Before
+// the past-gate was instant-based while the ranking was wall-clock-based; the two agree
+// only while every item on a day shares one offset, which the Jan-9 date-line day does not.
 
 import type { ItineraryItem } from '@/lib/trip-data';
-import { effectiveOffsetMin, effectiveStartMinutes, isPastAtPlace } from '@/core/dates';
+import { effectiveOffsetMin, effectiveStartMinutes, placeWallClockToUtcMs } from '@/core/dates';
 
 /** The resolved-clock context for a single trip day (all injected — no clock read here). */
 export interface NextUpContext {
@@ -29,11 +31,11 @@ export interface NextUpContext {
 /**
  * The next relevant agenda item, or `null` when nothing is upcoming.
  *
- * "Upcoming" = the earliest not-done item whose effective start is NOT past at the place
- * (an item exactly at "now" IS upcoming — the old `>=` strictness, preserved via
- * `isPastAtPlace`'s `<`). The ordering key is `effectiveStartMinutes`: valid `startMinutes`
- * (0–1439) else the parsed legacy `time`. Ties resolve to the FIRST in array order (stable,
- * matches the agenda's top-to-bottom order).
+ * "Upcoming" = the earliest not-done item whose effective start INSTANT is NOT past at the
+ * place (an item exactly at "now" IS upcoming — the `<` strictness carried over from the
+ * pre- past-gate). "Earliest" is by that same instant, so an item logged in another
+ * zone ranks where it actually falls in time, not where its clock face reads. Ties resolve to
+ * the FIRST in array order (stable, matches the agenda's top-to-bottom order).
  *
  * Excluded from "next":
  * - done items (`item.done === true`),
@@ -45,15 +47,21 @@ export interface NextUpContext {
  */
 export function nextUp(items: ItineraryItem[], ctx: NextUpContext): ItineraryItem | null {
   let best: ItineraryItem | null = null;
-  let bestMin = Infinity;
+  let bestMs = Infinity;
   for (const item of items) {
     if (item.done === true) continue;
     const min = effectiveStartMinutes(item);
     if (min === undefined) continue; // no scheduled slot
-    if (isPastAtPlace(ctx.dayDate, min, effectiveOffsetMin(item, ctx.placeOffsetMin), ctx.nowUtcMs)) continue; // passed
-    if (min < bestMin) {
+    // — ONE key for both the past-gate and the ranking. This used to reject past items by
+    // absolute instant but rank the survivors by wall-clock minutes; the two disagree as soon as
+    // a day holds items in different zones, which the Jan-9 date-line
+    // crossing now does. `startMs < now` IS the whole past-gate, computed once (/TD-05
+    // then deleted the `isPastAtPlace` helper this line had superseded).
+    const startMs = placeWallClockToUtcMs(ctx.dayDate, min, effectiveOffsetMin(item, ctx.placeOffsetMin));
+    if (startMs < ctx.nowUtcMs) continue; // passed (an item exactly AT now is still upcoming)
+    if (startMs < bestMs) {
       best = item;
-      bestMin = min;
+      bestMs = startMs;
     }
   }
   return best;

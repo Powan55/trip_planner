@@ -114,6 +114,12 @@ export interface DayPlan {
   // Leg id of the day (: `string`, not the `'nepal' | 'japan'` union — a custom trip's
   // single leg is `'main'`). For the DEFAULT pack the values are still exactly nepal/japan.
   country: string;
+  // DISPLAY-ONLY override for the country half of the day's "City, Country" line — set
+  // when the day is not spent in its leg's country (Dec 9 is spent in Syracuse/JFK/the air, so
+  // 'USA' while `country` stays the 'nepal' LEG ID that drives currency + UTC offset). Absent
+  // on nearly every day; `lib/leg-label.ts` falls back to the leg's own label. NEVER read as
+  // behaviour — no currency, offset, filtering or colour branch may key off it.
+  countryLabel?: string;
   items: ItineraryItem[];
 }
 

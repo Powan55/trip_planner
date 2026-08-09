@@ -2,7 +2,7 @@
  * Packing checklist persistence adapter — the ONE load/save path for the
  * `PackingItem[]`, over the typed storage gateway's key-21 `packingStore`. Kept tiny +
  * framework-free: it wires the byte-transport gateway to the domain's `sanitizeItems`, so
- * an absent/corrupt/empty on-disk slot always resolves to the built-in template ( brief: no
+ * an absent/corrupt/empty on-disk slot always resolves to the built-in template (: no
  * empty state — the value of this feature IS the pre-populated template). Mirrors
  * `core/journal/storage.ts` exactly.
  *

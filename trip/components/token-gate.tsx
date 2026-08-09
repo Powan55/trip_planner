@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useId } from 'react';
 import { m, AnimatePresence } from 'framer-motion';
 import { Plane, KeyRound, User, ArrowRight } from 'lucide-react';
-import { signIn } from '@/lib/token-auth';
+import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
 import { getSyncCode, setSyncCode } from '@/core/storage/gateway';
 import { joinTrip } from '@/core/trips/registry';
@@ -40,7 +40,7 @@ import LandingPage from '@/components/landing-page';
  * TWO PATHS, both ending in a FULL reload ( shape — the reload is what re-arms the
  * provider's trip-list subscribe with code + traveler both present, so the door itself never needs
  * the network):
- * (a) **Log in** — User Token ONLY →
+ * (a) **Log in** — User Token ONLY (decision 2026-07-30; the door asks for nothing else) →
  * `setSyncCode` → `signIn(displayName)` → reload landing `/trips/`. The display name is not
  * asked for here: it is reused from this device's identity slot if present, else defaults to
  * "Traveler" (renamable in Settings → Identity). The name is still load-bearing — it is the
@@ -106,11 +106,23 @@ type View = 'landing' | 'auth';
 
 function TokenGateWall({ onHold }: { onHold: () => void }) {
   const [view, setView] = useState<View>('landing');
-  // First-timer default: a device with no stored User Token has nothing to paste, so open on
-  // "Create". A returning device (key-28 present) opens on "Log in". SSR-safe: `TokenGateWall`
-  // only ever mounts client-side (parent `TokenGate` gates on `mounted`), so this initializer
-  // never runs on the server — no hydration mismatch.
-  const [mode, setMode] = useState<Mode>(() => (getSyncCode() ? 'login' : 'create'));
+  /**
+   * (INTAKE-03) — the auth card ALWAYS opens on "Log in".
+   *
+   * It used to be `getSyncCode() ? 'login': 'create'`, i.e. a device with no stored User Token
+   * got the signup form. That read "first-timer default" but measured as "everyone in a private
+   * window", which is the whole of the reported problem: a RETURNING user whose device never has a
+   * stored key. The key-derived guess only ever helped a device that had already synced — and
+   * that device gets 'login' under this rule too, so nothing is lost.
+   *
+   * Signup is untouched and one click away: the mode toggle below is always rendered, and the
+   * landing keeps two "Create an account" CTAs.
+   *
+   * No longer needs an initializer function (it is a constant), so there is nothing client-only
+   * left in it — but `TokenGateWall` still only ever mounts client-side, via the parent's
+   * `mounted` gate.
+   */
+  const [mode, setMode] = useState<Mode>('login');
   const [userToken, setUserToken] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
@@ -147,6 +159,11 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
   // (caught by `e2e/login.spec.ts`, "Tab never escapes the wall"). Landing on the primary CTA is
   // also the standard aria-modal entry: the dialog's labelledby/describedby announce the H1 and the
   // lead paragraph on entry, so nothing is skipped.
+  // 🔴: `querySelector('button:not([disabled])')` is DOM-ORDER-SENSITIVE, and that is now
+  // load-bearing — it is the mechanism that puts entry focus on `landing-cta-login`, which is the
+  // first button in `landing-page.tsx`'s hero. Inserting any button above it in the panel moves
+  // the front door's focus. Pinned by `document.activeElement` assertions in
+  // `lib/__tests__/s345-front-door.test.ts` and `e2e/login.spec.ts`.
   useEffect(() => {
     if (minted) return;
     const timer = setTimeout(() => {
@@ -215,7 +232,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     window.location.replace(withBasePath('/trips/'));
   };
 
-  /** Path (a) — log in with the USER token ONLY. */
+  /** Path (a) — log in with the USER token ONLY (decision 2026-07-30). */
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
@@ -226,8 +243,11 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     setSyncCode(token); // key 28 — the account credential (Trip Tokens never come here)
     // The door no longer collects a name: reuse this device's saved display name, else default
     // (renamable in Settings → Identity). `signIn` needs a non-empty name — it IS the identity slot.
+    // the default is a TRANSIENT placeholder — the account-identity reconciler in
+    // itinerary-provider replaces it with the account's real name after this reload. The door
+    // itself stays firebase-free and issues no identity read or write.
     const stored = getUserName()?.trim();
-    const who = stored || 'Traveler';
+    const who = stored || DEFAULT_TRAVELER_NAME;
     if (!signIn(who)) {
       setBusy(false);
       return;
@@ -315,8 +335,15 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
               setMode('login');
               setView('auth');
             }}
-            // "Someone shared a trip with me" names no path, so it opens the auth card on this
-            // device's default: "Log in" if a key is already stored here, else "Create".
+            // "Someone shared a trip with me" names no path, so it DELIBERATELY inherits the mode
+            // default above — which is now 'login' for every device.
+            //
+            // 🔴 DO NOT "make this explicit" with a `setMode('login')`. tried exactly that and
+            // measured the consequence: the other two CTAs already set the mode, so this is the ONE
+            // path that ever reads the initializer. Setting it here makes the initializer
+            // unreachable dead code AND silently turns A1 in `lib/__tests__/s345-front-door.test.ts`
+            // vacuous — sabotaging the initializer back to the old `getSyncCode() ? …: 'create'`
+            // still ran 9/9 green. Leaving the inheritance is what keeps the default observable.
             onJoin={() => setView('auth')}
           />
         ) : (
@@ -442,7 +469,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                 </>
               )}
 
-              {/* Name is collected ONLY when creating an account ( 2026-07-30 — login is token-
+              {/* Name is collected ONLY when creating an account (decision 2026-07-30 — login is token-
                   only). On login the display name is reused from the device / defaults, not asked. */}
               {mode === 'create' && (
                 <>

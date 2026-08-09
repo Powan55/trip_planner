@@ -66,7 +66,7 @@ export default function TripStoryRecap() {
   const { photosFor, hydrated: photosHydrated } = usePhotos();
 
   // '' until mount (SSR-safe default) — a single mount read is enough (post-trip status doesn't
-  // change second-to-second; no interval needed, per the brief).
+  // change second-to-second; no interval needed, by design).
   const [nowDateStr, setNowDateStr] = useState<string>('');
   useEffect(() => {
     setNowDateStr(nowDateString());

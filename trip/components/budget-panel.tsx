@@ -591,7 +591,7 @@ function LegBudgetCard({
             const catId = `budget-cat-${leg}-${category}`;
             const stored = safeAmount(legCats[category]);
             const catRoll = catRollByCategory.get(category);
-            // Only show a category's spent/remaining once it HAS a budget set (per the brief:
+            // Only show a category's spent/remaining once it HAS a budget set (by design:
             // per-category where a category budget exists).
             const showCatSpend = stored > 0 && (catRoll?.spentLocal ?? 0) >= 0 && !!catRoll;
             return (

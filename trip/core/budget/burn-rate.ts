@@ -22,7 +22,7 @@
  * leg/total spend that `rollUp` reports — the two views agree on the total, differ only on "which
  * day").
  *
- * ── daysElapsed derivation ─────────────────────────────
+ * ── daysElapsed derivation (a recorded judgment call) ───────────────────────────────────────
  * `daysElapsed` is an INCLUSIVE calendar-day count from the trip's first day up to and including the
  * day `now` falls on, clamped to `[0, daysTotal]`:
  * - strictly before the trip (now < the first trip day) → 0 (the trip hasn't started)

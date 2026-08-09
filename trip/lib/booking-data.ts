@@ -84,7 +84,7 @@ export interface ToBookPlaceholder {
 export const OUTBOUND_JOURNEY: Journey = {
   id: 'outbound', label: 'Outbound — Syracuse to Kathmandu', status: 'booked',
   fromSummary: 'Syracuse (SYR)', toSummary: 'Kathmandu (KTM)',
-  totalDuration: '1d 15m',            // verbatim source string — render as-is, do NOT recompute
+  totalDuration: '1d 15m',            // verbatim from the booking source — render as-is, do NOT recompute
   departDate: '2026-12-09',           // authored from leg out-1 '5:30am Wed Dec 9' (= TRIP_DATES[0])
   legs: [
     { id: 'out-1', flightNumber: 'Meridian Air 4471',
@@ -152,7 +152,7 @@ export const TOKYO_TO_OSAKA_JOURNEY: Journey = {
 export const FLIGHT_HOME_JOURNEY: Journey = {
   id: 'flight-home', label: 'Flight home — Tokyo to Syracuse', status: 'booked',
   fromSummary: 'Tokyo (HND)', toSummary: 'Syracuse (SYR)',
-  totalDuration: '19h 23m',           // verbatim source string — render as-is, do NOT recompute
+  totalDuration: '19h 23m',           // verbatim from the booking source — render as-is, do NOT recompute
   departDate: '2027-01-09',           // authored from leg home-1 '5:35pm Sat Jan 9'
   legs: [
     { id: 'home-1', flightNumber: 'Meridian Air 1928',

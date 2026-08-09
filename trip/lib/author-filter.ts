@@ -75,28 +75,51 @@ export function subscribeAuthorFilter(onChange: () => void): () => void {
 }
 
 /**
- * Does an item belong to the given author? An item is "by" an author if EITHER its
- * `updatedBy` (last editor) OR its `createdBy` (original author) equals that name.
- * Matching is exact (the attribution pipeline stamps a single canonical display name).
+ * Every name an item is attributed to: its last editor, its original author, AND whoever
+ * ticked it off.-B: `doneBy` was missing here, so a traveler who checked six things off
+ * but authored none filtered to an EMPTY list — the filter silently denied that they had done
+ * anything. `doneBy` is the same identity as `updatedBy` (both are the `getUserName()` display
+ * nickname — see `lib/trip-data.ts`), so treating it as attribution is not a widening of the
+ * data model, it is reading the field that was already there.
+ */
+function itemAuthors(item: ItineraryItem): (string | undefined)[] {
+  return [item.updatedBy, item.createdBy, item.doneBy];
+}
+
+/**
+ * Does an item belong to the given author? An item is "by" an author if ANY of its
+ * `updatedBy` (last editor) / `createdBy` (original author) / `doneBy` (who ticked it off)
+ * equals that name. Matching is exact (the attribution pipeline stamps a single canonical
+ * display name).
  *
- * Pure — no storage, no DOM. `myName` is injected (the live display name from
- * lib/identity) so "My edits" stays testable and this module never imports identity.
+ * Pure — no storage, no DOM. `myName` / `myPriorNames` are injected (from lib/identity via
+ * `useAuthorFilter`) so "My edits" stays testable and this module never imports identity.
+ *
+ *-C: "My edits" also matches the current user's PRIOR display names. Renaming yourself
+ * used to split you into two people — the rename rewrites no stamps, so items stamped before it
+ * stopped being "mine". Prior names are RECORDED AT RENAME TIME (`signIn`), never guessed: a
+ * heuristic that inferred which stored name "is" you would alias a fellow traveller into your
+ * identity, which is worse than the split. Consequence, stated plainly: a rename that ALREADY
+ * happened is not repaired — there is no record of that old name to recover.
  *
  * @param item the item under test
  * @param filter the active filter
  * @param myName the current display name, or null/undefined if none is set
+ * @param myPriorNames display names this same user previously went by
  */
 export function itemMatchesAuthor(
   item: ItineraryItem,
   filter: AuthorFilter,
   myName: string | null | undefined,
+  myPriorNames: readonly string[] = [],
 ): boolean {
   if (filter.kind === 'all') return true;
-  const target = filter.kind === 'mine' ? myName : filter.name;
   // "My edits" with no name set (dormant / no-identity) matches nothing — but the
   // control never offers "My edits" without a name, so this is a defensive floor.
-  if (!target) return false;
-  return item.updatedBy === target || item.createdBy === target;
+  if (filter.kind === 'mine' && !myName) return false;
+  const targets =
+    filter.kind === 'mine' ? [myName as string, ...myPriorNames] : [filter.name];
+  return itemAuthors(item).some((a) => !!a && targets.includes(a));
 }
 
 /**
@@ -108,25 +131,41 @@ export function filterItemsByAuthor(
   items: ItineraryItem[],
   filter: AuthorFilter,
   myName: string | null | undefined,
+  myPriorNames: readonly string[] = [],
 ): ItineraryItem[] {
   if (filter.kind === 'all') return items;
-  return items.filter((i) => itemMatchesAuthor(i, filter, myName));
+  return items.filter((i) => itemMatchesAuthor(i, filter, myName, myPriorNames));
 }
 
 /**
- * Derive the distinct author names present across ALL plans, from both `updatedBy` and
- * `createdBy`. Used to build the per-author options. Sorted for a stable control order.
+ * Derive the distinct author names present across ALL plans, from `updatedBy`, `createdBy`
+ * AND `doneBy`. Used to build the per-author options. Sorted for a stable control order.
  * When NO item is attributed (the portfolio / dormant case) this returns `[]`, which the
  * control reads as "render nothing / inert" so the portfolio build is visually unchanged.
  *
- * Pure — derived only from the passed plans; no storage, no DOM.
+ *
+ *-B: `doneBy` is included here for the same reason it is in `itemMatchesAuthor` — a name
+ * that can MATCH must also be OFFERABLE, or the traveler who only ticks things off is filterable
+ * in principle and unreachable in the UI.
+ *
+ *-C: any of the current user's `myPriorNames` present in the data COLLAPSES into `myName`,
+ * so a rename shows one chip for one human instead of two. Collapsing is display-only; the
+ * stored stamps are untouched.
+ *
+ * Pure — derived only from the passed arguments; no storage, no DOM.
  */
-export function distinctAuthors(plans: DayPlan[]): string[] {
+export function distinctAuthors(
+  plans: DayPlan[],
+  myName?: string | null,
+  myPriorNames: readonly string[] = [],
+): string[] {
   const names = new Set<string>();
   for (const plan of plans) {
     for (const item of plan.items ?? []) {
-      if (item.updatedBy) names.add(item.updatedBy);
-      if (item.createdBy) names.add(item.createdBy);
+      for (const a of itemAuthors(item)) {
+        if (!a) continue;
+        names.add(myName && myPriorNames.includes(a) ? myName : a);
+      }
     }
   }
   return Array.from(names).sort((a, b) => a.localeCompare(b));

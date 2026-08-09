@@ -84,6 +84,10 @@ export const dayPlanSchema = z
     // custom trip's single leg persists `country: 'main'`). Backward compatible: every existing
     // nepal/japan value still validates. Lenient-read discipline is preserved.
     country: z.string().min(1),
+    // — optional DISPLAY label (see `DayPlan.countryLabel`, lib/trip-data.ts). ADDITIVE and
+    // OPTIONAL, so every pre- vault still parses; no version bump (`.passthrough()` already
+    // tolerated it on read — declaring it makes the accepted surface explicit + typed).
+    countryLabel: z.string().optional(),
     items: z.array(itineraryItemSchema),
   })
   .passthrough();

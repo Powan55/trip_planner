@@ -16,6 +16,7 @@ import type { DayPlan, ItineraryCategory, ItineraryItem } from '@/lib/trip-data'
 import { TRIP_DATES, formatDate, formatTimeAmPm } from '@/core/dates';
 import type { ItineraryStore } from '@/hooks/use-itinerary';
 import { generateItemId } from '@/lib/item-id';
+import { formatDurationText } from '@/lib/time-picker-format';
 
 export type OpType = 'addItem' | 'updateItem' | 'removeItem' | 'moveItem';
 
@@ -187,6 +188,41 @@ function contentPatch(op: Op): Partial<ItineraryItem> {
 }
 
 /**
+ *-B — a short, human summary of WHAT an updateItem actually changes, derived from the SAME
+ * `contentPatch(op)` that `applyOp` writes. Reusing that one extraction (rather than re-reading the
+ * op's fields here) is the point: the chip can never name a field the Confirm won't write, or stay
+ * silent about one it will.
+ *
+ * The label it replaces — `Update “X” on <date>` — asked the traveller to approve a mutation whose
+ * content was invisible. Capped at two named changes plus a count, so a wide patch summarises
+ * instead of dumping six clauses into a chip.
+ */
+function describePatch(patch: Partial<ItineraryItem>): string {
+  const phrases = (Object.keys(patch) as (keyof ItineraryItem)[]).map((key) => {
+    const value = patch[key];
+    switch (key) {
+      case 'title':
+        return `rename to “${value}”`;
+      case 'category':
+        return `set category to ${value}`;
+      case 'notes':
+        return value === '' ? 'clear notes' : 'set notes';
+      case 'location':
+        return value === '' ? 'clear location' : `set location to “${value}”`;
+      case 'startMinutes':
+        return `set time to ${formatTimeAmPm(value as number)}`;
+      case 'durationMinutes':
+        return `set duration to ${formatDurationText(value as number)}`;
+      default:
+        return String(key);
+    }
+  });
+  if (phrases.length === 0) return '';
+  const shown = phrases.slice(0, 2).join(', ');
+  return phrases.length > 2 ? `${shown} + ${phrases.length - 2} more` : shown;
+}
+
+/**
  * A human-readable chip label for a proposal. update/remove/move resolve the target's live title
  * AND its real date from `plans` by id (the op's own date is only a hint — see `resolveLive`);
  * addItem uses its own title/date. Time (if any) is shown as a 12h clock label via the shared
@@ -200,8 +236,15 @@ export function describeOp(op: Op, plans: DayPlan[]): string {
   const title = found?.item.title ?? 'item';
   const onDate = found?.date ?? (op.date ?? op.fromDate) as string;
   switch (op.type) {
-    case 'updateItem':
-      return `Update “${title}” on ${formatDate(onDate)}${timeSuffix}`;
+    case 'updateItem': {
+      // NOT `timeSuffix`: the change summary already names the time when time is what's changing,
+      // and a bare ` · 2:30 PM` on a notes-only edit read as if the time were changing too.
+      const changes = describePatch(contentPatch(op));
+      const frame = `Update “${title}” on ${formatDate(onDate)}`;
+      // Validation (Rule 8) guarantees ≥1 patch field for any op that reaches a chip; the empty
+      // fallback exists because `describeOp` is exported and callable on an unvalidated op.
+      return changes ? `${frame} · ${changes}` : frame;
+    }
     case 'removeItem':
       return `Remove “${title}” from ${formatDate(onDate)}`;
     case 'moveItem':
@@ -275,14 +318,17 @@ export function applyOp(
       const found = resolveLive(plans, itemId);
       const fromDate = found?.date ?? (op.fromDate as string); // resolved day, not the model's hint
       const prev = found?.item;
-      store.moveItem(itemId, fromDate, toDate);
-      // undo moves back by the ORIGINAL id — correct in the dormant/default build where
-      // moveItem preserves the id. Under sync moveItem mints a fresh target id, so an inverse by the
-      // original id no-ops (the toast shows but does nothing). Fix when needed: have moveItem return
-      // the minted target id and invert against that. The shipped/portfolio build is dormant.
+      //-A: invert by the id the store says the item LANDED on, never by the original. Under
+      // sync `moveItem` mints a fresh target id (freshCopyOf), so an inverse addressed by the
+      // original id resolves nothing — the undo toast showed and did nothing. `landedId` is
+      // `itemId` under dormant, the minted id under sync, and `undefined` when nothing moved (in
+      // which case there is nothing to put back and the toast's action is a deliberate no-op).
+      const landedId = store.moveItem(itemId, fromDate, toDate);
       return {
         message: `Moved “${prev?.title ?? 'item'}”`,
-        undo: () => store.moveItem(itemId, toDate, fromDate),
+        undo: () => {
+          if (landedId) store.moveItem(landedId, toDate, fromDate);
+        },
       };
     }
   }

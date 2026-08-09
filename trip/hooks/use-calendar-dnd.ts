@@ -98,6 +98,10 @@ export function useCalendarDnd({ plans, getDayPlan, moveItem, reorderItems }: Ca
           const targetIdx = targetItems.findIndex((i: ItineraryItem) => i.id === overIdStr);
           const insertAt = targetIdx >= 0 ? targetIdx : targetItems.length;
           const orderedIds = targetItems.map((i) => i.id);
+          // UNREACHABLE: one SortableContext + one DroppableDay, both at selectedDate,
+          // so active and over always resolve to the SAME day. Kept for shape only. If a multi-day
+          // drop target ever ships, splice the id moveItem RETURNS — under sync it mints a fresh one
+          // and reorderItems drops any id not listed.
           orderedIds.splice(insertAt, 0, item.id);
           moveItem(activeIdStr, activeDate, overDate);
           reorderItems(overDate, orderedIds);

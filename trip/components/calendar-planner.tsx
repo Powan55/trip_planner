@@ -16,11 +16,12 @@ import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import {
   TRIP_DATES, getCountryForDate, formatDate, formatDateLong,
-  ItineraryItem, ItineraryCategory, CATEGORY_COLORS,
+  ItineraryItem, ItineraryCategory, CATEGORY_COLORS, DayPlan,
 } from '@/lib/trip-data';
 import { generateItemId } from '@/lib/item-id';
 import { buildItineraryStops, stopMarkerFor } from '@/lib/itinerary-map';
 import { showUndoToast } from '@/lib/undo-toast';
+import { bulkMoveWithUndo } from '@/lib/bulk-move-undo';
 import { getTodayInTrip } from '@/lib/trip-now';
 import { setSelectedDay } from '@/lib/selected-day';
 import DayStrip, { DayStripDateMeta } from '@/components/day-strip';
@@ -36,17 +37,18 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
   AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
 } from '@/components/ui/alert-dialog';
-import { filterItemsByAuthor } from '@/lib/author-filter';
+import { filterItemsByAuthor, itemMatchesAuthor } from '@/lib/author-filter';
 import { useAuthorFilter } from '@/hooks/use-author-filter';
 import AuthorFilterControl from '@/components/author-filter';
 import { buildMapsPlaceUrl } from '@/lib/maps-link';
 import { useExpenses } from '@/hooks/use-expenses';
 import { expensesByDate } from '@/core/budget/burn-rate';
 import { legCurrency, formatMoney } from '@/core/budget/model';
-import { effectiveStartMinutes } from '@/core/dates';
+import { effectiveStartMinutes, offsetForCountry } from '@/core/dates';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { extractQuickAddTime } from '@/lib/quick-add-parse';
 import { describeItemTime } from '@/lib/item-time-display';
+import { dayPlaceLabel } from '@/lib/leg-label';
 import { clashingItemIds } from '@/lib/sort-items-by-time';
 import TimePicker, { DurationField } from '@/components/time-picker';
 import PlanSearch from '@/components/plan-search';
@@ -631,7 +633,49 @@ export default function CalendarPlanner() {
   // Presentational author filter: READ-ONLY. It only narrows which items
   // are SHOWN; it never touches `plans`/localStorage or any store mutator. CRUD, DnD and
   // persistence operate on the FULL stored set below, unaffected by the active filter.
-  const { filter: authorFilter, myName } = useAuthorFilter();
+  const { filter: authorFilter, myName, myPriorNames } = useAuthorFilter();
+
+  /**
+   * 🔴 (INTAKE-07) — THE ONE PLACE THE FILTER IS APPLIED.
+   *
+   * Reported: *"when i click on the filter by name all everything thats not related to that person
+   * should dessipear from the calander"*. Before this, exactly one consumer (the day list)
+   * filtered, and every other piece of calendar chrome read the day straight off the store — so
+   * "Sushil" showed 2 rows under a pill that said "7 items", a month grid with 7 dots, and a map
+   * plotting all 7.
+   *
+   * The fix is ONE filtered accessor, not seven guards. Every calendar surface already derives its
+   * data from `getDayPlan(date)` — the month grid, the agenda list, the mobile day strip, the day
+   * header, the split-view map. Handing those consumers this wrapper fixes all of them at once and,
+   * more importantly, makes the FUTURE consumer filtered by default. A per-call-site guard would
+   * leave the next one broken.
+   *
+   * 🔴 WHY THE `'all'` BRANCH RETURNS `getDayPlan` ITSELF, not a wrapper that filters to
+   * everything: with no filter selected the chrome must be BYTE-IDENTICAL to before. Returning the
+   * same function means the no-filter path is not "a filtered path that happens to match" — it is
+   * literally the original call, same object references, same memo identities, same render output.
+   * That is a structural guarantee rather than an assertion (and `e2e/author-filter-propagation`
+   * measures it anyway).
+   *
+   * 🔴 WHAT MUST NOT ROUTE THROUGH THIS — anything DESTRUCTIVE or anything that has to know the
+   * day's real contents:
+   * · `useCalendarDnd` (below) keeps the raw `getDayPlan` — reordering persists against the full
+   * stored array.
+   * · `handleClearDay` / `handleBulkDelete` read the raw store — "Clear day" must remove the
+   * items you cannot currently see, and its confirm copy must count them.
+   * · The empty-state branch keeps reading `dayItems` — that unfiltered count is the ONLY thing
+   * that distinguishes "no activities match this filter" from "no activities planned".
+   */
+  const getVisibleDayPlan = useMemo(
+    () =>
+      authorFilter.kind === 'all'
+        ? getDayPlan
+        : (date: string): DayPlan => {
+            const plan = getDayPlan(date);
+            return { ...plan, items: filterItemsByAuthor(plan.items ?? [], authorFilter, myName, myPriorNames) };
+          },
+    [getDayPlan, authorFilter, myName, myPriorNames],
+  );
 
   // cost overlay — READ-ONLY / DISPLAY-ONLY. A SEPARATE reactive read of the
   // expense store (NOT the itinerary store): the calendar's CRUD/DnD/select all still operate on
@@ -847,13 +891,16 @@ export default function CalendarPlanner() {
       ?.scrollIntoView({ block: 'nearest' });
   }, [highlightId]);
 
-  // Bulk move the current selection to another day. Every selected id lives on selectedDate,
-  // so each target is {itemId, fromDate: selectedDate}. moveItems is ONE commit (tombstone-
-  // source + fresh-id-target under sync; physical under dormant). Same-day is guarded out.
+  // Bulk move the current selection to another day. Every selected id lives on selectedDate, so
+  // the move is (selection, selectedDate) → targetDate. moveItems is ONE commit (tombstone-source
+  // + fresh-id-target under sync; physical under dormant). Same-day is guarded out.
+  //
+  // the Undo its two destructive siblings already had. `bulkMoveWithUndo` owns the closure
+  // capture + the toast because the inverse MUST address the LANDED ids, not the selected ones —
+  // see the docblock there; that construction is what `use-itinerary-bulk-sync.test.ts` drives.
   const handleBulkMove = (targetDate: string) => {
     if (!targetDate || targetDate === selectedDate || selectedIds.size === 0) return;
-    const targets = [...selectedIds].map((id) => ({ itemId: id, fromDate: selectedDate }));
-    moveItems(targets, targetDate);
+    bulkMoveWithUndo(moveItems, [...selectedIds], selectedDate, targetDate);
     exitSelectMode();
   };
 
@@ -901,13 +948,21 @@ export default function CalendarPlanner() {
     if (currentIdx < TRIP_DATES.length - 1) setSelectedDate(TRIP_DATES[currentIdx + 1] ?? selectedDate);
   };
 
-  // The selected day's full stored item set (unfiltered — this is the CRUD/DnD target).
+  // The selected day's full stored item set (unfiltered — this is the CRUD/DnD target, and the
+  // count "Clear day" and the empty-state branch must both reason about).
   const dayItems = currentPlan.items ?? [];
+  // the selected day AS SHOWN. Memoized so the split-view map's `dayStops` (and anything
+  // else keyed on the plan object) keeps a stable identity across renders while a filter is
+  // active — `getVisibleDayPlan` builds a fresh object per call when it is filtering.
+  const visiblePlan = useMemo(
+    () => getVisibleDayPlan(selectedDate),
+    [getVisibleDayPlan, selectedDate],
+  );
   // The presentational view: narrowed by the active author filter (read-only). DnD reorder
   // still reads the full set from the store in handleDragEnd, so persistence is unaffected;
   // we only change what renders and which ids the SortableContext tracks (so a drag inside
   // a filtered view stays consistent with what's visible).
-  const visibleItems = filterItemsByAuthor(dayItems, authorFilter, myName);
+  const visibleItems = visiblePlan.items ?? [];
   // phase-of-day grouping: NEVER re-sorts
   // timed items — the calendar view's manual/stored order stays untouched (sort-clash.spec.ts's
   // regression net) — only moves untimed items to a trailing "Anytime" run. `isNewPhase` marks
@@ -916,14 +971,22 @@ export default function CalendarPlanner() {
   const phaseGroups = useMemo(() => groupItemsByPhase(visibleItems), [visibleItems]);
   const allItemIds = phaseGroups.map((g) => g.item.id);
   // day-at-a-glance pill row: item count + first-start time (composed alongside the
-  // existing spend/weather pills at the day header, below). Derived from the FULL stored set
-  // (dayItems), matching the spend/weather pills' day-level (not author-filtered) scope.
-  const firstTimedItem = useMemo(() => earliestTimedItem(dayItems), [dayItems]);
+  // existing spend/weather pills at the day header, below).
+  // derived from the VISIBLE set. "From 9:00 AM" pointing at an item the filter has hidden
+  // is exactly the reported disagreement. (Spend and weather stay day-level — money and
+  // weather are facts about the day, not about a person, so they are deliberately NOT filtered.)
+  const firstTimedItem = useMemo(() => earliestTimedItem(visibleItems), [visibleItems]);
   const firstStartInfo = firstTimedItem ? describeItemTime(firstTimedItem, selectedDate) : null;
-  // warn-only clash badge, computed at the day-render level off the full
-  // stored set (order-independent) — presentation-only, never touches the manual
+  // warn-only clash badge, presentation-only — it never touches the manual
   // drag-order (`handleDragEnd`/`arrayMove`/`SortableContext` are all untouched below).
-  const dayClashIds = useMemo(() => clashingItemIds(dayItems), [dayItems]);
+  // computed over the VISIBLE set. A badge warning about a collision with an item that is
+  // not on screen is unreadable; clash detection is order-independent so this is a pure narrowing.
+  // (TD-07): the overlap is judged on the absolute instant, so the day and its offset
+  // come along — a day can hold items in another zone.
+  const dayClashIds = useMemo(
+    () => clashingItemIds(visibleItems, selectedDate, offsetForCountry(getCountryForDate(selectedDate))),
+    [visibleItems, selectedDate],
+  );
 
   // multi-day spans — a PURE view-layer render derivation off the existing `plans` (no
   // store write, no multi-homing;). For the selected day, collect every spanning item
@@ -937,18 +1000,26 @@ export default function CalendarPlanner() {
     for (const plan of plans) {
       for (const item of plan.items ?? []) {
         if (!item.endDate || item.endDate <= plan.date) continue; // genuine forward span only
+        // bands iterate `plans` directly rather than going through `getVisibleDayPlan`,
+        // because a band's OWNING day is not the selected day — so it is the one calendar surface
+        // that cannot reuse the shared accessor and needs the predicate itself. `itemMatchesAuthor`
+        // is the same predicate `filterItemsByAuthor` applies, so the two cannot drift.
+        if (!itemMatchesAuthor(item, authorFilter, myName, myPriorNames)) continue;
         if (plan.date <= selectedDate && selectedDate <= item.endDate) {
           bands.push({ item, spanStart: plan.date, spanEnd: item.endDate, isStartDay: plan.date === selectedDate });
         }
       }
     }
     return bands;
-  }, [plans, selectedDate]);
+  }, [plans, selectedDate, authorFilter, myName]);
 
   // day-scoped map data: the selected day's coordinate stops (marker-matched),
   // re-derived from the live plan so a reorder yields a new ordered array → PlanDayMap
   // re-passes it → TripMap redraws the polyline.
-  const dayStops = useMemo(() => buildItineraryStops([currentPlan]), [currentPlan]);
+  // built from the VISIBLE plan, so the split-view day map plots only the filtered person's
+  // stops. `buildItineraryStops` takes DayPlan[] and is UNCHANGED — `lib/itinerary-map.ts` is held
+  // by another lane; narrowing the plan we hand it needs no edit there.
+  const dayStops = useMemo(() => buildItineraryStops([visiblePlan]), [visiblePlan]);
   // Per-item matched marker id — the same stopMarkerFor join buildItineraryStops uses (pin
   // BEATS name/sourceId match,), so a row and its map stop always agree. Drives the
   // row ring + the "show on map" affordance.
@@ -956,21 +1027,21 @@ export default function CalendarPlanner() {
     stopMarkerFor(item, currentPlan.country === 'nepal' ? 'Nepal' : 'Japan')?.id ?? null;
 
   // Per-date meta for the mobile day-strip. Precomputed here so the strip stays a
-  // pure presentational consumer — same country + item-count source the month grid uses
-  // (full stored set, unaffected by the read-only author filter). The Today marker date
-  // comes from the single trip-clock.
-  // memoized — this walks all 32 trip days and calls getDayPlan on each, and it ran on
-  // EVERY render (a keystroke in the composer, a hover, a highlight change). `getDayPlan` is
-  // `useCallback([plans])` in use-itinerary, so its identity IS the itinerary version tick:
-  // the scan re-runs exactly when the itinerary changes and not once more.
+  // pure presentational consumer — same country + item-count source the month grid uses.
+  // The Today marker date comes from the single trip-clock.
+  // memoized — this walks all 32 trip days and calls the accessor on each, and it ran on
+  // EVERY render (a keystroke in the composer, a hover, a highlight change).
+  // reads `getVisibleDayPlan`, so a filtered strip counts only that person's items. That
+  // accessor's identity is `getDayPlan`'s (the itinerary version tick) PLUS the filter selection,
+  // so the scan still re-runs exactly when one of those changes and not once more.
   const dayStripMeta: DayStripDateMeta[] = useMemo(
     () =>
       TRIP_DATES.map((date) => ({
         date,
         country: getCountryForDate(date),
-        count: getDayPlan(date).items?.length ?? 0,
+        count: getVisibleDayPlan(date).items?.length ?? 0,
       })),
-    [getDayPlan],
+    [getVisibleDayPlan],
   );
   const todayStripDate = getTodayInTrip()?.date ?? null;
 
@@ -986,7 +1057,7 @@ export default function CalendarPlanner() {
     <MapIslandBoundary label="The day map">
       <PlanDayMap
         dayStops={dayStops}
-        totalItems={dayItems.length}
+        totalItems={visibleItems.length}
         highlightId={highlightId}
         onMarkerClick={handleMarkerClick}
         pickMode={pickingPin}
@@ -1131,7 +1202,10 @@ export default function CalendarPlanner() {
 
             {/* Clear day + Select — moved out of the day card into this row. Both
                 still appear only when the day has items, and Select still toggles the
-                multi-select mode (OFF by default, no change to the single-item flow). */}
+                multi-select mode (OFF by default, no change to the single-item flow).
+                🔴: DELIBERATELY `dayItems` (unfiltered). These are DESTRUCTIVE day-level
+                actions — "Clear day" removes the items the filter is hiding too, so it must stay
+                offered on a day whose visible list is empty. Do not "finish the job" here. */}
             {dayItems.length > 0 && (
               <>
                 <button
@@ -1169,7 +1243,10 @@ export default function CalendarPlanner() {
             selectedDate={selectedDate}
             onSelectDate={setSelectedDate}
             viewMode={viewMode}
-            getDayPlan={getDayPlan}
+            // the FILTERED accessor. This single prop is what makes the month-grid dots,
+            // its per-cell `aria-label` ("N activities planned") and the agenda list's "N items"
+            // all agree with the filtered day list — `calendar-day-picker.tsx` needed no edit.
+            getDayPlan={getVisibleDayPlan}
             spendByDate={spendByDate}
             todayStripDate={todayStripDate}
             showMonthView={showMonthView}
@@ -1186,7 +1263,7 @@ export default function CalendarPlanner() {
               <div className="text-center min-w-0 px-1">
                 <h3 className="font-display text-base sm:text-lg font-bold text-white leading-snug">{formatDateLong(selectedDate)}</h3>
                 <p className="text-xs text-white/40">
-                  Day {currentIdx + 1} • {currentPlan.city}, {currentPlan.country === 'nepal' ? 'Nepal' : 'Japan'}
+                  Day {currentIdx + 1} • {dayPlaceLabel(currentPlan)}
                 </p>
                 {/* day-at-a-glance pill row — composes the existing spend pill +
                     weather pill (unchanged testids/markup below) alongside two new pills (item
@@ -1196,12 +1273,14 @@ export default function CalendarPlanner() {
                   data-testid="calendar-day-glance"
                   className="mt-1 flex flex-wrap justify-center items-center gap-1.5"
                 >
-                  {dayItems.length > 0 && (
+                  {/* the VISIBLE count. This pill sitting at "7 items" above a list showing
+                      2 was the headline symptom of INTAKE-07. */}
+                  {visibleItems.length > 0 && (
                     <span
                       data-testid="calendar-day-glance-count"
                       className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/70"
                     >
-                      {dayItems.length} item{dayItems.length === 1 ? '' : 's'}
+                      {visibleItems.length} item{visibleItems.length === 1 ? '' : 's'}
                     </span>
                   )}
                   {firstStartInfo && (
@@ -1337,6 +1416,10 @@ export default function CalendarPlanner() {
               <AlertDialogContent className="glass-card-dark border-white/10 text-white" data-testid="calendar-clear-confirm">
                 <AlertDialogHeader>
                   <AlertDialogTitle>Clear this day?</AlertDialogTitle>
+                  {/* 🔴: `dayItems` (unfiltered) ON PURPOSE — this warns about what will
+                      ACTUALLY be deleted, which is the whole stored day including anything the
+                      active filter is hiding. Filtering this number would understate a
+                      destructive action. */}
                   <AlertDialogDescription className="text-white/60">
                     This removes all {dayItems.length} item{dayItems.length === 1 ? '' : 's'} planned for {formatDateLong(selectedDate)}. You can undo it right after.
                   </AlertDialogDescription>
@@ -1396,6 +1479,10 @@ export default function CalendarPlanner() {
                     {visibleItems.length === 0 ? (
                       <div className="text-center py-12" data-testid="calendar-empty-state">
                         <Calendar className="w-10 h-10 text-white/10 mx-auto mb-3" />
+                        {/* 🔴: `dayItems` (unfiltered) is LOAD-BEARING here — it is the only
+                            thing that tells these two states apart. Route it through the filtered
+                            set and both branches collapse into "no activities planned", which
+                            would tell a traveller their day is empty when it is not. */}
                         {dayItems.length === 0 ? (
                           <>
                             <p className="text-white/30 text-sm">No activities planned for this day</p>

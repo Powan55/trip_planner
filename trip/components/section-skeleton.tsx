@@ -4,9 +4,9 @@
  * SectionSkeleton — placeholder for `dynamic()` `loading:` slots.
  *
  * Sized to RESERVE the space a not-yet-loaded section will occupy so the code-
- * split island swapping in causes no cumulative layout shift (CLS). wires
- * this into the pages' `dynamic(() => import(...), { loading: () => <SectionSkeleton.../> })`
- * calls at integration; see the for which imports get it and
+ * split island swapping in causes no cumulative layout shift (CLS). Wired
+ * into the pages' `dynamic(() => import(...), { loading: () => <SectionSkeleton.../> })`
+ * calls at integration; see the notes for which imports get it and
  * with what heights.
  *
  * Consumes tokens only:

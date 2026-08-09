@@ -34,6 +34,40 @@ export function offsetForCountry(c: string): number {
 }
 
 /**
+ * The zone abbreviations this app is willing to print on a time. Deliberately a closed union,
+ * not `string`: a badge is an ASSERTION about where a wall-clock is, and an unknown offset must
+ * stay silent rather than invent one.
+ */
+export type ZoneAbbrev = 'NPT' | 'JST' | 'EST' | 'IST' | 'CST';
+
+/**
+ * UTC offset (minutes east) → zone abbreviation, for the offsets the trip actually visits
+ * A TABLE, not a service — five rows, one lookup.
+ *
+ * ⚖️ KNOWN CEILING: a fixed offset→abbreviation table is only sound while every offset here is
+ * unambiguous for the dates in play. It is, for THIS trip: -300 occurs only in December and
+ * January (US Eastern standard time — in July the same wall-clock place is -240/EDT), India
+ * never observes DST, and China does not either. A summer-dated trip, or a pack that reuses
+ * -300 in June, needs a real IANA zone id resolved per date, not this table. Do not extend it
+ * with a summer offset without making that change first.
+ */
+const ZONE_ABBREV_BY_OFFSET: Record<number, ZoneAbbrev> = {
+  345: 'NPT', // Nepal
+  540: 'JST', // Japan
+  [-300]: 'EST', // US Eastern (Syracuse / JFK / Detroit — December & January only)
+  330: 'IST', // India (Delhi layover)
+  480: 'CST', // China (Guangzhou layover)
+};
+
+/**
+ * The abbreviation to badge for a UTC offset, or `null` when the offset is not one this trip
+ * knows. `null` means NO badge — never a fabricated label and never "UTC+8".
+ */
+export function zoneAbbrevForOffset(offsetMin: number): ZoneAbbrev | null {
+  return ZONE_ABBREV_BY_OFFSET[offsetMin] ?? null;
+}
+
+/**
  * The offset (minutes east of UTC) to use for ONE item's UTC-instant math: the item's
  * own `tzOffsetMin` override when present — the rare item whose wall-clock time is physically
  * in a different place than the day's country (e.g. a Guangzhou layover logged on a Japan
@@ -121,17 +155,7 @@ export function placeWallClockToUtcMs(dateStr: string, minutes: number, offsetMi
   return Date.UTC(y, mo - 1, d, 0, minutes - offsetMin);
 }
 
-/**
- * Is a place-local item instant strictly before "now" (an injected UTC epoch-ms)? An item
- * exactly at "now" is NOT past — the `<` strictness preserved from the old `nextUp` (an
- * item whose time equals now is still upcoming). Instant comparison (not minutes-of-day),
- * so it stays correct across a day boundary for a viewer far from the trip zone.
- */
-export function isPastAtPlace(
-  dateStr: string,
-  startMinutes: number,
-  offsetMin: number,
-  nowUtcMs: number,
-): boolean {
-  return placeWallClockToUtcMs(dateStr, startMinutes, offsetMin) < nowUtcMs;
-}
+// (TD-05): `isPastAtPlace` DELETED — inlined its one-line body
+// (`placeWallClockToUtcMs(...) < now`) into `lib/whats-next.ts`, leaving zero production
+// call sites and a 6-assertion suite testing nothing else reached. The strictness it
+// encoded (an item exactly AT "now" is still upcoming) lives on at that call site.

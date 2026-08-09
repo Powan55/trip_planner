@@ -125,7 +125,15 @@ export function docToDayPlan(id: string, data: Record<string, unknown>): DayPlan
   const country = data.country === 'japan' ? 'japan' : 'nepal';
   const city = typeof data.city === 'string' ? data.city : '';
   const items = Array.isArray(data.items) ? (data.items as ItineraryItem[]) : [];
-  return { date, city, country, items };
+  const day: DayPlan = { date, city, country, items };
+  // — pass the per-day DISPLAY label (`DayPlan.countryLabel`) through when the doc carries
+  // one. Without this the field is dropped on the way back from Firestore and the Dec-9 header
+  // silently reverts to "Syracuse, Nepal" the first time a device syncs. This is a PASS-THROUGH,
+  // not a default: an absent/wrong-typed field leaves the key ABSENT, so the mapper stays the
+  // pure shape-mapper the contract above requires (defaulting still belongs to
+  // `defaultDayForMerge`) and every frozen assertion in itinerary-remote.test.ts is unchanged.
+  if (typeof data.countryLabel === 'string') day.countryLabel = data.countryLabel;
+  return day;
 }
 
 /**
@@ -270,7 +278,12 @@ export async function pushDayMerged(
     // An absent remote doc merges against an empty day → writes the local items unchanged.
     const remoteNow: DayPlan = snap.exists()
       ? defaultDayForMerge(docToDayPlan(localDay.date, snap.data() as Record<string, unknown>))
-      : { date: localDay.date, city: localDay.city, country: localDay.country, items: [] };
+      // was a four-field literal that silently dropped every day-level field it did not
+      // name — including the new `countryLabel`, which `mergeDay(remoteNow, localDay)` then took
+      // from THIS object (mergeDay's day-level fields come from its FIRST argument), so the
+      // label was erased on the very first push against an absent remote doc. Spreading the
+      // local day is the same value for the four named fields and cannot drift again.
+      : { ...localDay, items: [] };
     // GC BOUNDARY ①: prune past-horizon, unreferenced tombstones from the
     // MERGED result before writing — never in the hot merge path, never as its own write (the
     // GC'd doc ships on THIS genuine edit). Structurally cannot drop a live or recent-tombstone
@@ -571,7 +584,7 @@ export function subscribeRemote(
 
 /**
  * First-snapshot reconciliation handshake. Reads the trip-doc marker once
- * to decide between "remote authoritative" and "this client seeds", per of the brief.
+ * to decide between "remote authoritative" and "this client seeds".
  *
  * Imports nothing eagerly — the firestore fns are passed in from the gated, lazy
  * getRemote() handle so this stays off the dormant hot path.

@@ -29,3 +29,16 @@ export function getUserName(): string | null {
 export function setUserName(name: string): void {
   identityStore.setName(name);
 }
+
+/**
+ *-C — the display names this same user previously went by, oldest first. `[]` when the
+ * user has never renamed (and during SSR).
+ *
+ * These are RECORDED AT RENAME TIME by `signIn` (lib/token-auth), never inferred from stored
+ * attribution. That is the whole design constraint: guessing which stored `createdBy` "is" the
+ * current user would alias a fellow traveller into their identity. The honest consequence is
+ * that a rename which happened BEFORE this shipped leaves no record and is not repaired.
+ */
+export function getPriorUserNames(): string[] {
+  return identityStore.getPriorNames();
+}

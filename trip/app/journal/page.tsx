@@ -3,7 +3,7 @@
 // ssr:false dynamic import lives in./sections (a client module); this Server Component page
 // exports metadata. Reached via a direct URL or the "View all entries" link on
 // `journal-card.tsx`; deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar /
-// command palette in this change (those files are fenced — a follow-up rider, per the brief).
+// command palette in this change (those files are fenced — deferred follow-up, by design).
 import { JournalBrowse } from './sections';
 
 export const metadata = {
@@ -17,7 +17,7 @@ export default function JournalPage() {
       {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
           text-display-emphasis / animate-reveal-up) directly rather than extending PageHero's
           closed `HeroVariant` union (`app/plan/`, `/nepal/`, `/japan/`, `/map/` only — fenced
-          per the brief: "do not extend page-hero.tsx"). Supplies the page's <h1> (mirrors
+          at: "do not extend page-hero.tsx"). Supplies the page's <h1> (mirrors
           the PageHero convention — a route without its own <h1> gets one here). */}
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
         <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">

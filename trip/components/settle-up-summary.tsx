@@ -4,6 +4,7 @@ import { ArrowRight, Users } from 'lucide-react';
 import { formatMoney } from '@/core/budget/model';
 import type { LegSettlement } from '@/core/budget/settlement';
 import { rosterAccent } from '@/lib/token-auth';
+import { legLabel } from '@/lib/leg-label';
 
 /**
  * "Settle up" summary — the read-only who-owes-whom view over the split expenses.
@@ -16,8 +17,6 @@ import { rosterAccent } from '@/lib/token-auth';
  *
  * Per leg: each participant's net (owed to them / they owe), then the minimal "A → B ¥X" transfers.
  */
-
-const LEG_LABEL: Record<string, string> = { nepal: 'Nepal', japan: 'Japan' };
 
 export default function SettleUpSummary({ settlements }: { settlements: LegSettlement[] }) {
   if (settlements.length === 0) return null;
@@ -38,7 +37,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
           return (
             <div key={s.leg} data-testid={`settle-up-leg-${s.leg}`} className="flex flex-col gap-3">
               <p className="text-xs font-semibold uppercase tracking-widest text-white/50">
-                {LEG_LABEL[s.leg] ?? s.leg} · {s.currency}
+                {legLabel(s.leg)} · {s.currency}
               </p>
 
               {/* Per-person net */}

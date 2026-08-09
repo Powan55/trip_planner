@@ -6,7 +6,7 @@
  * / originally PINNED these reveals at `opacity: 1` (a slide with no fade
  * at all). replaces the pin with a FLOOR so the reveals actually reveal.
  *
- * ⚠ THE VALUE IS 0.95, NOT 0.7 — MEASURED, NOT CHOSEN. Flagged to as a
+ * ⚠ THE VALUE IS 0.95, NOT 0.7 — MEASURED, NOT CHOSEN. Recorded as a
  * amendment. 0.7 was implemented first and produced FIVE failing axe specs
  * (`/`, `/plan/`, `/nepal/`, `/japan/`, nepal-filters-open), all `color-contrast
  * [serious]`. The mechanism, confirmed against axe's own numbers:
@@ -32,8 +32,8 @@
  * if wants a real fade, it needs a different mechanism (e.g. fading a decorative
  * layer rather than the text container), not a different number here.
  *
- * WHY A TS CONSTANT AND NOT A CSS CUSTOM PROPERTY (deviation from the brief,
- * reported to): all eight consumers are framer-motion JS values. A framer
+ * WHY A TS CONSTANT AND NOT A CSS CUSTOM PROPERTY (recorded deviation from the
+ * plan): all eight consumers are framer-motion JS values. A framer
  * `initial={{ opacity: … }}` takes a NUMBER — it cannot read `var(--fade-floor)`.
  * Declaring the floor in globals.css would therefore have produced a custom property
  * with zero CSS consumers plus a duplicated JS literal that can silently drift from

@@ -51,9 +51,19 @@ export interface ItineraryStore {
   clearAll(): void;
   restoreDay(date: string, items: ItineraryItem[]): void;
   restorePlans(backup: DayPlan[]): void;
-  moveItem(itemId: string, fromDate: string, toDate: string): void;
+  /** Returns the id the item ACTUALLY landed on — under sync that is a FRESHLY MINTED id, not
+   * `itemId` (see the impl). `undefined` when nothing moved. Callers that only need the side
+   * effect (drag-and-drop) ignore it; anything building an INVERSE must use it. */
+  moveItem(itemId: string, fromDate: string, toDate: string): string | undefined;
   deleteItems(targets: Array<{ date: string; itemId: string }>): void;
-  moveItems(targets: Array<{ itemId: string; fromDate: string }>, toDate: string): void;
+  /** Returns the id each item ACTUALLY landed on, in target order, OMITTING any the guards
+   * refused — fresh ids under sync, the original ids under dormant (; the plural of
+   * `moveItem`'s-A contract). Anything building an INVERSE must address these. */
+  moveItems(targets: Array<{ itemId: string; fromDate: string }>, toDate: string): string[];
+  /** Rewrite stored attribution: every LIVE item whose `createdBy`/`updatedBy`/`doneBy` equals
+   * `fromName` gets the current display name instead. Returns how many items were rewritten.
+   * ONE commit. Owner-initiated only — see the impl for why this is not a migration. */
+  claimAuthorship(fromName: string): number;
   copyDay(srcDate: string, dstDate: string): void;
   reorderItems(date: string, orderedIds: string[]): void;
   getDayPlan(date: string): DayPlan;
@@ -92,7 +102,7 @@ export interface ItineraryStore {
 // falling back to the display name, then ''. The anon-auth uid would be strictly-better as
 // the actor but is only available async inside the remote handle; the per-friend token is a
 // stable, synchronous, dormant-safe id sufficient for the HLC tie-break (distinct across the
-// three clients). Recorded as a judgment call for.
+// three clients). Recorded as a judgment call.
 function syncEnabled(): boolean {
   return isRemoteConfigured();
 }
@@ -115,6 +125,14 @@ function syncActor(): string {
 export function freshCopyOf(item: ItineraryItem): ItineraryItem {
   const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ...content } = item;
   return { ...content, id: generateItemId() } as ItineraryItem;
+}
+
+/** Is this LIVE item attributed to `name` on any of the three author fields `itemAuthors`
+ * (lib/author-filter.ts) reads? The one predicate `claimAuthorship` scans and rewrites by, so
+ * the count the user approves and the set that changes can never drift apart. */
+function stampedBy(item: ItineraryItem, name: string): boolean {
+  if (item.deleted === true) return false;
+  return item.createdBy === name || item.updatedBy === name || item.doneBy === name;
 }
 
 // The shared hydrate/listen/commit skeleton, instantiated once for the itinerary
@@ -375,15 +393,26 @@ export function useItinerary(): ItineraryStore {
   // to the target day (identical to addItem's sync path: fresh createdBy + rev=1 + fresh hlc, same
   // `sourceId` carried so findPlacements follows the move). The fresh id is REQUIRED so a later
   // move-BACK can't collide with this item's own tombstone on the origin day.
+  //
+  // RETURNS the id the moved item actually LANDED on — `itemId` under dormant (the id is
+  // preserved), the freshly minted id under sync, and `undefined` when nothing moved (same-day,
+  // missing target, or a pre-hydration commit that no-ops). The landed id is captured INSIDE the
+  // commit updater, so it reports what the write really produced rather than what it intended.
+  // This is what an INVERSE (the concierge's undo) has to address: inverting a sync move by the
+  // original id looks up an id that no longer exists, so the undo silently did nothing.
   const moveItem = useCallback(
-    (itemId: string, fromDate: string, toDate: string) => {
+    (itemId: string, fromDate: string, toDate: string): string | undefined => {
+      let landedId: string | undefined;
       if (!syncEnabled()) {
-        commit((current) =>
-          itinerary.moveItem(current, itemId, fromDate, toDate, (i) =>
+        commit((current) => {
+          const next = itinerary.moveItem(current, itemId, fromDate, toDate, (i) =>
             stampUpdated(i, getUserName),
-          ),
-        );
-        return;
+          );
+          // Core moveItem returns `current` by IDENTITY when its own guards refuse the move.
+          if (next !== current) landedId = itemId;
+          return next;
+        });
+        return landedId;
       }
       // Sync on: tombstone-source + fresh-id-target, one atomic commit against freshest state.
       commit((current) => {
@@ -401,10 +430,12 @@ export function useItinerary(): ItineraryStore {
         // item's content (incl. sourceId/sourceType/done/notes…) but a NEW id, and let the
         // stampers set fresh createdBy + rev=1 + fresh hlc; drop any inherited tombstone/rev/hlc.
         const freshCopy = freshCopyOf(original);
+        landedId = freshCopy.id;
         return itinerary.addItem(tombstoned, toDate, freshCopy, (i) =>
           stampSyncCreated(stampCreated(i, getUserName), clock.now().getTime(), syncActor()),
         );
       });
+      return landedId;
     },
     [commit],
   );
@@ -445,14 +476,30 @@ export function useItinerary(): ItineraryStore {
   // - SYNC ON: per item, tombstone-source + fresh-id-target — IDENTICAL to the single
   // moveItem sync path, accumulated so all moves land in one write. The fresh id is required
   // so the moved copy can never collide with its own source tombstone.
+  //
+  // RETURNS the LANDED ids — the plural of `moveItem`'s-A contract, added the moment
+  // bulk move gained an Undo (open item B). Under sync a landed id is a FRESHLY MINTED one, so an
+  // inverse addressed by the ORIGINAL id resolves a tombstone and silently does nothing: the toast
+  // appears and the data stays put. That is the exact bug-A fixed on `moveItem`; the ids are
+  // captured INSIDE the commit updater so they report what the write really produced, and items the
+  // guards refused (same-day target, missing original, pre-hydration no-op commit) are OMITTED.
   const moveItems = useCallback(
-    (targets: Array<{ itemId: string; fromDate: string }>, toDate: string) => {
-      if (targets.length === 0) return;
+    (targets: Array<{ itemId: string; fromDate: string }>, toDate: string): string[] => {
+      const landed: string[] = [];
+      if (targets.length === 0) return landed;
       if (!syncEnabled()) {
+        // Same fold `core.moveItems` performs (it IS `targets.reduce(moveItem)`), unrolled by one
+        // level so each step's identity-return guard tells us whether that item actually moved.
         commit((current) =>
-          itinerary.moveItems(current, targets, toDate, (i) => stampUpdated(i, getUserName)),
+          targets.reduce((acc, { itemId, fromDate }) => {
+            const next = itinerary.moveItem(acc, itemId, fromDate, toDate, (i) =>
+              stampUpdated(i, getUserName),
+            );
+            if (next !== acc) landed.push(itemId); // dormant: the id is preserved by the move
+            return next;
+          }, current),
         );
-        return;
+        return landed;
       }
       commit((current) =>
         targets.reduce((acc, { itemId, fromDate }) => {
@@ -463,14 +510,77 @@ export function useItinerary(): ItineraryStore {
           const tombstoned = itinerary.updateItem(acc, fromDate, itemId, {}, (i) =>
             stampSyncDeleted(stampUpdated(i, getUserName), clock.now().getTime(), syncActor()),
           );
-          return itinerary.addItem(tombstoned, toDate, freshCopyOf(original), (i) =>
+          const freshCopy = freshCopyOf(original);
+          landed.push(freshCopy.id);
+          return itinerary.addItem(tombstoned, toDate, freshCopy, (i) =>
             stampSyncCreated(stampCreated(i, getUserName), clock.now().getTime(), syncActor()),
           );
         }, current),
       );
+      return landed;
     },
     [commit],
   );
+
+  // ── (Q3) — claim the items stamped with a name you used to go by ────────────────────
+  //
+  // Rewrites `createdBy` / `updatedBy` / `doneBy` — ALL THREE, because `itemAuthors` in
+  // lib/author-filter.ts reads exactly those three and a missing `doneBy` was the-B bug —
+  // from `fromName` to the CURRENT display name, across every live item, in ONE commit.
+  //
+  // 🔴 THIS IS DELIBERATELY NOT A VAULT MIGRATION. `core/vault/migrations.ts` steps run unattended
+  // on every device; `DEFAULT_TRAVELER_NAME` is the literal 'Traveler', which is ALSO the login
+  // placeholder for a token that resolves to no roster name — so a stored 'Traveler' stamp is
+  // ambiguous between "the owner before his rename" and "some other traveller on a placeholder
+  // login". An unattended sweep would absorb the second into the first and, because the vault
+  // syncs, propagate that misattribution everywhere. The caller (settings-panel.tsx) shows the
+  // MATCH COUNT before this ever runs; that preview is the whole safety mechanism, and it only
+  // works because a human reads it. Do not move this behind an automatic step.
+  //
+  // ⚖️ `updatedAt` IS DELIBERATELY PRESERVED. `components/activity-feed.tsx` derives its feed from
+  // `updatedBy` + `updatedAt` and sorts on `updatedAt` alone, so re-stamping the timestamp (what
+  // `stampUpdated` would do) would dump every claimed item into the top of "Recent changes" and
+  // date a two-week-old edit to now — a new defect traded for an old one. Only the three NAME
+  // fields change. `doneAt` is untouched for the same reason.
+  //
+  // Under sync we still advance `rev`/`hlc` (`stampSyncUpdated`, which touches ONLY those two
+  // ordering fields): without the bump the peers' unrewritten copies would tie or win the LWW
+  // resolve and the next snapshot would quietly unwind the claim. Tombstones are skipped — they
+  // are invisible to the filter, to the feed and to the count the user approved.
+  const claimAuthorship = useCallback((fromName: string): number => {
+    const from = fromName.trim();
+    const to = getUserName();
+    // Loud no-ops are the CALLER's job (it must say why); these are the defensive floors.
+    if (!from || !to || from === to) return 0;
+    // A zero-match claim must not reach commit() at all: commit saves and pushes unconditionally,
+    // so a name nobody is stamped with would cost a localStorage write and a per-day Spark write
+    // to store an identical array. Pre-scan the live value — this is a button press, so
+    // `plans` is current, and the caller has already shown the user a count derived from it.
+    if (!plans.some((d) => (d.items ?? []).some((i) => stampedBy(i, from)))) return 0;
+    const sync = syncEnabled();
+    const actor = syncActor();
+    let claimed = 0;
+    commit((current) => {
+      let next = current;
+      for (const day of current) {
+        for (const it of day.items) {
+          if (!stampedBy(it, from)) continue;
+          claimed++;
+          next = itinerary.updateItem(next, day.date, it.id, {}, (i) => {
+            const renamed: ItineraryItem = {
+              ...i,
+              ...(i.createdBy === from ? { createdBy: to } : {}),
+              ...(i.updatedBy === from ? { updatedBy: to } : {}),
+              ...(i.doneBy === from ? { doneBy: to } : {}),
+            };
+            return sync ? stampSyncUpdated(renamed, clock.now().getTime(), actor) : renamed;
+          });
+        }
+      }
+      return next;
+    });
+    return claimed;
+  }, [commit, plans]);
 
   // Copy a WHOLE day's live items onto `dstDate` (copy-day). Every copy is a FRESH-id copy of
   // the source item's content (freshCopyOf, reused — never a hand-rolled stripper), so a copy
@@ -561,6 +671,7 @@ export function useItinerary(): ItineraryStore {
     moveItem,
     deleteItems,
     moveItems,
+    claimAuthorship,
     copyDay,
     reorderItems,
     getDayPlan,

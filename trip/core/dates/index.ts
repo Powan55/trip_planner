@@ -24,10 +24,11 @@ export {
   NPT_OFFSET_MIN,
   JST_OFFSET_MIN,
   offsetForCountry,
+  zoneAbbrevForOffset,
+  type ZoneAbbrev,
   effectiveOffsetMin,
   parseTimeString,
   effectiveStartMinutes,
   formatTimeAmPm,
   placeWallClockToUtcMs,
-  isPastAtPlace,
 } from './item-time';

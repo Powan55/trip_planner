@@ -1,11 +1,16 @@
 'use client';
 
-// / — contain the ONE deliberately-absent chunk at its call site.
+// / — contain a missing maplibre chunk at its call site.
 //
-// 🔴 WHY THIS FILE EXISTS AT ALL. keeps maplibre's ~1 MB engine OUT
-// of the service-worker precache: it is a lot of bytes for a page many people never
-// open, and an offline map engine with no cached tiles paints a blank canvas anyway.
-// But in the App Router a `dynamic()` whose chunk cannot be fetched makes
+// 🔴 WHY THIS FILE EXISTS AT ALL. Under ① maplibre's ~1 MB engine was kept OUT
+// of the service-worker precache, so cold-offline the chunk was reliably absent.
+// REVERSED that (the owner ruled: prefetch it, it is 1.01 MiB, under the 2 MB
+// bar) — and this boundary still stands, deliberately. Precached is not the same as
+// present: the chunk is missing on a cold cache (offline before the install
+// finished), after a failed precache fetch, and after a storage-pressure eviction.
+// Rarer, not impossible — and the failure mode is unchanged and total.
+//
+// In the App Router a `dynamic()` whose chunk cannot be fetched makes
 // `React.lazy` THROW during render, and the nearest boundary is `app/error.tsx` —
 // which replaces the WHOLE ROUTE, hero included. So excluding the chunk without a
 // fallback does not remove the map, it removes the route. Measured cold-offline on
@@ -26,9 +31,9 @@
 // class does not justify adding one.
 //
 // WHICH CALL SITES NEED IT is DERIVED, never hand-kept: `scripts/gen-sw.mjs` prints
-// the maplibre-reduced call sites at build time under
-// `gen-sw: maplibre withheld from N call site(s)`. Wrap exactly those. Add a
-// new map island next month and the build names it for you.
+// them at build time under `gen-sw: N maplibre island call site(s)` and then FAILS
+// THE BUILD on any that is not wrapped (assertMapIslandsWrapped). Wrap exactly those.
+// Add a new map island next month and the build names it for you.
 
 import { Component, type ReactNode } from 'react';
 

@@ -8,7 +8,7 @@
  * lives in `components/budget-panel.tsx`; the persistence lives behind the typed storage
  * gateway (`core/storage/gateway.ts`, key 10). This file owns only the SHAPE + the math.
  *
- * ── The currency model ─────────────────────────
+ * ── The currency model (a reversible, recorded design choice) ────────────────────────────
  * The trip has two legs by country: Nepal (local currency NPR) and Japan (local
  * currency JPY). Each leg's budget + per-category budgets are entered and STORED in that
  * leg's LOCAL currency, so no per-amount currency tag is ever needed — a Nepal amount is

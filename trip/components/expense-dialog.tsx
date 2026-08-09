@@ -11,8 +11,9 @@ import {
 import { CATEGORY_COLORS, type ItineraryCategory } from '@/lib/trip-data';
 import {
   legCurrency, currencySymbol, formatMoney,
-  BUDGET_CATEGORIES, type Leg,
+  BUDGET_CATEGORIES, LEGS, type Leg,
 } from '@/core/budget/model';
+import { legLabel } from '@/lib/leg-label';
 import { useExpenses } from '@/hooks/use-expenses';
 import PhotoAttach from '@/components/photo-attach';
 import type { Expense } from '@/core/budget/expenses';
@@ -51,8 +52,6 @@ const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
   free: <Coffee className="w-3.5 h-3.5" />,
   nightlife: <Music className="w-3.5 h-3.5" />,
 };
-
-const LEG_LABEL: Record<Leg, string> = { nepal: 'Nepal', japan: 'Japan' };
 
 export interface ExpenseDialogProps {
   open: boolean;
@@ -342,7 +341,10 @@ export default function ExpenseDialog({
                 data-testid="expense-leg-toggle"
                 className="flex gap-2"
               >
-                {(['nepal', 'japan'] as Leg[]).map((l) => {
+                {/* the legs come from the ACTIVE trip (core/budget/model's LEGS, derived
+                    from the pack) instead of a hardcoded nepal/japan pair — a custom trip shows
+                    its own single leg with its own label, not two foreign countries. */}
+                {LEGS.map((l) => {
                   const active = leg === l;
                   return (
                     <button
@@ -359,7 +361,7 @@ export default function ExpenseDialog({
                       }`}
                     >
                       <span aria-hidden="true">{currencySymbol(legCurrency(l))}</span>
-                      {LEG_LABEL[l]}
+                      {legLabel(l)}
                     </button>
                   );
                 })}

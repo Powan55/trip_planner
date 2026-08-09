@@ -32,7 +32,7 @@
  * Tokyo; the frozen E2E boundary specs were updated in lockstep, so the guard's invariant
  * "Japan window, NOT Kathmandu" stays green). These cities are now authored in the content
  * root — an edit to a frozen boundary city goes loudly red and requires the deliberate
- *-style lockstep with the frozen E2E specs.
+ *-style lockstep with the frozen E2E specs (a known, deliberate coupling).
  *
  * ── route ────────────────────────────────────────────────────
  * Osaka 5 nights (Dec 19–24) → Kyoto 3 nights (Dec 24–27) → Tokyo 13 nights (Dec 27–Jan 9).

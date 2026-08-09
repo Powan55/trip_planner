@@ -37,7 +37,7 @@ import { FadeIn } from '@/components/ui/animate';
  * names/titles never overflow at narrow widths.
  */
 
-/** How many recent edits to surface (newest first). Brief: N = 6–8. */
+/** How many recent edits to surface (newest first). Chosen from the 6–8 range. */
 const FEED_LIMIT = 8;
 
 interface ActivityEntry {

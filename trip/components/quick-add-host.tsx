@@ -10,7 +10,7 @@ import { isTravelRoute } from '@/lib/travel-route';
 /**
  * Global, invisible host for the custom "add your own plan" flow.
  *
- * Mounted ONCE in the root layout by at (this component does NOT mount
+ * Mounted ONCE in the root layout at (this component does NOT mount
  * itself). It renders nothing until an event arrives; it listens on `window` for the
  * CustomEvent `quickadd:open` — emitted by's quick-add FAB and by the calendar
  * FAB — and opens `AddToItineraryDialog` in CUSTOM mode preset to the requested day:

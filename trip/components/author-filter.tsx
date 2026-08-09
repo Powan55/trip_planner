@@ -27,6 +27,17 @@ import { useAuthorFilter } from '@/hooks/use-author-filter';
  * `prefers-reduced-motion` rule already neutralizes.
  *
  * Static Tailwind literals only; dark-only.
+ *
+ * Testids: `author-filter` on the row, `author-filter-all`,
+ * `author-filter-mine`, `author-filter-author-<name>` on the chips.
+ * `<name>` is the raw display name, so a name with a space yields e.g.
+ * `author-filter-author-Jane Doe` — quote it in a selector.
+ *
+ * 🔴 also made this control render ONCE per page. It used to be mounted by BOTH
+ * `calendar-planner.tsx` and `trip-timeline.tsx`, which since both render on `/plan` — so the
+ * identical chip row appeared twice. Only the planner mounts it now; the timeline still obeys the
+ * selection through the shared module-level value. Do not re-mount it elsewhere without checking
+ * what else is on that route.
  */
 export default function AuthorFilterControl({
   plans,
@@ -35,9 +46,10 @@ export default function AuthorFilterControl({
   plans: DayPlan[];
   className?: string;
 }) {
-  const { filter, setFilter, myName } = useAuthorFilter();
+  const { filter, setFilter, myName, myPriorNames } = useAuthorFilter();
 
-  const authors = distinctAuthors(plans);
+  //-C: prior names collapse into the current one, so a user who renamed gets ONE chip.
+  const authors = distinctAuthors(plans, myName, myPriorNames);
 
   // Dormant / no-attribution: nothing to filter by → render nothing (portfolio unchanged).
   if (authors.length === 0) return null;
@@ -72,7 +84,10 @@ export default function AuthorFilterControl({
     }`;
 
   return (
-    <div className={`flex flex-wrap items-center justify-center gap-2 ${className}`}>
+    <div
+      data-testid="author-filter"
+      className={`flex flex-wrap items-center justify-center gap-2 ${className}`}
+    >
       <span className="inline-flex items-center gap-1.5 text-xs text-white/40 mr-0.5">
         <Users className="w-3.5 h-3.5" aria-hidden="true" />
         <span>Filter by</span>
@@ -87,6 +102,7 @@ export default function AuthorFilterControl({
           type="button"
           onClick={() => setFilter({ kind: 'all' })}
           aria-pressed={isActive({ kind: 'all' })}
+          data-testid="author-filter-all"
           className={chip(isActive({ kind: 'all' }))}
         >
           All
@@ -99,6 +115,7 @@ export default function AuthorFilterControl({
             onClick={() => setFilter({ kind: 'mine' })}
             aria-pressed={isActive({ kind: 'mine' })}
             aria-label={`My edits (${myName})`}
+            data-testid="author-filter-mine"
             className={chip(isActive({ kind: 'mine' }))}
           >
             My edits
@@ -113,6 +130,7 @@ export default function AuthorFilterControl({
             onClick={() => setFilter({ kind: 'author', name })}
             aria-pressed={isActive({ kind: 'author', name })}
             aria-label={`Edits by ${name}`}
+            data-testid={`author-filter-author-${name}`}
             className={chip(isActive({ kind: 'author', name }))}
           >
             {name}

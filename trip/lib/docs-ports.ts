@@ -9,8 +9,8 @@
 // firebase onto the hot path. Best-effort + self-degrading.
 //
 // ── DOMAIN LITERAL ────────────────────────────────────────────────────────────────────────────
-// 'docs' is a first-class member of `SyncDomain` (additive union extension at merge — lifted
-// the core/sync fence for the one-line member, the same way expenses/budget joined it).
+// 'docs' is a first-class member of `SyncDomain` (additive union extension at merge — the
+// core/sync fence was lifted for the one-line member, the same way expenses/budget joined it).
 import type { SyncDomain } from '@/core/sync/outbox';
 export const DOCS_DOMAIN: SyncDomain = 'docs';
 

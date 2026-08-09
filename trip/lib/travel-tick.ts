@@ -11,7 +11,7 @@
 // A module singleton (not a React context) because `/travel`'s client root — `travel-date-picker`
 // — itself needs the clock AND renders the subscribing children, so there is no wrapper node above
 // it to host a provider without splitting that component. A subscribable module fits the existing
-// tree with the smallest diff.
+// tree with the smallest diff (the simplest shape that fits).
 //
 // Does NOT touch `lib/trip-now.ts`, the 60s presence heartbeat, the wake-lock, or
 // the HOME countdown — all out of scope.

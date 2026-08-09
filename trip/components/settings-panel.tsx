@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   User,
@@ -14,7 +14,6 @@ import {
   Upload,
   AlertTriangle,
   KeyRound,
-  Plus,
   Copy,
   Check,
   Share2,
@@ -22,15 +21,23 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
-import { signIn } from '@/lib/token-auth';
-import { getActiveTripId, DEFAULT_TRIP_ID, getSyncCode, setSyncCode } from '@/core/storage/gateway';
+import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
+import { itemMatchesAuthor, type AuthorFilter } from '@/lib/author-filter';
+import {
+  getActiveTripId,
+  DEFAULT_TRIP_ID,
+  getSyncCode,
+  setSyncCode,
+  identityStore,
+} from '@/core/storage/gateway';
 import SignOutConfirm from '@/components/sign-out-confirm';
 import { joinTrip } from '@/core/trips/registry';
-import { getTripId } from '@/lib/firebase-config';
+import { getTripId, isRemoteConfigured } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
 import { useBudget } from '@/hooks/use-budget';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useExpenses } from '@/hooks/use-expenses';
+import { useDocs } from '@/hooks/use-docs';
 import { useJournal } from '@/hooks/use-journal';
 import { expensesToCsv } from '@/lib/expense-csv';
 import { exportExpenses, parseExpenseBackup } from '@/lib/expense-export';
@@ -264,10 +271,12 @@ function IdentityGroup({ name }: { name: string | null }) {
           </button>
         </SignOutConfirm>
       </div>
-      {/* Rename: login is now token-only, so the display name defaults to "Traveler"
+      {/* Rename (Decision 2026-07-30): login is now token-only, so the display name defaults to "Traveler"
           on a fresh device — this is where a signed-in traveler sets/changes it. `signIn` rewrites
           both identity slots + fires identity:changed, so the chip/attribution update live (no reload). */}
       {name && <RenameIdentity current={name} />}
+      {/* (Q3) — claim the items you stamped under a name you used to go by. */}
+      {name && <ClaimOldName current={name} />}
       {/* "Forget this device" — settings-only, strictly more destructive than sign-out: ALSO
           deletes every locally-stored photo (IndexedDB, app-scoped). Gated on `name` like Rename
           above (meaningless when not signed in). */}
@@ -295,7 +304,14 @@ function IdentityGroup({ name }: { name: string | null }) {
 }
 
 /** Editable display name for a signed-in traveler. `signIn` is the one primitive that writes both
- * identity slots (name + token) the app reads, so a rename is just a re-sign-in with the new name. */
+ * identity slots (name + token) the app reads, so a rename is just a re-sign-in with the new name.
+ *
+ * the rename also PUBLISHES to `trips/{userToken}/profile/identity`, so the name is
+ * an attribute of the account and survives to a device that has never seen this browser's
+ * localStorage. Fire-and-forget is correct here — unlike the door and `createTrip()`, this surface
+ * does NOT navigate, so there is no in-flight write to kill (the structural reason needs no
+ * timeout branch). A publish that fails is retried by the provider's mount reconciler on the next
+ * page load. Gated + lazily imported so the dormant build still pulls no firebase. */
 function RenameIdentity({ current }: { current: string }) {
   const [value, setValue] = useState(current);
   const trimmed = value.trim();
@@ -304,7 +320,12 @@ function RenameIdentity({ current }: { current: string }) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        if (dirty) signIn(trimmed);
+        if (!dirty || !signIn(trimmed)) return;
+        const code = getSyncCode();
+        if (!isRemoteConfigured() || !code) return;
+        void import('@/lib/trips-remote')
+          .then(({ pushAccountIdentity }) => pushAccountIdentity(code, trimmed))
+          .catch((err) => console.warn('[settings] account identity publish unavailable:', err));
       }}
       className="flex flex-col gap-2 sm:flex-row sm:items-end"
     >
@@ -334,11 +355,186 @@ function RenameIdentity({ current }: { current: string }) {
 }
 
 /**
- * Trip group — create a trip, add one by its Trip Token, and share
- * the current trip. All three reuse the pack-switch primitive VERBATIM: `setActiveTripId(id)`
- * then a full page reload (no live re-hydration). Create mints a fresh `crypto.randomUUID()` Trip
- * Token; add accepts a pasted Trip Token (only non-empty is validated — an unknown one just
- * resolves to an empty, harmless, never-synced trip,). The current Trip Token is `getTripId()`
+ * (Q3) — claim the itinerary items stamped with a name you used to go by.
+ *
+ * A rename rewrites no stamps, so the pre-rename items keep the old name and you appear as two
+ * people in the traveller filter — and the item card renders `by {item.updatedBy}` literally, so
+ * seeding the old name into `priorNames` alone would fix the FILTER while the cards still read
+ * "by Traveler". The owner asked for the stored rewrite; this is it.
+ *
+ * 🔴 WHY THIS IS A BUTTON AND NOT A VAULT MIGRATION. `DEFAULT_TRAVELER_NAME` is the literal
+ * 'Traveler' — also the login placeholder for any token that resolves to no roster name. A stored
+ * 'Traveler' stamp is therefore AMBIGUOUS between "the owner before his rename" and "somebody else
+ * on a placeholder login", and the vault SYNCS, so a blanket unattended sweep would fold the second
+ * into the first on every device. The count shown before the button is the entire safety mechanism:
+ * it hands the ambiguity to the one person who knows whether anyone else ever used a placeholder
+ * login. The name is an INPUT, not a hardcoded 'Traveler', because another traveller may need this
+ * too — 'Traveler' is only the prefill.
+ *
+ * It also records the claimed name via `identityStore.addPriorName`, which is what keeps FUTURE
+ * filtering correct for anything the rewrite cannot reach (remote items that arrive later, other
+ * devices) — already wired into `itemMatchesAuthor` and `distinctAuthors`.
+ *
+ * SCOPE, stated so it is not mistaken for complete ( widened it to three stores, and only
+ * three): itinerary items (`createdBy`/`updatedBy`/`doneBy`), expenses (`createdBy`/`updatedBy`)
+ * and documents (`updatedBy`) — all on the ACTIVE trip.
+ *
+ * 🔴 `Expense.paidBy` and `Expense.split[]` ARE OUT OF SCOPE AND ARE NEVER WRITTEN. They hold the
+ * same display-name strings, so a rename genuinely could reach them — but they are money, not
+ * attribution: `core/budget/settlement.ts` de-duplicates split members before dividing the bill, so
+ * renaming into a split that already contains the new name drops the divisor and re-points every
+ * balance. The owner narrowed his own ruling to attribution after seeing that arithmetic.
+ */
+
+/** The per-store match counts behind the preview. `total` is what the button claims. */
+interface ClaimCounts {
+  items: number;
+  expenses: number;
+  docs: number;
+  total: number;
+}
+
+/**
+ * "2 itinerary items", "2 itinerary items and 1 expense", "2 itinerary items, 1 expense and 1
+ * document". A store with nothing stamped is LEFT OUT entirely — the owner reads this screen and
+ * "0 expenses" is noise that makes a real number harder to check.
+ */
+function describeClaim(c: ClaimCounts): string {
+  const parts: string[] = [];
+  if (c.items > 0) parts.push(`${c.items} itinerary item${c.items === 1 ? '' : 's'}`);
+  if (c.expenses > 0) parts.push(`${c.expenses} expense${c.expenses === 1 ? '' : 's'}`);
+  if (c.docs > 0) parts.push(`${c.docs} document${c.docs === 1 ? '' : 's'}`);
+  if (parts.length <= 1) return parts[0] ?? '';
+  return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+function ClaimOldName({ current }: { current: string }) {
+  const { plans, claimAuthorship } = useItineraryContext();
+  const { expenses, claimAuthorship: claimExpenses } = useExpenses();
+  const { items: docItems, claimAuthorship: claimDocs } = useDocs();
+  const [value, setValue] = useState(DEFAULT_TRAVELER_NAME);
+  const [claimed, setClaimed] = useState<number | null>(null);
+  const from = value.trim();
+  const isSelf = from !== '' && from === current;
+
+  // The preview count, derived live from the three shared stores. The itinerary side uses the SAME
+  // predicate the traveller filter uses (`itemMatchesAuthor` over updatedBy/createdBy/doneBy) —
+  // never a second, drifting definition. The other two match the exact fields their store rewrites,
+  // so the previewed number is always the number that changes. `expenses` is already
+  // tombstone-filtered by the hook; docs are filtered here (v1 never writes one, but the field is).
+  const counts = useMemo<ClaimCounts>(() => {
+    if (!from || isSelf) return { items: 0, expenses: 0, docs: 0, total: 0 };
+    const filter: AuthorFilter = { kind: 'author', name: from };
+    let items = 0;
+    for (const plan of plans) {
+      for (const item of plan.items ?? []) if (itemMatchesAuthor(item, filter, null)) items++;
+    }
+    const exp = expenses.filter((e) => e.createdBy === from || e.updatedBy === from).length;
+    const docs = docItems.filter((d) => d.deleted !== true && d.updatedBy === from).length;
+    return { items, expenses: exp, docs, total: items + exp + docs };
+  }, [plans, expenses, docItems, from, isSelf]);
+
+  const matches = counts.total;
+
+  const status = isSelf
+    ? `“${current}” is your current name. Enter the name you used before.`
+    : from === ''
+      ? 'Enter the name you used before.'
+      : matches === 0
+        ? `Nothing is stamped “${from}”. There is nothing to claim.`
+        : `${describeClaim(counts)} ${matches === 1 ? 'is' : 'are'} stamped “${from}”. Claim ${matches === 1 ? 'it' : 'them'} as yours?`;
+
+  return (
+    <div
+      data-testid="settings-claim-old-name"
+      className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+    >
+      <h3 className="text-sm font-semibold text-white">Claim items under an old name</h3>
+      <p className="mt-1 max-w-2xl text-sm text-white/60">
+        If you renamed yourself, everything you added before the rename is still stamped with the
+        old name — so you show up twice in the traveller filter. Claiming rewrites those stamps to
+        “{current}” across your plan, your expenses and your document checklist.
+      </p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (matches === 0) return;
+          // Record the claimed name FIRST, then rewrite. Order is load-bearing: `claimAuthorship`
+          // commits, and commit dispatches `itinerary:changed` SYNCHRONOUSLY — which is exactly
+          // the event `useAuthorFilter` re-reads `priorNames` on. Recording afterwards would leave
+          // "My edits" one event behind until some unrelated edit happened to fire. Safe to do up
+          // front: the button is disabled unless `matches > 0`, computed with the same predicate
+          // the store scans. This is the-C mechanism, reused — it is what keeps FUTURE
+          // filtering correct for anything the rewrite cannot reach (items that sync in later).
+          identityStore.addPriorName(from);
+          // Three small store calls, one per store — each commits once and returns what IT
+          // changed. The sum is what the preview promised.
+          setClaimed(claimAuthorship(from) + claimExpenses(from) + claimDocs(from));
+        }}
+        className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end"
+      >
+        <label className="flex-1">
+          <span className="text-xs uppercase tracking-widest text-white/40">Old name</span>
+          <input
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setClaimed(null);
+            }}
+            maxLength={24}
+            autoComplete="off"
+            spellCheck={false}
+            data-testid="settings-claim-name-input"
+            className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </label>
+        <button
+          type="submit"
+          disabled={matches === 0}
+          data-testid="settings-claim-name-submit"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {matches === 1 ? 'Claim 1 entry' : `Claim ${matches} entries`}
+        </button>
+      </form>
+      {/* The count preview IS the safety gate — it must be readable before the button is pressed,
+          and announced for a screen reader as the typed name changes. */}
+      <p
+        aria-live="polite"
+        data-testid="settings-claim-name-status"
+        className="mt-2 text-sm text-white/70"
+      >
+        {claimed === null
+          ? status
+          : `Claimed ${claimed} entr${claimed === 1 ? 'y' : 'ies'} as “${current}”.`}
+      </p>
+      {matches > 0 && claimed === null && (
+        <p className="mt-1 max-w-2xl text-xs text-amber-200/70">
+          Check that number first. It counts everything carrying that exact name — including
+          anything a fellow traveller left while logged in as “{DEFAULT_TRAVELER_NAME}” — and the
+          rewrite syncs to every device. Only the “added by” and “last edited by” stamps change:
+          who paid for a shared expense, and how it splits, are never touched.
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Trip group — add a trip by its Trip Token, and share the current
+ * trip. Both reuse the pack-switch primitive VERBATIM: `setActiveTripId(id)` then a full page
+ * reload (no live re-hydration). Add accepts a pasted Trip Token (only non-empty is validated — an
+ * unknown one just resolves to an empty, harmless, never-synced trip,).
+ *
+ * 🔴-F — CREATE WAS DELETED FROM THIS SURFACE ON PURPOSE. DO NOT ADD IT BACK. It minted a
+ * `crypto.randomUUID()` pack named "New trip" with NO config and NO meta push, so a joiner reading
+ * the trip's meta doc learned nothing about it. `trips-hub.tsx` (`/trips/`) is the ONE correct
+ * create path: it takes a required name, dates, destinations and a vibe, and awaits the meta +
+ * list pushes under a budget before navigating. Giving THIS card a `pushTripMeta` would reproduce
+ * the defect exactly — it reloads immediately, killing the in-flight write. Two create paths
+ * with different guarantees is the defect; one path is the fix.
+ *
+ * The current Trip Token is `getTripId()`
  * (the REMOTE capability) — treated as a SECRET in copy: anyone holding it can read+write this trip
  * It is NOT the User Token, which is the account credential
  * and lives in its own group below — the two are never mixed.
@@ -374,13 +570,6 @@ function TripGroup() {
     } catch {
       /* clipboard blocked (permissions / insecure context) — the value stays visible to select. */
     }
-  };
-
-  // switch via the registry: register + write the pointer, then full reload (this
-  // route) — the pack re-hydrates fresh and the trip is remembered in the known-trips list.
-  const createTrip = () => {
-    joinTrip(crypto.randomUUID(), 'New trip');
-    window.location.reload();
   };
 
   const join = (e: React.FormEvent) => {
@@ -475,24 +664,6 @@ function TripGroup() {
         <div aria-live="polite" className="sr-only">
           {copied === 'key' ? 'Trip Token copied to clipboard' : copied === 'link' ? 'Share link copied to clipboard' : ''}
         </div>
-      </div>
-
-      {/* Create a brand-new trip. */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">Create a trip</h3>
-        <p className="mt-1 max-w-2xl text-sm text-white/60">
-          Creates a fresh, empty trip with its own Trip Token. You&rsquo;ll switch to it now; share
-          that Trip Token to plan together.
-        </p>
-        <button
-          type="button"
-          onClick={createTrip}
-          data-testid="settings-trip-create"
-          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-        >
-          <Plus className="h-4 w-4" aria-hidden="true" />
-          Create new trip
-        </button>
       </div>
 
       {/* Add an existing trip by pasting its Trip Token. */}

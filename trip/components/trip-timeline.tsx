@@ -12,14 +12,15 @@ import {
   TRIP_DATES, getCountryForDate, formatDate,
   CATEGORY_COLORS, ItineraryCategory,
 } from '@/lib/trip-data';
+import { offsetForCountry } from '@/core/dates';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { filterItemsByAuthor } from '@/lib/author-filter';
 import { useAuthorFilter } from '@/hooks/use-author-filter';
-import AuthorFilterControl from '@/components/author-filter';
 import ActivityFeed from '@/components/activity-feed';
 import { describeItemTime } from '@/lib/item-time-display';
 import { sortItemsByTime, clashingItemIds } from '@/lib/sort-items-by-time';
+import { dayPlaceLabel, placeLabelForDate } from '@/lib/leg-label';
 
 // Map each category to a lucide icon, matching the calendar planner.
 const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
@@ -48,7 +49,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
   // Presentational author filter: READ-ONLY. Shared with the calendar via
   // lib/author-filter, so one selection narrows BOTH surfaces. It only changes which items
   // render here — `plans`/localStorage are never touched.
-  const { filter: authorFilter, myName } = useAuthorFilter();
+  const { filter: authorFilter, myName, myPriorNames } = useAuthorFilter();
 
   const handleDateClick = (date: string) => {
     setSelectedDate(date);
@@ -62,12 +63,15 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
   const selectedPlan = plans.find((p) => p.date === selectedDate);
   // Full stored items for the day, then the presentational author-filtered view.
   const dayItems = selectedPlan?.items ?? [];
-  const selectedItems = filterItemsByAuthor(dayItems, authorFilter, myName);
+  const selectedItems = filterItemsByAuthor(dayItems, authorFilter, myName, myPriorNames);
   // a pure VIEW-level chronological projection for the timeline read only —
   // never written back, the calendar's manually-dragged order stays the persisted truth
   // Clash detection is order-independent, so it runs on the same filtered set.
-  const chronoItems = sortItemsByTime(selectedItems);
-  const clashIds = clashingItemIds(selectedItems);
+  // keyed on the ABSOLUTE INSTANT, so the day's own offset (and any per-item
+  // `tzOffsetMin`,) is required — a wall-clock key put the Jan-9 Detroit layover
+  // ahead of the Tokyo flight that produces it.
+  const chronoItems = sortItemsByTime(selectedItems, selectedDate, offsetForCountry(selectedCountry));
+  const clashIds = clashingItemIds(selectedItems, selectedDate, offsetForCountry(selectedCountry));
 
   return (
     <section id="timeline" aria-labelledby="timeline-heading" className="py-16 px-4 sm:px-6">
@@ -84,9 +88,14 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
           <p className="text-white/50">32 days across two incredible countries</p>
         </m.div>
 
-        {/* Author filter: presentational, read-only, shared with the calendar.
-            Self-hides when no item is attributed (portfolio build unchanged). */}
-        <AuthorFilterControl plans={plans} className="mb-6" />
+        {/* 🔴 — THE SECOND "Filter by" ROW WAS DELETED HERE, deliberately.
+            gave the calendar and the timeline one control each because they were on different
+            pages. moved the timeline onto `/plan`, so both rendered on the SAME page and the
+            identical chip row appeared TWICE — which is a large part of why the filter read as
+            half-working. The surviving control lives in the planner toolbar
+            (`calendar-planner.tsx`), ABOVE this section, and the selection is a shared module-level
+            value (`lib/author-filter`), so this timeline is still filtered by it; it simply no
+            longer draws its own copy of the control. Do not re-add one. */}
 
         {/* Recent-changes activity feed: read-only, DERIVED FOR FREE from the
             existing updatedBy/updatedAt. Reads the same shared store so it
@@ -181,8 +190,8 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
               <MapPin className={`w-4 h-4 ${selectedCountry === 'nepal' ? 'text-himalaya-400' : 'text-sakura-400'}`} />
               <span className="text-white font-medium">
                 Day {TRIP_DATES.indexOf(selectedDate) + 1} • {formatDate(selectedDate)} • {selectedPlan?.city
-                  ? `${selectedPlan.city}, ${selectedCountry === 'nepal' ? 'Nepal' : 'Japan'}`
-                  : selectedCountry === 'nepal' ? 'Kathmandu, Nepal' : 'Japan'}
+                  ? dayPlaceLabel(selectedPlan)
+                  : placeLabelForDate(selectedDate)}
               </span>
             </div>
           </div>

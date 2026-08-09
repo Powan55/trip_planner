@@ -76,6 +76,29 @@ export interface ExpenseStore {
    * and a restored row can never lose to its own tombstone on an HLC tie.
    */
   restoreExpenses(backup: Expense[]): void;
+  /**
+   * — reclaim the ATTRIBUTION stamps left under a name the traveler used to go by. The
+   * expense-store half of the itinerary's owner-initiated `claimAuthorship`: rewrites
+   * `createdBy` / `updatedBy` from `fromName` to the CURRENT display name across every LIVE row,
+   * in ONE commit. Returns how many rows changed (0 = nothing written at all).
+   *
+   * 🔴 `paidBy` AND `split[]` ARE NEVER WRITTEN, AND MUST NEVER BE. They are money, not
+   * attribution. `core/budget/settlement.ts` de-duplicates the split members before dividing
+   * (`uniq(e.split…)` then `amount / members.length`), so renaming a member INTO a split that
+   * already contains the new name silently DROPS THE DIVISOR and re-points every balance and
+   * every transfer. The owner ruled "extend the claim to expenses", then narrowed it himself to
+   * attribution-only after seeing that arithmetic — the narrowing is the ruling.
+   * Note the field comment in `core/budget/expenses.ts` calls `paidBy`/`split` "TRAVELERS id":
+   * they are display-name STRINGS (`e2e/expenses.spec.ts` pins ['Powan','Sushil','Uttam']
+   * literally), so a rename genuinely COULD reach them. That is exactly why it must not.
+   *
+   * Under sync we advance `rev`/`hlc` via the SAME `nextSyncStamp` fragment every other mutator
+   * here uses. Without that bump a peer's un-rewritten copy ties or wins the LWW resolve in
+   * `mergeItems` and the very next remote snapshot quietly unwinds the claim — the rewrite would
+   * pass every test and revert on a real device. `createdAt` is never re-stamped. Tombstones are
+   * skipped: invisible to the UI, and to the count the user approved before pressing the button.
+   */
+  claimAuthorship(fromName: string): number;
 }
 
 /**
@@ -232,6 +255,41 @@ export function useExpenses(): ExpenseStore {
     });
   }, [commit]);
 
+  // — see the `claimAuthorship` doc on ExpenseStore for WHY paidBy/split are absent here.
+  const claimAuthorship = useCallback((fromName: string): number => {
+    const from = fromName.trim();
+    const to = getUserName();
+    // Loud no-ops are the CALLER's job (it must say why); these are the defensive floors.
+    if (!from || !to || from === to) return 0;
+    // A zero-match claim must not reach commit(): commit saves + pushes unconditionally, so a name
+    // nobody carries would cost a localStorage write and a Spark write to store an
+    // identical array. `rawExpenses` is current on a button press and is what the preview counted.
+    if (!rawExpenses.some((e) => e.deleted !== true && (e.createdBy === from || e.updatedBy === from))) {
+      return 0;
+    }
+    const sync = syncEnabled();
+    const name = actor();
+    const now = clock.now().getTime();
+    let claimed = 0;
+    commit((current) => {
+      claimed = 0;
+      return current.map((e) => {
+        if (e.deleted === true) return e;
+        if (e.createdBy !== from && e.updatedBy !== from) return e;
+        claimed++;
+        // Per FIELD, and ONLY these two fields. The spread carries `paidBy`/`split` (and
+        // `createdAt`) through untouched — they are never read, compared, or written here.
+        const renamed: Expense = {
+          ...e,
+          ...(e.createdBy === from ? { createdBy: to } : {}),
+          ...(e.updatedBy === from ? { updatedBy: to } : {}),
+        };
+        return sync ? { ...renamed, ...nextSyncStamp(e, now, name) } : renamed;
+      });
+    });
+    return claimed;
+  }, [commit, rawExpenses]);
+
   // The exposed-`expenses` tombstone filter. The MERGE/persist layer RETAINS
   // `deleted:true` rows so a delete can propagate + win; consumers see live rows only, with ZERO
   // edits. Dormant rows never carry `deleted`, so this is identity in the dormant build.
@@ -246,5 +304,6 @@ export function useExpenses(): ExpenseStore {
     restoreExpense,
     clearAll,
     restoreExpenses,
+    claimAuthorship,
   };
 }

@@ -20,7 +20,7 @@ export default function RecapPage() {
     <main className="min-h-screen bg-surface">
       {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
           text-display-emphasis / animate-reveal-up) directly rather than extending PageHero's
-          closed `HeroVariant` union (fenced per the brief, mirroring app/journal/page.tsx
+          closed `HeroVariant` union (fenced at mirroring app/journal/page.tsx
           and app/safety/page.tsx). Supplies the page's <h1>; the island's own headings (trip
           summary / per-day) nest under it as h2/h3. */}
       <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">

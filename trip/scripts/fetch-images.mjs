@@ -27,7 +27,7 @@ const ROOT = path.resolve(__dirname, '..');
 const IMAGES_DIR = path.join(ROOT, 'public', 'images');
 
 const USER_AGENT =
-  'TripPlannerImageFetch/1.0 (https://github.com/; trip planner; contact: laxmipoudel311@gmail.com)';
+  'TripPlannerImageFetch/1.0 (+https://github.com/Powan55/trip_planner; trip planner image fetch)';
 
 const CARD_WIDTH = 1200;
 const HERO_WIDTH = 1920;
@@ -132,7 +132,7 @@ const MANIFEST = [
   { id: 'arashiyama', area: 'featured', title: 'Arashiyama' },
   { id: 'mount-fuji', area: 'featured', title: 'Mount Fuji' },
 
-  // Map markers (np-dwarikas intentionally absent — skip per brief)
+  // Map markers (np-dwarikas intentionally absent — deliberately skipped)
   { id: 'np-boudhanath', area: 'map', title: 'Boudhanath' },
   { id: 'np-swayambhunath', area: 'map', title: 'Swayambhunath' },
   { id: 'np-pashupatinath', area: 'map', title: 'Pashupatinath Temple' },

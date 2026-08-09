@@ -14,6 +14,7 @@ import { navItemsForActiveTrip, primaryItemsForActiveTrip, isRouteActive } from 
 import { isTravelRoute } from '@/lib/travel-route';
 import { useEnterTravelMode } from '@/hooks/use-travel-mode';
 import { isDefaultTrip } from '@/core/trips';
+import { isConciergeAllowedForActiveTrip } from '@/lib/concierge-config';
 import { listKnownTrips } from '@/core/trips/registry';
 import { getActiveTripId } from '@/core/storage/gateway';
 
@@ -51,8 +52,12 @@ export default function Navbar() {
   // (TD-08): the concierge speaks a hardcoded N×J boys-trip persona (Worker
   // SYSTEM_PROMPT), so it only belongs on the default pack. Same source + mount-safe
   // once-computed pattern as `brand`/`primaryItems` above (Navbar is ssr:false → no
-  // hydration mismatch). A trip-aware Worker prompt is a separate later change.
-  const isDefault = useMemo(() => isDefaultTrip(), []);
+  // hydration mismatch).
+  // the trip-aware Worker prompt now EXISTS but is not deployed, so the rule moved
+  // behind `CONCIERGE_ON_CUSTOM_TRIPS` in lib/concierge-config.ts — one constant the owner flips
+  // after `npm run deploy`, read here and in components/travel-concierge.tsx through this one
+  // helper so the two mounts cannot disagree.
+  const conciergeAllowed = useMemo(() => isConciergeAllowedForActiveTrip(), []);
 
   // Reduced-motion-aware panel motion for the desktop "More" dropdown.
   // <MotionConfig reducedMotion="user"> neutralizes animated TRANSITIONS under
@@ -328,7 +333,7 @@ export default function Navbar() {
                   identified traveler ever reaches this button — the front-door wall covers everyone
                   else. Label collapses to icon-only below `sm` (the aria-label carries the name),
                   staying a ≥44px target. */}
-              {isDefault && <ConciergeChat />}
+              {conciergeAllowed && <ConciergeChat />}
 
               <button
                 type="button"

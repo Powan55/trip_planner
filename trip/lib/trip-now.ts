@@ -125,7 +125,7 @@ export const clock: ClockPort = {
 
 /**
  * "Now" as a UTC epoch-ms instant, re-interpreted at a given place's offset — the ONE clock
- * seam for the place-accurate item comparison. Consumed by
+ * seam for the place-accurate item comparison in `nextUp`. Consumed by
  * `components/today-panel.tsx` → `nextUp`.
  *
  * - NO override: `getNow().getTime()` — the real instant. In-zone (during the trip) this is

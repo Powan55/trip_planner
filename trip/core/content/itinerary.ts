@@ -20,12 +20,18 @@ import type { DayPlan } from '@/lib/trip-data';
 export const TRIP_ITINERARY: DayPlan[] = [
   {
     date: '2026-12-09',
-    city: 'Kathmandu',
+    // (Q4, owner-ruled): Dec 9 is spent in Syracuse, JFK and the air — the traveller does not
+    // reach Kathmandu until Dec 10. `country` stays 'nepal' because it is the LEG ID that drives the
+    // currency and the day offset, not a label; only the displayed city was wrong.
+    city: 'Syracuse',
     country: 'nepal',
+    // — the display half of the day line. Syracuse is in the USA; the 'nepal' leg id above
+    // is behaviour (currency + UTC offset) and stays. Without this the header read "Syracuse, Nepal".
+    countryLabel: 'USA',
     items: [
-      { id: 'n1-1', title: 'Depart Syracuse (SYR) — Regional connection to New York (JFK)', category: 'transportation', time: '05:30', duration: '1h 32m', notes: 'SYR → JFK Terminal 4 · Regional connection · arrive 7:02am · Economy. Keep passport & onward boarding passes handy', location: 'Syracuse Hancock Intl (SYR) → New York JFK (T4)' },
-      { id: 'n1-2', title: 'Layover at New York (JFK) Terminal 4', category: 'transportation', time: '07:02', duration: '4h 53m', notes: 'Connection to the long-haul; grab a meal before the flight to Delhi', location: 'New York JFK — Terminal 4' },
-      { id: 'n1-3', title: 'Fly JFK → Delhi (DEL) — Long-haul to Delhi', category: 'transportation', time: '11:55', duration: '14h 55m', notes: 'JFK T4 → DEL Terminal 3 · Long-haul to Delhi · arrives 1:20pm Dec 10 · Economy. Long-haul — set watch ahead, hydrate, sleep on board', location: 'New York JFK (T4) → Delhi (DEL T3)' },
+      { id: 'n1-1', title: 'Depart Syracuse (SYR) — Regional connection to New York (JFK)', category: 'transportation', time: '05:30', duration: '1h 32m', notes: 'SYR → JFK Terminal 4 · Regional connection · arrive 7:02am · Economy. Keep passport & onward boarding passes handy', location: 'Syracuse Hancock Intl (SYR) → New York JFK (T4)', tzOffsetMin: -300 },
+      { id: 'n1-2', title: 'Layover at New York (JFK) Terminal 4', category: 'transportation', time: '07:02', duration: '4h 53m', notes: 'Connection to the long-haul; grab a meal before the flight to Delhi', location: 'New York JFK — Terminal 4', tzOffsetMin: -300 },
+      { id: 'n1-3', title: 'Fly JFK → Delhi (DEL) — Long-haul to Delhi', category: 'transportation', time: '11:55', duration: '14h 55m', notes: 'JFK T4 → DEL Terminal 3 · Long-haul to Delhi · arrives 1:20pm Dec 10 · Economy. Long-haul — set watch ahead, hydrate, sleep on board', location: 'New York JFK (T4) → Delhi (DEL T3)', tzOffsetMin: -300 },
     ],
   },
   {
@@ -33,8 +39,8 @@ export const TRIP_ITINERARY: DayPlan[] = [
     city: 'Kathmandu',
     country: 'nepal',
     items: [
-      { id: 'n2-1', title: 'Layover at Delhi (DEL) Terminal 3', category: 'transportation', time: '13:20', duration: '1h 10m', notes: 'Short connection at Indira Gandhi Intl before the final hop to Kathmandu', location: 'Delhi Indira Gandhi Intl — Terminal 3' },
-      { id: 'n2-2', title: 'Fly Delhi (DEL) → Kathmandu (KTM) — Delhi → Kathmandu', category: 'transportation', time: '14:30', duration: '1h 45m', notes: 'DEL T3 → KTM Terminal I · Delhi → Kathmandu · arrives 4:30pm · Economy. Window seat for first glimpses of the Himalaya on descent', location: 'Delhi (DEL T3) → Kathmandu Tribhuvan Intl (KTM)' },
+      { id: 'n2-1', title: 'Layover at Delhi (DEL) Terminal 3', category: 'transportation', time: '13:20', duration: '1h 10m', notes: 'Short connection at Indira Gandhi Intl before the final hop to Kathmandu', location: 'Delhi Indira Gandhi Intl — Terminal 3', tzOffsetMin: 330 },
+      { id: 'n2-2', title: 'Fly Delhi (DEL) → Kathmandu (KTM) — Delhi → Kathmandu', category: 'transportation', time: '14:30', duration: '1h 45m', notes: 'DEL T3 → KTM Terminal I · Delhi → Kathmandu · arrives 4:30pm · Economy. Window seat for first glimpses of the Himalaya on descent', location: 'Delhi (DEL T3) → Kathmandu Tribhuvan Intl (KTM)', tzOffsetMin: 330 },
       { id: 'n2-3', title: 'Arrive Tribhuvan (KTM): visa on arrival & transfer', category: 'transportation', time: '16:30', duration: '1.5h', notes: 'Visa on arrival, baggage claim, currency exchange to Nepali rupees, then transfer into the city', location: 'Tribhuvan Intl Airport (KTM)' },
       { id: 'n2-3b', title: 'Check in to the Thamel hotel', category: 'hotel', time: '18:00', duration: '1h', notes: '3-star hotel in Thamel, beside the Garden of Dreams and a short walk from the old town; rest and freshen up after the long journey', location: 'Thamel, Kathmandu' },
       { id: 'n2-4', title: 'Evening walk in Thamel', category: 'sightseeing', time: '19:30', duration: '1h', notes: 'Ease into the city — buy a local SIM card, browse the shops, get oriented', location: 'Thamel', sourceId: 'np-thamel' },
@@ -396,8 +402,8 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j22-2', title: 'Last-minute shopping (if time allows)', category: 'shopping', time: '11:00', duration: '1.5h', notes: 'A light last-minute souvenir run, or simply resting up before the flight home', location: 'Shinjuku, Tokyo' },
       { id: 'j22-3', title: 'Transfer to Haneda (HND)', category: 'transportation', time: '13:00', duration: '2h', notes: 'Tokyo/Shinjuku to Haneda by train or airport limousine bus; allow ~3h before the international departure and check in for the flight home', location: 'Shinjuku, Tokyo → Haneda (HND)' },
       { id: 'j22-4', title: 'Fly Tokyo Haneda (HND) → Detroit (DTW) — Long-haul home', category: 'transportation', time: '17:35', duration: '12h', notes: 'HND Terminal 3 → DTW Terminal M · Long-haul home · departs 5:35pm, arrives 3:35pm the same calendar day (Jan 9), crossing the international date line eastbound · Economy. Real booked return flight — render the times exactly as booked', location: 'Tokyo Haneda (HND T3) → Detroit Metro (DTW Terminal M)' },
-      { id: 'j22-5', title: 'Layover at Detroit (DTW) Terminal M', category: 'transportation', time: '15:35', duration: '6h', notes: 'Connection at Detroit Metro before the final short hop home to Syracuse', location: 'Detroit Metropolitan Wayne County — Terminal M' },
-      { id: 'j22-6', title: 'Fly Detroit (DTW) → Syracuse (SYR) — Final connection home', category: 'transportation', time: '21:35', duration: '1h 23m', notes: 'DTW Terminal M → SYR · Final connection home · departs 9:35pm, arrives 10:58pm · Economy. Trip complete', location: 'Detroit (DTW T M) → Syracuse Hancock Intl (SYR)' },
+      { id: 'j22-5', title: 'Layover at Detroit (DTW) Terminal M', category: 'transportation', time: '15:35', duration: '6h', notes: 'Connection at Detroit Metro before the final short hop home to Syracuse', location: 'Detroit Metropolitan Wayne County — Terminal M', tzOffsetMin: -300 },
+      { id: 'j22-6', title: 'Fly Detroit (DTW) → Syracuse (SYR) — Final connection home', category: 'transportation', time: '21:35', duration: '1h 23m', notes: 'DTW Terminal M → SYR · Final connection home · departs 9:35pm, arrives 10:58pm · Economy. Trip complete', location: 'Detroit (DTW T M) → Syracuse Hancock Intl (SYR)', tzOffsetMin: -300 },
     ],
   },
 ];

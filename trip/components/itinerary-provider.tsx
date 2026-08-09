@@ -3,7 +3,12 @@
 import { createContext, useContext, useEffect } from 'react';
 import { useItinerary, type ItineraryStore } from '@/hooks/use-itinerary';
 import { isRemoteConfigured } from '@/lib/firebase-config';
-import { getActiveTraveler, IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
+import {
+  getActiveTraveler,
+  signIn,
+  IDENTITY_CHANGED_EVENT,
+  DEFAULT_TRAVELER_NAME,
+} from '@/lib/token-auth';
 import { getActiveTripId, DEFAULT_TRIP_ID, tripMetaSelfHealGuard, getSyncCode } from '@/core/storage/gateway';
 import { getKnownTrip, renameKnownTrip, setTripConfig, SHARED_NAME } from '@/core/trips/registry';
 import { itineraryStoragePort, itineraryOutboxSync, itinerarySyncPort } from '@/lib/itinerary-ports';
@@ -59,6 +64,89 @@ export function consumeNameHint(): void {
       onClick: () => window.location.assign(withBasePath('/settings/')),
     },
   });
+}
+
+/**
+ * ACCOUNT-IDENTITY RECONCILER — the display name is an attribute of the ACCOUNT.
+ *
+ * THE DEFECT IT FIXES: `signIn` writes two localStorage slots and nothing else, and the token-only
+ * door falls back to `DEFAULT_TRAVELER_NAME`, so a rename never left the device — log in from a
+ * private window or a second device and you were "Traveler" again. Nothing read a remote name
+ * because nothing wrote one.
+ *
+ * A ONE-SHOT `getDoc` on provider mount (not a subscribe — nobody asked for a name to change live
+ * on a second device mid-session), same gates / lazy import / `cancelled` shape as
+ * `runTripMetaSelfHeal` above.'s ordered rule:
+ * 1. remote present ∧ ≠ local ⇒ ADOPT via `signIn(remote)`. REMOTE WINS on conflict — the account
+ * is the source of truth, and a device that disagrees is either stale or the login default.
+ * 🔴 It must be `signIn`, NEVER a bare `setUserName`: `getActiveTraveler()` reads the TOKEN
+ * slot while `lib/attribution.ts` stamps from `getUserName()` — the NAME slot — and they agree
+ * only because `signIn` writes both. Writing one alone displays one name and stamps another.
+ * (A naive "local wins if set" rule would instead be VACUOUS: `handleLogin` always writes a
+ * name into the local slot before its reload, so the slot is never empty when this runs.)
+ * 2. remote absent ∧ local is not the placeholder ⇒ BACKFILL (the once-per-account migration).
+ * 3. remote absent ∧ local IS the placeholder ⇒ DO NOTHING. Never publish "Traveler": two devices
+ * with no doc yet race, and a device already showing the placeholder would publish it TO THE
+ * ACCOUNT for the other to adopt — re-creating the defect and making it sticky.
+ *
+ * 🔴 SIGN-OUT SAFETY: the `.then` re-checks the account AND the traveler are
+ * unchanged and the effect was not cleaned up before calling `signIn` — a late resolve landing
+ * after `signOut()` would otherwise resurrect a signed-out session.
+ *
+ * NO TIMEOUT / BUDGET BRANCH, deliberately: neither writer navigates (this reconciler
+ * and the Settings rename both stay on the page), so the write-dies-in-flight shape is
+ * unreachable rather than mitigated, and a second unexercised fallback branch would be pure cost.
+ *
+ * THE NUDGE RIDES ALONG. `consumeNameHint`'s toast used to fire from its own mount effect, i.e.
+ * BEFORE this read lands — post-fix it would tell a user their name is Traveler moments before it
+ * becomes Powan. It now fires only where the placeholder really is the final answer: branch 3, or
+ * the gates being shut (dormant / no account / signed out), where no account layer exists to
+ * correct it. Accepted: a read still in flight when the tab is closed leaves the one-shot flag for
+ * the next load, which is the same behaviour it already had across a reload.
+ *
+ * Cold-start flash: the local name paints first and swaps when the read lands. Self-limiting — the
+ * adopt writes through to localStorage, so it happens at most once per device, on the first load
+ * after a fresh login.
+ */
+export function runAccountIdentitySync(): () => void {
+  const noop = () => {};
+  const local = getActiveTraveler();
+  const code = getSyncCode();
+  // Dormant / no account / signed out: nothing can ever correct the placeholder, so the nudge is
+  // exactly right and there is no read to issue.
+  if (!isRemoteConfigured() || !code || !local) {
+    consumeNameHint();
+    return noop;
+  }
+
+  let cancelled = false;
+  void import('@/lib/trips-remote')
+    .then(({ fetchAccountIdentity, pushAccountIdentity }) =>
+      fetchAccountIdentity(code).then((remote) => {
+        if (cancelled) return;
+        // Re-read, don't trust the closure: a sign-out (or a sign-in as someone else) may have
+        // landed while the read was in flight.
+        const now = getActiveTraveler();
+        if (!now || now.token !== local.token || getSyncCode() !== code) return;
+
+        if (remote) {
+          if (remote !== now.name) signIn(remote); // 1 — adopt (both slots, one primitive)
+          return;
+        }
+        if (now.name !== DEFAULT_TRAVELER_NAME) {
+          void pushAccountIdentity(code, now.name); // 2 — backfill this device's real name
+          return;
+        }
+        consumeNameHint(); // 3 — the placeholder is the answer; never publish it
+      }),
+    )
+    .catch((err) => {
+      console.warn('[itinerary-provider] account identity sync unavailable:', err);
+    });
+
+  return () => {
+    cancelled = true;
+  };
 }
 
 /**
@@ -425,10 +513,10 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // A5: consume the post-login "Traveler" name hint once, after the login reload.
-  useEffect(() => {
-    consumeNameHint();
-  }, []);
+  // ACCOUNT IDENTITY — adopt/backfill the account's display name, and consume the
+  // post-login "Traveler" nudge only where the placeholder is the final answer. See
+  // `runAccountIdentitySync`; it owns the (previously unconditional) `consumeNameHint` call.
+  useEffect(() => runAccountIdentitySync(), []);
 
   // Gated presence HEARTBEAT. Mirrors the remote-subscribe effect above and
   // its dormant/guest gate: start the per-traveler heartbeat ONLY when

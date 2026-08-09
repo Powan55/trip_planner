@@ -113,6 +113,65 @@ export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | u
 // `profile/tripList` path — NO Firestore rules change. The DEFAULT pack is never pushed, merged, or
 // tombstoned (mergeTripLists strips it — its id is a secret).
 
+// ──: the ACCOUNT's display name ─────────────────────────────────────────────────────
+//
+// SHAPE: ONE doc `trips/{userToken}/profile/identity` = `{ version: 1, name }` — its OWN document,
+// deliberately NOT a `name` field on `profile/tripList`. `pushTripList` above writes with a bare
+// `setDoc` (no `{merge:true}`): a full-document overwrite with two independent deleters — a client
+// on an older service-worker-cached bundle, and `subscribeTripList`'s own re-push/seed. Either one
+// deleting a `name` field there would make the reverts-to-"Traveler" defect come back
+// INTERMITTENTLY, which is strictly worse than the defect: no longer reproducible on demand.
+//
+// Both functions mirror pushTripMeta/fetchTripMeta exactly: best-effort, TOTAL, never reject,
+// console.warn on failure. NO outbox, and — per — NO timeout/budget branch, because no
+// identity write is ever issued from a code path that navigates (the two writers are the Settings
+// rename and the provider's mount reconciler, both on surfaces that stay put), so the
+// write-dies-in-flight shape is unreachable here rather than mitigated.
+
+/**
+ * Best-effort publish of an account's display name to `trips/{userToken}/profile/identity`.
+ * Fire-and-forget: never rejects (a failed publish stays local-only via console.warn, and the
+ * provider's reconciler retries it on the next page load — the cheap equivalent of a retry queue).
+ *
+ * 🔴 Callers MUST NOT publish the transient login placeholder (`DEFAULT_TRAVELER_NAME`) — see
+ * `runAccountIdentitySync`'s branch 3. This function does not police that: the Settings rename may
+ * legitimately set any name the user actually typed, including that one. Intent is the discriminator.
+ */
+export async function pushAccountIdentity(code: string, name: string): Promise<void> {
+  if (!isRemoteConfigured() || !code) return;
+  const trimmed = name.trim().slice(0, 24);
+  if (!trimmed) return;
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, setDoc } = fs;
+    await setDoc(doc(db, 'trips', code, 'profile', 'identity'), { version: 1, name: trimmed });
+  } catch (err) {
+    console.warn('[trips-remote] account identity push failed, staying local-only:', err);
+  }
+}
+
+/**
+ * One-shot fetch of an account's display name. Returns `undefined` when dormant, unreachable, the
+ * doc doesn't exist, or `name` is missing/non-string/blank — TOTAL, never throws, so the caller's
+ * "remote absent" branch covers every failure identically. Sanitised to `trim().slice(0, 24)`, the
+ * cap the rename input already enforces.
+ */
+export async function fetchAccountIdentity(code: string): Promise<string | undefined> {
+  if (!isRemoteConfigured() || !code) return undefined;
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, getDoc } = fs;
+    const snap = await getDoc(doc(db, 'trips', code, 'profile', 'identity'));
+    if (!snap.exists()) return undefined;
+    const data = snap.data() as Record<string, unknown>;
+    if (typeof data.name !== 'string') return undefined;
+    return data.name.trim().slice(0, 24) || undefined;
+  } catch (err) {
+    console.warn('[trips-remote] account identity fetch failed:', err);
+    return undefined;
+  }
+}
+
 /** Extract the row array from a raw remote list doc (defensive: tolerate a partial/missing doc). */
 function docToTrips(data: Record<string, unknown>): TripMeta[] {
   return Array.isArray(data.trips) ? (data.trips as TripMeta[]) : [];

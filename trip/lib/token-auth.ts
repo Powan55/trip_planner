@@ -39,6 +39,19 @@ import type { Expense } from '@/core/budget/expenses';
  */
 export const IDENTITY_CHANGED_EVENT = 'identity:changed';
 
+/**
+ * The display name the token-only door falls back to when this device has none stored (
+ * login-token-only amendment: the door does not collect a name).
+ *
+ * /: it is a TRANSIENT LOCAL PLACEHOLDER, not an identity. The account-identity
+ * reconciler (`runAccountIdentitySync` in components/itinerary-provider) overwrites it with the
+ * account's real name on the next page load, and MUST NEVER publish it — a device sitting on the
+ * placeholder that backfilled it would make "Traveler" the whole account's name on every other
+ * device. That rule needs the door and the reconciler to agree on the literal, so it lives here,
+ * in the firebase-free identity module both already import, rather than as two copies that drift.
+ */
+export const DEFAULT_TRAVELER_NAME = 'Traveler';
+
 function emitIdentityChanged(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(IDENTITY_CHANGED_EVENT));
@@ -157,10 +170,25 @@ export function resolveToken(raw: string): Traveler | null {
  * Sign in with a raw nickname. On a non-empty name: persist the display name (via the
  * existing identity pipeline) and the name itself, then return the traveler. Returns null
  * only for an empty/whitespace input. No-op persistence during SSR or if storage fails.
+ *
+ *-C — this is also the ONE place a rename happens. Every rename path routes through here
+ * (the Settings rename form, and the account-identity reconciler ADOPTING a name renamed on
+ * another device, `itinerary-provider.tsx`), so recording the outgoing name here covers both
+ * without either call site knowing about it. Renaming rewrites no `createdBy`/`updatedBy`
+ * stamps, so without this the user's own pre-rename items stopped being "theirs" and they
+ * appeared twice in the traveller filter.
+ *
+ * ⚖️ It is safe to treat "a name is already stored and it differs" as a rename rather than as a
+ * DIFFERENT person signing in: the front door only renders when there is no active traveler,
+ * and `signOut` clears the name with the token. Recording only here — and never inferring an
+ * alias from stored attribution — is what stops a fellow traveller's name being absorbed into
+ * this identity.
  */
 export function signIn(raw: string): Traveler | null {
   const traveler = resolveToken(raw);
   if (!traveler) return null;
+  const outgoing = identityStore.getName();
+  if (outgoing && outgoing !== traveler.name) identityStore.addPriorName(outgoing);
   setUserName(traveler.name);
   identityStore.setToken(traveler.token);
   // Reactive signal: let the chip / gate / remote-subscribe pick up the sign-in

@@ -228,6 +228,10 @@ export function renderAssistantContent(text: string): ReactNode[] {
   });
 }
 
+// The privacy label's id, declared once so the `<p>` and the input's `aria-describedby` can never
+// drift apart (a dangling `aria-describedby` is silent — it degrades to no description at all).
+const PRIVACY_NOTE_ID = 'concierge-privacy-note';
+
 // Starter prompts — replace the single static hint with three real, tappable suggestions so
 // a first-time user has something to press instead of staring at an empty input.
 const STARTER_PROMPTS = [
@@ -242,7 +246,7 @@ const STARTER_PROMPTS = [
  * navbar chrome (`components/navbar.tsx`), next to the Travel Mode entry — the "durable entry
  * point mounted once, everywhere" shape established, deliberately WITHOUT that change's
  * push/replace history machinery (this is a panel, not a route/mode — a trigger button + `Sheet`
- * open state is enough, per the brief).
+ * open state is enough — decided at).
  *
  * GATING — fully invisible unless BOTH hold (no separate gate duplicated at any call site,
  * mirrors `SyncStatusBadge`'s self-contained render-null pattern):
@@ -262,7 +266,7 @@ export function ConciergeChat() {
   const { traveler } = useActiveTraveler();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
-  const { messages, status, error, send } = useConciergeChat();
+  const { messages, status, error, send, retry } = useConciergeChat();
   // The itinerary store is read directly here (not via useItineraryContext) so this self-contained
   // navbar panel stays independently mountable/testable. createReactiveStore backs both instances
   // on the SAME localStorage + `itinerary:changed` event bus, so a write here re-reads into
@@ -341,11 +345,17 @@ export function ConciergeChat() {
       >
         <SheetHeader className="text-left">
           <SheetTitle className="text-white">Trip concierge</SheetTitle>
+          {/* (owner ruling Q5): the web-search leg is DELETED, so the old
+              "AI and search services" is no longer true — and neither is the plural: the ladder
+              is one provider (two of its models, `worker/src/providers.ts` GROQ_MODELS), so
+              "services" would have been a second false note. "here" stays: it scopes the storage
+              claim to this panel rather than reading as a claim about the whole data path
+              */}
           <SheetDescription className="text-white/55">
-            Ask about the Nepal &amp; Japan itinerary. Your messages and trip details go to
-            third-party AI and search services that may retain and review them on free plans —
-            the model that answers is named under each reply. Nothing is stored here; the chat
-            clears on reload.
+            Ask about the Nepal &amp; Japan itinerary. Your messages and trip details go to a
+            third-party AI provider that may retain and review them on free plans — the model
+            that answers is named under each reply. Nothing is stored here; the chat clears on
+            reload.
           </SheetDescription>
         </SheetHeader>
 
@@ -473,15 +483,28 @@ export function ConciergeChat() {
           ))}
         </div>
 
+        {/*-C: every error a mounted panel can show came from a real send attempt (the
+            "not configured" branch is unreachable here — the whole panel is gated on the same
+            `isConciergeConfigured()`), so a single "Try again" that re-sends the last turn is
+            always the right next action. One control, no auto-retry, no backoff. */}
         {error && (
-          <p
+          <div
             role="alert"
             data-testid="concierge-error"
             className="mt-3 flex items-center gap-2 rounded-lg border border-red-400/30 bg-red-400/10 px-3 py-2 text-sm text-red-200"
           >
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
-            {error}
-          </p>
+            <span className="flex-1">{error}</span>
+            <button
+              type="button"
+              data-testid="concierge-retry"
+              onClick={() => void retry()}
+              disabled={status === 'streaming'}
+              className="shrink-0 rounded-md border border-red-300/30 px-2 py-1 text-xs font-medium text-red-100 outline-none transition-colors hover:bg-red-400/20 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Try again
+            </button>
+          </div>
         )}
 
         <form onSubmit={handleSubmit} className="mt-4 flex items-center gap-2">
@@ -496,6 +519,12 @@ export function ConciergeChat() {
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Ask the concierge…"
             autoComplete="off"
+            // — the privacy label's a11y association. The header disclosure is a Radix
+            // `SheetDescription`, which Radix wires to the DIALOG via `aria-describedby`; a
+            // second paragraph inherits NOTHING from that, so the label below is pointed at the
+            // one control the user is actually typing into. Screen-reader order becomes:
+            // "Message the concierge, edit text, Sent to a third-party AI — nothing stored here."
+            aria-describedby={PRIVACY_NOTE_ID}
             className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/35 outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <button
@@ -508,6 +537,14 @@ export function ConciergeChat() {
             <Send className="h-4 w-4" aria-hidden="true" />
           </button>
         </form>
+
+        {/* (owner ruling Q5, second half) — the small privacy label, sited at the input
+            rather than buried in the header paragraph, because this is where the user decides
+            what to type. `text-white/55` is the same tone the SheetDescription already uses and
+            already clears the axe colour-contrast check on this panel. */}
+        <p id={PRIVACY_NOTE_ID} data-testid="concierge-privacy-note" className="mt-2 px-1 text-xs text-white/55">
+          Sent to a third-party AI — nothing stored here.
+        </p>
       </SheetContent>
     </Sheet>
   );

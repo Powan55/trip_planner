@@ -13,7 +13,7 @@ import { Plus } from 'lucide-react';
  * affordance (the "Add Activity" button / quick-add FAB → full editor), never two competing
  * quick adds.
  *
- * Ponytail: native `<input>` + `onKeyDown` Enter — deliberately NOT a `<form>` (no implicit
+ * Deliberately minimal: native `<input>` + `onKeyDown` Enter — NOT a `<form>` (no implicit
  * submit/navigation), no form lib, no new dep. The caller owns the item shape and the store
  * call; this component only collects a trimmed title. Writing lands through the same
  * `addItem` → `commit()` choke-point as every other add, so holds.

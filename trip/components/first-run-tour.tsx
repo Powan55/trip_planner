@@ -19,13 +19,13 @@ import { NAV_ITEMS, type NavItem } from '@/lib/nav-items';
  * gated (the `mounted` flag, exactly like TokenGate) so the tour never flashes during
  * SSR/first paint.
  *
- * DESIGN CHOICE: a CENTERED STEPPER dialog ("1 of 5",
+ * DESIGN CHOICE, stated deliberately: a CENTERED STEPPER dialog ("1 of 5",
  * Back/Next, always-visible Skip) — not a pixel-anchored spotlight overlay on live nav
  * elements. A spotlight would need per-breakpoint element geometry (desktop top row vs.
  * mobile tab bar/hamburger have DIFFERENT DOM for the same destination, and Budget has NO
  * nav element at all — it's a section on `/plan`, see below) — brittle for a one-time,
  * low-stakes intro. A centered card is simpler, robust across breakpoints, and still
- * teaches the five destinations. Ponytail: no tour framework, no spotlight engine.
+ * teaches the five destinations. Deliberately minimal: no tour framework, no spotlight engine.
  *
  * BUDGET HAS NO NAV ROUTE: `lib/nav-items.ts` has no "Budget" entry — the budget panel
  * lives INSIDE `/plan` (`components/budget-panel.tsx`, mounted below the calendar). The

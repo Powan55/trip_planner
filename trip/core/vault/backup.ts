@@ -3,7 +3,7 @@
  *
  * whole-trip export/import is itinerary-ONLY by its own letter, and stays that way
  * (`export-import.ts` is untouched). THIS module is the wider "back up my WHOLE trip" that
- * "changes if PM/ widen it" clause names: one gzip file carrying every LOCAL user domain of the
+ * "changes if the scope widens" clause names: one gzip file carrying every LOCAL user domain of the
  * ACTIVE trip — journal, photos (meta + blob bytes), expenses, budget, docs, packing, favorites,
  * day-anchors, share-inbox — plus the itinerary nested as its own existing versioned Vault envelope.
  *

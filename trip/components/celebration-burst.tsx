@@ -10,7 +10,7 @@ import { celebrationVisible } from '@/lib/celebration';
  * feedback (the panel swap / the progress text), this is only the flourish on top.
  *
  *(b) HARD GUARD: under `prefers-reduced-motion` nothing renders — no static substitute,
- * per the brief. The caller owns the fire-once transition detection (`crossedIntoComplete`,
+ * by design. The caller owns the fire-once transition detection (`crossedIntoComplete`,
  * `lib/celebration.ts`) and passes `active` for the ~600ms window; this component only decides
  * whether to actually show it (`celebrationVisible`).
  */

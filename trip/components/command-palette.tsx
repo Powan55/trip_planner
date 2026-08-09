@@ -57,7 +57,7 @@ import { isDefaultTrip } from '@/core/trips';
  * A11y: built on the Radix Dialog primitive (via ui/dialog), which traps
  * focus and closes on Esc. Radix does NOT, however, restore focus when the dialog is
  * opened programmatically (no DialogTrigger) — verified in headless Chrome that focus
- * lands on <body> after Esc. So per the brief we add explicit focus-return: snapshot
+ * lands on <body> after Esc. So we add explicit focus-return: snapshot
  * document.activeElement when opening, and in DialogContent's onCloseAutoFocus
  * preventDefault Radix's default and focus the snapshot back. A visually-hidden
  * DialogTitle/Description satisfies Radix's required-title a11y contract without a

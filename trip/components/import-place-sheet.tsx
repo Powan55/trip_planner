@@ -7,10 +7,10 @@ import { X, Check, Link2, Search, Loader2, ChevronDown } from 'lucide-react';
 import {
   TRIP_DATES,
   formatDate,
-  getCountryForDate,
   type ItineraryCategory,
   CATEGORY_COLORS,
 } from '@/lib/trip-data';
+import { placeLabelForDate } from '@/lib/leg-label';
 import { generateItemId } from '@/lib/item-id';
 import { getActiveTrip } from '@/core/trips';
 import { useItineraryContext } from '@/components/itinerary-provider';
@@ -39,12 +39,10 @@ const ALL_CATEGORIES: ItineraryCategory[] = [
   'cultural', 'transportation', 'hotel', 'free', 'nightlife',
 ];
 
-// "Tue, Dec 12 · Kathmandu, Nepal" (mirrors the add-to-plan dialog's dateOptionLabel).
+// "Tue, Dec 12 · Kathmandu, Nepal" (mirrors the add-to-plan dialog's dateOptionLabel —:
+// both now go through the one shared place-label helper instead of mirroring a hardcoded pair).
 function dateOptionLabel(dateStr: string): string {
-  const country = getCountryForDate(dateStr);
-  const city = country === 'nepal' ? 'Kathmandu' : 'Tokyo';
-  const countryName = country === 'nepal' ? 'Nepal' : 'Japan';
-  return `${formatDate(dateStr)} · ${city}, ${countryName}`;
+  return `${formatDate(dateStr)} · ${placeLabelForDate(dateStr)}`;
 }
 
 function newPlaceId(): string {

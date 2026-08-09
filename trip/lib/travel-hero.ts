@@ -66,13 +66,21 @@ function timedItems(items: ItineraryItem[]): Timed[] {
   return out;
 }
 
-/** Effective end-minute of a timed item: `start + duration`, or the capped gap-to-next fallback. */
-function effectiveEndMin(t: Timed, sortedStarts: number[]): number {
+/**
+ * Effective end INSTANT of a timed item: `start + duration`, or the capped gap-to-next
+ * fallback. (TD-08) — the gap is measured between INSTANTS, not between clock faces.
+ * A day can hold items in different zones, and a wall-clock gap across
+ * zones is a difference between two numbers that never coexisted: on Jan-9 the Detroit
+ * layover reads 15:35 while the Tokyo flight that produces it reads 17:35, so a wall-clock
+ * "next start" can be one that has already happened, or 25 minutes away on the clock and 14
+ * hours away in reality.
+ */
+function effectiveEndMs(t: Timed, startMs: number, sortedStartMs: number[]): number {
   const d = t.item.durationMinutes;
-  if (typeof d === 'number' && Number.isFinite(d) && d > 0) return t.startMin + d;
-  const nextStart = sortedStarts.find((s) => s > t.startMin);
-  const gap = nextStart === undefined ? Infinity : nextStart - t.startMin;
-  return t.startMin + Math.min(gap, DEFAULT_NOW_BLOCK_MIN);
+  if (typeof d === 'number' && Number.isFinite(d) && d > 0) return startMs + d * 60000;
+  const nextMs = sortedStartMs.find((s) => s > startMs);
+  const gapMin = nextMs === undefined ? Infinity : (nextMs - startMs) / 60000;
+  return startMs + Math.min(gapMin, DEFAULT_NOW_BLOCK_MIN) * 60000;
 }
 
 interface Current {
@@ -87,17 +95,23 @@ interface Current {
  * effective start, and `start <= now < end` (inclusive start, exclusive end) at the place. When
  * several overlap, the LATEST-starting one wins (the most recently-begun activity is "most
  * current"); ties resolve to array order (stable).
+ *
+ * (TD-08) — ONE frame for the whole decision. The window was already qualified by
+ * instants, but the tiebreak that picked the winner compared wall clocks (`t.startMin`), so on
+ * a mixed-zone day the "most recently begun" item could be the one that began first. Every
+ * comparison here is now on the UTC instant.
  */
 function currentActivity(timed: Timed[], ctx: NextUpContext): Current | null {
-  const starts = timed.map((t) => t.startMin).sort((a, b) => a - b);
+  const startMsOf = (t: Timed): number =>
+    placeWallClockToUtcMs(ctx.dayDate, t.startMin, effectiveOffsetMin(t.item, ctx.placeOffsetMin));
+  const sortedStartMs = timed.map(startMsOf).sort((a, b) => a - b);
   let best: Current | null = null;
-  let bestStart = -Infinity;
+  let bestStartMs = -Infinity;
   for (const t of timed) {
     if (t.item.done === true) continue;
-    const offsetMin = effectiveOffsetMin(t.item, ctx.placeOffsetMin);
-    const startMs = placeWallClockToUtcMs(ctx.dayDate, t.startMin, offsetMin);
-    const endMs = placeWallClockToUtcMs(ctx.dayDate, effectiveEndMin(t, starts), offsetMin);
-    if (startMs <= ctx.nowUtcMs && ctx.nowUtcMs < endMs && t.startMin > bestStart) {
+    const startMs = startMsOf(t);
+    const endMs = effectiveEndMs(t, startMs, sortedStartMs);
+    if (startMs <= ctx.nowUtcMs && ctx.nowUtcMs < endMs && startMs > bestStartMs) {
       const span = endMs - startMs;
       best = {
         item: t.item,
@@ -105,7 +119,7 @@ function currentActivity(timed: Timed[], ctx: NextUpContext): Current | null {
         elapsedMinutes: Math.max(0, Math.round((ctx.nowUtcMs - startMs) / 60000)),
         remainingMinutes: Math.max(0, Math.round((endMs - ctx.nowUtcMs) / 60000)),
       };
-      bestStart = t.startMin;
+      bestStartMs = startMs;
     }
   }
   return best;

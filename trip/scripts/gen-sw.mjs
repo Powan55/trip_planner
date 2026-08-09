@@ -163,16 +163,30 @@ async function eagerStaticAssets(htmlFiles) {
 // IS in the layout's static graph, so without step 3 this would sweep ~600 KB of
 // Firebase into the offline shell. DO NOT LOOSEN IT.
 //
-// 🔴 maplibre — CHANGED THE MECHANISM, read this before trusting it.
-// Under maplibre was excluded "twice over": `maplibre-gl` is a bare specifier
-// (step 3 stops there), AND it was reached only from `app/map/sections.tsx`, which
-// was not in the layout's graph at all. **The second of those is no longer true** —
-// seeds every route entry, so `app/map/sections.tsx -> @/components/map-section`
-// IS walked now. Only the bare-specifier stop still applies, and it alone is NOT
-// enough: `map-section`'s own chunk list carries maplibre-bearing chunks. So the
-// exclusion is now EXPLICIT and by CONTENT — see isMaplibreChunk() below — and the
-// call sites it reduces are printed at build time, because a reduced call site
-// THROWS cold-offline unless it is wrapped in components/map-island-boundary.tsx.
+// 🔴 maplibre — REVERSED ①. The engine is now PRECACHED. Read this before
+// trusting any older comment: two DIFFERENT mechanisms used to keep it out, and only
+// removing both actually ships it.
+// (a) `isMaplibreChunk()` — the explicit content-based exclusion, which withheld the
+// small 23 KB maplibre chunk that appears in three call sites' own chunk lists;
+// (b) the BARE-SPECIFIER STOP in step 3 — the ~1008 KiB ENGINE is reached only via
+// `components/trip-map.tsx -> maplibre-gl`, and `resolveLocal('maplibre-gl')`
+// returns null, so that call site is skipped before it can contribute anything.
+// The engine was therefore never a CANDIDATE, and relaxing (a) alone buys 23 KB.
+// So the engine is unioned in EXPLICITLY below, found by CONTENT across the whole
+// manifest (its filename is a bare contenthash — next.config.js sets
+// `output.chunkFilename = 'static/chunks/[contenthash:16].js'` — so no filename
+// pattern can find it). Measured on this tree: 1,032,412 + 23,621 = 1,056,033 B
+// = 1.01 MiB, under the owner's 2 MB bar.
+//
+// 🔴 THE BOUNDARY IS STILL REQUIRED, AND THAT IS NOT A LEFTOVER. Precached ≠ present:
+// the chunk can still be missing at render time on a cold cache (offline before the
+// install completed), after a failed precache fetch, or after storage-pressure
+// eviction — and a missing dynamic() chunk THROWS out to app/error.tsx, taking the
+// whole route down. So the maplibre call sites are still collected and still ENFORCED
+// by assertMapIslandsWrapped(); what changed is only that the list is derived from
+// "this call site renders a maplibre island" instead of from "we withheld its chunk".
+// Emptying that list would turn a fail-closed gate into one that passes because it
+// inspects nothing — see the floor below.
 //
 // Entries this returns that are NOT on disk are ignored for free: `buildPrecacheList`
 // iterates the real out/ walk and only membership-tests this set, so a stale manifest
@@ -208,18 +222,24 @@ async function routeEntryFiles() {
   return found;
 }
 
-// maplibre's engine chunks must NEVER enter the precache — ~1008 KiB
-// for a page many users never open, and an offline map engine with no cached tiles
-// paints a blank canvas anyway.
+// Does this built chunk carry the maplibre ENGINE?
+//
+// ① used this to KEEP maplibre out of the precache. reversed that ruling
+// (the owner: prefetch it, it is under 2 MB) so the same predicate now decides what to
+// PULL IN — both for the union below and for "which call sites render a map island and
+// therefore still need the error boundary". One predicate, two readers; do not grow a
+// second scanner beside it.
 //
 // Matched by CONTENT, never by filename: next.config.js sets
 // `output.chunkFilename = 'static/chunks/[contenthash:16].js'`, so async chunk
 // filenames carry no name at all and any filename-pattern approach is a non-starter.
 //
-// Scoped to `.js` DELIBERATELY, and this is measured, not theoretical: 2 built CSS
-// files also contain `maplibregl` (maplibre's stylesheet is bundled into the app's
-// CSS), so an all-file-types grep would withhold the app's OWN stylesheet and ship a
-// completely unstyled offline app. is about the ENGINE, which is JS.
+// Scoped to `.js` DELIBERATELY: 2 built CSS files also contain `maplibregl`
+// (maplibre's stylesheet is bundled into the app's CSS). Under that scoping
+// stopped an all-file-types grep from withholding the app's OWN stylesheet and
+// shipping a completely unstyled offline app; it stays because this predicate is
+// about the ENGINE, which is JS. (Those two CSS files are already precached by the
+// route-HTML scrape — no CSS work is needed here.)
 const MAPLIBRE_MARKER = 'maplibregl';
 async function isMaplibreChunk(file) {
   if (!file.endsWith('.js')) return false;
@@ -324,7 +344,7 @@ async function islandAssets() {
   // render time, so it is exactly the set that needs an island error boundary
   // (components/map-island-boundary.tsx). Derived, so it self-maintains — add a
   // new map island next month and the build names it for the next person.
-  const mapReduced = [];
+  const mapSites = [];
   while (queue.length) {
     const source = queue.shift();
     if (visited.has(source)) continue;
@@ -333,16 +353,40 @@ async function islandAssets() {
       const target = await resolveLocal(source, specifier);
       if (!target || !target.startsWith('components/')) continue; // render path only
       sites.push(`${source} -> ${specifier}`);
-      let withheld = 0;
+      let mapChunks = 0;
       for (const file of chunkFiles) {
-        if (await isMaplibreChunk(file)) {
-          withheld++; // the engine stays out
-          continue;
-        }
+        // no longer skipped. The count is kept because it identifies the call
+        // sites that render a MAP island — the ones that still need the error
+        // boundary even though their chunk now ships with the install.
+        if (await isMaplibreChunk(file)) mapChunks++;
         files.add(`_next/${file}`);
       }
-      if (withheld > 0) mapReduced.push({ site: `${source} -> ${specifier}`, withheld });
+      if (mapChunks > 0) mapSites.push({ site: `${source} -> ${specifier}`, mapChunks });
       if (bySource.has(target)) queue.push(target);
+    }
+  }
+
+  // — the maplibre ENGINE, unioned in explicitly. The walk above cannot reach it:
+  // it hangs off `components/trip-map.tsx -> maplibre-gl`, a BARE specifier, so
+  // `resolveLocal` returns null and the render-path `continue` fires before the chunk
+  // list is even read. Scanning the WHOLE manifest by CONTENT is the point — restricting
+  // the scan to the reachable graph is exactly the reasoning that lost the engine, and
+  // the filenames are bare contenthashes so nothing can be matched by name. Bounded and
+  // cheap: ~110 unique chunk files, deduped, each read once.
+  const manifestChunks = new Set();
+  for (const entries of bySource.values()) {
+    for (const { files: chunkFiles } of entries) for (const file of chunkFiles) manifestChunks.add(file);
+  }
+  let maplibreBytes = 0;
+  const maplibrePrecached = [];
+  for (const file of manifestChunks) {
+    if (!(await isMaplibreChunk(file))) continue;
+    files.add(`_next/${file}`);
+    maplibrePrecached.push(file);
+    try {
+      maplibreBytes += (await stat(join(OUT_DIR, '_next', file))).size;
+    } catch {
+      /* not on disk => buildPrecacheList drops it anyway */
     }
   }
 
@@ -370,24 +414,58 @@ async function islandAssets() {
   );
   for (const site of sites) console.log(`    island ${site}`);
 
-  // report. These call sites render a component whose chunk is DELIBERATELY
-  // absent from the precache, so React.lazy THROWS there cold-offline and the throw
-  // escapes to app/error.tsx — taking the whole route down, hero included — unless
-  // the call site is wrapped in an island error boundary.
-  console.log(
-    `gen-sw: maplibre withheld from ${mapReduced.length} call site(s) — each MUST be ` +
-      'wrapped in components/map-island-boundary.tsx or it crashes its route cold-offline:'
-  );
-  for (const { site, withheld } of mapReduced) {
-    console.log(`    map-reduced ${site}  (${withheld} chunk(s) withheld)`);
+  // 🔴 ANTI-VACUITY FLOOR. Everything below — the prefetch AND the boundary gate —
+  // hangs off isMaplibreChunk() finding something. If maplibre ever renames its global
+  // (MAPLIBRE_MARKER stops matching) or the chunk stops reaching the manifest, the
+  // failure is DOUBLY SILENT under a green build: the engine quietly falls back out of
+  // the precache, AND assertMapIslandsWrapped iterates an empty list, inspects nothing,
+  // and "passes". A gate that passes because it looked at nothing is the defect class
+  // this project spent a session removing. Refuse to build instead.
+  if (maplibrePrecached.length === 0 || mapSites.length === 0) {
+    throw new Error(
+      `gen-sw — found ${maplibrePrecached.length} maplibre chunk(s) across ` +
+        `${manifestChunks.size} manifest chunk file(s) and ${mapSites.length} maplibre call site(s); ` +
+        'both must be non-zero. Zero means the content probe lost its grip (maplibre renamed the ' +
+        `\`${MAPLIBRE_MARKER}\` marker, or the map islands were removed/restructured), which would ` +
+        'BOTH drop the map engine from the precache AND turn assertMapIslandsWrapped into a check ' +
+        'that inspects nothing while still passing. If the map really was removed, delete this ' +
+        'floor deliberately along with it.'
+    );
   }
-  // and the report is now ENFORCED, not just printed (see assertMapIslandsWrapped).
-  await assertMapIslandsWrapped(mapReduced);
+
+  // report: the engine now SHIPS with the install.
+  console.log(
+    `gen-sw: maplibre PRECACHED — ${maplibrePrecached.length} chunk(s), ` +
+      `${maplibreBytes} B (${(maplibreBytes / 1048576).toFixed(2)} MiB):`
+  );
+  for (const file of maplibrePrecached) console.log(`    maplibre ${file}`);
+
+  // …and these call sites render a map island, so each STILL needs the island error
+  // boundary. Precached is not the same as present: a cold cache, a failed precache
+  // fetch or a storage eviction all leave the chunk missing, and React.lazy THROWS
+  // there — escaping to app/error.tsx and taking the whole route down, hero included.
+  console.log(
+    `gen-sw: ${mapSites.length} maplibre island call site(s) — each MUST be wrapped in ` +
+      'components/map-island-boundary.tsx or a missing chunk crashes its whole route:'
+  );
+  for (const { site, mapChunks } of mapSites) {
+    console.log(`    map-island ${site}  (${mapChunks} maplibre chunk(s))`);
+  }
+  // and the report is ENFORCED, not just printed (see assertMapIslandsWrapped).
+  await assertMapIslandsWrapped(mapSites);
   return files;
 }
 
-// — PROVE each maplibre-reduced call site is actually wrapped, and fail the
+// — PROVE each maplibre island call site is actually wrapped, and fail the
 // build if it is not.
+//
+// 🔴: the input list is no longer "call sites we withheld a chunk from" (nothing
+// is withheld any more) but "call sites that render a maplibre island". The gate covers
+// the SAME three sites and is still fail-closed, deliberately: precaching the engine
+// makes the missing-chunk path rarer, not impossible (cold cache before the install
+// finished, a failed precache fetch, storage-pressure eviction). Wiring this to the
+// withheld list would have quietly emptied it and left a gate that passes by inspecting
+// nothing — the floor in islandAssets() now refuses that outcome outright.
 //
 // 🔴 WHY THIS REPLACED A PRINTED LINE. printed the map-reduced list with a
 // "MUST be wrapped" instruction and stopped there. That is the same object as the
@@ -437,15 +515,16 @@ const blankComments = (src) =>
     .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
     .replace(/^([ \t]*)\/\/[^\n]*/gm, (m, indent) => indent + ' '.repeat(m.length - indent.length));
 
-async function assertMapIslandsWrapped(mapReduced) {
-  for (const { site } of mapReduced) {
+async function assertMapIslandsWrapped(mapSites) {
+  for (const { site } of mapSites) {
     const [source, specifier] = site.split(' -> ');
     const fix =
       `FIX: in ${source}, import ${MAP_BOUNDARY_MODULE} and wrap every render of the ` +
       `${specifier} island in <MapIslandBoundary label="…">…</MapIslandBoundary>. ` +
       'See app/map/sections.tsx for the shape.';
     const why =
-      `gen-sw withholds ${specifier}'s maplibre chunk from the precache, so cold-offline ` +
+      `${specifier} renders a maplibre island. Its chunk is precached, but precached ` +
+      'is not present: on a cold cache, a failed precache fetch or a storage eviction, ' +
       'React.lazy THROWS at this call site and app/error.tsx replaces the ENTIRE route.';
 
     let src;
@@ -453,7 +532,7 @@ async function assertMapIslandsWrapped(mapReduced) {
       src = blankComments(await readFile(join(ROOT, source), 'utf8'));
     } catch {
       throw new Error(
-        `gen-sw — ${site} is maplibre-reduced but ${source} could not be read, ` +
+        `gen-sw — ${site} is a maplibre island but ${source} could not be read, ` +
           `so the island error boundary CANNOT be verified. ${why} ${fix}`
       );
     }
@@ -464,7 +543,7 @@ async function assertMapIslandsWrapped(mapReduced) {
     )?.[1];
     if (!boundary) {
       throw new Error(
-        `gen-sw — ${site} is maplibre-reduced but ${source} does not import ` +
+        `gen-sw — ${site} is a maplibre island but ${source} does not import ` +
           `${MAP_BOUNDARY_MODULE}. ${why} ${fix}`
       );
     }
@@ -478,7 +557,7 @@ async function assertMapIslandsWrapped(mapReduced) {
     )?.[1];
     if (!island) {
       throw new Error(
-        `gen-sw — ${site} is maplibre-reduced but its \`const X = dynamic(() => ` +
+        `gen-sw — ${site} is a maplibre island but its \`const X = dynamic(() => ` +
           `import('${specifier}'))\` declaration was not found in ${source}, so the boundary ` +
           `CANNOT be verified. ${why} ${fix}`
       );
@@ -511,7 +590,7 @@ async function assertMapIslandsWrapped(mapReduced) {
           : `<${island} …> is rendered OUTSIDE <${boundary}> at ${source}:` +
             naked.map(lineOf).join(', ');
       throw new Error(
-        `gen-sw — ${site} is maplibre-reduced and UNPROTECTED: ${detail}. ${why} ${fix}`
+        `gen-sw — ${site} is a maplibre island and UNPROTECTED: ${detail}. ${why} ${fix}`
       );
     }
     console.log(`    map-guard OK  ${site}  (<${island}> inside <${boundary}>)`);

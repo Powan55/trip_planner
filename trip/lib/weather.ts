@@ -20,29 +20,10 @@
 // (impure) fetch + gateway I/O.
 
 import { weatherCache } from '@/core/storage/gateway';
-
-// ── City → coordinates ──────────────────────────────────────────────────────────────────
-// All 12 trip cities. Every per-day city in `core/dates`' TRIP_CITIES / the sample
-// itinerary now has real coordinates, so day-trip days (Nagarkot, Kyoto, Osaka, …) get real
-// weather instead of the graceful `unavailable` fallback. The original two (Kathmandu, Tokyo)
-// are byte-identical to keep the weather net exact. A weather-coords coverage unit test
-// asserts `isKnownWeatherCity` is true for all 12 canonical cities so no trip day loses weather.
-const CITY_COORDS: Record<string, { latitude: number; longitude: number }> = {
-  // Nepal
-  Kathmandu: { latitude: 27.7172, longitude: 85.324 },
-  Lalitpur: { latitude: 27.6667, longitude: 85.324 },
-  Nagarkot: { latitude: 27.7157, longitude: 85.5206 },
-  Bhaktapur: { latitude: 27.671, longitude: 85.4298 },
-  // Japan
-  Tokyo: { latitude: 35.6762, longitude: 139.6503 },
-  Hakone: { latitude: 35.2324, longitude: 139.1069 },
-  Kyoto: { latitude: 35.0116, longitude: 135.7681 },
-  Osaka: { latitude: 34.6937, longitude: 135.5023 },
-  Kawaguchiko: { latitude: 35.517, longitude: 138.754 },
-  Yuzawa: { latitude: 36.937, longitude: 138.808 },
-  Nikko: { latitude: 36.7198, longitude: 139.6982 },
-  Yokohama: { latitude: 35.4437, longitude: 139.638 },
-};
+// /: the city table moved to its own pure module so the MAP can reuse it
+// (placement ladder rung 5) without pulling this Open-Meteo fetch client into /map's bundle.
+// Same data, same object — there is exactly ONE city table and a second copy is forbidden.
+import { CITY_COORDS, cityCoord } from '@/lib/city-coords';
 
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
 
@@ -418,7 +399,7 @@ export async function fetchWeather(
   city: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<WeatherResult> {
-  const coords = CITY_COORDS[city];
+  const coords = cityCoord(city);
   if (!coords) {
     // No coordinates for this city — nothing to query. Fall back to any cache, else unavailable.
     const cached = readCache(city);

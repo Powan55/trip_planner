@@ -19,7 +19,7 @@ import { parseTimeString } from '@/core/dates';
  * - The seam is cleaned: the connector left behind ("dinner at" ← "dinner at 7pm", "- breakfast"
  * ← "08:30 - breakfast") is trimmed, so the stored title reads like a title.
  *
- * Ponytail: word-window candidates + one delegation, no grammar, no new dep. Two words is the
+ * Deliberately minimal: word-window candidates + one delegation, no grammar, no new dep. Two words is the
  * widest window because that is the widest shape the parser accepts ("12:30 p.m.", "7 pm").
  */
 

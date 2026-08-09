@@ -64,7 +64,7 @@ export const metadata = {
     // NOTE: pass a bare root-relative path here — do NOT wrap in
     // withBasePath(). Next resolves metadata image URLs against metadataBase,
     // and metadataBase already carries the basePath segment via
-    // NEXT_PUBLIC_SITE_URL (=https://powan55.github.io/trip_planner on CI).
+    // NEXT_PUBLIC_SITE_URL (the deployed origin including its basePath on CI).
     // Wrapping with withBasePath() would prepend /trip_planner a SECOND time,
     // producing /trip_planner/trip_planner/og-image.png. Local dev stays
     // correct: metadataBase=http://localhost:3000 -> /og-image.png.

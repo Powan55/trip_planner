@@ -4,7 +4,7 @@
 // the ssr:false dynamic import lives in./sections (a client module); this
 // Server Component page exports metadata. Reached via a direct URL only this change —
 // deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar / command palette
-// (those files are fenced — a follow-up rider, per the brief; same deferral as `/journal`).
+// (those files are fenced — deferred follow-up, by design; same deferral as `/journal`).
 import { SafetyKit } from './sections';
 
 export const metadata = {

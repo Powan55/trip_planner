@@ -59,6 +59,15 @@ export const STORAGE_KEYS = {
   userName: 'tripPlannerUserName',
   /** localStorage — plain traveler-token string (identity, key 4). */
   token: 'tripPlannerToken',
+  /**
+   * localStorage — JSON `string[]` of display names this user PREVIOUSLY went by (identity,
+   * key 30;-C). Appended by `identityStore.addPriorName` at rename time only, and cleared
+   * with the rest of identity on sign-out. Exists so "My edits" still matches items stamped
+   * before a rename; it is never used to guess who an unknown stored name belongs to.
+   * App-scoped like keys 3/4 (an identity is the person, not the trip). ADDITIVE — absent on
+   * every existing browser, and `getPriorNames` reads absence as `[]`.
+   */
+  priorNames: 'tripPlannerPriorNames',
   /** localStorage — boolean-as-string (`String(next)`) nightlife visibility (ui-prefs, key 7). */
   nightlifeVisible: 'nightlife_section_visible',
   /** sessionStorage — `YYYY-MM-DD` `?today=` override. */
@@ -656,10 +665,35 @@ export const identityStore = {
   setToken(token: string): void {
     writeString('local', STORAGE_KEYS.token, token);
   },
-  /** Clear BOTH token and name (sign-out). Order is immaterial — both are best-effort. */
+  /**
+   *-C — display names this same user previously went by (key 30). Recorded at rename
+   * time, never inferred; see `addPriorName`. Read by `useAuthorFilter` so "My edits" still
+   * matches stamps written before the rename.
+   */
+  getPriorNames(): string[] {
+    const list = readJson<unknown>('local', STORAGE_KEYS.priorNames, []);
+    return Array.isArray(list) ? list.filter((n): n is string => typeof n === 'string') : [];
+  },
+  /**
+   * Append the name being renamed AWAY FROM. No-op for an empty name or one already recorded,
+   * so repeated renames back and forth cannot grow the list without bound.
+   */
+  addPriorName(name: string): void {
+    const prev = name.trim();
+    if (!prev) return;
+    const list = identityStore.getPriorNames();
+    if (list.includes(prev)) return;
+    writeJson('local', STORAGE_KEYS.priorNames, [...list, prev]);
+  },
+  /**
+   * Clear token, name AND the prior-name history (sign-out). Order is immaterial — all
+   * best-effort. The history MUST go with the identity: leaving it behind would let the next
+   * person on a handed-down device inherit the previous traveler's names as their own aliases.
+   */
   clearIdentity(): void {
     removeKey('local', STORAGE_KEYS.token);
     removeKey('local', STORAGE_KEYS.userName);
+    removeKey('local', STORAGE_KEYS.priorNames);
   },
 } as const;
 

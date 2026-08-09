@@ -48,6 +48,18 @@ export interface DocsStore {
   completion: DocsCompletion;
   toggleItem(id: string): void;
   setNote(id: string, note: string): void;
+  /**
+   * — reclaim the attribution stamps left under a name the traveler used to go by (the docs
+   * half of the itinerary's owner-initiated `claimAuthorship`,/Q3). `updatedBy` is the ONLY
+   * identity field on a `DocItem`, so it is the only one rewritten. Returns how many rows changed
+   * (0 = nothing written at all).
+   *
+   * `updatedAt` is NOT re-stamped: it is the SyncedRow legacy HLC seed AND the itinerary claim set
+   * the precedent (re-stamping a timestamp to "fix" a name dates an old edit to now). Under sync
+   * `rev`/`hlc` DO advance (`nextSyncStamp`) — without that bump a peer's un-rewritten copy wins
+   * the LWW resolve in `mergeItems` and the next remote snapshot unwinds the claim.
+   */
+  claimAuthorship(fromName: string): number;
 }
 
 // Sync gate + actor (firebase-free, dormant-safe — mirrors use-expenses).
@@ -97,9 +109,35 @@ export function useDocs(): DocsStore {
     [commit],
   );
 
+  // — see the `claimAuthorship` doc on DocsStore.
+  const claimAuthorship = useCallback(
+    (fromName: string): number => {
+      const from = fromName.trim();
+      const to = getUserName();
+      if (!from || !to || from === to) return 0;
+      // Never reach commit() on a zero-match claim — it would save + push an identical array.
+      if (!items.some((i) => i.deleted !== true && i.updatedBy === from)) return 0;
+      const sync = syncEnabled();
+      const name = actor();
+      const now = clock.now().getTime();
+      let claimed = 0;
+      commit((current) => {
+        claimed = 0;
+        return current.map((i) => {
+          if (i.deleted === true || i.updatedBy !== from) return i;
+          claimed++;
+          const renamed: DocItem = { ...i, updatedBy: to };
+          return sync ? { ...renamed, ...nextSyncStamp(i, now, name) } : renamed;
+        });
+      });
+      return claimed;
+    },
+    [commit, items],
+  );
+
   const completion = useMemo(() => docsCompletion(items), [items]);
 
-  return { items, hydrated, completion, toggleItem, setNote };
+  return { items, hydrated, completion, toggleItem, setNote, claimAuthorship };
 }
 
 // Re-exported so tests/callers can compare byte-transport values directly.

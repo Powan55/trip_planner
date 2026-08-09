@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
+import { useOnline } from '@/hooks/use-online';
 import { getActiveTripId } from '@/core/storage/gateway';
+import { getActiveTrip, isDefaultTrip } from '@/core/trips';
 import { CONCIERGE_URL } from '@/lib/concierge-config';
 import { TRIP_DATE_LABEL, TRIP_DATES } from '@/core/dates/trip-dates';
 import { getCityForDate } from '@/core/dates/trip-cities';
@@ -40,7 +42,10 @@ export interface ChatTurn {
 // change what the digest emits and that test fails and asks you to re-measure.
 // So 7000 would truncate a third of the trip, and 9000 — the number this change was originally
 // scoped with, derived from a stale 6517 estimate — would still have cut the last day's tail off
-// by 25 chars. 9500 clears the real digest with 475 chars of slack for items the user adds.
+// by 25 chars. 9500 clears the real digest with 476 chars of slack for items the user adds.
+// ( relabelled Dec 9 'Kathmandu' → 'Syracuse', one character shorter, so the measured digest
+// went 9025 → 9024 and the slack 475 → 476. The number above is the one the MEASUREMENT test
+// prints and pins; it is not an estimate.)
 // Keep these two constants equal; a higher client cap would ship bytes the server silently
 // discards. (They land + deploy together per the coupling; don't raise one without
 // the other.)
@@ -84,6 +89,45 @@ const HISTORY_CHAR_CAP = 3000;
 // completes, and anything past it is genuinely hung. Without it a hung upstream pinned the UI in
 // its (misnamed) 'streaming' state forever with no way out.
 const CHAT_TIMEOUT_MS = 45_000;
+
+// ── / owner ruling Q6 — the trip descriptor on the wire ─────────────────────────────────
+//
+// MUST equal the Worker's `TRIP_LABEL_MAX` (worker/src/providers.ts). The Worker truncates too,
+// but that is NOT the same guarantee and cannot replace this one: its 16 KB `MAX_BODY_BYTES` 413
+// runs on the RAW BODY BEFORE any parse, so bytes we send are bytes that count against the cap
+// whatever the Worker later does with them. Bounding it here is what keeps the worst-case body
+// computable — and the measured worst case is already ~14.1 KB of 16 KB.
+const TRIP_LABEL_MAX = 120;
+
+/** Exactly what the Worker's `normalizeTrip` accepts (worker/src/providers.ts `TripDescriptor`). */
+export interface TripDescriptor {
+  label: string;
+  /** Inclusive ISO 'YYYY-MM-DD' — this becomes the model's op date fence verbatim. */
+  start: string;
+  end: string;
+}
+
+/**
+ * The active trip as a compact descriptor — or `null`, meaning "say nothing and let the Worker
+ * use its own default persona".
+ *
+ * 🔴 NULL ON THE DEFAULT TRIP, AND THAT IS THE POINT, NOT AN OVERSIGHT. The Worker's
+ * `buildSystemPrompt(null)` is the RICHER prompt for this trip: the Nepal × Japan boys-trip voice
+ * plus the `LOCAL_KNOWLEDGE` paragraph (Thamel, Shibuya/Shinjuku/Roppongi, the last train) that a
+ * trip-aware prompt deliberately omits, because no human has verified the ground anywhere else.
+ * Sending `{label:'Nepal × Japan 2026', …}` here would be *correct data* that nonetheless
+ * DOWNGRADES the default trip to the generic persona the moment the Worker is deployed — a
+ * regression on the only trip that has a concierge today. So the default path stays byte-identical
+ * to what ships now: no `trip` key at all.
+ *
+ * THREE FIELDS ONLY. `vibe` / `legs` / `currency` / `id` are ignored by `normalizeTrip` and would
+ * only eat body budget, and the date range and cities are already on the wire inside the digest.
+ */
+export function buildTripDescriptor(): TripDescriptor | null {
+  if (isDefaultTrip()) return null;
+  const trip = getActiveTrip();
+  return { label: trip.label.slice(0, TRIP_LABEL_MAX), start: trip.start, end: trip.end };
+}
 
 /**
  * Compact plain-text trip-context digest — sent as `context`
@@ -185,10 +229,10 @@ export type ChatStatus = 'idle' | 'streaming' | 'error';
 /**
  * Drives one concierge turn against the deployed Worker.
  *
- * SESSION-ONLY HISTORY (a judgment call — flagged in the not nailed down by the
- * brief): messages live in component state only, cleared on reload. says the Worker never
+ * SESSION-ONLY HISTORY: messages live in component state
+ * only, cleared on reload. says the Worker never
  * persists or logs chat content, and there's no product ask for cross-device history, so adding
- * a new gateway/sync-domain key for this would be scope the brief explicitly said to avoid
+ * a new gateway/sync-domain key for this would be scope deliberately avoided
  * absent a real need. The in-flight turn's own history (this session's prior turns) IS sent as
  * `ChatRequestBody.history` on each call, so the model has conversational context within a
  * session — that's a pure in-memory pass-through, not persistence.
@@ -201,6 +245,12 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
   const [status, setStatus] = useState<ChatStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const historyRef = useRef<ChatTurn[]>([]);
+  // connectivity signal, reused — the same `navigator.onLine` reading behind the
+  // app-wide offline banner, not a second one.
+  const online = useOnline();
+  // The last message the user tried to send, so `retry()` can re-send exactly that turn. A ref,
+  // not state: nothing renders from it, and it must be readable from inside `send`'s closure.
+  const lastMessageRef = useRef('');
   // A REF (not the `status` state) guards re-entrancy: React batches state updates, so two
   // `send()` calls fired synchronously back-to-back (before a re-render commits) would both read
   // the SAME stale `status` closure value and both slip past a state-only check. A ref mutates
@@ -216,6 +266,19 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         setError('Concierge is not configured.');
         return;
       }
+      lastMessageRef.current = trimmed;
+
+      //-C — fail fast, and in words, when there is no connection. Without this the fetch
+      // rejects with the browser's own `TypeError: Failed to fetch`, which the catch below passes
+      // straight through to the traveller as the error text. On foreign mobile data that is the
+      // NORMAL case, not an edge one. Nothing leaves the device on this path — no request is made,
+      // no in-flight bubble is pushed (so there is no blank turn to clean up), and `retry()`
+      // re-sends this exact message once there is a signal again.
+      if (!online) {
+        setStatus('error');
+        setError('You’re offline, so nothing was sent. Reconnect and try again.');
+        return;
+      }
       sendingRef.current = true;
 
       const history = historyRef.current;
@@ -226,10 +289,19 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
 
       try {
         const context = buildTripDigest();
+        const trip = buildTripDescriptor();
         const res = await fetchImpl(CONCIERGE_URL, {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'X-Trip-Token': getActiveTripId() },
-          body: JSON.stringify({ message: trimmed, history: capHistory(history), context }),
+          // `trip` is spread in only when there IS one — the key is ABSENT on the default trip,
+          // not `null`. See `buildTripDescriptor`: absent is what selects the Worker's richer
+          // default persona, and it also keeps the default body byte-identical to today's.
+          body: JSON.stringify({
+            message: trimmed,
+            history: capHistory(history),
+            context,
+            ...(trip ? { trip } : {}),
+          }),
           // The POST stays at the BARE origin with no path suffix — the Worker accepts `POST /`
           // specifically because of this. Do not "tidy" it into `${CONCIERGE_URL}/chat`.
           signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
@@ -296,15 +368,22 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         sendingRef.current = false;
       }
     },
-    [fetchImpl],
+    [fetchImpl, online],
   );
+
+  // ONE retry control: re-send the last turn the user tried. Deliberately not a backoff
+  // policy, a queue, or an auto-retry — the traveller decides when they are back on a signal.
+  const retry = useCallback(async () => {
+    if (lastMessageRef.current) await send(lastMessageRef.current);
+  }, [send]);
 
   const reset = useCallback(() => {
     historyRef.current = [];
+    lastMessageRef.current = '';
     setMessages([]);
     setStatus('idle');
     setError(null);
   }, []);
 
-  return { messages, status, error, send, reset };
+  return { messages, status, error, send, retry, reset };
 }

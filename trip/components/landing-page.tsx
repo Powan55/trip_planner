@@ -67,8 +67,20 @@ const FEATURES = [
   },
   {
     icon: PlaneTakeoff,
+    // 🔴 — READ BEFORE "SIMPLIFYING" THIS SENTENCE. It has been wrong twice in both
+    // directions, so the exact scope is written down:
+    // · The plan is fully offline (localStorage + the SW precache).
+    // · The map ENGINE now ships with the install too, so the
+    // "open the map online once" clause this replaced is obsolete.
+    // · The TILES are NOT offline and are not going to be. They come from
+    // basemaps.cartocdn.com — cross-origin, which the SW passes through uncached by
+    // design, and bulk-caching a free keyless CDN abuses it. So offline you get the
+    // navy canvas, your marker circles and the day route line, with no street imagery.
+    // Hence "pins and route" (true) and "the map background needs signal" (true). Do NOT
+    // shorten this to "the map works offline" — that is the claim a user disproves at
+    // 35,000 feet.
     title: 'Works on the plane',
-    body: 'Everything is saved on your phone. No signal needed.',
+    body: 'Your plan and the map are saved on your phone. Offline you still get your pins and your route — only the map background needs signal.',
   },
 ] as const;
 
@@ -83,7 +95,7 @@ const STEPS = [
  * the rasters with `PLAYWRIGHT_SHOOT=1 npx playwright test e2e/landing-shots.spec.ts` followed by
  * `npm run gen:images`.
  *
- * 🔴 `alt` IS DELIBERATELY NOT `caption`. The brief for this change said to reuse the caption as the
+ * 🔴 `alt` IS DELIBERATELY NOT `caption`. The obvious move is to reuse the caption as the
  * alt; measured, that costs an axe violation — `image-redundant-alt` × 3 nodes at BOTH 390 and 1440
  * ("Alternative text of images should not be repeated as text"), because a screen reader then hears
  * the same sentence twice per shot: once from the <img>, once from the <figcaption> right under it.
@@ -150,26 +162,43 @@ export default function LandingPage({
           Every day of the trip, in one place.
         </h1>
         <p id={descId} className="max-w-2xl text-base leading-relaxed text-muted-foreground">
-          Kathmandu in December, Japan for New Year. Twenty-two days, two countries, one plan your
+          {/*-D: was "Twenty-two days" — the trip is Dec 9 → Jan 9, i.e. 32 days, which is what
+              `first-run-tour.tsx` and `map-section.tsx` already say. NOT derived from the trip-date
+              source on purpose: the ZERO-LIVE-TRIP-DATA rule above (and the grep guard that pins it)
+              forbids this file importing the content pack, so a literal is the only correct fix here. */}
+          Kathmandu in December, Japan for New Year. Thirty-two days, two countries, one plan your
           whole group can see &mdash; and it still works when you have no signal.
         </p>
 
+        {/* (INTAKE-03) — LOG IN IS THE PRIMARY PATH, and it is FIRST IN THE DOM.
+            Both facts are load-bearing and neither is cosmetic:
+              · `bg-primary` vs the outline is the decided visual demotion ("log in becomes
+                the primary CTA, Create an account demotes to secondary").
+              · DOM ORDER is what actually moves FOCUS. The wall's focus effect
+                (`token-gate.tsx`) takes `panel.querySelector('button:not([disabled])')` — the
+                FIRST enabled button in the panel — so a keyboard/screen-reader visitor entered on
+                "Create an account" purely because it was written first. Swapping the two <button>
+                elements (not just their classes) is the fix; `e2e/login.spec.ts` and
+                `lib/__tests__/s345-front-door.test.ts` both assert `document.activeElement`, so a
+                future edit that reorders these back fails rather than silently regressing.
+            Signup is NOT removed: it is still one click here, still the closing CTA below, and
+            still the always-rendered toggle inside the auth card. */}
         <div className="mt-2 flex flex-col gap-3 self-stretch sm:flex-row sm:items-center">
-          <button
-            type="button"
-            onClick={onCreate}
-            data-testid="landing-cta-create"
-            className={`${CTA_BASE} bg-primary text-primary-foreground hover:bg-primary/90`}
-          >
-            Create an account
-          </button>
           <button
             type="button"
             onClick={onLogin}
             data-testid="landing-cta-login"
-            className={`${CTA_BASE} border border-border text-foreground hover:bg-muted/40`}
+            className={`${CTA_BASE} bg-primary text-primary-foreground hover:bg-primary/90`}
           >
             I have a key &mdash; log in
+          </button>
+          <button
+            type="button"
+            onClick={onCreate}
+            data-testid="landing-cta-create"
+            className={`${CTA_BASE} border border-border text-foreground hover:bg-muted/40`}
+          >
+            Create an account
           </button>
         </div>
         <button

@@ -5,7 +5,7 @@
 @layer base {
   :root {
     /* ---- Core surfaces ----
-       the v2 BLUE navy field is retired for a near-neutral charcoal ramp at a
+       (full visual overhaul): the v2 BLUE navy field is retired for a near-neutral charcoal ramp at a
        single hue (220) with the saturation pulled right down, so the chrome reads
        as material rather than as brand colour. Brand hue survives only as a trace
        (10-14% sat); all warmth/identity now comes from CONTENT (himalaya/sakura),
@@ -338,7 +338,7 @@ html {
     var(--shadow-lg);
 }
 
-/* CONSIDERED DELETING THIS BLOCK AND REJECTED IT. The plan
+/* CONSIDERED DELETING THIS BLOCK AND REJECTED IT (deliberate ruling). The plan
    claimed it was an obsolete `!important` shim, dead once --muted-foreground
    reached 5.3:1 on card. All three parts of that are false: it uses NO `!important`
    (it wins by @layer utilities source order — see below), it is not
@@ -386,7 +386,7 @@ html {
    new one — under the display serif IS the flourish (that is what bought
    with Instrument Serif), so a gradient on top of it is redundant. The class was RENAMED, not
    just re-valued: a class whose name promises a gradient and a hue it no longer has is exactly
-   the lying-name defect this wave punishes. The sakura/himalaya siblings below are Bucket 2
+   the lying-name defect set out to remove. The sakura/himalaya siblings below are Bucket 2
    country identity and KEEP their gradients. */
 .text-display-emphasis {
   color: hsl(var(--foreground));

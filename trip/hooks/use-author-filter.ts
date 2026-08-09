@@ -8,8 +8,9 @@ import {
   setAuthorFilter,
   subscribeAuthorFilter,
 } from '@/lib/author-filter';
-import { getUserName } from '@/lib/identity';
+import { getPriorUserNames, getUserName } from '@/lib/identity';
 import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
+import { IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
 
 /**
  * React binding for the shared, presentational author filter.
@@ -41,21 +42,40 @@ export function useAuthorFilter() {
   // refreshed on the itinerary store's change event, so a name set during this session
   // (e.g. via the token gate / name prompt) is picked up without a reload.
   const [myName, setMyName] = useState<string | null>(null);
+  //-C: the names this same user went by BEFORE a rename. Read from the same source, on the
+  // same events, as `myName` — a rename fires IDENTITY_CHANGED_EVENT, and that is exactly the
+  // moment the list grows, so the two can never be read one rename apart.
+  const [myPriorNames, setMyPriorNames] = useState<string[]>([]);
   useEffect(() => {
-    const sync = () => setMyName(getUserName());
+    const sync = () => {
+      setMyName(getUserName());
+      // Keep the ARRAY IDENTITY stable when the content is unchanged. `sync` runs on every
+      // `itinerary:changed`, and a fresh array each time would defeat React's bail-out and
+      // re-run the planner's `useMemo` on every single edit — `myName` (a string) bails out
+      // for free, this has to earn it.
+      setMyPriorNames((prev) => {
+        const next = getPriorUserNames();
+        return prev.length === next.length && prev.every((n, i) => n === next[i]) ? prev : next;
+      });
+    };
     sync();
     // The display name can change when identity is (re)set; the itinerary store fires
     // `itinerary:changed` on edits, and the name prompt writes the name then. Re-reading
     // here on that event keeps "My edits" correct without coupling to identity internals.
     window.addEventListener(ITINERARY_CHANGED_EVENT, sync);
     window.addEventListener('storage', sync);
+    // identity itself can change without any itinerary edit — a Settings rename, or
+    // the account-identity reconciler ADOPTING the account's name on mount. Without this listener
+    // "My edits" keeps resolving against the old name until an unrelated edit happens to fire.
+    window.addEventListener(IDENTITY_CHANGED_EVENT, sync);
     return () => {
       window.removeEventListener(ITINERARY_CHANGED_EVENT, sync);
       window.removeEventListener('storage', sync);
+      window.removeEventListener(IDENTITY_CHANGED_EVENT, sync);
     };
   }, []);
 
   const setFilter = useCallback((next: AuthorFilter) => setAuthorFilter(next), []);
 
-  return { filter, setFilter, myName };
+  return { filter, setFilter, myName, myPriorNames };
 }

@@ -10,9 +10,10 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import {
-  TRIP_DATES, getCountryForDate, formatDate,
+  TRIP_DATES, formatDate,
   ItineraryItem, ItineraryCategory, CATEGORY_COLORS,
 } from '@/lib/trip-data';
+import { placeLabelForDate } from '@/lib/leg-label';
 import { generateItemId } from '@/lib/item-id';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { showUndoToast } from '@/lib/undo-toast';
@@ -83,12 +84,12 @@ const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
 
 const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography', 'shopping', 'nature', 'cultural', 'transportation', 'hotel', 'free', 'nightlife'];
 
-// Build the date-select option label: "Tue, Dec 12 · Kathmandu, Nepal".
+// Build the date-select option label: "Tue, Dec 12 · Kathmandu, Nepal".: the city
+// was hardcoded to Kathmandu/Tokyo and the country to a nepal/japan ternary — both now come from
+// the one shared place-label helper, so Dec 9 reads "Syracuse, USA" and a custom trip reads its
+// own city with no country appended.
 function dateOptionLabel(dateStr: string): string {
-  const country = getCountryForDate(dateStr);
-  const city = country === 'nepal' ? 'Kathmandu' : 'Tokyo';
-  const countryName = country === 'nepal' ? 'Nepal' : 'Japan';
-  return `${formatDate(dateStr)} · ${city}, ${countryName}`;
+  return `${formatDate(dateStr)} · ${placeLabelForDate(dateStr)}`;
 }
 
 export interface ExistingPlacement {
@@ -511,7 +512,7 @@ export default function AddToItineraryDialog({
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-white/90 truncate">{formatDate(p.date)}</p>
                     <p className="text-xs text-white/55 truncate">
-                      {getCountryForDate(p.date) === 'nepal' ? 'Kathmandu, Nepal' : 'Tokyo, Japan'}
+                      {placeLabelForDate(p.date)}
                       {(() => {
                         const timeInfo = describeItemTime(p.item, p.date);
                         if (!timeInfo) return '';

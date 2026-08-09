@@ -22,7 +22,7 @@
  * (no-Firebase) items then receive `rev`/`hlc` ONLY at the migration / `docToDayPlan`
  * defaulting boundary, so the dormant portfolio build stays byte-for-byte identical.
  * The helpers below are gate-agnostic (pure); the GATE is the caller's responsibility at
- * Flagged to for confirmation at.
+ * Confirmed at.
  */
 
 import type { ItineraryItem } from '@/lib/trip-data';

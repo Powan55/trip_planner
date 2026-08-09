@@ -22,7 +22,7 @@ import { FADE_FLOOR } from '@/lib/motion';
  *
  * The CSS path is DELIBERATELY not floored — it still animates `transform` only.
  * A view-timeline animation is a pure function of scroll position and re-plays
- * every time the element re-enters its range, so an
+ * every time the element re-enters its range (see the debt note below), so an
  * opacity fade there would flicker on every scroll-by instead of revealing once.
  * Net effect: on Chromium the floored fade is only seen on the reduced-motion /
  * no-support framer path; Firefox/Safari get it on every reveal.
@@ -50,7 +50,7 @@ import { FADE_FLOOR } from '@/lib/motion';
  * re-play the slide on the CSS path. This is an inherent platform limitation of
  * CSS scroll-driven animations (no ergonomic fix without reintroducing JS,
  * which would defeat the point of the compositor-only path) — not a bug.
- * Flagged to as a known, accepted behavior difference of the CSS path
+ * Recorded as a known, accepted behavior difference of the CSS path
  * only; the framer fallback keeps its exact "once" semantics untouched.
  *
  * Reduced motion — same reasoning as scroll-progress.tsx: the

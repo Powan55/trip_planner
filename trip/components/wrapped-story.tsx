@@ -13,6 +13,7 @@ import { usePhotos } from '@/hooks/use-photos';
 import { usePacking } from '@/hooks/use-packing';
 import { useDocs } from '@/hooks/use-docs';
 import { legCurrency, formatMoney } from '@/core/budget/model';
+import { legLabel } from '@/lib/leg-label';
 import { Reveal } from '@/components/reveal';
 import CelebrationBurst from '@/components/celebration-burst';
 import SectionSkeleton from '@/components/section-skeleton';
@@ -25,7 +26,7 @@ import SectionSkeleton from '@/components/section-skeleton';
  * `<TripStoryRecap/>`, composed onto the page WITHOUT touching that component's internals.
  *
  * Unlike `trip-story-recap.tsx` (locked until `isPostTrip`), the wrapped summary is
- * ALWAYS-AVAILABLE with honest status-aware copy (engineer's call, per the brief) — "so far" mid-
+ * ALWAYS-AVAILABLE with honest status-aware copy (a deliberate call) — "so far" mid-
  * trip, the full "wrapped" post-trip, and a light pre-trip state — because every underlying stat
  * (packing/docs readiness, activities already planned) is legitimately useful before the trip ends,
  * not only as a retrospective.
@@ -39,7 +40,7 @@ import SectionSkeleton from '@/components/section-skeleton';
  */
 
 /** The resolved clock's LOCAL calendar day as 'YYYY-MM-DD' (matches trip-story-recap.tsx's helper;
- * duplicated here rather than imported so this island stays independently composable — brief
+ * duplicated here rather than imported so this island stays independently composable —
  * does not touch trip-story-recap.tsx's internals, and the helper isn't exported). */
 function nowDateString(): string {
   const d = getNow();
@@ -301,7 +302,7 @@ function LegSpendLine({ leg, spend }: { leg: 'nepal' | 'japan'; spend: WrappedSt
   if (spend.total === 0) return null;
   return (
     <span data-testid={`wrapped-spend-${leg}`}>
-      <span className="font-semibold text-white/90">{capitalize(leg)}:</span>{' '}
+      <span className="font-semibold text-white/90">{legLabel(leg)}:</span>{' '}
       <span className="font-semibold text-foreground">{formatMoney(spend.total, legCurrency(leg))}</span>
       {spend.topCategory && (
         <span className="text-white/55"> — top category {capitalize(spend.topCategory.category)}</span>

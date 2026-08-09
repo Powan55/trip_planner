@@ -1,15 +1,13 @@
-// Map-linked day planning: haversine distance + proximity ordering.
+// Map-linked day planning: haversine distance.
 //
 // PURE, framework-free, dependency-free — no React, no maplibre-gl, no network.
-// The map becomes an INPUT to day planning:
-// a user assigns a map pin (an "anchor") to a trip day, and that day's stops re-order
-// by client-side great-circle distance from the anchor. NO routing/geocoding API is
-// used — ordering is this arithmetic and nothing more.
-//
-// The reorder is a pure, derived VIEW: given the day's stops + the day's anchor coord,
-// `orderByProximity` returns a re-sorted copy. Nothing here persists — the anchor id is
-// stored locally (dayAnchorStore, gateway key 22) and the assigned pin rides the existing
-// itinerary CRUD (addItem). See map-section.tsx.
+// The map is an INPUT to day planning: a user
+// assigns a map pin (an "anchor") to a trip day.: that anchor is the day's BASE
+// POINT — the origin of the per-stop distance label — and no longer re-orders anything;
+// every surface, the map included, sorts by TIME (`lib/sort-items-by-time.ts`).
+// NO routing/geocoding API is used — distance is this arithmetic
+// and nothing more. Nothing here persists: the anchor id is stored locally (dayAnchorStore,
+// gateway key 22) and the assigned pin rides the existing itinerary CRUD (addItem).
 
 export interface LatLng {
   lat: number;
@@ -49,37 +47,10 @@ export function haversineKm(a: LatLng, b: LatLng): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-/** A coordinate that MAY be missing (a stop with no lat/lng match). */
-type MaybeLatLng = { lat?: number; lng?: number };
-
-function hasCoords(v: MaybeLatLng): v is LatLng {
-  return typeof v.lat === 'number' && typeof v.lng === 'number';
-}
-
-/**
- * Re-order `items` by ascending haversine distance from `anchor`, returning a NEW array
- * (never mutates the input). Guarantees:
- * - Items WITHOUT coordinates keep their original relative order and sink to the END
- * (never crash, never sort NaN into the middle).
- * - The sort is STABLE: equal-distance items (incl. the anchor itself at distance 0)
- * preserve their input order.
- * - Empty / single-item lists are returned as a plain copy.
- * `getCoord` extracts the comparable coordinate from each item, so this works over
- * `DayStop` (via `s.marker`), a raw `MapMarker`, or any `{lat,lng}` record.
- */
-export function orderByProximity<T>(
-  items: readonly T[],
-  anchor: LatLng,
-  getCoord: (item: T) => MaybeLatLng,
-): T[] {
-  // Decorate-sort-undecorate with a stable tiebreak on the original index, so equal
-  // distances (and the coord-less bucket) never depend on the engine's sort stability.
-  return items
-    .map((item, index) => {
-      const coord = getCoord(item);
-      const distance = hasCoords(coord) ? haversineKm(anchor, coord) : Infinity;
-      return { item, index, distance };
-    })
-    .sort((a, b) => a.distance - b.distance || a.index - b.index)
-    .map((d) => d.item);
-}
+// / — `orderByProximity` lived here and was deleted, not left inert. The
+// decision was time order on every surface including the map, made knowing it costs the day
+// anchor its walking-route purpose. Both of its production call sites (in
+// components/map-section.tsx) went with that decision, so the function had none left. Do NOT
+// "restore" nearest-first ordering as a bug fix — see note.
+// `haversineKm` above STAYS: the anchor is now the day's BASE POINT, and the day panel still
+// labels each stop with its distance from it.

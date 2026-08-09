@@ -5,7 +5,8 @@
  *
  * A gradient + type header that gives each v2 route (/plan, /nepal, /japan,
  * /map) an editorial masthead WITHOUT imagery (exact-location-free-photos rule — use none). It consumes tokens
- * only — it defines no new CSS. Each route mounts one instance at integration.
+ * only — it defines no new CSS. One is mounted per page at integration;
+ * see the notes for exact per-page mount + h1/h2 guidance.
  *
  * Treatment:
  * - `.glass-panel` shell (max-elevation v2 tier: radius-2xl + shadow-2xl,

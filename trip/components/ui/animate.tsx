@@ -22,117 +22,12 @@ export function FadeIn({
   )
 }
 
-export function ScaleIn({
-  children, delay = 0, className,
-}: {
-  children: React.ReactNode; delay?: number; className?: string
-}) {
-  return (
-    <m.div
-      initial={{ opacity: 0, scale: 0.95 }}
-      whileInView={{ opacity: 1, scale: 1 }}
-      viewport={viewportConfig}
-      transition={{ duration: 0.3, delay, ease: 'easeOut' }}
-      className={className}
-    >
-      {children}
-    </m.div>
-  )
-}
-
-const slideDirections = {
-  bottom: { y: 20, x: 0 },
-  top:    { y: -20, x: 0 },
-  left:   { x: -20, y: 0 },
-  right:  { x: 20, y: 0 },
-}
-
-export function SlideIn({
-  children, from = 'bottom', delay = 0, className,
-}: {
-  children: React.ReactNode; from?: keyof typeof slideDirections; delay?: number; className?: string
-}) {
-  return (
-    <m.div
-      initial={{ opacity: 0, ...slideDirections[from] }}
-      whileInView={{ opacity: 1, x: 0, y: 0 }}
-      viewport={viewportConfig}
-      transition={{ duration: 0.4, delay, ease: 'easeOut' }}
-      className={className}
-    >
-      {children}
-    </m.div>
-  )
-}
-
-export function Stagger({
-  children, staggerDelay = 0.08, className,
-}: {
-  children: React.ReactNode; staggerDelay?: number; className?: string
-}) {
-  return (
-    <m.div
-      variants={{ show: { transition: { staggerChildren: staggerDelay } } }}
-      initial="hidden"
-      whileInView="show"
-      viewport={viewportConfig}
-      className={className}
-    >
-      {children}
-    </m.div>
-  )
-}
-
-export function StaggerItem({
-  children, className,
-}: {
-  children: React.ReactNode; className?: string
-}) {
-  return (
-    <m.div
-      variants={{
-        hidden: { opacity: 0, y: 16 },
-        show: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } },
-      }}
-      className={className}
-    >
-      {children}
-    </m.div>
-  )
-}
-
-export function HoverLift({
-  children, className,
-}: {
-  children: React.ReactNode; className?: string
-}) {
-  return (
-    <m.div
-      whileHover={{ y: -2, boxShadow: 'var(--shadow-lg)' }}
-      transition={{ duration: 0.15, ease: 'easeOut' }}
-      className={className}
-    >
-      {children}
-    </m.div>
-  )
-}
-
-export function PressScale({
-  children, className,
-}: {
-  children: React.ReactNode; className?: string
-}) {
-  return (
-    <m.div
-      whileTap={{ scale: 0.98 }}
-      transition={{ duration: 0.1, ease: 'easeOut' }}
-      className={className}
-    >
-      {children}
-    </m.div>
-  )
-}
-
 // `SkeletonPulse` deleted — a framer `repeat: Infinity` opacity loop with ZERO
 // usages tree-wide. The app's real loading affordance is `.animate-shimmer`
 // (globals.css) via SectionSkeleton / WeatherCard.
+//
+// (TD-06): `ScaleIn`, `SlideIn`, `Stagger`, `StaggerItem`, `HoverLift` and `PressScale`
+// deleted for the same reason — ZERO references each outside this file. `FadeIn` (4 refs,
+// imported by `components/activity-feed.tsx`) is the only survivor and the positive control
+// that made those six zeros a result rather than a broken scan. NO bundle-size claim is made:
+// unused ESM exports tree-shake, and nothing here was measured. The win is less code to read.

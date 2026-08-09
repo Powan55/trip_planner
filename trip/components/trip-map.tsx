@@ -27,6 +27,7 @@ import {
   Navigation,
   Heart,
   CalendarPlus,
+  CircleDashed,
   type LucideIcon,
 } from 'lucide-react';
 import { type MapMarker, type MarkerCategory } from '@/lib/map-data';
@@ -54,10 +55,11 @@ import type {
 type MapLibreNS = typeof import('maplibre-gl');
 
 // ── Category presentation (icon + Tailwind classes), unchanged vocabulary ─────
-// Kept from the prior mock so the legend, filter chips, and popup badges stay in
-// visual sync with the palette. The GL marker fills come from CATEGORY_COLOR
-// (raw hex, in lib/map-style.ts) — same colors, different consumer. Exported so
-// the /map chrome (filter chips + legend, in MapSection) shares the same table.
+// Kept from the prior mock so the filter chips and popup badges stay in visual
+// sync with the palette. The GL marker fills come from CATEGORY_COLOR (raw hex,
+// in lib/map-style.ts) — same colors, different consumer. Exported so the /map
+// chrome (the filter chips in MapSection) shares the same table. ( deleted
+// the duplicate legend that used to render this table a second time.)
 export const CATEGORY_STYLES: Record<
   MarkerCategory,
   { icon: LucideIcon; pin: string; badge: string }
@@ -106,8 +108,14 @@ export const CATEGORY_STYLES: Record<
 const MARKERS_SOURCE_ID = 'markers';
 const ITIN_SOURCE_ID = 'itinerary-route';
 
-// World bounds covering both countries (Nepal → Japan), used for the default
-// fit-on-load so both regions are reachable on zoom-out.
+// 🔴 NOT the default camera — mislabelled for a long time, corrected in.
+// This is only (a) the frame the Map is CONSTRUCTED with, i.e. what is on screen for the few
+// frames before the style loads, and (b) the frame that survives when the marker set is EMPTY.
+// The moment `mapReady` flips, the marker-fit effect below (deps: markers/mapReady/fitBounds,
+// and `fitBounds` defaults true) refits the camera to the visible markers and overwrites this.
+// So widening these bounds to "reach" a place looks like a fix and changes nothing visible —
+// what a place needs in order to be reachable is a way to ADDRESS it, not a
+// wider startup box.
 const ALL_BOUNDS: LngLatBoundsLike = [
   [83.0, 27.0], // SW (west of Kathmandu Valley)
   [141.0, 36.5], // NE (east of Tokyo)
@@ -317,6 +325,62 @@ function MarkerPopupContent({
   );
 }
 
+// ── /(b): the popup for a DRAWN ITINERARY STOP ──────────────────
+// A stop is not a curated place: it is one or more of the user's own plans, at a point that
+// was either asserted (a pin) or DERIVED (a district, the day's city). So it gets its own,
+// quieter popup — no Directions to a centroid, no "add this place to your plan" for a place
+// that is already in the plan, and no favourite heart on a synthesized marker.
+// The approximate note QUOTES ITS OWN SOURCE verbatim — the user can check the
+// claim — and the distinction is carried by an icon + words, so it survives greyscale.
+function ItineraryStopPopupContent({ stop }: { stop: DayStop }) {
+  const approximate = stop.placement.kind === 'approximate';
+  const derivedFrom = stop.placement.kind === 'approximate' ? stop.placement.derivedFrom : '';
+  return (
+    <div
+      className="w-[248px] max-w-[80vw]"
+      data-testid="map-stop-popup"
+      data-approximate={approximate ? 'true' : 'false'}
+      data-derived-from={derivedFrom}
+    >
+      <h3 className="font-display font-bold text-white text-sm leading-tight">
+        Day {stop.day}
+        <span className="ml-1.5 font-sans text-[11px] font-normal text-white/55">
+          {stop.items.length} {stop.items.length === 1 ? 'plan' : 'plans'} here
+        </span>
+      </h3>
+      <ul className="mt-1.5 space-y-1">
+        {stop.items.map((item) => (
+          <li key={item.id} className="flex items-start gap-1.5 text-xs text-white/75">
+            <MapPin className="w-3 h-3 mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+            <span className="min-w-0">{item.title}</span>
+          </li>
+        ))}
+      </ul>
+      {approximate && (
+        <>
+          <p
+            data-testid="map-stop-approx-note"
+            className="mt-2 pt-2 border-t border-white/10 flex items-start gap-1.5 text-[11px] text-white/70"
+          >
+            <CircleDashed className="w-3.5 h-3.5 mt-px shrink-0" aria-hidden="true" />
+            <span>
+              Approximate — placed from &ldquo;{derivedFrom}&rdquo;.
+            </span>
+          </p>
+          <a
+            href="/plan/"
+            data-testid="map-stop-set-pin"
+            className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
+          >
+            <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
+            Set an exact pin in the planner
+          </a>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Imperative handle the host chrome holds — used to force a canvas resize after
 // the host node is physically relocated (fullscreen enter/exit lives in the
 // parent; the map instance lives here, so the parent asks us to resize).
@@ -402,6 +466,14 @@ export interface TripMapProps {
   assignDays?: AssignDayOption[];
   onAssignDay?: (marker: MapMarker, date: string) => void;
   /**
+   * /(b): clicking a drawn itinerary stop opens a popup naming the plan(s) at
+   * that point and, when the position was DERIVED, the verbatim text it was derived from plus
+   * the way to fix it. /map's `MapSection` passes `true`. `/plan`'s day-map omits it — there
+   * the same points are already clickable browse markers (it feeds one array as both
+   * `markers` and `routeStops`), so registering this would open two popups for one click.
+   */
+  enableStopPopup?: boolean;
+  /**
    * pin-pick seam: while true the canvas is a coordinate picker — the cursor turns to
    * a crosshair, marker/cluster clicks stop opening popups (a click on a pin must PLACE a
    * pin, not browse one), and every click reports its lng/lat through `onMapClick`. Default
@@ -416,7 +488,7 @@ export interface TripMapProps {
 // Owns the container, lazy maplibre-gl load, style/controls, the browse-marker
 // source/layers, the itinerary route source/layers, popups, and reduced-motion
 // camera behavior. It renders ONLY the map surface (canvas container + loading
-// skeleton); the host wrapper, fullscreen slot-swap, filters, and legend are the
+// skeleton); the host wrapper, fullscreen slot-swap and filters are the
 // consumer's chrome (see MapSection).: the maplibre runtime stays a lazy
 // chunk — the dynamic import below is the only entry point to it.
 const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
@@ -433,6 +505,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     enableDayAssign,
     assignDays,
     onAssignDay,
+    enableStopPopup,
     pickMode,
     onMapClick,
   },
@@ -471,6 +544,12 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
   pickModeRef.current = pickMode;
   const onMapClickRef = useRef(onMapClick);
   onMapClickRef.current = onMapClick;
+  // the drawn stops + whether they are clickable, read by the once-registered
+  // itin-stop handler below (same latest-value-ref idiom as pickModeRef).
+  const routeStopsRef = useRef(routeStops);
+  routeStopsRef.current = routeStops;
+  const enableStopPopupRef = useRef(enableStopPopup);
+  enableStopPopupRef.current = enableStopPopup;
 
   // Open (or move) the in-canvas popup for a marker, and expose its content node
   // so React can portal the interactive content in.
@@ -604,10 +683,15 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           source: MARKERS_SOURCE_ID,
           filter: ['has', 'point_count'],
           paint: {
-            'circle-color': BRAND.gold500,
-            'circle-opacity': 0.85,
-            'circle-stroke-color': BRAND.navy900,
-            'circle-stroke-width': 2,
+            // clusters were solid gold at 0.85 — the SAME gold family as the
+            // `Attraction` category pin, so "a cluster of 8" and "one attraction" read
+            // identically at a glance. A neutral glass fill separates the vocabularies:
+            // clusters read as chrome, pins read as content.
+            'circle-color': '#ffffff',
+            'circle-opacity': 0.22,
+            'circle-stroke-color': '#ffffff',
+            'circle-stroke-opacity': 0.55,
+            'circle-stroke-width': 1.5,
             'circle-radius': [
               'step',
               ['get', 'point_count'],
@@ -629,7 +713,13 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
             'text-font': ['Noto Sans Regular'],
             'text-size': 13,
           },
-          paint: { 'text-color': BRAND.navy900 },
+          // white on the glass bubble (navy text was legible only on the old solid
+          // gold fill), with a navy halo so the count holds up over a light raster patch.
+          paint: {
+            'text-color': '#ffffff',
+            'text-halo-color': BRAND.navy900,
+            'text-halo-width': 1,
+          },
         });
 
         // Unclustered points — category-colored.
@@ -668,16 +758,20 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
             'line-dasharray': [1, 1.5],
           },
         });
+        // /(a): an APPROXIMATE stop is a different MARK, not a different
+        // colour — a hollow ring (dark core, gold rim) against the exact stop's solid gold
+        // disc. Shape and lightness both differ, so the distinction survives greyscale;
+        // colour alone would not clear the project's contrast floor.
         map!.addLayer({
           id: 'itin-stop',
           type: 'circle',
           source: ITIN_SOURCE_ID,
           filter: ['==', ['geometry-type'], 'Point'],
           paint: {
-            'circle-color': BRAND.gold500,
+            'circle-color': ['case', ['get', 'approx'], BRAND.navy900, BRAND.gold500],
             'circle-radius': 12,
-            'circle-stroke-color': BRAND.navy900,
-            'circle-stroke-width': 2,
+            'circle-stroke-color': ['case', ['get', 'approx'], BRAND.gold400, BRAND.navy900],
+            'circle-stroke-width': ['case', ['get', 'approx'], 2.5, 2],
           },
         });
         map!.addLayer({
@@ -690,7 +784,9 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
             'text-font': ['Noto Sans Bold'],
             'text-size': 12,
           },
-          paint: { 'text-color': BRAND.navy900 },
+          paint: {
+            'text-color': ['case', ['get', 'approx'], BRAND.gold400, BRAND.navy900],
+          },
         });
 
         // Cursor affordances.
@@ -735,6 +831,29 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           if (!marker) return;
           openPopup(maplibregl, marker);
           onMarkerClickRef.current?.(marker);
+        });
+
+        // a drawn itinerary stop click → the stop popup. Registered once,
+        // gated on a ref so it is INERT for every consumer that doesn't opt in — /plan feeds
+        // one array as both `markers` and `routeStops`, so an ungated handler there would
+        // fire alongside the `unclustered` one and open two popups for a single click.
+        map!.on('mouseenter', 'itin-stop', () => {
+          if (!enableStopPopupRef.current) return;
+          map!.getCanvas().style.cursor = pickModeRef.current ? 'crosshair' : 'pointer';
+        });
+        map!.on('mouseleave', 'itin-stop', () => {
+          if (!enableStopPopupRef.current) return;
+          map!.getCanvas().style.cursor = pickModeRef.current ? 'crosshair' : '';
+        });
+        map!.on('click', 'itin-stop', (e) => {
+          if (pickModeRef.current || !enableStopPopupRef.current) return;
+          const f = e.features?.[0] as MapGeoJSONFeature | undefined;
+          const id = f?.properties?.id as string | undefined;
+          const stop = id
+            ? routeStopsRef.current?.find((s) => s.marker.id === id)
+            : undefined;
+          if (!stop) return;
+          openPopup(maplibregl, stop.marker);
         });
 
         // pin-pick: ANY click on the canvas reports its coordinate while the picker is
@@ -854,8 +973,16 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           type: 'Feature',
           geometry: { type: 'Point', coordinates: [s.marker.lng, s.marker.lat] },
           // `id` (additive; /map ignores it) lets the highlight effect target
-          // this numbered route-stop by marker id.
-          properties: { id: s.marker.id, day: String(s.day), title: s.title, date: s.date },
+          // this numbered route-stop by marker id. `approx` drives the
+          // low-confidence paint above — it is read straight off the placement the
+          // resolver returned for this render, never off stored state.
+          properties: {
+            id: s.marker.id,
+            day: String(s.day),
+            title: s.title,
+            date: s.date,
+            approx: s.placement.kind === 'approximate',
+          },
         });
       }
     }
@@ -916,11 +1043,19 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           defeat inset-0 sizing and collapse the container to 0px. An explicit
           full-size box sizes correctly under either position, given the host
           has a definite height (inline slot h-[560px] / fixed inset-0). */}
+      {/* (a11y): this was `role="application"` with NO tabIndex. That role tells a
+          screen reader to stop intercepting keys and hand every keystroke to the app — but
+          the element could not receive focus, so the promise was never kept. It passed axe,
+          which is why it survived. MEASURED in a real browser: MapLibre puts
+          `tabindex="0"` + `aria-label="Map"` on its own CANVAS (a child of this div), and
+          that canvas is what takes focus and handles arrow-pan / ±-zoom. The container
+          handles no keys at all, so it is a labelled REGION, not an application widget —
+          the SR keeps its normal reading keys and the canvas keeps its native keyboard. */}
       <div
         ref={containerRef}
         className="h-full w-full"
         aria-label="Interactive map of trip destinations across Nepal and Japan"
-        role="application"
+        role="region"
       />
 
       {/* Loading skeleton until the GL canvas is ready. */}
@@ -936,16 +1071,29 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
       )}
 
       {/* Popup content portal: stays in this React tree so context flows
-          to AddToPlanButton, while its DOM lives inside the MapLibre Popup. */}
+          to AddToPlanButton, while its DOM lives inside the MapLibre Popup.
+          a popup opened on a marker that is NOT one of the 27 curated places is an
+          ITINERARY STOP — a synthesized pin or a derived position — so it gets the stop
+          popup instead of the curated one (which would offer Directions to a city centroid
+          and "add this place to your plan" for a plan that already exists). */}
       {popupNode && popupMarker
         ? createPortal(
-            <MarkerPopupContent
-              marker={popupMarker}
-              enableFavorite={enablePopupFavorite}
-              enableDayAssign={enableDayAssign}
-              assignDays={assignDays}
-              onAssignDay={onAssignDay}
-            />,
+            (() => {
+              const stop = enableStopPopup && !MARKER_BY_ID.has(popupMarker.id)
+                ? (routeStops ?? []).find((s) => s.marker.id === popupMarker.id)
+                : undefined;
+              return stop ? (
+                <ItineraryStopPopupContent stop={stop} />
+              ) : (
+                <MarkerPopupContent
+                  marker={popupMarker}
+                  enableFavorite={enablePopupFavorite}
+                  enableDayAssign={enableDayAssign}
+                  assignDays={assignDays}
+                  onAssignDay={onAssignDay}
+                />
+              );
+            })(),
             popupNode,
           )
         : null}

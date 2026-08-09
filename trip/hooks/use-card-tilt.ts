@@ -27,7 +27,7 @@ import {
  * `<MotionConfig reducedMotion="user">` (that only gates declarative framer props).
  */
 
-/** Max tilt in degrees at a card edge/corner (brief: ~6–8°). */
+/** Max tilt in degrees at a card edge/corner (chosen from the ~6–8° range). */
 export const MAX_TILT_DEG = 7;
 
 function clamp(v: number, lo: number, hi: number): number {

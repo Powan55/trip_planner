@@ -6,8 +6,10 @@
 // a time — `navbar.tsx` (the other mount) returns null under `/travel` (`lib/travel-route.ts`),
 // which is the only reason the concierge was missing here at all.
 //
-// Gating is deliberately identical to the navbar's: `isDefaultTrip()` (TD-08 — the Worker's
-// persona is a hardcoded Nepal × Japan one, so a custom trip must not get it). Everything else —
+// Gating is deliberately identical to the navbar's: `isConciergeAllowedForActiveTrip()` (TD-08 —
+// the DEPLOYED Worker's persona is a hardcoded Nepal × Japan one, so a custom trip must not get
+// it). moved that rule into `lib/concierge-config.ts` so both mounts read ONE copy of it and
+// the owner lifts it in exactly one place after deploying the trip-aware Worker. Everything else —
 // `isConciergeConfigured()` (dormant unless `NEXT_PUBLIC_CONCIERGE_URL` is inlined) and the
 // active-traveler check — stays INSIDE ConciergeChat, which renders null when they fail, so
 // there is exactly one copy of those rules.
@@ -19,7 +21,7 @@
 
 import { useMemo } from 'react';
 import dynamic from 'next/dynamic';
-import { isDefaultTrip } from '@/core/trips';
+import { isConciergeAllowedForActiveTrip } from '@/lib/concierge-config';
 
 // Same lazy split as navbar.tsx:23 — the chat + Radix Dialog chunk is not part of the TM bundle.
 const ConciergeChat = dynamic(() => import('@/components/concierge-chat'), { ssr: false });
@@ -27,7 +29,7 @@ const ConciergeChat = dynamic(() => import('@/components/concierge-chat'), { ssr
 export default function TravelConcierge() {
   // Once-computed, mount-safe: this component is itself an ssr:false island (app/travel/sections.tsx),
   // so reading trip state during render can't produce a hydration mismatch (the navbar pattern).
-  const isDefault = useMemo(() => isDefaultTrip(), []);
-  if (!isDefault) return null;
+  const allowed = useMemo(() => isConciergeAllowedForActiveTrip(), []);
+  if (!allowed) return null;
   return <ConciergeChat />;
 }

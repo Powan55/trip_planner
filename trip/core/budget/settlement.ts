@@ -6,7 +6,7 @@
  * touch `expensesToSpent` / `rollUp` / the burn-rate — an expense's `amount` still counts fully
  * toward leg/category spend regardless of split. Split is only about who reimburses whom.
  *
- * ── The model ────────────────────────────────────────────────────────────
+ * ── The model ─────────────────────────────────────────────────────────────
  * Each expense that carries a non-empty `split` (the TRAVELERS ids sharing it) is divided EVENLY:
  * every member owes `amount / |split|` to the payer (`paidBy`, or the `self` fallback when a split
  * expense carries no explicit payer). Net each participant's balance (paid − owed), then greedily

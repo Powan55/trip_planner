@@ -280,7 +280,7 @@ export function joinTrip(id: string, name?: string): void {
 }
 
 /**
- * Tombstone cap. The prior "grows unbounded" gap proposed a purge pass keyed on
+ * Tombstone cap. The prior "grows unbounded" debt note proposed a purge pass keyed on
  * a device set this app doesn't track; a fixed cap needs none. Mirrors `PLACES_CAP`'s exact idiom
  * (`core/places/model.ts`'s `addPlace`): prepend-newest then `.slice(0, CAP)` on a newest-first
  * array — NOT a FIFO shift.
