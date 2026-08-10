@@ -83,14 +83,19 @@ Before any change to it ships, validate it against the real rules engine with th
 emulator (needs Java and the `firebase` CLI; run from the repo root):
 
 ```bash
-firebase emulators:exec --only firestore --project demo-rules "node scripts/rules-check.mjs"
+firebase emulators:exec --only firestore,auth --project demo-rules "node scripts/rules-check.mjs"
 ```
 
-Exit code 0 means every phase passed (the negative-control phase is *supposed* to show
-failures in its own output — the script accounts for that). The harness resolves the
+Exit code 0 means every phase passed (the two negative-control phases are *supposed* to show
+failures in their own output — the script accounts for that). The harness resolves the
 `firebase` SDK out of `trip/node_modules`, so `npm ci --legacy-peer-deps` inside `trip/`
 must have run first. It is deliberately not part of CI or the app's test suite: it needs a
 running emulator.
+
+The **auth** emulator is required as well as firestore, because the rules now have an
+authentication floor: the harness signs in three anonymous users (owner, member, stranger)
+and keeps a fourth client signed out, so that both the membership rules and the floor itself
+are exercised rather than assumed. Running with `--only firestore` fails in phase 0.
 
 Publishing the rules is a **manual owner action** — no workflow deploys them:
 
