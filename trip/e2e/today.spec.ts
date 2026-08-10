@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S98 — Trip OS "Today" screen E2E pack.
+ * S98 — the Today screen E2E pack.
  *
  * The Today panel (`components/today-panel.tsx`) is a HOME-page island that renders
  * ONLY when the app clock is inside the trip window (via `getTodayInTrip()`, incl. the
@@ -91,7 +91,7 @@ async function seedTodayFixture(page: Page) {
   );
 }
 
-test.describe('S98 Trip OS — the Today panel (in-trip gating + done-tracking)', () => {
+test.describe('S98 — the Today panel (in-trip gating + done-tracking)', () => {
   test('in-trip: the Today panel renders today\'s agenda (Day N — city header + items)', async ({
     page,
   }) => {

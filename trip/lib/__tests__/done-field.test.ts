@@ -10,7 +10,7 @@ import { itineraryItemSchema, parseItineraryPayload } from '@/core/vault/schema'
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 /**
- * S98 — Trip OS done-tracking: the `done?: boolean` field is an additive OPTIONAL that
+ * S98 — Done-tracking: the `done?: boolean` field is an additive OPTIONAL that
  * round-trips through the Vault with NO migration and NO version bump.
  *
  * Proves:

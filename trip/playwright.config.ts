@@ -20,7 +20,7 @@ import { defineConfig, devices } from '@playwright/test';
  * Chromium (`{ channel: undefined }`, the default `chromium` project), NOT the
  * `channel: 'chrome'` system-Chrome fallback. If a future environment lacks
  * that cached browser and the download is blocked, switch this project's
- * `use` to `{ channel: 'chrome' }` per the brief's documented fallback.
+ * `use` to `{ channel: 'chrome' }` per the documented fallback.
  *
  * `workers: 1` (not Playwright's parallel default): in THIS sandbox, running
  * the 5 smoke specs across multiple parallel Chromium workers against the
@@ -83,12 +83,12 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
     // ── S191 — Travel Mode acceptance net on real-device-shaped viewports ────────────────────
-    // Engine call (frontend-engineer, S191): CHROMIUM-ENGINE EMULATION, not real WebKit.
+    // Engine call (S191): chromium-engine emulation, not real WebKit.
     // WebKit is not installed in this sandbox (only chromium-1228 is), a `playwright install
     // webkit` download is an unverified/possibly-blocked step, and WebKit-on-Windows against the
     // single-threaded serve-out server is exactly the class of flake the config header already
-    // documents for parallel chromium. The brief's rule — "determinism on this machine beats
-    // engine purity" — points at emulation: we take the iPhone descriptor's DPR 3 / touch /
+    // documents for parallel chromium. The rule here, determinism on this machine beats
+    // engine purity, points at emulation: we take the iPhone descriptor's DPR 3 / touch /
     // isMobile / iOS-Safari UA and drive it on the SAME chromium the green 373-spec net uses.
     // Viewport is pinned to the device's FULL screen points (393×852 / 430×932 — the V5-DEVPLAN
     // TM-8 numbers, the standalone-PWA display Travel Mode targets), not the descriptor's

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S104 — Afterglow 1: in-trip per-day TEXT journal E2E pack.
+ * S104 — in-trip per-day TEXT journal E2E pack.
  *
  * The journal card (`components/journal-card.tsx`) mounts INSIDE the in-trip Today panel
  * (`components/today-panel.tsx`), below the agenda — so it renders ONLY when the app clock is inside

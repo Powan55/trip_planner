@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S100 — Trip OS 3 E2E pack (city generalization + the "what's-next" rail).
+ * S100 — Today/next-up E2E pack (city generalization + the "what's-next" rail).
  *
  * Two things, both on the served static `out/` build, driven through the D-075 `?today=`
  * clock override (local NOON of the given day) exactly like the frozen S82/S98 packs:

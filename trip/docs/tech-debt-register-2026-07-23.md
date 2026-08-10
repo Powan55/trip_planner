@@ -103,13 +103,13 @@ None found. Type-check clean, full unit suite green, all audited trust boundarie
 ## NICE-TO-HAVE
 
 ### TD-11: Banner historical docs as historical
-- Verified: `nextjs_space/docs/v4-technical-doc.md` (last commit 2026-07-10, "Produced 2026-07-06", written for a review flow that no longer exists) reads as current guidance. The blueprints (sync-v2, data-core, etc.) are living contracts, so leave those alone.
-- Change: a one-line "Historical — superseded by v5; kept for reference" header on v4-technical-doc.md, and on V4-PLAN.md at the repo root if it is the same vintage.
+- Verified: `docs/v4-technical-doc.md` (last commit 2026-07-10, "Produced 2026-07-06", written for a review flow that no longer exists) reads as current guidance. The blueprints (sync-v2, data-core, etc.) are living contracts, so leave those alone.
+- Change: a one-line "Historical — superseded by v5; kept for reference" header on v4-technical-doc.md, and on the v4 plan at the repo root if it is the same vintage.
 - Size: S. Proof: n/a (docs-only).
-- **Status: RESOLVED in S264.** Banner added to nextjs_space/docs/v4-technical-doc.md, V4-PLAN.md and V4-DEVPLAN.md. Blueprints untouched.
+- **Status: RESOLVED in S264.** Banner added to docs/v4-technical-doc.md, the v4 plan and V4-DEVPLAN.md. Blueprints untouched.
 
-### TD-12: Repo-root housekeeping, untracked trip-plan-simple.md
-- Verified: `git status` shows `?? trip-plan-simple.md` (a plain-text trip summary) untracked at the repo root. Commit it or delete it; one minute either way.
+### TD-12: Repo-root housekeeping, untracked the simple trip plan
+- Verified: `git status` shows `?? the simple trip plan (a plain-text trip summary) untracked at the repo root. Commit it or delete it; one minute either way.
 
 ---
 

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S105 — Afterglow 2: the read-only plan-vs-actual DAY RECAP E2E pack.
+ * S105 — the read-only plan-vs-actual DAY RECAP E2E pack.
  *
  * The recap island (`components/trip-recap.tsx`) is a HOME-page island mounted right after the Today
  * panel. For each trip day that has already HAPPENED (via `elapsedTripDates(getNow())`, incl. the

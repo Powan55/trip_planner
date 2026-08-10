@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S102 — Expense logging (Yen & Rupee 2) E2E pack.
+ * S102 — Expense logging E2E pack.
  *
  * The fast expense-log flow: a "Log expense" button in the S101 budget panel opens a global portal
  * dialog (`expense:open` → `ExpenseLogHost` → `expense-dialog`), the logged expense appears in the

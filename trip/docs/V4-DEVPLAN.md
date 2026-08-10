@@ -2,21 +2,21 @@
 
 # v4 Dev Plan
 
-_Written 2026-07-07. This document revises the proposed `V4-PLAN.md` (29 items, 3 tiers) into a slice-by-slice plan that is ready to build. It is grounded in `nextjs_space/docs/v4-technical-doc.md`, which stays authoritative on contracts and migrations; any deviation from it is called out explicitly. At the time of writing, M16 is complete and nothing is in flight. Milestone label: **M17**. Slice numbering continues from S113, so **S114 onward**._
+_Written 2026-07-07. This document revises the proposed the v4 plan (29 items, 3 tiers) into a slice-by-slice plan that is ready to build. It is grounded in `docs/v4-technical-doc.md`, which stays authoritative on contracts and migrations; any deviation from it is called out explicitly. At the time of writing, M16 is complete and nothing is in flight. Milestone label: **M17**. Slice numbering continues from S113, so **S114 onward**._
 
 ---
 
-## 1. Executive summary of changes vs `V4-PLAN.md`
+## 1. Executive summary of changes vs the v4 plan
 
 Only deltas are justified; everything not listed here is kept as proposed.
 
 1. **Added: trip-content layer consolidation** (new Tier-1 item #0; slices S121–S122). This is the direct answer to the standing pain point. S112 required hand-editing `lib/sample-itinerary.ts`, `core/dates/trip-cities.ts` and `lib/booking-data.ts` in lockstep for a pure content change. The fix is one schema-validated content source, the city map *derived* instead of duplicated, a validation script, and a runbook, so a future plan swap becomes a one-file content slice. This deliberately does not pull G4 (Trip Packs) forward; see section 3.3.
-2. **Re-scoped: Afterglow #7 split in two.** The text-only post-trip story recap needs no IndexedDB and therefore no G2. It is pure derivation (`isPostTrip()`) plus composition of data the app already has: journal, plan-vs-actual, spend. It moves into ungated Phase 3 (S156). Only *photos* stay behind G2 (S159–S161). That removes the "app expires Jan 9 if a gate stalls" failure mode.
+2. **Re-scoped: item #7 split in two.** The text-only post-trip story recap needs no IndexedDB and therefore no G2. It is pure derivation (`isPostTrip()`) plus composition of data the app already has: journal, plan-vs-actual, spend. It moves into ungated Phase 3 (S156). Only *photos* stay behind G2 (S159–S161). That removes the "app expires Jan 9 if a gate stalls" failure mode.
 3. **Re-scoped: #22 component splits dissolved into their feature slices**, as section 3 of the technical doc itself directs. The `map-section.tsx` split becomes the `TripMap` extraction slice (S135, which enables the split view); the `calendar-planner.tsx` split rides the planner-overhaul slices; the `budget-panel.tsx` split rides expense split (S144). There is no standalone "split components" slice, which avoids double-touching files.
 4. **Merged: Tier-3 items absorbed into concrete slices.** #24 absorbs FU-3 + FU-21 (S115); #25 absorbs FU-14/FU-15/FU-16 (S114, S119); #27's tombstone-replace Restore + gcTombstones become S145 plus a blueprint line-item; the sonner-override retirement stays a standing rider on any future sonner bump, with no slice of its own.
 5. **Re-sequenced: Phase 0 internal order.** Flake source fixes (FU-15/16) land first so red means red for everything after. The dep prune lands before the majors: smaller upgrade surface, fewer peer-dep conflicts. FU-1, the DECISIONS.md archive split, is overdue past its size wall and is scheduled before the blueprint-heavy Phase 1, which will append many entries.
 6. **Re-sequenced: design foundation before planner visuals, micro-interactions after.** `SectionHeading`, the canonical `Reveal` and glass adoption (S132–S133) land early in Phase 1 so every new v4 surface is born conformant to the token system. The micro-interactions pack (S134) lands after the planner overhaul so it animates final surfaces, not surfaces about to be rebuilt.
-7. **Corrected: a stale dep claim.** FU-3 says `react-intersection-observer` has no importers. That is false, verified this pass: S107's `components/lazy-visible.tsx`, the Home lazy-island primitive on the hot path, imports `useInView`. The prune slice (S115) must replace it with a native IntersectionObserver hook first, exactly as `V4-PLAN.md` #24 already said.
+7. **Corrected: a stale dep claim.** FU-3 says `react-intersection-observer` has no importers. That is false, verified this pass: S107's `components/lazy-visible.tsx`, the Home lazy-island primitive on the hot path, imports `useInView`. The prune slice (S115) must replace it with a native IntersectionObserver hook first, exactly as the v4 plan #24 already said.
 8. **Kept: G1/G2 tracks gated in Phase 4; G4 deferred to v5 (endorsed); G5 manual, done by the account owner, and independent.** One sequencing nuance is added: if G2 is approved, the photo-capture slices should land before Dec 9, because photos are taken *during* the trip. Only story-mode integration is post-trip work.
 9. **Net shape:** 29 items become **53 slices** (Phase 0: 7 · Phase 1: 18 · Phase 2: 7 · Phase 3: 13 · Phase 4: 8). At demonstrated velocity (~110 slices/5 weeks across M0–M15) this is comfortable before Dec 9, with Phase 3 items individually droppable as schedule buffer.
 
@@ -56,7 +56,7 @@ Only deltas are justified; everything not listed here is kept as proposed.
 ## 3. The six requirements, explicitly addressed
 
 ### 3.1 Add / remove / update features as I see fit
-Section 1 is the change list. Nothing was cut outright. All 29 items survive in some form, but two were structurally re-shaped (Afterglow split so the post-trip mode is ungated; component splits dissolved into feature slices), one was added (the content layer), and Tier 3 was converted from a wish-list into dated, owned slices. The one thing explicitly declined: any multi-trip machinery, which is G4 territory.
+Section 1 is the change list. Nothing was cut outright. All 29 items survive in some form, but two were structurally re-shaped (the post-trip work split so that mode is ungated; component splits dissolved into feature slices), one was added (the content layer), and Tier 3 was converted from a wish-list into dated, owned slices. The one thing explicitly declined: any multi-trip machinery, which is G4 territory.
 
 ### 3.2 Efficient, user-friendly, and stays free
 The phase order was sanity-checked and kept in shape but re-ordered internally (sections 1.5, 1.6 and 6). Every external touchpoint in this plan was re-verified against D-088: **Open-Meteo daily** (keyless, no account, no card, the same API family as the shipped D-108 weather); **Firestore Spark** (existing project, with chunked-doc quota math as a blueprint DoD line); **browser APIs** (IndexedDB, geolocation, Web Push receipt, free by construction); **GitHub Actions** (free tier, with the private-repo minutes cap already a Watch item); and the **Cloudflare Workers free plan** for the G1 track. That last one carries a hard blueprint-time verification that account creation and the chosen AI/push path require no payment information under any circumstance; if that check fails, the item is re-scoped (section 5, S162). Everything else in the plan is static data or client code, free by construction.
@@ -148,7 +148,7 @@ Each slice below carries a one-line **Risk** note saying which side it falls on 
 
 **S123 — Blueprint: structured time model**
 - **Goal:** record the contract from section 2 of the technical doc as DECISIONS entries: wall-clock-at-place semantics (the D-number the doc asks for), the Vault v4→v5 migration contract, the one offset-injected pure comparison function for Up-Next, the picker interaction contract, and the D-107 mixed-fleet reload coordination note.
-- **Depends:** S120 for file headroom; S122 recommended first, since the content layer settles what "the day's city" reads from. **Blueprint:** this is it. Schema change with app-wide reach, already flagged by `V4-PLAN.md`.
+- **Depends:** S120 for file headroom; S122 recommended first, since the content layer settles what "the day's city" reads from. **Blueprint:** this is it. Schema change with app-wide reach, already flagged by the v4 plan.
 - **DoD:** decisions recorded, migration test matrix enumerated.
 
 **S124 — Time model core + Vault v4→v5 migration + Up-Next math**

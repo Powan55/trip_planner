@@ -2,7 +2,7 @@
 
 # v4 Technical Doc
 
-_Companion to `V4-PLAN.md` (repo root). Purpose: the technical treatment of the v4 plan, covering contracts, data-model changes, migration order, risk register, and test strategy, so review of the eventual M16 slices starts from a shared blueprint rather than re-derivation. Produced 2026-07-06 from the v4 audit: two independent codebase sweeps plus the S110 review lanes' findings._
+_Companion to the v4 plan (repo root). Purpose: the technical treatment of the v4 plan, covering contracts, data-model changes, migration order, risk register, and test strategy, so review of the eventual M16 slices starts from a shared blueprint rather than re-derivation. Produced 2026-07-06 from the v4 audit: two independent codebase sweeps plus the S110 review lanes' findings._
 
 ---
 

@@ -1,4 +1,4 @@
-# v2 Design Language — "Alpine Nocturne" (S66)
+# v2 Design Language (S66)
 
 > Slice S66. The token-level design contract for the M14 v2 redesign, delivered as CSS
 > variables plus a Tailwind theme so components elsewhere in the app upgrade visually

@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S101 — Trip Budget (Yen & Rupee 1, the CORE) E2E pack.
+ * S101 — Trip Budget (the core) E2E pack.
  *
  * The budget panel (`components/budget-panel.tsx`) is a `/plan` island
  * (`next/dynamic(ssr:false)`, behind a SectionSkeleton) that sets per-leg + per-category budgets

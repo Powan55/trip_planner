@@ -270,7 +270,7 @@ and all of the above are now tagged. See section 11 above for the full id list,
 elements, and reveal conditions. Nothing in this registry is still "deferred /
 no testids yet."
 
-## 14. Trip OS, Today panel: `components/today-panel.tsx` (route: `/`)
+## 14. Today panel: `components/today-panel.tsx` (route: `/`)
 
 The in-trip "Today" agenda island (S98). Mounted on Home via
 `dynamic({ ssr:false })` right after `<HeroSection />` and before `<TripDashboard />`.
@@ -292,7 +292,7 @@ The `done`/not-done visual (✓ + strikethrough + dim) is CSS-only and reduced-m
 safe; the check indicator span, the time/location/category meta, and the "N / M done"
 counter are `aria-hidden`/`sr-only`-labelled decorative sub-elements and were not tagged.
 
-## 15. Trip OS 2, Weather + golden hour: `components/weather-card.tsx` (route: `/`)
+## 15. Weather + golden hour: `components/weather-card.tsx` (route: `/`)
 
 The weather + golden-hour card (S99), mounted inside the in-trip Today panel
 (`components/today-panel.tsx`) above the agenda. Fetches Open-Meteo client-side (D-004
@@ -457,7 +457,7 @@ All copy meets AA at rest (D-100).
 
 ## 20. Day recap (plan-vs-actual): `components/trip-recap.tsx` (route: `/`)
 
-The read-only plan-vs-actual day recap island (S105, D-114, Afterglow 2), mounted on Home via
+The read-only plan-vs-actual day recap island (S105, D-114), mounted on Home via
 `dynamic({ ssr:false })` right after `<TodayPanel />` and before `<TripDashboard />`. For each trip
 day that has already happened (via `elapsedTripDates(getNow())`, incl. the D-075 `?today=` override),
 it pairs the plan (that day's `getDayPlan(date).items`, read-only), the actual (each item's `done`

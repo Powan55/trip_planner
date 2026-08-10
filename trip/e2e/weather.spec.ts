@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 /**
- * S99 — Trip OS 2: weather + golden-hour E2E pack.
+ * S99 — Weather + golden-hour E2E pack.
  *
  * The weather card (`components/weather-card.tsx`) mounts inside the in-trip Today panel
  * (`components/today-panel.tsx`) and fetches Open-Meteo CLIENT-SIDE for the current trip city
@@ -141,7 +141,7 @@ async function settleForecast(page: Page) {
   await expect(page.getByTestId('weather-forecast')).toBeVisible({ timeout: 15_000 });
 }
 
-test.describe('S99 Trip OS 2 — weather + golden hour (stubbed Open-Meteo)', () => {
+test.describe('S99 — weather + golden hour (stubbed Open-Meteo)', () => {
   test('stubbed API: the weather card renders temp, condition, and golden-hour on the in-trip Today panel', async ({
     page,
   }) => {

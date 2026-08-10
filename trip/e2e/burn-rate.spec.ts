@@ -2,7 +2,7 @@ import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
- * S103 — Burn-rate vs plan + calendar cost overlays (Yen & Rupee 3) E2E pack.
+ * S103 — Burn-rate vs plan + calendar cost overlays E2E pack.
  *
  * Layers onto the S101 budget panel + S102 expense log with NO reshape: the burn-rate view
  * (`burn-rate`, in the budget panel) reads the SAME live `rollUp` totals + the trip clock and shows
