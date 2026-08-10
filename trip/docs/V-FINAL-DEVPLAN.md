@@ -437,6 +437,9 @@ Nine. Each is one word, and none of them blocks the slices in section 2 that are
    silent. It is flagged in `18dc72f`'s own log ("Still owner-only…"), and the deploy log prints
    `concierge-url present: yes/NO`. Verify it before S421's final push, because after that there is no
    second chance. *This was never in the six; it surfaced only when the worker actually shipped.*
+   (Superseded, issue #41: `deploy.yml` now fails the build outright when the variable is empty or
+   carries a path, so this is enforced rather than checked by eye, and the silent-failure half of the
+   warning no longer applies. The success path still prints `concierge-url present: yes`.)
 
 ---
 
