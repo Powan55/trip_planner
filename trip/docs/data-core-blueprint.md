@@ -1,7 +1,11 @@
-> **Historical — superseded by D-241; kept for reference (2026-07-05).**
-> This document describes the data-core design as of 2026-07-05, including `sessionGate`
-> (sections 3.1 and 3.2) as part of the storage gateway's public API. Guest mode and `sessionGate` were
-> removed repo-wide by **D-241** (LOCKED). Current behaviour lives in the code and in `DECISIONS.md`.
+> **Historical — a 2026-07-05 design snapshot. Do not read any number here as current.**
+> Guest mode and `sessionGate` (sections 3.1 and 3.2) were removed repo-wide by **D-241** (LOCKED).
+> Three further things this document states as fact have since moved on: the persisted-key
+> inventory is no longer eight keys (`core/storage/gateway.ts` now declares ~30 slots, and
+> `tripPlannerGuest` / `packing_checklist` are gone from the code); the current itinerary schema
+> version is **5**, not 3 (`core/vault/migrations.ts`); and the ports are generic —
+> `StoragePort<T>` is `load`/`save`/`has` and `SyncPort<T>` is `T`-typed, not `DayPlan[]`-typed
+> (`core/ports.ts`). Current behaviour lives in the code and in `DECISIONS.md`.
 
 # Data-Core Blueprint — Trip Vault, Typed Gateway & Headless Core (M15 / v3 Phase B)
 
@@ -264,7 +268,7 @@ The gateway spans both web-storage backends because key 8 (`tripPlannerTodayOver
 
 Introduce a framework-free `core/` package: plain TS, no React, no Next, and no `window` typing beyond what a port injects. `core/` contains the Vault (envelope, schema, migrations), the domain logic (dates/clock math; itinerary CRUD), and the port interfaces below. `core/` depends on nothing in `app/` / `components/` / `hooks/`, and the arrow always points inward (UI → core, never core → UI). This is the classic ports-and-adapters boundary: `core/` is pure and testable in isolation, and the framework layer supplies adapters.
 
-`core/` currently does not exist (verified: no `nextjs_space/core/**`). S93 creates it.
+`core/` did not exist when this was drafted; S93 created it. It is now the largest package in the app — `core/ports.ts`, `core/vault/`, `core/itinerary/`, `core/dates/`, `core/sync/`, `core/storage/gateway.ts` and more.
 
 ### 4.2 The three ports
 
@@ -273,12 +277,14 @@ Ports are interfaces core defines and the framework layer implements. Keeping th
 ```ts
 // core/ports.ts  (illustrative)
 
-// STORAGE — the persistence boundary. The Vault gateway (section 3) is the production impl.
-export interface StoragePort {
-  read(store: 'local' | 'session', key: string): string | null;
-  write(store: 'local' | 'session', key: string, value: string): void;  // never throws
-  remove(store: 'local' | 'session', key: string): void;
-  has(store: 'local' | 'session', key: string): boolean;   // D-018 key-presence
+// STORAGE — the per-domain persistence boundary. Each domain supplies its own impl
+// (the Vault gateway for the itinerary). Key/store addressing is NOT on the port: it
+// lives in the gateway primitives (`core/storage/gateway.ts`, readString/writeString/
+// readJson/writeJson/removeKey/hasKey).
+export interface StoragePort<T> {
+  load(): T;                 // the FRESHEST persisted value (D-031 reads its base here)
+  save(value: T): void;      // never throws
+  has(): boolean;            // D-018 key-presence
 }
 
 // CLOCK — "what time is it," incl. the ?today= simulation override (D-075).
@@ -286,12 +292,12 @@ export interface ClockPort {
   now(): Date;                 // real clock OR the resolved sessionStorage/URL override
 }
 
-// SYNC — the remote seam. Deliberately per-day-shaped to stay Firestore-compatible
-// (D-042/D-088). This is the seam S95 (Sync v2) designs against; S89 does NOT design sync.
-export interface SyncPort {
-  push(prev: DayPlan[], next: DayPlan[]): Promise<void>;   // per-day diff (today: pushPlans)
-  subscribe(onRemote: (plans: DayPlan[]) => void): () => void; // today: subscribeRemote
-  isConfigured(): boolean;     // today: isRemoteConfigured()
+// SYNC — the remote seam, generic over the domain value `T`. The itinerary wires
+// T = DayPlan[]; expenses, budget and docs wire their own shapes over the same port.
+export interface SyncPort<T> {
+  push(prev: T, next: T): Promise<void>;                 // from commit() only (D-039)
+  subscribe(onApplied?: (mergedValue: T) => void): () => void;
+  isConfigured(): boolean;
 }
 ```
 

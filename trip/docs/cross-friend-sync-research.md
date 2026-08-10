@@ -1,9 +1,28 @@
 # Cross-friend itinerary sync — research & options (M8, design task B)
 
-**Status: research only.** This document does not lock a decision, add a dependency, write code, or
-greenlight a backend. It exists so we can pick a direction later. Building any of this would reopen
-locked decisions D-002 (localStorage-only / no server) and D-004 (backend idle), and it stays out of
-scope until we deliberately greenlight it.
+> **Historical (2026-06-27). This study was acted on — cross-device sync shipped.** Read it as the
+> record of *why* Firestore was chosen, not as a description of the app today.
+>
+> **What shipped.** The #1 recommendation was greenlit at M9 as the scoped reopening of D-002 and
+> D-004 (both entries are headed "LOCKED (scoped reopening, see D-038)" in `DECISIONS.md`). Cloud
+> Firestore on the free Spark tier is live: `lib/itinerary-remote.ts` subscribes with `onSnapshot`
+> and pushes per-day writes to `trips/{tripId}/days/{date}` from the store's `commit()` — exactly
+> the seam sketched in section 4.5 — and `firebase` is a real dependency in `package.json`. Sync
+> has since grown past the itinerary to budget, expenses and the documents checklist
+> (`lib/budget-remote.ts`, `lib/expenses-remote.ts`, `lib/docs-remote.ts`).
+>
+> **What shipped differently.** Section 4.1's "name-only display, backed by silent Anonymous Auth"
+> was later dropped: `lib/itinerary-remote.ts` records that "the whole `firebase/auth` module + the
+> pre-sync anonymous sign-in round-trip were removed", and there is no `signInAnonymously` call
+> anywhere in the app. Authorization is a capability-token model instead — a trip lives at
+> `trips/{tripId}` where the id is an unguessable secret, and `firestore.rules` never reads
+> `request.auth`. Attribution runs through a firebase-free display-name pipeline
+> (`lib/identity.ts`). See `docs/trip-key-migration.md`.
+>
+> Everything below is preserved as written on 2026-06-27.
+
+**Status when written: research only.** This document did not lock a decision, add a dependency,
+write code, or greenlight a backend. It existed so we could pick a direction later.
 
 Date: 2026-06-27
 
@@ -406,5 +425,5 @@ cleanly into the store we already built (we just fan our existing "data changed"
 network), and makes "last edited by Mei · 2h ago" trivial. Supabase is a close, equally safe
 runner-up, better if we prefer SQL, with the minor catch that free projects pause when idle. For
 conflicts, plain last-write-wins per item is the right, simple call for three friends. Storing only a
-self-chosen first name keeps privacy a non-issue. None of this is built or decided: it reopens our
-"no backend" decisions, so it waits for an explicit go-ahead.
+self-chosen first name keeps privacy a non-issue. None of this was built or decided when this was
+written; the explicit go-ahead came at M9 — see the banner at the top for what actually shipped.

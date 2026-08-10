@@ -11,7 +11,9 @@ _Design doc for M17 Phase 4 (photo track, D-130 G2). It makes `V4-DEVPLAN.md` it
 | S160 (before Dec 9, 2026) | Capture/attach photos on journal days + expense receipts; downscale pipeline; quota UX; egress proof | Sections 2 to 6 |
 | S161 (by Jan 9, 2027) | `/recap` story mode gains per-day photos; renders with and without | Section 3.2 (day-keyed photos make this a read-only join) |
 
-Everything below serves one invariant (D-130/D-002-amended/D-038). Photo blob bytes exist in exactly one place, this device's IndexedDB, and they have no egress path: no Firestore, no export file, no dormant remote layer. Local-only, forever.
+Everything below serves one invariant (D-130/D-002-amended/D-038). Photo blob bytes exist in exactly one place, this device's IndexedDB, and they have no *network* egress path: no Firestore, no `SyncPort`, no dormant remote layer.
+
+> **Later widened by D-227 (S273).** The full-trip backup lifeboat (`core/vault/backup.ts`) does carry photo bytes — the meta index plus each present blob inlined as a base64 data URL (`exportTripBackup`, iterating the active trip's meta ids, never `blobStore.list()`) — but only into a file the user explicitly downloads to their own device, from a surface whose own copy names photos (`components/backup-restore.tsx`: "Backed up your whole trip (including journal and photos)"). D-227 records this as exercising D-159's own pre-authorised "explicit user-initiated export of a separate photo bundle, never the default export, never sync" clause — not a network egress. The D-098 itinerary Vault export (`exportItinerary()` in `core/vault/export-import.ts`) still excludes photos entirely (section 7).
 
 ---
 
@@ -141,7 +143,7 @@ Why 16 is right under D-150 discipline: key 15 (`nepal_japan_sync_outbox`) is th
 
 ## 4. Capture pipeline: Canvas downscale policy (the numbers)
 
-New `core/photos/prepare.ts` (browser-facing, framework-free): `preparePhoto(file: File | Blob) → Promise<{ ok:true; blob: Blob; w: number; h: number } | { ok:false; reason:'decode' }>`.
+New `core/photos/downscale.ts` (browser-facing, framework-free): `preparePhoto(file: File | Blob) → Promise<{ ok:true; blob: Blob; w: number; h: number } | { ok:false; reason:'decode' }>`, with the policy numbers exported as `MAX_EDGE = 1600` and `JPEG_QUALITY = 0.8`.
 
 | Parameter | Value | Rationale |
 |---|---|---|
@@ -184,9 +186,9 @@ S160 definition of done. "Proven" means these checks actually run and pass:
 
 ## 7. Export / import behavior (D-098)
 
-Export excludes photos entirely, by construction and with zero code change. `exportItinerary()` serializes the itinerary Vault only (D-098 v1 scope: "identity/token/prefs are device-soft… neither exported nor touched"); key 16 and the IDB store are outside the Vault, and itinerary rows carry no photo fields (section 1). Not even metadata is exported: captions and alt text are device-soft companion data like the journal, and a metadata-only export would invite a future "and now the bytes" creep across the D-159 line. No Vault version bump, no envelope change.
+The **D-098 itinerary Vault export** excludes photos entirely, by construction and with zero code change. `exportItinerary()` serializes the itinerary Vault only (D-098 v1 scope: "identity/token/prefs are device-soft… neither exported nor touched"); key 16 and the IDB store are outside the Vault, and itinerary rows carry no photo fields (section 1). Not even metadata is exported: captions and alt text are device-soft companion data like the journal, and a metadata-only export would invite a future "and now the bytes" creep across the D-159 line. No Vault version bump, no envelope change. The separate full-trip backup added later by D-227 (`core/vault/backup.ts`, a distinctly-labelled "Back up whole trip" surface producing `nepal-japan-trip-backup.json.gz`, or `.json` where `CompressionStream` is absent) *does* include photo meta and bytes — see the note in section 0. `core/vault/export-import.ts` itself is untouched by it.
 
-Import onto a fresh device is graceful by construction. Import validates and writes itinerary plans only; it neither reads nor writes key 16 or IndexedDB. Nothing dangles, because no imported shape references a photo. The absent metadata index reads as `[]` (gateway fallback), and day/expense photo rails simply render their empty states. The consequence is documented and accepted, and D-002 mandates it: photos do not migrate between devices, so a device wipe or device switch loses them. That is the price of "no egress path at all", stated rather than papered over. The placeholder-tile machinery in section 5 already covers every "referenced but absent" render, though import cannot even produce that state.
+Import onto a fresh device is graceful by construction. Import validates and writes itinerary plans only; it neither reads nor writes key 16 or IndexedDB. Nothing dangles, because no imported shape references a photo. The absent metadata index reads as `[]` (gateway fallback), and day/expense photo rails simply render their empty states. The consequence is documented and accepted, and D-002 mandates it for the *itinerary import* path: `importItinerary()` carries no photos, so restoring only the Vault on a new device leaves the photo rails empty. **Since D-227 (S273) that is no longer the whole story** — the separate full-trip backup (`core/vault/backup.ts` → `nepal-japan-trip-backup.json.gz`, or `.json` where `CompressionStream` is absent) does move photo bytes to a new device: `importTripBackup` writes blobs first via id-preserving `putWithId` so the meta↔blob links survive, then the meta index. A device wipe with no backup file still loses them. That is the price of "no *network* egress path", stated rather than papered over. The placeholder-tile machinery in section 5 covers every "referenced but absent" render, and import CAN now produce that state: a blob that fails to store, or a meta whose blob was never in the file, leaves the meta as a placeholder and increments `photosSkipped` (surfaced to the user as "N photos could not be restored").
 
 ---
 
@@ -202,5 +204,5 @@ Photo blobs (journal photos, expense receipts) live only in this device's Indexe
 
 ## 9. Build checklists
 
-**S160 (before Dec 9):** `core/photos/model.ts` (PhotoMeta + sanitize) · `core/photos/blob-store.ts` (+ IDB impl) · gateway key 16 + `photosStore` · `use-photos.ts` via `createReactiveStore` (no sync port) · `core/photos/prepare.ts` downscale · capture UI on journal card + expense row (alt/caption prompt, `accept="image/*"`) · quota/unavailable/evicted states · `restoreExpense` returns minted id + Undo re-point · the four proof checks from section 6, actually run.
+**S160 (before Dec 9):** `core/photos/model.ts` (PhotoMeta + sanitize) · `core/photos/blob-store.ts` (+ IDB impl) · gateway key 16 + `photosStore` · `use-photos.ts` via `createReactiveStore` (no sync port) · `core/photos/downscale.ts` downscale · capture UI on journal card + expense row (alt/caption prompt, `accept="image/*"`) · quota/unavailable/evicted states · `restoreExpense` returns minted id + Undo re-point · the four proof checks from section 6, actually run.
 **S161 (by Jan 9, 2027):** recap day sections read `use-photos` filtered by `owner.date`; render with and without photos; placeholder tiles for evicted blobs; reduced-motion-safe presentation. No new storage surface.

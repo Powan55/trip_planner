@@ -180,17 +180,22 @@ That resolves the undo↔outbox interplay by construction. An add followed by it
 
 ### 3.3 Persistence + op-record shape
 
-Gateway slot (D-097; the next free key is key 14, localStorage; the string is the contract, the number is documentation):
+Gateway slot (D-097; **key 15**, localStorage — the sketch below said 14, but `favorites` took 14 first; the string is the contract, the number is documentation):
 
 ```ts
-// STORAGE_KEYS.syncOutbox = 'nepal_japan_sync_outbox'
+// STORAGE_KEYS.syncOutbox = 'nepal_japan_sync_outbox'  (key 15)
+type SyncDomain = 'itinerary' | 'expenses' | 'budget' | 'docs';
+
 interface OutboxSlot {
   version: 1;
-  dirty: {
-    itinerary?: string[];   // 'YYYY-MM-DD' day dates
-    expenses?: string[];    // 'nepal' | 'japan' chunk legs
-    budget?: string[];      // ['model'] — the singleton
-  };
+  dirty: Partial<Record<SyncDomain, string[]>>;
+  //   itinerary → 'YYYY-MM-DD' day dates
+  //   expenses  → 'nepal' | 'japan' chunk legs
+  //   budget    → ['model'] — the singleton
+  //   docs      → ['checklist'] — the singleton (added when the docs domain gained sync)
+  /** ISO timestamp of the most recent successful ack, app-wide (not per-domain);
+   *  absent on a fresh or pre-existing slot. Additive — no version bump. */
+  lastAckAt?: string;
 }
 ```
 
@@ -239,7 +244,9 @@ trips/{TRIP_ID}
   expenses/{leg}       // NEW — 2 chunk docs, doc id 'nepal' | 'japan'
                        //   { leg, items: Expense[] }  (rows carry id/rev/hlc/deleted + paidBy?/split?)
   budget/model         // NEW — 1 singleton doc { version, fields: {path: {v, hlc}} }
-  members/{uid}        // existing presence (D-057, unchanged)
+  docs/checklist       // added later — the critical-docs checklist singleton, same row-merge recipe
+  presence/{deviceId}  // existing presence (D-057) — the collection is `presence`, and the doc id is
+                       //   the locally-minted device id, not a Firebase Auth uid (auth was stripped)
 ```
 
 Chunk key = `expense.leg`, already a required row field, mirroring `DayPlan.country` (D-012). Chunk-by-leg beats chunk-by-month: 2 docs instead of 3, the key already exists on every row, and the per-doc sizes have plenty of headroom (below). Escape hatch if a chunk ever approached the 1 MiB doc limit: re-chunk by month (3 docs). Recorded, not built.
@@ -277,7 +284,7 @@ Storage: total remote data < 2 MB against a 1 GiB allowance, so negligible. Dele
 
 ## 5. `gcTombstones` policy (FU-23 → S145)
 
-Status quo: `gcTombstones` (merge-day.ts:180) exists, is pure and tested, and is never invoked. That is fine at 3-user/32-day scale; tombstone growth is bounded by real deletes.
+Status quo when this was drafted: `gcTombstones` (now `core/sync/merge-day.ts:84`) existed, was pure and tested, and was never invoked. That was fine at 3-user/32-day scale; tombstone growth is bounded by real deletes. **Since built:** it runs at exactly the two merge boundaries below — `lib/itinerary-remote.ts` on the merged result before `tx.set` and again on the snapshot apply — and the id-keyed analog `gcTombstoneRows` (`core/sync/merge-items.ts`) does the same for expenses in `lib/expenses-remote.ts`. The day-shaped helper delegates to the id-keyed one, so there is a single GC predicate.
 
 Policy, which is what S145 implements:
 
@@ -289,7 +296,7 @@ Policy, which is what S145 implements:
 P3 riders bundled into S145 (from FU-23):
 
 1. **`getEntry` memoization.** `use-journal.getEntry` does a full `loadJournal()` parse per call. Memoize via a version-stamped ref (bumped in `commit()` and in the event re-read) so read-after-write-in-one-handler semantics are preserved; first verify that no caller actually depends on the raw re-read.
-2. **Dead subscribe surface.** `itinerarySyncPort.subscribe` (lib/itinerary-ports.ts:60) has zero production callers, because `itinerary-provider.tsx` imports `subscribeRemote` directly. S145 re-routes the provider's `activate()` through the port, which already handles the dynamic import and the cancel-proxy, leaving one subscribe surface. D-055's identity gates stay in the provider effect, unchanged. S142/S143 build their providers on their ports' `subscribe` from day one, so no dead twin is ever created.
+2. **Dead subscribe surface — closed.** `itinerarySyncPort.subscribe` (`lib/itinerary-ports.ts:90`) had zero production callers while `itinerary-provider.tsx` imported `subscribeRemote` directly. S145 re-routed the provider's `activate()` through the port, which already handles the dynamic import and the cancel-proxy, leaving one subscribe surface (`components/itinerary-provider.tsx:301`). D-055's identity gates stayed in the provider effect, unchanged. The expenses, budget and docs providers all subscribe through their own ports too (`itinerary-provider.tsx:352`, `:403`, `:454`), so no dead twin exists for them either.
 3. **Hydration height reservation.** The today-panel and recap islands render short during hydration and then pop (CLS). Reserve settled min-heights: CSS only, presentation layer.
 
 **Tombstone-replace Restore (FU-20, supersedes D-121), the direction for S145:** express `importItinerary` under sync as a diff against the current synced state inside one commit. Every currently-live id absent from the import is tombstoned (`stampSyncDeleted`), and imported items enter as fresh-id copies (`freshCopyOf` plus a created-stamp, the D-032 mechanics, so they can never lose to existing tombstones). The result pushes through the normal `commit()` fan-out (and the outbox), propagates to peers, and survives the next first-snapshot apply. Restore's local-mode path stays byte-identical, and the D-121 disable is then removed.
@@ -310,7 +317,7 @@ The journal (gateway key 12) is a private per-day diary: mood, highlight, free t
 
 ### 7.2 Packing-list sync is moot, and key 6 is retired (D-130 rider)
 
-S113D deleted the packing-checklist feature and gateway key 6 (`packing_checklist`) entirely, and the gateway registry keeps the numbering gap as historical documentation (gateway.ts:52–57). So the V4-DEVPLAN "should packing sync?" open question is answered by deletion rather than by design. Retirement, stated: key number 6 and the string `packing_checklist` are never reused for any future slot, and no sync design, quota line or migration is owed. Residual `packing_checklist` values in deployed browsers are orphaned bytes: harmless, and deliberately not cleaned up, since a cleanup write is more code and more risk than the dead bytes.
+S113D deleted the packing-checklist feature and gateway key 6 (`packing_checklist`) entirely, and the gateway registry keeps the numbering gap as historical documentation (the `STORAGE_KEYS` doc comment in `core/storage/gateway.ts`). So the V4-DEVPLAN "should packing sync?" open question was answered by deletion rather than by design. Retirement, stated: key number 6 and the string `packing_checklist` are never reused for any future slot. Residual `packing_checklist` values in deployed browsers are orphaned bytes: harmless, and deliberately not cleaned up, since a cleanup write is more code and more risk than the dead bytes. **A packing checklist was later rebuilt as a different feature on a brand-new key** (`nepal_japan_packing`, a `PackingItem[]` seeded from a fixed country-scoped template, `core/packing/`) — the retired string was not reused, and that store is local-only, wired without a `SyncPort`, so nothing here is owed a sync design.
 
 ---
 
@@ -327,7 +334,7 @@ The `hooks/create-reactive-store.ts` factory per section 1.2: config = frozen ev
 **Changes if:** a synced domain arrives that is neither id-keyed rows nor a bounded struct.
 
 ### PROPOSED D-150 · The offline outbox is state-based (dirty-chunk sets) and a `SyncPort` decorator; push-before-subscribe plus a dirty-chunk merge exception on first snapshot; exactly-once = at-least-once transport × idempotent merged writes
-`core/sync/outbox.ts` per section 3: gateway key 14 `nepal_japan_sync_outbox` holding `{version, dirty: {domain: chunkKey[]}}`; write-ahead enqueue in the decorated push, ack-on-resolve, and a rejection leaves the chunk dirty; `pushChunk` impls must reject honestly, since the decorator is the swallower. Flush on `online`, on visible, and at app start; the app-start order is flush and then subscribe; the first-snapshot apply is authoritative only for chunks that are not dirty, and dirty chunks steady-state-merge. Enqueue is gated on configured and identified traveler, so dormant and guest builds never write the slot (D-038/D-055 hold, and D-091/D-018 hold because a dirty chunk can only exist via real commits). The undo↔outbox interplay is resolved by construction, because the record is state rather than ops and the flush pushes the netted local state once. The itinerary adopts it, closing S110 TL-A P2-1 and FU-19; a flush of a locally-absent day is skipped rather than issuing a blind `deleteDoc` (accepted edge: whole-day removal is not user-reachable).
+`core/sync/outbox.ts` per section 3: gateway key 14 `nepal_japan_sync_outbox` holding `{version, dirty: {domain: chunkKey[]}}`; write-ahead enqueue in the decorated push, ack-on-resolve, and a rejection leaves the chunk dirty; `pushChunk` impls must reject honestly, since the decorator is the swallower. Flush on `online`, on visible, and at app start; the app-start order is flush and then subscribe; the first-snapshot apply is authoritative only for chunks that are not dirty, and dirty chunks steady-state-merge. Enqueue is gated on configured and identified traveler, so dormant and guest builds never write the slot (D-038/D-055 hold, and D-091/D-018 hold because a dirty chunk can only exist via real commits). The undo↔outbox interplay is resolved by construction, because the record is state rather than ops and the flush pushes the netted local state once. The itinerary adopts it, closing S110 TL-A P2-1 and FU-19; a flush of a locally-absent day is skipped rather than issuing a blind `deleteDoc` (accepted edge: whole-day removal is not user-reachable). **Shipped differently:** `favorites` took key 14 first, so the outbox is **key 15**. `core/storage/gateway.ts` records the swap on the `syncOutbox` slot ("the sketched key 14 for this slot, but favorites took 14 first — the outbox is the next free number, key 15"). The string `nepal_japan_sync_outbox` is the contract and is unchanged; the number is documentation. The slot also gained an additive `lastAckAt?: string` (`core/sync/outbox.ts`), with no `version` bump.
 **Why:** the merge algebra already provides idempotent convergence, so recording chunks instead of ops eliminates the ordering, coalescing and replay machinery entirely.
 **Changes if:** a non-merge-idempotent write path ever ships (it must not, since that would break the exactly-once argument at its root).
 
@@ -349,7 +356,7 @@ Per section 5: invoked on merged results inside `push*Merged` (before `tx.set`) 
 ### PROPOSED D-154 · Gateway key 6 (`packing_checklist`) is retired, so the D-130 packing-sync question is moot
 Number 6 and the string are never reused; no sync design or quota line is owed; residual on-disk values in deployed browsers are harmless orphaned bytes, deliberately not cleaned.
 **Why:** S113D deleted the feature, and designing sync for a deleted feature would be work against nothing.
-**Changes if:** never (a future packing feature would be a new slot with a new key).
+**Changes if:** never for the retired string. A future packing feature is a new slot with a new key — **which is what happened**: `nepal_japan_packing` (`core/packing/`) was built later on a brand-new key and is deliberately local-only, so it inherits no sync design from key 6.
 
 ---
 

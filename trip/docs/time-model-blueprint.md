@@ -1,3 +1,10 @@
+> **Built — S124/S125/S126 shipped; section 0 is a snapshot of the pre-build state (2026-07-10).**
+> The chain is now `[v2→v3, v3→v4, v4→v5]` and `CURRENT_ITINERARY_VERSION = 5` (`core/vault/migrations.ts`).
+> Three parts of the design were later amended: the per-item zone override and the badge rule
+> (D-137 amendment, S393), the deletion of `isPastAtPlace` (TD-05), and the move from wall-clock
+> minutes to absolute instants in sort and clash (TD-07). Current behaviour lives in the code and
+> in `DECISIONS.md`.
+
 # Time-Model Blueprint — Structured Item Times, Vault v5 & Place-Clock Comparison (M17 Phase 1)
 
 > **Status:** blueprint (S123, doc-only). Turns section 2 of `docs/v4-technical-doc.md` into decisions, and governs build slices **S124** (core + migration + Up-Next), **S125** (picker + display), **S126** (sort/timeline/clash).
@@ -20,13 +27,13 @@ The hard external facts this design bends around: the site is live and sync-enab
 
 ## 1. Semantics — wall-clock-at-place (D-137)
 
-`startMinutes` (integer 0–1439) is minutes from midnight, local wall-clock at the day's place. It is not a UTC instant, and it is never timezone-converted for display. The place is the item's day: country via `getCountryForDate(dayDate)`, city via `getCityForDate(dayDate)`. The time badge is derived from the day's country (`nepal → "NPT"`, `japan → "JST"`) and is presentation-only.
+`startMinutes` (integer 0–1439) is minutes from midnight, local wall-clock at the day's place. It is not a UTC instant, and it is never timezone-converted for display. The place is the item's day: country via `getCountryForDate(dayDate)`, city via `getCityForDate(dayDate)`. The time badge was originally derived from the day's country (`nepal → "NPT"`, `japan → "JST"`) and is presentation-only. **Amended (D-137 amendment, S393, 2026-08-06, owner-signed, recorded in `DECISIONS.md`):** an item whose effective offset differs from its day's — i.e. one carrying a `tzOffsetMin` override — is badged with its OWN zone instead, resolved by `zoneAbbrevForOffset` over a closed five-entry table (`NPT` 345 / `JST` 540 / `EST` -300 / `IST` 330 / `CST` 480, `core/dates/item-time.ts`). An offset the trip does not know badges `null`, i.e. no badge, never a fabricated label. Every item with no override still takes the day-country path byte-identically (`lib/item-time-display.ts`). The time itself is still never TZ-converted; only the label changed.
 
 `durationMinutes` (integer > 0) is an elapsed length in minutes, with no wall-clock meaning of its own. `start + duration` may exceed 1439 for an item running past midnight. It is compared as raw minutes and never wrapped; the item still belongs solely to its start day.
 
-Explicitly out of scope: a mid-day timezone change. Every item belongs to exactly one dated day whose country is a total function of the date (Nepal ≤ Dec 18, Japan ≥ Dec 19). The Nepal→Japan handover happens across the Dec 18/19 day boundary, so no day in this trip has two offsets. An item on a travel day uses that day's offset: Dec 18 depart-KTM items are NPT, Dec 19 arrival items are JST. If a future trip ever has a same-day border crossing, that forces a per-item place override, which is a new decision rather than a quiet patch.
+Explicitly out of scope: a mid-day timezone change. Every item belongs to exactly one dated day whose country is a total function of the date (Nepal ≤ Dec 18, Japan ≥ Dec 19). The Nepal→Japan handover happens across the Dec 18/19 day boundary, so no day in this trip has two offsets. An item on a travel day uses that day's offset: Dec 18 depart-KTM items are NPT, Dec 19 arrival items are JST. If a future trip ever has a same-day border crossing, that forces a per-item place override, which is a new decision rather than a quiet patch. **That decision was taken (D-137 amendment, S393, recorded in `DECISIONS.md`):** `ItineraryItem.tzOffsetMin?: number` (`lib/trip-data.ts:108`) is the per-item override, resolved by `effectiveOffsetMin(item, dayOffsetMin)` in `core/dates/item-time.ts`. Every item without it falls straight through to the day's offset, byte-identically. It exists because the trip's last day, 2027-01-09, is a date-line crossing that genuinely holds items in two zones — the Tokyo departure at 17:35 (JST, the day's offset) and the Detroit layover it produces at 15:35 (`tzOffsetMin: -300`, EST).
 
-Offsets are constants, injected explicitly: NPT = UTC+5:45 = +345 min; JST = UTC+9:00 = +540 min. They appear in exactly one core module (section 4) and nowhere else.
+Offsets are injected explicitly, never inferred. They are **derived from the active trip pack's legs** (`TripLeg.utcOffsetMin`) and surfaced by exactly one core module (section 4) and nowhere else: for the default pack that is NPT = UTC+5:45 = +345 min and JST = UTC+9:00 = +540 min, authored once in `core/trips/packs/nepal-japan-2026.ts`.
 
 ## 2. Field contract — additive, `time` retained (D-138)
 
@@ -78,9 +85,9 @@ Everything else returns `undefined`: the item stays untimed and its legacy text 
 One new framework-free module (D-099; type-only `lib` imports). All time helpers live here, and nothing else in the codebase does offset math:
 
 ```ts
-export const NPT_OFFSET_MIN = 345;                 // UTC+5:45
-export const JST_OFFSET_MIN = 540;                 // UTC+9:00
-export function offsetForCountry(c: 'nepal' | 'japan'): number;
+export const NPT_OFFSET_MIN: number;                // the 'nepal' leg's utcOffsetMin (345 for the default pack)
+export const JST_OFFSET_MIN: number;                // the 'japan' leg's utcOffsetMin (540 for the default pack)
+export function offsetForCountry(c: string): number; // leg id → offset; unknown id falls back to NPT
 
 export function parseTimeString(raw: string): number | undefined;      // section 3.1
 export function effectiveStartMinutes(item: ItineraryItem): number | undefined;
@@ -93,10 +100,11 @@ export function placeWallClockToUtcMs(dateStr: string, minutes: number, offsetMi
 //   B-01-safe: the ISO date is split, never `new Date(string)`-parsed; no local-TZ
 //   getters are involved anywhere. Date.UTC is deterministic on every machine.
 
-export function isPastAtPlace(dateStr: string, startMinutes: number,
-                              offsetMin: number, nowUtcMs: number): boolean;
-//   = placeWallClockToUtcMs(dateStr, startMinutes, offsetMin) < nowUtcMs
-//   Strictness preserved from today's nextUp: an item exactly at "now" is NOT past.
+// `isPastAtPlace(dateStr, startMinutes, offsetMin, nowUtcMs)` was built here and later
+// DELETED (TD-05): its one-line body — `placeWallClockToUtcMs(...) < nowUtcMs` — is inlined
+// at its single call site in `lib/whats-next.ts`, which now uses that same instant as BOTH
+// the past-gate and the ranking key. The strictness it encoded (an item exactly at "now" is
+// NOT past) lives on there.
 ```
 
 This is an instant comparison rather than a minutes-of-day comparison, on purpose: it stays correct across a day boundary. A viewer far from the trip zone during the trip gets a place-accurate "past", where today's lexicographic compare is device-wall-clock and silently wrong for them. That is a small, deliberate behavioral improvement.
@@ -121,7 +129,7 @@ export function nextUp(items: ItineraryItem[],
   ctx: { dayDate: string; placeOffsetMin: number; nowUtcMs: number }): ItineraryItem | null;
 ```
 
-Skip `done === true`; skip items where `effectiveStartMinutes` is `undefined`; skip `isPastAtPlace(...)`; return the smallest effective minutes, first-in-array on ties (stable, as today). The sole caller `components/today-panel.tsx` replaces its local `nowHHMM()` with `offsetForCountry(todayInTrip.country)` plus `getNowUtcMsForPlace(todayInTrip.date, offset)` on the same 1s tick. `lib/__tests__/whats-next.test.ts` is rewritten to the new signature, carrying every behavioral case forward, plus the offset cases in section 7.
+Skip `done === true`; skip items where `effectiveStartMinutes` is `undefined`; skip items whose start instant is `< nowUtcMs`; return the smallest effective minutes, first-in-array on ties (stable, as today). The sole caller `components/today-panel.tsx` replaces its local `nowHHMM()` with `offsetForCountry(todayInTrip.country)` plus `getNowUtcMsForPlace(todayInTrip.date, offset)` on the same 1s tick. `lib/__tests__/whats-next.test.ts` is rewritten to the new signature, carrying every behavioral case forward, plus the offset cases in section 7.
 
 ## 5. Picker + display contract — S125 (D-141)
 
@@ -132,10 +140,10 @@ Skip `done === true`; skip items where `effectiveStartMinutes` is `undefined`; s
 
 ## 6. Sort / timeline / clash — S126 (D-142)
 
-- `sortItemsByTime(items)` is pure, view-level and non-destructive. Stable sort by `effectiveStartMinutes`; untimed items sink to the bottom preserving their relative order; equal keys preserve array order. The stored manual order remains the persisted truth, and the toggle is UI state only, with zero itinerary writes (D-018 untouched). The timeline view renders from the same sorted projection.
+- `sortItemsByTime(items, dayDate, dayOffsetMin)` is pure, view-level and non-destructive. Stable sort by the item's absolute **instant** — `placeWallClockToUtcMs(dayDate, effectiveStartMinutes(item), effectiveOffsetMin(item, dayOffsetMin))` — not by raw wall-clock minutes, because a day can hold items in two zones (the 2027-01-09 date-line crossing) and a wall-clock key rendered the traveller arriving before they left. Untimed items sink to the bottom preserving their relative order; equal keys preserve array order. The stored manual order remains the persisted truth, and the toggle is UI state only, with zero itinerary writes (D-018 untouched). The timeline view renders from the same sorted projection. Accepted cost on such a day: the displayed times are correctly ordered but visually non-monotonic.
 - Overlap predicate: warn-only, never blocking. A pair `(a, b)` warns iff both have a defined `effectiveStartMinutes`, both have `durationMinutes > 0`, and:
   `(a.start < b.start + b.dur) && (b.start < a.start + a.dur)`
-  Intervals are half-open, so touching endpoints (10:00–11:00 vs 11:00–12:00) never warn. Items without a duration never warn, because free-text reality is fuzzy. Raw minutes; past-midnight spill compares un-wrapped (section 1). Pure helper, unit-tested including the stability property.
+  Intervals are half-open, so touching endpoints (10:00–11:00 vs 11:00–12:00) never warn. Items without a duration never warn, because free-text reality is fuzzy. Compared as absolute **instants**, not raw minutes (`clashingItemIds(items, dayDate, dayOffsetMin)` in `lib/sort-items-by-time.ts`, TD-07): two items on one day can sit in different zones, and a raw wall-clock comparison answers "when" in a frame that does not exist — two 09:00 items 14 hours apart would read as a clash. Past-midnight spill therefore falls out of the epoch arithmetic for free. Multi-day spans (items carrying an `endDate`) are dropped before the pairwise check: clash v1 has no cross-day semantics. Pure helper, unit-tested including the stability property.
 
 ## 7. Migration + offset test matrix (S124 implements — enumerated)
 
@@ -158,7 +166,7 @@ Mirror the structure of `lib/__tests__/vault-v4-migration.test.ts` in a `vault-v
 ## 8. S124 build order (the risky slice)
 
 1. `lib/trip-data.ts` fields + `core/vault/schema.ts` optionals + the v5 schema pair (a compile-only step).
-2. `core/dates/item-time.ts` (parser, `effectiveStartMinutes`, `formatTimeAmPm`, offsets, `placeWallClockToUtcMs`, `isPastAtPlace`) plus its unit suite. Land the pure math green *before* the migration exists.
+2. `core/dates/item-time.ts` (parser, `effectiveStartMinutes`, `formatTimeAmPm`, offsets, `placeWallClockToUtcMs`) plus its unit suite. Land the pure math green *before* the migration exists.
 3. Migration #3 append + `CURRENT_ITINERARY_VERSION = 5` + the section 7 migration suite (items 1–9).
 4. `export-import` spec updates (item 10).
 5. `lib/trip-now.ts` `getNowUtcMsForPlace` + the `nextUp` signature change + `today-panel.tsx` wiring + the whats-next suite rewrite (items 11–12).
@@ -179,7 +187,7 @@ Mirror the structure of `lib/__tests__/vault-v4-migration.test.ts` in a `vault-v
 ### D-137 · PROPOSED LOCKED (S123 blueprint) · Item times are wall-clock-at-place — `startMinutes` 0–1439 local to the day's place, never TZ-converted for display
 **Decision:** `startMinutes` (int 0–1439) = minutes-from-midnight local wall-clock at the item's day's place (country via `getCountryForDate`, city via `getCityForDate`); `durationMinutes` (int > 0) = elapsed minutes, which may spill past 1439 un-wrapped. The NPT/JST badge is derived from the day's country only. Offsets are explicit constants: NPT +345, JST +540. Mid-day border crossings are out of scope, since no such day exists in this trip and a travel day's items use that day's offset.
 **Why:** a trip itinerary is authored and read in place-local time. UTC instants would force conversion everywhere and reintroduce the B-01 bug class. One dated day = one place = zero ambiguity.
-**Changes if:** a trip ever has a same-day timezone change, which forces a per-item place override and is a new decision.
+**Changes if:** a trip ever has a same-day timezone change, which forces a per-item place override. **This happened — see the D-137 amendment (S393) recorded in `DECISIONS.md`:** `tzOffsetMin?` per item, resolved by `effectiveOffsetMin`, badged with its own zone.
 
 ### D-138 · PROPOSED LOCKED (S123 blueprint) · Additive time fields: `startMinutes?`/`durationMinutes?` on `ItineraryItem`; `time?`/`duration?` retained; lenient Vault schema learns them, strict content schema deliberately does not; user edits dual-write
 **Decision:** both fields are optional-additive (D-012). The Vault read schema adds them as plain `z.number().optional()`, with the range enforced only at `effectiveStartMinutes`, so an out-of-range value degrades to untimed and never quarantines, plus a v5 payload/envelope schema pair. The S122 strict content schema stays `time`-only, and `.strict()` keeps rejecting the new fields in seed content: a single authored source, with the runtime fallback parser covering the seed. User edits via the picker write both `startMinutes` and a canonical 24h `time`, and clearing clears both. That is a user write, not a migration rewrite, so D-012 stays intact, and it keeps old clients' display current in the mixed fleet.
@@ -195,6 +203,7 @@ Mirror the structure of `lib/__tests__/vault-v4-migration.test.ts` in a `vault-v
 **Decision:** all time helpers (parser, `effectiveStartMinutes`, `formatTimeAmPm`, NPT/JST constants, `placeWallClockToUtcMs`, `isPastAtPlace`) live in one framework-free core module (D-099). `isPastAtPlace(dateStr, startMinutes, offsetMin, nowUtcMs)` is an instant compare, `itemUtc < nowUtc`, so at-now is upcoming and today's strictness is preserved. ISO dates are split, never `new Date(string)`-parsed; only `Date.UTC` field arithmetic, which is B-01-safe. "Now" comes from one adapter read, `lib/trip-now.ts getNowUtcMsForPlace(dayDate, offsetMin)`: with the override active, the synthetic clock's wall-clock face is re-interpreted at the place offset, so demo "now" is place noon, byte-parity with today's `"12:00"` behavior and TZ-deterministic; with no override it is `getNow().getTime()`, an exact no-op in-zone. `nextUp(items, {dayDate, placeOffsetMin, nowUtcMs})` consumes it, and the sole caller `today-panel.tsx` is rewired. D-075 storage and precedence are untouched.
 **Why:** exactly one place does cross-TZ math, with injected offsets and a pure instant compare that stays correct across day boundaries, and the override rule keeps the frozen `?today=` E2E net green.
 **Changes if:** a second comparison site appears, in which case route it through this module rather than writing a second implementation.
+**Built, then amended in code (TD-05):** `isPastAtPlace` shipped as designed and was later DELETED — its one-line body (`placeWallClockToUtcMs(...) < nowUtcMs`) is inlined at its single call site in `lib/whats-next.ts`, which now uses that instant as BOTH the past-gate and the ranking key (the two disagreed once a day held items in different zones). The decision's substance is unchanged: one offset-injected instant compare, at-now still counts as upcoming. Only the named helper is gone; `DECISIONS.md` D-140 still names it and has not been amended.
 
 ### D-141 · PROPOSED LOCKED (S123 blueprint) · Hand-rolled AM/PM picker: three columns (hour 1–12 / minute 00–59 / AM-PM), 44px targets, D-021 focus, reduced-motion, Clear-time; no native `input[type=time]`, no new dependency
 **Decision:** per section 5 of the time-model blueprint. A full 0–59 minute column, with no 5-min grid, so migrated values like `07:02` stay representable with zero special cases. Display everywhere: `formatTimeAmPm(effectiveStartMinutes)` plus the NPT/JST day-country badge, while legacy-only items show their `time` text verbatim and unbadged. Saves dual-write per D-138.
@@ -205,6 +214,7 @@ Mirror the structure of `lib/__tests__/vault-v4-migration.test.ts` in a `vault-v
 **Decision:** `sortItemsByTime` is pure, view-level and non-destructive: stable by `effectiveStartMinutes`, with untimed items sinking while preserving relative order. The stored manual order stays the persisted truth (zero writes, D-018), and the timeline renders the same projection. Overlap warns iff both items have `effectiveStartMinutes` and `durationMinutes > 0` and `(a.start < b.start + b.dur) && (b.start < a.start + a.dur)`. Half-open, so touching never warns; raw minutes, so spill is un-wrapped; a warn-only badge, never blocking.
 **Why:** sorting must never mutate user order (undo-free, sync-safe), and fuzzy free-text reality makes blocking or duration-less warnings noise.
 **Changes if:** durations become near-universal on items, in which case a "gap view" could be more than warn-only, which is a new decision.
+**Shipped differently (TD-07):** the overlap is judged on absolute instants, not raw minutes — `clashingItemIds(items, dayDate, dayOffsetMin)` in `lib/sort-items-by-time.ts` — so a two-zone day is correct and past-midnight spill falls out of the epoch arithmetic; multi-day `endDate` spans are excluded from clash v1. Half-open and warn-only are unchanged.
 
 ### D-143 · PROPOSED (process note, S123) · D-107 mixed-fleet coordination for the S124 deploy: friends reload right after; old-client `time` edits can leave stale `startMinutes` until re-touched
 **Decision:** after S124 deploys, coordinate the travelers' reload (the D-073 update flow). Known bounded skew: old clients preserve but ignore `startMinutes`, and an old-client free-text `time` edit does not update it, so new clients may briefly show a stale structured time. Old-build v4-envelope re-saves over v5 data are safe by migration idempotence (D-139).
