@@ -250,9 +250,9 @@ const STARTER_PROMPTS = [
  *
  * GATING — fully invisible unless BOTH hold (no separate gate duplicated at any call site,
  * mirrors `SyncStatusBadge`'s self-contained render-null pattern):
- * 1. `isConciergeConfigured()` — `NEXT_PUBLIC_CONCIERGE_URL` is set. Unset in a plain local
- * build, which is the dormant state the tests cover; a DEPLOY can no longer be dormant, since
- * `deploy.yml` fails rather than ship without the variable (issue #41).
+ * 1. `isConciergeConfigured()`: `NEXT_PUBLIC_CONCIERGE_URL` is set. Unset in a plain local
+ * build, which is the dormant state the tests cover. A DEPLOY can no longer be dormant: since
+ * issue #41, `deploy.yml` fails the build instead of shipping without the variable.
  * 2. A resolved traveler (`traveler !== null` — with no guest mode, this is the only
  * identity state that exists once past the front door).
  * `useActiveTraveler()` is SSR-safe (server snapshot `{traveler:null}`), so this never flashes

@@ -111,7 +111,7 @@ jobs:
           fi
           # Must be the BARE ORIGIN. lib/place-resolve.ts builds "<value>/resolve", so a
           # "/chat" suffix requests ".../chat/resolve" and is dead on arrival while chat
-          # keeps working — which is exactly how it would hide (D-252). One trailing slash
+          # keeps working, which is exactly how it would hide (D-252). One trailing slash
           # is fine: place-resolve strips it and chat still POSTs to pathname "/".
           case "${NEXT_PUBLIC_CONCIERGE_URL%/}" in
             *://*/*)
