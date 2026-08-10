@@ -26,16 +26,15 @@
 // Budget: ~1 write / HEARTBEAT_MS / traveler. At 60s × 3 travelers ≈ 4,320 writes/day ≈
 // ~22% of Spark's ~20k writes/day. One onSnapshot on <=3 docs is negligible reads.
 //
-// REUSES the existing firebase init: it shares the SAME singleton app + anonymous sign-in
-// as itinerary-remote.ts (getApps()/getApp() — there is never a second initialization
-// path). The two modules each cache their own lazy handle promise, but both resolve to the
-// one app instance, so dynamic import + getApps() dedupe is enough (no shared mutable here).
+// REUSES the existing firebase init: it awaits itinerary-remote.ts's `getRemote()`, which owns
+// the one app + the one anonymous session. There is no second initialization path here.
 //
 // CONFIG single-source: the config + on/off gate are read ONLY from
 // lib/firebase-config.ts. No process.env.NEXT_PUBLIC_FIREBASE_* reads here.
 
-import { FIREBASE_CONFIG, isRemoteConfigured, isTripRemoteConfigured, getTripId } from './firebase-config';
+import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
+import { getRemote, type RemoteHandle } from './itinerary-remote';
 import { deviceStore } from '@/core/storage/gateway';
 
 // ---------------------------------------------------------------------------
@@ -61,59 +60,22 @@ export interface PresenceRecord {
 }
 
 // ---------------------------------------------------------------------------
-// Shared lazy firebase handle. Mirrors itinerary-remote.ts's getRemote(): init the app +
-// anonymous auth + firestore ONCE, behind the gate, via dynamic import (firebase stays off
-// the dormant hot path,). getApps()/getApp() reuses the SAME singleton app that
-// itinerary-remote.ts creates — there is never a second firebase init.
+// Firebase handle. This module used to own a SECOND lazy init (its own
+// initializeApp/getFirestore promise, deduped only by getApps()). #10 deleted it: the rules now
+// impose an auth floor (`request.auth != null`) on every presence write, and a duplicate init
+// that did NOT await the anonymous sign-in could — and on a cold start would — issue the first
+// heartbeat before the floor was satisfied, which under the new stop-on-denied rule below would
+// kill presence for the whole session over a pure race. `getRemote()` is now the ONE seam every
+// remote path awaits, so presence simply awaits it too.
 // ---------------------------------------------------------------------------
 
-type FirestoreMod = typeof import('firebase/firestore');
-
-interface PresenceHandle {
-  db: import('firebase/firestore').Firestore;
-  fs: FirestoreMod;
-}
-
-let presencePromise: Promise<PresenceHandle> | null = null;
-
 /**
- * Lazily initialize firebase (app + firestore) ONCE, behind the `isRemoteConfigured()` gate.
- * Rejects (caller degrades to a no-op) if the gate is off or any step fails; never throws
- * synchronously. Reuses the singleton app via getApps() (shared with itinerary-remote.ts).
- *
- * NO AUTH: the capability-token rules never read request.auth,
- * so the anonymous sign-in step is gone — mirrors itinerary-remote.ts's `getRemote()`. The
- * presence heartbeat doc id is now a locally-generated persisted device id (`deviceStore.getId()`),
- * not a Firebase Auth uid.
+ * The shared, gated, lazy firebase handle (app + firestore + a signed-in anonymous session).
+ * Kept as a named re-export rather than inlined at the three call sites so this module's
+ * intent — "presence never initializes firebase itself" — stays readable.
  */
-export function getPresence(): Promise<PresenceHandle> {
-  if (!isRemoteConfigured()) {
-    return Promise.reject(new Error('remote not configured'));
-  }
-  if (presencePromise) return presencePromise;
-
-  presencePromise = (async () => {
-    const [{ initializeApp, getApps, getApp }, firestoreMod] = await Promise.all([
-      import('firebase/app'),
-      import('firebase/firestore'),
-    ]);
-
-    const { getFirestore } = firestoreMod;
-
-    // Reuse the singleton app if it already exists (shared with itinerary-remote.ts —
-    // one init across the app), otherwise create it from the single-source config.
-    const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
-
-    const db = getFirestore(app);
-    return { db, fs: firestoreMod };
-  })();
-
-  // If init fails, clear the cache so a later call can retry rather than being stuck.
-  presencePromise.catch(() => {
-    presencePromise = null;
-  });
-
-  return presencePromise;
+export function getPresence(): Promise<Pick<RemoteHandle, 'db' | 'fs'>> {
+  return getRemote();
 }
 
 /**

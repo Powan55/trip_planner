@@ -53,11 +53,18 @@ import { clock } from './trip-now';
 // dynamic import. The promise
 // is cached so concurrent callers share one init.
 //
-// NO AUTH: the capability-token rules never read
-// request.auth (firestore.rules: `allow get, list, write: if true` under a known tripId),
-// so Firebase Auth is fully vestigial — the whole `firebase/auth` module + the pre-sync
-// anonymous sign-in round-trip were removed. Attribution runs entirely through the separate,
-// firebase-free display-name pipeline (lib/identity.ts / token-auth.ts), never a Firebase uid.
+// AUTH IS BACK, AND IT IS PART OF THE HANDLE (issue #10). The rules no longer read
+// `if true` under a known tripId: every trip operation now sits behind an auth floor
+// (`request.auth != null`), and a trip that has grown a `members` map is gated on membership.
+// So this seam signs the device in ANONYMOUSLY before it resolves, and hands back the `auth`
+// instance plus the resulting `uid`. Every other remote module awaits THIS function, so no
+// module can issue a write before the floor is satisfied.
+//
+// THE UID IS DEVICE IDENTITY, NOT ACCOUNT IDENTITY. It is the subject a trip's members map
+// names, it is free and unlimited, and it survives a Google link (`linkGoogleAccount` below
+// preserves it — that is the whole point of linking rather than re-signing-in). Attribution
+// still runs entirely through the separate, firebase-free display-name pipeline
+// (lib/identity.ts / token-auth.ts) — a Firebase uid is never shown to a user as a name.
 // ---------------------------------------------------------------------------
 
 export type FirestoreMod = typeof import('firebase/firestore');
@@ -65,6 +72,10 @@ export type FirestoreMod = typeof import('firebase/firestore');
 export interface RemoteHandle {
   db: import('firebase/firestore').Firestore;
   fs: FirestoreMod;
+  /** The one shared app's Auth instance (the same singleton every module resolves). */
+  auth: import('firebase/auth').Auth;
+  /** This DEVICE's uid at init time — the subject a trip's `members` map names. */
+  uid: string;
 }
 
 let remotePromise: Promise<RemoteHandle> | null = null;
@@ -75,7 +86,9 @@ let remotePromise: Promise<RemoteHandle> | null = null;
  * synchronously.
  *
  * EXPORTED so the expenses adapter (`lib/expenses-remote.ts`) shares the SAME cached
- * init — one firebase app across every synced domain. No auth step.
+ * init — one firebase app across every synced domain. The anonymous sign-in is part of the
+ * init, so awaiting this function is what guarantees the rules' auth floor is satisfied
+ * before any caller issues a read or a write.
  */
 export function getRemote(): Promise<RemoteHandle> {
   if (!isRemoteConfigured()) {
@@ -84,27 +97,70 @@ export function getRemote(): Promise<RemoteHandle> {
   if (remotePromise) return remotePromise;
 
   remotePromise = (async () => {
-    const [{ initializeApp, getApps, getApp }, firestoreMod] = await Promise.all([
+    const [{ initializeApp, getApps, getApp }, firestoreMod, authMod] = await Promise.all([
       import('firebase/app'),
       import('firebase/firestore'),
+      import('firebase/auth'),
     ]);
 
     const { getFirestore } = firestoreMod;
+    const { getAuth, onAuthStateChanged, signInAnonymously } = authMod;
 
     // Reuse the singleton app if it already exists (one init across the app),
     // otherwise create it from the single-source config.
     const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
 
     const db = getFirestore(app);
-    return { db, fs: firestoreMod };
+    const auth = getAuth(app);
+
+    // AWAIT THE FIRST AUTH-STATE RESOLUTION BEFORE SIGNING IN. Firebase restores a persisted
+    // session asynchronously, so `auth.currentUser` is null for a beat on EVERY load; signing
+    // in during that beat would mint a SECOND anonymous uid and silently orphan this device's
+    // members entry (it would still be listed, under a uid nothing uses any more). Resolving
+    // the observer once is what makes the uid stable across reloads.
+    const restored = await new Promise<import('firebase/auth').User | null>((resolve, reject) => {
+      const unsub = onAuthStateChanged(
+        auth,
+        (user) => {
+          unsub();
+          resolve(user);
+        },
+        (err) => {
+          unsub();
+          reject(err);
+        },
+      );
+    });
+    const user = restored ?? (await signInAnonymously(auth)).user;
+
+    return { db, fs: firestoreMod, auth, uid: user.uid };
   })();
 
-  // If init fails, clear the cache so a later call can retry rather than being stuck.
+  // If init (incl. sign-in) fails, clear the cache so a later call can retry rather than
+  // being stuck — a cold start while offline must not poison the handle for the session.
   remotePromise.catch(() => {
     remotePromise = null;
   });
 
   return remotePromise;
+}
+
+/**
+ * This device's Firebase ID token, or `null` — for the Worker's `Authorization: Bearer …`
+ * (issue #10; the Worker verifies membership by reading the trip doc AS this user).
+ *
+ * TOTAL: `null` when remote is unconfigured (the dormant build and every e2e run) and on ANY
+ * failure, so a caller can only ever attach a header it actually has. The token is minted by
+ * the SDK and refreshed by it — never cached here.
+ */
+export async function getAuthIdToken(): Promise<string | null> {
+  if (!isRemoteConfigured()) return null;
+  try {
+    const { auth } = await getRemote();
+    return (await auth.currentUser?.getIdToken()) ?? null;
+  } catch {
+    return null; // unreachable firebase must degrade to "no header", never to a thrown turn
+  }
 }
 
 /**

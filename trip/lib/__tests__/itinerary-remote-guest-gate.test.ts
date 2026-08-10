@@ -33,6 +33,19 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 // A fake Firestore whose getters/writes are all counted — so we can assert a guest push touches
 // NONE of it. `getFirestore` being called at all means the lazy handle started initializing.
 const calls = vi.hoisted(() => ({ getFirestore: 0, writes: 0 }));
+// #10 — `getRemote()` now signs the device in anonymously BEFORE it resolves (the rules grew an
+// auth floor), so the auth module is faked here too. `queueMicrotask`, not `setTimeout`: the
+// observer must resolve after the synchronous return of `onAuthStateChanged` (as the real SDK
+// does) but WITHOUT depending on a timer, so a suite running under fake timers still gets a handle.
+vi.mock('firebase/auth', () => ({
+  getAuth: () => ({ currentUser: { uid: 'device-uid-fake', getIdToken: async () => 'fake-id-token' } }),
+  onAuthStateChanged: (_auth: unknown, next: (u: unknown) => void) => {
+    queueMicrotask(() => next(null)); // no restored session ⇒ the anonymous sign-in below runs
+    return () => {};
+  },
+  signInAnonymously: async () => ({ user: { uid: 'device-uid-fake' } }),
+}));
+
 vi.mock('firebase/app', () => ({
   initializeApp: () => ({ name: 'fake' }),
   getApps: () => [],
