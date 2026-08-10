@@ -82,6 +82,44 @@ async function gotoSettled(page: Page, path: string) {
  */
 async function waitForRouteContent(page: Page) {
   await expect(page.locator('h1').first()).toBeVisible({ timeout: 15_000 });
+  await settleAnimations(page);
+}
+
+/**
+ * Let every FINITE animation finish before axe reads a colour off the page.
+ *
+ * Without this, `color-contrast` is measured on whatever frame the scan lands on. The reveal
+ * animations fade content up from a lower opacity, and a translucent chip mid-fade composites
+ * to a dimmer colour than it ever rests at — e.g. `text-green-200` on `bg-green-500/10` was
+ * reported as fg `#52906a` at 4.31:1, when `#bbf7d0` at rest is nowhere near that. The result
+ * was a contrast failure that came and went with timing, on a page that is compliant once it
+ * settles. #10 made it surface more often (the provider withholds `{children}` until an
+ * identified traveler, so content mounts — and therefore animates — later, overlapping the
+ * scan), but the race predates it and was always able to fire.
+ *
+ * INFINITE animations are excluded deliberately: `.animate-shimmer` and friends never resolve
+ * `finished`, so awaiting them would hang instead of settle. Their frames are still scanned —
+ * this only skips WAITING on them. And the wait is HARD-BOUNDED at 2s on top of that: an
+ * excluded-by-mistake or never-starting animation must never turn an accessibility scan into a
+ * 30s test timeout (it did, while this was being written — an unbounded await ate the whole
+ * budget and the scan never ran, which reads as a failure but proves nothing).
+ */
+const ANIMATION_SETTLE_BUDGET_MS = 2000;
+
+async function settleAnimations(page: Page) {
+  await page
+    .evaluate(async (budgetMs) => {
+      const finite = document
+        .getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+      await Promise.race([
+        Promise.all(finite.map((a) => a.finished.catch(() => undefined))),
+        new Promise((resolve) => setTimeout(resolve, budgetMs)),
+      ]);
+    }, ANIMATION_SETTLE_BUDGET_MS)
+    .catch(() => {
+      /* animations API unavailable / context churn — scanning is still better than not */
+    });
 }
 
 /**
