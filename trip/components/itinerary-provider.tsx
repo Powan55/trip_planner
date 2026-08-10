@@ -252,6 +252,58 @@ export function runTripMetaSelfHeal(): () => void {
   };
 }
 
+/**
+ * #10 — MEMBERSHIP ENROLMENT, once per page load, for the active non-default trip.
+ *
+ * `ensureMembership` reads the trip doc and adds THIS device's uid to its `members` map if the
+ * trip has one and this device is not in it (or takes `owner` on a grandfathered members-less
+ * trip). It costs one server read on every load after the first, and nothing else — the
+ * already-enrolled branch writes nothing.
+ *
+ * Gated exactly like the domain sync effects: configured build ∧ a non-default (non-sample) trip
+ * ∧ an identified traveler. A guest never enrols, and the local-only sample has no members map at
+ * all. Firebase is reached only through the dynamic import, after every gate.
+ *
+ * THE REFUSAL PATH IS THE PRODUCT, NOT AN ERROR. A trip that is member-gated and does not list
+ * this device refuses the READ, so `ensureMembership` dispatches `trip:access-pending` rather than
+ * throwing, and this is where that becomes one toast telling the user what to do about it. The
+ * listener is registered BEFORE the enrolment starts, and torn down with the effect.
+ *
+ * 🔴 The event name is a LITERAL here on purpose: importing `TRIP_ACCESS_PENDING_EVENT` from
+ * `lib/trips-remote` would drag that module — and firebase behind it — onto this provider's
+ * static chunk, which is the one thing every gate in this file exists to prevent. The two are
+ * pinned equal by `lib/__tests__/trip-membership.test.ts`.
+ *
+ * Extracted (like `runTripMetaSelfHeal`) so it has a runnable unit check without mounting the
+ * whole provider tree. Returns the effect cleanup.
+ */
+export function runTripMembership(): () => void {
+  const noop = () => {};
+  if (!isRemoteConfigured()) return noop;
+  const activeId = getActiveTripId();
+  if (activeId === DEFAULT_TRIP_ID) return noop; // the sample is local-only — no members map
+  if (!getActiveTraveler()) return noop; // guest / signed-out never enrols
+
+  const onAccessPending = () => {
+    toast(
+      'You don’t have access to this trip yet — ask a member to add this device (Settings → Trip access).',
+      // One toast, even if the event were ever to fire twice in a load (a dev double-mount).
+      { id: 'trip-access-pending' },
+    );
+  };
+  window.addEventListener('trip:access-pending', onAccessPending);
+
+  void import('@/lib/trips-remote')
+    .then(({ ensureMembership }) => ensureMembership(activeId))
+    .catch((err) => {
+      console.warn('[itinerary-provider] membership enrolment unavailable:', err);
+    });
+
+  return () => {
+    window.removeEventListener('trip:access-pending', onAccessPending);
+  };
+}
+
 export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   const store = useItinerary();
 
@@ -501,6 +553,9 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   // TRIP-META SELF-HEAL — see `runTripMetaSelfHeal` (extracted so it has a runnable unit check
   // without mounting the whole provider tree, same as `createSyncCodeTripListSync` above).
   useEffect(() => runTripMetaSelfHeal(), []);
+
+  // #10 — MEMBERSHIP ENROLMENT + the access-pending toast. See `runTripMembership`.
+  useEffect(() => runTripMembership(), []);
 
   // SYNC-CODE trip-list subscription. Mirrors the self-heal effect's
   // gating shape, but opens a LIVE `onSnapshot` on `trips/{syncCode}/profile/tripList` instead of a

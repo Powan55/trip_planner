@@ -175,6 +175,18 @@ export default function TripsHub() {
   };
 
   /**
+   * #10 — create the trip's remote doc, naming this device `owner`, BEFORE anything is written
+   * underneath it. Ordering is structural, not stylistic: the members map can only be minted on
+   * the create, and once it exists every write under `trips/{id}/**` is membership-gated. Same
+   * shape as `pushMetaFor` — dynamically imported, never rejects — so it composes into the same
+   * `settleWithin` budget below.
+   */
+  const createTripDocFor = (id: string): Promise<void> =>
+    import('@/lib/trips-remote')
+      .then(({ createTripDoc }) => createTripDoc(id))
+      .catch((err) => console.warn('[trips-hub] trip doc create unavailable:', err));
+
+  /**
    * Best-effort mirror of the updated known-trips list to the owner's User Token doc ( Sync
    * Code, promoted by — same key 28, same remote path) after any
    * list-changing action, so the change reaches their other devices. No-op when no code is set.
@@ -287,7 +299,19 @@ export default function TripsHub() {
     // flight, so the joiner's /plan rendered no day cells at all. Await both pushes under one
     // shared budget, then navigate whatever happened (see CREATE_PUSH_BUDGET_MS).
     setCreating(true);
-    await settleWithin([pushMetaFor(id, name, config), pushSyncList()], CREATE_PUSH_BUDGET_MS);
+    // #10 — the trip DOC first, THEN the pushes that live underneath it. The order is structural:
+    // the members map can only be minted on the create, and from the moment it exists every write
+    // under `trips/{id}/**` is membership-gated, so the creator has to already be in it. Chained
+    // inside ONE `settleWithin` rather than awaited twice, so the whole sequence still shares the
+    // single navigation budget — a dead network must not make "create a trip" hang for 2×.
+    await settleWithin(
+      [
+        createTripDocFor(id).then(() =>
+          Promise.allSettled([pushMetaFor(id, name, config), pushSyncList()]),
+        ),
+      ],
+      CREATE_PUSH_BUDGET_MS,
+    );
     window.location.assign(withBasePath('/'));
   };
 

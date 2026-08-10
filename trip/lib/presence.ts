@@ -34,7 +34,7 @@
 
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
-import { getRemote, type RemoteHandle } from './itinerary-remote';
+import { getRemote, isPermissionDenied, type RemoteHandle } from './itinerary-remote';
 import { deviceStore } from '@/core/storage/gateway';
 
 // ---------------------------------------------------------------------------
@@ -144,7 +144,19 @@ async function writeHeartbeat(): Promise<void> {
       { merge: true },
     );
   } catch (err) {
-    // A failed heartbeat must not break the app — degrade to silent local-only.
+    // #10 — DENIED IS NOT A TRANSIENT FAILURE. The rules refused this write because this device is
+    // not (yet) a member of the trip, and every retry for the rest of the session will be refused
+    // identically. Left alone it is a write attempt every HEARTBEAT_MS forever against the free
+    // tier's quota, and a console line every minute. So tear the loop down and warn ONCE. Nothing
+    // is deleted (the delete would be denied too) and nothing is surfaced to the user here —
+    // `ensureMembership`'s `trip:access-pending` toast is the one place that explains it.
+    // Membership arriving later re-arms the heartbeat on the next page load.
+    if (isPermissionDenied(err)) {
+      teardownLoop();
+      console.warn('[presence] heartbeat denied by the rules — this device is not a member of this trip; loop stopped');
+      return;
+    }
+    // Any other failed heartbeat must not break the app — degrade to silent local-only.
     console.warn('[presence] heartbeat write failed, staying local-only:', err);
   }
 }
@@ -220,13 +232,14 @@ export function startPresence(): void {
 }
 
 /**
- * Stop the heartbeat: clear the interval, remove the visibility listener, and best-effort
- * DELETE the presence doc so the traveler drops off the bar immediately (sign-out / unmount).
- * Idempotent and SSR-safe (no-op when there's no loop / no `window`).
+ * Tear the loop down LOCALLY — interval, visibility listener, the `stopped` flag — and nothing
+ * else. No network. Extracted (#10) because there are now two reasons to stop: the user signed out
+ * (which should also delete the doc, below) and the rules refused the write (where a delete would
+ * be refused too). Returns the loop that was torn down, or null if there was none.
  */
-export function stopPresence(): void {
+function teardownLoop(): HeartbeatLoop | null {
   const current = loop;
-  if (!current) return;
+  if (!current) return null;
   current.stopped = true;
   loop = null;
 
@@ -238,6 +251,16 @@ export function stopPresence(): void {
     document.removeEventListener('visibilitychange', current.onVisibility);
     current.onVisibility = null;
   }
+  return current;
+}
+
+/**
+ * Stop the heartbeat: clear the interval, remove the visibility listener, and best-effort
+ * DELETE the presence doc so the traveler drops off the bar immediately (sign-out / unmount).
+ * Idempotent and SSR-safe (no-op when there's no loop / no `window`).
+ */
+export function stopPresence(): void {
+  if (!teardownLoop()) return;
 
   // Best-effort delete so the traveler disappears at once (not just after they age out of
   // the active window). Gated: only when the ACTIVE trip syncs (#10 — the default pack never

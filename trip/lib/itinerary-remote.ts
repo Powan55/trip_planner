@@ -164,6 +164,23 @@ export async function getAuthIdToken(): Promise<string | null> {
 }
 
 /**
+ * Did this error come from the security rules refusing the operation? (issue #10)
+ *
+ * THE ONE COPY of that test. Firestore stamps `code: 'permission-denied'` on the rejection of a
+ * denied read/write and on a denied snapshot stream error alike, and the three callers that must
+ * treat a denial differently from a transport failure — membership enrolment (dispatch, don't
+ * throw), the presence heartbeat (stop the loop, don't retry forever) and the door's identity
+ * probe — all route through here rather than each spelling the string out.
+ *
+ * Deliberately narrow: only the code, never the message. A message match would fire on an
+ * unrelated error that merely mentions permissions, and the consequence of a false positive here
+ * is a heartbeat that stops or a toast the user cannot act on.
+ */
+export function isPermissionDenied(err: unknown): boolean {
+  return (err as { code?: unknown } | null)?.code === 'permission-denied';
+}
+
+/**
  * Map a raw Firestore day-doc into a DayPlan. Defensive: tolerate partial/legacy docs
  * so a malformed remote doc degrades gracefully (it just yields a thin-but-valid
  * DayPlan) rather than throwing inside the snapshot handler.
@@ -533,7 +550,7 @@ export function subscribeRemote(
     if (cancelled || established || settingUp) return;
     settingUp = true;
     try {
-      const { db, fs } = await getRemote();
+      const { db, fs, uid } = await getRemote();
       if (cancelled || established) return;
 
       const { collection, onSnapshot, doc, getDoc, getDocFromServer, setDoc, serverTimestamp } = fs;
@@ -570,7 +587,7 @@ export function subscribeRemote(
                 firstSnapshotHandled = true;
                 await reconcileFirstSnapshot(
                   remoteDays,
-                  { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp },
+                  { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid },
                   applyRemoteAuthoritative,
                 );
                 return;
@@ -655,6 +672,8 @@ async function reconcileFirstSnapshot(
     getDocFromServer: FirestoreMod['getDocFromServer'];
     setDoc: FirestoreMod['setDoc'];
     serverTimestamp: FirestoreMod['serverTimestamp'];
+    /** This device's uid — named `owner` in the seed marker's members map (#10). */
+    uid: string;
   },
   // The AUTHORITATIVE applier (not the merging one): on the first snapshot, a synced group's
   // remote is taken verbatim incl. empty. Merging here
@@ -662,7 +681,7 @@ async function reconcileFirstSnapshot(
   // snapshot deliberately does NOT merge. Steady-state (later snapshots) does merge.
   applyRemote: (plans: DayPlan[]) => void,
 ): Promise<void> {
-  const { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp } = ctx;
+  const { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid } = ctx;
   const tripRef = doc(db, 'trips', getTripId());
 
   // The trip-doc marker is the "has this group ever synced" signal. Read it from
@@ -688,7 +707,9 @@ async function reconcileFirstSnapshot(
     return;
   }
 
-  if (tripExists) {
+  const localWasPersisted = hasStoredPlans(); // present ⇒ user edits; absent ⇒ the built shells/sample
+
+  if (tripExists && (remoteDays.length > 0 || localWasPersisted)) {
     // Group synced before → remote authoritative, apply INCLUDING empty.
     // This is what makes "A deletes everything → B reflects empty and STAYS empty after
     // reload" true: an emptied shared plan is a real state, not a trigger to reseed.
@@ -696,6 +717,21 @@ async function reconcileFirstSnapshot(
     return;
   }
 
+  // #10 — THE MARKER IS NO LONGER THE ONLY SEED SIGNAL, and this branch is why. `createTripDoc`
+  // now writes the trip doc AT CREATION TIME (it has to: the members map must name the creator as
+  // owner, and rules only accept that on the create). So the creator's very first snapshot finds
+  // the marker PRESENT with ZERO day docs — which under the old single condition meant "the group
+  // synced and then emptied the plan", and applied `[]` authoritatively over the day shells
+  // `buildDayShells` had just derived from the trip's dates. A brand-new trip rendered no day
+  // cells at all, on the creator's own device.
+  //
+  // The added terms make that impossible while leaving every other path byte-identical: with ANY
+  // remote day doc, or with a local key already written (which every device that has ever received
+  // a snapshot has, because applying one calls savePlans), behaviour is exactly as before. Only
+  // "marker present, remote completely empty, this device never persisted anything" seeds — and
+  // whole-day removal is not a user-reachable operation (trip dates are fixed; `clearDay` keeps the
+  // day), so a completely empty remote means "never pushed to", never "deliberately emptied".
+  //
   // Trip doc ABSENT → never synced → THIS client seeds the group.
   // Seed source by LOCAL intent: key present ⇒ the user's own
   // local edits (incl. a deliberate empty); key absent ⇒ the untouched SAMPLE_ITINERARY
@@ -706,16 +742,24 @@ async function reconcileFirstSnapshot(
   // use the STATIC `loadPlans` imported at the top — the former `await import(...)` here
   // was redundant (itinerary-storage is firebase-free, so importing it statically is dormant-safe).
   const localPlans = loadPlans();
-  const localIsUserData = hasStoredPlans(); // present ⇒ user edits; absent ⇒ sample seed
+  const localIsUserData = localWasPersisted; // present ⇒ user edits; absent ⇒ sample seed
 
   try {
     // Create the trip-doc marker first so a concurrent second client sees "synced" and
-    // takes the authoritative branch instead of double-seeding.
-    await setDoc(tripRef, {
-      schemaVersion: 1,
-      createdAt: serverTimestamp(),
-      seededFrom: localIsUserData ? 'local-edits' : 'sample',
-    });
+    // takes the authoritative branch instead of double-seeding. Skipped when the marker is
+    // already there (the create-path doc, #10) — rewriting it would clobber a `members` entry a
+    // peer added between the create and this first snapshot.
+    // #10: the marker carries the same `members` map `createTripDoc` writes, so a trip seeded
+    // through THIS legacy path is member-gated from birth too (parity — otherwise the two ways a
+    // trip doc can come into existence would disagree about whether the lock is on).
+    if (!tripExists) {
+      await setDoc(tripRef, {
+        schemaVersion: 1,
+        createdAt: serverTimestamp(),
+        seededFrom: localIsUserData ? 'local-edits' : 'sample',
+        members: { [uid]: 'owner' },
+      });
+    }
 
     // Push every local day up via the per-day write path (reuse pushPlans with an empty
     // prev so every present day is written; no day is "removed").
