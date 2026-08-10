@@ -48,7 +48,7 @@ jobs:
   # can be pushed to directly by a repo admin, and until now such a push reached
   # the live site after a version check and a build and nothing else.
   #
-  # The browser suite deliberately stays on the pull request — see the note on
+  # The browser suite deliberately stays on the pull request. See the note on
   # ci.yml's `on:` block for why it does not run here.
   #
   # `./` resolves against this same commit, so ci.yml and this reference always

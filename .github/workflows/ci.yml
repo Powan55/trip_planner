@@ -9,7 +9,7 @@ name: CI
 # nothing else, and a direct push (which no pull request ever saw) was checked
 # by nothing at all.
 #
-# Inside a workflow_call, github.event_name is the CALLER's — "push" — so the
+# Inside a workflow_call, github.event_name is the CALLER's ("push"), so the
 # e2e job below is skipped on the deploy path. That is deliberate: the pull
 # request into main already ran the browser suite against the merge result, and
 # re-running it would add thirteen minutes to every deploy to re-confirm the
@@ -22,8 +22,8 @@ on:
   workflow_call:
 
 # Must not share a group with deploy.yml (which uses "pages"), or a CI run
-# would queue behind a deploy — and now that deploy.yml calls this workflow,
-# a shared group would mean a deploy waiting on itself.
+# would queue behind a deploy. Now that deploy.yml calls this workflow, a
+# shared group would also mean a deploy waiting on itself.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true

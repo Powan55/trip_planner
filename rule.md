@@ -31,8 +31,8 @@ uttam ─┘
 
 Never push straight to `main`. It is live, and there is no staging site between
 you and the people using it. If someone does it anyway the deploy still runs
-Checks first and refuses to publish a red tree — that is a backstop, not
-permission.
+Checks first and refuses to publish a red tree. That is a backstop. Do not read
+it as permission.
 
 Start every new piece of work from an up-to-date `dev`:
 
