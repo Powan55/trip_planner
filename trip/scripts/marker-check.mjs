@@ -68,7 +68,7 @@ const PATTERNS = [
   // \b-anchored spelling would miss `.claude/` in every place it actually gets
   // written (`` `.claude/` ``, "(.claude/)", start of line).
   //
-  // Settled once, so nobody re-litigates it: S417 words this rule as "references
+  // Settled once, so nobody re-opens it: S417 words this rule as "references
   // to lib/__tests__/ and e2e/ paths". Do not implement that literally. Those
   // were two thirds of the old mirror script's EXCLUDE_DIRS, the directories it
   // withheld when it copied a private tree into a public one, so in the mirror
@@ -147,10 +147,10 @@ function scanDocRefs(text, relPath, repoRoot) {
   // hand-listed set of delimiters. The listed set was the punctuation defect:
   // it named space ( ` ' " and [, so every reference wrapped in markdown
   // emphasis (**docs/x.md**, *docs/x.md*, _docs/x.md_), sat in a table cell
-  // (|docs/x.md|), in angle brackets or in typographic quotes went unchecked,
-  // and this repo's docs are markdown, where bold is the usual way to write one.
-  // Stating what may NOT precede a path cannot go stale the way a list of
-  // punctuation that may does.
+  // (|docs/x.md|), in angle brackets or in typographic quotes went unchecked.
+  // This repo's docs are markdown, where bold is the usual way to write one.
+  // A rule that says what may NOT precede a path does not go stale the way a
+  // list of the punctuation that may does.
   const re = /(?<![\w./-])((?:[\w.-]+\/)*[\w.-]+\.md)\b/g;
   text.split('\n').forEach((line, idx) => {
     if (ALLOWED_LINES.some((r) => r.test(line))) return;
@@ -195,8 +195,8 @@ const MUST_CATCH = {
 function selfTest() {
   const t = (s) => scanText(s, 'x.ts').map((h) => h.rule);
 
-  // The full-marker-set invariant, and the reason this file has a self-test at
-  // all: every rule is exercised, and every exercise names a live rule.
+  // Why this file has a self-test: every rule is exercised, and every exercise
+  // names a live rule.
   assert.deepEqual(
     PATTERNS.map(([rule]) => rule).sort(),
     Object.keys(MUST_CATCH).sort(),

@@ -1014,7 +1014,7 @@ async function stripPolyfills() {
     );
   }
   console.log(
-    `gen-sw: dropped nomodule polyfill: deleted ${deleted} chunk(s), stripped tag from ${stripped} HTML file(s)`
+    `gen-sw: dropped nomodule polyfill, deleted ${deleted} chunk(s), stripped tag from ${stripped} HTML file(s)`
   );
 }
 

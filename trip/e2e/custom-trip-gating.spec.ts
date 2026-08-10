@@ -236,7 +236,7 @@ test.describe('custom trip: expense split roster is derived, not the hardcoded N
     await page.getByTestId('expense-split-toggle').click();
     await expect(page.getByTestId('expense-split-panel')).toBeVisible();
 
-    // Self is offered as the payer; the hardcoded Nepal×Japan roster is gone (the hardcoded-roster leak).
+    // Self is offered as the payer; the hardcoded Nepal×Japan roster is gone.
     await expect(page.getByTestId('expense-payer-Kenji')).toBeVisible();
     await expect(page.getByTestId('expense-split-member-Kenji')).toBeVisible();
     for (const name of ['Powan', 'Sushil', 'Uttam']) {
