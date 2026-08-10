@@ -212,7 +212,7 @@ describe('clashingItemIds — warn-only half-open overlap (D-142)', () => {
   });
 });
 
-describe('S391 — clash overlap is judged on the ABSOLUTE INSTANT, like its file-mate', () => {
+describe('S391: clash overlap is judged on the ABSOLUTE INSTANT, like its file-mate', () => {
   // S377 moved `sortItemsByTime` to the instant and left `clashingItemIds` on raw wall-clock
   // minutes with no offset and no day. These two cases are the ONLY shape that can tell the
   // frames apart: a day holding items in different zones (D-225 `tzOffsetMin`). A clash test

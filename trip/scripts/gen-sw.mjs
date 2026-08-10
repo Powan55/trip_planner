@@ -1010,11 +1010,11 @@ async function stripPolyfills() {
 
   if (deleted === 0) {
     console.warn(
-      'gen-sw: WARN: matched NO polyfills-*.js chunk — Next may have renamed the polyfill pattern; verify the glob so the strip does not silently no-op.'
+      'gen-sw: WARN: matched NO polyfills-*.js chunk. Next may have renamed the polyfill pattern; verify the glob so the strip does not silently no-op.'
     );
   }
   console.log(
-    `gen-sw: dropped nomodule polyfill — deleted ${deleted} chunk(s), stripped tag from ${stripped} HTML file(s)`
+    `gen-sw: dropped nomodule polyfill, deleted ${deleted} chunk(s), stripped tag from ${stripped} HTML file(s)`
   );
 }
 

@@ -9,7 +9,7 @@ import {
   TRAVELERS,
 } from '../token-auth';
 
-// D-223 — the split roster is fixed TRAVELERS on the default pack and DERIVED from
+// D-223: the split roster is fixed TRAVELERS on the default pack and DERIVED from
 // expense history + self on a custom trip. `isDefaultTrip` (the gateway pointer) is mocked per
 // test via a mutable flag, the same pattern as nav-items.test.ts, so these stay pure over the
 // boolean. `getActiveTraveler()` reads the real (jsdom) identity slot, driven by signIn/signOut.
