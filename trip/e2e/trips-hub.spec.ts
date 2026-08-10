@@ -61,7 +61,7 @@ test.describe('S239 — /trips/ hub', () => {
     await expect(page.getByTestId('trips-hub-copy-0')).toHaveCount(0);
   });
 
-  test('exports a per-route document.title (S264/TD-05 server-component metadata)', async ({
+  test('exports a per-route document.title (S264 server-component metadata)', async ({
     page,
   }) => {
     await goto(page);
@@ -163,7 +163,7 @@ test.describe('S239 — /trips/ hub', () => {
     );
   });
 
-  test('Forget a trip removes it from the list and it stays gone after a full reload (S269/TD-01)', async ({
+  test('Forget a trip removes it from the list and it stays gone after a full reload (S269)', async ({
     page,
   }) => {
     // Seed a non-active shared trip in the known list (pointer unset → default pack is active, so the

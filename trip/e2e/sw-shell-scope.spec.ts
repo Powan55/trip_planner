@@ -8,7 +8,7 @@ import { join } from 'node:path';
  *
  * `buildPrecacheList` used to precache ALL of `_next/static/**`. It now precaches only
  * the app shell's share of it. Route HTML is UNCHANGED and still fully precached — that
- * is the D-073/TD-04 contract and the S271 torn-update invariant.
+ * is the D-073 contract and the S271 torn-update invariant.
  *
  * 🔴 S394 INVERTED THE FIRST TEST HERE, deliberately, and the old shape is worth knowing
  * so nobody "restores" it. Under D-271 ① maplibre's engine was the heaviest thing the
@@ -209,7 +209,7 @@ test.describe('S359B/S394 · what the scoped precache ships, and what it backfil
     context,
   }) => {
     // The counterpart guarantee. Scoping touched `_next/static/**` ONLY; every
-    // route HTML is still precached at install (D-073/TD-04), so a route this
+    // route HTML is still precached at install (D-073), so a route this
     // context has NEVER visited must still resolve offline rather than falling
     // back to the Home shell.
     await page.goto('/', { waitUntil: 'load' });

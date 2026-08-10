@@ -1,6 +1,6 @@
 /**
- * My-places domain — the pure, framework-free "imported Google place" core ( plan
- * `docs/plans/place-link-import-plan.md`). Gateway key 31 stores a `MyPlace[]`
+ * My-places domain — the pure, framework-free "imported Google place" core.
+ * Gateway key 31 stores a `MyPlace[]`
  * (`nepal_japan_my_places`), TRIP-SCOPED + LOCAL-ONLY.
  *
  * FRAMEWORK-FREE: plain TypeScript — no

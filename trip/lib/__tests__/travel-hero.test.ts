@@ -168,7 +168,7 @@ describe('deriveRowPhases — per-row phase, order-aligned with items', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────
-// S391 (TD-08) — one decision, ONE time frame.
+// S391 — one decision, ONE time frame.
 //
 // `currentActivity` qualified its window by INSTANTS but broke ties on WALL CLOCK
 // (`t.startMin > bestStart`), and `effectiveEndMin` took the gap-to-next as a wall-clock
@@ -186,7 +186,7 @@ describe('deriveRowPhases — per-row phase, order-aligned with items', () => {
 //     2026-12-09, 13/96 on 12-10, 24/96 on 12-19, 17/96 on 2027-01-09 — because the gap-to-next
 //     is then measured between a clock face in one zone and a clock face in another.
 // So: latent today, one quick-add away from live. That is why it is worth fixing now.
-describe('S391 (TD-08) — the current-activity decision is made entirely on the instant', () => {
+describe('S391 — the current-activity decision is made entirely on the instant', () => {
   const JAN9 = '2027-01-09';
   const jan9At = (utcHour: number, utcMin = 0) => ({
     dayDate: JAN9,

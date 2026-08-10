@@ -1,7 +1,7 @@
 # V-FINAL DEVPLAN — the last version of this app
 
-_Scope document for the final major version, written 2026-08-09 from eight research reports (S398–S405)
-under `docs/plans/`. This file is the authority on the final wave's scope and slice numbering. Where it
+_Scope document for the final major version, written 2026-08-09 from eight research reports (S398–S405).
+This file is the authority on the final wave's scope and slice numbering. Where it
 disagrees with `S404-vfinal-backlog-proposal` or `S405-vfinal-risk-ranking`, this file wins: both were
 written before the build phase claimed S406–S408, so their slice IDs are superseded. Section 0.3 carries
 the mapping._
@@ -81,7 +81,7 @@ done, and they leave the final wave entirely. The final wave is **S409–S421**,
 
 | Old ID (S404/S405) | Now |
 |---|---|
-| S406 gate honesty · S407 TD-01g | → **S409** · **S410** |
+| S406 gate honesty · S407 debt row | → **S409** · **S410** |
 | S408 map search · S409 leg label · S410 claim rewrite | → **left the wave**: in-flight **S406 / S407 / S408** |
 | S411 R6-res category guard | → **DROPPED** (section 4), an evidence overstatement confirmed independently |
 | S412 · S413 · S414 | → **S411** · **S412** · **S413** |
