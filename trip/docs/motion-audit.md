@@ -30,11 +30,17 @@ outside the `globals.css` token set was found.
 
 ## Route × surface × verdict
 
-All 15 routes measured **PASS** (zero persistently-running animations under reduce; poll to 6s so
-compliant one-shot opacity fades finish, see the tolerance section below). "Shared chrome" =
+Everything measured at S212 **PASS** (zero persistently-running animations under reduce; poll to 6s
+so compliant one-shot opacity fades finish, see the tolerance section below). "Shared chrome" =
 navbar, tab bar, scroll-progress bar, route fade, VT, ambient `body::before` drift, sync badge,
 toasts. All of it is proven neutralized by `motion.spec.ts` (surface-level) and re-proven here
-(route-level).
+(route-level). The permanent net is 15 measurements: the 14 routes in the table below — 13 in
+`e2e/motion-reduced-audit.spec.ts`'s `ROUTES` array plus `/travel/`, which is a separate test
+because it needs an in-trip clock and a seeded day — and the `/`-scrolled case.
+
+> **Coverage gap opened since (as of 2026-08-10).** The app now has 17 routes; three of them —
+> `/guides/`, `/more/` and `/trips/` — are absent from `ROUTES` and from the table below. Adding
+> them to `e2e/motion-reduced-audit.spec.ts`'s `ROUTES` restores route-completeness.
 
 | Route | Motion surfaces beyond shared chrome | Verdict |
 |---|---|---|

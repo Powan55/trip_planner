@@ -2,10 +2,16 @@
 
 _Slice S88 (M15/v3 Phase A). Owner: test infra (per S80/D-093)._
 
-This policy exists so the enforcing **"No Green, No Deploy"** gate
-(`.github/workflows/deploy.yml`) cannot be blocked by a known *environmental*
-flake, while never weakening or deleting a real spec. It governs how CI treats a
-test that fails intermittently for non-product reasons.
+This policy exists so the enforcing **"No Green, No Deploy"** gate cannot be
+blocked by a known *environmental* flake, while never weakening or deleting a
+real spec. That gate is the `e2e` job in `.github/workflows/ci.yml`, which runs
+on pull requests into `dev` and `main` and whose behavioural step carries no
+`continue-on-error`, so a failure fails the run. `.github/workflows/deploy.yml`
+is the release path and runs no test suite at all — its jobs are `version-gate`,
+`markers` (the repository-hygiene marker check), `build` and `deploy` — so "no
+green, no deploy" is enforced at the pull request, not at the push to `main`.
+This policy governs how CI treats a test that fails intermittently for
+non-product reasons.
 
 > Guiding rule: a flake is quarantined, never silenced. We keep the assertion
 > exactly as strong as it is and change only *how the runner reacts* to a
@@ -128,14 +134,15 @@ holds an open streaming request, which would keep the network perpetually non-id
 (the original `networkidle` timeout would just move to a different cause) and,
 worse, inject non-deterministic cross-tab sync into the persistence specs.
 
-This is already true by design and must stay so. The canonical CI/E2E `test` job
-(in `.github/workflows/ci.yml` and `deploy.yml`) deliberately does not set the
-`NEXT_PUBLIC_FIREBASE_*` env, unlike the separate production `build` job, which does.
+This is already true by design and must stay so. `ci.yml`'s `e2e` job deliberately
+does not set the `NEXT_PUBLIC_FIREBASE_*` env — its only build env is
+`NEXT_PUBLIC_CONCIERGE_URL`, a non-resolving `.test` origin — unlike `deploy.yml`'s
+production `build` job, which passes the Firebase secrets through.
 S113E's fixtures identity flip made the pack depend on this dormancy (a guest-bypass
 build with no Firebase config). All local de-flake measurement in S114/S167 was taken
 the same way, on a served `out/` built with no `.env.local`.
 
-**Guarantee (do not regress):** the E2E `test` job stays dormant. Never add the
+**Guarantee (do not regress):** `ci.yml`'s `e2e` job stays dormant. Never add the
 `NEXT_PUBLIC_FIREBASE_*` secrets to it. If a future slice needs the E2E pack to run
 against live sync, it must first re-establish a deterministic settle signal that does
 not depend on the network going idle. The specs' readiness waits already do this at the
@@ -151,11 +158,10 @@ per-nav level, but a live listener would still defeat any `networkidle` fallback
 retries: process.env.CI ? 2 : 0,
 ```
 
-- **CI = 2 retries.** GitHub Actions sets `CI=1`, so every CI E2E run
-  (report-only `ci.yml` and the enforcing `test` job in `deploy.yml`) grants each
-  spec up to two retries. The D-093 flake passes within that budget, so it is
-  reported flaky (green run) rather than failed: the gate stays green and
-  the deploy proceeds.
+- **CI = 2 retries.** `ci.yml`'s `e2e` job sets `CI: '1'` on both Playwright
+  steps, so every CI E2E run grants each spec up to two retries. The D-093 flake
+  passes within that budget, so it is reported flaky (green run) rather than
+  failed: the gate stays green and the pull request can merge.
 - **Local = 0 retries** (unchanged). A bare local failure should surface
   immediately and honestly, not be papered over while developing.
 - A test that passes on retry is a flaky pass. The run is green, but the
@@ -205,10 +211,14 @@ provide. The only sanctioned levers are retries (section 2) and non-blocking
 
 ## 4. Visual regression is separately non-blocking (related, not this flake)
 
-Distinct from D-093: the visual pack (`e2e/visual.spec.ts`, grep `visual`) runs
-with `continue-on-error: true` in both workflows because the committed baselines
-are `-win32` and diff on a linux runner's font AA. That is expected cross-OS drift,
-not a regression (documented in `visual.spec.ts`'s header). This is a
+Distinct from D-093: the visual pack (`e2e/visual.spec.ts`, grep `visual`) runs as
+a separate `continue-on-error: true` step inside `ci.yml`'s `e2e` job — `deploy.yml`
+runs no Playwright step at all — and the reason is mechanical, not cosmetic: the
+committed baselines are named `-win32`, and Playwright's default snapshot path puts
+the platform in the filename, so on a Linux runner the expected `-linux` baseline
+does not exist and the comparison cannot pass at all. `visual.spec.ts`'s header
+documents the same cross-OS caveat from the font-antialiasing angle. Either way it
+is expected cross-environment drift, not a regression. This is a
 non-blocking-by-configuration case, not a quarantined-flake case: the fix is to
 commit `-linux` baselines on the runner (`--grep visual --update-snapshots`) and
 then drop `continue-on-error`, not to retry. Listed here so the two "non-blocking"
@@ -222,7 +232,7 @@ mechanisms are not conflated.
 |---|---|---|---|
 | **D-093 CRUD-reload flake** (`persistence.spec.ts`), fixed at source in S114 (FU-15) | was: card `resolved to 0 elements` (pre-S113E), then `page.goto "networkidle"` timeout under load (post-S113E) | ~~`retries: 2`~~ → now deterministic: navigate `domcontentloaded` + wait `calendar-day-*` island mounted; 120/120 at `--retries=0` | Done. S113E killed the SW first-install reload; S114 replaced `networkidle` with a real readiness wait |
 | **`networkidle` nav flake**, all app-navigating specs, swept in S167 (FU-26) | `page.goto/reload … waiting until "networkidle"` timeout under load (SW precache never idles) | deterministic: `waitUntil:'domcontentloaded'` + a real readiness wait before the first assertion (drop-only where a settle already ran; added wait for `a11y-intrip`) | Done. Zero live `networkidle` nav calls remain in `e2e/` |
-| **E2E build must be dormant (FU-25)** | live `onSnapshot` keeps the network non-idle + injects non-determinism | CI `test` job omits `NEXT_PUBLIC_FIREBASE_*` by design (unlike the `build` job); measure on `out/` with no `.env.local` | Guarantee: never add Firebase secrets to the `test` job (section 1a) |
+| **E2E build must be dormant (FU-25)** | live `onSnapshot` keeps the network non-idle + injects non-determinism | `ci.yml`'s `e2e` job omits `NEXT_PUBLIC_FIREBASE_*` by design (unlike `deploy.yml`'s `build` job); measure on `out/` with no `.env.local` | Guarantee: never add Firebase secrets to `ci.yml`'s `e2e` job (section 1a) |
 | **Any spec flaking beyond 2 retries** (confirmed environmental) | fails all attempts across runs, but env-signature not a regression | tag `@flaky`, split to non-blocking job (`continue-on-error`) | de-flake root cause, remove tag |
 | **Visual drift** (`visual.spec.ts`) | pixel diff on text AA across OS | `continue-on-error: true` (non-blocking) | commit `-linux` baselines, drop `continue-on-error` |
 | **A real regression** | assertion genuinely wrong / product broke | the gate stays red; no retry or quarantine applies | fix the product or the spec |
