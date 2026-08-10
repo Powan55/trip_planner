@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { useItinerary, type ItineraryStore } from '@/hooks/use-itinerary';
+import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import {
   getActiveTraveler,
@@ -253,6 +254,19 @@ export function runTripMetaSelfHeal(): () => void {
 
 export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   const store = useItinerary();
+
+  // #10 — the wall now WITHHOLDS the app, it does not merely cover it. `{children}` render only
+  // for an identified traveler, so a logged-out visitor's DOM (and the static-export HTML, whose
+  // SSR snapshot is the signed-out one) carries NO trip content — closing the login.spec.ts
+  // "readable via view-source/devtools behind the overlay" finding. The mounted flag is the same
+  // SSR-safe idiom TokenGate uses: `useActiveTraveler` yields the inert `{traveler:null}` on the
+  // server and the first client render, so gating on it alone would blank the first paint for
+  // EVERYONE; mount-gating keeps server and first client render agreeing (both empty), then the
+  // real traveler read decides. Reactive via identity:changed, so sign-in mounts the app live
+  // and sign-out unmounts it at once.
+  const { traveler } = useActiveTraveler();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Gated remote READ subscription. Mounts once at app root; the
   // gate keeps the dormant build byte-for-byte today's app (no firebase import runs).
@@ -573,15 +587,17 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ItineraryContext.Provider value={store}>
-      {children}
+      {/* #10 — children render ONLY for an identified traveler (mount-gated, see above). The
+          pre-#10 behavior ("content stays mounted BEHIND the wall") left the whole app — trip
+          name, dates, itinerary — in a logged-out visitor's DOM under a mere overlay. */}
+      {mounted && traveler ? children : null}
       {/* Trip Token landing gate. No guest mode since
           — every logged-out visitor sees this wall. Mounted UNCONDITIONALLY —
           the component derives its state from useActiveTraveler() alone (`show = mounted &&
           (held || !traveler)`), with NO pathname term, so it already covers /travel exactly
           like every other route — which is why travel-date-picker.tsx deliberately carries
           no identity redirect of its own. This is the SINGLE gate mount in the app.
-          Content stays mounted BEHIND it so localStorage hydration / first paint happen
-          normally. z-[70] sits above name-prompt's z-[60]. Dormant-safe:
+          z-[70] sits above name-prompt's z-[60]. Dormant-safe:
           imports only pure modules, never firebase. */}
       <TokenGate />
       {/* First-run guided tour. A sibling of <TokenGate />, so it is present on
