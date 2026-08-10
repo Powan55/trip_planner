@@ -1,0 +1,163 @@
+# How we work on this repo
+
+Two people work here. This file is the agreement between them. If something in
+it stops matching reality, change the file in the same pull request that made it
+wrong.
+
+## Branches
+
+| Branch | What it is |
+|---|---|
+| `lax` | One working branch. Force-push it, rebase it, break it. Nobody else builds on it. |
+| `uttam` | Uttam's working branch. Same freedom. |
+| `dev` | Where the two meet. Everything is tested here together before it can ship. This is the default branch, so a new pull request targets it automatically. |
+| `main` | What is live at https://powan55.github.io/trip_planner/. Every push to it deploys. |
+
+## The flow
+
+```
+lax  ─┐
+      ├─►  dev  ─►  main   (deploys)
+uttam ─┘
+```
+
+1. Work on your own branch. Push whenever, as often as you like.
+2. Open a pull request into `dev` when the change is ready for the other person's
+   code to meet it. CI has to be green.
+3. When `dev` is in a state worth shipping, open a pull request from `dev` into
+   `main`. That one needs a review from the other person, and the full suite green.
+4. Merging into `main` deploys automatically. There is nothing else to run.
+
+Never push straight to `main`. It is live, and there is no staging site between
+you and the people using it.
+
+Start every new piece of work from an up-to-date `dev`:
+
+```
+git switch dev && git pull
+git switch lax && git merge dev
+```
+
+## What CI runs
+
+Two jobs, in `.github/workflows/ci.yml`.
+
+**Checks** (about 5 minutes) runs on every push to `lax`, `uttam` and `dev`, and
+on every pull request:
+
+- repository hygiene (see below)
+- `npx tsc --noEmit`
+- `npm test` (Vitest: 154 files, 1755 tests)
+- `npm run build`
+
+**E2E** (about 13 minutes) runs on pull requests only, after Checks passes:
+
+- `npm run build`, then Playwright against the built static export
+- the behavioural suite, which must pass
+- the visual-regression suite, which is **advisory**. The committed screenshot
+  baselines were generated on Windows and cannot match on the Linux runner, so
+  this step reports but never fails the build. The diff is uploaded as an artifact.
+
+Pushing to your own branch gives you the fast half. The full suite runs when you
+open the pull request, which is where it matters. Expect to wait.
+
+## Repository hygiene
+
+`trip/scripts/marker-check.mjs` runs first in CI, before anything is installed,
+so a problem fails in twenty seconds rather than after a three-minute install.
+
+It fails the build on:
+
+- internal planning vocabulary carried over from private notes
+- personal contact details
+- links to documents that do not exist in this repo
+
+Run it yourself any time:
+
+```
+cd trip && npm run marker-check
+```
+
+If it flags something that is genuinely fine, add a narrow pattern to
+`ALLOWED_LINES` in that file with a comment explaining why. Do not widen it just
+to get to green — the point of the check is that it is annoying.
+
+## Never commit
+
+- `trip/e2e/fixtures/live-v5-vault/live-dump.json` — a real capture from a real
+  browser profile: live flights, hotels, traveller names. It is gitignored. The
+  acceptance spec that uses it skips itself when the file is absent, which is why
+  CI is green without it. **Do not replace it with a made-up file to "fix" the
+  skip.** The only reason that fixture is worth anything is that it contains
+  bytes nobody would think to invent.
+- `trip/.env.local` — local keys.
+- Anything listed in the root `.gitignore` under internal planning files.
+
+## Commits
+
+`<area>: <what it does, in the imperative>`
+
+```
+map: keep the day filter when a pin is reopened
+docs: correct the storage-key table
+```
+
+Lower case after the colon, no trailing full stop. Explain the *why* in the body
+if it is not obvious from the diff.
+
+## Versions and deploys
+
+Every deploy must carry a version nobody has shipped before. CI enforces it: the
+`version-gate` job fails if a tag `v<version>` already exists.
+
+So before merging `dev` into `main`:
+
+1. Bump `version` in `trip/package.json`.
+2. Add an entry at the top of `trip/docs/RELEASES.md` saying what changed.
+
+Patch for a fix, minor for a feature. After a successful deploy the workflow
+pushes the matching tag itself.
+
+## Where to look
+
+| Document | For |
+|---|---|
+| `DECISIONS.md` | Every constraint that still binds, and why. **Read the relevant entry before changing an architectural decision** — most of them have a reason that is not obvious from the code. |
+| `trip/docs/design-spec-v2.md` | Colours, type, spacing, motion. Read before touching UI. |
+| `trip/docs/data-core-blueprint.md` | The data model and the storage-key registry. |
+| `trip/docs/time-model-blueprint.md` | Dates, timezones, the trip clock. The easiest place to be subtly wrong. |
+| `trip/docs/test-ids.md` | The `data-testid` contract the E2E specs are written against. Needed to write or fix any spec. |
+| `trip/docs/sync-everywhere-blueprint.md` | Cross-device sync via Firestore. |
+| `trip/docs/photo-storage-blueprint.md` | Photos and IndexedDB. |
+| `trip/docs/ci-flake-policy.md` | Read before blaming a red run on flake. |
+| `trip/docs/RELEASES.md` | What shipped, when. |
+
+## Running it locally
+
+```
+cd trip
+npm ci --legacy-peer-deps
+npm run dev
+```
+
+`--legacy-peer-deps` is required, not optional: `cmdk`, `next-themes` and
+`sonner` pin React 18 peers against this app's React 19.
+
+Tests:
+
+```
+npm test                                  # unit, fast
+npm run build && npm run test:e2e         # browser suite; the build must come first
+```
+
+The Playwright config serves the static export from `out/` rather than the dev
+server, because that is the artifact that actually deploys. It does not build for
+you, so `npm run build` first or every spec fails at startup.
+
+## The app itself
+
+Next.js static export, no server. Data lives in the browser's localStorage, with
+optional cross-device sync through Firestore. There is one Cloudflare Worker
+behind the AI concierge; its source is not in this repo.
+
+Everything is on a free tier and must stay that way.

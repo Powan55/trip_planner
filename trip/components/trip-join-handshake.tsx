@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { joinTrip } from '@/core/trips/registry';
-import { getTripId } from '@/lib/firebase-config';
+import { getActiveTripId } from '@/core/storage/gateway';
 import { withBasePath } from '@/lib/utils';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import {
@@ -30,10 +30,11 @@ import {
  * - "Cancel" (button, Esc, or outside-click via Radix) = strip the param via `history.replaceState`
  * and stay on the current trip — no switch, no reload.
  *
- * "Already on this trip?" is decided against `getTripId()` (the REMOTE capability token the link
- * encodes), NOT the local pack id: on the grandfathered default pack those two strings differ
- * (local `nepal-japan-2026` vs the build-time secret), so comparing the link's token to the remote
- * token is the correct "is this my current trip" test and avoids a needless self-switch.
+ * "Already on this trip?" is decided against `getActiveTripId()` (the LOCAL pack id). #10 made
+ * this the right comparison everywhere: a custom trip's local id IS its capability token, and the
+ * default pack no longer has a remote token at all (`getTripId()` returns '' for it — comparing
+ * against that would wrongly prompt a self-join for a `?trip=nepal-japan-2026` link on the
+ * default pack).
  *
  * A11y: reuses the app's Radix `AlertDialog` (focus trap + Esc-to-cancel + labelled dialog for
  * free); both actions are ≥44px touch targets. Renders `null` (nothing mounts) on every normal
@@ -57,7 +58,7 @@ export default function TripJoinHandshake() {
     const raw = new URLSearchParams(window.location.search).get('trip');
     const t = raw?.trim();
     // Prompt only for a non-empty token that is NOT the trip we are already on.
-    if (t && t !== getTripId()) setToken(t);
+    if (t && t !== getActiveTripId()) setToken(t);
   }, [identified]);
 
   const stripParam = () => {

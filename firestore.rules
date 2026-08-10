@@ -1,30 +1,264 @@
 rules_version = '2';
 
-// Capability-token trips: each trip lives at trips/{tripId}, where tripId is a
-// high-entropy unguessable secret (crypto.randomUUID(), minted client-side).
-// Whoever HOLDS the token has full read+write on that trip's document tree —
-// a capability-link model ("anyone with the link can edit"). There is NO
-// per-user check: request.auth is never read; Firebase Auth is not required.
+// Firestore Security Rules — capability-token trips (D-205 / S231; enumeration
+// fix D-219; abuse guard D-248 / S358; membership + auth floor, issue #10).
 //
-// The model rests on tripId being unguessable and UNENUMERABLE. No rule below
-// grants 'list' at /trips/{tripId}, so the top-level trips collection cannot be
-// queried/enumerated — a client can only reach a trip whose id it already holds.
-// CAUTION: rules_version 2 recursive wildcards match ZERO or more segments, so
-// a single "match /trips/{tripId}/{document=**} { allow list }" WOULD also
-// grant list on /trips/{tripId} itself and expose every token. Hence the split
-// below: the trip doc gets everything except list; subtrees get full access.
-// Collection-group queries across all trips are denied by omission.
+// SECURITY MODEL — TWO MODES LIVE IN THIS ONE FILE, and which one applies is a property
+// of the trip DOCUMENT, not of the rules:
+//
+//   · MEMBER-GATED — the trip doc HAS a `members` map, `{ "<uid>": "owner" | "member" }`.
+//     Only a uid named in that map may read or write the trip's content.
+//   · CAPABILITY (the original model, grandfathered) — the trip doc has NO `members` map.
+//     Whoever HOLDS the tripId — a high-entropy, unguessable secret (crypto.randomUUID(),
+//     minted client-side at trip-creation time, see
+//     docs/blueprints/S231-capability-token-trips.md) — keeps full read+write on that
+//     trip's whole document tree, exactly as before, now behind ONE new floor:
+//     `request.auth != null`. Same trust boundary as a Google Docs "anyone with the link
+//     can edit" share.
+//
+// ⚠ THE OPT-IN LOCK IS THE WHOLE POINT OF THE SHAPE ABOVE. A rules deploy is INSTANT and
+// GLOBAL, and it lands on data that already exists: every trip minted before this file,
+// and every `?trip=` join link already pasted into a chat. If membership were mandatory,
+// all of them would start returning permission-denied the second this deploys — with no
+// migration window, and no way for a user to grant themselves a membership they were
+// never written into. So a members map is OPT-IN: a trip becomes member-gated only when
+// someone writes one into it. Do not "tidy" this into an unconditional membership check.
+//
+// The obvious objection, answered: yes, anyone signed in who holds the tripId of an OPEN
+// trip can write a members map naming only themselves, and thereby lock its real owner
+// out. That is not an escalation — on an open trip they could already delete every
+// document in it, which is strictly worse. The token was always the whole capability
+// (D-205); membership only narrows it going forward, and only for trips that adopt it.
+//
+// The floor is Firebase ANONYMOUS auth (every device signs in silently on first load, and
+// may later be linked to Google). An anonymous uid is free and unlimited, so the floor is
+// NOT identity and buys nothing against a determined attacker who already holds a tripId.
+// What it buys is (a) a stable subject for a members map to name, and (b) that a drive-by
+// holding the project id — which ships in the public bundle, D-248 — must at least mint a
+// session first.
+//
+// ROLES. `owner` = the creator: may remove members, change roles, and delete the trip.
+// `member` = full content read+write, and may ADD other members (add-only; a member can
+// never remove or re-role an existing entry). `viewer` (read, no write) is the named
+// upgrade path and is deliberately NOT built: it needs a second predicate on every write
+// rule plus UI to assign it, and nothing needs it yet.
+//
+// ⚠ CEILING — KNOWN, ACCEPTED, NOT FIXABLE HERE. Rules can prove a members-map edit is
+// ADD-ONLY (MapDiff `removedKeys()`/`changedKeys()`), but they cannot inspect the VALUE of
+// an ADDED key: the added keys are uids not known when the rule is written, and there is
+// no map-comprehension in the rules language to assert "every added entry equals
+// 'member'". So a `member` can add a third uid as 'owner' and manufacture an owner.
+// Threat model is three friends who already hold each other's trip links, so this is
+// accepted rather than fixed. Upgrade path if it ever matters: move members to a
+// SUBCOLLECTION (`members/{uid}` → `{ role }`), where the value becomes a document whose
+// own write rule can check `request.resource.data.role == 'member'`. That is a data
+// migration, not a rules edit, which is why it is not done here.
+//
+// ⚠ QUOTA. Every `get()`/`exists()` inside a rule is a billed document read against
+// Spark's 50k/day. isMember()/isOwner() touch ONE document (the trip doc) per operation;
+// the rules engine caches access to the same document within a single request evaluation,
+// so the `exists()` + `get()` pair is one read, not two. The arithmetic that matters is
+// the highest-frequency writer, the presence heartbeat: 1 write / 60s / traveler while the
+// tab is visible (HEARTBEAT_MS, lib/presence.ts) ≈ 4,320 writes/day for 3 travelers, which
+// now also costs ≈ 4,320 rule reads/day ≈ 9% of the read quota. That is affordable. What
+// would not be is a future rule that adds a SECOND get() on a DIFFERENT document (it
+// doubles that line, and the cache does not help across documents) — check this number
+// before writing one.
+//
+// The capability half of the model still rests on tripId being unguessable and
+// UNENUMERABLE: no rule below grants `list` at /trips/{tripId}, so the top-level `trips`
+// collection cannot be queried — a client can only ever reach a trip whose id it already
+// holds in full.
+//
+// ⚠ D-219 (live-verified 2026-07-19): under rules_version 2 a recursive wildcard
+// matches ZERO or more segments, so S232's original single block
+//   match /trips/{tripId}/{document=**} { allow get, list, write: if true; }
+// ALSO matched /trips/{tripId} itself and silently granted `list` on the whole
+// trips collection — every token enumerable (proven live with a plain getDocs).
+// The decorative `match /trips { allow list: if false }` did nothing: deny-style
+// rules grant nothing but never veto another matching allow. Hence the split
+// below — the trip doc gets every op EXCEPT list; subtrees get full access.
+// Collection-group queries across all trips remain denied by omission.
+//
+// ⚠ MATCHES ARE ADDITIVE (OR), NEVER SUBTRACTIVE. An operation is allowed if ANY matching
+// rule allows it; a later block can only ever WIDEN what an earlier one granted. That is
+// what makes the `profile/**` and `meta/**` carve-outs below work at all — each sits
+// alongside the member-gated subtree block, not instead of it — and it is also the trap
+// D-219 fell into. There is no way to write "members only, EXCEPT nobody may…" here.
+//
+// ⚠ D-248 / S358 — ABUSE GUARD. Sync is live in production, so the project id ships in
+// the public bundle and anyone who reads it can write to a trips/{id} of their OWN
+// invention. They still cannot reach a REAL trip (tripId is the secret and stays
+// unenumerable), but they can write junk. `boundedWrite()` caps the SHAPE of every
+// create/update: top-level field count, plus the length of the known container
+// fields. Ceilings are set an order of magnitude above the measured real payloads (see
+// boundedWrite) — deliberately loose, because a denied write does not surface to the
+// user, it just leaves the chunk dirty in the outbox and stalls sync silently. A guard
+// that fires on the owner's real 32-day trip would be worse than no guard at all.
+//
+// This is a SHAPE guard, NOT a byte guard, and the difference is deliberate:
+//   · Firestore rules have NO byte-size function. `request.resource.size()` is a TRAP:
+//     it is Cloud STORAGE syntax where it means bytes, but in Firestore `request.resource`
+//     is a Resource of {data, id, __name__} — so it compiles, and returns a CONSTANT 3,
+//     the member count of that wrapper. Measured against the rules engine (S358, emulator):
+//     `request.resource.size() == 3` allowed BOTH a 3-field and a 300-field document, and
+//     `request.resource.size() < 1048576` waved a 10,000-field hostile write straight
+//     through. It is `true` wearing a costume — never ship it.
+//     The charitable rewrite `request.resource.data.size()` at least reads the document,
+//     but counts TOP-LEVEL KEYS, so a `< 1048576` ceiling on it can never fail either.
+//   · A byte cap would be redundant anyway: Firestore already enforces a hard ~1 MiB
+//     per-document limit at the API level.
+// NOT MITIGATED by anything in this file: (a) quota burn — 20K tiny writes/day exhausts
+// the Spark free-tier write quota and stalls sync (outage only; Spark cannot be billed),
+// and (b) one field holding one huge string. Both need App Check, which is the named
+// upgrade path — not more rules.
+// VERIFY BEFORE DEPLOY (S358): from the repo root run —
+//   firebase emulators:exec --only firestore,auth --project demo-rules "node scripts/rules-check.mjs"
+//
+// DELETES are deliberately kept OUT of every request.resource guard (D-251): on a delete
+// `request.resource` is null, so any guard touching it errors and denies — and the app
+// genuinely deletes documents (days/{date} when a day is removed —
+// itinerary-remote.ts:241; presence/{deviceId} on heartbeat teardown). Deletes are
+// membership-gated, which reads only the STORED doc, never the incoming one.
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Length of a known container field on the INCOMING document (0 when absent).
+    // `.size()` is entry-count for a map, element-count for a list and character-count
+    // for a string, so a hostile scalar dumped into one of these slots is bounded too.
+    function len(field) {
+      return request.resource.data.get(field, []).size();
+    }
+
+    // Shape ceiling for every create/update. Real payloads, measured S358 against every
+    // write call site in nextjs_space/lib/*-remote.ts + lib/presence.ts:
+    //   trips/{id}             {schemaVersion, createdAt, seededFrom, members{}}  3-4 fields
+    //   …/days/{date}          {date, city, country, items[]}           4 fields
+    //   …/expenses/{leg}       {leg, items[]}                           2 fields
+    //   …/budget/model         {version, fields{}}                      2 fields
+    //   …/docs/checklist       {version, items[]}                       2 fields
+    //   …/meta/info            {name, config{}}                         1-2 fields
+    //   …/profile/tripList     {version, trips[], removed[]}            3 fields
+    //   …/presence/{deviceId}  {name, lastSeen}                         2 fields
+    // Container lengths: a packed day is ~20 items, a heavily-used expense leg ~400-500
+    // rows over a 32-day trip with 3 editors (both plus ≤30-day tombstone retention,
+    // merge-items.ts:148), the budget field map is a closed set of legs×10 categories +
+    // 3 (merge-budget.ts header: ~25 for the default 2-leg pack). 5000 is ~10x the
+    // heaviest of those and still refuses a 100k-row write. Above ~5000 rows of real
+    // content Firestore's own 1 MiB/document limit takes over as the binding stop.
+    // `members` is capped far lower and on its own scale: it is a human roster, and 200
+    // is already two orders of magnitude past the three friends this is built for. It is
+    // there so a hostile add-only members write cannot grow the trip doc without bound.
+    function boundedWrite() {
+      return request.resource.data.size() <= 32
+        && len('items') <= 5000      // day items / expense rows / checklist rows
+        && len('trips') <= 5000      // profile/tripList rows
+        && len('removed') <= 5000    // profile/tripList tombstones
+        && len('fields') <= 5000     // budget leaf-field map
+        && len('members') <= 200;    // uid → role roster
+    }
+
     // The trip doc itself: reachable and writable by direct id only — never listable.
     match /trips/{tripId} {
-      allow get, create, update, delete: if true;
 
-      // Everything under a known trip (days/{date}, budget/model, expenses/{leg},
-      // presence/{deviceId}): full read+write, including subcollection queries.
+      // ── membership helpers ────────────────────────────────────────────────────
+      // All five read the STORED trip doc (never request.resource), so they are safe on
+      // `delete`. They are used from the subtree blocks too, which is why they resolve
+      // the trip doc by path rather than leaning on `resource`: under
+      // /trips/{tripId}/days/{date}, `resource` is the DAY doc, not the trip doc.
+      function tripPath() {
+        return /databases/$(database)/documents/trips/$(tripId);
+      }
+
+      // TRUE for a trip with no members map — including one that does not exist yet, which
+      // is what lets `create` and the first write of a brand-new trip through. This is the
+      // opt-in lock: `isOpen()` is the grandfather clause for every pre-membership trip.
+      function isOpen() {
+        return !exists(tripPath()) || !('members' in get(tripPath()).data);
+      }
+
+      // '' for a signed-in non-member. Only ever called after isOpen() is known false, so
+      // the members map is present.
+      function role() {
+        return get(tripPath()).data.members.get(request.auth.uid, '');
+      }
+
+      function isMember() {
+        return request.auth != null && (isOpen() || role() in ['owner', 'member']);
+      }
+
+      function isOwner() {
+        return request.auth != null && !isOpen() && role() == 'owner';
+      }
+
+      // A create may not hand the creator anything less than 'owner'. A create with NO
+      // members map is the legacy/capability shape and stays legal.
+      function claimsSelfAsOwner() {
+        return !('members' in request.resource.data)
+          || request.resource.data.members.get(request.auth.uid, '') == 'owner';
+      }
+
+      // A non-owner member may ADD members and touch nothing else. See the CEILING note in
+      // the header: this proves add-ONLY, it cannot police the added VALUE.
+      function addsMembersOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+          && request.resource.data.members.diff(resource.data.members).removedKeys().size() == 0
+          && request.resource.data.members.diff(resource.data.members).changedKeys().size() == 0;
+      }
+
+      // ── the trip doc ──────────────────────────────────────────────────────────
+      // `list` is granted by NOTHING, here or anywhere below (D-219).
+      allow get: if isMember();
+      allow create: if request.auth != null && boundedWrite() && claimsSelfAsOwner();
+      allow update: if boundedWrite() && (
+        (isOpen() && request.auth != null)   // grandfathered capability trip
+        || isOwner()                         // owner: anything, incl. removing members
+        || (isMember() && addsMembersOnly()) // member: may add members, nothing else
+      );
+      allow delete: if (isOpen() && request.auth != null) || isOwner();
+
+      // ── CARVE-OUT: the account path + the login door ──────────────────────────
+      // `trips/{userToken}/profile/{identity,tripList}` is not trip content at all: the
+      // userToken IS the capability (D-239's two-token model), and there is no members map
+      // on an account. It MUST keep capability semantics, auth floor only:
+      //   · the door validates a pasted User Token by reading trips/{code}/profile/identity
+      //     BEFORE any membership can exist (D-296). If that read can return
+      //     permission-denied, the door's tri-state collapses — 'unavailable' admits by
+      //     design, so a 403 here makes token validation silently VACUOUS rather than
+      //     loudly broken. That is the failure mode this block exists to prevent.
+      //   · the trip-list sync writes here on a device that is a member of nothing.
+      // Matches are additive, so this WIDENS the subtree block below for this one prefix.
+      // COST, ACCEPTED: on a MEMBER-GATED trip this one subtree therefore stays
+      // capability-only — a non-member holding the tripId can read and write
+      // trips/{tripId}/profile/**. The app keeps nothing there for a trip id (the account
+      // documents live under a userToken, D-239), and the alternative is circular: the door
+      // would have to know a membership before it is allowed to check whether the account
+      // exists at all.
+      match /profile/{document=**} {
+        allow get, delete: if request.auth != null;
+        allow create, update: if request.auth != null && boundedWrite();
+      }
+
+      // ── CARVE-OUT: the trip name, for someone who is not in yet ───────────────
+      // A joiner opening a `?trip=` link reads meta/info to see WHICH trip they are being
+      // invited to, before anyone has added them to members. `get` only — no list, no
+      // write. Also additive.
+      match /meta/{document=**} {
+        allow get: if request.auth != null;
+      }
+
+      // ── everything under a known trip ─────────────────────────────────────────
+      // days/{date}, expenses/{leg}, budget/model, docs/checklist, meta/info,
+      // profile/tripList, presence/{deviceId} — verified against every real write call
+      // site in nextjs_space/lib/*-remote.ts + presence.ts as of S358. Full read+write,
+      // including subcollection queries, to any MEMBER (which, on a trip with no members
+      // map, is anyone signed in who holds the tripId — the capability model, unchanged).
+      // `get, list, delete` + `create, update` is exactly the former `get, list, write`
+      // (write ≡ create+update+delete) with the shape guard on the two ops that carry a
+      // payload — the D-219 block split is UNCHANGED.
       match /{sub}/{document=**} {
-        allow get, list, write: if true;
+        allow get, list, delete: if isMember();
+        allow create, update: if isMember() && boundedWrite();
       }
     }
   }

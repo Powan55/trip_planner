@@ -1,0 +1,133 @@
+name: CI
+
+# Feature branches get the fast half on every push. The full browser suite runs
+# on pull requests only: it takes about ten minutes, and the pull request is
+# where the gate actually matters.
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [lax, uttam, dev]
+
+# Must not share a group with deploy.yml (which uses "pages"), or a CI run
+# would queue behind a deploy.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    name: Checks (markers · types · lint · unit · build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: trip
+    steps:
+      - uses: actions/checkout@v4
+
+      # First, and before npm install on purpose. This needs no dependencies,
+      # so a bad string fails in twenty seconds instead of after a three-minute
+      # install.
+      - name: Repository hygiene
+        run: node scripts/marker-check.mjs
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: trip/package-lock.json
+
+      # --legacy-peer-deps is required, not optional: cmdk, next-themes and
+      # sonner all pin React 18 peers against this app's React 19.
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      # next.config.js has typescript.ignoreBuildErrors: false, so this also
+      # runs during the build. Running it first gives a clearer failure.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # next.config.js sets eslint.ignoreDuringBuilds, so the build below never
+      # runs eslint. This step is the only thing that does.
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        env:
+          # A non-resolving origin (the reserved .test TLD) so the concierge
+          # chat component mounts and is covered, without calling anything real.
+          NEXT_PUBLIC_CONCIERGE_URL: https://concierge.test
+        run: npm run build
+
+  e2e:
+    name: E2E (behavioural · visual advisory)
+    needs: checks
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: trip
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: trip/package-lock.json
+
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      # playwright.config.ts serves the static export from out/ and does not
+      # build it. Without this step every spec fails at server startup.
+      - name: Build the static export
+        env:
+          NEXT_PUBLIC_CONCIERGE_URL: https://concierge.test
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # PLAYWRIGHT_SHOOT stays unset, which keeps landing-shots.spec.ts out of
+      # the run. That spec is an asset generator: it rewrites committed PNGs.
+      - name: Behavioural suite
+        env:
+          CI: '1'
+        run: npm run test:e2e -- --grep-invert visual
+
+      # Advisory, not blocking. The committed baselines were taken on Windows,
+      # so on a Linux runner they do not exist under the expected platform
+      # suffix and the comparison cannot pass. The report is still uploaded.
+      # To make this blocking: regenerate baselines on a runner with
+      # --update-snapshots, commit them, then drop continue-on-error.
+      - name: Visual regression (advisory)
+        id: visual
+        continue-on-error: true
+        env:
+          CI: '1'
+        run: npm run test:e2e -- --grep visual
+
+      - name: Note the visual result in the summary
+        if: steps.visual.outcome == 'failure'
+        run: |
+          echo "### Visual regression differed (advisory)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "The committed baselines are Windows-generated, so they do not match on a Linux runner." >> "$GITHUB_STEP_SUMMARY"
+          echo "This step cannot fail the build. Download the artifact below to see the diff." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the Playwright report
+        if: always() && (failure() || steps.visual.outcome == 'failure')
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            trip/playwright-report
+            trip/test-results
+          retention-days: 14

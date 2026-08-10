@@ -38,8 +38,19 @@ jobs:
           fi
           echo "OK — $VERSION not yet deployed ($TAG absent)."
 
+  # Pull requests into main already ran the full suite, so this does not repeat
+  # it. But main can also be pushed to directly by a repo admin, and while a
+  # failing test is recoverable, a personal detail published to a public site
+  # is not. This costs about twenty seconds.
+  markers:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node trip/scripts/marker-check.mjs
+
   build:
-    needs: version-gate
+    needs: [version-gate, markers]
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -65,7 +76,9 @@ jobs:
           NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: ${{ secrets.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET }}
           NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID }}
           NEXT_PUBLIC_FIREBASE_APP_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_APP_ID }}
-          NEXT_PUBLIC_TRIP_ID: ${{ vars.NEXT_PUBLIC_TRIP_ID }}
+          # NEXT_PUBLIC_TRIP_ID is retired (#10): the default pack is a local-only sample with
+          # no remote path, so no build-time trip id exists to inject (it was never a secret —
+          # NEXT_PUBLIC_* values ship in the public bundle).
           # AI concierge Worker URL (repo Actions variable). Absent => the chat feature
           # stays fully dormant in the build. Presence is echoed below (never the value).
           NEXT_PUBLIC_CONCIERGE_URL: ${{ vars.NEXT_PUBLIC_CONCIERGE_URL }}

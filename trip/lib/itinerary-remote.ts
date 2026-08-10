@@ -40,7 +40,7 @@
 import type { DayPlan, ItineraryItem } from './trip-data';
 import { savePlans, loadPlans, hasStoredPlans } from './itinerary-storage';
 import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
-import { FIREBASE_CONFIG, isRemoteConfigured, getTripId } from './firebase-config';
+import { FIREBASE_CONFIG, isRemoteConfigured, isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
 import { mergeDay, mergeDays, gcTombstones } from '@/core/sync/merge-day';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
@@ -53,11 +53,18 @@ import { clock } from './trip-now';
 // dynamic import. The promise
 // is cached so concurrent callers share one init.
 //
-// NO AUTH: the capability-token rules never read
-// request.auth (firestore.rules: `allow get, list, write: if true` under a known tripId),
-// so Firebase Auth is fully vestigial — the whole `firebase/auth` module + the pre-sync
-// anonymous sign-in round-trip were removed. Attribution runs entirely through the separate,
-// firebase-free display-name pipeline (lib/identity.ts / token-auth.ts), never a Firebase uid.
+// AUTH IS BACK, AND IT IS PART OF THE HANDLE (issue #10). The rules no longer read
+// `if true` under a known tripId: every trip operation now sits behind an auth floor
+// (`request.auth != null`), and a trip that has grown a `members` map is gated on membership.
+// So this seam signs the device in ANONYMOUSLY before it resolves, and hands back the `auth`
+// instance plus the resulting `uid`. Every other remote module awaits THIS function, so no
+// module can issue a write before the floor is satisfied.
+//
+// THE UID IS DEVICE IDENTITY, NOT ACCOUNT IDENTITY. It is the subject a trip's members map
+// names, it is free and unlimited, and it survives a Google link (`linkGoogleAccount` below
+// preserves it — that is the whole point of linking rather than re-signing-in). Attribution
+// still runs entirely through the separate, firebase-free display-name pipeline
+// (lib/identity.ts / token-auth.ts) — a Firebase uid is never shown to a user as a name.
 // ---------------------------------------------------------------------------
 
 export type FirestoreMod = typeof import('firebase/firestore');
@@ -65,6 +72,10 @@ export type FirestoreMod = typeof import('firebase/firestore');
 export interface RemoteHandle {
   db: import('firebase/firestore').Firestore;
   fs: FirestoreMod;
+  /** The one shared app's Auth instance (the same singleton every module resolves). */
+  auth: import('firebase/auth').Auth;
+  /** This DEVICE's uid at init time — the subject a trip's `members` map names. */
+  uid: string;
 }
 
 let remotePromise: Promise<RemoteHandle> | null = null;
@@ -75,7 +86,9 @@ let remotePromise: Promise<RemoteHandle> | null = null;
  * synchronously.
  *
  * EXPORTED so the expenses adapter (`lib/expenses-remote.ts`) shares the SAME cached
- * init — one firebase app across every synced domain. No auth step.
+ * init — one firebase app across every synced domain. The anonymous sign-in is part of the
+ * init, so awaiting this function is what guarantees the rules' auth floor is satisfied
+ * before any caller issues a read or a write.
  */
 export function getRemote(): Promise<RemoteHandle> {
   if (!isRemoteConfigured()) {
@@ -84,27 +97,166 @@ export function getRemote(): Promise<RemoteHandle> {
   if (remotePromise) return remotePromise;
 
   remotePromise = (async () => {
-    const [{ initializeApp, getApps, getApp }, firestoreMod] = await Promise.all([
+    const [{ initializeApp, getApps, getApp }, firestoreMod, authMod] = await Promise.all([
       import('firebase/app'),
       import('firebase/firestore'),
+      import('firebase/auth'),
     ]);
 
     const { getFirestore } = firestoreMod;
+    const { getAuth, onAuthStateChanged, signInAnonymously } = authMod;
 
     // Reuse the singleton app if it already exists (one init across the app),
     // otherwise create it from the single-source config.
     const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
 
     const db = getFirestore(app);
-    return { db, fs: firestoreMod };
+    const auth = getAuth(app);
+
+    // AWAIT THE FIRST AUTH-STATE RESOLUTION BEFORE SIGNING IN. Firebase restores a persisted
+    // session asynchronously, so `auth.currentUser` is null for a beat on EVERY load; signing
+    // in during that beat would mint a SECOND anonymous uid and silently orphan this device's
+    // members entry (it would still be listed, under a uid nothing uses any more). Resolving
+    // the observer once is what makes the uid stable across reloads.
+    const restored = await new Promise<import('firebase/auth').User | null>((resolve, reject) => {
+      const unsub = onAuthStateChanged(
+        auth,
+        (user) => {
+          unsub();
+          resolve(user);
+        },
+        (err) => {
+          unsub();
+          reject(err);
+        },
+      );
+    });
+    const user = restored ?? (await signInAnonymously(auth)).user;
+
+    return { db, fs: firestoreMod, auth, uid: user.uid };
   })();
 
-  // If init fails, clear the cache so a later call can retry rather than being stuck.
+  // If init (incl. sign-in) fails, clear the cache so a later call can retry rather than
+  // being stuck — a cold start while offline must not poison the handle for the session.
   remotePromise.catch(() => {
     remotePromise = null;
   });
 
   return remotePromise;
+}
+
+/**
+ * This device's Firebase ID token, or `null` — for the Worker's `Authorization: Bearer …`
+ * (issue #10; the Worker verifies membership by reading the trip doc AS this user).
+ *
+ * TOTAL: `null` when remote is unconfigured (the dormant build and every e2e run) and on ANY
+ * failure, so a caller can only ever attach a header it actually has. The token is minted by
+ * the SDK and refreshed by it — never cached here.
+ */
+export async function getAuthIdToken(): Promise<string | null> {
+  if (!isRemoteConfigured()) return null;
+  try {
+    const { auth } = await getRemote();
+    return (await auth.currentUser?.getIdToken()) ?? null;
+  } catch {
+    return null; // unreachable firebase must degrade to "no header", never to a thrown turn
+  }
+}
+
+/** What `linkGoogleAccount` did, as four outcomes a UI can speak plainly about. */
+export type LinkResult = 'linked' | 'adopted' | 'popup-blocked' | 'failed';
+
+/**
+ * Link a Google identity onto THIS device's anonymous session (issue #10).
+ *
+ * WHY LINK RATHER THAN SIGN IN: linking PRESERVES the uid. The uid is what a trip's members map
+ * names, so re-signing-in as Google (a different uid) would leave this device's entry pointing at
+ * an identity nobody uses any more, and the user locked out of their own trip. Linking is the
+ * whole feature; the Google account is a recovery handle bolted onto an identity that already has
+ * access, not a new identity.
+ *
+ * 🔴 POPUP ONLY — NEVER `linkWithRedirect`. This app is a static export served from a GitHub Pages
+ * origin while the Firebase `authDomain` is a different origin, so the redirect flow has to write
+ * its pending-credential state cross-origin. Under Safari's storage partitioning that state is not
+ * there when the user comes back, and the redirect completes as a silent no-op — the user taps,
+ * disappears to Google, returns, and nothing has happened, with no error to show them. The popup
+ * flow keeps the whole exchange in one window and reports its own failures, which is why every
+ * branch below has something to say.
+ *
+ * ⚠ MUST BE CALLED FROM THE TAP'S USER GESTURE. Browsers only let a popup open under transient
+ * activation. The `import('firebase/auth')` below resolves from the module cache in a microtask
+ * (the Settings surface has already awaited `getRemote()` to show the device code by the time the
+ * button exists), so it does not spend that activation — but do not move this behind a fetch.
+ *
+ * `credential-already-in-use` means that Google account is ALREADY a Firebase user — the traveler
+ * linked it on their other device. Adopting it here (`signInWithCredential`) is exactly right: the
+ * device takes on the identity that already holds the memberships, which is the lost-device
+ * recovery path. It CHANGES the uid, so the cached handle is dropped and the caller must re-run
+ * `ensureMembership`.
+ */
+export async function linkGoogleAccount(): Promise<LinkResult> {
+  if (!isRemoteConfigured()) return 'failed';
+  try {
+    const { auth } = await getRemote();
+    const { GoogleAuthProvider, linkWithPopup, signInWithCredential } = await import('firebase/auth');
+    const user = auth.currentUser;
+    if (!user) return 'failed';
+    try {
+      await linkWithPopup(user, new GoogleAuthProvider());
+      return 'linked';
+    } catch (err) {
+      const code = (err as { code?: unknown } | null)?.code;
+      if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
+        return 'popup-blocked';
+      }
+      if (code === 'auth/credential-already-in-use') {
+        const credential = GoogleAuthProvider.credentialFromError(
+          err as import('firebase/app').FirebaseError,
+        );
+        if (!credential) return 'failed';
+        await signInWithCredential(auth, credential);
+        // The uid just changed. Drop the cached handle so the next getRemote() resolves the
+        // ADOPTED identity — every caller reads `uid` off that handle.
+        remotePromise = null;
+        return 'adopted';
+      }
+      return 'failed';
+    }
+  } catch {
+    return 'failed'; // stay anonymous; the device keeps whatever access it already had
+  }
+}
+
+/**
+ * Is this device's session linked to a Google identity? Read from `providerData`, which is the
+ * SDK's own answer — never a flag we keep ourselves and have to keep true.
+ * `false` when unconfigured/unreachable (the honest default: nothing is linked).
+ */
+export async function isGoogleLinked(): Promise<boolean> {
+  if (!isRemoteConfigured()) return false;
+  try {
+    const { auth } = await getRemote();
+    return auth.currentUser?.providerData.some((p) => p.providerId === 'google.com') ?? false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Did this error come from the security rules refusing the operation? (issue #10)
+ *
+ * THE ONE COPY of that test. Firestore stamps `code: 'permission-denied'` on the rejection of a
+ * denied read/write and on a denied snapshot stream error alike, and the three callers that must
+ * treat a denial differently from a transport failure — membership enrolment (dispatch, don't
+ * throw), the presence heartbeat (stop the loop, don't retry forever) and the door's identity
+ * probe — all route through here rather than each spelling the string out.
+ *
+ * Deliberately narrow: only the code, never the message. A message match would fire on an
+ * unrelated error that merely mentions permissions, and the consequence of a false positive here
+ * is a heartbeat that stops or a toast the user cannot act on.
+ */
+export function isPermissionDenied(err: unknown): boolean {
+  return (err as { code?: unknown } | null)?.code === 'permission-denied';
 }
 
 /**
@@ -219,12 +371,13 @@ export function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boole
  * work in try/catch → console.warn so a failed push NEVER breaks the local edit.
  */
 export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void> {
-  // Dormant gate: with no config, never touch firebase.
+  // Dormant gate: with no config — or on the default pack, whose remote id is retired (#10,
+  // `isTripRemoteConfigured`) — never touch firebase.
   // NO-ACTIVE-TRAVELER gate: a session with no active traveler must NEVER push
   // edits into the friends' shared trip — unattributed edits would otherwise pollute it via the
   // union merge. `getActiveTraveler` is firebase-free (token-auth), so this stays dormant-safe. This
   // mirrors the subscribe gate: sync requires BOTH config AND an identified traveler.
-  if (!isRemoteConfigured() || !getActiveTraveler()) return;
+  if (!isTripRemoteConfigured() || !getActiveTraveler()) return;
 
   try {
     const { db, fs } = await getRemote();
@@ -347,8 +500,8 @@ export async function pushDayChunk(current: DayPlan[], date: string): Promise<vo
 export function subscribeRemote(
   onRemoteChange?: (plans: DayPlan[]) => void,
 ): () => void {
-  // Dormant gate: with no config, never touch firebase.
-  if (!isRemoteConfigured()) return () => {};
+  // Dormant gate: with no config — or on the local-only default pack (#10) — never touch firebase.
+  if (!isTripRemoteConfigured()) return () => {};
 
   // The real Firestore unsubscribe, once the async setup resolves. Until then,
   // `cancelled` lets a synchronous unmount cancel the in-flight subscribe.
@@ -476,7 +629,7 @@ export function subscribeRemote(
     if (cancelled || established || settingUp) return;
     settingUp = true;
     try {
-      const { db, fs } = await getRemote();
+      const { db, fs, uid } = await getRemote();
       if (cancelled || established) return;
 
       const { collection, onSnapshot, doc, getDoc, getDocFromServer, setDoc, serverTimestamp } = fs;
@@ -513,7 +666,7 @@ export function subscribeRemote(
                 firstSnapshotHandled = true;
                 await reconcileFirstSnapshot(
                   remoteDays,
-                  { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp },
+                  { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid },
                   applyRemoteAuthoritative,
                 );
                 return;
@@ -598,6 +751,8 @@ async function reconcileFirstSnapshot(
     getDocFromServer: FirestoreMod['getDocFromServer'];
     setDoc: FirestoreMod['setDoc'];
     serverTimestamp: FirestoreMod['serverTimestamp'];
+    /** This device's uid — named `owner` in the seed marker's members map (#10). */
+    uid: string;
   },
   // The AUTHORITATIVE applier (not the merging one): on the first snapshot, a synced group's
   // remote is taken verbatim incl. empty. Merging here
@@ -605,7 +760,7 @@ async function reconcileFirstSnapshot(
   // snapshot deliberately does NOT merge. Steady-state (later snapshots) does merge.
   applyRemote: (plans: DayPlan[]) => void,
 ): Promise<void> {
-  const { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp } = ctx;
+  const { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid } = ctx;
   const tripRef = doc(db, 'trips', getTripId());
 
   // The trip-doc marker is the "has this group ever synced" signal. Read it from
@@ -631,7 +786,9 @@ async function reconcileFirstSnapshot(
     return;
   }
 
-  if (tripExists) {
+  const localWasPersisted = hasStoredPlans(); // present ⇒ user edits; absent ⇒ the built shells/sample
+
+  if (tripExists && (remoteDays.length > 0 || localWasPersisted)) {
     // Group synced before → remote authoritative, apply INCLUDING empty.
     // This is what makes "A deletes everything → B reflects empty and STAYS empty after
     // reload" true: an emptied shared plan is a real state, not a trigger to reseed.
@@ -639,6 +796,21 @@ async function reconcileFirstSnapshot(
     return;
   }
 
+  // #10 — THE MARKER IS NO LONGER THE ONLY SEED SIGNAL, and this branch is why. `createTripDoc`
+  // now writes the trip doc AT CREATION TIME (it has to: the members map must name the creator as
+  // owner, and rules only accept that on the create). So the creator's very first snapshot finds
+  // the marker PRESENT with ZERO day docs — which under the old single condition meant "the group
+  // synced and then emptied the plan", and applied `[]` authoritatively over the day shells
+  // `buildDayShells` had just derived from the trip's dates. A brand-new trip rendered no day
+  // cells at all, on the creator's own device.
+  //
+  // The added terms make that impossible while leaving every other path byte-identical: with ANY
+  // remote day doc, or with a local key already written (which every device that has ever received
+  // a snapshot has, because applying one calls savePlans), behaviour is exactly as before. Only
+  // "marker present, remote completely empty, this device never persisted anything" seeds — and
+  // whole-day removal is not a user-reachable operation (trip dates are fixed; `clearDay` keeps the
+  // day), so a completely empty remote means "never pushed to", never "deliberately emptied".
+  //
   // Trip doc ABSENT → never synced → THIS client seeds the group.
   // Seed source by LOCAL intent: key present ⇒ the user's own
   // local edits (incl. a deliberate empty); key absent ⇒ the untouched SAMPLE_ITINERARY
@@ -649,16 +821,24 @@ async function reconcileFirstSnapshot(
   // use the STATIC `loadPlans` imported at the top — the former `await import(...)` here
   // was redundant (itinerary-storage is firebase-free, so importing it statically is dormant-safe).
   const localPlans = loadPlans();
-  const localIsUserData = hasStoredPlans(); // present ⇒ user edits; absent ⇒ sample seed
+  const localIsUserData = localWasPersisted; // present ⇒ user edits; absent ⇒ sample seed
 
   try {
     // Create the trip-doc marker first so a concurrent second client sees "synced" and
-    // takes the authoritative branch instead of double-seeding.
-    await setDoc(tripRef, {
-      schemaVersion: 1,
-      createdAt: serverTimestamp(),
-      seededFrom: localIsUserData ? 'local-edits' : 'sample',
-    });
+    // takes the authoritative branch instead of double-seeding. Skipped when the marker is
+    // already there (the create-path doc, #10) — rewriting it would clobber a `members` entry a
+    // peer added between the create and this first snapshot.
+    // #10: the marker carries the same `members` map `createTripDoc` writes, so a trip seeded
+    // through THIS legacy path is member-gated from birth too (parity — otherwise the two ways a
+    // trip doc can come into existence would disagree about whether the lock is on).
+    if (!tripExists) {
+      await setDoc(tripRef, {
+        schemaVersion: 1,
+        createdAt: serverTimestamp(),
+        seededFrom: localIsUserData ? 'local-edits' : 'sample',
+        members: { [uid]: 'owner' },
+      });
+    }
 
     // Push every local day up via the per-day write path (reuse pushPlans with an empty
     // prev so every present day is written; no day is "removed").

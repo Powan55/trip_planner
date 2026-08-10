@@ -1,0 +1,20 @@
+{
+  "_meta": "SYNTHETIC PLACEHOLDER — NOT real captured data. Do NOT cite this file as migration acceptance evidence (see README.md). Every value below is deliberately fake and exists only to keep specs green until the real dump (captured via S171's DevTools snippet) is dropped into this directory.",
+  "localStorage": {
+    "tripPlannerUserName": "S172-Placeholder-Traveler",
+    "tripPlannerToken": "Powan",
+    "nightlife_section_visible": "true",
+    "nepal_japan_weather_cache": "{}",
+    "nepal_japan_budget": "{}",
+    "nepal_japan_expenses": "[]",
+    "nepal_japan_journal": "[]",
+    "nepal_japan_favorites": "[]",
+    "nepal_japan_sync_outbox": "{}",
+    "nepal_japan_photos": "[]",
+    "nepal_japan_first_run_tour_seen": "1",
+    "nepal_japan_itinerary": "{\"schemaVersion\":3,\"updatedAt\":\"2026-01-01T00:00:00.000Z\",\"payload\":[]}"
+  },
+  "sessionStorage": {
+    "tripPlannerTodayOverride": "2026-12-10"
+  }
+}

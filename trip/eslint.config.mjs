@@ -21,7 +21,7 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
-   ..compat.extends("next/core-web-vitals", "next/typescript"),
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
   {
     rules: {
       // Escaping every ' and " in JSX copy is pure churn — React renders them

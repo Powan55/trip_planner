@@ -28,8 +28,8 @@ export interface TripLeg {
 }
 
 export interface TripConfig {
-  /** Pack id === Firestore TRIP_ID convention. Default pack id = 'nepal-japan-2026'
-   * (must equal lib/firebase-config.ts's NEXT_PUBLIC_TRIP_ID default). */
+  /** Pack id === Firestore TRIP_ID convention for CUSTOM packs. Default pack id =
+   * 'nepal-japan-2026' — local-only since #10 (it has no Firestore path; getTripId() → ''). */
   id: string;
   /** Human label ('Nepal × Japan 2026'). */
   label: string;

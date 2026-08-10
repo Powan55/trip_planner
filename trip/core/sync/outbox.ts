@@ -22,7 +22,8 @@
 // `ChunkSync.pushChunk` MUST REJECT on failure — honesty moves down one layer; THIS module is
 // the swallower, not the impl.
 //
-// GATING: enqueue AND flush happen ONLY when `isRemoteConfigured()` AND an
+// GATING: enqueue AND flush happen ONLY when `isTripRemoteConfigured()` (#10 — the web config
+// AND a trip that actually syncs; the default pack is a local-only sample) AND an
 // active traveler. Dormant and guest builds NEVER write the outbox slot → dormant bytes stay
 // identical and a guest can never queue pollution for later. Both gates are firebase-
 // free (firebase-config reads inlined env; token-auth reads localStorage via the gateway), so
@@ -32,7 +33,7 @@
 
 import type { StoragePort, SyncPort } from '@/core/ports';
 import { keyFor, readJson, writeJson, removeKey } from '@/core/storage/gateway';
-import { isRemoteConfigured } from '@/lib/firebase-config';
+import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 
 export type SyncDomain = 'itinerary' | 'expenses' | 'budget' | 'docs';
@@ -119,9 +120,13 @@ export function outboxDirty(domain: SyncDomain): string[] {
 }
 
 // ── The gate. Both enqueue and flush re-check it, so a traveler who signs out with
-// a dirty outbox keeps the entries and resumes on sign-in. ────────────────────────────────────
+// a dirty outbox keeps the entries and resumes on sign-in. #10: the gate is TRIP-scoped
+// (`isTripRemoteConfigured`) because every chunk this outbox ever drives is a
+// `trips/{getTripId()}/…` write — on the local-only default pack (remote id retired, '') an
+// enqueue would otherwise record dirty chunks whose flush composes an invalid empty path and
+// retries forever. Custom trips are unchanged (their id is never ''). ─────────────────────────
 function enabled(): boolean {
-  return isRemoteConfigured() && getActiveTraveler() !== null;
+  return isTripRemoteConfigured() && getActiveTraveler() !== null;
 }
 
 /**

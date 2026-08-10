@@ -32,3 +32,21 @@ Thumbs.db
 # Misc
 coverage/
 .cache/
+
+# Internal planning and process files. These live in the private working repo
+# and are deliberately kept out of this one: they are project-management
+# scaffolding, not part of the app, and they go stale the moment anyone reads
+# them here. Design docs and the decision log ARE published, under docs/.
+CLAUDE.md
+STATE.md
+STATE-archive-*.md
+BACKLOG.md
+BACKLOG-archive-*.md
+DECISIONS-archive-*.md
+PONYTAIL-DEBT.md
+CLEANUP-REVIEW.md
+NEEDS-LAX.md
+briefs/
+.claude/
+docs/plans/
+docs/reports/

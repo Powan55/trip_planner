@@ -332,7 +332,8 @@ export const STORAGE_KEYS = {
  * Default pack id. The pack-INDEPENDENT `activeTrip` pointer being unset (or holding this value)
  * resolves to the default pack. Its keys are grandfathered VERBATIM. This is the single
  * source of truth for the id; `core/trips` re-exports it and `lib/firebase-config.ts`'s sync gate
- * reads it. Must equal `firebase-config.ts`'s `NEXT_PUBLIC_TRIP_ID` default string.
+ * reads it. #10: this id is LOCAL-ONLY — the default pack has no remote path (`getTripId()`
+ * returns '' for it; the old NEXT_PUBLIC_TRIP_ID remote id is retired).
  */
 export const DEFAULT_TRIP_ID = 'nepal-japan-2026';
 

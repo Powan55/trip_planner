@@ -40,7 +40,6 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
     setTodayInTrip(t);
     const target = date ?? t?.date;
     if (target) setNowUtcMs(getNowUtcMsForPlace(target, offsetForCountry(getCountryForDate(target))));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tickN, date]);
 
   // Before hydration, reserve a little height so the island mount doesn't collapse→expand.

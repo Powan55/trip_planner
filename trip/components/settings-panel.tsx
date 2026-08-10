@@ -19,7 +19,11 @@ import {
   Share2,
   ShieldAlert,
   Smartphone,
+  Users,
+  UserPlus,
+  X,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { itemMatchesAuthor, type AuthorFilter } from '@/lib/author-filter';
@@ -139,6 +143,22 @@ export default function SettingsPanel() {
         >
           {identified ? <TripGroup /> : <SignInRequired what="trip" />}
         </SettingsGroup>
+
+        {/* #10 — TRIP ACCESS. Hidden ENTIRELY on a build with no sync configured: there is no
+            device code to show, no roster to read and nothing a member could be added to, so the
+            group would be four paragraphs explaining an absence. `isRemoteConfigured()` is a pure
+            build-time env read, identical on the server and the client, so gating on it directly
+            cannot desynchronise hydration. */}
+        {isRemoteConfigured() && (
+          <SettingsGroup
+            testId="settings-group-access"
+            icon={<Users className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />}
+            title="Trip access"
+            summary="Your device code, and who else can open this trip"
+          >
+            {identified ? <TripAccessGroup /> : <SignInRequired what="sync" />}
+          </SettingsGroup>
+        )}
 
         <SettingsGroup
           testId="settings-group-sync"
@@ -275,6 +295,9 @@ function IdentityGroup({ name }: { name: string | null }) {
           on a fresh device — this is where a signed-in traveler sets/changes it. `signIn` rewrites
           both identity slots + fires identity:changed, so the chip/attribution update live (no reload). */}
       {name && <RenameIdentity current={name} />}
+      {/* #10 — optional Google link over this device's identity. Hidden with no sync configured
+          (there is no identity to link) — same gate as the Trip access group. */}
+      {name && isRemoteConfigured() && <LinkGoogleIdentity />}
       {/* (Q3) — claim the items you stamped under a name you used to go by. */}
       {name && <ClaimOldName current={name} />}
       {/* "Forget this device" — settings-only, strictly more destructive than sign-out: ALSO
@@ -351,6 +374,372 @@ function RenameIdentity({ current }: { current: string }) {
         Save
       </button>
     </form>
+  );
+}
+
+/**
+ * #10 — LINK A GOOGLE ACCOUNT to this device's identity.
+ *
+ * What it is for, in one line: this device holds an anonymous Firebase identity, that identity is
+ * what a trip's roster names, and clearing browser storage or losing the phone would strand it.
+ * Linking Google gives that same identity a handle you can prove later — it does NOT change it,
+ * which is the entire point (a fresh sign-in would produce a different uid, still not in any
+ * roster).
+ *
+ * Popup only, never redirect, and the reason is in `linkGoogleAccount`'s docblock — a redirect
+ * silently no-ops on this origin under Safari's storage partitioning. Every failure gets words:
+ * a blocked popup says so, an account already used on another device offers to adopt it (that is
+ * the lost-device path), and anything else leaves the device exactly as it was, anonymous and
+ * still holding whatever access it already had.
+ */
+function LinkGoogleIdentity() {
+  const [linked, setLinked] = useState<boolean | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void import('@/lib/itinerary-remote')
+      .then(({ isGoogleLinked }) => isGoogleLinked())
+      .then((is) => {
+        if (!cancelled) setLinked(is);
+      })
+      .catch(() => {
+        if (!cancelled) setLinked(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const link = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      // The module is already in the bundler's cache (the effect above awaited it), so this
+      // resolves in a microtask and the tap's activation still covers the popup.
+      const { linkGoogleAccount } = await import('@/lib/itinerary-remote');
+      const result = await linkGoogleAccount();
+      if (result === 'linked') {
+        setLinked(true);
+        setStatus('Linked. This device keeps the same access to your trips.');
+      } else if (result === 'adopted') {
+        setLinked(true);
+        setStatus('Signed in with that Google account on this device.');
+        // Adopting changes this device's identity, so re-run enrolment for the active trip —
+        // otherwise the adopted identity is not in this trip's roster until the next page load.
+        const { ensureMembership } = await import('@/lib/trips-remote');
+        await ensureMembership(getTripId());
+      } else if (result === 'popup-blocked') {
+        setError('Allow pop-ups for this site and try again.');
+      } else {
+        setError('Couldn’t link that account. This device is unchanged.');
+        toast('Couldn’t link a Google account. Nothing changed on this device.');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      data-testid="settings-identity-google"
+      className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+    >
+      <h3 className="text-sm font-semibold text-white">Link a Google account</h3>
+      <p className="mt-1 max-w-2xl text-sm text-white/60">
+        Optional. This device already has its own identity for shared trips; linking Google is how
+        you get it back if you clear your browser data or change phone. It doesn&rsquo;t change who
+        you are on a trip, and nothing is posted anywhere.
+      </p>
+      {linked ? (
+        <p
+          data-testid="settings-identity-google-linked"
+          className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-green-300"
+        >
+          <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
+          Linked to Google
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={link}
+          disabled={busy || linked === null}
+          aria-busy={busy}
+          data-testid="settings-identity-google-link"
+          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {busy ? 'Opening Google…' : 'Link a Google account'}
+        </button>
+      )}
+      <div aria-live="polite" className="mt-2 min-h-[1.25rem]">
+        {status && (
+          <p data-testid="settings-identity-google-status" className="text-sm text-white/70">
+            {status}
+          </p>
+        )}
+      </div>
+      {error && (
+        <p
+          role="alert"
+          data-testid="settings-identity-google-error"
+          className="mt-1 flex items-center gap-2 text-sm font-medium text-red-300"
+        >
+          <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * #10 — TRIP ACCESS: this device's code, and the roster of devices that may open this trip.
+ *
+ * THE DEVICE CODE IS THE WHOLE MECHANISM. There is no invite server and no email — a trip's roster
+ * names device identities, so joining is out-of-band: you send a friend your code, they paste it
+ * here. It is also the lost-device path, read the other way round (link Google, sign in on the new
+ * device, the code comes with you).
+ *
+ * WHO MAY DO WHAT mirrors the rules exactly, and is enforced there, not here: any member may ADD a
+ * device; only the owner may REMOVE one. The Remove control is therefore rendered only for an
+ * owner — but the rules refuse a member's removal regardless, and this surface reports that
+ * refusal rather than pretending it worked.
+ *
+ * A trip with NO roster is the grandfathered case (it predates the lock): everyone holding the
+ * Trip Token can open it, and saying so is more honest than showing an empty list. Simply opening
+ * such a trip enrols this device as its owner, so the empty state is short-lived.
+ */
+function TripAccessGroup() {
+  const [uid, setUid] = useState<string | null>(null);
+  const [tripKey, setTripKey] = useState<string | null>(null);
+  const [members, setMembers] = useState<Record<string, string> | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [addValue, setAddValue] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const loadMembers = async () => {
+    const id = getTripId();
+    if (!id) return;
+    const { fetchTripMembers } = await import('@/lib/trips-remote');
+    const roster = await fetchTripMembers(id);
+    setMembers(roster ?? null);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    setTripKey(getTripId());
+    void import('@/lib/itinerary-remote')
+      .then(({ getRemote }) => getRemote())
+      .then((handle) => {
+        if (!cancelled) setUid(handle.uid);
+      })
+      .catch(() => {
+        /* offline: the code stays unresolved rather than showing a wrong one */
+      });
+    void loadMembers().catch(() => {
+      /* unreachable: the roster stays unknown, which the copy below states honestly */
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const myRole = uid && members ? members[uid] : undefined;
+
+  const copyUid = async () => {
+    if (!uid) return;
+    try {
+      await navigator.clipboard.writeText(uid);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      /* clipboard blocked (permissions / insecure context) — the value stays visible to select. */
+    }
+  };
+
+  const add = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = addValue.trim();
+    if (!code || busy || !tripKey) return;
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    const { addTripMember } = await import('@/lib/trips-remote');
+    const result = await addTripMember(tripKey, code);
+    if (result === 'ok') {
+      setAddValue('');
+      setStatus('Added. That device can open this trip now.');
+      await loadMembers();
+    } else if (result === 'denied') {
+      setError('Only someone who already has access to this trip can add a device.');
+    } else {
+      setError('Couldn’t add that device code. Check it and try again.');
+    }
+    setBusy(false);
+  };
+
+  const remove = async (memberUid: string) => {
+    if (busy || !tripKey) return;
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    const { removeTripMember } = await import('@/lib/trips-remote');
+    const result = await removeTripMember(tripKey, memberUid);
+    if (result === 'ok') {
+      setStatus('Removed. That device can no longer open this trip.');
+      await loadMembers();
+    } else if (result === 'denied') {
+      setError('Only the person who created this trip can remove a device.');
+    } else {
+      setError('Couldn’t remove that device. Try again.');
+    }
+    setBusy(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-4" data-testid="settings-access-card">
+      {/* This device's code — the out-of-band invite, and the thing a friend pastes. */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+        <h3 className="text-sm font-semibold text-white">This device&rsquo;s code</h3>
+        <p className="mt-1 max-w-2xl text-sm text-white/60">
+          Send this to someone on the trip and ask them to add it below &mdash; that&rsquo;s how
+          this device gets access. It identifies this browser, not you: it isn&rsquo;t a login and
+          it opens nothing on its own.
+        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <code
+            data-testid="settings-access-uid"
+            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white/80"
+          >
+            {uid ?? '…'}
+          </code>
+          <button
+            type="button"
+            onClick={copyUid}
+            disabled={!uid}
+            data-testid="settings-access-uid-copy"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+          >
+            {copied ? (
+              <Check className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <Copy className="h-4 w-4" aria-hidden="true" />
+            )}
+            {copied ? 'Copied' : 'Copy code'}
+          </button>
+        </div>
+        <div aria-live="polite" className="sr-only">
+          {copied ? 'Device code copied to clipboard' : ''}
+        </div>
+      </div>
+
+      {/* The roster. */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+        <h3 className="text-sm font-semibold text-white">Who can open this trip</h3>
+        {tripKey === '' ? (
+          <p data-testid="settings-access-sample" className="mt-1 max-w-2xl text-sm text-white/60">
+            This is the sample trip &mdash; it lives on this device only, so there is nobody to add.
+            Create a trip from your Trips page to plan with someone.
+          </p>
+        ) : (
+          <>
+            {members === null ? (
+              <p
+                data-testid="settings-access-open"
+                className="mt-1 flex items-start gap-1.5 max-w-2xl text-sm text-white/60"
+              >
+                <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                Anyone holding this trip&rsquo;s Trip Token can open it. Once this device has
+                finished syncing, it becomes the trip&rsquo;s owner and you can add the others by
+                their device codes.
+              </p>
+            ) : (
+              <ul data-testid="settings-access-list" className="mt-3 flex flex-col gap-2">
+                {Object.entries(members).map(([memberUid, role]) => (
+                  <li
+                    key={memberUid}
+                    data-testid="settings-access-row"
+                    className="flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-surface/60 p-2"
+                  >
+                    <span className="flex min-h-[44px] min-w-0 flex-1 flex-col justify-center px-2">
+                      <code className="truncate font-mono text-sm text-white/80">
+                        {memberUid.slice(0, 8)}…
+                      </code>
+                      <span className="text-xs text-white/50">
+                        {role === 'owner' ? 'Owner' : 'Member'}
+                        {memberUid === uid ? ' · this device' : ''}
+                      </span>
+                    </span>
+                    {myRole === 'owner' && memberUid !== uid && (
+                      <button
+                        type="button"
+                        onClick={() => remove(memberUid)}
+                        disabled={busy}
+                        data-testid="settings-access-remove"
+                        aria-label={`Remove device ${memberUid.slice(0, 8)}`}
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-white/15 text-white/70 transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+                      >
+                        <X className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <form onSubmit={add} className="mt-3 flex flex-col gap-2 sm:flex-row">
+              <label htmlFor="settings-access-add" className="sr-only">
+                Device code to add
+              </label>
+              <input
+                id="settings-access-add"
+                value={addValue}
+                onChange={(e) => setAddValue(e.target.value)}
+                placeholder="Paste a device code"
+                autoComplete="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                data-testid="settings-access-add-input"
+                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              />
+              <button
+                type="submit"
+                disabled={!addValue.trim() || busy}
+                aria-busy={busy}
+                data-testid="settings-access-add-submit"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <UserPlus className="h-4 w-4" aria-hidden="true" />
+                Add device
+              </button>
+            </form>
+          </>
+        )}
+        <div aria-live="polite" className="mt-2 min-h-[1.25rem]">
+          {status && (
+            <p data-testid="settings-access-status" className="text-sm text-white/70">
+              {status}
+            </p>
+          )}
+        </div>
+        {error && (
+          <p
+            role="alert"
+            data-testid="settings-access-error"
+            className="mt-1 flex items-center gap-2 text-sm font-medium text-red-300"
+          >
+            <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
+            {error}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -538,6 +927,9 @@ function ClaimOldName({ current }: { current: string }) {
  * (the REMOTE capability) — treated as a SECRET in copy: anyone holding it can read+write this trip
  * It is NOT the User Token, which is the account credential
  * and lives in its own group below — the two are never mixed.
+ * #10 — on the DEFAULT pack `getTripId()` is now `''` (the sample is local-only; the old
+ * `NEXT_PUBLIC_TRIP_ID` remote id is retired), so the token card renders an honest "no Trip
+ * Token — this is the sample" note instead of an empty secret with copy buttons.
  *
  * Deliberately NOT inside `TokenGate`: the front-door wall stays a zero-regression surface;
  * trip management is an opt-in Settings action most default-pack demo visitors never touch.
@@ -618,6 +1010,19 @@ function TripGroup() {
       {/* Current Trip Token — the shareable secret for THIS trip (and only this trip). */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">This trip&rsquo;s Trip Token</h3>
+        {tripKey === '' ? (
+          // #10 — the default pack is a local-only sample: no remote path, no token, nothing to
+          // share. Rendering the empty string as a "secret" with live copy buttons would hand the
+          // user a broken share link.
+          <p
+            data-testid="settings-trip-key-sample"
+            className="mt-1 max-w-2xl text-xs text-white/50"
+          >
+            This is the sample trip &mdash; it lives on this device only and has no Trip Token.
+            Create a trip from your Trips page to get one you can share.
+          </p>
+        ) : (
+        <>
         <p className="mt-1 flex items-start gap-1.5 text-xs text-white/50">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Share this to invite someone to THIS trip &mdash; anyone holding it can view and edit it.
@@ -664,6 +1069,8 @@ function TripGroup() {
         <div aria-live="polite" className="sr-only">
           {copied === 'key' ? 'Trip Token copied to clipboard' : copied === 'link' ? 'Share link copied to clipboard' : ''}
         </div>
+        </>
+        )}
       </div>
 
       {/* Add an existing trip by pasting its Trip Token. */}

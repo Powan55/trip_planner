@@ -107,7 +107,6 @@ export function useCountUp(
     // `target` intentionally excluded: a live-ticking target must NOT restart the
     // reveal — the loop reads it via targetRef. `reduceMotion` is effectively
     // stable for a session.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active, duration, reduceMotion]);
 
   // Robustness: only show the eased reveal value WHILE actively animating.
