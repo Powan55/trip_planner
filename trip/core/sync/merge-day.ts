@@ -39,13 +39,25 @@ export { DEFAULT_GC_HORIZON_MS } from './merge-items';
  * and merges only the `items` via the shared `mergeItems` — day metadata is derived from
  * the date and never a conflict source in practice.
  *
+ * Day metadata is a UNION with local precedence (#42), not a local-only copy: a key present
+ * on ONE side only survives from whichever side has it, and a key on BOTH still resolves to
+ * local exactly as before (so `date`/`city`/`country`/`countryLabel` behave identically).
+ * The union is what makes a NEW per-day field reach the wire at all: `pushDayMerged` calls
+ * `mergeDay(remoteNow, localDay)`, so with a local-only copy any day-level field the remote
+ * doc did not already carry was dropped before the write — the write-side twin of the mapper
+ * narrowing fixed in `docToDayPlan`. It also lets a peer's new field land locally on a
+ * steady-state snapshot instead of only after a reload.
+ * KNOWN CEILING: the union cannot express UNSETTING a day-level key — local's absence loses to
+ * remote's value. Nothing unsets one today (`clearDay` empties items and keeps the day). A
+ * feature that needs to wants a stamped null like `merge-budget.ts`, not a rule change here.
+ *
  * Result `items` INCLUDE tombstones. The
  * UI-exposed selector filters `deleted` out downstream — the MERGE sees tombstones;
  * the UI does not. Ordering is `mergeItems`' deterministic hlc-asc rule (live first, tombstones
  * appended) — extracted verbatim, so convergence + the ordering assertions are unchanged.
  */
 export function mergeDay(local: DayPlan, remote: DayPlan, policy: MergePolicy = DEFAULT_POLICY): DayPlan {
-  return { ...local, items: mergeItems(local.items ?? [], remote.items ?? [], policy) };
+  return { ...remote, ...local, items: mergeItems(local.items ?? [], remote.items ?? [], policy) };
 }
 
 /**
