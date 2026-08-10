@@ -38,19 +38,27 @@ jobs:
           fi
           echo "OK — $VERSION not yet deployed ($TAG absent)."
 
-  # Pull requests into main already ran the full suite, so this does not repeat
-  # it. But main can also be pushed to directly by a repo admin, and while a
-  # failing test is recoverable, a personal detail published to a public site
-  # is not. This costs about twenty seconds.
-  markers:
-    name: Repository hygiene
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - run: node trip/scripts/marker-check.mjs
+  # The checks that gate a pull request now also gate the deploy, by calling the
+  # same workflow rather than copying its steps: repository hygiene, tsc, eslint,
+  # unit tests, build. Roughly five minutes, and `build` below waits on it, so a
+  # red check ships nothing.
+  #
+  # On the normal path (a pull request from dev) this re-runs against a tree the
+  # pull request already checked. It is here for the path nothing covered: main
+  # can be pushed to directly by a repo admin, and until now such a push reached
+  # the live site after a version check and a build and nothing else.
+  #
+  # The browser suite deliberately stays on the pull request — see the note on
+  # ci.yml's `on:` block for why it does not run here.
+  #
+  # `./` resolves against this same commit, so ci.yml and this reference always
+  # ship together and cannot drift apart.
+  checks:
+    name: Checks
+    uses: ./.github/workflows/ci.yml
 
   build:
-    needs: [version-gate, markers]
+    needs: [version-gate, checks]
     runs-on: ubuntu-latest
     defaults:
       run:
