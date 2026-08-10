@@ -181,7 +181,7 @@ describe('placeWallClockToUtcMs — B-01-safe field arithmetic (matrix item 11)'
   });
 });
 
-// S391 (TD-05): the `isPastAtPlace` describe block is DELETED along with the function. It was
+// S391: the `isPastAtPlace` describe block is DELETED along with the function. It was
 // the helper's ONLY caller tree-wide — six assertions keeping a one-line wrapper alive after
 // S377 inlined it. The strictness they pinned (an item exactly AT "now" is still upcoming) is
 // covered where the behaviour actually lives now: `lib/__tests__/whats-next.test.ts`.

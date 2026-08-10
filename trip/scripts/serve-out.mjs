@@ -127,7 +127,6 @@ function resolveUncached(pathname) {
  * request handler, so every miss head-of-line-blocks Node's single event loop
  * on disk. One page load is an HTML request plus dozens of chunk requests, and
  * the E2E specs set `serviceWorkers: 'block'`, so no cache absorbs the repeats.
- * Measured effect: docs/plans/serve-out-latency-2026-08-02.md.
  *
  * unbounded Map. Fine for a local harness serving a fixed URL set —
  * add an LRU cap only if this ever faces a client that can invent URLs.

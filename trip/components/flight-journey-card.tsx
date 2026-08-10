@@ -30,7 +30,7 @@ import { buildFlightTrackerUrl, buildRome2RioUrl, buildGoogleFlightsUrl } from '
 // and teal/sky are 16/10 deg off), so a collision-free mapping for all four re-hued slots does not
 // exist. The two reuses across vocabularies are deliberate; every control here carries its own TEXT
 // label, so hue reuse costs no information. Within each vocabulary the spacing
-// is maximal — see docs/plans/s353c-sweep-evidence-2026-08-01.md.
+// is maximal.
 
 // Phase strip: color + a TEXT label + an icon.
 const PHASE: Record<FlightPhase, { label: string; strip: string; Icon: typeof Timer }> = {

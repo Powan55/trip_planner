@@ -92,7 +92,7 @@ test.describe('S338B — Your User Token card', () => {
     page,
   }) => {
     await gotoSettingsSync(page);
-    // S391 (TD-04): this used to assert `settings-sync-enter-input` / `-submit` had count 0.
+    // S391: this used to assert `settings-sync-enter-input` / `-submit` had count 0.
     // Neither id exists anywhere in the tree, so both assertions were true of ANY DOM — a
     // re-added form under any other id sailed through. Anchor on the real card instead: the
     // card renders exactly two buttons (reveal + copy) and NOTHING you can type into, so any

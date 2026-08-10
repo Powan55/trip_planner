@@ -1058,7 +1058,7 @@ Zero-stop days render an honest empty line instead of a bare world map. Covered 
 
 S343, the concierge on `/travel`. The same `<ConciergeChat />` the navbar mounts, placed in the
 reserved `.tm-thumb-zone` band (section 32) via `components/travel-concierge.tsx`, whose only rule is
-the navbar's `isDefaultTrip()` persona gate (TD-08). Every other gate stays inside ConciergeChat
+the navbar's `isDefaultTrip()` persona gate. Every other gate stays inside ConciergeChat
 (`isConciergeConfigured()` + non-guest traveler), so a dormant build (`NEXT_PUBLIC_CONCIERGE_URL`
 unset, which is every build today) renders nothing and the band stays `:empty` → `display:none`. The
 gate is unit-proven in `lib/__tests__/travel-concierge-gating.test.ts`, and presence is asserted

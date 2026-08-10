@@ -18,7 +18,7 @@
 // NEXT_PUBLIC_BASE_PATH once and prefix every emitted URL EXACTLY once
 // (precache entries, manifest start_url/scope/icon src). Never double-prefix.
 //
-// TD-07 / (behavior change): this script also deletes Next's nomodule
+// Behaviour change: this script also deletes Next's nomodule
 // polyfill chunk (out/_next/static/chunks/polyfills-*.js, ~112KB) and strips
 // its <script... nomodule> tag from every route HTML post-build. This DROPS
 // support for pre-ES-module (legacy, nomodule-only) browsers — support the app
@@ -72,7 +72,7 @@ async function walk(dir) {
 // single win) while KEEPING every route's own eager `app/<route>/page-*.js`.
 //
 // It must be EVERY route HTML, not just index.html. Scraping only index.html
-// costs ~17 more entries but silently breaks the/TD-04 + invariant:
+// costs ~17 more entries but silently breaks the precache invariant:
 // a route's HTML would still be precached and would still serve offline with the
 // correct <title>, but without its own page chunk React cannot render it, so the
 // route paints the error boundary ("The app hit a problem") instead of the page.
@@ -134,7 +134,7 @@ async function eagerStaticAssets(htmlFiles) {
 // SOURCE OF TRUTH: `.next/react-loadable-manifest.json`, emitted by `next build`,
 // which maps every `next/dynamic` CALL SITE — keyed "<source file> -> <specifier>"
 // — to the exact chunk files that import needs. READ, never hand-maintained: a
-// hand-kept list is the/TD-04 failure mode this file already fixed once for
+// hand-kept list is the failure mode this file already fixed once for
 // route HTML, and it is how a new island would silently fall out again.
 //
 // 🔴 SCOPE — and this is the part that must NOT be hand-picked. The obvious seed
@@ -143,7 +143,7 @@ async function eagerStaticAssets(htmlFiles) {
 // is an EIGHTH root-layout ssr:false island, declared in
 // `components/itinerary-provider.tsx` (which `app/layout.tsx` mounts) and rendered
 // unconditionally there. Any list a human writes has that shape of hole — which is
-// the/TD-04 failure mode this file already fixed once for route HTML. So the
+// the failure mode this file already fixed once for route HTML. So the
 // seed is DERIVED:
 //
 // 1. walk the STATIC import graph, over local modules, of `app/layout.tsx` PLUS
@@ -197,7 +197,7 @@ const ROOT_LAYOUT = 'app/layout.tsx';
 const SOURCE_EXTS = ['.tsx', '.ts', '.jsx', '.js'];
 
 // every ROUTE ENTRY POINT under app/ — `app/**​/page.tsx` — DISCOVERED by
-// walking the directory, never hand-listed. Same TD-04 rule the route-HTML walk
+// walking the directory, never hand-listed. Same rule the route-HTML walk
 // already follows, and for the same measured reason: proved a hand-picked
 // seed grows a hole (it missed TravelModeMounts, and that build LOOKED fixed).
 // A route's `page.tsx` statically imports its `./sections` client module, so
@@ -606,14 +606,14 @@ async function assertMapIslandsWrapped(mapSites) {
 // - icons/** and favicon.svg
 // - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead.
 //
-// TD-04: route HTML is DISCOVERED by walking out/ (below), not a hand-kept
+// Route HTML is DISCOVERED by walking out/ (below), not a hand-kept
 // literal. Every route MUST be precached so navigations resolve offline; the
 // old ROUTE_HTML array silently dropped any new route someone forgot to add
 // Discovery removes that footgun.
 //
 // _next/static/** is NOT precached wholesale — only what the precached
 // routes actually reference (see eagerStaticAssets above). Route HTML itself is
-// untouched and still precached in full: that is the/TD-04 contract and
+// untouched and still precached in full: that is the D-073 contract and
 // the torn-update invariant, NOT a side effect of scoping chunks.
 async function buildPrecacheList(allFiles) {
   const set = new Set();
@@ -975,9 +975,9 @@ self.addEventListener('fetch', (event) => {
 }
 
 // -------------------------------------------------------------------------
-// TD-07 /: delete the nomodule polyfill chunk and strip its <script>
+// Delete the nomodule polyfill chunk and strip its <script>
 // tag from every HTML file under out/. Runs BEFORE the precache walk so the
-// deleted chunk falls out of the precache list automatically (TD-04 walk).
+// deleted chunk falls out of the precache list automatically (the route walk).
 // Fail-soft: 0 deletions is not an error, but WARN so a future Next filename
 // change (polyfill glob matches nothing) stays visible.
 async function stripPolyfills() {
@@ -1010,11 +1010,11 @@ async function stripPolyfills() {
 
   if (deleted === 0) {
     console.warn(
-      'gen-sw: WARN (TD-07) matched NO polyfills-*.js chunk — Next may have renamed the polyfill pattern; verify the glob so the strip does not silently no-op.'
+      'gen-sw: WARN: matched NO polyfills-*.js chunk — Next may have renamed the polyfill pattern; verify the glob so the strip does not silently no-op.'
     );
   }
   console.log(
-    `gen-sw: TD-07 dropped nomodule polyfill — deleted ${deleted} chunk(s), stripped tag from ${stripped} HTML file(s)`
+    `gen-sw: dropped nomodule polyfill — deleted ${deleted} chunk(s), stripped tag from ${stripped} HTML file(s)`
   );
 }
 
@@ -1031,7 +1031,7 @@ async function main() {
 
   console.log(`gen-sw: basePath = ${BASE_PATH === '' ? '(empty)' : BASE_PATH}`);
 
-  // 0) TD-07: strip the nomodule polyfill (chunk + HTML tags) BEFORE the walk
+  // 0) strip the nomodule polyfill (chunk + HTML tags) BEFORE the walk
   // so it never enters the precache list.
   await stripPolyfills();
 

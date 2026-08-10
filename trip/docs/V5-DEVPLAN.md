@@ -6,7 +6,7 @@
 > locked rows have since been overturned: FU-18 and the anon-uid allowlist are
 > retired by D-205, and the shipped `firestore.rules` is a capability-token
 > model that never reads `request.auth`; `gen-sw.mjs`'s `ROUTE_HTML` was
-> replaced by route discovery under TD-04; PMTiles is a NO-GO per D-197, with
+> replaced by route discovery in S265; PMTiles is a NO-GO per D-197, with
 > D-286 the shipped answer; and the Phase-4 push slices (S201/S202) were never
 > built. The final version's scope lives in `V-FINAL-DEVPLAN.md`.
 
@@ -30,7 +30,7 @@ v5 turns the app from a trip *planner* into a trip *companion*:
 
 ## 1. Verified codebase facts (binding for every slice)
 
-1. **`scripts/gen-sw.mjs` `ROUTE_HTML` was hand-maintained when this plan was written; it no longer exists.** The walk() then auto-discovered only `_next/static`, icons and the manifest, the comment cited the S153 `/journal` omission bug, and any new route (`/travel`) had to be added to `ROUTE_HTML` explicitly, with `e2e/pwa.spec.ts` as the tripwire. Recorded as D-170. TD-04 has since replaced the hand-kept literal with discovery by walking `out/` (`scripts/gen-sw.mjs:609-612`, the discovery branch at `:633-634`), which is exactly D-170's own "Changes if" branch, so the hand-edit obligation in S184 below is gone. `e2e/pwa.spec.ts` no longer pins a precache count either: it derives the route list from `out/` and asserts a generous floor (`pwa.spec.ts:443`).
+1. **`scripts/gen-sw.mjs` `ROUTE_HTML` was hand-maintained when this plan was written; it no longer exists.** The walk() then auto-discovered only `_next/static`, icons and the manifest, the comment cited the S153 `/journal` omission bug, and any new route (`/travel`) had to be added to `ROUTE_HTML` explicitly, with `e2e/pwa.spec.ts` as the tripwire. Recorded as D-170. S265 has since replaced the hand-kept literal with discovery by walking `out/` (`scripts/gen-sw.mjs:609-612`, the discovery branch at `:633-634`), which is exactly D-170's own "Changes if" branch, so the hand-edit obligation in S184 below is gone. `e2e/pwa.spec.ts` no longer pins a precache count either: it derives the route list from `out/` and asserts a generous floor (`pwa.spec.ts:443`).
 2. **`app/template.tsx`** is a CSS `.animate-route-fade` shell (S67) remounting per navigation, with a `useReducedMotion()` React-level branch. The VT wrapper has to suppress the route fade when a View Transition drives navigation, or every navigation double-animates. The D-007/D-056 reduced-motion "NONE" hard guarantee must survive.
 3. **`viewportFit: 'cover'` is already set** (`app/layout.tsx:88`, S61/D-070). Travel Mode only adds per-component `env(safe-area-inset-*)` padding.
 4. **The byte-parity facade pattern already exists**: `lib/trip-data.ts` re-exports the date backbone from `core/dates/` (S93/D-099), and Trip Packs extends that pattern. `core/storage/gateway.ts` is the single key registry (D-097 LOCKED, local+session, never-throw), so `keyFor()` and `activeTripId` land there and nowhere else.

@@ -9,7 +9,7 @@ import { CURRENT_ITINERARY_VERSION } from '@/core/vault/migrations';
 import { itineraryItemSchema, parseItineraryPayload } from '@/core/vault/schema';
 import { addItem, updateItem } from '@/core/itinerary/crud';
 import { clashingItemIds } from '@/lib/sort-items-by-time';
-// S391 (TD-07): clash overlap is judged on the absolute instant, so every call carries the
+// S391: clash overlap is judged on the absolute instant, so every call carries the
 // day + the day's offset. These span cases are all single-zone, so the offset is a constant.
 import { NPT_OFFSET_MIN } from '@/core/dates';
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
