@@ -53,9 +53,11 @@ import LandingPage from '@/components/landing-page';
  * just no longer collects it. Offers this device's stored key-28 token when present ( soft
  * security; prevents orphan accounts after a sign-out with an unsaved token).
  * (b) **Create an account** — name → mint `crypto.randomUUID()` → `setSyncCode` + `signIn` →
- * SHOW-ONCE screen (shared `UserTokenShowOnce`) → explicit confirm → reload landing `/trips/`.
- * The door does NOT create a trip: account creation and trip creation are separate acts
- * (trip creation lives on `/trips`).
+ * kick off the ACCOUNT SEED (#10: `pushAccountIdentity` + `pushTripList` via dynamic import, so
+ * the account exists server-side and the door's probe can find it later; `finish()` awaits it
+ * under a 5s budget before the reload) → SHOW-ONCE screen (shared `UserTokenShowOnce`) →
+ * explicit confirm → reload landing `/trips/`. The door does NOT create a trip: account creation
+ * and trip creation are separate acts (trip creation lives on `/trips`).
  *
  * `?trip=` INVITATION: an unidentified visitor opening a share link has the pending Trip
  * Token read straight off the URL here (the door is on the same page as the link) and HELD; on
@@ -113,6 +115,13 @@ type Mode = 'login' | 'create';
 /**: the wall opens on the marketing landing; a CTA swaps it to the auth card. */
 type View = 'landing' | 'auth';
 
+/**
+ * #10 — how long `finish()` waits for the create-path account seed before navigating anyway.
+ * Same rationale and value as trips-hub's `CREATE_PUSH_BUDGET_MS`: the writes usually land in
+ * well under a second, but a dead network must never make "Continue" hang.
+ */
+const SEED_PUSH_BUDGET_MS = 5000;
+
 function TokenGateWall({ onHold }: { onHold: () => void }) {
   const [view, setView] = useState<View>('landing');
   /**
@@ -152,6 +161,15 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
 
   const panelRef = useRef<HTMLDivElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * #10 — path (b)'s account seed: `pushAccountIdentity` + `pushTripList`, kicked off right after
+   * signIn (the show-once screen buys it time) and AWAITED under a budget in `finish()`. Without
+   * the await the reload kills the writes in flight (the S375 lesson), and a created account with
+   * no identity doc would be rejected by the door's own probe on the next device. A ref, not
+   * state: nothing renders from it. Both pushes never reject; the `.catch` covers the import.
+   */
+  const seedRef = useRef<Promise<unknown> | null>(null);
 
   // Storage + URL are client-only facts; read once after mount (this island never SSRs its values).
   useEffect(() => {
@@ -235,12 +253,24 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
    * identity and its trip-list subscribe re-arms with the User Token present.
    */
   const finish = () => {
-    if (pendingTrip) {
-      joinTrip(pendingTrip);
-      window.location.replace(withBasePath('/'));
+    const go = () => {
+      if (pendingTrip) {
+        joinTrip(pendingTrip);
+        window.location.replace(withBasePath('/'));
+        return;
+      }
+      window.location.replace(withBasePath('/trips/'));
+    };
+    // #10 — when path (b) seeded the account docs (`seedRef`), the navigation WAITS for that seed
+    // under a 5s budget (`Promise.race`, the trips-hub CREATE_PUSH_BUDGET_MS shape): navigating
+    // immediately would abort the in-flight `setDoc`s and mint an account the door's probe cannot
+    // find. Login (path a) has no seed, so it navigates synchronously exactly as before.
+    const seed = seedRef.current;
+    if (!seed) {
+      go();
       return;
     }
-    window.location.replace(withBasePath('/trips/'));
+    void Promise.race([seed, new Promise((r) => setTimeout(r, SEED_PUSH_BUDGET_MS))]).then(go, go);
   };
 
   /** Path (a) — log in with the USER token ONLY (decision 2026-07-30). */
@@ -305,6 +335,16 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
       setBusy(false);
       return;
     }
+    // #10 — create BOTH account docs now (profile/identity + profile/tripList), so the account
+    // EXISTS server-side before the show-once confirm reloads: the door's login probe on the
+    // owner's next device finds it, and `subscribeTripList` no longer manufactures docs for
+    // unknown codes (its auto-seed branch is deleted). Dynamic import — the door stays statically
+    // firebase-free; both pushes self-gate dormant and never reject. `finish()` awaits this ref.
+    seedRef.current = import('@/lib/trips-remote')
+      .then(({ pushAccountIdentity, pushTripList }) =>
+        Promise.all([pushAccountIdentity(token, who), pushTripList(token)]),
+      )
+      .catch(() => undefined);
     setMinted(token); // the wall becomes the show-once screen; `finish` runs on its confirm
   };
 

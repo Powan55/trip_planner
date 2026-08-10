@@ -256,10 +256,14 @@ export async function pushTripList(code: string): Promise<void> {
  * Subscribe to the remote trip list (remote → local). Opens ONE `onSnapshot` on
  * `trips/{syncCode}/profile/tripList` (first-snapshot marker = DOC PRESENCE, docs-remote recipe):
  * PRESENT ⇒ merge into the local registry (`importRemoteTrips`) + push the union back when local had
- * extras; ABSENT on the first snapshot ⇒ seed from local. Gated + lazy + self-degrading: no-op unsub
- * when dormant; any failure → local-only via console.warn, never throws. Best-effort, so — unlike the
- * domain subscribes — it carries NO online-reconnect retry (a dropped stream re-subscribes on the
- * next reload). `onMerge` fires after a present-snapshot merge (for the caller to react/telemeter).
+ * extras; ABSENT on the first snapshot ⇒ NOTHING (#10 — the auto-seed is DELETED). Seeding an
+ * absent doc here is what used to manufacture a working account for ANY pasted string, which made
+ * the door's validation meaningless; the tripList doc is now created only by the deliberate
+ * writers (the door's create path, trips-hub's list pushes, `finishAccount`). Gated + lazy +
+ * self-degrading: no-op unsub when dormant; any failure → local-only via console.warn, never
+ * throws. Best-effort, so — unlike the domain subscribes — it carries NO online-reconnect retry
+ * (a dropped stream re-subscribes on the next reload). `onMerge` fires after a present-snapshot
+ * merge (for the caller to react/telemeter).
  */
 export function subscribeTripList(code: string, onMerge?: () => void): () => void {
   if (!isRemoteConfigured() || !code) return () => {};
@@ -283,19 +287,16 @@ export function subscribeTripList(code: string, onMerge?: () => void): () => voi
           if (snap.metadata.hasPendingWrites) return;
           if (!firstSnapshotHandled && snap.metadata.fromCache) return;
           try {
-            const first = !firstSnapshotHandled;
             firstSnapshotHandled = true;
             if (snap.exists()) {
               const data = snap.data() as Record<string, unknown>;
               const { localHadExtras } = importRemoteTrips(docToTrips(data), docToRemoved(data));
               if (localHadExtras) void pushTripList(code); // push our extras/removals up (best-effort)
               onMerge?.();
-            } else if (first) {
-              // Never synced → seed the doc from local (best-effort; local is untouched on failure).
-              void pushTripList(code).catch((err) =>
-                console.warn('[trips-remote] trip list seed failed, staying local-only:', err),
-              );
             }
+            // ABSENT ⇒ do nothing (#10). The old absent-first-snapshot seed branch is deleted —
+            // see the docblock. An account with no tripList doc gets one from its next deliberate
+            // list-changing action, never from merely logging in with a string.
           } catch (err) {
             console.warn('[trips-remote] failed to apply remote trip list:', err);
           }

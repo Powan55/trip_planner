@@ -373,6 +373,49 @@ describe('#10 — handleLogin probes the pasted key; only a server-confirmed abs
   });
 });
 
+// ── #10 — the create path seeds BOTH account docs before the show-once confirm ─────────────────
+describe('#10 — handleCreate pushes profile/identity + profile/tripList for the minted key', () => {
+  it('after Create, both pushes were kicked off with the minted token (and the typed name)', async () => {
+    const view = render(createElement(TokenGate));
+    // Landing → Create an account.
+    await act(async () => {
+      view.container
+        .querySelector<HTMLButtonElement>('[data-testid="landing-cta-create"]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    // Type the name (controlled input — native setter + input event).
+    const nameInput = view.container.querySelector<HTMLInputElement>('[data-testid="token-gate-name"]')!;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(nameInput, 'Genghis');
+      nameInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    // Submit — mints the token, signs in, kicks off the seed, shows the show-once screen.
+    // ⚠ Re-query the form AFTER typing: this file's framer-motion mock mints a fresh `m.*`
+    // component per property access, so every re-render remounts the wall subtree — an element
+    // captured before the type is a detached node whose submit React never sees.
+    const form = view.container
+      .querySelector('[data-testid="token-gate-name"]')!
+      .closest('form')!;
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0)); // the dynamic import + push kick-off
+    });
+
+    const minted = getSyncCode();
+    expect(minted).toMatch(/^[0-9a-f-]{36}$/);
+    expect(pushAccountIdentityMock).toHaveBeenCalledTimes(1);
+    expect(pushAccountIdentityMock).toHaveBeenCalledWith(minted, 'Genghis');
+    expect(pushTripListMock).toHaveBeenCalledTimes(1);
+    expect(pushTripListMock).toHaveBeenCalledWith(minted);
+    // Still on the show-once screen — the seed does not navigate (finish() owns that).
+    expect(view.container.querySelector('[data-testid="user-token-show-once"]')).not.toBeNull();
+    view.unmount();
+  });
+});
+
 describe('A2 — UserTokenShowOnce offers a durable Download .txt save', () => {
   it('renders a download control beside the existing copy control', () => {
     const view = render(

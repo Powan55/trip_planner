@@ -7,9 +7,10 @@
 //      entries dropped, `localHadExtras` flag correctness.
 //   B. WIRED behavior of `pushTripList` / `subscribeTripList` (lib/trips-remote.ts) against a FAKE
 //      Firestore (SDK modules vi.mock'd): push writes the union to the exact doc path
-//      `trips/{code}/profile/tripList`; subscribe seeds from local on an ABSENT first snapshot,
-//      merges into the local registry on a PRESENT snapshot, and pushes back when local had extras;
-//      both directions are dormant-safe no-ops.
+//      `trips/{code}/profile/tripList`; subscribe does NOTHING on an ABSENT first snapshot (#10 —
+//      the auto-seed that manufactured account docs for unknown codes is deleted), merges into the
+//      local registry on a PRESENT snapshot, and pushes back when local had extras; both
+//      directions are dormant-safe no-ops.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { DEFAULT_TRIP_ID, getActiveTripId, setActiveTripId } from '@/core/storage/gateway';
@@ -329,14 +330,21 @@ describe('pushTripList — writes the union to trips/{code}/profile/tripList', (
 });
 
 describe('subscribeTripList — docs-remote first-snapshot recipe', () => {
-  it('ABSENT first snapshot ⇒ seeds the remote doc from local', async () => {
+  // #10 INVERTED this case. It used to read "ABSENT first snapshot ⇒ seeds the remote doc from
+  // local", and that seed is exactly what manufactured a working account doc for ANY string
+  // pasted at the door — making login validation impossible. The seed branch is DELETED: an
+  // absent first snapshot now does nothing, and the doc is created only by the deliberate
+  // writers (the door's create path, trips-hub's pushes). This pins the deletion.
+  it('ABSENT first snapshot ⇒ NO write at all (the auto-seed is deleted, #10)', async () => {
     joinTrip('seed-me', 'Seed trip');
     const unsub = subscribeTripList(CODE);
     await flush();
     fireSnapshot(DOC_PATH); // doc absent
     await flush();
-    const written = fake.docs.get(DOC_PATH) as { trips: TripMeta[] };
-    expect(written.trips.map((t) => t.id)).toEqual(['seed-me']);
+    expect(writeLog).toHaveLength(0); // pushTripList was NOT called
+    expect(fake.docs.has(DOC_PATH)).toBe(false); // no account doc was manufactured
+    // The local registry is untouched either way.
+    expect(listKnownTrips().map((t) => t.id)).toContain('seed-me');
     unsub();
   });
 
