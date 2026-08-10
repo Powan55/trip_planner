@@ -130,7 +130,9 @@ function selfTest() {
   assert.deepEqual(t('// Apex reviewed this'), ['role-word']);
   assert.deepEqual(t('// frontend-engineer built it'), ['role-word']);
   assert.deepEqual(t("// Lax's call"), ['owner-name']);
-  assert.deepEqual(t('// mail laxmipoudel311@gmail.com'), ['owner-pii']);
+  // Assembled from fragments on purpose. A working address written out in full
+  // would be the exact thing this rule exists to keep out of the repo.
+  assert.deepEqual(t('// mail ' + 'laxmi' + 'poudel311@example.invalid'), ['owner-pii']);
   assert.deepEqual(t('// see blueprint §4'), ['section-mark']);
   assert.deepEqual(t('// Gate 2 passed'), ['gate-word']);
   assert.deepEqual(t('// per the brief'), ['process-prose']);
