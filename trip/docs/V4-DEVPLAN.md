@@ -1,4 +1,4 @@
-> **Historical: superseded by v5, kept for reference (2026-07-23).**
+> **Historical: the M17/v4 plan, completed and superseded. v5 (`V5-DEVPLAN.md`) rebuilt this scope, and the final version's scope lives in `V-FINAL-DEVPLAN.md`. Its dependency pins are dead — line 487 reads next 14.2.35 / react 18.2.0 / framer-motion 10 / maplibre 4, against the shipped next 15.5.20 / react 19.2.7 / framer-motion 12.42.2 / maplibre-gl 5.24.0 — and section 7's gate G5 (the `firestore.rules` uid-allowlist, FU-18) was retired outright by D-205. Kept because DECISIONS.md, `photo-storage-blueprint.md`, `sync-everywhere-blueprint.md` and `V-FINAL-DEVPLAN.md` all cite it by name.**
 
 # v4 Dev Plan
 
