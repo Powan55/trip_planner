@@ -100,18 +100,21 @@ test.describe('S84 · reduced motion — route-fade wrapper is imperceptible (ap
   test('the route-fade animation is collapsed to ~0ms under reduced motion', async ({ page }) => {
     await gotoReduced(page, '/');
 
-    // The static export's SSR'd `.animate-route-fade` wrapper is present in the
-    // DOM (useReducedMotion() is null during prerender, so the class ships), and
-    // it persists post-hydration in this build. The reduced-motion guarantee is
-    // therefore delivered by the CSS layer, NOT by removing the node: the
-    // `@media (prefers-reduced-motion: reduce)` block collapses
-    // `animation-duration` to 0.01ms — imperceptible — so the fade never plays.
-    // Assert that computed duration is effectively zero (<= 1ms) wherever the
-    // class is present. (Verified live: animationName stays 'route-fade' but
-    // animationDuration reads '1e-05s' under reduce vs the full duration
-    // without it — this is the honest, real contract.)
+    // The reduced-motion guarantee here is delivered by the CSS layer, NOT by removing the
+    // node: the `@media (prefers-reduced-motion: reduce)` block collapses `animation-duration`
+    // to 0.01ms — imperceptible — so the fade never plays. (Measured live: animationName stays
+    // 'route-fade' and animationDuration reads '1e-05s' under reduce, vs the full duration
+    // without it — pinned by the positive control below.) template.tsx ALSO branches at the
+    // React level, but `useReducedMotion()` does not report the emulated preference on the
+    // render that matters, so the CSS layer is what actually holds — which is why this test
+    // asserts the duration rather than the node's absence.
+    //
+    // #10 — WAIT FOR THE MOUNT FIRST. The provider now withholds `{children}` until an
+    // identified traveler, so the routed subtree (template included) appears only after
+    // hydration instead of arriving in the prerendered HTML. A bare `toBeAttached()` on its
+    // default timeout went flaky under full-suite parallel load for exactly that reason.
     const wrapper = page.locator('.animate-route-fade').first();
-    await expect(wrapper).toBeAttached();
+    await expect(wrapper).toBeAttached({ timeout: 20_000 });
     const durationSeconds = await wrapper.evaluate((el) => {
       const raw = getComputedStyle(el).animationDuration; // e.g. "1e-05s" or "0.15s"
       return parseFloat(raw);
@@ -128,6 +131,21 @@ test.describe('S84 · reduced motion — route-fade wrapper is imperceptible (ap
       const d2 = await afterNav.evaluate((el) => parseFloat(getComputedStyle(el).animationDuration));
       expect(d2).toBeLessThanOrEqual(0.001);
     }
+  });
+
+  // POSITIVE CONTROL: without the preference the same wrapper animates for real. Without this,
+  // the assertion above would pass just as happily against a stylesheet that had dropped the
+  // animation entirely — a test that cannot fail is not coverage (the S354 lesson, below).
+  test('without the preference the route-fade wrapper animates for real', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/', { waitUntil: 'load' });
+    await settleSW(page);
+    const wrapper = page.locator('.animate-route-fade').first();
+    await expect(wrapper).toBeAttached({ timeout: 20_000 });
+    const durationSeconds = await wrapper.evaluate((el) =>
+      parseFloat(getComputedStyle(el).animationDuration),
+    );
+    expect(durationSeconds).toBeGreaterThan(0.001);
   });
 });
 
