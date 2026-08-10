@@ -38,8 +38,19 @@ jobs:
           fi
           echo "OK — $VERSION not yet deployed ($TAG absent)."
 
+  # Pull requests into main already ran the full suite, so this does not repeat
+  # it. But main can also be pushed to directly by a repo admin, and while a
+  # failing test is recoverable, a personal detail published to a public site
+  # is not. This costs about twenty seconds.
+  markers:
+    name: Repository hygiene
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node trip/scripts/marker-check.mjs
+
   build:
-    needs: version-gate
+    needs: [version-gate, markers]
     runs-on: ubuntu-latest
     defaults:
       run:

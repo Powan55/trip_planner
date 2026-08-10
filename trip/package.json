@@ -1,7 +1,7 @@
 {
   "name": "app",
   "private": true,
-  "version": "5.11.2",
+  "version": "5.12.0",
   "scripts": {
     "dev": "next dev",
     "build": "next build && node scripts/gen-sw.mjs",
@@ -12,7 +12,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "validate:content": "vitest run lib/__tests__/content-validation.test.ts",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "marker-check": "node scripts/marker-check.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.12.1",
