@@ -1,30 +1,111 @@
 rules_version = '2';
 
-// Capability-token trips: each trip lives at trips/{tripId}, where tripId is a
-// high-entropy unguessable secret (crypto.randomUUID(), minted client-side).
-// Whoever HOLDS the token has full read+write on that trip's document tree —
-// a capability-link model ("anyone with the link can edit"). There is NO
-// per-user check: request.auth is never read; Firebase Auth is not required.
+// Firestore Security Rules — capability-token trips (D-205 / S231; enumeration
+// fix D-219; abuse guard D-248 / S358).
 //
-// The model rests on tripId being unguessable and UNENUMERABLE. No rule below
-// grants 'list' at /trips/{tripId}, so the top-level trips collection cannot be
-// queried/enumerated — a client can only reach a trip whose id it already holds.
-// CAUTION: rules_version 2 recursive wildcards match ZERO or more segments, so
-// a single "match /trips/{tripId}/{document=**} { allow list }" WOULD also
-// grant list on /trips/{tripId} itself and expose every token. Hence the split
-// below: the trip doc gets everything except list; subtrees get full access.
-// Collection-group queries across all trips are denied by omission.
+// SECURITY MODEL: each trip lives at trips/{tripId}, where tripId is a high-entropy,
+// unguessable secret (crypto.randomUUID(), minted client-side at trip-creation time —
+// see docs/blueprints/S231-capability-token-trips.md). Whoever HOLDS the token has full
+// read+write on that trip's entire document tree — a capability-link model, the same
+// trust boundary as e.g. a Google Docs "anyone with the link can edit" share. There is
+// NO per-user check: request.auth is never read. Firebase Auth (anonymous or otherwise)
+// is not required to read or write and is no longer part of this app's security story.
+//
+// The WHOLE model rests on tripId being unguessable and UNENUMERABLE: no rule below
+// grants `list` at /trips/{tripId}, so the top-level `trips` collection cannot be
+// queried — a client can only ever reach a trip whose id it already holds in full.
+//
+// ⚠ D-219 (live-verified 2026-07-19): under rules_version 2 a recursive wildcard
+// matches ZERO or more segments, so S232's original single block
+//   match /trips/{tripId}/{document=**} { allow get, list, write: if true; }
+// ALSO matched /trips/{tripId} itself and silently granted `list` on the whole
+// trips collection — every token enumerable (proven live with a plain getDocs).
+// The decorative `match /trips { allow list: if false }` did nothing: deny-style
+// rules grant nothing but never veto another matching allow. Hence the split
+// below — the trip doc gets every op EXCEPT list; subtrees get full access.
+// Collection-group queries across all trips remain denied by omission.
+//
+// ⚠ D-248 / S358 — ABUSE GUARD. Sync is live in production, so the project id ships in
+// the public bundle and anyone who reads it can write to a trips/{id} of their OWN
+// invention. They still cannot reach a REAL trip (tripId is the secret and stays
+// unenumerable), but they can write junk. `boundedWrite()` caps the SHAPE of every
+// create/update: top-level field count, plus the length of the four known container
+// fields. Ceilings are set an order of magnitude above the measured real payloads (see
+// boundedWrite) — deliberately loose, because a denied write does not surface to the
+// user, it just leaves the chunk dirty in the outbox and stalls sync silently. A guard
+// that fires on the owner's real 32-day trip would be worse than no guard at all.
+//
+// This is a SHAPE guard, NOT a byte guard, and the difference is deliberate:
+//   · Firestore rules have NO byte-size function. `request.resource.size()` is a TRAP:
+//     it is Cloud STORAGE syntax where it means bytes, but in Firestore `request.resource`
+//     is a Resource of {data, id, __name__} — so it compiles, and returns a CONSTANT 3,
+//     the member count of that wrapper. Measured against the rules engine (S358, emulator):
+//     `request.resource.size() == 3` allowed BOTH a 3-field and a 300-field document, and
+//     `request.resource.size() < 1048576` waved a 10,000-field hostile write straight
+//     through. It is `true` wearing a costume — never ship it.
+//     The charitable rewrite `request.resource.data.size()` at least reads the document,
+//     but counts TOP-LEVEL KEYS, so a `< 1048576` ceiling on it can never fail either.
+//   · A byte cap would be redundant anyway: Firestore already enforces a hard ~1 MiB
+//     per-document limit at the API level.
+// NOT MITIGATED by anything in this file: (a) quota burn — 20K tiny writes/day exhausts
+// the Spark free-tier write quota and stalls sync (outage only; Spark cannot be billed),
+// and (b) one field holding one huge string. Both need App Check, which is the named
+// upgrade path — not more rules.
+// VERIFY BEFORE DEPLOY (S358): from the repo root run — firebase emulators:exec --only firestore --project demo-rules "node scripts/rules-check.mjs"
+//
+// DELETES are deliberately UNGUARDED: on a delete `request.resource` is null, so any
+// guard touching it would error and deny, and the app genuinely deletes documents
+// (days/{date} when a day is removed — itinerary-remote.ts:241; presence/{deviceId} on
+// heartbeat teardown).
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Length of a known container field on the INCOMING document (0 when absent).
+    // `.size()` is entry-count for a map, element-count for a list and character-count
+    // for a string, so a hostile scalar dumped into one of these slots is bounded too.
+    function len(field) {
+      return request.resource.data.get(field, []).size();
+    }
+
+    // Shape ceiling for every create/update. Real payloads, measured S358 against every
+    // write call site in nextjs_space/lib/*-remote.ts + lib/presence.ts:
+    //   trips/{id}             {schemaVersion, createdAt, seededFrom}   3 fields
+    //   …/days/{date}          {date, city, country, items[]}           4 fields
+    //   …/expenses/{leg}       {leg, items[]}                           2 fields
+    //   …/budget/model         {version, fields{}}                      2 fields
+    //   …/docs/checklist       {version, items[]}                       2 fields
+    //   …/meta/info            {name, config{}}                         1-2 fields
+    //   …/profile/tripList     {version, trips[], removed[]}            3 fields
+    //   …/presence/{deviceId}  {name, lastSeen}                         2 fields
+    // Container lengths: a packed day is ~20 items, a heavily-used expense leg ~400-500
+    // rows over a 32-day trip with 3 editors (both plus ≤30-day tombstone retention,
+    // merge-items.ts:148), the budget field map is a closed set of legs×10 categories +
+    // 3 (merge-budget.ts header: ~25 for the default 2-leg pack). 5000 is ~10x the
+    // heaviest of those and still refuses a 100k-row write. Above ~5000 rows of real
+    // content Firestore's own 1 MiB/document limit takes over as the binding stop.
+    function boundedWrite() {
+      return request.resource.data.size() <= 32
+        && len('items') <= 5000      // day items / expense rows / checklist rows
+        && len('trips') <= 5000      // profile/tripList rows
+        && len('removed') <= 5000    // profile/tripList tombstones
+        && len('fields') <= 5000;    // budget leaf-field map
+    }
+
     // The trip doc itself: reachable and writable by direct id only — never listable.
     match /trips/{tripId} {
-      allow get, create, update, delete: if true;
+      allow get, delete: if true;
+      allow create, update: if boundedWrite();
 
-      // Everything under a known trip (days/{date}, budget/model, expenses/{leg},
-      // presence/{deviceId}): full read+write, including subcollection queries.
+      // Everything under a known trip (days/{date}, expenses/{leg}, budget/model,
+      // docs/checklist, meta/info, profile/tripList, presence/{deviceId} — verified
+      // against every real write call site in nextjs_space/lib/*-remote.ts +
+      // presence.ts as of S358): full read+write, including subcollection queries, to
+      // anyone who has the tripId. `get, list, delete` + `create, update` is exactly the
+      // former `get, list, write` (write ≡ create+update+delete) with the shape guard
+      // on the two ops that carry a payload — the D-219 block split is UNCHANGED.
       match /{sub}/{document=**} {
-        allow get, list, write: if true;
+        allow get, list, delete: if true;
+        allow create, update: if boundedWrite();
       }
     }
   }
