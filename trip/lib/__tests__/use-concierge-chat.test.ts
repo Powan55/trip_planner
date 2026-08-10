@@ -36,6 +36,17 @@ vi.mock('@/lib/firebase-config', () => ({
   getTripId: () => '',
 }));
 
+// #10 — the Worker's Authorization header. Default `{}` mirrors the real vitest environment (no
+// firebase ⇒ no session ⇒ no header), so every pre-#10 assertion in this file runs unchanged; ONE
+// test flips a session on to prove the header is actually wired to the request.
+const workerAuth = vi.hoisted(() => ({ header: {} as Record<string, string>, calls: 0 }));
+vi.mock('@/lib/worker-auth', () => ({
+  workerAuthHeader: async () => {
+    workerAuth.calls += 1;
+    return workerAuth.header;
+  },
+}));
+
 import { useConciergeChat, buildTripDescriptor, type ChatTurn, type ChatStatus } from '@/hooks/use-concierge-chat';
 import { setActiveTripId } from '@/core/storage/gateway';
 import { setTripConfig, renameKnownTrip } from '@/core/trips/registry';
@@ -150,6 +161,39 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     expect(h.messages[1].role).toBe('assistant');
     expect(h.messages[1].content).toBe('Added a ramen dinner idea for you.');
     expect(h.messages[1].ops).toEqual(ops);
+    h.unmount();
+  });
+
+  it('#10 — attaches NO authorization header when there is no session', async () => {
+    workerAuth.calls = 0;
+    workerAuth.header = {};
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('hello');
+
+    const [, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect('authorization' in headers).toBe(false);
+    // The trip token is unchanged — the new header sits BESIDE it, it does not replace it.
+    expect(headers['X-Trip-Token']).toEqual(expect.any(String));
+    expect(workerAuth.calls).toBe(1); // the seam really ran (an empty header is not a skipped one)
+    h.unmount();
+  });
+
+  it('#10 — attaches the bearer token beside X-Trip-Token once there IS a session', async () => {
+    workerAuth.header = { authorization: 'Bearer id-token-xyz' };
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('hello');
+
+    const [, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers.authorization).toBe('Bearer id-token-xyz');
+    expect(headers['X-Trip-Token']).toEqual(expect.any(String));
+    expect(headers['content-type']).toBe('application/json');
+    workerAuth.header = {};
     h.unmount();
   });
 

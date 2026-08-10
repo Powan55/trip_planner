@@ -7,6 +7,7 @@ import { getActiveTrip, isDefaultTrip } from '@/core/trips';
 import { getKnownTrip } from '@/core/trips/registry';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { CONCIERGE_URL } from '@/lib/concierge-config';
+import { workerAuthHeader } from '@/lib/worker-auth';
 import { TRIP_DATE_LABEL, TRIP_DATES } from '@/core/dates/trip-dates';
 import { getCityForDate } from '@/core/dates/trip-cities';
 import { effectiveStartMinutes } from '@/core/dates/item-time';
@@ -312,9 +313,14 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       try {
         const context = buildTripDigest();
         const trip = buildTripDescriptor();
+        // #10 — the Worker verifies MEMBERSHIP from a Firebase ID token now, not possession of the
+        // trip id. Attached only when there is a session to attach: with no firebase configured
+        // (the dormant build and every browser test) this spreads to nothing and the request is
+        // byte-identical to the one that shipped before. See lib/worker-auth.ts.
+        const auth = await workerAuthHeader();
         const res = await fetchImpl(CONCIERGE_URL, {
           method: 'POST',
-          headers: { 'content-type': 'application/json', 'X-Trip-Token': getActiveTripId() },
+          headers: { 'content-type': 'application/json', 'X-Trip-Token': getActiveTripId(), ...auth },
           // `trip` is spread in only when there IS one — the key is ABSENT on the default trip,
           // not `null`. See `buildTripDescriptor`: absent is what selects the Worker's richer
           // default persona, and it also keeps the default body byte-identical to today's.
