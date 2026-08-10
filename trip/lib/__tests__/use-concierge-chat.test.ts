@@ -24,6 +24,18 @@ vi.mock('@/lib/concierge-config', () => ({
   isConciergeConfigured: () => Boolean(gate.url),
 }));
 
+// #10 — a controllable remote gate for send()'s default-pack guard (b). Default `false` mirrors
+// the real vitest environment (no firebase env), so every pre-#10 test runs the exact branch it
+// was written against; ONE test flips it on to pin the refusal.
+const remote = vi.hoisted(() => ({ on: false }));
+vi.mock('@/lib/firebase-config', () => ({
+  FIREBASE_CONFIG: {},
+  isRemoteConfigured: () => remote.on,
+  // The hook never calls these two; they exist so transitive importers (ports/outbox) resolve.
+  isTripRemoteConfigured: () => false,
+  getTripId: () => '',
+}));
+
 import { useConciergeChat, buildTripDescriptor, type ChatTurn, type ChatStatus } from '@/hooks/use-concierge-chat';
 import { setActiveTripId } from '@/core/storage/gateway';
 import { setTripConfig, renameKnownTrip } from '@/core/trips/registry';
@@ -109,7 +121,9 @@ function renderConciergeChat(fetchImpl: typeof fetch): Handle {
 
 describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
   beforeEach(() => {
+    localStorage.clear(); // #10: the account-gate tests drive the real registry/pointer
     gate.url = 'https://concierge.example.workers.dev';
+    remote.on = false; // the environment every pre-#10 test was written against
     setNavigatorOnLine(true); // every pre-S389 test in this file assumes a connection
   });
 
@@ -383,6 +397,7 @@ describe('S395 — the trip descriptor on the POST body', () => {
     localStorage.clear();
     sessionStorage.clear();
     gate.url = 'https://concierge.example.workers.dev';
+    remote.on = false; // #10 — each account-gate case sets its own build shape
     setNavigatorOnLine(true);
   });
 
@@ -419,6 +434,61 @@ describe('S395 — the trip descriptor on the POST body', () => {
     // Worker and would be pure body-budget waste, so adding one must fail here.
     expect(Object.keys(body.trip as object).sort()).toEqual(['end', 'label', 'start']);
     expect(body.trip).toEqual({ label: 'Iceland ring road', start: '2027-03-01', end: '2027-03-05' });
+    h.unmount();
+  });
+
+  it("#10: an UNKNOWN custom trip (pointer set, never joined) is refused — no digest, no fetch", async () => {
+    // The registry does not know this id: nothing ever joinTrip'd it, so it is not on the
+    // account. The refusal must happen BEFORE any request forms — the load-bearing assertion is
+    // fetchImpl never being called, same shape as the S389-C offline test.
+    setActiveTripId('ghost-trip-nobody-joined');
+
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('plan my day');
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(h.status).toBe('error');
+    expect(h.error).toBe("This trip isn't on your account, so the concierge can't help with it.");
+    expect(h.messages).toEqual([]); // no user turn, no blank in-flight bubble
+    h.unmount();
+  });
+
+  it('#10: a KNOWN custom trip still sends (the registry entry is what admits it)', async () => {
+    useCustomTrip('Iceland ring road'); // setTripConfig + rename register it in the registry
+    remote.on = true; // even on a configured build — guard (b) is default-pack-only
+
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('where should I eat?');
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(h.status).toBe('idle');
+    h.unmount();
+  });
+
+  it('#10: the DEFAULT trip with remote UNCONFIGURED still sends — pins the e2e/dormant degrade', async () => {
+    // remote.on is false (the beforeEach default): guard (b) keys on isRemoteConfigured(), so a
+    // dormant build (the whole e2e suite, any fork without firebase env) keeps today's behavior.
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('what is on tomorrow?');
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(h.status).toBe('idle');
+    h.unmount();
+  });
+
+  it('#10: the DEFAULT trip on a CONFIGURED build is refused — the sample is not a concierge trip', async () => {
+    remote.on = true; // the deployed-site shape
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('plan my day');
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(h.status).toBe('error');
+    expect(h.error).toBe('The concierge works on your own trips — open one of your trips to chat.');
+    expect(h.messages).toEqual([]);
     h.unmount();
   });
 

@@ -4,6 +4,8 @@ import { useCallback, useRef, useState } from 'react';
 import { useOnline } from '@/hooks/use-online';
 import { getActiveTripId } from '@/core/storage/gateway';
 import { getActiveTrip, isDefaultTrip } from '@/core/trips';
+import { getKnownTrip } from '@/core/trips/registry';
+import { isRemoteConfigured } from '@/lib/firebase-config';
 import { CONCIERGE_URL } from '@/lib/concierge-config';
 import { TRIP_DATE_LABEL, TRIP_DATES } from '@/core/dates/trip-dates';
 import { getCityForDate } from '@/core/dates/trip-cities';
@@ -277,6 +279,26 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       if (!online) {
         setStatus('error');
         setError('You’re offline, so nothing was sent. Reconnect and try again.');
+        return;
+      }
+
+      // #10 — the concierge serves only trips that are ON THIS ACCOUNT, checked BEFORE any digest
+      // is built or a byte leaves the device. Two refusals, same error-row mechanism as offline:
+      // (a) a custom trip the registry does not know (someone drove the pointer to an arbitrary
+      //     id without joining it) gets no digest and no POST — the digest would read whatever
+      //     sits under that pointer's storage namespace;
+      // (b) the default pack on a CONFIGURED build: it is a local-only sample now, and the
+      //     concierge belongs to real trips. Keyed on isRemoteConfigured() deliberately, so the
+      //     dormant/e2e build (remote unconfigured) keeps today's default-trip behavior exactly.
+      if (!isDefaultTrip()) {
+        if (!getKnownTrip(getActiveTripId())) {
+          setStatus('error');
+          setError("This trip isn't on your account, so the concierge can't help with it.");
+          return;
+        }
+      } else if (isRemoteConfigured()) {
+        setStatus('error');
+        setError('The concierge works on your own trips — open one of your trips to chat.');
         return;
       }
       sendingRef.current = true;

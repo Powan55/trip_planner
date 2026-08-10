@@ -14,6 +14,7 @@ import { createElement, Fragment } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { TRIP_DATES } from '@/core/dates';
+import { joinTrip } from '@/core/trips/registry';
 
 // React 18 gates async act() DOM flushing on this global — without it a state update inside act
 // commits but the query below reads a stale DOM ("not configured to support act(...)").
@@ -183,6 +184,10 @@ function renderHarness(fetchImpl: typeof fetch): Handle {
 
 describe('concierge write path (S329 integration)', () => {
   beforeEach(() => {
+    // Full isolation (#10): the SYNC ON case below switches the active-trip pointer to a custom
+    // trip, and localStorage persists across tests in one jsdom file — clear it so no test
+    // inherits another's pointer/registry/scoped keys.
+    localStorage.clear();
     // Key PRESENT with [] so loadPlans does not reseed SAMPLE_ITINERARY (D-018 key-presence) — a
     // clean, empty itinerary to add into.
     localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify([]));
@@ -257,6 +262,15 @@ describe('concierge write path (S329 integration)', () => {
   // instrument that let the defect ship green.
   it('SYNC ON: undo of a confirmed moveItem actually moves the item BACK (S389-A)', async () => {
     remote.on = true;
+    // #10 — sync-on now implies "not the default pack": the hook's send() refuses the default
+    // trip on a configured build (guard b), and the default pack no longer syncs at all. So this
+    // scenario runs where it is actually reachable in production: a REGISTERED custom trip
+    // (registered via joinTrip, so guard a passes). The store branch under test is unchanged —
+    // use-itinerary's fresh-id mint gates on isRemoteConfigured(), not on which trip is active.
+    // validateOps' date fence is the module-level TRIP_DATES (loaded before the pointer switch),
+    // so TARGET_DATE stays valid; the itinerary key is seeded in this trip's scoped namespace.
+    joinTrip('sync-on-coverage-trip', 'Sync-on coverage');
+    localStorage.setItem('trip:sync-on-coverage-trip:itinerary', JSON.stringify([]));
     const h = renderHarness(
       jsonFetch({
         reply: 'Moving it.',
