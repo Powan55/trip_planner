@@ -327,6 +327,71 @@ export async function ensureMembership(tripId: string): Promise<void> {
   }
 }
 
+/**
+ * The trip's roster, or `undefined` when there is none to show — dormant, unreachable, no trip
+ * doc, or a doc with no members map (a grandfathered capability trip, where "everyone holding the
+ * link" is the honest answer and a list would be a lie). TOTAL, never throws.
+ */
+export async function fetchTripMembers(
+  tripId: string,
+): Promise<Record<string, TripRole> | undefined> {
+  if (!isTripRemoteConfigured() || !tripId) return undefined;
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, getDocFromServer } = fs;
+    const snap = await getDocFromServer(doc(db, 'trips', tripId));
+    if (!snap.exists()) return undefined;
+    return readMembers(snap.data() as Record<string, unknown>) as Record<string, TripRole> | undefined;
+  } catch (err) {
+    console.warn('[trips-remote] members fetch failed:', err);
+    return undefined;
+  }
+}
+
+/** What a roster write did. `denied` is the rules refusing it, which the UI must explain. */
+export type MemberWriteResult = 'ok' | 'denied' | 'failed';
+
+/**
+ * Add someone else's device code to this trip (#10). ANY member may do this — the rules accept an
+ * add-only members diff from a member — which is what makes "send me your code and I'll add you"
+ * work without an invite server.
+ *
+ * Always `'member'`: this UI never mints a second owner. (The rules cannot enforce that — see the
+ * ceiling note at the top of this section — so the client not offering it is the whole guard.)
+ */
+export async function addTripMember(tripId: string, uid: string): Promise<MemberWriteResult> {
+  return writeMemberField(tripId, uid, 'member');
+}
+
+/**
+ * Remove a device from this trip (#10). OWNER ONLY, and enforced twice: the control is not
+ * rendered for a member, and the rules refuse a non-owner edit that removes a members key.
+ */
+export async function removeTripMember(tripId: string, uid: string): Promise<MemberWriteResult> {
+  return writeMemberField(tripId, uid, null);
+}
+
+/** One field-path write against the members map — `null` value ⇒ delete that entry. */
+async function writeMemberField(
+  tripId: string,
+  uid: string,
+  role: TripRole | null,
+): Promise<MemberWriteResult> {
+  if (!isTripRemoteConfigured() || !tripId || !uid) return 'failed';
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, updateDoc, deleteField } = fs;
+    // FIELD PATH, never a whole-document write: the rules only ever accept an edit whose affected
+    // keys are exactly `members`.
+    await updateDoc(doc(db, 'trips', tripId), { [`members.${uid}`]: role ?? deleteField() });
+    return 'ok';
+  } catch (err) {
+    if (isPermissionDenied(err)) return 'denied';
+    console.warn('[trips-remote] members write failed:', err);
+    return 'failed';
+  }
+}
+
 /** Extract the row array from a raw remote list doc (defensive: tolerate a partial/missing doc). */
 function docToTrips(data: Record<string, unknown>): TripMeta[] {
   return Array.isArray(data.trips) ? (data.trips as TripMeta[]) : [];

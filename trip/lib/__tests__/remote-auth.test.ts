@@ -37,6 +37,14 @@ const authCtl = vi.hoisted(() => ({
   idTokenFails: false,
   /** Mirrors the SDK: whoever is signed in right now. */
   currentUid: null as string | null,
+  /** `providerData` on the current user — 'google.com' once linked. */
+  providers: [] as string[],
+  linkCalls: 0,
+  /** The `code` `linkWithPopup` rejects with, or null to succeed. */
+  linkErrorCode: null as string | null,
+  /** What `GoogleAuthProvider.credentialFromError` hands back. */
+  credentialFromError: { providerId: 'google.com' } as unknown,
+  credentialSignIns: 0,
 }));
 
 vi.mock('firebase/app', () => ({
@@ -57,6 +65,7 @@ vi.mock('firebase/auth', () => ({
           ? null
           : {
               uid: authCtl.currentUid,
+              providerData: authCtl.providers.map((providerId) => ({ providerId })),
               getIdToken: async () => {
                 if (authCtl.idTokenFails) throw new Error('token mint failed');
                 return authCtl.idToken;
@@ -84,6 +93,26 @@ vi.mock('firebase/auth', () => ({
     authCtl.currentUid = 'anon-uid-new';
     return { user: { uid: 'anon-uid-new' } };
   },
+  GoogleAuthProvider: class {
+    static credentialFromError() {
+      return authCtl.credentialFromError;
+    }
+  },
+  linkWithPopup: async () => {
+    authCtl.linkCalls += 1;
+    if (authCtl.linkErrorCode) {
+      throw Object.assign(new Error('link failed'), { code: authCtl.linkErrorCode });
+    }
+    authCtl.providers.push('google.com'); // linking keeps the uid and adds a provider
+    return { user: { uid: authCtl.currentUid } };
+  },
+  signInWithCredential: async () => {
+    authCtl.credentialSignIns += 1;
+    authCtl.currentUid = 'adopted-uid'; // adopting SWAPS the identity — the uid changes
+    authCtl.restored = { uid: 'adopted-uid' };
+    authCtl.providers = ['google.com'];
+    return { user: { uid: 'adopted-uid' } };
+  },
 }));
 
 /** A fresh module registry per test — `getRemote` caches its handle at module scope. */
@@ -102,6 +131,11 @@ beforeEach(() => {
   authCtl.idToken = 'id-token-1';
   authCtl.idTokenFails = false;
   authCtl.currentUid = null;
+  authCtl.providers = [];
+  authCtl.linkCalls = 0;
+  authCtl.linkErrorCode = null;
+  authCtl.credentialFromError = { providerId: 'google.com' };
+  authCtl.credentialSignIns = 0;
 });
 
 describe('getRemote — anonymous sign-in is part of the handle (#10)', () => {
@@ -186,5 +220,77 @@ describe('getAuthIdToken — TOTAL: a token, or null (#10)', () => {
     authCtl.idTokenFails = true;
     const { getAuthIdToken } = await freshRemote();
     await expect(getAuthIdToken()).resolves.toBeNull();
+  });
+});
+
+describe('linkGoogleAccount — every branch says something, and none of them lose access (#10)', () => {
+  it('a successful link KEEPS the uid (the entire point) and reports it linked', async () => {
+    const { getRemote, linkGoogleAccount, isGoogleLinked } = await freshRemote();
+    const before = (await getRemote()).uid;
+
+    expect(await linkGoogleAccount()).toBe('linked');
+
+    expect(authCtl.linkCalls).toBe(1);
+    // A different uid here would mean this device just lost its place in every trip's roster.
+    expect((await getRemote()).uid).toBe(before);
+    expect(await isGoogleLinked()).toBe(true);
+  });
+
+  it('a blocked popup is reported as such — no adoption, no identity change', async () => {
+    authCtl.linkErrorCode = 'auth/popup-blocked';
+    const { getRemote, linkGoogleAccount } = await freshRemote();
+    const before = (await getRemote()).uid;
+
+    expect(await linkGoogleAccount()).toBe('popup-blocked');
+    expect(authCtl.credentialSignIns).toBe(0);
+    expect((await getRemote()).uid).toBe(before);
+  });
+
+  it('a popup the user closed reports the same actionable state, not a generic failure', async () => {
+    authCtl.linkErrorCode = 'auth/popup-closed-by-user';
+    const { linkGoogleAccount } = await freshRemote();
+    expect(await linkGoogleAccount()).toBe('popup-blocked');
+  });
+
+  it('credential-already-in-use ADOPTS that identity and drops the stale cached uid', async () => {
+    authCtl.linkErrorCode = 'auth/credential-already-in-use';
+    const { getRemote, linkGoogleAccount } = await freshRemote();
+    const before = (await getRemote()).uid;
+    expect(before).toBe('anon-uid-new');
+
+    expect(await linkGoogleAccount()).toBe('adopted');
+
+    expect(authCtl.credentialSignIns).toBe(1);
+    // The cache MUST have been cleared: every caller reads `uid` off this handle, and a stale one
+    // would enrol the wrong identity in the trip's roster.
+    expect((await getRemote()).uid).toBe('adopted-uid');
+  });
+
+  it('credential-already-in-use with no recoverable credential fails without signing anything in', async () => {
+    authCtl.linkErrorCode = 'auth/credential-already-in-use';
+    authCtl.credentialFromError = null;
+    const { linkGoogleAccount } = await freshRemote();
+
+    expect(await linkGoogleAccount()).toBe('failed');
+    expect(authCtl.credentialSignIns).toBe(0);
+  });
+
+  it('any other error leaves the device anonymous and unchanged', async () => {
+    authCtl.linkErrorCode = 'auth/network-request-failed';
+    const { getRemote, linkGoogleAccount, isGoogleLinked } = await freshRemote();
+    const before = (await getRemote()).uid;
+
+    expect(await linkGoogleAccount()).toBe('failed');
+    expect((await getRemote()).uid).toBe(before);
+    expect(await isGoogleLinked()).toBe(false);
+  });
+
+  it('never opens a popup on a dormant build', async () => {
+    gate.on = false;
+    const { linkGoogleAccount, isGoogleLinked } = await freshRemote();
+    expect(await linkGoogleAccount()).toBe('failed');
+    expect(await isGoogleLinked()).toBe(false);
+    expect(authCtl.linkCalls).toBe(0);
+    expect(authCtl.getAuthCalls).toBe(0);
   });
 });

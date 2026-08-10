@@ -163,6 +163,85 @@ export async function getAuthIdToken(): Promise<string | null> {
   }
 }
 
+/** What `linkGoogleAccount` did, as four outcomes a UI can speak plainly about. */
+export type LinkResult = 'linked' | 'adopted' | 'popup-blocked' | 'failed';
+
+/**
+ * Link a Google identity onto THIS device's anonymous session (issue #10).
+ *
+ * WHY LINK RATHER THAN SIGN IN: linking PRESERVES the uid. The uid is what a trip's members map
+ * names, so re-signing-in as Google (a different uid) would leave this device's entry pointing at
+ * an identity nobody uses any more, and the user locked out of their own trip. Linking is the
+ * whole feature; the Google account is a recovery handle bolted onto an identity that already has
+ * access, not a new identity.
+ *
+ * 🔴 POPUP ONLY — NEVER `linkWithRedirect`. This app is a static export served from a GitHub Pages
+ * origin while the Firebase `authDomain` is a different origin, so the redirect flow has to write
+ * its pending-credential state cross-origin. Under Safari's storage partitioning that state is not
+ * there when the user comes back, and the redirect completes as a silent no-op — the user taps,
+ * disappears to Google, returns, and nothing has happened, with no error to show them. The popup
+ * flow keeps the whole exchange in one window and reports its own failures, which is why every
+ * branch below has something to say.
+ *
+ * ⚠ MUST BE CALLED FROM THE TAP'S USER GESTURE. Browsers only let a popup open under transient
+ * activation. The `import('firebase/auth')` below resolves from the module cache in a microtask
+ * (the Settings surface has already awaited `getRemote()` to show the device code by the time the
+ * button exists), so it does not spend that activation — but do not move this behind a fetch.
+ *
+ * `credential-already-in-use` means that Google account is ALREADY a Firebase user — the traveler
+ * linked it on their other device. Adopting it here (`signInWithCredential`) is exactly right: the
+ * device takes on the identity that already holds the memberships, which is the lost-device
+ * recovery path. It CHANGES the uid, so the cached handle is dropped and the caller must re-run
+ * `ensureMembership`.
+ */
+export async function linkGoogleAccount(): Promise<LinkResult> {
+  if (!isRemoteConfigured()) return 'failed';
+  try {
+    const { auth } = await getRemote();
+    const { GoogleAuthProvider, linkWithPopup, signInWithCredential } = await import('firebase/auth');
+    const user = auth.currentUser;
+    if (!user) return 'failed';
+    try {
+      await linkWithPopup(user, new GoogleAuthProvider());
+      return 'linked';
+    } catch (err) {
+      const code = (err as { code?: unknown } | null)?.code;
+      if (code === 'auth/popup-blocked' || code === 'auth/popup-closed-by-user') {
+        return 'popup-blocked';
+      }
+      if (code === 'auth/credential-already-in-use') {
+        const credential = GoogleAuthProvider.credentialFromError(
+          err as import('firebase/app').FirebaseError,
+        );
+        if (!credential) return 'failed';
+        await signInWithCredential(auth, credential);
+        // The uid just changed. Drop the cached handle so the next getRemote() resolves the
+        // ADOPTED identity — every caller reads `uid` off that handle.
+        remotePromise = null;
+        return 'adopted';
+      }
+      return 'failed';
+    }
+  } catch {
+    return 'failed'; // stay anonymous; the device keeps whatever access it already had
+  }
+}
+
+/**
+ * Is this device's session linked to a Google identity? Read from `providerData`, which is the
+ * SDK's own answer — never a flag we keep ourselves and have to keep true.
+ * `false` when unconfigured/unreachable (the honest default: nothing is linked).
+ */
+export async function isGoogleLinked(): Promise<boolean> {
+  if (!isRemoteConfigured()) return false;
+  try {
+    const { auth } = await getRemote();
+    return auth.currentUser?.providerData.some((p) => p.providerId === 'google.com') ?? false;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Did this error come from the security rules refusing the operation? (issue #10)
  *
