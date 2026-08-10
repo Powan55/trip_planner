@@ -156,8 +156,13 @@ you, so `npm run build` first or every spec fails at startup.
 
 ## The app itself
 
-Next.js static export, no server. Data lives in the browser's localStorage, with
-optional cross-device sync through Firestore. There is one Cloudflare Worker
-behind the AI concierge; its source is not in this repo.
+Next.js static export — nothing of ours serves it. Data is written to the browser
+(`localStorage`, plus IndexedDB for photo bytes) and, when the build carries a
+Firebase web config, mirrored to Firestore under the trip's id. `firestore.rules`
+lives in this repo and is the whole access model: no Firebase Auth, no per-user
+check — whoever holds the trip id can read and write that trip. Separately, every
+route sits behind the front-door wall in `trip/components/token-gate.tsx`; there is
+no guest mode. There is one Cloudflare Worker behind the AI concierge; it is
+deployed, and its source is not in this repo.
 
 Everything is on a free tier and must stay that way.
