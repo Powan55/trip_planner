@@ -2,7 +2,9 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v5.11.2` and the newest live worker is `v1.8.0`, both shipped 2026-08-09. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v5.14.0`, deployed 2026-08-10. The newest live worker is `v1.8.0`, shipped 2026-08-09. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, which is a stronger condition than `v5.14.0` being deployed. Read the heading before assuming a version is in production.
+
+The entries below stop at `v5.11.2`. `v5.13.0` and `v5.14.0` are recorded on `main`.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
 
