@@ -538,6 +538,9 @@ function ClaimOldName({ current }: { current: string }) {
  * (the REMOTE capability) — treated as a SECRET in copy: anyone holding it can read+write this trip
  * It is NOT the User Token, which is the account credential
  * and lives in its own group below — the two are never mixed.
+ * #10 — on the DEFAULT pack `getTripId()` is now `''` (the sample is local-only; the old
+ * `NEXT_PUBLIC_TRIP_ID` remote id is retired), so the token card renders an honest "no Trip
+ * Token — this is the sample" note instead of an empty secret with copy buttons.
  *
  * Deliberately NOT inside `TokenGate`: the front-door wall stays a zero-regression surface;
  * trip management is an opt-in Settings action most default-pack demo visitors never touch.
@@ -618,6 +621,19 @@ function TripGroup() {
       {/* Current Trip Token — the shareable secret for THIS trip (and only this trip). */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">This trip&rsquo;s Trip Token</h3>
+        {tripKey === '' ? (
+          // #10 — the default pack is a local-only sample: no remote path, no token, nothing to
+          // share. Rendering the empty string as a "secret" with live copy buttons would hand the
+          // user a broken share link.
+          <p
+            data-testid="settings-trip-key-sample"
+            className="mt-1 max-w-2xl text-xs text-white/50"
+          >
+            This is the sample trip &mdash; it lives on this device only and has no Trip Token.
+            Create a trip from your Trips page to get one you can share.
+          </p>
+        ) : (
+        <>
         <p className="mt-1 flex items-start gap-1.5 text-xs text-white/50">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Share this to invite someone to THIS trip &mdash; anyone holding it can view and edit it.
@@ -664,6 +680,8 @@ function TripGroup() {
         <div aria-live="polite" className="sr-only">
           {copied === 'key' ? 'Trip Token copied to clipboard' : copied === 'link' ? 'Share link copied to clipboard' : ''}
         </div>
+        </>
+        )}
       </div>
 
       {/* Add an existing trip by pasting its Trip Token. */}

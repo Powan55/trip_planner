@@ -40,7 +40,7 @@
 import type { DayPlan, ItineraryItem } from './trip-data';
 import { savePlans, loadPlans, hasStoredPlans } from './itinerary-storage';
 import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
-import { FIREBASE_CONFIG, isRemoteConfigured, getTripId } from './firebase-config';
+import { FIREBASE_CONFIG, isRemoteConfigured, isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
 import { mergeDay, mergeDays, gcTombstones } from '@/core/sync/merge-day';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
@@ -219,12 +219,13 @@ export function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boole
  * work in try/catch → console.warn so a failed push NEVER breaks the local edit.
  */
 export async function pushPlans(prev: DayPlan[], next: DayPlan[]): Promise<void> {
-  // Dormant gate: with no config, never touch firebase.
+  // Dormant gate: with no config — or on the default pack, whose remote id is retired (#10,
+  // `isTripRemoteConfigured`) — never touch firebase.
   // NO-ACTIVE-TRAVELER gate: a session with no active traveler must NEVER push
   // edits into the friends' shared trip — unattributed edits would otherwise pollute it via the
   // union merge. `getActiveTraveler` is firebase-free (token-auth), so this stays dormant-safe. This
   // mirrors the subscribe gate: sync requires BOTH config AND an identified traveler.
-  if (!isRemoteConfigured() || !getActiveTraveler()) return;
+  if (!isTripRemoteConfigured() || !getActiveTraveler()) return;
 
   try {
     const { db, fs } = await getRemote();
@@ -347,8 +348,8 @@ export async function pushDayChunk(current: DayPlan[], date: string): Promise<vo
 export function subscribeRemote(
   onRemoteChange?: (plans: DayPlan[]) => void,
 ): () => void {
-  // Dormant gate: with no config, never touch firebase.
-  if (!isRemoteConfigured()) return () => {};
+  // Dormant gate: with no config — or on the local-only default pack (#10) — never touch firebase.
+  if (!isTripRemoteConfigured()) return () => {};
 
   // The real Firestore unsubscribe, once the async setup resolves. Until then,
   // `cancelled` lets a synchronous unmount cancel the in-flight subscribe.

@@ -20,6 +20,8 @@ const isRemoteConfiguredMock = vi.fn(() => true);
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
   isRemoteConfigured: () => isRemoteConfiguredMock(),
+  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
+  isTripRemoteConfigured: () => isRemoteConfiguredMock(),
   getTripId: () => 'nepal-japan-2026',
 }));
 

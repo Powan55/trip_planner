@@ -22,6 +22,8 @@ import type { BudgetFields } from '@/core/sync/merge-budget';
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
   isRemoteConfigured: () => true,
+  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
+  isTripRemoteConfigured: () => true,
   getTripId: () => 'nepal-japan-2026',
 }));
 // The outbox-decorated push gates on an active traveler (D-055); mock one in.

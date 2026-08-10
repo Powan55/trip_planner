@@ -87,11 +87,10 @@ function settleWithin(pushes: Promise<unknown>[], ms: number): Promise<unknown> 
  * switch primitive VERBATIM: `joinTrip(id)` then a full navigation to Home. Pencil =
  * inline rename via `renameKnownTrip`. Per-row "Copy link"
  * builds the same `?trip=` share URL as Settings: for a non-default pack the id
- * IS the capability token; for the DEFAULT pack the token is the separately
- * minted `NEXT_PUBLIC_TRIP_ID` secret (the same source `getTripId()` reads for the
- * default pack, lib/firebase-config) — NEVER the public `nepal-japan-2026` literal. When
- * that env is unset (dormant build, sync unconfigured) the default pack simply has no
- * shareable token, so its copy button is not rendered.
+ * IS the capability token. The DEFAULT pack is a LOCAL-ONLY SAMPLE (#10 —
+ * `NEXT_PUBLIC_TRIP_ID` is retired, `getTripId()` returns '' for it): it has no remote path,
+ * so it has no shareable token, its copy buttons are never rendered, and its subtitle says
+ * "Sample — on this device only".
  * 2. CREATE A TRIP — required name → `joinTrip(uuid,
  * name)`, then AWAIT the remote meta push under a budget, then navigate Home ( — the
  * navigation used to abort that push in flight and leave joiners with a contentless trip;
@@ -154,7 +153,7 @@ export default function TripsHub() {
   /** The shareable capability token for a row, or null when none exists (see header). */
   const shareTokenFor = (id: string): string | null => {
     if (id !== DEFAULT_TRIP_ID) return id; // non-default pack: the id IS the token
-    return process.env.NEXT_PUBLIC_TRIP_ID || null; // default pack: env secret or unshareable
+    return null; // default pack: a local-only sample with no remote path (#10) — unshareable
   };
 
   /**
@@ -345,9 +344,11 @@ export default function TripsHub() {
             {(trips ?? []).map((t, i) => {
               const isCurrent = t.id === activeId;
               const token = shareTokenFor(t.id);
+              // #10 — the default pack is honest about what it now is: a local-only sample
+              // (no remote path, nothing syncs, nothing to share).
               const subtitle =
                 t.id === DEFAULT_TRIP_ID
-                  ? 'Main trip'
+                  ? 'Sample — on this device only'
                   : `Joined ${new Date(t.joinedAt).toLocaleDateString()}`;
               return (
                 <li

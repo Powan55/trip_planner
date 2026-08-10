@@ -1,5 +1,15 @@
 # Trip Key migration runbook
 
+> **RETIRED (#10, v5.13.0).** `NEXT_PUBLIC_TRIP_ID` no longer exists: a `NEXT_PUBLIC_*` value
+> inlines into the public bundle, so the "secret" this runbook mints was shipped to every visitor
+> and could never be a security boundary. The default pack is now a **local-only sample** with no
+> remote path at all (`getTripId()` returns `''` for it — nothing syncs on it, nothing is
+> shareable from it). The live shared trip should be a **custom trip** (its unguessable id is its
+> token, never in the bundle). What survives from this document as the owner runbook: mint a fresh
+> token (step 1), have every traveler add it as a custom trip, then delete the old world-readable
+> remote path (step 6 — now including whatever id the retired env var last named). The steps below
+> are kept for historical context only.
+
 Cut the one live Nepal×Japan trip over to the capability-token security model (D-205 / D-210).
 Every step here is done by hand: no agent has console or CLI access and nothing here is
 automated (D-044 LOCKED). No migration script or code is required. The app's existing

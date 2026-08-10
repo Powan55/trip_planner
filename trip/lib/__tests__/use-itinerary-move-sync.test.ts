@@ -31,6 +31,8 @@ const state = vi.hoisted(() => ({ remoteOn: false }));
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
   isRemoteConfigured: () => state.remoteOn,
+  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
+  isTripRemoteConfigured: () => state.remoteOn,
   getTripId: () => 'nepal-japan-2026',
 }));
 // Never let the sync fan-out touch firebase here: stub the SyncPort to no-ops (the push/subscribe

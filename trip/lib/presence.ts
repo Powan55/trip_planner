@@ -34,7 +34,7 @@
 // CONFIG single-source: the config + on/off gate are read ONLY from
 // lib/firebase-config.ts. No process.env.NEXT_PUBLIC_FIREBASE_* reads here.
 
-import { FIREBASE_CONFIG, isRemoteConfigured, getTripId } from './firebase-config';
+import { FIREBASE_CONFIG, isRemoteConfigured, isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
 import { deviceStore } from '@/core/storage/gateway';
 
@@ -165,7 +165,8 @@ let loop: HeartbeatLoop | null = null;
  * traveler; wraps SDK work in try/catch → console.warn so a failed beat never breaks the app.
  */
 async function writeHeartbeat(): Promise<void> {
-  if (!isRemoteConfigured()) return;
+  // #10: trip-scoped gate — the default pack is a local-only sample with no presence collection.
+  if (!isTripRemoteConfigured()) return;
   const traveler = getActiveTraveler();
   if (!traveler) return; // guest / signed-out: never write
 
@@ -200,7 +201,7 @@ async function writeHeartbeat(): Promise<void> {
  */
 export function startPresence(): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
-  if (!isRemoteConfigured()) return; // dormant ⇒ no firebase, no loop
+  if (!isTripRemoteConfigured()) return; // dormant or the local-only default pack (#10) ⇒ no loop
   const traveler = getActiveTraveler();
   if (!traveler) return; // guest / signed-out ⇒ never start
 
@@ -277,8 +278,9 @@ export function stopPresence(): void {
   }
 
   // Best-effort delete so the traveler disappears at once (not just after they age out of
-  // the active window). Gated: only when configured. Failure is non-fatal.
-  if (!isRemoteConfigured()) return;
+  // the active window). Gated: only when the ACTIVE trip syncs (#10 — the default pack never
+  // wrote a doc, so there is nothing to delete). Failure is non-fatal.
+  if (!isTripRemoteConfigured()) return;
   void (async () => {
     try {
       const { db, fs } = await getPresence();
@@ -310,7 +312,8 @@ export function stopPresence(): void {
 export function subscribePresence(
   onChange: (records: PresenceRecord[]) => void,
 ): () => void {
-  if (!isRemoteConfigured()) return () => {};
+  // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
+  if (!isTripRemoteConfigured()) return () => {};
 
   let cancelled = false;
   let firestoreUnsub: (() => void) | null = null;
