@@ -44,12 +44,13 @@ export { DEFAULT_GC_HORIZON_MS } from './merge-items';
  * local exactly as before (so `date`/`city`/`country`/`countryLabel` behave identically).
  * The union is what makes a NEW per-day field reach the wire at all: `pushDayMerged` calls
  * `mergeDay(remoteNow, localDay)`, so with a local-only copy any day-level field the remote
- * doc did not already carry was dropped before the write — the write-side twin of the mapper
- * narrowing fixed in `docToDayPlan`. It also lets a peer's new field land locally on a
+ * doc did not already carry was dropped before the write. That is the write-side twin of the
+ * mapper narrowing fixed in `docToDayPlan`. It also lets a peer's new field land locally on a
  * steady-state snapshot instead of only after a reload.
- * KNOWN CEILING: the union cannot express UNSETTING a day-level key — local's absence loses to
+ * KNOWN CEILING: the union cannot express UNSETTING a day-level key. Local's absence loses to
  * remote's value. Nothing unsets one today (`clearDay` empties items and keeps the day). A
- * feature that needs to wants a stamped null like `merge-budget.ts`, not a rule change here.
+ * feature that needs to unset one should stamp a null like `merge-budget.ts` does, rather
+ * than change the rule here.
  *
  * Result `items` INCLUDE tombstones. The
  * UI-exposed selector filters `deleted` out downstream — the MERGE sees tombstones;

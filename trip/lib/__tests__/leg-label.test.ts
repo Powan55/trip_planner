@@ -71,8 +71,8 @@ describe('S407 default pack — the day line names the day, not the leg id', () 
 
   it('a day with no countryLabel (legacy remote doc) still reads Syracuse, USA', async () => {
     // A day-doc written before the label existed arrives without `countryLabel` (sync itself no
-    // longer strips it — `docToDayPlan` passes day keys through, #42). The content-derived
-    // DAY_LABELS map fills it back in — without that fallback this renders "Syracuse, Nepal".
+    // longer strips it: `docToDayPlan` passes day keys through, #42). The content-derived
+    // DAY_LABELS map fills it back in. Without that fallback this renders "Syracuse, Nepal".
     const { dayPlaceLabel } = await loadHelper();
     const synced = { date: '2026-12-09', city: 'Syracuse', country: 'nepal', items: [] };
     expect(dayPlaceLabel(synced)).toBe('Syracuse, USA');

@@ -269,7 +269,7 @@ export function isPermissionDenied(err: unknown): boolean {
  * for still survives the trip back from Firestore. This used to be a four-field literal, which
  * made this function the single place in the whole chain that narrowed a day: Firestore stores
  * what it is handed, `sanitizeDayForWrite` is a JSON clone, and the Vault's read schema is
- * `.passthrough()` (`core/vault/schema.ts`, "unknown future fields survive a read") — every
+ * `.passthrough()` (`core/vault/schema.ts`, "unknown future fields survive a read"). Every
  * other layer already keeps unknown keys, and now this one agrees with them. A new per-day
  * field therefore needs NO edit here; do NOT reintroduce a field list. The one-off
  * `countryLabel` line this replaced (the Dec-9 header reverting to "Syracuse, Nepal" after a
@@ -278,14 +278,14 @@ export function isPermissionDenied(err: unknown): boolean {
  * `countryLabel` is nonetheless the ONE key still checked by name below, and the check is a
  * `delete`, not a copy. That shape is load-bearing now that the doc's keys are spread in: a
  * wrong-typed `countryLabel` is ALREADY on the object by the time the guard runs, so a guard
- * that only ever assigns would leave it there and a number would reach `compose`'s
+ * that only ever assigns would leave it there, and a number would then reach `compose`'s
  * `label.includes(city)` via `dayPlaceLabel` (`lib/leg-label.ts`) and throw. Do not "simplify"
  * it back to `if (typeof … === 'string') day.countryLabel = …`.
  *
  * BEHAVIOR-FROZEN: this mapper is pinned by the merge-primitive suite
  * (`itinerary-remote.test.ts`) and MUST stay a pure shape-mapper (no field defaulting).
- * Pass-through is not defaulting — an absent key stays absent — so #42 holds the freeze. The
- * freeze has been deliberately broken EXACTLY ONCE, with the owner's sign-off: the `country`
+ * Pass-through does not default anything: an absent key stays absent, so #42 holds the freeze.
+ * The freeze has been deliberately broken EXACTLY ONCE, with the owner's sign-off: the `country`
  * assertion was re-pointed so a LEG ID passes through instead of being coerced to 'nepal' (see
  * D-303 and the note at that line — the old rule silently corrupted every synced custom trip).
  * Every other assertion is untouched; treat the suite as frozen again from here.
@@ -311,7 +311,7 @@ export function docToDayPlan(id: string, data: Record<string, unknown>): DayPlan
   const day = { ...data, date, city, country, items } as DayPlan;
   // `countryLabel` keeps its type guard because it is a DECLARED field with a real consumer:
   // a number here reaches `dayPlaceLabel`'s string ops (lib/leg-label.ts) and throws. Unknown
-  // keys have no consumer by definition — that is exactly why they can pass unchecked.
+  // keys have no consumer by definition, which is why they can pass unchecked.
   if (typeof data.countryLabel !== 'string') delete day.countryLabel;
   return day;
 }

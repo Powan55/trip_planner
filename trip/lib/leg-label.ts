@@ -43,7 +43,7 @@ const multiLeg = activeTrip.legs.length > 1;
  * span overlaps Dec 9 – Jan 9 must not inherit the default trip's authored labels). Deriving it
  * by DATE as well as reading `DayPlan.countryLabel` matters: a LEGACY day-doc written before the
  * label existed arrives over Firestore sync without one, and this map fills it back in. (Sync no
- * longer strips it — `docToDayPlan` passes unknown/optional day keys through, #42 — so this is a
+ * longer strips it: `docToDayPlan` passes unknown/optional day keys through, #42. So this is a
  * fallback for old data, not a workaround for the mapper.)
  */
 const DAY_LABELS: Record<string, string> = Object.fromEntries(

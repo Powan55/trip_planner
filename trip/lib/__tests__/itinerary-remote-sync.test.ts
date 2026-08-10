@@ -394,18 +394,18 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     expect(readBack.city).toBe('Syracuse');
   });
 
-  // ── #42 — a day field NOBODY WROTE CODE FOR survives the whole round trip ─────────────────
+  // ── #42: a day field NOBODY WROTE CODE FOR survives the whole round trip ──────────────────
   // The generalization of S407 above. S407 was this bug hit once and patched by name (one
   // `countryLabel` line in the mapper); the next per-day feature would have hit it again. Two
   // places narrowed a day and BOTH are exercised here: `docToDayPlan` (now spreads the doc) and
-  // `mergeDay`'s day-metadata copy (now a union — `pushDayMerged` merges local ON TOP OF the
+  // `mergeDay`'s day-metadata copy (now a union: `pushDayMerged` merges local ON TOP OF the
   // remote-now day, so a field the remote doc lacked never reached the write). `weatherNote` is
-  // deliberately not in `DayPlan`, the mapper, or any schema — that is the whole point.
+  // deliberately not in `DayPlan`, the mapper, or any schema. That is the whole point.
   it('#42: an unknown day-level field survives local → push → snapshot → merge → local', async () => {
     type FutureDay = DayPlan & { weatherNote?: string };
     const dayPath = `trips/${TRIP_ID}/days/2026-12-09`;
-    // The remote doc ALREADY EXISTS without the field — the realistic case for a live trip, and
-    // the one a read-side-only fix does not survive.
+    // The remote doc ALREADY EXISTS without the field. That is the realistic case for a live
+    // trip, and the one a read-side-only fix does not survive.
     fake.setDocData(dayPath, { ...day('2026-12-09', [item('B', { hlc: hlc(2000, 'friend'), rev: 1 })]) });
     fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 }); // synced group ⇒ authoritative first snapshot
 
