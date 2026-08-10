@@ -1,9 +1,9 @@
 # Nepal × Japan Trip Planner
 
 A trip-planning app for an upcoming Nepal and Japan journey (Kathmandu, then across Japan,
-Dec 2026 → Jan 2027) — and for any other trip you add beside it. It pulls the whole trip into
+Dec 2026 → Jan 2027), and for any other trip you add beside it. It pulls the whole trip into
 one place: a live countdown, a day-by-day itinerary planner, destination / food / photography /
-nightlife guides for both countries, a journal, an expense log, and a real interactive map —
+nightlife guides for both countries, a journal, an expense log, and a real interactive map, all
 packaged as an installable, offline-capable PWA. Plans are kept on the device and sync across
 devices when the build is wired to Firebase.
 
@@ -54,8 +54,8 @@ devices when the build is wired to Firebase.
 - [Framer Motion](https://www.framer.com/motion/) for animation
 - [MapLibre GL](https://maplibre.org/) for the map (CARTO raster basemap)
 - [date-fns](https://date-fns.org/) for date math
-- Optional [Firebase](https://firebase.google.com/) (Firestore only — Firebase Auth is not
-  used; the trip id is the capability) for cross-device sync — entirely inert unless configured
+- Optional [Firebase](https://firebase.google.com/) (Firestore only: Firebase Auth is not
+  used; the trip id is the capability) for cross-device sync, entirely inert unless configured
 
 ## Getting started
 
@@ -88,7 +88,7 @@ Deployment is automated with GitHub Actions (`.github/workflows/deploy.yml`). On
 `main` it builds the static export and publishes it to GitHub Pages. The base path and site URL
 are derived from the repository name at build time, so no configuration is hard-coded. Two
 gates run first: a repository-hygiene check, and a `version-gate` that fails the run when a tag
-`v<version>` for the current `trip/package.json` version already exists — so a push to `main`
+`v<version>` for the current `trip/package.json` version already exists, so a push to `main`
 without a version bump does not publish. The workflow pushes that tag itself once the deploy
 succeeds.
 
@@ -97,8 +97,8 @@ To deploy your own copy, push to `main` and set **Settings → Pages → Source*
 ## Notes
 
 The trip dates live in the trip pack (`trip/core/trips/packs/nepal-japan-2026.ts`); change its
-`start` / `end` — and its legs — to retarget the countdown. `TRIP_START` / `TRIP_END` in
+`start` / `end` (and its legs) to retarget the countdown. `TRIP_START` / `TRIP_END` in
 `trip/lib/trip-data.ts` are re-exports of values derived from that pack, not editable constants.
-The map needs no key — the CARTO basemap is free with attribution. To enable cross-device sync,
+The map needs no key: the CARTO basemap is free with attribution. To enable cross-device sync,
 copy `trip/.env.local.example` to `trip/.env.local` and fill in a Firebase web config; without
 it the app is local-only.

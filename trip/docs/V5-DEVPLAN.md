@@ -55,7 +55,7 @@ v5 turns the app from a trip *planner* into a trip *companion*:
 | Flight status | Rejected. No card-free API exists (FlightAware/AeroDataBox/aviationstack/OpenSky all disqualified), so deep-links instead |
 | View Transitions | Manual `document.startViewTransition()` progressive enhancement (a `useViewTransition()` helper). No React canary or experimental flag. template.tsx reconciled per fact 2 |
 | Trip Packs storage | **Grandfather, never migrate** (LOCKED). The current trip keeps its legacy keys byte-identical; future trips use `trip:{id}:{slot}` via one `keyFor()`. Switching writes `activeTripId` and does a full reload. The switcher stays hidden until a second pack exists, and the live Firestore tree is never migrated |
-| PMTiles | ~~Spike-gated stretch: opt-in OPFS download, never SW-precached. The GitHub Pages 100MB cap makes the extract-sizing spike the go/no-go~~ **Superseded: the S209 spike ran, and D-197 (2026-07-17) ruled S210 NO-GO for v5 and dropped it from the candidate pool. The shipped answer is D-286 — the map engine is precached, tiles are not.** |
+| PMTiles | ~~Spike-gated stretch: opt-in OPFS download, never SW-precached. The GitHub Pages 100MB cap makes the extract-sizing spike the go/no-go~~ **Superseded: the S209 spike ran, and D-197 (2026-07-17) ruled S210 NO-GO for v5 and dropped it from the candidate pool. The shipped answer is D-286: the map engine is precached, tiles are not.** |
 | D-002 | Unchanged and reaffirmed. localStorage stays the source of truth; Trip Packs is key namespacing |
 
 ## 3. Phase plan and slice ledger (S171–S213; S162–S166 stay reserved-dropped and are never reused)

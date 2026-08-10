@@ -26,11 +26,11 @@ changes.
 
 2. **Deploy the new `firestore.rules`.** The rules text is already final and committed (it landed
    in S232). In the Firebase console (or via the Firebase CLI on your own machine), publish
-   `firestore.rules` **verbatim** — do not retype or "simplify" it. The shape matters: the trip doc
+   `firestore.rules` **verbatim**. Do not retype or "simplify" it. The shape matters: the trip doc
    grants `get, create, update, delete` (never `list`), and a *nested* `match /{sub}/{document=**}`
    grants `get, list, write` on the subtrees. Collapsing those two into a single
-   `match /trips/{tripId}/{document=**}` would also grant `list` on the trips collection itself —
-   rules_version 2 recursive wildcards match zero or more segments — which would let anyone
+   `match /trips/{tripId}/{document=**}` would also grant `list` on the trips collection itself
+   (rules_version 2 recursive wildcards match zero or more segments), which would let anyone
    enumerate every trip token. `request.auth` is never read; the token is the whole capability.
 
 3. **Set `NEXT_PUBLIC_TRIP_ID` and redeploy.** In the static-site build environment (the deploy

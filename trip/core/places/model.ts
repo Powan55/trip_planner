@@ -1,5 +1,5 @@
 /**
- * My-places domain — the pure, framework-free "imported Google place" core.
+ * My-places domain: the pure, framework-free "imported Google place" core.
  * Gateway key 31 stores a `MyPlace[]`
  * (`nepal_japan_my_places`), TRIP-SCOPED + LOCAL-ONLY.
  *

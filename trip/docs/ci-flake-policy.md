@@ -7,8 +7,8 @@ blocked by a known *environmental* flake, while never weakening or deleting a
 real spec. That gate is the `e2e` job in `.github/workflows/ci.yml`, which runs
 on pull requests into `dev` and `main` and whose behavioural step carries no
 `continue-on-error`, so a failure fails the run. `.github/workflows/deploy.yml`
-is the release path and runs no test suite at all — its jobs are `version-gate`,
-`markers` (the repository-hygiene marker check), `build` and `deploy` — so "no
+is the release path and runs no test suite at all. Its jobs are `version-gate`,
+`markers` (the repository-hygiene marker check), `build` and `deploy`, so "no
 green, no deploy" is enforced at the pull request, not at the push to `main`.
 This policy governs how CI treats a test that fails intermittently for
 non-product reasons.
@@ -135,8 +135,8 @@ holds an open streaming request, which would keep the network perpetually non-id
 worse, inject non-deterministic cross-tab sync into the persistence specs.
 
 This is already true by design and must stay so. `ci.yml`'s `e2e` job deliberately
-does not set the `NEXT_PUBLIC_FIREBASE_*` env — its only build env is
-`NEXT_PUBLIC_CONCIERGE_URL`, a non-resolving `.test` origin — unlike `deploy.yml`'s
+does not set the `NEXT_PUBLIC_FIREBASE_*` env. Its only build env is
+`NEXT_PUBLIC_CONCIERGE_URL`, a non-resolving `.test` origin, unlike `deploy.yml`'s
 production `build` job, which passes the Firebase secrets through.
 S113E's fixtures identity flip made the pack depend on this dormancy (a guest-bypass
 build with no Firebase config). All local de-flake measurement in S114/S167 was taken
@@ -212,8 +212,8 @@ provide. The only sanctioned levers are retries (section 2) and non-blocking
 ## 4. Visual regression is separately non-blocking (related, not this flake)
 
 Distinct from D-093: the visual pack (`e2e/visual.spec.ts`, grep `visual`) runs as
-a separate `continue-on-error: true` step inside `ci.yml`'s `e2e` job — `deploy.yml`
-runs no Playwright step at all — and the reason is mechanical, not cosmetic: the
+a separate `continue-on-error: true` step inside `ci.yml`'s `e2e` job (`deploy.yml`
+runs no Playwright step at all), and the reason is mechanical, not cosmetic: the
 committed baselines are named `-win32`, and Playwright's default snapshot path puts
 the platform in the filename, so on a Linux runner the expected `-linux` baseline
 does not exist and the comparison cannot pass at all. `visual.spec.ts`'s header

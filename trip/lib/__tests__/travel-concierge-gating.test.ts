@@ -65,7 +65,7 @@ describe('TravelConcierge mount gating (S343)', () => {
     r.unmount();
   });
 
-  // Was: "renders nothing on a custom trip (the persona gate)". INVERTED on 2026-08-09 — the
+  // Was: "renders nothing on a custom trip (the persona gate)". INVERTED on 2026-08-09.
   // The persona gate was lifted when the trip-aware Worker shipped, so a custom trip now gets
   // the concierge like any other. Kept (not deleted) because the mount is still the thing under
   // test: this goes red if anyone re-derives an `isDefaultTrip()` gate inside the component

@@ -1,20 +1,20 @@
 # Cross-friend itinerary sync — research & options (M8, design task B)
 
-> **Historical (2026-06-27). This study was acted on — cross-device sync shipped.** Read it as the
+> **Historical (2026-06-27). This study was acted on: cross-device sync shipped.** Read it as the
 > record of *why* Firestore was chosen, not as a description of the app today.
 >
 > **What shipped.** The #1 recommendation was greenlit at M9 as the scoped reopening of D-002 and
 > D-004 (both entries are headed "LOCKED (scoped reopening, see D-038)" in `DECISIONS.md`). Cloud
 > Firestore on the free Spark tier is live: `lib/itinerary-remote.ts` subscribes with `onSnapshot`
-> and pushes per-day writes to `trips/{tripId}/days/{date}` from the store's `commit()` — exactly
-> the seam sketched in section 4.5 — and `firebase` is a real dependency in `package.json`. Sync
+> and pushes per-day writes to `trips/{tripId}/days/{date}` from the store's `commit()`, exactly
+> the seam sketched in section 4.5. `firebase` is a real dependency in `package.json`. Sync
 > has since grown past the itinerary to budget, expenses and the documents checklist
 > (`lib/budget-remote.ts`, `lib/expenses-remote.ts`, `lib/docs-remote.ts`).
 >
 > **What shipped differently.** Section 4.1's "name-only display, backed by silent Anonymous Auth"
 > was later dropped: `lib/itinerary-remote.ts` records that "the whole `firebase/auth` module + the
 > pre-sync anonymous sign-in round-trip were removed", and there is no `signInAnonymously` call
-> anywhere in the app. Authorization is a capability-token model instead — a trip lives at
+> anywhere in the app. Authorization is a capability-token model instead: a trip lives at
 > `trips/{tripId}` where the id is an unguessable secret, and `firestore.rules` never reads
 > `request.auth`. Attribution runs through a firebase-free display-name pipeline
 > (`lib/identity.ts`). See `docs/trip-key-migration.md`.
@@ -426,4 +426,4 @@ network), and makes "last edited by Mei · 2h ago" trivial. Supabase is a close,
 runner-up, better if we prefer SQL, with the minor catch that free projects pause when idle. For
 conflicts, plain last-write-wins per item is the right, simple call for three friends. Storing only a
 self-chosen first name keeps privacy a non-issue. None of this was built or decided when this was
-written; the explicit go-ahead came at M9 — see the banner at the top for what actually shipped.
+written; the explicit go-ahead came at M9. See the banner at the top for what actually shipped.

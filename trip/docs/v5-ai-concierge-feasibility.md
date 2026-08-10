@@ -1,7 +1,7 @@
 # v5 Phase-4 Feasibility Spike — AI Concierge & Web Push
 
 **Slice:** S197 · **Date:** 2026-07-16 · **Milestone:** M19 (v5) Phase 4
-**Status:** research/decision deliverable, no application code. Locked the provider + push-protocol choices for S198+. **Historical — see "Outcome" below for what shipped.**
+**Status:** research/decision deliverable, no application code. Locked the provider + push-protocol choices for S198+. **Historical. See "Outcome" below for what shipped.**
 
 This spike answers three questions before any Worker code is written:
 1. Do the free-tier quotas (Gemini primary → Groq fallback) comfortably cover a real trip party's concierge use?
@@ -27,8 +27,8 @@ Privacy carry-over (D-152 LOCKED posture): the concierge must never see journal 
   filled.** The Worker shipped without them, and the S315 annotation in section 2 has since
   replaced the model ladder they were sizing. Read every quota number here as the 2026-07-16
   estimate it was; none of it is a live figure.
-- Section 5's manual setup steps were carried out — the Worker is live against a real provider key
-  — and are kept only as the record of what was done.
+- Section 5's manual setup steps were carried out (the Worker is live against a real provider key)
+  and are kept only as the record of what was done.
 
 ---
 
@@ -122,7 +122,7 @@ Both GO verdicts are conditional on the no-card check at key-creation time (see 
 
 ---
 
-## 5. Manual setup steps (≈5 minutes — carried out before S198; kept as the record)
+## 5. Manual setup steps (≈5 minutes, carried out before S198; kept as the record)
 
 **A. Gemini key + live quota number**
 1. Sign in at `aistudio.google.com` and create (or select) a project. Confirm no payment card is requested; if it is, stop and flag it as a no-go.

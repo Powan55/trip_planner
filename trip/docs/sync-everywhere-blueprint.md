@@ -180,7 +180,7 @@ That resolves the undo↔outbox interplay by construction. An add followed by it
 
 ### 3.3 Persistence + op-record shape
 
-Gateway slot (D-097; **key 15**, localStorage — the sketch below said 14, but `favorites` took 14 first; the string is the contract, the number is documentation):
+Gateway slot (D-097; **key 15**, localStorage; the sketch below said 14, but `favorites` took 14 first; the string is the contract, the number is documentation):
 
 ```ts
 // STORAGE_KEYS.syncOutbox = 'nepal_japan_sync_outbox'  (key 15)
@@ -191,10 +191,10 @@ interface OutboxSlot {
   dirty: Partial<Record<SyncDomain, string[]>>;
   //   itinerary → 'YYYY-MM-DD' day dates
   //   expenses  → 'nepal' | 'japan' chunk legs
-  //   budget    → ['model'] — the singleton
-  //   docs      → ['checklist'] — the singleton (added when the docs domain gained sync)
+  //   budget    → ['model'], the singleton
+  //   docs      → ['checklist'], the singleton (added when the docs domain gained sync)
   /** ISO timestamp of the most recent successful ack, app-wide (not per-domain);
-   *  absent on a fresh or pre-existing slot. Additive — no version bump. */
+   *  absent on a fresh or pre-existing slot. Additive, no version bump. */
   lastAckAt?: string;
 }
 ```
@@ -244,8 +244,8 @@ trips/{TRIP_ID}
   expenses/{leg}       // NEW — 2 chunk docs, doc id 'nepal' | 'japan'
                        //   { leg, items: Expense[] }  (rows carry id/rev/hlc/deleted + paidBy?/split?)
   budget/model         // NEW — 1 singleton doc { version, fields: {path: {v, hlc}} }
-  docs/checklist       // added later — the critical-docs checklist singleton, same row-merge recipe
-  presence/{deviceId}  // existing presence (D-057) — the collection is `presence`, and the doc id is
+  docs/checklist       // added later: the critical-docs checklist singleton, same row-merge recipe
+  presence/{deviceId}  // existing presence (D-057). The collection is `presence`, and the doc id is
                        //   the locally-minted device id, not a Firebase Auth uid (auth was stripped)
 ```
 
@@ -284,7 +284,7 @@ Storage: total remote data < 2 MB against a 1 GiB allowance, so negligible. Dele
 
 ## 5. `gcTombstones` policy (FU-23 → S145)
 
-Status quo when this was drafted: `gcTombstones` (now `core/sync/merge-day.ts:84`) existed, was pure and tested, and was never invoked. That was fine at 3-user/32-day scale; tombstone growth is bounded by real deletes. **Since built:** it runs at exactly the two merge boundaries below — `lib/itinerary-remote.ts` on the merged result before `tx.set` and again on the snapshot apply — and the id-keyed analog `gcTombstoneRows` (`core/sync/merge-items.ts`) does the same for expenses in `lib/expenses-remote.ts`. The day-shaped helper delegates to the id-keyed one, so there is a single GC predicate.
+Status quo when this was drafted: `gcTombstones` (now `core/sync/merge-day.ts:84`) existed, was pure and tested, and was never invoked. That was fine at 3-user/32-day scale; tombstone growth is bounded by real deletes. **Since built:** it runs at exactly the two merge boundaries below (`lib/itinerary-remote.ts` on the merged result before `tx.set`, and again on the snapshot apply), and the id-keyed analog `gcTombstoneRows` (`core/sync/merge-items.ts`) does the same for expenses in `lib/expenses-remote.ts`. The day-shaped helper delegates to the id-keyed one, so there is a single GC predicate.
 
 Policy, which is what S145 implements:
 
@@ -296,7 +296,7 @@ Policy, which is what S145 implements:
 P3 riders bundled into S145 (from FU-23):
 
 1. **`getEntry` memoization.** `use-journal.getEntry` does a full `loadJournal()` parse per call. Memoize via a version-stamped ref (bumped in `commit()` and in the event re-read) so read-after-write-in-one-handler semantics are preserved; first verify that no caller actually depends on the raw re-read.
-2. **Dead subscribe surface — closed.** `itinerarySyncPort.subscribe` (`lib/itinerary-ports.ts:90`) had zero production callers while `itinerary-provider.tsx` imported `subscribeRemote` directly. S145 re-routed the provider's `activate()` through the port, which already handles the dynamic import and the cancel-proxy, leaving one subscribe surface (`components/itinerary-provider.tsx:301`). D-055's identity gates stayed in the provider effect, unchanged. The expenses, budget and docs providers all subscribe through their own ports too (`itinerary-provider.tsx:352`, `:403`, `:454`), so no dead twin exists for them either.
+2. **Dead subscribe surface: closed.** `itinerarySyncPort.subscribe` (`lib/itinerary-ports.ts:90`) had zero production callers while `itinerary-provider.tsx` imported `subscribeRemote` directly. S145 re-routed the provider's `activate()` through the port, which already handles the dynamic import and the cancel-proxy, leaving one subscribe surface (`components/itinerary-provider.tsx:301`). D-055's identity gates stayed in the provider effect, unchanged. The expenses, budget and docs providers all subscribe through their own ports too (`itinerary-provider.tsx:352`, `:403`, `:454`), so no dead twin exists for them either.
 3. **Hydration height reservation.** The today-panel and recap islands render short during hydration and then pop (CLS). Reserve settled min-heights: CSS only, presentation layer.
 
 **Tombstone-replace Restore (FU-20, supersedes D-121), the direction for S145:** express `importItinerary` under sync as a diff against the current synced state inside one commit. Every currently-live id absent from the import is tombstoned (`stampSyncDeleted`), and imported items enter as fresh-id copies (`freshCopyOf` plus a created-stamp, the D-032 mechanics, so they can never lose to existing tombstones). The result pushes through the normal `commit()` fan-out (and the outbox), propagates to peers, and survives the next first-snapshot apply. Restore's local-mode path stays byte-identical, and the D-121 disable is then removed.
@@ -317,7 +317,7 @@ The journal (gateway key 12) is a private per-day diary: mood, highlight, free t
 
 ### 7.2 Packing-list sync is moot, and key 6 is retired (D-130 rider)
 
-S113D deleted the packing-checklist feature and gateway key 6 (`packing_checklist`) entirely, and the gateway registry keeps the numbering gap as historical documentation (the `STORAGE_KEYS` doc comment in `core/storage/gateway.ts`). So the V4-DEVPLAN "should packing sync?" open question was answered by deletion rather than by design. Retirement, stated: key number 6 and the string `packing_checklist` are never reused for any future slot. Residual `packing_checklist` values in deployed browsers are orphaned bytes: harmless, and deliberately not cleaned up, since a cleanup write is more code and more risk than the dead bytes. **A packing checklist was later rebuilt as a different feature on a brand-new key** (`nepal_japan_packing`, a `PackingItem[]` seeded from a fixed country-scoped template, `core/packing/`) — the retired string was not reused, and that store is local-only, wired without a `SyncPort`, so nothing here is owed a sync design.
+S113D deleted the packing-checklist feature and gateway key 6 (`packing_checklist`) entirely, and the gateway registry keeps the numbering gap as historical documentation (the `STORAGE_KEYS` doc comment in `core/storage/gateway.ts`). So the V4-DEVPLAN "should packing sync?" open question was answered by deletion rather than by design. Retirement, stated: key number 6 and the string `packing_checklist` are never reused for any future slot. Residual `packing_checklist` values in deployed browsers are orphaned bytes: harmless, and deliberately not cleaned up, since a cleanup write is more code and more risk than the dead bytes. **A packing checklist was later rebuilt as a different feature on a brand-new key** (`nepal_japan_packing`, a `PackingItem[]` seeded from a fixed country-scoped template, `core/packing/`). The retired string was not reused, and that store is local-only, wired without a `SyncPort`, so nothing here is owed a sync design.
 
 ---
 
@@ -356,7 +356,7 @@ Per section 5: invoked on merged results inside `push*Merged` (before `tx.set`) 
 ### PROPOSED D-154 · Gateway key 6 (`packing_checklist`) is retired, so the D-130 packing-sync question is moot
 Number 6 and the string are never reused; no sync design or quota line is owed; residual on-disk values in deployed browsers are harmless orphaned bytes, deliberately not cleaned.
 **Why:** S113D deleted the feature, and designing sync for a deleted feature would be work against nothing.
-**Changes if:** never for the retired string. A future packing feature is a new slot with a new key — **which is what happened**: `nepal_japan_packing` (`core/packing/`) was built later on a brand-new key and is deliberately local-only, so it inherits no sync design from key 6.
+**Changes if:** never for the retired string. A future packing feature is a new slot with a new key, and **that is what happened**: `nepal_japan_packing` (`core/packing/`) was built later on a brand-new key and is deliberately local-only, so it inherits no sync design from key 6.
 
 ---
 

@@ -1,6 +1,6 @@
 # v2 Design Language (S66)
 
-> **Historical (S66, M14). The token values below are superseded — do not implement from this
+> **Historical (S66, M14). The token values below are superseded. Do not implement from this
 > document.** The live token contract is `app/globals.css` plus `tailwind.config.ts`. Three things
 > changed after S66: the single chrome accent is cyan `189 90% 60%` / `61, 217, 245`
 > (`globals.css` declares it for `--accent-scroll`, `--accent`, `--primary` and `--ring` alike;
@@ -25,7 +25,7 @@ happens to be an app. Nepal warms to himalaya-amber, Japan cools to sakura, and 
 rests on brand gold.
 
 ## Hard constraints (non-negotiable, verify every one)
-1. **Accent literals (as authored at S66 — now superseded).** S66 pinned the default
+1. **Accent literals (as authored at S66, now superseded).** S66 pinned the default
    `--accent-scroll: 44 80% 61%` / `--accent-scroll-rgb: 240, 199, 96` byte-exact, with
    `route-accent-engine.tsx` (D-072) overwriting them per route: gold `240,199,96` (`/`), himalaya
    `255,140,66` (`/nepal/`), sakura `247,160,179` (`/japan/`); and shadcn `--accent` held at sakura
@@ -36,13 +36,13 @@ rests on brand gold.
    `--accent` semantics by a future engine.
 2. **D-009 dark-only.** No light-mode variants, no `@media (prefers-color-scheme)` light branch.
 3. **Consumed class names survive: restyle, never rename or remove** *(as authored at S66; the list
-   has since shrunk — see the banner)*. Frozen components elsewhere used these, so the CSS selectors
+   has since shrunk, see the banner)*. Frozen components elsewhere used these, so the CSS selectors
    had to keep existing and keep working. Only their *look* changed. **Still live today:**
    `.glass-card` · `.glass-card-dark` · `.glass-nepal` · `.glass-japan` · `.text-gradient-sakura` ·
    `.text-gradient-himalaya` · `.hero-gradient` · `.scrollbar-hide`, plus the S66 additions
    `.glass-panel` and `.glass-subtle`. **Since deleted with their last consumer:**
    `.text-gradient-gold` (gold is no longer a chrome accent; `--gold` survives as a warning colour
-   only), `.bg-aurora` / `.animate-aurora` (the ambient decoration was removed — see section 3),
+   only), `.bg-aurora` / `.animate-aurora` (the ambient decoration was removed, see section 3),
    `.animate-float`, `.animate-pulse-glow`. Likewise keep every shadcn semantic var (`--card`,
    `--border`, `--primary`, `--muted`, `--accent`, `--ring`, `--radius*`, …) and the Tailwind
    color/name mapping. You may refine their values, never delete the keys.

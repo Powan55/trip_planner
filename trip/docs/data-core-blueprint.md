@@ -1,9 +1,9 @@
-> **Historical — a 2026-07-05 design snapshot. Do not read any number here as current.**
+> **Historical: a 2026-07-05 design snapshot. Do not read any number here as current.**
 > Guest mode and `sessionGate` (sections 3.1 and 3.2) were removed repo-wide by **D-241** (LOCKED).
 > Three further things this document states as fact have since moved on: the persisted-key
 > inventory is no longer eight keys (`core/storage/gateway.ts` now declares ~30 slots, and
 > `tripPlannerGuest` / `packing_checklist` are gone from the code); the current itinerary schema
-> version is **5**, not 3 (`core/vault/migrations.ts`); and the ports are generic —
+> version is **5**, not 3 (`core/vault/migrations.ts`); and the ports are generic:
 > `StoragePort<T>` is `load`/`save`/`has` and `SyncPort<T>` is `T`-typed, not `DayPlan[]`-typed
 > (`core/ports.ts`). Current behaviour lives in the code and in `DECISIONS.md`.
 
@@ -268,7 +268,7 @@ The gateway spans both web-storage backends because key 8 (`tripPlannerTodayOver
 
 Introduce a framework-free `core/` package: plain TS, no React, no Next, and no `window` typing beyond what a port injects. `core/` contains the Vault (envelope, schema, migrations), the domain logic (dates/clock math; itinerary CRUD), and the port interfaces below. `core/` depends on nothing in `app/` / `components/` / `hooks/`, and the arrow always points inward (UI → core, never core → UI). This is the classic ports-and-adapters boundary: `core/` is pure and testable in isolation, and the framework layer supplies adapters.
 
-`core/` did not exist when this was drafted; S93 created it. It is now the largest package in the app — `core/ports.ts`, `core/vault/`, `core/itinerary/`, `core/dates/`, `core/sync/`, `core/storage/gateway.ts` and more.
+`core/` did not exist when this was drafted; S93 created it. It is now the largest package in the app: `core/ports.ts`, `core/vault/`, `core/itinerary/`, `core/dates/`, `core/sync/`, `core/storage/gateway.ts` and more.
 
 ### 4.2 The three ports
 
@@ -277,7 +277,7 @@ Ports are interfaces core defines and the framework layer implements. Keeping th
 ```ts
 // core/ports.ts  (illustrative)
 
-// STORAGE — the per-domain persistence boundary. Each domain supplies its own impl
+// STORAGE: the per-domain persistence boundary. Each domain supplies its own impl
 // (the Vault gateway for the itinerary). Key/store addressing is NOT on the port: it
 // lives in the gateway primitives (`core/storage/gateway.ts`, readString/writeString/
 // readJson/writeJson/removeKey/hasKey).
@@ -292,7 +292,7 @@ export interface ClockPort {
   now(): Date;                 // real clock OR the resolved sessionStorage/URL override
 }
 
-// SYNC — the remote seam, generic over the domain value `T`. The itinerary wires
+// SYNC: the remote seam, generic over the domain value `T`. The itinerary wires
 // T = DayPlan[]; expenses, budget and docs wire their own shapes over the same port.
 export interface SyncPort<T> {
   push(prev: T, next: T): Promise<void>;                 // from commit() only (D-039)

@@ -111,7 +111,7 @@ test.describe('S252 · custom trip — nav gating', () => {
    * failure there would be a false red about a build config, not about this behaviour; a skip is
    * visible in the run summary, so an unconfigured build can never report green on this assertion.
    */
-  test('the concierge IS present on a custom trip — persona gate lifted 2026-08-09 (Worker v1.8.0)', async ({
+  test('the concierge IS present on a custom trip: persona gate lifted 2026-08-09 (Worker v1.8.0)', async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP);
@@ -214,7 +214,7 @@ test.describe('S252 · custom trip — nav gating', () => {
   });
 });
 
-test.describe('custom trip — expense split roster is derived, not the hardcoded N×J trio', () => {
+test.describe('custom trip: expense split roster is derived, not the hardcoded N×J trio', () => {
   test('the split payer chips offer the signed-in traveler (self) and NOT Powan/Sushil/Uttam', async ({
     page,
   }) => {
@@ -257,7 +257,7 @@ test.describe('S252 · default trip — nav unchanged', () => {
     }
     await expect(page.getByTestId('navbar-brand')).toHaveText('Nepal × Japan');
 
-    // S258: concierge present on the default pack — but ONLY in a build where the
+    // S258: concierge present on the default pack, but ONLY in a build where the
     // Worker URL was configured (NEXT_PUBLIC_CONCIERGE_URL at build time). The standing net
     // serves the deploy-faithful out/ with it UNSET, so the trigger is legitimately absent
     // there; asserting visibility unconditionally made the net env-dependent (failed at the
