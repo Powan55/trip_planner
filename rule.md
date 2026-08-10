@@ -8,7 +8,7 @@ wrong.
 
 | Branch | What it is |
 |---|---|
-| `lax` | Lax's working branch. Force-push it, rebase it, break it. Nobody else builds on it. |
+| `lax` | One working branch. Force-push it, rebase it, break it. Nobody else builds on it. |
 | `uttam` | Uttam's working branch. Same freedom. |
 | `dev` | Where the two meet. Everything is tested here together before it can ship. This is the default branch, so a new pull request targets it automatically. |
 | `main` | What is live at https://powan55.github.io/trip_planner/. Every push to it deploys. |
@@ -84,8 +84,8 @@ to get to green — the point of the check is that it is annoying.
 
 ## Never commit
 
-- `trip/e2e/fixtures/live-v5-vault/live-dump.json` — a real capture from Lax's
-  own browser: live flights, hotels, traveller names. It is gitignored. The
+- `trip/e2e/fixtures/live-v5-vault/live-dump.json` — a real capture from a real
+  browser profile: live flights, hotels, traveller names. It is gitignored. The
   acceptance spec that uses it skips itself when the file is absent, which is why
   CI is green without it. **Do not replace it with a made-up file to "fix" the
   skip.** The only reason that fixture is worth anything is that it contains

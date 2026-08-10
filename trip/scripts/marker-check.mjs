@@ -36,7 +36,9 @@ const PATTERNS = [
   ['owner-pii', /laxmipoudel|official\.shadowverse@|\bLaxmi\b|\bPoudel\b/gi],
   ['gate-word', /\b(Gate\s?[12]|gate-pass|no-gate|re-gate|handback|ratified)\b/g],
   ['section-mark', /§/g],
-  ['design-spec', /\bdesign-spec\b/gi],
+  // "design-spec" and "blueprint" are deliberately NOT listed. Both name real
+  // published documents under trip/docs/, so flagging them would fire on every
+  // legitimate reference to a file that is right there in the repo.
   ['codename', /\b(Trip OS|Yen\s?&\s?Rupee(?:\s\d+)?|Afterglow(?:\s\d+)?|Alpine Nocturne|Last Train|Lane [VMGXP])\b/g],
   ['ai-vendor', /\b(Claude(?:\sCode)?|Anthropic|subagents?)\b/g],
   // "brief" and "wave" are ordinary travel-prose words ("a brief stop"), so only
