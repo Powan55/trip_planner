@@ -1251,11 +1251,13 @@ D-109's direction reverses. `core/dates/trip-cities.ts` no longer hand-authors t
 **Why:** migrating a live, synced, multi-device trip's keys mid-year is this project's historically highest-regression-risk move (compare D-139); grandfathering makes "current trip untouched" a structural property instead of a test hope.
 **Changes if:** only with explicit sign-off (LOCKED). A post-trip archival migration could be considered after Jan 9, never before.
 
-### D-173 · (v5 plan lock, approved 2026-07-16; recorded S176) · PMTiles offline maps: a spike-gated stretch, opt-in OPFS download, never SW-precached
+### D-173 · CLOSED NO-GO by D-197 · PMTiles offline maps: a spike-gated stretch, opt-in OPFS download, never SW-precached
+
+> **The gate this entry set was run and it came back NO-GO (D-197, 2026-07-17): the street-level extract is 180MB–3.7GB against a 100MB hard cap.** The "If GO:" branch below therefore never opened and is not standing guidance — do not read it as a design to build. **The shipped answer is D-286: the map *engine* is precached, tiles are not**, and the copy says so. This header carries the marker because the body does not: the entry read as live approved scope for three weeks after it was closed.
 
 **Decision:** offline vector maps via PMTiles are a stretch, gated on the S209 extract-sizing spike (go/no-go: the extract must clear the GitHub Pages 100MB cap). If GO: maplibre 5.24 `addProtocol`, an opt-in OPFS download (user-initiated, deletable), and never SW-precached, because D-073's precache stays small and deterministic.
 **Why:** offline maps are high-value mid-trek but the size risk is real and external, so a spike answers it with evidence before any build cost.
-**Changes if:** S209 measures over-cap (NO-GO, deep-link to offline-capable map apps instead), or a smaller extract source appears.
+**Changes if:** S209 measures over-cap (NO-GO, deep-link to offline-capable map apps instead), or a smaller extract source appears. — **Fired: S209 measured over-cap. See D-197.**
 
 <!-- v5 Phase-4 backend-activation spike (S197), recorded 2026-07-16. The go/no-go feasibility report is docs/v5-ai-concierge-feasibility.md; these two entries lock what it decided. D-164–D-173 are reserved for the S176 blueprint, so these start at D-174. -->
 
@@ -2542,8 +2544,20 @@ today. If that fix does not land, rung 3 manufactures `exact` placements that ar
 `exact` placement is the one thing this design does not label. This ladder must not ship before it.
 
 **Section 3: Where the derived tables live.** No new table is authored, and no geocoder is added.
-D-088 (free-tier-only, **LOCKED**, *"the biggest requirement, ahead of feature scope"*) forbids a
-geocoding service, and none is needed:
+D-088 (free-tier-only, **LOCKED**, *"the biggest requirement, ahead of feature scope"*) disqualifies
+any geocoding service that wants a paid tier, a card on file or an ongoing cost — which is every
+serious one — and none is needed here anyway:
+
+> **Corrected 2026-08-10 (S418).** This sentence used to read *"D-088 … forbids a geocoding service"*.
+> It does not. D-088 forbids **paid, card-requiring or ongoing-cost** dependencies of any kind; the
+> category "geocoder" appears nowhere in it, and a genuinely free, card-free geocoder would clear it
+> on D-088's own terms and then be judged on its merits. The over-read mattered because it turned a
+> cost constraint into a permanent technical ban that nobody had actually decided, and it was cited
+> that way. The real reason no geocoder is added is the one already stated below: rungs 4 and 5 need
+> no new data, so there is nothing to geocode. Both rungs stand unchanged. (An earlier note put this
+> correction on D-279; that is the wrong entry — D-279 is the approximate-pin rule and says nothing
+> about geocoding or about free-tier constraints.)
+
 - **Rung 4 has no table at all.** It is an index built at module scope from `MAP_MARKERS`' existing
   `area` strings (`lib/map-data.ts`), the same 27 records that already carry `lat`/`lng`. Zero new data.
 - **Rung 5 reuses a table that already exists and is already guaranteed total.** `CITY_COORDS` in
@@ -2933,3 +2947,24 @@ D-009 (dark-only) stands. This is a single scoped exception, decided on 2026-08-
 >
 > Dated 2026-08-09, one day before the check, so this is plausibly work in flight. Recorded because the exception this entry carves out of D-009 (dark-only) is a real, narrow one, and a live carve-out for a surface that does not exist is the kind of thing a later reader honours by mistake. See D-291, ruled in the same session and in the same state.
 
+---
+
+### D-295 · (proposed S402, recorded 2026-08-10 by S418) · A "touch only these fields" guard derives its changed-key set by diffing both objects' keys; a hand-listed field allow-list is not a gate
+
+**Decision:** any bulk-rewrite invariant gate in this app — the name-claim rewrite (D-288) and anything shaped like it — asserts "this operation changed only what it was allowed to change" by **computing** the changed-key set: diff the union of the before and after objects' keys and compare that set against the allowed one. A hand-written list of fields to check is not acceptable as the gate. New fields are then covered the day they are added, with no edit to the guard.
+
+**Why — this was demonstrated, not theorised.** S408's first guard was the hand-listed form. Forcing `category` onto every claimed row left the guard, the `settle()` invariance check and both merge proofs green, because no listed field had moved. The two readers do not overlap: `settle()` reads `leg`/`deleted`/`split`/`paidBy`/`amount` (`core/budget/settlement.ts:71-79`), while `expensesToSpent` reads `leg`/`category`/`amount` (`core/budget/expenses.ts:169-187`), so a corrupted `category` moves every budget rollup while the shipped test stays green. Replaced with the key-diff form, the money mutation goes red for the right reason: `split: ['Traveler','Powan'] → ['Powan','Powan'] → uniq → 1 member`, so a 3000 NPR bill divides by one and a balance moves from −1500 to 0. A guard whose coverage is the set of fields its author happened to think of is the project's signature defect — a check that reads as coverage and cannot fail.
+
+**Changes if:** an operation genuinely has an unbounded or data-dependent key set, in which case the exception is named explicitly in the test, never left implicit by writing a list instead.
+
+### D-296 · (proposed S402, recorded 2026-08-10 by S418) · Post-final durability posture: no internal fix is required, and the three known residuals are accepted with their real ceilings named
+
+**Decision:** after the final release the app runs unmaintained through the Dec 9 2026 → Jan 9 2027 trip and indefinitely after it. Internal durability was audited against that and **needs no code fix**. Three findings were stated too broadly in an earlier draft; these corrected versions are the record, and each is accepted with its ceiling named rather than closed:
+
+- **Tombstones are capped in one store only.** The trip registry caps forget-tombstones at 200 (`core/trips/registry.ts:288`, applied at `:304`). Itinerary and expense tombstones are retained forever — there is no cap in `core/sync/`. They are accepted on **headroom**, roughly 100× and 10× the 1 MB Firestore document ceiling, not on a cap. The registry's own sync path (`registry.ts:383`) writes the merged union uncapped.
+- **The clock-skew clamp is production-dead code.** It is applied only in `hlcReceive`, which has zero production callers. The per-row ratchet handles *sequential* edits across drifting clocks. The accepted residual is narrower and real: a genuinely concurrent offline edit on a correct-clock device can lose to a device whose clock is hours wrong. That is the trusted-device ceiling, ruled and accepted.
+- **The eastbound-only time model has no visible effect** and is unreachable in every shippable configuration. The app flipping to "trip over" about fourteen hours early on Jan 9 is a *different* mechanism: the return leg is not in the pack, so the trip window ends while the clock is still anchored to JST. Cosmetic, and accepted.
+
+**Why:** "no fix required" is only a safe thing to write down if the residuals it covers are written down with it. Recorded as a decision rather than a note because the alternative — a silent clean bill of health — is what lets a later reader treat an accepted ceiling as an unknown, or as a bug to chase in a codebase nobody is maintaining. The single external residual, browser storage eviction, is out of scope here: it is mitigated by the shipped persistence request, the install hint and a photo-inclusive export, and journal entries and photos remain single-device by design.
+
+**Changes if:** a residual above is observed in the wild during the trip window, which makes it a live defect rather than an accepted ceiling — or the app leaves unmaintained status, which re-opens the whole posture.
