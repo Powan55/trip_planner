@@ -2909,3 +2909,46 @@ D-009 (dark-only) stands. This is a single scoped exception, decided on 2026-08-
 - **Toned down from the first cream:** `#F4EDE0 → #DCCDAE` drops page-vs-canvas from 16.55:1 to 12.29:1. Inks were deepened in step (`--paper-lo #524563`, nepal `#8E0E30`, japan `#223C7C`, green `#0C5849`) because darkening the page eats `--paper-lo`'s headroom first: it had only 5.27:1. All six pairings were re-measured at 5.34–9.86:1, all clear AA (`parchment-verify.mjs`).
 
 **Changes if:** we decide D-009 takes zero exceptions. The dark variant is already built and measured, so the revert is a token swap plus one blend-mode flip.
+
+
+---
+
+### D-295 · (PR B / issue #10, 2026-08-10) · Issue #10 is the greenlight D-055's soft posture was waiting on — access control is now enforced, not labelled
+
+D-055 (and the D-053/D-239 lineage under it) deliberately shipped *soft* access control: identity was a display name, the door's never-mix guard was "labels + flow, not validation", and the unspoofable-credential question was parked as a separate, greenlight-only concern. Issue #10 is that greenlight. The approved redesign's Tier 1 lands hard enforcement at four seams: the door validates the pasted User Token (D-296), the world-readable default-trip remote id is retired (D-297), the concierge refuses trips that are not on the account, and the app no longer renders behind the wall for logged-out visitors (D-298).
+
+**The posture that survives:** enforcement fails OPEN everywhere a network is involved. A validation layer on a free-tier, offline-capable, token-only app must never be able to lock a real user out of their own data; only a server-confirmed negative ever rejects.
+
+**Changes if:** a real backend or per-user auth ever arrives (D-205's zero-backend premise), which would allow fail-closed enforcement and re-open every decision below.
+
+---
+
+### D-296 · (PR B / issue #10, 2026-08-10) · The door validates a new User Token via ONE lazy server read of `profile/identity`; stored sessions are never re-gated; offline admits
+
+Supersedes D-239's "the never-mix guard is labels and flow, not validation … there is nothing to validate against" clause, and amends D-053/D-054's firebase-free door to its real invariant: the door is **STATICALLY** firebase-free only. `handleLogin` dynamically imports `probeAccountIdentity` (lib/trips-remote), which races one `getDocFromServer` of `trips/{code}/profile/identity` against an 8s timer. Tri-state, and the mapping is the security posture: **'missing'** (the server answered, no doc) rejects with "This user does not exist. Check your key, or create an account." and writes ZERO state — no key stored, no sign-in, no held wall; **'exists'** admits; **'unavailable'** (dormant build, blank code, timeout, any error — including a rules change that denies the read, which logs loudly) ADMITS, because offline must never lock a real user out. `getDocFromServer`, never a cached read: a cold cache reports absence, and a cached absence rejecting a real user is the one wrong the fail-open design cannot tolerate. The key already stored on the device skips the probe entirely — a live session credential is never re-gated, which is also what keeps the seeded-storage e2e suites and every returning offline device working unchanged.
+
+**What makes the probe meaningful:** the create path now pushes BOTH `profile/identity` and `profile/tripList` at account creation (and the show-once confirm awaits them under a 5s budget before its reload — the S375 navigation-kills-the-write lesson), and `subscribeTripList`'s absent-first-snapshot auto-seed is DELETED. That seed was the mechanism that manufactured a working account doc for any pasted string; without it, an invented key has nothing behind it and the probe's 'missing' answer is true.
+
+**Accepted residual (inherited from D-239, now narrower):** a *Trip Token* pasted at login can still resolve to 'unavailable' (or, for a trip that grew a `profile/identity` doc, to 'exists') and yields a working-but-empty account, recoverable by signing out. The class of key that no longer works is the *invented* one.
+
+**Changes if:** the identity doc moves or gains an auth requirement (the probe and the rules must move together — the permission-denied warn is the tripwire), or token-format discrimination (`user-`/`trip-` prefixes) ever lands, which would let the door reject a Trip Token *before* any network.
+
+---
+
+### D-297 · (PR B / issue #10, 2026-08-10) · The default pack is a LOCAL-ONLY SAMPLE — `NEXT_PUBLIC_TRIP_ID` is retired; rotating the exposed remote id is an owner runbook step
+
+Amends D-205/D-210. The default pack's remote path was supplied by `NEXT_PUBLIC_TRIP_ID` and documented as "a separately-minted secret". That was false by construction: a `NEXT_PUBLIC_*` value inlines into the public bundle at build time, so the "secret" shipped to every visitor, and under the capability-token rules the remote trip it named was world-readable *and world-writable*. No env var can fix that shape — the fix is that the default pack has no remote path at all. `getTripId()` returns `''` for it; a new `isTripRemoteConfigured()` (= `isRemoteConfigured() && getTripId() !== ''`) is the entry gate for every module composing `trips/{getTripId()}/…` (itinerary/expenses/budget/docs remote, presence, and the sync outbox — whose default-pack enqueue would otherwise retry an invalid empty path forever). Account-scoped paths (`trips/{userToken}/profile/*`) keep gating on `isRemoteConfigured()` alone. Net effect: on the default pack nothing syncs, nothing is shareable (trips-hub and Settings say "sample" instead of rendering an empty token), and the deploy workflow no longer injects the var; custom trips are byte-identical to before. D-172's localStorage grandfather is untouched — the default pack's LOCAL keys stay the legacy literals forever. The `?trip=` handshake now compares against `getActiveTripId()` (the remote/local id distinction it was built on no longer exists).
+
+**Owner runbook (not app code):** the previously-injected remote id is burned — delete `trips/{that id}/**` in the Firebase console, and treat the live shared trip as a custom trip whose freshly-minted id is shared person-to-person. `docs/trip-key-migration.md` carries the retirement note.
+
+**Changes if:** the sample ever needs to be shareable again, which under this model means it simply becomes a custom trip like any other — never a build-time env var again.
+
+---
+
+### D-298 · (PR B / issue #10, 2026-08-10) · `{children}` render only for an identified traveler — the wall withholds the app instead of covering it
+
+Supersedes D-054's "content stays mounted behind the wall (the wall is an overlay, not a replacement of children)" clause. `ItineraryProvider` renders `{children}` only when mounted AND `useActiveTraveler()` resolves a traveler; TokenGate, the tour, presence and the toaster stay mounted as before. This closes the S355 finding that login.spec.ts spent months logging without asserting: the home dashboard — trip name included — sat in every logged-out visitor's DOM under a mere overlay, readable via view-source. That log-only test is now a hard assertion (no headings, no content outside the wall), and the static export's prerendered HTML is likewise content-free (the SSR snapshot is the signed-out one).
+
+**D-244 is intact, checked before writing this:** D-244's ruling is about ROUTING — no new route, no root-layout split, no app-home move for the landing. None of that changed; the withholding happens inside the provider D-244 left in place. What D-054 bought with the always-mounted children — hydration warm-up behind the wall — is deliberately traded away: hydration for a logged-out visitor was warming a page they must never see. Sign-in mounts the app live via `identity:changed` (the wall's `held` flag covers the one-frame seam), sign-out unmounts it at once.
+
+**Changes if:** first-paint-after-login latency ever measurably regresses (the traded warm-up is the suspect), or a route genuinely needs logged-out content — which is D-244's named upgrade path (root-layout split), not a re-widening of this gate.

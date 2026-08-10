@@ -8,6 +8,20 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v5.13.0 (app) — 2026-08-10 · **NOT DEPLOYED** · worker unchanged at v1.8.0
+
+Access control, tier 1 of the redesign approved on issue #10. Until now, any pasted string was a working login: the door validated nothing, and the sync layer would quietly manufacture an account document for whatever key you invented. Four changes close that, each shaped so a network failure can never lock a real user out.
+
+Signing in now checks the key is real. A new key pasted at the door triggers one server read of the account's identity document; if the server answers and the account does not exist, the door says "This user does not exist" and writes nothing to the device — no half-created session to clean up. Every failure shape (offline, timeout, a build with no sync configured, even a rules mistake) admits exactly as before, because being locked out of your own data on hotel wifi is a worse failure than a stranger getting past a door that leads to their own empty account. A key already stored on the device is never re-checked at all: a returning traveler logs in fully offline. Two things make the check meaningful: creating an account now writes both profile documents up front (and the confirm button waits for those writes, capped at five seconds, instead of reloading over them), and the sync layer's "no document yet? seed one from local" branch — the thing that made invented keys work — is deleted.
+
+The built-in Nepal × Japan trip is now a sample that lives on your device only. Its remote database id used to be injected at build time and described as a secret, but anything injected that way ships in the public bundle, so the world could read and write the shared trip it named. The id is retired: nothing on the default pack syncs, nothing is shareable from it, and the trips page and Settings both say so honestly instead of offering an empty token with copy buttons. Real shared trips are the custom ones, whose unguessable id is the capability and never appears in any bundle. Rotating the old exposed remote data is an owner runbook step, not app code.
+
+The concierge answers only for trips on your account. A custom trip the device never actually joined gets a refusal instead of a digest of whatever sits under that pointer, and on a sync-configured build the local sample gets a pointer to your own trips. Dormant builds — including the whole browser test suite — keep today's behavior on the sample, by construction.
+
+And the wall now withholds the app instead of covering it. Since the landing shipped, a logged-out visitor's DOM still contained the whole home dashboard under the overlay — trip name and all, readable in view-source. That was recorded at the time as an open finding with a log-only test, because closing it needed an architectural call. The call is made: the app renders only for an identified traveler, the static export's HTML carries no trip content, and the log-only test is now a hard assertion that fails if any of it comes back.
+
+---
+
 ## v5.11.2 (app) + v1.8.0 (worker) — 2026-08-09 · **DEPLOYED**: the first live deploy since v5.9.2
 
 The Worker is live for the first time. `trip-planner-concierge` v1.8.0 deployed to `https://trip-planner-concierge.official-shadowverse.workers.dev` (Version ID `157ed2e0-2cfb-4044-af3e-ea80bc1b4ce6`), predeploy gate green on typecheck plus 104/104 tests, with CORS locked to the site origin. Two rulings from the previous release had been sitting entirely inside it and had never reached anyone. The third-party web-search leg is now actually gone from the running service, not only from the repo, and the system prompt is trip-aware.
