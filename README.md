@@ -76,6 +76,31 @@ are derived from the repository name at build time, so no configuration is hard-
 
 To deploy your own copy, push to `main` and set **Settings → Pages → Source** to **GitHub Actions**.
 
+## Firestore rules
+
+`firestore.rules` at the repo root is the source of truth for the database's access rules.
+Before any change to it ships, validate it against the real rules engine with the local
+emulator (needs Java and the `firebase` CLI; run from the repo root):
+
+```bash
+firebase emulators:exec --only firestore --project demo-rules "node scripts/rules-check.mjs"
+```
+
+Exit code 0 means every phase passed (the negative-control phase is *supposed* to show
+failures in its own output — the script accounts for that). The harness resolves the
+`firebase` SDK out of `trip/node_modules`, so `npm ci --legacy-peer-deps` inside `trip/`
+must have run first. It is deliberately not part of CI or the app's test suite: it needs a
+running emulator.
+
+Publishing the rules is a **manual owner action** — no workflow deploys them:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+After any rules deploy, re-verify live that trip enumeration is still denied (a plain
+`getDocs(collection('trips'))` must fail with permission-denied).
+
 ## Notes
 
 The trip dates are configured in one place (`trip/lib/trip-data.ts`); change `TRIP_START` /
