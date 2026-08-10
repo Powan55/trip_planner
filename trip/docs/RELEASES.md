@@ -8,6 +8,22 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v5.14.0 (app) — 2026-08-10 · **NOT DEPLOYED** · pairs with worker v1.9.0, also undeployed (live worker is still v1.8.0)
+
+Access control, tier 2. The previous release made sure the person logging in was real. This one makes sure the *device* asking for a trip is one the trip knows about, and it moves the concierge from "you sent me a trip id" to a check Google performs.
+
+Every device now signs itself in silently the first time it syncs. That identity is anonymous, free, and invisible — you are never asked for anything — but it is a stable name the trip can hold, which is the thing the app has never had. It survives reloads, it survives signing out of the app (deliberately: the identity belongs to the browser, not the login), and it can optionally be linked to a Google account so you can get it back after clearing your browser data or changing phone. Linking preserves the identity rather than replacing it, which is the whole reason to offer linking rather than a sign-in. If you link an account you already used on another device, the app offers to adopt that identity here instead — that is the lost-phone path.
+
+A trip can now hold a list of the devices allowed to open it. It is opt-in per trip, and it has to be: rules changes take effect instantly and globally, so a mandatory list would have shut every existing trip and every share link already sitting in someone's chat history, with no way back in. A trip you create is locked to your device from the moment it is created. A trip that predates this becomes locked the first time one of your devices opens it, and that device becomes its owner — after which the other travellers need adding. Settings has a new "Trip access" section with your device's code (send it to a friend, they paste it in), the list of devices on the trip, and — for the owner only — a way to remove one. If you open a trip you are not on yet, the app says so in one sentence and tells you where to fix it, rather than showing you an empty trip and letting you conclude the data is gone.
+
+Two smaller things fell out of that and are worth naming. The presence heartbeat used to retry a refused write once a minute forever; it now stops after the first refusal and says why once. And the presence layer no longer starts its own copy of Firebase — it shares the one every other sync path uses, which is what guarantees it never writes before the sign-in it depends on has finished.
+
+The concierge now sends a signed token with every request. The Worker verifies it by reading the trip document from Firestore as *you*, so the same rules that guard the app guard the concierge, and there is no second copy of the access model to drift. That half fails closed. This half is careful about ordering: the token is attached only when there is a session to attach, so a build with no sync configured — which includes the entire browser test suite — sends exactly the request it sent before, and the Worker's requirement can be switched on only once a client that satisfies it is actually live.
+
+Nothing here is live yet. The rules that enforce all of it are written and committed but publishing them is a manual step, and the Worker version that requires the token is built and unshipped. The app is safe to deploy ahead of both: with the old rules still in place it simply signs in and writes a list nothing is yet checking.
+
+---
+
 ## v5.13.0 (app) — 2026-08-10 · **NOT DEPLOYED** · worker unchanged at v1.8.0
 
 Access control, tier 1 of the redesign approved on issue #10. Until now, any pasted string was a working login: the door validated nothing, and the sync layer would quietly manufacture an account document for whatever key you invented. Four changes close that, each shaped so a network failure can never lock a real user out.
