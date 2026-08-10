@@ -94,11 +94,32 @@ jobs:
           # NEXT_PUBLIC_TRIP_ID is retired (#10): the default pack is a local-only sample with
           # no remote path, so no build-time trip id exists to inject (it was never a secret —
           # NEXT_PUBLIC_* values ship in the public bundle).
-          # AI concierge Worker URL (repo Actions variable). Absent => the chat feature
-          # stays fully dormant in the build. Presence is echoed below (never the value).
+          # AI concierge Worker URL (repo Actions variable). REQUIRED since the Worker went
+          # live (v1.8.0, 2026-08-09): the two guards below halt the build if it is empty or
+          # carries a path. Presence is echoed below, never the value.
           NEXT_PUBLIC_CONCIERGE_URL: ${{ vars.NEXT_PUBLIC_CONCIERGE_URL }}
         run: |
-          echo "concierge-url present: ${NEXT_PUBLIC_CONCIERGE_URL:+yes}${NEXT_PUBLIC_CONCIERGE_URL:-NO}"
+          # Empty => isConciergeConfigured() is false, ConciergeChat renders null everywhere
+          # and the whole AI feature ships silently absent, discovered only when a user goes
+          # looking for it. Fail loudly here instead of printing "NO" and carrying on.
+          # Whitespace is stripped for the test because a spaces-only value is worse than
+          # empty: Boolean('   ') is true, so the app would consider itself configured and
+          # send every request to a garbage URL.
+          if [ -z "${NEXT_PUBLIC_CONCIERGE_URL//[[:space:]]/}" ]; then
+            echo "::error::NEXT_PUBLIC_CONCIERGE_URL is not set, so the concierge would ship dormant and silently absent. Set the repository Actions variable (Settings -> Secrets and variables -> Actions -> Variables) to the Worker origin, then re-run."
+            exit 1
+          fi
+          # Must be the BARE ORIGIN. lib/place-resolve.ts builds "<value>/resolve", so a
+          # "/chat" suffix requests ".../chat/resolve" and is dead on arrival while chat
+          # keeps working — which is exactly how it would hide (D-252). One trailing slash
+          # is fine: place-resolve strips it and chat still POSTs to pathname "/".
+          case "${NEXT_PUBLIC_CONCIERGE_URL%/}" in
+            *://*/*)
+              echo "::error::NEXT_PUBLIC_CONCIERGE_URL must be the bare Worker origin with no path. A path suffix breaks place-resolve (it would request <path>/resolve) while chat keeps working, so the breakage hides."
+              exit 1
+              ;;
+          esac
+          echo "concierge-url present: yes"
           npm run build
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
