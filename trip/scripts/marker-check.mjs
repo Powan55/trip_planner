@@ -67,6 +67,20 @@ const PATTERNS = [
   // a boundary only when the preceding character is a word character — so a
   // \b-anchored spelling would miss `.claude/` in every place it actually gets
   // written (`` `.claude/` ``, "(.claude/)", start of line).
+  //
+  // Settled once, so nobody re-litigates it: S417 words this rule as "references
+  // to lib/__tests__/ and e2e/ paths". Do not implement that literally. Those
+  // were two thirds of the old mirror script's EXCLUDE_DIRS — the directories it
+  // withheld when it copied a private tree into a public one — so in the mirror
+  // any reference to them dangled. That script is gone and this repo IS the
+  // published one: docs/ (22 files), e2e/ (135) and lib/__tests__/ (154) are all
+  // committed here, and 231 of 231 real references to them resolve on disk. The
+  // four that do not are the gitignored live-vault fixture, named as absent on
+  // purpose in three places, and one comment recording a test it supersedes.
+  // A literal rule would fire on 332 lines across 136 files, every one of them
+  // pointing at something a reader can open. The class S417 meant — a path this
+  // repo excludes — is now exactly the internal-planning block of the root
+  // .gitignore, which is what this pattern tracks. Keep the two in step.
   ['excluded-path', /(?<![\w-])(\.claude|briefs|docs\/plans|docs\/reports)\//gi],
   // Tech-debt register ids. Unlike the ticket-style ids above, these name rows
   // of an internal register rather than a shipped thing, and the last publish
