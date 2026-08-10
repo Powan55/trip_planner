@@ -325,10 +325,8 @@ test.describe('S355 — landing a11y + responsive', () => {
       for (const v of results.violations) {
         const line = `[${v.impact ?? 'n/a'}] ${v.id}: ${v.help} (${v.nodes.length} nodes)`;
         testInfo.annotations.push({ type: `axe:${v.impact ?? 'unknown'}`, description: line });
-        // eslint-disable-next-line no-console
         console.log(`  axe landing@${width} ${line}`);
       }
-      // eslint-disable-next-line no-console
       console.log(`axe SUMMARY landing@${width}: serious/critical/moderate=${blocking.length}`);
       expect(
         blocking,
@@ -379,7 +377,6 @@ test('FINDING (log-only) — the DOM behind the wall still carries trip data for
         .slice(0, 8),
     };
   });
-  // eslint-disable-next-line no-console
   console.log('BEHIND-THE-WALL (pre-existing, not fixed by S355):', JSON.stringify(behind, null, 2));
   expect(behind).toBeTruthy();
 });

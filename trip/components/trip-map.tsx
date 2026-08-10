@@ -1011,7 +1011,6 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         { padding: 72, maxZoom: 12, duration: animate ? 700 : 0, animate },
       );
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeStops, mapReady, fitBounds]);
 
   // ── highlight → emphasize the matching browse marker + route stop ──────

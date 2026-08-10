@@ -112,7 +112,6 @@ async function runAxe(page: Page, label: string, testInfo: import('@playwright/t
   // ran against real nodes. `passes` is a rule-level count of what actually EVALUATED — on the
   // error scan it visibly picks the row up (`aria-roles` and `color-contrast` each gain a node vs
   // the healthy control, and `button-name` covers the retry control).
-  // eslint-disable-next-line no-console
   console.log(
     `  axe ${label}: ${results.violations.length} violation(s), ${results.passes.length} rules passed, ${results.incomplete.length} incomplete`,
   );
@@ -120,7 +119,6 @@ async function runAxe(page: Page, label: string, testInfo: import('@playwright/t
   for (const v of results.violations) {
     const line = `[${v.impact ?? 'n/a'}] ${v.id}: ${v.help} (${v.nodes.length} node${v.nodes.length === 1 ? '' : 's'})`;
     testInfo.annotations.push({ type: `axe:${v.impact ?? 'unknown'}`, description: line });
-    // eslint-disable-next-line no-console
     console.log(`  axe ${label} ${line}`);
   }
   expect(

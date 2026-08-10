@@ -70,7 +70,6 @@ async function assertNoSeriousCritical(page: Page, label: string, testInfo: impo
   for (const v of results.violations) {
     const line = `[${v.impact ?? 'n/a'}] ${v.id}: ${v.help} (${v.nodes.length} node${v.nodes.length === 1 ? '' : 's'})`;
     testInfo.annotations.push({ type: `axe:${v.impact ?? 'unknown'}`, description: line });
-    // eslint-disable-next-line no-console
     console.log(`  axe ${label} ${line}`);
   }
   expect(

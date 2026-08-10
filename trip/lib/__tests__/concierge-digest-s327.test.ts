@@ -384,7 +384,6 @@ describe('buildTripDigest (S327)', () => {
       0,
     );
 
-    // eslint-disable-next-line no-console
     console.log(
       `\n[S362 MEASUREMENT — fully-planned 32-day SAMPLE trip, ${totalItems} items (${timed} timed)]\n` +
         `  (1) digest BEFORE (title #id)        : ${oldDigest.length} chars\n` +

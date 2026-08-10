@@ -334,7 +334,6 @@ test.describe('FU-34 · axe /map with the favorites UI present', () => {
         description: `${v.id}: ${v.help} (${v.nodes.length} nodes)`,
       });
     }
-    // eslint-disable-next-line no-console
     console.log(`axe SUMMARY /map (favorites UI): serious/critical=${blocking.length}`);
     expect(
       blocking,

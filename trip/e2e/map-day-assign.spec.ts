@@ -408,7 +408,6 @@ test.describe('S224 · axe /map with the assign UI + day-order panel present', (
       .exclude('[data-sonner-toaster]')
       .analyze();
     const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
-    // eslint-disable-next-line no-console
     console.log(`axe SUMMARY /map (assign UI): serious/critical=${blocking.length}`);
     expect(
       blocking,

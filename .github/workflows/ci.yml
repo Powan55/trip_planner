@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   checks:
-    name: Checks (markers · types · unit · build)
+    name: Checks (markers · types · lint · unit · build)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -49,6 +49,11 @@ jobs:
       # runs during the build. Running it first gives a clearer failure.
       - name: Typecheck
         run: npx tsc --noEmit
+
+      # next.config.js sets eslint.ignoreDuringBuilds, so the build below never
+      # runs eslint. This step is the only thing that does.
+      - name: Lint
+        run: npm run lint
 
       - name: Unit tests
         run: npm test

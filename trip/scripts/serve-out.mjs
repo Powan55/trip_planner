@@ -155,6 +155,5 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, () => {
-  // eslint-disable-next-line no-console
   console.log(`serve-out: serving ${OUT_DIR} at http://localhost:${PORT}`);
 });

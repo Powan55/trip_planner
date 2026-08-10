@@ -67,10 +67,8 @@ async function expectAxeClean(page: Page, label: string, testInfo: TestInfo) {
   for (const v of results.violations) {
     const line = `[${v.impact ?? 'n/a'}] ${v.id}: ${v.help} (${v.nodes.length} node${v.nodes.length === 1 ? '' : 's'})`;
     testInfo.annotations.push({ type: `axe:${v.impact ?? 'unknown'}`, description: line });
-    // eslint-disable-next-line no-console
     console.log(`  axe ${label} ${line}`);
   }
-  // eslint-disable-next-line no-console
   console.log(`axe SUMMARY ${label}: serious/critical=${blocking.length}, moderate/minor=${advisory.length}`);
   expect(
     blocking,

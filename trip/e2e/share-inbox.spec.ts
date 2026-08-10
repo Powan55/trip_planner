@@ -133,7 +133,6 @@ async function runAxe(page: Page, label: string, testInfo: import('@playwright/t
   for (const v of results.violations) {
     const line = `[${v.impact ?? 'n/a'}] ${v.id}: ${v.help} (${v.nodes.length} nodes)`;
     testInfo.annotations.push({ type: `axe:${v.impact ?? 'unknown'}`, description: line });
-    // eslint-disable-next-line no-console
     console.log(`  axe ${label} ${line}`);
   }
   expect(

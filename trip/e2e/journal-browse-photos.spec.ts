@@ -85,7 +85,6 @@ async function expectNoSeriousCritical(page: Page, label: string, testInfo: Test
   for (const v of results.violations) {
     testInfo.annotations.push({ type: `axe:${v.impact ?? 'unknown'}`, description: `${v.id}: ${v.help}` });
   }
-  // eslint-disable-next-line no-console
   console.log(`axe SUMMARY ${label}: serious/critical=${blocking.length}`);
   expect(
     blocking,

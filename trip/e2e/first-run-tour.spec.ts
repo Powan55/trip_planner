@@ -180,7 +180,6 @@ test.describe('S155 — first-run tour keyboard + a11y', () => {
     for (const v of results.violations) {
       const line = `[${v.impact ?? 'n/a'}] ${v.id}: ${v.help} (${v.nodes.length} node${v.nodes.length === 1 ? '' : 's'})`;
       testInfo.annotations.push({ type: `axe:${v.impact ?? 'unknown'}`, description: line });
-      // eslint-disable-next-line no-console
       console.log(`  axe / (S155 tour) ${line}`);
     }
     expect(

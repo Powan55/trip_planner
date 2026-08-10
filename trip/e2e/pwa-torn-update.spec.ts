@@ -143,7 +143,6 @@ test.describe('S271 · Part B — the shipped install handler is ATOMIC (rejects
           const ok = !(failFirst && u === firstUrl);
           return { ok, status: ok ? 200 : 404, type: 'basic', clone() { return this; } };
         };
-        // eslint-disable-next-line no-new-func
         new Function('self', 'caches', 'fetch', 'Response', 'location', src)(
           fakeSelf,
           fakeCaches,
@@ -244,7 +243,6 @@ test.describe('S271 · Part C — nav backfill caches a missed route on a succes
           const type = fetchOutcome === 'ok-opaque' ? 'opaque' : 'basic';
           return { ok: true, status: 200, type, clone() { return this; } };
         };
-        // eslint-disable-next-line no-new-func
         new Function('self', 'caches', 'fetch', 'Response', 'location', src)(
           fakeSelf,
           fakeCaches,

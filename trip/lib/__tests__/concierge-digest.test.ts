@@ -88,7 +88,6 @@ describe('trip-context digest (S244)', () => {
     // the header line the Worker's system prompt is written against, plus a real timed seed item.
     expect(body.context).toContain('Each item is "HH:MM category Title #id".');
     expect(body.context).toContain('05:30 transportation Depart Syracuse');
-    // eslint-disable-next-line no-console
     console.log('--- assembled digest sample (first 400 chars) ---\n' + body.context.slice(0, 400));
 
     h.unmount();

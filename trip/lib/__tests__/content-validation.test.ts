@@ -229,7 +229,6 @@ describe('validate:content — the validator HAS TEETH (broken fixture is reject
         return `  ✗ ${name} → ${first.path.join('.') || '(root)'}: ${first.message}`;
       })
       .join('\n');
-    // eslint-disable-next-line no-console
     console.log(`\n[validate:content red-proof — broken fixture correctly rejected]\n${report}\n`);
   });
 });

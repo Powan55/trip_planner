@@ -26,8 +26,8 @@ import { act } from 'react-dom/test-utils';
 (globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 // Neutralise framer-motion for token-gate's `m.*` / AnimatePresence (LazyMotion-strict throw).
-vi.mock('framer-motion', () => {
-  const React = require('react') as typeof import('react');
+vi.mock('framer-motion', async () => {
+  const React = await vi.importActual<typeof import('react')>('react');
   const MOTION_PROPS = new Set([
     'initial', 'animate', 'exit', 'transition', 'variants', 'whileHover',
     'whileTap', 'whileInView', 'layout', 'layoutId', 'drag',
@@ -35,12 +35,15 @@ vi.mock('framer-motion', () => {
   const m = new Proxy(
     {},
     {
-      get: (_t, tag: string) =>
-        React.forwardRef((props: Record<string, unknown>, ref: unknown) => {
+      get: (_t, tag: string) => {
+        const Motion = React.forwardRef((props: Record<string, unknown>, ref: unknown) => {
           const clean: Record<string, unknown> = {};
           for (const k of Object.keys(props)) if (!MOTION_PROPS.has(k)) clean[k] = props[k];
           return React.createElement(tag, { ...clean, ref });
-        }),
+        });
+        Motion.displayName = `motion.${tag}`;
+        return Motion;
+      },
     },
   );
   return { m, AnimatePresence: ({ children }: { children: unknown }) => children };

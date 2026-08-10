@@ -117,10 +117,8 @@ for (const route of ROUTES) {
     for (const v of results.violations) {
       const line = `[${v.impact ?? 'n/a'}] ${v.id}: ${v.help} (${v.nodes.length} node${v.nodes.length === 1 ? '' : 's'})`;
       testInfo.annotations.push({ type: `axe:${v.impact ?? 'unknown'}`, description: line });
-      // eslint-disable-next-line no-console
       console.log(`  axe ${route} ${line}`);
     }
-    // eslint-disable-next-line no-console
     console.log(
       `axe SUMMARY ${route}: serious/critical/moderate=${blocking.length}, minor=${advisory.length}`,
     );
@@ -164,10 +162,8 @@ test('axe: /nepal with the filters sheet OPEN has zero serious/critical/moderate
   for (const v of results.violations) {
     const line = `[${v.impact ?? 'n/a'}] ${v.id}: ${v.help} (${v.nodes.length} node${v.nodes.length === 1 ? '' : 's'})`;
     testInfo.annotations.push({ type: `axe:${v.impact ?? 'unknown'}`, description: line });
-    // eslint-disable-next-line no-console
     console.log(`  axe /nepal[filters-open] ${line}`);
   }
-  // eslint-disable-next-line no-console
   console.log(
     `axe SUMMARY /nepal[filters-open]: serious/critical/moderate=${blocking.length}, minor=${advisory.length}`,
   );

@@ -98,7 +98,6 @@ test.describe('S215 · card tilt (desktop pointer)', () => {
       (v) => v.impact === 'serious' || v.impact === 'critical',
     );
     for (const v of blocking) {
-      // eslint-disable-next-line no-console
       console.log(`  axe /nepal [${v.impact}] ${v.id}: ${v.help} (${v.nodes.length} nodes)`);
     }
     expect(blocking).toHaveLength(0);

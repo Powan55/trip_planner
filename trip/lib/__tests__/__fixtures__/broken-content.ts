@@ -7,7 +7,6 @@
 // would make tsc reject them before Zod ever runs, defeating the point. They are consumed as
 // `unknown` via `safeParse`.
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
 
 // (1) Bad category — 'brunch' is not one of the 10 itinerary categories. → schema, path `category`.
 export const badCategoryItem = {

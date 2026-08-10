@@ -135,7 +135,6 @@ describe('useShare (S220)', () => {
     const h = renderShare();
     await h.run(() => {});
     for (let i = 0; i < SHARE_CAP + 5; i++) {
-      // eslint-disable-next-line no-await-in-loop
       await h.run((s) => s.addShare({ text: `item ${i}` }));
     }
     expect(h.current.items).toHaveLength(SHARE_CAP);

@@ -368,7 +368,6 @@ test.describe('S383 — NON-REGRESSION: no filter selected means nothing changed
     );
 
     const snap = await chromeSnapshot(page, FIXTURE_DAY);
-    // eslint-disable-next-line no-console
     console.log('S383 NO-FILTER SNAPSHOT:', JSON.stringify(snap));
     expect(snap).toEqual(NO_FILTER_BASELINE);
   });
@@ -386,7 +385,6 @@ test.describe('S383 — NON-REGRESSION: no filter selected means nothing changed
     await expect(page.getByTestId('author-filter')).toHaveCount(0);
 
     const snap = await chromeSnapshot(page, '2026-12-09');
-    // eslint-disable-next-line no-console
     console.log('S383 SHIPPED-SEED SNAPSHOT:', JSON.stringify(snap));
     // Recorded from the pre-S383 build by running this very test against it, same as
     // NO_FILTER_BASELINE above. The map fields are null because this test does not open the
