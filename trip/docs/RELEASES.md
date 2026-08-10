@@ -2,13 +2,13 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere. The newest live app is `v5.11.2` and the newest live worker is `v1.8.0`, shipped 2026-08-09. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live on every device. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere. The newest live app is `v5.14.0` and the newest live worker is `v1.8.0`. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, not merely deployed. Read the heading before assuming a version is in production.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
 
 ---
 
-## v5.14.0 (app) — 2026-08-10 · **NOT DEPLOYED** — deploys on merge to `main`; update this heading when it lands · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+## v5.14.0 (app) — 2026-08-10 · **DEPLOYED** · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
 
 Access control, tier 2. The previous release made sure the person logging in was real. This one makes sure the *device* asking for a trip is one the trip knows about, and it moves the concierge from "you sent me a trip id" to a check Google performs.
 
