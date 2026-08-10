@@ -172,6 +172,46 @@ export async function fetchAccountIdentity(code: string): Promise<string | undef
   }
 }
 
+// ── #10 — the front door's account-existence probe ──────────────────────────────────────────
+
+export type AccountProbe = 'exists' | 'missing' | 'unavailable';
+
+/** How long the door waits for the identity read before admitting anyway (#10). */
+const PROBE_TIMEOUT_MS = 8000;
+
+/**
+ * ONE server read of `trips/{code}/profile/identity`, raced against a timer — the door's login
+ * validation (#10). Tri-state, and the mapping IS the security posture:
+ * - 'exists'      → the identity doc is there: a real account.
+ * - 'missing'     → the SERVER answered and the doc is absent: an invented/mistyped key.
+ * - 'unavailable' → dormant build, blank code, timeout, or ANY error. The caller must ADMIT on
+ *   this value — validation fails OPEN, because a network failure must never lock a real user out
+ *   of their own data.
+ *
+ * `getDocFromServer`, never a plain `getDoc`: a cold/stale cache reports absence, and a cached
+ * absence rejecting a REAL user is the one wrong the fail-open design cannot tolerate. A rules
+ * change that denies this read (code 'permission-denied') is logged loudly, because it silently
+ * turns validation off for every login while everything else keeps working.
+ */
+export async function probeAccountIdentity(code: string): Promise<AccountProbe> {
+  if (!isRemoteConfigured() || !code) return 'unavailable';
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, getDocFromServer } = fs;
+    const snap = await Promise.race([
+      getDocFromServer(doc(db, 'trips', code, 'profile', 'identity')),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), PROBE_TIMEOUT_MS)),
+    ]);
+    if (snap === null) return 'unavailable'; // timer won — admit rather than hang the door
+    return snap.exists() ? 'exists' : 'missing';
+  } catch (err) {
+    if ((err as { code?: unknown } | null)?.code === 'permission-denied') {
+      console.warn('[door] rules deny the identity probe — token validation is inoperative');
+    }
+    return 'unavailable'; // offline/error must admit — never lock a real user out
+  }
+}
+
 /** Extract the row array from a raw remote list doc (defensive: tolerate a partial/missing doc). */
 function docToTrips(data: Record<string, unknown>): TripMeta[] {
   return Array.isArray(data.trips) ? (data.trips as TripMeta[]) : [];

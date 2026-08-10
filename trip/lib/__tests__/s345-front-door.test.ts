@@ -42,9 +42,23 @@ vi.mock('framer-motion', async () => {
   return { m, AnimatePresence: ({ children }: { children: unknown }) => children };
 });
 
+// #10 — the door's account probe (login validation) + the create-path seed, mocked so the wall's
+// handlers can be driven for real with zero firebase. The mock is file-wide but inert for every
+// pre-#10 test above (they never submit a form, so the dynamic import never runs).
+const probeMock = vi.fn<(code: string) => Promise<'exists' | 'missing' | 'unavailable'>>(
+  async () => 'unavailable',
+);
+const pushAccountIdentityMock = vi.fn(async (_code: string, _name: string) => {});
+const pushTripListMock = vi.fn(async (_code: string) => {});
+vi.mock('@/lib/trips-remote', () => ({
+  probeAccountIdentity: (code: string) => probeMock(code),
+  pushAccountIdentity: (code: string, name: string) => pushAccountIdentityMock(code, name),
+  pushTripList: (code: string) => pushTripListMock(code),
+}));
+
 import TokenGate from '@/components/token-gate';
 import UserTokenShowOnce from '@/components/user-token-show-once';
-import { setSyncCode } from '@/core/storage/gateway';
+import { setSyncCode, getSyncCode } from '@/core/storage/gateway';
 
 function render(el: ReactElement) {
   const container = document.createElement('div');
@@ -60,11 +74,32 @@ function render(el: ReactElement) {
   };
 }
 
+// Stub window.location for the paths that navigate (finish() → replace; jsdom throws on real
+// navigation) — same idiom as s346-audit.test.ts.
+let restoreLocation: (() => void) | null = null;
+function stubLocation() {
+  const real = window.location;
+  const stub = { reload: vi.fn(), replace: vi.fn(), assign: vi.fn(), href: '', search: '' };
+  Object.defineProperty(window, 'location', { value: stub, configurable: true, writable: true });
+  restoreLocation = () =>
+    Object.defineProperty(window, 'location', { value: real, configurable: true, writable: true });
+  return stub;
+}
+
 beforeEach(() => {
   window.localStorage.clear();
+  window.sessionStorage.clear();
+  probeMock.mockClear();
+  probeMock.mockResolvedValue('unavailable');
+  pushAccountIdentityMock.mockClear();
+  pushTripListMock.mockClear();
 });
 afterEach(() => {
   vi.restoreAllMocks();
+  if (restoreLocation) {
+    restoreLocation();
+    restoreLocation = null;
+  }
 });
 
 describe('A1 → S382 — the auth card default mode', () => {
@@ -218,6 +253,122 @@ describe('S355 — TokenGate opens on the landing, and its CTAs pick the auth pa
         .querySelector('[data-testid="token-gate-mode-login"]')
         ?.getAttribute('aria-pressed'),
     ).toBe('true');
+    view.unmount();
+  });
+});
+
+// ── #10 — the door validates a NEW key against the account identity doc ─────────────────────────
+describe('#10 — handleLogin probes the pasted key; only a server-confirmed absence rejects', () => {
+  async function flush() {
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+  }
+
+  /** Open the auth card on Log in (the wall opens on the landing). */
+  async function openLogin(view: { container: HTMLElement }) {
+    const cta = view.container.querySelector<HTMLButtonElement>('[data-testid="landing-cta-login"]')!;
+    await act(async () => {
+      cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  }
+
+  /** Type into the CONTROLLED key field (native setter + input event so React sees it). */
+  async function typeKey(view: { container: HTMLElement }, value: string) {
+    const input = view.container.querySelector<HTMLInputElement>(
+      '[data-testid="token-gate-user-token"]',
+    )!;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(input, value);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  }
+
+  async function submitLogin(view: { container: HTMLElement }) {
+    const form = view.container
+      .querySelector('[data-testid="token-gate-user-token"]')!
+      .closest('form')!;
+    await act(async () => {
+      form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    });
+    await flush(); // the dynamic import + probe .then chain
+  }
+
+  const NEW_KEY = '99999999-8888-4777-8666-555544443333';
+
+  it("probe 'missing' → the error renders AND zero state was stored (no key, no signIn, no navigation)", async () => {
+    probeMock.mockResolvedValue('missing');
+    const loc = stubLocation();
+    const view = render(createElement(TokenGate));
+    await openLogin(view);
+    await typeKey(view, NEW_KEY);
+    await submitLogin(view);
+
+    expect(probeMock).toHaveBeenCalledTimes(1);
+    expect(probeMock).toHaveBeenCalledWith(NEW_KEY);
+    const error = view.container.querySelector('[data-testid="token-gate-error"]');
+    expect(error?.getAttribute('role')).toBe('alert');
+    expect(error?.textContent).toBe('This user does not exist. Check your key, or create an account.');
+    // An invented key leaves ZERO stored state — the whole point of the door validating.
+    expect(getSyncCode()).toBeNull();
+    expect(window.localStorage.getItem('tripPlannerToken')).toBeNull(); // signIn never ran
+    expect(loc.replace).not.toHaveBeenCalled();
+    // The form is usable again (busy released) for a corrected key.
+    expect(
+      view.container
+        .querySelector('[data-testid="token-gate-user-token"]')
+        ?.hasAttribute('readonly'),
+    ).toBe(false);
+    view.unmount();
+  });
+
+  it("probe 'unavailable' → ADMITS (fail open: offline must never lock a real user out)", async () => {
+    probeMock.mockResolvedValue('unavailable');
+    const loc = stubLocation();
+    const view = render(createElement(TokenGate));
+    await openLogin(view);
+    await typeKey(view, NEW_KEY);
+    await submitLogin(view);
+
+    expect(probeMock).toHaveBeenCalledTimes(1);
+    expect(getSyncCode()).toBe(NEW_KEY);
+    expect(loc.replace).toHaveBeenCalledTimes(1); // finish() navigated — admitted
+    expect(view.container.querySelector('[data-testid="token-gate-error"]')).toBeNull();
+    view.unmount();
+  });
+
+  it("probe 'exists' → admits exactly the same way", async () => {
+    probeMock.mockResolvedValue('exists');
+    const loc = stubLocation();
+    const view = render(createElement(TokenGate));
+    await openLogin(view);
+    await typeKey(view, NEW_KEY);
+    await submitLogin(view);
+
+    expect(probeMock).toHaveBeenCalledTimes(1);
+    expect(getSyncCode()).toBe(NEW_KEY);
+    expect(loc.replace).toHaveBeenCalledTimes(1);
+    view.unmount();
+  });
+
+  it('the STORED key skips the probe entirely — a returning device is never re-gated', async () => {
+    const stored = '11111111-2222-3333-4444-555555555555';
+    setSyncCode(stored);
+    const loc = stubLocation();
+    const view = render(createElement(TokenGate));
+    await openLogin(view);
+    // One-tap saved-key fill (the returning-device path), then submit.
+    const useSaved = view.container.querySelector<HTMLButtonElement>(
+      '[data-testid="token-gate-use-saved"]',
+    )!;
+    await act(async () => {
+      useSaved.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await submitLogin(view);
+
+    expect(probeMock).not.toHaveBeenCalled(); // stored sessions are NEVER re-gated
+    expect(loc.replace).toHaveBeenCalledTimes(1); // logged straight in
     view.unmount();
   });
 });
