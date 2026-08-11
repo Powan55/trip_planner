@@ -1,9 +1,17 @@
 name: Deploy to GitHub Pages
 
+# NO workflow_dispatch. It used to be here, and it was a live rollback button:
+# dispatch registers from the DEFAULT branch but RUNS the chosen ref's own copy of
+# this file, and six branches still sit at an untagged 5.12.0 carrying the
+# pre-#46 job graph. Dispatching one of them passed the version gate (5.12.0 had
+# never shipped, and the gate asserts inequality, not that the version went up),
+# published a tree predating the whole access-control release with no typecheck,
+# lint, unit or browser run, and then tagged v5.12.0 as if it were a release.
+# To re-run a deploy that failed, use "Re-run all jobs" on the run itself: it
+# replays this workflow at the same ref, which is the only case dispatch served.
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
@@ -24,19 +32,18 @@ jobs:
     name: Version must not already be deployed
     runs-on: ubuntu-latest
     steps:
+      # fetch-depth/fetch-tags are load-bearing, not habit: the gate decides by
+      # looking for a tag, and checkout's defaults fetch none, so a shallow
+      # checkout makes it pass on a version that is already live.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
-      - name: Assert this version has no successful-deploy tag yet
-        run: |
-          VERSION=$(node -p "require('./trip/package.json').version")
-          TAG="v$VERSION"
-          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            echo "::error::Version $VERSION was already deployed (tag $TAG exists). Bump trip/package.json before shipping."
-            exit 1
-          fi
-          echo "OK — $VERSION not yet deployed ($TAG absent)."
+      # Same script the pull request into main already ran, so the two answers
+      # cannot drift. HEAD_REF is unset here, which is what tells the script this
+      # is the deploy path and there is no source branch to check.
+      - name: Assert this version is clear to ship
+        run: node scripts/release-gate.mjs
 
   # The checks that gate a pull request now also gate the deploy, by calling the
   # same workflow rather than copying its steps: repository hygiene, tsc, eslint,

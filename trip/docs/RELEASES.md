@@ -8,6 +8,18 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v5.14.1 (app) — 2026-08-11 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+
+No application source under `trip/` changed. This is the v5.14.0 access-control client with a new version string, so every device that takes the update prompt lands on the same client it was already meant to have — which is the fleet convergence worker `v1.9.0` is waiting on, arriving slightly sooner. (The bundle does change: the version is inlined and rendered in the footer, which is what moves the service worker's cache key and raises the prompt at all.)
+
+What changed is what stands between a merge and the live site.
+
+- **The deploy runs the checks that gate a pull request.** `deploy.yml` calls `ci.yml` instead of gating on a marker scan alone, so repository hygiene, types, lint, unit tests and the build all have to pass before anything publishes. Until now a push to `main` reached the live site after a version check and a build and nothing else.
+- **The release gate answers before the merge, not after it.** The version check used to live only on the push to `main`, so a pull request could go green, merge into the live branch, and only then fail to deploy — leaving `main` ahead of the site with the quick fix forbidden. It now also runs on the pull request into `main`, and it additionally requires that the release say what it changed, and that it came through `dev`.
+- **The manual deploy button is gone.** It ran the *chosen branch's* copy of the workflow, and six branches still sit at an untagged `5.12.0`. Dispatching one of them would have passed the version gate, published a tree predating the whole access-control release, and tagged it as a release. To re-run a failed deploy, use "Re-run all jobs" on the run itself.
+
+---
+
 ## v5.14.0 (app) — 2026-08-10 · **DEPLOYED** · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
 
 Access control, tier 2. The previous release made sure the person logging in was real. This one makes sure the *device* asking for a trip is one the trip knows about, and it moves the concierge from "you sent me a trip id" to a check Google performs.

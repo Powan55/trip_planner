@@ -10,7 +10,7 @@ wrong.
 |---|---|
 | `lax` | One working branch. Force-push it, rebase it, break it. Nobody else builds on it. |
 | `uttam` | Uttam's working branch. Same freedom. |
-| `dev` | Where the two meet. Everything is tested here together before it can ship. This is the default branch, so a new pull request targets it automatically. |
+| `dev` | Where the two meet. Everything is tested here together before it can ship. It is **not** the repository's default branch, so check the base before you open a pull request — GitHub will offer you `main`. |
 | `main` | What is live at https://powan55.github.io/trip_planner/. Every push to it deploys. |
 
 ## The flow
@@ -24,15 +24,23 @@ uttam ─┘
 1. Work on your own branch. Push whenever, as often as you like.
 2. Open a pull request into `dev` when the change is ready for the other person's
    code to meet it. CI has to be green.
-3. When `dev` is in a state worth shipping, open a pull request from `dev` into
-   `main`. That one needs a review from the other person, and the full suite green.
-4. Merging into `main` runs Checks once more against the commit that ships, then
-   deploys automatically. There is nothing else for you to run.
+3. When `dev` is in a state worth shipping, bump the version and write the release
+   note **on `dev`** (see "Versions and deploys"), then open a pull request from
+   `dev` into `main`. That one needs a review from the other person, the full suite
+   green, and the release gate green.
+4. Merging into `main` runs Checks and the release gate once more against the commit
+   that ships, then deploys automatically. There is nothing else for you to run.
 
 Never push straight to `main`. It is live, and there is no staging site between
 you and the people using it. If someone does it anyway the deploy still runs
 Checks first and refuses to publish a red tree. That is a backstop. Do not read
 it as permission.
+
+There is no manual deploy button. It used to exist and it ran the *chosen branch's*
+copy of the workflow, which meant any branch left behind at an unshipped version
+could publish itself over the live site. If a deploy fails for a reason you have
+since fixed elsewhere, use **Re-run all jobs** on that run — it replays the same
+workflow at the same commit, which is the only thing the button was good for.
 
 Start every new piece of work from an up-to-date `dev`:
 
@@ -43,10 +51,11 @@ git switch lax && git merge dev
 
 ## What CI runs
 
-Two jobs, in `.github/workflows/ci.yml`.
+Three jobs, in `.github/workflows/ci.yml`.
 
 **Checks** (about 5 minutes) runs on every push to `lax`, `uttam` and `dev`, on
-every pull request, and again on the push to `main` that deploys:
+every pull request into `dev` or `main`, and again on the push to `main` that
+deploys:
 
 - repository hygiene (see below)
 - `npx tsc --noEmit`
@@ -61,6 +70,18 @@ every pull request, and again on the push to `main` that deploys:
 - the visual-regression suite, which is **advisory**. The committed screenshot
   baselines were generated on Windows and cannot match on the Linux runner, so
   this step reports but never fails the build. The diff is uploaded as an artifact.
+
+**Release gate** (seconds) runs on a pull request into `main` only, and again on the
+push to `main` that deploys. It needs no dependencies, so it answers before anything
+is installed. It fails if:
+
+- `trip/package.json`'s version already carries a `v<version>` tag, meaning it has
+  been deployed before
+- `trip/docs/RELEASES.md` has no `## v<version> ` entry
+- the pull request came from a branch other than `dev`
+
+The first two are the two things you were already told to do before shipping. See
+"Versions and deploys".
 
 Pushing to your own branch gives you the fast half. The full suite runs when you
 open the pull request, which is where it matters. Expect to wait.
@@ -123,16 +144,30 @@ if it is not obvious from the diff.
 
 ## Versions and deploys
 
-Every deploy must carry a version nobody has shipped before. CI enforces it: the
-`version-gate` job fails if a tag `v<version>` already exists.
+Every deploy must carry a version nobody has shipped before, and every deploy must
+say what it changed. Both are checked, by `scripts/release-gate.mjs` — on the pull
+request into `main`, and again on the push that deploys.
 
-So before merging `dev` into `main`:
+So before opening the pull request from `dev` into `main`, on `dev`:
 
 1. Bump `version` in `trip/package.json`.
-2. Add an entry at the top of `trip/docs/RELEASES.md` saying what changed.
+2. Add an entry at the top of `trip/docs/RELEASES.md` headed `## v<version> `,
+   saying what changed.
 
-Patch for a fix, minor for a feature. After a successful deploy the workflow
-pushes the matching tag itself.
+Patch for a fix, minor for a feature. After a successful deploy the workflow pushes
+the matching `v<version>` tag itself — and only then, which is why a deploy that
+failed can be re-run on the same version.
+
+What changed here is *when* you find out. The version check used to run only on the
+push to `main`, so a pull request could go green, merge into the live branch, and
+only then refuse to deploy — leaving `main` ahead of the site with the fastest fix
+being the direct push you are not allowed to make.
+
+You can run the same check yourself, from the repository root:
+
+```
+node scripts/release-gate.mjs
+```
 
 ## Where to look
 
