@@ -35,8 +35,9 @@ import type { Page } from '@playwright/test';
  *        under reduced motion. `scrollDashboardIntoView()` below does this.
  *
  * 3. Exact numbers below were computed two ways and cross-checked: (a) by hand
- *    against `lib/countdown.ts`'s `computeCountdown` (calendar-accurate months
- *    via date-fns, then week/day/hour/min/sec residue) and `lib/trip-data.ts`'s
+ *    against `lib/countdown.ts`'s `computeCountdown` (whole days via date-fns, then
+ *    carried maximally into 28-day months / 7-day weeks / days, with the
+ *    hour/min/sec residue measured from `now`) and `lib/trip-data.ts`'s
  *    `TRIP_DATES`/`getCountryForDate`; (b) by a live CDP probe of the actual
  *    served `out/` build for every `?today=` value used here, under
  *    `reducedMotion: 'reduce'`, confirming the DOM text matches the hand
@@ -65,20 +66,22 @@ test.describe('Pre-trip countdown + total-days math (D-016 computeCountdown, fro
     page,
   }) => {
     // Nov 9, 2026 12:00 local -> Dec 9, 2026 00:00 local (TRIP_START) is EXACTLY
-    // 0 months / 0 weeks / 29 days / 12 hours / 0 min / 0 sec remaining, totalDays=29.
+    // 1 month / 0 weeks / 1 day / 12 hours / 0 min / 0 sec remaining, totalDays=29.
     //
-    // S423 — the TOTAL is unchanged (29d 12h; totalDays still 29) and still sums back to
-    // the exact target instant. Only the bucketing moved: this pinned `04` weeks / `01`
-    // day, and "4 weeks" must never render, so a >= 28 day remainder reads as plain days.
+    // The TOTAL has never moved (29d 12h; totalDays still 29) and still sums back to the
+    // exact target instant. Only the bucketing has: this pinned `04` weeks / `01` day, then
+    // `29` days once "4 weeks" was banned, and issue #11 carries it properly: 29 = 28 + 1,
+    // so 1 month 1 day. THIS IS THE REPORTED BUG'S EXACT INSTANT: weeks is 0 here, and a
+    // zero unit is not rendered, so the Weeks cell must be ABSENT rather than showing "00".
     await gotoWithClock(page, '2026-11-09');
 
     // Travel-mode panel must be ABSENT outside the trip window.
     await expect(page.getByTestId('hero-travel-mode')).toHaveCount(0);
 
     // Countdown grid IS present and shows the exact frozen breakdown.
-    await expect(page.getByTestId('countdown-months')).toHaveText('00');
-    await expect(page.getByTestId('countdown-weeks')).toHaveText('00');
-    await expect(page.getByTestId('countdown-days')).toHaveText('29');
+    await expect(page.getByTestId('countdown-months')).toHaveText('01');
+    await expect(page.getByTestId('countdown-weeks')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-days')).toHaveText('01');
     await expect(page.getByTestId('countdown-hours')).toHaveText('12');
     await expect(page.getByTestId('countdown-minutes')).toHaveText('00');
     await expect(page.getByTestId('countdown-seconds')).toHaveText('00');
@@ -152,19 +155,20 @@ test.describe('Boundary matrix (S65) — all four corners of the trip window', (
 });
 
 test.describe('Post-trip state', () => {
-  test('?today=2027-01-15 -> travel mode gone, countdown grid shows all-zero (isPast), Completed', async ({
+  test('?today=2027-01-15 -> travel mode gone, countdown grid shows the zero clock (isPast), Completed', async ({
     page,
   }) => {
     // Jan 15, 2027 is outside TRIP_DATES entirely (trip ends Jan 9), so
     // getTodayInTrip() is null and the hero falls back to the countdown branch.
-    // computeCountdown returns its ZERO_PAST shape once `now >= target`, so every
-    // unit renders "00" and totalDays "0" (verified live against the DOM).
+    // computeCountdown returns its ZERO_PAST shape once `now >= target`. Since issue #11
+    // a zero calendar unit is not rendered, so months/weeks/days are ABSENT here; the
+    // clock cells stay (they tick, and a running clock reading 00 is a clock) and read "00".
     await gotoWithClock(page, '2027-01-15');
 
     await expect(page.getByTestId('hero-travel-mode')).toHaveCount(0);
-    await expect(page.getByTestId('countdown-months')).toHaveText('00');
-    await expect(page.getByTestId('countdown-weeks')).toHaveText('00');
-    await expect(page.getByTestId('countdown-days')).toHaveText('00');
+    await expect(page.getByTestId('countdown-months')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-weeks')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-days')).toHaveCount(0);
     await expect(page.getByTestId('countdown-hours')).toHaveText('00');
     await expect(page.getByTestId('countdown-minutes')).toHaveText('00');
     await expect(page.getByTestId('countdown-seconds')).toHaveText('00');
@@ -217,7 +221,10 @@ test.describe('?today=off restores the real clock', () => {
     await page.goto('/?today=off', { waitUntil: 'load' });
 
     await expect(page.getByTestId('hero-travel-mode')).toHaveCount(0);
-    await expect(page.getByTestId('countdown-days')).toBeVisible();
+    // The HOURS cell, not the days cell: this test runs on the REAL clock, and since
+    // issue #11 a calendar unit that is zero is not rendered, and `days` is 0 whenever the
+    // real remaining day count happens to divide by 7. The clock cells always render.
+    await expect(page.getByTestId('countdown-hours')).toBeVisible();
     await expect(page.getByTestId('countdown-total-days')).toBeVisible();
 
     // The real clock's total-days must be a large positive number (months out),

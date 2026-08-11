@@ -267,7 +267,10 @@ type RouteBodyAnchor =
 
 const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
   '/': {
-    anchor: '[data-testid="countdown-days"]',
+    // The HOURS cell, not the days cell. Since issue #11 a calendar unit that is zero is
+    // not rendered, so `countdown-days` is absent whenever the real remaining day count
+    // divides by 7, a once-a-week false failure. The clock cells always render.
+    anchor: '[data-testid="countdown-hours"]',
     what: 'the TripDashboard countdown island (app/page.tsx -> @/components/trip-dashboard)',
   },
   '/404/': {
