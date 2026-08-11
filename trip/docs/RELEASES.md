@@ -8,6 +8,22 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v5.14.2 (app) · 2026-08-11 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+
+The countdown said "29 days, 0 weeks". It now says "1 month 1 day".
+
+Units carry the way you would say them out loud: seven days become a week, four weeks become a month, and a unit that comes out at zero is not shown at all. So 16 days reads "2 weeks 2 days" and 9 weeks reads "2 months 1 week".
+
+That zero was not a rendering slip. The weeks field was being pinned to zero at 28 days on purpose, so that "4 weeks" could never appear on screen. It traded one bad reading for another, and the one it left behind sat there for a fortnight at a time. Carrying removes the need for the trick: four weeks becomes a month before anything renders, so there is nothing left to suppress.
+
+The hours, minutes and seconds still show whether they are zero or not. They tick, so a 00 corrects itself within the minute, and dropping one would rearrange the row every minute.
+
+One trade, made deliberately and worth naming: a month in the countdown is now 28 days, so it will not line up with a calendar month. What that buys is that the numbers agree with each other. "4 months 1 week 1 day" is exactly the 120 days the ring below it reports, where before the breakdown and the total were computed two different ways and were never meant to reconcile. Anything needing real calendar months works them out for itself and does not read these fields.
+
+The same rule now applies to the compact countdown on the boarding-pass login card. The flights page's "Departs in" line already skipped its zeros and is unchanged.
+
+---
+
 ## v5.14.1 (app) — 2026-08-11 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
 
 No application source under `trip/` changed. This is the v5.14.0 access-control client with a new version string, so every device that takes the update prompt lands on the same client it was already meant to have — which is the fleet convergence worker `v1.9.0` is waiting on, arriving slightly sooner. (The bundle does change: the version is inlined and rendered in the footer, which is what moves the service worker's cache key and raises the prompt at all.)
