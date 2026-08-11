@@ -10,10 +10,18 @@ name: CI
 # by nothing at all.
 #
 # Inside a workflow_call, github.event_name is the CALLER's ("push"), so the
-# e2e job below is skipped on the deploy path. That is deliberate: the pull
-# request into main already ran the browser suite against the merge result, and
-# re-running it would add thirteen minutes to every deploy to re-confirm the
-# same tree.
+# e2e job below is skipped on the deploy path. That is deliberate, but the
+# reason is narrower than it first looks, and the difference matters.
+#
+# When the deploy came from a merged pull request, skipping is pure economy: the
+# browser suite already ran against that merge result, so re-running it would
+# add thirteen minutes to re-confirm the same tree.
+#
+# When main is pushed to directly, no pull request ever ran and the browser
+# suite does not run at all. That path is covered by the checks below and
+# nothing more. It is the path this whole arrangement exists for, and it is only
+# partly closed here: the rest is branch protection, which prevents the push
+# rather than inspecting it. Do not add conditional e2e here to compensate.
 on:
   pull_request:
     branches: [dev, main]

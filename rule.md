@@ -50,7 +50,8 @@ every pull request, and again on the push to `main` that deploys:
 
 - repository hygiene (see below)
 - `npx tsc --noEmit`
-- `npm test` (Vitest: 154 files, 1755 tests)
+- `npm run lint`
+- `npm test` (Vitest)
 - `npm run build`
 
 **E2E** (about 13 minutes) runs on pull requests only, after Checks passes:
@@ -64,10 +65,17 @@ every pull request, and again on the push to `main` that deploys:
 Pushing to your own branch gives you the fast half. The full suite runs when you
 open the pull request, which is where it matters. Expect to wait.
 
-`.github/workflows/deploy.yml` calls that same Checks job and will not build or
-deploy until it is green, so nothing reaches the live site without passing it.
-E2E stays on the pull request: it already ran against the merge result, and
-repeating it would add thirteen minutes to every deploy for the same answer.
+`.github/workflows/deploy.yml` calls that same Checks workflow and will not build
+or deploy until it is green, so nothing reaches the live site without passing it.
+One consequence worth knowing before you need it: a red check now blocks every
+deploy, including a fix you are in a hurry to ship. There is deliberately no
+bypass. The way out is to revert, or to fix the check.
+
+E2E stays on the pull request. When the deploy came from a merged pull request
+that is just economy, because the browser suite already ran against the merge
+result and repeating it would add thirteen minutes for the same answer. A direct
+push to `main` is the case that is *not* covered, because no pull request ever
+ran it. Which is the older reason not to do it.
 
 ## Repository hygiene
 
