@@ -26,10 +26,13 @@ uttam ─┘
    code to meet it. CI has to be green.
 3. When `dev` is in a state worth shipping, open a pull request from `dev` into
    `main`. That one needs a review from the other person, and the full suite green.
-4. Merging into `main` deploys automatically. There is nothing else to run.
+4. Merging into `main` runs Checks once more against the commit that ships, then
+   deploys automatically. There is nothing else for you to run.
 
 Never push straight to `main`. It is live, and there is no staging site between
-you and the people using it.
+you and the people using it. If someone does it anyway the deploy still runs
+Checks first and refuses to publish a red tree. That is a backstop. Do not read
+it as permission.
 
 Start every new piece of work from an up-to-date `dev`:
 
@@ -42,12 +45,13 @@ git switch lax && git merge dev
 
 Two jobs, in `.github/workflows/ci.yml`.
 
-**Checks** (about 5 minutes) runs on every push to `lax`, `uttam` and `dev`, and
-on every pull request:
+**Checks** (about 5 minutes) runs on every push to `lax`, `uttam` and `dev`, on
+every pull request, and again on the push to `main` that deploys:
 
 - repository hygiene (see below)
 - `npx tsc --noEmit`
-- `npm test` (Vitest: 154 files, 1755 tests)
+- `npm run lint`
+- `npm test` (Vitest)
 - `npm run build`
 
 **E2E** (about 13 minutes) runs on pull requests only, after Checks passes:
@@ -60,6 +64,18 @@ on every pull request:
 
 Pushing to your own branch gives you the fast half. The full suite runs when you
 open the pull request, which is where it matters. Expect to wait.
+
+`.github/workflows/deploy.yml` calls that same Checks workflow and will not build
+or deploy until it is green, so nothing reaches the live site without passing it.
+One consequence worth knowing before you need it: a red check now blocks every
+deploy, including a fix you are in a hurry to ship. There is deliberately no
+bypass. The way out is to revert, or to fix the check.
+
+E2E stays on the pull request. When the deploy came from a merged pull request
+that is just economy, because the browser suite already ran against the merge
+result and repeating it would add thirteen minutes for the same answer. A direct
+push to `main` is the case that is *not* covered, because no pull request ever
+ran it. Which is the older reason not to do it.
 
 ## Repository hygiene
 
