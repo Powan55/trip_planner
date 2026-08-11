@@ -22,6 +22,12 @@ One trade, made deliberately and worth naming: a month in the countdown is now 2
 
 The same rule now applies to the compact countdown on the boarding-pass login card. The flights page's "Departs in" line already skipped its zeros and is unchanged.
 
+Two more fixes ride along in this release.
+
+The assistant stopped thinking it was December 9. The line telling it today's date was only built when today fell inside the trip window, so outside those five weeks it was dropped entirely, the model had nothing to anchor on, and it fell back to day one of the trip. Everything it suggested was scheduled against the wrong date, and it had been doing that every day since the window closed. It now gets the real date and time in every case, in or out of the window. The times it is handed are 12-hour too, so it stops reading "18:30" back at you: it was only repeating the format the app sent it.
+
+A day that arrived over sync without a city of its own no longer renders a bare country. The default pack showed "USA" with nothing in front of it, and a custom trip showed nothing at all. Both now fall back to the city the date implies, which is the same city the rest of the app already uses for that day.
+
 ---
 
 ## v5.14.1 (app) — 2026-08-11 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
