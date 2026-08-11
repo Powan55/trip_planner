@@ -2,9 +2,43 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere. The newest live worker is `v1.7.0` and the newest live app is `v5.9.2`, both shipped 2026-08-02/03. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere. The newest live app is `v5.14.0` and the newest live worker is `v1.8.0`. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, not merely deployed. Read the heading before assuming a version is in production.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
+
+---
+
+## v5.14.0 (app) — 2026-08-10 · **DEPLOYED** · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+
+Access control, tier 2. The previous release made sure the person logging in was real. This one makes sure the *device* asking for a trip is one the trip knows about, and it moves the concierge from "you sent me a trip id" to a check Google performs.
+
+Every device now signs itself in silently the first time it syncs. That identity is anonymous, free, and invisible — you are never asked for anything — but it is a stable name the trip can hold, which is the thing the app has never had. It survives reloads, it survives signing out of the app (deliberately: the identity belongs to the browser, not the login), and it can optionally be linked to a Google account so you can get it back after clearing your browser data or changing phone. Linking preserves the identity rather than replacing it, which is the whole reason to offer linking rather than a sign-in. If you link an account you already used on another device, the app offers to adopt that identity here instead — that is the lost-phone path.
+
+A trip can now hold a list of the devices allowed to open it. It is opt-in per trip, and it has to be: rules changes take effect instantly and globally, so a mandatory list would have shut every existing trip and every share link already sitting in someone's chat history, with no way back in. A trip you create is locked to your device from the moment it is created. A trip that predates this becomes locked the first time one of your devices opens it, and that device becomes its owner — after which the other travellers need adding. Settings has a new "Trip access" section with your device's code (send it to a friend, they paste it in), the list of devices on the trip, and — for the owner only — a way to remove one. If you open a trip you are not on yet, the app says so in one sentence and tells you where to fix it, rather than showing you an empty trip and letting you conclude the data is gone.
+
+Two smaller things fell out of that and are worth naming. The presence heartbeat used to retry a refused write once a minute forever; it now stops after the first refusal and says why once. And the presence layer no longer starts its own copy of Firebase — it shares the one every other sync path uses, which is what guarantees it never writes before the sign-in it depends on has finished.
+
+The concierge now sends a signed token with every request. The Worker verifies it by reading the trip document from Firestore as *you*, so the same rules that guard the app guard the concierge, and there is no second copy of the access model to drift. That half fails closed. This half is careful about ordering: the token is attached only when there is a session to attach, so a build with no sync configured — which includes the entire browser test suite — sends exactly the request it sent before, and the Worker's requirement can be switched on only once a client that satisfies it is actually live.
+
+**This client ships first, and the two halves that enforce it follow — that order is deliberate.** With the old rules still in place the app simply signs in and writes a membership list nothing is yet checking, which is what makes it safe to ship ahead of them, and equally why shipping it does not on its own close anything. Three things must follow it, in this order, and each is a manual owner action:
+
+1. **Rotate the shared trip onto a fresh id.** Until this happens the old trip id — which shipped inside the public bundle for months — still reaches real data under the old rules. This release stops the app from using that id, so the shared trip is local-only on every device until the rotation is done and everyone rejoins by link. Local data is untouched; so is the remote copy.
+2. **Everyone opens the app on every device** while the old rules are still live. That is when each device mints its identity and adds itself to the trip. It cannot be done afterwards: once a trip carries a membership list, the new rules correctly refuse a device that is not on it.
+3. **Publish the rules, then deploy worker v1.9.0.** Only after step 2 is confirmed device-by-device. Publishing early denies every read and write from any device still on an older build, because the auth floor those rules add did not exist before this release.
+
+---
+
+## v5.13.0 (app) — 2026-08-10 · **NOT DEPLOYED, SUPERSEDED** — never ships on its own; its changes ride inside v5.14.0
+
+Access control, tier 1 of the redesign approved on issue #10. Until now, any pasted string was a working login: the door validated nothing, and the sync layer would quietly manufacture an account document for whatever key you invented. Four changes close that, each shaped so a network failure can never lock a real user out.
+
+Signing in now checks the key is real. A new key pasted at the door triggers one server read of the account's identity document; if the server answers and the account does not exist, the door says "This user does not exist" and writes nothing to the device — no half-created session to clean up. Every failure shape (offline, timeout, a build with no sync configured, even a rules mistake) admits exactly as before, because being locked out of your own data on hotel wifi is a worse failure than a stranger getting past a door that leads to their own empty account. A key already stored on the device is never re-checked at all: a returning traveler logs in fully offline. Two things make the check meaningful: creating an account now writes both profile documents up front (and the confirm button waits for those writes, capped at five seconds, instead of reloading over them), and the sync layer's "no document yet? seed one from local" branch — the thing that made invented keys work — is deleted.
+
+The built-in Nepal × Japan trip is now a sample that lives on your device only. Its remote database id used to be injected at build time and described as a secret, but anything injected that way ships in the public bundle, so the world could read and write the shared trip it named. The id is retired: nothing on the default pack syncs, nothing is shareable from it, and the trips page and Settings both say so honestly instead of offering an empty token with copy buttons. Real shared trips are the custom ones, whose unguessable id is the capability and never appears in any bundle. Rotating the old exposed remote data is an owner runbook step, not app code.
+
+The concierge answers only for trips on your account. A custom trip the device never actually joined gets a refusal instead of a digest of whatever sits under that pointer, and on a sync-configured build the local sample gets a pointer to your own trips. Dormant builds — including the whole browser test suite — keep today's behavior on the sample, by construction.
+
+And the wall now withholds the app instead of covering it. Since the landing shipped, a logged-out visitor's DOM still contained the whole home dashboard under the overlay — trip name and all, readable in view-source. That was recorded at the time as an open finding with a log-only test, because closing it needed an architectural call. The call is made: the app renders only for an identified traveler, the static export's HTML carries no trip content, and the log-only test is now a hard assertion that fails if any of it comes back.
 
 ---
 

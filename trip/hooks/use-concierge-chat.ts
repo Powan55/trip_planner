@@ -4,7 +4,10 @@ import { useCallback, useRef, useState } from 'react';
 import { useOnline } from '@/hooks/use-online';
 import { getActiveTripId } from '@/core/storage/gateway';
 import { getActiveTrip, isDefaultTrip } from '@/core/trips';
+import { getKnownTrip } from '@/core/trips/registry';
+import { isRemoteConfigured } from '@/lib/firebase-config';
 import { CONCIERGE_URL } from '@/lib/concierge-config';
+import { workerAuthHeader } from '@/lib/worker-auth';
 import { TRIP_DATE_LABEL, TRIP_DATES } from '@/core/dates/trip-dates';
 import { getCityForDate } from '@/core/dates/trip-cities';
 import { effectiveStartMinutes } from '@/core/dates/item-time';
@@ -279,6 +282,26 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         setError('You’re offline, so nothing was sent. Reconnect and try again.');
         return;
       }
+
+      // #10 — the concierge serves only trips that are ON THIS ACCOUNT, checked BEFORE any digest
+      // is built or a byte leaves the device. Two refusals, same error-row mechanism as offline:
+      // (a) a custom trip the registry does not know (someone drove the pointer to an arbitrary
+      //     id without joining it) gets no digest and no POST — the digest would read whatever
+      //     sits under that pointer's storage namespace;
+      // (b) the default pack on a CONFIGURED build: it is a local-only sample now, and the
+      //     concierge belongs to real trips. Keyed on isRemoteConfigured() deliberately, so the
+      //     dormant/e2e build (remote unconfigured) keeps today's default-trip behavior exactly.
+      if (!isDefaultTrip()) {
+        if (!getKnownTrip(getActiveTripId())) {
+          setStatus('error');
+          setError("This trip isn't on your account, so the concierge can't help with it.");
+          return;
+        }
+      } else if (isRemoteConfigured()) {
+        setStatus('error');
+        setError('The concierge works on your own trips — open one of your trips to chat.');
+        return;
+      }
       sendingRef.current = true;
 
       const history = historyRef.current;
@@ -290,9 +313,14 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       try {
         const context = buildTripDigest();
         const trip = buildTripDescriptor();
+        // #10 — the Worker verifies MEMBERSHIP from a Firebase ID token now, not possession of the
+        // trip id. Attached only when there is a session to attach: with no firebase configured
+        // (the dormant build and every browser test) this spreads to nothing and the request is
+        // byte-identical to the one that shipped before. See lib/worker-auth.ts.
+        const auth = await workerAuthHeader();
         const res = await fetchImpl(CONCIERGE_URL, {
           method: 'POST',
-          headers: { 'content-type': 'application/json', 'X-Trip-Token': getActiveTripId() },
+          headers: { 'content-type': 'application/json', 'X-Trip-Token': getActiveTripId(), ...auth },
           // `trip` is spread in only when there IS one — the key is ABSENT on the default trip,
           // not `null`. See `buildTripDescriptor`: absent is what selects the Worker's richer
           // default persona, and it also keeps the default body byte-identical to today's.

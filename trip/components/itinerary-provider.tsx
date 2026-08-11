@@ -1,7 +1,8 @@
 'use client';
 
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { useItinerary, type ItineraryStore } from '@/hooks/use-itinerary';
+import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import {
   getActiveTraveler,
@@ -251,8 +252,73 @@ export function runTripMetaSelfHeal(): () => void {
   };
 }
 
+/**
+ * #10 — MEMBERSHIP ENROLMENT, once per page load, for the active non-default trip.
+ *
+ * `ensureMembership` reads the trip doc and adds THIS device's uid to its `members` map if the
+ * trip has one and this device is not in it (or takes `owner` on a grandfathered members-less
+ * trip). It costs one server read on every load after the first, and nothing else — the
+ * already-enrolled branch writes nothing.
+ *
+ * Gated exactly like the domain sync effects: configured build ∧ a non-default (non-sample) trip
+ * ∧ an identified traveler. A guest never enrols, and the local-only sample has no members map at
+ * all. Firebase is reached only through the dynamic import, after every gate.
+ *
+ * THE REFUSAL PATH IS THE PRODUCT, NOT AN ERROR. A trip that is member-gated and does not list
+ * this device refuses the READ, so `ensureMembership` dispatches `trip:access-pending` rather than
+ * throwing, and this is where that becomes one toast telling the user what to do about it. The
+ * listener is registered BEFORE the enrolment starts, and torn down with the effect.
+ *
+ * 🔴 The event name is a LITERAL here on purpose: importing `TRIP_ACCESS_PENDING_EVENT` from
+ * `lib/trips-remote` would drag that module — and firebase behind it — onto this provider's
+ * static chunk, which is the one thing every gate in this file exists to prevent. The two are
+ * pinned equal by `lib/__tests__/trip-membership.test.ts`.
+ *
+ * Extracted (like `runTripMetaSelfHeal`) so it has a runnable unit check without mounting the
+ * whole provider tree. Returns the effect cleanup.
+ */
+export function runTripMembership(): () => void {
+  const noop = () => {};
+  if (!isRemoteConfigured()) return noop;
+  const activeId = getActiveTripId();
+  if (activeId === DEFAULT_TRIP_ID) return noop; // the sample is local-only — no members map
+  if (!getActiveTraveler()) return noop; // guest / signed-out never enrols
+
+  const onAccessPending = () => {
+    toast(
+      'You don’t have access to this trip yet — ask a member to add this device (Settings → Trip access).',
+      // One toast, even if the event were ever to fire twice in a load (a dev double-mount).
+      { id: 'trip-access-pending' },
+    );
+  };
+  window.addEventListener('trip:access-pending', onAccessPending);
+
+  void import('@/lib/trips-remote')
+    .then(({ ensureMembership }) => ensureMembership(activeId))
+    .catch((err) => {
+      console.warn('[itinerary-provider] membership enrolment unavailable:', err);
+    });
+
+  return () => {
+    window.removeEventListener('trip:access-pending', onAccessPending);
+  };
+}
+
 export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   const store = useItinerary();
+
+  // #10 — the wall now WITHHOLDS the app, it does not merely cover it. `{children}` render only
+  // for an identified traveler, so a logged-out visitor's DOM (and the static-export HTML, whose
+  // SSR snapshot is the signed-out one) carries NO trip content — closing the login.spec.ts
+  // "readable via view-source/devtools behind the overlay" finding. The mounted flag is the same
+  // SSR-safe idiom TokenGate uses: `useActiveTraveler` yields the inert `{traveler:null}` on the
+  // server and the first client render, so gating on it alone would blank the first paint for
+  // EVERYONE; mount-gating keeps server and first client render agreeing (both empty), then the
+  // real traveler read decides. Reactive via identity:changed, so sign-in mounts the app live
+  // and sign-out unmounts it at once.
+  const { traveler } = useActiveTraveler();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Gated remote READ subscription. Mounts once at app root; the
   // gate keeps the dormant build byte-for-byte today's app (no firebase import runs).
@@ -488,6 +554,9 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   // without mounting the whole provider tree, same as `createSyncCodeTripListSync` above).
   useEffect(() => runTripMetaSelfHeal(), []);
 
+  // #10 — MEMBERSHIP ENROLMENT + the access-pending toast. See `runTripMembership`.
+  useEffect(() => runTripMembership(), []);
+
   // SYNC-CODE trip-list subscription. Mirrors the self-heal effect's
   // gating shape, but opens a LIVE `onSnapshot` on `trips/{syncCode}/profile/tripList` instead of a
   // one-shot read: it merges the owner's known-trips list across their devices (a trip created on
@@ -573,15 +642,17 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ItineraryContext.Provider value={store}>
-      {children}
+      {/* #10 — children render ONLY for an identified traveler (mount-gated, see above). The
+          pre-#10 behavior ("content stays mounted BEHIND the wall") left the whole app — trip
+          name, dates, itinerary — in a logged-out visitor's DOM under a mere overlay. */}
+      {mounted && traveler ? children : null}
       {/* Trip Token landing gate. No guest mode since
           — every logged-out visitor sees this wall. Mounted UNCONDITIONALLY —
           the component derives its state from useActiveTraveler() alone (`show = mounted &&
           (held || !traveler)`), with NO pathname term, so it already covers /travel exactly
           like every other route — which is why travel-date-picker.tsx deliberately carries
           no identity redirect of its own. This is the SINGLE gate mount in the app.
-          Content stays mounted BEHIND it so localStorage hydration / first paint happen
-          normally. z-[70] sits above name-prompt's z-[60]. Dormant-safe:
+          z-[70] sits above name-prompt's z-[60]. Dormant-safe:
           imports only pure modules, never firebase. */}
       <TokenGate />
       {/* First-run guided tour. A sibling of <TokenGate />, so it is present on

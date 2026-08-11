@@ -21,6 +21,8 @@ const gate = vi.hoisted(() => ({
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
   isRemoteConfigured: () => gate.remoteOn,
+  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
+  isTripRemoteConfigured: () => gate.remoteOn,
   getTripId: () => 'nepal-japan-2026',
 }));
 vi.mock('@/lib/token-auth', async (importOriginal) => {

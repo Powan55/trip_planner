@@ -164,7 +164,7 @@ test.describe('axe: Travel Mode designed states (full page, desktop net)', () =>
 // ── v5 dialogs / overlays — FULL-PAGE scans (background + open dialog together) ──────────
 test.describe('axe: key dialogs open (full page)', () => {
   test('trip-join handshake dialog (?trip=<other token>)', async ({ page }, testInfo) => {
-    // A token that differs from getTripId() opens the handshake island's AlertDialog.
+    // A token that differs from getActiveTripId() opens the handshake island's AlertDialog (#10).
     await gotoSettled(page, '/?trip=some-other-trip-token');
     await expect(page.getByTestId('trip-join-dialog')).toBeVisible({ timeout: 15_000 });
     await expectAxeClean(page, 'trip-join handshake', testInfo);

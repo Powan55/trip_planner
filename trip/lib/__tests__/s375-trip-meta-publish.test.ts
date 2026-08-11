@@ -36,6 +36,8 @@ import { act } from 'react-dom/test-utils';
 // The firebase gate open, with NO firebase: every remote call in this file is a mock.
 vi.mock('@/lib/firebase-config', () => ({
   isRemoteConfigured: () => true,
+  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
+  isTripRemoteConfigured: () => true,
   getTripId: () => 'test-trip',
   FIREBASE_CONFIG: {},
 }));

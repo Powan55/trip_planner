@@ -204,8 +204,10 @@ function mergeRemovedSets(...lists: unknown[][]): Map<string, number> {
 
 /**
  * Every trip this browser knows, default pack ALWAYS first (name `'Nepal × Japan'` unless
- * renamed — synthesized when not stored, so it needs no seeding). Self-heals: an active trip
- * missing from the list (joined before the registry existed) is upserted as `'Shared trip'`.
+ * renamed — synthesized when not stored, so it needs no seeding). The default entry is the
+ * LOCAL-ONLY SAMPLE (#10): it has no remote path and never syncs; it exists so every browser
+ * opens onto something. Self-heals: an active trip missing from the list (joined before the
+ * registry existed) is upserted as `'Shared trip'`.
  */
 export function listKnownTrips(): TripMeta[] {
   const active = getActiveTripId();
@@ -317,8 +319,8 @@ export function removeKnownTrip(id: string): void {
  * id is DROPPED from the union UNLESS the surviving entry's recency (`entryRecency` = the later of
  * `updatedAt`/`joinedAt`) is newer than `removedAt` — a re-join or post-forget rename beats a stale
  * tombstone, and that stale tombstone is then discarded from the merged removed-set.
- * - The DEFAULT pack is NEVER merged or tombstoned in either direction (its id is a per-deployment
- * secret, synthesized locally) — dropped from all four inputs.
+ * - The DEFAULT pack is NEVER merged or tombstoned in either direction (it is the local-only
+ * sample, synthesized locally on every browser — #10) — dropped from all four inputs.
  * - Malformed entries are dropped (re-sanitized via `sanitizeTripMetaEntry` / `sanitizeRemovedEntry`).
  *
  * `localHadExtras` is true when local held a (non-default) trip OR a tombstone the remote lacked — the

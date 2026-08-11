@@ -53,6 +53,8 @@ vi.mock('framer-motion', async () => {
 const subscribeTripListMock = vi.fn((_code: string, _onMerge?: () => void) => vi.fn());
 vi.mock('@/lib/firebase-config', () => ({
   isRemoteConfigured: () => true,
+  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
+  isTripRemoteConfigured: () => true,
   getTripId: () => 'test-trip',
   FIREBASE_CONFIG: {},
 }));

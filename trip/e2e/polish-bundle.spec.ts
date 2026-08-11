@@ -4,9 +4,13 @@ import type { Page } from '@playwright/test';
 /**
  * S218 polish bundle — targeted coverage for the three small items:
  *   1. Skeleton loading slots (`SectionSkeleton`, S67) are wired for the named lazy
- *      islands (map, journal) — verified against the served static export's raw HTML,
- *      i.e. what actually reaches the client BEFORE hydration replaces it (the real "does the
- *      loading slot exist" question, not a hydration-timing race on a fast local server).
+ *      islands (map, journal) — verified in a signed-in browser with every chunk response
+ *      held back, so the loading slot is on screen long enough to assert deterministically.
+ *      This USED to read the served static export's raw HTML. #10 ended that: the provider
+ *      withholds `{children}` until an identified traveler, so the prerendered HTML of every
+ *      route is now content-free BY DESIGN (that is the fix for the logged-out DOM leak) and
+ *      no page's raw HTML can ever contain a skeleton again. The contract under test is
+ *      unchanged — a lazy island must not flash empty — only the vantage point moved.
  *   2. The last-packing-item-checked micro-celebration fires (visible burst) on a real check
  *      action.
  *   3. That same celebration is ABSENT under `prefers-reduced-motion` emulation (D-056b hard
@@ -66,17 +70,28 @@ async function seedPacking(page: Page, uncheckedCount: 0 | 1) {
 }
 
 test.describe('S218 — skeleton loading slots wired for lazy islands', () => {
-  test('/map serves the SectionSkeleton loading fallback in the raw static HTML', async ({ request, baseURL }) => {
-    const res = await request.get(`${baseURL}/map/`);
-    const html = await res.text();
-    expect(html).toContain('data-loading="Loading section"');
-  });
+  /**
+   * Hold every JS chunk for `delayMs` before letting it through. The lazy island's chunk is
+   * requested only AFTER hydration, so its skeleton is guaranteed to be on screen for at least
+   * that long — no race with a fast local server. Boot chunks are delayed too, which merely
+   * makes the page load later; `gotoAsTraveler` already waits for `load`.
+   */
+  async function throttleChunks(page: Page, delayMs = 1000) {
+    await page.route('**/_next/static/chunks/**', async (route) => {
+      await new Promise((r) => setTimeout(r, delayMs));
+      await route.continue();
+    });
+  }
 
-  test('/journal serves the SectionSkeleton loading fallback in the raw static HTML', async ({ request, baseURL }) => {
-    const res = await request.get(`${baseURL}/journal/`);
-    const html = await res.text();
-    expect(html).toContain('data-loading="Loading section"');
-  });
+  for (const route of ['/map/', '/journal/'] as const) {
+    test(`${route} renders the SectionSkeleton loading fallback while its island loads`, async ({ page }) => {
+      await throttleChunks(page);
+      await gotoAsTraveler(page, route);
+      await expect(page.locator('[data-loading="Loading section"]').first()).toBeVisible({
+        timeout: 15_000,
+      });
+    });
+  }
 });
 
 test.describe('S218 — last-packing-item-checked micro-celebration', () => {

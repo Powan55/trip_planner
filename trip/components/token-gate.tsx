@@ -32,10 +32,15 @@ import LandingPage from '@/components/landing-page';
  * account, with zero migration. It is what this door asks for, and the ONLY thing it asks for.
  * - **Trip Token** = one trip's capability (the trip id). It is NEVER a login. It is entered on
  * `/trips` ("add a trip"), by a user who is already logged in.
- * The guard is LABELS + FLOW, not validation: both are UUIDs, and this door must stay firebase-free
- * (see below), so there is nothing to validate against. records the accepted residual risk —
- * a Trip Token pasted here yields a working-but-empty account, losslessly recoverable by signing
- * out and logging in again.
+ * #10 — a NEW User Token pasted at login is now VALIDATED against the account's identity doc
+ * (`probeAccountIdentity`, one lazy server read via a dynamic import — the door stays STATICALLY
+ * firebase-free, see below). 'missing' rejects with an inline error and writes ZERO state;
+ * 'unavailable' (dormant / offline / timeout / rules error) ADMITS — fail-open, a network failure
+ * must never lock a real user out. The stored key is this device's live session credential and is
+ * NEVER re-probed (a returning device logs in even fully offline). The trip-token side keeps the
+ * LABELS + FLOW guard: a Trip Token pasted here that happens to name a trip with a `profile/`
+ * subcollection still yields a working-but-empty account, losslessly recoverable by signing out
+ * and logging in again — but an *invented* key no longer works at all.
  *
  * TWO PATHS, both ending in a FULL reload ( shape — the reload is what re-arms the
  * provider's trip-list subscribe with code + traveler both present, so the door itself never needs
@@ -48,9 +53,11 @@ import LandingPage from '@/components/landing-page';
  * just no longer collects it. Offers this device's stored key-28 token when present ( soft
  * security; prevents orphan accounts after a sign-out with an unsaved token).
  * (b) **Create an account** — name → mint `crypto.randomUUID()` → `setSyncCode` + `signIn` →
- * SHOW-ONCE screen (shared `UserTokenShowOnce`) → explicit confirm → reload landing `/trips/`.
- * The door does NOT create a trip: account creation and trip creation are separate acts
- * (trip creation lives on `/trips`).
+ * kick off the ACCOUNT SEED (#10: `pushAccountIdentity` + `pushTripList` via dynamic import, so
+ * the account exists server-side and the door's probe can find it later; `finish()` awaits it
+ * under a 5s budget before the reload) → SHOW-ONCE screen (shared `UserTokenShowOnce`) →
+ * explicit confirm → reload landing `/trips/`. The door does NOT create a trip: account creation
+ * and trip creation are separate acts (trip creation lives on `/trips`).
  *
  * `?trip=` INVITATION: an unidentified visitor opening a share link has the pending Trip
  * Token read straight off the URL here (the door is on the same page as the link) and HELD; on
@@ -58,16 +65,20 @@ import LandingPage from '@/components/landing-page';
  * the selection. `trip-join-handshake.tsx` correspondingly skips unidentified visitors: joining now
  * requires a login, so the door owns that case.
  *
- * ALWAYS-ON + DORMANT-SAFE: this shows in EVERY build, and imports ONLY pure
+ * ALWAYS-ON + DORMANT-SAFE: this shows in EVERY build, and STATICALLY imports ONLY pure
  * modules (token-auth · gateway · trips/registry · trip-data · countdown · the show-once view) and
- * NEVER firebase — no lookup, no push at the door. `subscribeTripList`'s existing absent-first-
- * snapshot seed / present-snapshot merge does the remote work AFTER the reload.
+ * never firebase. The two remote touches it now has — the login probe (#10) and the create-path
+ * account seed — are DYNAMIC `import('@/lib/trips-remote')` calls whose functions self-gate on
+ * `isRemoteConfigured()`, so the dormant bundle stays firebase-free and the dormant behavior is
+ * byte-identical (probe → 'unavailable' → admit; seed → no-op).
  *
  * A11y reuses the modal contract VERBATIM: role="dialog" aria-modal aria-labelledby
  * aria-describedby, document-level Esc, a Tab-trap inside the panel, autofocus on the first field
  * (re-asserted when the form changes). Intentional DIVERGENCES — it is a WALL, not a dismissible
- * modal: NON-dismissible (no overlay-click-close, no X, Esc does not dismiss); no error state (a
- * submit is simply disabled until its fields are non-empty); no focus-return-to-trigger.
+ * modal: NON-dismissible (no overlay-click-close, no X, Esc does not dismiss); no focus-return-to-
+ * trigger. #10 adds the ONE error state the wall now has (`role="alert"` under the key field, for
+ * a key the server says does not exist); a submit is otherwise simply disabled until its fields
+ * are non-empty.
  *
  * Motion uses the lightweight `m.*` only; reduced motion is honored by
  * the global <MotionConfig reducedMotion="user">. Tailwind classes are static literals; the
@@ -104,6 +115,13 @@ type Mode = 'login' | 'create';
 /**: the wall opens on the marketing landing; a CTA swaps it to the auth card. */
 type View = 'landing' | 'auth';
 
+/**
+ * #10 — how long `finish()` waits for the create-path account seed before navigating anyway.
+ * Same rationale and value as trips-hub's `CREATE_PUSH_BUDGET_MS`: the writes usually land in
+ * well under a second, but a dead network must never make "Continue" hang.
+ */
+const SEED_PUSH_BUDGET_MS = 5000;
+
 function TokenGateWall({ onHold }: { onHold: () => void }) {
   const [view, setView] = useState<View>('landing');
   /**
@@ -126,6 +144,8 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
   const [userToken, setUserToken] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
+  /** #10 — the wall's one error: the pasted key names no account. Rendered as role="alert". */
+  const [loginError, setLoginError] = useState<string | null>(null);
   /** Non-null once path (b) has minted + persisted: the wall becomes the show-once screen. */
   const [minted, setMinted] = useState<string | null>(null);
   /** This device's stored User Token, offered as a one-tap convenience. */
@@ -141,6 +161,15 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
 
   const panelRef = useRef<HTMLDivElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * #10 — path (b)'s account seed: `pushAccountIdentity` + `pushTripList`, kicked off right after
+   * signIn (the show-once screen buys it time) and AWAITED under a budget in `finish()`. Without
+   * the await the reload kills the writes in flight (the S375 lesson), and a created account with
+   * no identity doc would be rejected by the door's own probe on the next device. A ref, not
+   * state: nothing renders from it. Both pushes never reject; the `.catch` covers the import.
+   */
+  const seedRef = useRef<Promise<unknown> | null>(null);
 
   // Storage + URL are client-only facts; read once after mount (this island never SSRs its values).
   useEffect(() => {
@@ -224,21 +253,53 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
    * identity and its trip-list subscribe re-arms with the User Token present.
    */
   const finish = () => {
-    if (pendingTrip) {
-      joinTrip(pendingTrip);
-      window.location.replace(withBasePath('/'));
+    const go = () => {
+      if (pendingTrip) {
+        joinTrip(pendingTrip);
+        window.location.replace(withBasePath('/'));
+        return;
+      }
+      window.location.replace(withBasePath('/trips/'));
+    };
+    // #10 — when path (b) seeded the account docs (`seedRef`), the navigation WAITS for that seed
+    // under a 5s budget (`Promise.race`, the trips-hub CREATE_PUSH_BUDGET_MS shape): navigating
+    // immediately would abort the in-flight `setDoc`s and mint an account the door's probe cannot
+    // find. Login (path a) has no seed, so it navigates synchronously exactly as before.
+    const seed = seedRef.current;
+    if (!seed) {
+      go();
       return;
     }
-    window.location.replace(withBasePath('/trips/'));
+    void Promise.race([seed, new Promise((r) => setTimeout(r, SEED_PUSH_BUDGET_MS))]).then(go, go);
   };
 
   /** Path (a) — log in with the USER token ONLY (decision 2026-07-30). */
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
     const token = userToken.trim();
     if (!token) return;
-    setBusy(true);
+    setLoginError(null);
+    // #10 — validate a NEW key against the account's identity doc BEFORE any state is written.
+    // The stored key is this device's live session credential and is never re-gated (a returning
+    // device must log in even fully offline), so the probe is skipped for it entirely.
+    if (token !== getSyncCode()) {
+      setBusy(true);
+      // Dynamic import keeps the door STATICALLY firebase-free (D-239/D-054). The probe itself
+      // gates on isRemoteConfigured() and fails OPEN: dormant/offline/timeout → 'unavailable'.
+      const probe = await import('@/lib/trips-remote')
+        .then(({ probeAccountIdentity }) => probeAccountIdentity(token))
+        .catch(() => 'unavailable' as const);
+      if (probe === 'missing') {
+        // An invented key must leave ZERO stored state: no setSyncCode, no signIn, no onHold.
+        setBusy(false);
+        setLoginError('This user does not exist. Check your key, or create an account.');
+        return;
+      }
+      // 'exists' and 'unavailable' both proceed exactly as before #10.
+    } else {
+      setBusy(true);
+    }
     onHold();
     setSyncCode(token); // key 28 — the account credential (Trip Tokens never come here)
     // The door no longer collects a name: reuse this device's saved display name, else default
@@ -274,6 +335,16 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
       setBusy(false);
       return;
     }
+    // #10 — create BOTH account docs now (profile/identity + profile/tripList), so the account
+    // EXISTS server-side before the show-once confirm reloads: the door's login probe on the
+    // owner's next device finds it, and `subscribeTripList` no longer manufactures docs for
+    // unknown codes (its auto-seed branch is deleted). Dynamic import — the door stays statically
+    // firebase-free; both pushes self-gate dormant and never reject. `finish()` awaits this ref.
+    seedRef.current = import('@/lib/trips-remote')
+      .then(({ pushAccountIdentity, pushTripList }) =>
+        Promise.all([pushAccountIdentity(token, who), pushTripList(token)]),
+      )
+      .catch(() => undefined);
     setMinted(token); // the wall becomes the show-once screen; `finish` runs on its confirm
   };
 
@@ -466,6 +537,16 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                       Use this device&rsquo;s saved key
                     </button>
                   )}
+                  {/* #10 — the probe's ONE rejection. role="alert" so the announcement is live. */}
+                  {loginError && (
+                    <p
+                      role="alert"
+                      data-testid="token-gate-error"
+                      className="mt-2 text-xs leading-relaxed text-red-400"
+                    >
+                      {loginError}
+                    </p>
+                  )}
                 </>
               )}
 
@@ -502,6 +583,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
               <button
                 type="submit"
                 disabled={!canSubmit || busy}
+                aria-busy={busy}
                 data-testid="token-gate-submit"
                 className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
               >
@@ -510,7 +592,8 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
               </button>
 
               {/* The never-mix guard, in copy: each form names the OTHER token and where it
-                  goes. There is nothing to validate — both are UUIDs and the door is offline. */}
+                  goes. (#10: the User Token side is additionally validated server-side on new
+                  logins; the Trip Token side stays labels + flow.) */}
               <p className="mt-3 text-xs leading-relaxed text-white/45">
                 {mode === 'login'
                   ? 'Your key is your account — it opens every trip you have. A Trip Token is not a login: add one from your Trips page after you log in.'

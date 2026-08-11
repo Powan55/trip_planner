@@ -39,7 +39,7 @@ import {
   TRIP_SCOPED_SLOTS,
   type TripScopedSlot,
 } from '@/core/storage/gateway';
-import { getTripId } from '@/lib/firebase-config';
+import { getTripId, isTripRemoteConfigured } from '@/lib/firebase-config';
 import { pushChunkMerged } from '@/lib/expenses-remote';
 import { pushDayMerged } from '@/lib/itinerary-remote';
 import { savePlans } from '@/lib/itinerary-storage';
@@ -81,17 +81,14 @@ beforeEach(() => {
 });
 
 describe('S234 Part A — remote write path targets trips/{token} for the active pack', () => {
-  it('DEFAULT pack: expense + itinerary writes target the default remote token', async () => {
-    // No pointer → getActiveTripId() === DEFAULT_TRIP_ID → getTripId() === NEXT_PUBLIC_TRIP_ID || default.
-    expect(getTripId()).toBe(DEFAULT_TRIP_ID); // env unset in tests → the default literal
-
-    const { fs, writtenPaths } = makeFakeFs();
-    await pushChunkMerged(db, fs, 'nepal', [exp('A')]);
-    await pushDayMerged(db, fs, day());
-    expect(writtenPaths).toEqual([
-      `trips/${DEFAULT_TRIP_ID}/expenses/nepal`,
-      `trips/${DEFAULT_TRIP_ID}/days/2026-12-10`,
-    ]);
+  it("DEFAULT pack: getTripId() is '' and the trip-scoped gate is closed (#10 — the sample has no remote path)", () => {
+    // No pointer → getActiveTripId() === DEFAULT_TRIP_ID → getTripId() === '' (#10 retired the
+    // NEXT_PUBLIC_TRIP_ID remote id; the default pack is a local-only sample). The old form of
+    // this test drove pushChunkMerged/pushDayMerged here — those writers are now unreachable on
+    // the default pack (every entry gate + the outbox check isTripRemoteConfigured), so the
+    // load-bearing assertions are the empty id and the closed gate.
+    expect(getTripId()).toBe('');
+    expect(isTripRemoteConfigured()).toBe(false); // no firebase env in tests, AND no remote id
   });
 
   it('NON-default pack: writes target trips/{token} and NEVER the default remote path', async () => {

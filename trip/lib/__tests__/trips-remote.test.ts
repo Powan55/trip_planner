@@ -20,6 +20,8 @@ const isRemoteConfiguredMock = vi.fn(() => true);
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
   isRemoteConfigured: () => isRemoteConfiguredMock(),
+  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
+  isTripRemoteConfigured: () => isRemoteConfiguredMock(),
   getTripId: () => 'nepal-japan-2026',
 }));
 
@@ -34,10 +36,29 @@ class FakeFirestore {
 const fake = new FakeFirestore();
 const writeLog: { path: string; data: DocData }[] = [];
 let getDocCalls = 0;
+let getDocFromServerCalls = 0;
+// Per-test override for the SERVER read (probeAccountIdentity, #10): null = read fake.docs like
+// getDoc; a fn = the test drives the outcome (reject / hang for the timeout race).
+const serverRead: {
+  impl: null | ((ref: { path: string }) => Promise<{ exists: () => boolean; data: () => DocData | undefined }>);
+} = { impl: null };
 
 function pathOf(segments: string[]): string {
   return segments.join('/');
 }
+
+// #10 — `getRemote()` now signs the device in anonymously BEFORE it resolves (the rules grew an
+// auth floor), so the auth module is faked here too. `queueMicrotask`, not `setTimeout`: the
+// observer must resolve after the synchronous return of `onAuthStateChanged` (as the real SDK
+// does) but WITHOUT depending on a timer, so a suite running under fake timers still gets a handle.
+vi.mock('firebase/auth', () => ({
+  getAuth: () => ({ currentUser: { uid: 'device-uid-fake', getIdToken: async () => 'fake-id-token' } }),
+  onAuthStateChanged: (_auth: unknown, next: (u: unknown) => void) => {
+    queueMicrotask(() => next(null)); // no restored session ⇒ the anonymous sign-in below runs
+    return () => {};
+  },
+  signInAnonymously: async () => ({ user: { uid: 'device-uid-fake' } }),
+}));
 
 vi.mock('firebase/app', () => ({
   initializeApp: () => ({ name: 'fake' }),
@@ -57,9 +78,15 @@ vi.mock('firebase/firestore', () => ({
     const data = fake.docs.get(ref.path);
     return { exists: () => data !== undefined, data: () => data };
   },
+  getDocFromServer: async (ref: { path: string }) => {
+    getDocFromServerCalls++;
+    if (serverRead.impl) return serverRead.impl(ref);
+    const data = fake.docs.get(ref.path);
+    return { exists: () => data !== undefined, data: () => data };
+  },
 }));
 
-import { pushTripMeta, fetchTripMeta } from '@/lib/trips-remote';
+import { pushTripMeta, fetchTripMeta, probeAccountIdentity } from '@/lib/trips-remote';
 
 const TRIP_ID = 'custom-trip-abc';
 const DOC_PATH = `trips/${TRIP_ID}/meta/info`;
@@ -72,6 +99,8 @@ beforeEach(() => {
   fake.docs.clear();
   writeLog.length = 0;
   getDocCalls = 0;
+  getDocFromServerCalls = 0;
+  serverRead.impl = null;
   isRemoteConfiguredMock.mockReturnValue(true);
 });
 
@@ -143,5 +172,65 @@ describe('fetchTripMeta — one-shot getDoc round-trip + sanitize', () => {
     const result = await fetchTripMeta(TRIP_ID);
     expect(result).toBeUndefined();
     expect(getDocCalls).toBe(0);
+  });
+});
+
+// ── #10 — probeAccountIdentity: the door's login validation ─────────────────────────────────────
+// The tri-state mapping IS the security posture: only a server-confirmed ABSENCE rejects; every
+// failure shape (dormant, error, timeout) is 'unavailable', which the door treats as ADMIT.
+describe('probeAccountIdentity — one server read of trips/{code}/profile/identity (#10)', () => {
+  const CODE = 'aaaa1111-bbbb-4222-8333-cccc4444dddd';
+  const IDENTITY_PATH = `trips/${CODE}/profile/identity`;
+
+  it("doc present ⇒ 'exists' (a real account), via the SERVER read", async () => {
+    fake.setDocData(IDENTITY_PATH, { version: 1, name: 'Powan' });
+    expect(await probeAccountIdentity(CODE)).toBe('exists');
+    expect(getDocFromServerCalls).toBe(1);
+    expect(getDocCalls).toBe(0); // never the cached read — a cached absence must not reject
+  });
+
+  it("server answers and the doc is absent ⇒ 'missing' (an invented key)", async () => {
+    expect(await probeAccountIdentity(CODE)).toBe('missing');
+    expect(getDocFromServerCalls).toBe(1);
+  });
+
+  it("read rejects ⇒ 'unavailable' (offline/error must admit, never lock a real user out)", async () => {
+    serverRead.impl = async () => {
+      throw new Error('network down');
+    };
+    expect(await probeAccountIdentity(CODE)).toBe('unavailable');
+  });
+
+  it("a permission-denied rejection is 'unavailable' AND logs the loud inoperative warning", async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    serverRead.impl = async () => {
+      throw Object.assign(new Error('denied'), { code: 'permission-denied' });
+    };
+    expect(await probeAccountIdentity(CODE)).toBe('unavailable');
+    expect(warn).toHaveBeenCalledWith(
+      '[door] rules deny the identity probe — token validation is inoperative',
+    );
+    warn.mockRestore();
+  });
+
+  it("a read that never answers loses the 8s race ⇒ 'unavailable'", async () => {
+    vi.useFakeTimers();
+    try {
+      serverRead.impl = () => new Promise(() => {}); // hangs forever
+      const probe = probeAccountIdentity(CODE);
+      await vi.advanceTimersByTimeAsync(0); // flush getRemote's dynamic imports → the race is armed
+      await vi.advanceTimersByTimeAsync(8_001);
+      expect(await probe).toBe('unavailable');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("dormant or blank code ⇒ 'unavailable' with NO read at all", async () => {
+    isRemoteConfiguredMock.mockReturnValue(false);
+    expect(await probeAccountIdentity(CODE)).toBe('unavailable');
+    isRemoteConfiguredMock.mockReturnValue(true);
+    expect(await probeAccountIdentity('')).toBe('unavailable');
+    expect(getDocFromServerCalls).toBe(0);
   });
 });
