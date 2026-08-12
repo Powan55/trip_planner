@@ -113,12 +113,24 @@ test.describe('S146 settings — structure + discoverability', () => {
     await expect(page.getByTestId('backup-export-button')).toBeVisible();
     await expect(page.getByTestId('backup-import-trigger')).toBeVisible();
   });
+
+  test('#10 — Trip access and the Google link are ABSENT on a build with no sync configured', async ({
+    page,
+  }) => {
+    await gotoSettings(page);
+    // This build has no firebase config, so there is no device identity, no roster to read and
+    // nothing to link. Both surfaces are gated on `isRemoteConfigured()` and must not render at
+    // all — an empty "Trip access" section would be four paragraphs explaining an absence, and it
+    // would put a copy button next to a code that does not exist.
+    await expect(page.getByTestId('settings-group-access')).toHaveCount(0);
+    await expect(page.getByTestId('settings-identity-google')).toHaveCount(0);
+  });
 });
 
 // S200's Google sign-in group was REMOVED in S232 (D-209 item 2): the
 // capability-token Firestore rules never read request.auth, so Firebase Auth (anonymous +
-// Google) is fully vestigial and was stripped. The `settings-group-google` surface no longer
-// exists — its former dormant-absence + integration-QA specs are retired with the feature.
+// Google) is fully vestigial and was stripped. It came BACK in #10 — but as an optional link
+// over an anonymous device identity, gated on `isRemoteConfigured()`, so it stays absent here.
 
 test.describe('S146 settings — sign out', () => {
   test('sign out clears the Trip Token and the front-door gate returns', async ({ page }) => {

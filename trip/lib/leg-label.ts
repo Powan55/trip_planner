@@ -41,8 +41,10 @@ const multiLeg = activeTrip.legs.length > 1;
  * ISO date → authored per-day label, DERIVED from the content root (the pattern used by
  * TRIP_CITIES). Consulted only for the DEFAULT pack ( trip-scoping — a custom trip whose
  * span overlaps Dec 9 – Jan 9 must not inherit the default trip's authored labels). Deriving it
- * by DATE as well as reading `DayPlan.countryLabel` matters: a day that arrived over Firestore
- * sync loses the field (`docToDayPlan` is shape-frozen), and this map fills it back in.
+ * by DATE as well as reading `DayPlan.countryLabel` matters: a LEGACY day-doc written before the
+ * label existed arrives over Firestore sync without one, and this map fills it back in. (Sync no
+ * longer strips it: `docToDayPlan` passes unknown/optional day keys through, #42. So this is a
+ * fallback for old data, not a workaround for the mapper.)
  */
 const DAY_LABELS: Record<string, string> = Object.fromEntries(
   SAMPLE_ITINERARY.flatMap((d) => (d.countryLabel ? [[d.date, d.countryLabel] as const] : [])),
@@ -83,7 +85,11 @@ export function dayPlaceLabel(day: {
   country: string;
   countryLabel?: string;
 }): string {
-  return compose(day.city, day.countryLabel ?? dayLabel(day.date, day.country));
+  // #6: a day that arrived over sync can carry `city: ''`. `docToDayPlan` defaults a missing or
+  // ill-typed field to '', and a remote-only day passes through `mergeDays` unmerged. Fall back to
+  // the SAME by-date city `placeLabelForDate` uses, so the line never renders a bare "USA" (default
+  // pack) or an empty string (custom trip). A day with its own city is untouched.
+  return compose(day.city || getCityForDate(day.date), day.countryLabel ?? dayLabel(day.date, day.country));
 }
 
 /** The same line for a bare trip DATE, when no day plan is in hand (dialog option lists). */

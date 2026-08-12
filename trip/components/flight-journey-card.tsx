@@ -65,9 +65,9 @@ function proximityText(c: FlightTiming['countdown']): string {
   if (c.months) parts.push(`${c.months}mo`);
   if (c.weeks) parts.push(`${c.weeks}w`);
   if (c.days) parts.push(`${c.days}d`);
-  // "inside a week" — suppresses `weeks` for a 28-30 day remainder, so test the
-  // day count too or a month-out flight would start ticking h/m/s.
-  if (!c.months && !c.weeks && c.days < 7) {
+  // "inside a week": the units carry maximally (issue #11), so no month and no week left
+  // IS fewer than seven days left. Nothing else to test.
+  if (!c.months && !c.weeks) {
     parts.push(`${c.hours}h`, `${c.minutes}m`, `${c.seconds}s`);
   }
   return parts.join(' ') || 'under a minute';

@@ -48,7 +48,7 @@ const readRemovedTrips = (page: Page): Promise<Array<{ id: string; removedAt: nu
   page.evaluate((k) => JSON.parse(window.localStorage.getItem(k) ?? '[]'), REMOVED_TRIPS_KEY);
 
 test.describe('S239 — /trips/ hub', () => {
-  test('lists the default pack first with the Current badge and "Main trip" (no joined date)', async ({
+  test('lists the default pack first with the Current badge and the local-only sample line (#10)', async ({
     page,
   }) => {
     await goto(page);
@@ -56,9 +56,11 @@ test.describe('S239 — /trips/ hub', () => {
     await expect(row0).toBeVisible({ timeout: 15_000 });
     await expect(row0).toContainText('Nepal × Japan');
     await expect(row0).toContainText('Current');
-    await expect(row0).toContainText('Main trip');
-    // Dormant build: the default pack has no share token (env unset) → no copy button.
+    // #10: the default pack is a LOCAL-ONLY SAMPLE (NEXT_PUBLIC_TRIP_ID retired) and says so.
+    await expect(row0).toContainText('Sample — on this device only');
+    // No remote path ⇒ no share token in ANY build ⇒ no copy buttons on the sample row.
     await expect(page.getByTestId('trips-hub-copy-0')).toHaveCount(0);
+    await expect(page.getByTestId('trips-hub-copy-token-0')).toHaveCount(0);
   });
 
   test('exports a per-route document.title (S264 server-component metadata)', async ({

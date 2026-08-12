@@ -109,7 +109,8 @@ test.describe('S338B — Your User Token card', () => {
   }) => {
     await gotoSettingsSync(page);
     await page.getByTestId('settings-group-trip-toggle').click();
-    await expect(page.getByTestId('settings-trip-key')).toBeVisible();
+    // #10: the default pack renders the sample note in place of a Trip Token value.
+    await expect(page.getByTestId('settings-trip-key-sample')).toBeVisible();
 
     const panel = page.getByTestId('settings-panel');
     await expect(panel).toContainText('Trip Token');

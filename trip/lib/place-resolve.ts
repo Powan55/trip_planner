@@ -12,6 +12,7 @@
 
 import { CONCIERGE_URL } from '@/lib/concierge-config';
 import { getActiveTripId } from '@/core/storage/gateway';
+import { workerAuthHeader } from '@/lib/worker-auth';
 
 /** Best-effort resolution hints. Every field optional — the sheet pre-fills whatever it gets. */
 export interface PlaceResolveHints {
@@ -49,9 +50,13 @@ export async function resolvePlaceLink(
   if (!origin || !url) return null;
   const base = origin.replace(/\/+$/, '');
   try {
+    // #10 — same Worker, same new requirement: a Firebase ID token when there is a session, and
+    // nothing at all when there isn't (see lib/worker-auth.ts). Inside the try, so a failure here
+    // degrades to `null` like every other one rather than throwing out of a total function.
+    const auth = await workerAuthHeader();
     const res = await fetchImpl(`${base}/resolve?url=${encodeURIComponent(url)}`, {
       method: 'GET',
-      headers: { 'X-Trip-Token': getActiveTripId() },
+      headers: { 'X-Trip-Token': getActiveTripId(), ...auth },
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) return null;

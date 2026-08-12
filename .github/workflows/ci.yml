@@ -3,14 +3,35 @@ name: CI
 # Feature branches get the fast half on every push. The full browser suite runs
 # on pull requests only: it takes about ten minutes, and the pull request is
 # where the gate actually matters.
+#
+# workflow_call exists so deploy.yml can block its build job on these checks.
+# Without it, a push to main deployed after a version check and a build and
+# nothing else, and a direct push (which no pull request ever saw) was checked
+# by nothing at all.
+#
+# Inside a workflow_call, github.event_name is the CALLER's ("push"), so the
+# e2e job below is skipped on the deploy path. That is deliberate, but the
+# reason is narrower than it first looks, and the difference matters.
+#
+# When the deploy came from a merged pull request, skipping is pure economy: the
+# browser suite already ran against that merge result, so re-running it would
+# add thirteen minutes to re-confirm the same tree.
+#
+# When main is pushed to directly, no pull request ever ran and the browser
+# suite does not run at all. That path is covered by the checks below and
+# nothing more. It is the path this whole arrangement exists for, and it is only
+# partly closed here: the rest is branch protection, which prevents the push
+# rather than inspecting it. Do not add conditional e2e here to compensate.
 on:
   pull_request:
     branches: [dev, main]
   push:
     branches: [lax, uttam, dev]
+  workflow_call:
 
 # Must not share a group with deploy.yml (which uses "pages"), or a CI run
-# would queue behind a deploy.
+# would queue behind a deploy. Now that deploy.yml calls this workflow, a
+# shared group would also mean a deploy waiting on itself.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -64,6 +85,37 @@ jobs:
           # chat component mounts and is covered, without calling anything real.
           NEXT_PUBLIC_CONCIERGE_URL: https://concierge.test
         run: npm run build
+
+  # Only on a pull request INTO main. `base_ref` is populated on pull_request and is
+  # empty on every push, including the push that reaches this file through
+  # deploy.yml's workflow_call — so this job is structurally absent from the deploy
+  # path, and deploy.yml keeps its own copy rather than relying on this one.
+  #
+  # That asymmetry is the point. Conditioning on `github.ref == 'refs/heads/main'`
+  # would let one job serve both paths and let deploy.yml drop its own, but if the
+  # inherited context is not what we assume it fails SILENT — no gate on the deploy.
+  # base_ref fails the other way, into a redundant twenty-second job. When the hinge
+  # rests on a fact the repo cannot confirm, pick the one that fails toward running.
+  #
+  # A pull request into dev must NOT land here: dev collects many changes per release
+  # and almost none of them bump the version.
+  release-gate:
+    name: Ready for main (version · release notes · came via dev)
+    if: github.base_ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      # Its own checkout, and the two options below are the whole job. The `checks`
+      # job above uses a bare checkout, and copying that here would ship a gate that
+      # passes unconditionally: it decides by looking for a tag, and checkout fetches
+      # no tags by default.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Assert this version is clear to ship
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: node scripts/release-gate.mjs
 
   e2e:
     name: E2E (behavioural · visual advisory)

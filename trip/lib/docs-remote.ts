@@ -28,7 +28,7 @@
 import { saveDocs, loadDocs } from '@/core/docs/storage';
 import type { DocItem } from '@/core/docs/model';
 import { DOCS_CHANGED_EVENT } from '@/hooks/use-docs';
-import { isRemoteConfigured, getTripId } from './firebase-config';
+import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
 import { mergeItems } from '@/core/sync/merge-items';
 
@@ -91,7 +91,8 @@ export async function pushDocsChunk(current: DocItem[], chunk: string): Promise<
  * failure → local-only via console.warn, never throws. Mirrors `subscribeRemoteBudget`.
  */
 export function subscribeRemoteDocs(onApplied?: (rows: DocItem[]) => void): () => void {
-  if (!isRemoteConfigured()) return () => {};
+  // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
+  if (!isTripRemoteConfigured()) return () => {};
 
   let cancelled = false;
   let firestoreUnsub: (() => void) | null = null;

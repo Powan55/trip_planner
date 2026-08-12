@@ -231,6 +231,8 @@ export function getActiveTraveler(): Traveler | null {
  * No-op / never throws during SSR or with disabled storage (handled inside the gateway).
  */
 export function signOut(): void {
+  // #10 — deliberately does NOT sign out of Firebase: the anonymous uid is DEVICE identity, not
+  // account identity, and dropping it would orphan this device's entry in every trip's members map.
   identityStore.clearIdentity();
   wipeAllTripData();
   // Reactive signal: re-show the gate + clear the chip + tear down remote-subscribe

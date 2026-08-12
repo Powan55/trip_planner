@@ -25,7 +25,7 @@ import { saveExpenses, loadExpenses } from '@/core/budget/storage';
 import { type Expense } from '@/core/budget/expenses';
 import type { Leg } from '@/core/budget/model';
 import { EXPENSES_CHANGED_EVENT } from '@/hooks/use-expenses';
-import { isRemoteConfigured, getTripId } from './firebase-config';
+import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
 import { mergeItems, gcTombstoneRows } from '@/core/sync/merge-items';
 import { outboxDirty } from '@/core/sync/outbox';
@@ -99,7 +99,8 @@ export async function pushExpenseChunk(current: Expense[], leg: string): Promise
  * never throws. Returns an unsubscribe fn.
  */
 export function subscribeRemoteExpenses(onApplied?: (rows: Expense[]) => void): () => void {
-  if (!isRemoteConfigured()) return () => {};
+  // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
+  if (!isTripRemoteConfigured()) return () => {};
 
   let cancelled = false;
   let firestoreUnsub: (() => void) | null = null;

@@ -20,8 +20,8 @@ export type { TripConfig, TripLeg } from './model';
 export { legForDate } from './model';
 export { buildDayShells } from './custom';
 
-/** Default pack id === lib/firebase-config.ts's NEXT_PUBLIC_TRIP_ID default.
- * Single source of truth is the gateway; re-exported here for existing importers. */
+/** Default pack id — LOCAL-ONLY since #10 (no remote path; lib/firebase-config's getTripId()
+ * returns '' for it). Single source of truth is the gateway; re-exported for existing importers. */
 export { DEFAULT_TRIP_ID };
 
 /** Static registry — one pack today; a second pack is a future concern, not now. */

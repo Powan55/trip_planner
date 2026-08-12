@@ -38,20 +38,21 @@ describe('S93 core boundary — computeCountdown (pure, from @/core/clock)', () 
     expect(libComputeCountdown).toBe(coreComputeCountdown);
   });
 
-  it('matches the S82 pre-trip fixture: Nov 9 noon -> Dec 9 00:00 = 0mo/0wk/29d/12h, totalDays 29', () => {
+  it('matches the S82 pre-trip fixture: Nov 9 noon -> Dec 9 00:00 = 1mo/0wk/1d/12h, totalDays 29', () => {
     // Same instant the E2E drives via ?today=2026-11-09 (local noon), asserted at the
     // pure core boundary (no UI, no clock read).
     //
-    // S423 — the TOTAL is unchanged (29 days 12 hours, and totalDays is still 29); only
-    // the bucketing changed. This fixture used to pin `weeks: 4, days: 1`, and "4 weeks"
-    // must never render, so a >= 28 day remainder now reads as plain days. 29d + 12h sums
-    // back to exactly 2026-12-09T00:00:00 from Nov 9 noon.
+    // The TOTAL has never moved (29 days 12 hours, totalDays 29); only the bucketing has.
+    // It pinned `weeks: 4, days: 1`, then S423 re-bucketed it to `days: 29` to keep "4
+    // weeks" off the screen. Issue #11 replaces that suppression with a real carry:
+    // 29 = 28 + 1, so it reads 1 month 0 weeks 1 day. The renderer drops the 0 weeks;
+    // the producer still reports it. 29d + 12h sums back to exactly 2026-12-09T00:00:00.
     const now = new Date(2026, 10, 9, 12, 0, 0); // Nov 9, 2026 12:00 LOCAL
     const target = new Date('2026-12-09T00:00:00'); // TRIP_START (local)
     expect(coreComputeCountdown(target, now)).toEqual({
-      months: 0,
+      months: 1,
       weeks: 0,
-      days: 29,
+      days: 1,
       hours: 12,
       minutes: 0,
       seconds: 0,

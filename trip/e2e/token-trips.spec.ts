@@ -5,16 +5,16 @@ import AxeBuilder from '@axe-core/playwright';
 /**
  * S233 → S338B — capability-token trips UX E2E pack (D-205 amended / D-209 / D-172 / **D-239**).
  *
- * Proves, on the served static `out/` build (dormant — NEXT_PUBLIC_TRIP_ID unset, so the default
- * pack's Trip Token is the public `nepal-japan-2026` slug, deterministic):
+ * Proves, on the served static `out/` build (dormant; #10 retired NEXT_PUBLIC_TRIP_ID outright —
+ * the default pack is a LOCAL-ONLY SAMPLE with no Trip Token in ANY build, deterministic):
  *   1. FRONT DOOR v3 (D-239; login token-only per the 2026-07-30 decision) — the wall asks for the **User
  *      Token** ONLY (the account credential, key 28 `tripPlannerSyncCode`) and lands `/trips/`; the
  *      display name is reused-from-device / defaults to "Traveler" (renamable in Settings), not asked
  *      at login; "Create an account" still collects a name, mints a token, and holds the wall on a
  *      SHOW-ONCE screen until an explicit confirm; a `?trip=` invitation is HELD through login and
  *      joined before the reload. The name-only door is gone.
- *   2. Settings → Trip: the current Trip Token is shown; Create mints a fresh UUID pack (pointer +
- *      reload); Add-by-Trip-Token switches the active pack (pointer + reload).
+ *   2. Settings → Trip: a custom trip shows its Trip Token; the default pack shows the sample
+ *      note instead (#10); Add-by-Trip-Token switches the active pack (pointer + reload).
  *   3. `?trip=` handshake for an IDENTIFIED user: Add switches + strips the param; Cancel strips the
  *      param and stays.
  *   4. axe clean on the front-door gate (both door states) and the Settings Trip surface, and no
@@ -223,12 +223,29 @@ test.describe('S338B — front door v3 (D-239: the login credential is the USER 
 });
 
 test.describe('S233 — Settings Trip group', () => {
-  test('shows the current Trip Token and the copy/share controls', async ({ page }) => {
+  test('the DEFAULT pack shows the local-only sample note, not a Trip Token (#10)', async ({ page }) => {
     await gotoSignedIn(page);
     await expect(page.getByTestId('settings-panel')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('settings-group-trip-toggle').click();
-    // Default pack (env unset): the key is the public slug.
-    await expect(page.getByTestId('settings-trip-key')).toHaveText('nepal-japan-2026');
+    // #10: the default pack has NO remote path (getTripId() === '') — rendering an empty "secret"
+    // with live copy buttons would hand the user a broken share link, so the card says what it is.
+    await expect(page.getByTestId('settings-trip-key-sample')).toBeVisible();
+    await expect(page.getByTestId('settings-trip-key-sample')).toContainText('sample trip');
+    await expect(page.getByTestId('settings-trip-key')).toHaveCount(0);
+    await expect(page.getByTestId('settings-trip-key-copy')).toHaveCount(0);
+    await expect(page.getByTestId('settings-trip-link-copy')).toHaveCount(0);
+  });
+
+  test('a CUSTOM trip still shows its Trip Token and the copy/share controls', async ({ page }) => {
+    // Seed the pointer to a custom trip — its id IS the capability token (D-205, unchanged).
+    await page.addInitScript(
+      ({ id }: { id: string }) => window.localStorage.setItem('tripPlannerActiveTrip', id),
+      { id: A_UUID },
+    );
+    await gotoSignedIn(page);
+    await expect(page.getByTestId('settings-panel')).toBeVisible({ timeout: 15_000 });
+    await page.getByTestId('settings-group-trip-toggle').click();
+    await expect(page.getByTestId('settings-trip-key')).toHaveText(A_UUID);
     await expect(page.getByTestId('settings-trip-key-copy')).toBeVisible();
     await expect(page.getByTestId('settings-trip-link-copy')).toBeVisible();
   });
@@ -330,7 +347,8 @@ test.describe('S233 — axe', () => {
     await gotoSignedIn(page);
     await expect(page.getByTestId('settings-panel')).toBeVisible({ timeout: 15_000 });
     await page.getByTestId('settings-group-trip-toggle').click();
-    await expect(page.getByTestId('settings-trip-key')).toBeVisible();
+    // #10: on the default pack the token card renders the sample note, not the token itself.
+    await expect(page.getByTestId('settings-trip-key-sample')).toBeVisible();
     const results = await new AxeBuilder({ page }).include('[data-testid="settings-group-trip"]').analyze();
     const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
     expect(blocking, blocking.map((v) => `${v.id} [${v.impact}]`).join('; ')).toEqual([]);

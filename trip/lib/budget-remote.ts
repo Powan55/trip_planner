@@ -25,7 +25,7 @@
 import { saveBudget, loadBudget } from '@/core/budget/storage';
 import type { BudgetModel } from '@/core/budget/model';
 import { BUDGET_CHANGED_EVENT } from '@/hooks/use-budget';
-import { isRemoteConfigured, getTripId } from './firebase-config';
+import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
 import { mergeBudget, type BudgetFields } from '@/core/sync/merge-budget';
 import { modelToFields, fieldsToModel } from '@/core/budget/flatten';
@@ -88,7 +88,8 @@ export async function pushBudgetChunk(current: BudgetModel, chunk: string): Prom
  * never throws. Returns an unsubscribe fn. Mirrors `subscribeRemoteExpenses`.
  */
 export function subscribeRemoteBudget(onApplied?: (model: BudgetModel) => void): () => void {
-  if (!isRemoteConfigured()) return () => {};
+  // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
+  if (!isTripRemoteConfigured()) return () => {};
 
   let cancelled = false;
   let firestoreUnsub: (() => void) | null = null;

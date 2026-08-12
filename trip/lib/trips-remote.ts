@@ -50,8 +50,8 @@ import {
   type TripMeta,
   type RemovedTrip,
 } from '@/core/trips/registry';
-import { isRemoteConfigured } from './firebase-config';
-import { getRemote } from './itinerary-remote';
+import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
+import { getRemote, isPermissionDenied } from './itinerary-remote';
 
 export type TripMetaPayload = { name: string; config?: TripConfigBlock };
 
@@ -172,6 +172,226 @@ export async function fetchAccountIdentity(code: string): Promise<string | undef
   }
 }
 
+// ── #10 — the front door's account-existence probe ──────────────────────────────────────────
+
+export type AccountProbe = 'exists' | 'missing' | 'unavailable';
+
+/** How long the door waits for the identity read before admitting anyway (#10). */
+const PROBE_TIMEOUT_MS = 8000;
+
+/**
+ * ONE server read of `trips/{code}/profile/identity`, raced against a timer — the door's login
+ * validation (#10). Tri-state, and the mapping IS the security posture:
+ * - 'exists'      → the identity doc is there: a real account.
+ * - 'missing'     → the SERVER answered and the doc is absent: an invented/mistyped key.
+ * - 'unavailable' → dormant build, blank code, timeout, or ANY error. The caller must ADMIT on
+ *   this value — validation fails OPEN, because a network failure must never lock a real user out
+ *   of their own data.
+ *
+ * `getDocFromServer`, never a plain `getDoc`: a cold/stale cache reports absence, and a cached
+ * absence rejecting a REAL user is the one wrong the fail-open design cannot tolerate. A rules
+ * change that denies this read (code 'permission-denied') is logged loudly, because it silently
+ * turns validation off for every login while everything else keeps working.
+ */
+export async function probeAccountIdentity(code: string): Promise<AccountProbe> {
+  if (!isRemoteConfigured() || !code) return 'unavailable';
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, getDocFromServer } = fs;
+    const snap = await Promise.race([
+      getDocFromServer(doc(db, 'trips', code, 'profile', 'identity')),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), PROBE_TIMEOUT_MS)),
+    ]);
+    if (snap === null) return 'unavailable'; // timer won — admit rather than hang the door
+    return snap.exists() ? 'exists' : 'missing';
+  } catch (err) {
+    if ((err as { code?: unknown } | null)?.code === 'permission-denied') {
+      console.warn('[door] rules deny the identity probe — token validation is inoperative');
+    }
+    return 'unavailable'; // offline/error must admit — never lock a real user out
+  }
+}
+
+// ── #10 — the opt-in member lock ────────────────────────────────────────────────────────────
+//
+// A trip doc MAY carry `members: { <uid>: 'owner' | 'member' }`. Its PRESENCE is what switches
+// that trip from the grandfathered capability model (whoever holds the unguessable tripId can
+// read+write it) to membership. That is deliberate and is spelled out at length in
+// `firestore.rules`: a rules deploy is instant and global, so a mandatory members map would
+// permission-deny every trip minted before it and every `?trip=` link already pasted into a chat,
+// with no migration window. Opt-in is the migration window.
+//
+// WHO WRITES WHAT. `createTripDoc` mints the map at creation time with the creator as `owner`
+// (rules reject a create whose map does not name the creator owner). `ensureMembership` adds ONE
+// entry — this device's — using a FIELD-PATH update so the write touches only the members map: a
+// whole-document overwrite is rejected for a non-owner, whose only legal edit is an add-only
+// members diff. `owner` may remove/re-role; `member` may add.
+//
+// ⚠ CEILING, KNOWN AND ACCEPTED: rules can prove an added-only diff but cannot inspect the VALUE
+// of an added key (no map comprehension in the rules language), so a `member` can technically add
+// a third uid as `owner`. The threat model is three friends who already hold each other's trip
+// links. The named upgrade path is members as a SUBCOLLECTION (`members/{uid}` → `{ role }`),
+// where the value becomes a document whose own write rule can check the role — a data migration,
+// not a rules edit, which is why it is not done here.
+
+export type TripRole = 'owner' | 'member';
+
+/**
+ * Dispatched on `window` when the rules refuse this device's enrolment — i.e. the trip HAS a
+ * members map and this uid is not in it. The provider listens for it and shows one toast; nothing
+ * throws, because "you are not a member yet" is a normal state, not an error.
+ *
+ * 🔴 `components/itinerary-provider.tsx` listens for this by LITERAL, deliberately: importing the
+ * constant would drag this module (and firebase) onto the provider's static chunk. The literal and
+ * this constant are pinned equal by `lib/__tests__/trip-membership.test.ts`.
+ */
+export const TRIP_ACCESS_PENDING_EVENT = 'trip:access-pending';
+
+/** The members map off a raw trip doc, or `undefined` for a members-less (capability) trip. */
+function readMembers(data: Record<string, unknown> | undefined): Record<string, string> | undefined {
+  const raw = data?.members;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  return raw as Record<string, string>;
+}
+
+/**
+ * Create a brand-new trip's doc, naming THIS device `owner` (#10). Best-effort and TOTAL, exactly
+ * like `pushTripMeta`.
+ *
+ * MUST RUN BEFORE the trip's first subcollection write. Two reasons, both structural:
+ * - the members map can only be minted on the CREATE (`claimsSelfAsOwner` in the rules gates the
+ *   create; a later whole-doc overwrite by anyone but the owner is refused), and
+ * - once the map exists, every write under `trips/{id}/**` is membership-gated, so the creator has
+ *   to already be in it.
+ * `trips-hub`'s create awaits this inside its existing navigation budget, ahead of the meta push.
+ */
+export async function createTripDoc(tripId: string): Promise<void> {
+  if (!isRemoteConfigured() || !tripId) return;
+  try {
+    const { db, fs, uid } = await getRemote();
+    const { doc, setDoc, serverTimestamp } = fs;
+    await setDoc(doc(db, 'trips', tripId), {
+      schemaVersion: 1,
+      createdAt: serverTimestamp(),
+      seededFrom: 'create',
+      members: { [uid]: 'owner' },
+    });
+  } catch (err) {
+    console.warn('[trips-remote] trip doc create failed, staying local-only:', err);
+  }
+}
+
+/**
+ * Enrol THIS device in the active trip, once per page load (#10). TOTAL — never rejects.
+ *
+ * Four outcomes, and each is a deliberate no-drama branch:
+ * - trip doc ABSENT ⇒ return. There is nothing to join yet; the creator (or the legacy seed path)
+ *   writes the doc, and this device enrols on a later load.
+ * - already in `members` ⇒ return, with no write at all. This is the common case on every load
+ *   after the first, so it must cost one read and nothing else.
+ * - members map ABSENT (a grandfathered capability trip) ⇒ the first device to enrol takes
+ *   `'owner'`. Somebody has to be able to manage the roster, and on a members-less trip the rules
+ *   let any signed-in holder of the tripId write one — so the first mover is the only available
+ *   answer. It is also the right one: the first device to open a trip it created before the lock
+ *   existed is overwhelmingly the creator's.
+ * - anyone else ⇒ `'member'`.
+ *
+ * The write is a FIELD PATH (`members.<uid>`), never a whole-document `setDoc`: rules allow a
+ * non-owner exactly one shape of edit — a diff that touches only `members` and only ADDS keys.
+ *
+ * A `permission-denied` (the trip is member-gated and this device is not in the map — the read
+ * itself is refused, before any write is attempted) dispatches `trip:access-pending` instead of
+ * throwing. That is not an error state: it is the "ask a member to add your device code" flow.
+ */
+export async function ensureMembership(tripId: string): Promise<void> {
+  if (!isTripRemoteConfigured() || !tripId) return;
+  try {
+    const { db, fs, uid } = await getRemote();
+    const { doc, getDocFromServer, updateDoc } = fs;
+    const ref = doc(db, 'trips', tripId);
+    // SERVER read: a cached copy can be stale in both directions — an absent members map that has
+    // since been written (we would try to self-enrol as owner and be denied) or a stale roster.
+    const snap = await getDocFromServer(ref);
+    if (!snap.exists()) return;
+    const members = readMembers(snap.data() as Record<string, unknown>);
+    if (members && uid in members) return; // already enrolled — no write
+    await updateDoc(ref, { [`members.${uid}`]: members ? 'member' : 'owner' });
+  } catch (err) {
+    if (isPermissionDenied(err)) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent(TRIP_ACCESS_PENDING_EVENT));
+      }
+      return;
+    }
+    console.warn('[trips-remote] membership enrolment failed:', err);
+  }
+}
+
+/**
+ * The trip's roster, or `undefined` when there is none to show — dormant, unreachable, no trip
+ * doc, or a doc with no members map (a grandfathered capability trip, where "everyone holding the
+ * link" is the honest answer and a list would be a lie). TOTAL, never throws.
+ */
+export async function fetchTripMembers(
+  tripId: string,
+): Promise<Record<string, TripRole> | undefined> {
+  if (!isTripRemoteConfigured() || !tripId) return undefined;
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, getDocFromServer } = fs;
+    const snap = await getDocFromServer(doc(db, 'trips', tripId));
+    if (!snap.exists()) return undefined;
+    return readMembers(snap.data() as Record<string, unknown>) as Record<string, TripRole> | undefined;
+  } catch (err) {
+    console.warn('[trips-remote] members fetch failed:', err);
+    return undefined;
+  }
+}
+
+/** What a roster write did. `denied` is the rules refusing it, which the UI must explain. */
+export type MemberWriteResult = 'ok' | 'denied' | 'failed';
+
+/**
+ * Add someone else's device code to this trip (#10). ANY member may do this — the rules accept an
+ * add-only members diff from a member — which is what makes "send me your code and I'll add you"
+ * work without an invite server.
+ *
+ * Always `'member'`: this UI never mints a second owner. (The rules cannot enforce that — see the
+ * ceiling note at the top of this section — so the client not offering it is the whole guard.)
+ */
+export async function addTripMember(tripId: string, uid: string): Promise<MemberWriteResult> {
+  return writeMemberField(tripId, uid, 'member');
+}
+
+/**
+ * Remove a device from this trip (#10). OWNER ONLY, and enforced twice: the control is not
+ * rendered for a member, and the rules refuse a non-owner edit that removes a members key.
+ */
+export async function removeTripMember(tripId: string, uid: string): Promise<MemberWriteResult> {
+  return writeMemberField(tripId, uid, null);
+}
+
+/** One field-path write against the members map — `null` value ⇒ delete that entry. */
+async function writeMemberField(
+  tripId: string,
+  uid: string,
+  role: TripRole | null,
+): Promise<MemberWriteResult> {
+  if (!isTripRemoteConfigured() || !tripId || !uid) return 'failed';
+  try {
+    const { db, fs } = await getRemote();
+    const { doc, updateDoc, deleteField } = fs;
+    // FIELD PATH, never a whole-document write: the rules only ever accept an edit whose affected
+    // keys are exactly `members`.
+    await updateDoc(doc(db, 'trips', tripId), { [`members.${uid}`]: role ?? deleteField() });
+    return 'ok';
+  } catch (err) {
+    if (isPermissionDenied(err)) return 'denied';
+    console.warn('[trips-remote] members write failed:', err);
+    return 'failed';
+  }
+}
+
 /** Extract the row array from a raw remote list doc (defensive: tolerate a partial/missing doc). */
 function docToTrips(data: Record<string, unknown>): TripMeta[] {
   return Array.isArray(data.trips) ? (data.trips as TripMeta[]) : [];
@@ -216,10 +436,14 @@ export async function pushTripList(code: string): Promise<void> {
  * Subscribe to the remote trip list (remote → local). Opens ONE `onSnapshot` on
  * `trips/{syncCode}/profile/tripList` (first-snapshot marker = DOC PRESENCE, docs-remote recipe):
  * PRESENT ⇒ merge into the local registry (`importRemoteTrips`) + push the union back when local had
- * extras; ABSENT on the first snapshot ⇒ seed from local. Gated + lazy + self-degrading: no-op unsub
- * when dormant; any failure → local-only via console.warn, never throws. Best-effort, so — unlike the
- * domain subscribes — it carries NO online-reconnect retry (a dropped stream re-subscribes on the
- * next reload). `onMerge` fires after a present-snapshot merge (for the caller to react/telemeter).
+ * extras; ABSENT on the first snapshot ⇒ NOTHING (#10 — the auto-seed is DELETED). Seeding an
+ * absent doc here is what used to manufacture a working account for ANY pasted string, which made
+ * the door's validation meaningless; the tripList doc is now created only by the deliberate
+ * writers (the door's create path, trips-hub's list pushes, `finishAccount`). Gated + lazy +
+ * self-degrading: no-op unsub when dormant; any failure → local-only via console.warn, never
+ * throws. Best-effort, so — unlike the domain subscribes — it carries NO online-reconnect retry
+ * (a dropped stream re-subscribes on the next reload). `onMerge` fires after a present-snapshot
+ * merge (for the caller to react/telemeter).
  */
 export function subscribeTripList(code: string, onMerge?: () => void): () => void {
   if (!isRemoteConfigured() || !code) return () => {};
@@ -243,19 +467,16 @@ export function subscribeTripList(code: string, onMerge?: () => void): () => voi
           if (snap.metadata.hasPendingWrites) return;
           if (!firstSnapshotHandled && snap.metadata.fromCache) return;
           try {
-            const first = !firstSnapshotHandled;
             firstSnapshotHandled = true;
             if (snap.exists()) {
               const data = snap.data() as Record<string, unknown>;
               const { localHadExtras } = importRemoteTrips(docToTrips(data), docToRemoved(data));
               if (localHadExtras) void pushTripList(code); // push our extras/removals up (best-effort)
               onMerge?.();
-            } else if (first) {
-              // Never synced → seed the doc from local (best-effort; local is untouched on failure).
-              void pushTripList(code).catch((err) =>
-                console.warn('[trips-remote] trip list seed failed, staying local-only:', err),
-              );
             }
+            // ABSENT ⇒ do nothing (#10). The old absent-first-snapshot seed branch is deleted —
+            // see the docblock. An account with no tripList doc gets one from its next deliberate
+            // list-changing action, never from merely logging in with a string.
           } catch (err) {
             console.warn('[trips-remote] failed to apply remote trip list:', err);
           }

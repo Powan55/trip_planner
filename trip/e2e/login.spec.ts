@@ -9,11 +9,10 @@ import AxeBuilder from '@axe-core/playwright';
  * no root-layout split. So everything here is scoped to the wall's `[role="dialog"]` panel, which
  * is what a logged-out visitor actually sees.
  *
- * 🔴 SCOPE NOTE, so this pack cannot be misread as proving more than it does: with no guest mode
- * (D-241) the wall is a full-viewport OVERLAY, and `app/layout.tsx` still mounts `{children}`
- * underneath it. "The landing shows no trip data" is therefore a claim about the WALL, not about
- * the document — see the last test, which measures the page behind the wall and reports it rather
- * than asserting a guarantee this slice does not make.
+ * SCOPE NOTE, updated by #10: the wall is no longer only an overlay. `ItineraryProvider` renders
+ * `{children}` ONLY for an identified traveler, so a logged-out visitor's document carries no
+ * trip content at all — the last test in this file, which spent months as a log-only FINDING
+ * recording exactly that leak, is now a real assertion.
  *
  * Proves:
  *   1. A logged-out visit opens on the LANDING (H1 + CTAs), not the auth form, and the wall carries
@@ -56,9 +55,9 @@ test.describe('S355 — the logged-out landing', () => {
   }) => {
     await gotoLoggedOut(page);
 
-    // Scoped to the wall ON PURPOSE. `/` has TWO <h1> for a logged-out visitor: this one, and the
-    // home hero's "Nepal × Japan" mounted in the DOM behind the overlay (D-241 — the wall covers
-    // the viewport, it does not unmount `{children}`). See the FINDING test at the bottom.
+    // Scoped to the wall — which since #10 is also the ONLY place an <h1> can exist for a
+    // logged-out visitor (the provider withholds `{children}`; the last test in this file pins
+    // that the DOM outside the wall is empty).
     await expect(page.locator('[role="dialog"] h1')).toHaveText(
       'Every day of the trip, in one place.',
     );
@@ -346,20 +345,20 @@ test.describe('S355 — landing a11y + responsive', () => {
 });
 
 /**
- * 🔴 OPEN FINDING, recorded so the green pack above cannot be misread as closing it.
+ * #10 — the S355 FINDING, closed and turned into a real assertion.
  *
- * "A logged-out stranger must not be able to read the trip" is the stated point of the landing, and
- * this slice does NOT achieve it. D-241's wall is a full-viewport OVERLAY and `app/layout.tsx`
- * mounts `{children}` underneath it regardless of identity, so the home dashboard — including an
- * `<h1>` carrying the trip name — is still in the DOM behind the landing and readable via
- * view-source or devtools. That is PRE-EXISTING (it is how the wall has always worked) and unchanged
- * by S355, which is why nothing here asserts a guarantee. It is logged, not asserted: pinning the
- * leak with an assertion would codify it as correct.
+ * The log-only test that lived here recorded: the wall was a full-viewport OVERLAY with
+ * `{children}` still mounted underneath, so the home dashboard — including an `<h1>` carrying the
+ * trip name — was readable via view-source or devtools by any logged-out visitor. The
+ * architectural call the finding named ("render `{children}` only when identified") was made by
+ * issue #10: `ItineraryProvider` withholds children until `useActiveTraveler()` resolves a
+ * traveler, superseding D-244's no-render-split posture for this seam.
  *
- * Closing it needs an architectural call (render `{children}` only when identified, or move the app
- * home off `/`) — out of scope for S355 and squarely against D-244's "no root-layout split".
+ * The probe is the SAME collection the finding used (headings + content-bearing elements outside
+ * the wall), inverted from "report it" to "must be empty" — so the assertion fails on exactly the
+ * DOM the finding measured.
  */
-test('FINDING (log-only) — the DOM behind the wall still carries trip data for a logged-out visitor', async ({
+test('#10 — the DOM behind the wall carries NO trip content for a logged-out visitor', async ({
   page,
 }) => {
   await gotoLoggedOut(page);
@@ -377,6 +376,8 @@ test('FINDING (log-only) — the DOM behind the wall still carries trip data for
         .slice(0, 8),
     };
   });
-  console.log('BEHIND-THE-WALL (pre-existing, not fixed by S355):', JSON.stringify(behind, null, 2));
-  expect(behind).toBeTruthy();
+  expect(behind.headings, 'a logged-out DOM must carry no headings outside the wall').toEqual([]);
+  expect(behind.sample, 'a logged-out DOM must carry no readable content outside the wall').toEqual([]);
+  // (The document <title>/OG meta still carry the public site branding — that is route metadata,
+  // not trip content, and deliberately out of scope here.)
 });

@@ -100,34 +100,59 @@ test.describe('S84 · reduced motion — route-fade wrapper is imperceptible (ap
   test('the route-fade animation is collapsed to ~0ms under reduced motion', async ({ page }) => {
     await gotoReduced(page, '/');
 
-    // The static export's SSR'd `.animate-route-fade` wrapper is present in the
-    // DOM (useReducedMotion() is null during prerender, so the class ships), and
-    // it persists post-hydration in this build. The reduced-motion guarantee is
-    // therefore delivered by the CSS layer, NOT by removing the node: the
-    // `@media (prefers-reduced-motion: reduce)` block collapses
-    // `animation-duration` to 0.01ms — imperceptible — so the fade never plays.
-    // Assert that computed duration is effectively zero (<= 1ms) wherever the
-    // class is present. (Verified live: animationName stays 'route-fade' but
-    // animationDuration reads '1e-05s' under reduce vs the full duration
-    // without it — this is the honest, real contract.)
-    const wrapper = page.locator('.animate-route-fade').first();
-    await expect(wrapper).toBeAttached();
-    const durationSeconds = await wrapper.evaluate((el) => {
-      const raw = getComputedStyle(el).animationDuration; // e.g. "1e-05s" or "0.15s"
-      return parseFloat(raw);
-    });
-    expect(durationSeconds).toBeLessThanOrEqual(0.001);
+    // The reduced-motion guarantee here is delivered by the CSS layer, NOT by removing the
+    // node: the `@media (prefers-reduced-motion: reduce)` block collapses `animation-duration`
+    // to 0.01ms — imperceptible — so the fade never plays. (Measured live: animationName stays
+    // 'route-fade' and animationDuration reads '1e-05s' under reduce, vs the full duration
+    // without it — pinned by the positive control below.) template.tsx ALSO branches at the
+    // React level, but `useReducedMotion()` does not report the emulated preference on the
+    // render that matters, so the CSS layer is what actually holds — which is why this test
+    // asserts the duration rather than the node's absence.
+    //
+    // ASSERT THE CONTRACT, NOT THE MECHANISM — measured, and the reason is worth keeping.
+    // template.tsx carries BOTH guarantees, and which one you observe is not stable across
+    // builds: the React branch (plain <div>, no class) only fires if framer-motion's
+    // `useReducedMotion()` has already seen the emulated preference when the subtree first
+    // renders, and since #10 that subtree renders on the CLIENT after hydration, so the answer
+    // now turns on module-init order — which a routine change in chunk splitting reshuffles.
+    // Both outcomes satisfy the promise: no keyframe attached, or one collapsed to ~0ms.
+    // Pinning either one specifically makes this test fail on an unrelated bundling change,
+    // which is noise, not coverage. So: NOTHING on the page may carry a live route fade.
+    // The positive control below is what stops that being vacuous.
+    await page.waitForLoadState('domcontentloaded');
+    const liveFades = await page.evaluate(() =>
+      [...document.querySelectorAll('.animate-route-fade')]
+        .map((el) => parseFloat(getComputedStyle(el).animationDuration))
+        .filter((d) => d > 0.001),
+    );
+    expect(liveFades).toEqual([]);
 
     // Cross-check after a client-side route transition (template REMOUNTS on
     // navigation — the one moment a real fade could otherwise play).
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/nepal/', { waitUntil: 'load' });
     await settleSW(page);
-    const afterNav = page.locator('.animate-route-fade').first();
-    if ((await afterNav.count()) > 0) {
-      const d2 = await afterNav.evaluate((el) => parseFloat(getComputedStyle(el).animationDuration));
-      expect(d2).toBeLessThanOrEqual(0.001);
-    }
+    const liveFadesAfterNav = await page.evaluate(() =>
+      [...document.querySelectorAll('.animate-route-fade')]
+        .map((el) => parseFloat(getComputedStyle(el).animationDuration))
+        .filter((d) => d > 0.001),
+    );
+    expect(liveFadesAfterNav).toEqual([]);
+  });
+
+  // POSITIVE CONTROL: without the preference the same wrapper animates for real. Without this,
+  // the assertion above would pass just as happily against a stylesheet that had dropped the
+  // animation entirely — a test that cannot fail is not coverage (the S354 lesson, below).
+  test('without the preference the route-fade wrapper animates for real', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.goto('/', { waitUntil: 'load' });
+    await settleSW(page);
+    const wrapper = page.locator('.animate-route-fade').first();
+    await expect(wrapper).toBeAttached({ timeout: 20_000 });
+    const durationSeconds = await wrapper.evaluate((el) =>
+      parseFloat(getComputedStyle(el).animationDuration),
+    );
+    expect(durationSeconds).toBeGreaterThan(0.001);
   });
 });
 
@@ -167,19 +192,19 @@ test.describe('S84 · reduced motion — count-up does not animate (useCountUp, 
     page,
   }) => {
     // Same frozen instant as the S82 countdown pack: Nov 9 2026 (local noon) →
-    // Dec 9 2026 00:00 is exactly 00m/00w/29d/12h/00m/00s, totalDays 29 (S423 — same
-    // total as before, re-bucketed: "04 weeks 01 day" must never render). Under
-    // reduced motion the count-up lands on these immediately — assert the DOM
-    // shows the finals with NO intermediate eased value.
+    // Dec 9 2026 00:00 is exactly 01m/00w/01d/12h/00m/00s, totalDays 29 (issue #11: the
+    // same total as ever, carried, so 29 days is 1 month 1 day and the 0 weeks is not
+    // rendered at all). Under reduced motion the count-up lands on these immediately, so
+    // assert the DOM shows the finals with NO intermediate eased value.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/?today=2026-11-09', { waitUntil: 'load' });
     await settleSW(page);
 
     // These are the exact finals; a still-animating count-up would transiently
     // show a smaller number, so a first-paint exact match proves no ramp.
-    await expect(page.getByTestId('countdown-months')).toHaveText('00');
-    await expect(page.getByTestId('countdown-weeks')).toHaveText('00');
-    await expect(page.getByTestId('countdown-days')).toHaveText('29');
+    await expect(page.getByTestId('countdown-months')).toHaveText('01');
+    await expect(page.getByTestId('countdown-weeks')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-days')).toHaveText('01');
     await expect(page.getByTestId('countdown-hours')).toHaveText('12');
     await expect(page.getByTestId('countdown-total-days')).toHaveText('29');
 

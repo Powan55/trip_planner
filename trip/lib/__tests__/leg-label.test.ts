@@ -69,13 +69,48 @@ describe('S407 default pack — the day line names the day, not the leg id', () 
     expect(placeLabelForDate('2027-01-09')).toBe('Tokyo, Japan');
   });
 
-  it('a day that lost countryLabel over Firestore sync still reads Syracuse, USA', async () => {
-    // `docToDayPlan` (lib/itinerary-remote.ts) is shape-FROZEN and drops unknown fields, so a
-    // synced Dec-9 day arrives without `countryLabel`. The content-derived DAY_LABELS map is what
-    // fills it back in — without that fallback this renders the old "Syracuse, Nepal".
+  it('a day with no countryLabel (legacy remote doc) still reads Syracuse, USA', async () => {
+    // A day-doc written before the label existed arrives without `countryLabel` (sync itself no
+    // longer strips it: `docToDayPlan` passes day keys through, #42). The content-derived
+    // DAY_LABELS map fills it back in. Without that fallback this renders "Syracuse, Nepal".
     const { dayPlaceLabel } = await loadHelper();
     const synced = { date: '2026-12-09', city: 'Syracuse', country: 'nepal', items: [] };
     expect(dayPlaceLabel(synced)).toBe('Syracuse, USA');
+  });
+
+  it('#6: day one names the day\'s own city, never the nepal leg\'s fallback "Kathmandu"', async () => {
+    const { dayPlaceLabel, placeLabelForDate } = await loadHelper();
+    const { SAMPLE_ITINERARY } = await import('@/lib/sample-itinerary');
+    const day1 = SAMPLE_ITINERARY[0];
+
+    // D-285 (owner-ruled): Dec 9 is spent in Syracuse, JFK and the air, so the day's OWN city is
+    // Syracuse. 'Kathmandu' is the nepal leg's `fallbackCity` (core/trips/packs/nepal-japan-2026.ts).
+    // If it ever reaches this line the day's own city has been dropped, the shape #6 reported.
+    expect(dayPlaceLabel(day1)).toBe('Syracuse, USA');
+    expect(dayPlaceLabel(day1)).not.toBe('Kathmandu, USA');
+    expect(placeLabelForDate('2026-12-09')).not.toContain('Kathmandu');
+  });
+
+  it('#6: a synced day that lost its city falls back by DATE, never to a bare label', async () => {
+    const { dayPlaceLabel } = await loadHelper();
+    // `docToDayPlan` (lib/itinerary-remote.ts) defaults a missing/ill-typed `city` to '', and a
+    // remote-only day passes through `mergeDays` unmerged, so '' does reach the day line. Before
+    // the fix these read "USA" and "Nepal": a country with no city in front of it.
+    const dec9 = { date: '2026-12-09', city: '', country: 'nepal', countryLabel: 'USA', items: [] };
+    const dec14 = { date: '2026-12-14', city: '', country: 'nepal', items: [] };
+    expect(dayPlaceLabel(dec9)).toBe('Syracuse, USA');
+    expect(dayPlaceLabel(dec14)).toBe('Nagarkot, Nepal');
+  });
+
+  it('#6: no other leg regresses. mid-Nepal, the Dec 18/19 leg change, mid-Japan', async () => {
+    const { dayPlaceLabel } = await loadHelper();
+    const { SAMPLE_ITINERARY } = await import('@/lib/sample-itinerary');
+    const on = (d: string) => dayPlaceLabel(SAMPLE_ITINERARY.find((x) => x.date === d)!);
+
+    expect(on('2026-12-14')).toBe('Nagarkot, Nepal'); // mid-Nepal day trip
+    expect(on('2026-12-18')).toBe('Kathmandu, Nepal'); // last Nepal day
+    expect(on('2026-12-19')).toBe('Osaka, Japan'); // travel day / first Japan day
+    expect(on('2026-12-25')).toBe('Kyoto, Japan'); // mid-Japan
   });
 
   it('legLabel maps the default pack ids to their pack labels', async () => {
@@ -114,6 +149,14 @@ describe('S407 custom trip — neither a foreign country nor a duplicated city',
     // D-231 trip-scoping: these dates are Syracuse/USA and Tokyo/Japan on the DEFAULT pack.
     expect(placeLabelForDate('2026-12-09')).toBe('Bali');
     expect(placeLabelForDate('2027-01-09')).toBe('Bali');
+  });
+
+  it('#6: a custom day that lost its city falls back to the leg city, never an empty label', async () => {
+    const { dayPlaceLabel } = await loadHelper();
+    // The custom leg's `fallbackCity` is destinations[0] (core/trips/custom.ts). Single leg, so no
+    // label is appended. Before the fix this whole line was the empty string.
+    const day = { date: '2026-12-20', city: '', country: 'main', items: [] };
+    expect(dayPlaceLabel(day)).toBe('Bali');
   });
 
   it('legLabel(main) is the joined destinations label — correct on its OWN (the expense/settle-up chip)', async () => {

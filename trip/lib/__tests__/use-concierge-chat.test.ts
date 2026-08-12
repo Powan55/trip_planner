@@ -24,6 +24,29 @@ vi.mock('@/lib/concierge-config', () => ({
   isConciergeConfigured: () => Boolean(gate.url),
 }));
 
+// #10 — a controllable remote gate for send()'s default-pack guard (b). Default `false` mirrors
+// the real vitest environment (no firebase env), so every pre-#10 test runs the exact branch it
+// was written against; ONE test flips it on to pin the refusal.
+const remote = vi.hoisted(() => ({ on: false }));
+vi.mock('@/lib/firebase-config', () => ({
+  FIREBASE_CONFIG: {},
+  isRemoteConfigured: () => remote.on,
+  // The hook never calls these two; they exist so transitive importers (ports/outbox) resolve.
+  isTripRemoteConfigured: () => false,
+  getTripId: () => '',
+}));
+
+// #10 — the Worker's Authorization header. Default `{}` mirrors the real vitest environment (no
+// firebase ⇒ no session ⇒ no header), so every pre-#10 assertion in this file runs unchanged; ONE
+// test flips a session on to prove the header is actually wired to the request.
+const workerAuth = vi.hoisted(() => ({ header: {} as Record<string, string>, calls: 0 }));
+vi.mock('@/lib/worker-auth', () => ({
+  workerAuthHeader: async () => {
+    workerAuth.calls += 1;
+    return workerAuth.header;
+  },
+}));
+
 import { useConciergeChat, buildTripDescriptor, type ChatTurn, type ChatStatus } from '@/hooks/use-concierge-chat';
 import { setActiveTripId } from '@/core/storage/gateway';
 import { setTripConfig, renameKnownTrip } from '@/core/trips/registry';
@@ -109,7 +132,9 @@ function renderConciergeChat(fetchImpl: typeof fetch): Handle {
 
 describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
   beforeEach(() => {
+    localStorage.clear(); // #10: the account-gate tests drive the real registry/pointer
     gate.url = 'https://concierge.example.workers.dev';
+    remote.on = false; // the environment every pre-#10 test was written against
     setNavigatorOnLine(true); // every pre-S389 test in this file assumes a connection
   });
 
@@ -136,6 +161,39 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     expect(h.messages[1].role).toBe('assistant');
     expect(h.messages[1].content).toBe('Added a ramen dinner idea for you.');
     expect(h.messages[1].ops).toEqual(ops);
+    h.unmount();
+  });
+
+  it('#10 — attaches NO authorization header when there is no session', async () => {
+    workerAuth.calls = 0;
+    workerAuth.header = {};
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('hello');
+
+    const [, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect('authorization' in headers).toBe(false);
+    // The trip token is unchanged — the new header sits BESIDE it, it does not replace it.
+    expect(headers['X-Trip-Token']).toEqual(expect.any(String));
+    expect(workerAuth.calls).toBe(1); // the seam really ran (an empty header is not a skipped one)
+    h.unmount();
+  });
+
+  it('#10 — attaches the bearer token beside X-Trip-Token once there IS a session', async () => {
+    workerAuth.header = { authorization: 'Bearer id-token-xyz' };
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('hello');
+
+    const [, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const headers = init.headers as Record<string, string>;
+    expect(headers.authorization).toBe('Bearer id-token-xyz');
+    expect(headers['X-Trip-Token']).toEqual(expect.any(String));
+    expect(headers['content-type']).toBe('application/json');
+    workerAuth.header = {};
     h.unmount();
   });
 
@@ -383,6 +441,7 @@ describe('S395 — the trip descriptor on the POST body', () => {
     localStorage.clear();
     sessionStorage.clear();
     gate.url = 'https://concierge.example.workers.dev';
+    remote.on = false; // #10 — each account-gate case sets its own build shape
     setNavigatorOnLine(true);
   });
 
@@ -419,6 +478,61 @@ describe('S395 — the trip descriptor on the POST body', () => {
     // Worker and would be pure body-budget waste, so adding one must fail here.
     expect(Object.keys(body.trip as object).sort()).toEqual(['end', 'label', 'start']);
     expect(body.trip).toEqual({ label: 'Iceland ring road', start: '2027-03-01', end: '2027-03-05' });
+    h.unmount();
+  });
+
+  it("#10: an UNKNOWN custom trip (pointer set, never joined) is refused — no digest, no fetch", async () => {
+    // The registry does not know this id: nothing ever joinTrip'd it, so it is not on the
+    // account. The refusal must happen BEFORE any request forms — the load-bearing assertion is
+    // fetchImpl never being called, same shape as the S389-C offline test.
+    setActiveTripId('ghost-trip-nobody-joined');
+
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('plan my day');
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(h.status).toBe('error');
+    expect(h.error).toBe("This trip isn't on your account, so the concierge can't help with it.");
+    expect(h.messages).toEqual([]); // no user turn, no blank in-flight bubble
+    h.unmount();
+  });
+
+  it('#10: a KNOWN custom trip still sends (the registry entry is what admits it)', async () => {
+    useCustomTrip('Iceland ring road'); // setTripConfig + rename register it in the registry
+    remote.on = true; // even on a configured build — guard (b) is default-pack-only
+
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('where should I eat?');
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(h.status).toBe('idle');
+    h.unmount();
+  });
+
+  it('#10: the DEFAULT trip with remote UNCONFIGURED still sends — pins the e2e/dormant degrade', async () => {
+    // remote.on is false (the beforeEach default): guard (b) keys on isRemoteConfigured(), so a
+    // dormant build (the whole e2e suite, any fork without firebase env) keeps today's behavior.
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('what is on tomorrow?');
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(h.status).toBe('idle');
+    h.unmount();
+  });
+
+  it('#10: the DEFAULT trip on a CONFIGURED build is refused — the sample is not a concierge trip', async () => {
+    remote.on = true; // the deployed-site shape
+    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('plan my day');
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(h.status).toBe('error');
+    expect(h.error).toBe('The concierge works on your own trips — open one of your trips to chat.');
+    expect(h.messages).toEqual([]);
     h.unmount();
   });
 

@@ -50,25 +50,36 @@ export function isRemoteConfigured(): boolean {
 }
 
 /**
- * Resolve the Firestore path segment for the ACTIVE pack — the trip's REMOTE capability token
- * Dynamic, read per call (never cached at module scope) so a
- * pack switch picks up the new id.
+ * Resolve the Firestore path segment for the ACTIVE pack — the trip's REMOTE capability token.
+ * Dynamic, read per call (never cached at module scope) so a pack switch picks up the new id.
  *
- * - Default pack (id-equality with `DEFAULT_TRIP_ID`): its LOCAL id stays `'nepal-japan-2026'`
- * forever, but its REMOTE path is a separately-minted secret
- * injected at build time via `NEXT_PUBLIC_TRIP_ID` — the same env-var mechanism that already
- * existed here; it just happened to default to the same string as the local id before.
- * The literal `'nepal-japan-2026'` is already public (committed/quoted throughout the repo),
- * so it cannot be the security boundary — the env var supplies the real unguessable token.
+ * - Default pack (id-equality with `DEFAULT_TRIP_ID`): returns `''` — the default pack has NO
+ * remote path any more (#10). It is a LOCAL-ONLY SAMPLE. The old `NEXT_PUBLIC_TRIP_ID` env
+ * read is retired: it was described as "a separately-minted secret", which was false — a
+ * NEXT_PUBLIC_* value inlines into the public bundle at build time, so the "secret" shipped to
+ * every visitor and the world-readable remote trip it named had to be retired with it (rotation
+ * of the live remote id is an owner runbook step, not app code).
  * - Every other pack: the local pack id IS the capability token — return it verbatim.
  *
  * Never throws (getActiveTripId inherits the gateway's never-throw). SSR-safe: getActiveTripId
- * returns DEFAULT_TRIP_ID with no window, so the env-var branch is taken server-side.
+ * returns DEFAULT_TRIP_ID with no window, so SSR resolves '' (nothing remote server-side).
  */
 export function getTripId(): string {
   const activeId = getActiveTripId();
   if (activeId === DEFAULT_TRIP_ID) {
-    return process.env.NEXT_PUBLIC_TRIP_ID || DEFAULT_TRIP_ID;
+    return '';
   }
   return activeId;
+}
+
+/**
+ * #10 — the TRIP-scoped remote gate: is remote sync live for the ACTIVE pack?
+ * `isRemoteConfigured()` (the web config) AND a non-empty remote trip id. On the default pack
+ * `getTripId()` is `''`, so this is false in every build — the sample never syncs — while custom
+ * trips behave exactly as before. Every module that composes `doc(db, 'trips', getTripId(), …)`
+ * must gate on THIS, not on `isRemoteConfigured()`; account-scoped paths
+ * (`trips/{userToken}/profile/*`) keep gating on `isRemoteConfigured()` alone.
+ */
+export function isTripRemoteConfigured(): boolean {
+  return isRemoteConfigured() && getTripId() !== '';
 }

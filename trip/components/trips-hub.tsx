@@ -87,11 +87,10 @@ function settleWithin(pushes: Promise<unknown>[], ms: number): Promise<unknown> 
  * switch primitive VERBATIM: `joinTrip(id)` then a full navigation to Home. Pencil =
  * inline rename via `renameKnownTrip`. Per-row "Copy link"
  * builds the same `?trip=` share URL as Settings: for a non-default pack the id
- * IS the capability token; for the DEFAULT pack the token is the separately
- * minted `NEXT_PUBLIC_TRIP_ID` secret (the same source `getTripId()` reads for the
- * default pack, lib/firebase-config) — NEVER the public `nepal-japan-2026` literal. When
- * that env is unset (dormant build, sync unconfigured) the default pack simply has no
- * shareable token, so its copy button is not rendered.
+ * IS the capability token. The DEFAULT pack is a LOCAL-ONLY SAMPLE (#10 —
+ * `NEXT_PUBLIC_TRIP_ID` is retired, `getTripId()` returns '' for it): it has no remote path,
+ * so it has no shareable token, its copy buttons are never rendered, and its subtitle says
+ * "Sample — on this device only".
  * 2. CREATE A TRIP — required name → `joinTrip(uuid,
  * name)`, then AWAIT the remote meta push under a budget, then navigate Home ( — the
  * navigation used to abort that push in flight and leave joiners with a contentless trip;
@@ -154,7 +153,7 @@ export default function TripsHub() {
   /** The shareable capability token for a row, or null when none exists (see header). */
   const shareTokenFor = (id: string): string | null => {
     if (id !== DEFAULT_TRIP_ID) return id; // non-default pack: the id IS the token
-    return process.env.NEXT_PUBLIC_TRIP_ID || null; // default pack: env secret or unshareable
+    return null; // default pack: a local-only sample with no remote path (#10) — unshareable
   };
 
   /**
@@ -174,6 +173,18 @@ export default function TripsHub() {
       .then(({ pushTripMeta }) => pushTripMeta(token, { name, config }))
       .catch((err) => console.warn('[trips-hub] trip meta push unavailable:', err));
   };
+
+  /**
+   * #10 — create the trip's remote doc, naming this device `owner`, BEFORE anything is written
+   * underneath it. Ordering is structural, not stylistic: the members map can only be minted on
+   * the create, and once it exists every write under `trips/{id}/**` is membership-gated. Same
+   * shape as `pushMetaFor` — dynamically imported, never rejects — so it composes into the same
+   * `settleWithin` budget below.
+   */
+  const createTripDocFor = (id: string): Promise<void> =>
+    import('@/lib/trips-remote')
+      .then(({ createTripDoc }) => createTripDoc(id))
+      .catch((err) => console.warn('[trips-hub] trip doc create unavailable:', err));
 
   /**
    * Best-effort mirror of the updated known-trips list to the owner's User Token doc ( Sync
@@ -288,7 +299,19 @@ export default function TripsHub() {
     // flight, so the joiner's /plan rendered no day cells at all. Await both pushes under one
     // shared budget, then navigate whatever happened (see CREATE_PUSH_BUDGET_MS).
     setCreating(true);
-    await settleWithin([pushMetaFor(id, name, config), pushSyncList()], CREATE_PUSH_BUDGET_MS);
+    // #10 — the trip DOC first, THEN the pushes that live underneath it. The order is structural:
+    // the members map can only be minted on the create, and from the moment it exists every write
+    // under `trips/{id}/**` is membership-gated, so the creator has to already be in it. Chained
+    // inside ONE `settleWithin` rather than awaited twice, so the whole sequence still shares the
+    // single navigation budget — a dead network must not make "create a trip" hang for 2×.
+    await settleWithin(
+      [
+        createTripDocFor(id).then(() =>
+          Promise.allSettled([pushMetaFor(id, name, config), pushSyncList()]),
+        ),
+      ],
+      CREATE_PUSH_BUDGET_MS,
+    );
     window.location.assign(withBasePath('/'));
   };
 
@@ -345,9 +368,11 @@ export default function TripsHub() {
             {(trips ?? []).map((t, i) => {
               const isCurrent = t.id === activeId;
               const token = shareTokenFor(t.id);
+              // #10 — the default pack is honest about what it now is: a local-only sample
+              // (no remote path, nothing syncs, nothing to share).
               const subtitle =
                 t.id === DEFAULT_TRIP_ID
-                  ? 'Main trip'
+                  ? 'Sample — on this device only'
                   : `Joined ${new Date(t.joinedAt).toLocaleDateString()}`;
               return (
                 <li

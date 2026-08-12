@@ -21,6 +21,8 @@ import type { Expense } from '@/core/budget/expenses';
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
   isRemoteConfigured: () => true,
+  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
+  isTripRemoteConfigured: () => true,
   getTripId: () => 'nepal-japan-2026',
 }));
 // The outbox-decorated push gates on an active traveler (D-055); mock one in.
@@ -44,6 +46,19 @@ const writeLog: string[] = [];
 function pathOf(segments: string[]): string {
   return segments.join('/');
 }
+
+// #10 — `getRemote()` now signs the device in anonymously BEFORE it resolves (the rules grew an
+// auth floor), so the auth module is faked here too. `queueMicrotask`, not `setTimeout`: the
+// observer must resolve after the synchronous return of `onAuthStateChanged` (as the real SDK
+// does) but WITHOUT depending on a timer, so a suite running under fake timers still gets a handle.
+vi.mock('firebase/auth', () => ({
+  getAuth: () => ({ currentUser: { uid: 'device-uid-fake', getIdToken: async () => 'fake-id-token' } }),
+  onAuthStateChanged: (_auth: unknown, next: (u: unknown) => void) => {
+    queueMicrotask(() => next(null)); // no restored session ⇒ the anonymous sign-in below runs
+    return () => {};
+  },
+  signInAnonymously: async () => ({ user: { uid: 'device-uid-fake' } }),
+}));
 
 vi.mock('firebase/app', () => ({
   initializeApp: () => ({ name: 'fake' }),

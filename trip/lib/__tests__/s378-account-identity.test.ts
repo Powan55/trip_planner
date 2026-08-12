@@ -26,6 +26,8 @@ import { act } from 'react-dom/test-utils';
 // Sync Code ∧ an active traveler, and everything past them is the mocked trips-remote below.
 vi.mock('@/lib/firebase-config', () => ({
   isRemoteConfigured: () => true,
+  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
+  isTripRemoteConfigured: () => true,
   getTripId: () => 'test-trip',
   FIREBASE_CONFIG: {},
 }));
