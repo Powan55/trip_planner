@@ -10,9 +10,8 @@ import { CONCIERGE_URL } from '@/lib/concierge-config';
 import { workerAuthHeader } from '@/lib/worker-auth';
 import { TRIP_DATE_LABEL, TRIP_DATES } from '@/core/dates/trip-dates';
 import { getCityForDate } from '@/core/dates/trip-cities';
-import { effectiveStartMinutes } from '@/core/dates/item-time';
-import { getTodayInTrip } from '@/lib/trip-now';
-import { minutesToHHMM } from '@/lib/time-picker-format';
+import { effectiveStartMinutes, formatTimeAmPm } from '@/core/dates/item-time';
+import { getNowAtTrip, getTodayInTrip } from '@/lib/trip-now';
 import { itineraryStoragePort } from '@/lib/itinerary-ports';
 import type { Op } from '@/lib/concierge-ops';
 
@@ -37,18 +36,22 @@ export interface ChatTurn {
 // ceiling before folding it into the system prompt. This cap MUST stay ≤ the Worker ceiling.
 // raised BOTH to 7000 (from 2000) so the whole fully-planned 32-day digest fits
 // without mid-trip truncation. raised BOTH to 9500, because the digest now carries a
-// per-item `HH:MM category ` prefix. MEASURED, not estimated:
-// fully-planned 32-day sample trip, 158 items: 6611 chars BEFORE → 9025 AFTER (+15.3/item).
+// per-item time + category prefix. MEASURED, not estimated:
+// fully-planned 32-day sample trip, 158 items: 6610 chars BEFORE → 9426 AFTER.
 // Both numbers are pinned EXACTLY by the "MEASUREMENT" test in
 // lib/__tests__/concierge-digest-s327.test.ts (constants MEASURED_DIGEST_BEFORE/AFTER), so the
 // slack claim below is backed by a test that goes red rather than by a run someone did once —
 // change what the digest emits and that test fails and asks you to re-measure.
-// So 7000 would truncate a third of the trip, and 9000 — the number this change was originally
-// scoped with, derived from a stale 6517 estimate — would still have cut the last day's tail off
-// by 25 chars. 9500 clears the real digest with 476 chars of slack for items the user adds.
-// ( relabelled Dec 9 'Kathmandu' → 'Syracuse', one character shorter, so the measured digest
-// went 9025 → 9024 and the slack 475 → 476. The number above is the one the MEASUREMENT test
-// prints and pins; it is not an estimate.)
+//
+// ⚠️ THE SLACK IS THIN NOW, AND IT CANNOT BE BOUGHT BACK FROM THIS FILE. #12 spent 402 of it:
+// +351 taking the per-item times 24-hour → 12-hour (`18:30` → `6:30 PM`, the bug), and +51
+// making the date line unconditional. Measured worst case is 9435 chars, on an in-window clock
+// (the "(Day 31 of 32, Tokyo)." branch is longer than "(before the trip)."), leaving 65 chars,
+// about one more itinerary item, where there used to be room for ten. The cap test in that same
+// file walks all 32 trip days and fails if any of them truncates.
+// If a future change needs more room, DIGEST_CAP and the Worker's CONTEXT_TRUNCATE_LENGTH move
+// TOGETHER, in a Worker deploy. Raising this one alone does not buy room, it just moves the
+// truncation server-side where nothing turns red (see the coupling note below).
 // Keep these two constants equal; a higher client cap would ship bytes the server silently
 // discards. (They land + deploy together per the coupling; don't raise one without
 // the other.)
@@ -169,24 +172,39 @@ export function buildTripDigest(): string {
     // with no proposal chip. Cheap (~55 chars, well inside DIGEST_CAP) and it costs no extra call.
     `Trip: ${TRIP_DATE_LABEL} (${TRIP_DATES.length} days). Dates are YYYY-MM-DD between ${TRIP_DATES[0]} and ${TRIP_DATES[TRIP_DATES.length - 1]}. Any date not listed below is unplanned.`,
     // one line teaching the per-item encoding, which also subsumes the old trailing
-    // "Items tagged #id." The Worker's system prompt is written against this exact
-    // wording — the two halves must describe the same format or the model mis-parses the digest.
-    'Each item is "HH:MM category Title #id". A missing HH:MM means no set time yet.',
+    // "Items tagged #id." It must describe what the lines below ACTUALLY carry or the model
+    // mis-parses the digest, so #12's switch to 12-hour times moves this line with it. The
+    // deployed Worker's PLAN_LINES still says "HH:MM"; that is stale and this line, which sits
+    // directly above the data, corrects it in place with no Worker deploy. The half of PLAN_LINES
+    // that matters for correctness is untouched: ops still carry integer `startMinutes`, never a
+    // display string, and `validateOps` is what enforces it.
+    'Each item is "h:mm AM/PM category Title #id". A missing time means no set time yet.',
   ];
 
-  // the starter chip "What's the plan for tomorrow?" is unanswerable without the model
-  // knowing where "now" sits inside the trip range above — it only had the range, never today's
-  // position in it. `getTodayInTrip()` (lib/trip-now.ts) is the SAME clock+leg-offset adapter
-  // every other "what day is it" caller uses (hero-section/calendar-planner/quick-add-fab): it
-  // reads the destination-local wall-clock day (Nepal/Japan offset), not the device's, so a
-  // traveler checking from bed still gets the correct calendar day — a Worker-side `new Date()`
-  // (UTC at the edge) cannot do this. Outside the trip window (before Dec 9 / after Jan 9) it's
-  // `null` and this line is omitted entirely: there is no trip-local "today" to report, same as
-  // every other today-dependent feature in the app.
+  // The date+time stamp, and it is now UNCONDITIONAL (#12). It used to hang off
+  // `getTodayInTrip()`, which is `null` outside Dec 9 to Jan 9, so every off-trip conversation
+  // shipped a digest with no date in it at all and the model fell back to the first day of the
+  // trip. It answered a question asked in August as if it were December 9. `getNowAtTrip()`
+  // (lib/trip-now.ts) is the same clock+leg-offset adapter, minus that `null`: it reads the
+  // destination-local wall-clock day and time (Nepal/Japan offset), not the device's, so a
+  // traveler checking from bed gets the right calendar day. A Worker-side `new Date()` (UTC at
+  // the edge) cannot do this. Both halves route through `getNow()`, so `?today=` still drives it.
+  //
+  // The time joins the date because the same bug had a second face: without it the model had no
+  // idea whether "tonight" had already happened. 12-hour to match the items below and the rest of
+  // the app (`formatTimeAmPm`, the one helper).
+  //
+  // The two branches carry the SAME date by construction (both resolve one clock at one offset);
+  // in-trip it adds Day N + city, off-trip which side of the window we are on, which is the fact
+  // the model was silently inventing.
+  const now = getNowAtTrip();
   const today = getTodayInTrip();
-  if (today) {
-    lines.push(`Today is ${today.date} (Day ${today.dayNumber} of ${TRIP_DATES.length}, ${today.city}).`);
-  }
+  const stamp = `Today is ${now.date} ${formatTimeAmPm(now.minutes)}`;
+  lines.push(
+    today
+      ? `${stamp} (Day ${today.dayNumber} of ${TRIP_DATES.length}, ${today.city}).`
+      : `${stamp} (${now.date < TRIP_DATES[0] ? 'before' : 'after'} the trip).`,
+  );
 
   const plans = itineraryStoragePort.load();
   const byDate = new Map(plans.map((d) => [d.date, d]));
@@ -204,8 +222,12 @@ export function buildTripDigest(): string {
         // carries `time: '05:30'` and NO `startMinutes` at all — reading the raw field would emit
         // a timeless digest on every fresh device, i.e. the whole point of this change, silently
         // lost. Untimed items get NO token rather than `00:00`, which would read as midnight.
+        // #12: `formatTimeAmPm`, not `minutesToHHMM`. The digest is DISPLAY text the model reads
+        // back to the traveller, and it was handing over 24-hour times, so the assistant said
+        // "18:30" where the app itself says "6:30 PM" everywhere else. `minutesToHHMM` is the
+        // D-138 canonical STORAGE format and stays that, in the `time` field, untouched.
         const minutes = effectiveStartMinutes(i);
-        const time = minutes === undefined ? '' : `${minutesToHHMM(minutes)} `;
+        const time = minutes === undefined ? '' : `${formatTimeAmPm(minutes)} `;
         return `${time}${i.category} ${i.title} #${i.id}`;
       })
       .join('; ');
