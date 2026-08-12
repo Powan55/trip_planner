@@ -6,34 +6,39 @@
 // unplanned days are omitted (not printed as wasted lines), and the digest is hard-capped
 // at the Worker CONTEXT_TRUNCATE_LENGTH ceiling. Also MEASURES a fully-populated trip.
 //
-// S362 extends it to the enriched per-item encoding `HH:MM category Title #id`, and to the
+// S362 extends it to the enriched per-item encoding, and to the
 // body-budget measurement that justifies HISTORY_CHAR_CAP (see the MEASUREMENT test at the
 // bottom — it is the source of those numbers, not a guess).
+//
+// #12 changes that encoding from 24-hour `HH:MM` to 12-hour `h:mm AM/PM`, and makes the date line
+// unconditional, so every expectation and both pinned sizes below moved with it.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { buildTripDigest, capHistory, type ChatTurn } from '@/hooks/use-concierge-chat';
 import { ITINERARY_STORAGE_KEY } from '../itinerary-storage';
 import { SAMPLE_ITINERARY } from '../sample-itinerary';
 import { TRIP_DATES, TRIP_DATE_LABEL } from '@/core/dates';
-import { effectiveStartMinutes } from '@/core/dates/item-time';
-import { minutesToHHMM } from '../time-picker-format';
+import { effectiveStartMinutes, formatTimeAmPm } from '@/core/dates/item-time';
+import { getNowAtTrip } from '../trip-now';
 import type { DayPlan } from '../trip-data';
 
 const DIGEST_CAP = 9500; // must equal the constant in use-concierge-chat.ts (coupled to the Worker; S362 raised 7000→9500)
 
 // The MEASURED sizes of the fully-planned SAMPLE trip digest, before and after S362's per-item
-// `HH:MM category ` prefixes. Asserted EXACTLY at the bottom of this file — DIGEST_CAP's slack and
+// time+category prefixes. Asserted EXACTLY at the bottom of this file. DIGEST_CAP's slack and
 // the Worker's CONTEXT_TRUNCATE_LENGTH coupling are both sized from these, so they are contract,
 // not trivia. Adding a field to the digest SHOULD fail that assertion.
-// S393 RE-MEASURED (both −1 char): the Dec-9 day line renames 'Kathmandu' → 'Syracuse', one
-// character shorter, and each digest carries that day line exactly once. Taken from the
-// [S362 MEASUREMENT] block on the run that made this change, not adjusted to fit.
-// Both couplings still hold and neither needed an edit: DIGEST_CAP 9500 now has 476 chars of
-// slack (was 475 — S395 corrected the matching phrasing in hooks/use-concierge-chat.ts, which
-// S393 flagged rather than edited because that file belonged to another lane), and the Worker's
-// CONTEXT_TRUNCATE_LENGTH floor RELAXES from 9025 to 9024, so a shrink can never breach it.
+// #12 RE-MEASURED, 9024 → 9426 (+402), taken from the [S362 MEASUREMENT] block on the run that
+// made this change, not adjusted to fit. Two causes, both wanted:
+//   +351  the per-item time goes 24-hour `18:30` → 12-hour `6:30 PM` (+2 chars, +3 when the
+//         12-hour form has two digits: 123 items and 35 items respectively of the 158 timed)
+//   + 51  the date line is UNCONDITIONAL now, and carries a time, so it is in this measurement
+//         where it used to be absent at this deliberately out-of-window instant
+// The Worker's CONTEXT_TRUNCATE_LENGTH floor RISES from 9024 to 9426. It is 9500, so it still
+// holds, but the slack is now THIN: 74 chars out of window and ~65 in it (the in-window date line
+// is the longer branch). Raising DIGEST_CAP to buy more is a Worker deploy, not a client edit.
 const MEASURED_DIGEST_BEFORE = 6610;
-const MEASURED_DIGEST_AFTER = 9024;
+const MEASURED_DIGEST_AFTER = 9426;
 const HISTORY_CHAR_CAP = 3000; // must equal the constant in use-concierge-chat.ts
 const MAX_BODY_BYTES = 16 * 1024; // the Worker's hard 413 ceiling (worker/src/index.ts:24)
 // S395: must equal TRIP_LABEL_MAX in use-concierge-chat.ts AND the Worker's own (providers.ts).
@@ -71,8 +76,16 @@ describe('buildTripDigest (S327)', () => {
     expect(digest).toContain('#id');
   });
 
-  describe('S362 — each item encodes as "HH:MM category Title #id"', () => {
-    it('emits a zero-padded 24h HH:MM, then the category, then the title, then the #id', () => {
+  describe('#12: each item encodes as "h:mm AM/PM category Title #id"', () => {
+    // The date line now carries a TIME too, so the negative assertions in this block ("no 12:00 AM
+    // anywhere") would otherwise depend on the wall-clock minute the suite happened to run at.
+    // 12:00Z at the Nepal leg's +345 is 17:45 -> "5:45 PM", which collides with none of them.
+    beforeEach(() => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-02T12:00:00Z'));
+    });
+
+    it('emits a 12h time with an AM/PM marker, then the category, then the title, then the #id', () => {
       seed([
         {
           date: TRIP_DATES[0],
@@ -86,18 +99,41 @@ describe('buildTripDigest (S327)', () => {
       ]);
 
       const digest = buildTripDigest();
-      // The full ordered encoding, not just its pieces — order IS the contract the Worker's
-      // system prompt (S362A-WORKER) is written against.
+      // The full ordered encoding, not just its pieces: order IS the contract the digest's own
+      // header line teaches the model.
       expect(digest).toContain(
-        `${TRIP_DATES[0]} Kathmandu: 09:00 sightseeing Senso-ji #k7-2; 19:00 food Ramen #a1-3`,
+        `${TRIP_DATES[0]} Kathmandu: 9:00 AM sightseeing Senso-ji #k7-2; 7:00 PM food Ramen #a1-3`,
       );
-      // zero-padded, 24-hour — 09:00 not 9:00, 19:00 not 7:00 PM
-      expect(digest).toContain('09:00 ');
-      expect(digest).toContain('19:00 ');
-      expect(digest).not.toContain('7:00 PM');
+      // #12: the whole point. The evening item reads 7:00 PM, and 19:00 is nowhere on the wire.
+      expect(digest).toContain('7:00 PM ');
+      expect(digest).not.toContain('19:00');
+      expect(digest).not.toContain('09:00');
     });
 
-    it('a single-digit-minute time still zero-pads BOTH fields (00:05, not 0:5)', () => {
+    it('midnight is 12:00 AM and noon is 12:00 PM, the two a naive hour%12 gets wrong', () => {
+      // A `% 12` with no 0→12 fix prints "0:00 AM" for midnight, and an `h < 12 ? AM : PM` applied
+      // to the wrong side prints "12:00 AM" for noon. Both are exactly 12 hours out, which is the
+      // worst kind of wrong for a plan, so they are pinned rather than left to the helper's tests.
+      seed([
+        {
+          date: TRIP_DATES[0],
+          city: 'Kathmandu',
+          country: 'nepal',
+          items: [
+            { id: 'm-1', title: 'Midnight ramen', category: 'food', startMinutes: 0 },
+            { id: 'n-1', title: 'Noon temple', category: 'sightseeing', startMinutes: 12 * 60 },
+          ],
+        },
+      ]);
+
+      const digest = buildTripDigest();
+      expect(digest).toContain('12:00 AM food Midnight ramen #m-1');
+      expect(digest).toContain('12:00 PM sightseeing Noon temple #n-1');
+      expect(digest).not.toContain('0:00 AM');
+      expect(digest).not.toContain('0:00 PM');
+    });
+
+    it('a single-digit-minute time still zero-pads the MINUTES (12:05 AM, not 12:5 AM)', () => {
       seed([
         {
           date: TRIP_DATES[0],
@@ -106,10 +142,10 @@ describe('buildTripDigest (S327)', () => {
           items: [{ id: 'e-1', title: 'Red-eye landing', category: 'transportation', startMinutes: 5 }],
         },
       ]);
-      expect(buildTripDigest()).toContain('00:05 transportation Red-eye landing #e-1');
+      expect(buildTripDigest()).toContain('12:05 AM transportation Red-eye landing #e-1');
     });
 
-    it('an item with NO time emits no time token at all — never a misleading 00:00', () => {
+    it('an item with NO time emits no time token at all, never a misleading 12:00 AM', () => {
       seed([
         {
           date: TRIP_DATES[0],
@@ -124,8 +160,8 @@ describe('buildTripDigest (S327)', () => {
 
       const digest = buildTripDigest();
       expect(digest).toContain('free Wander Thamel #u-1'); // category leads — no time token
-      expect(digest).not.toContain('00:00'); // midnight would be a lie about an untimed item
-      expect(digest).toContain('20:30 food Dinner #t-1'); // its neighbour still carries one
+      expect(digest).not.toContain('12:00 AM'); // midnight would be a lie about an untimed item
+      expect(digest).toContain('8:30 PM food Dinner #t-1'); // its neighbour still carries one
     });
 
     it('falls back to the legacy `time` string when `startMinutes` is absent (seed + sync items)', () => {
@@ -142,7 +178,8 @@ describe('buildTripDigest (S327)', () => {
           items: [{ id: 'legacy-1', title: 'Depart Syracuse', category: 'transportation', time: '05:30' }],
         },
       ]);
-      expect(buildTripDigest()).toContain('05:30 transportation Depart Syracuse #legacy-1');
+      // Parsed from the 24h storage string, emitted as 12h display (#12).
+      expect(buildTripDigest()).toContain('5:30 AM transportation Depart Syracuse #legacy-1');
     });
 
     it('keeps the FULL ISO date on every day line (never shortened to 12-20)', () => {
@@ -166,8 +203,10 @@ describe('buildTripDigest (S327)', () => {
       const header = buildTripDigest().split('\n').slice(0, 2);
       expect(header[0]).toContain('Any date not listed below is unplanned.');
       expect(header[0]).not.toContain('Items tagged #id.'); // subsumed by the line below it
+      // #12: the line teaches the format the items below ACTUALLY use, so it moved to 12-hour
+      // with them. A digest whose header says HH:MM while its lines say 7:00 PM is the mis-parse.
       expect(header[1]).toBe(
-        'Each item is "HH:MM category Title #id". A missing HH:MM means no set time yet.',
+        'Each item is "h:mm AM/PM category Title #id". A missing time means no set time yet.',
       );
     });
   });
@@ -246,26 +285,47 @@ describe('buildTripDigest (S327)', () => {
     expect(digest).not.toContain('unplanned:'); // no per-day unplanned line
   });
 
-  describe('S367 — the current trip-local date reaches the digest ("what\'s the plan for tomorrow?")', () => {
-    it('adds a "Today is …" line for the REAL trip-local day (destination-offset clock, not device-local)', () => {
+  describe('#12: the current date AND time reach the digest in EVERY case, in or out of the window', () => {
+    // The bug: this line hung off `getTodayInTrip()`, which is null outside Dec 9 - Jan 9, so an
+    // off-trip conversation shipped a digest with no date at all and the model assumed day one of
+    // the trip. All three cases below are the same line now; only the parenthetical differs.
+    const dateLine = () => buildTripDigest().split('\n')[2]; // after the two fixed header lines
+
+    it('INSIDE the window: the REAL trip-local day (destination-offset clock, not device-local), plus Day N and the time', () => {
       vi.useFakeTimers();
-      // 2026-12-15T12:00:00Z at the Nepal leg's +345 offset is 17:45Z -- still Dec 15, nowhere
+      // 2026-12-15T12:00:00Z at the Nepal leg's +345 offset is 17:45 -- still Dec 15, nowhere
       // near a day boundary. Day-7/Kathmandu is verified INDEPENDENTLY of the code under test:
       // core/trips/packs/nepal-japan-2026.ts (Nepal leg = Dec9-18) + core/content/itinerary.ts
       // (2026-12-15 -> Kathmandu) + counting Dec9..Dec15 inclusive = 7 -- not by calling
-      // getTodayInTrip()/dayInTripFor and echoing back whatever they say.
+      // getTodayInTrip()/dayInTripFor and echoing back whatever they say. 12:00Z + 345min = 17:45
+      // = 5:45 PM, computed the same way and likewise not read back off the code under test.
       vi.setSystemTime(new Date('2026-12-15T12:00:00Z'));
-
-      const digest = buildTripDigest();
-      const lines = digest.split('\n');
-      // Third line: after the two fixed header lines, before any per-day content.
-      expect(lines[2]).toBe('Today is 2026-12-15 (Day 7 of 32, Kathmandu).');
+      expect(dateLine()).toBe('Today is 2026-12-15 5:45 PM (Day 7 of 32, Kathmandu).');
     });
 
-    it('omits the line entirely outside the trip window -- no trip-local "today" to report (stated limit)', () => {
+    it('BEFORE the window: a real date and time, and it says so -- never silence', () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-08-11T12:00:00Z')); // four months before the trip starts
+      expect(dateLine()).toBe('Today is 2026-08-11 5:45 PM (before the trip).');
+    });
+
+    it('AFTER the window: same line, other side', () => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2027-02-01T12:00:00Z')); // three weeks after the trip ends
-      expect(buildTripDigest()).not.toContain('Today is');
+      // Past the end, `legForDate` clamps to the LAST leg, so the clock reads at Japan's +540:
+      // 12:00Z + 9h = 21:00 = 9:00 PM. Not the +345 the before-the-trip case clamps to.
+      expect(dateLine()).toBe('Today is 2027-02-01 9:00 PM (after the trip).');
+    });
+
+    it('the digest NEVER ships without a date, whatever the clock says', () => {
+      // The regression guard stated as the property rather than as three examples: one day before
+      // the first trip date, the first, the last, one day after.
+      for (const iso of ['2026-12-08', '2026-12-09', '2027-01-09', '2027-01-10']) {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date(`${iso}T12:00:00Z`));
+        expect(dateLine(), `clock ${iso}`).toContain(`Today is ${iso} `);
+        vi.useRealTimers();
+      }
     });
   });
 
@@ -282,6 +342,24 @@ describe('buildTripDigest (S327)', () => {
     expect(digest).toContain(lastPlannedDate);
     // and it would NOT have fit at the old ceiling — this is what justifies the raise
     expect(digest.length).toBeGreaterThan(7000);
+
+    // #12: the cap has to hold on EVERY day, not just whatever day the suite runs on. The date
+    // line is unconditional now and its in-window form ("… (Day 31 of 32, Tokyo).") is the LONGER
+    // of the two branches, so the real worst case is inside the trip, not outside it. DIGEST_CAP
+    // cannot be raised without the Worker's CONTEXT_TRUNCATE_LENGTH moving with it (they are
+    // deliberately equal, see hooks/use-concierge-chat.ts), and that is a separate manual
+    // deploy, so an overflow here is a genuine blocker rather than a number to nudge.
+    let worst = 0;
+    for (const date of TRIP_DATES) {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(`${date}T06:00:00Z`)); // mid-day at both leg offsets, no day edge
+      const d = buildTripDigest();
+      worst = Math.max(worst, d.length);
+      expect(d.endsWith('…'), `truncated with the clock on ${date}`).toBe(false);
+      vi.useRealTimers();
+    }
+    expect(worst).toBeLessThanOrEqual(DIGEST_CAP);
+    console.log(`[#12] worst-case in-window digest: ${worst} chars, ${DIGEST_CAP - worst} under DIGEST_CAP`);
   });
 
   it('still enforces the cap: a digest exceeding 9500 chars truncates with an ellipsis', () => {
@@ -306,13 +384,15 @@ describe('buildTripDigest (S327)', () => {
   });
 
   it('MEASUREMENT (S362) — before/after digest size and the worst-case POST body vs the 16 KB 413', () => {
-    // S367: pin the clock OUTSIDE the trip window before measuring. `buildTripDigest()` is now
-    // clock-dependent (it appends a "Today is …" line while inside Dec 9 – Jan 9), and this test's
-    // `newDigest` is a hand-rolled reconstruction that intentionally does NOT model that line — so
-    // without this, the self-check below would pass or fail depending on which calendar day the
-    // suite happened to run on (verified: it fails if simulated inside the window). Freezing to a
-    // fixed out-of-window instant makes the measurement (and the pinned constants it feeds) exactly
-    // reproducible year-round, the same discipline the S274 block already uses for TZ determinism.
+    // Pin the clock before measuring. `buildTripDigest()` is clock-dependent (the "Today is …"
+    // line), so without this the self-check below would pass or fail depending on the calendar
+    // day AND the wall-clock minute the suite happened to run at. Freezing to a fixed instant
+    // makes the measurement (and the pinned constants it feeds) exactly reproducible year-round,
+    // the same discipline the S274 block already uses for TZ determinism.
+    // #12: that line is UNCONDITIONAL now, so the reconstruction below models it instead of
+    // dodging it with an out-of-window clock. This instant is still out of window, so the number
+    // measured here is the SHORTER branch; the in-window branch is longer, and the cap test above
+    // is what proves that one fits, on every one of the 32 trip days.
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-08-02T12:00:00Z'));
     // Task D of S362: the four numbers below are MEASURED here, never estimated.
@@ -320,9 +400,11 @@ describe('buildTripDigest (S327)', () => {
     // and `buildTripDigest`'s own day-selection logic, so the before/after delta is honest.
     const range = `Dates are YYYY-MM-DD between ${TRIP_DATES[0]} and ${TRIP_DATES[TRIP_DATES.length - 1]}.`;
     const oldHeader = `Trip: ${TRIP_DATE_LABEL} (${TRIP_DATES.length} days). ${range} Any date not listed below is unplanned. Items tagged #id.`;
+    const nowAt = getNowAtTrip(); // the same clock adapter the builder uses, at the frozen instant
     const newHeader = [
       `Trip: ${TRIP_DATE_LABEL} (${TRIP_DATES.length} days). ${range} Any date not listed below is unplanned.`,
-      'Each item is "HH:MM category Title #id". A missing HH:MM means no set time yet.',
+      'Each item is "h:mm AM/PM category Title #id". A missing time means no set time yet.',
+      `Today is ${nowAt.date} ${formatTimeAmPm(nowAt.minutes)} (before the trip).`,
     ].join('\n');
 
     const byDate = new Map(SAMPLE_ITINERARY.map((d) => [d.date, d]));
@@ -340,7 +422,7 @@ describe('buildTripDigest (S327)', () => {
           `${d.date} ${d.city}: ${d.items
             .map((i) => {
               const m = effectiveStartMinutes(i);
-              return `${m === undefined ? '' : `${minutesToHHMM(m)} `}${i.category} ${i.title} #${i.id}`;
+              return `${m === undefined ? '' : `${formatTimeAmPm(m)} `}${i.category} ${i.title} #${i.id}`;
             })
             .join('; ')}`,
       ),
@@ -415,7 +497,7 @@ describe('buildTripDigest (S327)', () => {
     const REMEASURE =
       'Do NOT widen this assertion or add a tolerance — that just moves the rot. Re-measure from ' +
       'the [S362 MEASUREMENT] block printed above, then update this constant AND every comment ' +
-      'that quotes the number: DIGEST_CAP + its "476 chars of slack" claim ' +
+      'that quotes the number: DIGEST_CAP + its slack claim ' +
       '(hooks/use-concierge-chat.ts), and the Worker CONTEXT_TRUNCATE_LENGTH coupling, which must ' +
       'stay >= the new size or the server silently truncates the last day.';
     expect(
@@ -424,8 +506,8 @@ describe('buildTripDigest (S327)', () => {
     ).toBe(MEASURED_DIGEST_BEFORE);
     expect(
       newDigest.length,
-      `S362 (2): the live digest size changed — the +2414-char cost of the "HH:MM category " ` +
-        `prefixes, and the 476 chars of slack under DIGEST_CAP ${DIGEST_CAP}, are both computed ` +
+      `S362 (2): the live digest size changed. The cost of the per-item "h:mm AM/PM category " ` +
+        `prefixes, and the remaining slack under DIGEST_CAP ${DIGEST_CAP}, are both computed ` +
         `from this exact number. ${REMEASURE}`,
     ).toBe(MEASURED_DIGEST_AFTER);
 

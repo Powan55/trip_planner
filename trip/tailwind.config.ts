@@ -14,8 +14,7 @@ const config: Config = {
     // when some component happened to contain the byte-identical string — 4 of the 10 categories
     // had NEVER rendered their declared colour, and `transportation` rendered purely because
     // trip-map.tsx carried the same cyan trio for its "Day Trip" badge. re-hued that badge,
-    // which destroyed the coincidence and would have left the chip colourless. Measured evidence:
-    // docs/plans/s353c-sweep-evidence-2026-08-01.md.
+    // which destroyed the coincidence and would have left the chip colourless.
     './lib/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {

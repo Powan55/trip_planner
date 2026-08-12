@@ -168,16 +168,25 @@ test.describe('S350 · concierge panel — starter chips, list rendering, ops ch
     await page.getByTestId('concierge-starter-chip').first().click();
     await expect.poll(() => hits.count).toBeGreaterThan(0);
 
-    // S362 — the digest on the wire really carries the enriched per-item encoding the Worker's
-    // system prompt is written against. Asserted from a REAL browser POST body, not a unit mock.
+    // S362 — the digest on the wire really carries the enriched per-item encoding the model is
+    // asked to parse. Asserted from a REAL browser POST body, not a unit mock.
+    // #12 moved that encoding 24-hour → 12-hour, and this pin moves with it. The Worker's own
+    // PLAN_LINES constant still says "HH:MM" and is now stale; the digest carries its own legend
+    // directly above the data, which is what the model reads. Deliberate — see the comment on the
+    // legend in hooks/use-concierge-chat.ts. The correctness half is unaffected either way: ops
+    // carry integer `startMinutes`, never a display string, and `validateOps` enforces that.
     const context = hits.body.context ?? '';
-    expect(context).toContain('Each item is "HH:MM category Title #id".');
+    expect(context).toContain('Each item is "h:mm AM/PM category Title #id".');
     expect(context).toContain('Any date not listed below is unplanned.');
     // A real seed item, timed + categorised: `time: '05:30'` with no `startMinutes` on the day the
     // trip starts. Proves the legacy-time fallback survives the production bundle, not just jsdom.
     // S393 (Q4): the Dec-9 day line now names Syracuse, the city the day is actually spent in.
-    expect(context).toContain('2026-12-09 Syracuse: 05:30 transportation Depart Syracuse');
-    expect(context).not.toContain('00:00 '); // untimed items get NO token, never a fake midnight
+    // #12: the SEED is still 24-hour ('05:30') — it is the DIGEST that renders 12-hour, so this
+    // pin is what proves the conversion happens on the way out rather than in the fixture.
+    expect(context).toContain('2026-12-09 Syracuse: 5:30 AM transportation Depart Syracuse');
+    // Untimed items get NO token, never a fake midnight. #12 moved what a fake midnight looks
+    // like: `formatTimeAmPm(0)` is '12:00 AM', so guarding '00:00 ' would no longer guard anything.
+    expect(context).not.toContain('12:00 AM ');
     expect(context.length).toBeLessThanOrEqual(9500); // DIGEST_CAP
 
     const assistantTurn = page.getByTestId('concierge-turn-assistant').last();

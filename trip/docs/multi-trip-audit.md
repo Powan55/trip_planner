@@ -1,5 +1,13 @@
 # Multi-trip hydration mount-gate audit (S234)
 
+> **Historical (S234, 2026-07-18). The defect this audit found has been fixed.** S235 landed the
+> remediation and D-218 closes D-214: every `TripScopedSlot` accessor now composes its on-disk key
+> via `keyFor(slot)` (`core/storage/gateway.ts`), every reactive store uses the D-212 function form
+> (`storageKeys: () => [keyFor(...)]`), and `packing`, `dayAnchors` and `shareInbox` were added to
+> the `TripScopedSlot` union. The Part B probe in `lib/__tests__/multi-trip-sync-path.test.ts` has
+> been inverted to assert the fixed behaviour. Read the island audit table below as still-valid
+> structural analysis; read every "inherits S234-F1" verdict as closed.
+
 Scope: every `dynamic(…, { ssr: false })` / mount-gated client island, audited for the assumption
 that the **active pack is the default pack**: hardcoded storage literals, module-scope caches of
 pack-derived values, and cross-tab `storage` listeners keyed on a fixed literal. Companion to the
@@ -54,8 +62,9 @@ while `savePlans([…])` writes `trip:{token}:itinerary` (correctly scoped).
 
 This is structural: ≈11 accessors plus their `has()` seed-checks plus 6 reactive-store
 `storageKeys` literals across ~15 files, all on live-synced domains, with a real data-loss risk if
-it is done carelessly. It is reported here, not fixed. Proposed remediation is a dedicated slice
-plus a decision, reserved as **D-214**. It also generalizes the D-212 note, which framed the literal
+it is done carelessly. It was reported here, not fixed in S234. The remediation is S235 and the
+decision is **D-218**, which closed the reserved D-214 and cleared the ship-blocker; see the banner
+above. It also generalizes the D-212 note, which framed the literal
 `storageKeys` as merely a cross-tab nicety. The literal is the **primary persistence key** for
 these domains, so the bleed is same-tab and permanent rather than cosmetic.
 
@@ -121,6 +130,6 @@ nepal/japan section islands (favorites live there).
 - **No island-level mount-gate defect.** No hardcoded literal, no module-scope pack cache, no
   import-time pack read; the pack-switch reload correctly re-seeds every island.
 - **One domain-layer defect (S234-F1)**, inherited by every island that touches a non-itinerary
-  trip-scoped domain. Reported, not fixed: it is structural, with a live-synced-data blast radius.
-  Reserved as **D-214**.
-- Itinerary (local) and all remote Firestore paths are correctly pack-isolated today.
+  trip-scoped domain. Reported here, remediated in S235 and closed by **D-218**.
+- Itinerary (local) and all remote Firestore paths were already correctly pack-isolated at S234;
+  every other trip-scoped domain is too, as of S235.

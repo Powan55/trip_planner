@@ -179,7 +179,7 @@ test.describe('Post-trip state', () => {
   });
 });
 
-test.describe('TD-06 (S258) — hero first CTA clears the fold on a 360×740 xs viewport', () => {
+test.describe('S258: hero first CTA clears the fold on a 360×740 xs viewport', () => {
   test('the single "Open Planner" CTA sits fully in-viewport at 360×740 (total-days ring hidden below 420px)', async ({
     page,
   }) => {

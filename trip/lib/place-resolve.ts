@@ -1,5 +1,5 @@
-// Client caller for the Worker's `GET /resolve?url=…` place-link resolver ( plan
-// `docs/plans/place-link-import-plan.md`). Reuses the concierge client's worker-origin/token
+// Client caller for the Worker's `GET /resolve?url=…` place-link resolver.
+// Reuses the concierge client's worker-origin/token
 // plumbing: the same deployed Worker (`CONCIERGE_URL` from `lib/concierge-config.ts`) and the same
 // `x-trip-token: getActiveTripId()` header the chat route uses ( — token-possession IS
 // the authorization). No new secret, no new dependency.

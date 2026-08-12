@@ -49,7 +49,7 @@ export default function Navbar() {
     const active = getActiveTripId();
     return listKnownTrips().find((t) => t.id === active)?.name ?? 'My trip';
   }, []);
-  // (TD-08): the concierge speaks a hardcoded N×J boys-trip persona (Worker
+  // The concierge speaks a hardcoded N×J boys-trip persona (Worker
   // SYSTEM_PROMPT), so it only belongs on the default pack. Same source + mount-safe
   // once-computed pattern as `brand`/`primaryItems` above (Navbar is ssr:false → no
   // hydration mismatch).

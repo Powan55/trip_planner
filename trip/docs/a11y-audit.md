@@ -20,9 +20,15 @@ the untouched existing packs.
 | New: TM designed states on desktop, full page: pre / nepal / japan / post / empty-date / legibility-ON | `a11y-full-audit.spec.ts` | serious/critical |
 | New: key dialogs as full-page scans: trip-join handshake (`?trip=`), add-to-itinerary (quick-add), expense log, Wrapped story populated | `a11y-full-audit.spec.ts` | serious/critical |
 
-Every one of the 15 routes is now axe-gated in its traveler state; `/` and `/plan/` additionally
-in-trip; `/travel/` in all six designed states on desktop and (legibility pair + TM-12) on both
-iPhone device projects.
+At S212, every route the app then had was axe-gated in its traveler state; `/` and `/plan/`
+additionally in-trip; `/travel/` in all six designed states on desktop and (legibility pair +
+TM-12) on both iPhone device projects.
+
+> **Coverage gap opened since (as of 2026-08-10).** The app now has 17 routes (`app/**/page.tsx`),
+> and three of them are **not** axe-gated anywhere: `/guides/` and `/more/` (S320's nav
+> consolidation) and `/trips/` (the trips hub). Extending `a11y-full-audit.spec.ts`'s route loop to
+> those three is the smallest fix. Note also that `a11y.spec.ts`'s moderate-level gate is now six
+> routes, not the five the "Ground rules held" bullet below describes: S325 added `/flights/` to it.
 
 ## Ground rules held
 
