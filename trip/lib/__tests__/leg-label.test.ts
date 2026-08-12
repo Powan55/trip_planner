@@ -118,6 +118,21 @@ describe('S407 default pack — the day line names the day, not the leg id', () 
     expect(legLabel('nepal')).toBe('Nepal');
     expect(legLabel('japan')).toBe('Japan');
   });
+
+  // D-307. `DayPlan.date` is `z.string()` in core/vault/schema.ts — no format check — and
+  // `findPlacements` (core/itinerary/crud.ts) hands it straight to `placeLabelForDate`. A
+  // prototype key name made BOTH date-keyed maps (DAY_LABELS here, TRIP_CITIES in
+  // core/dates/trip-cities.ts) return a FUNCTION instead of undefined, and `compose` then called
+  // `label.includes(city)` on it. One call reaches both maps, so this pins both guards.
+  it('a prototype key name as a date does not throw and does not leak a function', async () => {
+    const { dayPlaceLabel, placeLabelForDate } = await loadHelper();
+    for (const key of ['toString', 'valueOf', 'constructor']) {
+      expect(() => placeLabelForDate(key)).not.toThrow();
+      expect(typeof placeLabelForDate(key)).toBe('string');
+      expect(() => dayPlaceLabel({ date: key, city: 'Syracuse', country: 'nepal' })).not.toThrow();
+      expect(dayPlaceLabel({ date: key, city: 'Syracuse', country: 'nepal' })).toContain('Syracuse');
+    }
+  });
 });
 
 describe('S407 custom trip — neither a foreign country nor a duplicated city', () => {
