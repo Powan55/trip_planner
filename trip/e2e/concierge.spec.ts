@@ -181,8 +181,12 @@ test.describe('S350 · concierge panel — starter chips, list rendering, ops ch
     // A real seed item, timed + categorised: `time: '05:30'` with no `startMinutes` on the day the
     // trip starts. Proves the legacy-time fallback survives the production bundle, not just jsdom.
     // S393 (Q4): the Dec-9 day line now names Syracuse, the city the day is actually spent in.
-    expect(context).toContain('2026-12-09 Syracuse: 05:30 transportation Depart Syracuse');
-    expect(context).not.toContain('00:00 '); // untimed items get NO token, never a fake midnight
+    // #12: the SEED is still 24-hour ('05:30') — it is the DIGEST that renders 12-hour, so this
+    // pin is what proves the conversion happens on the way out rather than in the fixture.
+    expect(context).toContain('2026-12-09 Syracuse: 5:30 AM transportation Depart Syracuse');
+    // Untimed items get NO token, never a fake midnight. #12 moved what a fake midnight looks
+    // like: `formatTimeAmPm(0)` is '12:00 AM', so guarding '00:00 ' would no longer guard anything.
+    expect(context).not.toContain('12:00 AM ');
     expect(context.length).toBeLessThanOrEqual(9500); // DIGEST_CAP
 
     const assistantTurn = page.getByTestId('concierge-turn-assistant').last();
