@@ -37,11 +37,26 @@ describe('docToDayPlan', () => {
     expect(result.date).toBe('2026-12-09');
   });
 
-  it('`country` non-"japan" (including missing) defaults to "nepal"', () => {
+  // RE-POINTED (D-303, owner sign-off). This assertion used to pin "anything not 'japan'
+  // becomes 'nepal'". `DayPlan.country` is a LEG ID, not a nepal/japan union, and a custom
+  // trip's single leg is 'main' — so that pin was holding a real bug in place: a synced custom
+  // trip lost its leg id on every authoritative snapshot, and `pushDayMerged` wrote the coerced
+  // value back to Firestore. The mapper now mirrors the Vault read schema's `z.string().min(1)`.
+  // The DEFAULT-pack rows below are unchanged, which is the point: nepal/japan still map exactly
+  // as before, so this is a widening, not a behavior swap.
+  it('`country` passes a leg id through; missing/blank/wrong-typed defaults to "nepal"', () => {
     expect(docToDayPlan('id1', { country: 'nepal' }).country).toBe('nepal');
-    expect(docToDayPlan('id2', { country: 'atlantis' }).country).toBe('nepal');
-    expect(docToDayPlan('id3', {}).country).toBe('nepal');
-    expect(docToDayPlan('id4', { country: 'japan' }).country).toBe('japan');
+    expect(docToDayPlan('id2', { country: 'japan' }).country).toBe('japan');
+    // The custom-trip leg id — the case the old coercion silently destroyed.
+    expect(docToDayPlan('id3', { country: 'main' }).country).toBe('main');
+    // An id this build does not know still passes through: every consumer is TOTAL on an
+    // unknown leg (legCurrency → 'USD', offsetForCountry → NPT, legLabel → capitalized raw id),
+    // so degrading gracefully no longer requires lying about which leg the day belongs to.
+    expect(docToDayPlan('id4', { country: 'atlantis' }).country).toBe('atlantis');
+    // ABSENT / blank / wrong-typed still defaults — the mapper stays total.
+    expect(docToDayPlan('id5', {}).country).toBe('nepal');
+    expect(docToDayPlan('id6', { country: '' }).country).toBe('nepal');
+    expect(docToDayPlan('id7', { country: 42 }).country).toBe('nepal');
   });
 
   it('missing `city` defaults to empty string', () => {
