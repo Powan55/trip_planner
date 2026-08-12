@@ -45,6 +45,17 @@ describe('legCurrency — leg → fixed local currency (D-012)', () => {
     expect(legCurrency('nepal')).toBe('NPR');
     expect(legCurrency('japan')).toBe('JPY');
   });
+
+  // D-307. `Leg` is a bare `string` and a leg id arrives from stored/imported data, so these key
+  // names reach the lookup. `LEG_CURRENCY[leg] ?? 'USD'` returned Object.prototype's FUNCTION for
+  // them — never undefined, so the fallback never fired — and a function is not any of 'USD' /
+  // 'NPR' / 'JPY', so `ratePerUsd`'s chain fell through to the JPY rate. Silent wrong money.
+  it('a prototype key name is NOT a leg: it falls back to USD instead of returning a function', () => {
+    for (const key of ['toString', 'valueOf', 'constructor', 'hasOwnProperty']) {
+      expect(legCurrency(key)).toBe('USD');
+      expect(typeof legCurrency(key)).toBe('string');
+    }
+  });
 });
 
 describe('safeAmount / safeRate — TOTAL input guards', () => {

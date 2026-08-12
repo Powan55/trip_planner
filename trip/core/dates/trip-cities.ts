@@ -80,7 +80,14 @@ export const TRIP_CITIES: Record<string, string> = deriveTripCities(TRIP_ITINERA
  */
 export function getCityForDate(dateStr: string): string {
   if (activeIsDefault) {
-    const mapped = TRIP_CITIES[dateStr];
+    // Own-key form (lib/city-coords.ts:55). A prototype key name returns a FUNCTION, which is
+    // `!== undefined`, so line below returned it as a `string` and `compose` threw. Guarded HERE
+    // rather than by building TRIP_CITIES prototype-less: D-136/D-232 lock it as
+    // `deriveTripCities(TRIP_ITINERARY)`, and the identity test uses `toEqual`, which passes
+    // against a null-prototype object — the decoupling would not go red. D-307.
+    const mapped = Object.prototype.hasOwnProperty.call(TRIP_CITIES, dateStr)
+      ? TRIP_CITIES[dateStr]
+      : undefined;
     if (mapped !== undefined) return mapped;
   }
   return legForDate(activeTrip, dateStr).fallbackCity;

@@ -57,7 +57,12 @@ function labelForLeg(legId: string): string {
 
 /** The label to hang off a city for `dateStr` on leg `legId` — '' when it would add nothing. */
 function dayLabel(dateStr: string, legId: string): string {
-  const authored = activeIsDefault ? DAY_LABELS[dateStr] : undefined;
+  // Own-key form (lib/city-coords.ts:55): a prototype key name returns a FUNCTION rather than
+  // undefined, so `??` below never fired and `compose`'s `label.includes(city)` threw. D-307.
+  const authored =
+    activeIsDefault && Object.prototype.hasOwnProperty.call(DAY_LABELS, dateStr)
+      ? DAY_LABELS[dateStr]
+      : undefined;
   return authored ?? (multiLeg ? labelForLeg(legId) : '');
 }
 

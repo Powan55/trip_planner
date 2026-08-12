@@ -142,7 +142,12 @@ export const DEFAULT_BUDGET: BudgetModel = {
 
 /** The fixed LOCAL currency of a leg, derived from the active pack (Nepal→NPR, Japan→JPY). Total. */
 export function legCurrency(leg: Leg): CurrencyCode {
-  return LEG_CURRENCY[leg] ?? 'USD';
+  // `?? 'USD'` never fired for a prototype key name ('toString', 'valueOf', 'constructor'):
+  // the lookup returns a FUNCTION, not undefined, which is none of USD/NPR/JPY, so it fell
+  // through `ratePerUsd`'s chain to the JPY rate 155 instead of the USD anchor 1 — the amount
+  // rendered 155x too small (convert(1000, .., 'USD') gave 6.45, not 1000) and with an empty
+  // symbol. Own-key form, same as lib/city-coords.ts:55. D-307.
+  return Object.prototype.hasOwnProperty.call(LEG_CURRENCY, leg) ? LEG_CURRENCY[leg] : 'USD';
 }
 
 /**
