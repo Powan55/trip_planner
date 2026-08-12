@@ -47,7 +47,7 @@ export function sortItemsByTime(
  * `a.start < b.end && b.start < a.end` — touching edges (one item's end exactly equals
  * another's start) never clash. Pure, order-independent — never writes.
  *
- * (TD-07) — the overlap is judged on the ABSOLUTE INSTANT, exactly like this file's
+ * The overlap is judged on the ABSOLUTE INSTANT, exactly like this file's
  * `sortItemsByTime` has been since. Two items on one day can sit in different zones
  *, and a raw wall-clock comparison then answers "when" in a
  * frame that does not exist: two 09:00 items 14 hours apart read as a clash, and the Jan-9

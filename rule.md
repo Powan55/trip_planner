@@ -107,17 +107,24 @@ It fails the build on:
 
 - internal planning vocabulary carried over from private notes
 - personal contact details
+- internal debt-register ids
+- paths under a directory the root `.gitignore` keeps out of this repo
 - links to documents that do not exist in this repo
 
 Run it yourself any time:
 
 ```
 cd trip && npm run marker-check
+cd trip && node scripts/marker-check.mjs --self-test   # checks the patterns themselves
 ```
 
 If it flags something that is genuinely fine, add a narrow pattern to
 `ALLOWED_LINES` in that file with a comment explaining why. Do not widen it just
 to get to green — the point of the check is that it is annoying.
+
+The self-test is what stops the check quietly shrinking: every rule needs a line
+it must still catch, and the two lists are asserted equal. Adding a rule without
+its case, or deleting a rule, fails the self-test.
 
 ## Never commit
 
@@ -207,8 +214,13 @@ you, so `npm run build` first or every spec fails at startup.
 
 ## The app itself
 
-Next.js static export, no server. Data lives in the browser's localStorage, with
-optional cross-device sync through Firestore. There is one Cloudflare Worker
-behind the AI concierge; its source is not in this repo.
+Next.js static export. Nothing of ours serves it. Data is written to the browser
+(`localStorage`, plus IndexedDB for photo bytes) and, when the build carries a
+Firebase web config, mirrored to Firestore under the trip's id. `firestore.rules`
+lives in this repo and is the whole access model: no Firebase Auth, no per-user
+check. Whoever holds the trip id can read and write that trip. Separately, every
+route sits behind the front-door wall in `trip/components/token-gate.tsx`; there is
+no guest mode. There is one Cloudflare Worker behind the AI concierge; it is
+deployed, and its source is not in this repo.
 
 Everything is on a free tier and must stay that way.

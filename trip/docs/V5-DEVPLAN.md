@@ -1,3 +1,15 @@
+> **Historical: v5 shipped and this plan is closed. Kept for reference because
+> DECISIONS.md, `playwright.config.ts` and
+> `docs/v5-ai-concierge-feasibility.md` still cite it by name.**
+>
+> **Do not build from this file.** Several of its "verified codebase facts" and
+> locked rows have since been overturned: FU-18 and the anon-uid allowlist are
+> retired by D-205, and the shipped `firestore.rules` is a capability-token
+> model that never reads `request.auth`; `gen-sw.mjs`'s `ROUTE_HTML` was
+> replaced by route discovery in S265; PMTiles is a NO-GO per D-197, with
+> D-286 the shipped answer; and the Phase-4 push slices (S201/S202) were never
+> built. The final version's scope lives in `V-FINAL-DEVPLAN.md`.
+
 # V5-DEVPLAN — M19: the v4→v5 revamp (Travel Mode · Trip Packs · motion platform · first backend)
 
 _Written 2026-07-16 from the approved v5 master plan, with every contested claim verified in-repo. This file is the authoritative milestone source for M19: every slice's goal, DoD, and risk notes live here._
@@ -18,18 +30,18 @@ v5 turns the app from a trip *planner* into a trip *companion*:
 
 ## 1. Verified codebase facts (binding for every slice)
 
-1. **`scripts/gen-sw.mjs` `ROUTE_HTML` (line 46) is hand-maintained.** The walk() only auto-discovers `_next/static`, icons and the manifest; the comment cites the S153 `/journal` omission bug. Any new route (`/travel`) has to be added to `ROUTE_HTML` explicitly, and `e2e/pwa.spec.ts` is the tripwire. Recorded as D-170 so it is never re-litigated.
+1. **`scripts/gen-sw.mjs` `ROUTE_HTML` was hand-maintained when this plan was written; it no longer exists.** The walk() then auto-discovered only `_next/static`, icons and the manifest, the comment cited the S153 `/journal` omission bug, and any new route (`/travel`) had to be added to `ROUTE_HTML` explicitly, with `e2e/pwa.spec.ts` as the tripwire. Recorded as D-170. S265 has since replaced the hand-kept literal with discovery by walking `out/` (`scripts/gen-sw.mjs:609-612`, the discovery branch at `:633-634`), which is exactly D-170's own "Changes if" branch, so the hand-edit obligation in S184 below is gone. `e2e/pwa.spec.ts` no longer pins a precache count either: it derives the route list from `out/` and asserts a generous floor (`pwa.spec.ts:443`).
 2. **`app/template.tsx`** is a CSS `.animate-route-fade` shell (S67) remounting per navigation, with a `useReducedMotion()` React-level branch. The VT wrapper has to suppress the route fade when a View Transition drives navigation, or every navigation double-animates. The D-007/D-056 reduced-motion "NONE" hard guarantee must survive.
-3. **`viewportFit: 'cover'` is already set** (`app/layout.tsx:73`, S61/D-070). Travel Mode only adds per-component `env(safe-area-inset-*)` padding.
+3. **`viewportFit: 'cover'` is already set** (`app/layout.tsx:88`, S61/D-070). Travel Mode only adds per-component `env(safe-area-inset-*)` padding.
 4. **The byte-parity facade pattern already exists**: `lib/trip-data.ts` re-exports the date backbone from `core/dates/` (S93/D-099), and Trip Packs extends that pattern. `core/storage/gateway.ts` is the single key registry (D-097 LOCKED, local+session, never-throw), so `keyFor()` and `activeTripId` land there and nowhere else.
 5. **Firestore is already per-trip**: `lib/firebase-config.ts:46` (`NEXT_PUBLIC_TRIP_ID`, default `nepal-japan-2026`). Never migrate the live tree; new packs get new ids.
 6. **D-006 is the countdown-target lock (Dec 9 → Jan 9), not "no multi-trip".** Trip Packs *amends* it: dates become the default pack's and the derived constants stay byte-identical. The D-005/D-126 annotations stay intact.
-7. **~118 raw `navy-*` usages** across `components/` and `app/` tsx (measure exactly at slice time), and **exactly 21 visual baselines** in `e2e/visual.spec.ts-snapshots/`. The one-re-baseline budget is real.
-8. **Playwright is one `chromium` project today.** The two iPhone projects (`iphone-15-pro` 393×852 · `iphone-15-pro-max` 430×932, DPR3) are net-new and `testMatch`-scoped to the Travel Mode and mobile specs.
+7. **~118 raw `navy-*` usages** across `components/` and `app/` tsx (measure exactly at slice time), and **21 visual baselines** in `e2e/visual.spec.ts-snapshots/` at the time of writing. The one-re-baseline budget is real. (The directory holds 24 as of 2026-08-10: 8 scenarios × desktop/mobile/tablet.)
+8. **Playwright was one `chromium` project when this plan was written.** The two iPhone projects (`iphone-15-pro` 393×852 · `iphone-15-pro-max` 430×932, DPR3) were net-new then and have since landed at `playwright.config.ts:97` and `:106`, each `testMatch`-scoped to `e2e/tm-acceptance.spec.ts` alone, which the default `chromium` project (`:76`) `testIgnore`s.
 9. **Versions frozen through Dec 9**: next 15.5.20 · react 19.2.7 · framer-motion 12.42.2 (the rename to `motion` was declined; already v12 per D-132) · tailwindcss 3.3.3 · maplibre-gl 5.24.0.
 10. **The chrome-suppression surface** is the pathname conditionals in the `app/chrome-islands.tsx` client components (Navbar/Footer/BottomTabBar/QuickAddFab/QuickAddHost/ExpenseLogHost), not a `layout.tsx` restructuring. Guest gating is `components/token-gate.tsx`; `/travel` inherits guests-blocked, and the spec should assert that stance explicitly.
 11. **`nextUp()` is pure** (`lib/whats-next.ts`) and is the engine for the hero card's phase state machine. `components/today-panel.tsx` and `components/day-strip.tsx` exist for extraction and reuse. The `?today=` clock sim (D-075, sessionStorage) stays decoupled from Travel Mode's `?date=`; they compose.
-12. **FU-18 remains the one open P1**: live rules allow any anonymous user read/write/delete. A hardened allowlist is drafted at `firestore.rules:36-43` and is deployed manually by the account owner per D-044. Security outranks features, so Phase 0 comes first.
+12. **FU-18 was the one open P1 when this plan was written; it is now retired.** Live rules then allowed any anonymous user read/write/delete, and a hardened uid-allowlist was drafted in `firestore.rules` for manual deploy by the account owner per D-044. D-205 (2026-07-18) rejected that plan outright rather than tightening it, and replaced the model with capability-token trips: the shipped `firestore.rules` is 31 lines, reads `allow get, list, write: if true` under a known `tripId`, and never reads `request.auth`. Security rests on trip ids being unguessable and unenumerable. The Auth row in section 2, S171, S200 and Phase 4's FU-18 precondition are all superseded with it, and are kept below only as the historical record.
 
 ## 2. Locked decisions (recorded as D-164…D-173, see DECISIONS.md)
 
@@ -38,12 +50,12 @@ v5 turns the app from a trip *planner* into a trip *companion*:
 | Travel Mode shape | Route **`/travel`**, `?date=YYYY-MM-DD` (default `getTodayInTrip()`; pre-trip → Day 1); decoupled from `?today=` (D-075). A `travelMode` gateway flag so a PWA relaunch re-enters. Guests blocked. **Entry point (decided 2026-07-16, amends S190): a persistent Travel Mode button in the top-right of the app-wide nav chrome (`chrome-islands.tsx` surfaces, alongside Navbar/BottomTabBar), available on every page and not gated by the trip-date window.** Pre-trip visitors can enter and explore the pre-trip Day-1 state any time once it ships. The exit affordance (44px X, restores the prior route, no history trap) is a hard DoD requirement for S190, not optional polish. |
 | Light mode | No. An outdoor high-legibility toggle inside Travel Mode instead |
 | AI concierge | Build. Gemini free tier primary, Groq fallback (llama-3.3-70b 30 RPM/1k RPD · llama-3.1-8b 14.4k RPD); keys Worker-only |
-| Push | Build if runway allows, after the concierge proves the Worker. Raw VAPID preferred: it avoids the FCM `firebase-messaging-sw.js` collision with the single generated SW. Protocol finalized in the S197 spike |
+| Push | ~~Build if runway allows, after the concierge proves the Worker. Raw VAPID preferred: it avoids the FCM `firebase-messaging-sw.js` collision with the single generated SW. Protocol finalized in the S197 spike~~ **Never built. D-167 (the morning-briefing GO) and D-175 (the raw-VAPID protocol GO) stand on paper only: there is no `push`/`notificationclick` handler in `scripts/gen-sw.mjs` and no `pushManager` call anywhere in the app. S201 and S202 below were not executed.** |
 | Auth | Full #15 rejected. FU-18 anon-allowlist now, plus a small Google sign-in slice before departure (stable uids, free on Spark) |
 | Flight status | Rejected. No card-free API exists (FlightAware/AeroDataBox/aviationstack/OpenSky all disqualified), so deep-links instead |
 | View Transitions | Manual `document.startViewTransition()` progressive enhancement (a `useViewTransition()` helper). No React canary or experimental flag. template.tsx reconciled per fact 2 |
 | Trip Packs storage | **Grandfather, never migrate** (LOCKED). The current trip keeps its legacy keys byte-identical; future trips use `trip:{id}:{slot}` via one `keyFor()`. Switching writes `activeTripId` and does a full reload. The switcher stays hidden until a second pack exists, and the live Firestore tree is never migrated |
-| PMTiles | Spike-gated stretch: opt-in OPFS download, never SW-precached. The GitHub Pages 100MB cap makes the extract-sizing spike the go/no-go |
+| PMTiles | ~~Spike-gated stretch: opt-in OPFS download, never SW-precached. The GitHub Pages 100MB cap makes the extract-sizing spike the go/no-go~~ **Superseded: the S209 spike ran, and D-197 (2026-07-17) ruled S210 NO-GO for v5 and dropped it from the candidate pool. The shipped answer is D-286: the map engine is precached, tiles are not.** |
 | D-002 | Unchanged and reaffirmed. localStorage stays the source of truth; Trip Packs is key namespacing |
 
 ## 3. Phase plan and slice ledger (S171–S213; S162–S166 stay reserved-dropped and are never reused)
@@ -62,7 +74,7 @@ P1a ∥ P1b in worktrees · P2 does not block on P1b (escape hatch: current sche
 | Slice | Goal / DoD | Hardness |
 |---|---|---|
 | **S171** | **FU-18 runbook and owner hand-off.** Verify the drafted allowlist at `firestore.rules:36-43` still matches the live schema (including any future `pushSubs` extension point, commented), then write the owner action list: the exact deploy steps (manual per D-044), how each friend reads their anon uid, and the localStorage fixture-capture snippet below. DoD: doc committed, owner notified, no rules deployed automatically. | Trivial. Docs and coordination only, nothing to verify |
-| **S172** | **Migration fixture + baseline tag.** Land the fixture harness: a `nextjs_space/e2e/fixtures/live-v5-vault/` README plus a loader util that seeds a real captured dump via `addInitScript`. The dump itself comes from the owner using S171's snippet; a placeholder synthetic dump keeps specs green until then and is clearly marked as not acceptance evidence. Tag `v4-visual-baseline` on the pre-v5 main commit. DoD: loader and README committed, tag pushed. | Easy. Contained fixture and tooling, no existing code touched |
+| **S172** | **Migration fixture + baseline tag.** Land the fixture harness: a `e2e/fixtures/live-v5-vault/` README plus a loader util that seeds a real captured dump via `addInitScript`. The dump itself comes from the owner using S171's snippet; a placeholder synthetic dump keeps specs green until then and is clearly marked as not acceptance evidence. Tag `v4-visual-baseline` on the pre-v5 main commit. DoD: loader and README committed, tag pushed. | Easy. Contained fixture and tooling, no existing code touched |
 | **S173** | **FU-39.** Command-palette close-X ≥44px. Add its visual baseline first, then fix; axe and visual green. | Easy. Small, well-scoped a11y fix; the only wrinkle is the baseline-then-fix sequencing |
 | **S174** | **FU-37.** Expenses backup-restore surface. The Vault is itinerary-only per D-098, so expenses get an export/restore path consistent with D-156 tombstone-replace. DoD: restore-under-sync spec green. | Moderate. A new merge/sync-correctness surface on a second domain, but mechanical relative to the landed S145 pattern |
 | **S175** | **FU-6.** The PageHero-on-Home question goes to the owner; either answer closes it (mount `<PageHero variant="plan" as="h2">` or record it declined). Zero code until answered. | N/A. Zero-code decision, blocked on the owner |

@@ -1223,6 +1223,14 @@ D-109's direction reverses. `core/dates/trip-cities.ts` no longer hand-authors t
 **Why:** push is the lowest-priority backend feature (the first thing cut, section 0) but cheap once the Worker exists.
 **Changes if:** runway runs out (cut it cleanly, nothing else depends on it), or D-175's change triggers fire.
 
+> **APPROVED, NEVER BUILT. Recorded 2026-08-10 (S418). Read this before citing the decision above.** Nothing in the app implements it, and nothing ever started.
+>
+> **Proof of absence** (`trip/`, checked on `main`, `dev`, `lax`, `uttam` and `trip-access-control-lax`): grep for `pushManager`, `PushSubscription`, `applicationServerKey`, `VAPID`, `Notification.requestPermission`, `showNotification` and `notificationclick` across `*.ts`/`*.tsx`/`*.mjs`/`*.js` returns **zero hits in source**. Every match in the repo is planning prose: `docs/V5-DEVPLAN.md:53`, its Phase-4 rows at `:130-131` and the Badging note at `:199`, `docs/v5-ai-concierge-feasibility.md:97-119`, and `docs/V4-DEVPLAN.md:387,402`. All of them describe S201/S202 as work that was never executed. `scripts/gen-sw.mjs` registers only `install`, `activate`, `message` and `fetch` (`:764,794,815,883`): no `push` and no `notificationclick`, precisely the pair D-175 said would be merged in. The `pushSubs` slot D-175 names does not exist in `core/storage/gateway.ts`'s key registry.
+>
+> **The blocker is gone and the work still did not start.** The Worker half of the precondition has been met since 2026-08-09 (`lib/concierge-config.ts:23-28`), and FU-18's rules precondition was retired outright by D-205.
+>
+> **This entry's own "Changes if" permits a clean cut**: "runway runs out … nothing else depends on it". Nothing in the code does depend on it. But no entry records that cut, so on paper this is still approved work. **Rule it: build or retire. Do not leave it approved and silent.**
+
 ### D-168 · Superseded by D-205 · Auth: full auth rejected, FU-18 anon-allowlist now, small Google sign-in slice before departure
 
 ### D-169 · (v5 plan lock, approved 2026-07-16; recorded S176) · Flight-status APIs: rejected, deep-links instead
@@ -1245,10 +1253,13 @@ D-109's direction reverses. `core/dates/trip-cities.ts` no longer hand-authors t
 **Why:** migrating a live, synced, multi-device trip's keys mid-year is this project's historically highest-regression-risk move (compare D-139); grandfathering makes "current trip untouched" a structural property instead of a test hope.
 **Changes if:** only with explicit sign-off (LOCKED). A post-trip archival migration could be considered after Jan 9, never before.
 
-### D-173 · (v5 plan lock, approved 2026-07-16; recorded S176) · PMTiles offline maps: a spike-gated stretch, opt-in OPFS download, never SW-precached
+### D-173 · CLOSED NO-GO by D-197 · PMTiles offline maps: a spike-gated stretch, opt-in OPFS download, never SW-precached
+
+> **The gate this entry set was run and it came back NO-GO (D-197, 2026-07-17): the street-level extract is 180MB–3.7GB against a 100MB hard cap.** The "If GO:" branch below therefore never opened and is not standing guidance. Do not read it as a design to build. **The shipped answer is D-286: the map *engine* is precached, tiles are not**, and the copy says so. This header carries the marker because the body does not: the entry read as live approved scope for three weeks after it was closed.
+
 **Decision:** offline vector maps via PMTiles are a stretch, gated on the S209 extract-sizing spike (go/no-go: the extract must clear the GitHub Pages 100MB cap). If GO: maplibre 5.24 `addProtocol`, an opt-in OPFS download (user-initiated, deletable), and never SW-precached, because D-073's precache stays small and deterministic.
 **Why:** offline maps are high-value mid-trek but the size risk is real and external, so a spike answers it with evidence before any build cost.
-**Changes if:** S209 measures over-cap (NO-GO, deep-link to offline-capable map apps instead), or a smaller extract source appears.
+**Changes if:** S209 measures over-cap (NO-GO, deep-link to offline-capable map apps instead), or a smaller extract source appears. **Fired: S209 measured over-cap. See D-197.**
 
 <!-- v5 Phase-4 backend-activation spike (S197), recorded 2026-07-16. The go/no-go feasibility report is docs/v5-ai-concierge-feasibility.md; these two entries lock what it decided. D-164–D-173 are reserved for the S176 blueprint, so these start at D-174. -->
 
@@ -1261,6 +1272,8 @@ D-109's direction reverses. `core/dates/trip-cities.ts` no longer hand-authors t
 **Decision:** the morning-briefing push uses raw Web Push + VAPID, not Firebase Cloud Messaging. The deciding factor is the single-SW invariant: this app has exactly one hand-maintained service worker doing precaching (`scripts/gen-sw.mjs` output, D-073), and FCM's web SDK expects its own `firebase-messaging-sw.js` at origin scope (or an `importScripts` merge), which risks a scope/registration collision. Raw VAPID is just a `push`/`notificationclick` handler added to the existing SW, which S202 already plans to merge behind a dormant-unless-configured gate, with the Worker signing payloads via a VAPID keypair it holds server-side (private key = Worker secret; public key ships to the client as the `applicationServerKey`, public by design). No FCM SDK, no second SW file, no new client dependency. iOS Safari installed-PWA (16.4+) supports the standard Web Push API + VAPID for A2HS apps, so raw VAPID sacrifices no reach. Verdict: GO, free-tier and no-card (pure web platform plus self-held keys). Client-side push subscription persistence (`pushSubs`) additionally waits on FU-18 (the rules deploy).
 **Why:** raw VAPID keeps the one-SW model intact and adds zero client deps, where FCM would force a second SW surface or a merge for no benefit the standard web platform doesn't already provide, including on iOS 16.4+.
 **Changes if:** a future need arises that only FCM provides (e.g. cross-platform native push beyond web PWAs), and then it is revisited as a new greenlit server-side decision, never a silent add of a second SW.
+
+> **APPROVED, NEVER BUILT. Recorded 2026-08-10 (S418).** This is a protocol GO for a feature that has no code. The verdict above is sound and was simply never acted on: `scripts/gen-sw.mjs` has no `push` and no `notificationclick` handler, no `applicationServerKey` is ever passed anywhere in the app, and the `pushSubs` slot this entry names does not exist in `core/storage/gateway.ts`'s key registry. Full proof of absence is on D-167, which is the build GO this protocol serves; the disposition (build or retire) is ruled there, and this entry follows it.
 
 ### D-176 · (S174, recorded 2026-07-16) · Expenses export schema v1: its own envelope, separate from the itinerary Vault; trust boundary = `sanitizeExpenses`
 **Decision:** expenses backup/restore uses its own versioned envelope (`{ schemaVersion: 1, updatedAt, payload: Expense[] }`, file `nepal-japan-expenses.json`, `lib/expense-export.ts`), not an extension of the itinerary Vault schema (D-098 stays itinerary-only). The trust boundary on import is the existing `sanitizeExpenses`, the same lenient/total validator the storage read path uses, and a fail-safe parse quarantines corrupt files (`EXPENSE_QUARANTINE_KEY`, the D-096 pattern). Restore semantics: dormant is a plain overwrite; sync on is the D-156 tombstone-replace in one commit via `mergeItems` (tombstone all live rows, re-add backup rows as fresh-id copies), mirroring `restorePlans`. No migration machinery until a real v2 exists. S217's synced checklist rides this same pattern later.
@@ -1504,12 +1517,12 @@ D-109's direction reverses. `core/dates/trip-cities.ts` no longer hand-authors t
 
 ### D-223 · (S266, 2026-07-23) · Expense-split roster is trip-derived on custom trips; fixed TRAVELERS on the default pack
 **Decision:** the expense-split and settlement roster is the fixed `TRAVELERS` list (Powan/Sushil/Uttam) only on the default Nepal×Japan pack, where it stays pixel-identical. On a custom, wizard-created trip the roster is derived at read time from that trip's own expense history: the distinct, first-seen-order union of the active traveler (self, listed first so a zero-expense trip can create its first split) plus every `paidBy`, `split[]` member and `createdBy`, with case-insensitive dedupe and first-seen casing winning. A guest on a custom trip degrades to an empty roster, with no invented UI. There is a single helper `rosterForActiveTrip(expenses)` in `lib/token-auth.ts`, and accents come via `rosterAccent` (a fixed brand tint for a default TRAVELER, an `accentForName` hash otherwise, no new colours). No Firestore, schema or rules change; settlement math is unchanged, since it already takes a `string[]`.
-**Why:** the hardcoded 3-friend roster leaked into every custom trip's split UI (register TD-03). Deriving from expense history needs no new storage and converges with what sync already carries.
+**Why:** the hardcoded 3-friend roster leaked into every custom trip's split UI. Deriving from expense history needs no new storage and converges with what sync already carries.
 **Changes if:** custom-trip budgeting grows a real roster-management UI, or the flagged sibling leak (the expense dialog's hardcoded nepal/japan leg toggle) is paid down and pressures the same seam.
 
 ### D-222 · (S269, 2026-07-23) · Trip removal = local forget + Sync-Code tombstone; never deletes remote data
 **Decision:** forgetting a trip drops it from this browser's known-trips list (key 26) and writes a tombstone `{id, removedAt}` to gateway key 29 `tripPlannerRemovedTrips` (raw transport; shape and policy live in `core/trips/registry.ts` per D-097). `mergeTripLists` folds both sides' tombstones LWW by `removedAt` and drops a tombstoned id from the additive union, unless the surviving entry's recency — the later of `updatedAt` and `joinedAt` — beats `removedAt`. A re-join or a post-forget rename therefore revives the trip and discards the stale tombstone. The recency signal is deliberately not `updatedAt` alone: `upsertKnownTrip` stamps a fresh `joinedAt` but no `updatedAt` on join, so the strict reading would make a re-join lose to its own tombstone. The profile doc `trips/{code}/profile/tripList` becomes `{version:1, trips, removed?}`, which is additive; pre-S269 clients ignore `removed` and may re-add until updated (accepted). The default pack is never removable or tombstoned in either direction. Forgetting never deletes the trip's Firestore data: anyone with the key can still open it, and pasting the key re-joins, which is exactly what the hub's confirm copy says. `removeKnownTrip` refuses `DEFAULT_TRIP_ID` and switches the pointer to default when forgetting the active trip (D-172 reload by caller). No Firestore rules change.
-**Why:** closes the S255 "no delete path" ceiling (register TD-01), the only behavioral debt in the 2026-07-23 paydown run. Without it, any local removal resurrects via the LWW additive union.
+**Why:** closes the S255 "no delete path" ceiling, the only behavioral debt in the 2026-07-23 paydown run. Without it, any local removal resurrects via the LWW additive union.
 **Changes if:** tombstone growth ever matters (there is no safe purge without a device-set, so unbounded growth is accepted), or a future profile-doc version bump lets old clients be retired.
 
 ### D-224 · (S274, 2026-07-24) · Travel-Mode trip-DAY derives from the destination leg offset on the real clock; device-local only for the `?today=` override and custom trips
@@ -2000,12 +2013,12 @@ per-entry diff CONTROL vs CHANGE / vs DELIVERED : exit 0, identical
 
 ## D-259 · impl-note · (S359 half B, deferred — 2026-08-01) · Precache scoping may trim `_next/static`, but never the route HTMLs
 **Decision:** when the deferred service-worker precache-scoping work runs, *"app shell + `/`'s own chunks"* means trim `_next/static` entries only. The 20 route HTMLs stay precached. Two independent things forbid dropping them:
-- `scripts/gen-sw.mjs:73-75` records *"every route MUST be precached"* as the D-073 / TD-04 contract, a bug already fixed once, for S153's `/journal`.
+- `scripts/gen-sw.mjs:73-75` records *"every route MUST be precached"* as the D-073 contract, a bug already fixed once, for S153's `/journal`.
 - `e2e/pwa-torn-update.spec.ts` Part A pins the S271 invariant that `/travel/` and `/plan/` resolve offline to their own shells, asserted by exact `<title>`.
 
 **Why this is recorded now rather than at brief time: the deferred slice's own brief contains the trap.** Its section 6.5 says *"visit a route that is no longer precached"*, which reads as licence to drop route HTML and would break both guarantees above. That was caught before the work started. Cancelling half B was right for a stronger reason than the one given at the time: the stated reason was that scoping redefines the precache count five other briefs assert against, and this is a second, independent reason.
 
-**Changes if:** D-073/TD-04 is ever consciously retired *and* the S271 torn-update invariant is re-specified. Both, not either.
+**Changes if:** D-073 is ever consciously retired *and* the S271 torn-update invariant is re-specified. Both, not either.
 
 **Related and independently valuable: the clean measurement was the misleading one.** S362B built *both* candidate gate fixes rather than arguing for one. Candidate B looked clean across all 59 corpus messages, and was then killed by three targeted probes showing it broke *"where are we eating tonight?"* and *"where are we drinking after the game"*. The corpus contained no first-person discovery phrasing at all, so B's clean sweep was an artifact of the corpus's own blind spot, not evidence about B. A measurement instrument's gaps are invisible in its output, and a *clean* result is the one most likely to be reporting the gap rather than the truth.
 
@@ -2166,7 +2179,7 @@ _(S353 token/type/motion pass, shipped 2026-07-30; recorded 2026-08-01. This ent
 
 ## D-270 · impl-note · (R4 repo-wide audit, 2026-08-01) · The swallowed-assertion class was measured and is confined to one file — the house style already runs the other way, on habit alone
 
-**This entry is for the measurement, not the rule.** The rule is one sentence and demonstrably self-propagating; the audit cost three depth-matching detectors, four controls and a mutation pass over 244 test files, and nothing else on record says it was run. Report (it lives in `docs/plans/`, which nobody has open by default, so cite the path or it will not be found): the planning notes, with the residual repair written up beside it in the planning notes. Repair committed `9cdc670`.
+**This entry is for the measurement, not the rule.** The rule is one sentence and demonstrably self-propagating; the audit cost three depth-matching detectors, four controls and a mutation pass over 244 test files, and nothing else on record says it was run. Report: the planning notes, with the residual repair written up beside it in the planning notes. Repair committed `9cdc670`.
 
 **Measured, repo-wide, both packages: 0 vulnerable · 13 safe rows · 0 unresolved.** The class is confined to `worker/test/providers.test.ts`; the S362A repairs (`d3056e6`) held, and the detector rediscovered all five pre-repair instances at `d3056e6^` and reports them gone from the current file. The house style runs the other way, enforced by habit alone: 53/53 `page.on(...)` listeners (console/pageerror/request/download) push to an array, 17/17 `page.route(...)` handlers fulfil without asserting, and 12/12 sibling worker fetch mocks (resolve 9, index 2, search 1) return data only. `worker/test/search.test.ts`, written *after* S362A, opens by naming the hazard and uses its own capture helper, with no decision entry, no lint rule and nobody enforcing it.
 
@@ -2533,8 +2546,20 @@ today. If that fix does not land, rung 3 manufactures `exact` placements that ar
 `exact` placement is the one thing this design does not label. This ladder must not ship before it.
 
 **Section 3: Where the derived tables live.** No new table is authored, and no geocoder is added.
-D-088 (free-tier-only, **LOCKED**, *"the biggest requirement, ahead of feature scope"*) forbids a
-geocoding service, and none is needed:
+D-088 (free-tier-only, **LOCKED**, *"the biggest requirement, ahead of feature scope"*) disqualifies
+any geocoding service that wants a paid tier, a card on file or an ongoing cost. That is every
+serious one, and none is needed here anyway:
+
+> **Corrected 2026-08-10 (S418).** This sentence used to read *"D-088 … forbids a geocoding service"*.
+> It does not. D-088 forbids **paid, card-requiring or ongoing-cost** dependencies of any kind; the
+> category "geocoder" appears nowhere in it, and a genuinely free, card-free geocoder would clear it
+> on D-088's own terms and then be judged on its merits. The over-read mattered because it turned a
+> cost constraint into a permanent technical ban that nobody had actually decided, and it was cited
+> that way. The real reason no geocoder is added is the one already stated below: rungs 4 and 5 need
+> no new data, so there is nothing to geocode. Both rungs stand unchanged. (An earlier note put this
+> correction on D-279; that is the wrong entry. D-279 is the approximate-pin rule and says nothing
+> about geocoding or about free-tier constraints.)
+
 - **Rung 4 has no table at all.** It is an index built at module scope from `MAP_MARKERS`' existing
   `area` strings (`lib/map-data.ts`), the same 27 records that already carry `lat`/`lng`. Zero new data.
 - **Rung 5 reuses a table that already exists and is already guaranteed total.** `CITY_COORDS` in
@@ -2859,6 +2884,12 @@ The bland look was not a failure of execution. It was this project's own prior r
 
 **Changes if:** a return to a single-accent system is wanted, which re-opens every route's chrome and the whole per-country gradient set.
 
+> **RULED, NO CODE. Recorded 2026-08-10 (S418).** The ruling above stands; none of it has shipped. This entry is written in the present tense (*"the accent **is** marigold"*, *"the canvas **moves** to aubergine"*) about chrome the app does not have, so a reader of this file alone would conclude it landed.
+>
+> **Proof of absence** (`trip/`, checked on `main`, `dev`, `lax`, `uttam` and `trip-access-control-lax`): grep for `FFC43D`, `marigold`, `100C1A`, `aubergine`, `FF8A3D` and `C08CFF` across `*.ts`/`*.tsx`/`*.css` returns **zero hits**. `scripts/` does not contain `contrast-4.mjs`, the harness this entry cites for its 69 measured pairings.
+>
+> This entry is dated 2026-08-09, one day before the check, so this is plausibly work in flight rather than work abandoned. It is recorded because "in flight" and "shipped" read identically in a decision log, and only one of them is true.
+
 ---
 
 ### D-292 · (S422, 2026-08-09) · The loudness gradient: three tiers, and the working screens are the strictest
@@ -2911,6 +2942,12 @@ D-009 (dark-only) stands. This is a single scoped exception, decided on 2026-08-
 - **Toned down from the first cream:** `#F4EDE0 → #DCCDAE` drops page-vs-canvas from 16.55:1 to 12.29:1. Inks were deepened in step (`--paper-lo #524563`, nepal `#8E0E30`, japan `#223C7C`, green `#0C5849`) because darkening the page eats `--paper-lo`'s headroom first: it had only 5.27:1. All six pairings were re-measured at 5.34–9.86:1, all clear AA (`parchment-verify.mjs`).
 
 **Changes if:** we decide D-009 takes zero exceptions. The dark variant is already built and measured, so the revert is a token swap plus one blend-mode flip.
+
+> **RULED, NO CODE. Recorded 2026-08-10 (S418).** The ruling above stands; the surface it describes does not exist. This entry is written in the present tense about a passport page that was never built, and a reader of this file alone would conclude it shipped.
+>
+> **Proof of absence** (`trip/`, checked on `main`, `dev`, `lax`, `uttam` and `trip-access-control-lax`): there is **no passport route**: `app/` holds 17 `page.tsx` files and none is it. Grep for `parchment`, `--paper` and `DCCDAE` across `*.ts`/`*.tsx`/`*.css` returns **zero hits**. `scripts/` does not contain `parchment-verify.mjs`, the harness this entry cites for its six measured ink pairings.
+>
+> Dated 2026-08-09, one day before the check, so this is plausibly work in flight. Recorded because the exception this entry carves out of D-009 (dark-only) is a real, narrow one, and a live carve-out for a surface that does not exist is the kind of thing a later reader honours by mistake. See D-291, ruled in the same session and in the same state.
 
 
 ---
@@ -3094,3 +3131,28 @@ Deleting the trigger closes the class rather than the six instances, and because
 **Known, pre-existing, and deliberately not fixed here:** roughly a dozen surfaces still branch `country === 'nepal' ? … : …` as a binary (`calendar-day-picker`, `day-strip`, `trip-timeline`, `map-section`, `travel-essentials-card`, …), so a custom trip falls into the Japan-styled else branch. That is not introduced by this change — an *unsynced* custom trip already held `'main'` and already rendered that way. This fix makes synced and unsynced custom trips agree, which is the direction that makes the wart fixable later instead of masking it.
 
 **Changes if:** custom trips gain multiple legs or user-chosen currencies, at which point those binary ternaries stop being cosmetic and need a real per-leg lookup — the same treatment `legCurrency`/`offsetForCountry` already got.
+---
+
+### D-308 · (proposed S402, recorded 2026-08-10 by S418) · A "touch only these fields" guard derives its changed-key set by diffing both objects' keys; a hand-listed field allow-list is not a gate
+
+> **Renumbered.** Drafted as D-295 on this branch; `dev` had meanwhile issued D-295 to issue #10's access-control ruling. Renumbered on merge — if you are looking for S402's D-295, it is this entry.
+
+**Decision:** any bulk-rewrite invariant gate in this app, the name-claim rewrite (D-288) and anything shaped like it, asserts "this operation changed only what it was allowed to change" by **computing** the changed-key set: diff the union of the before and after objects' keys and compare that set against the allowed one. A hand-written list of fields to check is not acceptable as the gate. New fields are then covered the day they are added, with no edit to the guard.
+
+**Why: this was demonstrated, not theorised.** S408's first guard was the hand-listed form. Forcing `category` onto every claimed row left the guard, the `settle()` invariance check and both merge proofs green, because no listed field had moved. The two readers do not overlap: `settle()` reads `leg`/`deleted`/`split`/`paidBy`/`amount` (`core/budget/settlement.ts:71-79`), while `expensesToSpent` reads `leg`/`category`/`amount` (`core/budget/expenses.ts:169-187`), so a corrupted `category` moves every budget rollup while the shipped test stays green. Replaced with the key-diff form, the money mutation goes red for the right reason: `split: ['Traveler','Powan'] → ['Powan','Powan'] → uniq → 1 member`, so a 3000 NPR bill divides by one and a balance moves from −1500 to 0. A guard whose coverage is the set of fields its author happened to think of is the project's signature defect: a check that reads as coverage and cannot fail.
+
+**Changes if:** an operation genuinely has an unbounded or data-dependent key set, in which case the exception is named explicitly in the test, never left implicit by writing a list instead.
+
+### D-309 · (proposed S402, recorded 2026-08-10 by S418) · Post-final durability posture: no internal fix is required, and the three known residuals are accepted with their real ceilings named
+
+> **Renumbered.** Drafted as D-296 on this branch; `dev` had meanwhile issued D-296 to issue #10's User Token ruling. Renumbered on merge — if you are looking for S402's D-296, it is this entry.
+
+**Decision:** after the final release the app runs unmaintained through the Dec 9 2026 → Jan 9 2027 trip and indefinitely after it. Internal durability was audited against that and **needs no code fix**. Three findings were stated too broadly in an earlier draft; these corrected versions are the record, and each is accepted with its ceiling named rather than closed:
+
+- **Tombstones are capped in one store only.** The trip registry caps forget-tombstones at 200 (`core/trips/registry.ts:288`, applied at `:304`). Itinerary and expense tombstones are retained forever: there is no cap in `core/sync/`. They are accepted on **headroom**, roughly 100× and 10× the 1 MB Firestore document ceiling, not on a cap. The registry's own sync path (`registry.ts:383`) writes the merged union uncapped.
+- **The clock-skew clamp is production-dead code.** It is applied only in `hlcReceive`, which has zero production callers. The per-row ratchet handles *sequential* edits across drifting clocks. The accepted residual is narrower and real: a genuinely concurrent offline edit on a correct-clock device can lose to a device whose clock is hours wrong. That is the trusted-device ceiling, ruled and accepted.
+- **The eastbound-only time model has no visible effect** and is unreachable in every shippable configuration. The app flipping to "trip over" about fourteen hours early on Jan 9 is a *different* mechanism: the return leg is not in the pack, so the trip window ends while the clock is still anchored to JST. Cosmetic, and accepted.
+
+**Why:** "no fix required" is only a safe thing to write down if the residuals it covers are written down with it. Recorded as a decision rather than a note because the alternative (a silent clean bill of health) is what lets a later reader treat an accepted ceiling as an unknown, or as a bug to chase in a codebase nobody is maintaining. The single external residual, browser storage eviction, is out of scope here: it is mitigated by the shipped persistence request, the install hint and a photo-inclusive export, and journal entries and photos remain single-device by design.
+
+**Changes if:** a residual above is observed in the wild during the trip window, which makes it a live defect rather than an accepted ceiling; or the app leaves unmaintained status, which re-opens the whole posture.

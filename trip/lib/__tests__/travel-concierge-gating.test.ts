@@ -65,12 +65,12 @@ describe('TravelConcierge mount gating (S343)', () => {
     r.unmount();
   });
 
-  // Was: "renders nothing on a custom trip (TD-08 persona gate)". INVERTED on 2026-08-09 — the
-  // TD-08 persona gate was lifted when the trip-aware Worker shipped, so a custom trip now gets
+  // Was: "renders nothing on a custom trip (the persona gate)". INVERTED on 2026-08-09.
+  // The persona gate was lifted when the trip-aware Worker shipped, so a custom trip now gets
   // the concierge like any other. Kept (not deleted) because the mount is still the thing under
   // test: this goes red if anyone re-derives an `isDefaultTrip()` gate inside the component
   // instead of reading the one shared rule (D-265).
-  it('mounts the concierge on a CUSTOM trip too (TD-08 persona gate lifted, D-265 one rule)', () => {
+  it('mounts the concierge on a CUSTOM trip too (persona gate lifted, D-265 one rule)', () => {
     state.isDefault = false;
     const r = render(createElement(TravelConcierge));
     expect(r.container.querySelector('[data-testid="concierge-trigger"]')).not.toBeNull();

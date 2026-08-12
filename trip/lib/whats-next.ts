@@ -55,8 +55,8 @@ export function nextUp(items: ItineraryItem[], ctx: NextUpContext): ItineraryIte
     // — ONE key for both the past-gate and the ranking. This used to reject past items by
     // absolute instant but rank the survivors by wall-clock minutes; the two disagree as soon as
     // a day holds items in different zones, which the Jan-9 date-line
-    // crossing now does. `startMs < now` IS the whole past-gate, computed once (/TD-05
-    // then deleted the `isPastAtPlace` helper this line had superseded).
+    // crossing now does. `startMs < now` IS the whole past-gate, computed once. That
+    // also deleted the `isPastAtPlace` helper this line had superseded.
     const startMs = placeWallClockToUtcMs(ctx.dayDate, min, effectiveOffsetMin(item, ctx.placeOffsetMin));
     if (startMs < ctx.nowUtcMs) continue; // passed (an item exactly AT now is still upcoming)
     if (startMs < bestMs) {
