@@ -168,10 +168,15 @@ test.describe('S350 · concierge panel — starter chips, list rendering, ops ch
     await page.getByTestId('concierge-starter-chip').first().click();
     await expect.poll(() => hits.count).toBeGreaterThan(0);
 
-    // S362 — the digest on the wire really carries the enriched per-item encoding the Worker's
-    // system prompt is written against. Asserted from a REAL browser POST body, not a unit mock.
+    // S362 — the digest on the wire really carries the enriched per-item encoding the model is
+    // asked to parse. Asserted from a REAL browser POST body, not a unit mock.
+    // #12 moved that encoding 24-hour → 12-hour, and this pin moves with it. The Worker's own
+    // PLAN_LINES constant still says "HH:MM" and is now stale; the digest carries its own legend
+    // directly above the data, which is what the model reads. Deliberate — see the comment on the
+    // legend in hooks/use-concierge-chat.ts. The correctness half is unaffected either way: ops
+    // carry integer `startMinutes`, never a display string, and `validateOps` enforces that.
     const context = hits.body.context ?? '';
-    expect(context).toContain('Each item is "HH:MM category Title #id".');
+    expect(context).toContain('Each item is "h:mm AM/PM category Title #id".');
     expect(context).toContain('Any date not listed below is unplanned.');
     // A real seed item, timed + categorised: `time: '05:30'` with no `startMinutes` on the day the
     // trip starts. Proves the legacy-time fallback survives the production bundle, not just jsdom.
