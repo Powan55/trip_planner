@@ -1,13 +1,15 @@
 import { describe, it, expect } from 'vitest';
-import { addDays, addMonths, startOfDay, differenceInMonths, differenceInDays } from 'date-fns';
+import { addDays, startOfDay, differenceInDays } from 'date-fns';
 import { computeCountdown, type Countdown } from '../countdown';
 
 /**
  * S423 — the countdown must add up, must not jump, and must never say "4 weeks".
  *
- * THE governing invariant is the SUM-BACK, and everything else here is secondary to it:
+ * THE governing invariant is the SUM-BACK, and everything else here is secondary to it.
+ * Issue #11 made months a fixed 28 days, so the invariant is RE-EXPRESSED in those units
+ * and not relaxed by a millisecond:
  *
- *     now + months + (weeks*7 + days) days + hours:minutes:seconds  ===  target
+ *     now + (months*28 + weeks*7 + days) days + hours:minutes:seconds  ===  target
  *
  * exactly, to the second. It subsumes monotonicity — a decomposition of an interval that
  * is itself shrinking cannot grow — and it is the invariant whose absence let two
@@ -24,24 +26,29 @@ import { computeCountdown, type Countdown } from '../countdown';
  * thing itself.
  *
  * Two further assertions keep the sum-back from being satisfiable by a degenerate walk
- * (it alone only pins the remainder, not the split): the day walk and the month walk must
- * each be MAXIMAL — one more day, or one more month, would overshoot the target.
+ * (it alone only pins the remainder, not the split). The day walk must be MAXIMAL, so one
+ * more day would overshoot the target, and the carry must be maximal too, `days < 7`
+ * and `weeks < 4`, or the same interval could be spelt several ways.
  *
  * computeCountdown is PURE (D-016), so sweeping thousands of fixed instants is free.
  */
 
 const TARGET = new Date('2026-12-09T00:00:00'); // TRIP_START (core/dates/trip-dates.ts)
 const MS_PER_DAY = 86_400_000;
+const DAYS_PER_MONTH = 28; // issue #11 / D-306: a carry month, not a calendar month
+
+/** The whole-day count the reported fields claim, in the units the producer carries in. */
+const walkDays = (c: Countdown) => c.months * DAYS_PER_MONTH + c.weeks * 7 + c.days;
 
 /** Reconstruct the instant the reported fields claim, anchored at `now`. */
 function sumBack(now: Date, c: Countdown): Date {
-  const walked = addDays(addMonths(now, c.months), c.weeks * 7 + c.days);
+  const walked = addDays(now, walkDays(c));
   return new Date(walked.getTime() + (c.hours * 3600 + c.minutes * 60 + c.seconds) * 1000);
 }
 
-/** The instant reached by the calendar part of the walk alone (no h/m/s). */
+/** The instant reached by the day part of the walk alone (no h/m/s). */
 function walkOnly(now: Date, c: Countdown): Date {
-  return addDays(addMonths(now, c.months), c.weeks * 7 + c.days);
+  return addDays(now, walkDays(c));
 }
 
 const fmt = (d: Date) =>
@@ -80,8 +87,27 @@ function sweepInstants(days = 366): Date[] {
   return out;
 }
 
+/**
+ * The days in `year` that CONTAIN a change in the runtime's local UTC offset (empty in a
+ * DST-free TZ). Offsets are compared at local midnight, and the shift itself usually lands
+ * mid-day (02:00 in the US), so the day that contains it is the one BEFORE the first
+ * midnight that reads differently.
+ */
+function dstTransitions(year: number): Date[] {
+  const out: Date[] = [];
+  const jan1 = new Date(year, 0, 1);
+  let prev = jan1.getTimezoneOffset();
+  for (let d = 1; d < 366; d++) {
+    const day = addDays(jan1, d);
+    const offset = day.getTimezoneOffset();
+    if (offset !== prev) out.push(addDays(day, -1));
+    prev = offset;
+  }
+  return out;
+}
+
 describe('S423 (1) SUM-BACK — the reported fields add back up to the target instant', () => {
-  it('now + months + weeks*7+days + h:m:s lands exactly on the target, swept over 2,928 instants across a year', () => {
+  it('now + (months*28 + weeks*7 + days) days + h:m:s lands exactly on the target, swept over 2,928 instants across a year', () => {
     const instants = sweepInstants();
     expect(instants).toHaveLength(2928);
     expect(fmt(instants[0])).toBe('2025-12-08T00:00:00');
@@ -103,18 +129,18 @@ describe('S423 (1) SUM-BACK — the reported fields add back up to the target in
     expect(wrong).toHaveLength(0);
   });
 
-  it('the day walk and the month walk are MAXIMAL — one more of either overshoots', () => {
+  it('the day walk is MAXIMAL and the carry is maximal: one more day overshoots, and no unit could be said in a bigger one', () => {
     // Without this, the sum-back alone could be satisfied by understating days and
-    // overstating hours. Together the three pin the decomposition uniquely.
+    // overstating hours, or by spelling the same day count as "0 months 8 weeks".
+    // Together they pin the decomposition uniquely.
     const slack: string[] = [];
     for (const now of sweepInstants()) {
       const c = computeCountdown(TARGET, now);
       if (addDays(walkOnly(now, c), 1).getTime() <= TARGET.getTime()) {
         slack.push(`${fmt(now)} -> ${show(c)}: one more DAY still fits`);
       }
-      if (addMonths(now, c.months + 1).getTime() <= TARGET.getTime()) {
-        slack.push(`${fmt(now)} -> ${show(c)}: one more MONTH still fits`);
-      }
+      if (c.days >= 7) slack.push(`${fmt(now)} -> ${show(c)}: ${c.days} days is another WEEK`);
+      if (c.weeks >= 4) slack.push(`${fmt(now)} -> ${show(c)}: ${c.weeks} weeks is another MONTH`);
     }
     expect(slack.slice(0, 5).join('\n') || 'walk is maximal').toBe('walk is maximal');
   });
@@ -133,8 +159,7 @@ describe('S423 (1) SUM-BACK — the reported fields add back up to the target in
       const c = computeCountdown(TARGET, now);
       expect(show(c), fmt(now)).toBe(expected);
       const impliedHours =
-        ((c.weeks * 7 + c.days) * MS_PER_DAY) / 3_600_000 + c.hours + c.minutes / 60 + c.seconds / 3600;
-      expect(c.months, `${fmt(now)} months must be 0 for the hour comparison`).toBe(0);
+        (walkDays(c) * MS_PER_DAY) / 3_600_000 + c.hours + c.minutes / 60 + c.seconds / 3600;
       expect(impliedHours, fmt(now)).toBe(trueHours);
       expect(impliedHours, fmt(now)).toBe((TARGET.getTime() - now.getTime()) / 3_600_000);
     }
@@ -194,9 +219,9 @@ describe('S423 (3) monotonicity — nothing grows as `now` advances', () => {
       expect(c.weeks, fmt(now)).not.toBe(4);
       expect(sumBack(now, c).getTime(), fmt(now)).toBe(TARGET.getTime());
     }
-    // The shipped bug rendered "3m 4w 1d" here; the weeks bucket is gone, the total is
-    // unchanged and exact.
-    expect(show(computeCountdown(TARGET, at(12, 0, 0)))).toBe('3m 0w 29d 12h 0m 0s');
+    // The shipped bug rendered "3m 4w 1d" here. The 4-week bucket cannot be reached now
+    // (it carries into a month), the total is unchanged and exact, and no unit is 0.
+    expect(show(computeCountdown(TARGET, at(12, 0, 0)))).toBe('4m 1w 2d 12h 0m 0s');
   });
 });
 
@@ -213,12 +238,15 @@ describe('S423 (4) "4 weeks" is never rendered', () => {
     expect(offenders).toHaveLength(0);
   });
 
-  it('the >= 28 day window renders months + days and does NOT round up to the next month', () => {
-    // Aug 10 09:00 -> Dec 9 00:00 is 3 months + 28 days + 15h. Rounding to "4 months"
-    // would name Dec 10 — the remainder must be shown, not absorbed.
+  it('a 28-day block carries into a month and the remainder is still shown, never absorbed', () => {
+    // Aug 10 09:00 -> Dec 9 00:00 is 120 whole days + 15h. 120 = 4*28 + 1*7 + 1, so the
+    // 28-day blocks become months rather than a "4 weeks" bucket, and the leftover week and
+    // day stay on screen. Rounding to a flat "4 months" would name Nov 30, and the
+    // remainder must be shown, not absorbed.
     const now = new Date(2026, 7, 10, 9, 0, 0);
     const c = computeCountdown(TARGET, now);
-    expect(show(c)).toBe('3m 0w 28d 15h 0m 0s');
+    expect(c.totalDays).toBe(120);
+    expect(show(c)).toBe('4m 1w 1d 15h 0m 0s');
     expect(sumBack(now, c).getTime()).toBe(TARGET.getTime());
   });
 
@@ -254,18 +282,48 @@ describe('S423 (4) "4 weeks" is never rendered', () => {
   });
 });
 
-describe('S423 (5) the date anchor + borrow is EXACTLY the greedy instant walk', () => {
-  it('months always equals differenceInMonths(target, now) — the anchoring changes no output', () => {
-    // Recorded deliberately, not hidden: once the borrow is restored, anchoring the walk
-    // on the calendar date produces the identical decomposition to the instant walk. The
-    // anchor is now a statement of intent, not a behaviour change. See the S423 report —
-    // exactness and mid-day date-stability are mutually exclusive, and exactness wins.
+describe('issue #11 (5) the breakdown and the "days to go" headline are ONE number', () => {
+  it('months*28 + weeks*7 + days === totalDays on every swept instant, so the two can never disagree on screen', () => {
+    // The old rule (D-016) had these deliberately NOT reconcile, because a month was a
+    // calendar month and `weeks` was a sub-month residue. D-306 replaces that: the hero
+    // renders the unit grid and the total in the same frame, and a grid that contradicts
+    // the total it sits inside is the defect this closes.
     const diffs: string[] = [];
     for (const now of sweepInstants()) {
       const c = computeCountdown(TARGET, now);
-      const greedy = differenceInMonths(TARGET, now);
-      if (c.months !== greedy) diffs.push(`${fmt(now)} -> months ${c.months}, greedy ${greedy}`);
+      if (walkDays(c) !== c.totalDays) {
+        diffs.push(`${fmt(now)} -> ${show(c)} walks ${walkDays(c)} days but totalDays=${c.totalDays}`);
+      }
     }
-    expect(diffs.slice(0, 5).join('\n') || 'identical').toBe('identical');
+    expect(diffs.slice(0, 5).join('\n') || 'reconciled').toBe('reconciled');
+  });
+
+  it('crosses every DST transition the runtime has: the walk is date-fns field math, never epoch arithmetic', () => {
+    // The transitions are LOCATED, not hardcoded, because the suite pins no TZ: a
+    // developer machine on America/New_York finds two, a UTC CI runner finds none. An
+    // epoch-ms walk drifts an hour across each; a field walk does not. Both a multi-day
+    // interval straddling the shift and a sub-day one landing on it are checked, and the
+    // sub-day one is where a broken walk would push `hours` to 24 or 25.
+    const shifts = dstTransitions(2027);
+    for (const day of shifts) {
+      const offsetsDiffer = day.getTimezoneOffset() !== addDays(day, 1).getTimezoneOffset();
+      expect(offsetsDiffer, `${fmt(day)} really contains an offset change`).toBe(true);
+
+      const at = (d: Date, h: number, mi = 0, s = 0) =>
+        new Date(d.getFullYear(), d.getMonth(), d.getDate(), h, mi, s);
+      const cases: [string, Date, Date][] = [
+        ['straddling', at(addDays(day, -10), 9), at(addDays(day, 10), 14, 30, 15)],
+        ['sub-day', at(addDays(day, -1), 22), at(day, 8)],
+      ];
+      for (const [label, now, target] of cases) {
+        const c = computeCountdown(target, now);
+        const where = `${fmt(day)} ${label}: ${fmt(now)} -> ${show(c)}`;
+        expect(sumBack(now, c).getTime(), where).toBe(target.getTime());
+        expect(c.hours, where).toBeLessThan(24);
+        expect(walkDays(c), where).toBe(c.totalDays);
+      }
+    }
+    // A TZ with transitions must have an even number of them (out and back).
+    expect(shifts.length % 2, `transitions found: ${shifts.map(fmt).join(', ') || 'none'}`).toBe(0);
   });
 });

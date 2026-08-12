@@ -192,19 +192,19 @@ test.describe('S84 · reduced motion — count-up does not animate (useCountUp, 
     page,
   }) => {
     // Same frozen instant as the S82 countdown pack: Nov 9 2026 (local noon) →
-    // Dec 9 2026 00:00 is exactly 00m/00w/29d/12h/00m/00s, totalDays 29 (S423 — same
-    // total as before, re-bucketed: "04 weeks 01 day" must never render). Under
-    // reduced motion the count-up lands on these immediately — assert the DOM
-    // shows the finals with NO intermediate eased value.
+    // Dec 9 2026 00:00 is exactly 01m/00w/01d/12h/00m/00s, totalDays 29 (issue #11: the
+    // same total as ever, carried, so 29 days is 1 month 1 day and the 0 weeks is not
+    // rendered at all). Under reduced motion the count-up lands on these immediately, so
+    // assert the DOM shows the finals with NO intermediate eased value.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/?today=2026-11-09', { waitUntil: 'load' });
     await settleSW(page);
 
     // These are the exact finals; a still-animating count-up would transiently
     // show a smaller number, so a first-paint exact match proves no ramp.
-    await expect(page.getByTestId('countdown-months')).toHaveText('00');
-    await expect(page.getByTestId('countdown-weeks')).toHaveText('00');
-    await expect(page.getByTestId('countdown-days')).toHaveText('29');
+    await expect(page.getByTestId('countdown-months')).toHaveText('01');
+    await expect(page.getByTestId('countdown-weeks')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-days')).toHaveText('01');
     await expect(page.getByTestId('countdown-hours')).toHaveText('12');
     await expect(page.getByTestId('countdown-total-days')).toHaveText('29');
 

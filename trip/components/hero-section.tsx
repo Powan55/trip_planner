@@ -21,10 +21,19 @@ import { haptic } from '@/lib/haptics';
 import { crossedIntoComplete } from '@/lib/celebration';
 import CelebrationBurst from '@/components/celebration-burst';
 
-const COUNTDOWN_UNITS = [
+// The calendar buckets. A unit that is ZERO is not rendered (issue #11). The producer
+// carries maximally and reports the true value of every unit, and dropping the zeros is
+// this surface's job. That is what killed "29 days, 0 weeks".
+const COUNTDOWN_DATE_UNITS = [
   { key: 'months', label: 'Months' },
   { key: 'weeks', label: 'Weeks' },
   { key: 'days', label: 'Days' },
+] as const;
+
+// The clock. Always rendered, zero or not: it ticks, so a cell reading 00 corrects itself
+// within the minute, while dropping it would reflow the whole row every minute. A running
+// clock reading 00 is a clock, not the stale zero the issue is about.
+const COUNTDOWN_CLOCK_UNITS = [
   { key: 'hours', label: 'Hours' },
   { key: 'minutes', label: 'Minutes' },
   { key: 'seconds', label: 'Seconds' },
@@ -427,8 +436,18 @@ export default function HeroSection() {
             <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center gap-3 sm:gap-4 mb-2 min-[420px]:mb-4">
               {/* the cells lost `.animate-pulse-glow` — a 3s infinite box-shadow breathe
                   on all six. They already read as a group via.glass-card; the glow added
-                  nothing but a permanent repaint. */}
-              {COUNTDOWN_UNITS.map(({ key, label }) => (
+                  nothing but a permanent repaint.
+
+                  The cell COUNT is now 3 to 6, because a zero calendar unit is dropped
+                  (issue #11). The container is unchanged on purpose: `grid-cols-3` still
+                  puts three per row on mobile and `sm:flex-wrap justify-center` still
+                  centres the rows above it, so a short row wraps instead of stretching.
+                  Six units is still six units, so the layout that ships today is
+                  untouched. */}
+              {[
+                ...COUNTDOWN_DATE_UNITS.filter(({ key }) => timeLeft[key] > 0),
+                ...COUNTDOWN_CLOCK_UNITS,
+              ].map(({ key, label }) => (
                 <div key={key} className="glass-card rounded-xl px-3 sm:px-5 py-3 sm:py-4 min-w-[70px] sm:min-w-[90px]">
                   <div data-testid={`countdown-${key}`} className="font-mono text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">
                     <CountUpNumber live={timeLeft[key] ?? 0} active={mounted} format={padUnit} />
