@@ -264,9 +264,13 @@ export function isPermissionDenied(err: unknown): boolean {
  * so a malformed remote doc degrades gracefully (it just yields a thin-but-valid
  * DayPlan) rather than throwing inside the snapshot handler.
  *
- * BEHAVIOR-FROZEN: this mapper is pinned verbatim by the merge-primitive suite
- * (`itinerary-remote.test.ts`) and MUST stay a pure shape-mapper (no field defaulting), so
- * that suite passes with zero assertion edits. The Sync-v2 default-on-read is a
+ * BEHAVIOR-FROZEN: this mapper is pinned by the merge-primitive suite
+ * (`itinerary-remote.test.ts`) and MUST stay a pure shape-mapper (no field defaulting). The
+ * freeze has been deliberately broken EXACTLY ONCE, with the owner's sign-off: the `country`
+ * assertion was re-pointed so a LEG ID passes through instead of being coerced to 'nepal' (see
+ * D-303 and the note at that line — the old rule silently corrupted every synced custom trip).
+ * Every other assertion is untouched; treat the suite as frozen again from here.
+ * The Sync-v2 default-on-read is a
  * SEPARATE step, `defaultDayForMerge` below, applied at the two merge boundaries (snapshot
  * assembly + the transactional-push remote read) — NOT inside `docToDayPlan`. Keeping the
  * two concerns separate is what lets the frozen mapper stay frozen while new clients still
@@ -274,7 +278,15 @@ export function isPermissionDenied(err: unknown): boolean {
  */
 export function docToDayPlan(id: string, data: Record<string, unknown>): DayPlan {
   const date = typeof data.date === 'string' ? data.date : id;
-  const country = data.country === 'japan' ? 'japan' : 'nepal';
+  // LEG-ID PASS-THROUGH (was `data.country === 'japan' ? 'japan' : 'nepal'`). `DayPlan.country`
+  // is a LEG ID (lib/trip-data.ts), not a nepal/japan union — a custom trip's single leg is
+  // 'main' (core/trips/custom.ts). The old coercion rewrote a synced custom trip's leg id to
+  // 'nepal' on every authoritative first snapshot AND wrote it back to Firestore, because
+  // `pushDayMerged` takes day-level fields from the REMOTE side of `mergeDay`. The rule here is
+  // now the Vault read schema's own (`z.string().min(1)`, core/vault/schema.ts): any non-empty
+  // string passes through; missing/blank/wrong-typed still defaults to 'nepal'. Still a pure
+  // shape-mapper — the default fills ABSENT input, it never rewrites input that is present. D-303.
+  const country = typeof data.country === 'string' && data.country ? data.country : 'nepal';
   const city = typeof data.city === 'string' ? data.city : '';
   const items = Array.isArray(data.items) ? (data.items as ItineraryItem[]) : [];
   const day: DayPlan = { date, city, country, items };
