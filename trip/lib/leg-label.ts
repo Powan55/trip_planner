@@ -83,7 +83,11 @@ export function dayPlaceLabel(day: {
   country: string;
   countryLabel?: string;
 }): string {
-  return compose(day.city, day.countryLabel ?? dayLabel(day.date, day.country));
+  // #6: a day that arrived over sync can carry `city: ''`. `docToDayPlan` defaults a missing or
+  // ill-typed field to '', and a remote-only day passes through `mergeDays` unmerged. Fall back to
+  // the SAME by-date city `placeLabelForDate` uses, so the line never renders a bare "USA" (default
+  // pack) or an empty string (custom trip). A day with its own city is untouched.
+  return compose(day.city || getCityForDate(day.date), day.countryLabel ?? dayLabel(day.date, day.country));
 }
 
 /** The same line for a bare trip DATE, when no day plan is in hand (dialog option lists). */
