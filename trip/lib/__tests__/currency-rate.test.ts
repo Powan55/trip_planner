@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fetchCurrencyRate, parseFrankfurter, type CurrencyRateNow } from '@/lib/currency-rate';
 
 /**
@@ -61,6 +61,15 @@ describe('fetchCurrencyRate (total; write-through + offline fallback)', () => {
     }
     const cached = JSON.parse(localStorage.getItem('nepal_japan_currency_rate_cache')!);
     expect(cached.JPY.rate).toBe(155.32);
+  });
+
+  it('#54B — the request carries an abort signal (a stalled connection settles at the ceiling, never hangs)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(FRANKFURTER_JPY_FIXTURE));
+    await fetchCurrencyRate('JPY', fetchMock as unknown as typeof fetch);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    // Asserted on the init object — the URL is deliberately unaffected (still keyless).
+    expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
+    expect(fetchMock.mock.calls[0][0]).not.toMatch(/api[_-]?key|apikey|appid|token=/i);
   });
 
   it('stale: a failed fetch after a prior success returns the cached value tagged stale:true', async () => {
