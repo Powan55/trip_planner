@@ -1,7 +1,7 @@
 {
   "name": "app",
   "private": true,
-  "version": "5.14.2",
+  "version": "5.14.3",
   "scripts": {
     "dev": "next dev",
     "build": "next build && node scripts/gen-sw.mjs",
