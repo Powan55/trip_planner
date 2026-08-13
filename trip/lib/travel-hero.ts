@@ -68,7 +68,7 @@ function timedItems(items: ItineraryItem[]): Timed[] {
 
 /**
  * Effective end INSTANT of a timed item: `start + duration`, or the capped gap-to-next
- * fallback. (TD-08) — the gap is measured between INSTANTS, not between clock faces.
+ * fallback. The gap is measured between INSTANTS, not between clock faces.
  * A day can hold items in different zones, and a wall-clock gap across
  * zones is a difference between two numbers that never coexisted: on Jan-9 the Detroit
  * layover reads 15:35 while the Tokyo flight that produces it reads 17:35, so a wall-clock
@@ -96,7 +96,7 @@ interface Current {
  * several overlap, the LATEST-starting one wins (the most recently-begun activity is "most
  * current"); ties resolve to array order (stable).
  *
- * (TD-08) — ONE frame for the whole decision. The window was already qualified by
+ * ONE frame for the whole decision. The window was already qualified by
  * instants, but the tiebreak that picked the winner compared wall clocks (`t.startMin`), so on
  * a mixed-zone day the "most recently begun" item could be the one that began first. Every
  * comparison here is now on the UTC instant.

@@ -627,17 +627,6 @@ function CompactCountdown() {
   // Reserve height before hydration so the card doesn't jump (no layout shift / overflow).
   if (!cd) return <div className="h-[58px]" aria-hidden="true" />;
 
-  const units: { label: string; value: number }[] = cd.isPast
-    ? [{ label: 'Status', value: 0 }]
-    : [
-        { label: 'Mo', value: cd.months },
-        { label: 'Wk', value: cd.weeks },
-        { label: 'Day', value: cd.days },
-        { label: 'Hr', value: cd.hours },
-        { label: 'Min', value: cd.minutes },
-        { label: 'Sec', value: cd.seconds },
-      ];
-
   if (cd.isPast) {
     return (
       <p className="text-sm font-medium text-foreground text-center" role="status">
@@ -646,9 +635,28 @@ function CompactCountdown() {
     );
   }
 
+  // A calendar unit that is zero is not shown (issue #11). The producer carries maximally
+  // and reports every unit, and skipping the zeros is this surface's job. Hr/Min/Sec always
+  // show: they tick, so a 00 corrects itself, and dropping one would reflow the row every
+  // minute. So the row holds 3 to 6 cells and the grid is sized to whatever is left.
+  const units: { label: string; value: number }[] = [
+    { label: 'Mo', value: cd.months },
+    { label: 'Wk', value: cd.weeks },
+    { label: 'Day', value: cd.days },
+  ]
+    .filter((u) => u.value > 0)
+    .concat([
+      { label: 'Hr', value: cd.hours },
+      { label: 'Min', value: cd.minutes },
+      { label: 'Sec', value: cd.seconds },
+    ]);
+
   return (
     <div role="status" aria-label={`Departure in ${cd.totalDays} days`}>
-      <div className="grid grid-cols-6 gap-1.5">
+      <div
+        className="grid gap-1.5"
+        style={{ gridTemplateColumns: `repeat(${units.length}, minmax(0, 1fr))` }}
+      >
         {units.map((u) => (
           <div
             key={u.label}

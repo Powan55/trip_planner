@@ -981,7 +981,7 @@ export default function CalendarPlanner() {
   // drag-order (`handleDragEnd`/`arrayMove`/`SortableContext` are all untouched below).
   // computed over the VISIBLE set. A badge warning about a collision with an item that is
   // not on screen is unreadable; clash detection is order-independent so this is a pure narrowing.
-  // (TD-07): the overlap is judged on the absolute instant, so the day and its offset
+  // The overlap is judged on the absolute instant, so the day and its offset
   // come along — a day can hold items in another zone.
   const dayClashIds = useMemo(
     () => clashingItemIds(visibleItems, selectedDate, offsetForCountry(getCountryForDate(selectedDate))),

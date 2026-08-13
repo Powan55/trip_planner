@@ -267,7 +267,10 @@ type RouteBodyAnchor =
 
 const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
   '/': {
-    anchor: '[data-testid="countdown-days"]',
+    // The HOURS cell, not the days cell. Since issue #11 a calendar unit that is zero is
+    // not rendered, so `countdown-days` is absent whenever the real remaining day count
+    // divides by 7, a once-a-week false failure. The clock cells always render.
+    anchor: '[data-testid="countdown-hours"]',
     what: 'the TripDashboard countdown island (app/page.tsx -> @/components/trip-dashboard)',
   },
   '/404/': {
@@ -452,7 +455,7 @@ test.describe('S84 · precache manifest present (D-073 shell contract)', () => {
     // At least one hashed static chunk is precached (_next/static/**).
     expect(summary.urls.some((u) => u.startsWith('/_next/static/'))).toBe(true);
     // The other route HTMLs are precached too (nav offline works for all routes).
-    // gen-sw.mjs DISCOVERS routes by walking out/ (TD-04 — no hand-kept ROUTE_HTML), so
+    // gen-sw.mjs DISCOVERS routes by walking out/ (no hand-kept ROUTE_HTML), so
     // every static route is precached automatically. S320 (D-231/D-170): the two new
     // routes `/guides/` and `/more/` are asserted here so the 5-tab IA's Guides + More
     // tabs resolve offline like every other route.

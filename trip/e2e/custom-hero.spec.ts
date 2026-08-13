@@ -110,19 +110,24 @@ test.describe('S253 — custom trip hero', () => {
     const scrollWidth = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(scrollWidth).toBeLessThanOrEqual(360);
 
-    // `grid-cols-3 sm:flex` (S253 mobile polish): the 6 countdown cells lay out as a tidy
-    // 2×3 grid at this width — the first 3 units share one row, the 4th starts the next row.
+    // `grid-cols-3 sm:flex` (S253 mobile polish): the countdown cells lay out 3 to a row at
+    // this width. The first 3 share one row, the 4th starts the next.
+    //
+    // The cells are read by POSITION, not by unit name: since issue #11 a calendar unit that
+    // is zero is not rendered, so which of months/weeks/days is present depends on the real
+    // clock against this seeded trip's 2027-05-10 start. The rendered set is 3 to 6 cells,
+    // always ending in hours/minutes/seconds, which is enough for the row test.
+    const cells = page.getByTestId(/^countdown-(months|weeks|days|hours|minutes|seconds)$/);
+    const count = await cells.count();
+    expect(count).toBeGreaterThanOrEqual(4);
     const boxes = await Promise.all(
-      ['months', 'weeks', 'days', 'hours'].map((k) => page.getByTestId(`countdown-${k}`).boundingBox()),
+      [0, 1, 2, 3].map((i) => cells.nth(i).boundingBox()),
     );
-    const [months, weeks, days, hours] = boxes;
-    expect(months).not.toBeNull();
-    expect(weeks).not.toBeNull();
-    expect(days).not.toBeNull();
-    expect(hours).not.toBeNull();
-    expect(Math.abs(months!.y - weeks!.y)).toBeLessThan(2);
-    expect(Math.abs(months!.y - days!.y)).toBeLessThan(2);
-    expect(hours!.y).toBeGreaterThan(months!.y + 5); // 2nd row, strictly below the 1st
+    for (const box of boxes) expect(box).not.toBeNull();
+    const [first, second, third, fourth] = boxes;
+    expect(Math.abs(first!.y - second!.y)).toBeLessThan(2);
+    expect(Math.abs(first!.y - third!.y)).toBeLessThan(2);
+    expect(fourth!.y).toBeGreaterThan(first!.y + 5); // 2nd row, strictly below the 1st
 
     // The countdown grid itself lands above the fold (it's the first content below the
     // hero's badge/title/subtitle/quote — the explicit mobile-polish
@@ -130,7 +135,7 @@ test.describe('S253 — custom trip hero', () => {
     // that is pre-existing hero content height (badge + 2-line title + subtitle + quote +
     // label), identical for the default Nepal×Japan hero at this viewport, and trimming that
     // copy was out of this slice's scope.
-    expect(months!.y + months!.height).toBeLessThanOrEqual(740);
+    expect(first!.y + first!.height).toBeLessThanOrEqual(740);
 
     await context.close();
   });

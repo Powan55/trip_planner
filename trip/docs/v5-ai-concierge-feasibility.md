@@ -1,7 +1,7 @@
 # v5 Phase-4 Feasibility Spike — AI Concierge & Web Push
 
 **Slice:** S197 · **Date:** 2026-07-16 · **Milestone:** M19 (v5) Phase 4
-**Status:** research/decision deliverable, no application code. Locks provider + push-protocol choices for S198+.
+**Status:** research/decision deliverable, no application code. Locked the provider + push-protocol choices for S198+. **Historical. See "Outcome" below for what shipped.**
 
 This spike answers three questions before any Worker code is written:
 1. Do the free-tier quotas (Gemini primary → Groq fallback) comfortably cover a real trip party's concierge use?
@@ -11,6 +11,24 @@ This spike answers three questions before any Worker code is written:
 Scope fence: anything paid or card-required is out of v5 (`V5-DEVPLAN.md`). Both providers below are free-tier, no-card. If either turns out to require billing at key-creation time, that is an automatic no-go for that provider, not a judgment call.
 
 Privacy carry-over (D-152 LOCKED posture): the concierge must never see journal content. The chat context builder in S199 has to exclude gateway key 12 entirely.
+
+---
+
+## 0. Outcome (added at the final documentation pass, 2026-08-10)
+
+- **AI concierge: shipped.** The Cloudflare Worker went live on **2026-08-09** as
+  `trip-planner-concierge` v1.8.0, recorded with its Version ID in `lib/concierge-config.ts` and
+  pinned by `lib/__tests__/travel-concierge-gating.test.ts`. The client half is gated by
+  `isConciergeConfigured()` and covered by `e2e/concierge.spec.ts`.
+- **Web Push: not built.** The raw-VAPID GO verdict in section 4 was never acted on. There is no
+  `PushManager` subscribe, no `applicationServerKey`, and no `push`/`notificationclick` handler in
+  `scripts/gen-sw.mjs`. The morning-briefing push does not exist.
+- **The `<PASTE LIVE RPD HERE>` and `<UNVERIFIED — confirm before S198>` markers below were never
+  filled.** The Worker shipped without them, and the S315 annotation in section 2 has since
+  replaced the model ladder they were sizing. Read every quota number here as the 2026-07-16
+  estimate it was; none of it is a live figure.
+- Section 5's manual setup steps were carried out (the Worker is live against a real provider key)
+  and are kept only as the record of what was done.
 
 ---
 
@@ -27,7 +45,7 @@ Per the official docs (`ai.google.dev/gemini-api/docs/rate-limits`), exact RPM/T
 
 **Primary model choice:** `gemini-2.5-flash-lite`. The higher RPD (~1,000 vs ~250) makes it the right default for a chat concierge; flash is the escalation option if answer quality on lite proves weak (a Worker-side model-string swap, no re-decision).
 
-> **`<PASTE LIVE RPD HERE>`**. The go/no-go below does not block on this; the estimate is enough to reason about headroom. Paste the live number in once a key exists (see section 5).
+> **The live RPD was never pasted in here** (see the Outcome block above). The go/no-go did not block on it; the estimate was enough to reason about headroom, and the Worker shipped on that basis.
 
 ### Groq (`console.groq.com`, free tier, no card required): confirmed
 
@@ -104,7 +122,7 @@ Both GO verdicts are conditional on the no-card check at key-creation time (see 
 
 ---
 
-## 5. Manual setup steps (≈5 minutes, to complete before S198)
+## 5. Manual setup steps (≈5 minutes, carried out before S198; kept as the record)
 
 **A. Gemini key + live quota number**
 1. Sign in at `aistudio.google.com` and create (or select) a project. Confirm no payment card is requested; if it is, stop and flag it as a no-go.

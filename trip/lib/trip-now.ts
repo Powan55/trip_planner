@@ -175,3 +175,27 @@ export function getTodayInTrip(): TripToday | null {
   const now = getNow(); // resolves the override once; sets module `overrideMs`
   return dayInTripFor(now, overrideMs === null ? tripOffsetMinFor(now) : null);
 }
+
+/**
+ * Destination-local "now" as a calendar day + minutes-from-midnight, ALWAYS, in or out of the
+ * trip window. Same clock, same `?today=` override and same leg-offset resolution as
+ * `getTodayInTrip()`; the difference is only that this one still answers outside the window.
+ *
+ * #12: `getTodayInTrip()` returning `null` off-trip is right for the Day-N UI (there is no trip
+ * day to show), but the concierge digest was dropping its whole date line on that `null` and the
+ * model then assumed day one of the trip. It needs a real date every time, so it calls this.
+ *
+ * With no trip geography (a custom pack) or with an override active, the offset falls back to the
+ * device's own, which reproduces `dayInTripFor(now, null)`'s device-local day exactly. Under an
+ * override `getNow()` is local noon of the simulated day, so this reads 12:00, the same demo-noon
+ * parity `getNowUtcMsForPlace` documents.
+ */
+export function getNowAtTrip(): { date: string; minutes: number } {
+  const now = getNow(); // resolves the override once; sets module `overrideMs`
+  const offsetMin = (overrideMs === null ? tripOffsetMinFor(now) : null) ?? -now.getTimezoneOffset();
+  const at = new Date(now.getTime() + offsetMin * 60000);
+  return {
+    date: utcDayAtOffset(now, offsetMin),
+    minutes: at.getUTCHours() * 60 + at.getUTCMinutes(),
+  };
+}

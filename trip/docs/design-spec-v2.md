@@ -1,5 +1,15 @@
 # v2 Design Language (S66)
 
+> **Historical (S66, M14). The token values below are superseded. Do not implement from this
+> document.** The live token contract is `app/globals.css` plus `tailwind.config.ts`. Three things
+> changed after S66: the single chrome accent is cyan `189 90% 60%` / `61, 217, 245`
+> (`globals.css` declares it for `--accent-scroll`, `--accent`, `--primary` and `--ring` alike;
+> `--gold` survives only as a warning colour), not gold; the per-route accent engine was retired
+> and `components/route-accent-engine.tsx` was deleted at S354 (see the S366 annotations on D-058,
+> D-062 and D-072 in `DECISIONS.md`); and the ambient aurora + grain decoration was removed along
+> with several of the classes listed in constraint 3. Kept as the record of the v2 design language
+> and its reasoning.
+
 > Slice S66. The token-level design contract for the M14 v2 redesign, delivered as CSS
 > variables plus a Tailwind theme so components elsewhere in the app upgrade visually
 > without their files being edited (D-078). It lands in `app/globals.css` and
@@ -15,34 +25,37 @@ happens to be an app. Nepal warms to himalaya-amber, Japan cools to sakura, and 
 rests on brand gold.
 
 ## Hard constraints (non-negotiable, verify every one)
-1. **D-058 / D-062 (LOCKED): accent literals are byte-exact at rest.** Do not change the
-   default `--accent-scroll: 44 80% 61%` / `--accent-scroll-rgb: 240, 199, 96` declarations
-   in `globals.css`. `route-accent-engine.tsx` (D-072, off-limits, do not touch) overwrites
-   these per route at runtime: gold `240,199,96` (`/`), himalaya `255,140,66` (`/nepal/`),
-   sakura `247,160,179` (`/japan/`). Keep the default declaration intact so SSR and first
-   paint on gold routes stay byte-exact, and style against `--accent-scroll` /
-   `--accent-scroll-rgb` rather than redefining them.
+1. **Accent literals (as authored at S66, now superseded).** S66 pinned the default
+   `--accent-scroll: 44 80% 61%` / `--accent-scroll-rgb: 240, 199, 96` byte-exact, with
+   `route-accent-engine.tsx` (D-072) overwriting them per route: gold `240,199,96` (`/`), himalaya
+   `255,140,66` (`/nepal/`), sakura `247,160,179` (`/japan/`); and shadcn `--accent` held at sakura
+   `340 60% 65%` as a separate interactive-chrome token. **None of that is live.** There is one
+   route-independent accent, cyan `189 90% 60%`, shared by `--accent-scroll`, `--accent`,
+   `--primary` and `--ring`, and the engine component no longer exists. The durable rule that
+   survives: `--accent-scroll` is a separate additive hook and must not be collapsed into shadcn's
+   `--accent` semantics by a future engine.
 2. **D-009 dark-only.** No light-mode variants, no `@media (prefers-color-scheme)` light branch.
-3. **Consumed class names survive: restyle, never rename or remove.** Frozen components
-   elsewhere use these, so the CSS selectors have to keep existing and keep working. Only
-   their *look* changes: `.glass-card` · `.glass-card-dark` · `.glass-nepal` · `.glass-japan` ·
-   `.text-gradient-gold` · `.text-gradient-sakura` · `.text-gradient-himalaya` · `.hero-gradient` ·
-   `.bg-aurora` · `.animate-float` · `.animate-pulse-glow` · `.animate-aurora` · `.scrollbar-hide`.
-   Likewise keep every shadcn semantic var (`--card`, `--border`, `--primary`, `--muted`,
-   `--accent`, `--ring`, `--radius*`, …) and the Tailwind color/name mapping. You may refine
-   their values, never delete the keys.
-4. **`--accent` (shadcn interactive chrome) stays sakura `340 60% 65%`.** It is a different
-   token from `--accent-scroll`; do not recolor interactive chrome.
-5. **No new npm dependencies** (`package.json` is off-limits). Grain is an inline SVG
+3. **Consumed class names survive: restyle, never rename or remove** *(as authored at S66; the list
+   has since shrunk, see the banner)*. Frozen components elsewhere used these, so the CSS selectors
+   had to keep existing and keep working. Only their *look* changed. **Still live today:**
+   `.glass-card` · `.glass-card-dark` · `.glass-nepal` · `.glass-japan` · `.text-gradient-sakura` ·
+   `.text-gradient-himalaya` · `.hero-gradient` · `.scrollbar-hide`, plus the S66 additions
+   `.glass-panel` and `.glass-subtle`. **Since deleted with their last consumer:**
+   `.text-gradient-gold` (gold is no longer a chrome accent; `--gold` survives as a warning colour
+   only), `.bg-aurora` / `.animate-aurora` (the ambient decoration was removed, see section 3),
+   `.animate-float`, `.animate-pulse-glow`. Likewise keep every shadcn semantic var (`--card`,
+   `--border`, `--primary`, `--muted`, `--accent`, `--ring`, `--radius*`, …) and the Tailwind
+   color/name mapping. You may refine their values, never delete the keys.
+4. **No new npm dependencies** (`package.json` is off-limits). Grain is an inline SVG
    data-URI; motion is CSS or the existing framer-motion only.
-6. **No new imagery** (the exact-location-free-photos rule leaves us with none). Heroes are
+5. **No new imagery** (the exact-location-free-photos rule leaves us with none). Heroes are
    gradient and type.
-7. **Reduced-motion (D-007/D-056):** every new keyframe animation is neutralized under
+6. **Reduced-motion (D-007/D-056):** every new keyframe animation is neutralized under
    `prefers-reduced-motion: reduce`, and nothing ends stuck at `opacity: 0`.
-8. **0-overflow at 360/390/414.** New depth comes from backgrounds, `box-shadow inset`,
+7. **0-overflow at 360/390/414.** New depth comes from backgrounds, `box-shadow inset`,
    fixed decorative layers and borders only, none of which add a layout box (D-022). No new
    element may widen the page.
-9. **WCAG AA on new surfaces.** Body and secondary text ≥ 4.5:1 against the *effective*
+8. **WCAG AA on new surfaces.** Body and secondary text ≥ 4.5:1 against the *effective*
    (post-blur) glass fill; large display ≥ 3:1. Report measured ratios.
 
 ---
@@ -96,6 +109,11 @@ padding-box, linear-gradient(edge) border-box;`. Keep `backdrop-filter: blur() s
   `.glass-subtle` (low-key list rows). Do not rename anything to introduce these.
 
 ## 3 · Ambient depth: aurora + grain (app-wide, static, reduced-motion-safe)
+
+> **Removed since.** The whole ambient layer described in this section is gone: `--gradient-aurora`,
+> both `--grain` tiles, and the `body::before` / `body::after` decorative layers were deleted, and
+> `tailwind.config.ts` dropped the `bg-aurora` key with them. The page background is now
+> `bg-background` alone. Kept below as the record of what was built at S66.
 
 **Enrich `--gradient-aurora`** (keep the var name; it feeds `.bg-aurora` and Tailwind `bg-aurora`).
 Add a 4th cool stop and nudge opacities up slightly for more presence, still decorative and subtle:

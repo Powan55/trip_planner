@@ -155,7 +155,7 @@ export function placeWallClockToUtcMs(dateStr: string, minutes: number, offsetMi
   return Date.UTC(y, mo - 1, d, 0, minutes - offsetMin);
 }
 
-// (TD-05): `isPastAtPlace` DELETED — inlined its one-line body
+// `isPastAtPlace` DELETED. Inlined its one-line body
 // (`placeWallClockToUtcMs(...) < now`) into `lib/whats-next.ts`, leaving zero production
 // call sites and a 6-assertion suite testing nothing else reached. The strictness it
 // encoded (an item exactly AT "now" is still upcoming) lives on at that call site.

@@ -26,7 +26,7 @@ export function FadeIn({
 // usages tree-wide. The app's real loading affordance is `.animate-shimmer`
 // (globals.css) via SectionSkeleton / WeatherCard.
 //
-// (TD-06): `ScaleIn`, `SlideIn`, `Stagger`, `StaggerItem`, `HoverLift` and `PressScale`
+// `ScaleIn`, `SlideIn`, `Stagger`, `StaggerItem`, `HoverLift` and `PressScale`
 // deleted for the same reason — ZERO references each outside this file. `FadeIn` (4 refs,
 // imported by `components/activity-feed.tsx`) is the only survivor and the positive control
 // that made those six zeros a result rather than a broken scan. NO bundle-size claim is made:

@@ -1,9 +1,10 @@
 # Travel Mode: real-iPhone field-test script (S192, M19 Phase 2)
 
 A hand-run validation of Travel Mode on a **physical iPhone**, covering the things the
-emulated Playwright net (`e2e/tm-acceptance.spec.ts`, TM-1…12) cannot prove on a Windows
-CI box: real iOS Safari rendering, a genuine installed PWA, the Dynamic Island, a real
-airplane-mode relaunch, and the real Firebase sync round-trip on reconnect.
+emulated Playwright net (`e2e/tm-acceptance.spec.ts`, TM-1…12) cannot prove on a Linux CI
+runner driving chromium-emulated iPhone viewports: real iOS Safari rendering, a genuine
+installed PWA, the Dynamic Island, a real airplane-mode relaunch, and the real Firebase
+sync round-trip on reconnect.
 
 **Who runs it:** whoever is carrying the travel iPhone, on that device.
 **When:** once **post-ship (~Nov 9, 2026)** to shake out install/offline behaviour early, and

@@ -56,7 +56,7 @@ change in the slice. No existing prop, className, or render path was altered.
 | testid | element | notes |
 |---|---|---|
 | `navbar` | the `<nav>` root | |
-| `navbar-link-home` / `navbar-link-plan` / `navbar-link-flights` / `navbar-link-nepal` / `navbar-link-japan` / `navbar-link-map` | desktop nav `<Link>`s | Derived from `item.label.toLowerCase()` via `PRIMARY_NAV_ITEMS` (`lib/nav-items.ts`); only visible `md:` and up. FU-33 (D-071): the desktop row stays at these 6, and the 3 companion routes are not rendered here (no tablet overflow). |
+| `navbar-link-today` / `navbar-link-plan` / `navbar-link-map` / `navbar-link-guides` | desktop nav `<Link>`s | Derived from `item.label.toLowerCase()` via `primaryItemsForActiveTrip()` (`lib/nav-items.ts`); only visible `md:` and up. The top row is **four** primaries on the default trip (Today · Plan · Map · Guides). On a **custom** trip the `defaultTripOnly` `Guides` seat is dropped and refilled by the one `customPrimary` companion, so the fourth id becomes `navbar-link-journal`. Every other destination (Flights, Journal, Safety, Recap, Packing, Documents, Shared Links, Trips, Settings) lives behind the desktop "More" disclosure, see `navbar-more-toggle` below. Historical: this row read `navbar-link-home / -plan / -flights / -nepal / -japan / -map` until S320 renamed Home→Today, fronted Nepal/Japan behind `/guides/`, and dropped Flights to a companion. |
 
 > S319: the mobile full-screen hamburger (`navbar-menu-toggle` + the `#mobile-nav-menu` panel with its `navbar-link-mobile-*` links) was deleted, so the bottom tab bar (section 4) is the sole mobile nav. On `<md` the navbar renders only the brand, the desktop-hidden clusters, and the Travel Mode entry. Companion routes' mobile home is re-established by S320.
 
@@ -65,7 +65,7 @@ change in the slice. No existing prop, className, or render path was altered.
 | testid | element | notes |
 |---|---|---|
 | `tab-bar` | the `<nav>` root | `md:hidden`. |
-| `tab-bar-home` / `tab-bar-plan` / `tab-bar-flights` / `tab-bar-nepal` / `tab-bar-japan` / `tab-bar-map` | each tab `<Link>` | Derived the same way as the navbar (`item.label.toLowerCase()`), from `PRIMARY_NAV_ITEMS` (FU-33). Stays at exactly 6 tabs to hold the D-071 ≥44px-at-360px floor; the 3 companion routes (`/journal`, `/safety`, `/recap`) are deliberately not on this bar (`tab-bar-journal` etc. do not exist), reachable instead via the mobile hamburger panel + command palette. Build-output note: this id is a template literal (`` `tab-bar-${item.label.toLowerCase()}` ``) evaluated at render time, so a static grep of the emitted JS bundle finds the template expression, not the pre-concatenated string `"tab-bar-plan"`. It is confirmed present as `` data-testid":`tab-bar-${t.label.toLowerCase()}` `` in `out/_next/static/chunks/app/layout-*.js`. The literal id is what actually lands in the DOM at runtime. |
+| `tab-bar-today` / `tab-bar-plan` / `tab-bar-map` / `tab-bar-guides` / `tab-bar-more` | each tab `<Link>` | Derived the same way as the navbar (`item.label.toLowerCase()`), from `primaryItemsForActiveTrip()` plus a synthetic `MORE_TAB` (`components/bottom-tab-bar.tsx`, `{ label: 'More', href: '/more/' }`) appended last. **Five** tabs, which is what holds the D-071 ≥44px-at-360px floor. On a custom trip the fourth id is `tab-bar-journal` (the `Guides` seat is `defaultTripOnly`). Every other destination lives on the `/more/` page, which renders `navItemsForActiveTrip()` minus the primaries, and in the command palette. Build-output note: this id is a template literal (`` `tab-bar-${item.label.toLowerCase()}` ``) evaluated at render time, so a static grep of the emitted JS bundle finds the template expression, not the pre-concatenated string `"tab-bar-plan"`. The literal id is what actually lands in the DOM at runtime. Historical: this row read `tab-bar-home / -plan / -flights / -nepal / -japan / -map` (6 tabs) until S320. |
 
 ## 5. Quick-add FAB: `components/quick-add-fab.tsx` (most routes, `<md` only)
 
@@ -554,7 +554,7 @@ S153. A new dedicated route listing every persisted journal entry (S104's localS
 per-day text journal, `useJournal().entries`), newest-first, readable and editable. Mounted on
 `app/journal/page.tsx` via `dynamic({ ssr:false })` (localStorage-only, no meaningful server
 render, mirroring `BudgetPanel`/`BackupRestore` on `/plan`). Reached via a direct URL, the
-"View all entries" link on `journal-card.tsx`, the mobile hamburger panel, or the command
+"View all entries" link on `journal-card.tsx`, the `/more/` page (mobile) or the desktop "More" dropdown, or the command
 palette (nav/tab/palette wiring landed in FU-33). Editing reuses the real `JournalCard` primitive: exactly
 one instance is ever mounted at a time (its internal ids are not date-keyed, so more than one
 mounted at once would duplicate ids, an axe violation), so every other row renders as a
@@ -603,7 +603,7 @@ S152. A new, self-owned route: an offline travel-safety reference covering emerg
 embassy contacts, a romanized Nepali/Japanese phrasebook, and a document checklist. It is all
 static content (`core/content/safety.ts`, D-088; zero fetch, zero persistence). Mounted on
 `app/safety/page.tsx` via `dynamic({ ssr:false })` (mirrors `app/journal/sections.tsx`'s
-island shape). Reached via a direct URL, the mobile hamburger panel, or the command palette
+island shape). Reached via a direct URL, the `/more/` page (mobile) or the desktop "More" dropdown, or the command palette
 (nav/tab/palette wiring landed in FU-33, same as `/journal`), and deliberately not on the
 bottom tab bar or the desktop top row (D-071 slot ceilings).
 
@@ -645,7 +645,7 @@ compact home `TripRecap` card island (`components/trip-recap.tsx`, section 20, u
 reuses the same pure data layer (`summarizePlan` / `elapsedTripDates` / `sumExpensesForDate`)
 and read hooks (itinerary/journal/expenses), read-only (D-018). Mounted on `app/recap/page.tsx`
 via `dynamic({ ssr:false })` (mirrors `app/journal/sections.tsx`'s island shape). Reached via a
-direct URL, the mobile hamburger panel, or the command palette (nav/tab/palette wiring landed
+direct URL, the `/more/` page (mobile) or the desktop "More" dropdown, or the command palette (nav/tab/palette wiring landed
 in FU-33, same as `/journal` and `/safety`), and deliberately not on the bottom tab bar or the
 desktop top row (D-071 slot ceilings).
 
@@ -1058,7 +1058,7 @@ Zero-stop days render an honest empty line instead of a bare world map. Covered 
 
 S343, the concierge on `/travel`. The same `<ConciergeChat />` the navbar mounts, placed in the
 reserved `.tm-thumb-zone` band (section 32) via `components/travel-concierge.tsx`, whose only rule is
-the navbar's `isDefaultTrip()` persona gate (TD-08). Every other gate stays inside ConciergeChat
+the navbar's `isDefaultTrip()` persona gate. Every other gate stays inside ConciergeChat
 (`isConciergeConfigured()` + non-guest traveler), so a dormant build (`NEXT_PUBLIC_CONCIERGE_URL`
 unset, which is every build today) renders nothing and the band stays `:empty` → `display:none`. The
 gate is unit-proven in `lib/__tests__/travel-concierge-gating.test.ts`, and presence is asserted

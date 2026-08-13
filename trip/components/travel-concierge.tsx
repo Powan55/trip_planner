@@ -6,8 +6,8 @@
 // a time — `navbar.tsx` (the other mount) returns null under `/travel` (`lib/travel-route.ts`),
 // which is the only reason the concierge was missing here at all.
 //
-// Gating is deliberately identical to the navbar's: `isConciergeAllowedForActiveTrip()` (TD-08 —
-// the DEPLOYED Worker's persona is a hardcoded Nepal × Japan one, so a custom trip must not get
+// Gating is deliberately identical to the navbar's: `isConciergeAllowedForActiveTrip()` (the
+// DEPLOYED Worker's persona is a hardcoded Nepal × Japan one, so a custom trip must not get
 // it). moved that rule into `lib/concierge-config.ts` so both mounts read ONE copy of it and
 // the owner lifts it in exactly one place after deploying the trip-aware Worker. Everything else —
 // `isConciergeConfigured()` (dormant unless `NEXT_PUBLIC_CONCIERGE_URL` is inlined) and the

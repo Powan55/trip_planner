@@ -2,10 +2,11 @@
 // `lib/firebase-config.ts`'s `isRemoteConfigured()` pattern: one module owns the env read and
 // the on/off decision, so no other module reads `process.env.NEXT_PUBLIC_CONCIERGE_URL` directly.
 //
-// ABSENCE => the feature stays entirely inert (no trigger, no panel, no fetch). This is the
-// DEFAULT state of every build today — the Worker (`worker/`) is not deployed yet
-// (`worker/README.md`); the operator sets this var post-deploy. `NEXT_PUBLIC_*` so it's inlined at build
-// time.
+// ABSENCE => the feature stays entirely inert (no trigger, no panel, no fetch). That is still the
+// default for a plain local build, and the unit and e2e suites gate on it. It is NO LONGER a
+// legitimate DEPLOY state: the Worker went live 2026-08-09 (v1.8.0), and `deploy.yml` now fails
+// the build when the variable is empty or carries a path, rather than shipping the feature
+// silently absent (issue #41). `NEXT_PUBLIC_*` so it's inlined at build time.
 
 import { isDefaultTrip } from '@/core/trips';
 

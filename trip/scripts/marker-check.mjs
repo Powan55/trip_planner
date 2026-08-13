@@ -4,9 +4,10 @@
  *
  * This repo is public and is written by more than one person. A few kinds of
  * text should never land in it: internal planning vocabulary carried over from
- * private notes, the owner's personal contact details, and references to files
- * that only exist in a private working copy. None of those break the build, so
- * nothing else would ever catch them.
+ * private notes, the owner's personal contact details, internal debt-register
+ * ids, and references to files or directories that only exist in a private
+ * working copy. None of those break the build, so nothing else would ever catch
+ * them.
  *
  * Detection only. It never edits a file. Run it with no arguments to scan the
  * repo, or with --self-test to check the patterns themselves still work.
@@ -28,6 +29,10 @@ import assert from 'node:assert';
 // they are useful when reading old comments. What follows is only the
 // vocabulary that describes how the work was organised, which is noise to
 // anyone reading this repo.
+//
+// Every rule name below needs a matching row in MUST_CATCH, and the self-test
+// fails if the two sets differ. That is what stops the gate passing on less
+// than the full marker set.
 const PATTERNS = [
   ['role-word', /\b(Apex|tech-lead|[A-Za-z]+-engineer|ponytail)\b/g],
   ['owner-name', /\bLax('s)?\b/g],
@@ -42,11 +47,46 @@ const PATTERNS = [
   ['codename', /\b(Trip OS|Yen\s?&\s?Rupee(?:\s\d+)?|Afterglow(?:\s\d+)?|Alpine Nocturne|Last Train|Lane [VMGXP])\b/g],
   ['ai-vendor', /\b(Claude(?:\sCode)?|Anthropic|subagents?)\b/g],
   // "brief" and "wave" are ordinary travel-prose words ("a brief stop"), so only
-  // their process-phrase shapes count.
-  ['process-prose', /\b(?:per|in|from|of)\s+the\s+brief\b|\bthe\s+brief(?:'s|\s+(?:says|asks|wants|names|specifies))\b|\bthis\s+wave\b|\bwave\s+(?:closes?|closed|ships|punishes)\b|\bJUDGEMENT CALL\b/gi],
+  // their process-phrase shapes count. The apostrophe is a character class
+  // because prose in this repo carries both the straight and the typographic
+  // one, and "the brief’s" is the same marker as "the brief's".
+  ['process-prose', /\b(?:per|in|from|of)\s+the\s+brief\b|\bthe\s+brief(?:['’]s|\s+(?:says|asks|wants|names|specifies))\b|\bthis\s+wave\b|\bwave\s+(?:closes?|closed|ships|punishes)\b|\bJUDGEMENT CALL\b/gi],
   // Files that live only in the private working copy. A reference to one of
   // these is a dead link for anyone reading this repo.
-  ['private-doc', /\b(STATE\.md|BACKLOG\.md|CLAUDE\.md|PONYTAIL-DEBT\.md|CLEANUP-REVIEW\.md|NEEDS-LAX\.md|DECISIONS-archive[\w-]*\.md|briefs\/)/g],
+  //
+  // Case-insensitive since S417: these are filenames, and the filesystems this
+  // repo is written on are case-insensitive, so `claude.md` and `state.md` name
+  // exactly the same private files. The last publish leaked a lowercase one
+  // straight past the uppercase-only spelling.
+  ['private-doc', /\b(STATE\.md|STATE-archive[\w-]*\.md|BACKLOG\.md|BACKLOG-archive[\w-]*\.md|CLAUDE\.md|PONYTAIL-DEBT\.md|CLEANUP-REVIEW\.md|NEEDS-LAX\.md|DECISIONS-archive[\w-]*\.md)/gi],
+  // Directories from the internal-planning block of the root .gitignore. A path
+  // that is excluded from this repo must not be *mentioned* in it either: the
+  // reference is dead here, and it names the private tree's layout.
+  //
+  // Anchored on a look-behind rather than \b, because \b before a leading "." is
+  // a boundary only when the preceding character is a word character, so a
+  // \b-anchored spelling would miss `.claude/` in every place it actually gets
+  // written (`` `.claude/` ``, "(.claude/)", start of line).
+  //
+  // Settled once, so nobody re-opens it: S417 words this rule as "references
+  // to lib/__tests__/ and e2e/ paths". Do not implement that literally. Those
+  // were two thirds of the old mirror script's EXCLUDE_DIRS, the directories it
+  // withheld when it copied a private tree into a public one, so in the mirror
+  // any reference to them dangled. That script is gone and this repo IS the
+  // published one: docs/ (22 files), e2e/ (135) and lib/__tests__/ (154) are all
+  // committed here, and 231 of 231 real references to them resolve on disk. The
+  // four that do not are the gitignored live-vault fixture, named as absent on
+  // purpose in three places, and one comment recording a test it supersedes.
+  // A literal rule would fire on 332 lines across 136 files, every one of them
+  // pointing at something a reader can open. The class S417 meant (a path this
+  // repo excludes) is now exactly the internal-planning block of the root
+  // .gitignore, which is what this pattern tracks. Keep the two in step.
+  ['excluded-path', /(?<![\w-])(\.claude|briefs|docs\/plans|docs\/reports)\//gi],
+  // Tech-debt register ids. Unlike the ticket-style ids above, these name rows
+  // of an internal register rather than a shipped thing, and the last publish
+  // leaked them. The optional letter suffix is deliberate: `TD-01g` is the exact
+  // shape a \d-only pattern reports clean on.
+  ['debt-id', /\bTD-\d{1,2}[a-z]?\b/g],
 ];
 
 // Every entry is a named, understood exception. Widening this list to make the
@@ -103,7 +143,15 @@ function scanText(text, relPath) {
  */
 function scanDocRefs(text, relPath, repoRoot) {
   const hits = [];
-  const re = /(?:^|[\s(`'"[])((?:[\w.-]+\/)*[\w.-]+\.md)\b/g;
+  // The left edge is a look-behind for "not a filename character" rather than a
+  // hand-listed set of delimiters. The listed set was the punctuation defect:
+  // it named space ( ` ' " and [, so every reference wrapped in markdown
+  // emphasis (**docs/x.md**, *docs/x.md*, _docs/x.md_), sat in a table cell
+  // (|docs/x.md|), in angle brackets or in typographic quotes went unchecked.
+  // This repo's docs are markdown, where bold is the usual way to write one.
+  // A rule that says what may NOT precede a path does not go stale the way a
+  // list of the punctuation that may does.
+  const re = /(?<![\w./-])((?:[\w.-]+\/)*[\w.-]+\.md)\b/g;
   text.split('\n').forEach((line, idx) => {
     if (ALLOWED_LINES.some((r) => r.test(line))) return;
     let m;
@@ -123,22 +171,51 @@ function scanDocRefs(text, relPath, repoRoot) {
   return hits;
 }
 
+// One line per rule that MUST still be caught, keyed by rule name. The self-test
+// asserts these keys are exactly the rule names in PATTERNS, so the gate cannot
+// go green on a partial marker set: deleting a rule, renaming one, or leaving a
+// pattern in place that has quietly stopped matching all fail here.
+//
+// The PII line is assembled from fragments on purpose. A working address written
+// out in full would be the exact thing that rule exists to keep out of the repo.
+const MUST_CATCH = {
+  'role-word': '// Apex reviewed this',
+  'owner-name': "// Lax's call",
+  'owner-pii': '// mail ' + 'laxmi' + 'poudel311@example.invalid',
+  'gate-word': '// Gate 2 passed',
+  'section-mark': '// see blueprint §4',
+  'codename': '// the Last Train run',
+  'ai-vendor': '// ask Claude',
+  'process-prose': '// per the brief',
+  'private-doc': '// see STATE.md',
+  'excluded-path': '// see briefs/2026-08/x',
+  'debt-id': '// TD-07 is still open',
+};
+
 function selfTest() {
   const t = (s) => scanText(s, 'x.ts').map((h) => h.rule);
 
-  // Catches what it must.
-  assert.deepEqual(t('// Apex reviewed this'), ['role-word']);
+  // Why this file has a self-test: every rule is exercised, and every exercise
+  // names a live rule.
+  assert.deepEqual(
+    PATTERNS.map(([rule]) => rule).sort(),
+    Object.keys(MUST_CATCH).sort(),
+    'PATTERNS and MUST_CATCH have drifted: every rule needs one case, and every case a rule',
+  );
+  for (const [rule, line] of Object.entries(MUST_CATCH)) {
+    assert.deepEqual(t(line), [rule], `${rule} no longer catches its own case: ${line}`);
+  }
+
+  // Catches what it must, beyond the one case per rule above.
   assert.deepEqual(t('// frontend-engineer built it'), ['role-word']);
-  assert.deepEqual(t("// Lax's call"), ['owner-name']);
-  // Assembled from fragments on purpose. A working address written out in full
-  // would be the exact thing this rule exists to keep out of the repo.
-  assert.deepEqual(t('// mail ' + 'laxmi' + 'poudel311@example.invalid'), ['owner-pii']);
-  assert.deepEqual(t('// see blueprint §4'), ['section-mark']);
-  assert.deepEqual(t('// Gate 2 passed'), ['gate-word']);
-  assert.deepEqual(t('// per the brief'), ['process-prose']);
-  assert.deepEqual(t('// ask Claude'), ['ai-vendor']);
-  assert.deepEqual(t('// see STATE.md'), ['private-doc']);
-  assert.deepEqual(t('// the Last Train wave'), ['codename']);
+  // The three shapes the last publish leaked. Each one is a near-miss of a rule
+  // that was already there, which is why they survived a green run.
+  assert.deepEqual(t('// see state.md'), ['private-doc']); // lowercase
+  assert.deepEqual(t('// see .claude/agents/pm.md'), ['excluded-path']);
+  assert.deepEqual(t('// see docs/plans/v6.md'), ['excluded-path']);
+  assert.deepEqual(t('// TD-01g is still open'), ['debt-id']); // letter suffix
+  // Punctuation: a marker glued to a typographic apostrophe is the same marker.
+  assert.deepEqual(t('// the brief’s deadline'), ['process-prose']);
 
   // Leaves alone what it must. These are the regressions that matter: a check
   // that fires on ordinary content gets switched off.
@@ -150,6 +227,16 @@ function selfTest() {
   assert.deepEqual(t('// a brief stop in Nara'), []);
   assert.deepEqual(t('// the wave of tourists'), []);
   assert.deepEqual(t('// calls https://trip-planner-concierge.official-shadowverse.workers.dev'), []);
+  assert.deepEqual(t('// docs/ and reports/ are ordinary words'), []);
+
+  // The dangling-doc-ref rule is part of the marker set too, and its left edge
+  // is where the punctuation defect lived: a reference in markdown bold was not
+  // checked at all. Both spellings must reach the filesystem check.
+  const repoRoot = path.resolve(process.cwd(), process.cwd().endsWith('trip') ? '..' : '.');
+  const refs = (s) => scanDocRefs(s, 'x.md', repoRoot).map((h) => h.text);
+  assert.deepEqual(refs('see docs/definitely-not-here.md'), ['docs/definitely-not-here.md']);
+  assert.deepEqual(refs('see **docs/definitely-not-here.md**'), ['docs/definitely-not-here.md']);
+  assert.deepEqual(refs('see `DECISIONS.md` at the root'), []);
 
   console.log('self-test: all assertions passed');
 }

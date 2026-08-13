@@ -1,4 +1,11 @@
-> **Historical: superseded by v5; kept for reference (2026-07-23).**
+> **Historical: superseded by v5; kept for reference (2026-07-23).** Section 1 describes the
+> post-M15 codebase, not the app today. Two things in particular will mislead: the Vault is now at
+> `CURRENT_ITINERARY_VERSION = 5` (`core/vault/migrations.ts`), not 4, so section 2's `time` →
+> `startMinutes` migration and section 6's "v4→v5 (migration #3)" row are done; and section 7's
+> platform upgrades all landed: `package.json` pins Next 15.5.20, React 19.2.7 and
+> eslint-config-next 15.5.20, so the version mismatch it flags no longer exists. For the current
+> architecture read `docs/data-core-blueprint.md`, `docs/sync-everywhere-blueprint.md` and
+> `DECISIONS.md`.
 
 # v4 Technical Doc
 
