@@ -2,11 +2,21 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v5.14.0`, deployed 2026-08-10. The newest live worker is `v1.8.0`, shipped 2026-08-09. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, which is a stronger condition than `v5.14.0` being deployed. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v5.14.2`, deployed 2026-08-12. The newest live worker is `v1.8.0`, shipped 2026-08-09. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, which is a stronger condition than `v5.14.0` being deployed. Read the heading before assuming a version is in production.
 
-**The newest entries are ahead of the live app.** `v5.14.1` and `v5.14.2` are recorded below and neither is deployed — `main` is at `v5.14.0` and `v5.14.0` is the newest deploy tag. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships.
+**The newest entry is ahead of the live app.** `v5.14.3` is recorded below and not yet deployed — `main` is at `v5.14.2` and `v5.14.2` is the newest deploy tag. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
+
+---
+
+## v5.14.3 (app) · 2026-08-13 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+
+The weather card and the currency rate could hang forever. Neither ever throws — on any failure each falls back to a cached, stale reading, or a quiet "unavailable" if there is no cache — but that fallback only fires on a *settled* rejection. A connection that neither routes nor rejects settles nothing, so the card sat on its loading shimmer with no way out. This was not theoretical: CI failed on it directly, timing out at 30 seconds on three consecutive attempts, because the test runner has no route to Open-Meteo. Both fetches now carry an 8-second ceiling, the same one already used for place lookups and trip probes, and a timeout is treated as an ordinary failure — it falls through the existing fallback exactly as before. Nothing about what the card shows changed, only how long it is willing to wait before showing it.
+
+Home's loading skeleton was reserving the wrong amount of space, and on a cold mobile load it showed. Every section that loads in lazily — including the trip strip sitting above the hero — rendered the same 826-pixel placeholder no matter what height it declared, because the declared height was only ever a floor, never a ceiling. That put roughly 700 pixels of empty space above the hero before the real content arrived: the "Open Planner" button opened off-screen, then the page visibly jumped as the trip strip mounted, briefly sliding the hero under the fixed navigation bar. The skeleton now reserves exactly the box it declares, clipped rather than overrun, and the hero sizes itself to the room actually left for it instead of claiming a full screen while sitting further down the page. On the narrowest supported phone (320px) the primary button used to sit 19 pixels below the fold; it now clears with margin on every supported width, verified directly rather than assumed.
+
+Both fixes were found chasing the same two failing checks (#54); the loading-skeleton one turned out to be a live layout bug independent of the tests that caught it.
 
 ---
 
@@ -32,7 +42,7 @@ A day that arrived over sync without a city of its own no longer renders a bare 
 
 ---
 
-## v5.14.1 (app) — 2026-08-11 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+## v5.14.1 (app) — 2026-08-11 · **NOT DEPLOYED, SUPERSEDED** — never shipped on its own; its changes ride inside v5.14.2 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
 
 No application source under `trip/` changed. This is the v5.14.0 access-control client with a new version string, so every device that takes the update prompt lands on the same client it was already meant to have — which is the fleet convergence worker `v1.9.0` is waiting on, arriving slightly sooner. (The bundle does change: the version is inlined and rendered in the footer, which is what moves the service worker's cache key and raises the prompt at all.)
 
