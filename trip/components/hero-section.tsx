@@ -115,12 +115,21 @@ const itemVariantsReduced = {
 export default function HeroSection() {
   const [mounted, setMounted] = useState(false);
   const [heroImgError, setHeroImgError] = useState(false);
-  const [timeLeft, setTimeLeft] = useState<Countdown>({ months: 0, weeks: 0, days: 0, hours: 0, minutes: 0, seconds: 0, totalDays: 0, isPast: false });
+  // Seeded from the REAL clock in a lazy initializer, not from a zeroed placeholder that the
+  // mount effect then corrects (issue #54 D). A zeroed countdown renders no months/weeks/days
+  // cells at all (they are dropped when zero, issue #11), so the first frame was ~212px
+  // shorter than the second and the whole vertically-centred block jumped — measured 0.11 of
+  // cold CLS on its own. This component is `dynamic({ssr:false})`, so its first render is
+  // already client-side: there is no server HTML to mismatch, and `getNow()` is a cached,
+  // window-guarded read that is safe during render. The 1s interval below still owns every
+  // subsequent value.
+  const [timeLeft, setTimeLeft] = useState<Countdown>(() => computeCountdown(TRIP_START, getNow()));
   // Travel mode: when the app clock lands inside the trip window the hero
-  // swaps the countdown grid for a "Day N — {city}" panel. `null` until mount (SSR-safe
-  // default) and while outside the window; recomputed on the same 1s tick as the
-  // countdown so it self-corrects at midnight without a reload.
-  const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
+  // swaps the countdown grid for a "Day N — {city}" panel. Seeded from the same first clock
+  // read (see above) so an in-trip load paints the Day-N panel directly instead of showing
+  // the countdown grid for a frame; recomputed on the same 1s tick as the countdown so it
+  // self-corrects at midnight without a reload.
+  const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(() => getTodayInTrip());
   // — countdown-hits-zero micro-celebration + haptic pulse. Fires only on an OBSERVED
   // "not arrived" → "arrived" edge (the countdown grid → Day-N panel swap, live, while
   // watching). The ref starts null and the effect skips until `mounted` (the first real clock
@@ -201,7 +210,13 @@ export default function HeroSection() {
   const customDestinations = customMeta?.config?.destinations?.join(' × ') ?? '';
 
   return (
-    <section ref={sectionRef} id="hero" aria-labelledby="hero-heading" className="relative min-h-[100svh] flex items-center justify-center overflow-hidden">
+    // `flex-1 min-h-0` (NOT `min-h-[100svh]`): the hero is not the whole fold — the trip
+    // strip sits above it, so a full-viewport hero pushed 129px of its own reserved height
+    // BELOW the fold, and since the content block is vertically centred everything inside it
+    // moved at half rate (issue #54 E2). Home now wraps strip + hero in ONE `min-h-[100svh]`
+    // column and the hero takes the space that is actually left. Its single consumer is
+    // `app/page.tsx`, so the sizing lives entirely there.
+    <section ref={sectionRef} id="hero" aria-labelledby="hero-heading" className="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden">
       {/* Decorative CSS + SVG backdrop — Himalayan warmth blending into Japan
           winter-neon. Purely decorative and aria-hidden; no external imagery. */}
       <div className="absolute inset-0" aria-hidden="true">

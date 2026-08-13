@@ -3201,3 +3201,35 @@ Checked and **not** siblings: `travel-safety-kit.tsx:38` (key iterates a `const`
 **The covering test inspects the fetch init, and that is load-bearing.** Every pre-existing case passed with and without the signal, because a rejecting mock and an aborted fetch are indistinguishable to them; only `calls[0][1].signal instanceof AbortSignal` turns red when a refactor drops it. The keyless-URL assertion is unaffected — the signal lives in `init`, so the URL is untouched.
 
 **Changes if:** field reports show `unavailable` on genuinely slow in-trip mobile links, which argues for raising the constant — the cost of a short ceiling is one page-load of `unavailable` before the cache fills, which the next navigation repairs. Or a client appears whose upstream legitimately takes minutes, in which case it justifies its own constant the way the chat ceiling does; it does not widen this one.
+
+---
+
+### D-311 · (issue #54, 2026-08-12) · Above-the-fold height is a budget: a hero sized `100svh` under other chrome over-commits the fold, and the clearance assertion runs at the narrowest supported width with a declared margin
+
+**Decision:** a full-height hero that is NOT the first element on its page sizes to the space it actually occupies — on Home the strip and the hero share one `min-h-[100svh] flex flex-col pt-16` wrapper and the hero is `flex-1 min-h-0`, never a bare `min-h-[100svh]`. The fold assertion in `e2e/countdown.spec.ts` asserts `ctaBottom <= viewport - FOLD_MARGIN_PX` with `FOLD_MARGIN_PX = 12`, and runs at an explicit **320** as well as 360.
+
+**Why:** CI put the CTA bottom at 744.375 against a 740 fold, deterministically across three retries, while the same commit passed locally. The cause was a classic 15px Linux scrollbar making the layout width 345, where the hero badge's date label wraps to two lines; the block is vertically centred, so the CTA moved half of 21.25 = 10.625px. The scrollbar was not the bug — it revealed one. **At 320px the CTA was 19.25px below the fold on every platform.** The hero reserved `100svh` while sitting at y=129, so 129px of that was structurally below the fold and the last child was left with 6.25px of accidental slack. Because everything inside a vertically-centred block moves at half rate, padding tweaks are a 2:1 losing trade; sizing the hero to its real container is the only fix that scales. Measured slack after: +45.250 at 320, +60.125 at 345/352, +70.750 at 360/375/390, +85.625 at 414.
+
+**Rejected:** a tolerance bump (asserts the CTA MAY sit below the fold, which is the negation of what the test proves, and encodes no principle so the next drift buys another bump) · `whitespace-nowrap` on the badge (trades a fold defect for horizontal overflow at 320) · branching the assertion on `clientWidth` (an assertion that asserts less on Linux is a rubber stamp). `docs/ci-flake-policy.md` does not apply: 3/3 identical failures at 744.375 is deterministic, not intermittent, so retries and quarantine are unavailable by construction.
+
+**Also required:** any fold assertion waits for `[data-lazy-visible="pending"]` to reach 0 before reading geometry. A one-shot `boundingBox()` outside `expect` has no web-first retry, which is why this spec was order-dependent — cold it read 1431.25, warm it passed.
+
+**Changes if:** the hero stops being preceded by chrome, in which case it can own the viewport again · or the supported minimum width drops below 320.
+
+---
+
+### D-312 · (issue #54, 2026-08-12) · A lazy placeholder reserves the box it declares — `SectionSkeleton`'s `height` is an exact box, and its padding lives on the inner div
+
+**Decision:** `components/section-skeleton.tsx` sets `height` + `maxHeight` and clips its overflow; the `px-gutter py-section` padding sits on an INNER div. Declaring too much is as wrong as declaring too little. Accepted consequence: a call site declaring less than the intrinsic content clips its shimmer to eyebrow + title + the top of row 1 — the tree is `aria-hidden` decoration, and a truncated decoration is fine where a lying reservation is not.
+
+**The padding placement is load-bearing, not style.** A border-box can never be shorter than its own padding. With `py-section` (`clamp(4rem,8vw,7rem)`, so at least 128px top+bottom) on the outer element, a declared 61px still rendered 136px — clipping alone does not fix it. Moving the padding inside the clipped box is what makes the declared height true at any value, down to 0. Anyone moving it back re-breaks 27 call sites silently.
+
+**Why:** `height` used to be `minHeight` only, which made it a floor that never bound. Every one of Home's six placeholders rendered **826.5px** regardless of declaring `0px`, `56px`, `444px`, `340.4px` or `666px` — reserving ~697px more than the island that replaced it, against a real strip height of 129px. On a cold mobile load the hero painted at y=826.5 with the CTA off-screen, then jumped to y=0 (momentarily under the fixed navbar) before settling at y=129. `lazy-visible.tsx` documents "no CLS" as the design intent; the code did the opposite at mobile width, worst at the narrowest viewport because the skeleton rows are `grid-cols-1` below `sm`.
+
+**Two corollaries found while fixing it, both required:**
+- A `dynamic({ssr:false})` island rendered through `LazyVisible` needs BOTH a `LazyVisible` height and a matching `loading:` slot. They cover different gaps — pre-mount versus chunk-fetch. Home had three islands with both and two with neither.
+- An island whose first render can return `null` must have its box reserved by its PARENT, not itself. `HomeTripStrip` returns `null` until its mount effect reads storage, so a self-reserved box collapses to 0 and re-expands. For the same reason the fixed-navbar clearance (`pt-16`) must never live inside a lazily-mounted island — that is why the hero briefly painted under the navbar.
+
+**The gate is the deterministic one.** `e2e/polish-bundle.spec.ts` holds the chunks via the existing `throttleChunks` helper and asserts no placeholder exceeds its declared reservation; against the unfixed build it failed `expected <= 61, received 826.5`. A cold-CLS ceiling of 0.1 sits beside it, but it is explicitly the WEAKER gate: on a loopback server the swap lands inside one frame batch, so it passes on the broken build too. Keep the height check as the real guard and never let the CLS number stand in for it.
+
+**Changes if:** the skeleton gains a genuinely variable-height variant, which would need its own component rather than making `height` a floor again.
