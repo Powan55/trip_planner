@@ -23,7 +23,11 @@ import { useActiveTraveler } from '@/hooks/use-active-traveler';
  * recipe as `HomeSectionNav`: Home's First Load JS sits at the 107 kB boundary
  * with ~zero headroom, so this chunk must stay OUT of the initial preload set.
  *
- * `pt-16` clears the fixed navbar (h-16) — this is the first in-flow element on the page.
+ * The fixed-navbar (h-16) clearance is deliberately NOT here. It used to be (`pt-16` on
+ * this nav), but this island is lazily mounted AND returns null in two states, so for the
+ * ~1.2s before it mounts nothing reserved that clearance and the hero painted UNDER the
+ * navbar. The `pt-16` now lives on Home's above-the-fold wrapper (`app/page.tsx`), which
+ * is always in the tree (issue #54 D).
  * Chip styling reuses the navbar/trips-hub pill vocabulary (rounded-full, gold accent,
  * ≥44px targets, visible focus rings). No animation — nothing for reduced-motion to
  * neutralize.
@@ -48,7 +52,7 @@ export default function HomeTripStrip() {
   };
 
   return (
-    <nav aria-label="Your trips" data-testid="home-trip-strip" className="pt-16">
+    <nav aria-label="Your trips" data-testid="home-trip-strip">
       <div className="mx-auto flex max-w-[1200px] items-center gap-2 overflow-x-auto px-4 py-2 sm:px-6">
         <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-white/60">
           Your trips
