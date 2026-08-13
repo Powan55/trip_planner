@@ -27,6 +27,16 @@ import { CITY_COORDS, cityCoord } from '@/lib/city-coords';
 
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
 
+/**
+ * Ceiling on the Open-Meteo request. A stalled connection (a network that neither routes nor
+ * rejects — CI has no route to api.open-meteo.com) otherwise leaves `fetchWeather` unsettled
+ * forever and pins the card at `data-state="loading"`. 8s matches the background-fetch
+ * precedent already in this repo: `lib/place-resolve.ts:47` (`timeoutMs = 8000`, applied at
+ * `:60`) and `lib/trips-remote.ts:180`. Deliberately NOT the 45s chat ceiling — a human
+ * waiting on an LLM is a different class, as that constant's own comment says.
+ */
+const WEATHER_TIMEOUT_MS = 8_000;
+
 /** The Open-Meteo attribution the card must render (CC-BY 4.0). */
 export const OPEN_METEO_ATTRIBUTION = {
   label: 'Weather data by Open-Meteo.com',
@@ -407,7 +417,10 @@ export async function fetchWeather(
   }
 
   try {
-    const res = await fetchImpl(buildUrl(coords));
+    // Signal built PER CALL — an AbortSignal.timeout is single-use, so a module-scope one would
+    // already be expired by the second load. It also cancels the socket and stays attached to the
+    // response body, so the `await res.json()` below is bounded by the same ceiling.
+    const res = await fetchImpl(buildUrl(coords), { signal: AbortSignal.timeout(WEATHER_TIMEOUT_MS) });
     if (!res.ok) throw new Error(`Open-Meteo HTTP ${res.status}`);
     const json = (await res.json()) as OpenMeteoResponse;
     const parsed = parseOpenMeteo(json, city, new Date().toISOString());

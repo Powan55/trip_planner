@@ -145,7 +145,49 @@ async function expectNoSeriousCritical(page: Page, label: string, testInfo: impo
   ).toEqual([]);
 }
 
+/**
+ * #54C — a 7-DAY Open-Meteo body, stubbed LOCALLY for this pack.
+ *
+ * Why local and not hoisted into `e2e/fixtures.ts`: the sibling weather specs
+ * (`weather.spec.ts:136`, `weather-tag.spec.ts:58`, `travel-essentials.spec.ts:48`) each assert
+ * against a DELIBERATELY different body, so an always-on route would silently flip them from
+ * `unavailable` to `live`. A third copy of the literal beats that coupling.
+ *
+ * Why 7 days and not 1: with a working network this pack renders the real forecast, so axe scans
+ * `ForecastOutlook` (the `<details>`/`<ol>` at `weather-card.tsx:99-113`). A 1-day body makes
+ * `parseForecast` return a single row and shrinks the scanned surface — quietly reducing a11y
+ * coverage to get green is exactly what D-007 forbids. Literal copied from `weather-tag.spec.ts:34`.
+ */
+const OPEN_METEO_WEEK_FIXTURE = {
+  latitude: 27.71,
+  longitude: 85.32,
+  timezone: 'Asia/Kathmandu',
+  current: { time: '2026-12-12T09:00', temperature_2m: 12.4, weather_code: 1 },
+  daily: {
+    time: ['2026-12-12', '2026-12-13', '2026-12-14', '2026-12-15', '2026-12-16', '2026-12-17', '2026-12-18'],
+    sunrise: [
+      '2026-12-12T06:42', '2026-12-13T06:43', '2026-12-14T06:43', '2026-12-15T06:44',
+      '2026-12-16T06:44', '2026-12-17T06:45', '2026-12-18T06:45',
+    ],
+    sunset: [
+      '2026-12-12T17:08', '2026-12-13T17:08', '2026-12-14T17:08', '2026-12-15T17:08',
+      '2026-12-16T17:09', '2026-12-17T17:09', '2026-12-18T17:09',
+    ],
+    temperature_2m_max: [18.9, 19.2, 17.8, 20.1, 19.5, 18.0, 17.6],
+    temperature_2m_min: [3.2, 2.8, 4.1, 3.9, 3.0, 2.5, 3.4],
+    weather_code: [2, 0, 3, 1, 2, 61, 0],
+  },
+};
+
 test.describe('in-trip axe (F19b) — Today panel + recap + budget/burn-rate scanned in-window', () => {
+  // #54C — this was the ONLY weather-rendering pack with no Open-Meteo stub. On a runner with no
+  // route to the host the connection STALLS rather than rejecting, `fetchWeather` never settles,
+  // `data-state` stays `loading`, and the readiness wait below times out (CI run 31641098716:
+  // 30s × 3/3 attempts). Registered BEFORE any navigation so no request escapes to the live API.
+  test.beforeEach(async ({ page }) => {
+    await page.route('**/api.open-meteo.com/**', (route) => route.fulfill({ json: OPEN_METEO_WEEK_FIXTURE }));
+  });
+
   test('Home in-trip: Today panel (weather + journal) + day recap have zero serious/critical', async ({ page }, testInfo) => {
     await seedInTrip(page);
     await gotoInTrip(page, '/');
