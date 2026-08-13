@@ -92,6 +92,70 @@ test.describe('S218 — skeleton loading slots wired for lazy islands', () => {
       });
     });
   }
+
+  /**
+   * Issue #54 D — a placeholder must never reserve MORE than it declares.
+   *
+   * `SectionSkeleton` used to apply its height as `minHeight`, so its intrinsic content
+   * (which stacks into one column below `sm`) rendered ~826.5px at 360px wide regardless
+   * of the declaration — including Home's first slot, which asks for a strip-sized box.
+   * The island then swapped in at a fraction of that height and yanked everything above it
+   * upward: cold CLS on Home measured 0.175–1.001 (Google calls 0.25 "poor"), and the hero
+   * briefly painted UNDER the fixed navbar on the way.
+   *
+   * Chunk throttling (above) is what makes this deterministic: it holds the island's chunk
+   * so the placeholder is guaranteed on screen, no race, nothing to retry.
+   */
+  // app/page.tsx `TRIP_STRIP_H` — Home's FIRST skeleton in DOM order is the trip strip's,
+  // above the fold, and it is the one that used to render 826.5px against this declaration.
+  const HOME_FIRST_RESERVATION_PX = 61;
+
+  test('Home\'s first skeleton reserves no more height than it declares', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await throttleChunks(page);
+    await gotoAsTraveler(page, '/');
+
+    // The strip's chunk is requested only after hydration and then held for a second, so its
+    // `loading:` skeleton is guaranteed on screen — no race, nothing to retry.
+    const skeleton = page.locator('[data-loading="Loading section"]').first();
+    await expect(skeleton).toBeAttached({ timeout: 15_000 });
+    const box = await skeleton.boundingBox();
+    expect(box).not.toBeNull();
+    expect(box!.height).toBeLessThanOrEqual(HOME_FIRST_RESERVATION_PX);
+  });
+
+  /**
+   * The outcome the box-height check above is a proxy for: a cold Home must not shift.
+   * Native `PerformanceObserver({type:'layout-shift'})` — no dependency, no polyfill.
+   *
+   * A THRESHOLD, never an equality: the value depends on which chunk wins the race, and on
+   * the broken build the same artifact produced 0.1752 and 1.0009 on different runs. 0.1 is
+   * Google's "good" ceiling; six cold runs of the fixed build measured 0.0004–0.001, so the
+   * margin here is two orders of magnitude, not a hair.
+   */
+  test('cold Home at 360×740 stays under the 0.1 CLS ceiling', async ({ page }) => {
+    await page.setViewportSize({ width: 360, height: 740 });
+    await page.addInitScript(() => {
+      (window as unknown as { __cls: number }).__cls = 0;
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) {
+          const e = entry as PerformanceEntry & { value: number; hadRecentInput: boolean };
+          if (!e.hadRecentInput) (window as unknown as { __cls: number }).__cls += e.value;
+        }
+      }).observe({ type: 'layout-shift', buffered: true });
+    });
+    await gotoAsTraveler(page, '/');
+
+    // Let every island finish arriving — the shifts this guards against happen exactly when
+    // a placeholder is replaced, so measuring before that would measure nothing.
+    await expect(page.locator('#hero')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[data-lazy-visible="pending"]')).toHaveCount(0);
+    await expect(page.locator('[data-loading="Loading section"]')).toHaveCount(0);
+    await page.waitForTimeout(1500);
+
+    const cls = await page.evaluate(() => (window as unknown as { __cls: number }).__cls);
+    expect(cls).toBeLessThan(0.1);
+  });
 });
 
 test.describe('S218 — last-packing-item-checked micro-celebration', () => {

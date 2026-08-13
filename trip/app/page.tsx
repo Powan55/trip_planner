@@ -48,11 +48,25 @@ const LegacyHashRedirect = dynamic(() => import('@/components/legacy-hash-redire
 // initial required-chunk set. `LazyVisible`'s idle-callback fallback still mounts it within
 // ~200ms of hydration regardless of scroll (same guarantee as every other deferred section),
 // so it is present effectively immediately in practice.
-const HomeSectionNav = dynamic(() => import('@/components/home-section-nav'), { ssr: false });
+// The `loading:` slot is NOT optional here (issue #54 D): LazyVisible flips from its
+// placeholder to `<Component/>` at the idle beat, but the dynamic chunk lands later — with
+// no loading slot that gap renders NOTHING, so the reserved box collapses to 0 and then
+// re-expands when the chunk arrives. For an ABOVE-THE-FOLD island that is two shifts of the
+// whole page. Keep each of these two heights identical to its LazyVisible `minHeight`.
+const HomeSectionNav = dynamic(() => import('@/components/home-section-nav'), {
+  ssr: false,
+  loading: () => <SectionSkeleton height="56px" />,
+});
 // — the compact "Your trips" chip strip (multi-trip on first paint; null when signed out).
 // Same lazy-island recipe as HomeSectionNav above: Home's First Load JS has ~zero
 // headroom, so even this small component must stay OUT of the initial required-chunk set.
-const HomeTripStrip = dynamic(() => import('@/components/home-trip-strip'), { ssr: false });
+/** Measured height of the rendered strip (44px chip + `py-2`). Declared in ONE place so the
+ *  LazyVisible reservation and the chunk-gap loading slot can never drift apart. */
+const TRIP_STRIP_H = '61px';
+const HomeTripStrip = dynamic(() => import('@/components/home-trip-strip'), {
+  ssr: false,
+  loading: () => <SectionSkeleton height={TRIP_STRIP_H} />,
+});
 // — the "at a glance" bento grid (read-only composition of existing hooks: next-up,
 // budget spent, cached weather, packing/docs %, map link, Travel Mode entry). Same
 // dynamic(ssr:false) + LazyVisible island pattern as every other below-fold Home section
@@ -102,8 +116,26 @@ export default function HomePage() {
           ABOVE the interface-heavy stat dashboard and the "at a glance" bento, which are
           now demoted below it. Every section keeps its dynamic(ssr:false)+LazyVisible
           reference island so nothing re-enters Home's First Load JS. */}
-      <LazyVisible component={HomeTripStrip} minHeight="56px" />
-      <HeroSection />
+      {/* ABOVE THE FOLD (issue #54 E2) — the trip strip and the hero share ONE viewport
+          column instead of the hero claiming `min-h-[100svh]` on its own beneath a strip
+          that also takes height. `pt-16` (fixed navbar clearance) lives HERE, on an
+          element that is always in the tree, not inside the lazily-mounted strip island
+          which returns null when signed out — that is what let the hero paint under the
+          navbar mid-load. The hero is `flex-1 min-h-0` and fills whatever is left, so its
+          vertically-centred content is centred in the space it actually occupies and its
+          CTA clears the fold at every width down to 320. */}
+      <div className="flex min-h-[100svh] flex-col pt-16">
+        {/* The strip's box is reserved HERE, on the always-present parent, not inside the
+            island. The island passes through three states on a cold load — LazyVisible
+            placeholder, chunk-gap loading slot, then the strip itself — and its very first
+            real render returns `null` (its `trips` state is null until the mount effect
+            reads storage). Reserving on the parent makes all four states the same height,
+            so nothing below can move. */}
+        <div style={{ height: TRIP_STRIP_H }} className="overflow-hidden">
+          <LazyVisible component={HomeTripStrip} minHeight={TRIP_STRIP_H} />
+        </div>
+        <HeroSection />
+      </div>
       <LazyVisible component={HomeSectionNav} minHeight="56px" />
       <TodayPanel />
       <TripRecap />

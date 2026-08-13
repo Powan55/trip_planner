@@ -23,6 +23,16 @@
 const CACHE_KEY = 'nepal_japan_currency_rate_cache';
 const FRANKFURTER_URL = 'https://api.frankfurter.dev/v1/latest';
 
+/**
+ * Ceiling on the Frankfurter request. Without it a stalled connection (one that neither routes
+ * nor rejects) never settles, and the total contract above degrades into a permanent loading
+ * state rather than the honest stale/unavailable it promises. 8s matches the background-fetch
+ * precedent already in this repo: `lib/place-resolve.ts:47` (`timeoutMs = 8000`, applied at
+ * `:60`) and `lib/trips-remote.ts:180`. Deliberately NOT the 45s chat ceiling — a human
+ * waiting on an LLM is a different class, as that constant's own comment says.
+ */
+const RATE_TIMEOUT_MS = 8_000;
+
 /** A live (or cached) USD-anchored rate for one currency, as the Essentials card renders it. */
 export interface CurrencyRateNow {
   currency: string; // e.g. 'NPR' | 'JPY'
@@ -169,7 +179,10 @@ export async function fetchCurrencyRate(
   }
   try {
     const url = `${FRANKFURTER_URL}?base=USD&symbols=${encodeURIComponent(currency)}`;
-    const res = await fetchImpl(url);
+    // Signal built PER CALL — an AbortSignal.timeout is single-use, so a module-scope one would
+    // already be expired by the second load. It also cancels the socket and stays attached to the
+    // response body, so the `await res.json()` below is bounded by the same ceiling.
+    const res = await fetchImpl(url, { signal: AbortSignal.timeout(RATE_TIMEOUT_MS) });
     if (!res.ok) throw new Error(`Frankfurter HTTP ${res.status}`);
     const json = await res.json();
     const parsed = parseFrankfurter(json, currency);

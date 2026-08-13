@@ -179,30 +179,56 @@ test.describe('Post-trip state', () => {
   });
 });
 
-test.describe('S258: hero first CTA clears the fold on a 360×740 xs viewport', () => {
-  test('the single "Open Planner" CTA sits fully in-viewport at 360×740 (total-days ring hidden below 420px)', async ({
-    page,
-  }) => {
-    // xs phone; pre-trip clock so the countdown branch (not travel mode) renders — the
-    // tallest hero state. Reduced motion pins the reveal to its final layout immediately.
-    await page.setViewportSize({ width: 360, height: 740 });
-    await gotoWithClock(page, '2026-11-09');
+/**
+ * Slack the CTA must keep below the fold line. It has to EXCEED the widest measured
+ * reflow delta, which is 10.625px: at a 345px layout width (360 minus a Linux 15px
+ * scrollbar) the hero badge's date label wraps to a second line, and because the hero
+ * block is vertically centred the CTA only absorbs HALF of that 21.25px (issue #54 E2).
+ * A margin under 12 makes this spec pass or fail on which platform's scrollbar is
+ * present rather than on the layout.
+ */
+const FOLD_MARGIN_PX = 12;
+const FOLD_HEIGHT_PX = 740;
 
-    // The countdown grid must still be present (only the total-days ring is cut on xs;
-    // S321 removed the decorative quote entirely).
-    await expect(page.getByTestId('countdown-days')).toBeVisible();
-    // The xs-hidden element: the total-days ring wrapper is display:none below 420px.
-    await expect(page.getByTestId('countdown-total-days')).toBeHidden();
+test.describe('S258: hero first CTA clears the fold on an xs viewport', () => {
+  // 320 is the narrowest supported width and the WORST case (the badge and the CTA row
+  // are widest relative to the viewport there); it used to sit 19.25px BELOW the fold on
+  // every platform, and nothing covered it — CI only ever caught the 345px wrap by
+  // accident, via the Linux scrollbar. Both widths are now asserted explicitly.
+  for (const width of [320, 360] as const) {
+    test(`the single "Open Planner" CTA sits fully in-viewport at ${width}×${FOLD_HEIGHT_PX} (total-days ring hidden below 420px)`, async ({
+      page,
+    }) => {
+      // xs phone; pre-trip clock so the countdown branch (not travel mode) renders — the
+      // tallest hero state. Reduced motion pins the reveal to its final layout immediately.
+      await page.setViewportSize({ width, height: FOLD_HEIGHT_PX });
+      await gotoWithClock(page, '2026-11-09');
 
-    // S321 — the hero collapsed to ONE primary CTA (was "View Itinerary" among 4).
-    const cta = page.getByRole('link', { name: 'Open Planner' });
-    await expect(cta).toBeVisible();
-    const box = await cta.boundingBox();
-    expect(box).not.toBeNull();
-    // Fully within the 740px fold: top non-negative, bottom at or above the fold line.
-    expect(box!.y).toBeGreaterThanOrEqual(0);
-    expect(box!.y + box!.height).toBeLessThanOrEqual(740);
-  });
+      // The countdown grid must still be present (only the total-days ring is cut on xs;
+      // S321 removed the decorative quote entirely).
+      await expect(page.getByTestId('countdown-days')).toBeVisible();
+      // The xs-hidden element: the total-days ring wrapper is display:none below 420px.
+      await expect(page.getByTestId('countdown-total-days')).toBeHidden();
+
+      // READINESS — measure the SETTLED layout, not a mid-load one. Home's lazy islands
+      // (the trip strip above the hero especially) each render a sized placeholder until
+      // they mount, so a geometry read taken cold sees the hero ~700px lower than it ends
+      // up. Waiting for zero pending placeholders is the precedent in
+      // `s158-expense-csv-and-home-nav.spec.ts`, and it is D-093-clean: a real DOM
+      // condition, no `networkidle` and no sleep. (Do NOT wait on the strip's testid
+      // instead — that island renders null when signed out and the wait would hang.)
+      await expect(page.locator('[data-lazy-visible="pending"]')).toHaveCount(0);
+
+      // S321 — the hero collapsed to ONE primary CTA (was "View Itinerary" among 4).
+      const cta = page.getByRole('link', { name: 'Open Planner' });
+      await expect(cta).toBeVisible();
+      const box = await cta.boundingBox();
+      expect(box).not.toBeNull();
+      // Fully within the fold, with margin: top non-negative, bottom at or above the line.
+      expect(box!.y).toBeGreaterThanOrEqual(0);
+      expect(box!.y + box!.height).toBeLessThanOrEqual(FOLD_HEIGHT_PX - FOLD_MARGIN_PX);
+    });
+  }
 });
 
 test.describe('?today=off restores the real clock', () => {

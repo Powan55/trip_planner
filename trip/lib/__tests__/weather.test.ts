@@ -272,6 +272,10 @@ describe('fetchWeather (total; write-through + offline fallback)', () => {
     expect(url).toContain('current=temperature_2m%2Cweather_code');
     expect(url).toContain('timezone=auto');
     expect(url).not.toMatch(/api[_-]?key|apikey|appid|token=/i); // KEYLESS — no secret
+    // #54A — the request carries an abort signal, so a STALLED connection (one that neither
+    // routes nor rejects) settles at the ceiling instead of pinning the card at `loading`
+    // forever. Asserted on the init object; the URL above is deliberately unaffected.
+    expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
 
     if (result.status === 'ok') {
       expect(result.data.stale).toBe(false);
