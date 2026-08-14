@@ -24,13 +24,32 @@
 
 import type { MarkerCategory } from '@/lib/map-data';
 
-// Brand hex, mirrored from tailwind.config.ts (navy/gold/himalaya/sakura). These
-// are READ copies of's tokens — the config is the source of truth; we do
-// not write it. Kept here so GL paint properties (which take raw colors, not
-// Tailwind classes) stay in one place.
+// Brand hex, mirrored from tailwind.config.ts / globals.css. These are READ copies
+// of the token layer — the config is the source of truth; we do not write it. Kept
+// here so GL paint properties (which take raw colors, not Tailwind classes) stay in
+// one place.
+//
+// THE RULE FOR THIS OBJECT, because it is now deliberately half-swept:
+//   · SURFACES FOLLOW THE CANVAS. navy900 (the map's own background layer, the label
+//     halo, and the approx-marker fill/stroke) and navy800 (the popup and tooltip
+//     chrome) are re-valued onto the aubergine ramp with the rest of the app; leaving
+//     them behind would have framed the map in the retired palette. navy800 was still
+//     '#111640' — a leftover from the blue field two palettes ago, older than the
+//     charcoal it outlived. navy700 is NOT re-valued because it has zero consumers;
+//     it is stale, harmless, and deletable by whoever next touches this object.
+//     Measured, since two of these are contrast pairs: gold400 on navy900 12.15 ->
+//     11.97, white on the navy800 popup 17.32 -> 16.22, navy900 ink on a gold500 pin
+//     8.84 -> 8.70. All three stay far above AA.
+//   · BRAND HUES ARE FROZEN. gold400/gold500/sakura400/himalaya500 are the map's own
+//     identity colours — route line, stop stroke, label halo, marker stroke, and the
+//     CATEGORY_COLOR pins below. They stay at the retired values until /map's palette
+//     is designed. D-292 is where that is open: it asserted /map into a tier without
+//     designing the route, so choosing new pin and route hues is that slice's call,
+//     not a token slice's. Moving one of these without the others is what produces a
+//     map whose line disagrees with its own legend.
 export const BRAND = {
-  navy900: '#0b0c0e',
-  navy800: '#111640',
+  navy900: '#100C1A',
+  navy800: '#241C36',
   navy700: '#1a2050',
   gold400: '#f0c760',
   gold500: '#d4a843',

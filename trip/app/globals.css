@@ -5,111 +5,291 @@
 @layer base {
   :root {
     /* ---- Core surfaces ----
-       (full visual overhaul): the v2 BLUE navy field is retired for a near-neutral charcoal ramp at a
-       single hue (220) with the saturation pulled right down, so the chrome reads
-       as material rather than as brand colour. Brand hue survives only as a trace
-       (10-14% sat); all warmth/identity now comes from CONTENT (himalaya/sakura),
-       never from the surfaces. Steps are deliberately close together — the
-       elevation ramp is carried by the hairline ring (--shadow-sm), not by fills. */
-    --background: 220 12% 5%;
-    --foreground: 210 20% 96%;
-    --card: 220 10% 9%;
-    --card-foreground: 210 20% 96%;
-    --popover: 220 10% 9%;
-    --popover-foreground: 210 20% 96%;
-    /* the chrome accent moves GOLD -> winter-neon cyan. Gold is demoted to a
-       warning/attention colour (--gold below) and is no longer the interactive hue. */
-    --primary: 189 90% 60%;
-    --primary-foreground: 220 12% 5%;
-    --secondary: 220 14% 12%;
-    --secondary-foreground: 210 20% 96%;
-    --muted: 220 14% 16%;
-    --muted-foreground: 218 10% 56%;
-    /* shadcn interactive-fill accent (menus/toggles/selected). unified
-       this to ONE chrome accent site-wide; keeps the one-accent rule and just
-       re-points it to cyan. The sakura/himalaya hues remain CONTENT wayfinding
-       (section tints, guide cards, map legs), never interactive chrome. */
-    --accent: 189 90% 60%;
-    /* accent-foreground is the darkest surface step. Cyan (189 90% 60%)
-       is LIGHTER than the gold it replaces, so dark-on-accent contrast RISES, not
-       falls — every bg-accent consumer (cmdk selected item, dropdown/menubar/select/
-       toggle) stays ≥AA under the switch. */
-    --accent-foreground: 220 12% 5%;
+       D-291/D-292/D-293. The near-neutral CHARCOAL ramp (single hue 220, saturation
+       pulled right down) is RETIRED for an AUBERGINE one at hue ~258. The reasoning
+       that put the charcoal here is unchanged and still holds — chrome should read as
+       material, not as brand colour, and identity comes from CONTENT (Nepal
+       orange->gold, Japan pink->violet), never from the surfaces. What changed is
+       that the material is now a warm-dark violet rather than a grey.
+       Steps stay deliberately close together, and the reason is measured: pushing
+       surface lightness apart to "separate" the tiers is what breaks the text tiers.
+       Do NOT chase more separation here — the edge comes from --border/--border-ui.
+
+       Every value below is a straight HSL conversion of a hex whose contrast is
+       measured; `npm run contrast-check` (scripts/contrast-tokens.mjs) re-measures the
+       whole set and exits non-zero on any regression. Tightest text pair is 5.59:1
+       (--text-lo on --surface-3), so all twelve text/surface pairings clear AA. */
+    --background: 257 37% 7%;    /* #100C1A -- the page field.   was 220 12% 5%  */
+    --foreground: 0 0% 100%;     /* #FFFFFF -- --text-hi.        was 210 20% 96% */
+    --card: 258 32% 16%;         /* #241C36 -- surface-2.        was 220 10% 9%  */
+    --card-foreground: 0 0% 100%;
+    --popover: 258 32% 16%;      /* #241C36 -- surface-2                         */
+    --popover-foreground: 0 0% 100%;
+    /* The chrome accent moves winter-neon CYAN -> MARIGOLD #FFC43D. Cyan was chosen
+       when the canvas was a neutral charcoal and the brand hues were demoted to
+       content; on the aubergine canvas the primary action, the focus ring and Nepal
+       are one warm accent again. Marigold measures 12.13:1 on the page field, the
+       highest of the six accents, which is why it is the focus ring. */
+    --primary: 42 100% 62%;
+    /* THE INK RULE, and it is load-bearing: never white text on a saturated fill,
+       always --on-accent #140F20. White on marigold measures 1.59:1 — it is not a
+       near miss, it is unreadable. That is why BOTH --primary-foreground (29 sites
+       via text-primary-foreground) and --accent-foreground move to the ink, and why
+       contrast-tokens.mjs carries white-on-marigold as a guard that MUST keep
+       failing. A guard that starts passing means someone lightened a fill. */
+    --primary-foreground: 258 36% 9%;   /* #140F20 --on-accent */
+    --secondary: 258 33% 12%;    /* #1A1428 -- surface-1.        was 220 14% 12% */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 260 29% 20%;        /* #2E2442 -- surface-3.        was 220 14% 16% */
+    --muted-foreground: 259 23% 68%;    /* #A79BC0 --text-lo — the FLOOR tier, 7.43:1
+                                           on the page field. was 218 10% 56%.
+                                           There is no fourth text tier below this. */
+    /* shadcn interactive-fill accent (menus/toggles/selected). One chrome accent
+       site-wide, now marigold — same one-accent rule, new hue. The Japan/Nepal
+       gradients remain CONTENT wayfinding (section tints, guide cards, map legs),
+       never interactive chrome. */
+    --accent: 42 100% 62%;
+    --accent-foreground: 258 36% 9%;    /* #140F20 --on-accent — see the ink rule */
+    /* --destructive's HUE is DELIBERATELY LEFT at its old value: destructive is not
+       one of the six accents in the locked direction (marigold/coral/mint/sky/violet/
+       pink), so there is no ruled replacement for it. That is a decision, not an
+       oversight — do not "finish the sweep" by inventing one.
+
+       ITS INK IS NOT AN EXEMPTION. --destructive resolves to #ef5d66, which is a
+       SATURATED FILL, so the ink rule covers it like any other. Measured: white on it
+       is 3.27:1 (sub-AA), the near-white it used to carry was 2.99:1 (worse), and
+       --on-accent is 5.74:1. The rule is "never white text on a saturated fill" — a
+       palette that ships four guards proving that and then writes prose exempting one
+       fill has not got a rule, it has got a habit. One consumer:
+       components/ui/button.tsx's destructive variant, i.e. the delete-confirm label,
+       which is the last place to be casual about legibility. */
     --destructive: 356 82% 65%;
-    --destructive-foreground: 210 20% 96%;
-    /* Borders/inputs: a low-saturation hairline that reads as an edge, not a glow. */
-    --border: 220 14% 20%;
-    --input: 220 14% 20%;
-    --ring: 189 90% 60%;
-    /* radii: tightened and FLATTENED. Everything at `lg` and above collapses
-       onto 8/12px so the app stops reading as pill-soft. NOTE:
-       `--radius-sm` is a DEAD token — Tailwind's `rounded-sm` key resolves through
-       `calc(var(--radius) - 4px)` (tailwind.config.ts:36), not through this var.
-       It is kept (name-stability rule) and set to the value that calc already
-       produces, so the two can never disagree if a consumer ever picks it up. */
-    --radius: 0.5rem;
-    --radius-sm: 0.25rem;
-    --radius-lg: 0.75rem;
-    /* -xl/-2xl now ALIAS -lg: `rounded-2xl` (72 sites) and `rounded-3xl` (6 sites)
-       flatten onto the same 12px as `rounded-xl` (128 sites). Zero component edits. */
-    --radius-xl: var(--radius-lg);
-    --radius-2xl: var(--radius-lg);
+    --destructive-foreground: 258 36% 9%;   /* #140F20 --on-accent — 5.74:1 */
+    /* Borders/inputs = --border #4B3C6E. DECORATIVE ONLY at 1.99:1 on the page field
+       (1.68:1 on surface-2) — it wraps content that already carries its own contrast
+       and may NEVER be the sole cue for anything. An INTERACTIVE control's boundary
+       is --border-ui #8877B8 (4.94:1), declared below. contrast-tokens.mjs guards
+       --border from ever being read as a UI cue by asserting it stays under 3:1. */
+    --border: 258 29% 33%;
+    --input: 258 29% 33%;
+    --ring: 42 100% 62%;         /* marigold — 12.13:1 on bg, 9.13:1 on surface-3 */
+
+    /* ---- Radii — DE-FLATTENED ----
+       Previously everything at `lg` and above collapsed onto 8/12px (-xl and -2xl
+       literally ALIASED -lg) so the app would stop reading as pill-soft. The locked
+       direction restores the range: a chunky container radius is part of the
+       identity, and the flat scale made every surface the same object.
+
+       EXPRESSED IN PX, NOT REM, DELIBERATELY: the root is 17px (html{font-size:106.25%}
+       below), so rem here would render 6.38/12.75/29.75/42.5px instead of the ruled
+       6/12/28/40. Radius is geometry, not type — it has no reason to scale with the
+       reading size — and the Tailwind keys already mix units (`calc(var(--radius) -
+       2px)`), so px is the honest unit. Rendered px == the number written.
+
+       BLAST RADIUS, audited in-tree. Moving -xl/-2xl repaints 76 `rounded-2xl`
+       elements + 6 `rounded-3xl` + 9 directional (`rounded-t-2xl` x7,
+       `rounded-l-2xl` x2), and — the largest single jump in the app — the
+       `.glass-panel` consumers (10 files, 18 class sites), which read
+       var(--radius-2xl) directly in the class body (app/checklist|guides|journal|
+       packing|recap|safety|settings|share|trips + components/page-hero.tsx):
+       12px -> 40px. Moving `--radius` also moves
+       Tailwind's rounded-lg/md/sm, which derive from it: 8.5 -> 12px, 6.5 -> 10px,
+       4.5 -> 8px. `rounded-xl` (134 sites) does NOT move; it stays at 12px. */
+    --radius-sm: 6px;    /* r-xs  — tier badges, tiny chips                        */
+    --radius: 12px;      /* r-sm  — Tailwind rounded-lg/md/sm derive from this     */
+    --radius-lg: 12px;   /* r-sm  — `rounded-xl` (134 sites) STAYS at 12px         */
+    --radius-xl: 28px;   /* r-lg  — `rounded-2xl`: cards, colour blocks            */
+    --radius-2xl: 40px;  /* r-xl  — `rounded-3xl` + .glass-panel; loudest containers */
+    /* NOTE, corrected: `--radius-sm` used to be described as a DEAD token pinned to
+       whatever `calc(var(--radius) - 4px)` produces, so the two could never disagree.
+       They now DO disagree by design — 6px here vs 8px from the calc — because 6px is
+       the ruled r-xs and 8px is just an arithmetic by-product. Tailwind's `rounded-sm`
+       still resolves through the calc, so nothing renders 6px until a consumer picks
+       this var up deliberately. */
 
     /* ---- Brand surface scale ----
        Single source for the night-field steps, as space-separated RGB channels so
        rgb(var(--x) / <alpha>) opacity modifiers resolve.
 
-       FINDING — this channel, not the shadcn --background/--card tokens, is
-       where the app's surfaces ACTUALLY come from: `bg-surface` has 86 sites (the
-       <body> itself), `text-surface` 36, and the six `.glass-*` recipes below (131
-       class sites) all fill from `rgb(var(--surface-raised))`. `bg-card` has ZERO
-       sites. So re-valuing only the shadcn tokens would have repainted almost
-       nothing. These three are re-valued to the SAME ramp, in RGB:
-         --navy-900 = hsl(220 12% 5%) = --background
-         --navy-800 = hsl(220 10% 9%) = --card
-         --navy-700 = hsl(220 14% 12%) = --secondary
-       The `navy-*` NAMES are now a misnomer (the ramp is neutral charcoal), but
-       renaming is forbidden — they are referenced by --surface*,.home-nav, the
-       maplibre attribution pill and the reduced-transparency nav fallback. */
-    --navy-900: 11 12 14;
-    --navy-800: 21 22 25;
-    --navy-700: 26 29 35;
+       FINDING, and it is the whole reason this slice touches two files instead of a
+       hundred — this channel, not the shadcn --background/--card tokens, is where the
+       app's surfaces ACTUALLY come from: `bg-surface` has 86 sites (the <body>
+       itself), `text-surface` 36, and the `.glass-*` recipes below all fill from it.
+       `bg-card` has ZERO sites. So re-valuing only the shadcn tokens would have
+       repainted almost nothing. The two sets are kept at the SAME values, one
+       expressed in RGB channels and one in HSL triplets, because their consumers need
+       different wrappers — not because they are different colours.
+
+       The `navy-*` NAMES were already a documented misnomer under the charcoal ramp,
+       and they are one again under the aubergine ramp: nothing here is navy, and
+       renaming is still forbidden — they are referenced by --surface*, .home-nav,
+       .sheet-surface, .hero-gradient, the maplibre attribution pill and the
+       reduced-transparency nav fallback. A stable wrong name beats a rename that
+       silently drops a consumer.
+
+       RE-VALUED onto the aubergine ramp (charcoal 220deg -> aubergine 258deg):
+         --navy-900 = #100C1A = --bg        = --background
+         --navy-850 = #1A1428 = --surface-1 = --secondary   <- NEW step
+         --navy-800 = #241C36 = --surface-2 = --card
+         --navy-700 = #2E2442 = --surface-3 = --muted
+       --navy-850 is added because the ruled ramp has FOUR steps and this channel had
+       three; the alias below (--surface-low) is what .glass-subtle fills from. */
+    --navy-900: 16 12 26;
+    --navy-850: 26 20 40;
+    --navy-800: 36 28 54;
+    --navy-700: 46 36 66;
     /* Semantic surface tier — components reference INTENT, not palette steps.
-       surface = deepest page/base field; -raised = lifted panels/fills;
-       -overlay = top overlay/hairline step. Each aliases one navy step above so
-       Glass 2.0 / outdoor toggle retune tokens, not components. */
+       surface = deepest page/base field; -low = calm/recessed fills (list rows,
+       stat cells); -raised = lifted panels/fills; -overlay = top overlay step.
+       Each aliases one navy step above so a retune touches tokens, not components. */
     --surface: var(--navy-900);
+    --surface-low: var(--navy-850);
     --surface-raised: var(--navy-800);
     --surface-overlay: var(--navy-700);
 
     /* ---- Brand accent channels (HSL triplets, for hsl()/rgba() reuse) ----
-       FINDING: these three vars have ZERO consumers — the live brand colours
-       are the Tailwind hex scales plus the.text-gradient-* literals below.
-       re-valued them, which was a no-op at render time; then did the actual
-       component-layer sweep the note below called for.
+       STILL ZERO CONSUMERS, and that is unchanged — the live brand colours are the
+       Tailwind hex scales (tailwind.config.ts) plus the .text-gradient-* bodies
+       below. They are kept under the name-stability rule and re-valued so they can
+       never become a second, stale palette: these are the HSL forms of --marigold,
+       --jp-a and --np-a respectively. */
+    --gold: 42 100% 62%;       /* = --marigold #FFC43D */
+    --sakura: 330 100% 78%;    /* = --jp-a     #FF8FC7 — Japan's first stop */
+    --himalaya: 24 100% 62%;   /* = --np-a     #FF8A3D */
 
-       the 843 gold/sakura/himalaya class sites were SORTED, not repainted
-       wholesale — cyan (--primary/--ring) for interaction, gold for semantic status,
-       ink (--muted-foreground) for decoration. The scales in tailwind.config.ts:101-103
-       are deliberately UNTOUCHED: one config edit would have repainted all 843 at once,
-       and the identical class name carried two different intents. `gold-400` is now
-       ~40 sites, all Bucket 2 status/wayfinding. These three vars remain unconsumed. */
-    --gold: 38 95% 60%;        /* DEMOTED: warning/attention only, no longer chrome */
-    --sakura: 344 85% 74%;     /* Japan — CONTENT wayfinding only, never chrome */
-    --himalaya: 18 92% 62%;    /* Nepal — CONTENT wayfinding only, never chrome */
+    /* ================================================================
+       D-291 / D-292 / D-293 token set. Declared as HEX (not the HSL
+       triplet form the shadcn tokens above use) because these are consumed directly
+       as `var(--x)` in a colour position, never through hsl()/rgb(). Keep them hex;
+       a half-and-half convention is how a value gets pasted into the wrong wrapper.
+       ================================================================ */
 
-    /* ---- hairline separator — ONE token for de-glassed content edges.
-       Space-separated RGB channels + alpha so `rgb(var(--hairline))` resolves
-       Replaces the per-glass gradient border
-       edges the de-glass removes. Nav/tab-bar/input `border-white/1x` literals are
-       left as-is for A5 (nav layer; a later Lane-E tidy). */
-    --hairline: 255 255 255 / 0.08;
+    /* ---- Text — THREE TIERS, AND NO FOURTH ----
+       Measured on the four surface steps: hi 19.27/17.88/16.22/14.51,
+       mid 11.75/10.90/9.89/8.85, lo 7.43/6.89/6.25/5.59. All twelve clear AA and
+       --text-lo IS the floor — there is nothing below it. Because no tier is
+       expressed as an alpha on white, a wrapper opacity can no longer multiply a
+       floored alpha below AA, which is the D-100 / D-246 defect class by
+       construction. (The @layer utilities alpha floor further down is the OLD
+       mechanism and stays until the text-white/NN sweep retires it.) */
+    --text-hi: #FFFFFF;
+    --text-mid: #CFC6E0;
+    --text-lo: #A79BC0;
+    --on-accent: #140F20;      /* the ONLY ink permitted on a saturated fill */
+
+    /* ---- The six accents ----
+       Each is >=4.5:1 as text on the page field AND >=4.5:1 against --on-accent when
+       used as a fill, so any one of them is legal both ways round. Measured on --bg:
+       marigold 12.13 · coral 7.57 · mint 11.06 · sky 11.01 · violet 7.74 · pink 9.18.
+       --sky is deliberately NOT Japan's identity colour any more; it is a functional
+       information/photography accent. There are exactly six, and no seventh. */
+    --marigold: #FFC43D;  /* primary action · focus ring · Nepal   */
+    --coral:    #FF7A6B;  /* food · warmth · streaks               */
+    --mint:     #4ADE80;  /* done · offline-ready · sightseeing    */
+    --sky:      #5CD2F5;  /* information · photography             */
+    --violet:   #C08CFF;  /* passport · collection · nightlife     */
+    --pink:     #FF8FC7;  /* celebration · Japan                   */
+    /* Button lips — the shade one step down that makes a control read as a physical
+       object. A lip measures 1.90-2.02:1 against its OWN fill: that is deliberate, it
+       is a shading, not a boundary. The control's boundary against the page is the
+       FILL vs --bg (7.57-12.13:1). Every lip also clears 3:1 against --bg on its own
+       (3.90-6.00:1) so a button never dissolves at its bottom edge. A LIP MAY NEVER
+       BE THE ONLY CUE FOR ANYTHING, and the calm/Tier-3 controls have no lips at all. */
+    --lip-marigold: #C08400;
+    --lip-coral:    #C24A3D;
+    --lip-mint:     #22A15A;
+    --lip-sky:      #2E93B8;
+    --lip-violet:   #8A55CC;
+    --lip-pink:     #C25C90;
+
+    /* ---- Borders ----
+       --border (declared above as an HSL triplet for the shadcn/Tailwind `border`
+       key) is #4B3C6E and is DECORATIVE ONLY. --border-ui is the boundary of an
+       INTERACTIVE control: 4.94:1 on --bg, 4.58 on surface-1, 4.15 on surface-2,
+       3.72 on surface-3 — clears WCAG 1.4.11's 3:1 on every step. If a control's
+       edge is the thing telling you it is a control, it takes --border-ui. */
+    --border-ui: #8877B8;
+
+    /* ---- Country identity ----
+       Japan is PINK -> VIOLET. Nepal is ORANGE -> GOLD. Every stop passes 4.5:1
+       ALONE (np-a 8.22, np-b 12.13, jp-a 9.18, jp-b 7.74 on --bg), which is what
+       makes these gradients legal as TEXT fills and not only as backgrounds. */
+    --np-a: #FF8A3D;
+    --np-b: #FFC43D;
+    --jp-a: #FF8FC7;
+    --jp-b: #C08CFF;
+    --grad-nepal: linear-gradient(118deg, var(--np-a) 0%, var(--np-b) 100%);
+    --grad-japan: linear-gradient(118deg, var(--jp-a) 0%, var(--jp-b) 100%);
+    --grad-journey: linear-gradient(90deg, #4ADE80 0%, #FF8A3D 38%, #FF8FC7 72%, #C08CFF 100%);
+    --grad-celebrate: linear-gradient(135deg, #FF8FC7 0%, #FFC43D 100%);
+
+    /* ---- The photo engine ----
+       NO CONSUMERS YET — deliberate. The duotone grade ends with a
+       `mix-blend-mode:darken` layer of --duo-*-high, which CAPS every channel of
+       every pixel at that colour. That is what makes "text over a photograph" a
+       measurable number instead of a guess: the brightest possible pixel under a
+       scrim is over(--scrim-ink, --duo-*-high, alpha). Declared here so the
+       photography slice inherits the values rather than re-deriving them. */
+    --duo-np-shadow: #2E1408;
+    --duo-np-high: #F5D4AC;    /* NEPAL brightness CAP */
+    --duo-jp-shadow: #190E2C;
+    --duo-jp-high: #EFC6D6;    /* JAPAN brightness CAP */
+    --scrim-ink: #0A0714;      /* every scrim ramps toward this */
+
+    /* ---- Passport page (D-294) ----
+       ALSO NO CONSUMERS YET, and also deliberate. F-4, recorded against D-294: the
+       prototype wrote `outline-color: var(--ink-nepal, #B3123C)` against a variable
+       that was never declared anywhere, so the FALLBACK painted — and the fallback
+       was the superseded pre-D-294 red. A var() fallback that silently carries a
+       retired value is worse than no fallback. These are declared as real custom
+       properties for exactly that reason, and CONSUMERS MUST NOT CARRY var()
+       FALLBACKS: if the var is missing, the right outcome is a visible break.
+
+       --paper is the only light surface in the product and IS NOT A LIGHT MODE. It
+       is a parchment MATERIAL scoped to the passport page, the way a photograph is
+       light-coloured without being a theme. forcedTheme="dark" stays. Measured:
+       on-paper 9.86:1, paper-lo 5.60:1, the three inks 5.93/6.68/5.34, page vs
+       canvas 12.29:1 — the page reads as an object without depending on a shadow.
+       --paper-lo BINDS FIRST if --paper ever darkens again; re-measure it before
+       touching --paper. --bind-hi/-lo are the binding-edge stripes, retuned for the
+       D-294 parchment (F-3: on the darker page the old light stripe measured 1.00:1
+       against it, i.e. the bound-book edge had silently vanished). Decorative. */
+    --paper: #DCCDAE;
+    --on-paper: #2A2036;
+    --paper-lo: #524563;
+    --ink-nepal: #8E0E30;
+    --ink-japan: #223C7C;
+    --ink-green: #0C5849;
+    --bind-hi: #C4B392;
+    --bind-lo: #B39F7B;
+
+    /* ---- Geometry ----
+       --tap is the 44px floor for every interactive element. --shell is the centred
+       page measure. --stack is the vertical rhythm between major sections; it steps
+       up at 900px in the media query at the end of this layer. */
+    --tap: 44px;
+    --shell: min(1180px, 100%);
+    --stack: 40px;
+
+    /* ---- hairline separator ----
+       Space-separated RGB channels + alpha so `rgb(var(--hairline))` resolves.
+       RE-VALUED from the neutral white/.08 to the ruled rgba(207,198,224,.14), which
+       is the aubergine-tinted separator: it composites to #2B2636 on the page field
+       (1.32:1) and #3C344E on surface-2 (1.39:1).
+
+       IT NOW HAS ZERO CONSUMERS, deliberately. The six .glass-* recipes below used
+       to take their edge from this token; they now take it from --border, because a
+       raised surface needs a border that is a colour, not a wash. --hairline's ruled
+       role is narrower: the CALM LIST SEPARATOR, and nothing else. Decorative — at
+       1.3:1 it can never be the sole cue for anything. */
+    --hairline: 207 198 224 / 0.14;
 
     /* ---- semantic tokens ----
-       --accent-scroll: the SINGLE scroll-driven accent. Defaults to gold;
-       animates it himalaya<->sakura by scroll position. Consumers reference this
-       var only, so the warm/cool engine has one hook. --accent-scroll-rgb mirrors
-       it as an "r, g, b" list for rgba(var(--accent-scroll-rgb) / a) usage.
+       --accent-scroll: the SINGLE scroll-driven accent. Defaults to marigold;
+       the scroll engine animates it between the country stops by position.
+       Consumers reference this var only, so the warm/cool engine has one hook.
+       --accent-scroll-rgb mirrors it as an "r, g, b" list for
+       rgba(var(--accent-scroll-rgb) / a) usage.
 
        — a deliberate call, and a one-line revert if it is wrong: before this change,
        --gold, --primary, --accent, --ring, --accent-scroll and --ambient-a were all
@@ -118,9 +298,15 @@
        every page's eyebrow, the bottom-tab-bar active tint, the h2 section
        underline, --shadow-glow, today-pulse and the drag overlay (40 sites), vs 5
        for `ring-ring`. Moving primary/accent/ring to cyan but leaving THIS gold
-       would mean the chrome accent never actually moves. Moved as one unit. */
-    --accent-scroll: 189 90% 60%;
-    --accent-scroll-rgb: 61, 217, 245;
+       would mean the chrome accent never actually moves. Moved as one unit.
+
+       Moved as one unit again here, cyan -> marigold, for the same reason: this is
+       the copy that actually paints :focus-visible's app-wide outline, every
+       eyebrow, the tab-bar active tint, the h2 underline, --shadow-glow, today-pulse
+       and the drag overlay. Marigold at 12.13:1 on the page field is the ruled focus
+       ring, so the fallback ring and the ring token now agree by construction. */
+    --accent-scroll: 42 100% 62%;
+    --accent-scroll-rgb: 255, 196, 61;
 
     /* the ambient-phase palette
        (--ambient-a/-b), the 5-layer --gradient-aurora, and both feTurbulence grain
@@ -131,48 +317,82 @@
        de-glass removed the glass background lists it stacked into. Do not re-add:
        decoration that costs an infinite animation is exactly what this change retired. */
 
-    /* ---- Elevation tiers —: collapsed to TWO (resting + elevated).
+    /* ---- Elevation tiers — TWO in use (resting + elevated), plus one declared.
        --shadow-sm = resting (content surfaces); --shadow-lg = elevated (sheets,
-       dialogs, nav). --shadow-md/-xl/-2xl are ALIASES so every existing
-       `shadow-*` utility + glass box-shadow resolves through the two survivors
-       with zero component edits. --shadow-glow (below) is a separate accent
-       EFFECT, not an elevation tier — kept.
+       dialogs, nav); --shadow-paper = the passport page, no consumer yet.
+       --shadow-md/-xl/-2xl stay ALIASES so every existing `shadow-*` utility +
+       glass box-shadow resolves through the two survivors with zero component
+       edits. --shadow-glow (below) is a separate accent EFFECT, not an elevation
+       tier — kept.
 
-       the resting tier stops being a BLUR and becomes a HAIRLINE RING. On a
-       near-black neutral field a drop shadow is invisible anyway (it was 0 1px 2px
-       of near-black on near-black); a 1px ring is what actually separates a resting
-       surface from the page. --shadow-lg keeps its blur and is reserved for
-       genuinely floating surfaces (sheets, dialogs, nav). */
-    --shadow-sm: 0 0 0 1px hsl(220 14% 18%);
-    --shadow-lg: 0 16px 40px -8px rgba(0, 0, 0, 0.58), 0 4px 12px -4px rgba(0, 0, 0, 0.40);
+       The resting tier had stopped being a BLUR and become a HAIRLINE RING, on the
+       grounds that on a near-black field a drop shadow is invisible anyway. IT GOES
+       BACK TO A BLUR here because the locked direction says so — but the objection
+       was correct and is recorded as F-8 against D-291, so read this before leaning
+       on it: --shadow-sm and --shadow-lg are BLACK BLURS ON A NEAR-BLACK CANVAS and
+       contribute almost nothing on their own. --border (1.99:1) and --border-ui
+       (4.94:1) are what actually define an edge here. NEVER SHIP A SURFACE WHOSE
+       ONLY SEPARATION IS --shadow-sm. That is why every one of the six glass recipes
+       below keeps a real border, and why the ring is not simply gone: its job moved
+       to the border, not to the blur. --shadow-lg stays reserved for genuinely
+       floating surfaces (sheets, dialogs, nav). --shadow-paper is the passport page
+       and has no consumer yet. */
+    --shadow-sm: 0 8px 20px -12px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 18px 40px -14px rgba(0, 0, 0, 0.75);
+    --shadow-paper: 0 26px 60px -18px rgba(0, 0, 0, 0.85);
     --shadow-md: var(--shadow-sm);
     --shadow-xl: var(--shadow-lg);
     --shadow-2xl: var(--shadow-lg);
-    /* Glow keyed to the scroll accent so it warms/cools with the page,
-       nudged a touch richer in v2 (still sized within prior glow footprint). */
-    --shadow-glow: 0 0 0 1px hsl(var(--accent-scroll) / 0.22), 0 0 34px hsl(var(--accent-scroll) / 0.26);
+    /* Glows. --glow-live has EXACTLY ONE intended consumer, the live countdown
+       seconds cell. A second consumer is a defect — the glow is what marks the one
+       thing on screen that is genuinely live, and a second one destroys the signal.
+       --shadow-glow keeps its name (8 live var() consumers plus Tailwind's
+       `shadow-glow` key) and is re-pointed at the Nepal glow — it used to be built
+       from --accent-scroll, and marigold IS the Nepal stop, so the warm reading is
+       preserved while the value becomes the ruled one. */
+    --glow-nepal: 0 16px 34px -12px rgba(255, 196, 61, 0.55);
+    --glow-japan: 0 16px 34px -12px rgba(192, 140, 255, 0.50);
+    --glow-live: 0 0 0 1px rgba(255, 143, 199, 0.34), 0 0 46px -14px rgba(192, 140, 255, 0.75);
+    --shadow-glow: var(--glow-nepal);
 
-    /* motion values — roughly halved across the board. The v2 scale was tuned
-       for "editorial"; the new identity is crisp, so every tier tightens. The 64
-       HARDCODED `duration-200/300/500` utility sites (47/12/5 — counted in-repo)
-       are retired without a single component edit by aliasing those three Tailwind
-       keys onto these vars in tailwind.config.ts (`extend` overrides the built-in
-       at the same key), so they move with this scale from now on. */
-    --duration-fast: 90ms;
-    --duration-normal: 180ms;
-    --duration-slow: 240ms;
-    --duration-slower: 320ms;
+    /* motion values. The previous scale was roughly halved for a "crisp" identity;
+       the locked direction re-times it — a touch slower and with a proper reveal
+       tier, because the reveals now have something to reveal. The 64 HARDCODED
+       `duration-200/300/500` utility sites (47/12/5 — counted in-repo) still move
+       with this scale with zero component edits, via the Tailwind key remap in
+       tailwind.config.ts (`extend` overrides the built-in at the same key).
+       --duration-draw (900ms) is the LONGEST single animation permitted (D-293 R3);
+       --duration-loop-kb is the ambient Ken Burns loop, and D-293 R2 puts the floor
+       for any loop at 6s. Only the variables land here — the motion SYSTEM (session
+       entrance ledger, loop counter, tier gate) is a separate piece of work. */
+    --duration-fast: 120ms;
+    --duration-normal: 200ms;
+    --duration-slow: 320ms;
+    --duration-slower: 620ms;
+    --duration-draw: 900ms;
+    --duration-loop-kb: 30s;
     /* (new): exits are faster than entrances and use an accelerating curve —
        a thing leaving should not linger. Declared here; the CONSUMERS are
       , so nothing references these two yet by design. */
     --duration-exit: 160ms;
     --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 
-    /* ---- v2 motion vocabulary (spring; reduced-motion aware) ----
-       Consumed by keyframe utilities and hero/skeleton/transition
-       components. */
-    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* gentle overshoot */
-    --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);    /* expo-ish settle */
+    /* ---- motion vocabulary (spring; reduced-motion aware) ----
+       Consumed by keyframe utilities and hero/skeleton/transition components.
+       Unchanged values — the two curves the locked direction rules for presses and
+       reveals are byte-identical to the two already here, which is the cheapest
+       possible migration. --ease-inout is added for ambient loops. */
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* presses, pops — gentle overshoot */
+    --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);    /* reveals, draws — expo settle */
+    --ease-inout: cubic-bezier(0.42, 0, 0.58, 1);       /* ambient loops */
+  }
+
+  /* --stack steps up on the wide layout. Declared here rather than in a component
+     so the section rhythm has exactly one home. */
+  @media (min-width: 900px) {
+    :root {
+      --stack: 60px;
+    }
   }
 
   /* the ambient trip-phase overrides are deleted with the aurora they
@@ -201,15 +421,34 @@
      specificity without touching the component classNames it targets. */
   html[data-tm-legibility='high'] {
     /* Semantic surface tier: push the page-root `bg-surface` + card tiers darker
-       (still the same navy hue family — not a light-mode flip) so white/gold content pops
+       (still the same hue family — not a light-mode flip) so white/accent content pops
        harder against direct sunlight glare. Values are pixel-identical in the normal state
-       (this block only applies once the attribute is stamped). */
-    --surface: 4 6 16;
-    --surface-raised: 8 11 28;
-    --surface-overlay: 13 17 42;
-    --foreground: 210 40% 100%;
-    --border: 220 30% 42%;
-    --muted-foreground: 214 25% 84%;
+       (this block only applies once the attribute is stamped).
+
+       RE-VALUED with the canvas: these were hardcoded copies of the RETIRED blue-navy
+       ramp, so once the channel moved to aubergine this block would have painted the
+       old palette back onto /travel — the same "hardcoded copy of a token that
+       silently drifts" defect this file already documents elsewhere. Same
+       RELATIONSHIP as before (one step darker than the base ramp, a stronger border,
+       a brighter secondary ink), now on the aubergine hue. --border is pointed at
+       --border-ui #8877B8 = hsl(256 31% 59%), which is the ruled INTERACTIVE
+       boundary at 4.94:1 — exactly the right target for a high-legibility mode.
+
+       FOUR STEPS, FOUR VALUES. The base ramp gained --surface-low in this change, so
+       this block gained a slot; each step here is the base ramp shifted down one, and
+       --surface takes a new deepest value below --bg. Do not collapse two of these
+       onto the same value to save a line — if -low and -raised are equal, the 8
+       `.glass-subtle` sites become pixel-identical to a raised card and the calm tier
+       silently disappears in outdoor mode. Nothing measures this: contrast-tokens.mjs
+       does not model the high-legibility ramp, and a collapsed step is not a contrast
+       failure anyway, it is a lost distinction. */
+    --surface: 8 6 14;         /* below --bg  — new deepest step */
+    --surface-low: 16 12 26;   /* = --bg        */
+    --surface-raised: 26 20 40;/* = --surface-1 */
+    --surface-overlay: 36 28 54;/* = --surface-2 */
+    --foreground: 0 0% 100%;
+    --border: 256 31% 59%;
+    --muted-foreground: 260 25% 88%;
     /* Type-scale bump: `rem` is always ROOT-relative in CSS
        (not ancestor-relative), so every Tailwind `text-*` utility TM's cards use (all `rem`-
        based) only scales up if the <html> element's own font-size grows — a container-level
@@ -269,22 +508,63 @@ html {
 
 /* ---- Surfaces ------------------------------------
    Apple-HIG correction: glass/vibrancy belongs on the NAV/OVERLAY layer, not on
-   CONTENT. The former six translucent `.glass-*` tiers are gutted to SOLID
-   `surface-raised` fills with a flat `--hairline` edge and the resting shadow —
-   edited at the class BODY, so every one of the ~60 consumers repaints solid with
-   ZERO component edits. Removing the translucent scrim makes text sit on a darker,
-   fully-opaque fill, so contrast RISES.
+   CONTENT. The former six translucent `.glass-*` tiers are SOLID fills — most on
+   `--surface-raised`, with `.glass-subtle` one step down on `--surface-low` — each
+   carrying a `hsl(var(--border))` edge and one of the two shadow tiers. Edited at
+   the class BODY, so all 122 consumers repaint with ZERO component edits
+   (`.glass-card` 67, `.glass-card-dark` 18, `.glass-panel` 18, `.glass-subtle` 8,
+   `.glass-nepal` 5, `.glass-japan` 5, `.sheet-surface` 2 — counted in-tree, not
+   relayed). Removing the translucent scrim makes text sit on a darker, fully-opaque
+   fill, so contrast RISES.
 
    The ONE surviving glass recipe lives in `.sheet-surface` (below) and is consumed
    only by the Sheet primitive — the nav/overlay layer, HIG-legal. The
    navbar/tab-bar hand-roll their own `backdrop-blur` and are untouched.
 
-   Country tints (himalaya/sakura) survive as CONTENT wayfinding: `.glass-nepal`
-   /`.glass-japan` keep a SOLID low-alpha brand tint over the navy fill. */
-.glass-card,
-.glass-subtle {
+   Country tints survive as CONTENT wayfinding: `.glass-nepal` / `.glass-japan` keep
+   a SOLID low-alpha brand tint over the surface fill — re-pointed from the retired
+   himalaya/sakura literals to the ruled country stops --np-a / --jp-a. Measured over
+   the new surface-2: --text-hi 13.77 / 13.38, --text-lo 5.31 / 5.16. Both tinted
+   fills still clear AA for every text tier.
+
+   Each recipe below keeps a BORDER, and that is not decoration. F-8, recorded
+   against D-291: the resting shadow is a black blur on a near-black canvas and
+   separates almost nothing on its own; --border is what actually draws the edge. A
+   glass recipe without a border would be a surface with no boundary. */
+.glass-card {
   background: rgb(var(--surface-raised));
-  border: 1px solid rgb(var(--hairline));
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-sm);
+}
+
+/* `.glass-card`'s DEFAULT radius, and the ONLY declaration in this file placed in
+   `@layer components` rather than in the plain unlayered CSS above. That is the whole
+   point of it, so do not "tidy" it back into the rule above.
+
+   Every other rule here is unlayered and therefore lands AFTER the `@tailwind
+   utilities` injection point at the top of the file, which is exactly how the glass
+   fills win over utility classes without `!important`. A radius must NOT win that
+   way. Counted across app/ + components/: of the 67 `.glass-card` class strings, 58
+   already declare their own radius — 43 `rounded-2xl` (which agree with this value
+   anyway), 5 `rounded-xl`, 3 `rounded-lg`, 3 `rounded-3xl`, and 4 `rounded-full`. An
+   unlayered `border-radius` here would silently override all 58, and turning four
+   circles into 28px rectangles is not a repaint, it is a break.
+
+   `@layer components` is emitted BEFORE the utilities, so this is a genuine default:
+   the 9 sites that set no radius of their own get the ruled card radius, and the 58
+   that made a decision keep it. */
+@layer components {
+  .glass-card {
+    border-radius: var(--radius-xl);
+  }
+}
+
+/* SPLIT OUT of the shared `.glass-card` rule — it no longer has the same fill. The
+   calm/recessed tier sits on --surface-low (#1A1428), one step below a raised card,
+   which is the whole point of the name. */
+.glass-subtle {
+  background: rgb(var(--surface-low));
+  border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-sm);
 }
 
@@ -292,28 +572,28 @@ html {
    elevated shadow. Its former sheet glass moved to `.sheet-surface`. */
 .glass-card-dark {
   background: rgb(var(--surface-raised));
-  border: 1px solid rgb(var(--hairline));
+  border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-lg);
 }
 
-/* Nepal — solid himalaya tint over the navy fill (content wayfinding, not chrome). */
+/* Nepal — 10% --np-a over the surface fill (content wayfinding, not chrome). */
 .glass-nepal {
-  background: linear-gradient(0deg, rgb(255 140 66 / 0.10), rgb(255 140 66 / 0.10)), rgb(var(--surface-raised));
-  border: 1px solid rgb(var(--hairline));
+  background: linear-gradient(0deg, rgb(255 138 61 / 0.10), rgb(255 138 61 / 0.10)), rgb(var(--surface-raised));
+  border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-sm);
 }
 
-/* Japan — solid sakura tint over the navy fill (content wayfinding, not chrome). */
+/* Japan — 10% --jp-a over the surface fill (content wayfinding, not chrome). */
 .glass-japan {
-  background: linear-gradient(0deg, rgb(247 160 179 / 0.10), rgb(247 160 179 / 0.10)), rgb(var(--surface-raised));
-  border: 1px solid rgb(var(--hairline));
+  background: linear-gradient(0deg, rgb(255 143 199 / 0.10), rgb(255 143 199 / 0.10)), rgb(var(--surface-raised));
+  border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-sm);
 }
 
-/* Page heroes/panels — solid, larger radius preserved, resting shadow. */
+/* Page heroes/panels — solid, the loudest container radius, resting shadow. */
 .glass-panel {
   background: rgb(var(--surface-raised));
-  border: 1px solid rgb(var(--hairline));
+  border: 1px solid hsl(var(--border));
   border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-sm);
 }
@@ -324,9 +604,13 @@ html {
    is HIG-legal for glass. This is the former `.glass-card-dark` glass body, minus
    the grain layer; the 1px gradient edge + blur + elevated shadow are kept. */
 .sheet-surface {
-  /* the two fill stops were hardcoded blue-navy literals; re-expressed
-     against the re-valued surface channel so the one surviving glass recipe sits
-     on the new neutral ramp instead of the retired navy. Alphas unchanged. */
+  /* RECIPE UNCHANGED, and verified rather than assumed: the two fill stops were
+     already re-expressed against the --navy-800/-900 channel (they used to be
+     hardcoded blue literals), so re-valuing that channel carries this surface onto
+     the aubergine ramp on its own, with no edit here and no alpha change. This is
+     the payoff of the earlier de-hardcoding — the same fix is still outstanding for
+     the map style and a handful of page washes, which is why they will need their
+     own slices. */
   background:
     linear-gradient(180deg, rgb(var(--navy-800) / 0.88) 0%, rgb(var(--navy-900) / 0.86) 100%) padding-box,
     linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 55%, rgba(255, 255, 255, 0.02) 100%) border-box;
@@ -350,9 +634,16 @@ html {
    SOLID surfaces axe CAN evaluate. That exposed pre-existing sub-AA tertiary text:
    `text-white/25..45` maxes at ~3.7:1 even over pure black, so NO surface darken
    saves it. This floors those low tiers to
-   an AA-passing alpha on the dark navy surfaces (≥4.5:1 verified against the
+   an AA-passing alpha on the dark surfaces (≥4.5:1 verified against the
    lightest realistic fill — a `bg-white/10` chip over `surface-raised`). Monotonic
    RAISE only, so it never lowers contrast anywhere it applies.
+
+   RE-VERIFIED against the aubergine canvas rather than assumed to survive it: the
+   worst realistic case (white/.62 on a `bg-white/10` chip over the new surface-2)
+   moves 6.28 -> 5.67, still clear of 4.5. The floor holds and STAYS. It is the OLD
+   mechanism — the three-tier text system above is what eventually retires it — and
+   it must be swept per-route, not in one pass, so it is deliberately not touched
+   here. `FADE_FLOOR` in lib/motion.ts goes with the same sweep.
 
    Placed in `@layer utilities` (not unlayered) DELIBERATELY: at equal specificity
    it beats Tailwind's own `text-white/NN` utility by later source order, but a
@@ -392,25 +683,34 @@ html {
   color: hsl(var(--foreground));
 }
 
+/* The two country display gradients, re-valued onto the ruled stops: Japan is
+   PINK -> VIOLET (--jp-a -> --jp-b) and Nepal is ORANGE -> GOLD (--np-a -> --np-b).
+   The class names are kept (name-stability; sakura/himalaya are still the country
+   they name) and the three-stop sakura ramp collapses to the ruled two.
+
+   These are the reason every gradient stop had to pass 4.5:1 ALONE: the gradient is
+   clipped to TEXT, so a reader lands on whichever stop happens to fall under the
+   glyph they are looking at. An average would not be a measurement. Stops on the
+   page field: jp-a 9.18, jp-b 7.74, np-a 8.22, np-b 12.13. */
 .text-gradient-sakura {
-  background: linear-gradient(135deg, #ffb7c5 0%, #f7a0b3 50%, #e88fa2 100%);
+  background: linear-gradient(135deg, var(--jp-a) 0%, var(--jp-b) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .text-gradient-himalaya {
-  background: linear-gradient(135deg, #ff8c42 0%, #e67635 100%);
+  background: linear-gradient(135deg, var(--np-a) 0%, var(--np-b) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Full-bleed dark scrim (home hero overlay + the token-gate overlay).: the
-   four stops were hardcoded copies of the navy-900/800/700 steps at alpha, so once
-   the channel was re-valued they would have painted the RETIRED blue over the new
-   neutral hero. Re-expressed against the channel itself — same alphas, same stops,
-   and they can never drift from the ramp again. */
+/* Full-bleed dark scrim (home hero overlay + the token-gate overlay). The four stops
+   were once hardcoded copies of the -900/-800/-700 steps at alpha; they were
+   re-expressed against the channel itself, so they can never drift from the ramp
+   again. VERIFIED, not assumed, for the aubergine re-value: this rule needs no edit —
+   it already reads the channel and moves with it. */
 .hero-gradient {
   background: linear-gradient(
     135deg,
@@ -789,9 +1089,9 @@ html[data-vt-active] .animate-route-fade {
   background: rgb(255 255 255 / 0.05);
 }
 .home-nav-link[aria-current='true'] {
-  /* was the #f0c760 gold-400 literal. The active-section tint is chrome, and
-     chrome is now the cyan accent — pointed at the same var the tab-bar's active
-     tint and the focus ring use, so it can't drift from them. */
+  /* was the #f0c760 gold-400 literal. The active-section tint is chrome, so it is
+     pointed at the same var the tab-bar's active tint and the focus ring use and
+     can't drift from them. That var is now marigold; this needed no edit. */
   color: hsl(var(--accent-scroll));
 }
 

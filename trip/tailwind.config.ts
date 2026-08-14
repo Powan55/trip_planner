@@ -55,12 +55,17 @@ const config: Config = {
           'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
         // the `bg-aurora` key is gone with --gradient-aurora (decoration removal).
       },
+      // Mapping unchanged; the VALUES behind it de-flatten in globals.css, which is
+      // where the reasoning and the audited blast radius live. Rendered px after
+      // that change (the vars are px, so these are exact and do not scale with the
+      // 17px root): rounded-sm 8 · rounded-md 10 · rounded-lg 12 · rounded-xl 12 ·
+      // rounded-2xl 28 · rounded-3xl 40.
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
         xl: 'var(--radius-lg)',
-        // v2 additive larger radii for panels/heroes.
+        // the larger radii for panels/heroes — no longer aliases of -lg.
         '2xl': 'var(--radius-xl)',
         '3xl': 'var(--radius-2xl)',
       },
@@ -72,24 +77,47 @@ const config: Config = {
         '2xl': 'var(--shadow-2xl)',
       },
       fontSize: {
-        // type scale collapsed to ~6 core steps. Rather than remap
-        // every `text-*` across dozens of components, the redundant near-duplicate
-        // keys are re-pointed DOWNWARD onto a neighbour (shrink-only, so no new
-        // overflow risk at the new 17px base): xl→lg, 3xl→2xl, 5xl→4xl. The six
-        // discrete core sizes are then: text-xs · text-sm · text-base(17px) ·
-        // text-lg · text-2xl · text-4xl, plus the editorial `display-*` hero clamps
-        // (below) and the `eyebrow` overline (a distinct role, not a size).
-        // Zero component edits; the collapse is entirely at the token layer.
-        'xl': ['1.125rem', { lineHeight: '1.75rem' }],   // → text-lg
-        '3xl': ['1.5rem', { lineHeight: '2rem' }],       // → text-2xl
-        '5xl': ['2.25rem', { lineHeight: '2.5rem' }],    // → text-4xl
-        // Editorial DISPLAY scale (hero clamps — additive keys). Heroes pair these
-        // with font-display +.text-gradient-*; overlines use `text-eyebrow uppercase`.
-        'display-2xl': ['clamp(2.75rem, 6vw, 4.5rem)', { lineHeight: '1.02', letterSpacing: '-0.03em', fontWeight: '600' }],
-        'display-xl': ['clamp(2.25rem, 4.6vw, 3.5rem)', { lineHeight: '1.05', letterSpacing: '-0.025em', fontWeight: '600' }],
-        'display-lg': ['clamp(1.875rem, 3.4vw, 2.75rem)', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '600' }],
-        'display-md': ['clamp(1.5rem, 2.4vw, 2rem)', { lineHeight: '1.15', letterSpacing: '-0.015em', fontWeight: '600' }],
-        'eyebrow': ['0.75rem', { lineHeight: '1', letterSpacing: '0.22em', fontWeight: '600' }],
+        // The type scale had been COLLAPSED to ~6 core steps by re-pointing three
+        // built-in keys DOWNWARD onto a neighbour (xl→lg, 3xl→2xl, 5xl→4xl). Those
+        // three overrides are DELETED, so `text-xl` / `text-3xl` / `text-5xl` return
+        // to Tailwind's own 1.25 / 1.875 / 3rem. The collapse was a shrink-only
+        // safety move; the locked direction needs the range back, because a scale
+        // with no jumps in it is exactly what made the app read as flat.
+        //
+        // THE ROOT-SIZE TRAP, and the choice made here. The ruled scale was authored
+        // at a 16px root; this app runs 17px (html{font-size:106.25%}), so every rem
+        // below renders 6.25% LARGER than the reference screenshots. The two legal
+        // options were (a) keep the values and re-run the 0-overflow matrix at
+        // 360/390/414, or (b) divide every rem by 1.0625 to reproduce the reference
+        // pixel sizes. TAKEN: (a). The larger scale serves the goal, and the 17px
+        // root is a deliberate prior decision that should not be quietly undone by
+        // a division buried in a config file. The overflow matrix is owed, not
+        // optional — the un-collapse changes 21 bare sites at 360px (every
+        // responsive `text-3xl`/`text-5xl` use is `sm:`-prefixed and cannot fire
+        // there).
+        //
+        // Editorial DISPLAY scale (hero clamps). KEY NAMES ARE KEPT — they have live
+        // consumers — and only the values move, onto the ruled steps:
+        //   display-2xl <- t-display-xl   display-xl <- t-display-l
+        //   display-lg  <- t-h1           display-md <- t-h2
+        // Weight goes 600 -> 800 across all four: these are sans display steps and
+        // the ruled weight is 800.
+        'display-2xl': ['clamp(2.9rem, 12.5vw, 5.2rem)', { lineHeight: '0.96', letterSpacing: '-0.035em', fontWeight: '800' }],
+        'display-xl': ['clamp(2.1rem, 8.6vw, 3.4rem)', { lineHeight: '0.96', letterSpacing: '-0.035em', fontWeight: '800' }],
+        'display-lg': ['clamp(1.65rem, 6vw, 2.2rem)', { lineHeight: '1.06', letterSpacing: '-0.035em', fontWeight: '800' }],
+        'display-md': ['1.32rem', { lineHeight: '1.18', letterSpacing: '-0.02em', fontWeight: '800' }],
+        // The overline, retuned onto the ruled micro step (.68rem = 11.6px at the
+        // 17px root, tracking .12em, weight 800). Kept as its own key because it is
+        // a ROLE, not a size.
+        'eyebrow': ['0.68rem', { lineHeight: '1', letterSpacing: '0.12em', fontWeight: '800' }],
+        // SERIF editorial steps — additive keys, no consumers in this change; the
+        // front-door work inherits them. WEIGHT 400 IS NOT A TYPO: Instrument Serif
+        // ships weight 400 only, so pairing `font-display` with `font-bold` /
+        // `font-semibold` produces a browser-SYNTHESISED bold, which is already a
+        // live defect in this codebase. Pinning 400 in the step is what stops the
+        // next author reaching for a weight that does not exist.
+        'editorial-xl': ['clamp(3rem, 12.5vw, 7rem)', { lineHeight: '0.94', letterSpacing: '-0.02em', fontWeight: '400' }],
+        'editorial-lg': ['clamp(2.4rem, 9vw, 4.6rem)', { lineHeight: '0.96', letterSpacing: '-0.02em', fontWeight: '400' }],
       },
       spacing: {
         // v2 8pt rhythm — additive semantic keys only (Tailwind's 4pt base covers
@@ -105,11 +133,68 @@ const config: Config = {
         // rgb(var / <alpha-value>) so opacity modifiers (bg-surface/60) match the
         // old bg-navy-900/60 byte-for-byte. Values pixel-identical, no recolor.
         surface: 'rgb(var(--surface) / <alpha-value>)',
+        'surface-low': 'rgb(var(--surface-low) / <alpha-value>)',
         'surface-raised': 'rgb(var(--surface-raised) / <alpha-value>)',
         'surface-overlay': 'rgb(var(--surface-overlay) / <alpha-value>)',
-        gold: { 400: '#f0c760', 500: '#d4a843', 600: '#b8922e' },
-        sakura: { 300: '#ffb7c5', 400: '#f7a0b3', 500: '#e88fa2' },
-        himalaya: { 400: '#ff8c42', 500: '#e67635', 600: '#cc6228' },
+        // ---- The three brand families ----
+        // HARDCODED DUPLICATES of the brand scales, not tokens — they are the reason
+        // the class names carry any colour at all, so they move with the token layer
+        // or the app ships two palettes. The FAMILY NAMES are kept even though `gold`
+        // is now marigold, `sakura` the Japan pink and `himalaya` the Nepal orange;
+        // the names still say which COUNTRY, which is what they are used for.
+        //
+        // THE 400 STEPS CARRY THE MERGED PALETTE. That is the chrome: ~113 class
+        // sites across the three families (gold-400 33, sakura-400 44, sakura-300 2,
+        // himalaya-400 34), and they take the ruled values — marigold #FFC43D,
+        // --jp-a #FF8FC7, --np-a #FF8A3D. sakura-300 is a lighter tint (30% toward
+        // white) of the new 400, keeping the relationship it had to the old one.
+        //
+        // THE 500 STEPS ARE DELIBERATELY FROZEN AT THE RETIRED VALUES. Not an
+        // oversight and not a step that was forgotten — do not "finish the sweep"
+        // here. lib/map-style.ts mirrors these three hexes into CATEGORY_COLOR for
+        // the MapLibre paint layers (Attraction/Restaurant/Shopping), and
+        // lib/__tests__/map-category-mirror.test.ts asserts the two sides are equal
+        // at runtime. Moving a 500 without moving the map is a red test; moving the
+        // map means choosing new pin colours, and /map's palette is unresolved under
+        // D-292 (a route asserted into a tier without being designed). A token change
+        // is the wrong place to settle it.
+        //
+        // 🔴 THE FINDING THAT GOES WITH THAT, so nobody re-derives it: the retired
+        // `gold-500 #d4a843` measures hue 41.8 and marigold measures hue 41.8 — a
+        // delta of ZERO. So the `Attraction` map pin now sits exactly ON the
+        // interaction accent, and it does so whether the 500 moves or not, because
+        // the old gold was already next to the new marigold. The guard in
+        // map-category-mirror.test.ts that exists to catch precisely this (a category
+        // hue must sit >=30deg from the interaction signal) HARDCODES 189, the
+        // retired cyan, so it will keep passing while the collision is real. Making
+        // that guard honest makes it fail, and the only fix for the failure is the
+        // /map palette decision above. Left as-is on purpose; hand it to the /map
+        // slice.
+        //
+        // THE 600 STEPS take the new one-step-down shades. They have ZERO class sites
+        // today, which is why they were free to move:
+        //   gold-600     = --lip-marigold, the ruled shade for marigold
+        //   sakura-600   = --lip-pink,     the ruled shade for the pink
+        //   himalaya-600 = 0.76x per channel of --np-a. The palette has no lip for
+        //                  the Nepal orange, and 0.76 is the red-channel ratio all
+        //                  six ruled lips use, so this lands the missing lip on the
+        //                  same rule rather than by eye.
+        //
+        // MEASURED on the page field, because these are used as text and not only as
+        // fills: gold-400 12.13, gold-500 8.70, gold-600 6.00 · sakura-300 11.50,
+        // sakura-400 9.18, sakura-500 8.15, sakura-600 4.80 · himalaya-400 8.22,
+        // himalaya-500 6.43, himalaya-600 4.91. Every step clears AA as text on the
+        // new canvas, including the frozen ones.
+        //
+        // THE COST OF FREEZING, named rather than left to be discovered: about 10
+        // gold-500 sites now pair a retired-gold wash with marigold text — the
+        // `bg-gold-500/90` badges, the `bg-gold-500/15 text-gold-400` chips, the
+        // day-strip pill and the trip-map pin/badge pair. Same shape at 8 himalaya-500
+        // and 3 sakura-500 sites. It is a visible mismatch, it is contained, and it
+        // clears when the /map and badge slices sweep them.
+        gold: { 400: '#FFC43D', 500: '#d4a843', 600: '#C08400' },
+        sakura: { 300: '#FFB1D8', 400: '#FF8FC7', 500: '#e88fa2', 600: '#C25C90' },
+        himalaya: { 400: '#FF8A3D', 500: '#e67635', 600: '#C2692E' },
         // single scroll-driven accent.
         'accent-scroll': 'hsl(var(--accent-scroll))',
         background: 'hsl(var(--background))',

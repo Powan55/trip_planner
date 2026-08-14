@@ -97,8 +97,12 @@ export const viewport: Viewport = {
   // behavior, so this can never break anything where it's unsupported.
   interactiveWidget: 'resizes-content',
   // surface — the visible app surface color (matches the PWA
-  // manifest's theme_color/background_color emitted by gen-sw.mjs).
-  themeColor: '#0b0c0e',
+  // manifest's theme_color/background_color emitted by gen-sw.mjs). This is the
+  // browser/OS chrome colour and it MUST track --background: it is a hardcoded copy
+  // of that token with no compiler tie, so a canvas re-value that misses it leaves a
+  // strip of the retired palette framing the app. Now #100C1A, the D-291/D-292/D-293
+  // page field.
+  themeColor: '#100C1A',
 }
 
 export default function RootLayout({
