@@ -20,13 +20,16 @@ import type { DayPlan } from '@/lib/trip-data';
 export const TRIP_ITINERARY: DayPlan[] = [
   {
     date: '2026-12-09',
-    // (Q4, owner-ruled): Dec 9 is spent in Syracuse, JFK and the air — the traveller does not
-    // reach Kathmandu until Dec 10. `country` stays 'nepal' because it is the LEG ID that drives the
-    // currency and the day offset, not a label; only the displayed city was wrong.
-    city: 'Syracuse',
+    // (D-315, owner-ruled 2026-08-14, amending D-285): Dec 9 is spent in Syracuse, JFK and the
+    // air — the traveller does not reach Kathmandu until Dec 10 — and the day is NAMED for
+    // New York, where most of it is actually spent (the JFK layover and the long-haul out).
+    // `country` stays 'nepal' because it is the LEG ID that drives the currency and the day
+    // offset, not a label; only the displayed city moved. The item titles below still say
+    // Syracuse because SYR is where the plane really leaves from: facts, not labels.
+    city: 'New York',
     country: 'nepal',
-    // — the display half of the day line. Syracuse is in the USA; the 'nepal' leg id above
-    // is behaviour (currency + UTC offset) and stays. Without this the header read "Syracuse, Nepal".
+    // — the display half of the day line. New York is in the USA; the 'nepal' leg id above
+    // is behaviour (currency + UTC offset) and stays. Without this the header read "New York, Nepal".
     countryLabel: 'USA',
     items: [
       { id: 'n1-1', title: 'Depart Syracuse (SYR) — Regional connection to New York (JFK)', category: 'transportation', time: '05:30', duration: '1h 32m', notes: 'SYR → JFK Terminal 4 · Regional connection · arrive 7:02am · Economy. Keep passport & onward boarding passes handy', location: 'Syracuse Hancock Intl (SYR) → New York JFK (T4)', tzOffsetMin: -300 },

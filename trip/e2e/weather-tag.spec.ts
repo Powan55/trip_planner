@@ -136,15 +136,16 @@ test.describe('S216 — calendar day-card weather tag (read-only, cache-derived)
   });
 
   // S407 — the RENDERED day header, on the served build. Dec 9 is spent in Syracuse / JFK / the
-  // air; `country: 'nepal'` is the LEG ID that drives currency + UTC offset, not a label, so the
-  // header used to read "Syracuse, Nepal". It must now read the day's own label, while Dec 10 —
+  // air and is NAMED New York (D-315); `country: 'nepal'` is the LEG ID that drives currency +
+  // UTC offset, not a label, so the header used to read "…, Nepal". It must now read the day's
+  // own label, while Dec 10 —
   // asserted verbatim above — keeps its leg label. Lives in this file because it is the same
   // day-detail header these cases already drive.
-  test('S407: the Dec-9 header renders "Syracuse, USA", never "Syracuse, Nepal"', async ({ page }) => {
+  test('S407: the Dec-9 header renders "New York, USA", never "New York, Nepal"', async ({ page }) => {
     await gotoPlanner(page, IN_TRIP_DAY);
     await page.getByTestId('calendar-day-2026-12-09').click();
-    await expect(page.getByText('Day 1 • Syracuse, USA')).toBeVisible();
-    await expect(page.getByText('Day 1 • Syracuse, Nepal')).toHaveCount(0);
+    await expect(page.getByText('Day 1 • New York, USA')).toBeVisible();
+    await expect(page.getByText('Day 1 • New York, Nepal')).toHaveCount(0);
   });
 
   test('a fresh session (weather never fetched) shows no tag anywhere, no console errors', async ({ page }) => {

@@ -86,7 +86,7 @@ const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography
 
 // Build the date-select option label: "Tue, Dec 12 · Kathmandu, Nepal".: the city
 // was hardcoded to Kathmandu/Tokyo and the country to a nepal/japan ternary — both now come from
-// the one shared place-label helper, so Dec 9 reads "Syracuse, USA" and a custom trip reads its
+// the one shared place-label helper, so Dec 9 reads "New York, USA" and a custom trip reads its
 // own city with no country appended.
 function dateOptionLabel(dateStr: string): string {
   return `${formatDate(dateStr)} · ${placeLabelForDate(dateStr)}`;

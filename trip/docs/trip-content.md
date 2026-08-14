@@ -92,7 +92,7 @@ workflow.)
 ## 5. Adding / removing a day-trip city
 
 Change the day's `city` in `core/content/itinerary.ts`. If the city is **new** (not one of the
-current 8: Syracuse, Kathmandu, Lalitpur, Nagarkot, Bhaktapur, Tokyo, Kyoto, Osaka), add its
+current 8: New York, Kathmandu, Lalitpur, Nagarkot, Bhaktapur, Tokyo, Kyoto, Osaka), add its
 coordinates to `CITY_COORDS` in `lib/city-coords.ts` (`lib/weather.ts` imports the map from
 there). The validator's weather-known-city invariant fails loudly until you do. `TRIP_CITIES`
 picks up the new city automatically.
