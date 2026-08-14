@@ -2,11 +2,21 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v5.14.2`, deployed 2026-08-12. The newest live worker is `v1.8.0`, shipped 2026-08-09. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, which is a stronger condition than `v5.14.0` being deployed. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v5.14.3`, deployed 2026-08-13. The newest live worker is `v1.8.0`, shipped 2026-08-09. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, which is a stronger condition than `v5.14.0` being deployed. Read the heading before assuming a version is in production.
 
-**The newest entry is ahead of the live app.** `v5.14.3` is recorded below and not yet deployed — `main` is at `v5.14.2` and `v5.14.2` is the newest deploy tag. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed.
+**The newest entry is ahead of the live app.** `v5.14.4` is recorded below and not yet deployed — `main` is at `v5.14.3` and `v5.14.3` is the newest deploy tag. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
+
+---
+
+## v5.14.4 (app) · 2026-08-14 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+
+The countdown's "month" went back to meaning a calendar month. Three days ago it changed to a fixed 28 days so the on-screen breakdown would always add up to the flat "days to go" number next to it — a real payoff, but it meant a trip 117 days out read "4 months, 5 days" instead of "3 months, 3 weeks, 5 days", because the leftover happened to land on exactly zero weeks. That's correct under the fixed-28-day rule and not what a calendar means by "month", and it looked like the app had quietly stopped counting weeks. It hadn't — reported, checked, and reverted.
+
+Bringing calendar months back reopened an old, latent bug that had never actually surfaced: walking forward a whole number of months and landing on a day that doesn't exist in the month you land on (the 30th or 31st walking into a shorter month, or the 29th into a non-leap February) could overshoot the target by a day, and the countdown would show a negative week count and a nonsense hour reading. It had been sitting there the entire time calendar months were last in use and nothing ever hit it. Fixed alongside the revert, checked against tens of thousands of date pairs spanning every month length and every leap-year boundary.
+
+One accessibility fix rode along: the compact countdown's screen-reader label was built from a number that no longer matched what the visible countdown showed once months stopped being a fixed length. It now reads the same numbers a sighted user sees, so the two can't disagree again.
 
 ---
 
