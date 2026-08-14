@@ -13,7 +13,14 @@
 // nothing is logged here (no ops, no reply, no context).
 
 import type { DayPlan, ItineraryCategory, ItineraryItem } from '@/lib/trip-data';
-import { TRIP_DATES, formatDate, formatTimeAmPm } from '@/core/dates';
+import {
+  TRIP_DATES,
+  formatDate,
+  formatTimeAmPm,
+  getCountryForDate,
+  offsetForCountry,
+} from '@/core/dates';
+import { firstClashWith, timeFootprintChanged } from '@/lib/sort-items-by-time';
 import type { ItineraryStore } from '@/hooks/use-itinerary';
 import { generateItemId } from '@/lib/item-id';
 import { formatDurationText } from '@/lib/time-picker-format';
@@ -188,6 +195,22 @@ function contentPatch(op: Op): Partial<ItineraryItem> {
 }
 
 /**
+ * The item an `addItem` op WOULD create, minus the id (`applyOp` mints the real one;
+ * `clashForOp` passes a sentinel). One construction, so the interval that gets CHECKED can
+ * never drift from the item that gets WRITTEN — the fields deciding clash participation
+ * (`startMinutes`/`durationMinutes` today, `endDate` the day anything adds it) come from here.
+ */
+function itemFromAddOp(op: Op, id: string): ItineraryItem {
+  return {
+    id,
+    title: op.title as string,
+    category: op.category as ItineraryCategory,
+    // contentPatch re-sets title/category (harmless — same values) plus any time/notes/location.
+    ...contentPatch(op),
+  };
+}
+
+/**
  *-B — a short, human summary of WHAT an updateItem actually changes, derived from the SAME
  * `contentPatch(op)` that `applyOp` writes. Reusing that one extraction (rather than re-reading the
  * op's fields here) is the point: the chip can never name a field the Confirm won't write, or stay
@@ -252,6 +275,83 @@ export function describeOp(op: Op, plans: DayPlan[]): string {
   }
 }
 
+// The candidate id for an addItem check: deliberately NOT a real id, so `firstClashWith`'s
+// self-exclusion (`other.id === candidate.id`) can never swallow a genuine collision. The real
+// id is minted at apply time and does not exist yet.
+const ADD_CANDIDATE_ID = 'd316-concierge-candidate';
+
+/**
+ * Issue #19 / D-316 — the item this op would COLLIDE with if confirmed, or `undefined` when the
+ * write is clear.
+ *
+ * DELIBERATELY NOT A 9th `isValidOp` RULE, and this is the whole design point. `validateOps`
+ * drops a failing op SILENTLY (the contract at the top of this file, by design under D-234) —
+ * so a conflicting suggestion would simply vanish from the chat, which is the exact opposite of
+ * what #19 asks for ("say so, ask how you want to resolve it"). The caller is
+ * `components/concierge-chat.tsx::confirmOp`, the explicit-user-confirm layer, where there is a
+ * person to speak to and a chip to keep on screen. Do not wire this into `validateOps`.
+ *
+ * Shares Slice A's ONE predicate (`firstClashWith` + `timeFootprintChanged`, both over
+ * `toInterval`), so this refusal can never contradict the five authoring surfaces D-316 guards
+ * or the amber badge that reports the overlaps it lets live.
+ *
+ * Per verb:
+ * - `addItem` — the item it would create, against its own `date`. A new item has no previous
+ * footprint, so it is always guarded.
+ * - `updateItem` — the patch MERGED over the resolved live item, against that item's REAL day,
+ * self-excluded by id. Footprint-scoped exactly like the five surfaces: a patch that leaves
+ * start, duration, day and endDate alone is never guarded, which is what keeps an already-
+ * overlapping item (the seed's three deliberate containments) editable through the concierge.
+ * That subsumes "only when the patch carries startMinutes/durationMinutes" AND grandfathers a
+ * patch that merely re-states the time the item already effectively has.
+ * - `moveItem` — the live item against `toDate`. Always guarded: validation already required
+ * `toDate` ≠ the item's resolved current day, so the footprint always moves.
+ * - `removeItem` — never blocked. Deleting cannot create an overlap.
+ *
+ * Pure over `(op, plans)`; writes nothing. Assumes the op passed `validateOps`, like `applyOp`.
+ */
+export function clashForOp(op: Op, plans: DayPlan[]): ItineraryItem | undefined {
+  const check = (candidate: ItineraryItem, date: string) =>
+    firstClashWith(
+      candidate,
+      // The day's stored items, or none — a day the traveller has never touched has no entry.
+      plans.find((p) => p.date === date)?.items ?? [],
+      date,
+      offsetForCountry(getCountryForDate(date)),
+    );
+
+  switch (op.type) {
+    case 'addItem':
+      return check(itemFromAddOp(op, ADD_CANDIDATE_ID), op.date as string);
+
+    case 'updateItem': {
+      const found = resolveLive(plans, op.itemId as string);
+      if (!found) return undefined; // target gone — the chip re-validates away on its own
+      const next: ItineraryItem = { ...found.item, ...contentPatch(op) };
+      if (!timeFootprintChanged(found.item, found.date, next, found.date)) return undefined;
+      return check(next, found.date);
+    }
+
+    case 'removeItem':
+      return undefined;
+
+    case 'moveItem': {
+      const found = resolveLive(plans, op.itemId as string);
+      return found ? check(found.item, op.toDate as string) : undefined;
+    }
+
+    // A 5th verb must not reach `applyOp` unguarded. Without this, an added `OpType` with no case
+    // here falls out returning `undefined` — read as "no clash", so the write is ALLOWED: the
+    // guard fails OPEN while `applyOp` (non-nullable return) fails to COMPILE, and the safe half
+    // is the one that stays silent. This makes both halves fail the same way, at build time.
+    // Same rule as the `Exclude` guard on CATEGORIES above: a check that runs, not a comment.
+    default: {
+      const _exhaustive: never = op.type;
+      return _exhaustive;
+    }
+  }
+}
+
 /**
  * — EXECUTE one (already-validated) op through `useItinerary()` and return the undo message +
  * a restore fn capturing PRE-STATE at apply time. The caller feeds these to `showUndoToast`.
@@ -269,13 +369,9 @@ export function applyOp(
   switch (op.type) {
     case 'addItem': {
       const date = op.date as string;
-      const item: ItineraryItem = {
-        id: generateItemId(), // MINT — never trust an agent-supplied id for a new item
-        title: op.title as string,
-        category: op.category as ItineraryCategory,
-        ...contentPatch(op),
-      };
-      // contentPatch re-sets title/category (harmless — same values) plus any time/notes/location.
+      // MINT — never trust an agent-supplied id for a new item. The rest of the construction is
+      // shared with `clashForOp`, so the checked interval is the written item's.
+      const item = itemFromAddOp(op, generateItemId());
       store.addItem(date, item);
       return { message: `Added “${item.title}”`, undo: () => store.removeItem(date, item.id) };
     }

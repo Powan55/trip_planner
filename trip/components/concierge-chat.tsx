@@ -15,7 +15,8 @@ import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { isConciergeConfigured } from '@/lib/concierge-config';
 import { useConciergeChat } from '@/hooks/use-concierge-chat';
 import { useItinerary } from '@/hooks/use-itinerary';
-import { validateOps, describeOp, applyOp, type Op } from '@/lib/concierge-ops';
+import { validateOps, describeOp, applyOp, clashForOp, type Op } from '@/lib/concierge-ops';
+import { describeClash } from '@/lib/sort-items-by-time';
 import { showUndoToast } from '@/lib/undo-toast';
 
 // Model output is UNTRUSTED input: only these href schemes become a real <a>; anything else
@@ -278,6 +279,13 @@ export function ConciergeChat() {
   // re-render. Keyed per turn + op content (validateOps re-runs each render against LIVE plans, so
   // a positional index would be unstable; content is stable regardless of which ops survive).
   const [resolvedOps, setResolvedOps] = useState<Set<string>>(new Set());
+  // Issue #19 — the refusal for the last blocked Confirm, per chip (same `opKey`), or absent.
+  // It is the result of pressing Confirm, exactly like a form validation message: it stays until
+  // that chip is confirmed again (which re-checks against live plans) or dismissed. Deliberately
+  // NOT auto-cleared on a `plans` change — `useItinerary` rebuilds `plans` on every render
+  // (`visiblePlans(plans)` is a fresh array each time), so an effect keyed on it would fire in a
+  // loop rather than on a real edit.
+  const [clashByOp, setClashByOp] = useState<Record<string, string>>({});
 
   // — "every time I send a message I have to re-click the textbox". Root cause was
   // `disabled={status==='streaming'}` on the input: disabling blurs it and nothing ever restored
@@ -313,6 +321,22 @@ export function ConciergeChat() {
   // Execute ONLY on explicit confirm: route through useItinerary(), then
   // offer undo capturing pre-state. Dismiss just drops the chip — nothing mutates.
   const confirmOp = (key: string, op: Op) => {
+    // Issue #19 / D-316 — the concierge's Confirm was the one authoring surface Slice A left
+    // unguarded. On a collision NOTHING is applied and `resolve(key)` is NOT called, so the chip
+    // stays on screen and the proposal is still there to confirm once the clash is settled — the
+    // "not add anything until that's settled" half, which is the non-negotiable part. The check
+    // is here and not in `isValidOp` on purpose: `validateOps` drops silently, so a conflicting
+    // suggestion would have vanished from the chat instead of explaining itself.
+    const clash = clashForOp(op, plans);
+    if (clash) {
+      setClashByOp((prev) => ({
+        ...prev,
+        // `describeClash` is the same fragment the five surfaces D-316 guards use, so the two
+        // refusals can never name the same collision differently.
+        [key]: `Nothing changed — this overlaps ${describeClash(clash)}. Ask me for a different time, or change that plan first, then confirm again.`,
+      }));
+      return;
+    }
     const { message, undo } = applyOp(op, store, plans);
     showUndoToast(message, undo);
     resolve(key);
@@ -442,29 +466,50 @@ export function ConciergeChat() {
                             role="group"
                             aria-label={`Proposed change: ${label}`}
                             data-testid="concierge-op-chip"
-                            className="mr-6 flex items-center justify-between gap-2 rounded-xl border border-ring/25 bg-primary/5 px-3 py-2"
+                            className="mr-6 rounded-xl border border-ring/25 bg-primary/5 px-3 py-2"
                           >
-                            <span className="text-sm text-white/90">{label}</span>
-                            <div className="flex shrink-0 items-center gap-1">
-                              <button
-                                type="button"
-                                data-testid="concierge-op-confirm"
-                                onClick={() => confirmOp(key, op)}
-                                aria-label={`Confirm: ${label}`}
-                                className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg bg-primary text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                              >
-                                <Check className="h-4 w-4" aria-hidden="true" />
-                              </button>
-                              <button
-                                type="button"
-                                data-testid="concierge-op-dismiss"
-                                onClick={() => resolve(key)}
-                                aria-label={`Dismiss: ${label}`}
-                                className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                              >
-                                <X className="h-4 w-4" aria-hidden="true" />
-                              </button>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm text-white/90">{label}</span>
+                              <div className="flex shrink-0 items-center gap-1">
+                                <button
+                                  type="button"
+                                  data-testid="concierge-op-confirm"
+                                  onClick={() => confirmOp(key, op)}
+                                  aria-label={`Confirm: ${label}`}
+                                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg bg-primary text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                >
+                                  <Check className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                                <button
+                                  type="button"
+                                  data-testid="concierge-op-dismiss"
+                                  onClick={() => resolve(key)}
+                                  aria-label={`Dismiss: ${label}`}
+                                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                >
+                                  <X className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                              </div>
                             </div>
+                            {/* Issue #19 — the refusal, INSIDE its own chip so it can never be
+                                read against the wrong proposal. A BLOCKED user action, so
+                                `role="alert"` (assertive), not `role="status"` — the pattern
+                                backup-restore.tsx / photo-attach.tsx and D-316's five surfaces
+                                already use. Always mounted with one line of reserved height, so
+                                the live region exists before it has anything to say and the
+                                announcement is a text change rather than a node insertion — which
+                                is what makes it reliably announced. (The chip does still grow when
+                                the message wraps past that line; the reserve buys the live region,
+                                not a fixed height.) Focus is deliberately NOT moved: it is already on the
+                                Confirm button the user just pressed, which is where they act
+                                next. No shake, no flash — nothing motion-dependent to reduce. */}
+                            <p
+                              role="alert"
+                              data-testid="concierge-op-clash"
+                              className="mt-1 min-h-[1rem] text-xs text-destructive"
+                            >
+                              {clashByOp[key]}
+                            </p>
                           </div>
                         );
                       })}
