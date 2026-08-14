@@ -76,8 +76,11 @@ async function stubChat(page: Page, model?: string) {
 /**
  * The FAILING counterpart of `stubChat` (S395, open item A). Same bare-origin route, same CORS
  * preflight answer — only the POST leg changes, to the Worker's own both-legs-dead shape
- * (`worker/src/providers.ts` `fetchChatCompletion`: 502 + `{error}`). The hook's non-2xx branch
- * lifts that `error` string verbatim into the panel's `role="alert"` row.
+ * (`worker/src/providers.ts` `fetchChatCompletion`: 502 + `{error}`).
+ *
+ * 🔴 The hook NO LONGER lifts that `error` string into the row (issue #13): the response body is
+ * not read at all, and the row shows our own status-class sentence. The stub still sends the
+ * Worker's real body precisely so the test can assert that it does NOT appear on screen.
  *
  * 🔴 NOT `context.setOffline(true)`: `hooks/use-concierge-chat.ts` short-circuits on `!online`
  * BEFORE any fetch, so an offline test never reaches a route stub at all — and the error row it
@@ -354,14 +357,20 @@ test.describe('S395 · open item A — the error row is a11y-scanned, not just r
     await page.getByTestId('concierge-starter-chip').first().click();
 
     // 🔴 THE ANTI-VACUITY GUARD. Everything below is worthless if the row is not on screen, so the
-    // row is asserted VISIBLE — and asserted to be the real thing, carrying the Worker's own error
-    // text and the retry control — immediately before axe runs. Remove the failure stub, rename
-    // the testid, or let the row render empty, and this fails here rather than reporting a
-    // reassuring "0 violations" about a state that was never on the page.
+    // row is asserted VISIBLE — and asserted to be the real thing, carrying real failure copy and
+    // the retry control — immediately before axe runs. Remove the failure stub, rename the testid,
+    // or let the row render empty, and this fails here rather than reporting a reassuring
+    // "0 violations" about a state that was never on the page.
+    //
+    // #13, changed deliberately: this used to assert the row contained SERVER_ERROR_TEXT — the
+    // Worker's own `{error}` body, rendered verbatim. The body is no longer read, so the pair of
+    // assertions below is the stronger form of the same guard: our sentence IS on screen, and the
+    // upstream string is NOT.
     const errorRow = page.getByTestId('concierge-error');
     await expect(errorRow).toBeVisible();
     await expect(errorRow).toHaveAttribute('role', 'alert');
-    await expect(errorRow).toContainText(SERVER_ERROR_TEXT);
+    await expect(errorRow).toContainText('The concierge is having trouble right now.');
+    await expect(errorRow).not.toContainText(SERVER_ERROR_TEXT);
     const retry = page.getByTestId('concierge-retry');
     await expect(retry).toBeVisible();
     await expect(retry).toBeEnabled();

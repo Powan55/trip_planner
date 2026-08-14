@@ -3,8 +3,11 @@
 // The Worker emits a `{reply, ops}` envelope where each op is a FLAT, nullable-superset
 // object. This module owns the two client-side responsibilities the Worker can't:
 // - `validateOps` — STATE-validity: run against the LIVE itinerary and reject-and-DROP any
-// op that fails one of the 8 rules, SILENTLY (never surface a raw validation error; one bad op
-// must not nuke a good reply). Pure over `(rawOps, livePlans)` → the surviving `Op[]`.
+// op that fails one of the 8 rules (one bad op must not nuke a good reply). Pure over
+// `(rawOps, livePlans)` → the surviving `Op[]`. The drop is no longer INVISIBLE (issue #13):
+// `dropReason` — the same predicate `validateOps` filters on — returns WHY, as a `DropCode`.
+// A code, never a sentence: no rule name, field name or machine text exists in this module for
+// a caller to leak, and the copy lives in `components/concierge-chat.tsx`.
 // - `applyOp` — EXECUTION: turn one confirmed op into the matching `useItinerary()` CRUD
 // call (addItem MINTS a fresh id — never trust an agent-supplied id) and return the undo
 // message + pre-state restore fn for `showUndoToast`. Nothing here mutates until a caller
@@ -103,78 +106,110 @@ function resolveLive(plans: DayPlan[], itemId: string): { date: string; item: It
   return undefined;
 }
 
-// shared range guard — applies whenever the field is present + non-null, for any verb.
-function timeFieldsValid(o: Record<string, unknown>): boolean {
-  if (o.startMinutes != null) {
-    if (!Number.isInteger(o.startMinutes) || (o.startMinutes as number) < 0 || (o.startMinutes as number) > 1439) {
-      return false;
-    }
-  }
-  if (o.durationMinutes != null) {
-    if (!Number.isInteger(o.durationMinutes) || (o.durationMinutes as number) <= 0) return false;
-  }
-  return true;
-}
+/**
+ * Issue #13 — the vocabulary of drop causes. A CODE UNION, deliberately NOT sentences: the copy
+ * for these lives in `components/concierge-chat.tsx`, which is what keeps D-234's "no raw
+ * validation error ever reaches a person" STRUCTURAL rather than a promise — there is no rule
+ * number, field name or machine string in this module for a caller to render by accident.
+ * Same reason-code → copy shape as `components/photo-attach.tsx::reasonMessage`.
+ */
+export type DropCode =
+  | 'unreadable' // not an object, or a field whose type makes the op un-actionable
+  | 'unknown-verb' // Rule 2
+  | 'bad-time' // Rule 7 (startMinutes)
+  | 'bad-duration' // Rule 7 (durationMinutes)
+  | 'date-not-in-trip' // Rule 4
+  | 'no-title' // Rule 3 / the title half of a patch
+  | 'bad-category' // Rule 5
+  | 'no-such-item' // Rule 3 (itemId) + Rule 6
+  | 'nothing-to-change' // Rule 8
+  | 'already-there'; // moveItem whose toDate IS the item's resolved day
 
 /**
- * — validate a single raw op against the LIVE itinerary. Returns true only if EVERY applicable
- * rule holds; any failure = drop (the caller filters). No throw, no log.
+ * WHY one raw op fails against the LIVE itinerary, or `undefined` when it is valid.
+ *
+ * This holds the real rule logic and `isValidOp` is its boolean wrapper, so the reason shown to a
+ * traveller and the decision to drop can never disagree — the same one-predicate discipline
+ * `clashForOp`/`firstClashWith` use (D-316). The three ANDed `addItem` checks are split apart
+ * because date, title and category are three different things to say. No throw, no log (D-152).
  */
-function isValidOp(raw: unknown, plans: DayPlan[]): raw is Op {
-  if (!raw || typeof raw !== 'object') return false;
+export function dropReason(raw: unknown, plans: DayPlan[]): DropCode | undefined {
+  if (!raw || typeof raw !== 'object') return 'unreadable';
   const o = raw as Record<string, unknown>;
 
   // Rule 2 — type ∈ the four verbs.
   const type = o.type;
   if (type !== 'addItem' && type !== 'updateItem' && type !== 'removeItem' && type !== 'moveItem') {
-    return false;
+    return 'unknown-verb';
   }
-  // Rule 7 — startMinutes/durationMinutes ranges (any verb that carries them).
-  if (!timeFieldsValid(o)) return false;
+  // Rule 7 — startMinutes/durationMinutes ranges (any verb that carries them), one code each.
+  if (o.startMinutes != null) {
+    if (!Number.isInteger(o.startMinutes) || (o.startMinutes as number) < 0 || (o.startMinutes as number) > 1439) {
+      return 'bad-time';
+    }
+  }
+  if (o.durationMinutes != null) {
+    if (!Number.isInteger(o.durationMinutes) || (o.durationMinutes as number) <= 0) return 'bad-duration';
+  }
 
   switch (type) {
     case 'addItem':
       // Rule 3 (add: date,title,category) + Rule 4 (date ∈ TRIP_DATES) + Rule 5 (category ∈ set).
-      return isTripDate(o.date) && isNonEmptyString(o.title) && isCategory(o.category);
+      if (!isTripDate(o.date)) return 'date-not-in-trip';
+      if (!isNonEmptyString(o.title)) return 'no-title';
+      if (!isCategory(o.category)) return 'bad-category';
+      return undefined;
 
     case 'updateItem': {
       // Rule 3 (itemId + ≥1 patch) + Rule 6 (target resolves by id) + Rule 8 (≥1 non-null patch).
       // No Rule 4 date check: the target's date comes from the ITINERARY, not from the op.
-      if (!isNonEmptyString(o.itemId)) return false;
+      if (!isNonEmptyString(o.itemId)) return 'no-such-item';
       // Any present patch field must be well-typed; collect whether ≥1 valid patch exists (Rule 8).
       let patchCount = 0;
       for (const k of CONTENT_KEYS) {
         if (o[k] == null) continue;
-        if (k === 'title' && !isNonEmptyString(o[k])) return false;
-        if (k === 'category' && !isCategory(o[k])) return false; // Rule 5
-        if ((k === 'notes' || k === 'location') && typeof o[k] !== 'string') return false;
-        // startMinutes/durationMinutes already range-checked by timeFieldsValid.
+        if (k === 'title' && !isNonEmptyString(o[k])) return 'no-title';
+        if (k === 'category' && !isCategory(o[k])) return 'bad-category'; // Rule 5
+        if ((k === 'notes' || k === 'location') && typeof o[k] !== 'string') return 'unreadable';
+        // startMinutes/durationMinutes already range-checked above.
         patchCount += 1;
       }
-      if (patchCount === 0) return false; // Rule 8
-      return resolveLive(plans, o.itemId) !== undefined; // Rule 6
+      if (patchCount === 0) return 'nothing-to-change'; // Rule 8
+      return resolveLive(plans, o.itemId) === undefined ? 'no-such-item' : undefined; // Rule 6
     }
 
     case 'removeItem':
       // Rule 3 (itemId) + Rule 6.
-      if (!isNonEmptyString(o.itemId)) return false;
-      return resolveLive(plans, o.itemId) !== undefined;
+      if (!isNonEmptyString(o.itemId)) return 'no-such-item';
+      return resolveLive(plans, o.itemId) === undefined ? 'no-such-item' : undefined;
 
     case 'moveItem': {
       // Rule 3 (itemId,toDate) + Rule 4 (toDate — a REAL new date, so it must be a trip date) +
-      // Rule 6 (target resolves). `fromDate` is a hint;'s toDate ≠ fromDate is enforced
+      // Rule 6 (target resolves). `fromDate` is a hint; toDate ≠ fromDate is enforced
       // against the item's RESOLVED current day, which is the day the move would actually leave.
-      if (!isNonEmptyString(o.itemId) || !isTripDate(o.toDate)) return false;
+      if (!isNonEmptyString(o.itemId)) return 'no-such-item';
+      if (!isTripDate(o.toDate)) return 'date-not-in-trip';
       const found = resolveLive(plans, o.itemId);
-      return found !== undefined && found.date !== o.toDate;
+      if (found === undefined) return 'no-such-item';
+      return found.date === o.toDate ? 'already-there' : undefined;
     }
   }
 }
 
 /**
+ * — validate a single raw op against the LIVE itinerary. Returns true only if EVERY applicable
+ * rule holds; any failure = drop (the caller filters). The boolean wrapper over `dropReason`, so
+ * a drop and its stated reason are the same computation. No throw, no log.
+ */
+function isValidOp(raw: unknown, plans: DayPlan[]): raw is Op {
+  return dropReason(raw, plans) === undefined;
+}
+
+/**
  * — filter raw ops (whatever the Worker sent) to the ones valid against `livePlans`. Rule 1:
  * a non-array (or absent) `ops` yields `[]` (pure chat). Order preserved; invalid ops dropped
- * silently. Run this at CHIP-RENDER time against the live plans so a chip never shows for an op
+ * (the caller says WHY via `dropReason` — this function itself never explains, logs or throws).
+ * Run this at CHIP-RENDER time against the live plans so a chip never shows for an op
  * that has gone stale (e.g. its target was deleted after the reply arrived).
  */
 export function validateOps(rawOps: unknown, livePlans: DayPlan[]): Op[] {
@@ -285,9 +320,11 @@ const ADD_CANDIDATE_ID = 'd316-concierge-candidate';
  * write is clear.
  *
  * DELIBERATELY NOT A 9th `isValidOp` RULE, and this is the whole design point. `validateOps`
- * drops a failing op SILENTLY (the contract at the top of this file, by design under D-234) —
- * so a conflicting suggestion would simply vanish from the chat, which is the exact opposite of
- * what #19 asks for ("say so, ask how you want to resolve it"). The caller is
+ * DROPS a failing op — issue #13 changed only whether a one-line REASON is printed alongside the
+ * drop, never that the op itself is gone — so a conflicting suggestion would still vanish from the
+ * chat, which is the exact opposite of what #19 asks for ("say so, ask how you want to resolve
+ * it"): that refusal must keep its chip ON SCREEN and confirmable. It also answers a button PRESS,
+ * where `validateOps` re-runs on every render. Do not read #13 as licence to move it. The caller is
  * `components/concierge-chat.tsx::confirmOp`, the explicit-user-confirm layer, where there is a
  * person to speak to and a chip to keep on screen. Do not wire this into `validateOps`.
  *

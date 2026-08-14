@@ -15,7 +15,15 @@ import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { isConciergeConfigured } from '@/lib/concierge-config';
 import { useConciergeChat } from '@/hooks/use-concierge-chat';
 import { useItinerary } from '@/hooks/use-itinerary';
-import { validateOps, describeOp, applyOp, clashForOp, type Op } from '@/lib/concierge-ops';
+import {
+  validateOps,
+  describeOp,
+  applyOp,
+  clashForOp,
+  dropReason,
+  type DropCode,
+  type Op,
+} from '@/lib/concierge-ops';
 import { describeClash } from '@/lib/sort-items-by-time';
 import { showUndoToast } from '@/lib/undo-toast';
 
@@ -242,6 +250,45 @@ const STARTER_PROMPTS = [
 ];
 
 /**
+ * Issue #13 — the sentence for one `DropCode`. The copy lives HERE and the code lives in
+ * `lib/concierge-ops.ts`, which is what makes D-234's surviving invariant structural: no rule
+ * number, field name, JSON or other machine text can reach a traveller, because none of it
+ * crosses the seam in the first place. Same reason-code → copy switch as
+ * `components/photo-attach.tsx::reasonMessage`.
+ *
+ * Each clause completes "…didn't match the current plan: <clause>", so they are lower-case
+ * fragments, phrased as what the SUGGESTION got wrong — never as an instruction, because there is
+ * nothing for the traveller to press here (the op is gone; asking again is the whole recourse).
+ */
+function dropMessage(code: DropCode): string {
+  switch (code) {
+    case 'date-not-in-trip':
+      return 'it named a day outside the trip';
+    case 'no-title':
+      return 'it had no name for the plan';
+    case 'bad-category':
+      return 'it used a category this app doesn’t have';
+    case 'no-such-item':
+      return 'the plan it pointed at isn’t on your itinerary';
+    case 'nothing-to-change':
+      return 'it didn’t actually change anything';
+    case 'bad-time':
+      return 'the time wasn’t a real time of day';
+    case 'bad-duration':
+      return 'the length wasn’t a real duration';
+    case 'already-there':
+      return 'that plan is already on that day';
+    case 'unknown-verb':
+    case 'unreadable':
+      return 'it asked for something this app can’t do';
+  }
+  // No `default:` here, deliberately. With all ten codes listed the switch is exhaustive and this
+  // compiles; an ELEVENTH `DropCode` makes it fall off the end and TS2366 fails the build. A
+  // `default` would instead have silently rendered the generic sentence for a code that deserves
+  // its own — the same fail-open asymmetry `clashForOp` is guarded against in D-316.
+}
+
+/**
  * AI concierge chat — the client surface for the Cloudflare Worker's `POST` relay
  * Mounted once in the persistent
  * navbar chrome (`components/navbar.tsx`), next to the Travel Mode entry — the "durable entry
@@ -441,7 +488,8 @@ export function ConciergeChat() {
               )}
 
               {/* Proposal chips — validated against LIVE plans at render time so a stale
-                  op (target since deleted) silently drops. Nothing mutates until Confirm. */}
+                  op (target since deleted) drops, and says why it dropped (#13). Nothing
+                  mutates until Confirm. */}
               {turn.role === 'assistant' &&
                 turn.ops &&
                 (() => {
@@ -453,7 +501,17 @@ export function ConciergeChat() {
                   // stops validating once its target is gone — that is not a drop).
                   const dropped = turn.ops!.filter(
                     (op) => !valid.includes(op) && !resolvedOps.has(opKey(i, op)),
-                  ).length;
+                  );
+                  // Issue #13 — and WHY, which is the half that was missing. Derived at RENDER
+                  // time from `(rawOp, plans)`, never held in state: `useItinerary().plans` has a
+                  // fresh identity every render, so an effect keyed on it is an infinite loop, not
+                  // a cache (D-316's addendum records that trap). Deduped by CODE, so a model that
+                  // fluffs three dates the same way says it once. `?? 'unreadable'` is
+                  // unreachable — an op with no reason is by definition in `valid` — and exists
+                  // only so the copy switch is total without a filter.
+                  const reasons = [
+                    ...new Set(dropped.map((op) => dropReason(op, plans) ?? 'unreadable')),
+                  ].map(dropMessage);
                   return (
                     <>
                       {valid.map((op) => {
@@ -513,13 +571,19 @@ export function ConciergeChat() {
                           </div>
                         );
                       })}
-                      {dropped > 0 && (
+                      {/* Issue #13 — ONE line, evolved rather than doubled: the count that
+                          shipped at S342 plus the reason it was missing. A plain <p>, NOT
+                          `role="alert"` — a drop is not a blocked user action, it is part of the
+                          reply, and it is already inside the panel's `role="log" aria-live=
+                          "polite"` region, so it is announced with the turn it belongs to. The
+                          assertive region above is for the Confirm refusal, which answers a press. */}
+                      {dropped.length > 0 && (
                         <p
                           data-testid="concierge-ops-dropped"
                           className="mr-6 px-3 text-xs text-white/50"
                         >
-                          {dropped} suggested change{dropped === 1 ? '' : 's'} didn&rsquo;t match the
-                          current plan.
+                          {dropped.length} suggested change{dropped.length === 1 ? '' : 's'}{' '}
+                          didn&rsquo;t match the current plan: {reasons.join('; ')}.
                         </p>
                       )}
                     </>
