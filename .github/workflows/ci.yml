@@ -86,6 +86,63 @@ jobs:
           NEXT_PUBLIC_CONCIERGE_URL: https://concierge.test
         run: npm run build
 
+  # firestore.rules is published by the release now (deploy.yml's `publish-rules`, issue #39 /
+  # D-314), so it can no longer ship unproven: this job runs scripts/rules-check.mjs against the
+  # REAL Cloud Firestore rules engine in the local emulator, eleven phases including two negative
+  # controls. It was left out of CI when it was written because it needs an emulator in the
+  # runner; that cost is now smaller than shipping a ruleset nobody ran.
+  #
+  # NO `if:` on purpose. A condition on `github.event_name` would evaluate to the CALLER's event
+  # inside workflow_call and skip this job on exactly the path that publishes — that inheritance
+  # is the same fact that keeps `e2e` off the deploy path, recorded in D-302 (see its note on the
+  # browser suite staying on the pull request; clause 5 is the separate rule not to loosen e2e's
+  # own `if:`). D-305's successor rule applies: a conditional job here must fail toward running.
+  #
+  # No secrets, and none may ever be added: `--project demo-rules` is a fake project id the
+  # emulator accepts precisely because it can never resolve to anything real, so this job cannot
+  # reach nepalxjapan even by accident. Publishing needs a credential and therefore lives in
+  # deploy.yml, which is the only file that can read one (D-302 clause 2).
+  rules-check:
+    name: Firestore rules (real rules engine, local emulator)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: trip/package-lock.json
+
+      # The harness adds no dependency of its own: it resolves the firebase SDK by
+      # createRequire against trip/package.json, because there is deliberately no root
+      # package.json. So the app's install IS its dependency, and this step is not optional.
+      # Do not "fix" the odd path by adding a package.json at the root.
+      - name: Install (the harness reads trip/node_modules/firebase)
+        working-directory: trip
+        run: npm ci --legacy-peer-deps
+
+      # THE SENTINEL FILE IS LOAD-BEARING. `firebase emulators:exec` returns exit code 2 even
+      # when the inner script exits 0 — measured twice locally, including with a trivial
+      # `node -e ''`: the log prints "Script exited successfully (code 0)" and then errors while
+      # tearing the emulator down on SIGINT. Wiring the documented command in bare therefore
+      # gives a RED gate on GREEN rules, which is how a gate ends up deleted. So the harness
+      # records its own verdict in a file it can only create by exiting 0 (`&&` runs nothing
+      # after a failure), the CLI's exit code is discarded, and the `test -f` below is what this
+      # job actually asserts. Do not simplify this back to the bare command.
+      #
+      # The `|| true` is part of the same fix, not sloppiness: steps run under `bash -e`, so the
+      # exit 2 we are deliberately ignoring would abort the step before the sentinel is tested.
+      #
+      # firebase-tools is pinned to a major so a v15 with different exec semantics cannot land
+      # here unannounced. The Firestore emulator jar needs Java; the ubuntu runner image ships
+      # one, and if that ever changes the fix is actions/setup-java, not dropping this job.
+      - name: Validate firestore.rules against the emulator
+        run: |
+          npx --yes firebase-tools@14 emulators:exec --only firestore,auth --project demo-rules \
+            "node scripts/rules-check.mjs && touch \"$RUNNER_TEMP/rules-ok\"" || true
+          test -f "$RUNNER_TEMP/rules-ok"
+
   # Only on a pull request INTO main. `base_ref` is populated on pull_request and is
   # empty on every push, including the push that reaches this file through
   # deploy.yml's workflow_call — so this job is structurally absent from the deploy
