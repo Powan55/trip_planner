@@ -651,8 +651,15 @@ function CompactCountdown() {
       { label: 'Sec', value: cd.seconds },
     ]);
 
+  // The aria-label must read the same numbers the grid shows. `cd.totalDays` is a flat day
+  // count that no longer reconciles with the calendar-accurate months/weeks/days breakdown
+  // (D-313) and has no on-screen text anywhere in this component (unlike hero-section.tsx's
+  // ring, which has its own separate, correctly self-labeled "days to go" caption) -- so a
+  // screen reader must be built from the same `units` array the grid renders, not totalDays.
+  const unitsLabel = units.map((u) => `${u.value} ${u.label}`).join(', ');
+
   return (
-    <div role="status" aria-label={`Departure in ${cd.totalDays} days`}>
+    <div role="status" aria-label={`Departure in ${unitsLabel}`}>
       <div
         className="grid gap-1.5"
         style={{ gridTemplateColumns: `repeat(${units.length}, minmax(0, 1fr))` }}
