@@ -36,6 +36,13 @@ export default defineConfig({
     // concierge renderer test uses real .tsx JSX rather than lib/__tests__'s createElement-only
     // convention) — everything else about the run (jsdom, the @ alias, oxc's automatic JSX
     // runtime) is unchanged.
-    include: ['lib/__tests__/**/*.test.ts', 'components/__tests__/**/*.test.tsx'],
+    //
+    // Issue #32: BOTH extensions in BOTH roots, deliberately, though today every file happens
+    // to sit on the diagonal (156 .test.ts in lib, 2 .test.tsx in components). The old pair of
+    // globs pinned each root to one extension, so the first `lib/__tests__/*.test.tsx` or
+    // `components/__tests__/*.test.ts` anyone added would have been collected by nothing and
+    // simply never run — passing CI by being absent, which is the failure mode a test suite
+    // can least afford. Widening costs nothing: the extra half of the matrix is empty today.
+    include: ['{lib,components}/__tests__/**/*.test.{ts,tsx}'],
   },
 });
