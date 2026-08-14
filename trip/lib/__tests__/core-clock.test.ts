@@ -38,21 +38,26 @@ describe('S93 core boundary — computeCountdown (pure, from @/core/clock)', () 
     expect(libComputeCountdown).toBe(coreComputeCountdown);
   });
 
-  it('matches the S82 pre-trip fixture: Nov 9 noon -> Dec 9 00:00 = 1mo/0wk/1d/12h, totalDays 29', () => {
+  it('matches the S82 pre-trip fixture: Nov 9 noon -> Dec 9 00:00 = 0mo/0wk/29d/12h, totalDays 29', () => {
     // Same instant the E2E drives via ?today=2026-11-09 (local noon), asserted at the
     // pure core boundary (no UI, no clock read).
     //
-    // The TOTAL has never moved (29 days 12 hours, totalDays 29); only the bucketing has.
-    // It pinned `weeks: 4, days: 1`, then S423 re-bucketed it to `days: 29` to keep "4
-    // weeks" off the screen. Issue #11 replaces that suppression with a real carry:
-    // 29 = 28 + 1, so it reads 1 month 0 weeks 1 day. The renderer drops the 0 weeks;
-    // the producer still reports it. 29d + 12h sums back to exactly 2026-12-09T00:00:00.
+    // The TOTAL has never moved (29 days 12 hours, totalDays 29); only the bucketing has,
+    // across three schemes now. It pinned `weeks: 4, days: 1`, then S423 re-bucketed it to
+    // `days: 29` to keep "4 weeks" off the screen. Issue #11 / D-306 replaced that
+    // suppression with a fixed 28-day carry: 29 = 28 + 1, so it read 1 month 0 weeks 1 day.
+    // Issue #60 / D-313 reverts to calendar-accurate months: Nov 9 -> Dec 9 has not
+    // completed a calendar month one day short of the borrow-adjusted walk target (Dec 8,
+    // since the target's midnight is earlier in the day than noon), so months is 0 again
+    // and the 29-day residue is >= the suppression window (28), reporting unsplit as
+    // `days: 29` rather than `weeks: 4, days: 1`. The renderer drops zero units; the
+    // producer still reports them. 29d + 12h sums back to exactly 2026-12-09T00:00:00.
     const now = new Date(2026, 10, 9, 12, 0, 0); // Nov 9, 2026 12:00 LOCAL
     const target = new Date('2026-12-09T00:00:00'); // TRIP_START (local)
     expect(coreComputeCountdown(target, now)).toEqual({
-      months: 1,
+      months: 0,
       weeks: 0,
-      days: 1,
+      days: 29,
       hours: 12,
       minutes: 0,
       seconds: 0,
