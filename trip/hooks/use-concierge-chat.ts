@@ -252,6 +252,32 @@ export function capHistory(turns: ChatTurn[]): ChatTurn[] {
 export type ChatStatus = 'idle' | 'streaming' | 'error';
 
 /**
+ * Issue #13 — our OWN sentence for a non-2xx concierge response, chosen by status class. The
+ * response body is never read: whatever `{error}` string came back does not reach the traveller.
+ *
+ * THE RULE, and the evidence for it. The Worker authors every `error` string it sends
+ * (`worker/src/index.ts::jsonError`, `providers.ts`' 502) and never passes an upstream provider
+ * body through — so "is this text ours?" was the question, and the answer is that the status code
+ * does not separate the useful copy from the machine text. 401 carries `missing trip token`
+ * (protocol jargon, and D-239 bans an unqualified "token" in UI copy), 400 carries
+ * `context must be a string`, while the genuinely readable sentence sits on a 502; a 500 comes
+ * from something that is not our Worker at all, since the Worker emits none. There is no clean
+ * split to pass through, so nothing from the wire is rendered — which also holds if a proxy, a
+ * CDN error page or a future Worker version answers instead.
+ *
+ * Copy convention (matching the offline + timeout lines below): name what happened, give the next
+ * action, never show machine text. The buckets are the ones with DIFFERENT next actions — an
+ * auth failure must not tell someone to press "Try again" forever.
+ */
+function statusMessage(status: number): string {
+  if (status === 401 || status === 403) {
+    return 'The concierge couldn’t confirm this trip is yours. Sign in again, or open the trip from your trips list.';
+  }
+  if (status === 413) return 'That message was too long to send. Shorten it and try again.';
+  return 'The concierge is having trouble right now. Try again in a moment.';
+}
+
+/**
  * Drives one concierge turn against the deployed Worker.
  *
  * SESSION-ONLY HISTORY: messages live in component state
@@ -332,6 +358,17 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       setStatus('streaming');
       setError(null);
 
+      // The ONE failure exit, so every path that fails after the in-flight bubble was pushed pops
+      // it and reports in the same words (issue #13 replaced a `throw`-and-read-`err.message`
+      // round trip with this: there is now no expression anywhere below that can put a machine
+      // string into `setError`).
+      const fail = (reason: string) => {
+        setStatus('error');
+        setError(reason);
+        // Drop the empty in-flight assistant bubble so the error state doesn't leave a blank turn.
+        setMessages((prev) => prev.slice(0, -1));
+      };
+
       try {
         const context = buildTripDigest();
         const trip = buildTripDescriptor();
@@ -357,16 +394,12 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
           signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
         });
 
+        // Issue #13 — the body is not read at all. It used to be parsed and its `error` string
+        // rendered verbatim, which put whatever the Worker (or anything in front of it) wrote in
+        // front of a traveller. See `statusMessage` for the rule and the evidence behind it.
         if (!res.ok) {
-          const raw = await res.text().catch(() => '');
-          let reason = `Concierge is unavailable (${res.status}).`;
-          try {
-            const parsed = JSON.parse(raw) as { error?: string };
-            if (parsed.error) reason = parsed.error;
-          } catch {
-            /* non-JSON error body (or no body) — keep the status-based reason */
-          }
-          throw new Error(reason);
+          fail(statusMessage(res.status));
+          return; // `finally` still clears sendingRef
         }
 
         // the structured turn returns ONE `application/json` object `{reply, ops}`, not
@@ -397,36 +430,26 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         historyRef.current = [...history, userTurn, { role: 'assistant', content: reply }];
         setStatus('idle');
       } catch (err) {
-        setStatus('error');
         // A CHAT_TIMEOUT_MS abort surfaces as a DOMException whose raw message ("signal timed out")
-        // is useless to a traveler — swap in a friendly, actionable one. Everything else keeps the
-        // Worker's own `error` text, which is the whole point of the non-200 branch above.
+        // is useless to a traveler — swap in a friendly, actionable one.
         // Matched on `.name` WITHOUT an `instanceof Error` guard on purpose: whether a DOMException
         // subclasses Error varies by implementation (jsdom's does not), and this must not depend on
         // that — `.name === 'TimeoutError'` is the part the spec actually pins.
-        const errName = (err as { name?: unknown } | null)?.name;
-        const timedOut = errName === 'TimeoutError';
-        // #13 — a network-level `fetch` rejection is a TypeError carrying the browser's own
-        // "Failed to fetch", which is useless to a traveler and was reaching them verbatim through
-        // the `err.message` pass-through below. The `!online` guard above catches only the case the
-        // browser admits to; this one is reachable while nominally ONLINE — captive portal (the
-        // hotel wifi you just joined), DNS failure, connection reset, the Worker's host unresolvable
-        // — which on foreign mobile data is common, not exotic. Matched on `.name` for exactly the
-        // reason spelled out for TimeoutError above, and it cannot swallow a real Worker error: the
-        // non-200 branch throws a plain `new Error(reason)`, whose name is 'Error', so it keeps the
-        // Worker's own text.
-        const unreachable = errName === 'TypeError';
-        setError(
+        //
+        // Issue #13 — EVERYTHING ELSE is our own sentence too; `err.message` is gone. A dead or
+        // unreachable provider while `navigator.onLine` is true (Worker deleted, DNS/TLS failure,
+        // CORS rejection, captive portal — common on foreign mobile data, not exotic) rejects with
+        // `TypeError: Failed to fetch`, and that exact machine string was being rendered in the
+        // panel's error row. The offline pre-check above only catches the case where the device
+        // knows it is offline; online-but-dead lands here. Nothing is lost by not naming the
+        // TypeError separately: the non-200 branch already returned through `fail` with the
+        // Worker's own status message, so this catch has no case left that deserves distinct words.
+        const timedOut = (err as { name?: unknown } | null)?.name === 'TimeoutError';
+        fail(
           timedOut
             ? 'The concierge took too long to respond. Try again.'
-            : unreachable
-              ? 'Couldn’t reach the concierge. Check your connection and try again.'
-              : err instanceof Error
-                ? err.message
-                : 'Concierge is unavailable.',
+            : 'The concierge couldn’t be reached. Check your connection and try again.',
         );
-        // Drop the empty in-flight assistant bubble so the error state doesn't leave a blank turn.
-        setMessages((prev) => prev.slice(0, -1));
       } finally {
         sendingRef.current = false;
       }

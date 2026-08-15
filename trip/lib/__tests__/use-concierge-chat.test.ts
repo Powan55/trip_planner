@@ -8,8 +8,9 @@
 // As of D-234/S329 the concierge turn is ONE `application/json` `{reply, ops}` object, NOT SSE.
 // Proves: (1) the reply text lands in the assistant message and the raw `ops` are surfaced on the
 // turn (unvalidated — the component validates against live plans); (2) a non-200 JSON error
-// surfaces the Worker's `error` message and drops the empty in-flight bubble; (3) `CONCIERGE_URL`
-// unset short-circuits with no fetch; (4) blank/concurrent sends are guarded.
+// surfaces OUR OWN status-class sentence — never the response body (#13) — and drops the empty
+// in-flight bubble; (3) `CONCIERGE_URL` unset short-circuits with no fetch; (4) blank/concurrent
+// sends are guarded.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createElement } from 'react';
@@ -225,7 +226,14 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
-  it('a non-200 JSON error response surfaces the Worker error message and drops the empty bubble', async () => {
+  // ── #13 — a non-2xx says OUR sentence, never the body's ────────────────────────────────────
+  // CHANGED DELIBERATELY. This test used to assert `h.error === 'missing trip token'`, i.e. the
+  // Worker's own `{error}` string rendered verbatim. The Worker writes every one of those strings
+  // itself (`worker/src/index.ts::jsonError`), but the status code does not separate the readable
+  // ones from the machine ones — 401 is `missing trip token` (jargon, and D-239 bans an unqualified
+  // "token" in UI copy) while the one genuinely traveller-ready sentence sits on the 502 — and the
+  // client cannot tell our Worker's body from a proxy's anyway. So the body is no longer read.
+  it('#13 — a non-200 says our own sentence, never the response body, and drops the empty bubble', async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({ error: 'missing trip token' }, 401),
     ) as unknown as typeof fetch;
@@ -234,8 +242,48 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     await h.send('hello');
 
     expect(h.status).toBe('error');
-    expect(h.error).toBe('missing trip token');
+    expect(h.error).not.toContain('missing trip token');
+    expect(h.error).toContain('Sign in again'); // an auth failure gets the action that can fix it…
     expect(h.messages).toEqual([{ role: 'user', content: 'hello' }]);
+    h.unmount();
+  });
+
+  it('#13 — the copy follows the status CLASS: too-long, auth, and everything else differ', async () => {
+    const at = async (status: number) => {
+      const h = renderConciergeChat(
+        vi.fn(async () => jsonResponse({ error: 'context must be a string' }, status)) as unknown as typeof fetch,
+      );
+      await h.send('hello');
+      const text = h.error!;
+      h.unmount();
+      return text;
+    };
+
+    expect(await at(413)).toBe('That message was too long to send. Shorten it and try again.');
+    expect(await at(403)).toContain('Sign in again');
+    expect(await at(502)).toBe('The concierge is having trouble right now. Try again in a moment.');
+    // …and no status leaks the body it came with.
+    for (const status of [400, 401, 403, 405, 413, 429, 500, 502]) {
+      expect(await at(status)).not.toContain('context must be a string');
+    }
+  });
+
+  // The defect the issue names: a dead/unreachable provider while the device believes it is ONLINE
+  // (Worker deleted, DNS/TLS failure, CORS rejection) rejects with `TypeError: Failed to fetch`,
+  // and that exact machine string used to reach the traveller through the catch's `err.message`.
+  it('#13 — a dead provider while online never shows the raw "Failed to fetch"', async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new TypeError('Failed to fetch'); // what a real browser rejects with
+    }) as unknown as typeof fetch;
+
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('what is on for tomorrow?');
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1); // ← online: the request really was attempted
+    expect(h.status).toBe('error');
+    expect(h.error).not.toContain('Failed to fetch');
+    expect(h.error).toBe('The concierge couldn’t be reached. Check your connection and try again.');
+    expect(h.messages).toEqual([{ role: 'user', content: 'what is on for tomorrow?' }]);
     h.unmount();
   });
 
@@ -394,7 +442,11 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
 
     const h = renderConciergeChat(fetchImpl);
     await h.send('what is on for tomorrow?');
-    expect(h.error).toBe('upstream exploded');
+    // #13, changed deliberately: this asserted `h.error === 'upstream exploded'` — the response
+    // body, verbatim. Our own Worker emits no 500 at all, so a 500 body is machine text from
+    // something else in the path. What the retry control needs is that an error is SHOWN.
+    expect(h.error).toBe('The concierge is having trouble right now. Try again in a moment.');
+    expect(h.error).not.toContain('upstream exploded');
 
     await h.retry();
     expect(fetchImpl).toHaveBeenCalledTimes(2);

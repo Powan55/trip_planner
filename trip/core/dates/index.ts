@@ -28,7 +28,9 @@ export {
   type ZoneAbbrev,
   effectiveOffsetMin,
   parseTimeString,
+  parseDurationText,
   effectiveStartMinutes,
+  effectiveDurationMinutes,
   formatTimeAmPm,
   placeWallClockToUtcMs,
 } from './item-time';
