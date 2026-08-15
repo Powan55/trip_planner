@@ -37,7 +37,7 @@ export interface ChatTurn {
 // raised BOTH to 7000 (from 2000) so the whole fully-planned 32-day digest fits
 // without mid-trip truncation. raised BOTH to 9500, because the digest now carries a
 // per-item time + category prefix. MEASURED, not estimated:
-// fully-planned 32-day sample trip, 158 items: 6610 chars BEFORE → 9426 AFTER.
+// fully-planned 32-day sample trip, 158 items: 6636 chars BEFORE → 9452 AFTER.
 // Both numbers are pinned EXACTLY by the "MEASUREMENT" test in
 // lib/__tests__/concierge-digest-s327.test.ts (constants MEASURED_DIGEST_BEFORE/AFTER), so the
 // slack claim below is backed by a test that goes red rather than by a run someone did once —
@@ -45,9 +45,12 @@ export interface ChatTurn {
 //
 // ⚠️ THE SLACK IS THIN NOW, AND IT CANNOT BE BOUGHT BACK FROM THIS FILE. #12 spent 402 of it:
 // +351 taking the per-item times 24-hour → 12-hour (`18:30` → `6:30 PM`, the bug), and +51
-// making the date line unconditional. Measured worst case is 9435 chars, on an in-window clock
-// (the "(Day 31 of 32, Tokyo)." branch is longer than "(before the trip)."), leaving 65 chars,
-// about one more itinerary item, where there used to be room for ten. The cap test in that same
+// making the date line unconditional. #18 then spent 26 more, and NOT by changing this format:
+// D-327 retitled a seed item, the title is in the digest, and the digest grew. Worst case is now
+// 9461 chars, on an in-window clock (the "(Day 31 of 32, Tokyo)." branch is longer than
+// "(before the trip)."), leaving about 39 chars — under one itinerary item, where there used to
+// be room for ten. Note what that means: this budget is now spent by editing the TRIP, not only
+// by editing the builder, so a longer plan title is a cap change. The cap test in that same
 // file walks all 32 trip days and fails if any of them truncates.
 // If a future change needs more room, DIGEST_CAP and the Worker's CONTEXT_TRUNCATE_LENGTH move
 // TOGETHER, in a Worker deploy. Raising this one alone does not buy room, it just moves the
