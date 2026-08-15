@@ -24,6 +24,7 @@ import {
   Luggage,
   MapPin,
   User,
+  Stamp,
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -144,6 +145,7 @@ const SECTIONS: Section[] = [
   { route: '/recap/', label: 'Recap', group: 'More', keywords: ['story', 'summary', 'post-trip'], icon: Scroll },
   { route: '/trips/', label: 'Trips', group: 'More', keywords: ['switch', 'create', 'join', 'share', 'key', 'manage'], icon: Luggage }, //
   { route: '/profile/', label: 'Profile', group: 'More', keywords: ['visited', 'countries', 'cities', 'been there', 'travel history', 'lifetime'], icon: User }, // issue #4
+  { route: '/passport/', label: 'Passport', group: 'More', keywords: ['stamps', 'countries', 'collection', 'souvenir', 'keepsake'], icon: Stamp }, // issue #5
   { route: '/settings/', label: 'Settings', group: 'More', keywords: ['identity', 'currency', 'rates', 'sign out', 'clear', 'backup', 'export', 'import'], icon: Settings }, //
 ];
 

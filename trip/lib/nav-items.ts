@@ -13,6 +13,7 @@ import {
   FileCheck2,
   Inbox,
   User,
+  Stamp,
   type LucideIcon,
 } from 'lucide-react';
 import { isDefaultTrip } from '@/core/trips';
@@ -79,6 +80,11 @@ export const NAV_ITEMS: NavItem[] = [
   // Issue #4 — the lifetime travel record. A companion, never a primary: it is a
   // write-once-in-a-while surface, and the four daily-use seats are spoken for.
   { label: 'Profile', href: '/profile/', icon: User, primary: false },
+  // Issue #5 — the passport. Listed for the same reason #4's Profile is: it shipped with no
+  // nav entry at all and was reachable by typed URL only, which is indistinguishable from not
+  // existing. A companion, beside Journal and Recap in `/more/`: it is a keepsake you visit to
+  // look at, not a daily-use seat.
+  { label: 'Passport', href: '/passport/', icon: Stamp, primary: false },
   { label: 'Settings', href: '/settings/', icon: Settings, primary: false }, // — companion (More page + palette)
 ];
 

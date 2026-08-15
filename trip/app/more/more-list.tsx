@@ -31,7 +31,7 @@ import { useViewTransition } from '@/hooks/use-view-transition';
 // Group definitions keyed by href. Labels/icons come from the catalog.
 const GROUPS: { title: string; hrefs: string[] }[] = [
   { title: 'Plan & prep', hrefs: ['/flights/', '/packing/', '/checklist/', '/safety/', '/share/'] },
-  { title: 'Memories', hrefs: ['/journal/', '/recap/'] },
+  { title: 'Memories', hrefs: ['/journal/', '/recap/', '/passport/'] },
   { title: 'Account', hrefs: ['/trips/', '/profile/', '/settings/'] },
 ];
 

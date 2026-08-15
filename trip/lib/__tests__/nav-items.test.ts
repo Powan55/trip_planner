@@ -48,8 +48,8 @@ describe('isRouteActive', () => {
 });
 
 describe('NAV_ITEMS (S320, D-231 — 5-tab IA delta)', () => {
-  it('has exactly 14 items in S320 order + the issue #4 Profile companion', () => {
-    expect(NAV_ITEMS.length).toBe(14);
+  it('has exactly 15 items in S320 order + the issue #4 Profile and issue #5 Passport companions', () => {
+    expect(NAV_ITEMS.length).toBe(15);
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
       'Today',
       'Plan',
@@ -64,6 +64,7 @@ describe('NAV_ITEMS (S320, D-231 — 5-tab IA delta)', () => {
       'Shared Links',
       'Trips',
       'Profile',
+      'Passport',
       'Settings',
     ]);
     expect(NAV_ITEMS.map((item) => item.href)).toEqual([
@@ -80,6 +81,7 @@ describe('NAV_ITEMS (S320, D-231 — 5-tab IA delta)', () => {
       '/share/',
       '/trips/',
       '/profile/',
+      '/passport/',
       '/settings/',
     ]);
   });
@@ -144,6 +146,7 @@ describe('navItemsForActiveTrip / primaryItemsForActiveTrip (S252)', () => {
       'Shared Links',
       'Trips',
       'Profile',
+      'Passport',
       'Settings',
     ]);
   });
