@@ -201,14 +201,34 @@ export default function LandingPage({
             Create an account
           </button>
         </div>
-        <button
-          type="button"
-          onClick={onJoin}
-          data-testid="landing-cta-join"
-          className="inline-flex min-h-[44px] items-center rounded-lg px-1 text-sm font-semibold text-primary underline underline-offset-4 transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-        >
-          Someone shared a trip with me
-        </button>
+        {/* (#70) — THIS CTA IS THE SIGNUP PATH, and the line under it is load-bearing copy.
+            It names an audience holding a TRIP TOKEN. The auth card's key field takes a USER
+            TOKEN — two different credentials that are never mixed (D-239) — so pointing this at
+            log in asked a visitor for the one credential they cannot have: the D-296 probe rejects
+            it, and on a dormant/offline build it instead admits them to a working-but-empty
+            account. A Trip Token is entered on the Trips page, which is exactly where the create
+            path lands, so the honest route is "make an account, then add the trip".
+            The note says that BEFORE the click and is wired to the button with `aria-describedby`,
+            so a screen reader hears it as part of the control rather than as stray text after it.
+            Do NOT drop the note and keep the routing: on its own the routing looks like the CTA
+            ignoring what it just promised. */}
+        <div className="flex flex-col items-start gap-1">
+          <button
+            type="button"
+            onClick={onJoin}
+            data-testid="landing-cta-join"
+            aria-describedby="landing-join-note"
+            className="inline-flex min-h-[44px] items-center rounded-lg px-1 text-sm font-semibold text-primary underline underline-offset-4 transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          >
+            Someone shared a trip with me
+          </button>
+          <p
+            id="landing-join-note"
+            className="max-w-md px-1 text-sm leading-relaxed text-muted-foreground"
+          >
+            Make an account first &mdash; then add their Trip Token on your Trips page.
+          </p>
+        </div>
       </div>
 
       {/* ── What you get ─────────────────────────────────────────────────────────────── */}

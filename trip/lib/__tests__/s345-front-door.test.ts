@@ -6,8 +6,10 @@
 // host elements so the LazyMotion-`strict` `m.*` components render outside a LazyMotion
 // provider without throwing.
 //
-//   A1 — TokenGate's auth-card default mode. S382 INVERTED the first case: the card now opens on
-//        "Log in" for EVERY device, including one with no stored User Token (INTAKE-03).
+//   A1 — which mode the auth card opens on. S382 INVERTED it once (it opens on "Log in" for EVERY
+//        device, including one with no stored User Token — INTAKE-03); #70 then RE-POINTED it off
+//        the mode default, which no CTA observes any more, onto the per-CTA table. The block's own
+//        comment carries the full why, and reading it is the point.
 //   A2 — UserTokenShowOnce renders a Download .txt control beside Copy (durable save, no recovery otherwise).
 //   S382 — entry FOCUS lands on the log-in CTA (`document.activeElement`), the instrument that
 //        measured the defect on the deployed site.
@@ -102,59 +104,103 @@ afterEach(() => {
   }
 });
 
-describe('A1 → S382 — the auth card default mode', () => {
+describe('A1 → #70 — every landing CTA opens the auth card on the mode its label promises', () => {
   /**
-   * S355: the wall now opens on the marketing LANDING, so the auth card (and its mode toggle) is
-   * only reachable via a CTA. "Someone shared a trip with me" names no path, so it is the ONE CTA
-   * that leaves the mode on this device's default — which is exactly what A1 pins. Driving A1
-   * through either of the other two CTAs would assert the CTA, not the default, and quietly turn
-   * this test vacuous.
+   * 🔴 A1 WAS RE-POINTED BY #70, in the same change that moved the behaviour. Read this before
+   * "restoring" the version in the history: the old assertion cannot be made true again without
+   * reintroducing the defect. Here is why.
    *
-   * 🔴 S382 CONSCIOUSLY REWROTE the first case below. It used to read "a first-timer (no stored
-   * token) opens on 'Create an account'" and it was a TRUE assertion of a rule since
-   * overturned (INTAKE-03): the key-derived default meant every private-window visit — i.e. every
-   * returning visit — opened on signup. The old rule is not deleted, it is INVERTED here, so the
-   * new rule is pinned by a check that used to fail. `onJoin` now sets the mode explicitly, so
-   * this pair also covers that call site.
+   * A1 used to drive the card open through the SHARED-TRIP CTA ("Someone shared a trip with me")
+   * and assert the mode was 'login'. That worked because that CTA deliberately set no mode, making
+   * it the ONE path that ever observed `TokenGateWall`'s `useState<Mode>('login')` initializer —
+   * which is what A1 existed to pin (S382/INTAKE-03: the card opens on Log in for every device,
+   * including one with no stored key).
+   *
+   * #70 is the report that this routing was wrong. That CTA names visitors holding a TRIP TOKEN;
+   * the login field takes a USER TOKEN (D-239, never mixed), so the door asked them for the one
+   * credential they cannot have — D-296's probe rejects it, and a dormant/offline build admits
+   * them into a working-but-empty account. The CTA now opens 'create', and lands on `/trips/`
+   * where a Trip Token is actually accepted.
+   *
+   * So the old A1 could not simply be edited to expect 'create': it would then be asserting the
+   * CTA, not the default, while its name and comment still claimed to pin the default — a test
+   * passing for the wrong reason. NO CTA observes the initializer any more (all three set the
+   * mode), so the initializer is genuinely unobservable and nothing here pretends otherwise.
+   *
+   * WHAT THIS BLOCK STILL FAILS ON, which is the whole reason it was re-pointed rather than
+   * deleted: the shared-trip CTA regressing to log-in mode (the #70 defect — and the exact routing
+   * the wall's old comment used to defend); the log-in CTA opening signup (INTAKE-03's defect
+   * direction, whose primary guard is the entry-FOCUS block below); create and log in swapped; and
+   * the shared-trip visitor being shown the "Paste your key" field at all.
+   * WHAT IT NO LONGER CLAIMS: anything about the mode initializer.
    */
-  function openAuthOnTheDefault(view: { container: HTMLElement }) {
-    const join = view.container.querySelector<HTMLButtonElement>(
-      '[data-testid="landing-cta-join"]',
-    )!;
+  const STORED_KEY = '11111111-2222-3333-4444-555555555555';
+
+  function clickCta(view: { container: HTMLElement }, testid: string) {
+    const cta = view.container.querySelector<HTMLButtonElement>(`[data-testid="${testid}"]`)!;
     act(() => {
-      join.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
     });
   }
 
-  it('S382: a never-synced device (no stored token) opens on "Log in", not "Create an account"', () => {
+  function pressed(view: { container: HTMLElement }, mode: 'login' | 'create') {
+    return view.container
+      .querySelector(`[data-testid="token-gate-mode-${mode}"]`)
+      ?.getAttribute('aria-pressed');
+  }
+
+  // The table. Seeded with a stored User Token on purpose: that is the input the RETIRED default
+  // used to branch on, so if a future edit reintroduces a storage-derived mode, the CTA it
+  // contradicts fails here rather than shipping.
+  const CTA_MODES = [
+    ['landing-cta-login', 'login'],
+    ['landing-cta-create', 'create'],
+    // #70 — a Trip Token holder has no User Token, so this CTA is the SIGNUP path.
+    ['landing-cta-join', 'create'],
+  ] as const;
+
+  for (const [testid, expected] of CTA_MODES) {
+    const other = expected === 'login' ? 'create' : 'login';
+    it(`${testid} opens the auth card on "${expected}"`, () => {
+      setSyncCode(STORED_KEY);
+      const view = render(createElement(TokenGate));
+      clickCta(view, testid);
+      expect(pressed(view, expected)).toBe('true');
+      expect(pressed(view, other)).toBe('false');
+      view.unmount();
+    });
+  }
+
+  it('#70: a never-synced visitor with a Trip Token is asked for a NAME, never for a key', () => {
     expect(window.localStorage.getItem('tripPlannerSyncCode')).toBeNull(); // the fresh-device condition
     const view = render(createElement(TokenGate));
-    openAuthOnTheDefault(view);
-    const create = view.container.querySelector('[data-testid="token-gate-mode-create"]');
-    const login = view.container.querySelector('[data-testid="token-gate-mode-login"]');
-    expect(login?.getAttribute('aria-pressed')).toBe('true');
-    expect(create?.getAttribute('aria-pressed')).toBe('false');
-    // Signup is NOT removed — the toggle is still rendered and still switches.
-    expect(create).not.toBeNull();
-    act(() => {
-      (create as HTMLButtonElement).dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    });
+
+    // The landing states the second half of the route BEFORE the click, and states it to assistive
+    // tech too — the button's accessible description is that line, not loose text beside it.
+    const note = view.container.querySelector('#landing-join-note');
+    expect(note?.textContent).toMatch(/Trip Token/);
+    expect(note?.textContent).toMatch(/Trips page/);
     expect(
-      view.container.querySelector('[data-testid="token-gate-mode-create"]')
-        ?.getAttribute('aria-pressed'),
-    ).toBe('true');
+      view.container
+        .querySelector('[data-testid="landing-cta-join"]')
+        ?.getAttribute('aria-describedby'),
+    ).toBe('landing-join-note');
+
+    clickCta(view, 'landing-cta-join');
+    expect(pressed(view, 'create')).toBe('true');
     expect(view.container.querySelector('[data-testid="token-gate-name"]')).not.toBeNull();
+    // 🔴 THE DEFECT, stated as an assertion: the key field takes a User Token, and this visitor
+    // does not have one. It must not be the thing in front of them.
+    expect(view.container.querySelector('[data-testid="token-gate-user-token"]')).toBeNull();
     view.unmount();
   });
 
-  it('a returning device (token present) opens on "Log in"', () => {
-    setSyncCode('11111111-2222-3333-4444-555555555555');
+  it('log in is still one tap from there, for a shared-trip visitor who does have a key', () => {
     const view = render(createElement(TokenGate));
-    openAuthOnTheDefault(view);
-    const create = view.container.querySelector('[data-testid="token-gate-mode-create"]');
-    const login = view.container.querySelector('[data-testid="token-gate-mode-login"]');
-    expect(login?.getAttribute('aria-pressed')).toBe('true');
-    expect(create?.getAttribute('aria-pressed')).toBe('false');
+    clickCta(view, 'landing-cta-join');
+    clickCta(view, 'token-gate-mode-login');
+    expect(pressed(view, 'login')).toBe('true');
+    expect(view.container.querySelector('[data-testid="token-gate-user-token"]')).not.toBeNull();
     view.unmount();
   });
 });

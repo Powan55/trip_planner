@@ -31,7 +31,9 @@ import LandingPage from '@/components/landing-page';
  * (`tripPlannerSyncCode`, gateway key 28), so every device that ever minted one is already an
  * account, with zero migration. It is what this door asks for, and the ONLY thing it asks for.
  * - **Trip Token** = one trip's capability (the trip id). It is NEVER a login. It is entered on
- * `/trips` ("add a trip"), by a user who is already logged in.
+ * `/trips` ("add a trip"), by a user who is already logged in. #70: which is why the landing's
+ * "Someone shared a trip with me" CTA opens path (b) and not (a) — someone holding one has no
+ * User Token to type, and path (b) lands them on `/trips/`.
  * #10 — a NEW User Token pasted at login is now VALIDATED against the account's identity doc
  * (`probeAccountIdentity`, one lazy server read via a dynamic import — the door stays STATICALLY
  * firebase-free, see below). 'missing' rejects with an inline error and writes ZERO state;
@@ -139,6 +141,16 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
    * No longer needs an initializer function (it is a constant), so there is nothing client-only
    * left in it — but `TokenGateWall` still only ever mounts client-side, via the parent's
    * `mounted` gate.
+   *
+   * 🔴 (#70) THIS VALUE IS NO LONGER USER-OBSERVABLE, and that is the honest state of it. The card
+   * is only reachable from a landing CTA, and all three CTAs now set the mode: log in → 'login',
+   * create → 'create', and "Someone shared a trip with me" → 'create' (it was the one that
+   * inherited, which is the defect #70 reported). So this constant is a required starting value
+   * and nothing more — it renders for no one, and sabotaging it proves nothing.
+   * Where INTAKE-03's actual rule now lives, so nobody mistakes this line for the guard:
+   * "the door does not read as a signup page" is pinned by the ENTRY FOCUS assertions
+   * (`document.activeElement` === `landing-cta-login`, in both `s345-front-door.test.ts` and
+   * `e2e/login.spec.ts`) plus the per-CTA mode table in `s345-front-door.test.ts`.
    */
   const [mode, setMode] = useState<Mode>('login');
   const [userToken, setUserToken] = useState('');
@@ -406,16 +418,26 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
               setMode('login');
               setView('auth');
             }}
-            // "Someone shared a trip with me" names no path, so it DELIBERATELY inherits the mode
-            // default above — which is now 'login' for every device.
+            // (#70) "Someone shared a trip with me" is the CREATE path. It names an audience
+            // holding a TRIP TOKEN, and the login field takes a USER TOKEN (D-239, never mixed) —
+            // so it used to ask that visitor for a credential they cannot have: D-296's probe
+            // rejects an invented key, and a dormant/offline build admits them into a
+            // working-but-empty account instead. Path (b) ends on `/trips/`, the one surface that
+            // accepts a Trip Token, and the landing's note under the CTA says so before the click.
+            // Log in stays one tap away (the mode toggle below, and the CTA above it).
             //
-            // 🔴 DO NOT "make this explicit" with a `setMode('login')`. tried exactly that and
-            // measured the consequence: the other two CTAs already set the mode, so this is the ONE
-            // path that ever reads the initializer. Setting it here makes the initializer
-            // unreachable dead code AND silently turns A1 in `lib/__tests__/s345-front-door.test.ts`
-            // vacuous — sabotaging the initializer back to the old `getSyncCode() ? …: 'create'`
-            // still ran 9/9 green. Leaving the inheritance is what keeps the default observable.
-            onJoin={() => setView('auth')}
+            // 🔴 WHAT THIS REPLACED, recorded because it was a measured landmine and the fix
+            // deliberately walked into it: this used to be the ONE CTA that set no mode, so that
+            // the `mode` initializer above stayed observable and A1 in
+            // `lib/__tests__/s345-front-door.test.ts` could pin it. Now every CTA names its mode,
+            // the initializer is unobservable (see its own comment), and A1 was RE-POINTED in this
+            // same change to the property it can still falsify: each CTA opens the mode its label
+            // promises — including this one. Do NOT restore the inheritance to "make the default
+            // observable again"; that routing IS the #70 defect, and A1 no longer covers for it.
+            onJoin={() => {
+              setMode('create');
+              setView('auth');
+            }}
           />
         ) : (
           /* ── The boarding-pass AUTH card: the wall's second view. Unchanged from apart

@@ -157,13 +157,37 @@ test.describe('S355 — the logged-out landing', () => {
     await expect(page.getByTestId('token-gate-name')).toBeVisible();
   });
 
-  test('S382: the shared-trip CTA opens the auth card on log in', async ({ page }) => {
+  /**
+   * #70 — the shared-trip CTA, in a real browser. It replaces the S382 case that asserted this
+   * CTA opened LOG IN, which is the defect: the CTA names visitors holding a TRIP TOKEN and the
+   * key field takes a USER TOKEN (D-239, never mixed), so the door asked for a credential that
+   * audience cannot have. D-296 rejects an invented key; a dormant or offline build instead
+   * admits them into a working-but-empty account, which is the quieter half of the bug.
+   *
+   * The absence of `token-gate-user-token` is the assertion that discriminates the two builds —
+   * "create is pressed" would pass on a build that still rendered the key field alongside.
+   */
+  test('#70: the shared-trip CTA opens CREATE, and never shows the key field', async ({ page }) => {
     await gotoLoggedOut(page);
-    await page.getByTestId('landing-cta-join').click();
-    await expect(page.getByTestId('token-gate-mode-login')).toHaveAttribute('aria-pressed', 'true');
-    // ...and create is one click from there too.
-    await page.getByTestId('token-gate-mode-create').click();
+
+    // The route's second half is stated on the landing BEFORE the click, and is the button's
+    // accessible description — a screen-reader user gets it as part of the control.
+    const join = page.getByTestId('landing-cta-join');
+    const noteId = await join.getAttribute('aria-describedby');
+    expect(noteId, 'the shared-trip CTA must describe where the Trip Token goes').toBeTruthy();
+    const note = page.locator(`#${noteId}`);
+    await expect(note).toBeVisible();
+    await expect(note).toContainText('Trip Token');
+    await expect(note).toContainText('Trips page');
+
+    await join.click();
+    await expect(page.getByTestId('token-gate-mode-create')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.getByTestId('token-gate-name')).toBeVisible();
+    await expect(page.getByTestId('token-gate-user-token')).toHaveCount(0);
+
+    // ...and log in is still one click from there, for a visitor who does have a key.
+    await page.getByTestId('token-gate-mode-login').click();
+    await expect(page.getByTestId('token-gate-user-token')).toBeVisible();
   });
 
   test('the create CTA opens the auth card on "Create an account"', async ({ page }) => {
