@@ -8,10 +8,19 @@
  *
  * ── The model ─────────────────────────────────────────────────────────────
  * Each expense that carries a non-empty `split` (the TRAVELERS ids sharing it) is divided EVENLY:
- * every member owes `amount / |split|` to the payer (`paidBy`, or the `self` fallback when a split
- * expense carries no explicit payer). Net each participant's balance (paid − owed), then greedily
- * match the largest creditor to the largest debtor to emit a MINIMAL transfer set (≤ participants−1;
- * circular debts a→b→c→a net flat ⇒ zero transfers).
+ * every member owes `amount / |split|` to the payer (`paidBy`). Net each participant's balance
+ * (paid − owed), then greedily match the largest creditor to the largest debtor to emit a MINIMAL
+ * transfer set (≤ participants−1; circular debts a→b→c→a net flat ⇒ zero transfers).
+ *
+ * ── A split row with NO `paidBy` is UNATTRIBUTABLE, never "me" (D-328) ──────────────────────
+ * This function takes NO identity argument on purpose. It used to fall an absent `paidBy` back to
+ * the signed-in traveller, which made a settlement a function of WHO IS LOOKING: the same synced row
+ * settled to a different person on each device, and a claim-authorship rename moved its balance to
+ * the new name — the exact "re-point who owes whom" that D-288 keeps the claim rewrite away from
+ * `paidBy`/`split` to prevent, arriving through the read path instead of a write. Every other reader
+ * of `paidBy` already treats absent as absent (`lib/expense-csv.ts` emits '', `rosterForActiveTrip`
+ * skips it), so the fallback was also the odd one out. A payer we do not know is not a payer we may
+ * invent: the row contributes nothing, exactly like a fast-path or tombstoned one.
  *
  * ── Per-leg / per-currency isolation ────────────────────────────────────────────────
  * Amounts are leg-local (Nepal→NPR, Japan→JPY), so settlement runs INDEPENDENTLY per leg and the
@@ -51,15 +60,15 @@ function uniq(ids: readonly string[]): string[] {
 
 /**
  * Settle every leg's split expenses into net balances + a minimal transfer set. Fast-path/no-split
- * expenses (and tombstoned rows) contribute NOTHING. `travelers` is the roster used only for a
- * stable output order; `self` is the payer fallback for a split expense with no explicit `paidBy`
- * (the current traveler = "me"). Returns one `LegSettlement` per leg with ≥1 attributable split —
- * an empty array when nothing is split (⇒ the UI hides the "Settle up" summary). PURE + TOTAL.
+ * expenses, tombstoned rows, and split rows with no recorded `paidBy` (D-328) all contribute
+ * NOTHING. `travelers` is the roster used only for a stable output order — it carries no identity
+ * and there is deliberately no "who am I" parameter, so the result is the same on every device.
+ * Returns one `LegSettlement` per leg with ≥1 attributable split — an empty array when nothing is
+ * split (⇒ the UI hides the "Settle up" summary). PURE + TOTAL.
  */
 export function settle(
   expenses: readonly Expense[],
   travelers: readonly string[] = [],
-  self?: string,
 ): LegSettlement[] {
   const out: LegSettlement[] = [];
 
@@ -74,8 +83,9 @@ export function settle(
       if (!Array.isArray(e.split) || e.split.length === 0) continue; // fast path / not split
       const members = uniq(e.split.filter((m) => typeof m === 'string' && m.length > 0));
       if (members.length === 0) continue;
-      const payer = e.paidBy && e.paidBy.length > 0 ? e.paidBy : self;
-      if (!payer) continue; // unattributable (no payer, no self) — skip
+      const payer = e.paidBy;
+      // No recorded payer ⇒ unattributable. NOT the signed-in traveller (D-328) — see the header.
+      if (typeof payer !== 'string' || payer.length === 0) continue;
       const amount = typeof e.amount === 'number' && e.amount > 0 ? e.amount : 0;
       if (amount <= 0) continue;
 
