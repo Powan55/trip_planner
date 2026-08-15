@@ -604,6 +604,7 @@ async function assertMapIslandsWrapped(mapSites) {
 // scrape by construction; without them every route crashes cold-offline)
 // - manifest.webmanifest
 // - icons/** and favicon.svg
+// - font/** — the self-hosted MapLibre glyph PBFs (154 KiB, issue #8)
 // - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead.
 //
 // Route HTML is DISCOVERED by walking out/ (below), not a hand-kept
@@ -634,6 +635,13 @@ async function buildPrecacheList(allFiles) {
     else if (rel.endsWith('/index.html') && rel !== '404/index.html') set.add(rel);
     else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
+    // The self-hosted MapLibre SDF glyph PBFs (public/font/<fontstack>/0-255.pbf,
+    // 154 KiB total — issue #8). They MUST be listed here explicitly: public/**
+    // is not precached wholesale, and these were the offline defect the
+    // self-hosting fixed — while they were cross-origin the SW's first fetch-handler
+    // line returned them untouched, so the numbered day markers had no glyphs
+    // offline. Precaching is what makes them same-origin AND present.
+    else if (rel.startsWith('font/')) set.add(rel);
     else if (rel === 'favicon.svg') set.add(rel);
     else if (rel === 'manifest.webmanifest') set.add(rel);
     // NOTE: images/** deliberately excluded (runtime cache).
