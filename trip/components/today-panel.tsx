@@ -155,13 +155,13 @@ export default function TodayPanel() {
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Today on the trip</p>
             <h2 id="today-title" className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
               Day <span className="text-display-emphasis">{todayInTrip.dayNumber}</span>
-              <span className="text-white/40 mx-2">—</span>
+              <span className="text-ink-lo mx-2">—</span>
               {todayInTrip.city}
             </h2>
-            <p className="text-sm text-white/50 mt-1">{formatDateLong(todayInTrip.date)}</p>
+            <p className="text-sm text-ink-mid mt-1">{formatDateLong(todayInTrip.date)}</p>
           </div>
           {items.length > 0 && (
-            <p className="text-sm text-white/50" aria-live="polite">
+            <p className="text-sm text-ink-mid" aria-live="polite">
               <span className="font-semibold text-foreground">{doneCount}</span>
               <span aria-hidden="true"> / </span>
               <span className="sr-only"> of </span>
@@ -256,7 +256,7 @@ function NextUpRail({ item, date }: { item: ItineraryItem | null; date: string }
           )}
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-white leading-snug">{item.title}</p>
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-white/50">
+            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-mid">
               {item.location && (
                 <span className="inline-flex items-center gap-1 min-w-0">
                   <MapPin className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
@@ -272,7 +272,7 @@ function NextUpRail({ item, date }: { item: ItineraryItem | null; date: string }
           </div>
         </div>
       ) : (
-        <p className="text-sm text-white/60">You're all caught up for today.</p>
+        <p className="text-sm text-ink-mid">You're all caught up for today.</p>
       )}
     </div>
   );

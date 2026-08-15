@@ -22,7 +22,7 @@ export default function TravelSyncLine() {
     <p
       data-testid="travel-sync-line"
       data-online={online ? 'true' : 'false'}
-      className="mx-auto mt-2 flex max-w-2xl items-center gap-1.5 px-1 text-xs text-white/45"
+      className="mx-auto mt-2 flex max-w-2xl items-center gap-1.5 px-1 text-xs text-ink-mid"
     >
       {online ? (
         <Wifi className="h-3.5 w-3.5 shrink-0 text-emerald-400/70" aria-hidden="true" />
