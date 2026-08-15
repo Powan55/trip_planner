@@ -286,9 +286,9 @@ test.describe('S380/S381 · the day-strip badge counts PLANS, qualified by how m
     // 🔴 S381, the whole point: this day used to render NO rows and an empty state that said
     // so. All three plans now have a row, all three are APPROXIMATE, and each one names the
     // text its position came from — the day's city — so the claim is checkable.
-    // ⚠️ S393 moved that city: Day 1 is spent in Syracuse / JFK / the air (the traveller does
-    // not reach Kathmandu until Day 2), so rung 5 quotes "Syracuse" and the pins sit on
-    // Syracuse's real coordinates. The expected value tracks the day's city BY DESIGN.
+    // ⚠️ D-315 moved that city: Day 1 is spent in Syracuse / JFK / the air (the traveller does
+    // not reach Kathmandu until Day 2) and is NAMED New York, so rung 5 quotes "New York" and the
+    // pins sit on JFK's real coordinates. The expected value tracks the day's city BY DESIGN.
     await day1.click();
     await expect(page.getByTestId('map-day-order-empty')).toHaveCount(0);
     const rows = page.locator('[data-testid^="map-day-order-stop-"]');
@@ -296,9 +296,9 @@ test.describe('S380/S381 · the day-strip badge counts PLANS, qualified by how m
     for (let i = 0; i < 3; i++) {
       await expect(rows.nth(i)).toHaveAttribute('data-placement', 'approximate');
       await expect(rows.nth(i)).toHaveAttribute('data-via', 'city');
-      await expect(rows.nth(i)).toHaveAttribute('data-derived-from', 'Syracuse');
+      await expect(rows.nth(i)).toHaveAttribute('data-derived-from', 'New York');
       // Marked in TEXT, not colour alone (D-279) — this survives greyscale.
-      await expect(rows.nth(i)).toContainText('≈ Syracuse');
+      await expect(rows.nth(i)).toContainText('≈ New York');
     }
 
     // Day 2 mixes the two: six rows, two exact. Both exact rows survive even though they
@@ -330,14 +330,14 @@ test.describe('S381 · an approximate pin says so in its popup, quoting its own 
     const popup = page.getByTestId('map-stop-popup');
     await expect(popup).toBeVisible({ timeout: 10_000 });
     await expect(popup).toHaveAttribute('data-approximate', 'true');
-    // S393: Day 1's city is Syracuse (departure day), so the derived pin quotes Syracuse.
-    await expect(popup).toHaveAttribute('data-derived-from', 'Syracuse');
+    // D-315: Day 1's city is New York (departure day), so the derived pin quotes New York.
+    await expect(popup).toHaveAttribute('data-derived-from', 'New York');
     // D-278: all three plans share one coordinate, so they share ONE pin, and the popup
     // lists them rather than stacking three pins on the same point.
     await expect(popup).toContainText('3 plans here');
     // D-279: the note quotes the source verbatim; the user can check the claim.
     await expect(page.getByTestId('map-stop-approx-note')).toContainText(
-      'Approximate — placed from “Syracuse”.',
+      'Approximate — placed from “New York”.',
     );
     // D-279: the affordance to fix it — the already-shipped S357B picker on /plan.
     await expect(page.getByTestId('map-stop-set-pin')).toHaveAttribute('href', '/plan/');

@@ -40,12 +40,12 @@ describe('S330 getCityForDate — trip-scoped (custom trip does NOT inherit the 
     vi.resetModules(); // re-capture the active (custom) trip at module load
     const { getCityForDate } = await import('@/core/dates/trip-cities');
 
-    // Dates that, on the DEFAULT pack, are Syracuse (Dec 9 — S393), Kathmandu (Dec 12/18),
+    // Dates that, on the DEFAULT pack, are New York (Dec 9 — D-315), Kathmandu (Dec 12/18),
     // Osaka (Dec 19) and Tokyo (Jan 9).
     for (const date of ['2026-12-09', '2026-12-12', '2026-12-18', '2026-12-19', '2027-01-09']) {
       const city = getCityForDate(date);
       expect(city, `${date} leaked the default per-day map`).toBe('Reykjavik'); // the custom leg fallbackCity
-      expect(['Syracuse', 'Kathmandu', 'Osaka', 'Tokyo']).not.toContain(city);
+      expect(['New York', 'Kathmandu', 'Osaka', 'Tokyo']).not.toContain(city);
     }
   });
 
@@ -54,7 +54,7 @@ describe('S330 getCityForDate — trip-scoped (custom trip does NOT inherit the 
     // and the authored per-day map applies exactly as before.
     vi.resetModules();
     const { getCityForDate } = await import('@/core/dates/trip-cities');
-    expect(getCityForDate('2026-12-09')).toBe('Syracuse'); // S393 — was Kathmandu
+    expect(getCityForDate('2026-12-09')).toBe('New York'); // D-315 — was Syracuse, was Kathmandu
     expect(getCityForDate('2026-12-19')).toBe('Osaka');
     expect(getCityForDate('2027-01-09')).toBe('Tokyo');
   });

@@ -11,7 +11,7 @@ import { getCityForDate, getCountryForDate } from '@/core/dates';
  * module feeds behaviour — it is a layer ON TOP of the id, never a rename of it.
  *
  * Before this module every surface hand-rolled `country === 'nepal' ? 'Nepal': 'Japan'`, which
- * (a) printed "Syracuse, Nepal" for the Dec-9 departure day and (b) printed "Bali, Japan" on
+ * (a) printed "New York, Nepal" for the Dec-9 departure day and (b) printed "Bali, Japan" on
  * every day of every CUSTOM trip. The labels themselves already existed on the pack —
  * `TripLeg.countryLabel` (core/trips/model.ts) — so this reuses them; there is no second map.
  *
@@ -19,8 +19,8 @@ import { getCityForDate, getCountryForDate } from '@/core/dates';
  * A country label is appended to the city ONLY when it adds information:
  *
  * 1. A per-day authored label wins (`DayPlan.countryLabel`, else the content-derived
- * DAY_LABELS by date). Dec 9 is spent in Syracuse/JFK/the air, so it reads
- * "Syracuse, USA" while its leg id stays 'nepal' for currency + offset.
+ * DAY_LABELS by date). Dec 9 is spent in Syracuse/JFK/the air and is named for New
+ * York (D-315), so it reads "New York, USA" while its leg id stays 'nepal' for currency + offset.
  * 2. Otherwise the leg's label is appended ONLY on a MULTI-leg trip. Every custom trip is a
  * SINGLE leg (core/trips/custom.ts) whose `countryLabel` is `destinations.join(' × ')`,
  * so on a custom trip the label is constant across the whole trip and says nothing. This
@@ -83,7 +83,7 @@ export function legLabel(legId: string): string {
   return labelForLeg(legId) || legId.charAt(0).toUpperCase() + legId.slice(1);
 }
 
-/** The "City, Country" line for a day plan — "Syracuse, USA" / "Kathmandu, Nepal" / "Bali". */
+/** The "City, Country" line for a day plan — "New York, USA" / "Kathmandu, Nepal" / "Bali". */
 export function dayPlaceLabel(day: {
   date: string;
   city: string;

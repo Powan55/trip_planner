@@ -122,11 +122,11 @@ describe('S93 core boundary — dayInTripFor (pure day-in-trip math, from @/core
   // Date (exactly how the trip-now adapter constructs the ?today= override instant).
   const noon = (y: number, m1: number, d: number) => new Date(y, m1 - 1, d, 12, 0, 0);
 
-  it('Dec 9 -> Day 1, Syracuse (Nepal start — S393: the departure day is spent in Syracuse/JFK/the air)', () => {
+  it('Dec 9 -> Day 1, New York (Nepal start — D-315: the departure day is Syracuse/JFK/the air, named New York)', () => {
     expect(dayInTripFor(noon(2026, 12, 9))).toEqual({
       date: '2026-12-09',
       dayNumber: 1,
-      city: 'Syracuse',
+      city: 'New York',
       country: 'nepal',
     });
   });
@@ -213,7 +213,7 @@ describe('S274 (D-224) — dayInTripFor offset branch + utcDayAtOffset (pure, TZ
     expect(dayInTripFor(noon(2026, 12, 9), undefined)).toEqual({
       date: '2026-12-09',
       dayNumber: 1,
-      city: 'Syracuse', // S393 — the Dec-9 city is Syracuse, not Kathmandu
+      city: 'New York', // D-315 — the Dec-9 city is New York, not Kathmandu
       country: 'nepal',
     });
   });

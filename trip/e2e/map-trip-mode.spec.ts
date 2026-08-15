@@ -187,18 +187,19 @@ test.describe('S151 · map trip-mode upgrades', () => {
  * S406 — search resolves EVERY place in the trip, not only the 27 curated markers.
  *
  * Two halves, and both matter:
- *  • Syracuse (the Dec 9 departure city, S393) is a TRIP CITY with no curated marker, so
- *    before this slice there was no way to bring it into view by name at all. The camera
- *    assertion reads `data-map-view` (lng,lat,zoom, emitted on every `moveend`) — Syracuse
- *    sits at -76.1°, and every other place on this map is between 83°E and 141°E, so a
- *    camera at -76° cannot happen by accident.
+ *  • New York (the Dec 9 departure day's city, D-315 — Syracuse until 2026-08-14) is a TRIP
+ *    CITY with no curated marker, so before this slice there was no way to bring it into view
+ *    by name at all. The camera assertion reads `data-map-view` (lng,lat,zoom, emitted on every
+ *    `moveend`) — New York (JFK) sits at -73.8°, and every other place on this map is between
+ *    83°E and 141°E, so a camera at -73.8° cannot happen by accident.
  *  • The CEILING: a place that is NOT in the trip does not resolve, because the whole search
  *    path is in-bundle data (D-088 — no geocoder, no network). The second test pins that the
  *    typed name never leaves the browser, so a later "improvement" cannot quietly turn this
  *    into a geocoding request.
  */
-const SYRACUSE_LAT = 43.0481;
-const SYRACUSE_LNG = -76.1474;
+// CITY_COORDS['New York'] (lib/city-coords.ts) — JFK, where the day is actually spent.
+const NEW_YORK_LAT = 40.6413;
+const NEW_YORK_LNG = -73.7781;
 
 /** Block until TripMap has reported a camera at least once (`data-map-view` goes non-empty
  *  on the first `emitView`, fired inside the GL `load` handler — a visible canvas is not
@@ -214,7 +215,7 @@ async function waitForCamera(page: Page): Promise<string> {
 }
 
 test.describe('S406 · map search over every place in the trip', () => {
-  test('search: Syracuse — a trip city with no curated marker — is found and the camera flies to it', async ({
+  test('search: New York — a trip city with no curated marker — is found and the camera flies to it', async ({
     page,
   }) => {
     const errors = trackErrors(page);
@@ -224,24 +225,26 @@ test.describe('S406 · map search over every place in the trip', () => {
 
     const shell = page.getByTestId('map-shell');
     const before = await waitForCamera(page);
-    // Sanity: the load frame is over Nepal→Japan, i.e. NOT anywhere near Syracuse.
+    // Sanity: the load frame is over Nepal→Japan, i.e. NOT anywhere near New York.
     expect(Number(before.split(',')[0])).toBeGreaterThan(0);
 
     await page.getByTestId('map-search-toggle').click();
-    await page.getByTestId('map-search-input').fill('Syracuse');
+    await page.getByTestId('map-search-input').fill('New York');
 
-    const result = page.getByTestId('map-search-result-city-syracuse');
+    // The city row sorts ahead of the Day-1 plan titles that also contain "New York"
+    // (CURATED_HITS, then cityHits, then stopHits — map-section.tsx).
+    const result = page.getByTestId('map-search-result-city-new-york');
     await expect(result).toBeVisible();
-    await expect(result).toContainText('Syracuse');
+    await expect(result).toContainText('New York');
     await expect(result).toContainText('A city on your trip');
     await result.click();
 
     // The popup that opens names the place that was actually targeted.
     const popup = page.locator('.njp-map-popup');
     await expect(popup).toBeVisible({ timeout: 10_000 });
-    await expect(popup).toContainText('Syracuse');
+    await expect(popup).toContainText('New York');
 
-    // The camera MOVED, and it moved TO SYRACUSE. (focusMarker centres with a 150px popup
+    // The camera MOVED, and it moved TO NEW YORK. (focusMarker centres with a 150px popup
     // offset, hence the 0.5° tolerance — still ~160° away from anything else on this map.)
     await expect
       .poll(
@@ -251,8 +254,8 @@ test.describe('S406 · map search over every place in the trip', () => {
             .map(Number);
           return (
             Number.isFinite(lng) &&
-            Math.abs(lng - SYRACUSE_LNG) < 0.5 &&
-            Math.abs(lat - SYRACUSE_LAT) < 0.5
+            Math.abs(lng - NEW_YORK_LNG) < 0.5 &&
+            Math.abs(lat - NEW_YORK_LAT) < 0.5
           );
         },
         { timeout: 15_000 },
@@ -284,7 +287,7 @@ test.describe('S406 · map search over every place in the trip', () => {
     await expect(result).toBeVisible();
     await expect(result).toContainText('Layover at New York (JFK) Terminal 4');
     // D-279 — an approximate stop says so, and quotes the text its coordinate came from.
-    await expect(result).toContainText('A stop you planned · Approximate — placed from “Syracuse”.');
+    await expect(result).toContainText('A stop you planned · Approximate — placed from “New York”.');
     await result.click();
 
     // Selecting a stop turns the itinerary overlay on (its pin is only drawn there)...
@@ -300,7 +303,7 @@ test.describe('S406 · map search over every place in the trip', () => {
     await expect(stopPopup).toContainText('Layover at New York (JFK) Terminal 4');
 
     // The camera is on the pin — NOT on the whole-route fit that switching the overlay on
-    // triggers (Syracuse -76° to Tokyo 141°), which is the race the queued focus exists for.
+    // triggers (New York -73.8° to Tokyo 141°), which is the race the queued focus exists for.
     await expect
       .poll(
         async () => {
@@ -309,8 +312,8 @@ test.describe('S406 · map search over every place in the trip', () => {
             .map(Number);
           return (
             Number.isFinite(lng) &&
-            Math.abs(lng - SYRACUSE_LNG) < 0.5 &&
-            Math.abs(lat - SYRACUSE_LAT) < 0.5
+            Math.abs(lng - NEW_YORK_LNG) < 0.5 &&
+            Math.abs(lat - NEW_YORK_LAT) < 0.5
           );
         },
         { timeout: 15_000 },

@@ -347,8 +347,8 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
   });
 
   // ── S407 — the per-day DISPLAY label must survive the Firestore ROUND TRIP ────────────────
-  // `DayPlan.countryLabel` is what makes the Dec-9 header read "Syracuse, USA" instead of
-  // "Syracuse, Nepal". The write side was always fine (`sanitizeDayForWrite` is a JSON clone),
+  // `DayPlan.countryLabel` is what makes the Dec-9 header read "New York, USA" instead of
+  // "New York, Nepal". The write side was always fine (`sanitizeDayForWrite` is a JSON clone),
   // but BOTH read-shaped constructions dropped it: `docToDayPlan`'s four-field literal, and
   // `pushDayMerged`'s absent-remote fallback — and since `mergeDay(remoteNow, localDay)` takes
   // day-level fields from its FIRST argument, that fallback erased the label on the very first
@@ -358,7 +358,7 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     const withLabel = docToDayPlan('2026-12-09', {
       date: '2026-12-09',
       country: 'nepal',
-      city: 'Syracuse',
+      city: 'New York',
       countryLabel: 'USA',
       items: [],
     });
@@ -374,7 +374,7 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
 
   it('S407: countryLabel survives the full push round trip — absent remote, then present remote', async () => {
     const base = day('2026-12-09', [item('X', { hlc: hlc(1000, 'me'), rev: 1 })]);
-    const localDay: DayPlan = { ...base, city: 'Syracuse', countryLabel: 'USA' };
+    const localDay: DayPlan = { ...base, city: 'New York', countryLabel: 'USA' };
 
     // 1st push: NO remote doc yet — the absent-remote fallback is the only source of the
     // day-level fields that `mergeDay` then keeps.
@@ -391,7 +391,7 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     // And the READ back into a DayPlan (what the snapshot handler builds the UI from).
     const readBack = docToDayPlan('2026-12-09', second as unknown as Record<string, unknown>);
     expect(readBack.countryLabel).toBe('USA');
-    expect(readBack.city).toBe('Syracuse');
+    expect(readBack.city).toBe('New York');
   });
 
   // ── #42: a day field NOBODY WROTE CODE FOR survives the whole round trip ──────────────────

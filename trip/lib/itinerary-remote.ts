@@ -272,7 +272,7 @@ export function isPermissionDenied(err: unknown): boolean {
  * `.passthrough()` (`core/vault/schema.ts`, "unknown future fields survive a read"). Every
  * other layer already keeps unknown keys, and now this one agrees with them. A new per-day
  * field therefore needs NO edit here; do NOT reintroduce a field list. The one-off
- * `countryLabel` line this replaced (the Dec-9 header reverting to "Syracuse, Nepal" after a
+ * `countryLabel` line this replaced (the Dec-9 header reverting to "New York, Nepal" after a
  * sync) was the same bug hit once and patched by name.
  *
  * `countryLabel` is nonetheless the ONE key still checked by name below, and the check is a
