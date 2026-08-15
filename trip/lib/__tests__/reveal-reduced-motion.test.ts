@@ -8,12 +8,21 @@
 // lazily latches a module-level singleton on its first call in this file's module registry,
 // so `window.matchMedia` is stubbed to report "reduced" in `beforeAll`, before any render.
 
-import { describe, it, expect, beforeAll, afterEach } from 'vitest';
+// Issue #24 — the guarantee is now stronger than "framer's hook is consulted". <Reveal> asks
+// lib/motion.ts, which checks `prefers-reduced-motion` FIRST, before the tier gate and before
+// the ledger, so there is no path through that module that animates under reduce. The stubbed
+// `matchMedia` below is what that check reads. `/nepal/` is Tier 2, where an entrance WOULD be
+// permitted — so a pass here is the preference winning, not the tier refusing.
+
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 
 import { Reveal } from '@/components/reveal';
+
+// Hoisted by vitest above the import above — there is no app router in this harness.
+vi.mock('next/navigation', () => ({ usePathname: () => '/nepal/' }));
 
 function stubReducedMotion(matches: boolean) {
   // Same stub shape as lib/__tests__/fly-chip.test.ts (jsdom has no matchMedia).

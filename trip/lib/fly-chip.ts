@@ -16,6 +16,8 @@
 // • Self-cleaning: removed on animation finish/cancel; if WAAPI is unavailable
 // (e.g. jsdom) it removes immediately — never leaves an orphan node.
 
+import { prefersReducedMotion } from '@/lib/motion';
+
 export interface FlyChipOptions {
   /** Short label shown in the chip (e.g. the item title). Truncated for safety. */
   label?: string;
@@ -42,7 +44,8 @@ function resolveTarget(): { x: number; y: number } {
 export function flyChip(from: { x: number; y: number }, opts: FlyChipOptions = {}): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return;
   // Reduced-motion gate (the #1 acceptance line): skip the effect entirely.
-  if (window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches) return;
+  // Issue #24 — routed through the one shared read in lib/motion.ts.
+  if (prefersReducedMotion()) return;
   if (!Number.isFinite(from.x) || !Number.isFinite(from.y)) return;
 
   const to = resolveTarget();

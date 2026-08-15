@@ -15,14 +15,14 @@
  * under `prefers-reduced-motion: reduce`.
  */
 
+import { prefersReducedMotion } from '@/lib/motion';
+
 // ~5s at 60fps — generous for a route chunk + section islands on a slow line,
 // but bounded so an id that never appears can't leave a perpetual rAF loop.
 const MAX_POLL_FRAMES = 300;
 
-function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
+// Issue #24: the local copy of the media-query read is gone. There is one
+// `prefersReducedMotion()` in the app now (lib/motion.ts) and this is a caller.
 
 /**
  * Scroll `#<id>` into view as soon as it exists in the DOM. Returns a cancel
