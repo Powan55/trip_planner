@@ -95,10 +95,22 @@ export type MotionTier = 1 | 2 | 3;
 /**
  * The kinds of motion the gate rules on, and there is nothing outside them.
  * - `entrance` — a scroll-reveal or hero entrance (D-293 rule 7).
- * - `loop` — anything that repeats forever (rule 1).
+ * - `loop` — AMBIENT decoration that repeats forever (rule 1). Says nothing; exists to be
+ *   pretty.
+ * - `state` — a loop that REPORTS a condition the app or a cell is in right now: the skeleton
+ *   shimmer ("still loading"), the calendar today-cell ring ("this one is today"). D-322 rules
+ *   it a different category from `loop`, permitted on every tier and exempt from rule 2's 6s
+ *   floor, because slowing an indicator to ambience speed does not calm it, it breaks what it
+ *   is for. The floor half is enforced in CSS, by `scripts/motion-loops.mjs`, against a
+ *   two-entry allowlist — this table is only the tier half.
  * - `tick` / `pop` / `burst` — the three celebration weights (rule 6), in escalation order.
+ * - `completion` — a ONE-SHOT burst on something the user finished (the last packing item, the
+ *   last document). D-323 rules it legal on every tier: it is earned feedback for a transition
+ *   the user caused, not decoration and not a greeting. Deliberately its own kind rather than
+ *   widening `burst`, so `burst` stays Tier 1 and this cannot become permission for a pop on a
+ *   working screen.
  */
-export type MotionKind = 'entrance' | 'loop' | 'tick' | 'pop' | 'burst';
+export type MotionKind = 'entrance' | 'loop' | 'state' | 'tick' | 'pop' | 'burst' | 'completion';
 
 /** Tier 1 · STAGE — the front door and the surfaces whose job is anticipation. */
 export const TIER_1_SURFACES: readonly string[] = ['/', '/recap', '/trips'];
@@ -174,17 +186,24 @@ export function tierForPath(pathname: string | null | undefined): MotionTier {
 
 /**
  * The permission table, straight from D-292 (the three tier sections) and D-293 rule 6 (the
- * escalation table). This is the whole tier gate; everything else is lookup.
+ * escalation table), as amended by D-322 and D-323. This is the whole tier gate; everything
+ * else is lookup.
  */
 const PERMITTED_TIERS: Readonly<Record<MotionKind, readonly MotionTier[]>> = {
   // Tier 3 forbids scroll-reveal entrances outright — content is simply present.
   entrance: [1, 2],
   // Rule 1: at most one ambient loop, and only on a Tier-1 surface.
   loop: [1],
+  // D-322: a state indicator is not ambience. Every tier — the working screens are exactly
+  // where "still loading" and "this is today" have to be sayable.
+  state: [1, 2, 3],
   // Rule 6: a tick is colour and a mark with no movement, so every tier keeps it.
   tick: [1, 2, 3],
   pop: [1, 2],
   burst: [1],
+  // D-323: earned, one-shot, user-caused. Every tier. The two rows above are unchanged, and
+  // that is the point — this is not a Tier-3 pop allowance by another name.
+  completion: [1, 2, 3],
 };
 
 /** Whether a kind of motion is permitted at all on a tier. */

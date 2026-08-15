@@ -147,15 +147,20 @@ describe('surfaceKey — the unit rule 7 governs is the surface, not the compone
 });
 
 describe('the tier gate — the permission table (D-292 sections 3.1-3.3, D-293 rule 6)', () => {
-  const kinds: MotionKind[] = ['entrance', 'loop', 'tick', 'pop', 'burst'];
+  const kinds: MotionKind[] = ['entrance', 'loop', 'state', 'tick', 'pop', 'burst', 'completion'];
   const tiers: MotionTier[] = [1, 2, 3];
 
   it('Tier 1 permits everything', () => {
     for (const kind of kinds) expect(isMotionAllowed(kind, 1), kind).toBe(true);
   });
 
-  it('Tier 3 permits the tick and nothing else', () => {
+  it('Tier 3 permits the tick, a state indicator and a completion burst — nothing else', () => {
+    // The two additions are owner rulings, each narrow and each its own kind: D-322 (a busy /
+    // state indicator is not ambience) and D-323 (a one-shot, user-earned completion burst is
+    // not a pop). The four below are the permissions Tier 3 still revokes.
     expect(isMotionAllowed('tick', 3)).toBe(true);
+    expect(isMotionAllowed('state', 3)).toBe(true);
+    expect(isMotionAllowed('completion', 3)).toBe(true);
     for (const kind of ['entrance', 'loop', 'pop', 'burst'] as MotionKind[]) {
       expect(isMotionAllowed(kind, 3), `${kind} must be forbidden on the working screens`).toBe(
         false,
@@ -168,6 +173,22 @@ describe('the tier gate — the permission table (D-292 sections 3.1-3.3, D-293 
     expect(isMotionAllowed('loop', 3)).toBe(false);
     expect(isMotionAllowed('burst', 2)).toBe(false);
     expect(isMotionAllowed('burst', 3)).toBe(false);
+  });
+
+  it('D-322 and D-323 did NOT widen the gate — the shortcut each ruling ruled out', () => {
+    // These two assertions are deliberately a restatement of the ones above, under a name that
+    // says WHY they are load-bearing (the same trick scripts/contrast-tokens.mjs plays with its
+    // `guards`). Both rulings landed as their own MotionKind precisely so that neither could be
+    // implemented by relaxing an existing row: a state indicator is not `loop: [1, 2, 3]`, and a
+    // completion burst is not `burst: [1, 2, 3]`. If either of these starts passing, somebody
+    // took the shortcut and Tier 3 quietly acquired ambient loops or free pops.
+    expect(isMotionAllowed('loop', 3), 'D-322 must not have relaxed AMBIENT loops').toBe(false);
+    expect(isMotionAllowed('burst', 3), 'D-323 must not have relaxed the burst weight').toBe(false);
+    // And the two new kinds really are the ones carrying the rulings, on every tier.
+    for (const tier of [1, 2, 3] as MotionTier[]) {
+      expect(isMotionAllowed('state', tier), `state on tier ${tier}`).toBe(true);
+      expect(isMotionAllowed('completion', tier), `completion on tier ${tier}`).toBe(true);
+    }
   });
 
   it('answers for every kind on every tier — no undefined hole in the table', () => {

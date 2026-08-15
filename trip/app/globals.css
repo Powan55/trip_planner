@@ -1068,7 +1068,18 @@ h2[id$="-heading"]::after {
      · `pulse-glow` /.animate-pulse-glow (3s) · `aurora-shift` /.animate-aurora (18s)
    Each ran forever, settled at nothing and burned battery for decoration the identity retired. `.animate-shimmer` (busy-state sweep) and
    `.animate-today-pulse` (calendar today cell) are a DIFFERENT category — both are
-   state indicators, both survive, both stay neutralized in the reduced-motion block. */
+   state indicators, both survive, both stay neutralized in the reduced-motion block.
+
+   THAT CATEGORY IS NOW THE RULE, NOT A NOTE (D-322, issue #24). D-293 rule 2 floors any
+   loop at 6s, and these two run at 1.6s and 2.4s: the argument three lines up is what the
+   owner ruled on, so a STATE INDICATOR — something that reports a condition the app is in
+   right now — is exempt from the floor, and ambient decoration is not. Slowing an
+   indicator to 6s does not calm it, it breaks what it is for.
+   `scripts/motion-loops.mjs` (npm run loop-check, dependency-free, runs in CI before the
+   install) parses THIS FILE for `infinite` animations and fails on any sub-6s loop that is
+   not on its two-entry allowlist — so the exemption covers these two and the NEXT one is
+   caught. It also re-checks that every loop here, exempt or not, is named in the
+   reduced-motion block below with an explicit `animation: none`. */
 
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -1097,7 +1108,11 @@ h2[id$="-heading"]::after {
 }
 
 /* Skeleton sweep — INFINITE (loops), so it is neutralized under reduced motion.
-   Elements pair this with a moving-gradient background sized 200%. */
+   Elements pair this with a moving-gradient background sized 200%.
+   1.6s is UNDER D-293 rule 2's 6s loop floor and stays there: a busy indicator is a state
+   indicator, not ambience (D-322), and it is allowlisted as one in scripts/motion-loops.mjs.
+   That allowlist is keyed on THIS SELECTOR, so renaming the class without renaming it there
+   fails the audit (a listed selector that matches no loop is an error, not a pass). */
 @keyframes shimmer {
   100% { background-position-x: -200%; }
 }
@@ -1112,7 +1127,11 @@ h2[id$="-heading"]::after {
    there, so they rest at their base (visible/settled) state, never mid-sweep. */
 
 /* Day-cell "today" pulse — a gentle ring breathing on the calendar's today cell.
-   INFINITE → hard-neutralized under reduced motion (added to the block below). */
+   INFINITE → hard-neutralized under reduced motion (added to the block below).
+   2.4s is under the 6s loop floor and it renders on /plan/, a TIER-3 route, so it breaks
+   D-293 rules 1 and 2 as originally written. Both are amended for this one category by
+   D-322: it marks WHICH cell is today, which is a state, and it never carries that fact
+   alone (the cell is labelled too — rule 9). Allowlisted in scripts/motion-loops.mjs. */
 @keyframes today-pulse {
   0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent-scroll) / 0.45); }
   50% { box-shadow: 0 0 0 5px hsl(var(--accent-scroll) / 0); }
