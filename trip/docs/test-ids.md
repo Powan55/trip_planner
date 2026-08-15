@@ -1000,6 +1000,18 @@ Day-target strip + ordered-stop panel (`map-section.tsx`):
 | `map-day-order-stop-{itemId}` | one plan row inside its `<li>`, in time order | S381 keys this by the item id, not the marker id, because two plans can share a marker, which duplicated both the React key and this testid. It is a `<button>` when the plan has a position: Click/Enter/Space flies the map to that plan's pin (resets the filter to All, turns the overlay on), and several plans at one coordinate share one pin. Carries `data-placement` (`exact`/`approximate`/`none`), `data-via` (`pin`/`source`/`name`/`area`/`city`), `data-marker-id`, `data-derived-from`. An approximate row is marked by shape (hollow ring) plus text ("≈ <derivedFrom>"), never colour alone (D-279). |
 | `map-day-order-locate-{itemId}` | the "No location yet — set one" link on a `kind:'none'` row (S381) | Custom trips only (a `city` outside the one city table). Goes to `/plan/` and its S357B pin picker; that row is a `<div>`, not a fly-to button, because there is nowhere to fly. |
 
+Issue #31 added the **visited footprint** — the "filled-in countries" wash. It is drawn in the
+WebGL canvas (`visited-fill` / `visited-edge`, added first in `trip-map.tsx`'s `load` handler so
+it sits under every pin), so the DOM seams below are the only way to assert it. There is
+deliberately no new geometry dataset: each shape is the padded convex hull of the cities the
+issue-#29 visit record confirms (`lib/visited-footprint.ts`), which is why the copy calls it a
+footprint and never a border.
+
+| Testid / attribute | Element | Notes |
+|---|---|---|
+| `data-visited-countries` on `map-shell` | the persistent map host `<div>` | Comma-joined country labels in first-visit order (`''` when the record is empty). Same idiom as `data-route-stop-ids`, and for the same reason — the shapes are inside the canvas. Seed `tripPlannerLifetimeVisits` before load to drive it. |
+| `map-visited-note` | the `<p>` under the map controls | Present only when at least one country is filled. Names the countries and states plainly that the wash is covered ground, not a national border — the screen-reader equivalent of the canvas shapes, so do not delete it as decorative. |
+
 S218 added polish-bundle micro-celebration bursts (`components/celebration-burst.tsx`), `aria-hidden`
 and decorative only (no a11y role), absent entirely under `prefers-reduced-motion`:
 
@@ -1137,7 +1149,7 @@ stable, meaningful selector, and the existing visual baselines locate the masthe
 
 ---
 
-## 42. Home stat row: `components/home-stat-row.tsx` (route: `/`), issue #26
+## 42. Home stat row: `components/home-stat-row.tsx` (route: `/`), issue #26, extended by issue #31
 
 The band directly under the hero, outside the `min-h-[100svh]` fold column. Namespaced
 `home-stat-*`, distinct from the hero's `countdown-*`, the dashboard's `dashboard-*` and the
@@ -1154,6 +1166,18 @@ Mounted through `LazyVisible`, so on a cold load the section is preceded by a
 | `home-stat-countries` | the country-count cell | Distinct `getCountryForDate` values across the trip dates. Trip-scoped, so a custom trip counts its own legs. |
 | `home-stat-cities` | the city-count cell | Distinct `getCityForDate` values across the trip dates. Trip-scoped for the same reason. |
 | `home-stat-live` | the one clock-driven cell | Three states, all from existing producers: pre-trip `computeCountdown(...).totalDays` + "Days to go"; in-trip `getTodayInTrip().dayNumber` + "Day on trip"; post-trip the trip length + "Days travelled". Drive it with `?today=` exactly as for `hero-travel-mode`. Re-reads on a 60s interval, not the hero's 1s. |
+| `home-stat-plans` | the activities cell (issue #31) | `deriveWrapped(...).activitiesDone` — the SAME producer behind `/recap`'s `wrapped-stat-activities`, not a second count. Changes with the itinerary store, so a plan ticked done on `/plan` moves this number on the next Home render. |
+| `home-stat-visited` | the confirmed-visits cell (issue #31) | `visitedTally().cities` — trip cities the issue-#29 lifetime record confirms, intersected with the trip's own places. 0 until a trip day arrives; seed `tripPlannerLifetimeVisits` (`{ cities, countries }`) plus `?today=` to drive it. Re-reads on the same 60s tick. |
 
-Issue #31 extends this row by appending to the component's `cells` array; new cells take
-the same `home-stat-*` prefix.
+Issue #31 filled both remaining slots (six cells: 3 rows at 2-up, 2 rows at 4-up). A seventh
+would need `STAT_ROW_H` in `app/page.tsx` recomputed — that literal is the lazy placeholder's
+reservation and the arithmetic behind it is written out beside it.
+
+**The milestone line** (`components/home-milestone.tsx`, imported statically by the stat row so
+it shares that island's chunk, issue #31):
+
+| testid | element | notes |
+|---|---|---|
+| `home-milestone` | the fixed-height line under the grid | Always present — it has an honest empty state rather than disappearing, because the section's height is reserved. `data-milestone` carries the current milestone id (`''` when none), which is the cheapest assertion seam. |
+| `home-milestone-label` | the `role="status"` text | The biggest milestone currently true, or the empty-state sentence. Announced on change, whether or not motion is allowed. |
+| `home-milestone-burst` | the 🎉 flourish | Present only for ~700ms after a milestone is crossed WHILE the page is open (D-207: the first observation seeds and never fires), and only when `isMotionAllowed('burst', tierForPath(pathname))` and not under reduced motion. Under `prefers-reduced-motion` it must never appear — assert `toHaveCount(0)`. |

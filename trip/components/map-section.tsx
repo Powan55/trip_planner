@@ -39,6 +39,7 @@ import TripMap, {
 } from '@/components/trip-map';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { cityCoord } from '@/lib/city-coords';
+import { visitedCountryFootprints } from '@/lib/visited-footprint';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useOnline } from '@/hooks/use-online';
 import { TRIP_DATES, formatDate } from '@/lib/trip-data';
@@ -70,6 +71,12 @@ const ASSIGN_DAYS: AssignDayOption[] = TRIP_DATES.map((date, i) => ({
   date,
   label: `Day ${i + 1} · ${formatDate(date)}`,
 }));
+
+/** "Nepal", "Nepal and Japan", "USA, Nepal and Japan" — a plain English list, no Intl needed. */
+function visitedCountryLine(countries: readonly string[]): string {
+  if (countries.length <= 1) return countries[0] ?? '';
+  return `${countries.slice(0, -1).join(', ')} and ${countries[countries.length - 1]}`;
+}
 
 // ──: what the map search can resolve ───────────────────────────────────────────────────
 // One row shape for THREE in-bundle sources — the 27 curated places, the cities the trip
@@ -273,6 +280,14 @@ export default function MapSection() {
     if (savedOnly) list = list.filter((mk) => favorites.includes(mk.id));
     return list;
   }, [filter, savedOnly, favorites]);
+
+  // Issue #31 — the visited wash. Read ONCE per mount, deliberately: #30's autocount writes the
+  // visit record on boot, before this island's chunk has loaded, and nothing else on `/map` can
+  // add a visit. A poll or a storage listener here would be machinery for an event that cannot
+  // happen while the page is open. This component is `ssr:false`, so the storage read is never
+  // a prerender/hydration mismatch. Never filtered by the category chips: the footprint is
+  // where you have BEEN, not which restaurants are currently shown.
+  const footprints = useMemo(() => visitedCountryFootprints(), []);
 
   // /: EVERY itinerary item, in time order, each with its resolved placement —
   // exact (a pin / a curated marker) or approximate (a district or the day's city) or, on a
@@ -931,6 +946,24 @@ export default function MapSection() {
           </p>
         )}
 
+        {/* Issue #31 — the visited wash, IN WORDS. Two jobs, and both are load-bearing.
+            (1) The shapes live in a WebGL canvas, so a screen-reader user gets nothing from
+            them; this sentence is the whole feature for that user. (2) It says what the shape
+            IS. A gold blob over Honshu invites exactly one wrong reading — "that is Japan's
+            border" — and `lib/visited-footprint.ts` explains at length why it is not one and
+            why no border dataset was added. Copy that let the wrong reading stand would be the
+            D-271 defect the route caveat above already exists to avoid. */}
+        {footprints.length > 0 && (
+          <p
+            data-testid="map-visited-note"
+            className="max-w-md mx-auto mb-4 text-center text-[11px] text-white/55"
+          >
+            Filled in so far: {visitedCountryLine(footprints.map((fp) => fp.country))}. The soft
+            gold wash is the ground your visits cover — drawn from the cities you have actually
+            been to, not a national border.
+          </p>
+        )}
+
         {/* The passive note under the controls. TWO writers now: TripMap's geolocate control
             (`onGeoNote`), and issue #22's world search, which says which off-trip place the
             camera was just centred on. One banner rather than two identical ones — it is the
@@ -1267,6 +1300,9 @@ export default function MapSection() {
         // set, no ids) from an overlay that is simply off (no day, no ids).
         data-route-day={showItinerary ? (selectedDay ?? '') : ''}
         data-route-stop-ids={stops.map((s) => s.marker.id).join(',')}
+        // Issue #31 — the same assertion seam for the visited wash, for the same reason: the
+        // shapes are inside a WebGL canvas and nothing else in the DOM proves they are drawn.
+        data-visited-countries={footprints.map((fp) => fp.country).join(',')}
         className={
           isFullscreen
             ? 'fixed inset-0 z-[65] bg-surface'
@@ -1286,6 +1322,7 @@ export default function MapSection() {
           enableStopPopup
           assignDays={ASSIGN_DAYS}
           onAssignDay={assignPinToDay}
+          countryFills={footprints}
         />
 
         {/* Fullscreen toggle (visible on the map, keyboard-accessible). Travels

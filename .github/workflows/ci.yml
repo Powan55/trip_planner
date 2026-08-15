@@ -62,6 +62,13 @@ jobs:
       - name: Design token contrast
         run: node scripts/contrast-tokens.mjs
 
+      # Third dependency-free check, same slot for the same reason. D-293 rule 2's 6s loop
+      # floor called itself "grep-checkable" and nothing ever gripped it; this parses
+      # globals.css and fails any sub-6s infinite animation that is not on D-322's
+      # state-indicator allowlist, plus any loop missing its reduced-motion hard stop.
+      - name: Ambient-loop floor
+        run: node scripts/motion-loops.mjs
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20
