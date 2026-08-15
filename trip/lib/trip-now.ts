@@ -147,11 +147,15 @@ export function getNowUtcMsForPlace(dayDate: string, placeOffsetMin: number): nu
 /**
  * Destination wall-clock offset for the real-clock instant, or `null` (device-local) when
  * the active trip has no known geography (a custom single `'main'` leg @ 0) —.
+ *
+ * EXPORTED (#20) for `lib/preflight.ts`'s time-zone readiness row, which needs the same
+ * "which leg is tonight" answer against the REAL clock. Callers pass their own `now`; this
+ * function reads no clock of its own, so the `?today=` override cannot leak into it.
  * Two-pass, seeded by the EARLIEST leg so the day never rolls to the next leg before the
  * origin leg's own local midnight (Dec-18→19: a traveler physically in Kathmandu stays on
  * Day 10 until Kathmandu midnight, not Tokyo midnight).
  */
-function tripOffsetMinFor(now: Date): number | null {
+export function tripOffsetMinFor(now: Date): number | null {
   const trip = getActiveTrip();
   if (!trip.legs.some((l) => l.utcOffsetMin !== 0)) return null; // custom: no geography → device-local
   const seed = trip.legs[0].utcOffsetMin; // Nepal +345 for the default pack

@@ -34,12 +34,12 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { installHintStore } from '@/core/storage/gateway';
-
-// 0.9 (90% of the StorageManager quota) is a heuristic threshold, not measured
-// against any real device's actual eviction point — it exists to leave headroom for one more
-// journal/expense/photo write before the browser starts throwing or evicting. Tune this constant
-// if real-world quota reports come in tighter or looser than expected; no other change needed.
-const QUOTA_WARN_THRESHOLD = 0.9;
+// 0.9 (90% of the StorageManager quota) is a heuristic threshold, not measured against any real
+// device's actual eviction point — it exists to leave headroom for one more journal/expense/photo
+// write before the browser starts throwing or evicting. #20 MOVED it to `lib/preflight.ts`, whose
+// night-before "Storage room" row reads the same `estimate()` and must call "nearly full" at the
+// same point this toast does; tune it there and both surfaces move together.
+import { QUOTA_WARN_THRESHOLD } from '@/lib/preflight';
 
 // Per-page-load guard for the quota toast. Deliberately a module-level flag, not sessionStorage:
 // it only needs to survive one estimate() check per mount, and a fresh module instance already
