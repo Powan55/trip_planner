@@ -24,7 +24,8 @@ import { useOnline } from '@/hooks/use-online';
  *
  * Visual language mirrors the existing offline cue in
  * `components/weather-card.tsx:280-289` — a `WifiOff` icon (aria-hidden) +
- * calm `text-[11px] text-white/55`, deliberately NOT red/alert styling: being
+ * calm 11px `text-ink-mid` (#27: connection state is a status line about the
+ * page, not the page's subject), deliberately NOT red/alert styling: being
  * offline is informational (the PWA keeps working from its precache), not a
  * failure, so this stays a `role="status"` live region, never `role="alert"`.
  *
@@ -49,7 +50,7 @@ export function OfflineBanner() {
       data-testid="offline-banner"
       className="fixed top-20 left-1/2 z-40 -translate-x-1/2 max-w-[calc(100vw-2rem)]"
     >
-      <div className="flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] text-white/55">
+      <div className="flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] text-ink-mid">
         <WifiOff className="h-3 w-3 shrink-0" aria-hidden="true" />
         <span>Offline — showing cached content</span>
         <span className="sr-only">

@@ -85,7 +85,7 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
           <h2 id="timeline-heading" className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
             Trip <span className="text-display-emphasis">Timeline</span>
           </h2>
-          <p className="text-white/50">32 days across two incredible countries</p>
+          <p className="text-ink-mid">32 days across two incredible countries</p>
         </m.div>
 
         {/* 🔴 — THE SECOND "Filter by" ROW WAS DELETED HERE, deliberately.
@@ -145,10 +145,10 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                           : 'hover:bg-white/5'
                       }`}
                     >
-                      {/* weekday `/40`→`/60` so it clears AA on the navy tab
-                          AND over the colored active-tab fills (himalaya-500/30 →
-                          5.48:1, sakura-400/30 → 4.81:1). */}
-                      <span className="text-[10px] text-white/60">{formatDate(date).split(',')[0]?.split(' ')[0]}</span>
+                      {/* The weekday qualifies the date number beside it → ink-mid, which
+                          is a solid token and so clears AA on the navy tab AND over the
+                          colored active-tab fills without depending on an alpha. */}
+                      <span className="text-[10px] text-ink-mid">{formatDate(date).split(',')[0]?.split(' ')[0]}</span>
                       {/* inactive date number — brand HUE preserved (still
                           himalaya-400 / sakura-400), opacity `/70`→`/90` to reach AA
                           (himalaya 4.48:1 → 6.79:1, sakura → 7.90:1).. */}
@@ -226,11 +226,11 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                         <p className="text-white font-medium leading-snug">{item.title}</p>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1">
                           {timeInfo && (
-                            <span className="inline-flex items-center gap-1 text-xs text-white/50 font-mono">
+                            <span className="inline-flex items-center gap-1 text-xs text-ink-mid font-mono">
                               <Clock className="w-3 h-3" />
                               {timeInfo.label}
                               {timeInfo.badge && (
-                                <span className="ml-1 text-[10px] uppercase tracking-wide text-white/55">{timeInfo.badge}</span>
+                                <span className="ml-1 text-[10px] uppercase tracking-wide text-ink-mid">{timeInfo.badge}</span>
                               )}
                               {item.duration ? ` • ${item.duration}` : ''}
                             </span>
@@ -247,21 +247,21 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
                             </span>
                           )}
                           {item.location && (
-                            <span className="inline-flex items-center gap-1 text-xs text-white/50">
+                            <span className="inline-flex items-center gap-1 text-xs text-ink-mid">
                               <MapPin className="w-3 h-3" />
                               {item.location}
                             </span>
                           )}
                         </div>
                         {item.notes && (
-                          <p className="text-sm text-white/60 mt-1.5 leading-snug">{item.notes}</p>
+                          <p className="text-sm text-ink-mid mt-1.5 leading-snug">{item.notes}</p>
                         )}
                         {/* Cross-friend attribution: muted
                             "by {name} · {relative}". Renders nothing without updatedBy
                             (dormant / local-only-no-name) → portfolio build unchanged.
                             Static classes; contrast-safe muted. */}
                         {item.updatedBy && (
-                          <p className="text-xs text-white/40 mt-1.5 truncate">
+                          <p className="text-xs text-ink-mid mt-1.5 truncate">
                             by {item.updatedBy}
                             {formatRelativeTime(item.updatedAt)
                               ? ` · ${formatRelativeTime(item.updatedAt)}`
@@ -277,9 +277,9 @@ export default function TripTimeline({ onDateSelect }: { onDateSelect?: (date: s
               /* Empty state for an unplanned day */
               <div className="glass-card rounded-xl px-6 py-8 text-center">
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/5 mb-3">
-                  <ListPlus className="w-5 h-5 text-white/40" />
+                  <ListPlus className="w-5 h-5 text-ink-lo" />
                 </div>
-                <p className="text-white/70 font-medium">No activities planned for this day yet</p>
+                <p className="text-ink-mid font-medium">No activities planned for this day yet</p>
                 {/* the planner lives on /plan/ now — real route link. */}
                 <Link
                   href="/plan/"
