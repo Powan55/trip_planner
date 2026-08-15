@@ -66,7 +66,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
         Search this plan by title, notes, or category
       </label>
       <div className="relative">
-        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30" aria-hidden="true" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo" aria-hidden="true" />
         <input
           id={inputId}
           type="text"
@@ -84,7 +84,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
             setActiveIndex(0);
           }}
           onKeyDown={onKeyDown}
-          className="w-full pl-9 pr-9 py-2.5 rounded-lg bg-surface border border-white/15 text-white text-sm placeholder:text-white/30 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="w-full pl-9 pr-9 py-2.5 rounded-lg bg-surface border border-white/15 text-white text-sm placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         />
         {query && (
           <button
@@ -92,7 +92,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
             onClick={clear}
             aria-label="Clear search"
             data-testid="plan-search-clear"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-white/30 hover:text-white/70 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-ink-mid hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <X className="w-4 h-4" />
           </button>
@@ -108,7 +108,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
           className="absolute z-20 mt-1.5 w-full max-h-72 overflow-y-auto rounded-lg bg-surface border border-white/15 shadow-xl py-1"
         >
           {results.length === 0 ? (
-            <li role="presentation" className="px-3 py-2.5 text-sm text-white/40" data-testid="plan-search-empty">
+            <li role="presentation" className="px-3 py-2.5 text-sm text-ink-mid" data-testid="plan-search-empty">
               No matches
             </li>
           ) : (
@@ -125,10 +125,10 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
                   data-testid={`plan-search-result-${result.item.id}`}
                   onMouseEnter={() => setActiveIndex(i)}
                   onClick={() => choose(result)}
-                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 outline-none ${i === activeIndex ? 'bg-primary/20 text-white' : 'text-white/70 hover:bg-white/5'}`}
+                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 outline-none ${i === activeIndex ? 'bg-primary/20 text-white' : 'text-ink-hi hover:bg-white/5'}`}
                 >
                   <span className="truncate">{result.item.title}</span>
-                  <span className="shrink-0 text-xs text-white/60">{formatDate(result.date)}</span>
+                  <span className="shrink-0 text-xs text-ink-mid">{formatDate(result.date)}</span>
                 </button>
               </li>
             ))

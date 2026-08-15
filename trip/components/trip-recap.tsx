@@ -141,7 +141,7 @@ export default function TripRecap() {
             The trip, <span className="text-display-emphasis">day by day</span>
           </h2>
           {plannedTotal > 0 && (
-            <p data-testid="recap-summary" className="text-sm text-white/50 mt-2" aria-live="polite">
+            <p data-testid="recap-summary" className="text-sm text-ink-mid mt-2" aria-live="polite">
               <span className="font-semibold text-foreground">{doneTotal}</span>
               <span className="sr-only"> of </span>
               <span aria-hidden="true"> of </span>
@@ -216,15 +216,15 @@ function RecapCard({
         <div>
           <h3 id={headingId} className="font-display text-lg sm:text-xl font-bold text-white leading-tight">
             Day <span className="text-foreground">{dayNumber}</span>
-            <span className="text-white/40 mx-2" aria-hidden="true">
+            <span className="text-ink-lo mx-2" aria-hidden="true">
               —
             </span>
             {getCityForDate(date)}
           </h3>
-          <p className="text-xs text-white/55 mt-0.5">{formatDateLong(date)}</p>
+          <p className="text-xs text-ink-mid mt-0.5">{formatDateLong(date)}</p>
         </div>
         {summary.planned > 0 && (
-          <p data-testid={`recap-done-count-${date}`} className="text-sm text-white/50 flex-shrink-0">
+          <p data-testid={`recap-done-count-${date}`} className="text-sm text-ink-mid flex-shrink-0">
             <span className="font-semibold text-foreground">{summary.done}</span>
             <span className="sr-only"> of </span>
             <span aria-hidden="true"> of </span>
@@ -235,7 +235,7 @@ function RecapCard({
 
       {/* Plan + actual: the day's items, each with a done/not-done tick (read-only — no toggle). */}
       {items.length === 0 ? (
-        <p data-testid={`recap-no-plan-${date}`} className="text-sm text-white/55 italic">
+        <p data-testid={`recap-no-plan-${date}`} className="text-sm text-ink-mid italic">
           No plans this day — a free day.
         </p>
       ) : (
@@ -252,10 +252,10 @@ function RecapCard({
 
       {/* the day's logged-expense total — only when >0. */}
       {spend > 0 && (
-        <p data-testid={`recap-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-white/60">
+        <p data-testid={`recap-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-ink-mid">
           <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
           Spent{' '}
-          <span className="font-semibold text-white/85">{formatMoney(spend, legCurrency(getCountryForDate(date)))}</span>
+          <span className="font-semibold text-ink-hi">{formatMoney(spend, legCurrency(getCountryForDate(date)))}</span>
         </p>
       )}
 
@@ -288,11 +288,11 @@ function RecapItem({ item }: { item: ItineraryItem }) {
         <Check className="h-3.5 w-3.5" strokeWidth={3} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className={`block truncate text-sm font-medium ${done ? 'text-white/45 line-through' : 'text-white/90'}`}>
+        <span className={`block truncate text-sm font-medium ${done ? 'text-ink-lo line-through' : 'text-ink-hi'}`}>
           {item.title}
         </span>
         {(item.time || cat) && (
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-white/55">
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-ink-mid">
             {item.time && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" aria-hidden="true" />
@@ -340,7 +340,7 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
                 // max-w-full so it can shrink and the child's break-words engages.
                 <span
                   data-testid={`recap-journal-highlight-${date}`}
-                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-white/90"
+                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-ink-hi"
                 >
                   <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="break-words min-w-0">{entry.highlight}</span>
@@ -351,14 +351,14 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
           {entry.text && (
             <p
               data-testid={`recap-journal-body-${date}`}
-              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white/65"
+              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-hi"
             >
               {entry.text}
             </p>
           )}
         </div>
       ) : (
-        <p data-testid={`recap-no-journal-${date}`} className="text-sm text-white/55 italic">
+        <p data-testid={`recap-no-journal-${date}`} className="text-sm text-ink-mid italic">
           No journal entry for this day.
         </p>
       )}

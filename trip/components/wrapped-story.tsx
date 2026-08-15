@@ -198,7 +198,7 @@ export default function WrappedStory() {
               <h2 id="wrapped-title" className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
                 <span className="text-display-emphasis">{copy.title}</span>
               </h2>
-              <p data-testid="wrapped-blurb" className="mx-auto max-w-xl text-base leading-relaxed text-white/65">
+              <p data-testid="wrapped-blurb" className="mx-auto max-w-xl text-base leading-relaxed text-ink-mid">
                 {copy.blurb(stats)}
               </p>
               <button
@@ -234,7 +234,7 @@ export default function WrappedStory() {
                 <LegSpendLine leg="nepal" spend={stats.spend.nepal} />
                 <LegSpendLine leg="japan" spend={stats.spend.japan} />
                 {stats.spend.nepal.total === 0 && stats.spend.japan.total === 0 && (
-                  <span className="text-white/50">Nothing logged yet</span>
+                  <span className="text-ink-lo">Nothing logged yet</span>
                 )}
               </div>
             </StatPanel>
@@ -267,7 +267,7 @@ export default function WrappedStory() {
           </Reveal>
         </div>
 
-        <footer className="mt-8 flex items-center justify-center gap-1.5 text-center text-sm italic text-white/45">
+        <footer className="mt-8 flex items-center justify-center gap-1.5 text-center text-sm italic text-ink-lo">
           <Sparkles className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           That&rsquo;s the trip, wrapped up in numbers.
         </footer>
@@ -293,7 +293,7 @@ function StatPanel({
         <span aria-hidden="true">{icon}</span>
         {label}
       </p>
-      <p className="text-sm leading-relaxed text-white/80">{children}</p>
+      <p className="text-sm leading-relaxed text-ink-hi">{children}</p>
     </div>
   );
 }
@@ -302,10 +302,10 @@ function LegSpendLine({ leg, spend }: { leg: 'nepal' | 'japan'; spend: WrappedSt
   if (spend.total === 0) return null;
   return (
     <span data-testid={`wrapped-spend-${leg}`}>
-      <span className="font-semibold text-white/90">{legLabel(leg)}:</span>{' '}
+      <span className="font-semibold text-ink-hi">{legLabel(leg)}:</span>{' '}
       <span className="font-semibold text-foreground">{formatMoney(spend.total, legCurrency(leg))}</span>
       {spend.topCategory && (
-        <span className="text-white/55"> — top category {capitalize(spend.topCategory.category)}</span>
+        <span className="text-ink-mid"> — top category {capitalize(spend.topCategory.category)}</span>
       )}
     </span>
   );

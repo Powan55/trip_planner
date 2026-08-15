@@ -99,7 +99,7 @@ export default function ShareInbox() {
         <h2 id="share-heading" className="sr-only">
           Shared links inbox
         </h2>
-        <p className="text-sm text-white/55">Loading your shared links…</p>
+        <p className="text-sm text-ink-mid">Loading your shared links…</p>
       </section>
     );
   }
@@ -118,7 +118,7 @@ export default function ShareInbox() {
         <h2 id="share-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
           Shared <span className="text-display-emphasis">links</span>
         </h2>
-        <p className="mt-3 text-sm text-white/70">
+        <p className="mt-3 text-sm text-ink-mid">
           {items.length === 0
             ? 'Anything you share to this app from your phone lands here.'
             : `${items.length} item${items.length === 1 ? '' : 's'} — assign each to a trip day or clear it out.`}
@@ -144,7 +144,7 @@ export default function ShareInbox() {
             <Inbox className="h-7 w-7" aria-hidden="true" />
           </span>
           <h3 className="font-display text-lg font-bold text-white">Nothing shared yet</h3>
-          <p className="mt-2 max-w-sm text-sm leading-relaxed text-white/60">
+          <p className="mt-2 max-w-sm text-sm leading-relaxed text-ink-mid">
             Install the app, then use your phone&rsquo;s Share button on any page, note, or link —
             it will show up here, ready to slot into your itinerary.
           </p>
@@ -207,9 +207,9 @@ function ShareRow({
     <li data-testid={`share-item-${item.id}`} className="glass-subtle rounded-2xl p-4 sm:p-5">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
-          <p className="font-medium leading-snug text-white/90 break-words">{heading}</p>
+          <p className="font-medium leading-snug text-ink-hi break-words">{heading}</p>
           {item.text && item.text !== heading && (
-            <p className="mt-1 text-sm leading-relaxed text-white/60 break-words">{item.text}</p>
+            <p className="mt-1 text-sm leading-relaxed text-ink-mid break-words">{item.text}</p>
           )}
           {item.url && (
             <p className="mt-2 flex items-center gap-1.5 text-sm">
@@ -225,7 +225,7 @@ function ShareRow({
                   {item.url}
                 </a>
               ) : (
-                <span className="truncate text-white/55 break-all">{item.url}</span>
+                <span className="truncate text-ink-mid break-all">{item.url}</span>
               )}
             </p>
           )}
@@ -235,14 +235,14 @@ function ShareRow({
           data-testid={`share-item-delete-${item.id}`}
           onClick={onDelete}
           aria-label={`Delete shared item: ${heading}`}
-          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/5 text-white/60 outline-none transition-colors hover:bg-white/10 hover:text-red-300 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/5 text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-red-300 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Trash2 className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
 
       <div className="mt-4 flex items-center gap-2">
-        <label htmlFor={selectId} className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-white/45">
+        <label htmlFor={selectId} className="flex items-center gap-1.5 text-xs uppercase tracking-wider text-ink-lo">
           <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
           Trip day
         </label>
@@ -251,7 +251,7 @@ function ShareRow({
           data-testid={`share-item-day-${item.id}`}
           value={item.day ?? ''}
           onChange={(e) => onAssign(e.target.value === '' ? undefined : e.target.value)}
-          className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/85 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <option value="">Unassigned</option>
           {TRIP_DATES.map((day) => (
