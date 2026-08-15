@@ -25,6 +25,7 @@ import { describeClash, firstClashWith, timeFootprintChanged } from '@/lib/sort-
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { describeItemTime } from '@/lib/item-time-display';
 import TimePicker, { DurationField } from '@/components/time-picker';
+import { overlayPanelMotion } from '@/lib/motion';
 
 // Back-compat re-export: `buildMapsSearchUrl`/`buildMapsPlaceUrl` were hoisted to the pure,
 // React-free `@/lib/maps-link` module (so eager consumers like the calendar can use them without
@@ -518,9 +519,9 @@ export default function AddToItineraryDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         onKeyDown={handleKeyDown}
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        // D-292: a dialog is Tier 3 whatever route opened it (issue #24) — same gated calm
+        // entrance as every other modal, from `components/ui/sheet-dark.tsx`.
+        {...overlayPanelMotion()}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
         className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
       >

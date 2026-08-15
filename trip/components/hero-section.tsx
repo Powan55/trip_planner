@@ -449,7 +449,7 @@ export default function HeroSection() {
             the countdown grid; otherwise the live countdown shows. */}
         {mounted && (todayInTrip ? (
           <m.div variants={reveal} className="relative mb-10">
-            <CelebrationBurst active={celebrate} testId="hero-arrival-celebration" />
+            <CelebrationBurst active={celebrate} testId="hero-arrival-celebration" celebrationId="hero-arrival" />
             {/* ink-mid, NOT `text-muted-foreground`: this line sits OVER THE PHOTOGRAPH
                 (the card below it does not), and --muted-foreground resolves to the floor
                 tier, which measures 3.55:1 there. */}

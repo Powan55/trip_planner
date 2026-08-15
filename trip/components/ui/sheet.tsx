@@ -6,6 +6,18 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { overlayMotion } from '@/lib/motion';
+
+/**
+ * The same D-292 pin as `components/ui/dialog.tsx`: a sheet is Tier 3 whatever route opened it,
+ * so the timing comes from `lib/motion.ts`'s gate and not from shadcn's default. What Tier 3
+ * revokes here is the DURATION — 500 ms in / 300 ms out is over the design system's overlay
+ * budget of ≤200 ms in, ≤160 ms out, and R3's 900 ms ceiling is not the binding limit
+ * for something that opens over what you were reading. The side slide itself is kept: it is an
+ * opacity + translate, not a spring, and it is how a sheet says which edge it came from.
+ */
+const SHEET_TIMING_LOUD = 'data-[state=closed]:duration-300 data-[state=open]:duration-500';
+const SHEET_TIMING_CALM = 'data-[state=closed]:duration-150 data-[state=open]:duration-200';
 
 const Sheet = SheetPrimitive.Root;
 
@@ -31,7 +43,11 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 
 const sheetVariants = cva(
-  'fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500',
+  `fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out ${overlayMotion(
+    'entrance',
+    SHEET_TIMING_LOUD,
+    SHEET_TIMING_CALM,
+  )}`,
   {
     variants: {
       side: {

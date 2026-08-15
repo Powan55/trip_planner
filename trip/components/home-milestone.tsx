@@ -68,7 +68,14 @@ export default function HomeMilestone({ input }: { input: MilestoneInput }) {
       data-milestone={current?.id ?? ''}
       className="relative mx-auto mt-[12px] flex h-[44px] max-w-[1200px] items-center gap-2 rounded-[20px] bg-surface-low px-4"
     >
-      <CelebrationBurst active={celebrating && burstAllowed} testId="home-milestone-burst" />
+      <CelebrationBurst
+        active={celebrating && burstAllowed}
+        testId="home-milestone-burst"
+        // The ENTITY is the milestone, not the banner: crossing the 30-day mark and later the
+        // 7-day mark are two celebrations, and each of them is owed exactly one per session (R5).
+        celebrationId={`milestone:${current?.id ?? 'none'}`}
+        weight="burst"
+      />
       <Trophy
         className={`h-3.5 w-3.5 shrink-0 ${current ? 'text-primary' : 'text-ink-lo'}`}
         aria-hidden="true"

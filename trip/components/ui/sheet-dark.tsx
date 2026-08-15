@@ -10,6 +10,8 @@ import {
 import { createPortal } from 'react-dom';
 import { m, AnimatePresence } from 'framer-motion';
 
+import { overlayPanelMotion } from '@/lib/motion';
+
 /**
  * Shared dark Sheet primitive.
  *
@@ -31,6 +33,13 @@ import { m, AnimatePresence } from 'framer-motion';
  * reduced-motion: entrance/exit are opacity + a small transform; the global
  * reduced-motion CSS guard + framer's `MotionConfig reducedMotion="user"` collapse
  * them to the settled end-state, so nothing is ever stuck at opacity-0.
+ *
+ * MOTION (issue #24): the panel entrance is `overlayPanelMotion()` from `lib/motion.ts`, not a
+ * literal here. D-292 pins every dialog and sheet to Tier 3 whatever route opened it, and what
+ * that revokes is precisely the `scale: 0.9` spring the centre variant used to open with — the
+ * design system names it in so many words ("no spring, no scale-from-0.9"). The SCRIM's cross-fade is
+ * untouched: it is opacity-only, inside the budget, and it is what holds the panel mounted long
+ * enough to play its exit.
  */
 
 export interface SheetProps {
@@ -145,10 +154,7 @@ export default function Sheet({
       ? 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm'
       : 'fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end bg-black/60 backdrop-blur-sm';
 
-  const panelMotion =
-    side === 'center'
-      ? { initial: { scale: 0.9, opacity: 0 }, animate: { scale: 1, opacity: 1 }, exit: { scale: 0.9, opacity: 0 } }
-      : { initial: { opacity: 0, y: 40 }, animate: { opacity: 1, y: 0, x: 0 }, exit: { opacity: 0, y: 40 } };
+  const panelMotion = overlayPanelMotion(side);
 
   return createPortal(
     <AnimatePresence onExitComplete={onExitComplete}>

@@ -413,6 +413,25 @@ export const STORAGE_KEYS = {
    * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
    */
   passportStamps: 'tripPlannerPassportStamps',
+  /**
+   * sessionStorage — comma-joined `string[]` of CELEBRATION claim keys (`<weight>:<entity id>`)
+   * already spent this browser session (celebration ledger, key 36; issue #24). Backs D-293
+   * rule 5's second clause ("a celebration id fires at most once per session per entity") and
+   * rule 6's caps ("pop: 3 per session"), which the false→true edge in `lib/celebration.ts`
+   * cannot see on its own — re-entering a route rebuilds the ref and the edge fires again.
+   *
+   * Shape and store are `motionEntranceSeen`'s (key 33) EXACTLY, deliberately: same session
+   * scope, same comma-joined set, same reset semantics (survives a reload and a route change,
+   * dies with the tab, is inherited by a duplicated tab). The weight prefix is what makes one
+   * key carry both rules — the cap for a weight is how many entries start with `<weight>:`, so
+   * there is no counter to drift out of step with the set.
+   *
+   * SSR-safe + never-throw (inherited): unreadable storage reads as "nothing fired yet", so the
+   * degraded behaviour is a celebration that fires again, never one that is silently swallowed.
+   * Same permissive direction as the entrance ledger, for the same reason. APP-SCOPED.
+   * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   */
+  motionCelebrationsFired: 'motion_celebrations_fired',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -981,6 +1000,33 @@ export const entranceLedger = {
     if (seen.includes(surface)) return;
     seen.push(surface);
     writeString('session', STORAGE_KEYS.motionEntranceSeen, seen.join(','));
+  },
+} as const;
+
+/**
+ * Celebration ledger (key 36) — the once-per-session record behind D-293 rule 5's second clause
+ * and rule 6's caps. The same slot as `entranceLedger` above with one difference: the whole set
+ * is readable, because a cap ("pop: 3 per session") is a COUNT and not a presence test.
+ *
+ * The policy — what a claim key is, which weights are capped and at what, and whether reduced
+ * motion short-circuits before the ledger is consulted — lives in `lib/celebration.ts`. This is
+ * byte-transport only, like every other slot here.
+ *
+ * SSR-safe + never-throw (inherited): with storage disabled `fired()` is always `[]` and
+ * `markFired` no-ops, so every claim succeeds. That direction is the same one the entrance
+ * ledger picked and for the same reason — a repeated celebration is a cosmetic miss, a
+ * celebration that can never fire is a feature that looks broken.
+ */
+export const celebrationLedger = {
+  fired(): string[] {
+    const raw = readString('session', STORAGE_KEYS.motionCelebrationsFired);
+    return raw ? raw.split(',') : [];
+  },
+  markFired(claimKey: string): void {
+    const spent = celebrationLedger.fired();
+    if (spent.includes(claimKey)) return;
+    spent.push(claimKey);
+    writeString('session', STORAGE_KEYS.motionCelebrationsFired, spent.join(','));
   },
 } as const;
 

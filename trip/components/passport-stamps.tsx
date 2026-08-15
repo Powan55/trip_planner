@@ -120,7 +120,14 @@ export default function PassportStamps() {
                   flourishSet.has(country) ? ' passport-stamp--new' : ''
                 }`}
               >
-                <CelebrationBurst active={celebrate && flourishSet.has(country)} />
+                <CelebrationBurst
+                  active={celebrate && flourishSet.has(country)}
+                  // R6's burst cap is "never twice for the same stamp", so the country IS the
+                  // entity. The lifetime record (key 35) already makes an unlock one-shot across
+                  // sessions; this is the same guarantee inside one, and it is free here.
+                  celebrationId={`stamp:${country}`}
+                  weight="burst"
+                />
                 <span className="passport-stamp__country">{country}</span>
                 <span className="passport-stamp__mark">Visited</span>
                 {isFresh && <span className="passport-stamp__new">New</span>}
