@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, seedPinnedRates } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
@@ -16,6 +16,15 @@ import type { Page } from '@playwright/test';
  *   2. EDIT: change an expense's amount → the list + totals update → persists.
  *   3. DELETE: remove an expense → the list + totals revert → persists.
  *
+ * ── THE RATES ARE PINNED BY THE FIXTURE, NOT READ FROM THE SEED ─────────────────────────────
+ * Expenses are entered and stored in the leg's LOCAL currency, so the `Rs …` assertions below are
+ * rate-free. The grand-total spent/remaining figures are not: they are the same NPR amounts rolled
+ * up into USD. Those are checked against `PINNED_RATES` (138 NPR/$1), seeded into the budget slot by
+ * `seedPinnedRates` before the app boots — NOT against `SEED_RATES`, a build-time default that moves
+ * when the real market has (it did on 2026-08-15, and took every dollar figure here red). What is
+ * under test is that a logged/edited/deleted expense reaches the roll-up at all, not what the seed
+ * happens to say this month.
+ *
  * ── SETTLE DISCIPLINE (mirrors budget.spec.ts) ──────────────────────────────────────────────
  * The budget panel is a lazy `ssr:false` island that hydrates from `loadBudget()`/`loadExpenses()`
  * in mount effects. Every navigation/reload goes through `waitUntil:'domcontentloaded'` + `settleBudget`,
@@ -29,6 +38,7 @@ import type { Page } from '@playwright/test';
 const EXPENSES_KEY = 'nepal_japan_expenses';
 
 async function gotoPlanSettled(page: Page) {
+  await seedPinnedRates(page); // see the header — the USD roll-up figures are checked against these
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/plan/', { waitUntil: 'domcontentloaded' });
 }
@@ -86,7 +96,8 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await gotoPlanSettled(page);
     await settleBudget(page);
 
-    // Set the Nepal leg budget to 13,800 NPR (= 100 USD at the seed rate 138), so remaining is meaningful.
+    // Set the Nepal leg budget to 13,800 NPR (= 100 USD at the NPR rate THIS fixture pins, 138), so
+    // remaining is meaningful.
     await page.getByTestId('budget-leg-nepal-input').fill('13800');
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$100');
 
