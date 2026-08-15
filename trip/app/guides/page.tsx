@@ -49,7 +49,7 @@ export default function GuidesPage() {
   return (
     <main className="min-h-screen bg-surface">
       <PageHero
-        variant="plan"
+        variant="guides"
         title="Guides"
         eyebrow="Two countries, one trip"
         subtitle="Pick a destination for photography spots, nightlife, local foods, and the on-the-ground essentials."

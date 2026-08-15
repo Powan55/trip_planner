@@ -1,41 +1,74 @@
 'use client';
 
+import type { CSSProperties } from 'react';
+import OptimizedImage from '@/components/optimized-image';
+
 /**
- * PageHero — compact per-page hero header.
+ * PageHero — the per-page masthead.
  *
- * A gradient + type header that gives each v2 route (/plan, /nepal, /japan,
- * /map) an editorial masthead WITHOUT imagery (exact-location-free-photos rule — use none). It consumes tokens
- * only — it defines no new CSS. One is mounted per page at integration;
- * see the notes for exact per-page mount + h1/h2 guidance.
+ * TWO SHAPES, ONE COMPONENT, and the shape follows the route's tier:
  *
- * Treatment:
- * - `.glass-panel` shell (max-elevation v2 tier: radius-2xl + shadow-2xl,
- * gradient hairline edge) sitting on the app-wide page field (: that field
- * is now the flat `bg-background` fill — the aurora/grain layers are deleted).
- * - `text-eyebrow uppercase` overline in the route accent (`--accent-scroll`, a
- * single static value since retired the per-route warm/cool sweep).
- * - `text-display-lg` title using the variant's static brand gradient
- * (nepal→himalaya, japan→sakura, plan/map→gold).
- * - `.animate-reveal-up` entrance. The wrapper's BASE opacity is 1 (the
- * keyframe supplies the entrance from 0), so under reduced motion — where
- * the CSS collapses the duration — it lands settled/visible, never stuck at
- * opacity:0.
+ * - **Tier 2 (`/guides`, `/nepal`, `/japan`, `/map`, `/journal`, `/flights`)** — a
+ *   full-bleed photographic band: duotone-graded photography, a two-ramp scrim, an
+ *   editorial title and ONE accent colour that says which route you are on. This is
+ *   the whole of a Tier-2 route's loudness allowance; below the band those routes are
+ *   Tier 3 again, which is why the band carries `data-tier="2-header"` — the loud
+ *   tokens are legal inside that subtree and nowhere else on the page.
+ * - **Tier 3 (`/plan`, `/more`)** — unchanged: the `.glass-panel` card, a brand wash,
+ *   no photography at all. Tier 3 forbids imagery, so the one variant those two routes
+ *   share declares no photo and takes the original render path.
  *
- * Compact by construction: tight vertical padding + max title size keep it
- * ≤ ~40vh at 390px so it does not push page content below the fold on mobile.
+ * THE ACCENT PER ROUTE, and every one of them is a token from `globals.css` — no
+ * component in this file names a colour of its own:
  *
- * Accessibility:
- * - `as` controls the heading level so hierarchy stays correct per page. On
- * pages that ALREADY own an <h1> (Home's hero), pass `as="h2"`; on pages
- * whose lead section starts at <h2>, use the default `as="h1"` so the page
- * gains its missing document heading. See the mount table in the.
- * - `<header>` landmark, the eyebrow is decorative-adjacent text (kept in the
- * accessible name via the heading, not the eyebrow).
- * - Gradient text keeps a solid brand-color fallback (via the same hue) so it
- * never renders invisible if `background-clip:text` is unsupported.
+ *   /guides   --coral    | /nepal   --np-b (with the country gradient on the h1)
+ *   /map      --sky      | /japan   --jp-a (with the country gradient on the h1)
+ *   /journal  --violet   | /flights --mint
+ *
+ * `--marigold` is deliberately NOT used as a page identity: it is the app-wide chrome
+ * accent (focus ring, tab-bar active tint, section underline), so a route that claimed
+ * it would collide with the chrome rather than distinguish itself. `--sky` is the ruled
+ * accent for BOTH /map and /flights; /map keeps it, being the information surface, and
+ * /flights takes `--mint` ("done · offline-ready" — a booked leg), because two routes
+ * sharing an accent defeats the point of a route having one. That is the one deviation
+ * in the table above and it is a one-token change either way.
+ *
+ * PHOTOGRAPHY. Every image is already bundled and already attributed in
+ * `public/images/CREDITS.md`; nothing new was fetched and nothing is hotlinked. Each
+ * one was OPENED before it was chosen, and what it actually shows is recorded beside
+ * it below — three other filenames in this repo point at one photograph whose
+ * obvious-sounding name does not describe it, so the file name is not evidence.
+ *
+ * ALT TEXT. The band is decorative: `alt=""` plus `aria-hidden` on the wrapper, which
+ * is the ruled treatment for a graded, scrimmed backdrop. The <h1> beside it carries
+ * the meaning, and a screen reader that announced "Boudhanath stupa" on a page titled
+ * "Nepal" would be adding noise, not information. Content photography elsewhere in the
+ * app (guide cards, the Home gallery, journal entries) keeps its real descriptions.
+ *
+ * CONTRAST. Measured, not asserted, in `scripts/contrast-tokens.mjs`, which models both
+ * scrim ramps and the duotone highlight cap: worst case behind ANY text pixel in the
+ * band is 12.96:1 for the title over Nepal / 13.31:1 over Japan, 7.90 / 8.11 for the
+ * subtitle, and 5.21-8.15 for the six accent eyebrows. Edit that harness with this file.
+ *
+ * AND THE NAVBAR IS PART OF THAT MEASUREMENT. `navbar.tsx` is fixed and transparent
+ * until you scroll, so a full-bleed band puts the app's own chrome on a photograph on
+ * six routes at once — the links measured 3.25:1 on the band ramp alone. The scrim
+ * carries a flat top layer across the bar's 64px for exactly that reason; the numbers
+ * and the reasoning are on `.photo-header__scrim` in globals.css.
+ *
+ * MOTION. Tier 2 forbids ambient motion including in the header, so the band has no
+ * Ken Burns, no parallax and no zoom — there is nothing here for reduced motion to
+ * switch off. The one animation is `.animate-reveal-up` on the text block: a one-shot
+ * entrance whose resting state is opacity 1, collapsed to ~0ms by the reduced-motion
+ * block in globals.css, so it can never hold content invisible.
+ *
+ * ACCESSIBILITY. `as` controls the heading level so the hierarchy stays correct per
+ * page (pages that already own an <h1> pass `as="h2"`); the band is a <header>
+ * landmark; the photographic layers are one `aria-hidden` subtree containing no
+ * focusable node, so nothing is hidden from a keyboard user by hiding it from AT.
  */
 
-type HeroVariant = 'nepal' | 'japan' | 'plan' | 'map' | 'flights';
+type HeroVariant = 'guides' | 'nepal' | 'japan' | 'map' | 'journal' | 'flights' | 'plan';
 
 interface PageHeroProps {
   variant: HeroVariant;
@@ -48,41 +81,85 @@ interface PageHeroProps {
   className?: string;
 }
 
-/**
- * Per-variant treatment. `titleGradient` is a STATIC brand gradient (the page's
- * identity color, independent of scroll), while the eyebrow/accents key off the
- * `--accent-scroll` var so they agree with every other chrome accent site.
- * `wash` is a subtle full-panel tint layered under the glass fill to lean the
- * whole hero warm (nepal) / cool (japan) / neutral (plan, map).
- */
-const VARIANTS: Record<
-  HeroVariant,
-  { titleGradient: string; wash: string }
-> = {
+interface HeroPhoto {
+  /** Manifest key in `lib/image-manifest.json`. All six carry a 1024w derivative. */
+  src: string;
+  /** Which duotone the grade uses. Follows the PHOTO's country, not the route's. */
+  country: 'np' | 'jp';
+  /**
+   * `object-position` for the band crop. Real photographs of real places do not put
+   * their subject in the same place twice, and a full-bleed band is a much wider crop
+   * than the source ratio — this is the knob that keeps the subject in frame.
+   */
+  focus: string;
+}
+
+interface HeroVariantConfig {
+  /** A token from globals.css. Never a literal colour. */
+  accent: string;
+  /** Title treatment: the country gradient, or the solid display colour. */
+  titleClass: string;
+  /** Present ⇒ Tier-2 photographic band. Absent ⇒ the Tier-3 glass panel. */
+  photo?: HeroPhoto;
+  /** Tier-3 only: the brand tint layered over the glass fill. */
+  wash?: string;
+}
+
+const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
+  // Sensō-ji, Asakusa: the main hall's sweeping tiled roof and red timber frontage,
+  // the great lantern in the entrance bay, incense smoke, a crowd walking up to it
+  // under a clear sky. Landscape. The chooser page fronts both countries and no single
+  // bundled photograph shows both, so it takes the one that most reads as "somewhere
+  // you would want a guide".
+  guides: {
+    accent: 'var(--coral)',
+    titleClass: 'text-display-emphasis',
+    photo: { src: '/images/japan/ja1.jpg', country: 'jp', focus: 'center 44%' },
+  },
+  // Boudhanath, Kathmandu: the whitewashed dome and gilded spire, the Buddha's painted
+  // eyes on the harmika, prayer-flag lines running out to the corners, blue sky.
   nepal: {
-    titleGradient: 'text-gradient-himalaya',
-    // himalaya 255,140,66 — warm wash
-    wash: 'radial-gradient(120% 140% at 0% 0%, rgba(255,140,66,0.14) 0%, transparent 55%)',
+    accent: 'var(--np-b)',
+    titleClass: 'text-gradient-himalaya',
+    photo: { src: '/images/featured/boudhanath.jpg', country: 'np', focus: 'center 38%' },
   },
+  // Mount Fuji from Ōwakudani, Hakone — which is on the itinerary: the snow-capped
+  // cone filling a cloudless sky above a dark forested ridge. Already a 2:1 crop, so
+  // it loses almost nothing to the band.
   japan: {
-    titleGradient: 'text-gradient-sakura',
-    // sakura 247,160,179 — cool wash
-    wash: 'radial-gradient(120% 140% at 0% 0%, rgba(247,160,179,0.14) 0%, transparent 55%)',
+    accent: 'var(--jp-a)',
+    titleClass: 'text-gradient-sakura',
+    photo: { src: '/images/featured/mount-fuji.jpg', country: 'jp', focus: 'center 52%' },
   },
-  plan: {
-    titleGradient: 'text-display-emphasis',
-    // gold 240,199,96 — neutral-premium wash
-    wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.12) 0%, transparent 55%)',
-  },
+  // Shibuya Crossing from above at night: the intersection packed with people, lit
+  // billboards stacked six storeys up, glass towers either side. An aerial — the map
+  // page's header is a place seen from above, which is what the page does.
   map: {
-    titleGradient: 'text-display-emphasis',
-    // gold, more restrained
-    wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.08) 0%, transparent 55%)',
+    accent: 'var(--sky)',
+    titleClass: 'text-display-emphasis',
+    photo: { src: '/images/featured/shibuya.jpg', country: 'jp', focus: 'center 48%' },
   },
+  // Garden of Dreams, Kathmandu: the white neoclassical pavilion behind a long
+  // reflecting pool, palms and bare winter trees, deep blue sky. The quietest image in
+  // the set, for the quietest page.
+  journal: {
+    accent: 'var(--violet)',
+    titleClass: 'text-display-emphasis',
+    photo: { src: '/images/nepal/na7.jpg', country: 'np', focus: 'center 58%' },
+  },
+  // The Great Himalayan Range from Dhulikhel: snow peaks along the horizon under a
+  // huge clear sky, the valley hazing out below them. The crop is pushed down the
+  // frame because the peaks sit low in the source; the foreground clutter it picks up
+  // lands in the darkest part of the scrim.
   flights: {
-    // reuses the neutral-premium gold treatment (same tier as 'plan') —
-    // Flights has no country identity of its own, so a distinct wash isn't warranted.
-    titleGradient: 'text-display-emphasis',
+    accent: 'var(--mint)',
+    titleClass: 'text-display-emphasis',
+    photo: { src: '/images/nepal/na19.jpg', country: 'np', focus: 'center 74%' },
+  },
+  // TIER 3 — /plan and /more. No photography, by rule. Unchanged.
+  plan: {
+    accent: 'hsl(var(--accent-scroll))',
+    titleClass: 'text-display-emphasis',
     wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.12) 0%, transparent 55%)',
   },
 };
@@ -95,46 +172,69 @@ export default function PageHero({
   as = 'h1',
   className = '',
 }: PageHeroProps) {
-  const { titleGradient, wash } = VARIANTS[variant];
+  const { accent, titleClass, photo, wash } = VARIANTS[variant];
   const Heading = as;
 
+  const copy = (
+    <>
+      {eyebrow && (
+        <p className="text-eyebrow uppercase mb-3" style={{ color: accent }}>
+          {eyebrow}
+        </p>
+      )}
+      <Heading className={`font-display text-display-lg ${titleClass}`}>{title}</Heading>
+      {subtitle && (
+        <p className={`mt-3 max-w-2xl text-base leading-relaxed ${photo ? 'text-ink-mid' : 'text-muted-foreground'}`}>
+          {subtitle}
+        </p>
+      )}
+    </>
+  );
+
+  // ---- Tier 3: the glass panel, exactly as it was ----
+  if (!photo) {
+    return (
+      <header className={`px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10 ${className}`}>
+        <div className="glass-panel animate-reveal-up relative overflow-hidden mx-auto max-w-[1200px] px-6 py-8 sm:px-10 sm:py-12">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0"
+            style={{ background: wash }}
+          />
+          <div className="relative">{copy}</div>
+        </div>
+      </header>
+    );
+  }
+
+  // ---- Tier 2: the photographic band ----
+  // The band starts at the top of the document and runs UNDER the fixed 64px navbar,
+  // which is the point of a full-bleed header. The body's 92px top padding is what
+  // clears the navbar, and it is also what holds every text pixel below the local
+  // scrim floor's 68px stop — one number doing both jobs, so neither can drift.
+  //
+  // No `fallback` is passed to OptimizedImage deliberately: if the raster ever fails,
+  // the duotone layers collapse onto the page field and the band degrades to a flat
+  // dark masthead — darker than the graded worst case the harness measures, because
+  // the thing that made that case worst was the highlight cap the photo supplied. A
+  // fallback graphic would be a second design to maintain for a case that already
+  // lands somewhere more legible than the one that is measured.
   return (
     <header
-      className={`px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10 ${className}`}
+      data-tier="2-header"
+      data-country={photo.country}
+      className={`photo-header ${className}`}
+      style={{ ['--photo-focus']: photo.focus } as CSSProperties}
     >
-      <div
-        className="glass-panel animate-reveal-up relative overflow-hidden mx-auto max-w-[1200px] px-6 py-8 sm:px-10 sm:py-12"
-      >
-        {/* Decorative brand wash — a tint layered over the glass fill. Absolutely
-            positioned + pointer-events-none, adds no layout box (0-overflow safe). */}
-        <span
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0"
-          style={{ background: wash }}
-        />
+      <div className="photo-header__media" aria-hidden="true">
+        <OptimizedImage src={photo.src} alt="" fill sizes="100vw" priority />
+        <span className="photo-header__duo-lo" />
+        <span className="photo-header__duo-hi" />
+        <span className="photo-header__scrim" />
+      </div>
 
-        <div className="relative">
-          {eyebrow && (
-            <p
-              className="text-eyebrow uppercase mb-3"
-              style={{ color: 'hsl(var(--accent-scroll))' }}
-            >
-              {eyebrow}
-            </p>
-          )}
-
-          <Heading
-            className={`font-display text-display-lg ${titleGradient}`}
-          >
-            {title}
-          </Heading>
-
-          {subtitle && (
-            <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-              {subtitle}
-            </p>
-          )}
-        </div>
+      <div className="photo-header__body">
+        <div className="animate-reveal-up mx-auto w-full max-w-[1200px] px-gutter">{copy}</div>
       </div>
     </header>
   );

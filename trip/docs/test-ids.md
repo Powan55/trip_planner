@@ -1106,3 +1106,20 @@ Deleted here: `settings-sync-enter-input` / `settings-sync-enter-submit` (the Se
 "Enter a code" form; entering a User Token is logging in, so the front door owns it, and
 switching accounts means sign out then log in). `settings-sync-*` and `settings-group-sync` keep
 their ids (the group is now titled "Your User Token").
+
+## Issue #3: `data-tier` marker, `components/page-hero.tsx` (routes: `/guides`, `/nepal`, `/japan`, `/map`, `/journal`, `/flights`)
+
+Not a `data-testid` but a containment marker, the same idiom as `data-scroll-driven`
+above. Those six routes get exactly one loud surface — the full-bleed photographic page
+header — and are calm everywhere below it. The attribute is what makes that checkable
+without judgement, because it names the subtree the allowance applies to instead of
+leaving it to a reviewer's eye.
+
+| attribute | element | notes |
+|---|---|---|
+| `data-tier="2-header"` | the `<header class="photo-header">` each of those six routes opens with | Exactly one per route. Duotone photography, the two scrim ramps, the country gradient and the route's accent are legal INSIDE this element; the same tokens anywhere else on the route are a defect. A route in that list with no such element has no allowance at all. `/plan` and `/more` render the same component's calm glass-panel branch, which carries no `data-tier` — so the attribute's absence is meaningful too. |
+| `data-country="np"` \| `"jp"` | the same `<header>` | Selects the duotone pair (`--duo-np-*` / `--duo-jp-*`) the grade uses. It follows the PHOTOGRAPH's country, not the route's: `/map`'s header photo is Shibuya, so `/map` is `jp` even though the route has no country of its own. |
+
+There is deliberately no `data-testid` here. `header[data-tier="2-header"]` is already a
+stable, meaningful selector, and the existing visual baselines locate the masthead as
+`page.locator('header').first()`, which is unchanged.

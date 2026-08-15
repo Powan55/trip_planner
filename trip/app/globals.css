@@ -298,6 +298,16 @@
     --duo-jp-shadow: #190E2C;
     --duo-jp-high: #EFC6D6;    /* JAPAN brightness CAP */
     --scrim-ink: #0A0714;      /* every scrim ramps toward this */
+    /* The SAME colour in space-separated channels, because a scrim is nothing but
+       this ink at a series of alphas and `rgb(var(--x) / a)` is the only wrapper that
+       resolves one. Declared rather than hardcoded into each gradient stop: a literal
+       rgb(10 7 20 / .52) is the "hardcoded copy of a token that can silently drift"
+       defect this file already documents twice. `rgb(from var(--scrim-ink) r g b / a)`
+       would express it from the hex directly, and is NOT used: if that syntax is ever
+       unsupported the whole gradient declaration is dropped, which fails to NO SCRIM
+       AT ALL — text over an ungraded photograph. Two forms of one value beats a
+       failure mode that removes the legibility layer. */
+    --scrim-ink-rgb: 10 7 20;
 
     /* ---- Passport page (D-294) ----
        ALSO NO CONSUMERS YET, and also deliberate. F-4, recorded against D-294: the
@@ -683,6 +693,161 @@ html {
   box-shadow:
     inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
     var(--shadow-lg);
+}
+
+/* ---- The Tier-2 photographic page header (issue #3) -------------------------------
+   The ONE photographic surface a Tier-2 route is allowed: /guides, /nepal, /japan,
+   /map, /journal, /flights. Below the band every one of those routes is Tier 3 again,
+   which is why this recipe is scoped to `.photo-header` and its own children and
+   leaks nothing downward. The wrapper also carries `data-tier="2-header"` so the
+   containment rule is greppable — the loud tokens are permitted INSIDE that subtree
+   and nowhere else on the route.
+
+   This is the first consumer of the --duo-*/--scrim-ink photo engine declared at the
+   top of this file. The engine's whole point is that the `mix-blend-mode: darken`
+   layer CAPS every channel of every pixel at --duo-*-high, so the brightest pixel a
+   scrim can ever sit on is a number rather than a guess, and text over a photograph
+   is measurable. scripts/contrast-tokens.mjs models both ramps below and asserts
+   every text/accent pairing this header can produce; it must be edited with them.
+
+   TWO RAMPS, AND THE SECOND ONE IS THE GUARANTEE. Bottom alignment is the ruled
+   legibility mechanism for the full-bleed surfaces whose heights are pinned — but a
+   Tier-2 header's height is per-route, so alignment alone would be a layout hope.
+   The text block therefore carries its OWN local scrim, in px, sized so that every
+   text pixel lands at floor alpha >= .62 whatever the band does. Measured worst case
+   behind any text pixel: white 12.96:1 (NP) / 13.31:1 (JP); the tightest pairing in
+   the whole header is --text-lo at 4.99 / 5.13.
+
+   NO GRAIN LAYER, deliberately, and it is not an omission: the ruled stack ends with
+   an feTurbulence tile at opacity .06 / mix-blend-mode:overlay, which over a dark base
+   LIGHTENS every channel and costs a real ~0.4-0.6 ratio points. The tiles were
+   deleted from this file with the aurora and the note above says not to re-add them.
+   The harness applies the grain multiplier to these composites ANYWAY, so the numbers
+   quoted above are the ones that hold if a later slice does add it back.
+
+   NO AMBIENT MOTION either — no Ken Burns, no parallax, no zoom. Tier 2 forbids
+   looping motion including in the header, so there is nothing here for
+   prefers-reduced-motion to switch off. The only animation on the surface is the
+   one-shot .animate-reveal-up entrance on the text block, which already rests at its
+   visible end-state and is collapsed by the reduced-motion block at the end of this
+   file. */
+.photo-header {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* BOTTOM-ALIGNED. This is a legibility mechanism, not a layout preference: it puts
+     the content in the dark end of the band. Do not centre this content. */
+  justify-content: flex-end;
+  min-height: clamp(300px, 40svh, 380px);
+  /* Full-bleed touches the viewport edge, so there is nothing to round. */
+  border-radius: 0;
+}
+
+@media (min-width: 900px) {
+  .photo-header {
+    min-height: clamp(360px, 46svh, 460px);
+  }
+}
+
+.photo-header__media {
+  position: absolute;
+  inset: 0;
+  /* the stacking context that keeps the two blend modes from reaching the page */
+  isolation: isolate;
+}
+
+/* Applies to both <img>s OptimizedImage renders. The LQIP backdrop keeps its own
+   inline `filter: blur(12px)` (an inline style outranks this rule), so only the
+   decoded raster takes the grade — which is the right way round: the placeholder is
+   a 20px-wide smudge under a scrim for one frame, and fighting it would mean editing
+   the shared image component for a header.
+   --photo-focus is the per-route crop knob, set on the <header>. These are real
+   photographs of real places, the subject is in a different part of the frame in every
+   one of them, and a full-bleed band is a far wider crop than any of the sources. */
+.photo-header__media img {
+  object-fit: cover;
+  object-position: var(--photo-focus, center);
+  filter: grayscale(1) contrast(1.16) brightness(.92);
+}
+
+.photo-header__media > span {
+  position: absolute;
+  inset: 0;
+}
+
+/* The duotone pair. `lighten` lifts the shadows to the country's warm/violet floor;
+   `darken` clamps the highlights at the cap, which is the layer the whole measurement
+   rests on. Country is switched by data-country on the wrapper, never by a class the
+   caller composes, so a route cannot half-apply the grade. */
+[data-country='np'] .photo-header__duo-lo { background: var(--duo-np-shadow); }
+[data-country='np'] .photo-header__duo-hi { background: var(--duo-np-high); }
+[data-country='jp'] .photo-header__duo-lo { background: var(--duo-jp-shadow); }
+[data-country='jp'] .photo-header__duo-hi { background: var(--duo-jp-high); }
+.photo-header__duo-lo { mix-blend-mode: lighten; }
+.photo-header__duo-hi { mix-blend-mode: darken; }
+
+/* Ramp 1 — the band, plus the strip the app's own chrome sits in.
+
+   THE NAVBAR IS TEXT OVER THIS PHOTOGRAPH, and that is the part a header change is
+   most likely to miss. The bar is `fixed` and `bg-transparent` until you scroll, so a
+   full-bleed band puts the brand, the primary links and the MapPin glyph on top of a
+   graded photo on six routes at once. Measured on the band ramp alone (.52 at the top
+   edge) they came out at white/70 = 3.25:1 and --text-lo = 1.84:1 — both well under.
+   Hence the FIRST layer: a short top scrim held flat across the bar's own 64px and
+   released by 150px, which takes the strip to the same >= .8176 composite the text
+   block gets. There: white 12.96 / 13.31, the links' white/70 7.24 / 7.39, and
+   --text-lo (the brand separator and the pin glyph) 4.99 / 5.13. It only ever darkens,
+   so every number measured for the header's own text stays a lower bound.
+
+   The band ramp's own MINIMUM is .52, already above the ruled body-text floor over
+   either grade, so no text in the band is under-scrimmed even before the local floor.
+   It ends on the opaque page field so the band melts into the page rather than
+   stopping at an edge.
+
+   The ruled chroma radials are deliberately NOT here: the duotone shadow token already
+   carries the country hue, and a radial of --np-a/--jp-a over the scrim RAISES the red
+   channel, which would put a lightening layer above the thing being measured for the
+   sake of a tint the grade already supplies. */
+.photo-header__scrim {
+  background:
+    linear-gradient(
+      180deg,
+      rgb(var(--scrim-ink-rgb) / 0.62) 0,
+      rgb(var(--scrim-ink-rgb) / 0.62) 68px,
+      rgb(var(--scrim-ink-rgb) / 0) 150px
+    ),
+    linear-gradient(
+      180deg,
+      rgb(var(--scrim-ink-rgb) / 0.52) 0%,
+      rgb(var(--scrim-ink-rgb) / 0.56) 30%,
+      rgb(var(--scrim-ink-rgb) / 0.86) 72%,
+      rgb(var(--scrim-ink-rgb) / 0.94) 90%,
+      hsl(var(--background)) 100%
+    );
+}
+
+/* Ramp 2 — the local floor, and the reason the guarantee survives a per-route height.
+   THE PX ARE LOAD-BEARING: padding-top is 92px and the ramp is fully up at 68px, so
+   the first text pixel can only ever land in the >= .62 region. Moving either number
+   moves the worst case the harness measures. */
+.photo-header__body {
+  position: relative;
+  padding-top: 92px;
+  padding-bottom: 34px;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--scrim-ink-rgb) / 0) 0,
+    rgb(var(--scrim-ink-rgb) / 0.62) 68px,
+    rgb(var(--scrim-ink-rgb) / 0.78) 100%
+  );
+}
+
+@media (min-width: 900px) {
+  .photo-header__body {
+    padding-top: 108px;
+    padding-bottom: 52px;
+  }
 }
 
 /* CONSIDERED DELETING THIS BLOCK AND REJECTED IT (deliberate ruling). The plan
