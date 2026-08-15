@@ -404,13 +404,26 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         // Matched on `.name` WITHOUT an `instanceof Error` guard on purpose: whether a DOMException
         // subclasses Error varies by implementation (jsdom's does not), and this must not depend on
         // that — `.name === 'TimeoutError'` is the part the spec actually pins.
-        const timedOut = (err as { name?: unknown } | null)?.name === 'TimeoutError';
+        const errName = (err as { name?: unknown } | null)?.name;
+        const timedOut = errName === 'TimeoutError';
+        // #13 — a network-level `fetch` rejection is a TypeError carrying the browser's own
+        // "Failed to fetch", which is useless to a traveler and was reaching them verbatim through
+        // the `err.message` pass-through below. The `!online` guard above catches only the case the
+        // browser admits to; this one is reachable while nominally ONLINE — captive portal (the
+        // hotel wifi you just joined), DNS failure, connection reset, the Worker's host unresolvable
+        // — which on foreign mobile data is common, not exotic. Matched on `.name` for exactly the
+        // reason spelled out for TimeoutError above, and it cannot swallow a real Worker error: the
+        // non-200 branch throws a plain `new Error(reason)`, whose name is 'Error', so it keeps the
+        // Worker's own text.
+        const unreachable = errName === 'TypeError';
         setError(
           timedOut
             ? 'The concierge took too long to respond. Try again.'
-            : err instanceof Error
-              ? err.message
-              : 'Concierge is unavailable.',
+            : unreachable
+              ? 'Couldn’t reach the concierge. Check your connection and try again.'
+              : err instanceof Error
+                ? err.message
+                : 'Concierge is unavailable.',
         );
         // Drop the empty in-flight assistant bubble so the error state doesn't leave a blank turn.
         setMessages((prev) => prev.slice(0, -1));
