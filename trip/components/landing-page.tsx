@@ -194,8 +194,17 @@ const STEPS = [
  * non-sighted visitor gets strictly more.
  *
  * When re-shooting: RE-READ these three strings against the new pixels. They describe specific
- * on-screen content and nothing automated can tell you when they have gone stale. Issue #25 did not
- * re-shoot them, so they are unchanged and still describe the pixels that are there.
+ * on-screen content and nothing automated can tell you when they have gone stale.
+ *
+ * Issue #34 re-shot all three and read them back against the result. Two were wrong, in the two
+ * different ways this rot happens:
+ *   · shot 2's alt said "costs in yen and rupees" while every row in frame was yen. The list does
+ *     hold both, so the sentence was true of the FEATURE and false of the PICTURE — and the alt's
+ *     job, per the rule above, is the picture.
+ *   · shot 3's caption said "offline trip map". D-271/D-274 retired that: the installed PWA does
+ *     not carry the map engine, and the basemap was never in it at all. The app had stopped doing
+ *     the thing the landing page was still promising.
+ * Shot 1 was accurate and is unchanged.
  */
 const SHOTS = [
   {
@@ -208,13 +217,13 @@ const SHOTS = [
     id: 'landing-shot-2',
     src: '/images/landing/shot-2-expenses.png',
     caption: 'The shared expense list, splitting a dinner in Tokyo.',
-    alt: 'A phone screen: the Expenses tab listing costs in yen and rupees, each row carrying a category tag, who logged it, and a “split 3” marker where the bill was shared.',
+    alt: 'A phone screen: the Expenses tab listing costs in yen, each row carrying a category tag, a note of what it was for, who logged it, and a “split 3” marker where the bill was shared.',
   },
   {
     id: 'landing-shot-3',
     src: '/images/landing/shot-3-map.png',
-    caption: 'The offline trip map with saved places pinned.',
-    alt: 'A phone screen: the trip map over Kathmandu, with the day’s numbered stops joined by a dashed route and coloured pins for places to see, eat and stay.',
+    caption: 'The trip map, showing one day’s stops in the order you planned them.',
+    alt: 'A phone screen: the trip map over Kathmandu with Day 1 selected, its stops numbered along a dashed route, and coloured pins for places to see, eat and stay.',
   },
 ] as const;
 

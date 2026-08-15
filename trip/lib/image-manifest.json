@@ -922,7 +922,7 @@
   "/images/landing/shot-1-day-planner.png": {
     "webp": "/images/landing/shot-1-day-planner.webp",
     "avif": "/images/landing/shot-1-day-planner.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRq4AAABXRUJQVlA4IKIAAADQBQCdASoUACsAPu1mp02ppaOiMBVdUTAdiUAYYyuQH6xwd7Dkc8uyeuaZboBaEnOJpOk4pncAAP7syJhFTeAndoRjTUN7pJOKD/XStBxnJwhkQFG57gaJ1Z049YHA7LbiviUCiRxsWq2+lZUWdPvZG28HmLIajQ8/92jGMbXQ4SGIAsSLAiM0JZhJDwe/o/By+m5LFaFbsV5vbtgmiDAAAAA=",
+    "blurDataURL": "data:image/webp;base64,UklGRrIAAABXRUJQVlA4IKYAAAAwBQCdASoUACsAPu1ipk6ppSMiMBVdUTAdiUAY/IFm5yCewIs414fNE3KE4H/eS5HjAAD+7MiYRU5VjPrg6tez04XQgOubJjS3Zg5OFLWU10jajsAXSOFb+rOinfjLWnpztYvveSJ1289OwEcR63jbmf9BP6M1KdzHB5vvnOBH90fYKX+Z16LEeE99Uq9FNAgVa4M8ZHmpZKpV+nWfu2C7MSKwAAAA",
     "width": 390,
     "height": 844,
     "variants": [
@@ -936,7 +936,7 @@
   "/images/landing/shot-2-expenses.png": {
     "webp": "/images/landing/shot-2-expenses.webp",
     "avif": "/images/landing/shot-2-expenses.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRrwAAABXRUJQVlA4ILAAAACwBQCdASoUACsAPu1uqFCppqOiqrgMATAdiWMA0JAL693rNiDWKE/03vvlNkQbrCxGB1YBlgAA/u9c0SH6ZVGVxPTzqrjUJ93SjZa02yXhu5InM/2T1dhz4jzxNSVLKSmQIyilTJ5vEDHG3453jN7ljU0Qn9MyjNIqCz6HB1YIRGVn6JcjlEC7oldO6skWnI4we6Qvk/UrdVDs9QPP/kndFc32OJBnNElC/M5MtAAAAA==",
+    "blurDataURL": "data:image/webp;base64,UklGRsQAAABXRUJQVlA4ILgAAACQBQCdASoUACsAPu1yrVGppyQiqrgIATAdiWMAzYQL7onjU+zCnL7PKf4sUr/a5fMDYI+uwAD+7NIiY+Xjnk2y+71sCH1NT0r+Nmm8pOdktQVAo6kXulVeHN139Sjfa12Me8wnGb0rgbiltRnKEyc5b4c2/g4cG5+qV07+oD7x0uvONf+eIRnnTSMl8EXH3emKRbvPGX1Y4KvFjOLEK2+NUvNBH0FKbcPHtB7UdazqW4emkCppGAAA",
     "width": 390,
     "height": 844,
     "variants": [
@@ -950,7 +950,7 @@
   "/images/landing/shot-3-map.png": {
     "webp": "/images/landing/shot-3-map.webp",
     "avif": "/images/landing/shot-3-map.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRsQAAABXRUJQVlA4ILgAAAAQBQCdASoUACsAPuFko02opiMiNVv4ARAcCWVkP+aHBAGHr+UkHgh8gs/ZMbEvMawAAP7wtR1+kbxFRtSel6HaQ39yDiQ83G1MrJKtRdSQNy3B9ViJz6hOwSOhtMY6h29hUypA7UArhqIciZM+CJaAl9aoPLPQoe+oROwVCknLP7kT0zHQ8dBp20fIgSxmbOtes8gxX7sQiSQcZTzAY+d/rmtMLM5Azu7IbxCnD1iGaxk8XlviBMAA",
+    "blurDataURL": "data:image/webp;base64,UklGRsIAAABXRUJQVlA4ILYAAAAwBQCdASoUACsAPt1YoE2opSMiNVv8ARAbiWUAA+WiK/+nK3E1gavXBfW/E+NV9fdAAAD+71yggXYIIpl4xh61qgrCixNZ0BroikfIPas6pS+EI10y3P8iQeSFUCYxrFBLzlcjnTD1HqiYZh64jwWEiRWy7gmyelK07EuSHTBZJFXaj7g0UhCt9WmliqTGz5Dlnk13FEFDP9qAkfA5qNNrqFYY+EsS5ZnuN8n4IyFeaGdCAOCgAA==",
     "width": 390,
     "height": 844,
     "variants": [
