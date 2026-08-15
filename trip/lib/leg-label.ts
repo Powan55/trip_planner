@@ -101,3 +101,19 @@ export function dayPlaceLabel(day: {
 export function placeLabelForDate(dateStr: string): string {
   return compose(getCityForDate(dateStr), dayLabel(dateStr, getCountryForDate(dateStr)));
 }
+
+/**
+ * The country label for a trip DATE on its own, uncomposed — `'USA'` on Dec 9 (the authored
+ * departure-day label, D-315), `'Nepal'`, `'Japan'`, and `''` on a single-leg custom trip whose
+ * label would say nothing (composition rule 2).
+ *
+ * Added for issue #30, which records a country into the lifetime visit set and therefore needs the
+ * LABEL rather than the leg id — and needs this module's rules, not a second copy of them. Reading
+ * `legForDate(...).countryLabel` directly is exactly the "New York, Nepal" bug this file exists to
+ * prevent, except written into permanent storage instead of onto a header. `''` is a legitimate
+ * answer and callers must handle it: `addVisit` drops a blank half, so a custom trip records the
+ * city with no country, which is honest.
+ */
+export function countryLabelForDate(dateStr: string): string {
+  return dayLabel(dateStr, getCountryForDate(dateStr));
+}

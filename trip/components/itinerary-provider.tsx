@@ -25,10 +25,11 @@ import PresenceBar from '@/components/presence-bar';
 import FirstRunTour from '@/components/first-run-tour';
 import dynamic from 'next/dynamic';
 
-// the relaunch bounce + arrival toast (combined in TravelModeMounts) ride ONE
-// `dynamic(ssr:false)` to stay OUT of the app-wide First Load chunk — the route
-// budgets sit AT the 106/107 kB line. Both are non-blocking (a boot-once null-render bounce and a
-// deferred suggestion), so a post-hydration mount is exactly right; no loading placeholder needed.
+// the relaunch bounce + arrival toast + #30's visit autocount (combined in TravelModeMounts) ride
+// ONE `dynamic(ssr:false)` to stay OUT of the app-wide First Load chunk — the route
+// budgets sit AT the 106/107 kB line. All three are non-blocking (two boot-once null-render islands
+// and a deferred suggestion), so a post-hydration mount is exactly right; no loading placeholder
+// needed. Add a fourth island to that file rather than a second `dynamic()` here.
 const TravelModeMounts = dynamic(() => import('@/components/travel-mode-mounts'), { ssr: false });
 
 /**
@@ -715,8 +716,9 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
           progress bar. */}
       <FirstRunTour />
       {/* PWA-relaunch re-enter (behavioral, renders null) + the on-trip arrival
-          auto-suggest toast, behind one lazy boundary. Siblings of the tour so they ride every
-          route behind the gate; both are guest-blocked and self-suppress on /travel. */}
+          auto-suggest toast + #30's visit autocount (behavioral, renders null), behind one lazy
+          boundary. Siblings of the tour so they ride every route behind the gate; all three are
+          guest-blocked, and the first two self-suppress on /travel. */}
       <TravelModeMounts />
       {/* Active-traveler presence bar. Renders nothing — and pulls no
           firebase — when dormant or guest (usePresence short-circuits on the same gate as

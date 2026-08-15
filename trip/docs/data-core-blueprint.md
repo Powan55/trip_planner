@@ -61,13 +61,16 @@ What the sweep found:
 
 The table above is a 2026-07-05 snapshot and is not maintained. **The live storage-key registry is the `STORAGE_KEYS` object in `core/storage/gateway.ts`**, which is also the only place a persisted key literal may be declared (D-097). Read it there; nothing is re-tabulated here.
 
-One key is recorded in this document anyway, because its *scope* is a fact about the data model rather than a detail of the registry:
+Two keys are recorded in this document anyway, because their *scope* is a fact about the data model rather than a detail of the registry — and because the second one carries a privacy contract that lives in its shape:
 
 | Key literal | Store | Value shape | Scope | Owner |
 |---|---|---|---|---|
 | `tripPlannerLifetimeVisits` | localStorage | `{ cities: string[]; countries: string[] }` JSON — unique, insertion-ordered | **lifetime** | `core/places/visited.ts` (shape + policy); `STORAGE_KEYS.lifetimeVisits` (key string) |
+| `tripPlannerVisitConfirmations` | localStorage | `{ checkedOn: string \| null; confirmed: { city, country, at }[] }` JSON — one entry per confirmed city, first confirmation kept | **lifetime** | `core/places/visited.ts` (shape + policy); `STORAGE_KEYS.visitConfirmations` (key string) |
 
-Every other key is either trip-scoped (namespaced by `keyFor`, cleared by `wipeAllTripData()`) or app-scoped (a device/account fact, most of which the same teardown also clears). This one is neither: it is the lifetime record of where the person has been, it belongs to no trip, and it is deliberately outside both the trip namespace and the teardown, so clearing a trip or signing out never erases it. It must never be added to `TripScopedSlot`/`TRIP_SCOPED_SLOTS` or to the removals in `wipeAllTripData()`. See **D-314**, and `lib/__tests__/visited-lifetime.test.ts`, which runs the real wipe and asserts the set survives it.
+Every other key is either trip-scoped (namespaced by `keyFor`, cleared by `wipeAllTripData()`) or app-scoped (a device/account fact, most of which the same teardown also clears). These two are neither: they are the lifetime record of where the person has been, they belong to no trip, and they sit deliberately outside both the trip namespace and the teardown, so clearing a trip or signing out never erases them. Neither may ever be added to `TripScopedSlot`/`TRIP_SCOPED_SLOTS` or to the removals in `wipeAllTripData()`. See **D-314**, and `lib/__tests__/visited-lifetime.test.ts`, which runs the real wipe and asserts the set survives it.
+
+`tripPlannerVisitConfirmations` (key 34, issue #30) is the GPS-confirmation half: which of those visits a one-shot location check confirmed, and when. **Its shape is a privacy contract, not a convenience — this is the one key in the app that holds anything derived from a device position, and it has nowhere to put a coordinate.** No latitude, no longitude, no accuracy, no altitude, no heading, no speed, no raw `GeolocationPosition` field of any kind. The fix is matched in memory (`lib/visit-autocount.ts`) against `lib/city-coords.ts` and discarded; only the resolved city name survives the call stack. `checkedOn` is the trip-clock day the check last RAN, whatever came back, which is what makes it one-shot-per-day rather than once-per-page-load. See **D-320**, which amends D-158's "nothing persisted" to "nothing coordinate-shaped persisted" and states the five boundaries, and `lib/__tests__/visit-autocount.test.ts`, which asserts the fix's own coordinates appear nowhere on disk.
 
 ---
 
