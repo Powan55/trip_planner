@@ -187,8 +187,8 @@ export const TRIP_ITINERARY: DayPlan[] = [
     city: 'Osaka',
     country: 'japan',
     items: [
-      { id: 'j3-1', title: 'Universal Studios Japan — Super Nintendo World', category: 'sightseeing', time: '09:00', duration: '8h', notes: 'A full day at USJ; prioritize Super Nintendo World and an Express Pass if available — check current anime/game collaborations closer to the date', location: 'Universal Studios Japan, Konohana, Osaka', sourceId: 'ja28' },
-      { id: 'j3-2', title: 'Lunch inside the park', category: 'food', time: '13:00', duration: '1h', notes: 'Quick refuel between rides', location: 'Universal Studios Japan, Osaka' },
+      { id: 'j3-1', title: 'Universal Studios Japan — Super Nintendo World', category: 'sightseeing', time: '09:00', duration: '4h', notes: 'The morning half of a full USJ day, up to the lunch break; prioritize Super Nintendo World and an Express Pass if available — check current anime/game collaborations closer to the date', location: 'Universal Studios Japan, Konohana, Osaka', sourceId: 'ja28' },
+      { id: 'j3-2', title: 'Lunch inside the park, then the afternoon rides', category: 'food', time: '13:00', duration: '4h', notes: 'Quick refuel between rides, then back in for the afternoon half of the park day — out around 5pm', location: 'Universal Studios Japan, Osaka' },
       { id: 'j3-3', title: 'Dinner near Namba', category: 'food', time: '19:00', duration: '1.5h', notes: 'Recover from a long theme-park day before a lighter night', location: 'Namba, Osaka' },
       { id: 'j3-4', title: 'Lighter Namba night', category: 'nightlife', time: '21:00', duration: '2h', notes: 'A lower-key night after USJ — late food and a couple of easy bars in Namba, or swap in a Big Echo/Karaoke Kan karaoke box for a lower-output alternative. Last train ~00:00, first ~05:00 — taxi or stay out till first train.', location: 'Namba, Osaka' },
     ],
@@ -209,7 +209,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
     city: 'Osaka',
     country: 'japan',
     items: [
-      { id: 'j5-1', title: 'Shinsekai & Spa World flex day', category: 'sightseeing', time: '10:30', duration: '4h', notes: 'The retro Shinsekai district under Tsutenkaku Tower for kushikatsu and old-Osaka atmosphere, then an afternoon soak at the Spa World bathhouse complex — a relaxed recovery day before the last Osaka night', location: 'Shinsekai, Osaka' },
+      { id: 'j5-1', title: 'Shinsekai & Spa World flex day', category: 'sightseeing', time: '10:30', duration: '2.5h', notes: 'The retro Shinsekai district under Tsutenkaku Tower and its old-Osaka atmosphere, up to the kushikatsu lunch at 1pm; the Spa World bathhouse soak then fills the open afternoon after it — a relaxed recovery day before the last Osaka night', location: 'Shinsekai, Osaka' },
       { id: 'j5-2', title: 'Lunch — kushikatsu in Shinsekai', category: 'food', time: '13:00', duration: '1h', notes: "Deep-fried skewers, Osaka's other signature street food; the rule is no double-dipping the sauce", location: 'Shinsekai, Osaka' },
       { id: 'j5-3', title: 'Dinner before the final Osaka night', category: 'food', time: '18:30', duration: '1.5h', notes: 'Fuel up before the biggest party night of the Osaka leg', location: 'Namba, Osaka' },
       { id: 'j5-4', title: 'Biggest Osaka party night', category: 'nightlife', time: '21:30', duration: '3.5h', notes: "The final and biggest Osaka night out — try GHOST Ultra Lounge or Club Bambi across Shinsaibashi, Amerikamura and Namba before the move to Kyoto (verify hours/cover before going); pace the group for tomorrow's checkout. One more round of Kinryu Ramen Dotonbori (24h) before calling it. Last train ~00:00, first ~05:00 — taxi or stay out till first train.", location: 'Shinsaibashi/Amerikamura/Namba, Osaka' },
@@ -305,8 +305,8 @@ export const TRIP_ITINERARY: DayPlan[] = [
     items: [
       { id: 'j13-1', title: 'Late brunch & easy shopping', category: 'free', time: '11:00', duration: '2h', notes: 'Keep the daytime light — rest up for the big night ahead', location: 'Shinjuku, Tokyo' },
       { id: 'j13-2', title: 'Pre-game dinner', category: 'food', time: '18:00', duration: '1.5h', notes: 'A relaxed dinner in Shinjuku or Shibuya before the countdown', location: 'Shinjuku/Shibuya, Tokyo' },
-      { id: 'j13-3', title: "New Year's Eve club/event", category: 'nightlife', time: '21:30', duration: '4h', notes: "Shibuya's street countdown is fenced off/cancelled — do not plan on it. Book ahead instead: Club Camelot NYE (hip-hop/R&B — best vibe match) or WOMB New Year's Countdown to 2027 (Dec 31 2026, ¥6,500 online / ¥8,000 door, ~22:00-04:30 — bigger, techno/house); tickets typically go on sale ~Nov, so grab them the week they drop. Free backup: the Shinjuku Tokyo Met-Gov building's official countdown. Verify lineups/tickets before relying on any of these.", location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
-      { id: 'j13-4', title: 'New Year countdown', category: 'nightlife', time: '23:45', duration: '1h', notes: "See in 2027 with the club/event crowd; trains run all night on New Year's Eve", location: 'Tokyo' },
+      { id: 'j13-3', title: "New Year's Eve club/event", category: 'nightlife', time: '21:30', duration: '2h 15m', notes: "Shibuya's street countdown is fenced off/cancelled — do not plan on it. Book ahead instead: Club Camelot NYE (hip-hop/R&B — best vibe match) or WOMB New Year's Countdown to 2027 (Dec 31 2026, ¥6,500 online / ¥8,000 door, ~22:00-04:30 — bigger, techno/house); tickets typically go on sale ~Nov, so grab them the week they drop. Free backup: the Shinjuku Tokyo Met-Gov building's official countdown. Verify lineups/tickets before relying on any of these.", location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
+      { id: 'j13-4', title: 'New Year countdown', category: 'nightlife', time: '23:45', duration: '1h 45m', notes: "See in 2027 with the club/event crowd and stay on the floor after it; trains run all night on New Year's Eve", location: 'Tokyo' },
     ],
   },
   {
