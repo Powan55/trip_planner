@@ -387,6 +387,78 @@ test.describe('S380 · a day-order row is a real control that flies the map (INT
   });
 });
 
+/**
+ * Issue #1 — picking a day shows THAT day and nothing else.
+ *
+ * The route is drawn into a WebGL canvas, so `map-shell` carries the seam this asserts
+ * against: `data-route-day` (the date being drawn, empty = whole trip) and
+ * `data-route-stop-ids` (the drawn pins' marker ids, in drawn order). Both are DOM
+ * attributes off the same render as the pins, so there is no camera timing in here.
+ */
+test.describe('issue #1 · the map draws only the selected day', () => {
+  test('whole trip → one day → another day → an empty day clears it', async ({ page }) => {
+    const errors = trackErrors(page);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize(DESKTOP);
+    // The curated seed: Day 1 is three New York plans on one derived pin; Day 2 holds the
+    // first Kathmandu plans, including the two that share np-thamel.
+    await gotoMap(page);
+    const shell = page.getByTestId('map-shell');
+
+    // Overlay on, no day picked → the whole trip, which is what makes the next step a real
+    // filter rather than a coincidence.
+    await page.getByTestId('map-itinerary-toggle').click();
+    await expect(shell).toHaveAttribute('data-route-day', '');
+    await expect(shell).toHaveAttribute('data-route-stop-ids', /np-thamel/);
+
+    // Pick Day 1. Dec 9 is spent at Syracuse/JFK/in the air, so its one pin is derived from
+    // the day's city — and the Kathmandu plans, which this used to keep drawing, are gone.
+    await page.getByTestId(`map-day-target-${DAY1}`).click();
+    await expect(shell).toHaveAttribute('data-route-day', DAY1);
+    await expect(shell).toHaveAttribute('data-route-stop-ids', /^approx-n1-/);
+    expect(await shell.getAttribute('data-route-stop-ids')).not.toContain('np-thamel');
+
+    // Pick Day 2 — the drawn set changes with it.
+    await page.getByTestId(`map-day-target-${DAY2}`).click();
+    await expect(shell).toHaveAttribute('data-route-day', DAY2);
+    await expect(shell).toHaveAttribute('data-route-stop-ids', /np-thamel/);
+    expect(await shell.getAttribute('data-route-stop-ids')).not.toContain('n1-');
+
+    // Deselecting the same chip brings the whole trip back.
+    await page.getByTestId(`map-day-target-${DAY2}`).click();
+    await expect(shell).toHaveAttribute('data-route-day', '');
+    await expect(shell).toHaveAttribute('data-route-stop-ids', /np-thamel/);
+
+    expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('a day with nothing planned clears the map instead of leaving the last day up', async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize(DESKTOP);
+    // ONE planned day in the whole trip, so every other day is genuinely empty.
+    await seedDay(page, DAY1, [{ id: 'i1-boudha', sourceId: BOUDHA_ID, title: BOUDHA_NAME }]);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await gotoMap(page);
+    const shell = page.getByTestId('map-shell');
+
+    // Day 1 draws its one pin — and selecting a day turns the overlay on by itself, since
+    // the pins are the overlay's (a day chip that answered with a blank canvas would not be
+    // an answer).
+    await page.getByTestId(`map-day-target-${DAY1}`).click();
+    await expect(page.getByTestId('map-itinerary-toggle')).toHaveAttribute('aria-pressed', 'true');
+    await expect(shell).toHaveAttribute('data-route-stop-ids', BOUDHA_ID);
+
+    // Day 2 has nothing planned: the route CLEARS. The day is still the selected one, which
+    // is how "empty day" stays distinguishable from "overlay switched off".
+    await page.getByTestId(`map-day-target-${DAY2}`).click();
+    await expect(shell).toHaveAttribute('data-route-day', DAY2);
+    await expect(shell).toHaveAttribute('data-route-stop-ids', '');
+    await expect(page.getByTestId('map-day-order-empty')).toBeVisible();
+  });
+});
+
 test.describe('S224 · axe /map with the assign UI + day-order panel present', () => {
   test('axe: zero serious/critical violations with the day strip + open order panel', async ({ page }, testInfo) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
