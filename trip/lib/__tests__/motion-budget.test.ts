@@ -16,7 +16,7 @@
 //    already uses.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
@@ -297,59 +297,10 @@ describe('the entrance ledger (D-293 rule 7)', () => {
   });
 });
 
-/**
- * Issue #25 — the front door's ambient loop, checked in the CSS rather than in a comment.
- *
- * D-293 R1 gives a Tier-1 surface AT MOST ONE ambient loop and R2 puts the floor for any loop at
- * 6s. The front door spends both on `.door-kb`, the cover's Ken Burns. Two things about it are
- * only true in `app/globals.css`, so they are read from there:
- *
- * 1. It is NEUTRALISED under `prefers-reduced-motion`, BY NAME. The universal `animation-duration:
- *    0.01ms` rule in that block does not stop an infinite animation — it leaves it running one
- *    ultra-fast iteration forever, which is the exact failure the design system's acceptance
- *    checklist probes for with `document.getAnimations()` under reduce. Only the named
- *    `animation: none !important` list stops it, and this is what fails if `.door-kb` is dropped
- *    from that list while the keyframe stays.
- * 2. It runs at `--duration-loop-kb`, not a literal. A hardcoded duration is how a loop drifts
- *    under R2's floor without anyone re-reading the rule.
- *
- * This is a text check on one file, which is a weak instrument on its own — it cannot see a
- * SECOND loop added elsewhere on the surface. It is here because the reduced-motion half is an
- * accessibility acceptance criterion in this repo and its failure is completely silent.
- */
-describe('issue #25 — the front door has exactly one ambient loop, and reduce stops it', () => {
-  // COMMENTS ARE STRIPPED FIRST, and that is not tidiness. Both rules below are prose-heavy in
-  // globals.css and the comment that explains `.door-kb`'s reduced-motion stop sits INSIDE the
-  // reduced-motion block, so a naive text match is satisfied by the explanation of the rule
-  // rather than by the rule. Measured while writing this: the raw match reported `.door-kb`
-  // twice, once from the selector and once from the paragraph above it, and it also picked up
-  // three retired class names that only exist in a comment saying they were deleted.
-  const css = readFileSync(resolve(__dirname, '../../app/globals.css'), 'utf8').replace(
-    /\/\*[\s\S]*?\*\//g,
-    '',
-  );
-
-  it('the cover Ken Burns is declared, infinite, and timed by the loop token', () => {
-    const rule = css.match(/\.door-kb\s*\{[^}]*\}/)?.[0] ?? '';
-    expect(rule, '.door-kb is no longer declared in globals.css').toContain('animation:');
-    expect(rule).toContain('door-kenburns');
-    expect(rule, 'the loop duration must stay --duration-loop-kb, not a literal').toContain(
-      'var(--duration-loop-kb)',
-    );
-    expect(rule).toContain('infinite');
-    // Its resting transform: reduced motion stops the animation, and what is left has to be an
-    // overscanned frame or the crop shows an edge.
-    expect(rule).toMatch(/transform:\s*scale\(1\.0[0-9]\)/);
-  });
-
-  it('reduced motion stops it BY NAME, not via the universal duration collapse', () => {
-    const block = css.match(/@media \(prefers-reduced-motion: reduce\) \{[\s\S]*?\n\}/)?.[0] ?? '';
-    expect(block, 'the reduced-motion block is missing').not.toEqual('');
-    const stopped = block.match(/([^{}]*)\{\s*animation:\s*none\s*!important;\s*\}/g) ?? [];
-    expect(
-      stopped.some((r) => /\.door-kb\b/.test(r)),
-      '.door-kb is not in the reduced-motion `animation: none` list — an INFINITE animation ' +
-        'survives the universal 0.01ms collapse as one endlessly repeating fast iteration',
-    ).toBe(true);
-  });
-});
+// Issue #25's front-door loop (`.door-kb`) is NOT checked here, deliberately. A block that read
+// globals.css for it was written and then deleted when #24's own `scripts/motion-loops.mjs`
+// landed on dev: that audit already parses every `animation` shorthand in the file, resolves a
+// `var()` duration against the declared custom properties, holds it to D-293 R2's 6s floor, and
+// fails any loop whose selector is not named in the reduced-motion `animation: none` list. It
+// covers `.door-kb` generically and it covers the NEXT loop too, which a hand-written text match
+// on one selector never would. Run it with `npm run loop-check`.
