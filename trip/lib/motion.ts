@@ -22,9 +22,12 @@ import { entranceLedger } from '@/core/storage/gateway';
  * 3. `prefers-reduced-motion`, IN ONE PLACE. `prefersReducedMotion()` is the only read in this
  *    module, and `entranceFor()` consults it BEFORE anything else, so a caller cannot forget
  *    it — there is no code path through this module that animates under reduce. This also
- *    replaces the four hand-rolled `matchMedia('(prefers-reduced-motion: reduce)')` copies
- *    that had grown across lib/ and components/ (each a chance to get the query string, the
- *    SSR guard, or the sense of the test subtly wrong exactly once).
+ *    replaces the five hand-rolled `matchMedia('(prefers-reduced-motion: reduce)')` copies
+ *    that had grown across lib/ and components/ — fly-chip, haptics, scroll-to-hash,
+ *    command-palette and trip-map — each a chance to get the query string, the SSR guard,
+ *    or the sense of the test subtly wrong exactly once. Framer's `useReducedMotion()` is
+ *    NOT one of these and stays where it is: inside a React component that needs to
+ *    re-render when the preference changes, the reactive hook is the right tool.
  *
  * What is deliberately NOT here: durations. D-293's numbers (200ms tick, 500ms pop, 900ms
  * ceiling, 6s loop floor, 30s ambient) already exist as the `--duration-*` custom properties

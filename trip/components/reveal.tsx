@@ -83,8 +83,10 @@ import { FADE_FLOOR, entranceFor } from '@/lib/motion';
  * accounts for it. Behaviour under reduce is unchanged — `'present'` renders the
  * exact `initial={{opacity:1}}` fork D-246 landed.
  * - **A Tier-3 route no longer reveals at all.** D-292 forbids scroll-reveal on
- * the working screens; /plan/ and /travel/ carry a `<SectionHeading>`, so their
- * mastheads are now simply present. That is the gate biting, not a regression.
+ * the working screens. Exactly one Tier-3 route reaches a `<Reveal>` today —
+ * /plan/, through `calendar-planner.tsx`'s `<SectionHeading>` — so its masthead
+ * is now simply present. That is the gate biting, not a regression, and it is
+ * the whole behavioural delta of this change.
  * - **The tenth visit in a session is quiet.** A surface already greeted this
  * session renders present, no transition.
  *
