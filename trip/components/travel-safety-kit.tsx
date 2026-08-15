@@ -3,7 +3,7 @@ import type { EmergencyContact, Phrase, ChecklistItem } from '@/core/content/saf
 
 /**
  * TravelSafetyKit — the offline travel-safety reference rendered on `/safety`:
- * emergency & embassy contacts, a romanized Nepali/Japanese phrasebook, and a document
+ * emergency & embassy contacts, a Nepali/Japanese phrasebook, and a document
  * checklist. Pure presentational — no state, no fetch, no persistence. Static
  * markup only (no motion-only affordance), so it is reduced-motion-safe by construction.
  *
@@ -11,7 +11,8 @@ import type { EmergencyContact, Phrase, ChecklistItem } from '@/core/content/saf
  * `h2`, grouped content gets an `h3`; `tel:` links carry an explicit `aria-label` (accessible
  * name) distinct from their visible digit string; every interactive
  * `tel:` link is ≥44px tall; tables get a scroll wrapper so they never force page-level
- * horizontal overflow at narrow widths.
+ * horizontal overflow at narrow widths. #2 adds the native script to every phrase row,
+ * each carrying `lang="ne"` / `lang="ja"` — see `ScriptCell` below.
  */
 export default function TravelSafetyKit() {
   const contactsByCountry = groupBy(EMERGENCY_CONTACTS, (c) => c.country);
@@ -50,7 +51,9 @@ export default function TravelSafetyKit() {
           Phrasebook
         </h2>
         <p className="mt-2 max-w-2xl text-sm text-white/70">
-          {SAFETY_PHRASES.length} essential phrases, romanized (no special characters needed).
+          {SAFETY_PHRASES.length} essential phrases, each in the native script with a romanization
+          you can read aloud. Nothing here needs a connection — if saying it does not land, show
+          someone the script.
         </p>
 
         <div className="mt-6 flex flex-col gap-8">
@@ -59,12 +62,12 @@ export default function TravelSafetyKit() {
               <h3 className="font-display text-base font-semibold text-white/90">{category}</h3>
               <div className="mt-2 overflow-x-auto rounded-xl border border-white/10">
                 <table className="w-full min-w-[480px] border-collapse text-left text-sm">
-                  <caption className="sr-only">{category} phrases — English, Nepali (romanized), Japanese (romanized)</caption>
+                  <caption className="sr-only">{category} phrases — English, Nepali in Devanagari with romanization, Japanese in kana/kanji with romanization</caption>
                   <thead>
                     <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-white/50">
                       <th scope="col" className="px-4 py-2 font-medium">English</th>
-                      <th scope="col" className="px-4 py-2 font-medium">Nepali (romanized)</th>
-                      <th scope="col" className="px-4 py-2 font-medium">Japanese (romanized)</th>
+                      <th scope="col" className="px-4 py-2 font-medium">Nepali</th>
+                      <th scope="col" className="px-4 py-2 font-medium">Japanese</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -126,10 +129,34 @@ function ContactRow({ contact }: { contact: EmergencyContact }) {
 function PhraseRow({ phrase }: { phrase: Phrase }) {
   return (
     <tr data-testid={`safety-phrase-${phrase.id}`} className="border-b border-white/5 last:border-0">
-      <td className="px-4 py-2 text-white/90">{phrase.english}</td>
-      <td className="px-4 py-2 text-white/70">{phrase.nepali}</td>
-      <td className="px-4 py-2 text-white/70">{phrase.japanese}</td>
+      <td className="px-4 py-2 align-top text-white/90">{phrase.english}</td>
+      <ScriptCell lang="ne" script={phrase.nepaliScript} roman={phrase.nepali} />
+      <ScriptCell lang="ja" script={phrase.japaneseScript} roman={phrase.japanese} />
     </tr>
+  );
+}
+
+/**
+ * One phrase cell: the native script on top, the read-aloud romanization beneath it.
+ *
+ * `lang` is LOAD-BEARING (#2 accessibility AC), not decoration. Without it a screen
+ * reader stays in the page's `lang="en"` voice and either spells Devanagari out or skips it;
+ * with it the reader switches to a Nepali/Japanese voice, and the browser resolves each glyph
+ * against that language's OS fallback face. The app ships no webfont covering either script and
+ * deliberately never will — see the OFFLINE FONTS note in `core/content/safety.ts`.
+ *
+ * Two lines in one cell rather than five columns: the table already scrolls horizontally at
+ * `min-w-[480px]` (D-022), and two more columns would make that scroll permanent on a phone.
+ * Both lines sit at ≥ white/70 on the dark field (D-100 / D-235 AA-at-rest floor).
+ */
+function ScriptCell({ lang, script, roman }: { lang: 'ne' | 'ja'; script: string; roman: string }) {
+  return (
+    <td className="px-4 py-2 align-top">
+      <span lang={lang} className="block text-base leading-snug text-white/90">
+        {script}
+      </span>
+      <span className="mt-0.5 block text-xs text-white/70">{roman}</span>
+    </td>
   );
 }
 
