@@ -144,8 +144,8 @@ test.describe('S158b — Home sticky section nav', () => {
     // At rest (top of page) the hero link is current.
     await expect(page.getByTestId('home-section-nav-hero')).toHaveAttribute('aria-current', 'true');
 
-    // S321: the timeline moved off Home, so its nav anchor is gone — track the Essentials
-    // (`#inspiration`) section instead, the last remaining below-the-fold nav target.
+    // S321: the timeline moved off Home, so its nav anchor is gone — track the inspiration
+    // gallery (`#inspiration`) instead, the last remaining below-the-fold nav target.
     await expect(page.locator('#inspiration-heading')).toBeVisible({ timeout: 15_000 });
     await page.locator('#inspiration').scrollIntoViewIfNeeded();
 

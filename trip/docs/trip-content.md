@@ -22,6 +22,7 @@ runbook. `TRIP_CITIES` is **derived** from the itinerary, so you never edit it b
 | nightlife venues                        | `lib/nightlife-data.ts`                     | `validate:content`                   |
 | photo spots                             | `lib/photography-data.ts`                   | `validate:content`                   |
 | featured / foods / etiquette / weather  | `lib/travel-tips-data.ts`                   | `validate:content`                   |
+| Home inspiration gallery                | `lib/inspiration-data.ts`                   | `validate:content` (+ bundled-image check) |
 | flights / stays / to-book               | `lib/booking-data.ts` (verbatim strings, see D-034) | `validate:content`          |
 | emergency numbers / **phrasebook** / document checklist | `core/content/safety.ts`    | its own eager `.parse()` at import + `lib/__tests__/safety-content.test.ts` |
 
@@ -60,6 +61,11 @@ worth knowing before you add a row:
 - Every itinerary **city is weather-known** (`isKnownWeatherCity`).
 - Every **guide/photo category** appears in its filter list (a typo'd category would otherwise
   make the card silently vanish from the filters).
+- Every **inspiration `image`** is a real key of `lib/image-manifest.json` — i.e. an asset this
+  repo already bundles and already credits in `public/images/CREDITS.md`. A typo'd path would
+  otherwise render the card's gradient fallback and quietly stop being a photo. The same check
+  is what keeps that gallery from acquiring a remote or unbundled image. Both countries must be
+  represented, and no `alt` may be a copy of its own `title`.
 - **Booking leg/layover shape:** each journey has exactly one fewer layover than legs (D-034:
   structure only; booking **time strings are never parsed or recomputed**).
 

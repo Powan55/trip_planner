@@ -18,8 +18,8 @@ import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
  *
  * via `router.replace` (no history entry for the dead URL — basePath-agnostic,
  *). Hashes whose sections still live on Home (#hero/#dashboard/#timeline/
- * #inspiration — inspiration is now the travel-essentials section, which
- * keeps the `inspiration` id) scroll locally; an unknown hash no-ops harmlessly.
+ * #inspiration — the travel-inspiration gallery, which has kept the
+ * `inspiration` id throughout) scroll locally; an unknown hash no-ops harmlessly.
  *
  * Scrolling goes through `scrollToSectionWhenReady` because every section is a
  * `dynamic({ssr:false})` island — the target does not exist at effect time. For

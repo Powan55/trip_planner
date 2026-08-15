@@ -53,6 +53,18 @@ export const ETIQUETTE_TIPS: EtiquetteTip[] = [
   { title: 'Bowing', country: 'Japan', description: 'A slight bow shows respect in greetings. Deeper bows show more respect. Follow the local\'s lead.', icon: 'HeartHandshake' },
 ];
 
+/**
+ * Authored December outlook. Its one renderer was Home's two-card weather panel, which
+ * issue #21 replaced with the inspiration gallery (`components/travel-inspiration.tsx`),
+ * so this record currently has NO consumer.
+ *
+ * It is kept on purpose rather than deleted: it is authored trip content ("what to
+ * wear"), not plumbing, and the live weather layer it reads nothing from — `lib/weather.ts`,
+ * used by Travel Mode, the bento and the day panels — is a separate thing entirely.
+ * Deleting it is a content decision for the trip owners, not a side effect of moving a
+ * section. If it is still unrendered when the packing surface is next touched, that is
+ * where it belongs.
+ */
 export const WEATHER_INFO = {
   nepal: {
     tempHigh: '19°C (66°F)',

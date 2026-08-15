@@ -171,6 +171,25 @@ export const etiquetteTipSchema = z
   })
   .strict();
 
+// ── Travel inspiration (lib/inspiration-data.ts — InspirationHighlight) ────────────────────
+// `image` is REQUIRED here, unlike every other domain's optional `image?`: this domain IS the
+// imagery surface, and an entry without a photo is not a highlight, it is a blank card. The
+// path being a REAL bundled asset (a lib/image-manifest.json key) is a cross-content invariant
+// checked in the validate:content suite — the regex below only proves the shape.
+// `when` is a time-of-day mood ('After dark'), never a date: core/content/itinerary.ts owns
+// dates, so a date here would be a second source of truth. Nothing enforces that but review.
+export const inspirationHighlightSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    country: z.enum(['Nepal', 'Japan']),
+    when: z.string().min(1),
+    blurb: z.string().min(1),
+    image: imagePath,
+    alt: z.string().min(1),
+  })
+  .strict();
+
 // ── Bookings ─
 const cabinClasses = ['Economy', 'Premium Economy', 'Business', 'First'] as const;
 const bookingStatus = ['booked', 'to-book'] as const;
