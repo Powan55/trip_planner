@@ -10,7 +10,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import {
-  TRIP_DATES, formatDate,
+  TRIP_DATES, formatDate, getCountryForDate,
   ItineraryItem, ItineraryCategory, CATEGORY_COLORS,
 } from '@/lib/trip-data';
 import { placeLabelForDate } from '@/lib/leg-label';
@@ -20,7 +20,8 @@ import { showUndoToast } from '@/lib/undo-toast';
 import { flyChip } from '@/lib/fly-chip';
 import type { ItineraryDraft } from '@/lib/itinerary-adapter';
 import { buildMapsSearchUrl, buildMapsPlaceUrl } from '@/lib/maps-link';
-import { effectiveStartMinutes } from '@/core/dates';
+import { effectiveStartMinutes, offsetForCountry } from '@/core/dates';
+import { describeClash, firstClashWith, timeFootprintChanged } from '@/lib/sort-items-by-time';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { describeItemTime } from '@/lib/item-time-display';
 import TimePicker, { DurationField } from '@/components/time-picker';
@@ -86,7 +87,7 @@ const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography
 
 // Build the date-select option label: "Tue, Dec 12 · Kathmandu, Nepal".: the city
 // was hardcoded to Kathmandu/Tokyo and the country to a nepal/japan ternary — both now come from
-// the one shared place-label helper, so Dec 9 reads "Syracuse, USA" and a custom trip reads its
+// the one shared place-label helper, so Dec 9 reads "New York, USA" and a custom trip reads its
 // own city with no country appended.
 function dateOptionLabel(dateStr: string): string {
   return `${formatDate(dateStr)} · ${placeLabelForDate(dateStr)}`;
@@ -122,7 +123,9 @@ export default function AddToItineraryDialog({
   mode = 'source',
   presetDate,
 }: AddToItineraryDialogProps) {
-  const { addItem, updateItem, removeItem, restoreItem } = useItineraryContext();
+  // D-316: `getDayPlan` is the overlap guard's comparison set — zero new props, the store
+  // this dialog already reads and writes through.
+  const { addItem, updateItem, removeItem, restoreItem, getDayPlan } = useItineraryContext();
   const isCustom = mode === 'custom';
 
   // The date the form initializes to. Custom mode honors `presetDate` (the FAB's
@@ -295,7 +298,62 @@ export default function AddToItineraryDialog({
     : originalTimeRef.current.duration;
   const effectiveDurationMinutes = durationTouched ? durationMinutes : originalTimeRef.current.durationMinutes;
 
+  // D-316 — the refusal message for the last blocked confirm, or null. Cleared as soon as
+  // the user moves the time, the duration or the day it is about.
+  const [clashError, setClashError] = useState<string | null>(null);
+  useEffect(() => setClashError(null), [startMinutes, durationMinutes, selectedDate]);
+
+  /**
+   * D-316 — the overlap guard, covering BOTH branches this dialog can write through: adding
+   * a new placement, and modifying an existing one (in place OR moved to another day).
+   * Returns the blocking item, or `undefined` when the write is clear.
+   *
+   * DELTA-SCOPED: an existing placement is only guarded when this confirm actually moves
+   * its time footprint, so an already-overlapping placement can still have its category or
+   * notes changed. A new placement, and a move to another day, are guarded always.
+   */
+  const findBlockingClash = (): ItineraryItem | undefined => {
+    const original = editingPlacementId
+      ? existingPlacements.find((p) => p.item.id === editingPlacementId)
+      : undefined;
+    const candidate: ItineraryItem = {
+      // The id decides self-exclusion: an update-in-place must not clash with its own
+      // stored row, while a new placement (or one moved to another day) has no row here.
+      id: original && original.date === selectedDate ? original.item.id : 'd316-candidate',
+      title: effectiveTitle,
+      category,
+      time: effectiveTime,
+      startMinutes: effectiveStart,
+      duration: effectiveDuration,
+      durationMinutes: effectiveDurationMinutes,
+      // This dialog never edits `endDate`, but it must be carried: a multi-day span is
+      // EXEMPT from the clash predicate, and a candidate built without it would judge a
+      // span as a plain interval and refuse a time edit that is legal.
+      endDate: original?.item.endDate,
+    };
+    if (original && !timeFootprintChanged(original.item, original.date, candidate, selectedDate)) {
+      return undefined;
+    }
+    return firstClashWith(
+      candidate,
+      getDayPlan(selectedDate).items ?? [],
+      selectedDate,
+      offsetForCountry(getCountryForDate(selectedDate)),
+    );
+  };
+
   const handleConfirm = () => {
+    // D-316 — hard refuse, no override. Runs before either mode's branches so add,
+    // update-in-place and move-to-another-day are all covered by one call. On refusal:
+    // nothing is written, the dialog stays open, the alert in the footer announces.
+    const clash = findBlockingClash();
+    if (clash) {
+      setClashError(
+        `Overlaps ${describeClash(clash)}. Pick another time, or clear the duration to leave this open-ended.`,
+      );
+      return;
+    }
+
     // Custom mode: editable title/location. amends — the empty-sourceId
     // (FAB / free-form) path stays a PLAIN ItineraryItem with NO sourceId/sourceType
     // (byte-identical, never trips a card "Added" badge, never has a placement to
@@ -693,6 +751,17 @@ export default function AddToItineraryDialog({
             border + panel bg give a clean divider so scrolled content doesn't bleed
             under it. */}
         <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-surface/40">
+          {/* D-316 — the refusal, INSIDE the pinned footer so it is visible without
+              scrolling on a short viewport. A blocked user action → `role="alert"`
+              (assertive), never `role="status"`. Height reserved so the footer never
+              jumps; focus is not moved (it is already on the confirm button). */}
+          <p
+            role="alert"
+            data-testid="add-item-clash-error"
+            className="mb-3 min-h-[1rem] text-xs text-destructive"
+          >
+            {clashError}
+          </p>
           <button
             ref={confirmRef}
             onClick={handleConfirm}

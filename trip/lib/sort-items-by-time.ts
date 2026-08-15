@@ -1,5 +1,11 @@
 import type { ItineraryItem } from '@/lib/trip-data';
-import { effectiveOffsetMin, effectiveStartMinutes, placeWallClockToUtcMs } from '@/core/dates';
+import {
+  effectiveDurationMinutes,
+  effectiveOffsetMin,
+  effectiveStartMinutes,
+  formatTimeAmPm,
+  placeWallClockToUtcMs,
+} from '@/core/dates';
 
 /**
  * — the two passive, non-destructive time VIEWS (; follow-on
@@ -43,7 +49,7 @@ export function sortItemsByTime(
 /**
  * The set of item ids that overlap at least one other item's timed span, per
  * half-open rule: only items with a defined `effectiveStartMinutes` AND a positive
- * `durationMinutes` are considered; two such items clash iff
+ * effective duration are considered; two such items clash iff
  * `a.start < b.end && b.start < a.end` — touching edges (one item's end exactly equals
  * another's start) never clash. Pure, order-independent — never writes.
  *
@@ -53,8 +59,10 @@ export function sortItemsByTime(
  * frame that does not exist: two 09:00 items 14 hours apart read as a clash, and the Jan-9
  * Tokyo flight that genuinely overlaps its Detroit layover reads as disjoint. `dayDate` +
  * `dayOffsetMin` resolve each item through the SAME `placeWallClockToUtcMs` every other
- * instant consumer uses — no second time-math path here. (Latent until items carry
- * `durationMinutes`: 0 of the 158 seed items do.)
+ * instant consumer uses — no second time-math path here. (No longer latent: D-316 derives
+ * the span from the free-text `duration` too, and all 158 seed items carry one — the badge
+ * now surfaces the four overlaps the shipped content has always had, three of which are
+ * deliberate containment.)
  *
  * — MULTI-DAY SPANS ARE EXCLUDED (clash v1): an item carrying an `endDate` is a
  * multi-day span (the field is only ever written strictly after the item's start day, so
@@ -62,21 +70,119 @@ export function sortItemsByTime(
  * is not a meaningful conflict (a hotel stay "overlapping" a dinner is expected), so spans
  * are simply dropped before the pairwise check — no cross-day clash math in v1.
  */
+interface Interval {
+  id: string;
+  start: number;
+  end: number;
+}
+
+/**
+ * D-316 — THE interval construction, extracted so `clashingItemIds` (the badge) and
+ * `firstClashWith` (the block) share one truth. Two predicates would eventually disagree,
+ * and a badge that says "clash" over a save that was allowed (or the reverse) is worse than
+ * either behaviour alone. `null` = this item has no span and therefore cannot participate:
+ * it is a multi-day span (clash v1 excludes those), it is untimed, or it has no duration.
+ *
+ * D-316: the duration comes from `effectiveDurationMinutes`, so the free-text `duration`
+ * the 158 seed items carry is now derived at read. Before that this returned `null` for
+ * every seed item and the whole clash feature could not fire.
+ */
+function toInterval(
+  item: ItineraryItem,
+  dayDate: string,
+  dayOffsetMin: number,
+): Interval | null {
+  if (item.endDate) return null; // spans are excluded from clash v1
+  const min = effectiveStartMinutes(item);
+  const dur = effectiveDurationMinutes(item);
+  if (typeof min !== 'number' || typeof dur !== 'number' || dur <= 0) return null;
+  const start = placeWallClockToUtcMs(dayDate, min, effectiveOffsetMin(item, dayOffsetMin));
+  return { id: item.id, start, end: start + dur * 60000 };
+}
+
+/**
+ * D-316 — the first item on `dayItems` whose span overlaps `candidate`'s, or `undefined`
+ * when the write is clear. The BLOCKING half of D-316, sharing `toInterval` (and therefore
+ * the half-open absolute-instant rule D-142 locked) with the warn-only badge above.
+ *
+ * `undefined` whenever the candidate is untimed, has no duration, or is a multi-day span —
+ * an item with no span can never be refused. That is the escape hatch the copy names:
+ * clear the duration and the item stops participating.
+ *
+ * Skips the candidate itself (an edit-in-place must not clash with its own stored row) and
+ * tombstones. Call it with the day's FULL stored items — an author filter hides rows from
+ * the screen, never from the clock.
+ */
+export function firstClashWith(
+  candidate: ItineraryItem,
+  dayItems: ItineraryItem[],
+  dayDate: string,
+  dayOffsetMin: number,
+): ItineraryItem | undefined {
+  const c = toInterval(candidate, dayDate, dayOffsetMin);
+  if (!c) return undefined;
+  return dayItems.find((other) => {
+    if (other.id === candidate.id || other.deleted === true) return false;
+    const o = toInterval(other, dayDate, dayOffsetMin);
+    return o !== null && c.start < o.end && o.start < c.end;
+  });
+}
+
+/**
+ * D-316 — has this write moved the item's TIME FOOTPRINT (start, span length, day, or
+ * whether it is a multi-day span at all)?
+ *
+ * This one boolean is the entire grandfathering mechanism. The guard runs only when it is
+ * true, which lets every overlap already on disk — including the three deliberate
+ * containments in the shipped seed (lunch inside the USJ day, lunch inside the Shinsekai
+ * flex block, the countdown inside the NYE club block) — survive and stay editable, while
+ * making every NEW collision impossible. A brand-new item has no `prev` and is therefore
+ * always guarded.
+ *
+ * Compared on the EFFECTIVE values, not the raw fields: re-saving a legacy `time: '18:15'`
+ * item through the picker dual-writes `startMinutes: 1095`, which is the same instant and
+ * must not count as a change.
+ *
+ * `endDate` is part of the footprint because it decides whether the item participates in
+ * the predicate AT ALL (`toInterval` returns `null` for a span). Turning a span OFF leaves
+ * start, duration and day untouched while converting an exempt span into a plain interval
+ * that can land on top of something — so it must be guarded. Turning one ON passes
+ * trivially: `firstClashWith` returns `undefined` for a span candidate.
+ */
+export function timeFootprintChanged(
+  prev: ItineraryItem,
+  prevDate: string,
+  next: ItineraryItem,
+  nextDate: string,
+): boolean {
+  return (
+    prevDate !== nextDate ||
+    (prev.endDate ?? undefined) !== (next.endDate ?? undefined) ||
+    effectiveStartMinutes(prev) !== effectiveStartMinutes(next) ||
+    effectiveDurationMinutes(prev) !== effectiveDurationMinutes(next)
+  );
+}
+
+/**
+ * D-316 — the shared copy fragment naming a blocking item: `“Dinner”, 7:00 PM–8:30 PM`.
+ * Declared once so the five guarded surfaces (editor, add dialog, duplicate, bulk move,
+ * copy day) cannot drift. Times are the item's own wall clock, exactly as its row renders
+ * it. Only ever called with an item `firstClashWith` returned, so both values are defined.
+ */
+export function describeClash(item: ItineraryItem): string {
+  const start = effectiveStartMinutes(item) ?? 0;
+  const end = start + (effectiveDurationMinutes(item) ?? 0);
+  return `“${item.title}”, ${formatTimeAmPm(start)}–${formatTimeAmPm(end)}`;
+}
+
 export function clashingItemIds(
   items: ItineraryItem[],
   dayDate: string,
   dayOffsetMin: number,
 ): Set<string> {
   const timed = items
-    .map((item) => {
-      if (item.endDate) return null; // spans are excluded from clash v1
-      const min = effectiveStartMinutes(item);
-      const dur = item.durationMinutes;
-      if (typeof min !== 'number' || typeof dur !== 'number' || dur <= 0) return null;
-      const start = placeWallClockToUtcMs(dayDate, min, effectiveOffsetMin(item, dayOffsetMin));
-      return { id: item.id, start, end: start + dur * 60000 };
-    })
-    .filter((x): x is { id: string; start: number; end: number } => x !== null);
+    .map((item) => toInterval(item, dayDate, dayOffsetMin))
+    .filter((x): x is Interval => x !== null);
 
   const clashing = new Set<string>();
   for (let i = 0; i < timed.length; i++) {

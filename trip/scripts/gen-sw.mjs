@@ -41,10 +41,13 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 // BASE_PATH is empty, so local dev never gets a stray prefix.
 const withBase = (p) => `${BASE_PATH}${p}`;
 
-// The navy-900 the app's <body> actually paints (Tailwind token `navy-900`,
-// tailwind.config.ts; body className bg-navy-900 in app/layout.tsx). Same hex
-// as gen-icons.mjs so installed app + splash + address bar all agree.
-const THEME_COLOR = '#0b0c0e';
+// The page field the app's <body> actually paints (the --navy-900 channel /
+// --background token, app/globals.css). Same hex as gen-icons.mjs and as
+// `themeColor` in app/layout.tsx, so installed app + splash + address bar all agree
+// — three hand-synced copies with no compiler tie, so they move together or the
+// installed app is framed in a palette the app no longer uses. Re-valued to the
+// D-291/D-292/D-293 page field.
+const THEME_COLOR = '#100C1A';
 
 // -------------------------------------------------------------------------
 // Recursively list every file under a directory as out/-relative POSIX paths.
@@ -604,6 +607,7 @@ async function assertMapIslandsWrapped(mapSites) {
 // scrape by construction; without them every route crashes cold-offline)
 // - manifest.webmanifest
 // - icons/** and favicon.svg
+// - font/** — the self-hosted MapLibre glyph PBFs (154 KiB, issue #8)
 // - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead.
 //
 // Route HTML is DISCOVERED by walking out/ (below), not a hand-kept
@@ -634,6 +638,13 @@ async function buildPrecacheList(allFiles) {
     else if (rel.endsWith('/index.html') && rel !== '404/index.html') set.add(rel);
     else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
+    // The self-hosted MapLibre SDF glyph PBFs (public/font/<fontstack>/0-255.pbf,
+    // 154 KiB total — issue #8). They MUST be listed here explicitly: public/**
+    // is not precached wholesale, and these were the offline defect the
+    // self-hosting fixed — while they were cross-origin the SW's first fetch-handler
+    // line returned them untouched, so the numbered day markers had no glyphs
+    // offline. Precaching is what makes them same-origin AND present.
+    else if (rel.startsWith('font/')) set.add(rel);
     else if (rel === 'favicon.svg') set.add(rel);
     else if (rel === 'manifest.webmanifest') set.add(rel);
     // NOTE: images/** deliberately excluded (runtime cache).

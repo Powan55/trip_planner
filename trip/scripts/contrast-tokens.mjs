@@ -1,0 +1,213 @@
+// Contrast harness for the D-291 / D-292 / D-293 token layer. Exits 1 on any failure.
+//   npm run contrast-check     (or: node scripts/contrast-tokens.mjs)
+//
+// WHY THIS EXISTS. Accessibility is an acceptance criterion in this repo, not polish,
+// and a palette is the one part of a design system where "it looks fine" and "it
+// measures fine" come apart silently. Every hex below is also written into
+// app/globals.css and tailwind.config.ts; this file re-derives the ratios from first
+// principles (WCAG 2.x relative luminance) so a token edit that breaks a pairing
+// fails here with the pair named, instead of on someone's phone in daylight.
+//
+// It has NO dependencies and reads nothing — it is a pinned mirror of the token
+// values, which means IT MUST BE EDITED IN THE SAME COMMIT AS THE TOKENS. That is
+// deliberate: a harness that parsed globals.css could only ever prove the file agrees
+// with itself, whereas this one makes a value change a two-file decision.
+//
+// WORST-CASE-PIXEL RULE for text over photography: the duotone grade ends with a
+// `mix-blend-mode:darken` layer of --duo-*-high, which caps EVERY channel of EVERY
+// pixel at that colour. So the brightest possible pixel under a scrim is
+// over(--scrim-ink, --duo-*-high, alpha) — a knowable number, not an average.
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+const lin = c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+const L = h => { const [r, g, b] = hex(h).map(lin); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+const ratio = (a, b) => { const [x, y] = [L(a), L(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+const ch = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const over = (fg, bg, a) => '#' + ch(fg).map((v, i) =>
+  Math.round(v * a + ch(bg)[i] * (1 - a)).toString(16).padStart(2, '0')).join('');
+const hsl = h => {
+  const [r, g, b] = hex(h); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  let H = 0; if (d) H = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  const Li = (mx + mn) / 2, S = d ? d / (1 - Math.abs(2 * Li - 1)) : 0;
+  return `${Math.round(H * 60)} ${Math.round(S * 100)}% ${Math.round(Li * 100)}%`;
+};
+
+const C = {
+  // ---- canvas ----
+  bg: '#100C1A', surface1: '#1A1428', surface2: '#241C36', surface3: '#2E2442',
+  // D-294: the passport page is PARCHMENT, not the earlier cream #F4EDE0. It is a
+  // material scoped to one surface, not a light mode.
+  paper: '#DCCDAE',
+  // ---- text ----
+  textHi: '#FFFFFF', textMid: '#CFC6E0', textLo: '#A79BC0',
+  // --paper-lo BINDS FIRST when the page darkens: on the old cream it was #6B5B7E
+  // with only 5.27:1 of headroom, and D-294's darker parchment forced it to #524563.
+  // Re-measure this one before ever changing --paper again.
+  onAccent: '#140F20', onPaper: '#2A2036', paperLo: '#524563',
+  // ---- accents ----
+  marigold: '#FFC43D', coral: '#FF7A6B', mint: '#4ADE80',
+  sky: '#5CD2F5', violet: '#C08CFF', pink: '#FF8FC7',
+  // ---- country gradient stops (D-291, re-valued onto this canvas) ----
+  npA: '#FF8A3D', npB: '#FFC43D',            // Nepal: orange -> gold
+  jpA: '#FF8FC7', jpB: '#C08CFF',            // Japan: pink -> violet
+  // ---- borders ----
+  border: '#4B3C6E', borderUI: '#8877B8',
+  // ---- the derived steps of the three Tailwind brand families ----
+  // Not part of the ruled palette, but they are rendered as TEXT (`text-gold-400`
+  // and friends) and lib/token-auth.ts hashes traveller accents into two of them, so
+  // they need a guard like anything else. himalaya600 at 4.91 is the TIGHTEST PAIR
+  // IN THE WHOLE HARNESS — 9% over the floor — which is exactly why it is here
+  // rather than asserted in a comment.
+  gold600: '#C08400', sakura300: '#FFB1D8', himalaya600: '#C2692E',
+  // ---- stamp inks on paper (D-294 values, NOT the pre-D-294 #B3123C/#2B4B9B/#0F6E5C) ----
+  inkNepal: '#8E0E30', inkJapan: '#223C7C', inkGreen: '#0C5849',
+  // ---- duotone highlight caps (the photo engine) ----
+  duoNpHigh: '#F5D4AC', duoJpHigh: '#EFC6D6',
+  scrimInk: '#0A0714',
+};
+// worst-case pixel = brightest possible photo pixel after the grade, under each scrim
+C.npScrim72 = over(C.scrimInk, C.duoNpHigh, 0.72);
+C.npScrim82 = over(C.scrimInk, C.duoNpHigh, 0.82);
+C.jpScrim72 = over(C.scrimInk, C.duoJpHigh, 0.72);
+C.jpScrim82 = over(C.scrimInk, C.duoJpHigh, 0.82);
+// calm working surfaces: a hovered/selected row tint over surface-1
+C.rowHover = over('#FFFFFF', C.surface1, 0.05);
+C.rowSel = over(C.marigold, C.surface1, 0.10);
+// chip fill inside a calm row
+C.chip = over('#FFFFFF', C.surface2, 0.06);
+// ---- issue #27 route 1 (/checklist) — the fills that route's text ACTUALLY sits on ----
+// Worked out from the markup rather than assumed: app/checklist/page.tsx is `bg-surface`
+// (= --bg) and the section cards are `.glass-subtle`, which fills from --surface-low, i.e.
+// SURFACE-1 — one step DOWN from a raised card, so surface-2's numbers would have been the
+// wrong reference. Two white tints composite on top of that: the row label's
+// `hover:bg-white/[0.06]` and the note input's `bg-white/[0.03]`. The flat pairs (hi/mid/lo
+// on --bg and on surface-1) are already asserted above; these are the two the route adds.
+C.docsRowHover = over('#FFFFFF', C.surface1, 0.06);
+C.docsNoteFill = over('#FFFFFF', C.surface1, 0.03);
+
+// [label, fg, bg, target]  4.5 = body · 3 = large (>=24px, or >=18.66px bold) / UI edge
+const pairs = [
+  ['-- THE CALM WORKING SCREENS (text on solid fills) --'],
+  ['text-hi on bg', C.textHi, C.bg, 4.5],
+  ['text-mid on bg', C.textMid, C.bg, 4.5],
+  ['text-lo on bg', C.textLo, C.bg, 4.5],
+  ['text-hi on surface-1', C.textHi, C.surface1, 4.5],
+  ['text-mid on surface-1', C.textMid, C.surface1, 4.5],
+  ['text-lo on surface-1', C.textLo, C.surface1, 4.5],
+  ['text-hi on surface-2', C.textHi, C.surface2, 4.5],
+  ['text-mid on surface-2', C.textMid, C.surface2, 4.5],
+  ['text-lo on surface-2', C.textLo, C.surface2, 4.5],
+  ['text-mid on surface-3', C.textMid, C.surface3, 4.5],
+  ['text-lo on surface-3', C.textLo, C.surface3, 4.5],
+  ['text-mid on row:hover', C.textMid, C.rowHover, 4.5],
+  ['text-lo on row:hover', C.textLo, C.rowHover, 4.5],
+  ['text-hi on row[selected]', C.textHi, C.rowSel, 4.5],
+  ['text-mid on row[selected]', C.textMid, C.rowSel, 4.5],
+  ['text-lo on chip fill', C.textLo, C.chip, 4.5],
+
+  ['-- /checklist, ISSUE #27 ROUTE 1 (tiers on that route\'s composited fills) --'],
+  ['label (hi) on row:hover', C.textHi, C.docsRowHover, 4.5],
+  ['done label (lo) on row:hover', C.textLo, C.docsRowHover, 4.5],
+  ['note value (hi) on note fill', C.textHi, C.docsNoteFill, 4.5],
+  ['note placeholder (lo) on note fill', C.textLo, C.docsNoteFill, 4.5],
+
+  ['-- ACCENT AS TEXT (category ink, links, live values) --'],
+  ['marigold on bg', C.marigold, C.bg, 4.5],
+  ['marigold on surface-1', C.marigold, C.surface1, 4.5],
+  ['marigold on surface-2', C.marigold, C.surface2, 4.5],
+  ['coral on bg', C.coral, C.bg, 4.5],
+  ['coral on surface-2', C.coral, C.surface2, 4.5],
+  ['mint on bg', C.mint, C.bg, 4.5],
+  ['mint on surface-2', C.mint, C.surface2, 4.5],
+  ['sky on bg', C.sky, C.bg, 4.5],
+  ['sky on surface-2', C.sky, C.surface2, 4.5],
+  ['violet on bg', C.violet, C.bg, 4.5],
+  ['violet on surface-2', C.violet, C.surface2, 4.5],
+  ['pink on bg', C.pink, C.bg, 4.5],
+  ['pink on surface-2', C.pink, C.surface2, 4.5],
+  ['gold-600 on bg', C.gold600, C.bg, 4.5],
+  ['sakura-300 on bg', C.sakura300, C.bg, 4.5],
+  ['himalaya-600 on bg', C.himalaya600, C.bg, 4.5],
+
+  ['-- COUNTRY GRADIENT AS TEXT (every stop must pass ALONE) --'],
+  ['nepal stop A on bg', C.npA, C.bg, 4.5],
+  ['nepal stop B on bg', C.npB, C.bg, 4.5],
+  ['nepal stop A on surface-2', C.npA, C.surface2, 4.5],
+  ['nepal stop B on surface-2', C.npB, C.surface2, 4.5],
+  ['japan stop A on bg', C.jpA, C.bg, 4.5],
+  ['japan stop B on bg', C.jpB, C.bg, 4.5],
+  ['japan stop A on surface-2', C.jpA, C.surface2, 4.5],
+  ['japan stop B on surface-2', C.jpB, C.surface2, 4.5],
+
+  ['-- ON-ACCENT INK (every saturated fill a label sits on) --'],
+  ['ink on marigold', C.onAccent, C.marigold, 4.5],
+  ['ink on coral', C.onAccent, C.coral, 4.5],
+  ['ink on mint', C.onAccent, C.mint, 4.5],
+  ['ink on sky', C.onAccent, C.sky, 4.5],
+  ['ink on violet', C.onAccent, C.violet, 4.5],
+  ['ink on pink', C.onAccent, C.pink, 4.5],
+  ['ink on nepal stop A', C.onAccent, C.npA, 4.5],
+  ['ink on nepal stop B', C.onAccent, C.npB, 4.5],
+  ['ink on japan stop A', C.onAccent, C.jpA, 4.5],
+  ['ink on japan stop B', C.onAccent, C.jpB, 4.5],
+
+  ['-- TEXT OVER PHOTOGRAPHY (worst-case pixel, not average) --'],
+  ['white on NEPAL duo, scrim .72', C.textHi, C.npScrim72, 4.5],
+  ['white on NEPAL duo, scrim .82', C.textHi, C.npScrim82, 4.5],
+  ['text-mid on NEPAL duo, scrim .82', C.textMid, C.npScrim82, 4.5],
+  ['white on JAPAN duo, scrim .72', C.textHi, C.jpScrim72, 4.5],
+  ['white on JAPAN duo, scrim .82', C.textHi, C.jpScrim82, 4.5],
+  ['text-mid on JAPAN duo, scrim .82', C.textMid, C.jpScrim82, 4.5],
+  ['marigold chapter-no on NP .72 (large)', C.marigold, C.npScrim72, 3],
+  ['pink chapter-no on JP .72 (large)', C.pink, C.jpScrim72, 3],
+
+  ['-- PASSPORT PARCHMENT (a light material inside the dark app, D-294) --'],
+  ['on-paper ink on paper', C.onPaper, C.paper, 4.5],
+  ['paper-lo on paper', C.paperLo, C.paper, 4.5],
+  ['nepal stamp ink on paper', C.inkNepal, C.paper, 4.5],
+  ['japan stamp ink on paper', C.inkJapan, C.paper, 4.5],
+  ['green stamp ink on paper', C.inkGreen, C.paper, 4.5],
+
+  ['-- NON-TEXT UI, WCAG 1.4.11 (needs 3:1) --'],
+  ['focus ring vs bg', C.marigold, C.bg, 3],
+  ['focus ring vs surface-2', C.marigold, C.surface2, 3],
+  ['focus ring vs paper', C.inkNepal, C.paper, 3],
+  ['interactive border vs bg', C.borderUI, C.bg, 3],
+  ['interactive border vs surface-2', C.borderUI, C.surface2, 3],
+  ['interactive border vs surface-3', C.borderUI, C.surface3, 3],
+  ['paper page edge vs bg', C.paper, C.bg, 3],
+  ['selected-row rail (marigold) vs surface-1', C.marigold, C.surface1, 3],
+];
+
+// These MUST FAIL — they encode the rules the system depends on, and a guard that
+// starts passing means someone changed a value the rule was protecting.
+const guards = [
+  ['white on marigold  (=> use --on-accent ink)', C.textHi, C.marigold, 4.5],
+  ['white on mint      (=> use --on-accent ink)', C.textHi, C.mint, 4.5],
+  ['white on nepal B   (=> use --on-accent ink)', C.textHi, C.npB, 4.5],
+  ['--border as text/UI cue (decorative only)', C.border, C.bg, 3],
+];
+
+let fail = 0;
+console.log('pair'.padEnd(40), 'fg'.padEnd(9), 'bg'.padEnd(9), ' ratio  target  verdict');
+for (const [label, fg, bg, target] of pairs) {
+  if (target === undefined) { console.log('\n' + label); continue; }
+  const r = ratio(fg, bg), ok = r >= target;
+  if (!ok) fail++;
+  console.log(label.padEnd(40), fg.padEnd(9), bg.padEnd(9),
+    r.toFixed(2).padStart(6), '  ', String(target).padEnd(6), ok ? 'PASS' : '*** FAIL ***');
+}
+console.log('\nguards (each MUST stay below its threshold, proving the rule is load-bearing):');
+for (const [label, fg, bg, t] of guards) {
+  const r = ratio(fg, bg), ok = r < t;
+  if (!ok) fail++;
+  console.log(('  ' + label).padEnd(42), r.toFixed(2).padStart(6), ` <${t}  `, ok ? 'guard ok' : 'GUARD BROKEN');
+}
+
+console.log('\ncomposited worst-case pixels:');
+for (const k of ['npScrim72', 'npScrim82', 'jpScrim72', 'jpScrim82', 'rowHover', 'rowSel', 'chip',
+                 'docsRowHover', 'docsNoteFill'])
+  console.log('  ' + k.padEnd(11), C[k]);
+console.log('\nhex -> hsl (the form the shadcn tokens in globals.css take):');
+for (const k of Object.keys(C)) console.log('  ' + k.padEnd(11), C[k], ' hsl(' + hsl(C[k]) + ')');
+console.log(fail ? `\n${fail} PROBLEM(S)` : '\nALL PAIRINGS PASS, ALL GUARDS HOLD');
+process.exit(fail ? 1 : 0);

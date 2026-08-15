@@ -35,10 +35,13 @@ import type { Page } from '@playwright/test';
 const DEFAULT_TOKEN = 'Powan';
 
 /**
- * The map style's glyph endpoint, declared at `lib/map-style.ts:83`:
- * `glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'`.
- * Stubbed pack-wide below — see the docblock at the `page.route` call for why, and for
- * the measured reason it is NOT on its own sufficient.
+ * ⚠️ VESTIGIAL since issue #8 — the glyphs are SELF-HOSTED now
+ * (`lib/map-style.ts` -> `withBasePath('/font/{fontstack}/{range}.pbf')`, PBFs under
+ * `public/font/`), so nothing in the app requests this host any more and the route below
+ * matches zero requests. Kept, not deleted, because the measured flake notes at its
+ * `page.route` call are the reason the CARTO stub underneath it exists — delete the pair
+ * together or not at all. Same-origin glyphs are served off disk by `scripts/serve-out.mjs`,
+ * so they no longer contribute to the reload-abort noise this stub was for.
  */
 const MAPLIBRE_GLYPH_URL = 'https://demotiles.maplibre.org/**';
 
@@ -72,9 +75,11 @@ export const test = base.extend({
       window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss the app-wide install-to-Home toast (duration:Infinity would poison every axe scan)
     }, DEFAULT_TOKEN);
     /**
-     * S363 regression hunt (2026-08-01) — HARNESS ARTIFACT, not app behaviour.
+     * S363 regression hunt (2026-08-01) — HARNESS ARTIFACT, not app behaviour. Kept as the
+     * historical record of WHY the raster stub below exists; the glyph half no longer fires
+     * (see the vestigial note on `MAPLIBRE_GLYPH_URL`).
      *
-     * `lib/map-style.ts:83` declares the glyph endpoint above. MapLibre issues it hundreds of
+     * `lib/map-style.ts` then declared a cross-origin glyph endpoint. MapLibre issued it hundreds of
      * ms AFTER `map-shell` becomes visible, so a spec that calls `page.reload()` in that
      * window CANCELS the in-flight request: `net::ERR_ABORTED` → the fetch promise rejects
      * with a bare `TypeError: Failed to fetch`, and `Evented.fire` logs that error object

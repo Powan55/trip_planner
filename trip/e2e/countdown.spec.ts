@@ -139,10 +139,11 @@ test.describe('Dec-19 boundary — permanent B-01 regression guard', () => {
 
 test.describe('Boundary matrix (S65) — all four corners of the trip window', () => {
   const CASES = [
-    // S393 (Q4): Dec 9 is spent in Syracuse, JFK and the air, so the hero names Syracuse — the
-    // day is still Day 1 of the Nepal leg. Changed in deliberate lockstep with the content root
-    // (the S112/D-124 pattern for a frozen boundary city).
-    { today: '2026-12-09', day: '1', city: 'Syracuse', label: 'Dec 9 -> Day 1 (Nepal start)' },
+    // D-315 (owner-ruled 2026-08-14, amending D-285): Dec 9 is spent in Syracuse, JFK and the air
+    // and is NAMED New York, so the hero names New York — the day is still Day 1 of the Nepal leg.
+    // Changed in deliberate lockstep with the content root (the S112/D-124 pattern for a frozen
+    // boundary city).
+    { today: '2026-12-09', day: '1', city: 'New York', label: 'Dec 9 -> Day 1 (Nepal start)' },
     { today: '2026-12-18', day: '10', city: 'Kathmandu', label: 'Dec 18 -> Day 10 (Nepal end)' },
     { today: '2026-12-19', day: '11', city: 'Osaka', label: 'Dec 19 -> Day 11 (Japan start)' },
     { today: '2027-01-09', day: '32', city: 'Tokyo', label: 'Jan 9 -> Day 32 (Japan end / trip end)' },

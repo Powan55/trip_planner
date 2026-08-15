@@ -51,7 +51,7 @@ import { usePresence, type ActivePresence } from '@/hooks/use-presence';
 import { IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
 
 const ACTIVE_WINDOW_MS = 3 * 60_000; // mirrors the hook's own copy (lib/presence.ts's ACTIVE_WINDOW_MS)
-const POWAN = { name: 'Powan', token: 'Powan', accent: '#f0c760' };
+const POWAN = { name: 'Powan', token: 'Powan', accent: '#FFC43D' }; // gold-400
 
 interface HookHandle {
   current: ActivePresence[];
@@ -157,13 +157,13 @@ describe('usePresence (S54/D-057)', () => {
     expect(names).toEqual(['Random Guest', 'Sushil']);
 
     const sushil = h.current.find((p) => p.name === 'Sushil');
-    expect(sushil?.accent).toBe('#f7a0b3'); // TRAVELERS sakura accent
+    expect(sushil?.accent).toBe('#FF8FC7'); // TRAVELERS sakura accent (sakura-400)
 
     const guest = h.current.find((p) => p.name === 'Random Guest');
     // R2/D-265: pins hooks/use-presence.ts's FALLBACK_ACCENT literal — fallback gold, no matching
-    // TRAVELERS entry. CORRECT today, but a future accent move fails here with a message about the
-    // fallback accent, not about a chrome repaint.
-    expect(guest?.accent).toBe('#f0c760');
+    // TRAVELERS entry. An accent move fails here with a message about the fallback accent, not
+    // about a chrome repaint. Re-valued to gold-400 under D-291/D-292/D-293.
+    expect(guest?.accent).toBe('#FFC43D');
 
     h.unmount();
   });

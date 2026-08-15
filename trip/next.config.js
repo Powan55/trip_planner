@@ -38,6 +38,17 @@ const nextConfig = {
   // Next 15 promoted this out of `experimental` to the top level (a bare
   // `experimental.outputFileTracingRoot` now warns and no-ops). Same effect.
   outputFileTracingRoot: path.join(__dirname, '../'),
+  // STAYS TRUE. Lint gates on the workflow, not the build (issue #32). ci.yml's `checks` job
+  // runs `npm run lint` (`eslint .`), and since #46 deploy.yml reaches that same job through
+  // workflow_call — so lint gates the feature-branch push, the pull request, AND a direct push
+  // to main, and `build: needs: [checks]` means a red lint publishes nothing. There is no path
+  // that ships without it.
+  //
+  // Flipping this to false does not add a gate, it adds a NARROWER duplicate: Next's build-lint
+  // only walks app/pages/components/lib/src unless `eslint.dirs` is also set, while flat config
+  // + `eslint .` covers all 573 source files including core/, hooks/, scripts/ and __tests__/.
+  // So the naive flip costs every build a second eslint pass that sees LESS than the one already
+  // running, and re-opens the blind spot #32 was filed about. If you flip it, set eslint.dirs too.
   eslint: {
     ignoreDuringBuilds: true,
   },

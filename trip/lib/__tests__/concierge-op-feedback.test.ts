@@ -111,7 +111,7 @@ describe('S342 — silent-drop feedback in the concierge panel', () => {
     document.body.innerHTML = '';
   });
 
-  it('renders the surviving chip AND one muted line naming how many changes were dropped', async () => {
+  it('renders the surviving chip AND one muted line naming how many changes were dropped, and why', async () => {
     const h = await drive([
       { type: 'addItem', date: DAY, title: 'Ramen', category: 'food', startMinutes: 1140 }, // valid
       { type: 'addItem', date: 'Dec 20', title: 'Late ramen', category: 'food' }, // non-ISO → dropped
@@ -120,14 +120,116 @@ describe('S342 — silent-drop feedback in the concierge panel', () => {
 
     expect(h.chips()).toHaveLength(1);
     expect(h.chips()[0].textContent).toContain('Ramen');
-    expect(h.droppedLine()?.textContent).toBe('2 suggested changes didn’t match the current plan.');
+    // #13 — the count line now carries the REASONS. Two different causes → two clauses, in the
+    // order the ops arrived. (Pre-#13 this read "…didn’t match the current plan." and stopped.)
+    expect(h.droppedLine()?.textContent).toBe(
+      '2 suggested changes didn’t match the current plan: it named a day outside the trip; the plan it pointed at isn’t on your itinerary.',
+    );
     h.unmount();
   });
 
   it('singularises the line for exactly one dropped op', async () => {
     const h = await drive([{ type: 'addItem', date: 'Dec 20', title: 'Late ramen', category: 'food' }]);
     expect(h.chips()).toHaveLength(0);
-    expect(h.droppedLine()?.textContent).toBe('1 suggested change didn’t match the current plan.');
+    expect(h.droppedLine()?.textContent).toBe(
+      '1 suggested change didn’t match the current plan: it named a day outside the trip.',
+    );
+    h.unmount();
+  });
+
+  // #13 — the panel is where a DropCode becomes a sentence (`dropMessage` in
+  // `components/concierge-chat.tsx`), so the copy is asserted HERE, through the real panel, rather
+  // than in a lib test. One case per code: a code with no sentence of its own would silently fall
+  // through the switch's default and this table is what catches it.
+  const REASON_CASES: Array<{ code: string; op: unknown; sentence: string }> = [
+    { code: 'unreadable', op: 'not even an object', sentence: 'it asked for something this app can’t do' },
+    { code: 'unknown-verb', op: { type: 'clearDay', date: DAY }, sentence: 'it asked for something this app can’t do' },
+    {
+      code: 'bad-time',
+      op: { type: 'addItem', date: DAY, title: 'Ramen', category: 'food', startMinutes: 1440 },
+      sentence: 'the time wasn’t a real time of day',
+    },
+    {
+      code: 'bad-duration',
+      op: { type: 'addItem', date: DAY, title: 'Ramen', category: 'food', durationMinutes: 0 },
+      sentence: 'the length wasn’t a real duration',
+    },
+    {
+      code: 'date-not-in-trip',
+      op: { type: 'addItem', date: 'Dec 20', title: 'Ramen', category: 'food' },
+      sentence: 'it named a day outside the trip',
+    },
+    { code: 'no-title', op: { type: 'addItem', date: DAY, category: 'food' }, sentence: 'it had no name for the plan' },
+    {
+      code: 'bad-category',
+      op: { type: 'addItem', date: DAY, title: 'Ramen', category: 'brunch' },
+      sentence: 'it used a category this app doesn’t have',
+    },
+    {
+      code: 'no-such-item',
+      op: { type: 'removeItem', itemId: 'ghost-id' },
+      sentence: 'the plan it pointed at isn’t on your itinerary',
+    },
+    {
+      code: 'nothing-to-change',
+      op: { type: 'updateItem', itemId: 'seed-1' },
+      sentence: 'it didn’t actually change anything',
+    },
+    {
+      code: 'already-there',
+      op: { type: 'moveItem', itemId: 'seed-1', toDate: DAY },
+      sentence: 'that plan is already on that day',
+    },
+  ];
+
+  for (const { code, op, sentence } of REASON_CASES) {
+    it(`says why a ${code} op was dropped`, async () => {
+      const h = await drive([op]);
+      expect(h.chips()).toHaveLength(0);
+      expect(h.droppedLine()?.textContent).toBe(
+        `1 suggested change didn’t match the current plan: ${sentence}.`,
+      );
+      h.unmount();
+    });
+  }
+
+  it('says a shared reason ONCE, however many ops failed that way', async () => {
+    const h = await drive([
+      { type: 'addItem', date: 'Dec 20', title: 'Ramen', category: 'food' },
+      { type: 'addItem', date: '12/21/2026', title: 'Katsu', category: 'food' },
+      { type: 'addItem', date: DAY.replace('2026', '2025'), title: 'Soba', category: 'food' },
+    ]);
+
+    const text = h.droppedLine()!.textContent!;
+    // The COUNT still counts ops; the REASON is deduped by code.
+    expect(text).toBe('3 suggested changes didn’t match the current plan: it named a day outside the trip.');
+    expect(text.match(/outside the trip/g)).toHaveLength(1);
+    h.unmount();
+  });
+
+  it('never leaks rule names, field names or op JSON into the line (D-234, the surviving half)', async () => {
+    const h = await drive([
+      { type: 'addItem', date: 'Dec 20', title: 'Late ramen', category: 'brunch' },
+      { type: 'updateItem', itemId: 'seed', notes: 'x' },
+    ]);
+
+    const text = h.droppedLine()!.textContent!;
+    // Not `category`: that word is the traveller-facing name of a real concept in this app and the
+    // copy is allowed to use it. What must never appear is a rule number, a wire field name, op
+    // JSON, or any value lifted out of the op itself.
+    for (const machine of ['Rule', 'startMinutes', 'itemId', 'addItem', 'updateItem', '{', 'Dec 20', 'seed']) {
+      expect(text).not.toContain(machine);
+    }
+    h.unmount();
+  });
+
+  it('the dropped line is NOT an assertive alert — it is part of the reply, not a blocked action', async () => {
+    const h = await drive([{ type: 'addItem', date: 'Dec 20', title: 'Late ramen', category: 'food' }]);
+    const line = h.droppedLine()!;
+    expect(line.tagName).toBe('P');
+    expect(line.getAttribute('role')).toBeNull();
+    // …and it sits inside the panel's polite log, so it is announced with the turn it belongs to.
+    expect(line.closest('[data-testid="concierge-messages"]')?.getAttribute('aria-live')).toBe('polite');
     h.unmount();
   });
 

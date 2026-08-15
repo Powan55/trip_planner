@@ -72,7 +72,7 @@ export const contentDayPlanSchema = z
     date: isoDate,
     city: z.string().min(1),
     country: z.enum(['nepal', 'japan']),
-    // — optional DISPLAY label for the country half of the day line ("Syracuse, USA").
+    // — optional DISPLAY label for the country half of the day line ("New York, USA").
     // `country` above stays the leg id/enum; this never affects currency or offset.
     countryLabel: z.string().min(1).optional(),
     items: z.array(contentItineraryItemSchema),

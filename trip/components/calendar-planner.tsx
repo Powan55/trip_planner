@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { m, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import { SectionHeading } from '@/components/section-heading';
 import {
   Calendar, Plus, Trash2,
@@ -49,7 +50,7 @@ import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { extractQuickAddTime } from '@/lib/quick-add-parse';
 import { describeItemTime } from '@/lib/item-time-display';
 import { dayPlaceLabel } from '@/lib/leg-label';
-import { clashingItemIds } from '@/lib/sort-items-by-time';
+import { clashingItemIds, describeClash, firstClashWith, timeFootprintChanged } from '@/lib/sort-items-by-time';
 import TimePicker, { DurationField } from '@/components/time-picker';
 import PlanSearch from '@/components/plan-search';
 import type { PlanSearchResult } from '@/lib/search-plan';
@@ -75,9 +76,12 @@ const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
 const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography', 'shopping', 'nature', 'cultural', 'transportation', 'hotel', 'free', 'nightlife'];
 
 // Item Editor Modal
-function ItemEditor({ item, startDate, onSave, onClose, hidden, pickedPin, onRequestPin }: {
+function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, pickedPin, onRequestPin }: {
   item?: ItineraryItem;
   startDate: string;
+  /** D-316: the start day's FULL stored items, the overlap guard's comparison set. Stored,
+   * not visible — an author filter hides rows from the screen, never from the clock. */
+  dayItems: ItineraryItem[];
   onSave: (item: ItineraryItem) => void;
   onClose: () => void;
   /**: the map picker is armed — step aside VISUALLY but stay mounted, so every
@@ -140,13 +144,20 @@ function ItemEditor({ item, startDate, onSave, onClose, hidden, pickedPin, onReq
   const effectiveEndDate =
     spanOpen && endDate !== '' && endDate > startDate && TRIP_DATES.includes(endDate) ? endDate : undefined;
 
+  // D-316: the refusal message for the last blocked save, or null. Rendered as a
+  // `role="alert"` line above the save button; cleared as soon as the user moves either
+  // field it is about, so it never contradicts what the form currently says.
+  const [clashError, setClashError] = useState<string | null>(null);
+
   const handleTimeChange = (minutes: number | undefined) => {
     setStartMinutes(minutes);
     setTimeTouched(true);
+    setClashError(null);
   };
   const handleDurationChange = (minutes: number | undefined) => {
     setDurationMinutesState(minutes);
     setDurationTouched(true);
+    setClashError(null);
   };
 
   // Portal mount guard ( / mirrored from add-to-itinerary-dialog.tsx /
@@ -222,7 +233,7 @@ function ItemEditor({ item, startDate, onSave, onClose, hidden, pickedPin, onReq
 
   const handleSave = () => {
     if (!title.trim()) return;
-    onSave({
+    const next: ItineraryItem = {
       // Spread the original item first so additive source-linkage fields
       // survive an edit of a card-created item.
       ...item,
@@ -249,7 +260,30 @@ function ItemEditor({ item, startDate, onSave, onClose, hidden, pickedPin, onReq
       // or undefined — overriding the `...item` spread so turning the toggle off / clearing the
       // select removes a span the item previously had. Written onto the START-day doc only.
       endDate: effectiveEndDate,
-    });
+    };
+
+    // D-316 — hard refuse, DELTA-SCOPED. Only a write that moves the item's time footprint
+    // is guarded, so an already-overlapping item (the seed's intentional containments) can
+    // still have its title, notes or category edited. A brand-new item has no previous
+    // footprint and is therefore always guarded. There is no "Save anyway": the escape
+    // hatch is to clear the duration, which the message names.
+    if (!item || timeFootprintChanged(item, startDate, next, startDate)) {
+      const clash = firstClashWith(
+        next,
+        dayItems,
+        startDate,
+        offsetForCountry(getCountryForDate(startDate)),
+      );
+      if (clash) {
+        // Do not call onSave, do not close, do not haptic — just announce.
+        setClashError(
+          `Overlaps ${describeClash(clash)}. Pick another time, or clear the duration to leave this open-ended.`,
+        );
+        return;
+      }
+    }
+    setClashError(null);
+    onSave(next);
   };
 
   // On open: focus the Title input. The input's `autoFocus` handles the common
@@ -525,6 +559,18 @@ function ItemEditor({ item, startDate, onSave, onClose, hidden, pickedPin, onReq
           </div>
             </div>
           </details>
+          {/* D-316 — the refusal. A BLOCKED user action, so `role="alert"` (assertive),
+              not `role="status"`: the pattern backup-restore.tsx/photo-attach.tsx already
+              use. Always mounted with a reserved height so the panel never jumps and the
+              live region exists before it has anything to say. Focus is deliberately NOT
+              moved — it is already on the save button the user just pressed. */}
+          <p
+            role="alert"
+            data-testid="calendar-editor-clash-error"
+            className="mb-3 min-h-[1rem] text-xs text-destructive"
+          >
+            {clashError}
+          </p>
           <button
             onClick={handleSave}
             disabled={!title.trim()}
@@ -775,7 +821,22 @@ export default function CalendarPlanner() {
   // stripper, reused verbatim — not re-implemented) drops id/deleted/rev/hlc and mints a new
   // id, so the copy NEVER reuses the source id; addItem then stamps attribution/rev/hlc.
   const handleDuplicateItem = (item: ItineraryItem, targetDate: string) => {
-    addItem(targetDate, freshCopyOf(item));
+    const copy = freshCopyOf(item);
+    // D-316: `freshCopyOf` carries time + duration verbatim, so duplicating onto the SAME
+    // day (the picker offers every trip day, including this one) is a guaranteed exact
+    // collision. The check runs on the COPY, whose id is already fresh — checking the
+    // source item would self-exclude against itself and wave the collision through.
+    const clash = firstClashWith(
+      copy,
+      getDayPlan(targetDate).items ?? [],
+      targetDate,
+      offsetForCountry(getCountryForDate(targetDate)),
+    );
+    if (clash) {
+      toast.error(`Can’t copy to ${formatDate(targetDate)} — overlaps ${describeClash(clash)}.`);
+      return;
+    }
+    addItem(targetDate, copy);
   };
 
   const handleDeleteItem = (item: ItineraryItem) => {
@@ -900,6 +961,24 @@ export default function CalendarPlanner() {
   // see the docblock there; that construction is what `use-itinerary-bulk-sync.test.ts` drives.
   const handleBulkMove = (targetDate: string) => {
     if (!targetDate || targetDate === selectedDate || selectedIds.size === 0) return;
+    // D-316 — ALL-OR-NOTHING. Refuse the whole move if any selected item would collide on
+    // the target day, naming the first offender. Partial application would break
+    // `moveItems`' single-commit semantics and leave `bulkMoveWithUndo`'s inverse
+    // addressing ids that never landed. The selection is only ever checked against the
+    // TARGET day's existing items, never against each other: they already coexist on the
+    // source day, so a grandfathered pair must still be movable as a pair.
+    const moving = (getDayPlan(selectedDate).items ?? []).filter((i) => selectedIds.has(i.id));
+    const targetItems = getDayPlan(targetDate).items ?? [];
+    const targetOffset = offsetForCountry(getCountryForDate(targetDate));
+    for (const moved of moving) {
+      const clash = firstClashWith(moved, targetItems, targetDate, targetOffset);
+      if (clash) {
+        toast.error(
+          `Can’t move ${moving.length} item${moving.length === 1 ? '' : 's'} to ${formatDate(targetDate)} — “${moved.title}” overlaps ${describeClash(clash)}.`,
+        );
+        return;
+      }
+    }
     bulkMoveWithUndo(moveItems, [...selectedIds], selectedDate, targetDate);
     exitSelectMode();
   };
@@ -908,6 +987,20 @@ export default function CalendarPlanner() {
   // Independent of the selection (it is a day-level op living in the bulk bar for convenience).
   const handleCopyDay = (targetDate: string) => {
     if (!targetDate) return;
+    // D-316 — ALL-OR-NOTHING, same shape as the bulk move. Checked on `freshCopyOf` of each
+    // source item, which is literally the transform `copyDay` applies, so the ids under
+    // test are the ones that would land.
+    const targetItems = getDayPlan(targetDate).items ?? [];
+    const targetOffset = offsetForCountry(getCountryForDate(targetDate));
+    for (const source of getDayPlan(selectedDate).items ?? []) {
+      const clash = firstClashWith(freshCopyOf(source), targetItems, targetDate, targetOffset);
+      if (clash) {
+        toast.error(
+          `Can’t copy this day to ${formatDate(targetDate)} — “${source.title}” overlaps ${describeClash(clash)}.`,
+        );
+        return;
+      }
+    }
     copyDay(selectedDate, targetDate);
     exitSelectMode();
   };
@@ -1623,6 +1716,9 @@ export default function CalendarPlanner() {
           <ItemEditor
             item={editingItem}
             startDate={selectedDate}
+            // D-316: `dayItems` is the UNFILTERED stored day, deliberately — a collision
+            // with a row the author filter is hiding is still a collision.
+            dayItems={dayItems}
             onSave={handleSaveItem}
             onClose={() => { setShowEditor(false); setEditingItem(undefined); setPickingPin(false); setPickedPin(null); }}
             hidden={pickingPin}

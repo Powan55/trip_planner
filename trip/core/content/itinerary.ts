@@ -20,13 +20,16 @@ import type { DayPlan } from '@/lib/trip-data';
 export const TRIP_ITINERARY: DayPlan[] = [
   {
     date: '2026-12-09',
-    // (Q4, owner-ruled): Dec 9 is spent in Syracuse, JFK and the air — the traveller does not
-    // reach Kathmandu until Dec 10. `country` stays 'nepal' because it is the LEG ID that drives the
-    // currency and the day offset, not a label; only the displayed city was wrong.
-    city: 'Syracuse',
+    // (D-315, owner-ruled 2026-08-14, amending D-285): Dec 9 is spent in Syracuse, JFK and the
+    // air — the traveller does not reach Kathmandu until Dec 10 — and the day is NAMED for
+    // New York, where most of it is actually spent (the JFK layover and the long-haul out).
+    // `country` stays 'nepal' because it is the LEG ID that drives the currency and the day
+    // offset, not a label; only the displayed city moved. The item titles below still say
+    // Syracuse because SYR is where the plane really leaves from: facts, not labels.
+    city: 'New York',
     country: 'nepal',
-    // — the display half of the day line. Syracuse is in the USA; the 'nepal' leg id above
-    // is behaviour (currency + UTC offset) and stays. Without this the header read "Syracuse, Nepal".
+    // — the display half of the day line. New York is in the USA; the 'nepal' leg id above
+    // is behaviour (currency + UTC offset) and stays. Without this the header read "New York, Nepal".
     countryLabel: 'USA',
     items: [
       { id: 'n1-1', title: 'Depart Syracuse (SYR) — Regional connection to New York (JFK)', category: 'transportation', time: '05:30', duration: '1h 32m', notes: 'SYR → JFK Terminal 4 · Regional connection · arrive 7:02am · Economy. Keep passport & onward boarding passes handy', location: 'Syracuse Hancock Intl (SYR) → New York JFK (T4)', tzOffsetMin: -300 },
@@ -162,7 +165,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j1-2', title: 'Fly Guangzhou (CAN) → Tokyo Haneda (HND) — Connecting flight to Tokyo', category: 'transportation', time: '08:50', duration: '3h 45m', notes: 'CAN T2 → HND Terminal 3 · Connecting flight to Tokyo · arrives 1:35pm · Economy. Fill out Visit Japan Web before landing', location: 'Guangzhou (CAN T2) → Tokyo Haneda (HND T3)', tzOffsetMin: 480 },
       { id: 'j1-3', title: 'Immigration, baggage & transfer to Haneda domestic terminal (T1)', category: 'transportation', time: '13:45', duration: '2h 40m', notes: 'Clear immigration and collect baggage after the international arrival, then transfer across Haneda to the domestic terminal (T1) to check in for the Osaka flight', location: 'Tokyo Haneda (HND T3 → T1)' },
       { id: 'j1-3b', title: 'Fly Tokyo Haneda (HND) → Osaka Itami (ITM) — Domestic hop to Osaka', category: 'transportation', time: '16:25', duration: '1h 10m', notes: 'HND Terminal 1 → ITM · Domestic hop to Osaka · arrives 5:35pm · Economy (Q). Real booked domestic flight — render the times exactly as booked', location: 'Tokyo Haneda (HND T1) → Osaka Itami (ITM)' },
-      { id: 'j1-4', title: 'Check in to the Shinsaibashi hotel', category: 'hotel', time: '18:15', duration: '1h', notes: 'Real booked hotel in Shinsaibashi, Osaka. Drop bags and freshen up before the first Osaka night out', location: 'Shinsaibashi, Osaka' },
+      { id: 'j1-4', title: 'Check in to the Shinsaibashi hotel', category: 'hotel', time: '18:15', duration: '45m', notes: 'Real booked hotel in Shinsaibashi, Osaka. Drop bags and freshen up before the first Osaka night out', location: 'Shinsaibashi, Osaka' },
       { id: 'j1-5', title: 'Dotonbori evening walk & the Glico sign', category: 'sightseeing', time: '19:00', duration: '1.5h', notes: 'First look at the neon canal-front strip — the Glico Running Man sign, the giant crab and puffer-fish signs; an easy, low-effort orientation for jet-lagged legs', location: 'Dotonbori, Osaka', sourceId: 'ja12' },
       { id: 'j1-6', title: 'Namba/Shinsaibashi bars & late-night food', category: 'nightlife', time: '21:00', duration: '3h', notes: 'Ease into the trip with a first round of Namba/Shinsaibashi bars, then ramen or takoyaki to close out night one — confirm cover charges and drink prices before sitting down. Last train ~00:00, first ~05:00 — taxi or plan to stay out.', location: 'Namba/Shinsaibashi, Osaka' },
     ],

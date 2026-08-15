@@ -7,7 +7,7 @@ import { setTripConfig, type TripConfigBlock } from '@/core/trips/registry';
  * S407 — the ONE leg-label / place-label helper (`lib/leg-label.ts`).
  *
  * What this suite has to discriminate (each of these shipped in the app before this slice):
- *   - "Syracuse, Nepal"      — the Dec-9 planner header, because `country` (a LEG ID driving
+ *   - "New York, Nepal"      — the Dec-9 planner header, because `country` (a LEG ID driving
  *                              currency + UTC offset) was rendered as if it were a label.
  *   - "Bali, Japan"          — every day of every CUSTOM trip, from the same nepal/japan ternary.
  *   - "Bali, Bali × Lombok"  — the trap in the naive fix: a custom leg's `countryLabel` IS
@@ -40,15 +40,15 @@ beforeEach(() => {
 });
 
 describe('S407 default pack — the day line names the day, not the leg id', () => {
-  it('Day 1 renders "Syracuse, USA" from the seed row, while its leg id stays nepal', async () => {
+  it('Day 1 renders "New York, USA" from the seed row, while its leg id stays nepal', async () => {
     const { dayPlaceLabel } = await loadHelper();
     const { SAMPLE_ITINERARY } = await import('@/lib/sample-itinerary');
     const day1 = SAMPLE_ITINERARY[0];
 
     expect(day1.date).toBe('2026-12-09');
     expect(day1.country).toBe('nepal'); // the LEG ID is untouched — currency + offset depend on it
-    expect(dayPlaceLabel(day1)).toBe('Syracuse, USA');
-    expect(dayPlaceLabel(day1)).not.toBe('Syracuse, Nepal'); // the bug this slice exists for
+    expect(dayPlaceLabel(day1)).toBe('New York, USA');
+    expect(dayPlaceLabel(day1)).not.toBe('New York, Nepal'); // the bug this slice exists for
   });
 
   it('a day with no per-day label still gets its leg label (Dec 10 / Dec 19)', async () => {
@@ -64,18 +64,18 @@ describe('S407 default pack — the day line names the day, not the leg id', () 
 
   it('the by-DATE path (dialog option lists, no DayPlan in hand) agrees with the by-plan path', async () => {
     const { placeLabelForDate } = await loadHelper();
-    expect(placeLabelForDate('2026-12-09')).toBe('Syracuse, USA');
+    expect(placeLabelForDate('2026-12-09')).toBe('New York, USA');
     expect(placeLabelForDate('2026-12-10')).toBe('Kathmandu, Nepal');
     expect(placeLabelForDate('2027-01-09')).toBe('Tokyo, Japan');
   });
 
-  it('a day with no countryLabel (legacy remote doc) still reads Syracuse, USA', async () => {
+  it('a day with no countryLabel (legacy remote doc) still reads New York, USA', async () => {
     // A day-doc written before the label existed arrives without `countryLabel` (sync itself no
     // longer strips it: `docToDayPlan` passes day keys through, #42). The content-derived
-    // DAY_LABELS map fills it back in. Without that fallback this renders "Syracuse, Nepal".
+    // DAY_LABELS map fills it back in. Without that fallback this renders "New York, Nepal".
     const { dayPlaceLabel } = await loadHelper();
-    const synced = { date: '2026-12-09', city: 'Syracuse', country: 'nepal', items: [] };
-    expect(dayPlaceLabel(synced)).toBe('Syracuse, USA');
+    const synced = { date: '2026-12-09', city: 'New York', country: 'nepal', items: [] };
+    expect(dayPlaceLabel(synced)).toBe('New York, USA');
   });
 
   it('#6: day one names the day\'s own city, never the nepal leg\'s fallback "Kathmandu"', async () => {
@@ -83,10 +83,10 @@ describe('S407 default pack — the day line names the day, not the leg id', () 
     const { SAMPLE_ITINERARY } = await import('@/lib/sample-itinerary');
     const day1 = SAMPLE_ITINERARY[0];
 
-    // D-285 (owner-ruled): Dec 9 is spent in Syracuse, JFK and the air, so the day's OWN city is
-    // Syracuse. 'Kathmandu' is the nepal leg's `fallbackCity` (core/trips/packs/nepal-japan-2026.ts).
+    // D-315 (owner-ruled, amending D-285): Dec 9 is spent in Syracuse, JFK and the air and is NAMED
+    // New York. 'Kathmandu' is the nepal leg's `fallbackCity` (core/trips/packs/nepal-japan-2026.ts).
     // If it ever reaches this line the day's own city has been dropped, the shape #6 reported.
-    expect(dayPlaceLabel(day1)).toBe('Syracuse, USA');
+    expect(dayPlaceLabel(day1)).toBe('New York, USA');
     expect(dayPlaceLabel(day1)).not.toBe('Kathmandu, USA');
     expect(placeLabelForDate('2026-12-09')).not.toContain('Kathmandu');
   });
@@ -98,7 +98,7 @@ describe('S407 default pack — the day line names the day, not the leg id', () 
     // the fix these read "USA" and "Nepal": a country with no city in front of it.
     const dec9 = { date: '2026-12-09', city: '', country: 'nepal', countryLabel: 'USA', items: [] };
     const dec14 = { date: '2026-12-14', city: '', country: 'nepal', items: [] };
-    expect(dayPlaceLabel(dec9)).toBe('Syracuse, USA');
+    expect(dayPlaceLabel(dec9)).toBe('New York, USA');
     expect(dayPlaceLabel(dec14)).toBe('Nagarkot, Nepal');
   });
 
@@ -129,8 +129,8 @@ describe('S407 default pack — the day line names the day, not the leg id', () 
     for (const key of ['toString', 'valueOf', 'constructor']) {
       expect(() => placeLabelForDate(key)).not.toThrow();
       expect(typeof placeLabelForDate(key)).toBe('string');
-      expect(() => dayPlaceLabel({ date: key, city: 'Syracuse', country: 'nepal' })).not.toThrow();
-      expect(dayPlaceLabel({ date: key, city: 'Syracuse', country: 'nepal' })).toContain('Syracuse');
+      expect(() => dayPlaceLabel({ date: key, city: 'New York', country: 'nepal' })).not.toThrow();
+      expect(dayPlaceLabel({ date: key, city: 'New York', country: 'nepal' })).toContain('New York');
     }
   });
 });
@@ -161,7 +161,7 @@ describe('S407 custom trip — neither a foreign country nor a duplicated city',
 
   it('the by-DATE path on a custom trip overlapping Dec 9 does NOT inherit the default labels', async () => {
     const { placeLabelForDate } = await loadHelper();
-    // D-231 trip-scoping: these dates are Syracuse/USA and Tokyo/Japan on the DEFAULT pack.
+    // D-231 trip-scoping: these dates are New York/USA and Tokyo/Japan on the DEFAULT pack.
     expect(placeLabelForDate('2026-12-09')).toBe('Bali');
     expect(placeLabelForDate('2027-01-09')).toBe('Bali');
   });

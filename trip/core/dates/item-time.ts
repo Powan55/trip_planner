@@ -122,6 +122,57 @@ export function parseTimeString(raw: string): number | undefined {
 }
 
 /**
+ * The ONE free-text `duration` parser (D-316). Derives minutes AT READ from the text the
+ * seed content and the v5 vault already hold — there is deliberately NO migration and no
+ * re-authoring of the 158 seed strings (D-139 locks "the migration never sets
+ * `durationMinutes`"; D-095 forbids reordering shipped steps).
+ *
+ * The grammar is EXACTLY what the data holds and what `lib/time-picker-format.ts`'s
+ * `formatDurationText` emits, nothing wider — case-insensitive, trimmed:
+ * 1. `<h>h [<m>m]` with an optional decimal hour — '1h', '1.5h', '3.25h', '14h 55m'
+ * 2. `<m>m` / `<m>min` — '45m', '30min'
+ *
+ * Everything else → `undefined`, and so does anything resolving to zero or less ('0h',
+ * '0m'). An item with no parseable duration has NO SPAN: it can never clash and can never
+ * block a save. That permissive failure is the same one D-139 chose for `time` — never
+ * throws, never logs, never defaults. TOTAL (guards a non-string, like `parseTimeString`).
+ */
+export function parseDurationText(raw: string): number | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const s = raw.trim().toLowerCase();
+  if (s === '') return undefined;
+
+  // <h>h with an optional decimal part, plus an optional trailing <m>m.
+  const hm = /^(\d+(?:\.\d+)?)h(?:\s*(\d{1,2})m)?$/.exec(s);
+  if (hm) {
+    const total = Math.round(Number(hm[1]) * 60) + (hm[2] === undefined ? 0 : Number(hm[2]));
+    return total > 0 ? total : undefined;
+  }
+
+  // bare minutes: '45m' / '30min'
+  const m = /^(\d+)\s*m(?:in)?$/.exec(s);
+  if (m) {
+    const total = Number(m[1]);
+    return total > 0 ? total : undefined;
+  }
+
+  return undefined;
+}
+
+/**
+ * The item's effective span length in minutes, or `undefined` (no span). Mirrors
+ * `effectiveStartMinutes` exactly: a valid positive-integer `durationMinutes` wins, else the
+ * legacy free-text `duration` is parsed, else `undefined`. So a structured value written by
+ * the picker always beats the text, and a buggy structured value degrades to the text (or to
+ * "no span") rather than asserting a bogus interval.
+ */
+export function effectiveDurationMinutes(item: ItineraryItem): number | undefined {
+  const dm = item.durationMinutes;
+  if (typeof dm === 'number' && Number.isInteger(dm) && dm > 0) return dm;
+  return typeof item.duration === 'string' ? parseDurationText(item.duration) : undefined;
+}
+
+/**
  * The item's effective start-of-day minutes, or `undefined` (untimed). This is the ONE
  * range-validation point: a valid integer `startMinutes` in 0–1439 wins; any
  * out-of-range / non-integer value falls through to parsing the legacy `time` text, so a

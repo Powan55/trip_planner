@@ -317,7 +317,7 @@ export default function MapSection() {
           name: day.city,
           category: 'Attraction',
           // The trip LEG the day belongs to (the same value the rest of the app reads),
-          // not a geographic claim — see core/content/itinerary.ts on Dec 9 / Syracuse.
+          // not a geographic claim — see core/content/itinerary.ts on Dec 9 / New York.
           country: day.country === 'nepal' ? 'Nepal' : 'Japan',
           area: 'A city on your trip',
           description:
