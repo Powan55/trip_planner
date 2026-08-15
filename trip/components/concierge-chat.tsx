@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/sheet';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { isConciergeConfigured } from '@/lib/concierge-config';
+import { FADE_FLOOR } from '@/lib/motion';
 import { useConciergeChat } from '@/hooks/use-concierge-chat';
 import { useItinerary } from '@/hooks/use-itinerary';
 import {
@@ -455,8 +456,16 @@ export function ConciergeChat() {
           )}
           {messages.map((turn, i) => (
             <Fragment key={i}>
+              {/* 🔴 opacity starts at FADE_FLOOR, NOT 0 — the same rule, and the same reason, as
+                  every other reveal in the app (see lib/motion.ts). A wrapper opacity MULTIPLIES
+                  its text's alpha, and the axe pass runs WITHOUT reduced motion, so it can and
+                  does sample a frame mid-flight: this bubble was scanned at `opacity: 0` and its
+                  `text-white` composited to #898491 on the panel, 4.06:1 — a serious
+                  color-contrast violation on a turn that reads pure white to a human eye. The
+                  slide (`y`) is the reveal anyone actually perceives; at 0.95 the fade is close
+                  to imperceptible, which is exactly why it costs nothing to make it legal. */}
               <m.div
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: FADE_FLOOR, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
                 data-testid={`concierge-turn-${turn.role}`}
