@@ -934,11 +934,14 @@ html {
   background-clip: text;
 }
 
-/* Full-bleed dark scrim (home hero overlay + the token-gate overlay). The four stops
-   were once hardcoded copies of the -900/-800/-700 steps at alpha; they were
-   re-expressed against the channel itself, so they can never drift from the ramp
-   again. VERIFIED, not assumed, for the aubergine re-value: this rule needs no edit —
-   it already reads the channel and moves with it. */
+/* Full-bleed dark scrim. SOLE CONSUMER IS NOW THE TOKEN-GATE OVERLAY
+   (components/token-gate.tsx) — the Home hero dropped it in issue #26, see
+   `.hero-scrim` below. The four stops were once hardcoded copies of the
+   -900/-800/-700 steps at alpha; they were re-expressed against the channel itself,
+   so they can never drift from the ramp again. VERIFIED, not assumed, for the
+   aubergine re-value: this rule needs no edit — it already reads the channel and
+   moves with it. Left at its exact former value BECAUSE the wall still uses it:
+   retuning it for the hero would have silently re-skinned the sign-in surface. */
 .hero-gradient {
   background: linear-gradient(
     135deg,
@@ -947,6 +950,86 @@ html {
     rgb(var(--navy-700) / 0.68) 60%,
     rgb(var(--navy-900) / 0.92) 100%
   );
+}
+
+/* ---- The Home hero, issue #26 ------------------------------------------------
+   ONE scrim over the photograph, not two. The hero used to stack `.hero-gradient`
+   (0.68–0.95 of the surface ramp) UNDER a second `from-surface via-transparent
+   to-surface/50` wash, over a photo already held at `opacity:.45`. Compositing
+   those leaves about 7% of the picture on screen at the band the title sits in
+   ((1 − 0.84) × 0.45 = 0.072) — the photo was not dim, it was very nearly gone,
+   and that is what made the front page read flat. The photo now paints at full
+   strength and this single ramp is the only thing over it. Measured: the
+   photograph goes from ~7% to 24% of the painted pixel.
+
+   THE 0.76 FLOOR IS A MEASUREMENT, NOT A TASTE, and it may not be lowered without
+   re-running `npm run contrast-check`. The ramp never drops below 0.76 anywhere a
+   text node can land, because the hero's content block is vertically CENTRED and
+   its height CHANGES as zero countdown units drop out (the grid renders 3 to 6
+   cells) — so the bottom-alignment trick that lets a fixed photographic band put
+   its text in the darkest part of its ramp is not available here, and a
+   position-dependent guarantee would be re-derived wrong the first time the cell
+   count changed.
+
+   Measured against the worst case a photograph can produce — a PURE WHITE pixel.
+   This hero carries no duotone brightness cap (--duo-np-high and friends still
+   have no consumer), so the cap MUST NOT be assumed; white is the honest bound
+   and it is also what covers the custom-trip vibe gradient, whose stops this
+   file does not control. At 0.76 over white: --text-hi 9.22:1, --text-mid 5.62:1,
+   and at the darkest frame of the entrance reveal (FADE_FLOOR 0.95) 8.53:1 and
+   5.27:1. --text-lo measures 3.55:1 there and therefore MAY NOT BE USED AS TEXT
+   OVER THE PHOTOGRAPH — in the hero it appears only on the opaque countdown
+   cells (6.25:1 on surface-2). 3.55 does clear the 3:1 bar for a decorative
+   non-text mark, and nothing in the hero relies on that.
+
+   The last stop is the opaque page field, so the section blends into the
+   `bg-surface` page below it with no seam, and every stop is the same token — the
+   ramp cannot drift from the canvas the way a hardcoded copy can. */
+.hero-scrim {
+  background: linear-gradient(
+    180deg,
+    rgb(var(--surface) / 0.9) 0%,
+    rgb(var(--surface) / 0.76) 20%,
+    rgb(var(--surface) / 0.76) 76%,
+    rgb(var(--surface) / 0.92) 92%,
+    rgb(var(--surface)) 100%
+  );
+}
+
+/* The countdown block's cells. Fill, border and resting shadow come from
+   `.glass-card` (unchanged); this adds only the one geometry the utility scale
+   cannot express. 20px is the ruled countdown-cell radius and it is the single
+   step of the radius scale with no Tailwind key — --radius-xl is 28px (cards) and
+   --radius-lg is 12px — so it is written once, here, rather than promoted to a
+   token nobody else would consume.
+
+   Unlayered on purpose, like every other rule in this half of the file, which is
+   how it wins over `.glass-card`'s `@layer components` default without
+   `!important`. The consumer therefore carries NO `rounded-*` utility; adding one
+   would be dead code, not an override. */
+.countdown-cell {
+  border-radius: 20px;
+}
+
+/* THE ONE LIVE THING ON THE SURFACE. --glow-live has exactly one intended
+   consumer and this is it. A second consumer destroys the signal: the glow is what
+   marks the single thing on screen that is genuinely ticking, so two of them mark
+   nothing. Add one and this comment is what you have to argue with.
+
+   Motion never carries information alone: the cell also says SECONDS in text and
+   paints its digits with the Japan gradient, so the glow and the pink edge are
+   decoration on top of an already-legible state. There is deliberately NO breathe
+   loop — this file retired every infinite animation and says so above, and a
+   static glow is exactly what the reduced-motion fork of that loop would render
+   anyway. If the loop is ever wanted it belongs with the motion system (the
+   session ledger and the per-surface loop counter), not smuggled in here.
+
+   --jp-a as the edge measures 7.73:1 against the cell fill, far past the 3:1 a
+   non-text boundary needs; it wins over `.glass-card`'s --border edge by source
+   order at equal specificity. */
+.countdown-cell--live {
+  border-color: var(--jp-a);
+  box-shadow: var(--shadow-sm), var(--glow-live);
 }
 
 /* ---- --accent-scroll consumers ---- */

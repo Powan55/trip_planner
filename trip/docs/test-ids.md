@@ -30,6 +30,12 @@ ever share an id.
 | `hero-travel-mode` | the in-trip panel container `<div>` | Renders instead of the countdown grid, only when `mounted && todayInTrip` is non-null: only when the app clock (via `getNow()` / the `?today=` query override, D-075) falls inside Dec 9, 2026 – Jan 9, 2027. To reveal it in a dev/E2E run without waiting for the real date, drive the clock with `?today=2026-12-12` (or any in-window date) per the existing `lib/trip-now.ts` override. |
 | `hero-day-number` | the "Day N" value `<span>` inside the travel-mode panel | Same reveal condition as `hero-travel-mode`. |
 
+Issue #26 restyled the block without touching a single id or the cell count. Two things a
+spec author should know anyway: `countdown-seconds` is now the LIVE cell (`.countdown-cell--live`
+— a pink edge, the `--glow-live` ring, and gradient-filled digits via `.text-gradient-sakura`,
+so its computed `color` is `transparent` while `textContent` is unchanged), and the eyebrow
+above the grid reads "Countdown to day one".
+
 ## 2. Dashboard: `components/trip-dashboard.tsx` (route: `/`)
 
 Namespaced `dashboard-*`, deliberately distinct from the hero's `countdown-*` since
@@ -1128,3 +1134,26 @@ leaving it to a reviewer's eye.
 There is deliberately no `data-testid` here. `header[data-tier="2-header"]` is already a
 stable, meaningful selector, and the existing visual baselines locate the masthead as
 `page.locator('header').first()`, which is unchanged.
+
+---
+
+## 42. Home stat row: `components/home-stat-row.tsx` (route: `/`), issue #26
+
+The band directly under the hero, outside the `min-h-[100svh]` fold column. Namespaced
+`home-stat-*`, distinct from the hero's `countdown-*`, the dashboard's `dashboard-*` and the
+bento's `home-bento-*` — all four can render on `/` at once.
+
+Mounted through `LazyVisible`, so on a cold load the section is preceded by a
+`[data-lazy-visible="pending"]` placeholder; wait for `toHaveCount(0)` (the precedent in
+`e2e/countdown.spec.ts`) rather than for a fixed delay.
+
+| testid | element | notes |
+|---|---|---|
+| `home-stat-row` | the section `<section>` | Always present once the island mounts. Labelled by the visually-hidden `#home-stats-title`. |
+| `home-stat-days` | the trip-length cell | `TRIP_DATES.length` — the same number `dashboard-trip-duration` shows. Static; does not depend on the clock. |
+| `home-stat-countries` | the country-count cell | Distinct `getCountryForDate` values across the trip dates. Trip-scoped, so a custom trip counts its own legs. |
+| `home-stat-cities` | the city-count cell | Distinct `getCityForDate` values across the trip dates. Trip-scoped for the same reason. |
+| `home-stat-live` | the one clock-driven cell | Three states, all from existing producers: pre-trip `computeCountdown(...).totalDays` + "Days to go"; in-trip `getTodayInTrip().dayNumber` + "Day on trip"; post-trip the trip length + "Days travelled". Drive it with `?today=` exactly as for `hero-travel-mode`. Re-reads on a 60s interval, not the hero's 1s. |
+
+Issue #31 extends this row by appending to the component's `cells` array; new cells take
+the same `home-stat-*` prefix.

@@ -92,6 +92,27 @@ C.chip = over('#FFFFFF', C.surface2, 0.06);
 // on --bg and on surface-1) are already asserted above; these are the two the route adds.
 C.docsRowHover = over('#FFFFFF', C.surface1, 0.06);
 C.docsNoteFill = over('#FFFFFF', C.surface1, 0.03);
+// ---- issue #26, the Home hero: text over the PHOTOGRAPH ----------------------------
+// The hero used to hold its photo at opacity .45 under TWO stacked overlays; it now paints
+// at full strength under ONE ramp, `.hero-scrim`, whose floor is 0.76 (globals.css).
+//
+// THE WORST-CASE PIXEL IS PURE WHITE, NOT A DUOTONE CAP, AND THAT IS DELIBERATE. The
+// duotone tokens above (--duo-*-high) cap every channel of every pixel and would let this
+// be measured against #F5D4AC — but the hero has no duotone layer, so that cap does not
+// exist on this surface and assuming it would be measuring a photograph that is not there.
+// White is the honest bound for an ungraded photo, and it is also the bound for the
+// custom-trip vibe gradient, whose stops this repo does not author.
+//
+// The scrim ramps toward --bg (the page field) rather than --scrim-ink so its last stop IS
+// the page below it and the section blends with no seam; that also makes it very slightly
+// STRICTER than ramping toward the darker ink, so nothing here is flattered.
+C.heroScrim76 = over(C.bg, '#FFFFFF', 0.76); // the ramp's floor — where hero copy sits
+C.heroScrim90 = over(C.bg, '#FFFFFF', 0.90); // the ramp's top/bottom, under the navbar
+// The entrance reveal runs each hero element from FADE_FLOOR (0.95) to 1, and the axe scan
+// runs WITHOUT reduced motion, so it can sample that frame. These are the tiers painted at
+// 95% over the floor stop — the darkest frame the reveal can be caught in.
+C.heroHiFading = over(C.textHi, C.heroScrim76, 0.95);
+C.heroMidFading = over(C.textMid, C.heroScrim76, 0.95);
 
 // ---- issue #3, the Tier-2 photographic page header (.photo-header in globals.css) ----
 // A Tier-2 header band's HEIGHT is per-route, so bottom-alignment alone is not a
@@ -236,6 +257,21 @@ const pairs = [
   ['brand separator + pin (lo) over NP header', C.textLo, C.npHdrMin, 4.5],
   ['brand separator + pin (lo) over JP header', C.textLo, C.jpHdrMin, 4.5],
 
+  ['-- THE HOME HERO, ISSUE #26 (one scrim, floor .76, worst pixel = pure white) --'],
+  ['hero title (hi) at the scrim floor', C.textHi, C.heroScrim76, 4.5],
+  ['hero copy (mid) at the scrim floor', C.textMid, C.heroScrim76, 4.5],
+  ['hero title (hi), darkest reveal frame', C.heroHiFading, C.heroScrim76, 4.5],
+  ['hero copy (mid), darkest reveal frame', C.heroMidFading, C.heroScrim76, 4.5],
+  ['hero mark (lo) at the floor, 3:1 only', C.textLo, C.heroScrim76, 3],
+  ['hero copy (mid) at the ramp top .90', C.textMid, C.heroScrim90, 4.5],
+  ['countdown value (hi) on a cell', C.textHi, C.surface2, 4.5],
+  ['countdown label (lo) on a cell', C.textLo, C.surface2, 4.5],
+  ['live cell digits, japan stop A', C.jpA, C.surface2, 4.5],
+  ['live cell digits, japan stop B', C.jpB, C.surface2, 4.5],
+  ['live cell edge (jp-a), 1.4.11 3:1', C.jpA, C.surface2, 3],
+  ['stat value (hi) on a stat cell', C.textHi, C.surface1, 4.5],
+  ['stat caption (lo) on a stat cell', C.textLo, C.surface1, 4.5],
+
   ['-- PASSPORT PARCHMENT (a light material inside the dark app, D-294) --'],
   ['on-paper ink on paper', C.onPaper, C.paper, 4.5],
   ['paper-lo on paper', C.paperLo, C.paper, 4.5],
@@ -261,6 +297,12 @@ const guards = [
   ['white on mint      (=> use --on-accent ink)', C.textHi, C.mint, 4.5],
   ['white on nepal B   (=> use --on-accent ink)', C.textHi, C.npB, 4.5],
   ['--border as text/UI cue (decorative only)', C.border, C.bg, 3],
+  // Issue #26. The hero's rule is "no floor-tier TEXT over the photograph", and this is
+  // what makes it load-bearing instead of a comment: --text-lo is 3.55:1 at the scrim
+  // floor, fine for a decorative mark and NOT fine for a word. If this guard ever starts
+  // passing, the scrim got darker and hero copy can be re-tiered — which is a decision
+  // somebody should make on purpose, having seen this line flip.
+  ['--text-lo as hero copy over the photo', C.textLo, C.heroScrim76, 4.5],
 ];
 
 let fail = 0;
@@ -281,7 +323,8 @@ for (const [label, fg, bg, t] of guards) {
 
 console.log('\ncomposited worst-case pixels:');
 for (const k of ['npScrim72', 'npScrim82', 'jpScrim72', 'jpScrim82', 'rowHover', 'rowSel', 'chip',
-                 'docsRowHover', 'docsNoteFill', 'npHdrMin', 'jpHdrMin', 'npHdrRest', 'jpHdrRest'])
+                 'docsRowHover', 'docsNoteFill', 'npHdrMin', 'jpHdrMin', 'npHdrRest', 'jpHdrRest',
+                 'heroScrim76', 'heroScrim90', 'heroHiFading', 'heroMidFading'])
   console.log('  ' + k.padEnd(11), C[k]);
 console.log('\nhex -> hsl (the form the shadcn tokens in globals.css take):');
 for (const k of Object.keys(C)) console.log('  ' + k.padEnd(11), C[k], ' hsl(' + hsl(C[k]) + ')');

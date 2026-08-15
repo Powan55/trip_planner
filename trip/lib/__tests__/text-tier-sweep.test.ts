@@ -21,7 +21,19 @@ import tailwindConfig from '@/tailwind.config';
  */
 
 /** Routes converted so far. One entry per landed slice. */
-const SWEPT = ['components/docs-checklist.tsx'];
+const SWEPT = [
+  'components/docs-checklist.tsx',
+  // Issue #26 (the Home hero). Converted because the sweep was FORCED, not opportunistic:
+  // the hero's copy sits over a photograph, and a photograph has no fixed colour to measure
+  // an alpha-on-white against. The three tiers gave it one. The scrim floor that makes those
+  // ratios true is measured in scripts/contrast-tokens.mjs, and the rule the hero adds on top
+  // of the general one is: over the photograph, ink-lo is a decorative mark and never a word.
+  'components/hero-section.tsx',
+  // Born on the tiers rather than converted onto them — listed anyway, because the ratchet
+  // is about what gets copied INTO a file later, and a brand-new Home section sitting next
+  // to 80 files that still carry the ramp is exactly where a class string gets pasted.
+  'components/home-stat-row.tsx',
+];
 
 const read = (rel: string) => readFileSync(resolve(__dirname, '../../', rel), 'utf8');
 

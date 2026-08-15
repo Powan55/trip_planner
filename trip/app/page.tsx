@@ -13,7 +13,7 @@ import LazyVisible from '@/components/lazy-visible';
 import SectionSkeleton from '@/components/section-skeleton';
 import DefaultTripOnly from '@/components/default-trip-only';
 
-// HOME: hero · today/recap content · trip-dashboard · bento · travel-inspiration,
+// HOME: hero · stat row · today/recap content · trip-dashboard · bento · travel-inspiration,
 // plus the legacy v1 hash redirect. Navbar/Footer live in the root layout now.
 // The calendar/destination/map/flights sections moved to their own routes
 //.
@@ -66,6 +66,22 @@ const TRIP_STRIP_H = '61px';
 const HomeTripStrip = dynamic(() => import('@/components/home-trip-strip'), {
   ssr: false,
   loading: () => <SectionSkeleton height={TRIP_STRIP_H} />,
+});
+/** Measured height of the stat row at its TALLER layout — the 2-up mobile grid (two 78px
+ *  cell rows + the 1px divider + `py-4`). Declared once so the LazyVisible reservation and
+ *  the chunk-gap loading slot can never drift apart, the same rule as TRIP_STRIP_H. The
+ *  4-up layout at >=640px is one row shorter, so the placeholder OVER-reserves there for
+ *  the ~200ms before the island's idle beat fires; that is the safe direction (the box
+ *  collapses upward rather than the page jumping down onto content) and the band sits
+ *  below the fold either way. */
+const STAT_ROW_H = '189px';
+// — the stat band directly under the hero (issue #26): trip days, countries, cities and the
+// one live figure. Same lazy-island recipe as every other Home section, so its chunk stays
+// out of Home's First Load JS; it is deliberately NOT inside <HeroSection>, whose height is
+// a fold budget (D-311, and `e2e/countdown.spec.ts`'s CTA clearance assertion).
+const HomeStatRow = dynamic(() => import('@/components/home-stat-row'), {
+  ssr: false,
+  loading: () => <SectionSkeleton height={STAT_ROW_H} />,
 });
 // — the "at a glance" bento grid (read-only composition of existing hooks: next-up,
 // budget spent, cached weather, packing/docs %, map link, Travel Mode entry). Same
@@ -140,6 +156,10 @@ export default function HomePage() {
         </div>
         <HeroSection />
       </div>
+      {/* The stat band reads as part of the hero and is the first thing under the fold
+          line — so it goes here, OUTSIDE the 100svh column. Inside it, it would have eaten
+          the hero's flex-1 space and pushed the hero's own CTA down (D-311). */}
+      <LazyVisible component={HomeStatRow} minHeight={STAT_ROW_H} />
       <LazyVisible component={HomeSectionNav} minHeight="56px" />
       <TodayPanel />
       <TripRecap />
