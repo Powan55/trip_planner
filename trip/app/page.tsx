@@ -67,14 +67,23 @@ const HomeTripStrip = dynamic(() => import('@/components/home-trip-strip'), {
   ssr: false,
   loading: () => <SectionSkeleton height={TRIP_STRIP_H} />,
 });
-/** Measured height of the stat row at its TALLER layout — the 2-up mobile grid (two 78px
- *  cell rows + the 1px divider + `py-4`). Declared once so the LazyVisible reservation and
- *  the chunk-gap loading slot can never drift apart, the same rule as TRIP_STRIP_H. The
- *  4-up layout at >=640px is one row shorter, so the placeholder OVER-reserves there for
- *  the ~200ms before the island's idle beat fires; that is the safe direction (the box
- *  collapses upward rather than the page jumping down onto content) and the band sits
- *  below the fold either way. */
-const STAT_ROW_H = '189px';
+/** Measured height of the stat row at its TALLER layout — the 2-up mobile grid. Declared once
+ *  so the LazyVisible reservation and the chunk-gap loading slot can never drift apart, the
+ *  same rule as TRIP_STRIP_H. The 4-up layout at >=640px is shorter, so the placeholder
+ *  OVER-reserves there for the ~200ms before the island's idle beat fires; that is the safe
+ *  direction (the box collapses upward rather than the page jumping down onto content) and the
+ *  band sits below the fold either way.
+ *
+ *  Issue #31 grew the band, and the arithmetic is written out because it is the only thing
+ *  keeping this literal honest:
+ *    6 cells in 2 columns = 3 rows × 78px          = 234
+ *    + the 2 × 1px grid gaps showing the divider   =   2
+ *    + the section's `py-4`                        =  32
+ *    + the milestone line (`h-[44px]` + `mt-[12px]`) = 56   → 324
+ *  The milestone box uses arbitrary pixel classes rather than `h-11`/`mt-3` precisely so this
+ *  sum stays exact: the app's root font is 17px, at which the rem-based scale would not land
+ *  on 44 and 12. At >=640px the grid is 2 rows, so the real height there is 245px. */
+const STAT_ROW_H = '324px';
 // — the stat band directly under the hero (issue #26): trip days, countries, cities and the
 // one live figure. Same lazy-island recipe as every other Home section, so its chunk stays
 // out of Home's First Load JS; it is deliberately NOT inside <HeroSection>, whose height is

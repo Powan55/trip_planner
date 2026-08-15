@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { TRIP_START } from '@/lib/trip-data';
 import { computeCountdown } from '@/lib/countdown';
-import { getNow, getTodayInTrip } from '@/lib/trip-now';
+import { getNow, getNowAtTrip, getTodayInTrip } from '@/lib/trip-now';
 import { tripShape } from '@/lib/home-stats';
+import { deriveWrapped } from '@/core/recap/wrapped';
+import { visitedTally } from '@/lib/visited-footprint';
+import { useItineraryContext } from '@/components/itinerary-provider';
+import HomeMilestone from '@/components/home-milestone';
 
 /**
  * Home's stat row (issue #26) — the band directly under the hero.
@@ -27,6 +31,25 @@ import { tripShape } from '@/lib/home-stats';
  * and it is why the cells are data rather than four hand-written blocks. Milestone moments
  * are #31's, not this file's. The grid is `grid-cols-2 sm:grid-cols-4`, so a fifth and
  * sixth cell wrap rather than squeeze; past six, revisit the reservation in `app/page.tsx`.
+ *
+ * ISSUE #31 TOOK BOTH OF THOSE SLOTS, and kept the rule above: neither is re-derived here.
+ * `home-stat-plans` is `deriveWrapped(...).activitiesDone` — literally the producer behind
+ * `/recap`'s "Activities" panel (`core/recap/wrapped.ts`), passed only the itinerary domain
+ * because that is the only one it needs for this figure and `deriveWrapped` is TOTAL over the
+ * five it is not given. A second count of done items on Home is the exact drift defect the
+ * issue names. `home-stat-visited` is `visitedTally()`, which reads issue #29's lifetime set
+ * through that module's own membership test (D-314) and intersects it with the trip's own
+ * places. The band is now the trip's SHAPE on the first row and what has actually HAPPENED on
+ * the second.
+ *
+ * The clock the two live cells use is `getNowAtTrip().date` — destination-local and
+ * `?today=`-aware — rather than a hand-rolled device-local `YYYY-MM-DD`. That is the same
+ * trip-clock day `lib/visit-autocount.ts` credits visits against, so the two new cells can
+ * never disagree about which day it is.
+ *
+ * The milestone line below the grid is `components/home-milestone.tsx`, imported STATICALLY so
+ * it rides this island's chunk rather than adding one to Home's First Load. Its box is a fixed
+ * 44px + 12px of margin, which is baked into `STAT_ROW_H` in `app/page.tsx`.
  *
  * Clock cadence: 60s, NOT the hero's 1s. Both live values change at most once a day, the
  * countdown block above is the surface's live display, and a second per-second timer on
@@ -62,20 +85,53 @@ function liveCell(now: Date, days: number): StatCell {
 
 export default function HomeStatRow() {
   const shape = useMemo(tripShape, []);
+  const { plans } = useItineraryContext();
   const [live, setLive] = useState<StatCell>(() => liveCell(getNow(), shape.days));
+  // Seeded from a lazy initializer for the same reason as `live`: a first frame showing 0 and
+  // then correcting itself is a number the user watches change.
+  const [visited, setVisited] = useState(visitedTally);
+  const [tripDay, setTripDay] = useState(() => getNowAtTrip().date);
 
   useEffect(() => {
-    const tick = () => setLive(liveCell(getNow(), shape.days));
+    const tick = () => {
+      setLive(liveCell(getNow(), shape.days));
+      // Re-read rather than subscribe: the visit record is written once per boot by #30's
+      // autocount island, so a 60s poll on the tick this component already runs is enough and
+      // costs one small JSON parse a minute.
+      setVisited(visitedTally());
+      setTripDay(getNowAtTrip().date);
+    };
     tick();
     const timer = setInterval(tick, 60_000);
     return () => clearInterval(timer);
   }, [shape.days]);
+
+  // The recap's own producer, given the one domain this row reads from it. The other five
+  // inputs are legitimately absent — `deriveWrapped` is total over a missing domain and their
+  // stats are not rendered here.
+  const wrapped = useMemo(
+    () =>
+      deriveWrapped(
+        {
+          plans,
+          expenses: null,
+          journalEntries: null,
+          photos: null,
+          packingItems: null,
+          docItems: null,
+        },
+        tripDay,
+      ),
+    [plans, tripDay],
+  );
 
   const cells: StatCell[] = [
     { testId: 'home-stat-days', value: String(shape.days), caption: 'Days' },
     { testId: 'home-stat-countries', value: String(shape.countries), caption: 'Countries' },
     { testId: 'home-stat-cities', value: String(shape.cities), caption: 'Cities' },
     live,
+    { testId: 'home-stat-plans', value: String(wrapped.activitiesDone), caption: 'Plans done' },
+    { testId: 'home-stat-visited', value: String(visited.cities), caption: 'Cities visited' },
   ];
 
   return (
@@ -111,6 +167,22 @@ export default function HomeStatRow() {
           </div>
         ))}
       </div>
+      <HomeMilestone
+        input={{
+          status: wrapped.status,
+          daysElapsed: wrapped.daysElapsed,
+          totalTripDays: wrapped.totalTripDays,
+          activitiesDone: wrapped.activitiesDone,
+          activitiesPlanned: wrapped.activitiesPlanned,
+          citiesVisited: visited.cities,
+          countriesVisited: visited.countries,
+          // From `visitedTally()`, NOT from `shape` — those two count countries in different
+          // vocabularies (labels vs leg ids), and mixing them would make "every country on the
+          // itinerary" true one country early. The reasoning is on `visitedTally`.
+          tripCities: visited.tripCities,
+          tripCountries: visited.tripCountries,
+        }}
+      />
     </section>
   );
 }

@@ -34,6 +34,7 @@ import { type MapMarker, type MarkerCategory } from '@/lib/map-data';
 import { buildMapStyle, CATEGORY_COLOR, BRAND } from '@/lib/map-style';
 import { buildMapsDirectionsUrl } from '@/lib/maps-link';
 import { MARKER_BY_ID, type DayStop } from '@/lib/itinerary-map';
+import { footprintsToGeoJSON, type CountryFootprint } from '@/lib/visited-footprint';
 import { MAP_PIN_DND_TYPE } from '@/lib/day-anchor';
 import { prefersReducedMotion } from '@/lib/motion';
 import OptimizedImage from '@/components/optimized-image';
@@ -108,6 +109,9 @@ export const CATEGORY_STYLES: Record<
 
 const MARKERS_SOURCE_ID = 'markers';
 const ITIN_SOURCE_ID = 'itinerary-route';
+// Issue #31 — the visited footprint wash. Its source and layers are added FIRST in the `load`
+// handler so every marker, route line and label paints on top of it.
+const VISITED_SOURCE_ID = 'visited-footprint';
 
 // 🔴 NOT the default camera — mislabelled for a long time, corrected in.
 // This is only (a) the frame the Map is CONSTRUCTED with, i.e. what is on screen for the few
@@ -504,6 +508,18 @@ export interface TripMapProps {
   pickMode?: boolean;
   /** Fired with the clicked coordinate, ONLY while `pickMode` is on. */
   onMapClick?: (lngLat: { lng: number; lat: number }) => void;
+  /**
+   * Issue #31 — the visited-footprint wash, one soft shape per country the visit record
+   * confirms. Empty/undefined draws nothing, which is what every consumer except `/map` does.
+   *
+   * 🔴 THESE ARE NOT NATIONAL BORDERS and the layers below must never be styled as though they
+   * were. Each ring is the padded convex hull of the cities you have actually been to
+   * (`lib/visited-footprint.ts`, which explains at length why no polygon dataset was added).
+   * The paint is deliberately a soft fill with a faint edge rather than a crisp outline — an
+   * outline reads as a boundary claim, and this is a wash over ground you covered. The host is
+   * responsible for saying so in words; `components/map-section.tsx` does.
+   */
+  countryFills?: CountryFootprint[];
 }
 
 // ── TripMap: the reusable MapLibre engine ─────────────────────────────────────
@@ -530,6 +546,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     enableStopPopup,
     pickMode,
     onMapClick,
+    countryFills,
   },
   ref,
 ) {
@@ -701,6 +718,42 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
       map.on('load', () => {
         if (cancelled) return;
+
+        // Issue #31 — the visited footprint, added BEFORE everything else so it sits at the
+        // bottom of the layer stack: a wash under the pins, never over them. Starts empty and
+        // is filled by the effect below, the same shape as the itinerary route source.
+        map!.addSource(VISITED_SOURCE_ID, {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] } as never,
+        });
+        map!.addLayer({
+          id: 'visited-fill',
+          type: 'fill',
+          source: VISITED_SOURCE_ID,
+          paint: {
+            // Gold at 0.12 — present enough to read as "this ground is yours" on the navy
+            // basemap, faint enough that a marker sitting on it keeps its own colour. Overlap
+            // between two countries' shapes is impossible (they are built from disjoint city
+            // sets), so no compounding to reason about.
+            'fill-color': BRAND.gold400,
+            'fill-opacity': 0.12,
+          },
+        });
+        map!.addLayer({
+          id: 'visited-edge',
+          type: 'line',
+          source: VISITED_SOURCE_ID,
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            // Soft and dashed ON PURPOSE. A crisp 1px line here would read as a border, which
+            // is a claim this shape cannot make (see `countryFills` above); a dashed haze
+            // reads as an approximate region, which is exactly what it is.
+            'line-color': BRAND.gold400,
+            'line-width': 1.5,
+            'line-opacity': 0.28,
+            'line-dasharray': [2, 3],
+          },
+        });
 
         // Browse markers — clustered GeoJSON source.
         map!.addSource(MARKERS_SOURCE_ID, {
@@ -941,6 +994,17 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     if (!map || !mapReady) return;
     map.getCanvas().style.cursor = pickMode ? 'crosshair' : '';
   }, [pickMode, mapReady]);
+
+  // ── Visited footprint → refill the wash when the visit record changes ───────
+  // Data only, never the camera: the footprint is context for whatever the map is already
+  // showing, so fitting to it would yank the view away from the markers the user is browsing.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const src = map.getSource(VISITED_SOURCE_ID) as GeoJSONSource | undefined;
+    if (!src) return;
+    src.setData(footprintsToGeoJSON(countryFills ?? []) as never);
+  }, [countryFills, mapReady]);
 
   // ── Markers → update the source data + camera to the given set ──────────────
   useEffect(() => {
