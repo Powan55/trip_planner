@@ -38,12 +38,17 @@ export interface PreflightCheck {
 }
 
 /**
- * 0.9 (90% of the StorageManager quota). MOVED here from `components/storage-persistence.tsx`
- * (which now imports it) so the proactive near-quota TOAST and this readiness ROW can never
- * disagree about what "nearly full" means. Still the same un-measured heuristic it always was:
- * headroom for one more journal/expense/photo write before the browser starts throwing.
+ * The near-quota threshold, so the proactive TOAST and this readiness ROW can never disagree
+ * about what "nearly full" means. It is DECLARED in `lib/storage-quota.ts` and re-exported here
+ * for the readers that already import it from this module.
+ *
+ * It moved out because `components/storage-persistence.tsx` needs it and is mounted in
+ * `app/layout.tsx` — importing it from here put this module's `maplibregl` marker into the root
+ * layout's chunk, which cost the whole app offline. See the marker comment below and the header
+ * of `lib/storage-quota.ts`. One value, still; a cheaper place to reach it.
  */
-export const QUOTA_WARN_THRESHOLD = 0.9;
+export { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
+import { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
 
 /** The service worker's content-hashed precache (`scripts/gen-sw.mjs`). */
 const PRECACHE_PREFIX = 'trip-precache-';
@@ -59,6 +64,24 @@ const PRECACHE_PREFIX = 'trip-precache-';
 // reports "Map engine missing" to EVERY user while the engine is in fact present — a false
 // ALARM rather than a false pass, so it fails safe, but it fails loudly and for everyone. The two
 // strings must move together.
+//
+// 🔴 THIS MODULE IS CONTAGIOUS. KEEP IT OFF THE ROOT LAYOUT'S IMPORT PATH.
+// The literal below lands in whatever chunk this module is bundled into, and two independent
+// consumers read "chunk body contains that string" as "this chunk IS the map engine":
+// `gen-sw.mjs`'s isMaplibreChunk(), which decides what gets precached and which call sites need
+// the island boundary, and `e2e/pwa.spec.ts`'s eviction test, which deletes every matching chunk
+// to prove the boundary degrades. Neither can tell "carries maplibre" from "looks for maplibre".
+//
+// `components/storage-persistence.tsx` used to import `QUOTA_WARN_THRESHOLD` from here for one
+// number, and it is mounted in `app/layout.tsx` — so the ROOT LAYOUT's chunk carried this marker,
+// the eviction deleted it, and `app/global-error.tsx` replaced every route. Not just a test
+// artefact: a real storage-pressure eviction of the engine would have taken the whole app offline
+// with it. The constant now lives in `lib/storage-quota.ts`; read that file's header before
+// re-pointing any import at this one.
+//
+// Hiding the string does not work and was tried: `['maplibre','gl'].join('')` is constant-folded
+// straight back by the minifier, and the built chunk still contained it. Controlling WHERE this
+// module is reachable from is the mechanism; obscuring the spelling is not.
 const MAPLIBRE_MARKER = 'maplibregl';
 
 /**

@@ -39,7 +39,10 @@ import { installHintStore } from '@/core/storage/gateway';
 // write before the browser starts throwing or evicting. #20 MOVED it to `lib/preflight.ts`, whose
 // night-before "Storage room" row reads the same `estimate()` and must call "nearly full" at the
 // same point this toast does; tune it there and both surfaces move together.
-import { QUOTA_WARN_THRESHOLD } from '@/lib/preflight';
+// From lib/storage-quota.ts, NOT lib/preflight.ts — this component is mounted in app/layout.tsx,
+// and importing the constant from preflight put that module's `maplibregl` marker into the root
+// layout's chunk. See the header of lib/storage-quota.ts; e2e/pwa.spec.ts:651 is the proof.
+import { QUOTA_WARN_THRESHOLD } from '@/lib/storage-quota';
 
 // Per-page-load guard for the quota toast. Deliberately a module-level flag, not sessionStorage:
 // it only needs to survive one estimate() check per mount, and a fresh module instance already
