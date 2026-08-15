@@ -14,11 +14,25 @@ import type { Page, Route } from '@playwright/test';
  * answering the Worker origin.
  *
  * The Worker resolution path is DORMANT unless the build inlined `NEXT_PUBLIC_CONCIERGE_URL`
- * (`lib/concierge-config.ts`) — with it unset, `resolvePlaceLink` short-circuits to null and NO
- * fetch fires (the import sheet stays fully manual, which is by design — the feature never dead-ends).
- * These specs therefore DETECT whether resolution is wired (did the stub get hit / did the sheet
- * reach the "Found" state) and assert the pre-fill only then; the manual + persistence guarantees
- * are asserted on EITHER build. The evidence run is built WITH the env set so the stub path is real.
+ * (`lib/concierge-config.ts`) — with it unset, `resolvePlaceLink` short-circuits at
+ * `lib/place-resolve.ts:50` and NO fetch fires (the import sheet stays fully manual, which is by
+ * design — the feature never dead-ends).
+ *
+ * 🔴 THIS FILE IS WIRED-ONLY (issue #9). It used to BRANCH on whether resolution was wired —
+ * `if (found) { assert the pre-fill } else { type the name by hand }` — so on a dormant build every
+ * test below went green having exercised nothing but the manual fallback. `resolvePlaceLink` is
+ * TOTAL and returns `null` on every failure, so "the Worker was never configured" and "the Worker
+ * answered garbage" produce the identical, benign UI state; a spec that accepts both cannot tell
+ * them apart, which is precisely how a file named `place-import` could stay green while place
+ * import was not wired at all. Every resolve-path test now asserts POSITIVELY that the configured
+ * endpoint was really requested (`hits.count`) and that the sheet really reached "Found" — the same
+ * shape `concierge.spec.ts` already uses. On a dormant build these fail with the message below
+ * rather than passing vacuously. CI builds with the env set (`.github/workflows/ci.yml`); locally:
+ *   NEXT_PUBLIC_CONCIERGE_URL=https://concierge.test npm run build
+ *
+ * The manual-fallback guarantee is NOT lost: it is asserted by the 500-from-/resolve test, which
+ * now proves the 500 came off the wire (the stub was hit) rather than from a build that never
+ * called anything — the same vacuity, one branch over.
  */
 
 test.use({ serviceWorkers: 'block' });
@@ -69,6 +83,32 @@ async function waitResolveTerminal(page: Page): Promise<boolean> {
   return (await status.textContent())?.includes('Found this place') ?? false;
 }
 
+const NOT_WIRED =
+  'PLACE IMPORT IS NOT WIRED in this build: the sheet never requested <origin>/resolve, so ' +
+  'NEXT_PUBLIC_CONCIERGE_URL was not inlined at build time (lib/place-resolve.ts:50 short-circuits ' +
+  'to null before any fetch). This spec is wired-only — it exists to prove the resolve path runs, ' +
+  'and passing on the manual fallback would prove nothing. Rebuild with ' +
+  'NEXT_PUBLIC_CONCIERGE_URL=https://concierge.test npm run build, then re-run.';
+
+/**
+ * #9 — the wiring check, asserted POSITIVELY and in both halves, because either alone can lie:
+ *   • `hits.count` — the configured endpoint was actually REQUESTED (a dormant build makes no
+ *     fetch at all, so this is 0 and nothing else in the test can tell).
+ *   • `found` — the sheet actually reached "Found", i.e. the answer was parsed and applied, not
+ *     just requested and dropped on the floor by the total `null` contract.
+ */
+async function assertResolveWired(page: Page, hits: { count: number }): Promise<void> {
+  const found = await waitResolveTerminal(page);
+  expect(hits.count, NOT_WIRED).toBeGreaterThan(0);
+  // Distinct message on purpose: reaching here means the request DID go out, so this is a
+  // parse/apply failure in the client, not a build-configuration one — very different fix.
+  expect(
+    found,
+    `the stub was requested (${hits.count}x) but the sheet did not reach "Found" — the resolve ran ` +
+      'and its answer was discarded (lib/place-resolve.ts returns null on any parse failure).',
+  ).toBe(true);
+}
+
 test.describe('S285 · place import — persistence hard guarantee (paste → confirm → card + plan item → reload)', () => {
   test('paste a Google link, (stub) resolve, add to plan, and both the card and its plan link survive a reload', async ({
     page,
@@ -84,17 +124,13 @@ test.describe('S285 · place import — persistence hard guarantee (paste → co
     // Paste the URL and look it up.
     await page.getByTestId('import-place-url-input').fill(GOOGLE_URL);
     await page.getByTestId('import-place-lookup').click();
-    const found = await waitResolveTerminal(page);
 
-    if (found) {
-      // Wired build: the stub really answered — name pre-filled, Nepal pre-selected from coords.
-      expect(hits.count).toBeGreaterThan(0);
-      await expect(page.getByTestId('import-place-name-input')).toHaveValue(PLACE_NAME);
-      await expect(page.getByTestId('import-place-leg-nepal')).toHaveAttribute('aria-checked', 'true');
-    } else {
-      // Dormant build: resolution can't fire — fill the name manually (never a dead end).
-      await page.getByTestId('import-place-name-input').fill(PLACE_NAME);
-    }
+    // #9 — the stub really answered: name pre-filled, Nepal pre-selected from the resolved coords.
+    // No `if (found)` branch: a dormant build fails here instead of typing the name by hand and
+    // carrying on green.
+    await assertResolveWired(page, hits);
+    await expect(page.getByTestId('import-place-name-input')).toHaveValue(PLACE_NAME);
+    await expect(page.getByTestId('import-place-leg-nepal')).toHaveAttribute('aria-checked', 'true');
 
     // Force the leg deterministically (Nepal) so the card lands on /nepal/ regardless of build.
     await page.getByTestId('import-place-leg-nepal').click();
@@ -129,34 +165,36 @@ test.describe('S285 · place import — persistence hard guarantee (paste → co
     // Sanity: the day picked was a real trip day (the plan write targeted it).
     expect(dayValue).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 
-    if (found) {
-      // S349 — the actual bug: coords.lat/lng must ride the addItem() payload, not just the
-      // MyPlace card. Open the plan item's editor (same day the sheet wrote to) and confirm the
-      // pin is seeded from the resolve — the ItemEditor reads its pin straight from
-      // item.lat/item.lng (calendar-planner.tsx), so a populated pin readout is direct proof
-      // the persisted plan item itself carries the pin, not just the card.
-      //
-      // 🔴 S357B: this assertion changed SHAPE because its subject was deleted, not because it
-      // was inconvenient. The pin used to be two text inputs and was read with `toHaveValue`;
-      // S357B replaced them with a map picker whose chosen coordinate is echoed on
-      // `calendar-editor-pin-value`. The EXPECTED LITERALS are unchanged ('27.7215' / '85.362',
-      // the same `String(item.lat)` formatting the inputs carried), and the pin section is
-      // reached with one disclosure click rather than by reading a hidden node — so this is
-      // strictly the same check on the same values, not a weakened one.
-      await page.goto('/plan/', { waitUntil: 'domcontentloaded' });
-      await page.locator('[data-testid^="calendar-day-"]').first().waitFor({ state: 'attached' });
-      await page.getByTestId(`calendar-day-${dayValue}`).click();
-      await page.getByRole('button', { name: `Edit ${PLACE_NAME}` }).click();
-      const editor = page.getByTestId('calendar-editor');
-      await expect(editor).toBeVisible();
-      await editor.getByTestId('calendar-editor-more-toggle').click();
-      const pinValue = editor.getByTestId('calendar-editor-pin-value');
-      await expect(pinValue).toHaveAttribute('data-lat', '27.7215');
-      await expect(pinValue).toHaveAttribute('data-lng', '85.362');
-      // Close without saving — this is a read-only assertion on what was already persisted.
-      await editor.getByTestId('calendar-editor-cancel').click();
-      await expect(editor).toBeHidden();
-    }
+    // S349 — the actual bug: coords.lat/lng must ride the addItem() payload, not just the
+    // MyPlace card. Open the plan item's editor (same day the sheet wrote to) and confirm the
+    // pin is seeded from the resolve — the ItemEditor reads its pin straight from
+    // item.lat/item.lng (calendar-planner.tsx), so a populated pin readout is direct proof
+    // the persisted plan item itself carries the pin, not just the card.
+    //
+    // #9 — this block used to sit behind `if (found)`, which made the file's strongest assertion
+    // (the resolved coordinates survive all the way into persisted plan state) the FIRST thing to
+    // be skipped on the builds most likely to be broken.
+    //
+    // 🔴 S357B: this assertion changed SHAPE because its subject was deleted, not because it
+    // was inconvenient. The pin used to be two text inputs and was read with `toHaveValue`;
+    // S357B replaced them with a map picker whose chosen coordinate is echoed on
+    // `calendar-editor-pin-value`. The EXPECTED LITERALS are unchanged ('27.7215' / '85.362',
+    // the same `String(item.lat)` formatting the inputs carried), and the pin section is
+    // reached with one disclosure click rather than by reading a hidden node — so this is
+    // strictly the same check on the same values, not a weakened one.
+    await page.goto('/plan/', { waitUntil: 'domcontentloaded' });
+    await page.locator('[data-testid^="calendar-day-"]').first().waitFor({ state: 'attached' });
+    await page.getByTestId(`calendar-day-${dayValue}`).click();
+    await page.getByRole('button', { name: `Edit ${PLACE_NAME}` }).click();
+    const editor = page.getByTestId('calendar-editor');
+    await expect(editor).toBeVisible();
+    await editor.getByTestId('calendar-editor-more-toggle').click();
+    const pinValue = editor.getByTestId('calendar-editor-pin-value');
+    await expect(pinValue).toHaveAttribute('data-lat', '27.7215');
+    await expect(pinValue).toHaveAttribute('data-lng', '85.362');
+    // Close without saving — this is a read-only assertion on what was already persisted.
+    await editor.getByTestId('calendar-editor-cancel').click();
+    await expect(editor).toBeHidden();
   });
 });
 
@@ -219,7 +257,7 @@ test.describe('S285 · place import — resolution failure degrades to a working
   test('a 500 from /resolve lands the sheet in manual mode and a hand-typed place still imports', async ({
     page,
   }) => {
-    await stubResolve(page, { ok: false }, 500);
+    const hits = await stubResolve(page, { ok: false }, 500);
     await page.goto('/share/', { waitUntil: 'load' });
     await expect(page.getByTestId('share-inbox')).toBeVisible();
 
@@ -228,8 +266,12 @@ test.describe('S285 · place import — resolution failure degrades to a working
     await page.getByTestId('import-place-url-input').fill(GOOGLE_URL);
     await page.getByTestId('import-place-lookup').click();
 
-    // Whether the fetch 500'd (wired) or never fired (dormant), the terminal state is "manual".
+    // #9 — this test is the one that most needed the check, because "manual mode" is what a
+    // dormant build produces ANYWAY: it used to read "whether the fetch 500'd (wired) or never
+    // fired (dormant), the terminal state is manual", i.e. it asserted the degraded state without
+    // ever establishing that anything degraded. `hits.count` proves the 500 came off the wire.
     const found = await waitResolveTerminal(page);
+    expect(hits.count, NOT_WIRED).toBeGreaterThan(0);
     expect(found).toBe(false);
     await expect(page.getByTestId('import-place-status')).toHaveText(/Couldn't read this link/);
 
@@ -267,16 +309,18 @@ test.describe('S285 · inbox rows — "Import as place" only on Google-host link
     await expect(page.locator('li', { hasText: 'maps.app.goo.gl' }).locator('[data-testid^="share-item-import-"]')).toHaveCount(1);
     await expect(page.locator('li', { hasText: 'example.com' }).locator('[data-testid^="share-item-import-"]')).toHaveCount(0);
 
-    // Importing from the row: the seeded sheet opens, auto-resolves (wired) or stays manual (dormant),
-    // and on a successful save the SOURCE ROW is removed.
+    // Importing from the row: the seeded sheet opens, AUTO-resolves (no "Look up" click — the
+    // inbox path fires the resolve itself, which is the wiring this test exists to prove), and on
+    // a successful save the SOURCE ROW is removed.
     await importButtons.first().click();
     await expect(page.getByTestId('import-place-sheet')).toBeVisible();
     // The seeded URL is shown read-only (paste mode is off for the inbox path).
     await expect(page.getByTestId('import-place-url-readonly')).toContainText('maps.app.goo.gl');
 
-    const found = await waitResolveTerminal(page);
-    if (!found) await page.getByTestId('import-place-name-input').fill(PLACE_NAME);
-    else expect(hits.count).toBeGreaterThan(0);
+    // #9 — was `if (!found) fill the name by hand`, so a dormant build silently downgraded this to
+    // a manual-import test and the auto-resolve was never exercised.
+    await assertResolveWired(page, hits);
+    await expect(page.getByTestId('import-place-name-input')).toHaveValue(PLACE_NAME);
 
     await page.getByTestId('import-place-confirm').click();
     await expect(page.getByTestId('import-place-sheet')).toHaveCount(0);

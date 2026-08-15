@@ -29,9 +29,25 @@ describe('resolvePlaceLink (S284) — never throws, degrades to null', () => {
     expect(called).toBe(false);
   });
 
-  it('returns hints on a 200 { ok:true } response', async () => {
-    const fetchImpl = (async () =>
-      jsonRes({ ok: true, name: 'Fushimi Inari', lat: 34.9671, lng: 135.7727, finalUrl: 'https://www.google.com/maps/place/Fushimi' })) as unknown as typeof fetch;
+  it('returns hints on a 200 { ok:true } response, and requests the CONFIGURED endpoint (#9)', async () => {
+    // #9 — the URL assertion is the wiring check. Everything else in this file is satisfied by
+    // ANY fetch double answering ANY address, so the suite could not tell "asks the Worker for
+    // /resolve" from "asks it for nothing of the sort": `resolvePlaceLink` is TOTAL and a wrong
+    // address just becomes `null`, i.e. the same benign manual-fallback the unconfigured build
+    // produces.
+    //
+    // What this DOES and does NOT catch, stated exactly, because the looser version of this
+    // comment was wrong: it does NOT catch a misconfigured `NEXT_PUBLIC_CONCIERGE_URL` — this
+    // test injects `origin` directly and never reads the env var. `deploy.yml:120` is what
+    // hard-fails a value carrying a path. What this DOES catch is drift in the URL SHAPE, and
+    // that matters precisely because `deploy.yml:118-119` justifies its own guard by asserting
+    // "lib/place-resolve.ts builds `<value>/resolve`". Change the shape here and that guard's
+    // rationale goes stale silently. This assertion is what keeps the two in step.
+    const requested: string[] = [];
+    const fetchImpl = (async (input: string) => {
+      requested.push(input);
+      return jsonRes({ ok: true, name: 'Fushimi Inari', lat: 34.9671, lng: 135.7727, finalUrl: 'https://www.google.com/maps/place/Fushimi' });
+    }) as unknown as typeof fetch;
     const hints = await resolvePlaceLink(URL, { fetchImpl, origin: ORIGIN });
     expect(hints).toEqual({
       name: 'Fushimi Inari',
@@ -39,6 +55,21 @@ describe('resolvePlaceLink (S284) — never throws, degrades to null', () => {
       lng: 135.7727,
       finalUrl: 'https://www.google.com/maps/place/Fushimi',
     });
+    expect(requested).toEqual([`${ORIGIN}/resolve?url=${encodeURIComponent(URL)}`]);
+  });
+
+  it('strips ONE trailing slash off the origin, which deploy.yml relies on (#9)', async () => {
+    // `deploy.yml:123` permits a trailing slash on NEXT_PUBLIC_CONCIERGE_URL with the comment
+    // "One trailing slash is fine: place-resolve strips it". Nothing exercised that: every other
+    // case here passes a slash-free ORIGIN, so the `replace(/\/+$/, '')` was a no-op under test
+    // and could have been deleted with the suite still green.
+    const requested: string[] = [];
+    const fetchImpl = (async (input: string) => {
+      requested.push(input);
+      return jsonRes({ ok: true, name: 'Fushimi Inari' });
+    }) as unknown as typeof fetch;
+    await resolvePlaceLink(URL, { fetchImpl, origin: `${ORIGIN}/` });
+    expect(requested).toEqual([`${ORIGIN}/resolve?url=${encodeURIComponent(URL)}`]);
   });
 
   it('returns null on a non-200 response (manual fallback)', async () => {
