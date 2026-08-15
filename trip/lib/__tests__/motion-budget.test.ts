@@ -305,3 +305,11 @@ describe('the entrance ledger (D-293 rule 7)', () => {
     }
   });
 });
+
+// Issue #25's front-door loop (`.door-kb`) is NOT checked here, deliberately. A block that read
+// globals.css for it was written and then deleted when #24's own `scripts/motion-loops.mjs`
+// landed on dev: that audit already parses every `animation` shorthand in the file, resolves a
+// `var()` duration against the declared custom properties, holds it to D-293 R2's 6s floor, and
+// fails any loop whose selector is not named in the reduced-motion `animation: none` list. It
+// covers `.door-kb` generically and it covers the NEXT loop too, which a hand-written text match
+// on one selector never would. Run it with `npm run loop-check`.

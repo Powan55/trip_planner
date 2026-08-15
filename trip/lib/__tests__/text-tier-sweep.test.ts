@@ -36,6 +36,14 @@ const SWEPT = [
   // Issue #4's /profile body. Also born on the tiers, and listed for the same reason: it is a
   // form, and form markup is the most-copied markup in any codebase.
   'components/visited-places-panel.tsx',
+  // Issue #25 (the front door) — BOTH views of the wall, and the same forcing that took the
+  // Home hero: the landing's cover copy sits over a photograph, and a photograph has no fixed
+  // colour to measure an alpha-on-white against. The auth card came with it rather than being
+  // left half-swept, since one file renders both and a class string crosses that boundary in
+  // one keystroke. The rule the front door adds on top of the general one is the hero's,
+  // restated: over the photograph, ink-lo is a decorative mark and never a word.
+  'components/landing-page.tsx',
+  'components/token-gate.tsx',
 ];
 
 const read = (rel: string) => readFileSync(resolve(__dirname, '../../', rel), 'utf8');
