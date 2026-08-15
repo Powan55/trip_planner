@@ -7,7 +7,7 @@
 // DOCUMENTS + departure readiness. The island is lazy + ssr:false, mirroring app/packing/sections.tsx;
 // this Server Component page exports metadata. Reached via a direct URL or the command palette's
 // "Documents" entry.
-import { DocsChecklist } from './sections';
+import { DocsChecklist, PreflightChecks } from './sections';
 
 export const metadata = {
   title: 'Documents & Readiness · Nepal × Japan Journey',
@@ -44,6 +44,9 @@ export default function ChecklistPage() {
         </div>
       </header>
       <DocsChecklist />
+      {/* #20 — the machine-checked half of "am I ready?", below the human-attested list it
+          complements (same page, same moment: the evening before flying). */}
+      <PreflightChecks />
     </main>
   );
 }
