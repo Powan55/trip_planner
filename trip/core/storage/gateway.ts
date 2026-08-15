@@ -317,10 +317,15 @@ export const STORAGE_KEYS = {
    * shared/pasted from a Google Maps link becomes a user-owned "My place" card in its country leg.
    * TRIP-SCOPED (added to the `TripScopedSlot` union, resolved via `keyFor('myPlaces')`) so a custom
    * trip's places never bleed into the default pack. Held NEWEST-FIRST, capped at 200 (drop-oldest,
-   * `core/places/model.ts` `PLACES_CAP`) so the value stays small. localStorage backend;
-   * additive, no migration, LOCAL-ONLY (NOT part of the itinerary Vault, NOT part of any sync path —
-   * cross-device sync is the deferred). Value shape owned by `core/places/model.ts` (the gateway
-   * is byte-transport only). ADDITIVE: a brand-new key, no back-compat surface changes. Mirrors
+   * `core/places/model.ts` `PLACES_CAP`) so the value stays small — the cap applies to live rows
+   * and to tombstones separately. localStorage backend; additive, no migration. NOT part of the
+   * itinerary Vault, but — since the D-229 addendum (issue #17) — this slot IS on a sync path: it
+   * mirrors to `trips/{tripId}/places/list` on a custom trip. On the DEFAULT pack `getTripId()` is
+   * '' (the remote id is retired), so places there stay local-only and the row keeps its pre-#17
+   * bytes (no `rev`/`hlc`/`deleted`). Value shape owned by `core/places/model.ts` and the merge by
+   * `core/places/merge.ts` (the gateway is byte-transport only, either way). NOTE the sibling key
+   * 14 `favorites` is deliberately NOT synced — see the D-229 addendum. ADDITIVE: a brand-new key,
+   * no back-compat surface changes. Mirrors
    * `shareInboxStore`/`favoritesStore` exactly. NOTE: the plan text sketched "key 30", but
    * `installHintDismissed` took 30 first — this is the next free number, key 31.
    */

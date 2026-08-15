@@ -36,7 +36,7 @@ import { keyFor, readJson, writeJson, removeKey } from '@/core/storage/gateway';
 import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 
-export type SyncDomain = 'itinerary' | 'expenses' | 'budget' | 'docs';
+export type SyncDomain = 'itinerary' | 'expenses' | 'budget' | 'docs' | 'places';
 
 /**
  * The per-domain recipe the decorator drives. State-based: it only needs the prev→next chunk

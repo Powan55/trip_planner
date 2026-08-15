@@ -16,6 +16,7 @@ import { itineraryStoragePort, itineraryOutboxSync, itinerarySyncPort } from '@/
 import { expensesSyncPort, expensesOutboxSync, expensesStoragePort } from '@/lib/expenses-ports';
 import { budgetSyncPort, budgetOutboxSync, budgetStoragePort } from '@/lib/budget-ports';
 import { docsSyncPort, docsOutboxSync, docsStoragePort } from '@/lib/docs-ports';
+import { placesSyncPort, placesOutboxSync, myPlacesStoragePort } from '@/lib/places-ports';
 import { flushOutbox } from '@/core/sync/outbox';
 import { withBasePath } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -518,6 +519,56 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
       if (unsubscribe) return; // already subscribed for the current identity
       flush(); // ① flush the outbox before ② opening the subscribe (push-before-subscribe)
       unsubscribe = docsSyncPort.subscribe();
+    };
+
+    const teardown = () => {
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+    };
+
+    const onOnline = () => flush();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') flush();
+    };
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisible);
+
+    activate();
+
+    const onIdentityChanged = () => {
+      teardown();
+      activate();
+    };
+    window.addEventListener(IDENTITY_CHANGED_EVENT, onIdentityChanged);
+
+    return () => {
+      window.removeEventListener(IDENTITY_CHANGED_EVENT, onIdentityChanged);
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisible);
+      teardown();
+    };
+  }, []);
+
+  // Gated MY-PLACES remote sync (issue #17, D-229 addendum). Mirrors the docs effect above:
+  // flush-then-subscribe on mount + reactively on `identity:changed`, driven through the places
+  // SyncPort's own `subscribe` (one subscribe surface). `placesSyncPort.subscribe` self-gates on
+  // `isTripRemoteConfigured()` (a no-op unsub when dormant OR on the default sample pack, pulling
+  // NO firebase); the traveler gate here matches the others (a guest never opens the subscription).
+  // Flush no-ops when dormant/guest or the outbox is clean, so `online`/visible are harmless.
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
+    const flush = () => {
+      void flushOutbox(placesOutboxSync, myPlacesStoragePort);
+    };
+
+    const activate = () => {
+      if (!(isRemoteConfigured() && getActiveTraveler())) return;
+      if (unsubscribe) return; // already subscribed for the current identity
+      flush(); // ① flush the outbox before ② opening the subscribe (push-before-subscribe)
+      unsubscribe = placesSyncPort.subscribe();
     };
 
     const teardown = () => {

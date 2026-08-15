@@ -1,6 +1,9 @@
 /**
  * My-places domain: the pure, framework-free "imported Google place" core.
- * Gateway key 31 stores a `MyPlace[]` (`nepal_japan_my_places`), TRIP-SCOPED + LOCAL-ONLY.
+ * Gateway key 31 stores a `MyPlace[]` (`nepal_japan_my_places`), TRIP-SCOPED and — since the
+ * D-229 addendum (issue #17) — SYNCED on a custom trip (the default sample pack has no remote id,
+ * so it stays local-only there). The row therefore carries the Sync-v2 stamps (`rev`/`hlc`/
+ * `deleted`); the merge itself lives in `core/places/merge.ts`, not here.
  *
  * FRAMEWORK-FREE: plain TypeScript — no
  * React, no window, no storage. Every function is TOTAL (a bad/missing/corrupt input degrades to
@@ -14,6 +17,8 @@
  * keys pass through, so a place written by a future build is never dropped wholesale. `sanitizePlace`
  * then narrows a parsed value to a clean `MyPlace`, dropping an unparsable coord rather than the whole
  * place. Cap at 200 (`PLACES_CAP`), drop-oldest, newest-first — the value can never grow unbounded.
+ * The cap is applied to LIVE rows and to TOMBSTONES separately (`capPlaces`): a tombstone that
+ * counted against the 200 would silently evict a real place, and a merged list is mostly live rows.
  *
  * NO image field: og:image hotlinking is fragile/ToS-risky; card art is the vibe-gradient
  * + icon. The card links out to `resolvedUrl ?? sourceUrl`.
@@ -40,6 +45,17 @@ export interface MyPlace {
   note?: string;
   /** ISO-8601 instant the place was imported (set by the hook at add time). */
   addedAt: string;
+
+  // ── Sync v2 stamps (issue #17). All optional and all ABSENT on the local-only path (the
+  // default sample pack / a dormant build), so those bytes stay exactly as they were. Written
+  // only by `hooks/use-my-places.ts` under `isTripRemoteConfigured()`.
+  /** Monotonic per-row version. NOT the ordering key — `hlc` is. */
+  rev?: number;
+  /** The serialized HLC: the primary merge order key (`core/sync/hlc.ts`). */
+  hlc?: string;
+  /** Tombstone flag. A delete under sync flips this instead of dropping the row, so the
+   * removal PROPAGATES; `useMyPlaces` filters tombstones out of the exposed list. */
+  deleted?: boolean;
 }
 
 /**
@@ -58,6 +74,9 @@ const myPlaceSchema = z
     lng: z.number().optional(),
     note: z.string().optional(),
     addedAt: z.string().min(1),
+    rev: z.number().optional(),
+    hlc: z.string().optional(),
+    deleted: z.boolean().optional(),
   })
   .passthrough();
 
@@ -100,7 +119,31 @@ export function sanitizePlace(value: unknown): MyPlace | null {
   if (note !== undefined) place.note = note;
   if (lat !== undefined) place.lat = lat;
   if (lng !== undefined) place.lng = lng;
+  // Sync stamps: declared so they SURVIVE the narrowing (unknown keys are dropped here despite
+  // `.passthrough()` on the schema — an undeclared stamp would be stripped on every save and the
+  // merge would lose its order key). `deleted:false` is normalized to absent: "no flag" is the
+  // canonical live row, and the local-only path never writes the key at all.
+  const rev = cleanNum(v.rev);
+  const hlc = cleanStr(v.hlc);
+  if (rev !== undefined) place.rev = rev;
+  if (hlc !== undefined) place.hlc = hlc;
+  if (v.deleted === true) place.deleted = true;
   return place;
+}
+
+/**
+ * Apply `PLACES_CAP` to LIVE rows and to TOMBSTONES INDEPENDENTLY, so a tombstone can never
+ * evict a real place (and the stored value still can't grow unbounded — it is bounded by 2×cap).
+ * Under the cap on both counts the input array is returned VERBATIM, so the local-only path —
+ * which never produces a tombstone — is byte-for-byte unchanged. Order is otherwise preserved;
+ * both halves are already newest-first by the time they get here (`addPlace` prepends,
+ * `mergePlaces` sorts), so slicing keeps the NEWEST. TOTAL.
+ */
+function capPlaces(rows: MyPlace[]): MyPlace[] {
+  const live = rows.filter((p) => p.deleted !== true);
+  if (live.length <= PLACES_CAP && rows.length === live.length) return rows;
+  const dead = rows.filter((p) => p.deleted === true);
+  return [...live.slice(0, PLACES_CAP), ...dead.slice(0, PLACES_CAP)];
 }
 
 /**
@@ -116,19 +159,29 @@ export function sanitizePlaces(value: unknown): MyPlace[] {
     const place = sanitizePlace(raw);
     if (place !== null && !byId.has(place.id)) byId.set(place.id, place);
   }
-  return Array.from(byId.values()).slice(0, PLACES_CAP);
+  return capPlaces(Array.from(byId.values()));
 }
 
 /**
  * Prepend a new place (newest-first), dropping any prior place with the same id, then cap to the
  * newest `PLACES_CAP` (drop-oldest). Returns a NEW array. TOTAL.
+ *
+ * Dropping the prior same-id row is also how an UNDO-of-delete works under sync: the caller
+ * re-adds with the SAME id carrying a strictly-later `hlc`, which replaces the tombstone.
  */
 export function addPlace(list: readonly MyPlace[], place: MyPlace): MyPlace[] {
   const base = Array.isArray(list) ? list : [];
-  return [place, ...base.filter((p) => p.id !== place.id)].slice(0, PLACES_CAP);
+  return capPlaces([place, ...base.filter((p) => p.id !== place.id)]);
 }
 
-/** Remove the place with `id`. Returns a NEW array; a non-matching id is a no-op. TOTAL. */
+/**
+ * PHYSICALLY remove the place with `id` — the LOCAL-ONLY delete (default sample pack / dormant
+ * build). Returns a NEW array; a non-matching id is a no-op. TOTAL.
+ *
+ * NOT the delete used under sync: a physical removal is indistinguishable from "this device has
+ * not seen that row yet", so the peer's copy would re-enter on the next snapshot. `useMyPlaces`
+ * writes a TOMBSTONE instead whenever `isTripRemoteConfigured()`.
+ */
 export function removePlace(list: readonly MyPlace[], id: string): MyPlace[] {
   const base = Array.isArray(list) ? list : [];
   return base.filter((p) => p.id !== id);
