@@ -64,6 +64,11 @@ const ROUTES = [
   '/packing/',
   '/share/',
   '/checklist/',
+  // Issue #5. The passport is the one route that ships a NEW keyframe (`stamp-in`), and it is a
+  // one-shot that rests at the stamped state — so under reduce the universal collapse must leave
+  // the running set empty here exactly as it does everywhere else. Its sibling flourish,
+  // <CelebrationBurst>, renders nothing at all under reduce (e2e/motion.spec.ts owns that half).
+  '/passport/',
   // /travel is handled separately below (needs an in-trip clock + seed to render its
   // animated hero/agenda branch — the very surfaces D-185's spring-free guard governs).
 ] as const;

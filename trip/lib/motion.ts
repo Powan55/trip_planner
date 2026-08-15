@@ -112,8 +112,21 @@ export type MotionTier = 1 | 2 | 3;
  */
 export type MotionKind = 'entrance' | 'loop' | 'state' | 'tick' | 'pop' | 'burst' | 'completion';
 
-/** Tier 1 · STAGE — the front door and the surfaces whose job is anticipation. */
-export const TIER_1_SURFACES: readonly string[] = ['/', '/recap', '/trips'];
+/**
+ * Tier 1 · STAGE — the front door and the surfaces whose job is anticipation.
+ *
+ * `/passport` (issue #5) joins them by KIND: like `/recap` and `/trips` it is a keepsake
+ * surface you open to look at what the trip amounts to, not a working screen used one-handed
+ * outdoors. What it actually spends here is the ENTRANCE — the shared `<Reveal>`, which Tier 3
+ * forbids outright — and nothing else. The page ships no ambient loop, so rule 1's single
+ * Tier-1 allowance stays unspent.
+ *
+ * WHAT IT IS NOT TIERED FOR, so nobody re-derives the wrong reason: the stamp unlock does not
+ * need this tier. It is D-323's `completion` — one-shot, earned, caused by the user's own
+ * travel — which is legal on every tier. Re-tiering this route would make the page quieter,
+ * never silent.
+ */
+export const TIER_1_SURFACES: readonly string[] = ['/', '/recap', '/trips', '/passport'];
 
 /** Tier 2 · GALLERY — content routes. The photographic header band is the whole allowance. */
 export const TIER_2_SURFACES: readonly string[] = [

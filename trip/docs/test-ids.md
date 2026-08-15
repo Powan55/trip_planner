@@ -1181,3 +1181,42 @@ it shares that island's chunk, issue #31):
 | `home-milestone` | the fixed-height line under the grid | Always present — it has an honest empty state rather than disappearing, because the section's height is reserved. `data-milestone` carries the current milestone id (`''` when none), which is the cheapest assertion seam. |
 | `home-milestone-label` | the `role="status"` text | The biggest milestone currently true, or the empty-state sentence. Announced on change, whether or not motion is allowed. |
 | `home-milestone-burst` | the 🎉 flourish | Present only for ~700ms after a milestone is crossed WHILE the page is open (D-207: the first observation seeds and never fires), and only when `isMotionAllowed('burst', tierForPath(pathname))` and not under reduced motion. Under `prefers-reduced-motion` it must never appear — assert `toHaveCount(0)`. |
+
+---
+
+## 43. Passport stamps: `components/passport-stamps.tsx` (route: `/passport`), issue #5
+
+The `ssr:false` island on the parchment page. The sheet, the `<h1>` and the intro copy are
+static markup in `app/passport/page.tsx`, so they are in the cached HTML; everything in this
+table appears only after hydration, which is what makes `passport-stamps` a valid body anchor
+for `e2e/pwa.spec.ts` (`ROUTE_BODY_ANCHOR['/passport/']`).
+
+The per-stamp id carries the country's own display string, matching the `calendar-day-${date}` /
+`author-filter-author-${name}` convention: the value is stable (the lifetime visit set keeps the
+first spelling ever recorded, `core/places/visited.ts`) and unique (the set is deduped), so no
+two rendered stamps can share an id and re-ordering cannot invalidate a selector. Country names
+contain spaces — `[data-testid="passport-stamp-New Zealand"]` is a legal selector and is the
+intended form.
+
+| testid | element | notes |
+|---|---|---|
+| `passport-stamps` | the island root `<div>` | Rendered in both states, including the pre-claim placeholder (which carries `aria-busy="true"` and nothing else). |
+| `passport-count` | the "N countries" line | `getVisited().countries.length`. Singular/plural switches at 1. |
+| `passport-empty` | the empty-state block | Present only when the visit set names no country. Holds three decorative `.passport-slot` frames (`aria-hidden`) plus the invitation copy — assert on this rather than on an empty `<ul>`, which is not rendered at all. |
+| `passport-stamp-<Country>` | one stamp `<li>` | E.g. `passport-stamp-Nepal`. Ink is by country (Nepal / Japan / everything else = the green), set as a class, not a testid. |
+
+### `data-fresh`, the observable half of the unlock
+
+Not a `data-testid` but a marker, the same idiom as `data-scroll-driven` and `data-entrance`
+on `<Reveal>`: it makes "was this country newly counted" checkable from outside without
+reaching into storage.
+
+| attribute | element | notes |
+|---|---|---|
+| `data-fresh="true"` | a stamp `<li>` | The country was counted since the last passport view (`claimStamps()`, `core/places/passport.ts`). ABSENT — never `"false"` — on every other stamp. It is one-shot by construction: the same page reloaded reports no fresh stamps, so a spec that wants one must add a country between two views rather than reload. The visible `New` badge tracks this attribute exactly, on every stamp, whether or not the flourish ran. |
+
+The motion is capped at the first three fresh stamps (D-293's entrance budget) and carries the
+`passport-stamp--new` class; `data-fresh` and the badge are not capped. Under
+`prefers-reduced-motion` the CSS press collapses to its settled end state and `<CelebrationBurst>`
+(reused unmodified) renders nothing at all — so on that path `data-fresh` and the badge are the
+whole signal, which is the point of them being text.

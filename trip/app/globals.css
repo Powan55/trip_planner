@@ -907,6 +907,170 @@ html {
   to   { transform: scale(1.13) translate3d(-1.6%, -2.2%, 0); }
 }
 
+/* ---- The passport page (issue #5, D-294) ------------------------------------------
+   The app's ONE light material, and the tokens it paints with have had no consumer
+   until now — read the --paper block in @layer base above before touching anything
+   here, in particular the rule that a consumer MUST NOT carry a var() fallback (a
+   missing token has to break visibly, because the fallback that shipped in the
+   prototype was the SUPERSEDED pre-D-294 red).
+
+   Measured, in scripts/contrast-tokens.mjs rather than asserted here: on-paper 9.86,
+   paper-lo 5.60, the three stamp inks 5.93 / 6.68 / 5.34, and the page against the
+   dark canvas 12.29 — so the sheet reads as an object without depending on its
+   shadow, which is the whole argument D-294 was decided on.
+
+   --shadow-paper finally has its consumer. It is depth, never separation. */
+.passport-page {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--on-paper);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-paper);
+}
+
+/* The bound edge. Decorative and nothing else — --bind-hi/--bind-lo were retuned for
+   the darker D-294 parchment precisely because the old stripe measured 1.00:1 against
+   it, i.e. the book edge had silently vanished. Nothing is ever conveyed by it. */
+.passport-page::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 14px;
+  background: linear-gradient(
+    90deg,
+    var(--bind-lo) 0%,
+    var(--bind-hi) 60%,
+    var(--paper) 100%
+  );
+}
+
+.passport-page__body {
+  position: relative;
+  padding: 28px 20px 32px;
+  /* clears the spine above */
+  padding-inline-start: 34px;
+}
+
+@media (min-width: 640px) {
+  .passport-page__body {
+    padding: 40px 40px 44px;
+    padding-inline-start: 54px;
+  }
+}
+
+/* THE FOCUS RING IS INK ON THIS SURFACE, AND THAT IS NOT A PREFERENCE. The app-wide
+   fallback ring is marigold (`:focus-visible`, above), which is a ~12:1 signal on the
+   near-black canvas and a ~1.3:1 non-signal on parchment — a light material dropped
+   into a dark-only app takes the whole chrome's contrast assumptions with it. The
+   harness carries that pair as a GUARD (it must keep failing) beside the ink pairing
+   it is replaced by. The page ships no focusable element of its own today; this rule
+   exists so the next thing added to the sheet — issue #4's entry form is the obvious
+   one — inherits a visible ring instead of discovering this the hard way. */
+.passport-page :focus-visible {
+  outline: 2px solid var(--ink-nepal);
+  outline-offset: 2px;
+}
+
+/* One stamp. The ink is a per-stamp custom property so the three D-294 inks are the
+   only colours this component can take; `position: relative` is what <CelebrationBurst>
+   (absolute inset-0) needs from its host. */
+.passport-stamp {
+  --stamp-ink: var(--ink-green);
+  --stamp-tilt: -3deg;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 108px;
+  padding: 14px 10px;
+  text-align: center;
+  color: var(--stamp-ink);
+  border: 2px solid var(--stamp-ink);
+  border-radius: 14px;
+  /* the second ring of a rubber stamp, drawn in the page colour + the ink */
+  box-shadow:
+    inset 0 0 0 3px var(--paper),
+    inset 0 0 0 4px var(--stamp-ink);
+  transform: rotate(var(--stamp-tilt));
+}
+
+.passport-stamp--nepal { --stamp-ink: var(--ink-nepal); }
+.passport-stamp--japan { --stamp-ink: var(--ink-japan); }
+.passport-stamp--green { --stamp-ink: var(--ink-green); }
+
+/* Hand-pressed, not typeset: the tilt alternates by POSITION so the same country is
+   never at a different angle on two visits. */
+.passport-stamp:nth-child(3n + 1) { --stamp-tilt: -4deg; }
+.passport-stamp:nth-child(3n + 2) { --stamp-tilt: 3deg; }
+.passport-stamp:nth-child(3n) { --stamp-tilt: -1.5deg; }
+
+.passport-stamp__country {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  line-height: 1.15;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.passport-stamp__mark {
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* The "new" flag is TEXT, deliberately — the unlock must not be conveyed by motion
+   alone, so a reduced-motion visitor and a screen-reader user get the same fact the
+   burst is decorating. Paper on ink is the same measured pair as ink on paper. */
+.passport-stamp__new {
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--stamp-ink);
+  color: var(--paper);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* The press. One-shot, `both`, and it rests at the STAMPED state — so the universal
+   `animation-duration: 0.01ms` collapse in the reduced-motion block at the end of this
+   file lands it settled and upright, never mid-press and never invisible. That is the
+   whole reduced-motion fork for this animation: there is no JS branch to forget. The
+   companion <CelebrationBurst> carries its own hard guard (it renders NOTHING under
+   reduce) and is reused unmodified. */
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(var(--stamp-tilt)) scale(1.55);
+  }
+  60% {
+    opacity: 1;
+    transform: rotate(var(--stamp-tilt)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(var(--stamp-tilt)) scale(1);
+  }
+}
+
+.passport-stamp--new {
+  animation: stamp-in var(--duration-slower) var(--ease-out-soft) both;
+}
+
+/* The empty passport. A dashed ink-light frame where a stamp will go — decorative, and
+   the copy beside it carries the meaning. */
+.passport-slot {
+  min-height: 108px;
+  border: 2px dashed var(--paper-lo);
+  border-radius: 14px;
+  opacity: 0.5;
+}
+
 /* CONSIDERED DELETING THIS BLOCK AND REJECTED IT (deliberate ruling). The plan
    claimed it was an obsolete `!important` shim, dead once --muted-foreground
    reached 5.3:1 on card. All three parts of that are false: it uses NO `!important`
