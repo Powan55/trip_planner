@@ -28,7 +28,7 @@ import { buildItineraryStops } from '@/lib/itinerary-map';
 const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
   ssr: false,
   loading: () => (
-    <div className="grid h-full w-full place-items-center text-white/45">
+    <div className="grid h-full w-full place-items-center text-ink-mid">
       <span className="text-xs">Loading map…</span>
     </div>
   ),
@@ -68,21 +68,21 @@ export default function TravelDayMap({ date }: { date: string }) {
             <MapPinned className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
             Today&rsquo;s map
           </h2>
-          <span className="text-xs text-white/45" data-testid="travel-day-map-count">
+          <span className="text-xs text-ink-mid" data-testid="travel-day-map-count">
             {totalItems === 0
               ? 'nothing planned'
               : `${dayStops.length} of ${totalItems} ${totalItems === 1 ? 'stop' : 'stops'} pinned`}
           </span>
         </span>
         <ChevronDown
-          className="h-5 w-5 shrink-0 text-white/40 transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
+          className="h-5 w-5 shrink-0 text-ink-mid transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
         />
       </summary>
 
       <div className="px-3 pb-3 sm:px-4 sm:pb-4">
         {dayStops.length === 0 ? (
-          <p data-testid="travel-day-map-empty" className="px-2 pb-2 text-sm text-white/50">
+          <p data-testid="travel-day-map-empty" className="px-2 pb-2 text-sm text-ink-mid">
             {totalItems === 0
               ? 'Nothing planned for this day yet — plan something and it lands on the map.'
               : `None of this day's ${totalItems} ${totalItems === 1 ? 'item has' : 'items have'} a map location yet.`}

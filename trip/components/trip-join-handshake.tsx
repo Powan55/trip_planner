@@ -94,9 +94,9 @@ export default function TripJoinHandshake() {
       >
         <AlertDialogHeader>
           <AlertDialogTitle>Add this trip?</AlertDialogTitle>
-          <AlertDialogDescription className="text-white/60">
+          <AlertDialogDescription className="text-ink-mid">
             You opened a shared Trip Token (
-            <span className="font-mono text-white/80">{shortToken}</span>). Adding it switches this
+            <span className="font-mono text-ink-hi">{shortToken}</span>). Adding it switches this
             browser to that trip — your current view is replaced. You can switch back any time from
             your Trips page. A Trip Token can&rsquo;t be verified in advance — if the trip opens
             empty, it may be mistyped or the trip is brand new.
