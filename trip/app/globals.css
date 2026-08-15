@@ -703,7 +703,7 @@ html {
    containment rule is greppable — the loud tokens are permitted INSIDE that subtree
    and nowhere else on the route.
 
-   This is the first consumer of the --duo-*/--scrim-ink photo engine declared at the
+   This is the first consumer of the --duo-* and --scrim-ink photo engine declared at the
    top of this file. The engine's whole point is that the `mix-blend-mode: darken`
    layer CAPS every channel of every pixel at --duo-*-high, so the brightest pixel a
    scrim can ever sit on is a number rather than a guess, and text over a photograph
