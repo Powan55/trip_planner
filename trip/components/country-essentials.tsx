@@ -9,11 +9,12 @@ import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 
 /**
- * Country Essentials — the country-parameterized half of the old
- * `travel-inspiration.tsx` split: featured destinations, local foods, and
- * cultural etiquette, filtered to ONE country for the /nepal/ and /japan/ pages
- * (etiquette additionally includes the 'Both' tips). The Home half (weather
- * outlook) lives in `travel-essentials.tsx`.
+ * Country Essentials — the country-parameterized half of the v1
+ * inspiration split: featured destinations, local foods, and cultural etiquette,
+ * filtered to ONE country for the /nepal/ and /japan/ pages (etiquette
+ * additionally includes the 'Both' tips). Home's own `#inspiration` slot is the
+ * photo gallery in `travel-inspiration.tsx`; the two are separate content
+ * domains (`FEATURED_DESTINATIONS` here, `INSPIRATION_HIGHLIGHTS` there).
  *
  * FeaturedCard / FoodCard moved here VERBATIM ( micro-interaction recipe,
  * add-to-plan affordance on Featured only). All Tailwind classes stay

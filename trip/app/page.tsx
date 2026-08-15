@@ -13,14 +13,14 @@ import LazyVisible from '@/components/lazy-visible';
 import SectionSkeleton from '@/components/section-skeleton';
 import DefaultTripOnly from '@/components/default-trip-only';
 
-// HOME: hero · today/recap content · trip-dashboard · bento · travel-essentials,
+// HOME: hero · today/recap content · trip-dashboard · bento · travel-inspiration,
 // plus the legacy v1 hash redirect. Navbar/Footer live in the root layout now.
 // The calendar/destination/map/flights sections moved to their own routes
 //.
 // the 32-day trip-timeline moved off Home to /plan/; the page is now content-first.
 //
 // the BELOW-THE-FOLD sections
-// (TripDashboard, TravelEssentials, HomeBento) stay
+// (TripDashboard, TravelInspiration, HomeBento) stay
 // `dynamic({ssr:false})` at module scope (SSG-safe), but are rendered THROUGH
 // <LazyVisible>, which passes each as a COMPONENT REFERENCE and only instantiates
 // `<Component/>` once the section nears the viewport (or a post-hydration idle beat).
@@ -86,9 +86,12 @@ const TripDashboard = dynamic(() => import('@/components/trip-dashboard'), {
   ssr: false,
   loading: () => <SectionSkeleton height="clamp(22rem, 60vh, 40rem)" />,
 });
-const TravelEssentials = dynamic(() => import('@/components/travel-essentials'), {
+// the `#inspiration` slot is the photo gallery again (issue #21) — it was standing in as a
+// two-card weather panel. Same lazy island, same section id; taller reservation because the
+// gallery is eight image cards rather than two text cards.
+const TravelInspiration = dynamic(() => import('@/components/travel-inspiration'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="clamp(34rem, 90vh, 54rem)" />,
+  loading: () => <SectionSkeleton height="clamp(40rem, 130vh, 80rem)" />,
 });
 
 // — the user's imported "My places" for a CUSTOM trip's home (custom trips have no guide pages;
@@ -97,13 +100,14 @@ const TravelEssentials = dynamic(() => import('@/components/travel-essentials'),
 // Home's First Load JS; the island itself returns null on the default pack.
 const CustomTripMyPlaces = dynamic(() => import('@/components/custom-trip-my-places'), { ssr: false });
 
-// (Plan D10): TravelEssentials is N×J-specific — gated behind DefaultTripOnly. LazyVisible
-// takes its section as a COMPONENT REFERENCE (never JSX, see lazy-visible.tsx), so the gate is
-// wrapped into its own small reference component rather than JSX children at the call site.
-function GatedTravelEssentials() {
+// (Plan D10): the inspiration gallery is N×J-specific — gated behind DefaultTripOnly.
+// LazyVisible takes its section as a COMPONENT REFERENCE (never JSX, see lazy-visible.tsx), so
+// the gate is wrapped into its own small reference component rather than JSX children at the
+// call site.
+function GatedTravelInspiration() {
   return (
     <DefaultTripOnly>
-      <TravelEssentials />
+      <TravelInspiration />
     </DefaultTripOnly>
   );
 }
@@ -141,7 +145,7 @@ export default function HomePage() {
       <TripRecap />
       <LazyVisible component={TripDashboard} minHeight="clamp(22rem, 60vh, 40rem)" />
       <LazyVisible component={HomeBento} minHeight="clamp(16rem, 46vh, 22rem)" />
-      <LazyVisible component={GatedTravelEssentials} minHeight="clamp(34rem, 90vh, 54rem)" />
+      <LazyVisible component={GatedTravelInspiration} minHeight="clamp(40rem, 130vh, 80rem)" />
       {/* Custom-trip-only "My places" (renders null on the default pack). minHeight 0 so the
           default pack reserves no visible box while the gate resolves. */}
       <LazyVisible component={CustomTripMyPlaces} minHeight="0px" />

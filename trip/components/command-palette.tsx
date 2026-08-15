@@ -116,9 +116,9 @@ type Section = {
 
 // Targets follow the route tree; hash sub-anchors match the section ids
 // kept on each page. Photography/Nightlife point at /nepal/ (the guide pages'
-// canonical home, mirroring the legacy-hash redirect map); Travel Essentials is
-// the renamed Home half of the old Travel Inspiration section (id stays
-// `inspiration`).
+// canonical home, mirroring the legacy-hash redirect map); Travel Inspiration is
+// Home's photo-gallery section (id stays `inspiration`, as it has through every
+// rename of that slot).
 const SECTIONS: Section[] = [
   { route: '/', hash: '#dashboard', label: 'Countdown Dashboard', group: 'Plan', keywords: ['countdown', 'timer', 'days', 'home'], icon: Gauge },
   { route: '/', hash: '#timeline', label: 'Trip Timeline', group: 'Plan', keywords: ['schedule', 'days', 'route'], icon: ListOrdered },
@@ -129,7 +129,7 @@ const SECTIONS: Section[] = [
   { route: '/nepal/', hash: '#photography', label: 'Photography Guide', group: 'Guides', keywords: ['camera', 'photos', 'gear', 'spots'], icon: Camera },
   { route: '/nepal/', hash: '#nightlife', label: 'Nightlife & Bars', group: 'Guides', keywords: ['clubs', 'drinks', 'bars', 'night'], icon: Wine },
   { route: '/map/', label: 'Map', group: 'Guides', keywords: ['locations', 'pins', 'regions'], icon: MapIcon },
-  { route: '/', hash: '#inspiration', label: 'Travel Essentials', group: 'Guides', keywords: ['inspiration', 'weather', 'ideas'], icon: Sparkles },
+  { route: '/', hash: '#inspiration', label: 'Travel Inspiration', group: 'Guides', keywords: ['inspiration', 'ideas', 'photos', 'highlights', 'gallery'], icon: Sparkles },
   // the 3 companion routes — deliberately kept off the desktop top row (
   // width ceiling) and off the mobile tab bar; the palette is
   // their desktop discoverability path (the mobile hamburger panel is the other).

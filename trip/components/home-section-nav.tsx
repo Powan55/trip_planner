@@ -34,7 +34,7 @@ import { useEffect, useState } from 'react';
 const SECTIONS = [
   { id: 'hero', label: 'Overview' },
   { id: 'dashboard', label: 'Dashboard' },
-  { id: 'inspiration', label: 'Essentials' },
+  { id: 'inspiration', label: 'Inspiration' },
 ] as const;
 
 const POLL_MS = 250;

@@ -22,6 +22,7 @@ import {
   featuredDestinationSchema,
   foodItemSchema,
   etiquetteTipSchema,
+  inspirationHighlightSchema,
   journeySchema,
   staySchema,
   toBookPlaceholderSchema,
@@ -32,9 +33,11 @@ import { JAPAN_ATTRACTIONS, JAPAN_FOOD, JAPAN_CATEGORIES } from '@/lib/japan-dat
 import { NIGHTLIFE_VENUES } from '@/lib/nightlife-data';
 import { PHOTO_SPOTS, PHOTO_CATEGORIES } from '@/lib/photography-data';
 import { FEATURED_DESTINATIONS, LOCAL_FOODS, ETIQUETTE_TIPS } from '@/lib/travel-tips-data';
+import { INSPIRATION_HIGHLIGHTS } from '@/lib/inspiration-data';
 import { JOURNEYS, BOOKED_STAYS, JAPAN_TODO } from '@/lib/booking-data';
 import { TRIP_DATES, getCountryForDate } from '@/core/dates';
 import { isKnownWeatherCity } from '@/lib/weather';
+import imageManifest from '@/lib/image-manifest.json';
 import * as broken from './__fixtures__/broken-content';
 
 // ── helpers ────────────────────────────────────────────────────────────────────────────────
@@ -116,6 +119,10 @@ describe('validate:content — every content domain parses its STRICT schema', (
     eachValid(etiquetteTipSchema, ETIQUETTE_TIPS, 'ETIQUETTE_TIPS');
   });
 
+  it('travel inspiration — the Home gallery highlights', () => {
+    eachValid(inspirationHighlightSchema, INSPIRATION_HIGHLIGHTS, 'INSPIRATION_HIGHLIGHTS');
+  });
+
   it('bookings — journeys / stays / to-book (D-034: structure only)', () => {
     eachValid(journeySchema, JOURNEYS, 'JOURNEYS');
     eachValid(staySchema, BOOKED_STAYS, 'BOOKED_STAYS');
@@ -151,6 +158,32 @@ describe('validate:content — cross-content invariants', () => {
     expect(findDuplicates(JOURNEYS.map((r) => r.id))).toEqual([]);
     expect(findDuplicates(BOOKED_STAYS.map((r) => r.id))).toEqual([]);
     expect(findDuplicates(JAPAN_TODO.map((r) => r.id))).toEqual([]);
+    expect(findDuplicates(INSPIRATION_HIGHLIGHTS.map((r) => r.id))).toEqual([]);
+  });
+
+  // The inspiration gallery is an IMAGERY surface: a highlight whose `image` is not a real
+  // bundled asset renders its gradient fallback and quietly stops being a photo. The schema
+  // only proves the string SHAPE ("/images/…"), so the existence check lives here, against the
+  // build-time manifest that OptimizedImage itself keys off. It also enforces the no-new-assets
+  // rule: an `image` can only point at photography this repo already ships and already credits.
+  it('every inspiration image is a real bundled asset (a lib/image-manifest.json key)', () => {
+    const known = new Set(Object.keys(imageManifest));
+    for (const h of INSPIRATION_HIGHLIGHTS) {
+      expect(known.has(h.image), `${h.id} → ${h.image} is not a bundled image`).toBe(true);
+    }
+  });
+
+  it('the inspiration gallery covers BOTH countries, and no alt text just repeats its title', () => {
+    expect(new Set(INSPIRATION_HIGHLIGHTS.map((h) => h.country))).toEqual(
+      new Set(['Nepal', 'Japan']),
+    );
+    // `alt` is what a screen-reader user gets INSTEAD of the photo — repeating the visible
+    // headline into it conveys nothing they do not already have.
+    for (const h of INSPIRATION_HIGHLIGHTS) {
+      expect(h.alt.trim().toLowerCase(), `${h.id} alt just repeats its title`).not.toBe(
+        h.title.trim().toLowerCase(),
+      );
+    }
   });
 
   it('every itinerary city is weather-known (no day loses weather)', () => {
