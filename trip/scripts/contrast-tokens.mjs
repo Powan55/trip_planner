@@ -24,6 +24,15 @@ const ratio = (a, b) => { const [x, y] = [L(a), L(b)].sort((p, q) => q - p); ret
 const ch = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const over = (fg, bg, a) => '#' + ch(fg).map((v, i) =>
   Math.round(v * a + ch(bg)[i] * (1 - a)).toString(16).padStart(2, '0')).join('');
+// The film-grain tile LIGHTENS: `mix-blend-mode:overlay` at opacity .06 over a dark
+// base raises every channel (overlay(b,s)=2bs for b<=.5, so a white grain speck is 2b).
+// This is the worst case — grain fully white — and it is a real ~0.4-0.6 ratio-point
+// tax, which is why it is modelled rather than waved off. Applied even where the
+// header ships NO grain layer, so the numbers still hold if one is ever added.
+const grain = c => '#' + ch(c).map(v => {
+  const b = v / 255, o = b <= 0.5 ? Math.min(1, 2 * b) : 1;
+  return Math.round(255 * (b * 0.94 + o * 0.06)).toString(16).padStart(2, '0');
+}).join('');
 const hsl = h => {
   const [r, g, b] = hex(h); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
   let H = 0; if (d) H = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
@@ -83,6 +92,37 @@ C.chip = over('#FFFFFF', C.surface2, 0.06);
 // on --bg and on surface-1) are already asserted above; these are the two the route adds.
 C.docsRowHover = over('#FFFFFF', C.surface1, 0.06);
 C.docsNoteFill = over('#FFFFFF', C.surface1, 0.03);
+
+// ---- issue #3, the Tier-2 photographic page header (.photo-header in globals.css) ----
+// A Tier-2 header band's HEIGHT is per-route, so bottom-alignment alone is not a
+// guarantee — the text block therefore carries its own local scrim (the ruled
+// "safer implementation" for headers this spec does not pin). Two ramps stack:
+//
+//   band scrim  .52 at 0%  ->  .56 at 30%  ->  .86 at 72%  ->  .94 at 90%  -> --bg
+//   text floor  0 at 0px   ->  .62 at 68px ->  .78 at 100%  (on .photo-header__body,
+//                                              whose padding-top is 92px, so EVERY
+//                                              text pixel sits at floor >= .62)
+//
+// hdrMin is the worst case ANY text pixel in the header can land on: the band scrim at
+// its own minimum (.52, i.e. the very top of the band, where no text can actually be)
+// under the floor's minimum (.62). hdrRest is where the text really sits. The floor's
+// px stops are what make this a number rather than a layout hope: change the 92px
+// padding or the 68px stop and this pair stops being the worst case.
+const hdr = (cap, scrimA, floorA) => over(C.scrimInk, grain(over(C.scrimInk, cap, scrimA)), floorA);
+C.npHdrMin = hdr(C.duoNpHigh, 0.52, 0.62);
+C.jpHdrMin = hdr(C.duoJpHigh, 0.52, 0.62);
+C.npHdrRest = hdr(C.duoNpHigh, 0.86, 0.78);
+C.jpHdrRest = hdr(C.duoJpHigh, 0.86, 0.78);
+
+// The app's own chrome is text over this photograph too. `components/navbar.tsx` is
+// fixed and `bg-transparent` until you scroll, so on a full-bleed band the brand, the
+// primary links and the MapPin glyph sit on the top 64px of a graded photo. On the band
+// ramp alone that measured white/70 at 3.25:1 and --text-lo at 1.84:1, which is why the
+// scrim carries a flat top layer across the bar: same .62-over-.52 stack as the text
+// floor, so the same composite. The links' /70 is a REAL alpha (Tailwind has a 70 step,
+// and the @layer floor only reaches /60), so it is composited rather than assumed solid.
+C.navWhite70Np = over(C.textHi, C.npHdrMin, 0.7);
+C.navWhite70Jp = over(C.textHi, C.jpHdrMin, 0.7);
 
 // [label, fg, bg, target]  4.5 = body · 3 = large (>=24px, or >=18.66px bold) / UI edge
 const pairs = [
@@ -160,6 +200,42 @@ const pairs = [
   ['marigold chapter-no on NP .72 (large)', C.marigold, C.npScrim72, 3],
   ['pink chapter-no on JP .72 (large)', C.pink, C.jpScrim72, 3],
 
+  ['-- ISSUE #3 TIER-2 PHOTO HEADER (worst case behind ANY text pixel) --'],
+  ['title (hi) on NP header', C.textHi, C.npHdrMin, 4.5],
+  ['title (hi) on JP header', C.textHi, C.jpHdrMin, 4.5],
+  ['subtitle (mid) on NP header', C.textMid, C.npHdrMin, 4.5],
+  ['subtitle (mid) on JP header', C.textMid, C.jpHdrMin, 4.5],
+  // The subtitle is authored text-ink-MID, not the text-ink-lo the flat header used.
+  // These two are measured anyway because lo is the TIGHTEST pair in the whole header
+  // (~11% of headroom against mid's ~76%), so it is the one that would bind first if
+  // the scrim or the floor is ever lightened. It still clears AA — the subtitle moved
+  // for the role rule (a subtitle qualifies the title, so it is mid), not to fix a fail.
+  ['text-lo on NP header (the tightest header pair)', C.textLo, C.npHdrMin, 4.5],
+  ['text-lo on JP header (the tightest header pair)', C.textLo, C.jpHdrMin, 4.5],
+  // The two country <h1>s paint their gradient THROUGH the glyphs, so a reader lands on
+  // whichever stop falls under the letter they are reading — every stop passes alone.
+  ['/nepal h1 stop A on NP header', C.npA, C.npHdrMin, 4.5],
+  ['/nepal h1 stop B on NP header', C.npB, C.npHdrMin, 4.5],
+  ['/japan h1 stop A on JP header', C.jpA, C.jpHdrMin, 4.5],
+  ['/japan h1 stop B on JP header', C.jpB, C.jpHdrMin, 4.5],
+  // Per-route accent eyebrows. 11.6px caps — SMALL text, so 4.5 and not the 3:1
+  // large-text allowance, and each is measured over the grade its own photo carries.
+  ['/guides eyebrow (coral) on JP header', C.coral, C.jpHdrMin, 4.5],
+  ['/nepal eyebrow (nepal B) on NP header', C.npB, C.npHdrMin, 4.5],
+  ['/japan eyebrow (japan A) on JP header', C.jpA, C.jpHdrMin, 4.5],
+  ['/map eyebrow (sky) on JP header', C.sky, C.jpHdrMin, 4.5],
+  ['/journal eyebrow (violet) on NP header', C.violet, C.npHdrMin, 4.5],
+  ['/flights eyebrow (mint) on NP header', C.mint, C.npHdrMin, 4.5],
+  // And where the text actually sits, once the band ramp has run its course.
+  ['subtitle (mid) at the NP header rest position', C.textMid, C.npHdrRest, 4.5],
+  ['subtitle (mid) at the JP header rest position', C.textMid, C.jpHdrRest, 4.5],
+  // The unscrolled navbar, which is transparent and now sits on the band.
+  ['navbar brand (hi) over NP header', C.textHi, C.npHdrMin, 4.5],
+  ['navbar link (white/70) over NP header', C.navWhite70Np, C.npHdrMin, 4.5],
+  ['navbar link (white/70) over JP header', C.navWhite70Jp, C.jpHdrMin, 4.5],
+  ['brand separator + pin (lo) over NP header', C.textLo, C.npHdrMin, 4.5],
+  ['brand separator + pin (lo) over JP header', C.textLo, C.jpHdrMin, 4.5],
+
   ['-- PASSPORT PARCHMENT (a light material inside the dark app, D-294) --'],
   ['on-paper ink on paper', C.onPaper, C.paper, 4.5],
   ['paper-lo on paper', C.paperLo, C.paper, 4.5],
@@ -205,7 +281,7 @@ for (const [label, fg, bg, t] of guards) {
 
 console.log('\ncomposited worst-case pixels:');
 for (const k of ['npScrim72', 'npScrim82', 'jpScrim72', 'jpScrim82', 'rowHover', 'rowSel', 'chip',
-                 'docsRowHover', 'docsNoteFill'])
+                 'docsRowHover', 'docsNoteFill', 'npHdrMin', 'jpHdrMin', 'npHdrRest', 'jpHdrRest'])
   console.log('  ' + k.padEnd(11), C[k]);
 console.log('\nhex -> hsl (the form the shadcn tokens in globals.css take):');
 for (const k of Object.keys(C)) console.log('  ' + k.padEnd(11), C[k], ' hsl(' + hsl(C[k]) + ')');
