@@ -34,11 +34,21 @@ const DIGEST_CAP = 9500; // must equal the constant in use-concierge-chat.ts (co
 //         12-hour form has two digits: 123 items and 35 items respectively of the 158 timed)
 //   + 51  the date line is UNCONDITIONAL now, and carries a time, so it is in this measurement
 //         where it used to be absent at this deliberately out-of-window instant
-// The Worker's CONTEXT_TRUNCATE_LENGTH floor RISES from 9024 to 9426. It is 9500, so it still
-// holds, but the slack is now THIN: 74 chars out of window and ~65 in it (the in-window date line
+// The Worker's CONTEXT_TRUNCATE_LENGTH floor ROSE from 9024 to 9426. It is 9500, so it still
+// holds, but the slack went THIN: 74 chars out of window and ~65 in it (the in-window date line
 // is the longer branch). Raising DIGEST_CAP to buy more is a Worker deploy, not a client edit.
-const MEASURED_DIGEST_BEFORE = 6610;
-const MEASURED_DIGEST_AFTER = 9426;
+//
+// #18 RE-MEASURED AGAIN, 9426 → 9452 (+26). Not a digest format change this time — CONTENT. D-327
+// un-nested the three seed containments, and one of them retitled `j3-2` to "Lunch inside the
+// park, then the afternoon rides". The title is in the digest, so the seed grew and so did this.
+// That is the mechanism worth remembering: this number moves when the TRIP moves, not only when
+// the builder changes, and 26 chars of plan text is all it took.
+// The Worker floor is now 9452 against its 9500, and the in-window worst case is 9461 (9435 + the
+// same +26), leaving ~39 chars. That is under one itinerary item. There were ten before #12.
+// The NEXT change that lengthens a seed title probably breaks the cap, and the fix is not here:
+// DIGEST_CAP and the Worker's CONTEXT_TRUNCATE_LENGTH move together, in a Worker deploy.
+const MEASURED_DIGEST_BEFORE = 6636;
+const MEASURED_DIGEST_AFTER = 9452;
 const HISTORY_CHAR_CAP = 3000; // must equal the constant in use-concierge-chat.ts
 const MAX_BODY_BYTES = 16 * 1024; // the Worker's hard 413 ceiling (worker/src/index.ts:24)
 // S395: must equal TRIP_LABEL_MAX in use-concierge-chat.ts AND the Worker's own (providers.ts).
