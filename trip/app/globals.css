@@ -177,6 +177,69 @@
     --text-lo: #A79BC0;
     --on-accent: #140F20;      /* the ONLY ink permitted on a saturated fill */
 
+    /* ==== THE ALPHA RAMP -> TIER MAPPING (issue #27). READ THIS BEFORE SWEEPING ====
+       ~728 `text-white/NN` sites across 81 files are being replaced with the three
+       tiers above, ONE ROUTE AT A TIME (the issue is explicit that a single sweep goes
+       red). Route 1 = /checklist (components/docs-checklist.tsx, 7 sites), landed. This
+       is the mapping it established, and it is meant to be APPLIED, not re-derived.
+
+       CONSUME A TIER AS `text-ink-hi` / `text-ink-mid` / `text-ink-lo` — Tailwind keys
+       `ink.hi/.mid/.lo` -> these three vars (tailwind.config.ts). Under the design
+       system's floor rule (R-TEXT) those three, the six accents and the on-* inks are
+       the ONLY legal text colours. THERE IS NO FOURTH TIER: if a site "needs" one, it
+       is the site that is wrong.
+
+       THE RULE IS THE ROLE, NEVER THE NEAREST ALPHA. Three questions, first hit wins:
+         1. Is it what this container exists to show — the label, title, value, or the
+            text the USER TYPED?                                          -> ink-hi
+         2. Is it there to qualify that thing — a count, status line, helper,
+            subtitle, note, timestamp?                                    -> ink-mid
+         3. Is it deliberately out of the way — a done/inactive item, or a hint standing
+            in for content that is not there yet?                         -> ink-lo
+       TIE-BREAK for 1 vs 2, which is the only tie that comes up: ask what the CONTAINER
+       is for. The node that IS its subject is hi; a node that describes the subject is
+       mid. Inside a control the user's own text is the subject, so an input VALUE is hi
+       and its PLACEHOLDER is lo — which is also the spec's `.field` recipe verbatim.
+
+       Route 1's seven sites, old alpha -> tier, so the shape of the mapping is visible:
+         text-white/85   row item label — the row's subject          -> ink-hi
+         text-white/75   note input VALUE — typed by the user        -> ink-hi
+         text-white/70   "0/18 ready" header readout                 -> ink-mid
+         text-white/55   "Loading your checklist…" — app status      -> ink-mid
+         text-white/55   per-section "3/9" readout                   -> ink-mid
+         text-white/50   a CHECKED item's label — done, receded      -> ink-lo
+         text-white/30   note input PLACEHOLDER — no content yet     -> ink-lo
+       IT IS NOT MONOTONIC IN THE ALPHA, and that is the whole point: /75 lands ABOVE
+       /85's neighbour on hi, while /70 and /50 straddle the mid/lo split. A sweep that
+       ordered by number would have put the note value below its own label, and would
+       have put a placeholder and a completed item on the same tier as a live readout.
+
+       WHY A NUMERIC SWEEP GOES RED — measured on this branch, not assumed. Tailwind's
+       default opacity scale has no 15/35/45/55/65/85/95 step and this config does not
+       extend it, so `text-white/85` and `text-white/55` EMIT NO CSS AT ALL. What paints
+       them today is either inheritance (/85 -> the body's `text-foreground`, i.e. pure
+       white already) or the @layer utilities floor further down, whose `~=` attribute
+       selector matches the class token whether or not Tailwind generated a utility
+       (/55 -> 0.62). So the ramp's rendered value is NOT its written value, and
+       "preserve the current contrast" is not the same instruction as "keep the number".
+
+       OUT OF SCOPE, deliberately, so nobody widens the next route: bare `text-white`
+       (no alpha) already IS --text-hi and R-TEXT does not touch it — do not churn those
+       sites. `bg-white/NN`, `border-white/NN` and `hover:bg-white/NN` are FILLS and
+       EDGES, not text; they belong with --border / --border-ui, not here.
+
+       An opacity modifier on a tier is not a thing: `text-ink-mid/50` is not in
+       Tailwind's opacity scale for a `var()` colour and generates NOTHING, so the class
+       is inert and the element inherits. Write the bare tier. The ramp cannot be
+       rebuilt on top of the tiers, which is the D-100/D-246 defect class closed by
+       construction.
+
+       PER-ROUTE ORDER OF WORK: convert the route, add its file to SWEPT in
+       lib/__tests__/text-tier-sweep.test.ts (that is what stops the ramp coming back),
+       add the route's real composited fills to scripts/contrast-tokens.mjs and re-run
+       it, then run the route's axe spec on dev. The floor block and lib/motion.ts's
+       FADE_FLOOR stay until the LAST route lands — 80 files still depend on them. */
+
     /* ---- The six accents ----
        Each is >=4.5:1 as text on the page field AND >=4.5:1 against --on-accent when
        used as a fill, so any one of them is legal both ways round. Measured on --bg:

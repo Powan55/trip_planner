@@ -74,6 +74,15 @@ C.rowHover = over('#FFFFFF', C.surface1, 0.05);
 C.rowSel = over(C.marigold, C.surface1, 0.10);
 // chip fill inside a calm row
 C.chip = over('#FFFFFF', C.surface2, 0.06);
+// ---- issue #27 route 1 (/checklist) — the fills that route's text ACTUALLY sits on ----
+// Worked out from the markup rather than assumed: app/checklist/page.tsx is `bg-surface`
+// (= --bg) and the section cards are `.glass-subtle`, which fills from --surface-low, i.e.
+// SURFACE-1 — one step DOWN from a raised card, so surface-2's numbers would have been the
+// wrong reference. Two white tints composite on top of that: the row label's
+// `hover:bg-white/[0.06]` and the note input's `bg-white/[0.03]`. The flat pairs (hi/mid/lo
+// on --bg and on surface-1) are already asserted above; these are the two the route adds.
+C.docsRowHover = over('#FFFFFF', C.surface1, 0.06);
+C.docsNoteFill = over('#FFFFFF', C.surface1, 0.03);
 
 // [label, fg, bg, target]  4.5 = body · 3 = large (>=24px, or >=18.66px bold) / UI edge
 const pairs = [
@@ -94,6 +103,12 @@ const pairs = [
   ['text-hi on row[selected]', C.textHi, C.rowSel, 4.5],
   ['text-mid on row[selected]', C.textMid, C.rowSel, 4.5],
   ['text-lo on chip fill', C.textLo, C.chip, 4.5],
+
+  ['-- /checklist, ISSUE #27 ROUTE 1 (tiers on that route\'s composited fills) --'],
+  ['label (hi) on row:hover', C.textHi, C.docsRowHover, 4.5],
+  ['done label (lo) on row:hover', C.textLo, C.docsRowHover, 4.5],
+  ['note value (hi) on note fill', C.textHi, C.docsNoteFill, 4.5],
+  ['note placeholder (lo) on note fill', C.textLo, C.docsNoteFill, 4.5],
 
   ['-- ACCENT AS TEXT (category ink, links, live values) --'],
   ['marigold on bg', C.marigold, C.bg, 4.5],
@@ -189,7 +204,8 @@ for (const [label, fg, bg, t] of guards) {
 }
 
 console.log('\ncomposited worst-case pixels:');
-for (const k of ['npScrim72', 'npScrim82', 'jpScrim72', 'jpScrim82', 'rowHover', 'rowSel', 'chip'])
+for (const k of ['npScrim72', 'npScrim82', 'jpScrim72', 'jpScrim82', 'rowHover', 'rowSel', 'chip',
+                 'docsRowHover', 'docsNoteFill'])
   console.log('  ' + k.padEnd(11), C[k]);
 console.log('\nhex -> hsl (the form the shadcn tokens in globals.css take):');
 for (const k of Object.keys(C)) console.log('  ' + k.padEnd(11), C[k], ' hsl(' + hsl(C[k]) + ')');

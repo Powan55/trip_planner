@@ -195,6 +195,29 @@ const config: Config = {
         gold: { 400: '#FFC43D', 500: '#d4a843', 600: '#C08400' },
         sakura: { 300: '#FFB1D8', 400: '#FF8FC7', 500: '#e88fa2', 600: '#C25C90' },
         himalaya: { 400: '#FF8A3D', 500: '#e67635', 600: '#C2692E' },
+        // ---- The three text tiers (the design system's floor rule, R-TEXT, makes this
+        // set the DEFINITION of a legal text colour) ----
+        // `text-ink-hi` / `text-ink-mid` / `text-ink-lo`. These are what issue #27's
+        // route-by-route sweep replaces `text-white/NN` with. THE ALPHA-RAMP -> TIER
+        // MAPPING, and the role rule that decides ties, live beside the token
+        // declarations in app/globals.css — read that before sweeping a route, and do
+        // not re-derive it per route.
+        //
+        // Deliberately NOT `rgb(var(--x) / <alpha-value>)` like the surface keys above.
+        // The tiers are declared as HEX vars precisely so no alpha can multiply a tier
+        // below AA (the D-100/D-246 defect class, retired by construction), and
+        // consuming them as a plain `var()` keeps that true: Tailwind cannot attach an
+        // opacity modifier to a value it can't parse.
+        //
+        // What `text-ink-mid/50` ACTUALLY does, corrected — the first draft of this comment
+        // said "emits the flat tier colour", and that is wrong in the one direction that
+        // matters. It emits NOTHING AT ALL (verified against generated CSS, not assumed), so
+        // the class is inert and the element INHERITS its ancestor's colour. On a card with a
+        // tinted parent that is not a tier at all. Safe outcome vs silent wrong colour is
+        // exactly the distinction a sweeper needs, and ~132 sites are still to be converted by
+        // someone who may read this comment first. The ramp still cannot be rebuilt on top of
+        // the tiers — but the failure mode is inheritance, not a flat fallback.
+        ink: { hi: 'var(--text-hi)', mid: 'var(--text-mid)', lo: 'var(--text-lo)' },
         // single scroll-driven accent.
         'accent-scroll': 'hsl(var(--accent-scroll))',
         background: 'hsl(var(--background))',
