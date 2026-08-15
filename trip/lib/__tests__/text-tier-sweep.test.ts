@@ -33,6 +33,9 @@ const SWEPT = [
   // is about what gets copied INTO a file later, and a brand-new Home section sitting next
   // to 80 files that still carry the ramp is exactly where a class string gets pasted.
   'components/home-stat-row.tsx',
+  // Issue #4's /profile body. Also born on the tiers, and listed for the same reason: it is a
+  // form, and form markup is the most-copied markup in any codebase.
+  'components/visited-places-panel.tsx',
 ];
 
 const read = (rel: string) => readFileSync(resolve(__dirname, '../../', rel), 'utf8');

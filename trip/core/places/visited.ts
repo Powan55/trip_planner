@@ -19,7 +19,7 @@
  * bundle reason as `core/storage/my-places-store.ts` — the gateway sits in the app-wide First Load
  * chunk and only the visit surfaces consume this.
  *
- * Rules, all four of them:
+ * Rules, all five of them:
  * - **Unique.** A city or country appears at most once.
  * - **Idempotent adds.** Re-adding a place already recorded is a no-op on the list.
  * - **Case- and whitespace-insensitive matching, first spelling wins.** `' kathmandu '` matches an
@@ -27,14 +27,19 @@
  *   recorded first.
  * - **Stable ordering = insertion order.** First visit first, forever. The list is never re-sorted,
  *   so a caller can rely on index stability across reads and across adds.
+ * - **Removable, under the same matching rule** (`removeVisit`, issue #4). A removal preserves the
+ *   other four: `filter` cannot reorder or duplicate what it keeps.
  *
  * The CALLER owns the vocabulary: whatever string identity it passes (a display city name, a
  * country name) is what is stored and compared. This module does not geocode, translate, or map to
  * ISO codes. Every function is TOTAL — SSR, disabled storage and a corrupt slot all degrade to an
  * empty set, never a throw (inherited from the gateway).
  *
- * No cap and no envelope, deliberately: a lifetime of human travel is a few hundred short strings,
- * which is nowhere near a quota concern, and there is no shape here to migrate.
+ * No LIST cap and no envelope, deliberately: a lifetime of human travel is a few hundred short
+ * strings, which is nowhere near a quota concern, and there is no shape here to migrate. There IS
+ * a per-name bound — see `tidyPlaceName`/`PLACE_NAME_MAX`, which is the trust boundary the
+ * free-text city field on `/profile` (issue #4) writes through, and through which every other
+ * caller's adds are funnelled too so that no second normalisation can grow somewhere else.
  *
  * **Issue #30 added a second half at the bottom of this file** — gateway key 34, the record of which
  * visits a one-shot location check confirmed and when (D-320). It is a SEPARATE key so the
@@ -51,9 +56,77 @@ export interface VisitedPlaces {
   countries: string[];
 }
 
-/** The one comparison key — trimmed + case-folded, so `' kathmandu '` and `'Kathmandu'` are one place. */
+/**
+ * The one comparison key — whitespace-collapsed, trimmed and case-folded, so `' kathmandu '`,
+ * `'Kathmandu'` and `'Kath  mandu'` are one place.
+ *
+ * Exported as `foldPlaceName` (issue #4) because a UI that offers a list of places to add has to
+ * ask "is this one already recorded?" about many candidates at once, and answering it by string
+ * comparison at the call site would be a SECOND normalisation that can disagree with this one.
+ * `hasVisitedCity`/`hasVisitedCountry` remain the answer for a single place; this is the same rule
+ * for a caller that needs a Set.
+ */
 function fold(value: string): string {
-  return value.trim().toLowerCase();
+  return value.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+export { fold as foldPlaceName };
+
+/**
+ * The longest name that may be stored, in characters AFTER tidying. Generous on purpose: the
+ * longest real entry in the app's own country list is 44 ("Saint Helena, Ascension and Tristan da
+ * Cunha") and the longest city names people actually write are shorter still, so 80 rejects a
+ * paste without ever rejecting a place. It is a bound on the bytes, not a style rule.
+ */
+export const PLACE_NAME_MAX = 80;
+
+/** Why a typed-in name was refused. Each maps to one sentence the user reads (issue #4). */
+export type PlaceNameRejection = 'blank' | 'too-long' | 'unreadable';
+
+export type TidiedPlaceName =
+  | { ok: true; value: string }
+  | { ok: false; reason: PlaceNameRejection };
+
+/**
+ * Every character class that must not reach storage, replaced (not deleted) by a space so the
+ * collapse below turns a zero-width space inside a word into a word break rather than silently
+ * welding the two halves together.
+ *
+ * Written as Unicode PROPERTY escapes rather than a hand-listed code-point range, because the
+ * hand-listed version is the one that goes stale: `\p{Cc}` is every C0/C1 control and DEL,
+ * `\p{Cf}` is every format character — the zero-width set, the soft hyphen, the BOM, and the
+ * bidi embeddings and OVERRIDES — and `\p{Zl}`/`\p{Zp}` are the line and paragraph separators.
+ *
+ * The bidi overrides are the interesting ones: they are display-spoofing characters, and a place
+ * name is rendered in a list next to other place names.
+ */
+const CONTROL_CHARS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu;
+
+/**
+ * THE TRUST BOUNDARY (issue #4). Free-typed text becomes a storable place name, or a stated
+ * reason it cannot. The whole policy, in the order it applies:
+ *
+ * 1. **Control and invisible characters become spaces.** See `CONTROL_CHARS`.
+ * 2. **Internal whitespace collapses, and the ends are trimmed.** `'  New   York '` → `'New York'`.
+ * 3. **Blank is rejected**, never stored as an empty entry.
+ * 4. **Longer than `PLACE_NAME_MAX` is rejected, never truncated.** A truncated name is a
+ *    different place with a plausible spelling; a refusal the user can see is honest.
+ * 5. **A name with no letter or digit anywhere is rejected** — `'...'`, `'!!!'` and a lone emoji
+ *    are paste accidents, not places. One letter or digit is enough (`1770` is a real town).
+ *
+ * The user's own spelling and case SURVIVE all five: nothing here title-cases or otherwise
+ * "corrects" a name. Case-insensitivity is a matter for `fold`, at comparison time only.
+ *
+ * `append` runs every add through this, so the policy cannot be bypassed by a caller that
+ * forgot — the UI calls it first only to learn WHICH rejection to say out loud.
+ */
+export function tidyPlaceName(raw: unknown): TidiedPlaceName {
+  if (typeof raw !== 'string') return { ok: false, reason: 'blank' };
+  const value = raw.replace(CONTROL_CHARS, ' ').replace(/\s+/g, ' ').trim();
+  if (!value) return { ok: false, reason: 'blank' };
+  if (value.length > PLACE_NAME_MAX) return { ok: false, reason: 'too-long' };
+  if (!/[\p{L}\p{N}]/u.test(value)) return { ok: false, reason: 'unreadable' };
+  return { ok: true, value };
 }
 
 /**
@@ -74,13 +147,29 @@ function cleanList(raw: unknown): string[] {
   return out;
 }
 
-/** Append `value` unless it is blank or already present (the idempotent add). Returns a NEW array. */
+/**
+ * Append `value` unless it is unstorable or already present (the idempotent add). Returns a NEW
+ * array.
+ *
+ * Every add in the app funnels through here, which is why `tidyPlaceName` is applied HERE rather
+ * than in the form that collects the text: a guard at one call site is a guard the next call site
+ * does not have (issue #4). A rejected name is silently not added — this module is total and does
+ * not throw — and the UI knows which rejection it was because it asked `tidyPlaceName` itself
+ * first, for the wording.
+ */
 function append(list: string[], value: string | undefined): string[] {
+  const tidy = tidyPlaceName(value);
+  if (!tidy.ok) return list;
+  if (list.some((entry) => fold(entry) === fold(tidy.value))) return list;
+  return [...list, tidy.value];
+}
+
+/** Drop every entry matching `value` under the fold rule. Order of the survivors is untouched. */
+function drop(list: string[], value: string | undefined): string[] {
   if (typeof value !== 'string') return list;
-  const next = value.trim();
-  if (!next) return list;
-  if (list.some((entry) => fold(entry) === fold(next))) return list;
-  return [...list, next];
+  const key = fold(value);
+  if (!key) return list;
+  return list.filter((entry) => fold(entry) !== key);
 }
 
 /**
@@ -108,6 +197,41 @@ export function addVisit(visit: { city?: string; country?: string }): VisitedPla
     countries: append(current.countries, visit.country),
   };
   writeJson('local', STORAGE_KEYS.lifetimeVisits, next);
+  return next;
+}
+
+/**
+ * Un-record a visit and return the resulting set (issue #4). Either half may be omitted, exactly
+ * like `addVisit`, and removing something that was never there is a no-op that still writes.
+ *
+ * **This exists because people mistype.** A lifetime record with no way back is a record that
+ * accumulates other people's typos forever, and the free-text city field guarantees there will be
+ * some. The three guarantees the set is built on all survive a removal by construction: `filter`
+ * cannot reorder the survivors (insertion order holds), cannot introduce a duplicate (uniqueness
+ * holds), and the fold rule decides what "matching" means here exactly as it does for an add, so
+ * `removeVisit({ city: ' KATHMANDU ' })` removes the entry stored as `'Kathmandu'`.
+ *
+ * Removing a CITY also forgets its GPS confirmation (key 34), because a confirmation is an
+ * attribute of a lifetime visit (D-320) and a deleted visit must not leave a shadow record of the
+ * place behind it. Removing a COUNTRY does not touch confirmations: a confirmation's `country` is
+ * that day's label, not a claim about the country set, and matching on it would delete a city's
+ * confirmation for a reason the user did not ask for.
+ *
+ * KNOWN CEILING, and it is a real one: a city or country the ACTIVE TRIP itself passes through
+ * comes back on the next visit count (`lib/visit-autocount.ts` re-adds every trip place through
+ * today on load, by design — it keeps no "already counted" bookkeeping because `addVisit` is
+ * idempotent). Removal is therefore permanent only for places the trip does not claim, which is
+ * every manually-added one. Making it stick for a trip place would need a suppression list, and
+ * that is a decision (which record wins — the itinerary or the person?), not a patch.
+ */
+export function removeVisit(visit: { city?: string; country?: string }): VisitedPlaces {
+  const current = getVisited();
+  const next: VisitedPlaces = {
+    cities: drop(current.cities, visit.city),
+    countries: drop(current.countries, visit.country),
+  };
+  writeJson('local', STORAGE_KEYS.lifetimeVisits, next);
+  if (typeof visit.city === 'string') forgetConfirmation(visit.city);
   return next;
 }
 
@@ -233,4 +357,25 @@ export function confirmVisit(place: { city: string; country: string }, at: strin
   };
   writeJson('local', STORAGE_KEYS.visitConfirmations, next);
   return next;
+}
+
+/**
+ * Forget the confirmation for one city — the #30 half of `removeVisit` (issue #4).
+ *
+ * Module-private: a confirmation is not independently removable, and must not become so. It is an
+ * attribute of a lifetime visit, so the only thing that may delete one is the deletion of the
+ * visit it describes; an exported "unconfirm" would be a way to keep the visit while erasing the
+ * evidence, which is a shape nothing in this app has a use for.
+ *
+ * `checkedOn` is preserved deliberately: it records that the check RAN on that day, which is still
+ * true after the user edits their own history, and rewriting it would buy them an extra permission
+ * prompt for nothing. No matching entry means no write at all.
+ */
+function forgetConfirmation(city: string): void {
+  const key = fold(city);
+  if (!key) return;
+  const current = getVisitConfirmations();
+  const confirmed = current.confirmed.filter((entry) => fold(entry.city) !== key);
+  if (confirmed.length === current.confirmed.length) return;
+  writeJson('local', STORAGE_KEYS.visitConfirmations, { ...current, confirmed });
 }

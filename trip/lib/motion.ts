@@ -132,6 +132,13 @@ export const TIER_3_SURFACES: readonly string[] = [
   '/safety',
   '/share',
   '/travel',
+  // `/profile` (issue #4). D-292's Tier 1 line names "passport/profile", and this is the
+  // narrower reading on purpose: that clause describes the STAGE surface — the passport, its
+  // stamps, the collection — while this route is a data-entry form and nothing else, which the
+  // same decision places in Tier 3 "regardless of which route opens it". Tiering it 1 would hand
+  // the loudest permissions in the product to a screen made of a select, a text field and a list.
+  // If the passport page (issue #5) lands as `/passport`, THAT is the Tier 1 candidate.
+  '/profile',
 ];
 
 /**

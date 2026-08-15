@@ -23,6 +23,7 @@ import {
   FileCheck2,
   Luggage,
   MapPin,
+  User,
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -142,6 +143,7 @@ const SECTIONS: Section[] = [
   { route: '/share/', label: 'Import a place', group: 'More', keywords: ['import', 'place', 'google', 'maps', 'link', 'paste'], icon: MapPin }, //
   { route: '/recap/', label: 'Recap', group: 'More', keywords: ['story', 'summary', 'post-trip'], icon: Scroll },
   { route: '/trips/', label: 'Trips', group: 'More', keywords: ['switch', 'create', 'join', 'share', 'key', 'manage'], icon: Luggage }, //
+  { route: '/profile/', label: 'Profile', group: 'More', keywords: ['visited', 'countries', 'cities', 'been there', 'travel history', 'lifetime'], icon: User }, // issue #4
   { route: '/settings/', label: 'Settings', group: 'More', keywords: ['identity', 'currency', 'rates', 'sign out', 'clear', 'backup', 'export', 'import'], icon: Settings }, //
 ];
 

@@ -79,7 +79,16 @@ async function expectAxeClean(page: Page, label: string, testInfo: TestInfo) {
 }
 
 // ── The previously-ungated content routes (traveler state) ──────────────────────────────
-const UNGATED_ROUTES = ['/flights/', '/safety/', '/recap/', '/settings/', '/share/'] as const;
+// `/profile/` (issue #4) joins the list rather than getting its own pack: it is a form, and a
+// form is the shape axe has the most to say about — labels, names, the invalid state.
+const UNGATED_ROUTES = [
+  '/flights/',
+  '/safety/',
+  '/recap/',
+  '/settings/',
+  '/share/',
+  '/profile/',
+] as const;
 
 for (const route of UNGATED_ROUTES) {
   test(`axe: ${route} has zero serious/critical (traveler state)`, async ({ page }, testInfo) => {

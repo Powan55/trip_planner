@@ -335,6 +335,10 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
     anchor: '[data-testid="calendar-toolbar"]',
     what: 'the CalendarPlanner island (app/plan/sections.tsx -> @/components/calendar-planner)',
   },
+  '/profile/': {
+    anchor: '[data-testid="visited-places-panel"]',
+    what: 'the VisitedPlacesPanel island (app/profile/sections.tsx -> @/components/visited-places-panel)',
+  },
   '/recap/': {
     anchor: '[data-testid="trip-story-recap"]',
     what: 'the TripStoryRecap island (app/recap/sections.tsx -> @/components/trip-story-recap)',
