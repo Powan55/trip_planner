@@ -257,6 +257,45 @@ const pairs = [
   ['brand separator + pin (lo) over NP header', C.textLo, C.npHdrMin, 4.5],
   ['brand separator + pin (lo) over JP header', C.textLo, C.jpHdrMin, 4.5],
 
+  ['-- THE FRONT DOOR, ISSUE #25 --'],
+  // The cover and the two chapters REUSE `.photo-header` unchanged, so their scrim composites
+  // ARE npHdrMin / jpHdrMin above and nothing about the ramp is re-derived here. What is new is
+  // the set of FOREGROUNDS the front door puts on them, and that is what this block measures.
+  // The cover is Nepal-graded, chapter 01 Nepal, chapter 02 Japan.
+  ['door eyebrow (marigold) on the NP cover', C.marigold, C.npHdrMin, 4.5],
+  ['door headline (hi) on the NP cover', C.textHi, C.npHdrMin, 4.5],
+  ['door lead + join note (mid) on the NP cover', C.textMid, C.npHdrMin, 4.5],
+  // The secondary CTA over a photograph is an outline and nothing else, so its EDGE is the only
+  // thing separating a control from the picture — 1.4.11's 3:1, over the graded worst case. This
+  // is why it is --border-ui and not --border: --border measures 1.31:1 here and would be a
+  // button with no visible boundary on the loudest surface in the product.
+  ['door ghost CTA edge (border-ui) on the cover', C.borderUI, C.npHdrMin, 3],
+  ['door join link (marigold) on the NP cover', C.marigold, C.npHdrMin, 4.5],
+  // The chapter numerals are Instrument Serif at the editorial-lg step (>=2.4rem), i.e. LARGE
+  // text, so 3:1 — measured over each chapter's own grade rather than borrowing the other's.
+  ['chapter 01 numeral (marigold) on NP', C.marigold, C.npHdrMin, 3],
+  ['chapter 02 numeral (pink) on JP', C.pink, C.jpHdrMin, 3],
+  ['chapter title (hi) on JP', C.textHi, C.jpHdrMin, 4.5],
+  ['chapter body (mid) on JP', C.textMid, C.jpHdrMin, 4.5],
+  // The three colour blocks. All four gradient stops carry the ink and are measured above; the
+  // celebration gradient is jp-a -> np-b, i.e. two stops that are already there under other
+  // names, so it adds no new pair. The closing block is the flat mint fill, and its button
+  // INVERTS — the ink becomes the fill and marigold becomes the label.
+  ['closing block ink on mint', C.onAccent, C.mint, 4.5],
+  ['inverted CTA label (marigold) on ink', C.marigold, C.onAccent, 4.5],
+  // The inverted button's FOCUS INDICATOR, both halves of it. The ring is marigold and the 2px
+  // offset gap is --surface, so what a keyboard user sees is ring-on-gap and gap-on-block. Both
+  // are measured because 1.4.11 asks about the indicator against what surrounds it, and the
+  // surround here is a saturated fill rather than the page.
+  ['closing CTA focus ring vs its offset gap', C.marigold, C.bg, 3],
+  ['closing CTA offset gap vs the mint block', C.bg, C.mint, 3],
+  // The wall's second view — the auth card, Tier 3, on the opaque surface-2 panel. The field
+  // fill is surface-3 and its EDGE is the interactive boundary token (both measured under
+  // 1.4.11 above); these are the text tiers and the one error colour on those fills.
+  ['auth field value (hi) on surface-3', C.textHi, C.surface3, 4.5],
+  ['auth field placeholder (lo) on surface-3', C.textLo, C.surface3, 4.5],
+  ['auth error (coral) on the panel', C.coral, C.surface2, 4.5],
+
   ['-- THE HOME HERO, ISSUE #26 (one scrim, floor .76, worst pixel = pure white) --'],
   ['hero title (hi) at the scrim floor', C.textHi, C.heroScrim76, 4.5],
   ['hero copy (mid) at the scrim floor', C.textMid, C.heroScrim76, 4.5],
@@ -303,6 +342,18 @@ const guards = [
   // passing, the scrim got darker and hero copy can be re-tiered — which is a decision
   // somebody should make on purpose, having seen this line flip.
   ['--text-lo as hero copy over the photo', C.textLo, C.heroScrim76, 4.5],
+  // Issue #25. The front door reuses the header ramp, so the floor tier DOES clear AA over the
+  // cover — but the ghost CTA's edge is the pair that would bind first if that ramp is ever
+  // lightened, and --border is what an author reaches for when they do not know that. Measured
+  // at 1.31:1 on the graded worst case: it is a decorative wash and it may never be the edge of
+  // a control sitting on a photograph. If this starts passing, the scrim got darker and somebody
+  // should decide that on purpose, having seen this line flip.
+  ['--border as the door CTA edge (decorative)', C.border, C.npHdrMin, 3],
+  // Issue #25. The closing CTA's ring offset is --surface and it looks like an inconsistency
+  // sitting on a mint block, so somebody will eventually "fix" it to match. This is the number
+  // that fix produces: a marigold focus ring directly on mint, 1.10:1, i.e. no focus ring at all
+  // on the loudest button on the front door.
+  ['marigold ring straight onto mint (no offset)', C.marigold, C.mint, 3],
 ];
 
 let fail = 0;

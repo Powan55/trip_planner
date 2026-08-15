@@ -362,6 +362,32 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
 
   const canSubmit = mode === 'login' ? !!userToken.trim() : !!name.trim();
 
+  /**
+   * The `?trip=` invitation acknowledgement. An invitee must see it the moment they arrive, not
+   * only after they pick a path — the landing is where they actually land. Suppressed on the
+   * show-once screen, which owes them one thing at a time.
+   *
+   * #25 — built once here and PLACED by the view, instead of being hoisted above the view switch.
+   * The landing's cover now bleeds to the panel's top edge, so a sibling above it would sit under
+   * the photograph; the landing takes this as its `notice` slot and renders it inside the cover,
+   * first, over the picture. The auth card keeps it exactly where it was. One node either way —
+   * only one view is ever mounted — so `getByTestId` still resolves to a single element.
+   *
+   * Contrast over the photograph: the fill is surface-3 at 40 %, which is DARKER than the cover's
+   * graded worst-case pixel, so it only ever darkens what is behind the text. The measured
+   * `door lead + join note (mid)` pair in scripts/contrast-tokens.mjs is therefore a lower bound.
+   */
+  const invite =
+    pendingTrip && !minted ? (
+      <p
+        data-testid="token-gate-invite"
+        className="w-full max-w-[46ch] rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-xs leading-relaxed text-ink-mid"
+      >
+        Someone shared a trip with you. Log in or create an account and we&rsquo;ll add it to your
+        trips.
+      </p>
+    ) : null;
+
   return (
     <m.div
       initial={{ opacity: 0 }}
@@ -388,28 +414,24 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.96, opacity: 0, y: -8 }}
         transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-        className={`relative w-full glass-card-dark rounded-3xl p-6 sm:p-8 shadow-2xl my-auto ${
-          view === 'landing' ? 'max-w-5xl' : 'max-w-md'
+        // #25 — the two views take two radii, and the radius follows the TIER, not the panel.
+        // The landing is Tier 1 and keeps the loudest container radius; the auth card is a FORM,
+        // therefore Tier 3 always (D-292 puts every dialog, sheet and form there regardless of
+        // which surface opens it), and a Tier-3 surface takes the calm card radius. Its fill,
+        // border and elevation are already the ruled ones — `.glass-card-dark` is surface-2 +
+        // --border + the elevated shadow — so this is the only geometry that had to move.
+        className={`relative w-full glass-card-dark p-6 sm:p-8 shadow-2xl my-auto ${
+          view === 'landing' ? 'max-w-5xl rounded-3xl' : 'max-w-md rounded-2xl'
         }`}
       >
-        {/* The `?trip=` invitation acknowledgement. hoists it ABOVE the view switch so an
-            invitee sees it the moment they arrive, not only after they pick a path — the landing
-            is where they actually land. Suppressed on the show-once screen, which owes them one
-            thing at a time. */}
-        {pendingTrip && !minted && (
-          <p
-            data-testid="token-gate-invite"
-            className="mb-4 rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-xs leading-relaxed text-white/70"
-          >
-            Someone shared a trip with you. Log in or create an account and we&rsquo;ll add it to
-            your trips.
-          </p>
-        )}
-
         {view === 'landing' ? (
           <LandingPage
             titleId={titleId}
             descId={descId}
+            // See `invite` above for why the wall hands this to the view instead of rendering it
+            // as a sibling. Nothing focusable goes in here: it renders above the log-in CTA, which
+            // must stay the first enabled button in the panel.
+            notice={invite}
             onCreate={() => {
               setMode('create');
               setView('auth');
@@ -446,6 +468,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                 inner function component is a new type on every parent render, which would
                 remount the inputs on every keystroke. ── */
           <>
+        {invite && <div className="mb-4">{invite}</div>}
         {/* Boarding-pass header: ticket-stub iconography + trip title. */}
         <div className="flex items-center gap-3 mb-1">
           <span
@@ -455,12 +478,13 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
             <Plane className="w-6 h-6 -rotate-12" />
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] uppercase tracking-[0.22em] text-white/40 font-medium">
-              Boarding Pass
-            </p>
+            <p className="text-eyebrow uppercase text-ink-lo">Boarding Pass</p>
+            {/* text-display-md, NOT `font-display font-bold`: Instrument Serif ships weight 400
+                only, so the old pairing asked the browser to synthesise a bold. The sans display
+                step carries a real 800. */}
             <h2
               id={titleId}
-              className="font-display text-xl sm:text-2xl font-bold text-white leading-tight truncate"
+              className="text-display-md text-ink-hi leading-tight truncate"
             >
               Nepal <span className="text-display-emphasis">×</span> Japan Journey
             </h2>
@@ -474,19 +498,19 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
 
         {/* Perforation line — the boarding-pass tear. Decorative, no layout box of its own. */}
         <div className="relative my-5" aria-hidden="true">
-          <div className="border-t border-dashed border-white/15" />
+          <div className="border-t border-dashed border-border" />
         </div>
 
         {minted ? (
           <>
-            <p id={descId} className="text-sm text-white/55 mb-4 leading-relaxed">
+            <p id={descId} className="text-sm text-ink-mid mb-4 leading-relaxed">
               Your account is ready, {name.trim()}. One thing left.
             </p>
             <UserTokenShowOnce token={minted} onConfirm={finish} />
           </>
         ) : (
           <>
-            <p id={descId} className="text-sm text-white/55 mb-4 leading-relaxed">
+            <p id={descId} className="text-sm text-ink-mid mb-4 leading-relaxed">
               Log in with your key to reach your trips, or create an account.
             </p>
 
@@ -502,7 +526,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                 className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
                   mode === 'login'
                     ? 'border-ring/60 bg-primary/10 text-primary'
-                    : 'border-white/15 text-white/70 hover:bg-white/5'
+                    : 'border-border text-ink-mid hover:bg-muted/40'
                 }`}
               >
                 Log in
@@ -516,7 +540,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                 className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
                   mode === 'create'
                     ? 'border-ring/60 bg-primary/10 text-primary'
-                    : 'border-white/15 text-white/70 hover:bg-white/5'
+                    : 'border-border text-ink-mid hover:bg-muted/40'
                 }`}
               >
                 Create an account
@@ -526,12 +550,12 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
             <form onSubmit={mode === 'login' ? handleLogin : handleCreate}>
               {mode === 'login' && (
                 <>
-                  <label htmlFor={tokenFieldId} className="text-xs text-white/50 mb-1.5 block">
+                  <label htmlFor={tokenFieldId} className="text-xs text-ink-mid mb-1.5 block">
                     Your key
                   </label>
                   <div className="relative">
                     <KeyRound
-                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35"
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo"
                       aria-hidden="true"
                     />
                     <input
@@ -545,7 +569,14 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                       readOnly={busy}
                       placeholder="Paste your key"
                       data-testid="token-gate-user-token"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white font-mono text-sm placeholder:text-white/30 placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
+                      // #25 — the ruled field recipe, and the edge is the part that mattered.
+                      // --border-ui (4.94:1 on the page field, 3.72 on this surface-3 fill) is the
+                      // boundary of an INTERACTIVE control; --border and the old border-white/10
+                      // are decorative washes at ~1.2-1.7:1, which is under WCAG 1.4.11's 3:1 for
+                      // the one edge that says "you can type here". The fill moves to surface-3
+                      // (bg-muted) so the field reads as recessed against the surface-2 panel
+                      // instead of as a white veil, and the focus ring is already marigold.
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-muted border border-[color:var(--border-ui)] text-ink-hi font-mono text-sm placeholder:text-ink-lo placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
                     />
                   </div>
                   {savedToken !== null && savedToken !== userToken && (
@@ -564,7 +595,12 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                     <p
                       role="alert"
                       data-testid="token-gate-error"
-                      className="mt-2 text-xs leading-relaxed text-red-400"
+                      // --coral, not text-red-400: there are exactly six accents and coral is the
+                      // one for warmth/warning. text-red-400 is a raw Tailwind hue outside the
+                      // ruled set, i.e. a colour no palette sweep is looking for. Colour is not
+                      // the cue anyway — the message, role="alert" and the sentence itself carry
+                      // it; this is only what the sentence is painted in.
+                      className="mt-2 text-xs leading-relaxed text-[color:var(--coral)]"
                     >
                       {loginError}
                     </p>
@@ -576,12 +612,12 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                   only). On login the display name is reused from the device / defaults, not asked. */}
               {mode === 'create' && (
                 <>
-                  <label htmlFor={nameFieldId} className="text-xs text-white/50 mb-1.5 block">
+                  <label htmlFor={nameFieldId} className="text-xs text-ink-mid mb-1.5 block">
                     Your name
                   </label>
                   <div className="relative">
                     <User
-                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/35"
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo"
                       aria-hidden="true"
                     />
                     <input
@@ -596,7 +632,9 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                       readOnly={busy}
                       placeholder="Enter your name"
                       data-testid="token-gate-name"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
+                      // The same field recipe as the key field above — see the note there for why
+                      // the edge is --border-ui and the fill is surface-3.
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-muted border border-[color:var(--border-ui)] text-ink-hi text-sm placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
                     />
                   </div>
                 </>
@@ -616,7 +654,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
               {/* The never-mix guard, in copy: each form names the OTHER token and where it
                   goes. (#10: the User Token side is additionally validated server-side on new
                   logins; the Trip Token side stays labels + flow.) */}
-              <p className="mt-3 text-xs leading-relaxed text-white/45">
+              <p className="mt-3 text-xs leading-relaxed text-ink-lo">
                 {mode === 'login'
                   ? 'Your key is your account — it opens every trip you have. A Trip Token is not a login: add one from your Trips page after you log in.'
                   : 'We’ll make your key — the one way back into your account — and show it to you once. Trips (and their Trip Tokens) come next, on your Trips page.'}
@@ -689,12 +727,12 @@ function CompactCountdown() {
         {units.map((u) => (
           <div
             key={u.label}
-            className="flex flex-col items-center rounded-lg bg-white/5 border border-white/10 py-1.5"
+            className="flex flex-col items-center rounded-lg bg-surface-low border border-border py-1.5"
           >
-            <span className="font-mono text-base sm:text-lg font-bold text-white tabular-nums leading-none">
+            <span className="font-mono text-base sm:text-lg font-bold text-ink-hi tabular-nums leading-none">
               {String(u.value).padStart(2, '0')}
             </span>
-            <span className="mt-0.5 text-[9px] uppercase tracking-wider text-white/40">
+            <span className="mt-0.5 text-[9px] uppercase tracking-wider text-ink-lo">
               {u.label}
             </span>
           </div>

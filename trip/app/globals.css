@@ -850,6 +850,63 @@ html {
   }
 }
 
+/* ---- The front door's cover, and its one loop (issue #25) -------------------
+   The front door REUSES the Tier-2 header recipe above verbatim — same media
+   stack, same duotone pair, same two-ramp scrim, same 92px/68px px contract —
+   because that recipe already solved "display type over full-bleed photography
+   with a measured floor" on this token layer, and a second scrim system would be
+   a second thing to keep measured. Everything below is the DELTA, and it is three
+   things: the cover is taller, it is rounded at the top, and it carries the
+   surface's one ambient loop. The cover's contrast numbers are therefore the
+   header's numbers — scripts/contrast-tokens.mjs measures the new FOREGROUNDS
+   (the marigold eyebrow, the ghost CTA's edge, the two chapter numerals) against
+   the same npHdrMin / jpHdrMin composites, and nothing about the ramp moved.
+
+   WHY THE RADIUS IS NOT ZERO, when the rule is that a full-bleed surface has
+   nothing to round: the front door never touches the viewport. It renders inside
+   the wall's role="dialog" panel (components/token-gate.tsx), so "full bleed"
+   means "to the panel's border" — and the panel is a card with --radius-2xl
+   corners. Square corners would poke out of it. It is declared HERE rather than
+   as a `rounded-t-3xl` utility because `.photo-header` sets `border-radius: 0`
+   from unlayered CSS, which lands after the Tailwind utilities and which no
+   utility can outrank without `!important`. Same reason the min-heights are here.
+
+   THE KEN BURNS IS THE SURFACE'S ONLY LOOP (D-293 R1) and it clears the 6s loop
+   floor (R2) five times over, because it runs at --duration-loop-kb, the token
+   declared for exactly this and previously unconsumed. It sits on a wrapper
+   around the IMAGE ONLY and never on `.photo-header__media`: animating that
+   wrapper would scale the scrim with it, sliding the ramp's stops relative to the
+   text, and the ramp holding still is the entire basis of the measured floor. The
+   RESTING transform is scale(1.04), so where the animation is stopped — reduced
+   motion, via the named list in the block at the end of this file — the frame is
+   still overscanned and a crop can never reveal an edge.
+
+   D-293 R4 ("nothing else animates while a dialog is open") needs no class here.
+   The wall renders the landing OR the auth card, never both, so choosing a CTA
+   unmounts this element outright. There is no paused state to maintain because
+   there is nothing left running to pause. */
+.door-cover {
+  min-height: clamp(400px, 62svh, 580px);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+}
+
+@media (min-width: 900px) {
+  .door-cover {
+    min-height: clamp(460px, 68svh, 640px);
+  }
+}
+
+.door-kb {
+  transform: scale(1.04);
+  animation: door-kenburns var(--duration-loop-kb) var(--ease-inout) infinite alternate;
+  will-change: transform;
+}
+
+@keyframes door-kenburns {
+  from { transform: scale(1.04); }
+  to   { transform: scale(1.13) translate3d(-1.6%, -2.2%, 0); }
+}
+
 /* CONSIDERED DELETING THIS BLOCK AND REJECTED IT (deliberate ruling). The plan
    claimed it was an obsolete `!important` shim, dead once --muted-foreground
    reached 5.3:1 on card. All three parts of that are false: it uses NO `!important`
@@ -1271,6 +1328,12 @@ html[data-vt-active] .animate-route-fade {
      at their base state (today cell static, undo ring full, overlay lifted-but-still). */
   .animate-today-pulse,
   .animate-undo-ring,
+  /* issue #25 — the front door's Ken Burns, the surface's one ambient loop. It is
+     INFINITE, so the universal 0.01ms collapse above would leave it running one
+     ultra-fast iteration rather than stopping it; this is what actually stops it.
+     `.door-kb` carries scale(1.04) as its own base transform, so what is left is a
+     still, slightly overscanned frame — never a mid-pan one, and never an edge. */
+  .door-kb,
   .drag-overlay {
     animation: none !important;
   }
