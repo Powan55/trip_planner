@@ -89,6 +89,7 @@ import { mergeDay } from '@/core/sync/merge-day';
 import { mergeItems } from '@/core/sync/merge-items';
 import { mergeBudget, type BudgetFields } from '@/core/sync/merge-budget';
 import { modelToFields } from '@/core/budget/flatten';
+import { SEED_RATES } from '@/core/budget/model';
 import { seedHlcFromLegacy, serialize, parse, type Hlc } from '@/core/sync/hlc';
 
 // ── Generic renderHook shim (mirrors use-itinerary-clearday-sync.test.ts) ────────────────────
@@ -289,7 +290,7 @@ describe('budget.reset', () => {
 
     const afterReset = rawBudget();
     expect(afterReset.legBudgets).toEqual({ nepal: 0, japan: 0 }); // back to seed
-    expect(afterReset.rates).toEqual({ NPR: 138, JPY: 155 });
+    expect(afterReset.rates).toEqual(SEED_RATES); // whatever the seed currently is, reset returns to it
     const resetHlc = afterReset.sync!.fieldHlc['legBudgets.nepal'];
     expect(resetHlc > setHlc).toBe(true); // reset advanced the field's HLC (monotonic)
 

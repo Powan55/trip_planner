@@ -131,14 +131,20 @@ const UNSUPPORTED_CURRENCIES = new Set(['NPR']);
  * `fetchCurrencyRate` flags every value from here `source: 'reference'` so the UI can render it
  * distinctly ("≈ reference rate") and NEVER present it as a live quote.
  *
- * `rate`/`asOf` are a hand-set calibration knob, not derived from anything live — NPR
- * has held roughly 133-136/USD through 2026 under the NRB's currency-board peg to INR. Set
- * 134.5 as-of 2026-07-24 (today, this change). Refresh both fields if the real rate visibly
- * drifts from this band; there is no automated way to know it has (that's the whole reason NPR
- * needs a reference value instead of a feed).
+ * `rate`/`asOf` are a hand-set calibration knob, not derived from anything live. The peg to INR
+ * holds the NPR/INR cross steady; it does NOT hold NPR/USD steady, and the previous note here
+ * claiming a 133-136/USD band was wrong on its own terms — over the six months to 2026-08-15 the
+ * real rate ran 145.03 (2026-02-15) to 154.94 (2026-05-21). Set 152.7 as-of 2026-08-15, checked
+ * that day against three independent sources that agreed: NRB's own open-market table (buy
+ * 152.39 / sell 152.99), Wise's mid-market rate (152.7) and open.er-api.com (152.85). Mid-market
+ * is the right figure here because the panel labels it "≈ reference rate" rather than a quote.
+ *
+ * Refresh both fields when the real rate visibly drifts; there is no automated way to know it
+ * has (that's the whole reason NPR needs a reference value instead of a feed), so re-check by
+ * hand before a release rather than trusting the band this comment happens to record.
  */
 const STATIC_REFERENCE_RATES: Record<string, { rate: number; asOf: string }> = {
-  NPR: { rate: 134.5, asOf: '2026-07-24' },
+  NPR: { rate: 152.7, asOf: '2026-08-15' },
 };
 
 /**
