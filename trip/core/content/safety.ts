@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 /**
  * SAFETY-CRITICAL static content — an offline travel-safety reference for the
- * Nepal + Japan legs: emergency/embassy numbers, a romanized phrasebook, and a document
- * checklist. Framework-free: plain TS + zod.
+ * Nepal + Japan legs: emergency/embassy numbers, a Nepali/Japanese phrasebook (native script
+ * plus romanization, #2), and a document checklist. Framework-free: plain TS + zod.
  *
  * DELIBERATELY SELF-CONTAINED: this file does NOT import from
  * or extend `core/content/schema.ts` —
@@ -137,52 +137,111 @@ const rawEmergencyContacts: EmergencyContact[] = [
 
 export const EMERGENCY_CONTACTS = z.array(emergencyContactSchema).parse(rawEmergencyContacts);
 
-// ── Phrasebook (Nepali + Japanese, romanized) ──────────────────────────────────────────────
+// ── Phrasebook (Nepali + Japanese: native script AND romanization) ─────────────────────────
+//
+// #2 added the NATIVE SCRIPT to every row. Two fields per language, both required:
+// the romanization is what the traveler READS ALOUD, the script is what they POINT AT when the
+// reading-aloud fails. Neither replaces the other, so neither is optional.
+//
+// ── OFFLINE FONTS (read before "fixing" the rendering) ─────────────────────────────────────
+// Nothing here downloads a font, and nothing here may start to. The app self-hosts exactly two
+// faces, both `subsets: ['latin']` (app/layout.tsx: Geist + Instrument Serif), so NO webfont
+// this app ships contains a Devanagari or a kana/kanji glyph — by design, because a font fetch
+// is precisely the thing that fails on a plane, which is the one situation a phrasebook exists
+// for. The browser's per-glyph fallback walks the `font-sans` stack
+// (`var(--font-sans)` → `system-ui` → `sans-serif`, tailwind.config.ts) and resolves these
+// glyphs from the OPERATING SYSTEM: Nirmala UI / Yu Gothic on Windows, Devanagari Sangam MN /
+// Hiragino Sans on Apple, Noto Sans Devanagari / Noto Sans CJK on Android and most Linux.
+// Zero bytes, zero requests, works with the radio off. Do NOT add a Devanagari or CJK subset
+// to the `next/font` calls to "guarantee" the glyphs — that trades a working offline page for
+// a download that can fail.
+//
+// The `lang="ne"` / `lang="ja"` attributes on the rendered script spans
+// (`components/travel-safety-kit.tsx`) are the other half of this: they let a screen reader
+// switch voice instead of spelling Devanagari out in English, and they let the browser pick
+// the right per-language fallback face. They are an acceptance criterion, not decoration.
 
 const phraseCategories = [
   'Greetings',
   'Politeness',
   'Basics',
+  'Numbers',
   'Emergency',
   'Directions',
   'Food & Shopping',
 ] as const;
+
+// Script guards: the failure mode these catch is a romanization pasted into a script field (or
+// vice versa), which renders as plausible-looking nonsense rather than throwing. "Contains at
+// least one" rather than "is entirely", because real rows legitimately carry ASCII: the "..."
+// placeholder in "My name is ...", the "/" in "Left / Right", the "(१)" bracket in Numbers.
+// Escapes, not literal ranges, so the guards stay legible (and diffable) in any editor.
+/** At least one Devanagari codepoint (U+0900–U+097F — the block includes the १-९ digits). */
+const devanagariText = z.string().regex(/[\u0900-\u097F]/, 'must contain Devanagari script');
+/** At least one hiragana (U+3040–309F), katakana (U+30A0–30FF), or CJK ideograph (U+4E00–9FFF). */
+const kanaKanjiText = z
+  .string()
+  .regex(/[\u3040-\u30FF\u4E00-\u9FFF]/, 'must contain kana or kanji');
 
 export const phraseSchema = z
   .object({
     id: z.string().min(1),
     category: z.enum(phraseCategories),
     english: z.string().min(1),
-    /** Romanized Nepali — no Devanagari. */
+    /** Romanized Nepali — the read-aloud field. */
     nepali: z.string().min(1),
-    /** Romanized Japanese (romaji) — no kana/kanji. */
+    /** Nepali in Devanagari. Rendered with `lang="ne"`. */
+    nepaliScript: devanagariText,
+    /** Romanized Japanese (romaji) — the read-aloud field. Particle を is romanized "o", as spoken. */
     japanese: z.string().min(1),
+    /** Japanese in kana/kanji. Rendered with `lang="ja"`. */
+    japaneseScript: kanaKanjiText,
   })
   .strict();
 
 export type Phrase = z.infer<typeof phraseSchema>;
 
+// Row order here IS the display order: `travel-safety-kit.tsx` groups by category preserving
+// first-seen order, so the categories render Greetings → … → Food & Shopping as listed.
 const rawPhrases: Phrase[] = [
-  { id: 'hello', category: 'Greetings', english: 'Hello', nepali: 'Namaste', japanese: 'Konnichiwa' },
-  { id: 'good-morning', category: 'Greetings', english: 'Good morning', nepali: 'Subha prabhat', japanese: 'Ohayou gozaimasu' },
-  { id: 'good-night', category: 'Greetings', english: 'Good night', nepali: 'Subha ratri', japanese: 'Oyasumi nasai' },
-  { id: 'goodbye', category: 'Greetings', english: 'Goodbye', nepali: 'Feri bhetaunla', japanese: 'Sayounara' },
-  { id: 'thank-you', category: 'Politeness', english: 'Thank you', nepali: 'Dhanyabaad', japanese: 'Arigatou gozaimasu' },
-  { id: 'please', category: 'Politeness', english: 'Please', nepali: 'Kripaya', japanese: 'Onegaishimasu' },
-  { id: 'sorry', category: 'Politeness', english: 'Excuse me / Sorry', nepali: 'Maaf garnuhos', japanese: 'Sumimasen' },
-  { id: 'yes', category: 'Basics', english: 'Yes', nepali: 'Ho', japanese: 'Hai' },
-  { id: 'no', category: 'Basics', english: 'No', nepali: 'Hoina', japanese: 'Iie' },
-  { id: 'dont-understand', category: 'Basics', english: "I don't understand", nepali: 'Malai bujhena', japanese: 'Wakarimasen' },
-  { id: 'speak-english', category: 'Basics', english: 'Do you speak English?', nepali: 'Tapai english bolnuhuncha?', japanese: 'Eigo wo hanasemasu ka?' },
-  { id: 'my-name-is', category: 'Basics', english: 'My name is...', nepali: 'Mero naam ho...', japanese: 'Watashi no namae wa... desu' },
-  { id: 'help', category: 'Emergency', english: 'Help!', nepali: 'Guhaar!', japanese: 'Tasukete!' },
-  { id: 'call-police', category: 'Emergency', english: 'Call the police', nepali: 'Prahari lai bolaunuhos', japanese: 'Keisatsu wo yonde kudasai' },
-  { id: 'need-doctor', category: 'Emergency', english: 'I need a doctor', nepali: 'Malai daktar chahiyo', japanese: 'Isha ga hitsuyou desu' },
-  { id: 'where-hospital', category: 'Emergency', english: 'Where is the hospital?', nepali: 'Aspatal kaha cha?', japanese: 'Byouin wa doko desu ka?' },
-  { id: 'where-bathroom', category: 'Directions', english: 'Where is the bathroom?', nepali: 'Charpi kaha cha?', japanese: 'Toire wa doko desu ka?' },
-  { id: 'how-to-get-to', category: 'Directions', english: 'How do I get to...?', nepali: '...samma kasari jane?', japanese: '...made dou ikeba ii desu ka?' },
-  { id: 'how-much', category: 'Food & Shopping', english: 'How much is this?', nepali: 'Yo kati ho?', japanese: 'Kore wa ikura desu ka?' },
-  { id: 'water-please', category: 'Food & Shopping', english: 'Water, please', nepali: 'Paani dinuhos', japanese: 'Mizu wo kudasai' },
+  { id: 'hello', category: 'Greetings', english: 'Hello', nepali: 'Namaste', nepaliScript: 'नमस्ते', japanese: 'Konnichiwa', japaneseScript: 'こんにちは' },
+  { id: 'good-morning', category: 'Greetings', english: 'Good morning', nepali: 'Shubha prabhat', nepaliScript: 'शुभ प्रभात', japanese: 'Ohayou gozaimasu', japaneseScript: 'おはようございます' },
+  { id: 'good-night', category: 'Greetings', english: 'Good night', nepali: 'Shubha ratri', nepaliScript: 'शुभ रात्रि', japanese: 'Oyasumi nasai', japaneseScript: 'おやすみなさい' },
+  { id: 'goodbye', category: 'Greetings', english: 'Goodbye', nepali: 'Pheri bhetaunla', nepaliScript: 'फेरि भेटौंला', japanese: 'Sayounara', japaneseScript: 'さようなら' },
+  { id: 'thank-you', category: 'Politeness', english: 'Thank you', nepali: 'Dhanyabaad', nepaliScript: 'धन्यवाद', japanese: 'Arigatou gozaimasu', japaneseScript: 'ありがとうございます' },
+  { id: 'please', category: 'Politeness', english: 'Please', nepali: 'Kripaya', nepaliScript: 'कृपया', japanese: 'Onegaishimasu', japaneseScript: 'お願いします' },
+  { id: 'sorry', category: 'Politeness', english: 'Excuse me / Sorry', nepali: 'Maaf garnuhos', nepaliScript: 'माफ गर्नुहोस्', japanese: 'Sumimasen', japaneseScript: 'すみません' },
+  { id: 'yes', category: 'Basics', english: 'Yes', nepali: 'Ho', nepaliScript: 'हो', japanese: 'Hai', japaneseScript: 'はい' },
+  { id: 'no', category: 'Basics', english: 'No', nepali: 'Hoina', nepaliScript: 'होइन', japanese: 'Iie', japaneseScript: 'いいえ' },
+  { id: 'dont-understand', category: 'Basics', english: "I don't understand", nepali: 'Malai bujhena', nepaliScript: 'मलाई बुझेन', japanese: 'Wakarimasen', japaneseScript: 'わかりません' },
+  // The Nepali half says "angreji", the Nepali word for English — the previous romanization
+  // embedded the English word "english" mid-sentence, which is not what the script reads.
+  { id: 'speak-english', category: 'Basics', english: 'Do you speak English?', nepali: 'Tapai angreji bolnuhunchha?', nepaliScript: 'तपाईं अङ्ग्रेजी बोल्नुहुन्छ?', japanese: 'Eigo o hanasemasu ka?', japaneseScript: '英語を話せますか？' },
+  // Nepali puts the name BEFORE the verb: "Mero naam <name> ho", not "Mero naam ho <name>".
+  { id: 'my-name-is', category: 'Basics', english: 'My name is ...', nepali: 'Mero naam ... ho', nepaliScript: 'मेरो नाम ... हो', japanese: 'Watashi no namae wa ... desu', japaneseScript: '私の名前は...です' },
+  // Numbers carry the Devanagari digit in brackets: Nepali bus boards, fare charts and market
+  // signs still print १-९, so the traveler needs to recognize the numeral, not just say it.
+  { id: 'one', category: 'Numbers', english: 'One (1)', nepali: 'Ek', nepaliScript: 'एक (१)', japanese: 'Ichi', japaneseScript: '一' },
+  { id: 'two', category: 'Numbers', english: 'Two (2)', nepali: 'Dui', nepaliScript: 'दुई (२)', japanese: 'Ni', japaneseScript: '二' },
+  { id: 'three', category: 'Numbers', english: 'Three (3)', nepali: 'Tin', nepaliScript: 'तीन (३)', japanese: 'San', japaneseScript: '三' },
+  { id: 'five', category: 'Numbers', english: 'Five (5)', nepali: 'Panch', nepaliScript: 'पाँच (५)', japanese: 'Go', japaneseScript: '五' },
+  { id: 'ten', category: 'Numbers', english: 'Ten (10)', nepali: 'Das', nepaliScript: 'दश (१०)', japanese: 'Juu', japaneseScript: '十' },
+  { id: 'hundred', category: 'Numbers', english: 'Hundred (100)', nepali: 'Saya', nepaliScript: 'सय (१००)', japanese: 'Hyaku', japaneseScript: '百' },
+  { id: 'thousand', category: 'Numbers', english: 'Thousand (1000)', nepali: 'Hajar', nepaliScript: 'हजार (१०००)', japanese: 'Sen', japaneseScript: '千' },
+  { id: 'help', category: 'Emergency', english: 'Help!', nepali: 'Guhaar!', nepaliScript: 'गुहार!', japanese: 'Tasukete!', japaneseScript: '助けて！' },
+  { id: 'call-police', category: 'Emergency', english: 'Call the police', nepali: 'Praharilai bolaunuhos', nepaliScript: 'प्रहरीलाई बोलाउनुहोस्', japanese: 'Keisatsu o yonde kudasai', japaneseScript: '警察を呼んでください' },
+  { id: 'need-doctor', category: 'Emergency', english: 'I need a doctor', nepali: 'Malai daktar chahiyo', nepaliScript: 'मलाई डाक्टर चाहियो', japanese: 'Isha ga hitsuyou desu', japaneseScript: '医者が必要です' },
+  { id: 'where-hospital', category: 'Emergency', english: 'Where is the hospital?', nepali: 'Aspatal kaha cha?', nepaliScript: 'अस्पताल कहाँ छ?', japanese: 'Byouin wa doko desu ka?', japaneseScript: '病院はどこですか？' },
+  { id: 'where-bathroom', category: 'Directions', english: 'Where is the bathroom?', nepali: 'Charpi kaha cha?', nepaliScript: 'चर्पी कहाँ छ?', japanese: 'Toire wa doko desu ka?', japaneseScript: 'トイレはどこですか？' },
+  { id: 'how-to-get-to', category: 'Directions', english: 'How do I get to ...?', nepali: '... samma kasari jane?', nepaliScript: '... सम्म कसरी जाने?', japanese: '... made dou ikeba ii desu ka?', japaneseScript: '...までどう行けばいいですか？' },
+  { id: 'where-station', category: 'Directions', english: 'Where is the station?', nepali: 'Steshan kaha cha?', nepaliScript: 'स्टेशन कहाँ छ?', japanese: 'Eki wa doko desu ka?', japaneseScript: '駅はどこですか？' },
+  { id: 'go-straight', category: 'Directions', english: 'Go straight', nepali: 'Sidha januhos', nepaliScript: 'सीधा जानुहोस्', japanese: 'Massugu itte kudasai', japaneseScript: 'まっすぐ行ってください' },
+  { id: 'left-right', category: 'Directions', english: 'Left / Right', nepali: 'Baya / Daya', nepaliScript: 'बायाँ / दायाँ', japanese: 'Hidari / Migi', japaneseScript: '左 / 右' },
+  { id: 'how-much', category: 'Food & Shopping', english: 'How much is this?', nepali: 'Yo kati ho?', nepaliScript: 'यो कति हो?', japanese: 'Kore wa ikura desu ka?', japaneseScript: 'これはいくらですか？' },
+  { id: 'water-please', category: 'Food & Shopping', english: 'Water, please', nepali: 'Paani dinuhos', nepaliScript: 'पानी दिनुहोस्', japanese: 'Mizu o kudasai', japaneseScript: '水をください' },
+  { id: 'vegetarian', category: 'Food & Shopping', english: 'I am vegetarian', nepali: 'Ma shakahari hu', nepaliScript: 'म शाकाहारी हुँ', japanese: 'Watashi wa bejitarian desu', japaneseScript: '私はベジタリアンです' },
+  { id: 'delicious', category: 'Food & Shopping', english: "It's delicious", nepali: 'Mitho cha', nepaliScript: 'मीठो छ', japanese: 'Oishii desu', japaneseScript: 'おいしいです' },
+  { id: 'bill-please', category: 'Food & Shopping', english: 'The bill, please', nepali: 'Bil dinuhos', nepaliScript: 'बिल दिनुहोस्', japanese: 'O-kaikei onegaishimasu', japaneseScript: 'お会計お願いします' },
 ];
 
 export const SAFETY_PHRASES = z.array(phraseSchema).parse(rawPhrases);

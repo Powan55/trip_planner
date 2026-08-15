@@ -23,10 +23,26 @@ runbook. `TRIP_CITIES` is **derived** from the itinerary, so you never edit it b
 | photo spots                             | `lib/photography-data.ts`                   | `validate:content`                   |
 | featured / foods / etiquette / weather  | `lib/travel-tips-data.ts`                   | `validate:content`                   |
 | flights / stays / to-book               | `lib/booking-data.ts` (verbatim strings, see D-034) | `validate:content`          |
+| emergency numbers / **phrasebook** / document checklist | `core/content/safety.ts`    | its own eager `.parse()` at import + `lib/__tests__/safety-content.test.ts` |
 
 `TRIP_CITIES` in `core/dates/trip-cities.ts` is **derived** from `core/content/itinerary.ts`
 (`TRIP_CITIES = deriveTripCities(TRIP_ITINERARY)`). Never edit it directly: change the day's `city`
 in the itinerary and the map follows automatically.
+
+**`core/content/safety.ts` is the one row that does not go through `validate:content`,** and that
+is deliberate: it declares its own local `.strict()` Zod shapes and `.parse()`s its own data at
+**module load**, so a malformed emergency number or phrase fails the *build*, not a separate
+validate step. Read its header before editing — emergency contacts carry a `verified` flag and a
+`sourceUrl`, and you may not flip `verified` to `true` without a live check. Two phrasebook rules
+worth knowing before you add a row:
+
+- Every phrase needs **four** language fields, not two: `nepali` / `japanese` (romanized, the
+  read-aloud text) **and** `nepaliScript` / `japaneseScript` (Devanagari, kana/kanji). The schema
+  enforces the script fields actually contain their script, so pasting the romanization into both
+  fails loudly.
+- **Never add a font for the native script.** The app self-hosts latin-only subsets; Devanagari and
+  kana/kanji resolve from the operating system via per-glyph fallback, which is why the page works
+  with the radio off. A webfont here would trade the offline guarantee for a download that can fail.
 
 ---
 

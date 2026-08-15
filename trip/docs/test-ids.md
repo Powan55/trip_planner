@@ -600,7 +600,7 @@ changed; this is a pure addition inside the existing card.
 ## 24. Travel Safety Kit: `components/travel-safety-kit.tsx` (route: `/safety`)
 
 S152. A new, self-owned route: an offline travel-safety reference covering emergency and
-embassy contacts, a romanized Nepali/Japanese phrasebook, and a document checklist. It is all
+embassy contacts, a Nepali/Japanese phrasebook, and a document checklist. It is all
 static content (`core/content/safety.ts`, D-088; zero fetch, zero persistence). Mounted on
 `app/safety/page.tsx` via `dynamic({ ssr:false })` (mirrors `app/journal/sections.tsx`'s
 island shape). Reached via a direct URL, the `/more/` page (mobile) or the desktop "More" dropdown, or the command palette
@@ -611,7 +611,7 @@ bottom tab bar or the desktop top row (D-071 slot ceilings).
 |---|---|---|
 | `safety-kit` | the page's root `<div>` | Always present once the island mounts (its visibility is the E2E "kit is up" signal). |
 | `safety-contact-<id>` | each emergency/embassy contact's `<li>` | `<id>` is the contact's own stable id (e.g. `safety-contact-np-police`, `safety-contact-jp-us-embassy`). Contains a `tel:` `<a>` with an explicit `aria-label` (accessible name distinct from the visible digit string, D-074) and, for any contact not live-verified this session, a visible "Unverified this session" note (not color-only). |
-| `safety-phrase-<id>` | each phrasebook entry's `<tr>` | `<id>` is the phrase's own stable id (e.g. `safety-phrase-hello`). 20 total, grouped into per-category `<table>`s (Greetings / Politeness / Basics / Emergency / Directions / Food & Shopping), each wrapped in a horizontally-scrollable container so a narrow viewport never overflows the page (D-022). |
+| `safety-phrase-<id>` | each phrasebook entry's `<tr>` | `<id>` is the phrase's own stable id (e.g. `safety-phrase-hello`). 33 total, grouped into per-category `<table>`s (Greetings / Politeness / Basics / Numbers / Emergency / Directions / Food & Shopping), each wrapped in a horizontally-scrollable container so a narrow viewport never overflows the page (D-022). Each row's Nepali and Japanese cells hold the native script above its romanization; the script span carries `lang="ne"` / `lang="ja"` (#2), which `e2e/safety.spec.ts` asserts on every row — that attribute is the acceptance criterion, so it is a locator contract, not styling. |
 | `safety-checklist-<id>` | each document-checklist entry's `<li>` | `<id>` is the item's own stable id (e.g. `safety-checklist-passport-validity`). Grouped under "Before you go" / "Carry with you" / "Digital backups". Static (not an interactive checkbox), with deliberately no persisted checked-state, so it never implies a save it doesn't perform. |
 
 Static markup only (no framer motion, no motion-only affordance), so it is reduced-motion-safe
