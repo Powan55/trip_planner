@@ -14,6 +14,7 @@
     "validate:content": "vitest run lib/__tests__/content-validation.test.ts",
     "test:e2e": "playwright test",
     "contrast-check": "node scripts/contrast-tokens.mjs",
+    "loop-check": "node scripts/motion-loops.mjs",
     "marker-check": "node scripts/marker-check.mjs"
   },
   "devDependencies": {
