@@ -192,10 +192,16 @@ test.describe('S151 · map trip-mode upgrades', () => {
  *    by name at all. The camera assertion reads `data-map-view` (lng,lat,zoom, emitted on every
  *    `moveend`) — New York (JFK) sits at -73.8°, and every other place on this map is between
  *    83°E and 141°E, so a camera at -73.8° cannot happen by accident.
- *  • The CEILING: a place that is NOT in the trip does not resolve, because the whole search
- *    path is in-bundle data (D-088 — no geocoder, no network). The second test pins that the
- *    typed name never leaves the browser, so a later "improvement" cannot quietly turn this
- *    into a geocoding request.
+ *  • The CEILING, as it stood: a place that is NOT in the trip did not resolve at all.
+ *
+ * 🔴 ISSUE #22 LIFTED THAT CEILING, AND MOVED THIS TEST'S AIM RATHER THAN RETIRING IT. A place
+ * anywhere in the world now resolves — through `lib/world-search.ts`, a keyless Nominatim lookup
+ * fired ONLY from the search panel's submit button. So the third test below no longer asserts
+ * "the query never reaches the network"; it asserts the thing that is still forbidden and is
+ * easier to break by accident: **a keystroke never reaches the network.** Nominatim's usage
+ * policy bans search-as-you-type outright (a debounce is not a compliant substitute), so an
+ * innocent-looking `useEffect([query])` added later would breach the provider's terms, not merely
+ * waste requests. That is exactly the kind of regression a tripwire is for.
  */
 // CITY_COORDS['New York'] (lib/city-coords.ts) — JFK, where the day is actually spent.
 const NEW_YORK_LAT = 40.6413;
@@ -323,7 +329,7 @@ test.describe('S406 · map search over every place in the trip', () => {
     expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
   });
 
-  test('search: a place that is NOT in the trip resolves to nothing, moves nothing, and never reaches the network', async ({
+  test('search: TYPING a place that is not in the trip lists nothing, moves nothing, and never reaches the network', async ({
     page,
   }) => {
     const errors = trackErrors(page);
@@ -341,22 +347,167 @@ test.describe('S406 · map search over every place in the trip', () => {
     await page.getByTestId('map-search-input').fill('Reykjavik');
 
     const results = page.getByTestId('map-search-results');
-    await expect(results).toContainText('No places match “Reykjavik”.');
+    await expect(results).toContainText('No places on your trip match “Reykjavik”.');
     await expect(results.getByRole('button')).toHaveCount(0);
+    // The world list does not exist until it is asked for. Typing is not asking.
+    await expect(page.getByTestId('map-search-world-results')).toHaveCount(0);
 
-    // Give any (forbidden) lookup a full second to fire.
+    // Give any (forbidden) as-you-type lookup a full second to fire.
     await page.waitForTimeout(1000);
 
-    // D-088: the search is in-bundle data only. The typed name must never appear in ANY
-    // request the page makes — that is the tripwire on a future silent geocoder.
+    // Issue #22: the world lookup is submit-only, because Nominatim's usage policy forbids
+    // as-you-type querying. The typed name must not appear in ANY request the page made while
+    // the user was only typing — that is the tripwire on a future debounced "improvement".
     expect(
       requests.filter((u) => u.toLowerCase().includes('reykjav')),
-      `the query reached the network: ${requests.join('\n')}`,
+      `a keystroke reached the network: ${requests.join('\n')}`,
     ).toEqual([]);
 
     // And the camera did not move.
     expect(await shell.getAttribute('data-map-view')).toBe(before);
 
     expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+  });
+});
+
+/**
+ * Issue #22 — the WORLD half. Nominatim is STUBBED with `page.route(...)`, the same shape
+ * `weather.spec.ts` / `travel-essentials.spec.ts` already use for Open-Meteo and Frankfurter: the
+ * live service is never touched from CI (it is a free community endpoint; hammering it from a
+ * test runner is exactly what its usage policy asks us not to do), and both the success and the
+ * failure path become deterministic.
+ */
+const NOMINATIM_ROUTE = '**/nominatim.openstreetmap.org/**';
+
+/** The real service sends `Access-Control-Allow-Origin: *` (it is built to be called from a
+ *  browser). The stub says so explicitly rather than relying on the harness to add it, so a
+ *  CORS-blocked read can never masquerade as "the parser returned nothing". */
+const CORS_OK = { 'access-control-allow-origin': '*' };
+
+/** One real `format=jsonv2` row. Note `lat`/`lon` arrive as STRINGS — see lib/world-search.ts. */
+const REYKJAVIK_FIXTURE = [
+  {
+    place_id: 297577535,
+    osm_type: 'relation',
+    osm_id: 2580605,
+    lat: '64.1466019',
+    lon: '-21.9422367',
+    name: 'Reykjavík',
+    display_name: 'Reykjavík, Capital Region, Iceland',
+  },
+];
+const REYKJAVIK_LAT = 64.1466019;
+const REYKJAVIK_LNG = -21.9422367;
+
+test.describe('issue #22 · searching for a place anywhere in the world', () => {
+  test('submit: a world result is listed under its own heading, and choosing it flies the camera there', async ({
+    page,
+  }) => {
+    const errors = trackErrors(page);
+    await page.route(NOMINATIM_ROUTE, (route) =>
+      route.fulfill({ json: REYKJAVIK_FIXTURE, headers: CORS_OK }),
+    );
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoMap(page);
+
+    const shell = page.getByTestId('map-shell');
+    const before = await waitForCamera(page);
+    // Sanity: the load frame is over Nepal→Japan, i.e. nowhere near Iceland.
+    expect(Number(before.split(',')[0])).toBeGreaterThan(0);
+
+    await page.getByTestId('map-search-toggle').click();
+    await page.getByTestId('map-search-input').fill('Reykjavik');
+    // Nothing on the trip matches, and until the button is pressed that is the whole answer.
+    await expect(page.getByTestId('map-search-results')).toContainText('No places on your trip');
+    await page.getByTestId('map-search-world-submit').click();
+
+    // TRIP FIRST, WORLD SECOND — in the DOM, not just visually.
+    const world = page.getByTestId('map-search-world-results');
+    await expect(world).toBeVisible();
+    const result = page.getByTestId('map-search-result-world-297577535');
+    await expect(result).toContainText('Reykjavík');
+    // The full region trail, verbatim from the provider — it is what separates two same-named
+    // places, so it is asserted rather than assumed.
+    await expect(result).toContainText('Reykjavík, Capital Region, Iceland');
+
+    // The count is announced, and focus lands on the sentence that announces it.
+    const status = page.getByTestId('map-search-status');
+    await expect(status).toHaveText(/0 places on your trip, 1 place elsewhere in the world\./);
+    await expect(status).toBeFocused();
+
+    await result.click();
+
+    // The panel closes and the note says which off-trip place the map is showing.
+    await expect(page.getByTestId('map-search-panel')).toHaveCount(0);
+    await expect(page.getByTestId('map-note')).toContainText('Reykjavík, Capital Region, Iceland');
+
+    // The camera MOVED, and it moved TO REYKJAVÍK — 105° west of anything else on this map.
+    await expect
+      .poll(
+        async () => {
+          const [lng, lat] = ((await shell.getAttribute('data-map-view')) ?? '')
+            .split(',')
+            .map(Number);
+          return (
+            Number.isFinite(lng) &&
+            Math.abs(lng - REYKJAVIK_LNG) < 0.5 &&
+            Math.abs(lat - REYKJAVIK_LAT) < 0.5
+          );
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true);
+
+    expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
+  });
+
+  test('submit: a failed lookup says so in plain words, and the trip search still works', async ({
+    page,
+  }) => {
+    // Deliberately no `trackErrors` here: an aborted cross-origin request prints a browser-level
+    // "Failed to load resource" that no application code can suppress (the finding recorded on
+    // `lib/currency-rate.ts`). The point of this test is what the USER is told.
+    await page.route(NOMINATIM_ROUTE, (route) => route.abort());
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await gotoMap(page);
+
+    const shell = page.getByTestId('map-shell');
+    const before = await waitForCamera(page);
+
+    await page.getByTestId('map-search-toggle').click();
+    await page.getByTestId('map-search-input').fill('Boudhanath');
+    await page.getByTestId('map-search-world-submit').click();
+
+    // Plain words. Not an error code, not a stack, not "TypeError: Failed to fetch".
+    const status = page.getByTestId('map-search-status');
+    await expect(status).toContainText("Couldn't reach the worldwide place lookup");
+    await expect(status).toContainText('Everything on your trip still searches');
+    await expect(status).not.toContainText(/error|fetch|http/i);
+    await expect(status).toBeFocused();
+    await expect(page.getByTestId('map-search-world-results')).toHaveCount(0);
+
+    // And the trip search is untouched by the failure: the curated result is still there, still
+    // selectable, and still flies the camera.
+    const trip = page.getByTestId(`map-search-result-${BOUDHA_ID}`);
+    await expect(trip).toContainText(BOUDHA_NAME);
+    await trip.click();
+    await expect
+      .poll(
+        async () => {
+          const [lng, lat] = ((await shell.getAttribute('data-map-view')) ?? '')
+            .split(',')
+            .map(Number);
+          return (
+            Number.isFinite(lng) &&
+            Math.abs(lng - BOUDHA_LNG) < 0.5 &&
+            Math.abs(lat - BOUDHA_LAT) < 0.5
+          );
+        },
+        { timeout: 15_000 },
+      )
+      .toBe(true);
+    expect(await shell.getAttribute('data-map-view')).not.toBe(before);
   });
 });

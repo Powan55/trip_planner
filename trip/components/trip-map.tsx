@@ -399,6 +399,24 @@ export interface TripMapHandle {
    * rendered map feature.
    */
   focusMarker: (marker: MapMarker) => void;
+  /**
+   * Issue #22 — fly the camera to a bare coordinate. NO popup, NO marker, no `MapMarker`
+   * anywhere in the call.
+   *
+   * 🔴 That is the whole point, not a shortcut. The caller is the world search, whose results are
+   * places the trip knows nothing about: they have no curated `area`, no `description`, and no
+   * `country` — and `MapMarker.country` is `'Nepal' | 'Japan'`, rendered verbatim in the popup as
+   * "{area} · {country}". Synthesising a marker for Reykjavík would therefore print "· Japan"
+   * under its name, which is D-271's defect class (a surface asserting something untrue) in one
+   * line. The popup would also offer "Add to plan", and `ItineraryDraft` carries no coordinate
+   * (D-280, deferred), so the point the user just picked would be dropped on the way into the
+   * itinerary and the item would re-place itself at the day's city centroid.
+   *
+   * So the camera moves and nothing claims to be a pin. Reduced-motion branches exactly like
+   * `focusMarker`; no `POPUP_VIEW_OFFSET`, because there is no popup to leave room for, so the
+   * place lands centred.
+   */
+  flyToPoint: (lat: number, lng: number) => void;
 }
 
 export interface TripMapProps {
@@ -614,14 +632,27 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     [openPopup],
   );
 
-  // Expose resize() + focusMarker() to the host chrome. MapLibre sizes the
+  // Issue #22 — camera-only move for a place that is not a marker. See `TripMapHandle.flyToPoint`
+  // for why the world search must not be handed a synthesized `MapMarker`.
+  const flyToPoint = useCallback((lat: number, lng: number) => {
+    const map = mapRef.current;
+    if (!map) return;
+    const zoom = Math.max(map.getZoom(), 12);
+    if (prefersReducedMotion()) {
+      map.easeTo({ center: [lng, lat], zoom, duration: 0 });
+    } else {
+      map.flyTo({ center: [lng, lat], zoom, duration: 900 });
+    }
+  }, []);
+
+  // Expose resize() + focusMarker() + flyToPoint() to the host chrome. MapLibre sizes the
   // canvas on construction; by the time the lazy import resolves and the Map is
   // created, MapSection's relocation effect has already moved the host into its
   // sized inline slot, so no on-ready resize is needed.
   useImperativeHandle(
     ref,
-    () => ({ resize: () => mapRef.current?.resize(), focusMarker }),
-    [focusMarker],
+    () => ({ resize: () => mapRef.current?.resize(), focusMarker, flyToPoint }),
+    [focusMarker, flyToPoint],
   );
 
   // ── Map initialization (client-only, lazy maplibre-gl) ──────────────────────
