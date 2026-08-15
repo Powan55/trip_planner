@@ -25,6 +25,8 @@ import {
 import {
   buildItineraryPlacements,
   placementStops,
+  stopsForDay,
+  tripDayNumber,
   MARKER_BY_ID,
   type DayStop,
   type PlacementRow,
@@ -87,6 +89,12 @@ interface SearchHit {
   marker: MapMarker;
   /** A planned stop is only DRAWN while the itinerary overlay is on — see focusStop. */
   needsOverlay?: boolean;
+  /**
+   * Issue #1 — the trip date a planned stop belongs to. The route is scoped to the selected
+   * day, so flying to this hit has to select its day too, or the pin it targets is not drawn.
+   * Absent on curated places and cities, which are browse markers and always on the map.
+   */
+  date?: string;
 }
 
 const CURATED_HITS: SearchHit[] = MAP_MARKERS.map((mk) => ({
@@ -159,7 +167,7 @@ export default function MapSection() {
         return next;
       });
       setSelectedDay(date);
-      const dayNo = TRIP_DATES.indexOf(date) + 1;
+      const dayNo = tripDayNumber(date) ?? 0;
       // the old toast promised "stops re-ordered by distance", a behaviour this
       // code no longer has. The anchor now sets the day's base point (the distance labels).
       toast.success(
@@ -257,9 +265,15 @@ export default function MapSection() {
   // Itinerary route stops fed to TripMap — in TIME order (: one ordering on every
   // surface; `buildItineraryPlacements` sorts, so the drawn day line is chronological),
   // empty when the overlay is off.
+  //
+  // 🔴 ISSUE #1 — SCOPED TO THE SELECTED DAY. Picking a day used to change only the panel
+  // below the map while the canvas kept every one of the trip's 32 days drawn, so "select
+  // Dec 9" left the Kathmandu plans on screen. The filter is by DATE (`stopsForDay`), and a
+  // selected day with nothing planned yields `[]` — which CLEARS the route rather than
+  // leaving the last day's pins behind. No day selected still means the whole trip.
   const stops = useMemo(
-    () => (showItinerary ? overlayStops : []),
-    [showItinerary, overlayStops],
+    () => (showItinerary ? stopsForDay(overlayStops, selectedDay) : []),
+    [showItinerary, overlayStops, selectedDay],
   );
 
   // The selected day's rows shown in the day-order panel below the strip — EVERY plan of
@@ -365,6 +379,7 @@ export default function MapSection() {
             : 'A stop you planned',
         haystack: row.item.title.toLowerCase(),
         needsOverlay: true,
+        date: row.date,
       });
     }
     return hits;
@@ -400,10 +415,19 @@ export default function MapSection() {
   // a child's effects flush before its parent's, so TripMap's route fit has already been
   // issued by the time this runs, and the focus wins. (The day-order rows have gone through
   // this same path since and had the same race — one fix, both callers.)
+  //
+  // 🔴 ISSUE #1 adds the second half of the same rule: the stop's DAY must be the drawn one.
+  // Now that the route is scoped to `selectedDay`, flying to a stop on another day would land
+  // the popup on a pin that is not on the canvas AND miss TripMap's `routeStops` lookup —
+  // exactly the curated-popup-over-a-centroid failure the paragraph above exists to prevent.
+  // So callers pass the stop's date and it becomes the selected day. Switching day changes
+  // `stops`, which re-fits the camera, so that case QUEUES too rather than flying into a fit.
   const pendingFocusRef = useRef<MapMarker | null>(null);
-  const focusStop = (marker: MapMarker) => {
+  const focusStop = (marker: MapMarker, date?: string) => {
     setFilter('All');
-    if (showItinerary) {
+    const dayChanging = date !== undefined && date !== selectedDay;
+    if (date !== undefined) setSelectedDay(date);
+    if (showItinerary && !dayChanging) {
       tripMapRef.current?.focusMarker(marker);
       return;
     }
@@ -422,7 +446,7 @@ export default function MapSection() {
   // imperative handle (ONE camera engine, already reduced-motion aware).
   const selectSearchResult = (hit: SearchHit) => {
     if (hit.needsOverlay) {
-      focusStop(hit.marker);
+      focusStop(hit.marker, hit.date);
     } else {
       setFilter('All');
       tripMapRef.current?.focusMarker(hit.marker);
@@ -437,7 +461,7 @@ export default function MapSection() {
   // synthesized marker would land the popup on a pin that was never drawn.
   const flyToRow = (row: PlacementRow) => {
     const stop = stopByItemId.get(row.item.id);
-    if (stop) focusStop(stop.marker);
+    if (stop) focusStop(stop.marker, stop.date);
   };
 
   // ── Map-host relocation ─────────────────────────────────────────────
@@ -691,12 +715,21 @@ export default function MapSection() {
 
         {/* schematic-line caveat — an honest passive note, only while the
             itinerary overlay is on (the drawn line is a schematic day-order
-            connection between stops, not a routed driving/transit path). */}
+            connection between stops, not a routed driving/transit path).
+            Issue #1: it also has to say WHICH day is drawn. Scoping the route to one day
+            hides the other 31, and a map that quietly shows less than the user thinks it
+            does is the same class of defect as copy that claims more (D-271). */}
         {showItinerary && (
           <p
             data-testid="map-route-caveat"
             className="max-w-md mx-auto mb-4 text-center text-[11px] text-white/35"
           >
+            {selectedDay && (
+              <>
+                Showing Day {tripDayNumber(selectedDay)} only — tap that day again for the
+                whole trip.{' '}
+              </>
+            )}
             Lines are schematic connections between stops — not driving or transit routes.
           </p>
         )}
@@ -749,23 +782,26 @@ export default function MapSection() {
               directly above the map — a second row of noise carrying nothing new. */}
         </div>
 
-        {/* ──: day-target strip — assign a pin to a trip day ──────────────
-            The map becomes an INPUT to planning: drag a pin's popup handle onto a
-            day (desktop pointer) OR use the popup's day <select> + Anchor button
-            (keyboard/touch). The dropped/selected pin is added to that day via the
-            existing itinerary CRUD and becomes the day's ANCHOR — the day's stops
-            then re-order by client-side haversine distance. */}
+        {/* ──: day-target strip — pick the day the map shows, and assign pins to it ────
+            TWO jobs. Issue #1: tapping a day scopes the drawn route to that day (and opens
+            its panel below). And the map is an INPUT to planning: drag a pin's popup handle
+            onto a day (desktop pointer) OR use the popup's day <select> + Anchor button
+            (keyboard/touch). The dropped/selected pin is added to that day via the existing
+            itinerary CRUD and becomes the day's ANCHOR — which, since D-281, is the day's
+            BASE POINT (the origin of the per-row distance labels) and re-orders nothing.
+            The old "then re-order by client-side haversine distance" wording here described
+            behaviour the code has not had since `orderByProximity` was deleted. */}
         <div className="mt-6" data-testid="map-day-strip">
           <div className="flex items-center gap-1.5 mb-2 text-xs font-medium text-white/60">
             <CalendarPlus className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
-            <span>Plan a day around a pin</span>
+            <span>Pick a day, or plan one around a pin</span>
             <span className="text-white/55 font-normal">
-              — drag a pin here, or use a pin&apos;s “Anchor” menu
+              — tap a day to see just that day, or drag a pin here
             </span>
           </div>
           <ul
             className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x"
-            aria-label="Trip days — drop a map pin onto a day to anchor it"
+            aria-label="Trip days — activate a day to show only its stops, or drop a map pin onto a day to anchor it"
           >
             {ASSIGN_DAYS.map(({ date, label }, i) => {
               const exact = exactCountByDate.get(date) ?? 0;
@@ -777,7 +813,19 @@ export default function MapSection() {
                 <li key={date} className="snap-start shrink-0">
                   <button
                     type="button"
-                    onClick={() => setSelectedDay(isSelected ? null : date)}
+                    // Issue #1: picking a day SHOWS that day. Selecting also turns the
+                    // itinerary overlay on — the day's pins are drawn by the overlay, so
+                    // without this the gesture would answer "which day?" with an empty
+                    // canvas from a cold /map load (the overlay starts off). Deselecting
+                    // leaves the overlay alone and the whole trip comes back.
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedDay(null);
+                        return;
+                      }
+                      setSelectedDay(date);
+                      setShowItinerary(true);
+                    }}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = 'copy';
@@ -804,9 +852,11 @@ export default function MapSection() {
                       planned === 0
                         ? 'nothing planned yet'
                         : `${planned} ${planned === 1 ? 'plan' : 'plans'}, ${exact} exact`
-                    }${
-                      anchored ? ', anchored' : ''
-                    }. Drop a pin to anchor this day, or view its stops.`}
+                    }${anchored ? ', anchored' : ''}. ${
+                      isSelected
+                        ? 'Showing this day on the map — activate to show the whole trip again.'
+                        : 'Activate to show only this day on the map. Drop a pin here to anchor it.'
+                    }`}
                     className={`flex flex-col items-start gap-0.5 min-w-[92px] min-h-[44px] px-3 py-2 rounded-xl border text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                       isDropTarget
                         ? 'border-ring bg-primary/20 ring-2 ring-ring/50'
@@ -855,7 +905,10 @@ export default function MapSection() {
               {(() => {
                 const anchorId = anchorsReady ? anchors[selectedDay] : undefined;
                 const anchorMarker = anchorId ? MARKER_BY_ID.get(anchorId) : undefined;
-                const dayNo = TRIP_DATES.indexOf(selectedDay) + 1;
+                // One source of truth for "which day is this" (issue #1) — the same
+                // function the stops themselves are numbered by, so the panel heading and
+                // the pins can never disagree.
+                const dayNo = tripDayNumber(selectedDay) ?? 0;
                 const coord = anchorCoordFor(selectedDay);
                 return (
                   <>
@@ -1003,6 +1056,15 @@ export default function MapSection() {
         data-testid="map-shell"
         data-visible-count={visibleMarkers.length}
         data-map-view={mapView}
+        // Issue #1 — the assertion seam for what is DRAWN. The route lives in a WebGL
+        // canvas, so without this there is no observable signal that the map is showing one
+        // day (or nothing) rather than the whole trip. Same idiom as `travel-day-map`'s
+        // `data-stop-ids`: the ids, not just a count, so a test can tell "the pins changed"
+        // from "the pins happen to number the same". `data-route-day` is the date being
+        // drawn, empty for the whole trip — the two together separate an EMPTY DAY (a day
+        // set, no ids) from an overlay that is simply off (no day, no ids).
+        data-route-day={showItinerary ? (selectedDay ?? '') : ''}
+        data-route-stop-ids={stops.map((s) => s.marker.id).join(',')}
         className={
           isFullscreen
             ? 'fixed inset-0 z-[65] bg-surface'

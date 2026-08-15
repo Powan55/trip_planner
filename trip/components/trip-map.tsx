@@ -342,8 +342,11 @@ function ItineraryStopPopupContent({ stop }: { stop: DayStop }) {
       data-approximate={approximate ? 'true' : 'false'}
       data-derived-from={derivedFrom}
     >
+      {/* Issue #1 — the heading names the same two numbers the map draws: which day this
+          is, and which stop of that day this pin is. The pin shows the second one, so the
+          popup has to confirm it or the number on the canvas is unverifiable. */}
       <h3 className="font-display font-bold text-white text-sm leading-tight">
-        Day {stop.day}
+        Day {stop.day} · Stop {stop.seq}
         <span className="ml-1.5 font-sans text-[11px] font-normal text-white/55">
           {stop.items.length} {stop.items.length === 1 ? 'plan' : 'plans'} here
         </span>
@@ -407,9 +410,11 @@ export interface TripMapProps {
    */
   markers: MapMarker[];
   /**
-   * Ordered itinerary stops → the day-grouped route polyline + numbered stops.
-   * Empty/undefined = no route drawn. /map passes the whole trip's stops when
-   * "My itinerary" is on; /plan passes one day and re-draws live on reorder
+   * Ordered itinerary stops → the day-grouped route polyline + stops numbered by their
+   * per-day `seq`. Empty/undefined = no route drawn, which is how a day with nothing
+   * planned CLEARS the route (issue #1). /map passes the selected day's stops when "My
+   * itinerary" is on (the whole trip's when no day is selected); /plan passes one day and
+   * re-draws live on reorder
    * (a prop change re-runs `setData` — cheap; no ITINERARY_CHANGED wiring here).
    */
   routeStops?: DayStop[];
@@ -774,13 +779,21 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
             'circle-stroke-width': ['case', ['get', 'approx'], 2.5, 2],
           },
         });
+        // Issue #1 — the number on a pin is the stop's position WITHIN ITS DAY (1, 2, 3 …
+        // in itinerary order), not the trip-day index this used to draw. On /plan and
+        // /travel, which feed one day, that index was the constant "1" on every pin; on
+        // /map it turned a day's whole route into a row of identical numbers.
+        // 🔴 Still a NUMERIC label only, deliberately: issue #8 self-hosts exactly range
+        // 0-255 of two font stacks (lib/map-style.ts) so these digits survive offline on a
+        // Kathmandu street. Anything that puts non-numeric text in this field reintroduces
+        // a glyph range nobody has shipped.
         map!.addLayer({
           id: 'itin-stop-label',
           type: 'symbol',
           source: ITIN_SOURCE_ID,
           filter: ['==', ['geometry-type'], 'Point'],
           layout: {
-            'text-field': ['get', 'day'],
+            'text-field': ['get', 'seq'],
             'text-font': ['Noto Sans Bold'],
             'text-size': 12,
           },
@@ -945,16 +958,34 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     if (!src) return;
 
     const stops = routeStops ?? [];
+
+    // Issue #1 — the mirror of the browse-marker rule above ("close any open popup whose
+    // marker is no longer in the visible set"), and it is load-bearing now that /map scopes
+    // the route to one day: an open STOP popup whose stop has just left `routeStops` would
+    // otherwise keep rendering, and the portal below — which falls back to the CURATED popup
+    // for a marker it can no longer find in `routeStops` — would quietly turn it into
+    // Directions-to-a-city-centroid, the exact thing D-279 exists to prevent. Curated markers
+    // are excluded because their popup is legitimate with or without a route.
+    if (
+      popupMarker &&
+      !MARKER_BY_ID.has(popupMarker.id) &&
+      !stops.some((s) => s.marker.id === popupMarker.id)
+    ) {
+      popupRef.current?.remove();
+    }
+
     if (stops.length === 0) {
       src.setData({ type: 'FeatureCollection', features: [] } as never);
       return;
     }
 
-    // Group stops by day → one LineString per day + one numbered Point per stop.
-    const byDay = new Map<number, DayStop[]>();
+    // Group stops by DATE → one LineString per day + one numbered Point per stop. Keyed on
+    // the date rather than the day number: the date is the stop's real identity (issue #1),
+    // and it cannot be shared by two different days the way a positional index could.
+    const byDay = new Map<string, DayStop[]>();
     for (const s of stops) {
-      if (!byDay.has(s.day)) byDay.set(s.day, []);
-      byDay.get(s.day)!.push(s);
+      if (!byDay.has(s.date)) byDay.set(s.date, []);
+      byDay.get(s.date)!.push(s);
     }
     const features: Array<Record<string, unknown>> = [];
     for (const [, dayStops] of byDay) {
@@ -975,10 +1006,12 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           // `id` (additive; /map ignores it) lets the highlight effect target
           // this numbered route-stop by marker id. `approx` drives the
           // low-confidence paint above — it is read straight off the placement the
-          // resolver returned for this render, never off stored state.
+          // resolver returned for this render, never off stored state. `seq` is what the
+          // label layer draws (issue #1); `day` stays for the popup heading.
           properties: {
             id: s.marker.id,
             day: String(s.day),
+            seq: String(s.seq),
             title: s.title,
             date: s.date,
             approx: s.placement.kind === 'approximate',
@@ -1011,6 +1044,11 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         { padding: 72, maxZoom: 12, duration: animate ? 700 : 0, animate },
       );
     }
+    // `popupMarker` is read but deliberately NOT a dep — same as the marker effect above.
+    // It must not re-run this effect (that would re-fit the camera every time a popup
+    // opens); the closure that runs on a routeStops change already carries that render's
+    // value, which is exactly the popup that was open when the stops changed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [routeStops, mapReady, fitBounds]);
 
   // ── highlight → emphasize the matching browse marker + route stop ──────

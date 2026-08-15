@@ -24,14 +24,41 @@ describe('safety content — valid data parses', () => {
     }
   });
 
-  it('SAFETY_PHRASES: ~20 entries, every entry has an English/Nepali/Japanese trio', () => {
-    expect(SAFETY_PHRASES.length).toBe(20);
+  it('SAFETY_PHRASES: 33 entries, every entry has an English/Nepali/Japanese trio', () => {
+    expect(SAFETY_PHRASES.length).toBe(33);
     for (const p of SAFETY_PHRASES) {
       expect(phraseSchema.safeParse(p).success).toBe(true);
       expect(p.english.length).toBeGreaterThan(0);
       expect(p.nepali.length).toBeGreaterThan(0);
       expect(p.japanese.length).toBeGreaterThan(0);
     }
+  });
+
+  // #2. The point of the phrasebook is that a traveler can POINT at the native script when
+  // reading the romanization aloud does not land, so a row missing its script — or carrying a
+  // romanization in the script field — is a silent content failure, not a cosmetic one.
+  it('SAFETY_PHRASES: every entry carries real Devanagari and real kana/kanji', () => {
+    for (const p of SAFETY_PHRASES) {
+      expect(p.nepaliScript, `${p.id} nepaliScript is not Devanagari`).toMatch(/[\u0900-\u097F]/);
+      expect(p.japaneseScript, `${p.id} japaneseScript has no kana/kanji`).toMatch(
+        /[\u3040-\u30FF\u4E00-\u9FFF]/,
+      );
+    }
+  });
+
+  it('SAFETY_PHRASES: ids are unique and all 7 categories are populated', () => {
+    const ids = SAFETY_PHRASES.map((p) => p.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const categories = new Set(SAFETY_PHRASES.map((p) => p.category));
+    expect([...categories].sort()).toEqual([
+      'Basics',
+      'Directions',
+      'Emergency',
+      'Food & Shopping',
+      'Greetings',
+      'Numbers',
+      'Politeness',
+    ]);
   });
 
   it('DOCUMENT_CHECKLIST: every item parses and belongs to a known group', () => {
@@ -112,7 +139,9 @@ describe('safety content — the validator HAS TEETH (broken fixture is rejected
       category: 'Greetings',
       english: 'Hello',
       nepali: 'Namaste',
+      nepaliScript: 'नमस्ते',
       // japanese missing
+      japaneseScript: 'こんにちは',
     };
     const r = phraseSchema.safeParse(bad);
     expect(r.success).toBe(false);
@@ -125,11 +154,46 @@ describe('safety content — the validator HAS TEETH (broken fixture is rejected
       category: 'Small Talk', // not in phraseCategories
       english: 'Hello',
       nepali: 'Namaste',
+      nepaliScript: 'नमस्ते',
       japanese: 'Konnichiwa',
+      japaneseScript: 'こんにちは',
     };
     const r = phraseSchema.safeParse(bad);
     expect(r.success).toBe(false);
     if (!r.success) expect(r.error.issues.map((i) => i.path.join('.'))).toContain('category');
+  });
+
+  // #2 script guards. The realistic authoring mistake is copying the romanization into the
+  // script column (it looks filled-in, it renders, and nothing throws) — these prove the schema
+  // catches exactly that, per language.
+  it('rejects a phrase whose nepaliScript is romanized rather than Devanagari', () => {
+    const bad = {
+      id: 'bad-phrase-3',
+      category: 'Greetings',
+      english: 'Hello',
+      nepali: 'Namaste',
+      nepaliScript: 'Namaste', // romanization pasted into the script field
+      japanese: 'Konnichiwa',
+      japaneseScript: 'こんにちは',
+    };
+    const r = phraseSchema.safeParse(bad);
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues.map((i) => i.path.join('.'))).toContain('nepaliScript');
+  });
+
+  it('rejects a phrase whose japaneseScript carries no kana or kanji', () => {
+    const bad = {
+      id: 'bad-phrase-4',
+      category: 'Greetings',
+      english: 'Hello',
+      nepali: 'Namaste',
+      nepaliScript: 'नमस्ते',
+      japanese: 'Konnichiwa',
+      japaneseScript: 'Konnichiwa', // romaji pasted into the script field
+    };
+    const r = phraseSchema.safeParse(bad);
+    expect(r.success).toBe(false);
+    if (!r.success) expect(r.error.issues.map((i) => i.path.join('.'))).toContain('japaneseScript');
   });
 
   it('rejects a checklist item with an unknown group enum value', () => {

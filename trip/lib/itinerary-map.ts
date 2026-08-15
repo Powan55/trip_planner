@@ -3,7 +3,8 @@
 // PURE data/helper module — no maplibre-gl, no React — so BOTH map consumers
 // build their coordinate stops here and hand the result to <TripMap> as the
 // `routeStops` prop:
-// • /map (MapSection) → the whole trip's stops when "My itinerary" is on.
+// • /map (MapSection) → when "My itinerary" is on: the SELECTED day's stops (issue #1,
+//   via `stopsForDay`), or the whole trip's when no day is selected.
 // • /plan → a single day's stops, re-derived on reorder.
 // TripMap only RENDERS the stops it's given; the plan→coordinate matching lives
 // here so the join stays testable and shared. Lifted verbatim from the prior
@@ -13,7 +14,7 @@ import { MAP_MARKERS, type MapMarker, type MarkerCategory } from '@/lib/map-data
 import type { DayPlan, ItineraryItem, ItineraryCategory } from '@/lib/trip-data';
 import { cityCoord } from '@/lib/city-coords';
 import { sortItemsByTime } from '@/lib/sort-items-by-time';
-import { offsetForCountry } from '@/core/dates';
+import { offsetForCountry, TRIP_DATES } from '@/core/dates';
 
 // Planned items match a curated marker by (a) sourceId when present (card-created
 // items,), else (b) a name match against the marker vocabulary so the rich
@@ -100,8 +101,25 @@ export type Placement =
 export type PlacedPlacement = Extract<Placement, { kind: 'exact' | 'approximate' }>;
 
 export interface DayStop {
-  day: number; // 1-based day index within the trip
+  /**
+   * The TRIP day this stop belongs to: 1 for the trip's first date, 2 for the second, …
+   * Resolved from `date` by `tripDayNumber`, NEVER from a position in the `DayPlan[]` the
+   * caller happened to pass. See that function for the defect this shape fixes.
+   */
+  day: number;
   date: string;
+  /**
+   * 1-based position of this PIN within its own day, in the order the day is planned —
+   * the number drawn on the map ("stop 1, stop 2, stop 3"). Contiguous per day: it is
+   * assigned AFTER the per-coordinate dedupe, so several plans sharing one point are one
+   * pin carrying one number, and the sequence never skips.
+   *
+   * 🔴 D-281: this is ITINERARY order (time order on `/map`, the user's stored manual order
+   * on `/plan` and `/travel` — whichever `buildRows` was asked for), and it is never
+   * nearest-first. `orderByProximity` was deleted on purpose; do not reintroduce a distance
+   * sort here or anywhere upstream of it.
+   */
+  seq: number;
   marker: MapMarker;
   title: string;
   /**: the item this stop came from (the first one, when several share a point). */
@@ -122,7 +140,8 @@ export interface DayStop {
  * how each one got its position.
  */
 export interface PlacementRow {
-  day: number; // 1-based day index within the trip
+  /** The TRIP day number of `date` — see `DayStop.day` / `tripDayNumber`. */
+  day: number;
   date: string;
   item: ItineraryItem;
   placement: Placement;
@@ -292,6 +311,29 @@ export function resolvePlacement(item: ItineraryItem, day: DayPlan): Placement {
   return { kind: 'none' };
 }
 
+/**
+ * The trip-day number a DATE carries: 1 for the trip's first date, 2 for the second, … or
+ * `null` for a date the active trip pack does not contain.
+ *
+ * 🔴 ISSUE #1 — THE WRONG-DAY ROOT CAUSE. `buildRows` used to number a day `idx + 1`, its
+ * INDEX IN THE `DayPlan[]` IT WAS HANDED. That array is only ever "one entry per trip date"
+ * for a device still holding the untouched seed: `upsertDay` (core/itinerary/crud.ts) appends
+ * a day only when something is planned on it, and a cleared vault (D-018: key present + empty
+ * ⇒ no reseed) starts from `[]`. So one item planned on Dec 20 produced a one-element array
+ * and a stop labelled "Day 1", and EVERY day after a gap was off by the size of the gap. The
+ * two single-day surfaces were worse still: `/plan` and `/travel` pass `[dayPlan]`, so every
+ * stop they ever drew claimed to be Day 1 (the old `itinerary-map.test.ts` pinned exactly
+ * that — a Dec 12 stop asserting `day === 1`).
+ *
+ * The date is the identity; the array position never was. Lexicographic `indexOf` over
+ * `TRIP_DATES` is TZ-independent for the same reason `getCountryForDate` is (B-01): no
+ * `new Date(dateStr)` parse happens anywhere on this path.
+ */
+export function tripDayNumber(date: string): number | null {
+  const i = TRIP_DATES.indexOf(date);
+  return i === -1 ? null : i + 1;
+}
+
 // Flatten plans → one row PER ITEM, numbered by trip day. `chrono` picks the ordering:
 // • true — the day's rows are sorted by TIME, the one ordering on every
 // surface, using the same `sortItemsByTime` the Home timeline uses. No second sort.
@@ -301,12 +343,16 @@ function buildRows(plans: DayPlan[], chrono: boolean): PlacementRow[] {
   const sorted = [...plans].sort((a, b) => a.date.localeCompare(b.date));
   const rows: PlacementRow[] = [];
   sorted.forEach((plan, idx) => {
+    // A date outside the active pack (a custom trip's stray day) has no trip-day number, so
+    // it falls back to its position — the old behaviour, kept only where nothing better
+    // exists. Never 0/-1: a day number is 1-based everywhere it is rendered.
+    const dayNo = tripDayNumber(plan.date) ?? idx + 1;
     const items = plan.items ?? [];
     const ordered = chrono
       ? sortItemsByTime(items, plan.date, offsetForCountry(plan.country))
       : items;
     for (const item of ordered) {
-      rows.push({ day: idx + 1, date: plan.date, item, placement: resolvePlacement(item, plan) });
+      rows.push({ day: dayNo, date: plan.date, item, placement: resolvePlacement(item, plan) });
     }
   });
   return rows;
@@ -339,6 +385,11 @@ export function buildItineraryPlacements(plans: DayPlan[]): PlacementRow[] {
 export function placementStops(rows: PlacementRow[]): DayStop[] {
   const stops: DayStop[] = [];
   const byPoint = new Map<string, DayStop>();
+  // Issue #1 — the drawn number. One counter PER DATE, bumped only when a new pin is
+  // created, so each day's pins read 1, 2, 3 … with no gaps and no restart mid-day. Rows
+  // arrive in itinerary order (see `buildRows`), so the counter inherits that order and
+  // nothing here re-sorts anything (D-281).
+  const seqByDate = new Map<string, number>();
   for (const row of rows) {
     if (row.placement.kind === 'none') continue;
     const p = row.placement;
@@ -351,9 +402,12 @@ export function placementStops(rows: PlacementRow[]): DayStop[] {
       existing.items.push(row.item);
       continue;
     }
+    const seq = (seqByDate.get(row.date) ?? 0) + 1;
+    seqByDate.set(row.date, seq);
     const stop: DayStop = {
       day: row.day,
       date: row.date,
+      seq,
       marker: p.marker,
       title: row.item.title,
       item: row.item,
@@ -364,6 +418,21 @@ export function placementStops(rows: PlacementRow[]): DayStop[] {
     stops.push(stop);
   }
   return stops;
+}
+
+/**
+ * Issue #1 — the stops of ONE day, or every stop when no day is chosen.
+ *
+ * The whole "show only the selected day" rule, in one place, keyed on the DATE (the identity
+ * that cannot be off by one — see `tripDayNumber`). A day with nothing planned returns `[]`,
+ * which is what CLEARS the map rather than leaving the previous day's pins sitting there:
+ * `TripMap`'s route effect writes an empty FeatureCollection for an empty stop list. That
+ * emptiness is the feature, so callers must pass the filtered array straight through rather
+ * than falling back to the unfiltered one when it comes back empty.
+ */
+export function stopsForDay(stops: DayStop[], date: string | null): DayStop[] {
+  if (!date) return stops;
+  return stops.filter((s) => s.date === date);
 }
 
 /**

@@ -370,44 +370,13 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
   });
 
   // ── #13 — the other half of the same defect ────────────────────────────────────────────────
-  // The `!online` guard above only catches the case the browser ADMITS to. A fetch can still
-  // reject while `navigator.onLine` is true — captive portal (the hotel wifi you just joined),
-  // DNS failure, connection reset — and that rejection is a TypeError carrying the browser's own
-  // "Failed to fetch", which was reaching the traveler verbatim through the catch's `err.message`.
-  it('#13: an online fetch rejection is reported in plain words, not as "Failed to fetch"', async () => {
-    setNavigatorOnLine(true);
-    const fetchImpl = vi.fn(async () => {
-      throw new TypeError('Failed to fetch'); // jsdom will not produce this for us
-    }) as unknown as typeof fetch;
-
-    const h = renderConciergeChat(fetchImpl);
-    await h.send('add ramen to the 20th');
-
-    expect(fetchImpl).toHaveBeenCalledTimes(1); // ← unlike offline, the request IS attempted
-    expect(h.status).toBe('error');
-    expect(h.error).not.toContain('Failed to fetch');
-    expect(h.error).toContain('reach the concierge');
-    // The blank in-flight assistant bubble is dropped, leaving only the user's turn.
-    expect(h.messages.map((m) => m.role)).toEqual(['user']);
-    h.unmount();
-  });
-
-  // The guard above matches on `.name`, so this is the assertion that it cannot swallow a REAL
-  // Worker error: the non-200 branch throws `new Error(reason)`, whose name is 'Error', and that
-  // text is the whole point of the non-200 branch.
-  it('#13: a Worker error body still reaches the traveler unchanged', async () => {
-    setNavigatorOnLine(true);
-    const fetchImpl = vi.fn(async () =>
-      jsonResponse({ error: 'The concierge is busy right now.' }, 503),
-    ) as unknown as typeof fetch;
-
-    const h = renderConciergeChat(fetchImpl);
-    await h.send('add ramen to the 20th');
-
-    expect(h.status).toBe('error');
-    expect(h.error).toBe('The concierge is busy right now.');
-    h.unmount();
-  });
+  // The online-but-dead TypeError case is asserted above, against the exact sentence
+  // (`a dead provider while online never shows the raw "Failed to fetch"`). Two earlier specs
+  // stood here and were removed rather than reconciled: one duplicated that case with a looser
+  // substring, and the other asserted that a Worker `{error}` body reaches the traveller
+  // unchanged — which is the behaviour `statusMessage` deliberately replaced. Its rationale and
+  // the spec that pins it ("no status leaks the body it came with") are above; keeping a test
+  // asserting the old contract would have made the suite disagree with itself.
 
   it('S389-C: "Try again" re-sends the last attempted turn once the connection is back', async () => {
     setNavigatorOnLine(false);

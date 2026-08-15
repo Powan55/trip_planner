@@ -22,11 +22,28 @@ runbook. `TRIP_CITIES` is **derived** from the itinerary, so you never edit it b
 | nightlife venues                        | `lib/nightlife-data.ts`                     | `validate:content`                   |
 | photo spots                             | `lib/photography-data.ts`                   | `validate:content`                   |
 | featured / foods / etiquette / weather  | `lib/travel-tips-data.ts`                   | `validate:content`                   |
+| Home inspiration gallery                | `lib/inspiration-data.ts`                   | `validate:content` (+ bundled-image check) |
 | flights / stays / to-book               | `lib/booking-data.ts` (verbatim strings, see D-034) | `validate:content`          |
+| emergency numbers / **phrasebook** / document checklist | `core/content/safety.ts`    | its own eager `.parse()` at import + `lib/__tests__/safety-content.test.ts` |
 
 `TRIP_CITIES` in `core/dates/trip-cities.ts` is **derived** from `core/content/itinerary.ts`
 (`TRIP_CITIES = deriveTripCities(TRIP_ITINERARY)`). Never edit it directly: change the day's `city`
 in the itinerary and the map follows automatically.
+
+**`core/content/safety.ts` is the one row that does not go through `validate:content`,** and that
+is deliberate: it declares its own local `.strict()` Zod shapes and `.parse()`s its own data at
+**module load**, so a malformed emergency number or phrase fails the *build*, not a separate
+validate step. Read its header before editing — emergency contacts carry a `verified` flag and a
+`sourceUrl`, and you may not flip `verified` to `true` without a live check. Two phrasebook rules
+worth knowing before you add a row:
+
+- Every phrase needs **four** language fields, not two: `nepali` / `japanese` (romanized, the
+  read-aloud text) **and** `nepaliScript` / `japaneseScript` (Devanagari, kana/kanji). The schema
+  enforces the script fields actually contain their script, so pasting the romanization into both
+  fails loudly.
+- **Never add a font for the native script.** The app self-hosts latin-only subsets; Devanagari and
+  kana/kanji resolve from the operating system via per-glyph fallback, which is why the page works
+  with the radio off. A webfont here would trade the offline guarantee for a download that can fail.
 
 ---
 
@@ -44,6 +61,11 @@ in the itinerary and the map follows automatically.
 - Every itinerary **city is weather-known** (`isKnownWeatherCity`).
 - Every **guide/photo category** appears in its filter list (a typo'd category would otherwise
   make the card silently vanish from the filters).
+- Every **inspiration `image`** is a real key of `lib/image-manifest.json` — i.e. an asset this
+  repo already bundles and already credits in `public/images/CREDITS.md`. A typo'd path would
+  otherwise render the card's gradient fallback and quietly stop being a photo. The same check
+  is what keeps that gallery from acquiring a remote or unbundled image. Both countries must be
+  represented, and no `alt` may be a copy of its own `title`.
 - **Booking leg/layover shape:** each journey has exactly one fewer layover than legs (D-034:
   structure only; booking **time strings are never parsed or recomputed**).
 

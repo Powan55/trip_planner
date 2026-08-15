@@ -57,6 +57,18 @@ What the sweep found:
 - **Three literals are duplicated or raw**, and they are the concrete D-078c debt the gateway pays down: `tripPlannerGuest` (three sites, one raw in `navbar.tsx`), `tripPlannerUserName` (duplicated between `identity.ts` and `token-auth.ts`), and `packing_checklist` (raw in `travel-essentials.tsx`). Centralizing these is the structural win of S91.
 - **`tripPlannerTodayOverride` spans a different store** (sessionStorage), so the gateway has to model store-per-key rather than assume localStorage (see section 3.4). D-075 locked this key as sessionStorage-only and `computeCountdown` as pure, so the gateway wraps it read-compatibly and does not migrate it to localStorage.
 
+### 0.2 Addendum — the live registry, and the one key that is neither trip- nor app-scoped
+
+The table above is a 2026-07-05 snapshot and is not maintained. **The live storage-key registry is the `STORAGE_KEYS` object in `core/storage/gateway.ts`**, which is also the only place a persisted key literal may be declared (D-097). Read it there; nothing is re-tabulated here.
+
+One key is recorded in this document anyway, because its *scope* is a fact about the data model rather than a detail of the registry:
+
+| Key literal | Store | Value shape | Scope | Owner |
+|---|---|---|---|---|
+| `tripPlannerLifetimeVisits` | localStorage | `{ cities: string[]; countries: string[] }` JSON — unique, insertion-ordered | **lifetime** | `core/places/visited.ts` (shape + policy); `STORAGE_KEYS.lifetimeVisits` (key string) |
+
+Every other key is either trip-scoped (namespaced by `keyFor`, cleared by `wipeAllTripData()`) or app-scoped (a device/account fact, most of which the same teardown also clears). This one is neither: it is the lifetime record of where the person has been, it belongs to no trip, and it is deliberately outside both the trip namespace and the teardown, so clearing a trip or signing out never erases it. It must never be added to `TripScopedSlot`/`TRIP_SCOPED_SLOTS` or to the removals in `wipeAllTripData()`. See **D-314**, and `lib/__tests__/visited-lifetime.test.ts`, which runs the real wipe and asserts the set survives it.
+
 ---
 
 ## 1. The Trip Vault envelope

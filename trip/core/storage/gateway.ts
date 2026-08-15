@@ -331,10 +331,27 @@ export const STORAGE_KEYS = {
    */
   myPlaces: 'nepal_japan_my_places',
   /**
+   * localStorage — JSON `{ cities: string[]; countries: string[] }` of every city and country this
+   * person has EVER been to (lifetime-visits, key 32; issue #29). LIFETIME-SCOPED — a THIRD scope
+   * beside trip-scoped and app-scoped, and the reason it is spelled out here rather than filed as
+   * "another app-scoped key": it sits outside the trip namespace AND outside `wipeAllTripData()` on
+   * purpose, so clearing a trip or signing out of this device never erases a permanent travel record
+   * that no trip owns and nothing can reconstruct (D-314). It is NOT in `TripScopedSlot` (handing it
+   * to `keyFor` is a compile error) and must NEVER be added to the wipe below. The `tripPlanner*`
+   * spelling rather than `nepal_japan_*` is deliberate: the pack-flavoured prefix reads as trip data
+   * at a glance, and this is not. Value shape + the unique/idempotent/insertion-order policy are
+   * owned by `core/places/visited.ts` (the gateway is byte-transport only — it does not know the
+   * `VisitedPlaces` shape). ADDITIVE: a brand-new key, no back-compat surface change and NO
+   * migration.
+   */
+  lifetimeVisits: 'tripPlannerLifetimeVisits',
+  /**
    * sessionStorage — comma-joined `string[]` of SURFACE ids whose entrance has already played
-   * this browser session (entrance ledger, key 32; issue #24). Backs D-293 rule 7, "the tenth
+   * this browser session (entrance ledger, key 33; issue #24). Backs D-293 rule 7, "the tenth
    * visit is quieter than the first": a surface animates its entrance on the FIRST view per
-   * session and is simply present, at its end state, on every later view.
+   * session and is simply present, at its end state, on every later view. (Key 32 was taken by
+   * `lifetimeVisits`, which landed on dev while this was in flight — this is the next free
+   * number, exactly as `installHintDismissed` took 30 from `myPlaces`.)
    *
    * SESSION store, and the choice IS the rule — a new tab or a new browser session is a new
    * greeting, everything inside one session is not. What that means concretely, because it is
@@ -523,9 +540,12 @@ export function keyFor(slot: TripScopedSlot): string {
  * Travel Mode redirect loop reachable by ordinary use — clearing it on sign-out removes the trigger
  * state at its source.
  *
- * Deliberately NOT cleared: identity (the caller, `signOut()`, clears that itself) and photo blobs
+ * Deliberately NOT cleared: identity (the caller, `signOut()`, clears that itself); photo blobs
  * (IndexedDB, app-scoped — cleared only by "Forget this device": a photo is expensive to re-acquire
- * and is not identity-linked).
+ * and is not identity-linked); and `lifetimeVisits` (key 32, D-314 — the lifetime record of cities
+ * and countries visited is not this trip's data, outlives every trip, and cannot be reconstructed
+ * from anything left on disk. It is absent from `TRIP_SCOPED_SLOTS` and from the removals below,
+ * both on purpose; `lib/__tests__/visited-lifetime.test.ts` fails if either changes).
  *
  * SSR-safe, never throws. Mirrors the deleted `wipeSandbox`'s collect-then-delete shape for the prefix
  * sweep — removing while iterating re-indexes `s.key(i)` and silently skips half the keys.
@@ -886,7 +906,7 @@ export const tripMetaSelfHealGuard = {
 } as const;
 
 /**
- * Entrance ledger (key 32) — the once-per-session record behind D-293 rule 7. Mirrors
+ * Entrance ledger (key 33) — the once-per-session record behind D-293 rule 7. Mirrors
  * `tripMetaSelfHealGuard` exactly: a comma-joined id set in the SESSION store, read as a
  * presence test and appended to at most once per id. Surface ids are route paths (`/`,
  * `/nepal`), which never contain the `,` separator.

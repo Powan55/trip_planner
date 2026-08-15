@@ -15,6 +15,7 @@ import AxeBuilder from '@axe-core/playwright';
  *   2. Every emergency contact's `tel:` href is correct and keyboard-reachable.
  *   3. Zero serious/critical axe violations, scanned twice for determinism.
  *   4. `prefers-reduced-motion: reduce` renders the same content (no motion-only affordance).
+ *   5. (#2) Every phrase row carries its native script under `lang="ne"` / `lang="ja"`.
  */
 
 async function gotoAsTraveler(page: Page, path: string, token = 'Powan') {
@@ -50,13 +51,55 @@ test.describe('S152 safety kit — renders the three sections', () => {
     await expect(page.getByTestId('safety-contact-np-police')).toBeVisible();
     await expect(page.getByTestId('safety-contact-jp-police')).toBeVisible();
 
-    // Phrasebook: 20 rows total across the grouped tables.
+    // Phrasebook: 33 rows total across the grouped tables (#2 added the Numbers
+    // category and filled out Directions / Food & Shopping).
     const phraseRows = page.locator('[data-testid^="safety-phrase-"]');
-    await expect(phraseRows).toHaveCount(20);
+    await expect(phraseRows).toHaveCount(33);
 
     // Checklist: at least one item per group is present.
     await expect(page.getByTestId('safety-checklist-passport-validity')).toBeVisible();
     await expect(page.getByTestId('safety-checklist-cloud-backups')).toBeVisible();
+  });
+});
+
+test.describe('safety kit — native script is present and language-tagged (#2)', () => {
+  test('every phrase row exposes Devanagari under lang="ne" and kana/kanji under lang="ja"', async ({
+    page,
+  }) => {
+    await gotoAsTraveler(page, '/safety/');
+    await expect(page.getByTestId('safety-kit')).toBeVisible();
+
+    const rows = page.locator('[data-testid^="safety-phrase-"]');
+    const count = await rows.count();
+    expect(count).toBe(33);
+
+    // Scanned on the REAL rendered DOM, every row, not a sample: the `lang` tag is what makes a
+    // screen reader switch voice, so one untagged row is a real a11y regression.
+    const devanagari = /[\u0900-\u097F]/;
+    const kanaKanji = /[\u3040-\u30FF\u4E00-\u9FFF]/;
+
+    for (let i = 0; i < count; i++) {
+      const row = rows.nth(i);
+      const id = await row.getAttribute('data-testid');
+
+      const ne = row.locator('[lang="ne"]');
+      await expect(ne, `${id} has no lang="ne" span`).toHaveCount(1);
+      expect(await ne.innerText(), `${id} lang="ne" text is not Devanagari`).toMatch(devanagari);
+
+      const ja = row.locator('[lang="ja"]');
+      await expect(ja, `${id} has no lang="ja" span`).toHaveCount(1);
+      expect(await ja.innerText(), `${id} lang="ja" text has no kana/kanji`).toMatch(kanaKanji);
+    }
+  });
+
+  test('a known phrase renders its exact script, romanization, and English', async ({ page }) => {
+    await gotoAsTraveler(page, '/safety/');
+    const hello = page.getByTestId('safety-phrase-hello');
+    await expect(hello.locator('[lang="ne"]')).toHaveText('नमस्ते');
+    await expect(hello.locator('[lang="ja"]')).toHaveText('こんにちは');
+    await expect(hello).toContainText('Namaste');
+    await expect(hello).toContainText('Konnichiwa');
+    await expect(hello).toContainText('Hello');
   });
 });
 
@@ -117,6 +160,6 @@ test.describe('S152 safety kit — reduced motion', () => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await gotoAsTraveler(page, '/safety/');
     await expect(page.getByTestId('safety-kit')).toBeVisible();
-    await expect(page.locator('[data-testid^="safety-phrase-"]')).toHaveCount(20);
+    await expect(page.locator('[data-testid^="safety-phrase-"]')).toHaveCount(33);
   });
 });
