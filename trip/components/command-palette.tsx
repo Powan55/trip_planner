@@ -41,6 +41,7 @@ import { searchPlanItems } from '@/lib/search-plan';
 import { formatDate, type DayPlan } from '@/lib/trip-data';
 import { parseConversionQuery, convertCurrency, type ConversionResult } from '@/lib/currency-convert';
 import { isDefaultTrip } from '@/core/trips';
+import { prefersReducedMotion } from '@/lib/motion';
 
 /**
  * ⌘K / Ctrl+K command palette.
@@ -230,10 +231,8 @@ function formatConvertedAmount(n: number): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
-function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
+// Issue #24: the local copy of the media-query read is gone — `prefersReducedMotion`
+// is imported from lib/motion.ts, the one place the preference is read.
 
 export default function CommandPalette() {
   const [open, setOpen] = React.useState(false);

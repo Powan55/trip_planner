@@ -35,6 +35,7 @@ import { buildMapStyle, CATEGORY_COLOR, BRAND } from '@/lib/map-style';
 import { buildMapsDirectionsUrl } from '@/lib/maps-link';
 import { MARKER_BY_ID, type DayStop } from '@/lib/itinerary-map';
 import { MAP_PIN_DND_TYPE } from '@/lib/day-anchor';
+import { prefersReducedMotion } from '@/lib/motion';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -123,10 +124,8 @@ const ALL_BOUNDS: LngLatBoundsLike = [
 
 // Read prefers-reduced-motion at call time. MapLibre camera moves branch
 // on this: flyTo/easeTo when motion is allowed, instant jumpTo when reduced.
-function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
+// Issue #24: the local copy is gone; the shared `prefersReducedMotion()` in
+// lib/motion.ts reads at call time too, so D-079's "at call time" property holds.
 
 // Build the GeoJSON FeatureCollection for the browse markers (the given set).
 function markersToGeoJSON(markers: MapMarker[]) {

@@ -345,6 +345,28 @@ export const STORAGE_KEYS = {
    * migration.
    */
   lifetimeVisits: 'tripPlannerLifetimeVisits',
+  /**
+   * sessionStorage — comma-joined `string[]` of SURFACE ids whose entrance has already played
+   * this browser session (entrance ledger, key 33; issue #24). Backs D-293 rule 7, "the tenth
+   * visit is quieter than the first": a surface animates its entrance on the FIRST view per
+   * session and is simply present, at its end state, on every later view. (Key 32 was taken by
+   * `lifetimeVisits`, which landed on dev while this was in flight — this is the next free
+   * number, exactly as `installHintDismissed` took 30 from `myPlaces`.)
+   *
+   * SESSION store, and the choice IS the rule — a new tab or a new browser session is a new
+   * greeting, everything inside one session is not. What that means concretely, because it is
+   * the part a later reader will get wrong: the ledger does NOT reset on a reload (sessionStorage
+   * survives a refresh in the same tab), on a client-side route change, on a component remount,
+   * on a reduced-motion toggle, or on sign-out. It DOES reset when the tab is closed. A
+   * DUPLICATED tab inherits the set, because browsers copy sessionStorage into the duplicate —
+   * accepted and named, not overlooked.
+   *
+   * Shape mirrors `tripMetaSelfHealGuard` (key 27) rather than one key per surface: the
+   * storage-literal rule wants one declared literal per slot, and there are at most 17 surfaces
+   * in the app, so the joined set stays tiny. APP-SCOPED (a greeting belongs to the tab session,
+   * not to a trip). ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   */
+  motionEntranceSeen: 'motion_entrance_seen',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -880,6 +902,35 @@ export const tripMetaSelfHealGuard = {
     const ids = raw ? raw.split(',') : [];
     if (!ids.includes(tripId)) ids.push(tripId);
     writeString('session', STORAGE_KEYS.tripMetaSelfHeal, ids.join(','));
+  },
+} as const;
+
+/**
+ * Entrance ledger (key 33) — the once-per-session record behind D-293 rule 7. Mirrors
+ * `tripMetaSelfHealGuard` exactly: a comma-joined id set in the SESSION store, read as a
+ * presence test and appended to at most once per id. Surface ids are route paths (`/`,
+ * `/nepal`), which never contain the `,` separator.
+ *
+ * The policy — which surfaces are eligible, and whether reduced motion or the tier gate
+ * short-circuits before the ledger is ever consulted — lives in `lib/motion.ts`. This is
+ * byte-transport only, like every other slot here.
+ *
+ * SSR-safe + never-throw (inherited): with storage disabled or unreadable every read returns
+ * `false` and every write no-ops, so the caller degrades to "always animate" and NEVER to
+ * "always hidden". That direction is load-bearing — a re-greeted surface is a cosmetic miss;
+ * a surface stuck at its start state is a blank screen.
+ */
+export const entranceLedger = {
+  hasGreeted(surface: string): boolean {
+    const raw = readString('session', STORAGE_KEYS.motionEntranceSeen);
+    return raw !== null && raw.split(',').includes(surface);
+  },
+  markGreeted(surface: string): void {
+    const raw = readString('session', STORAGE_KEYS.motionEntranceSeen);
+    const seen = raw ? raw.split(',') : [];
+    if (seen.includes(surface)) return;
+    seen.push(surface);
+    writeString('session', STORAGE_KEYS.motionEntranceSeen, seen.join(','));
   },
 } as const;
 
