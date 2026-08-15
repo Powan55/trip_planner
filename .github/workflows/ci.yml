@@ -55,6 +55,13 @@ jobs:
       - name: Repository hygiene
         run: node scripts/marker-check.mjs
 
+      # Also dependency-free, so it sits here for the same reason. The palette is a
+      # pinned mirror of the tokens in globals.css/tailwind.config.ts, and a mirror
+      # nothing runs enforces nothing — this is what makes the ink rule and the
+      # AA floors fail a PR rather than a review.
+      - name: Design token contrast
+        run: node scripts/contrast-tokens.mjs
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20

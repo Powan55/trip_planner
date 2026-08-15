@@ -67,18 +67,30 @@ export interface Traveler {
 }
 
 /**
- * The existing on-brand accent palette, drawn verbatim from the
- * three brand families in `tailwind.config.ts` (gold / sakura / himalaya, two shades each).
- * A nickname hashes deterministically into this fixed set — no per-person hardcoding, no
- * new dependency, no invented colours.
+ * The on-brand accent palette, a HAND-SYNCED COPY drawn verbatim from the three brand
+ * families in `tailwind.config.ts` (gold / sakura / himalaya, two shades each). A nickname
+ * hashes deterministically into this fixed set — no per-person hardcoding, no new
+ * dependency, no invented colours.
+ *
+ * It is a copy with no compiler tie, so it MOVES WHEN THAT CONFIG MOVES or the app ships two
+ * palettes. Re-valued here alongside the D-291/D-292/D-293 token layer. Every entry clears
+ * AA as text on the page field (12.13 / 6.00 / 9.18 / 11.50 / 8.22 / 4.91), which matters
+ * because a traveller accent is rendered both as a chip tint and as a dot fill. Those six
+ * numbers are not asserted here — all six pairings are in `scripts/contrast-tokens.mjs`
+ * and run in CI, so a value that drifts fails a gate rather than a comment.
+ *
+ * The two dark entries take the 400/600 pair, not 400/500: the 500 steps are frozen at the
+ * retired values because lib/map-style.ts mirrors them (see the comment on the scales in
+ * tailwind.config.ts). A traveller accent has nothing to do with the map, so it takes the
+ * merged palette rather than inheriting that freeze.
  */
 const ACCENT_PALETTE = [
-  '#f0c760', // gold 400
-  '#d4a843', // gold 500
-  '#f7a0b3', // sakura 400
-  '#ffb7c5', // sakura 300
-  '#ff8c42', // himalaya 400
-  '#e67635', // himalaya 500
+  '#FFC43D', // gold 400     — marigold
+  '#C08400', // gold 600     — the marigold lip
+  '#FF8FC7', // sakura 400   — Japan pink
+  '#FFB1D8', // sakura 300
+  '#FF8A3D', // himalaya 400 — Nepal orange
+  '#C2692E', // himalaya 600
 ] as const;
 
 /**
@@ -100,9 +112,10 @@ export function accentForName(name: string): string {
  * surfaces are visually unchanged. Out of this change's scope to make dynamic.
  */
 export const TRAVELERS: readonly Traveler[] = [
-  { name: 'Powan', token: 'Powan', accent: '#f0c760' }, // gold
-  { name: 'Sushil', token: 'Sushil', accent: '#f7a0b3' }, // sakura
-  { name: 'Uttam', token: 'Uttam', accent: '#ff8c42' }, // himalaya
+  // Same three hand-assigned brand tints, re-valued with the families they name.
+  { name: 'Powan', token: 'Powan', accent: '#FFC43D' }, // gold 400
+  { name: 'Sushil', token: 'Sushil', accent: '#FF8FC7' }, // sakura 400
+  { name: 'Uttam', token: 'Uttam', accent: '#FF8A3D' }, // himalaya 400
 ] as const;
 
 /**

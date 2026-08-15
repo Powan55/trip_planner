@@ -49,10 +49,11 @@ describe('token-auth · accentForName', () => {
   });
 
   it('returns an on-brand palette hex', () => {
-    // R2/D-265: pins the full 6-entry ACCENT_PALETTE verbatim (token-auth.ts). CORRECT today — the
-    // content palette stays gold under the ruling — but it pins the literal hexes, so a future
-    // accent move fails here with a message about accents, not about a chrome repaint.
-    const palette = ['#f0c760', '#d4a843', '#f7a0b3', '#ffb7c5', '#ff8c42', '#e67635'];
+    // R2/D-265: pins the full 6-entry ACCENT_PALETTE verbatim (token-auth.ts). It pins the
+    // literal hexes, so an accent move fails HERE with a message about accents rather than
+    // somewhere downstream about a chrome repaint — which is the point of it. Re-valued with
+    // the D-291/D-292/D-293 palette; this array and token-auth.ts's must be edited together.
+    const palette = ['#FFC43D', '#C08400', '#FF8FC7', '#FFB1D8', '#FF8A3D', '#C2692E'];
     expect(palette).toContain(accentForName('anybody'));
   });
 
@@ -94,9 +95,9 @@ describe('token-auth · TRAVELERS is now only the expense-split roster', () => {
   it('still exposes the three friends with their brand accents', () => {
     expect(TRAVELERS.map((t) => t.name)).toEqual(['Powan', 'Sushil', 'Uttam']);
     // R2/D-265: pins Powan's fixed hand-assigned tint (TRAVELERS[0].accent, token-auth.ts).
-    // CORRECT today, but a future accent move fails here with a message about Powan's accent, not
-    // about a chrome repaint.
-    expect(TRAVELERS[0].accent).toBe('#f0c760');
+    // An accent move fails here with a message about Powan's accent, not about a chrome
+    // repaint. Re-valued to gold-400 under the D-291/D-292/D-293 palette.
+    expect(TRAVELERS[0].accent).toBe('#FFC43D');
   });
 });
 

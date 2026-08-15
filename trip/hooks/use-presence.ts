@@ -40,7 +40,10 @@ export interface ActivePresence {
   lastSeen: number | null;
 }
 
-const FALLBACK_ACCENT = '#f0c760'; // gold — only if a name doesn't resolve
+// gold-400, only if a name doesn't resolve. A third hand-synced copy of the brand
+// scale (with lib/token-auth.ts's ACCENT_PALETTE and tailwind.config.ts), so it moves
+// when they move — otherwise an unresolved traveller renders in the retired palette.
+const FALLBACK_ACCENT = '#FFC43D';
 const ACTIVE_WINDOW_MS = 3 * 60_000; // mirror lib/presence ACTIVE_WINDOW_MS (eviction tick)
 
 /** Map a traveler name → its brand accent. Case-insensitive, defensive. */
