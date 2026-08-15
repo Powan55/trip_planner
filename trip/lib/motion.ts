@@ -144,7 +144,12 @@ export const TIER_3_SURFACES: readonly string[] = [
  * for the front door and handed Tier 1's permissions.
  */
 export function surfaceKey(pathname: string | null | undefined): string {
-  if (typeof pathname !== 'string' || pathname === '') return '';
+  // The leading slash is REQUIRED, and that is the whole guard. Without it, `'nepal'.split('/')`
+  // is `['nepal']`, index 1 is undefined, and the `first === ''` branch below returned `'/'` —
+  // handing a malformed pathname the front door's Tier 1, the loudest permissions in the product,
+  // which is the exact case this function's caller is defending against. A real `usePathname()`
+  // always starts with `/`, so anything that does not is unrouted, not a route.
+  if (typeof pathname !== 'string' || !pathname.startsWith('/')) return '';
   const first = pathname.split('/')[1] ?? '';
   return first === '' ? '/' : `/${first}`;
 }
