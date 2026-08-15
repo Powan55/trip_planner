@@ -60,9 +60,10 @@ export function sortItemsByTime(
  * Tokyo flight that genuinely overlaps its Detroit layover reads as disjoint. `dayDate` +
  * `dayOffsetMin` resolve each item through the SAME `placeWallClockToUtcMs` every other
  * instant consumer uses — no second time-math path here. (No longer latent: D-316 derives
- * the span from the free-text `duration` too, and all 158 seed items carry one — the badge
- * now surfaces the four overlaps the shipped content has always had, three of which are
- * deliberate containment.)
+ * the span from the free-text `duration` too, and all 158 seed items carry one. The four
+ * overlaps that surfaced when it went live are gone — issue #18/D-327 corrected all of them
+ * in `core/content/itinerary.ts`, so the shipped seed is clean and the badge now only ever
+ * reports a collision a user, a peer's sync or an import produced.)
  *
  * — MULTI-DAY SPANS ARE EXCLUDED (clash v1): an item carrying an `endDate` is a
  * multi-day span (the field is only ever written strictly after the item's start day, so
@@ -133,11 +134,16 @@ export function firstClashWith(
  * whether it is a multi-day span at all)?
  *
  * This one boolean is the entire grandfathering mechanism. The guard runs only when it is
- * true, which lets every overlap already on disk — including the three deliberate
- * containments in the shipped seed (lunch inside the USJ day, lunch inside the Shinsekai
- * flex block, the countdown inside the NYE club block) — survive and stay editable, while
- * making every NEW collision impossible. A brand-new item has no `prev` and is therefore
- * always guarded.
+ * true, which lets an overlap already on disk survive and stay editable while making every
+ * NEW collision impossible. A brand-new item has no `prev` and is therefore always guarded.
+ *
+ * The SEED is no longer one of those cases: issue #18 / D-327 corrected the three containments
+ * this comment used to name (lunch inside the USJ day, lunch inside the Shinsekai flex block,
+ * the countdown inside the NYE club block), and the shipped content now holds zero overlaps.
+ * The escape stays because the seed was never the only source of a stored collision: a synced
+ * peer's write, a vault import and a plan saved by an older build all reach `commit()` without
+ * passing the intent-layer guard, and a row that arrives already overlapping must not become
+ * uneditable.
  *
  * Compared on the EFFECTIVE values, not the raw fields: re-saving a legacy `time: '18:15'`
  * item through the picker dual-writes `startMinutes: 1095`, which is the same instant and
