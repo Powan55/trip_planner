@@ -67,7 +67,7 @@ import { groupItemsByPhase, earliestTimedItem, PHASE_LABELS } from '@/lib/phase-
 const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
   ssr: false,
   loading: () => (
-    <div className="grid h-full w-full place-items-center bg-surface text-white/45">
+    <div className="grid h-full w-full place-items-center bg-surface text-ink-mid">
       <span className="text-xs">Loading map…</span>
     </div>
   ),
@@ -385,15 +385,15 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
       >
         <div className="flex items-center justify-between mb-5">
           <h3 id={titleId} className="font-display text-lg font-bold text-white">{item ? 'Edit Item' : 'Add Item'}</h3>
-          <button type="button" onClick={onClose} aria-label="Close editor" data-testid="calendar-editor-cancel" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><X className="w-5 h-5" /></button>
+          <button type="button" onClick={onClose} aria-label="Close editor" data-testid="calendar-editor-cancel" className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><X className="w-5 h-5" /></button>
         </div>
         <div className="space-y-4">
           <div>
-            <label htmlFor={titleFieldId} className="text-xs text-white/50 mb-1 block">Title *</label>
+            <label htmlFor={titleFieldId} className="text-xs text-ink-mid mb-1 block">Title *</label>
             <input id={titleFieldId} ref={titleInputRef} autoFocus value={title} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setTitle(e.target.value)} data-testid="calendar-editor-title-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2" placeholder="e.g., Visit Boudhanath Stupa" />
           </div>
           <div>
-            <span id={categoryLabelId} className="text-xs text-white/50 mb-1 block">Category</span>
+            <span id={categoryLabelId} className="text-xs text-ink-mid mb-1 block">Category</span>
             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
               {ALL_CATEGORIES.map((cat) => {
                 const colors = CATEGORY_COLORS[cat];
@@ -407,7 +407,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
                     aria-label={`Category: ${cat}`}
                     data-testid={`calendar-editor-category-${cat}`}
                     className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                      isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-white/40 hover:bg-white/5'
+                      isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-ink-mid hover:bg-white/5'
                     }`}
                   >
                     {CATEGORY_ICON_MAP[cat]}
@@ -418,7 +418,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
             </div>
           </div>
           <div>
-            <label htmlFor={timeFieldId} className="text-xs text-white/50 mb-1 block">Time</label>
+            <label htmlFor={timeFieldId} className="text-xs text-ink-mid mb-1 block">Time</label>
             <TimePicker id={timeFieldId} value={startMinutes} onChange={handleTimeChange} testId="calendar-editor-time-input" />
           </div>
           {/* — the editor opens as THREE fields (Title, Category, Time). Everything else
@@ -432,21 +432,21 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
           <details className="group rounded-lg border border-white/10 bg-white/[0.02]" data-testid="calendar-editor-more">
             <summary
               data-testid="calendar-editor-more-toggle"
-              className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-3 py-2.5 text-xs text-white/50 transition-colors hover:text-white/75 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+              className="flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-3 py-2.5 text-xs text-ink-mid transition-colors hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&::-webkit-details-marker]:hidden"
             >
               <ChevronDown className="w-3.5 h-3.5 transition-transform group-open:rotate-180" aria-hidden="true" />
               More details
               {filledDetails.length > 0 && (
-                <span className="text-white/35">· {filledDetails.join(', ')}</span>
+                <span className="text-ink-mid">· {filledDetails.join(', ')}</span>
               )}
             </summary>
             <div className="space-y-4 px-3 pb-3">
           <div>
-            <label htmlFor={durationFieldId} className="text-xs text-white/50 mb-1 block">Duration (min)</label>
+            <label htmlFor={durationFieldId} className="text-xs text-ink-mid mb-1 block">Duration (min)</label>
             <DurationField id={durationFieldId} value={durationMinutes} onChange={handleDurationChange} testId="calendar-editor-duration-input" />
           </div>
           <div>
-            <label htmlFor={locationFieldId} className="text-xs text-white/50 mb-1 block">Location</label>
+            <label htmlFor={locationFieldId} className="text-xs text-ink-mid mb-1 block">Location</label>
             <input id={locationFieldId} value={location} onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLocation(e.target.value)} data-testid="calendar-editor-location-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2" placeholder="e.g., Thamel, Kathmandu" />
           </div>
           {/* Pin an exact location. Typing two decimals was
@@ -458,7 +458,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
               `data-lat`/`data-lng`) so the value is legible without a map, and readable by a
               screen reader — the picked coordinate is never write-only. */}
           <div>
-            <span className="mb-1 flex items-center gap-1.5 text-xs text-white/50">
+            <span className="mb-1 flex items-center gap-1.5 text-xs text-ink-mid">
               <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
               Pin exact location (optional)
             </span>
@@ -468,7 +468,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
                 ref={pinButtonRef}
                 onClick={() => onRequestPin?.()}
                 data-testid="calendar-editor-pin-drop"
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-white/15 px-3 text-xs font-medium text-white/75 transition-colors hover:bg-white/10 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-white/15 px-3 text-xs font-medium text-ink-mid transition-colors hover:bg-white/10 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
                 {pin ? 'Move pin' : 'Drop a pin'}
@@ -479,7 +479,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
                     data-testid="calendar-editor-pin-value"
                     data-lat={String(pin.lat)}
                     data-lng={String(pin.lng)}
-                    className="text-xs tabular-nums text-white/60"
+                    className="text-xs tabular-nums text-ink-hi"
                   >
                     {pin.lat.toFixed(4)}, {pin.lng.toFixed(4)}
                   </span>
@@ -487,7 +487,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
                     type="button"
                     onClick={() => setPin(null)}
                     data-testid="calendar-editor-pin-clear"
-                    className="inline-flex min-h-[44px] items-center rounded px-1 text-xs text-white/40 underline underline-offset-2 transition-colors hover:text-white/60 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="inline-flex min-h-[44px] items-center rounded px-1 text-xs text-ink-mid underline underline-offset-2 transition-colors hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     Clear pin
                   </button>
@@ -506,7 +506,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
               aria-expanded={spanOpen}
               disabled={!canSpan}
               data-testid="calendar-editor-span-toggle"
-              className="flex items-center gap-1.5 text-xs text-white/50 hover:text-white/75 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-1.5 text-xs text-ink-mid hover:text-ink-hi transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-lg focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Calendar className="w-3.5 h-3.5" />
               Spans multiple days (optional)
@@ -514,7 +514,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
             </button>
             {spanOpen && canSpan && (
               <div className="mt-2">
-                <label htmlFor={endDateFieldId} className="text-xs text-white/50 mb-1 block">Ends on (inclusive last day)</label>
+                <label htmlFor={endDateFieldId} className="text-xs text-ink-mid mb-1 block">Ends on (inclusive last day)</label>
                 <select
                   id={endDateFieldId}
                   value={endDate}
@@ -547,14 +547,14 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
             <span
               aria-disabled="true"
               data-testid="calendar-editor-maps-link"
-              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white/25 cursor-not-allowed select-none"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-ink-lo cursor-not-allowed select-none"
             >
               <ExternalLink className="w-3.5 h-3.5 shrink-0" />
               Search on Google Maps
             </span>
           )}
           <div>
-            <label htmlFor={notesFieldId} className="text-xs text-white/50 mb-1 block">Notes</label>
+            <label htmlFor={notesFieldId} className="text-xs text-ink-mid mb-1 block">Notes</label>
             <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} data-testid="calendar-editor-notes-input" className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
           </div>
             </div>
@@ -1200,7 +1200,7 @@ export default function CalendarPlanner() {
             aria-expanded={showMonthView}
             aria-label="Month view"
             data-testid="calendar-month-view-toggle"
-            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 flex-col items-center justify-center rounded-lg text-[10px] font-medium text-white/50 transition-all hover:bg-white/5 hover:text-white/80 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 flex-col items-center justify-center rounded-lg text-[10px] font-medium text-ink-mid transition-all hover:bg-white/5 hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <Calendar className="w-4 h-4" aria-hidden="true" />
             <ChevronDown className={`w-3 h-3 transition-transform ${showMonthView ? 'rotate-180' : ''}`} aria-hidden="true" />
@@ -1238,7 +1238,7 @@ export default function CalendarPlanner() {
             className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-4 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               showMap
                 ? 'bg-primary/20 text-primary border-primary/40'
-                : 'text-white/50 border-white/10 hover:bg-white/5 hover:text-white/80'
+                : 'text-ink-mid border-white/10 hover:bg-white/5 hover:text-ink-hi'
             }`}
           >
             <MapIcon className="w-4 h-4" aria-hidden="true" />
@@ -1251,7 +1251,7 @@ export default function CalendarPlanner() {
             aria-expanded={overflowOpen}
             aria-controls={overflowPanelId}
             data-testid="calendar-toolbar-overflow"
-            className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-white/10 px-3 text-sm font-medium text-white/50 transition-all hover:bg-white/5 hover:text-white/80 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:hidden"
+            className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-lg border border-white/10 px-3 text-sm font-medium text-ink-mid transition-all hover:bg-white/5 hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:hidden"
           >
             <MoreHorizontal className="w-4 h-4" aria-hidden="true" />
             More
@@ -1274,7 +1274,7 @@ export default function CalendarPlanner() {
             <button
               onClick={() => setViewMode('calendar')}
               aria-pressed={viewMode === 'calendar'}
-              className={`hidden min-h-[44px] items-center rounded-lg px-4 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:inline-flex ${viewMode === 'calendar' ? 'bg-primary/20 text-primary ring-1 ring-ring/30' : 'text-white/50 hover:bg-white/5'}`}
+              className={`hidden min-h-[44px] items-center rounded-lg px-4 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:inline-flex ${viewMode === 'calendar' ? 'bg-primary/20 text-primary ring-1 ring-ring/30' : 'text-ink-mid hover:bg-white/5'}`}
             >
               <Calendar className="w-4 h-4 inline mr-1.5" />
               Calendar View
@@ -1282,7 +1282,7 @@ export default function CalendarPlanner() {
             <button
               onClick={() => setViewMode('agenda')}
               aria-pressed={viewMode === 'agenda'}
-              className={`hidden min-h-[44px] items-center rounded-lg px-4 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:inline-flex ${viewMode === 'agenda' ? 'bg-primary/20 text-primary ring-1 ring-ring/30' : 'text-white/50 hover:bg-white/5'}`}
+              className={`hidden min-h-[44px] items-center rounded-lg px-4 text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none lg:inline-flex ${viewMode === 'agenda' ? 'bg-primary/20 text-primary ring-1 ring-ring/30' : 'text-ink-mid hover:bg-white/5'}`}
             >
               <MapPin className="w-4 h-4 inline mr-1.5" />
               Agenda View
@@ -1309,7 +1309,7 @@ export default function CalendarPlanner() {
                   className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                     selectMode
                       ? 'bg-primary/20 text-primary ring-1 ring-ring/30'
-                      : 'text-white/50 hover:text-white hover:bg-white/5'
+                      : 'text-ink-mid hover:text-white hover:bg-white/5'
                   }`}
                 >
                   <Check className="w-4 h-4" aria-hidden="true" />
@@ -1319,7 +1319,7 @@ export default function CalendarPlanner() {
                   type="button"
                   onClick={() => setConfirmClearOpen(true)}
                   data-testid="calendar-clear-day"
-                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm text-white/50 transition-colors hover:text-rose-300 hover:bg-rose-400/10 outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none"
+                  className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 text-sm text-ink-mid transition-colors hover:text-rose-300 hover:bg-rose-400/10 outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none"
                 >
                   <Trash2 className="w-4 h-4" aria-hidden="true" />
                   Clear day
@@ -1352,10 +1352,10 @@ export default function CalendarPlanner() {
           <div className="min-w-0 glass-card rounded-2xl p-4 sm:p-6">
             {/* Day Header */}
             <div className="flex items-center justify-between gap-1 mb-5">
-              <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
+              <button onClick={goToPrev} disabled={currentIdx <= 0} aria-label="Previous day" data-testid="calendar-prev-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-ink-mid disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronLeft className="w-5 h-5" /></button>
               <div className="text-center min-w-0 px-1">
                 <h3 className="font-display text-base sm:text-lg font-bold text-white leading-snug">{formatDateLong(selectedDate)}</h3>
-                <p className="text-xs text-white/40">
+                <p className="text-xs text-ink-mid">
                   Day {currentIdx + 1} • {dayPlaceLabel(currentPlan)}
                 </p>
                 {/* day-at-a-glance pill row — composes the existing spend pill +
@@ -1371,7 +1371,7 @@ export default function CalendarPlanner() {
                   {visibleItems.length > 0 && (
                     <span
                       data-testid="calendar-day-glance-count"
-                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/70"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-ink-mid"
                     >
                       {visibleItems.length} item{visibleItems.length === 1 ? '' : 's'}
                     </span>
@@ -1379,7 +1379,7 @@ export default function CalendarPlanner() {
                   {firstStartInfo && (
                     <span
                       data-testid="calendar-day-glance-first-start"
-                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/70"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-ink-mid"
                     >
                       From {firstStartInfo.label}
                     </span>
@@ -1405,7 +1405,7 @@ export default function CalendarPlanner() {
                   {dayWeatherTag && (
                     <span
                       data-testid="calendar-day-weather-tag"
-                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-white/70"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-2.5 py-0.5 text-xs font-medium text-ink-mid"
                     >
                       <span aria-hidden="true">{dayWeatherTag.icon}</span>
                       <span>{dayWeatherTag.label}</span>
@@ -1413,7 +1413,7 @@ export default function CalendarPlanner() {
                   )}
                 </div>
               </div>
-              <button onClick={goToNext} disabled={currentIdx >= TRIP_DATES.length - 1} aria-label="Next day" data-testid="calendar-next-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-white/50 disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronRight className="w-5 h-5" /></button>
+              <button onClick={goToNext} disabled={currentIdx >= TRIP_DATES.length - 1} aria-label="Next day" data-testid="calendar-next-day" className="shrink-0 p-2 rounded-lg hover:bg-white/5 text-ink-mid disabled:opacity-20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><ChevronRight className="w-5 h-5" /></button>
             </div>
 
             {/* — the composer. Moved out from under the list to directly under the day
@@ -1447,7 +1447,7 @@ export default function CalendarPlanner() {
                   type="button"
                   onClick={handleAddItem}
                   data-testid="calendar-add-item"
-                  className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-white/10 px-3 py-2.5 text-xs text-white/50 transition-all hover:border-ring/30 hover:bg-primary/5 hover:text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="shrink-0 inline-flex items-center gap-1.5 rounded-xl border border-dashed border-white/10 px-3 py-2.5 text-xs text-ink-mid transition-all hover:border-ring/30 hover:bg-primary/5 hover:text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                   Details
@@ -1463,7 +1463,7 @@ export default function CalendarPlanner() {
                   here, deliberately) so no width can ever clip it mid-word. */}
               <p
                 data-testid="calendar-quick-add-hint"
-                className="mt-1 text-[11px] leading-snug text-white/40"
+                className="mt-1 text-[11px] leading-snug text-ink-mid"
               >
                 Tip: start with a time — “7pm dinner”
               </p>
@@ -1489,7 +1489,7 @@ export default function CalendarPlanner() {
               <AlertDialogContent className="glass-card-dark border-white/10 text-white" data-testid="calendar-bulk-delete-confirm">
                 <AlertDialogHeader>
                   <AlertDialogTitle>Delete selected items?</AlertDialogTitle>
-                  <AlertDialogDescription className="text-white/60">
+                  <AlertDialogDescription className="text-ink-mid">
                     This removes the {selectedIds.size} selected item{selectedIds.size === 1 ? '' : 's'} from {formatDateLong(selectedDate)}. You can undo it right after.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -1513,7 +1513,7 @@ export default function CalendarPlanner() {
                       ACTUALLY be deleted, which is the whole stored day including anything the
                       active filter is hiding. Filtering this number would understate a
                       destructive action. */}
-                  <AlertDialogDescription className="text-white/60">
+                  <AlertDialogDescription className="text-ink-mid">
                     This removes all {dayItems.length} item{dayItems.length === 1 ? '' : 's'} planned for {formatDateLong(selectedDate)}. You can undo it right after.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
@@ -1549,7 +1549,7 @@ export default function CalendarPlanner() {
                     >
                       <span className={colors.text} aria-hidden="true">{CATEGORY_ICON_MAP[item.category]}</span>
                       <span className="text-sm font-medium text-white truncate">{item.title}</span>
-                      <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-white/55" aria-hidden="true">
+                      <span className="ml-auto shrink-0 text-[10px] uppercase tracking-wide text-ink-mid" aria-hidden="true">
                         {isStartDay ? `Until ${formatDate(spanEnd)}` : `${formatDate(spanStart)} – ${formatDate(spanEnd)}`}
                       </span>
                     </div>
@@ -1571,22 +1571,22 @@ export default function CalendarPlanner() {
                   <div className="space-y-2" ref={listRef}>
                     {visibleItems.length === 0 ? (
                       <div className="text-center py-12" data-testid="calendar-empty-state">
-                        <Calendar className="w-10 h-10 text-white/10 mx-auto mb-3" />
+                        <Calendar className="w-10 h-10 text-ink-lo mx-auto mb-3" />
                         {/* 🔴: `dayItems` (unfiltered) is LOAD-BEARING here — it is the only
                             thing that tells these two states apart. Route it through the filtered
                             set and both branches collapse into "no activities planned", which
                             would tell a traveller their day is empty when it is not. */}
                         {dayItems.length === 0 ? (
                           <>
-                            <p className="text-white/30 text-sm">No activities planned for this day</p>
-                            <p className="text-white/20 text-xs mt-1">Click the button below to start planning</p>
+                            <p className="text-ink-mid text-sm">No activities planned for this day</p>
+                            <p className="text-ink-lo text-xs mt-1">Click the button below to start planning</p>
                           </>
                         ) : (
                           /* Day HAS items, but none match the active author filter (read-only
                              view filter,) — the stored items are untouched. */
                           <>
-                            <p className="text-white/30 text-sm">No activities match this filter</p>
-                            <p className="text-white/20 text-xs mt-1">Switch the author filter to “All” to see every item</p>
+                            <p className="text-ink-mid text-sm">No activities match this filter</p>
+                            <p className="text-ink-lo text-xs mt-1">Switch the author filter to “All” to see every item</p>
                           </>
                         )}
                       </div>
@@ -1602,7 +1602,7 @@ export default function CalendarPlanner() {
                           {isNewPhase && (
                             <p
                               data-testid={`calendar-phase-header-${phase}-${item.id}`}
-                              className="mt-3 mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-white/35 first:mt-0"
+                              className="mt-3 mb-1.5 px-1 text-[10px] font-semibold uppercase tracking-widest text-ink-mid first:mt-0"
                             >
                               {PHASE_LABELS[phase]}
                             </p>
@@ -1671,7 +1671,7 @@ export default function CalendarPlanner() {
           className={`lg:hidden fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl glass-card-dark border-t border-white/10 shadow-2xl transition-[height] duration-300 motion-reduce:transition-none ${mapExpanded ? 'h-[85vh]' : 'h-[42vh]'}`}
         >
           <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 shrink-0">
-            <span className="flex items-center gap-1.5 text-xs font-medium text-white/70">
+            <span className="flex items-center gap-1.5 text-xs font-medium text-ink-hi">
               <MapIcon className="w-3.5 h-3.5" />
               Map · {formatDate(selectedDate)}
             </span>
@@ -1682,7 +1682,7 @@ export default function CalendarPlanner() {
                 aria-expanded={mapExpanded}
                 aria-label={mapExpanded ? 'Collapse map' : 'Expand map'}
                 data-testid="plan-map-sheet-expand"
-                className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="p-1.5 rounded-lg hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <ChevronDown className={`w-4 h-4 transition-transform ${mapExpanded ? '' : 'rotate-180'}`} />
               </button>
@@ -1691,7 +1691,7 @@ export default function CalendarPlanner() {
                 onClick={() => setShowMap(false)}
                 aria-label="Hide map"
                 data-testid="plan-map-sheet-close"
-                className="p-1.5 rounded-lg hover:bg-white/10 text-white/50 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="p-1.5 rounded-lg hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-4 h-4" />
               </button>

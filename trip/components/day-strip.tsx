@@ -107,7 +107,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
                   ? country === 'nepal'
                     ? 'bg-himalaya-500/10 text-himalaya-400 hover:bg-himalaya-500/20'
                     : 'bg-sakura-400/10 text-sakura-400 hover:bg-sakura-400/20'
-                  : 'text-white/50 hover:bg-white/5'
+                  : 'text-ink-lo hover:bg-white/5'
             }`}
           >
             {/* Today marker: a small pill above the weekday, on the matching chip only. */}
@@ -125,7 +125,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
                 wrapper, above which the axe pack always runs; Travel Mode has no such wrapper
                 (the strip is the ONLY day picker, at every width), so it's genuinely visible to
                 a real user and must clear contrast on its own. */}
-            <span className="text-[10px] uppercase tracking-wide text-white/60">{weekday}</span>
+            <span className="text-[10px] uppercase tracking-wide text-ink-mid">{weekday}</span>
             <span className="text-base leading-none">{dayNum}</span>
             {/* Country dot: himalaya (nepal) / sakura (japan). */}
             <span
@@ -136,7 +136,7 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             {count > 0 && (
               <span
                 className={`absolute top-1 right-1 min-w-[1rem] h-4 px-1 flex items-center justify-center rounded-full text-[9px] font-semibold ${
-                  isSelected ? 'bg-primary text-primary-foreground' : 'bg-white/10 text-white/70'
+                  isSelected ? 'bg-primary text-primary-foreground' : 'bg-white/10 text-ink-mid'
                 }`}
                 aria-hidden="true"
               >

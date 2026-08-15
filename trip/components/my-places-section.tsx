@@ -73,7 +73,7 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
     >
       {/* Gradient banner (no photo — CSS art). */}
       <div className={`relative aspect-[16/7] bg-gradient-to-br ${bannerGradient(place.legId)} flex items-center justify-center`}>
-        <MapPin className="w-8 h-8 text-white/60" aria-hidden="true" />
+        <MapPin className="w-8 h-8 text-ink-mid" aria-hidden="true" />
         <div className="absolute top-3 left-3">
           <AddedBadge added={placements.length > 0} testId={`myplace-added-${place.id}`} />
         </div>
@@ -82,7 +82,7 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
       <div className="p-4 flex flex-col gap-3 flex-1">
         <div>
           <h3 className="font-display font-bold text-white text-sm leading-tight">{place.name}</h3>
-          {place.note && <p className="text-[11px] text-white/40 mt-1 italic line-clamp-2">{place.note}</p>}
+          {place.note && <p className="text-[11px] text-ink-mid mt-1 italic line-clamp-2">{place.note}</p>}
         </div>
 
         <div className="mt-auto flex items-center gap-2">
@@ -93,7 +93,7 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
             aria-haspopup="dialog"
             data-testid={`myplace-add-${place.id}`}
             aria-label={`Add ${place.name} to your plan`}
-            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-white/70 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-ink-hi hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             {placements.length > 0 ? 'Added · edit plan' : 'Add to plan'}
           </button>
@@ -104,7 +104,7 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
               rel="noopener noreferrer"
               data-testid={`myplace-link-${place.id}`}
               aria-label={`Open ${place.name} in Google Maps`}
-              className="shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:bg-white/10 hover:text-primary transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-xl bg-white/5 border border-white/10 text-ink-mid hover:bg-white/10 hover:text-primary transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <ExternalLink className="w-4 h-4" aria-hidden="true" />
             </a>
@@ -114,7 +114,7 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
             onClick={onDelete}
             data-testid={`myplace-delete-${place.id}`}
             aria-label={`Delete ${place.name}`}
-            className="shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-xl bg-white/5 border border-white/10 text-white/50 hover:bg-red-500/20 hover:text-red-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-xl bg-white/5 border border-white/10 text-ink-mid hover:bg-red-500/20 hover:text-red-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <Trash2 className="w-4 h-4" aria-hidden="true" />
           </button>

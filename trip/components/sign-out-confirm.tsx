@@ -88,7 +88,7 @@ export default function SignOutConfirm({
       >
         <AlertDialogHeader>
           <AlertDialogTitle>{forgetDevice ? 'Forget this device?' : 'Sign out of this device?'}</AlertDialogTitle>
-          <AlertDialogDescription className="text-white/60">
+          <AlertDialogDescription className="text-ink-mid">
             {forgetDevice
               ? "This does everything signing out does, and also permanently deletes every photo stored on this device. Your key still gets you back into your account, but neither the plan nor these photos come back unless the trip was synced elsewhere first."
               : "This removes this trip's data from this device. Your key gets you back into your account, but the plan itself won't come back unless it's synced to another device."}

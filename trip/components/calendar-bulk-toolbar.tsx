@@ -38,7 +38,7 @@ export function CalendarBulkToolbar({ selectedCount, selectedDate, onBulkMove, o
       <span
         aria-live="polite"
         data-testid="calendar-bulk-count"
-        className="text-xs font-medium text-white/70 px-1"
+        className="text-xs font-medium text-ink-mid px-1"
       >
         {selectedCount} selected
       </span>
@@ -75,7 +75,7 @@ export function CalendarBulkToolbar({ selectedCount, selectedDate, onBulkMove, o
         onClick={onRequestDelete}
         disabled={selectedCount === 0}
         data-testid="calendar-bulk-delete"
-        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-white/50 hover:text-rose-300 hover:bg-rose-400/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none disabled:opacity-40 disabled:hover:bg-transparent"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-ink-mid hover:text-rose-300 hover:bg-rose-400/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none disabled:opacity-40 disabled:hover:bg-transparent"
       >
         <Trash2 className="w-3.5 h-3.5" />
         Delete selected

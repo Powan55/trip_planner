@@ -70,7 +70,7 @@ export default function TravelTonightCard() {
       >
         {tonightItem.title}
       </h2>
-      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-white/55">
+      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-mid">
         {typeof start === 'number' && (
           <span className="font-mono">{formatTimeAmPm(start)}</span>
         )}

@@ -69,7 +69,7 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
                     content-semantic label in icon form — so it keeps the ribbon's gold. */}
                 {spot.mustSee && !spot.image && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
               </h3>
-              <p className="text-[11px] text-white/40">{spot.city}, {spot.country}</p>
+              <p className="text-[11px] text-ink-mid">{spot.city}, {spot.country}</p>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1.5">
@@ -82,22 +82,22 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
         </div>
 
         <div className="space-y-2 text-xs">
-          <div className="flex items-center gap-2 text-white/50">
+          <div className="flex items-center gap-2 text-ink-mid">
             <Clock className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
             <span>{spot.bestTime}</span>
           </div>
-          <div className="flex items-center gap-2 text-white/50">
+          <div className="flex items-center gap-2 text-ink-mid">
             <Aperture className="w-3.5 h-3.5 text-purple-400" />
             <span>{spot.style}</span>
           </div>
-          <div className="flex items-center gap-2 text-white/50">
+          <div className="flex items-center gap-2 text-ink-mid">
             <Camera className="w-3.5 h-3.5 text-blue-400" />
             <span>{spot.gear}</span>
           </div>
         </div>
 
         <div className="mt-3 p-2.5 rounded-lg bg-white/5">
-          <p className="text-[11px] text-white/40 italic">💡 {spot.tip}</p>
+          <p className="text-[11px] text-ink-mid italic">💡 {spot.tip}</p>
         </div>
       </button>
 
@@ -239,28 +239,28 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
         {/* Search + sort */}
         <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo pointer-events-none" />
             <input
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search spots, styles, tips…"
               aria-label="Search photography guide"
-              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/40 hover:text-white/70 hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-ink-mid hover:text-ink-hi hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <SlidersHorizontal className="w-4 h-4 text-white/30" />
+            <SlidersHorizontal className="w-4 h-4 text-ink-mid" />
             <label htmlFor="photo-sort" className="sr-only">Sort</label>
             <select
               id="photo-sort"
@@ -285,11 +285,11 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                   activeCity === city
                     ? 'text-primary bg-primary/10 ring-1 ring-ring/30'
-                    : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                    : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
                 }`}
               >
                 {city === 'All' ? 'All cities' : city}
-                <span className="ml-1.5 text-white/50 font-mono">{cityCounts[city] ?? 0}</span>
+                <span className="ml-1.5 text-ink-mid font-mono">{cityCounts[city] ?? 0}</span>
               </button>
             ))}
           </div>
@@ -305,11 +305,11 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                 activeCategory === cat
                   ? 'text-primary bg-primary/10 ring-1 ring-ring/30'
-                  : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                  : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
               }`}
             >
               {cat}
-              <span className="ml-1.5 text-white/50 font-mono">{categoryCounts[cat] ?? 0}</span>
+              <span className="ml-1.5 text-ink-mid font-mono">{categoryCounts[cat] ?? 0}</span>
             </button>
           ))}
         </div>
@@ -322,9 +322,9 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
           </div>
         ) : (
           <div className="text-center py-16 px-6 rounded-2xl glass-card">
-            <SearchX className="w-10 h-10 mx-auto mb-4 text-white/20" />
-            <p className="text-white/60 font-medium mb-1">No spots match your filters</p>
-            <p className="text-white/35 text-sm mb-5">Try a different search, city, or category.</p>
+            <SearchX className="w-10 h-10 mx-auto mb-4 text-ink-lo" />
+            <p className="text-ink-mid font-medium mb-1">No spots match your filters</p>
+            <p className="text-ink-lo text-sm mb-5">Try a different search, city, or category.</p>
             <button
               type="button"
               onClick={resetFilters}
