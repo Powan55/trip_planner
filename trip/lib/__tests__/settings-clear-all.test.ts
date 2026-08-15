@@ -326,7 +326,7 @@ describe('budget.reset', () => {
     expect(raw).toEqual({
       version: 1,
       homeCurrency: 'USD',
-      rates: { NPR: 138, JPY: 155 },
+      rates: { ...SEED_RATES },
       legBudgets: { nepal: 0, japan: 0 },
       categoryBudgets: {},
     });

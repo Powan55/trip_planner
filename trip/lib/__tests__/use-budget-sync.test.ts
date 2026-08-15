@@ -48,6 +48,7 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 
 import { useBudget } from '@/hooks/use-budget';
 import { STORAGE_KEYS } from '@/core/storage/gateway';
+import { SEED_RATES } from '@/core/budget/model';
 
 interface HookHandle {
   current: BudgetStore;
@@ -139,7 +140,7 @@ describe('DORMANT — no stamping, byte-for-byte S140 (D-038)', () => {
     expect(raw).toEqual({
       version: 1,
       homeCurrency: 'USD',
-      rates: { NPR: 138, JPY: 155 },
+      rates: { ...SEED_RATES },
       legBudgets: { nepal: 20000, japan: 0 },
       categoryBudgets: {},
     });
