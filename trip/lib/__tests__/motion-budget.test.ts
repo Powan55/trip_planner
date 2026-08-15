@@ -106,7 +106,11 @@ describe('the tier gate — every route is tiered, and an untiered one fails her
   it('an unknown route is Tier 3, not Tier 1', () => {
     // The direction of the default is the point: a screen nobody designed gets silence, not
     // the loudest permissions in the product.
-    expect(tierForPath('/passport')).toBe(3);
+    //
+    // This used to name `/passport` as its example of an untiered route. Issue #5 built that
+    // route and tiered it, so the example moved rather than the rule — and the route-coverage
+    // test above is what caught the stale example, exactly as designed.
+    expect(tierForPath('/atlas')).toBe(3);
     expect(tierForPath('/some-route-added-next-year')).toBe(3);
   });
 
@@ -120,6 +124,11 @@ describe('the tier gate — every route is tiered, and an untiered one fails her
     expect(tierForPath('/')).toBe(1);
     expect(tierForPath('/recap/')).toBe(1);
     expect(tierForPath('/trips/')).toBe(1);
+    // Issue #5 — the passport is a keepsake surface, tiered with /recap and /trips. What it
+    // spends the tier on is the entrance; the stamp unlock is a one-shot completion and does
+    // not depend on it.
+    expect(tierForPath('/passport/')).toBe(1);
+    expect(isMotionAllowed('entrance', tierForPath('/passport/'))).toBe(true);
     expect(tierForPath('/nepal/')).toBe(2);
     expect(tierForPath('/map/')).toBe(2);
     expect(tierForPath('/plan/')).toBe(3);

@@ -114,6 +114,20 @@ C.heroScrim90 = over(C.bg, '#FFFFFF', 0.90); // the ramp's top/bottom, under the
 C.heroHiFading = over(C.textHi, C.heroScrim76, 0.95);
 C.heroMidFading = over(C.textMid, C.heroScrim76, 0.95);
 
+// ---- issue #5, the passport sheet DURING its entrance -------------------------------
+// Same mechanism as the two rows above and the reason it is measured on this page too: a
+// wrapper opacity multiplies every descendant's alpha, so <Reveal>'s FADE_FLOOR (0.95) does
+// not merely fade the ink — it composites THE WHOLE SHEET, paper included, toward the dark
+// page field behind it. Both sides of the pair move, which is why measuring the ink alone
+// would be measuring the wrong thing.
+//
+// The ~3% of headroom this costs is real but small; it is measured rather than waved off
+// because the light material is the one surface where a darkening composite works against
+// the text instead of for it. The GREEN ink is the tightest of the three (5.34 at rest), so
+// it is the one that would bind first if --paper or the floor ever moved.
+C.paperFading = over(C.paper, C.bg, 0.95);
+C.inkGreenFading = over(C.inkGreen, C.bg, 0.95);
+
 // ---- issue #3, the Tier-2 photographic page header (.photo-header in globals.css) ----
 // A Tier-2 header band's HEIGHT is per-route, so bottom-alignment alone is not a
 // guarantee — the text block therefore carries its own local scrim (the ruled
@@ -278,6 +292,19 @@ const pairs = [
   ['nepal stamp ink on paper', C.inkNepal, C.paper, 4.5],
   ['japan stamp ink on paper', C.inkJapan, C.paper, 4.5],
   ['green stamp ink on paper', C.inkGreen, C.paper, 4.5],
+  // Issue #5 gives the block above its first consumers (/passport). What the page ADDS is the
+  // REVERSED pairing — the "New" badge is a solid ink pill with the page colour as its label —
+  // and the stamp's ring, which is a non-text edge. Contrast is symmetric, so each badge row is
+  // the same number as its ink row above; they are listed anyway because a pairing that is only
+  // true by an unstated symmetry is the kind that gets broken by "let me lighten the badge text".
+  ['paper label on a nepal ink badge', C.paper, C.inkNepal, 4.5],
+  ['paper label on a japan ink badge', C.paper, C.inkJapan, 4.5],
+  ['paper label on a green ink badge', C.paper, C.inkGreen, 4.5],
+  ['stamp ring (japan ink) vs paper, 1.4.11', C.inkJapan, C.paper, 3],
+  ['stamp ring (green ink) vs paper, 1.4.11', C.inkGreen, C.paper, 3],
+  ['empty-slot frame (paper-lo) vs paper, 1.4.11', C.paperLo, C.paper, 3],
+  ['tightest stamp ink (green), darkest reveal frame', C.inkGreenFading, C.paperFading, 4.5],
+  ['the sheet itself vs the canvas, darkest reveal frame', C.paperFading, C.bg, 3],
 
   ['-- NON-TEXT UI, WCAG 1.4.11 (needs 3:1) --'],
   ['focus ring vs bg', C.marigold, C.bg, 3],
@@ -303,6 +330,13 @@ const guards = [
   // passing, the scrim got darker and hero copy can be re-tiered — which is a decision
   // somebody should make on purpose, having seen this line flip.
   ['--text-lo as hero copy over the photo', C.textLo, C.heroScrim76, 4.5],
+  // Issue #5 / D-294. The app-wide :focus-visible fallback is MARIGOLD, which is a 12:1 signal
+  // on the near-black canvas and nothing at all on parchment — a light material dropped into a
+  // dark-only app inherits chrome that was measured against a different surface. globals.css
+  // therefore overrides the ring to --ink-nepal inside `.passport-page`, and this is what makes
+  // that override load-bearing rather than a preference: if this guard ever starts passing,
+  // marigold became legible on the page and somebody should decide that on purpose.
+  ['marigold focus ring on parchment (=> use --ink-nepal)', C.marigold, C.paper, 3],
 ];
 
 let fail = 0;
@@ -324,7 +358,8 @@ for (const [label, fg, bg, t] of guards) {
 console.log('\ncomposited worst-case pixels:');
 for (const k of ['npScrim72', 'npScrim82', 'jpScrim72', 'jpScrim82', 'rowHover', 'rowSel', 'chip',
                  'docsRowHover', 'docsNoteFill', 'npHdrMin', 'jpHdrMin', 'npHdrRest', 'jpHdrRest',
-                 'heroScrim76', 'heroScrim90', 'heroHiFading', 'heroMidFading'])
+                 'heroScrim76', 'heroScrim90', 'heroHiFading', 'heroMidFading',
+                 'paperFading', 'inkGreenFading'])
   console.log('  ' + k.padEnd(11), C[k]);
 console.log('\nhex -> hsl (the form the shadcn tokens in globals.css take):');
 for (const k of Object.keys(C)) console.log('  ' + k.padEnd(11), C[k], ' hsl(' + hsl(C[k]) + ')');
