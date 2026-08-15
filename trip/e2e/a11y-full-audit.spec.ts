@@ -84,6 +84,9 @@ async function expectAxeClean(page: Page, label: string, testInfo: TestInfo) {
 // dark-only), so every contrast assumption the dark chrome was measured against is inverted on
 // it. scripts/contrast-tokens.mjs measures the pairs from the token values; this scans what the
 // browser actually composited.
+//
+// `/profile/` (issue #4) joins the list rather than getting its own pack: it is a form, and a
+// form is the shape axe has the most to say about — labels, names, the invalid state.
 const UNGATED_ROUTES = [
   '/flights/',
   '/safety/',
@@ -91,6 +94,7 @@ const UNGATED_ROUTES = [
   '/settings/',
   '/share/',
   '/passport/',
+  '/profile/',
 ] as const;
 
 for (const route of UNGATED_ROUTES) {

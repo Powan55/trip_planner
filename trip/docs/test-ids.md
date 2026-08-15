@@ -1220,3 +1220,27 @@ The motion is capped at the first three fresh stamps (D-293's entrance budget) a
 `prefers-reduced-motion` the CSS press collapses to its settled end state and `<CelebrationBurst>`
 (reused unmodified) renders nothing at all — so on that path `data-fresh` and the badge are the
 whole signal, which is the point of them being text.
+
+---
+
+## 44. Profile — places you have already been: `components/visited-places-panel.tsx` (route: `/profile`), issue #4
+
+The write surface for the lifetime visit set (gateway key 32, D-314). Namespaced `visited-*`.
+The island is `ssr:false`, so every id below is absent from the route's cached HTML and present
+once it hydrates — which is why `visited-places-panel` is also this route's
+`ROUTE_BODY_ANCHOR` entry in `e2e/pwa.spec.ts`.
+
+| testid | element | notes |
+|---|---|---|
+| `visited-places-panel` | the section `<section>` | Present in BOTH states, including the pre-hydration "Loading your travel history…" one, so it is safe to wait on before the store has been read. |
+| `visited-status` | the `role="status"` live region | Visually hidden, always in the DOM. Carries every outcome: added / already there / refused / removed. Its `<p>` is keyed by a counter, so the SAME sentence twice is a real DOM change and is announced twice. |
+| `visited-country-form` / `visited-city-form` | the two `<form>`s | Submit them rather than clicking, if a spec needs the Enter-key path. |
+| `visited-country-select` | the country `<select>` | Options are the bundled ISO list (`lib/iso-countries.ts`, 249 entries) MINUS everything already recorded, plus a `value=""` placeholder. A recorded country is therefore absent from the options — that is the assertion for "cannot be added twice", not an error message. |
+| `visited-country-add` | the country submit `<button>` | `disabled` while the select is on the placeholder. |
+| `visited-city-input` | the free-text city `<input>` | No `maxLength`, deliberately: an over-long paste must be REFUSED with words, not silently truncated by the browser. Carries `aria-invalid` + `aria-describedby="visited-city-error"` while a refusal is showing. |
+| `visited-city-add` | the city submit `<button>` | Never disabled — an empty submit is answered with "Type a city name first." |
+| `visited-city-error` | the inline refusal `<p>` | Rendered only while a refusal stands; cleared by the next keystroke. The same sentence also goes to `visited-status`. |
+| `visited-country-list` / `visited-city-list` | the `<ul>` of recorded entries | Insertion order, which is the store's own contract. Absent when the group is empty. |
+| `visited-country-empty` / `visited-city-empty` | the empty-state `<p>` | Mutually exclusive with the list above it. |
+| `visited-country-count` / `visited-city-count` | the "N recorded" `<span>` | |
+| `visited-country-remove-{name}` / `visited-city-remove-{name}` | the per-row remove `<button>` | The qualifier is the entry's own display name VERBATIM — spaces, accents and all (`visited-city-remove-New York`), following this file's per-item rule. Its accessible name is "Remove {name}". After a removal, focus moves to that group's add control, because the button holding focus has just been unmounted. |

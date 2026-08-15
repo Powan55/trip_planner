@@ -32,7 +32,7 @@ import { useViewTransition } from '@/hooks/use-view-transition';
 const GROUPS: { title: string; hrefs: string[] }[] = [
   { title: 'Plan & prep', hrefs: ['/flights/', '/packing/', '/checklist/', '/safety/', '/share/'] },
   { title: 'Memories', hrefs: ['/journal/', '/recap/'] },
-  { title: 'Account', hrefs: ['/trips/', '/settings/'] },
+  { title: 'Account', hrefs: ['/trips/', '/profile/', '/settings/'] },
 ];
 
 export default function MoreList() {

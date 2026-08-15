@@ -12,6 +12,7 @@ import {
   Backpack,
   FileCheck2,
   Inbox,
+  User,
   type LucideIcon,
 } from 'lucide-react';
 import { isDefaultTrip } from '@/core/trips';
@@ -75,6 +76,9 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Documents', href: '/checklist/', icon: FileCheck2, primary: false }, // — was palette-only
   { label: 'Shared Links', href: '/share/', icon: Inbox, primary: false }, // — was palette-only
   { label: 'Trips', href: '/trips/', icon: Luggage, primary: false }, // →: no longer customPrimary
+  // Issue #4 — the lifetime travel record. A companion, never a primary: it is a
+  // write-once-in-a-while surface, and the four daily-use seats are spoken for.
+  { label: 'Profile', href: '/profile/', icon: User, primary: false },
   { label: 'Settings', href: '/settings/', icon: Settings, primary: false }, // — companion (More page + palette)
 ];
 
