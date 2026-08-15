@@ -331,6 +331,10 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
     anchor: '[data-testid="packing-checklist"]',
     what: 'the PackingChecklist island (app/packing/sections.tsx -> @/components/packing-checklist)',
   },
+  '/passport/': {
+    anchor: '[data-testid="passport-stamps"]',
+    what: 'the PassportStamps island (app/passport/sections.tsx -> @/components/passport-stamps)',
+  },
   '/plan/': {
     anchor: '[data-testid="calendar-toolbar"]',
     what: 'the CalendarPlanner island (app/plan/sections.tsx -> @/components/calendar-planner)',

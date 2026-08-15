@@ -79,7 +79,19 @@ async function expectAxeClean(page: Page, label: string, testInfo: TestInfo) {
 }
 
 // ── The previously-ungated content routes (traveler state) ──────────────────────────────
-const UNGATED_ROUTES = ['/flights/', '/safety/', '/recap/', '/settings/', '/share/'] as const;
+// Issue #5 adds `/passport/`, and it is the one entry here that is not merely "another route
+// nobody scanned yet": it is the app's ONLY light surface (D-294's parchment exception to
+// dark-only), so every contrast assumption the dark chrome was measured against is inverted on
+// it. scripts/contrast-tokens.mjs measures the pairs from the token values; this scans what the
+// browser actually composited.
+const UNGATED_ROUTES = [
+  '/flights/',
+  '/safety/',
+  '/recap/',
+  '/settings/',
+  '/share/',
+  '/passport/',
+] as const;
 
 for (const route of UNGATED_ROUTES) {
   test(`axe: ${route} has zero serious/critical (traveler state)`, async ({ page }, testInfo) => {

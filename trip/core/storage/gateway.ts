@@ -391,6 +391,28 @@ export const STORAGE_KEYS = {
    * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
    */
   visitConfirmations: 'tripPlannerVisitConfirmations',
+  /**
+   * localStorage — JSON `string[]`, the countries whose passport stamp has ALREADY BEEN SHOWN
+   * (passport stamps, key 35; issue #5). Not a second copy of the visit set and never a source of
+   * truth for where anyone has been: key 32 owns that list, this one only remembers which of its
+   * entries the passport page has already greeted, so a stamp can animate on the visit that first
+   * counts a country and be simply present on every later one.
+   *
+   * LIFETIME-SCOPED, for a reason that is behavioural and not symmetry: key 32 survives
+   * `wipeAllTripData()` and `signOut()` (D-314), so a trip-scoped or session-scoped record here
+   * would come back empty against a country list that did not — and the next passport view would
+   * re-unlock every country the traveller has ever visited, at once. Held under the same three
+   * structural guarantees as its two siblings: not in `TripScopedSlot`, no `trip:` prefix, not
+   * among the teardown's removals.
+   *
+   * ABSENT IS NOT EMPTY, and that distinction is the whole feature. A missing slot means "this
+   * device has never rendered the passport", which SEEDS (every country already recorded is
+   * treated as history and celebrates nothing); `[]` means "seeded, and nothing has been greeted
+   * yet". `core/places/passport.ts` owns that rule — the gateway is byte-transport only. Values are
+   * the display strings key 32 stores, verbatim, so no second copy of its fold rule lives here.
+   * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   */
+  passportStamps: 'tripPlannerPassportStamps',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
