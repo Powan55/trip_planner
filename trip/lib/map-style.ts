@@ -23,6 +23,9 @@
 // are needed for a raster source.
 
 import type { MarkerCategory } from '@/lib/map-data';
+// The single basePath source (lib/utils.ts). Pure — no React, no browser API, no
+// 'use client' — so importing it keeps this module safe to import from anywhere.
+import { withBasePath } from '@/lib/utils';
 
 // Brand hex, mirrored from tailwind.config.ts (navy/gold/himalaya/sakura). These
 // are READ copies of's tokens — the config is the source of truth; we do
@@ -72,15 +75,35 @@ export const MAP_ATTRIBUTION =
 export function buildMapStyle(): Record<string, unknown> {
   return {
     version: 8,
-    // Glyphs endpoint (free, keyless) for the symbol layers that render cluster
-    // counts and numbered day markers. MapLibre's own demotiles font server
-    // serves valid SDF glyph PBFs for the exact fonts we use ("Noto Sans
-    // Regular"/"Noto Sans Bold"). NOTE: fonts.openmaptiles.org was rejected — it
-    // returns an HTML page (text/html) for these font stacks, which MapLibre
-    // parses as protobuf and throws "Unimplemented type: 4", silently breaking
-    // every symbol layer (verified in headless). demotiles returns a real PBF
-    // (application/octet-stream), so counts/numbers render and the error is gone.
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    // Glyphs endpoint for the symbol layers that render cluster counts and
+    // numbered day markers. SELF-HOSTED under public/font/ — the PBFs are ours,
+    // served same-origin, no third-party host on the runtime path.
+    //
+    // MEASURED before deciding (issue #8): both label fields are NUMERIC
+    // ('point_count_abbreviated', 'day' — item titles render in HTML popups, not
+    // as SDF glyphs), so range 0-255 of two stacks is everything the map can ever
+    // request: "Noto Sans Regular" 76,580 B + "Noto Sans Bold" 81,170 B =
+    // 157,750 B (154.05 KiB). No other range is ever fetched.
+    //
+    // The byte count decided it, but the stronger reason is an OFFLINE DEFECT the
+    // old cross-origin URL had: the service worker's fetch handler returns
+    // cross-origin requests untouched as its FIRST line (scripts/gen-sw.mjs), so
+    // demotiles glyphs were never cacheable and the numbered day markers rendered
+    // BLANK offline. Same-origin PBFs are precached with the rest of the shell,
+    // so labels now survive the offline state the app promises.
+    //
+    // Historical, so it is not re-litigated: demotiles was chosen over
+    // fonts.openmaptiles.org, which returns an HTML page (text/html) for these
+    // stacks — MapLibre parses it as protobuf and throws "Unimplemented type: 4",
+    // silently breaking every symbol layer. Both are moot now.
+    //
+    // PATH SHAPE: MapLibre substitutes the fontstack into the template RAW
+    // (`url.replace('{fontstack}', stack)`, no encodeURIComponent), so the
+    // directory on disk carries literal spaces — public/font/Noto Sans Bold/
+    // 0-255.pbf — and the browser percent-encodes the space on the wire. The
+    // basePath prefix is mandatory: this deploys to GitHub Pages under a subpath,
+    // where a bare '/font/...' 404s.
+    glyphs: withBasePath('/font/{fontstack}/{range}.pbf'),
     sources: {
       'carto-dark': {
         type: 'raster',
