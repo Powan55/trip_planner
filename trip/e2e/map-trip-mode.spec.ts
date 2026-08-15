@@ -6,8 +6,11 @@ import type { Page } from '@playwright/test';
  *   (a) search-within-map — type a known place, select it, camera flies + popup opens;
  *       selecting a result that's filtered out resets the category filter to 'All'.
  *   (b) Directions link in the popup — byte-exact D-074 URL, target=_blank, rel~noopener.
- *   (c) live-location (GeolocateControl) — verify-only: present, inactive on load,
- *       nothing written to localStorage.
+ *   (c) live-location (GeolocateControl) — verify-only: present, inactive on load, and the
+ *       storage guarantee, AMENDED by D-320 (issue #30) from "nothing written" to "nothing
+ *       COORDINATE-shaped written". #30's visit autocount may write its own two lifetime keys on
+ *       any route while the trip clock is inside the trip window; the GeolocateControl itself
+ *       still writes nothing, and no `GeolocationPosition` field may reach disk from either.
  *   (d) schematic-line caveat — shown only while the "My itinerary" overlay is on.
  *
  * Settle discipline mirrors pin-drop.spec.ts / plan-map-split.spec.ts: navigate to
@@ -144,24 +147,56 @@ test.describe('S151 · map trip-mode upgrades', () => {
     expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
   });
 
-  test('live-location: GeolocateControl present but inactive on load; nothing persisted', async ({ page }) => {
+  /**
+   * The two keys issue #30 owns (gateway keys 32 and 33). They are EXCLUDED from the snapshot
+   * comparison below rather than asserted absent, because whether they exist depends on the date
+   * the suite runs at: inside the trip window the boot-once visit autocount writes them on every
+   * route, this one included. Excluding them also makes the check immune to the race between the
+   * island's mount and the first snapshot.
+   */
+  const VISIT_AUTOCOUNT_KEYS = ['tripPlannerLifetimeVisits', 'tripPlannerVisitConfirmations'];
+
+  test('live-location: GeolocateControl present but inactive on load; nothing geo-shaped persisted', async ({
+    page,
+  }) => {
     const errors = trackErrors(page);
     await gotoMap(page);
 
-    const keysBefore = await page.evaluate(() => Object.keys(window.localStorage).sort());
+    const snapshot = () =>
+      page.evaluate(
+        (owned: string[]) => Object.keys(window.localStorage).filter((k) => !owned.includes(k)).sort(),
+        VISIT_AUTOCOUNT_KEYS,
+      );
+    const keysBefore = await snapshot();
 
     const geo = page.locator('.maplibregl-ctrl-geolocate');
     await expect(geo).toBeVisible();
     await expect(geo).not.toHaveClass(/maplibregl-ctrl-geolocate-active/);
     await expect(geo).not.toHaveClass(/maplibregl-ctrl-geolocate-background/);
 
-    // Give the map a moment to fully settle (style load, initial fitBounds) —
-    // geolocation is permission-gated and never auto-fires, so storage must be
-    // byte-identical to the pre-settle snapshot: nothing new, nothing geo-shaped.
+    // Give the map a moment to fully settle (style load, initial fitBounds) — the GeolocateControl
+    // is permission-gated and never auto-fires, so storage must be byte-identical to the pre-settle
+    // snapshot: nothing new, nothing geo-shaped.
     await page.waitForTimeout(500);
-    const keysAfter = await page.evaluate(() => Object.keys(window.localStorage).sort());
+    const keysAfter = await snapshot();
     expect(keysAfter).toEqual(keysBefore);
     expect(keysAfter.some((k) => /geo|position/i.test(k))).toBe(false);
+
+    /**
+     * D-158 said "nothing persisted"; D-320 (issue #30) amended that to "no COORDINATE persisted",
+     * and this is that half, re-asserted at the surface the original guarantee was written about.
+     * #30 may store a resolved place name and a timestamp; it may never store anything lifted off
+     * a `GeolocationPosition`.
+     *
+     * Scoped to #30's own two keys ON PURPOSE — a sweep over every value would be wrong, not
+     * merely broad: `myPlaces` and an itinerary item's own pin legitimately hold `lat`/`lng`
+     * (D-278/D-280), authored or entered by the user rather than read off the device.
+     */
+    const coordinateLeak = await page.evaluate((owned: string[]) => {
+      const values = owned.map((k) => window.localStorage.getItem(k) ?? '').join('\n');
+      return values.match(/latitude|longitude|"lat"|"lng"|coords|accuracy|altitude|heading/i)?.[0] ?? null;
+    }, VISIT_AUTOCOUNT_KEYS);
+    expect(coordinateLeak, 'a coordinate-shaped field reached the visit record').toBeNull();
 
     expect(errors, `console/page errors: ${errors.join('\n')}`).toEqual([]);
   });

@@ -345,6 +345,28 @@ export const STORAGE_KEYS = {
    * migration.
    */
   lifetimeVisits: 'tripPlannerLifetimeVisits',
+  /**
+   * localStorage — JSON `{ checkedOn: string | null; confirmed: VisitConfirmation[] }`, the
+   * GPS-confirmation half of the visit record (visit-confirmations, key 33; issue #30).
+   * LIFETIME-SCOPED for the same reasons as its sibling key 32, and held under the same three
+   * structural guarantees: not in `TripScopedSlot`, no `trip:` prefix, not among the teardown's
+   * removals. It is a separate key rather than a third field on key 32 so that #29's on-disk
+   * `{ cities, countries }` shape stays byte-stable — a reader written against D-314 must keep
+   * seeing exactly two fields.
+   *
+   * **This key is the one place the app persists anything derived from a device position, and the
+   * shape is the privacy contract (D-320 amends D-158).** `checkedOn` is the trip-clock day
+   * (`YYYY-MM-DD`) the one-shot location check last RAN, whatever came back — it is what makes the
+   * check one-shot-per-day rather than once-per-page-load, so a denied or timed-out check still
+   * writes it and still does not re-prompt. `confirmed[]` holds `{ city, country, at }`: a place
+   * name the app already had in its own coordinate table plus an ISO instant. **No latitude, no
+   * longitude, no accuracy, no altitude, no heading, no speed, and no raw `GeolocationPosition`
+   * field of any kind may ever be written here.** The fix is matched in memory against
+   * `lib/city-coords.ts` and discarded; only the resolved city name survives the call stack. Value
+   * shape and policy are owned by `core/places/visited.ts` (the gateway is byte-transport only).
+   * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   */
+  visitConfirmations: 'tripPlannerVisitConfirmations',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -523,7 +545,11 @@ export function keyFor(slot: TripScopedSlot): string {
  * and is not identity-linked); and `lifetimeVisits` (key 32, D-314 — the lifetime record of cities
  * and countries visited is not this trip's data, outlives every trip, and cannot be reconstructed
  * from anything left on disk. It is absent from `TRIP_SCOPED_SLOTS` and from the removals below,
- * both on purpose; `lib/__tests__/visited-lifetime.test.ts` fails if either changes).
+ * both on purpose; `lib/__tests__/visited-lifetime.test.ts` fails if either changes). `visitConfirmations`
+ * (key 33, D-320 — issue #30) rides key 32's scope for the same reason: it records WHICH of those
+ * lifetime visits a one-shot location check confirmed and when, which is an attribute of the
+ * lifetime visit and not of any trip. It holds no coordinates, so what survives a teardown here is
+ * a city name and a timestamp, never a position.
  *
  * SSR-safe, never throws. Mirrors the deleted `wipeSandbox`'s collect-then-delete shape for the prefix
  * sweep — removing while iterating re-indexes `s.key(i)` and silently skips half the keys.
