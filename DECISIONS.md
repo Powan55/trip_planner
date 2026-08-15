@@ -3579,3 +3579,20 @@ The reset semantics of the once-per-session entrance ledger were written down be
 **Known ceiling, carried from the code.** The in-memory memo behind `entranceFor()` holds **one** surface at a time, so two surfaces rendered simultaneously — a route transition that cross-fades the outgoing page — would thrash it. Key it by surface in a `Map` if that ever ships.
 
 **Changes if:** a greeting should survive a tab close (that is `localStorage` and a different promise to the user), or two surfaces are ever mounted at once, which is the ceiling above and not a bug in this entry.
+---
+
+### D-328 · New · (issue #33, 2026-08-15) · A test that asserts a converted-currency figure pins its own FX rates; a test that asserts the on-disk model reads SEED_RATES
+
+Refreshing the NPR reference rate broke two different test layers in one afternoon, in two different ways, and the fix for each is the opposite of the fix for the other. Writing that down because the confusion is what produced both failures.
+
+`SEED_RATES` (`core/budget/model.ts`) is the build-time default a traveller budgets against until they override it. It is data, and it moves — NPR drifted about 13% between 2026-07-24 and 2026-08-15, and it will drift again.
+
+**Unit tests: spread `SEED_RATES`.** `settings-clear-all` and `use-budget-sync` spell out the whole on-disk budget model, seed rates included, and assert byte-identity against it. Their subject IS the model, so a hardcoded `{ NPR: 138, JPY: 155 }` is a second copy of the seed that silently rots the moment the first one changes. Both now spread `SEED_RATES`, and the next refresh cannot touch them.
+
+**E2E specs: pin your own rates, and never read `SEED_RATES`.** `budget`, `burn-rate` and `expenses` assert a rendered USD figure derived from an NPR/JPY input — "13,800 NPR is $100". Their subject is the arithmetic and the surface, not the seed. Seeding a budget model that carries its own `rates` makes them true at any seed. `settings.spec.ts` and `home-bento.spec.ts` already did this, which is exactly why they were the two rate-coupled specs that did NOT go red.
+
+Reading `SEED_RATES` from an e2e spec would be the worst of both: it can only assert the app agrees with itself, and no e2e spec resolves the `@/` alias.
+
+**The trap in the fixture, found the hard way.** `addInitScript` re-runs on `page.reload()`, so an unguarded rate seed rewrites the budget back to zero mid-test and turns every "survives a reload" assertion into a test of the harness — green, and proving nothing. The seed fires on first navigation only, behind a `sessionStorage` marker, the same guard `settings.spec.ts` uses.
+
+**Changes if:** the budget ever reads a live FX feed, at which point the seed stops being a constant and both halves of this need re-deriving. Note NPR cannot: Frankfurter does not carry it (see `lib/currency-rate.ts`), which is why a hand-set reference rate exists at all.
