@@ -15,6 +15,7 @@ import {
   WifiOff,
   CalendarPlus,
   MapPin,
+  Globe,
 } from 'lucide-react';
 import {
   MAP_MARKERS,
@@ -45,6 +46,13 @@ import { generateItemId } from '@/lib/item-id';
 import { toItineraryDraft } from '@/lib/itinerary-adapter';
 import { haversineKm, MAP_PIN_DND_TYPE, type LatLng } from '@/lib/day-anchor';
 import { dayAnchorStore } from '@/core/storage/gateway';
+import {
+  searchWorldPlaces,
+  dropTripDuplicates,
+  WORLD_SEARCH_MESSAGES,
+  type WorldPlace,
+  type WorldSearchFailure,
+} from '@/lib/world-search';
 
 type FilterValue = MarkerCategory | 'All';
 
@@ -71,10 +79,19 @@ const ASSIGN_DAYS: AssignDayOption[] = TRIP_DATES.map((date, i) => ({
 // popup, the favourites store and the guide cards — a city or a plan is none of those things,
 // and widening it would push an "is this real content?" branch into every one of them).
 //
-// 🔴: every source is data already in the bundle. There is NO geocoder, no provider, no
-// network call anywhere in this path — which is exactly why a place that is NOT in the trip
-// does not resolve. That ceiling is deliberate, was chosen by the owner over adding a geocoding
-// service, and is pinned by `e2e/map-trip-mode.spec.ts`'s "never reaches the network" test.
+// 🔴 EVERY `SearchHit` IS IN-BUNDLE DATA. No geocoder, no provider, no network call reaches this
+// type — which is why it filters live, on every keystroke, with nothing to wait for.
+//
+// 🔴 ISSUE #22 CHANGED THE CEILING, NOT THIS PATH. A place that is not in the trip used to be
+// unreachable by name at all; it is now reachable through `lib/world-search.ts`, a keyless
+// Nominatim lookup that is a SEPARATE state (`world`), rendered in a SEPARATE list, and issued
+// ONLY from the submit handler. Two consequences worth stating where someone will read them:
+//   • trip places still win — they are computed here, from the bundle, and always render first;
+//     a world row naming one of them is dropped (`dropTripDuplicates`).
+//   • typing STILL never touches the network. Nominatim's usage policy forbids as-you-type
+//     querying, and `e2e/map-trip-mode.spec.ts` pins that: the old test asserted the query never
+//     reached the network at all, and now asserts it never reaches it FROM A KEYSTROKE. That is
+//     the same tripwire, aimed at the thing that is still forbidden.
 interface SearchHit {
   /** Stable row identity (react key + testid). */
   id: string;
@@ -196,6 +213,28 @@ export default function MapSection() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ── Issue #22 — the WORLD half of the search ────────────────────────────────────────────
+  // The trip half above is unchanged and still filters live as you type. This is the fallback
+  // underneath it, and it is a SEPARATE, EXPLICIT act: Nominatim's usage policy forbids
+  // search-as-you-type outright (see `lib/world-search.ts`), so there is a submit button and
+  // there is no effect anywhere that fires a lookup on a query change. That constraint is the
+  // reason for the shape, not a limitation of it — the trip search is the one that has to feel
+  // instant, and it is in-bundle, so it does.
+  const [world, setWorld] = useState<
+    | { phase: 'idle' }
+    | { phase: 'searching'; query: string }
+    | { phase: 'done'; query: string; places: WorldPlace[] }
+    | { phase: 'error'; query: string; kind: WorldSearchFailure }
+  >({ phase: 'idle' });
+  // Monotonic token for the in-flight lookup. Bumped on submit AND on every keystroke, so a
+  // response that lands after the query changed is dropped rather than rendered under text it
+  // does not describe — the one race an explicit-submit search still has.
+  const worldReqRef = useRef(0);
+  // Focus lands here when a search settles: a screen-reader user hears the outcome (the count,
+  // or the plain-words failure) instead of being left on a button whose page just changed
+  // underneath it, and the results are the next thing in tab order.
+  const searchStatusRef = useRef<HTMLParagraphElement | null>(null);
 
   // the camera, reflected into the DOM as "lng,lat,zoom" — the same `onViewChange` →
   // `data-map-view` reflection `components/plan-day-map.tsx` already uses, so an E2E can assert
@@ -401,6 +440,39 @@ export default function MapSection() {
   const closeSearch = () => {
     setSearchOpen(false);
     setSearchQuery('');
+    worldReqRef.current += 1;
+    setWorld({ phase: 'idle' });
+  };
+
+  // Editing the query invalidates whatever the world lookup was about to say: the results below
+  // the box must always describe the text IN the box. It does NOT start a new lookup — see the
+  // policy note on the `world` state.
+  const onQueryChange = (value: string) => {
+    setSearchQuery(value);
+    worldReqRef.current += 1;
+    if (world.phase !== 'idle') setWorld({ phase: 'idle' });
+  };
+
+  // The ONLY caller of the world lookup. A real form submit, so Enter in the box works natively
+  // and the button is a plain `type="submit"` — no key handling of our own.
+  const runWorldSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = searchQuery.trim();
+    if (!query || world.phase === 'searching') return;
+    const token = (worldReqRef.current += 1);
+    setWorld({ phase: 'searching', query });
+    // The trip hits for THIS query, captured now: a world row naming a place the trip already
+    // returned is dropped, so the local result stays the only one and stays first.
+    const tripNames = searchResults.map((h) => h.name);
+    const outcome = await searchWorldPlaces(query);
+    if (token !== worldReqRef.current) return; // the query moved on; this answer is stale
+    setWorld(
+      outcome.status === 'ok'
+        ? { phase: 'done', query, places: dropTripDuplicates(outcome.places, tripNames) }
+        : { phase: 'error', query, kind: outcome.status },
+    );
+    // After the DOM has the outcome in it.
+    requestAnimationFrame(() => searchStatusRef.current?.focus());
   };
 
   // ── Flying to a PLANNED STOP (the one path both callers route through) ──────────────────
@@ -451,6 +523,18 @@ export default function MapSection() {
       setFilter('All');
       tripMapRef.current?.focusMarker(hit.marker);
     }
+    closeSearch();
+  };
+
+  // Issue #22 — pick a world result: the camera goes there and the note under the controls says
+  // which place is being shown. Deliberately NOT `focusMarker`: there is no marker, and inventing
+  // one would print a false country in the popup — see `TripMapHandle.flyToPoint`. The category
+  // filter is left alone too; it filters curated markers, and this is not one.
+  const selectWorldPlace = (place: WorldPlace) => {
+    tripMapRef.current?.flyToPoint(place.lat, place.lng);
+    setGeoNote(
+      `Showing ${place.displayName}. It isn't part of your trip, so there's no pin for it — the map is just centred there.`,
+    );
     closeSearch();
   };
 
@@ -554,6 +638,23 @@ export default function MapSection() {
     [plans],
   );
 
+  // Issue #22 — the ONE sentence the search panel says out loud. It carries the result COUNT
+  // (announced by `role="status"` as the trip list filters, and read aloud again when focus lands
+  // here after a world search) and, on a failure, the plain-words explanation from the one place
+  // those words live. Never a raw error string.
+  const tripHitCount = searchResults.length;
+  const tripCountText = `${tripHitCount} ${tripHitCount === 1 ? 'place' : 'places'} on your trip`;
+  const searchStatusText =
+    world.phase === 'searching'
+      ? `Searching the world for “${world.query}”…`
+      : world.phase === 'error'
+        ? `${tripCountText}. ${WORLD_SEARCH_MESSAGES[world.kind]}`
+        : world.phase === 'done'
+          ? `${tripCountText}, ${world.places.length} ${
+              world.places.length === 1 ? 'place' : 'places'
+            } elsewhere in the world.`
+          : `${tripCountText}. Search the world for anywhere else.`;
+
   return (
     <section
       id="map"
@@ -637,50 +738,146 @@ export default function MapSection() {
             {searchOpen && (
               <div
                 data-testid="map-search-panel"
-                className="absolute z-10 top-full mt-2 left-1/2 -translate-x-1/2 w-64 max-w-[85vw] glass-card rounded-xl p-2 border border-white/10 shadow-xl"
+                className="absolute z-10 top-full mt-2 left-1/2 -translate-x-1/2 w-72 max-w-[85vw] glass-card rounded-xl p-2 border border-white/10 shadow-xl"
               >
-                <label htmlFor="map-search-input" className="sr-only">
-                  Search places on the map
-                </label>
-                <input
-                  id="map-search-input"
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') closeSearch();
-                  }}
-                  placeholder="Search places…"
-                  data-testid="map-search-input"
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-xs text-white placeholder:text-white/30 outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                />
+                {/* Issue #22 — a real <form>. Enter submits natively (no key handler of ours),
+                    and the submit button is the ONLY thing that ever queries the world: typing
+                    filters the trip, submitting adds the world. Nominatim's policy forbids
+                    as-you-type querying, so this separation is a requirement, not a preference. */}
+                <form onSubmit={runWorldSearch}>
+                  <label htmlFor="map-search-input" className="sr-only">
+                    Search places on the map
+                  </label>
+                  <input
+                    id="map-search-input"
+                    ref={searchInputRef}
+                    // Deliberately `text`, not `search`: `type="search"` adds a UA-styled clear
+                    // button that does not follow the dark palette, for no behaviour we don't
+                    // already have (Escape closes, and the panel clears itself on close).
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => onQueryChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') closeSearch();
+                    }}
+                    placeholder="Search places…"
+                    data-testid="map-search-input"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-xs text-white placeholder:text-white/30 outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  />
+                  <button
+                    type="submit"
+                    // Disabled only on an EMPTY query, never while the request is in flight:
+                    // disabling a focused button blurs it to <body>, and losing the user's place
+                    // mid-search is the exact thing the focus handling here exists to prevent.
+                    // The in-flight guard lives in `runWorldSearch` instead.
+                    disabled={!searchQuery.trim()}
+                    aria-busy={world.phase === 'searching'}
+                    data-testid="map-search-world-submit"
+                    className="mt-1.5 w-full flex items-center justify-center gap-1.5 min-h-[36px] px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs font-medium text-white/75 hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:hover:bg-white/5 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+                    {world.phase === 'searching' ? 'Searching…' : 'Search the world'}
+                  </button>
+                </form>
+
                 {searchQuery.trim() && (
-                  <ul data-testid="map-search-results" className="mt-1.5 max-h-56 overflow-y-auto">
-                    {searchResults.length === 0 ? (
-                      <li className="px-2.5 py-1.5 text-xs text-white/35">
-                        No places match &ldquo;{searchQuery.trim()}&rdquo;.
-                      </li>
-                    ) : (
-                      searchResults.map((hit) => (
-                        <li key={hit.id}>
-                          <button
-                            type="button"
-                            onClick={() => selectSearchResult(hit)}
-                            data-testid={`map-search-result-${hit.id}`}
-                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/75 hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  <>
+                    {/* The announced count + the failure sentence, in one node. `role="status"`
+                        speaks it as the trip list filters; focus is moved here when a world
+                        search settles, so the outcome is heard either way. */}
+                    <p
+                      ref={searchStatusRef}
+                      tabIndex={-1}
+                      role="status"
+                      data-testid="map-search-status"
+                      className="mt-2 px-0.5 text-[11px] text-white/60 outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
+                    >
+                      {searchStatusText}
+                    </p>
+
+                    <div className="mt-1.5 max-h-64 overflow-y-auto">
+                      {/* TRIP PLACES FIRST, ALWAYS — in the DOM, not just visually. The world
+                          list can only ever appear below this one. */}
+                      <p
+                        id="map-search-trip-heading"
+                        className="px-2.5 pt-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-white/45"
+                      >
+                        On your trip
+                      </p>
+                      <ul data-testid="map-search-results" aria-labelledby="map-search-trip-heading">
+                        {searchResults.length === 0 ? (
+                          <li className="px-2.5 py-1.5 text-xs text-white/35">
+                            No places on your trip match &ldquo;{searchQuery.trim()}&rdquo;.
+                          </li>
+                        ) : (
+                          searchResults.map((hit) => (
+                            <li key={hit.id}>
+                              <button
+                                type="button"
+                                onClick={() => selectSearchResult(hit)}
+                                data-testid={`map-search-result-${hit.id}`}
+                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/75 hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                              >
+                                <span className="block font-medium">{hit.name}</span>
+                                {/* says WHAT this result is — a curated place ("Boudha,
+                                    Kathmandu · Nepal"), a city on the trip, or one of the user's
+                                    own plans — so three different kinds of thing don't read as
+                                    one undifferentiated list. */}
+                                <span className="block text-white/55 text-[11px]">{hit.source}</span>
+                              </button>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+
+                      {world.phase === 'done' && (
+                        <>
+                          {/* The world group is a SEPARATE list under its own heading, with its
+                              own icon and the data's attribution (ODbL — the same courtesy the
+                              basemap's own attribution control pays). A row here is not a place
+                              on the trip and never renders as one. */}
+                          <p
+                            id="map-search-world-heading"
+                            className="flex items-center gap-1.5 px-2.5 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-white/45 border-t border-white/10 mt-1.5"
                           >
-                            <span className="block font-medium">{hit.name}</span>
-                            {/* says WHAT this result is — a curated place ("Boudha,
-                                Kathmandu · Nepal"), a city on the trip, or one of the user's
-                                own plans — so three different kinds of thing don't read as
-                                one undifferentiated list. */}
-                            <span className="block text-white/55 text-[11px]">{hit.source}</span>
-                          </button>
-                        </li>
-                      ))
-                    )}
-                  </ul>
+                            <Globe className="w-3 h-3" aria-hidden="true" />
+                            Elsewhere in the world
+                            <span className="font-normal normal-case tracking-normal text-white/35">
+                              · OpenStreetMap
+                            </span>
+                          </p>
+                          <ul
+                            data-testid="map-search-world-results"
+                            aria-labelledby="map-search-world-heading"
+                          >
+                            {world.places.length === 0 ? (
+                              <li className="px-2.5 py-1.5 text-xs text-white/35">
+                                Nothing else in the world matches &ldquo;{world.query}&rdquo;.
+                              </li>
+                            ) : (
+                              world.places.map((place) => (
+                                <li key={place.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => selectWorldPlace(place)}
+                                    data-testid={`map-search-result-${place.id}`}
+                                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/75 hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                  >
+                                    <span className="block font-medium">{place.name}</span>
+                                    {/* Nominatim's own `display_name`, verbatim — the full
+                                        region trail is what tells two same-named places apart. */}
+                                    <span className="block text-white/55 text-[11px]">
+                                      {place.displayName}
+                                    </span>
+                                  </button>
+                                </li>
+                              ))
+                            )}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -734,9 +931,14 @@ export default function MapSection() {
           </p>
         )}
 
+        {/* The passive note under the controls. TWO writers now: TripMap's geolocate control
+            (`onGeoNote`), and issue #22's world search, which says which off-trip place the
+            camera was just centred on. One banner rather than two identical ones — it is the
+            same job (a calm, announced sentence about where the map is), and last message wins. */}
         {geoNote && (
           <div
             role="status"
+            data-testid="map-note"
             className="max-w-md mx-auto mb-4 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60"
           >
             <LocateFixed className="w-3.5 h-3.5 shrink-0 mt-0.5 text-white/40" />

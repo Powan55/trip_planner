@@ -676,10 +676,15 @@ hook in S161 so neither surface duplicates the lifecycle.
 | testid / attr | element | notes |
 |---|---|---|
 | `map-search-toggle` | the search icon button | Opens the search-within-map panel (S151). |
-| `map-search-panel` | the search panel container | Present only when the search toggle is open. |
-| `map-search-input` | the search `<input>` | Client-side filter over marker titles. |
-| `map-search-results` | the results `<ul>` | Keyboard-navigable list. |
-| `map-search-result-<marker-id>` | each result `<li>`/button | Select → resets category filter to `'All'`, flies + opens popup (`focusMarker`). |
+| `map-search-panel` | the search panel container | Present only when the search toggle is open. Holds a `<form>`: the input filters the trip live, the submit button is the only thing that queries the world. |
+| `map-search-input` | the search `<input>` | Live, in-bundle filter over the trip: curated markers, trip cities, and the user's own planned stops (S406). **Typing never issues a network request** — issue #22, and Nominatim's usage policy forbids as-you-type querying, so that is a contract, not an optimisation. Pinned by `map-trip-mode.spec.ts`. |
+| `map-search-world-submit` | the "Search the world" submit button | Issue #22. The ONE caller of `lib/world-search.ts`. Disabled on an empty query; never disabled while in flight (that would blur the focused button), so the in-flight guard lives in the handler and `aria-busy` reports it. |
+| `map-search-status` | the results-summary `<p>` | Issue #22. `role="status"` + `tabIndex={-1}`: it announces the counts as the trip list filters, and focus is moved here when a world search settles, so the outcome is heard either way. On a failure it carries the plain-words sentence from `WORLD_SEARCH_MESSAGES` — never a raw error string. |
+| `map-search-results` | the trip results `<ul>` | Keyboard-navigable list, labelled "On your trip". Always first in the DOM: trip places win. |
+| `map-search-result-<marker-id>` | each trip result `<li>`/button | Select → resets category filter to `'All'`, flies + opens popup (`focusMarker`). |
+| `map-search-world-results` | the world results `<ul>` | Issue #22. Absent until a world search has been submitted and returned; a separate list under its own heading with the OpenStreetMap attribution, never merged into the trip list. |
+| `map-search-result-world-<place-id>` | each world result `<li>`/button | Select → `flyToPoint(lat,lng)`: camera only, no marker and no popup. A place outside the trip has no honest `MapMarker` to synthesize — `MapMarker.country` is `'Nepal' \| 'Japan'` and the popup renders it verbatim — so nothing here claims to be a pin. Second line is Nominatim's `display_name`, verbatim. |
+| `map-note` | the passive note under the map controls | `role="status"`. Two writers: TripMap's geolocate control (`onGeoNote`), and issue #22's world search, which names the off-trip place the camera was centred on and says there is no pin for it. |
 | `map-popup-directions` | the Directions link in a marker popup | `href` = `buildMapsDirectionsUrl(lat,lng)`, destination-only (D-074/D-158); `target`/`rel` set. |
 | `map-route-caveat` | the "schematic line, not a route" caption | Present only when the day overlay is on. Issue #1: while a day is selected it also opens with "Showing Day N only — tap that day again for the whole trip", because scoping the route hides the other days and a map that quietly shows less than the user expects is D-271's defect class in reverse. |
 | `map-popup-favorite-<id>` | the favorite heart in a marker popup | FU-34; prop-gated `enablePopupFavorite` → `/map` only, never `/plan` day-map. `aria-pressed`. |
