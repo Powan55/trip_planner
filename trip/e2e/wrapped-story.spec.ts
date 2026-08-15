@@ -212,7 +212,7 @@ test.describe('S219 axe — /recap with the wrapped section open', () => {
     await settleWrapped(page);
 
     // S336: the mid-trip travel-arrival toast (fixed, fades opacity 0->1 on mount) can be sampled
-    // by axe mid-fade, which multiplies its text-white/60 down to ~0.42 effective (4.05:1) — a
+    // by axe mid-fade, which multiplies its text-ink-mid down to ~0.42 effective (4.05:1) — a
     // false positive; at rest it composites to ~7:1 on the glass surface. Settle it to opacity 1
     // first (the s157-a11y-close-targets settle-guard pattern), so the scan reads its true colors.
     const arrivalToast = page.getByTestId('travel-arrival-toast');

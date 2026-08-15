@@ -318,7 +318,7 @@ test.describe('FU-34 · axe /map with the favorites UI present', () => {
     await context.setOffline(true);
     await expect(page.getByTestId('map-offline-hint')).toBeVisible();
     // S336: the app-wide offline banner (fixed, fades opacity 0->1 on mount) can be sampled by
-    // axe mid-fade, deflating its floored text-white/55 below AA (a false positive — at rest it
+    // axe mid-fade, deflating its solid text-ink-mid below AA (a false positive — at rest it
     // composites ≥AA on the glass pill). Settle it to opacity 1 first (s157 settle-guard pattern).
     const offlineBanner = page.getByTestId('offline-banner');
     await offlineBanner.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});

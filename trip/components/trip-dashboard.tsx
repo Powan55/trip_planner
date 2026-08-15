@@ -59,7 +59,7 @@ function StatCard({ icon, label, value, display, suffix = '', color, delay, test
           </span>
         )}
       </div>
-      <div className="text-sm text-ink-mid">{label}</div>
+      <div className="text-sm text-ink-lo">{label}</div>
     </m.div>
   );
 }

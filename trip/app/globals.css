@@ -170,8 +170,10 @@
        --text-lo IS the floor — there is nothing below it. Because no tier is
        expressed as an alpha on white, a wrapper opacity can no longer multiply a
        floored alpha below AA, which is the D-100 / D-246 defect class by
-       construction. (The @layer utilities alpha floor further down is the OLD
-       mechanism and stays until the text-white/NN sweep retires it.) */
+       construction. (The @layer utilities alpha floor that used to sit further down was
+       the OLD mechanism. The sweep retired it, and it is deleted — see the note where
+       it stood. A wrapper opacity can still dim a SOLID tier during an entrance, which
+       is a different defect and is what FADE_FLOOR still guards.) */
     --text-hi: #FFFFFF;
     --text-mid: #CFC6E0;
     --text-lo: #A79BC0;
@@ -201,6 +203,29 @@
        mid. Inside a control the user's own text is the subject, so an input VALUE is hi
        and its PLACEHOLDER is lo — which is also the spec's `.field` recipe verbatim.
 
+       THE RECURRING CALLS, settled once the remaining 78 files were swept. Three people
+       swept 26 files each without seeing each other's work and independently agreed on
+       every one of these, which is the only reason they are written as rules rather than
+       as one person's taste:
+         input value -> hi, placeholder -> lo          (the .field recipe, unchanged)
+         unselected option in a live control -> mid    NOT lo: "inactive" in q3 means
+                                                       DONE, not "not currently chosen"
+         empty state: the explanatory line -> mid,     the follow-on hint and the big
+                                                       decorative glyph -> lo
+         a note RENDERED outside a control -> mid      it qualifies the item it hangs off;
+                                                       q1's "text the user typed" is
+                                                       scoped to inside a control
+         a journal/recap body -> hi                    that container exists to show it,
+                                                       so it IS the subject
+         separators, chevrons, adornment icons -> lo   marks, not words
+         label paired with its value -> lo             measured precedent: home-stat-row's
+                                                       caption at ink-lo, 6.89:1
+       ONE EXCEPTION, and it is about contrast, never about role: over PHOTOGRAPHY, ink-lo
+       measures 3.55:1 and fails AA, so a label there goes mid instead (hero's "days to
+       go", the landing eyebrow). Do not generalise that into "big labels are mid" — the
+       role is unchanged, only the surface forced it. Splitting on typography is the
+       smuggled fourth rule this system exists to prevent.
+
        Route 1's seven sites, old alpha -> tier, so the shape of the mapping is visible:
          text-white/85   row item label — the row's subject          -> ink-hi
          text-white/75   note input VALUE — typed by the user        -> ink-hi
@@ -217,11 +242,14 @@
        WHY A NUMERIC SWEEP GOES RED — measured on this branch, not assumed. Tailwind's
        default opacity scale has no 15/35/45/55/65/85/95 step and this config does not
        extend it, so `text-white/85` and `text-white/55` EMIT NO CSS AT ALL. What paints
-       them today is either inheritance (/85 -> the body's `text-foreground`, i.e. pure
-       white already) or the @layer utilities floor further down, whose `~=` attribute
-       selector matches the class token whether or not Tailwind generated a utility
-       (/55 -> 0.62). So the ramp's rendered value is NOT its written value, and
-       "preserve the current contrast" is not the same instruction as "keep the number".
+       them WAS either inheritance (/85 -> the body's `text-foreground`, i.e. pure
+       white already) or the @layer utilities floor that then sat further down, whose
+       `~=` attribute selector matched the class token whether or not Tailwind generated
+       a utility (/55 -> 0.62). So the ramp's rendered value was NOT its written value,
+       and "preserve the current contrast" was never the same instruction as "keep the
+       number". That is why this mapping is by ROLE. The sweep is finished and the floor
+       is deleted, so this paragraph is now history — kept because it is the reasoning
+       behind the rule above, and the rule outlives the ramp.
 
        OUT OF SCOPE, deliberately, so nobody widens the next route: bare `text-white`
        (no alpha) already IS --text-hi and R-TEXT does not touch it — do not churn those
@@ -1071,47 +1099,25 @@ html {
   opacity: 0.5;
 }
 
-/* CONSIDERED DELETING THIS BLOCK AND REJECTED IT (deliberate ruling). The plan
-   claimed it was an obsolete `!important` shim, dead once --muted-foreground
-   reached 5.3:1 on card. All three parts of that are false: it uses NO `!important`
-   (it wins by @layer utilities source order — see below), it is not
-   and it protects STATIC, permanent, animation-independent sub-AA text. The floored
-   fade introduced has no bearing on it. Do not re-derive that conclusion. */
-/* ---- · AA floor for low-opacity tertiary text ------------------
-   The de-glass replaced the gradient background-IMAGE fills — which axe cannot
-   flatten, so it returned "incomplete" (NOT a violation) for text on them — with
-   SOLID surfaces axe CAN evaluate. That exposed pre-existing sub-AA tertiary text:
-   `text-white/25..45` maxes at ~3.7:1 even over pure black, so NO surface darken
-   saves it. This floors those low tiers to
-   an AA-passing alpha on the dark surfaces (≥4.5:1 verified against the
-   lightest realistic fill — a `bg-white/10` chip over `surface-raised`). Monotonic
-   RAISE only, so it never lowers contrast anywhere it applies.
+/* ---- the AA floor for low-opacity tertiary text is GONE (issue #27) ------------
+   It floored `text-white/25..60` to `rgb(255 255 255 / 0.62)`, because those alphas
+   max at ~3.7:1 even over pure black and no surface darken could save them. Its own
+   note said the three-tier text system was what would eventually retire it, and that
+   the sweep had to run per route rather than in one pass. Both happened: the last of
+   the ~729 `text-white/NN` sites moved onto `--text-hi/-mid/-lo`, so the selectors
+   below matched nothing and the block was dead code protecting an empty set.
 
-   RE-VERIFIED against the aubergine canvas rather than assumed to survive it: the
-   worst realistic case (white/.62 on a `bg-white/10` chip over the new surface-2)
-   moves 6.28 -> 5.67, still clear of 4.5. The floor holds and STAYS. It is the OLD
-   mechanism — the three-tier text system above is what eventually retires it — and
-   it must be swept per-route, not in one pass, so it is deliberately not touched
-   here. `FADE_FLOOR` in lib/motion.ts goes with the same sweep.
+   It is deleted rather than kept as a belt: a floor that matches nothing cannot fail
+   loudly, so leaving it would have meant a future `text-white/40` silently inheriting
+   AA cover instead of being caught. `lib/__tests__/text-tier-sweep.test.ts` is now the
+   thing that goes red — it sweeps every file under app/ and components/ and fails on
+   any reintroduction, which the floor could never do.
 
-   Placed in `@layer utilities` (not unlayered) DELIBERATELY: at equal specificity
-   it beats Tailwind's own `text-white/NN` utility by later source order, but a
-   `hover:text-white` (specificity 0,2,0) still wins — so hover brightening is
-   preserved with NO `!important`. The `~=` matcher targets the exact base token,
-   leaving `border-white/NN` and responsive/variant tokens untouched. TM's
-   legibility `!important` rule still overrides this under `data-tm-legibility`. */
-@layer utilities {
-  [class~='text-white/25'],
-  [class~='text-white/30'],
-  [class~='text-white/35'],
-  [class~='text-white/40'],
-  [class~='text-white/45'],
-  [class~='text-white/50'],
-  [class~='text-white/55'],
-  [class~='text-white/60'] {
-    color: rgb(255 255 255 / 0.62);
-  }
-}
+   `FADE_FLOOR` in lib/motion.ts does NOT go with it, despite the old note here pairing
+   them. It solves a different problem that the tiers do not touch: a wrapper `opacity`
+   during an entrance multiplies whatever colour it contains, solid or not, so text can
+   still be sampled sub-AA mid-fade. Five e2e specs settle an entrance before scanning
+   for exactly that reason. Deleting FADE_FLOOR would reopen it. */
 
 /* companion: secondary text INSIDE the cmdk selected item (e.g. the
    itinerary-result date span, `text-muted-foreground` in command-palette.tsx)

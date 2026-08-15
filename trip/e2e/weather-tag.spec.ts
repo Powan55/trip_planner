@@ -170,7 +170,7 @@ test.describe('S216 — calendar day-card weather tag (read-only, cache-derived)
 
     // S336 (ported S351B — the guard was written for wrapped-story.spec.ts the same commit but
     // never carried here): the mid-trip travel-arrival toast (fixed, fades opacity 0->1 on mount)
-    // can be sampled by axe mid-fade, which deflates its text-white/60 to a false ~4.05:1 contrast
+    // can be sampled by axe mid-fade, which deflates its text-ink-mid to a false ~4.05:1 contrast
     // reading — at rest it composites to ~7:1 on the glass surface. IN_TRIP_DAY (2026-12-12) is
     // inside the trip window and this pack never dismisses/seeds the toast's 'seen' flag, so it is
     // eligible here exactly like it was on /recap. Settle it to opacity 1 first (the

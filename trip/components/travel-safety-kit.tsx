@@ -147,7 +147,8 @@ function PhraseRow({ phrase }: { phrase: Phrase }) {
  *
  * Two lines in one cell rather than five columns: the table already scrolls horizontally at
  * `min-w-[480px]` (D-022), and two more columns would make that scroll permanent on a phone.
- * Both lines sit at ≥ white/70 on the dark field (D-100 / D-235 AA-at-rest floor).
+ * Both lines sit on the solid text tiers on the dark field, so both clear AA at rest
+ * (issue #27 replaced the old `white/70` alpha; --text-mid is 8.85:1 at its worst step).
  */
 function ScriptCell({ lang, script, roman }: { lang: 'ne' | 'ja'; script: string; roman: string }) {
   return (

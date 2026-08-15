@@ -216,7 +216,7 @@ function Figure({
   // serious violation — surfaced by the in-trip axe scan,).
   return (
     <div className="rounded-lg border border-white/10 bg-surface/40 p-3">
-      <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-ink-mid">
+      <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-ink-lo">
         {icon && <span className="text-ink-lo">{icon}</span>}
         {label}
       </dt>

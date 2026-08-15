@@ -44,12 +44,20 @@ import { entranceLedger } from '@/core/storage/gateway';
  * (`/`, `/plan/`, `/nepal/`, `/japan/`, nepal-filters-open), all `color-contrast
  * [serious]`. The mechanism, confirmed against axe's own numbers:
  *
- * 1. A wrapper `opacity` MULTIPLIES every descendant's alpha. The AA-floor
- * block (globals.css) raises `text-white/25..60` to `rgba(255,255,255,0.62)`,
- * calibrated to clear 4.5:1 AT OPACITY 1 with a thin margin. A wrapper at 0.7
- * makes it an effective 0.434 → composited `#757577` on the page field, 4.25:1.
- * Axe reported exactly `#757577`; compositing 0.62×0.7 white over `#0b0c0e`
- * reproduces that byte-for-byte, so this is arithmetic, not a flake.
+ * 1. A wrapper `opacity` MULTIPLIES every descendant's alpha. As originally
+ * measured, the AA-floor block (globals.css) raised `text-white/25..60` to
+ * `rgba(255,255,255,0.62)`, calibrated to clear 4.5:1 AT OPACITY 1 with a thin
+ * margin. A wrapper at 0.7 made it an effective 0.434 → composited `#757577` on
+ * the page field, 4.25:1. Axe reported exactly `#757577`; compositing 0.62×0.7
+ * white over `#0b0c0e` reproduces that byte-for-byte, so this is arithmetic,
+ * not a flake.
+ *
+ * Issue #27 retired that floor block, and FADE_FLOOR did NOT go with it. The
+ * multiplication is a property of `opacity`, not of how the colour underneath
+ * was expressed: a solid `--text-lo` at 7.43:1 still composites down through a
+ * wrapper the same way. The numbers above are the old ones because they are the
+ * ones that were measured against real axe output; the mechanism they describe
+ * is unchanged.
  * 2. It is NOT a transient. `whileInView` never fires for content below the fold, so
  * a floored masthead RESTS at the floor indefinitely — axe scans it there. The
  * floor therefore has to be AA-safe on its own, not merely "safe on average".

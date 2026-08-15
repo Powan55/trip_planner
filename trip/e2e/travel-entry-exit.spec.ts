@@ -264,7 +264,7 @@ test.describe('S190 · a11y + console', () => {
 
     // S336 settle-guard (ported S351B — this test IS the toast-open case the guard exists for,
     // yet never had it): `toBeVisible()` above does not wait for the opacity 0->1 entrance fade to
-    // finish, so axe can sample it mid-fade and misread its text-white/60 subtitle as a false
+    // finish, so axe can sample it mid-fade and misread its text-ink-mid subtitle as a false
     // contrast failure (rests at ~7:1 on the glass surface). Settle before scanning.
     await expect(toast(page)).toHaveCSS('opacity', '1');
 
