@@ -418,6 +418,16 @@
        de-glass removed the glass background lists it stacked into. Do not re-add:
        decoration that costs an infinite animation is exactly what this change retired. */
 
+    /* --bg-season (issue #83): a subtle month-keyed background tint, NOT a revival of the
+       aurora above. Three differences that keep this on the right side of the "do not re-add"
+       rule: (1) it is a ONE-SHOT settle on load (`components/season-accent-engine.tsx`), never
+       a running/looping animation; (2) it is consumed at LOW ALPHA by a single two-blob
+       body::before wash (see the `body` rule below), not a 5-layer full-bleed field; (3) the
+       page's actual fill stays `bg-background` alone — this only tints the corners. Seeded here
+       to a quiet neutral (muted marigold) so the pre-hydration / no-JS state looks intentional;
+       the engine tweens it to the resolved month's hue on mount. */
+    --bg-season: 44 40% 35%;
+
     /* ---- Elevation tiers — TWO in use (resting + elevated), plus one declared.
        --shadow-sm = resting (content surfaces); --shadow-lg = elevated (sheets,
        dialogs, nav); --shadow-paper = the passport page, no consumer yet.
@@ -572,13 +582,32 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* the two fixed z-index:-1 ambient layers this stacking context was
-       created for (body::before aurora + body::after grain) are DELETED — the page
-       field is now the flat `bg-background` fill alone. `position: relative` STAYS
-       deliberately: it is also the containing block for any absolutely-positioned
-       descendant with no nearer positioned ancestor, so dropping it would be a
-       layout change, not a cleanup. Kept on purpose, not by oversight. */
+    /* the two fixed z-index:-1 ambient layers this stacking context was originally
+       created for (the old aurora + grain, both an infinite-loop decoration) were deleted —
+       see the --bg-season comment above. `position: relative` STAYS regardless: it is also
+       the containing block for any absolutely-positioned descendant with no nearer positioned
+       ancestor, so dropping it would be a layout change, not a cleanup. Kept on purpose, not
+       by oversight — and it's what body::before below anchors to. */
     position: relative;
+  }
+  /* issue #83 — the month-tinted wash. Two soft, low-alpha radial blooms in opposite
+     corners, tinted by --bg-season (tweened by season-accent-engine.tsx). Fixed + z-index:-1
+     so it sits strictly BEHIND every card/text (never between content and its own background),
+     and pointer-events:none so it can never intercept a tap. No animation/transition rule
+     here — the crossfade is the engine writing a new --bg-season value every frame while it
+     tweens, not a CSS-driven transition, so this rule stays a plain static paint. Alpha is
+     capped low (0.10/0.06) specifically so it can never meaningfully move text-on-background
+     contrast; kept out of scripts/contrast-tokens.mjs for the same reason the old aurora
+     never appeared there — it's an ambient corner tint, not a named text/surface pairing. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 45% at 15% -5%, hsl(var(--bg-season) / 0.10), transparent 60%),
+      radial-gradient(ellipse 55% 40% at 100% 105%, hsl(var(--bg-season) / 0.06), transparent 65%);
   }
 }
 
