@@ -4,13 +4,16 @@ Almost every image bundled under `public/images/` is freely licensed (Public Dom
 
 **The exception is `public/images/landing/` — see the last section. Those three are self-generated, not sourced, and no Wikimedia attribution applies to them.**
 
-Total assets: 106 — 103 Wikimedia-sourced (tabulated below) + 3 self-generated landing screenshots.
+Total assets: 107 — 104 Wikimedia-sourced (tabulated below) + 3 self-generated landing screenshots.
 
 ## Hero
 
 | Local path | Subject | Author | License | Source |
 |---|---|---|---|---|
-| `/images/hero/hero.jpg` | Himalayas | NASA Landsat image | Public domain | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Himalayas_and_allied_ranges_NASA_Landsat_showing_the_eight_thousanders%2C_annotated_with_major_rivers.jpg/1920px-Himalayas_and_allied_ranges_NASA_Landsat_showing_the_eight_thousanders%2C_annotated_with_major_rivers.jpg) |
+| `/images/hero/hero.jpg` | Ama Dablam, Himalayas | Vyacheslav Argenberg | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Himalayas%2C_Ama_Dablam%2C_Nepal.jpg/1920px-Himalayas%2C_Ama_Dablam%2C_Nepal.jpg) |
+| `/images/hero/hero-japan.jpg` | Shinjuku skyline, Tokyo | Morio | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Skyscrapers_of_Shinjuku_2009_January.jpg/1920px-Skyscrapers_of_Shinjuku_2009_January.jpg) |
+
+There are TWO heroes because the hero photograph follows the trip leg: `hero.jpg` carries the Nepal leg and every day outside the trip window, `hero-japan.jpg` takes over for the Japan leg. See `lib/hero-image.ts`.
 
 ## Nepal (attractions & food)
 

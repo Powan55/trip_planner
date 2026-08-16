@@ -9,6 +9,7 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
+import { heroImageForLeg } from '@/lib/hero-image';
 import { isDefaultTrip } from '@/core/trips';
 import { getKnownTrip } from '@/core/trips/registry';
 import { vibeFor } from '@/core/trips/custom';
@@ -216,6 +217,17 @@ export default function HeroSection() {
   // never disagree about which state they are in.
   const artOnly = custom || heroImgError;
 
+  // The hero photograph follows the LEG you are actually on: the Himalaya peak through the Nepal
+  // leg (and every day outside the trip window), the Tokyo skyline through the Japan leg. Mapping
+  // lives in `lib/hero-image.ts` so it is testable without React.
+  //
+  // Mount-gated exactly like `custom` above, and for the same reason: `todayInTrip` comes from a
+  // clock read whose `?today=` override only resolves CLIENT-side, so the server and the first
+  // paint must both render the default. Swapping the `src` of a `priority` image during hydration
+  // would otherwise mismatch AND throw away the preloaded raster. `todayInTrip` is refreshed on
+  // the same 1s tick as the countdown, so a leg change mid-session swaps the photo on its own.
+  const heroSrc = heroImageForLeg(mounted ? todayInTrip?.country : undefined);
+
   return (
     // `flex-1 min-h-0` (NOT `min-h-[100svh]`): the hero is not the whole fold — the trip
     // strip sits above it, so a full-viewport hero pushed 129px of its own reserved height
@@ -255,7 +267,7 @@ export default function HeroSection() {
         {!custom && !heroImgError && (
           <m.div className="absolute inset-0" style={{ y: photoY, scale: photoScale }}>
             <OptimizedImage
-              src="/images/hero/hero.jpg"
+              src={heroSrc}
               alt=""
               fill
               priority
