@@ -157,6 +157,58 @@ export const test = base.extend({
   },
 });
 
+/** The budget model's localStorage slot (typed storage gateway key 10). */
+const BUDGET_KEY = 'nepal_japan_budget';
+
+/**
+ * The FX rates every USD assertion in the budget / expenses / burn-rate packs is written against.
+ *
+ * A LOCAL CONSTANT ON PURPOSE — deliberately NOT `SEED_RATES` from `core/budget/model`. A spec that
+ * reads the seed can only assert that the app agrees with itself, and it goes red the moment the
+ * seed is refreshed for reasons that have nothing to do with the behaviour under test: the
+ * 2026-08-15 refresh (NPR 138 → 152.7, JPY 155 → 159.2, PR #71) took seven of those tests with it.
+ * A spec that PINS the rate its arithmetic is written against cannot be broken by a refresh — the
+ * shape `settings.spec.ts` (`BUDGET_100_300`) and `home-bento.spec.ts` were already using, which is
+ * why neither of them failed that run. Importing the seed here would re-couple every one of them.
+ *
+ * (No e2e spec imports through the `@/…` path alias, and this is not the place to become the first:
+ * Playwright's resolution for it is unverified in this harness.)
+ */
+export const PINNED_RATES = { NPR: 138, JPY: 155 };
+
+/**
+ * Seed a zero-budget model carrying `PINNED_RATES` before any app script runs, so a spec can set
+ * its budgets through the UI as a user would and still know the USD figure it should see. Every
+ * edit goes through `useBudget().commit` → `{ ...model, legBudgets }`, which spreads the current
+ * model, so the pinned rates survive every write, the reload, and re-hydration.
+ *
+ * FIRST NAVIGATION ONLY, and that guard is load-bearing: `addInitScript` re-runs on EVERY
+ * navigation, `page.reload()` included, so an unguarded seed would rewrite the budget back to zero
+ * mid-test and quietly turn every "survives a reload" assertion into a test of the harness. The
+ * sessionStorage marker outlives a reload and is untouched by a localStorage wipe — the same
+ * mechanism `settings.spec.ts`'s `gotoSettings` uses, for the same reason.
+ */
+export async function seedPinnedRates(page: Page): Promise<void> {
+  await page.addInitScript(
+    ({ key, rates }: { key: string; rates: { NPR: number; JPY: number } }) => {
+      const FIRST_NAV = '__e2e_pinned_rates_seeded__';
+      if (window.sessionStorage.getItem(FIRST_NAV) !== null) return;
+      window.sessionStorage.setItem(FIRST_NAV, '1');
+      window.localStorage.setItem(
+        key,
+        JSON.stringify({
+          version: 1,
+          homeCurrency: 'USD',
+          rates,
+          legBudgets: { nepal: 0, japan: 0 },
+          categoryBudgets: {},
+        }),
+      );
+    },
+    { key: BUDGET_KEY, rates: PINNED_RATES },
+  );
+}
+
 /**
  * R5 (S363A) — fail-fast guard for a spec that assumes a WIRED build, i.e. `NEXT_PUBLIC_
  * CONCIERGE_URL` baked in at build time so `ConciergeChat` actually mounts (see
