@@ -16,6 +16,7 @@ import {
 import { legLabel } from '@/lib/leg-label';
 import { useExpenses } from '@/hooks/use-expenses';
 import PhotoAttach from '@/components/photo-attach';
+import { overlayPanelMotion } from '@/lib/motion';
 import type { Expense } from '@/core/budget/expenses';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { rosterForActiveTrip, rosterAccent } from '@/lib/token-auth';
@@ -266,9 +267,10 @@ export default function ExpenseDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         onKeyDown={handleKeyDown}
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        // D-292: a dialog is Tier 3 whatever route opened it (issue #24). The scale-from-0.9
+        // spring this used to carry is exactly what that tier revokes; the shared calm entrance
+        // lives with the primitive (`components/ui/sheet-dark.tsx`), gated by `lib/motion.ts`.
+        {...overlayPanelMotion()}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
         className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
       >

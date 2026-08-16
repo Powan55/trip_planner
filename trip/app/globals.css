@@ -1586,6 +1586,50 @@ html[data-vt-active] .animate-route-fade {
   }
 }
 
+/* ── R4 · nothing animates under the cursor or the caret ──────────────────────
+   D-293 rule 4, and the one rule of the motion budget that is CSS or nothing:
+   "no animation may start on an element while it has focus, while any text input
+   in the same form is focused, or while a dialog or sheet is open. Reading and
+   typing are motion-free." The design system spells the implementation as
+   `.planner:focus-within .row, .planner:focus-within .day { transition: none }`
+   and says to generalise it to every form container — this is that, written
+   against the containers this app actually has (there is no `.row`/`.day` here;
+   the equivalent rows are Tailwind utilities on semantic elements).
+
+   The dialog half comes free with the form half: every dialog in this app traps
+   focus, so `[role="dialog"]:focus-within` is true for as long as one is open.
+
+   WHAT THIS TOUCHES IS TRANSITIONS, deliberately, and not `animation-play-state`.
+   A transition that is removed still lands on its target value, so R8's
+   fork-to-the-END-state holds for free. A paused KEYFRAME does not: caught at 0%
+   it freezes there, and any entrance that starts at opacity 0 would then hold its
+   content INVISIBLE for as long as the caret sat in the form — trading a motion
+   rule for a blank panel. The two keyframe loops that would be in range are the
+   state indicators D-322 exempts (`.animate-shimmer` "still loading",
+   `.animate-today-pulse` "this cell is today"), and a form that freezes the
+   spinner reporting its own save is not calm, it is broken. Both also carry their
+   fact in text, so nothing here is conveyed by motion alone.
+
+   1ms rather than `0s` matches the idiom the reduced-motion block above already
+   uses, and keeps any `transitionend` listener firing rather than never. */
+:is(form, fieldset, [role='dialog'], [role='alertdialog']):focus-within,
+:is(form, fieldset, [role='dialog'], [role='alertdialog']):focus-within * {
+  transition-duration: 1ms !important;
+}
+
+/* The one ambient loop R4 names explicitly: the front door's Ken Burns must PAUSE
+   while the auth form is open (the design system's front-door section — "no
+   animation may start while any text input in the same form is focused" applies
+   to the loop BEHIND the card, which is not inside it and so is out of the
+   subtree rule above). Written
+   from the motion layer without touching `.door-kb`'s own rules, which belong to
+   issue #25. It is a pause and not a stop: `.door-kb` carries scale(1.04) as its
+   base transform, so what is held is a still, slightly overscanned frame, and it
+   resumes exactly where it left off when focus leaves the form. */
+body:has(form:focus-within) .door-kb {
+  animation-play-state: paused;
+}
+
 /* DnD Kit styles */
 /* drag-lift: a stronger "picked up" look (bigger lift + on-brand glow) plus a
    one-shot spawn pop via the drag-lift keyframe. `both` holds the `to` (rest) state
