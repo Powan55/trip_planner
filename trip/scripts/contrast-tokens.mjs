@@ -71,6 +71,11 @@ const C = {
   inkNepal: '#8E0E30', inkJapan: '#223C7C', inkGreen: '#0C5849',
   // ---- duotone highlight caps (the photo engine) ----
   duoNpHigh: '#F5D4AC', duoJpHigh: '#EFC6D6',
+  // The duotone SHADOW stop, i.e. the other end of the same grade. Modelled because
+  // `.photo-header__duo-lo` is `mix-blend-mode: lighten`, so the grade FLOORS every channel
+  // as well as capping it — an EDGE has to survive both ends of that range, not just the
+  // bright one a text pairing cares about. See the D-332 pairs below.
+  duoNpShadow: '#2E1408',
   scrimInk: '#0A0714',
 };
 // worst-case pixel = brightest possible photo pixel after the grade, under each scrim
@@ -173,6 +178,11 @@ C.navWhite70Jp = over(C.textHi, C.jpHdrMin, 0.7);
 // .72 is comfortably over the ruled .52 body-text floor, which is the property that makes
 // this backdrop safe for whatever the wall puts on it — measured below, not asserted.
 C.doorWall = grain(over(C.scrimInk, C.duoNpHigh, 0.72));
+// D-332 — the DARK end of the same graded backdrop, same scrim, same grain tax. The auth
+// panel's fill sits between this and `doorWall`, which is exactly why a fill can never carry
+// a ratio here (it hits 1.00:1 somewhere on the photograph), and why the card is held by its
+// edge instead. The edge is measured against both ends below.
+C.doorWallLo = grain(over(C.scrimInk, C.duoNpShadow, 0.72));
 
 // [label, fg, bg, target]  4.5 = body · 3 = large (>=24px, or >=18.66px bold) / UI edge
 const pairs = [
@@ -331,6 +341,14 @@ const pairs = [
   // photograph (the floor tier is a guard below, not a pairing).
   ['white over the cover at the panel scrim .72', C.textHi, C.doorWall, 4.5],
   ['text-mid over the cover at the panel scrim .72', C.textMid, C.doorWall, 4.5],
+  // D-332. The auth panel's own edge, at BOTH ends of the graded backdrop. The `2` at the
+  // bright end is the RULED FLOOR FOR THIS CONTAINER EDGE, not a WCAG number: 3 is
+  // unreachable there for anything that is not a text tier or the focus ring (only --text-lo
+  // at 3.58 and --marigold at 5.85 clear it, and neither may be spent on a resting border),
+  // and a harness that pretends otherwise is a harness that has started lying. The fill guard
+  // further down proves why the edge has to carry this rather than the fill.
+  ['auth panel edge (border-ui) on the cover, brightest', C.borderUI, C.doorWall, 2],
+  ['auth panel edge (border-ui) on the cover, darkest', C.borderUI, C.doorWallLo, 3],
 
   ['-- THE HOME HERO, ISSUE #26 (one scrim, floor .76, worst pixel = pure white) --'],
   ['hero title (hi) at the scrim floor', C.textHi, C.heroScrim76, 4.5],
@@ -421,6 +439,14 @@ const guards = [
   // are all on opaque fills and are measured above. If this ever starts passing, the scrim
   // or the surface ramp moved and somebody should decide that on purpose.
   ['auth panel fill vs the cover behind it', C.surface2, C.doorWall, 3],
+  // (2b) D-332, and the reason (2) above is now proven rather than argued. `--border` is what
+  // `.glass-card-dark` draws with, and on this cover it measures 1.04:1 — an edge that is not
+  // merely decorative but INVISIBLE wherever the card crosses the photograph's highlights.
+  // That is the F-8 failure mode (separated by shadow alone) arriving on the one surface F-8
+  // was written about. globals.css therefore steps the wall's dialog to --border-ui, and this
+  // guard is what makes that override load-bearing: if it ever starts passing, --border or the
+  // scrim moved and the override may no longer be needed — decide that on purpose.
+  ['--border as the auth panel edge over the cover', C.border, C.doorWall, 2],
   // Issue #5 / D-294. The app-wide :focus-visible fallback is MARIGOLD, which is a 12:1 signal
   // on the near-black canvas and nothing at all on parchment — a light material dropped into a
   // dark-only app inherits chrome that was measured against a different surface. globals.css
