@@ -177,7 +177,7 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   plan: {
     accent: 'hsl(var(--accent-scroll))',
     titleClass: 'text-display-emphasis',
-    wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.12) 0%, transparent 55%)',
+    wash: 'var(--hero-wash)',
   },
 };
 

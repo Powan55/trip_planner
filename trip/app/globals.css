@@ -337,6 +337,32 @@
        is a control, it takes --border-ui. */
     --border-ui: #9184C9;
 
+    /* ---- The page-header corner wash ----
+       DECORATIVE ONLY, and it is NOT a page-identity claim — see the rule in
+       page-hero.tsx, which forbids a route's identity from being the chrome accent.
+       This is a lift on the panel's top-left corner, nothing more; the identity a
+       route carries is its EYEBROW, and that is assigned per route.
+
+       WHY THIS IS A TOKEN AND NOT A LITERAL, which is the whole point of it. Until
+       D-334 this gradient was pasted as `rgba(240,199,96,0.12)` into NINE places —
+       page-hero.tsx's shared Tier-3 variant plus eight route files that hand-roll
+       their own header. That hex is the RETIRED gold-400 #f0c760, two palettes old.
+       Because it was a literal and not a token, the D-334 sweep went straight past
+       it, and the recolour shipped with a warm gold radial still painting the top
+       corner of ten routes' headers. Measured on the live /settings header at 1280:
+       the panel's top-LEFT sampled rgb(51,38,71) — blue:red 1.39 — against
+       rgb(34,23,69) = 2.03 on the clean surface beside it. That is WARMER than the
+       1.50 the whole change existed to remove, on the routes a user spends the most
+       time in. It is exactly the "hardcoded copy of a token that silently drifts"
+       defect this file already documents three times over.
+
+       So the value lives here, once. Re-pointing the wash is now a one-line edit
+       rather than a nine-file sweep that someone will do eight-ninths of.
+
+       Composited over --surface-2 this measures rgb(37,42,88), blue:red 2.38 — i.e.
+       the wash now reads COOLER than the surface it sits on rather than warmer. */
+    --hero-wash: radial-gradient(120% 140% at 0% 0%, rgb(62 216 255 / 0.10) 0%, transparent 55%);
+
     /* ---- Country identity ----
        BYTE-IDENTICAL ACROSS D-334, and that is the structural point of that decision
        rather than an omission from it: these four stops are CONTENT wayfinding for a
