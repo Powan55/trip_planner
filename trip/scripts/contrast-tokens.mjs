@@ -300,12 +300,19 @@ const pairs = [
   ['/guides eyebrow (coral) on JP header', C.coral, C.jpHdrMin, 4.5],
   ['/nepal eyebrow (nepal B) on NP header', C.npB, C.npHdrMin, 4.5],
   ['/japan eyebrow (japan A) on JP header', C.jpA, C.jpHdrMin, 4.5],
-  // /map's page accent was --sky, so it inherited --volt when that slot was re-valued.
-  // That makes /map the ONE route whose identity accent IS the chrome accent, which is
-  // the thing page-hero.tsx's own comment forbids. It is recorded there and handed to
-  // the /map palette slice (D-292); it is legible either way, which is what this pair
-  // measures.
-  ['/map eyebrow (volt) on JP header', C.volt, C.jpHdrMin, 4.5],
+  // /map's page accent was --sky, so it MECHANICALLY inherited --volt when that slot was
+  // re-valued — making /map the one route whose identity accent was the chrome accent,
+  // which page-hero.tsx's own rule forbids. Resolved to --marigold rather than left for
+  // the /map palette slice, because the collision was introduced by D-334 and should not
+  // outlive the commit that caused it.
+  //
+  // MARIGOLD IS GENUINELY FREE, and that is the whole argument: it had exactly two roles,
+  // primary action (now --volt's) and Nepal. Nepal's identity is carried by --np-a/--np-b/
+  // --grad-nepal, which are their own tokens — --np-b merely SHARES marigold's hex, it is
+  // not this token. So handing /map --marigold does not re-double-book the way D-334 just
+  // un-double-booked the accent. What /map's palette slice still owes is the map PINS
+  // (D-292), which is a different question from the header eyebrow.
+  ['/map eyebrow (marigold) on JP header', C.marigold, C.jpHdrMin, 4.5],
   ['/journal eyebrow (violet) on NP header', C.violet, C.npHdrMin, 4.5],
   ['/flights eyebrow (mint) on NP header', C.mint, C.npHdrMin, 4.5],
   // And where the text actually sits, once the band ramp has run its course.
