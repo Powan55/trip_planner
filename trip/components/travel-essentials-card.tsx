@@ -100,19 +100,19 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
           <h2 id="travel-essentials-title" className="font-display text-base font-bold text-white">
             Essentials
           </h2>
-          <span className="text-xs text-white/45">
+          <span className="text-xs text-ink-mid">
             weather &middot; currency &middot; safety{journeys.length > 0 ? ' · flights' : ''}
           </span>
         </span>
         <ChevronDown
-          className="h-5 w-5 shrink-0 text-white/40 transition-transform duration-200 group-open:rotate-180"
+          className="h-5 w-5 shrink-0 text-ink-mid transition-transform duration-200 group-open:rotate-180"
           aria-hidden="true"
         />
       </summary>
 
       <div className="px-5 pb-5 sm:px-6 sm:pb-6">
         {wakeLock.supported && wakeLock.held && (
-          <p data-testid="travel-wake-lock-hint" className="text-xs text-white/40">
+          <p data-testid="travel-wake-lock-hint" className="text-xs text-ink-mid">
             Screen stays awake while Travel Mode is open
           </p>
         )}
@@ -147,23 +147,23 @@ function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult 
         Weather — {city}
       </p>
       {weather === null && (
-        <p className="mt-2 text-sm text-white/50" data-testid="travel-essentials-weather-loading">
+        <p className="mt-2 text-sm text-ink-mid" data-testid="travel-essentials-weather-loading">
           Loading…
         </p>
       )}
       {weather?.status === 'ok' && (
-        <p className="mt-2 text-sm text-white/85">
+        <p className="mt-2 text-sm text-ink-hi">
           <span className="text-lg font-semibold text-white">{weather.data.tempC}&deg;C</span>{' '}
           {weatherCodeToLabel(weather.data.weatherCode)}
           {weather.data.stale && (
-            <span className="ml-1.5 text-xs text-white/40" data-testid="travel-essentials-weather-stale">
+            <span className="ml-1.5 text-xs text-ink-mid" data-testid="travel-essentials-weather-stale">
               (cached — as of {formatWeatherAsOf(weather.data.fetchedAt)})
             </span>
           )}
         </p>
       )}
       {weather?.status === 'unavailable' && (
-        <p className="mt-2 text-sm text-white/50" data-testid="travel-essentials-weather-unavailable">
+        <p className="mt-2 text-sm text-ink-mid" data-testid="travel-essentials-weather-unavailable">
           Weather unavailable right now.
         </p>
       )}
@@ -182,17 +182,17 @@ function CurrencyPanel({ currency, rate }: { currency: string; rate: CurrencyRat
         Currency
       </p>
       {rate === null && (
-        <p className="mt-2 text-sm text-white/50" data-testid="travel-essentials-currency-loading">
+        <p className="mt-2 text-sm text-ink-mid" data-testid="travel-essentials-currency-loading">
           Loading…
         </p>
       )}
       {rate?.status === 'ok' && (
-        <p className="mt-2 text-sm text-white/85">
+        <p className="mt-2 text-sm text-ink-hi">
           <span className="font-semibold text-white">
             {rate.data.source === 'reference' ? '≈ ' : ''}
             1 USD = {rate.data.rate.toLocaleString()} {currency}
           </span>
-          <span className="mt-0.5 block text-xs text-white/40" data-testid="travel-essentials-currency-asof">
+          <span className="mt-0.5 block text-xs text-ink-mid" data-testid="travel-essentials-currency-asof">
             {rate.data.source === 'reference' ? (
               <span data-testid="travel-essentials-currency-reference">
                 reference rate, as of {rate.data.asOf} — not a live quote
@@ -207,7 +207,7 @@ function CurrencyPanel({ currency, rate }: { currency: string; rate: CurrencyRat
         </p>
       )}
       {rate?.status === 'unavailable' && (
-        <p className="mt-2 text-sm text-white/50" data-testid="travel-essentials-currency-unavailable">
+        <p className="mt-2 text-sm text-ink-mid" data-testid="travel-essentials-currency-unavailable">
           Rate unavailable — try the Budget page.
         </p>
       )}
@@ -245,7 +245,7 @@ function SafetyPanel({
       <Link
         href="/safety/"
         data-testid="travel-essentials-safety-link"
-        className="mt-3 inline-flex min-h-[44px] items-center text-sm font-medium text-white/60 underline decoration-white/20 underline-offset-2 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="mt-3 inline-flex min-h-[44px] items-center text-sm font-medium text-ink-mid underline decoration-white/20 underline-offset-2 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         Full safety kit &amp; phrasebook &rarr;
       </Link>
@@ -309,7 +309,7 @@ function FlightCard({ journey }: { journey: Journey }) {
         {journey.legs.map((leg) => {
           const tracker = buildFlightTrackerUrl(leg.flightNumber);
           return (
-            <li key={leg.id} className="flex flex-wrap items-center justify-between gap-2 text-sm text-white/80">
+            <li key={leg.id} className="flex flex-wrap items-center justify-between gap-2 text-sm text-ink-hi">
               <span>
                 {leg.flightNumber} &middot; {leg.fromCode}&rarr;{leg.toCode} &middot; {leg.departLabel}
               </span>
@@ -332,7 +332,7 @@ function FlightCard({ journey }: { journey: Journey }) {
           href={r2r}
           online={online}
           testId={`travel-essentials-rome2rio-${journey.id}`}
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Plan this route (Rome2Rio)
         </DeepLink>
@@ -340,7 +340,7 @@ function FlightCard({ journey }: { journey: Journey }) {
           href={gflights}
           online={online}
           testId={`travel-essentials-gflights-${journey.id}`}
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Google Flights
         </DeepLink>

@@ -261,7 +261,7 @@ function TourPanel({
           onClick={onSkip}
           aria-label="Skip tour"
           data-testid="tour-skip"
-          className="absolute right-3 top-3 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-white/50 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="absolute right-3 top-3 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -275,7 +275,7 @@ function TourPanel({
           </span>
           <div className="min-w-0">
             <p
-              className="text-[11px] uppercase tracking-[0.22em] text-white/40 font-medium"
+              className="text-[11px] uppercase tracking-[0.22em] text-ink-mid font-medium"
               aria-live="polite"
               data-testid="tour-progress"
             >
@@ -287,7 +287,7 @@ function TourPanel({
           </div>
         </div>
 
-        <p id={descId} className="mt-4 text-sm leading-relaxed text-white/70" data-testid="tour-desc">
+        <p id={descId} className="mt-4 text-sm leading-relaxed text-ink-mid" data-testid="tour-desc">
           {stop.blurb}
         </p>
 
@@ -311,7 +311,7 @@ function TourPanel({
             onClick={onBack}
             disabled={step === 0}
             data-testid="tour-back"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-white/60 outline-none transition-colors hover:text-white disabled:opacity-30 disabled:pointer-events-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-ink-mid outline-none transition-colors hover:text-white disabled:opacity-30 disabled:pointer-events-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Back

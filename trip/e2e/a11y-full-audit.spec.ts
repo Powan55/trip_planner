@@ -242,7 +242,7 @@ test.describe('axe: key dialogs open (full page)', () => {
     // weather-tag.spec.ts): 2026-12-20 is on-trip and this test never dismisses/seeds the
     // travel-arrival toast's 'seen' flag, so it is eligible on /recap exactly as it was on
     // wrapped-story.spec.ts's own (already-guarded) /recap axe test. Settle its opacity 0->1
-    // entrance fade before scanning, or axe can misread its text-white/60 subtitle mid-fade.
+    // entrance fade before scanning, or axe can misread its text-ink-mid subtitle mid-fade.
     const arrivalToast = page.getByTestId('travel-arrival-toast');
     await arrivalToast.waitFor({ state: 'visible', timeout: 5_000 }).catch(() => {});
     if (await arrivalToast.count()) {

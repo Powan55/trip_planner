@@ -151,7 +151,7 @@ export default function JournalCard({ date }: { date: string }) {
           <Link
             href="/journal/"
             data-testid="journal-view-all"
-            className="inline-flex min-h-[44px] items-center rounded-lg px-2.5 py-2 text-xs font-medium text-white/55 underline-offset-4 outline-none transition-colors duration-200 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="inline-flex min-h-[44px] items-center rounded-lg px-2.5 py-2 text-xs font-medium text-ink-mid underline-offset-4 outline-none transition-colors duration-200 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             View all entries
           </Link>
@@ -162,7 +162,7 @@ export default function JournalCard({ date }: { date: string }) {
               onClick={openEditor}
               data-testid="journal-edit"
               aria-label="Edit today's journal entry"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               Edit
@@ -191,7 +191,7 @@ export default function JournalCard({ date }: { date: string }) {
           type="button"
           onClick={openEditor}
           data-testid="journal-write-prompt"
-          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-white/15 bg-white/[0.02] p-3 text-left text-sm text-white/60 outline-none transition-colors duration-200 hover:border-ring/40 hover:bg-white/[0.05] hover:text-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-white/15 bg-white/[0.02] p-3 text-left text-sm text-ink-mid outline-none transition-colors duration-200 hover:border-ring/40 hover:bg-white/[0.05] hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Pencil className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
           <span>
@@ -232,7 +232,7 @@ function JournalReadView({ entry }: { entry: JournalEntry }) {
             // left the child's break-words inert and overflowed the page at 360px.
             <span
               data-testid="journal-highlight-display"
-              className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-white/90"
+              className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-ink-hi"
             >
               <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="break-words min-w-0">{entry.highlight}</span>
@@ -241,7 +241,7 @@ function JournalReadView({ entry }: { entry: JournalEntry }) {
         </div>
       )}
       {entry.text && (
-        <p data-testid="journal-body" className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white/70">
+        <p data-testid="journal-body" className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-hi">
           {entry.text}
         </p>
       )}
@@ -277,7 +277,7 @@ function JournalEditor({
       {/* Mood chips — single-select radiogroup-style, but each is a togglable button (tap again to
           clear), so `aria-pressed` (not radio semantics) is the right affordance. */}
       <div>
-        <p id="journal-mood-label" className="mb-2 text-xs font-medium text-white/60">
+        <p id="journal-mood-label" className="mb-2 text-xs font-medium text-ink-mid">
           How was today?
         </p>
         <div className="flex flex-wrap gap-2" role="group" aria-labelledby="journal-mood-label">
@@ -295,7 +295,7 @@ function JournalEditor({
                 className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                   active
                     ? 'border-ring bg-primary/10 text-primary'
-                    : 'border-white/15 bg-white/[0.03] text-white/70 hover:border-white/30 hover:text-white'
+                    : 'border-white/15 bg-white/[0.03] text-ink-mid hover:border-white/30 hover:text-white'
                 }`}
               >
                 <span aria-hidden="true">{meta.glyph}</span>
@@ -308,8 +308,8 @@ function JournalEditor({
 
       {/* Highlight of the day — a short single-line input. */}
       <div>
-        <label htmlFor="journal-highlight-input" className="mb-1.5 block text-xs font-medium text-white/60">
-          Highlight of the day <span className="text-white/55">(optional)</span>
+        <label htmlFor="journal-highlight-input" className="mb-1.5 block text-xs font-medium text-ink-mid">
+          Highlight of the day <span className="text-ink-lo">(optional)</span>
         </label>
         <input
           ref={highlightInputRef}
@@ -320,13 +320,13 @@ function JournalEditor({
           maxLength={120}
           placeholder="The one thing worth remembering…"
           data-testid="journal-highlight-input"
-          className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
       {/* The free-text body. */}
       <div>
-        <label htmlFor="journal-text-input" className="mb-1.5 block text-xs font-medium text-white/60">
+        <label htmlFor="journal-text-input" className="mb-1.5 block text-xs font-medium text-ink-mid">
           Notes
         </label>
         <textarea
@@ -336,7 +336,7 @@ function JournalEditor({
           rows={4}
           placeholder="What happened today? How did it feel?"
           data-testid="journal-text-input"
-          className="w-full resize-y rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full resize-y rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
@@ -345,7 +345,7 @@ function JournalEditor({
           type="button"
           onClick={onCancel}
           data-testid="journal-cancel"
-          className="inline-flex min-h-[44px] items-center rounded-lg px-4 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center rounded-lg px-4 py-2 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           Cancel
         </button>

@@ -132,11 +132,13 @@ export default function TravelDatePicker() {
         data-testid="travel-date-empty"
         className="mx-auto mt-6 max-w-2xl rounded-2xl glass-card p-6 text-center sm:p-8"
       >
-        <Calendar className="mx-auto mb-3 h-10 w-10 text-white/10" aria-hidden="true" />
+        {/* Decorative empty-state glyph, not text: it takes ink-lo, the tier the swept
+            files already use for a purely ornamental mark (hero-section's em-dash rule). */}
+        <Calendar className="mx-auto mb-3 h-10 w-10 text-ink-lo" aria-hidden="true" />
         <h2 id="travel-date-empty-title" className="font-display text-xl font-bold text-white">
           Not a trip day
         </h2>
-        <p className="mt-2 text-sm text-white/60">
+        <p className="mt-2 text-sm text-ink-mid">
           That date isn&rsquo;t part of the trip ({TRIP_DATE_LABEL}).
         </p>
         <button
@@ -172,7 +174,7 @@ export default function TravelDatePicker() {
       {resolution.isPreTripDefault && (
         <p
           data-testid="travel-pretrip-notice"
-          className="mx-auto mt-3 max-w-2xl text-center text-sm text-white/60"
+          className="mx-auto mt-3 max-w-2xl text-center text-sm text-ink-mid"
         >
           Trip starts in {resolution.daysUntilStart} {resolution.daysUntilStart === 1 ? 'day' : 'days'}
         </p>

@@ -59,7 +59,7 @@ function StatCard({ icon, label, value, display, suffix = '', color, delay, test
           </span>
         )}
       </div>
-      <div className="text-sm text-white/50">{label}</div>
+      <div className="text-sm text-ink-lo">{label}</div>
     </m.div>
   );
 }
@@ -104,7 +104,7 @@ export default function TripDashboard() {
       <div className="max-w-[1200px] mx-auto">
         {/* masthead entrance now FLOORS the fade (FADE_FLOOR → 1) instead of
             pinning it at 1. The axe scan runs WITHOUT reduced motion and can sample this
-            mid-animation, so the floor — not a pin — is what keeps the muted `text-white/50`
+            mid-animation, so the floor — not a pin — is what keeps the muted `text-ink-mid`
             subtitle ≥AA at the darkest frame. Under reduce
             we keep the pin outright: MotionConfig neutralises `y` but not opacity, so an
             un-forked floor would strand an off-screen reveal at 0.7. */}
@@ -117,7 +117,7 @@ export default function TripDashboard() {
           <h2 id="dashboard-heading" className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
             Trip <span className="text-display-emphasis">Dashboard</span>
           </h2>
-          <p className="text-white/50 max-w-xl mx-auto">
+          <p className="text-ink-mid max-w-xl mx-auto">
             Your adventure at a glance — how long, how soon, and where in the journey you are.
           </p>
         </m.div>

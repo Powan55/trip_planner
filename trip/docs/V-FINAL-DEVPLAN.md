@@ -67,7 +67,7 @@ Six items. Everything else in this document is discretionary; these are not.
 | **F3** | The claim rewrite ships only under the nine money invariants | **S408, landed** | mostly closed; see section 0.4 |
 | **F4** | Scrub hardening + independent re-grep of every changed mirror file + the `EXCLUDE_DIRS` check | **S417 + S421** | open |
 | **F5** | The service-worker update toast verified **during** the final deploy | **S421** | open |
-| **F6** | **The NPR reference rate refreshed at deploy.** S419's surviving half, now that the concierge flag is already flipped (see S419 in section 2). Floor because the app is **already live** carrying `134.5` as-of `2026-07-24` against a December trip, and a half-satisfied S419 retires it silently | **S419** | open |
+| **F6** | **The NPR reference rate refreshed at deploy.** S419's surviving half, now that the concierge flag is already flipped (see S419 in section 2). Floor because the app was **already live** carrying `134.5` as-of `2026-07-24` against a December trip, and a half-satisfied S419 retires it silently | **S419** | refreshed to `152.7` as-of `2026-08-15` (#33); re-check by hand at the deploy |
 
 ### 0.3 · Slice numbering — the collision, resolved
 
@@ -160,9 +160,12 @@ Verified against the code and against provider terms retrieved 2026-08-08:
 | ~1 year+ | The community-run currency API stops. | JPY falls back to service-worker cache → last known → a labelled "unavailable". Never an error. |
 | ~2028 at the earliest | If the Google account holding the Firestore project goes two years unused, Google's inactivity policy allows deletion of its content, which would take the project with it. | Group sync stops. The app is local-first, so each device keeps its own data. |
 
-The NPR rate is the one value that is already stale: `134.5` as-of `2026-07-24`
-(`lib/currency-rate.ts:131`), hand-set, feeding a December trip. It is refreshed at deploy
-in S419 and labelled a reference rate. After that it can never be right again, only honest.
+The NPR rate is hand-set, feeds a December trip, and is labelled a reference rate rather than a
+quote. Refreshed to `152.7` as-of `2026-08-15` (`lib/currency-rate.ts`), checked that day against
+the NRB open-market table, Wise and open.er-api.com. The `134.5` it replaced had drifted about
+13%, and the note beside it claimed a 133-136/USD band that the real rate had left months
+earlier — so the lesson is that the band in a comment is not evidence. Re-check by hand before
+each deploy. After that it can never be right again, only honest.
 
 ---
 

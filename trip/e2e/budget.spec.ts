@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, seedPinnedRates } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
@@ -19,7 +19,14 @@ import type { Page } from '@playwright/test';
  * The home-currency toggle + exchange-rate override moved OFF this panel to the Settings page
  * (`/settings`, `components/settings-panel.tsx`). Their behavior — and the cross-page effect on
  * this panel's grand total — is covered in `settings.spec.ts`. This pack now proves only what
- * lives on `/plan`; the grand total here is computed with the SEED rates (138 NPR/$1, 155 JPY/$1).
+ * lives on `/plan`.
+ *
+ * ── THE RATES ARE PINNED BY THE FIXTURE, NOT READ FROM THE SEED ─────────────────────────────
+ * Every USD figure below is arithmetic against `PINNED_RATES` (138 NPR/$1, 155 JPY/$1), seeded into
+ * the budget slot by `seedPinnedRates` before the app boots — NOT against `SEED_RATES`, which is a
+ * build-time default that gets re-checked against the real market and moved (it did on 2026-08-15,
+ * and took this pack's totals with it). What these specs prove is that the panel converts and rolls
+ * up correctly at a KNOWN rate; the seed's actual value is not part of that claim.
  *
  * ── SETTLE DISCIPLINE (mirrors persistence.spec.ts / today.spec.ts) ─────────────────────────
  * The panel is a lazy `ssr:false` island that hydrates from `loadBudget()` in a mount effect. So
@@ -30,8 +37,15 @@ import type { Page } from '@playwright/test';
 
 const BUDGET_KEY = 'nepal_japan_budget';
 
-/** Navigate to /plan with reduced motion pinned and the network settled. */
-async function gotoPlanSettled(page: Page) {
+/**
+ * Navigate to /plan with reduced motion pinned and the network settled.
+ *
+ * Pins the FX rates by default (see the header) — every test that asserts a USD figure wants that,
+ * and defaulting it on is what keeps the next test somebody adds here seed-proof. `pinRates: false`
+ * is for the one test whose subject IS the absence of a stored model.
+ */
+async function gotoPlanSettled(page: Page, { pinRates = true }: { pinRates?: boolean } = {}) {
+  if (pinRates) await seedPinnedRates(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/plan/', { waitUntil: 'domcontentloaded' });
 }
@@ -58,7 +72,9 @@ test.describe('S101 Trip Budget — set budgets + see totals (persistence)', () 
   test('fresh visitor: the panel shows the seeded defaults (empty budgets, $0 grand total)', async ({
     page,
   }) => {
-    await gotoPlanSettled(page);
+    // NO seeded model here, and that is the point of this test: it asserts the slot is still
+    // absent until the user edits something, so it must meet a genuinely empty localStorage.
+    await gotoPlanSettled(page, { pinRates: false });
     await settleBudget(page);
 
     // Leg budgets start empty (no value → placeholder). Nothing rendered as NaN.
@@ -76,11 +92,11 @@ test.describe('S101 Trip Budget — set budgets + see totals (persistence)', () 
     await gotoPlanSettled(page);
     await settleBudget(page);
 
-    // Set the Nepal leg budget to 13,800 NPR (= 100 USD at the seed rate 138).
+    // Set the Nepal leg budget to 13,800 NPR (= 100 USD at the NPR rate THIS fixture pins, 138).
     const nepal = page.getByTestId('budget-leg-nepal-input');
     await nepal.fill('13800');
 
-    // The grand total re-expresses live in USD at the seed rate: 13800 / 138 = 100.
+    // The grand total re-expresses live in USD at the pinned rate: 13800 / 138 = 100.
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$100');
 
     // It persisted to localStorage.
@@ -96,11 +112,12 @@ test.describe('S101 Trip Budget — set budgets + see totals (persistence)', () 
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$100');
   });
 
-  test('grand total sums both legs at the seed rates', async ({ page }) => {
+  test('grand total sums both legs at the pinned rates', async ({ page }) => {
     await gotoPlanSettled(page);
     await settleBudget(page);
 
-    // Nepal 13,800 NPR (=100 USD at seed 138) + Japan 31,000 JPY (=200 USD at seed 155) = 300 USD.
+    // Nepal 13,800 NPR (=100 USD) + Japan 31,000 JPY (=200 USD) = 300 USD — at the two rates THIS
+    // fixture pins (138 / 155), which is what makes both halves of the sum checkable at once.
     await page.getByTestId('budget-leg-nepal-input').fill('13800');
     await page.getByTestId('budget-leg-japan-input').fill('31000');
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$300');

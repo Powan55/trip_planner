@@ -43,7 +43,7 @@ export function SectionHeading({
         {title}
       </h2>
       {subtitle != null && (
-        <p className="text-white/50 max-w-xl mx-auto">{subtitle}</p>
+        <p className="text-ink-mid max-w-xl mx-auto">{subtitle}</p>
       )}
     </Reveal>
   );

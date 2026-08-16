@@ -96,7 +96,7 @@ export default function ActivityFeed({ className = '' }: { className?: string })
       >
         <h3
           id="activity-feed-heading"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-white/80 mb-3"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-ink-hi mb-3"
         >
           <History className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
           Recent changes
@@ -116,12 +116,12 @@ export default function ActivityFeed({ className = '' }: { className?: string })
                 <div className="min-w-0 flex-1">
                   {/* "{author} edited {title}" — author and title both truncate so a long
                       name or title can never overflow the row. */}
-                  <p className="text-sm text-white/80 leading-snug truncate">
+                  <p className="text-sm text-ink-hi leading-snug truncate">
                     <span className="font-medium text-white">{entry.author}</span>
-                    <span className="text-white/50"> edited </span>
-                    <span className="text-white/90">{entry.title}</span>
+                    <span className="text-ink-mid"> edited </span>
+                    <span className="text-ink-hi">{entry.title}</span>
                   </p>
-                  <p className="text-xs text-white/40 mt-0.5">
+                  <p className="text-xs text-ink-mid mt-0.5">
                     {entry.dateLabel}
                     {relative ? <span> · {relative}</span> : null}
                   </p>

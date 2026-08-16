@@ -225,7 +225,7 @@ function MarkerPopupContent({
               caught this pre-existing AA contrast fail (3.72:1) once a real E2E
               scanned the popup with content OPEN for the first time (the earlier
               /map axe pack never opens a popup, so this was never exercised). */}
-          <p className="flex items-center gap-1 text-[11px] text-white/55 mb-1.5">
+          <p className="flex items-center gap-1 text-[11px] text-ink-mid mb-1.5">
             <MapPin className="w-3 h-3" />
             {marker.area} · {marker.country}
           </p>
@@ -240,14 +240,14 @@ function MarkerPopupContent({
             className={`ml-auto shrink-0 p-1.5 rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               favorited
                 ? 'bg-primary/10 border-ring/40 text-primary hover:bg-primary/25'
-                : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'
+                : 'bg-white/5 border-white/10 text-ink-mid hover:bg-white/10 hover:text-ink-hi'
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${favorited ? 'fill-current' : ''}`} />
           </button>
         )}
       </div>
-      <p className="text-xs text-white/60 leading-relaxed mt-1.5">
+      <p className="text-xs text-ink-mid leading-relaxed mt-1.5">
         {marker.description}
       </p>
       <a
@@ -350,13 +350,13 @@ function ItineraryStopPopupContent({ stop }: { stop: DayStop }) {
           popup has to confirm it or the number on the canvas is unverifiable. */}
       <h3 className="font-display font-bold text-white text-sm leading-tight">
         Day {stop.day} · Stop {stop.seq}
-        <span className="ml-1.5 font-sans text-[11px] font-normal text-white/55">
+        <span className="ml-1.5 font-sans text-[11px] font-normal text-ink-mid">
           {stop.items.length} {stop.items.length === 1 ? 'plan' : 'plans'} here
         </span>
       </h3>
       <ul className="mt-1.5 space-y-1">
         {stop.items.map((item) => (
-          <li key={item.id} className="flex items-start gap-1.5 text-xs text-white/75">
+          <li key={item.id} className="flex items-start gap-1.5 text-xs text-ink-hi">
             <MapPin className="w-3 h-3 mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
             <span className="min-w-0">{item.title}</span>
           </li>
@@ -366,7 +366,7 @@ function ItineraryStopPopupContent({ stop }: { stop: DayStop }) {
         <>
           <p
             data-testid="map-stop-approx-note"
-            className="mt-2 pt-2 border-t border-white/10 flex items-start gap-1.5 text-[11px] text-white/70"
+            className="mt-2 pt-2 border-t border-white/10 flex items-start gap-1.5 text-[11px] text-ink-mid"
           >
             <CircleDashed className="w-3.5 h-3.5 mt-px shrink-0" aria-hidden="true" />
             <span>
@@ -1194,7 +1194,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
         <div className="absolute inset-0 grid place-items-center bg-surface">
           {/* loading label `/40`→`/55` so "Loading map…" clears AA (3.76→6.22)
               on the navy skeleton while the GL canvas mounts. */}
-          <div className="flex flex-col items-center gap-3 text-white/55">
+          <div className="flex flex-col items-center gap-3 text-ink-mid">
             <MapPin className="w-6 h-6 motion-safe:animate-pulse" />
             <span className="text-xs">Loading map…</span>
           </div>

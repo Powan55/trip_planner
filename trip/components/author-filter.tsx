@@ -80,7 +80,7 @@ export default function AuthorFilterControl({
     `px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
       active
         ? 'bg-primary/20 text-primary ring-1 ring-ring/30'
-        : 'text-white/50 hover:bg-white/5 hover:text-white/70'
+        : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
     }`;
 
   return (
@@ -88,7 +88,7 @@ export default function AuthorFilterControl({
       data-testid="author-filter"
       className={`flex flex-wrap items-center justify-center gap-2 ${className}`}
     >
-      <span className="inline-flex items-center gap-1.5 text-xs text-white/40 mr-0.5">
+      <span className="inline-flex items-center gap-1.5 text-xs text-ink-mid mr-0.5">
         <Users className="w-3.5 h-3.5" aria-hidden="true" />
         <span>Filter by</span>
       </span>

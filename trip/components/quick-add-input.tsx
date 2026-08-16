@@ -59,7 +59,7 @@ export default function QuickAddInput({
         aria-label={label}
         placeholder={placeholder}
         data-testid={testId}
-        className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
       />
       <button
         type="button"

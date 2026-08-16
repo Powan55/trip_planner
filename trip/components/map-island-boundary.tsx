@@ -97,7 +97,7 @@ export default class MapIslandBoundary extends Component<Props, State> {
         <p className="mb-2 font-display text-base font-semibold text-white">
           Map unavailable offline
         </p>
-        <p className="text-sm text-white/70">
+        <p className="text-sm text-ink-mid">
           {label} needs its map engine, which isn&apos;t stored on this device — it is
           large, and it would show a blank canvas without cached tiles anyway.
           Reconnect to load it. Everything else on this page works offline, and your

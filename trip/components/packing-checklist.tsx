@@ -57,7 +57,7 @@ export default function PackingChecklist() {
         <h2 id="packing-heading" className="sr-only">
           Packing checklist
         </h2>
-        <p className="text-sm text-white/55">Loading your checklist…</p>
+        <p className="text-sm text-ink-mid">Loading your checklist…</p>
       </section>
     );
   }
@@ -67,7 +67,7 @@ export default function PackingChecklist() {
 
   return (
     <section aria-labelledby="packing-heading" data-testid="packing-checklist" className="relative mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
-      <CelebrationBurst active={celebrate} testId="packing-celebration" />
+      <CelebrationBurst active={celebrate} testId="packing-celebration" celebrationId="packing-complete" />
       <header className="mb-6">
         <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
           <Backpack className="h-3.5 w-3.5" aria-hidden="true" />
@@ -76,7 +76,7 @@ export default function PackingChecklist() {
         <h2 id="packing-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
           Packing <span className="text-display-emphasis">checklist</span>
         </h2>
-        <p data-testid="packing-progress" className="mt-3 text-sm font-medium text-white/70">
+        <p data-testid="packing-progress" className="mt-3 text-sm font-medium text-ink-mid">
           {progress.checked}/{progress.total} packed
         </p>
         <div
@@ -112,7 +112,7 @@ export default function PackingChecklist() {
                   <li key={item.id}>
                     <label
                       htmlFor={`packing-item-${item.id}`}
-                      className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-white/85 outline-none transition-colors duration-200 hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface"
+                      className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-ink-hi outline-none transition-colors duration-200 hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface"
                     >
                       <input
                         id={`packing-item-${item.id}`}
@@ -125,7 +125,7 @@ export default function PackingChecklist() {
                         }}
                         className="h-5 w-5 flex-shrink-0 rounded border-white/30 bg-transparent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
                       />
-                      <span className={item.checked ? 'text-white/50 line-through' : undefined}>{item.label}</span>
+                      <span className={item.checked ? 'text-ink-lo line-through' : undefined}>{item.label}</span>
                     </label>
                   </li>
                 ))}

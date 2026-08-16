@@ -114,10 +114,10 @@ export default function BurnRateView({
       </div>
 
       {notStarted ? (
-        <p data-testid="burn-rate-not-started" className="text-sm text-white/60">
+        <p data-testid="burn-rate-not-started" className="text-sm text-ink-mid">
           Your trip hasn’t started yet. Once you’re travelling, this shows how your daily spending
           compares to your{' '}
-          <span className="font-semibold text-white/80">{formatMoney(b.dailyBudget, home)}</span>/day
+          <span className="font-semibold text-ink-hi">{formatMoney(b.dailyBudget, home)}</span>/day
           budget and projects your end-of-trip total.
         </p>
       ) : (
@@ -125,14 +125,14 @@ export default function BurnRateView({
           {/* Spent-vs-budget progress bar with a text equivalent. */}
           <div className="mb-4">
             <div className="mb-1.5 flex items-baseline justify-between gap-2 text-xs">
-              <span className="text-white/60">
+              <span className="text-ink-mid">
                 Spent{' '}
-                <span className="font-semibold text-white/90" data-testid="burn-rate-spent">
+                <span className="font-semibold text-ink-hi" data-testid="burn-rate-spent">
                   {formatMoney(b.spentHome, home)}
                 </span>{' '}
                 of {formatMoney(b.budgetHome, home)}
               </span>
-              <span className="font-semibold text-white/70" data-testid="burn-rate-percent">
+              <span className="font-semibold text-ink-mid" data-testid="burn-rate-percent">
                 {spentPctText}%
               </span>
             </div>
@@ -216,8 +216,8 @@ function Figure({
   // serious violation — surfaced by the in-trip axe scan,).
   return (
     <div className="rounded-lg border border-white/10 bg-surface/40 p-3">
-      <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-white/55">
-        {icon && <span className="text-white/40">{icon}</span>}
+      <dt className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-ink-lo">
+        {icon && <span className="text-ink-lo">{icon}</span>}
         {label}
       </dt>
       <dd
@@ -226,7 +226,7 @@ function Figure({
       >
         {value}
       </dd>
-      {sub && <dd className="mt-0.5 text-[11px] text-white/55">{sub}</dd>}
+      {sub && <dd className="mt-0.5 text-[11px] text-ink-mid">{sub}</dd>}
     </div>
   );
 }

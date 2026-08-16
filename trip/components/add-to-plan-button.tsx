@@ -87,7 +87,7 @@ export default function AddToPlanButton({ source, sourceType, accentColor }: Add
           onClick={handleOpen}
           aria-haspopup="dialog"
           aria-label={`Add ${draft.title} to your trip plan`}
-          className={`w-full mt-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none hover:bg-white/10 ${accentColor ?? 'text-white/70'}`}
+          className={`w-full mt-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none hover:bg-white/10 ${accentColor ?? 'text-ink-hi'}`}
         >
           <Plus className="w-3.5 h-3.5 shrink-0" />
           Add to plan

@@ -80,18 +80,18 @@ export default function GuidesPage() {
                         <Icon className="h-5 w-5 text-white" aria-hidden="true" />
                       </span>
                       <span>
-                        <span className="block text-eyebrow uppercase text-white/70">{c.dates}</span>
+                        <span className="block text-eyebrow uppercase text-ink-lo">{c.dates}</span>
                         <span className={`font-display text-3xl font-bold ${c.titleGradient}`}>
                           {c.name}
                         </span>
                       </span>
                       <ArrowRight
-                        className="ml-1 h-5 w-5 text-white/40 transition-transform group-hover:translate-x-0.5 group-hover:text-white/70"
+                        className="ml-1 h-5 w-5 text-ink-lo transition-transform group-hover:translate-x-0.5 group-hover:text-ink-mid"
                         aria-hidden="true"
                       />
                     </Link>
 
-                    <p className="mt-4 max-w-md text-sm leading-relaxed text-white/70">{c.blurb}</p>
+                    <p className="mt-4 max-w-md text-sm leading-relaxed text-ink-mid">{c.blurb}</p>
 
                     {/* Shared entry points → the section anchors on this country's page. */}
                     <ul className="mt-6 flex flex-wrap gap-2">
@@ -102,7 +102,7 @@ export default function GuidesPage() {
                             <Link
                               href={`${c.href}${e.hash}`}
                               data-testid={`guides-${c.name.toLowerCase()}-${e.label.toLowerCase()}`}
-                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white/80 outline-none transition-colors hover:border-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-ink-mid outline-none transition-colors hover:border-white/20 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                             >
                               <EIcon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                               {e.label}

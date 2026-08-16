@@ -16,6 +16,7 @@ import {
 import { legLabel } from '@/lib/leg-label';
 import { useExpenses } from '@/hooks/use-expenses';
 import PhotoAttach from '@/components/photo-attach';
+import { overlayPanelMotion } from '@/lib/motion';
 import type { Expense } from '@/core/budget/expenses';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { rosterForActiveTrip, rosterAccent } from '@/lib/token-auth';
@@ -266,9 +267,10 @@ export default function ExpenseDialog({
         aria-modal="true"
         aria-labelledby={titleId}
         onKeyDown={handleKeyDown}
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
+        // D-292: a dialog is Tier 3 whatever route opened it (issue #24). The scale-from-0.9
+        // spring this used to carry is exactly what that tier revokes; the shared calm entrance
+        // lives with the primitive (`components/ui/sheet-dark.tsx`), gated by `lib/motion.ts`.
+        {...overlayPanelMotion()}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
         className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
       >
@@ -278,7 +280,7 @@ export default function ExpenseDialog({
             <h3 id={titleId} className="font-display text-lg font-bold text-white leading-tight">
               {isEdit ? 'Edit expense' : 'Log an expense'}
             </h3>
-            <p className="text-sm text-white/60 mt-0.5 truncate">
+            <p className="text-sm text-ink-mid mt-0.5 truncate">
               {isEdit ? 'Update the amount, category, or leg.' : 'A meal, a taxi, a ticket — a few taps.'}
             </p>
           </div>
@@ -287,7 +289,7 @@ export default function ExpenseDialog({
             data-testid="expense-cancel"
             onClick={onClose}
             aria-label="Close dialog"
-            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <X className="w-5 h-5" />
           </button>
@@ -298,13 +300,13 @@ export default function ExpenseDialog({
           <div className="space-y-4 pb-1">
             {/* Amount — the autofocused, "type first" field */}
             <div>
-              <label htmlFor={amountFieldId} className="text-xs text-white/50 mb-1 block">
+              <label htmlFor={amountFieldId} className="text-xs text-ink-lo mb-1 block">
                 Amount ({cur}) *
               </label>
               <div className="relative">
                 <span
                   aria-hidden="true"
-                  className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-white/40 ${sym === 'Rs' ? 'left-3 text-sm' : 'left-3 text-base'}`}
+                  className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-ink-lo ${sym === 'Rs' ? 'left-3 text-sm' : 'left-3 text-base'}`}
                 >
                   {sym}
                 </span>
@@ -327,14 +329,14 @@ export default function ExpenseDialog({
                   }}
                   placeholder="0"
                   autoComplete="off"
-                  className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-white/30 focus:outline-none focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
+                  className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-ink-lo focus:outline-none focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
                 />
               </div>
             </div>
 
             {/* Leg toggle — preset, one tap to override */}
             <div>
-              <span id={legLabelId} className="text-xs text-white/50 mb-1 block">Leg</span>
+              <span id={legLabelId} className="text-xs text-ink-lo mb-1 block">Leg</span>
               <div
                 role="radiogroup"
                 aria-labelledby={legLabelId}
@@ -357,7 +359,7 @@ export default function ExpenseDialog({
                       className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none ${
                         active
                           ? 'border-ring bg-primary/10 text-primary'
-                          : 'border-white/15 text-white/70 hover:bg-white/5'
+                          : 'border-white/15 text-ink-mid hover:bg-white/5'
                       }`}
                     >
                       <span aria-hidden="true">{currencySymbol(legCurrency(l))}</span>
@@ -370,7 +372,7 @@ export default function ExpenseDialog({
 
             {/* Category chips — one-tap, always a value (required, no empty state) */}
             <div>
-              <span id={categoryLabelId} className="text-xs text-white/50 mb-1 block">Category *</span>
+              <span id={categoryLabelId} className="text-xs text-ink-lo mb-1 block">Category *</span>
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
                 {BUDGET_CATEGORIES.map((cat) => {
                   const colors = CATEGORY_COLORS[cat];
@@ -384,7 +386,7 @@ export default function ExpenseDialog({
                       aria-label={`Category: ${cat}`}
                       data-testid={`expense-category-${cat}`}
                       className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                        isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-white/60 hover:bg-white/5'
+                        isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-ink-mid hover:bg-white/5'
                       }`}
                     >
                       {CATEGORY_ICON_MAP[cat]}
@@ -397,7 +399,7 @@ export default function ExpenseDialog({
 
             {/* Note (optional) */}
             <div>
-              <label htmlFor={noteFieldId} className="text-xs text-white/50 mb-1 block">Note</label>
+              <label htmlFor={noteFieldId} className="text-xs text-ink-lo mb-1 block">Note</label>
               <input
                 id={noteFieldId}
                 data-testid="expense-note-input"
@@ -416,13 +418,13 @@ export default function ExpenseDialog({
                 data-testid="expense-split-toggle"
                 aria-expanded={splitOn}
                 onClick={() => setSplitOn((v) => !v)}
-                className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/80 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
                   Split with others
                 </span>
-                <span aria-hidden="true" className={`text-white/40 transition-transform ${splitOn ? 'rotate-90' : ''}`}>
+                <span aria-hidden="true" className={`text-ink-lo transition-transform ${splitOn ? 'rotate-90' : ''}`}>
                   ›
                 </span>
               </button>
@@ -431,7 +433,7 @@ export default function ExpenseDialog({
                 <div className="flex flex-col gap-3 px-3 pb-3 pt-1" data-testid="expense-split-panel">
                   {/* Payer */}
                   <div>
-                    <span id={`${baseId}-payer-label`} className="text-xs text-white/50 mb-1 block">Paid by</span>
+                    <span id={`${baseId}-payer-label`} className="text-xs text-ink-lo mb-1 block">Paid by</span>
                     <div role="radiogroup" aria-labelledby={`${baseId}-payer-label`} className="flex flex-wrap gap-2">
                       {allNames.map((name) => {
                         const active = paidBy === name;
@@ -444,7 +446,7 @@ export default function ExpenseDialog({
                             onClick={() => setPaidBy(name)}
                             data-testid={`expense-payer-${name}`}
                             className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                              active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-white/70 hover:bg-white/5'
+                              active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-ink-mid hover:bg-white/5'
                             }`}
                           >
                             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />
@@ -457,7 +459,7 @@ export default function ExpenseDialog({
 
                   {/* Members (split evenly among) */}
                   <div>
-                    <span id={`${baseId}-members-label`} className="text-xs text-white/50 mb-1 block">Split evenly among</span>
+                    <span id={`${baseId}-members-label`} className="text-xs text-ink-lo mb-1 block">Split evenly among</span>
                     <div role="group" aria-labelledby={`${baseId}-members-label`} className="flex flex-wrap gap-2">
                       {allNames.map((name) => {
                         const active = splitMembers.includes(name);
@@ -469,7 +471,7 @@ export default function ExpenseDialog({
                             onClick={() => toggleMember(name)}
                             data-testid={`expense-split-member-${name}`}
                             className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                              active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-white/50 hover:bg-white/5'
+                              active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-ink-mid hover:bg-white/5'
                             }`}
                           >
                             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />
@@ -483,7 +485,7 @@ export default function ExpenseDialog({
                         Pick at least one person, or this stays a personal expense.
                       </p>
                     ) : (
-                      <p className="mt-1.5 text-xs text-white/50" data-testid="expense-split-hint">
+                      <p className="mt-1.5 text-xs text-ink-mid" data-testid="expense-split-hint">
                         {amountValid
                           ? `${formatMoney(Number(amount) / splitMembers.length, cur)} each`
                           : `Split ${splitMembers.length} ways`}

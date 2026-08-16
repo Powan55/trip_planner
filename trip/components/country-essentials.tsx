@@ -64,7 +64,7 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
             {destination.country}
           </span>
         </div>
-        <p className="mt-2 text-xs text-white/40 leading-relaxed">{destination.blurb}</p>
+        <p className="mt-2 text-xs text-ink-mid leading-relaxed">{destination.blurb}</p>
         {/* Add-to-plan affordance — additive; only Featured cards get
             it (not food/etiquette/weather). Featured has no id/category;
             the adapter derives sourceId from the name and uses 'sightseeing'. */}
@@ -101,7 +101,7 @@ function FoodCard({ food }: { food: typeof LOCAL_FOODS[0] }) {
               {food.country}
             </span>
           </div>
-          <p className="text-xs text-white/40 mt-1">{food.description}</p>
+          <p className="text-xs text-ink-mid mt-1">{food.description}</p>
         </div>
       </div>
     </m.div>
@@ -162,9 +162,9 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-sm font-semibold text-white">{tip.title}</h4>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-white/30">{tip.country}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-ink-mid">{tip.country}</span>
                   </div>
-                  <p className="text-xs text-white/40 mt-0.5">{tip.description}</p>
+                  <p className="text-xs text-ink-mid mt-0.5">{tip.description}</p>
                 </div>
               </div>
             ))}

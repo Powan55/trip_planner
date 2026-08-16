@@ -125,8 +125,10 @@ export interface BudgetModel {
 }
 
 // ── Seeds / defaults (build-time constants; NOT authoritative — the point is the override) ──
-/** Approximate mid-2026 seed rates (units of local currency per 1 USD). Clearly a default. */
-export const SEED_RATES: { NPR: number; JPY: number } = { NPR: 138, JPY: 155 };
+/** Approximate seed rates (units of local currency per 1 USD), checked 2026-08-15. Clearly a
+ * default, and overridable — but a seed a traveller never touches is the number they budget
+ * against, so it gets re-checked with the NPR reference rate rather than left to drift. */
+export const SEED_RATES: { NPR: number; JPY: number } = { NPR: 152.7, JPY: 159.2 };
 
 /** The seeded default model a fresh visitor sees (no budgets set yet, USD display). `legBudgets`
  * is keyed by the ACTIVE pack's legs — `{ nepal: 0, japan: 0 }` for the default pack. */

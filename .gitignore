@@ -46,6 +46,10 @@ DECISIONS-archive-*.md
 PONYTAIL-DEBT.md
 CLEANUP-REVIEW.md
 NEEDS-LAX.md
+# Session-to-session handoff notes. Same reasoning as the rest of this block, plus a
+# sharper one: a handoff names what is half-done, what is still red and what only the
+# owner can do, which is exactly the shape of thing that should not be published.
+HANDOFF.md
 briefs/
 .claude/
 docs/plans/

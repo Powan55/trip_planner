@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, seedPinnedRates } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
@@ -18,6 +18,14 @@ import type { Page } from '@playwright/test';
  *   3. Reload persists — the burn-rate figures + the calendar spend readout reflect the persisted
  *      expenses (the D-018-class hard guarantee, and the proof the read-only overlay survives).
  *
+ * ── THE RATES ARE PINNED BY THE FIXTURE, NOT READ FROM THE SEED ─────────────────────────────
+ * The pace figures below (spent, daily average, projected total) are rendered in the home currency,
+ * so each is arithmetic over an NPR amount and a rate. That rate is `PINNED_RATES` (138 NPR/$1),
+ * seeded into the budget slot by `seedPinnedRates` before the app boots — NOT `SEED_RATES`, a
+ * build-time default that moves whenever the real market has (it did on 2026-08-15, and took the
+ * dollar figures here with it). Pinning keeps the subject of these tests the PACE MATH: elapsed
+ * days, projection, the under/on/over band.
+ *
  * ── SETTLE DISCIPLINE (mirrors expenses.spec.ts / today.spec.ts) ────────────────────────────
  * `/plan` lazy-mounts the budget panel + calendar as `ssr:false` islands that hydrate from
  * localStorage in mount effects, and resolves the `?today=` override once per load. Every
@@ -30,8 +38,9 @@ const EXPENSES_KEY = 'nepal_japan_expenses';
 // Day 4 of the trip (Kathmandu / Nepal window) — the clock override we drive so burn-rate is mid-trip.
 const IN_TRIP_DAY = '2026-12-12';
 
-/** Navigate to /plan with the `?today=` override + reduced motion pinned. */
+/** Navigate to /plan with the `?today=` override, reduced motion, and the FX rates all pinned. */
 async function gotoPlanWithClock(page: Page, todayParam: string) {
+  await seedPinnedRates(page); // see the header — the dollar figures are checked against these
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto(`/plan/?today=${todayParam}`, { waitUntil: 'domcontentloaded' });
 }
@@ -90,8 +99,8 @@ test.describe('S103 Burn-rate vs plan — pace figures over the live budget + cl
     await gotoPlanWithClock(page, IN_TRIP_DAY);
     await settleBudget(page);
 
-    // Set the Nepal leg budget to 27,600 NPR (= 200 USD at the seed rate 138) so there's a plan to
-    // pace against. The daily budget is 200/32 ≈ $6.25/day.
+    // Set the Nepal leg budget to 27,600 NPR (= 200 USD at the NPR rate THIS fixture pins, 138) so
+    // there's a plan to pace against. The daily budget is 200/32 ≈ $6.25/day.
     await page.getByTestId('budget-leg-nepal-input').fill('27600');
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$200');
 
@@ -130,7 +139,7 @@ test.describe('S103 Burn-rate vs plan — pace figures over the live budget + cl
     await gotoPlanWithClock(page, IN_TRIP_DAY);
     await settleBudget(page);
 
-    // A large budget: 138,000 NPR (= 1000 USD) → daily budget $31.25.
+    // A large budget: 138,000 NPR (= 1000 USD at the pinned 138) → daily budget $31.25.
     await page.getByTestId('budget-leg-nepal-input').fill('138000');
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$1,000');
 

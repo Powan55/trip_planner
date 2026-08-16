@@ -36,7 +36,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
           const balances = Object.entries(s.balances);
           return (
             <div key={s.leg} data-testid={`settle-up-leg-${s.leg}`} className="flex flex-col gap-3">
-              <p className="text-xs font-semibold uppercase tracking-widest text-white/50">
+              <p className="text-xs font-semibold uppercase tracking-widest text-ink-lo">
                 {legLabel(s.leg)} · {s.currency}
               </p>
 
@@ -55,9 +55,9 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: rosterAccent(id) }}
                       />
-                      <span className="font-medium text-white/80">{id}</span>
+                      <span className="font-medium text-ink-hi">{id}</span>
                       {settled ? (
-                        <span className="text-white/40">settled</span>
+                        <span className="text-ink-lo">settled</span>
                       ) : net > 0 ? (
                         <span className="text-emerald-300/90">
                           is owed {formatMoney(net, s.currency)}
@@ -72,7 +72,7 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
 
               {/* Minimal transfers */}
               {s.transfers.length === 0 ? (
-                <p className="text-xs text-white/50" data-testid={`settle-up-even-${s.leg}`}>
+                <p className="text-xs text-ink-mid" data-testid={`settle-up-even-${s.leg}`}>
                   All square — nobody owes anybody.
                 </p>
               ) : (
@@ -81,10 +81,10 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                     <li
                       key={`${t.from}-${t.to}`}
                       data-testid={`settle-up-transfer-${s.leg}-${t.from}-${t.to}`}
-                      className="flex items-center gap-2 text-sm text-white/80"
+                      className="flex items-center gap-2 text-sm text-ink-hi"
                     >
                       <span className="font-semibold text-white">{t.from}</span>
-                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-white/40" aria-hidden="true" />
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-ink-mid" aria-hidden="true" />
                       <span className="font-semibold text-white">{t.to}</span>
                       <span className="ml-auto font-semibold text-foreground">
                         {formatMoney(t.amount, s.currency)}

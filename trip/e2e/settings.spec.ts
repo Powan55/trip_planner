@@ -94,7 +94,7 @@ const BUDGET_100_300 = {
   version: 1,
   homeCurrency: 'USD',
   rates: { NPR: 138, JPY: 155 },
-  legBudgets: { nepal: 13800, japan: 31000 }, // 100 + 200 = 300 USD at seed rates
+  legBudgets: { nepal: 13800, japan: 31000 }, // 100 + 200 = 300 USD at the rates THIS fixture pins
   categoryBudgets: {},
 };
 
