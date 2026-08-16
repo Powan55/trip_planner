@@ -1272,13 +1272,15 @@ html {
    position-dependent guarantee would be re-derived wrong the first time the cell
    count changed.
 
-   Measured against the worst case a photograph can produce — a PURE WHITE pixel.
-   This hero carries no duotone brightness cap (--duo-np-high and friends still
-   have no consumer), so the cap MUST NOT be assumed; white is the honest bound
-   and it is also what covers the custom-trip vibe gradient, whose stops this
-   file does not control. At 0.76 over white: --text-hi 9.22:1, --text-mid 5.62:1,
-   and at the darkest frame of the entrance reveal (FADE_FLOOR 0.95) 8.53:1 and
-   5.27:1. --text-lo measures 3.55:1 there and therefore MAY NOT BE USED AS TEXT
+   STILL MEASURED AGAINST A PURE WHITE PIXEL, AND THAT IS STILL THE RIGHT BOUND.
+   The photograph branch now carries `.hero-cap` (below), a --duo-*-high darken
+   layer, so on THAT branch the brightest possible pixel is the cap — but the scrim
+   also covers the two branches that have NO cap and no photograph: the custom-trip
+   vibe gradient (whose stops this file does not author) and the SVG fallback art.
+   White is the bound that holds for all three, so the ramp is sized by it and the
+   cap is only ever headroom. At 0.76 over white: --text-hi 9.22:1, --text-mid
+   5.62:1, and at the darkest frame of the entrance reveal (FADE_FLOOR 0.95) 8.53:1
+   and 5.27:1. --text-lo measures 3.55:1 there and therefore MAY NOT BE USED AS TEXT
    OVER THE PHOTOGRAPH — in the hero it appears only on the opaque countdown
    cells (6.25:1 on surface-2). 3.55 does clear the 3:1 bar for a decorative
    non-text mark, and nothing in the hero relies on that.
@@ -1295,6 +1297,71 @@ html {
     rgb(var(--surface) / 0.92) 92%,
     rgb(var(--surface)) 100%
   );
+}
+
+/* ---- The hero photograph layer: crop knob + highlight cap (issue #89) --------
+
+   ISOLATION IS LOAD-BEARING, not tidiness. `.hero-cap` is `mix-blend-mode: darken`,
+   and a blend mode composites against everything below it in the nearest stacking
+   context. Without this line that context is the page, so the cap would darken the
+   base gradient, the orbs and whatever the browser has already painted behind the
+   section — instead of only the photograph it is grading. The parallax transform on
+   this element happens to create a stacking context too, but it collapses to
+   `transform: none` when the MotionValues rest at identity (reduced motion), so it
+   cannot be relied on. Same guarantee, same mechanism, as `.photo-header__media`.
+
+   --hero-focus / --hero-focus-narrow are the per-FRAME crop knob, set on this
+   wrapper by components/hero-section.tsx. Exactly the `--photo-focus` pattern
+   `.photo-header__media img` already uses, for the same reason: these are real
+   photographs of real places, the subject sits somewhere different in each, and a
+   full-bleed hero is a far tighter crop than either source. Two variables rather
+   than one because the two frames want DIFFERENT values at different widths — a
+   portrait phone crops a landscape source horizontally, a wide desktop crops it
+   vertically, so one number cannot serve both. Narrow is the base (mobile-first);
+   768 is the breakpoint the measurements were taken at.
+
+   It targets `img` and so applies to BOTH images OptimizedImage renders — the LQIP
+   backdrop as well as the decoded raster — which is the point: a placeholder cropped
+   differently from the photograph that replaces it is a visible jump on first paint. */
+.hero-photo-wrap {
+  isolation: isolate;
+}
+
+.hero-photo-wrap img {
+  object-position: var(--hero-focus-narrow, center);
+}
+
+@media (min-width: 768px) {
+  .hero-photo-wrap img {
+    object-position: var(--hero-focus, center);
+  }
+}
+
+/* THE HIGHLIGHT CAP. `darken` keeps, per channel, the DARKER of the photograph and
+   this colour — so every channel of every pixel is clamped at --duo-*-high and the
+   brightest pixel the scrim can ever sit on becomes a number instead of a guess.
+   That is the same engine `.photo-header` runs on, and scripts/contrast-tokens.mjs
+   measures this composite: --text-hi 10.60 (NP) / 10.84 (JP) and --text-mid 6.46 /
+   6.61 at the 0.76 scrim floor, both up from 9.22 / 5.62 against bare white.
+
+   IT DOES NOT UNLOCK THE FLOOR TIER. --text-lo measures 4.08 (NP) / 4.18 (JP) here,
+   still short of 4.5, so the hero's "no floor-tier copy over the photograph" rule
+   stands exactly as written and the harness guard that encodes it still fails on
+   purpose. Do not re-tier hero copy off the back of this layer.
+
+   Deliberately NOT the full `.photo-header` duotone recipe: that opens with
+   `filter: grayscale(1)` plus a `lighten` shadow floor, and greyscaling Home would
+   throw away the Tier-1 photographic privilege D-292 grants it. This is the cap
+   alone — one div, no filter, no second blend layer.
+
+   The colour follows the leg exactly as the photograph does; hero-section.tsx
+   derives it from the resolved `heroSrc` so there is only ever ONE answer to
+   "which leg is this". Nothing here animates, so there is no reduced-motion fork. */
+.hero-cap {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: darken;
+  background: var(--hero-cap, var(--duo-np-high));
 }
 
 /* The countdown block's cells. Fill, border and resting shadow come from

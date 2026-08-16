@@ -61,6 +61,37 @@ async function scrollDashboardIntoView(page: Page) {
   await page.getByTestId('dashboard-trip-status').scrollIntoViewIfNeeded();
 }
 
+/**
+ * The hero raster the browser ACTUALLY RESOLVED, as a bare filename stem.
+ *
+ * Issue #89 made the hero photograph leg-aware (`lib/hero-image.ts` ->
+ * `components/hero-section.tsx`), and nothing committed proved it: reverting `src={heroSrc}`
+ * to a literal left the whole suite green. These assertions are that proof, which is why
+ * they live on the two `?today=` cases that already pin the leg rather than in a spec of
+ * their own — one navigation, both facts.
+ *
+ * It reads `currentSrc`, NOT the React prop and NOT `src`. `OptimizedImage` renders a
+ * <picture> with AVIF and WebP <source>s and passes `sizes="100vw"`, so what the browser
+ * actually fetches is a width-selected derivative that the `src` attribute never names;
+ * `currentSrc` is the only thing that reports the resolved URL. `picture img` also
+ * disambiguates the raster from the LQIP backdrop, which is a sibling data: URI.
+ *
+ * The stem is compared, not the whole URL, so the assertion survives the basePath build,
+ * the -640w/-1024w/native variant the viewport happens to pick, and the AVIF/WebP choice.
+ */
+async function resolvedHeroStem(page: Page): Promise<string> {
+  const img = page.locator('.hero-photo-wrap picture img');
+  await expect(img).toBeVisible();
+  await expect.poll(async () => await img.evaluate((el: HTMLImageElement) => el.currentSrc)).not.toBe('');
+  const currentSrc = await img.evaluate((el: HTMLImageElement) => el.currentSrc);
+  // /base/images/hero/hero-japan-1024w.avif -> hero-japan
+  return new URL(currentSrc).pathname
+    .split('/')
+    .pop()!
+    .replace(/\.(avif|webp|jpe?g|png)$/i, '')
+    .replace(/-\d+w$/, '');
+}
+
 test.describe('Pre-trip countdown + total-days math (D-016 computeCountdown, frozen clock)', () => {
   test('?today=2026-11-09 (local noon) -> exact countdown breakdown, Upcoming status', async ({
     page,
@@ -110,6 +141,10 @@ test.describe('In-trip flip — "Day N — city" panel replaces the countdown', 
     await expect(page.getByTestId('hero-day-number')).toHaveText('4');
     await expect(page.getByTestId('hero-travel-mode')).toContainText('Kathmandu');
 
+    // Issue #89: the Nepal leg keeps the Himalaya hero. Paired with the Dec-19 case below,
+    // this is what makes the leg swap revertible-with-a-failure instead of silently.
+    expect(await resolvedHeroStem(page)).toBe('hero');
+
     // Countdown grid must be ABSENT while in travel mode.
     await expect(page.getByTestId('countdown-days')).toHaveCount(0);
     await expect(page.getByTestId('countdown-total-days')).toHaveCount(0);
@@ -134,6 +169,11 @@ test.describe('Dec-19 boundary — permanent B-01 regression guard', () => {
     await expect(page.getByTestId('hero-day-number')).toHaveText('11');
     await expect(page.getByTestId('hero-travel-mode')).toContainText('Osaka');
     await expect(page.getByTestId('hero-travel-mode')).not.toContainText('Kathmandu');
+
+    // Issue #89: Dec 19 is the day the hero photograph itself changes, so this is where the
+    // swap is asserted. It resolves to hero-japan only if the mount-time leg read reaches
+    // the `src` — the SSR/first paint is hero.jpg for every leg by construction.
+    expect(await resolvedHeroStem(page)).toBe('hero-japan');
   });
 });
 

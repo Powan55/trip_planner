@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { m, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
@@ -9,7 +9,7 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
-import { heroImageForLeg } from '@/lib/hero-image';
+import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN } from '@/lib/hero-image';
 import { isDefaultTrip } from '@/core/trips';
 import { getKnownTrip } from '@/core/trips/registry';
 import { vibeFor } from '@/core/trips/custom';
@@ -69,6 +69,51 @@ function CountUpNumber({
 
 const padUnit = (n: number) => String(n).padStart(2, '0');
 const identity = (n: number) => n;
+
+/**
+ * Per-FRAME crop and highlight cap for the hero photograph (issue #89), keyed by the
+ * resolved `src` so there is exactly ONE answer to "which leg is this" — the same
+ * `heroImageForLeg()` call drives the photograph, the crop and the cap colour.
+ *
+ * `narrow`/`wide` feed --hero-focus-narrow / --hero-focus, the `object-position` knob
+ * `.hero-photo-wrap img` reads (globals.css). It is the same mechanism
+ * `.photo-header__media img` uses via --photo-focus, deliberately: two crop knobs with
+ * different names doing the same job is how one of them silently rots.
+ *
+ * WHY EACH NUMBER. `object-cover` on a landscape source in a portrait box crops
+ * HORIZONTALLY; in a wide desktop box it crops VERTICALLY. So the two breakpoints are
+ * not the same photograph tightened, they are two different axes, and one value cannot
+ * serve both.
+ *
+ *  - Ama Dablam (1920x1280, peak at x 50% / y 11%): measured off contact sheets against
+ *    the vertically-centred content block. `center 38%` at >= 768 lifts the vertical
+ *    window off the valley floor and onto the summit — measured in the browser, a
+ *    1440x900 window shows source y 7.5%-87.8% instead of 14.9%-95.2%. `center 32%`
+ *    below 768 is the same correction for a tighter box. Note that on a PORTRAIT phone
+ *    the vertical value is inert (the 1.5-aspect source is taller than the box needs,
+ *    so the crop is entirely horizontal and the peak is already at x 50%); it earns its
+ *    keep in landscape and on short wide windows.
+ *
+ *  - Shinjuku (1920x1023): Fuji occupies x 23.4%-40.6% (peak 31.8%). MEASURED IN THE
+ *    BROWSER at 390x844, the hero box is 390x715 and shows a 29.0%-wide slice of the
+ *    source — at the default `center` that slice is x 35.5%-64.5%, so all but the last
+ *    5 points of the mountain is outside the frame. That is what the design review
+ *    objected to. x=30% moves the window to 21.3%-50.3% and the whole cone is in. It
+ *    costs the Mode Gakuen Cocoon tower (x 51%-55%), and that is the compromise — the
+ *    mountain is why this frame was chosen at all. Also checked at 320 (21.7%-49.3%)
+ *    and 430 (21.4%-50.0%): the cone survives across the phone range.
+ *    At >= 768 the box is wide enough to hold both (768x1024 measures 22.8%-68.5%), so
+ *    `42% center` only nudges the composition left of dead centre; past the source's
+ *    1.88 aspect the horizontal value goes inert entirely (1440x900 measures
+ *    0.2%-99.7%) because the full width is on screen and the crop moves to y.
+ *
+ * `cap` is the --duo-*-high brightness clamp `.hero-cap` paints. Both values already
+ * exist as tokens; this adds no colour.
+ */
+const HERO_FRAME: Record<string, { narrow: string; wide: string; cap: string }> = {
+  [HERO_DEFAULT]: { narrow: 'center 32%', wide: 'center 38%', cap: 'var(--duo-np-high)' },
+  [HERO_JAPAN]: { narrow: '30% center', wide: '42% center', cap: 'var(--duo-jp-high)' },
+};
 
 /**
  * — Hero entrance reveal variants.
@@ -223,10 +268,35 @@ export default function HeroSection() {
   //
   // Mount-gated exactly like `custom` above, and for the same reason: `todayInTrip` comes from a
   // clock read whose `?today=` override only resolves CLIENT-side, so the server and the first
-  // paint must both render the default. Swapping the `src` of a `priority` image during hydration
-  // would otherwise mismatch AND throw away the preloaded raster. `todayInTrip` is refreshed on
-  // the same 1s tick as the countdown, so a leg change mid-session swaps the photo on its own.
+  // paint must both render the default, or hydration mismatches.
+  //
+  // WHAT THIS COSTS, STATED HONESTLY. Every Japan-leg pageview still renders `hero.jpg` with
+  // `priority` on the server, Next emits the preload for it, and the browser fetches it — then
+  // mount swaps the src and that raster is NEVER PAINTED. Roughly 242 KiB (the 1920w AVIF)
+  // downloaded and thrown away, once per cold load, for the 14 days of the Japan leg. It is
+  // unavoidable with a client-only clock: the server cannot know which leg you are on, and the
+  // alternative — dropping `priority` — would cost the LCP on all 351 other days. Do not "fix"
+  // this by removing the mount gate; that trades a wasted fetch for a hydration mismatch.
+  //
+  // `todayInTrip` is refreshed on the same 1s tick as the countdown, so a leg change mid-session
+  // swaps the photo on its own.
+  //
+  // DELIBERATE DEVIATION FROM ISSUE #89, recorded here because it is nowhere else. #89 asked for
+  // a replacement chosen from photography the repo already ships, and this change fetched two new
+  // Wikimedia files instead. The reason is resolution: the hero is the one FULL-BLEED surface in
+  // the app, so it is the one place the pixels are actually spent, and the best bundled candidate
+  // is 1200px native — upscaled across a 1440+ desktop it is visibly soft, which is the same
+  // "the top looks bad" complaint #89 opened with. `scripts/fetch-images.mjs` already carries a
+  // per-entry `width` knob, so the two hero entries take HERO_WIDTH = 1920 while the gallery
+  // stays at 1280; no pipeline change, two rows of config. Both files are CC BY / CC BY-SA
+  // Wikimedia, credited in public/images/CREDITS.md, and the no-new-assets rule elsewhere
+  // (`lib/__tests__/content-validation.test.ts`) is scoped to the inspiration gallery and is
+  // untouched by this.
   const heroSrc = heroImageForLeg(mounted ? todayInTrip?.country : undefined);
+  // Crop + cap for whichever frame that resolved to. Keyed off `heroSrc`, NOT off a second read
+  // of `todayInTrip.country`: two independent answers to "which leg" is how the cap ends up
+  // Nepal-warm over the Tokyo skyline for one render.
+  const heroFrame = HERO_FRAME[heroSrc] ?? HERO_FRAME[HERO_DEFAULT];
 
   return (
     // `flex-1 min-h-0` (NOT `min-h-[100svh]`): the hero is not the whole fold — the trip
@@ -265,7 +335,21 @@ export default function HeroSection() {
             custom trips skip this layer entirely — the vibe gradient IS the backdrop
             (D8: "NO photo/SVG art" for a custom trip). */}
         {!custom && !heroImgError && (
-          <m.div className="absolute inset-0" style={{ y: photoY, scale: photoScale }}>
+          <m.div
+            className="absolute inset-0 hero-photo-wrap"
+            style={{
+              y: photoY,
+              scale: photoScale,
+              // The per-frame crop + cap knobs (see HERO_FRAME). `.hero-photo-wrap` also
+              // carries `isolation: isolate`, which is what keeps the cap's `darken` from
+              // reaching the page behind this section — see the rule in globals.css.
+              ...({
+                ['--hero-focus-narrow']: heroFrame.narrow,
+                ['--hero-focus']: heroFrame.wide,
+                ['--hero-cap']: heroFrame.cap,
+              } as CSSProperties),
+            }}
+          >
             <OptimizedImage
               src={heroSrc}
               alt=""
@@ -275,6 +359,11 @@ export default function HeroSection() {
               className="object-cover"
               onError={() => setHeroImgError(true)}
             />
+            {/* The highlight cap — the ONE layer of the duotone engine this hero takes.
+                Decorative and inside an aria-hidden subtree already. It renders only on
+                this branch: a custom trip has no photograph by rule (D8) and the SVG
+                fallback is not a photograph either, so neither has anything to grade. */}
+            <div className="hero-cap" />
           </m.div>
         )}
         {/* Soft radial glows — a Himalayan "sun" on the left, a sakura/neon bloom on the right.
