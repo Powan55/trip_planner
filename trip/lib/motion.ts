@@ -1,3 +1,5 @@
+import type { TargetAndTransition } from 'framer-motion';
+
 import { entranceLedger } from '@/core/storage/gateway';
 
 /**
@@ -152,9 +154,9 @@ export const TIER_2_SURFACES: readonly string[] = [
  * The fallback is the tier, not the list, so an unlisted route is still Tier 3.
  *
  * D-292 also places every dialog, sheet, popover and form in Tier 3 regardless of which route
- * opens it. That half is NOT enforced here: no overlay primitive asks this module for
- * permission yet, and a route path cannot tell you that a dialog is open. Wiring it belongs
- * with the slice that touches the dialog primitives.
+ * opens it. That half is NOT in this list, because it is not a route: it is `OVERLAY_TIER` and
+ * `overlayMotion()` below, which the overlay primitives in components/ui call. A route path
+ * cannot tell you that a dialog is open, so the pin is on the primitive instead.
  */
 export const TIER_3_SURFACES: readonly string[] = [
   '/plan',
@@ -237,6 +239,98 @@ const PERMITTED_TIERS: Readonly<Record<MotionKind, readonly MotionTier[]>> = {
 /** Whether a kind of motion is permitted at all on a tier. */
 export function isMotionAllowed(kind: MotionKind, tier: MotionTier): boolean {
   return PERMITTED_TIERS[kind].includes(tier);
+}
+
+// ── The overlay pin (D-292's no-exceptions clause) ──────────────────────────────────────────
+
+/**
+ * **Every dialog, sheet, popover and form in the product is Tier 3, regardless of which route
+ * opened it.** D-292 states it with no exceptions, and the design spec repeats it as the one
+ * red line in the per-route table: a dialog opened from the loud front door is exactly as calm
+ * as one opened from the packing list.
+ *
+ * It is a CONSTANT and not a lookup because there is nothing to look up — `tierForPath()` would
+ * answer 1 on Home, which is the wrong answer for a dialog. The route is not the surface an
+ * overlay lives on; the overlay is.
+ */
+export const OVERLAY_TIER: MotionTier = 3;
+
+/**
+ * The motion an overlay primitive is permitted to use — `loud` only if the gate permits `kind`
+ * at `OVERLAY_TIER`, `calm` otherwise.
+ *
+ * Generic on purpose: `components/ui/dialog.tsx` and `sheet.tsx` pass Tailwind class strings,
+ * `sheet-dark.tsx` passes framer variant objects, and both are the same decision. What this
+ * buys over a hard-coded calm class list is that the pin lives in ONE table
+ * (`PERMITTED_TIERS`) — re-tier overlays and every primitive follows, and nobody has to
+ * remember which files hold a dialog's animation.
+ *
+ * `kind` is `'entrance'` at every current call site (an overlay opening is an entrance, and
+ * Tier 3 forbids those outright), so `loud` is unreachable today. It is still spelled out at
+ * each call site rather than deleted, because it is what the gate is refusing — a reviewer can
+ * see the spring the primitive would use if D-292 ever let it.
+ *
+ * NOT a reduced-motion read: the app-wide `@media (prefers-reduced-motion: reduce)` block in
+ * globals.css and framer's `<MotionConfig reducedMotion="user">` still sit underneath both
+ * branches, and R8's fork-to-the-end-state is theirs to keep.
+ */
+export function overlayMotion<T>(kind: MotionKind, loud: T, calm: T): T {
+  return isMotionAllowed(kind, OVERLAY_TIER) ? loud : calm;
+}
+
+/**
+ * The framer half of the same pin — the entrance every hand-rolled modal in the app shares.
+ *
+ * WHY THE VALUES ARE HERE and not in globals.css, which is where this module says durations
+ * belong: these are framer JS values, and a framer `transition={{ duration: … }}` takes a
+ * NUMBER — it cannot read a custom property. Exactly `FADE_FLOOR`'s case, decided the same way.
+ *
+ * WHY HERE AND NOT IN components/ui/sheet-dark.tsx, which owns the primitive: two hand-rolled
+ * dialogs that predate that primitive (`expense-dialog.tsx`, `add-to-itinerary-dialog.tsx`)
+ * need the same entrance, and importing the primitive for a variant object would drag a whole
+ * modal implementation into two route chunks that are already watched for size.
+ *
+ * CALM is the design system's overlay budget: ≤200 ms opacity + an 8 px rise in, ≤160 ms
+ * opacity out. The explicit `transition` on each is load-bearing — a framer variant without one
+ * gets the default SPRING, which is the first thing that budget forbids.
+ *
+ * Reduced motion is NOT read here: framer's `<MotionConfig reducedMotion="user">` (app layout)
+ * already collapses both branches to their end state, which is R8's fork.
+ */
+type PanelMotion = Record<
+  'center' | 'right',
+  { initial: TargetAndTransition; animate: TargetAndTransition; exit: TargetAndTransition }
+>;
+
+const PANEL_MOTION_LOUD: PanelMotion = {
+  center: {
+    initial: { scale: 0.9, opacity: 0 },
+    animate: { scale: 1, opacity: 1 },
+    exit: { scale: 0.9, opacity: 0 },
+  },
+  right: {
+    initial: { opacity: 0, y: 40 },
+    animate: { opacity: 1, y: 0, x: 0 },
+    exit: { opacity: 0, y: 40 },
+  },
+};
+
+const PANEL_MOTION_CALM: PanelMotion = {
+  center: {
+    initial: { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
+    exit: { opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } },
+  },
+  right: {
+    initial: { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
+    exit: { opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } },
+  },
+};
+
+/** The gated entrance for a modal panel. `center` is a dialog, `right` a drawer/bottom sheet. */
+export function overlayPanelMotion(side: 'center' | 'right' = 'center') {
+  return overlayMotion('entrance', PANEL_MOTION_LOUD, PANEL_MOTION_CALM)[side];
 }
 
 // ── prefers-reduced-motion, in one place ────────────────────────────────────────────────────

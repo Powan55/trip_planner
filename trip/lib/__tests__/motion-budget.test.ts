@@ -25,6 +25,8 @@ import {
   TIER_3_SURFACES,
   entranceFor,
   isMotionAllowed,
+  OVERLAY_TIER,
+  overlayMotion,
   prefersReducedMotion,
   resetEntranceMemoForTests,
   surfaceKey,
@@ -204,6 +206,28 @@ describe('the tier gate — the permission table (D-292 sections 3.1-3.3, D-293 
     for (const kind of kinds) {
       for (const tier of tiers) expect(typeof isMotionAllowed(kind, tier)).toBe('boolean');
     }
+  });
+});
+
+describe('the overlay pin (D-292, "regardless of which route opens it. No exceptions.")', () => {
+  it('an overlay is Tier 3, and the loudest route in the product does not change that', () => {
+    expect(OVERLAY_TIER).toBe(3);
+    expect(tierForPath('/')).toBe(1);
+    expect(isMotionAllowed('entrance', OVERLAY_TIER)).toBe(false);
+  });
+
+  it('overlayMotion hands back the CALM value — the primitives never get the spring', () => {
+    // The generic is the point: components/ui/dialog.tsx passes class strings, sheet-dark.tsx
+    // passes framer variants, and both are this one decision.
+    expect(overlayMotion('entrance', 'zoom-in-95', 'fade-in-0')).toBe('fade-in-0');
+    expect(overlayMotion('entrance', { scale: 0.9 }, { y: 8 })).toEqual({ y: 8 });
+  });
+
+  it('a tick is still legal inside a dialog — calm is not silent (R8)', () => {
+    // Checking a box in a dialog still marks itself. Tier 3 revokes the entrance weights, not
+    // the feedback that something happened.
+    expect(overlayMotion('tick', 'loud', 'calm')).toBe('loud');
+    expect(overlayMotion('completion', 'loud', 'calm')).toBe('loud');
   });
 });
 

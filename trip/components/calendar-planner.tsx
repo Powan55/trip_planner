@@ -263,10 +263,12 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
     };
 
     // D-316 — hard refuse, DELTA-SCOPED. Only a write that moves the item's time footprint
-    // is guarded, so an already-overlapping item (the seed's intentional containments) can
-    // still have its title, notes or category edited. A brand-new item has no previous
-    // footprint and is therefore always guarded. There is no "Save anyway": the escape
-    // hatch is to clear the duration, which the message names.
+    // is guarded, so an already-overlapping item can still have its title, notes or category
+    // edited. That is no longer about the seed: D-327 un-nested the last three containments,
+    // and the seed is clean. What still arrives overlapping is a synced peer's write, a vault
+    // import, or a day saved by an older build. A brand-new item has no previous footprint and
+    // is therefore always guarded. There is no "Save anyway": the escape hatch is to clear the
+    // duration, which the message names.
     if (!item || timeFootprintChanged(item, startDate, next, startDate)) {
       const clash = firstClashWith(
         next,

@@ -901,8 +901,10 @@ function ClaimOldName({ current }: { current: string }) {
         <p className="mt-1 max-w-2xl text-xs text-amber-200/70">
           Check that number first. It counts everything carrying that exact name — including
           anything a fellow traveller left while logged in as “{DEFAULT_TRAVELER_NAME}” — and the
-          rewrite syncs to every device. Only the “added by” and “last edited by” stamps change:
-          who paid for a shared expense, and how it splits, are never touched.
+          rewrite syncs to every device. Only the “added by” and “last edited by” stamps change.
+          Who paid for a shared expense, and how it splits, stay exactly as they are, so the old
+          name does not leave the money side: Settle up keeps showing “{from}” in its balances, and
+          a shared expense is still filed as paid by “{from}” on its paid-by chips, not by you.
         </p>
       )}
     </div>
