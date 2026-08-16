@@ -32,7 +32,11 @@ export default function SettingsPage() {
             <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
               Your trip, your way
             </p>
-            <h1 className="font-display text-display-lg text-display-emphasis">Settings</h1>
+            {/* `id` is the target of settings-panel.tsx's `aria-labelledby="settings-title"`,
+                which pointed at nothing — that <section> had no accessible name at all. */}
+            <h1 id="settings-title" className="font-display text-display-lg text-display-emphasis">
+              Settings
+            </h1>
             <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
               Manage who your edits are attributed to, choose your display currency and exchange
               rates, and back up, restore, or clear your on-device trip data.

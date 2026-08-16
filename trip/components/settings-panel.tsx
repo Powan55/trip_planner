@@ -219,7 +219,12 @@ function SettingsGroup({
       >
         {icon}
         <span className="min-w-0 flex-1">
-          <span className="block font-display text-lg font-bold text-white">{title}</span>
+          {/* The group title is the section heading, not decoration: without it the page went
+              <h1> straight to the cards' <h3> and axe's heading-order failed. <h2> inside the
+              <summary>'s span mirrors travel-essentials-card.tsx. Tailwind preflight zeroes
+              heading font-size/weight/margin, so `text-lg font-bold` renders byte-identical to
+              the <span> it replaced; the `block` class is dropped because <h2> already is one. */}
+          <h2 className="font-display text-lg font-bold text-white">{title}</h2>
           <span className="block text-sm text-ink-mid">{summary}</span>
         </span>
         <span

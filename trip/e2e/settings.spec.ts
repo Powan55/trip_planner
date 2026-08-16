@@ -687,4 +687,26 @@ test.describe('S146 axe — /settings (run twice for determinism)', () => {
       ).toEqual([]);
     });
   }
+
+  /**
+   * heading-order is only MODERATE, so the packs above (and a11y-full-audit.spec.ts) log it and
+   * pass — /settings shipped for a while going <h1> straight to the cards' <h3> because the
+   * SettingsGroup titles were plain <span>s. Accessibility is an acceptance criterion in this
+   * repo, not polish, so this route gets ONE rule promoted to blocking rather than the shared
+   * serious/critical threshold being loosened. Scoped to the rule and the route deliberately:
+   * a repo-wide moderate gate is a different, much larger decision.
+   */
+  test('heading levels on /settings increase by one (heading-order is BLOCKING here)', async ({
+    page,
+  }) => {
+    await gotoSettings(page);
+    await expandGroup(page, 'settings-group-currency');
+    await expandGroup(page, 'settings-group-data');
+
+    const { violations } = await new AxeBuilder({ page }).withRules(['heading-order']).analyze();
+    expect(
+      violations.flatMap((v) => v.nodes.map((n) => n.html)),
+      'heading-order on /settings — a level was skipped',
+    ).toEqual([]);
+  });
 });
