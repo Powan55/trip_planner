@@ -972,6 +972,31 @@ html {
   background: rgb(var(--scrim-ink-rgb) / 0.72);
 }
 
+/* D-332 — the auth panel's EDGE steps up on the wall, and only on the wall.
+   `.glass-card-dark` draws `1px solid hsl(var(--border))`, which is the DECORATIVE
+   boundary. Over this cover that line measures 1.04:1 against the brightest pixel the
+   .72 scrim can pass — an invisible hairline exactly where the card crosses the
+   photograph's highlights, which is the half of D-326 nobody measured. --border-ui is
+   the same step already ruled for the door's key field and the ghost CTA over this
+   same photograph, for this same reason (see token-gate.tsx), so this is a precedent
+   applied, not a new value invented.
+
+   3:1 IS NOT THE TARGET HERE, AND CANNOT BE. The panel's fill sits BETWEEN the graded
+   backdrop's floor and its ceiling (`.photo-header__duo-lo` is mix-blend lighten, so
+   the grade floors every channel as well as capping it), so a container fill has no
+   single ratio against it: at --bg the card measures 1.00:1 against the cover's
+   shadows and disappears there. A fill tops out at 2.26:1 over this backdrop even at
+   pure black, so "just darken the panel" is arithmetically unreachable, not merely
+   unruled. This is depth plus a legible edge, which is what D-326 already ruled — the
+   fill and the .72 scrim are both deliberately BYTE-UNCHANGED.
+
+   Scoped by `.wall-auth-open` so the LANDING panel (flat gradient, no photograph) and
+   the other `.glass-card-dark` consumers are untouched. Wins on specificity (0,2,0 vs
+   0,1,0, both unlayered, later in source), so no `!important`. */
+.wall-auth-open [role='dialog'] {
+  border-color: var(--border-ui);
+}
+
 /* D-293 R4, and this is the rule the spec names: "nothing else on the page
    animates while [the auth view] is open — including the cover's Ken Burns, which
    must pause or be occluded". Nothing animates under the cursor or the caret, so
