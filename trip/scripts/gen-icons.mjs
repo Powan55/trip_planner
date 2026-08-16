@@ -19,12 +19,18 @@
 // inner box and pad the rest with the brand background so no glyph pixels fall
 // in the mask-clipped border.
 //
-// Background = the page field (#100C1A), the colour the app's <body> actually paints
+// Background = the page field (#0E0920), the colour the app's <body> actually paints
 // (the --navy-900 channel / --background token, app/globals.css). Same hex feeds the
 // manifest theme/background_color in gen-sw.mjs and `themeColor` in app/layout.tsx,
-// so the installed app, splash, and address bar all agree. Re-valued to the
-// D-291/D-292/D-293 page field; the committed PNGs under public/ still carry the old
-// hex until this script is re-run.
+// so the installed app, splash, and address bar all agree. Re-valued to the D-334
+// page field.
+//
+// 🔴 THE COMMITTED PNGs UNDER public/icons/ ARE STALE AND HAVE BEEN FOR TWO PALETTES.
+// This script is not part of `npm run build` (which is `next build && gen-sw.mjs`), so
+// nothing regenerates them; they still carry the pre-aubergine field. Re-running it is
+// a binary asset change and belongs in its own commit — `node scripts/gen-icons.mjs`,
+// then eyeball the four PNGs. Only the installed/home-screen icon is affected; the
+// address bar and splash read THEME_COLOR from gen-sw.mjs, which IS current.
 
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -36,8 +42,8 @@ const ROOT = join(__dirname, '..');
 const SVG_PATH = join(ROOT, 'public', 'favicon.svg');
 const OUT_DIR = join(ROOT, 'public', 'icons');
 
-// The app's page field #100C1A (matches manifest background_color/theme_color).
-const BG = { r: 0x10, g: 0x0c, b: 0x1a, alpha: 1 };
+// The app's page field #0E0920 (matches manifest background_color/theme_color).
+const BG = { r: 0x0e, g: 0x09, b: 0x20, alpha: 1 };
 
 async function renderGlyph(svgBuffer, size) {
   // Render the SVG crisply at the requested edge length.

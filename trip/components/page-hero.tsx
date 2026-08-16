@@ -22,16 +22,26 @@ import OptimizedImage from '@/components/optimized-image';
  * component in this file names a colour of its own:
  *
  *   /guides   --coral    | /nepal   --np-b (with the country gradient on the h1)
- *   /map      --sky      | /japan   --jp-a (with the country gradient on the h1)
+ *   /map      --volt     | /japan   --jp-a (with the country gradient on the h1)
  *   /journal  --violet   | /flights --mint
  *
- * `--marigold` is deliberately NOT used as a page identity: it is the app-wide chrome
- * accent (focus ring, tab-bar active tint, section underline), so a route that claimed
- * it would collide with the chrome rather than distinguish itself. `--sky` is the ruled
- * accent for BOTH /map and /flights; /map keeps it, being the information surface, and
- * /flights takes `--mint` ("done · offline-ready" — a booked leg), because two routes
- * sharing an accent defeats the point of a route having one. That is the one deviation
- * in the table above and it is a one-token change either way.
+ * THE RULE IS THAT A PAGE IDENTITY MAY NOT BE THE CHROME ACCENT — a route that claims the
+ * app-wide accent (focus ring, tab-bar active tint, section underline) collides with the
+ * chrome rather than distinguishing itself from it. Under D-334 that used to exclude
+ * `--marigold`; the chrome accent is now `--volt`, and marigold is free.
+ *
+ * 🔴 SO /map CURRENTLY BREAKS THAT RULE, and it is recorded rather than quietly fixed.
+ * /map's accent was `--sky`, and D-334 renamed and re-valued that slot to `--volt` — the
+ * new chrome accent — so /map inherited the collision mechanically. Picking /map a new
+ * identity is a PALETTE decision for the /map route, which D-292 already left open (it
+ * asserted /map into a tier without designing the route), and the same slice owes the map
+ * pins a palette. It is legible either way: the eyebrow measures 7.90:1 over the JP header
+ * grade in scripts/contrast-tokens.mjs. Marigold is the obvious candidate now that it is
+ * free, but that is that slice's call, not a token slice's.
+ *
+ * `--sky` was previously the ruled accent for BOTH /map and /flights; /flights takes
+ * `--mint` ("done · offline-ready" — a booked leg), because two routes sharing an accent
+ * defeats the point of a route having one.
  *
  * PHOTOGRAPHY. Every image is already bundled and already attributed in
  * `public/images/CREDITS.md`; nothing new was fetched and nothing is hotlinked. Each
@@ -135,7 +145,7 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   // billboards stacked six storeys up, glass towers either side. An aerial — the map
   // page's header is a place seen from above, which is what the page does.
   map: {
-    accent: 'var(--sky)',
+    accent: 'var(--volt)',
     titleClass: 'text-display-emphasis',
     photo: { src: '/images/featured/shibuya.jpg', country: 'jp', focus: 'center 48%' },
   },
