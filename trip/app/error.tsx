@@ -37,13 +37,13 @@ export default function ErrorBoundary({
         <h1 className="font-display text-2xl font-bold text-white mb-3">
           Something went wrong
         </h1>
-        <p className="text-sm text-white/70 mb-2">
+        <p className="text-sm text-ink-mid mb-2">
           This page hit a snag and couldn&apos;t render. It&apos;s a display glitch, not
           data loss — your trip plans, itinerary, and settings are safe in this
           device&apos;s local storage.
         </p>
         {error?.message && (
-          <p className="text-xs text-white/40 mb-6 break-words">{error.message}</p>
+          <p className="text-xs text-ink-mid mb-6 break-words">{error.message}</p>
         )}
         <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
           <Button onClick={() => reset()} variant="default">

@@ -79,7 +79,7 @@ export default function TravelLogDifferent({ date }: { date: string }) {
           type="button"
           onClick={() => setOpen(true)}
           data-testid="travel-log-different-trigger"
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-sm font-medium text-white/60 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Log something different
@@ -87,7 +87,7 @@ export default function TravelLogDifferent({ date }: { date: string }) {
       ) : (
         <div className="rounded-2xl glass-card p-3 sm:p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-white/50">
+            <p className="text-xs font-medium uppercase tracking-wide text-ink-mid">
               Log something you already did
             </p>
             <button
@@ -95,7 +95,7 @@ export default function TravelLogDifferent({ date }: { date: string }) {
               onClick={() => setOpen(false)}
               aria-label="Collapse log something different"
               data-testid="travel-log-different-collapse"
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-white/40 outline-none transition-colors hover:bg-white/10 hover:text-white/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>

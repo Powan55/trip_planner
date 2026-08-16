@@ -45,7 +45,7 @@ function AttributionLine({ item }: { item: ItineraryItem }) {
   if (!item.updatedBy) return null;
   const rel = formatRelativeTime(item.updatedAt);
   return (
-    <p className="text-[11px] text-white/40 mt-1 truncate">
+    <p className="text-[11px] text-ink-mid mt-1 truncate">
       by {item.updatedBy}
       {rel ? ` · ${rel}` : ''}
     </p>
@@ -132,7 +132,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
           className="mt-1 h-4 w-4 shrink-0 accent-primary cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded"
         />
       ) : (
-        <button {...attributes} {...listeners} aria-label={`Reorder ${item.title}`} className="mt-1 cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60 touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded">
+        <button {...attributes} {...listeners} aria-label={`Reorder ${item.title}`} className="mt-1 cursor-grab active:cursor-grabbing text-ink-mid hover:text-ink-hi touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded">
           <GripVertical className="w-4 h-4" />
         </button>
       )}
@@ -149,12 +149,12 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
           <span className={colors.text}>{CATEGORY_ICON_MAP[item.category]}</span>
           <span className="text-sm font-medium text-white truncate">{item.title}</span>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs text-white/40" data-testid={`calendar-item-time-${item.id}`}>
+        <div className="flex flex-wrap gap-2 text-xs text-ink-mid" data-testid={`calendar-item-time-${item.id}`}>
           {timeInfo && (
             <span>
               {timeInfo.label}
               {timeInfo.badge && (
-                <span className="ml-1 text-[10px] uppercase tracking-wide text-white/55" data-testid={`calendar-item-time-badge-${item.id}`}>
+                <span className="ml-1 text-[10px] uppercase tracking-wide text-ink-mid" data-testid={`calendar-item-time-badge-${item.id}`}>
                   {timeInfo.badge}
                 </span>
               )}
@@ -174,7 +174,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
             </span>
           )}
         </div>
-        {item.notes && <p className="text-xs text-white/30 mt-1 line-clamp-1">{item.notes}</p>}
+        {item.notes && <p className="text-xs text-ink-mid mt-1 line-clamp-1">{item.notes}</p>}
         <AttributionLine item={item} />
         {dupOpen && (
           <div className="mt-2 flex items-center gap-2" data-testid={`calendar-item-duplicate-picker-${item.id}`}>
@@ -208,15 +208,15 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
           aria-label={`Show ${item.title} on map`}
           aria-pressed={highlighted}
           data-testid={`calendar-item-locate-${item.id}`}
-          className={`shrink-0 mt-0.5 p-1.5 rounded hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${highlighted ? 'text-primary' : 'text-white/40 hover:text-primary'}`}
+          className={`shrink-0 mt-0.5 p-1.5 rounded hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${highlighted ? 'text-primary' : 'text-ink-mid hover:text-primary'}`}
         >
           <MapPin className="w-3.5 h-3.5" />
         </button>
       )}
       <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-        <button onClick={() => setDupOpen((v) => !v)} aria-label={`Duplicate ${item.title}`} aria-expanded={dupOpen} data-testid={`calendar-item-duplicate-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Copy className="w-3.5 h-3.5" /></button>
-        <button onClick={onEdit} aria-label={`Edit ${item.title}`} data-testid={`calendar-item-edit-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-white/40 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
-        <button onClick={onDelete} aria-label={`Delete ${item.title}`} data-testid={`calendar-item-delete-${item.id}`} className="p-1.5 rounded hover:bg-red-500/20 text-white/40 hover:text-red-400 outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
+        <button onClick={() => setDupOpen((v) => !v)} aria-label={`Duplicate ${item.title}`} aria-expanded={dupOpen} data-testid={`calendar-item-duplicate-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Copy className="w-3.5 h-3.5" /></button>
+        <button onClick={onEdit} aria-label={`Edit ${item.title}`} data-testid={`calendar-item-edit-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
+        <button onClick={onDelete} aria-label={`Delete ${item.title}`} data-testid={`calendar-item-delete-${item.id}`} className="p-1.5 rounded hover:bg-red-500/20 text-ink-mid hover:text-red-400 outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
     </div>
   );

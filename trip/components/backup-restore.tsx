@@ -25,8 +25,8 @@ import { useItineraryContext } from '@/components/itinerary-provider';
  * backup includes journal AND photos, so downloading a backup can never silently exfiltrate photos —
  * the file only ever lives on the user's own device.
  *
- * A11y / contrast: dark glassmorphism; the most-muted caption is `text-white/60`
- * (well above the AA 4.5:1 floor of `/50` = 5.32:1 on `#0a0e27`); status/error use their
+ * A11y / contrast: dark glassmorphism; the quietest caption is `text-ink-mid`, whose token
+ * clears AA on every surface step by construction (#27); status/error use their
  * own AA-clearing tints; buttons expose visible focus rings and the file input is a real,
  * keyboard-reachable, labelled `<input type="file">`. No text animates through low opacity.
  *
@@ -145,9 +145,9 @@ export default function BackupRestore() {
             >
               Backup &amp; Restore
             </h2>
-            {/* Most-muted caption — text-white/60 clears AA on #0a0e27. */}
-            <p className="mt-1 max-w-2xl text-sm text-white/60">
-              Save your <strong className="font-semibold text-white/80">whole trip</strong> to a single
+            {/* Describes the panel rather than being its subject → ink-mid. */}
+            <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+              Save your <strong className="font-semibold text-ink-hi">whole trip</strong> to a single
               file — itinerary, journal, photos, expenses, budget and checklists — or restore it all
               from a backup. Everything is stored on this device; a backup lets you keep a copy or move
               your trip to another browser.
@@ -159,7 +159,7 @@ export default function BackupRestore() {
           {/* Export */}
           <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <h3 className="text-sm font-semibold text-white">Export</h3>
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-ink-mid">
               Download your entire trip — <strong className="text-white">including your journal and
               photos</strong> — as a single backup file.
             </p>
@@ -177,7 +177,7 @@ export default function BackupRestore() {
           {/* Import */}
           <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
             <h3 className="text-sm font-semibold text-white">Import</h3>
-            <p className="text-sm text-white/70">
+            <p className="text-sm text-ink-mid">
               Restore everything from a backup — itinerary, journal and photos. This{' '}
               <strong className="text-white">replaces your current trip</strong>.
             </p>
@@ -250,12 +250,12 @@ export default function BackupRestore() {
                   Replace your current trip?
                 </h3>
               </div>
-              <p className="text-sm text-white/70">
+              <p className="text-sm text-ink-mid">
                 Importing <span className="font-medium text-white">{pendingImport.name}</span> will
                 replace your current trip — <strong className="text-white">itinerary, journal, photos</strong>,
                 expenses, budget and checklists — with the contents of that file.
               </p>
-              <p className="mt-2 text-sm text-white/70">
+              <p className="mt-2 text-sm text-ink-mid">
                 This replaces the trip <strong className="text-white">on this device</strong> and cannot
                 be undone. The page will reload once it&apos;s restored.
               </p>

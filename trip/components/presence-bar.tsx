@@ -74,9 +74,9 @@ export default function PresenceBar() {
 
         {/* Visible label: names + "active now". `min-w-0` + `truncate` so a long roster
             can never overflow the pill. */}
-        <span className="min-w-0 truncate text-xs font-medium text-white/80">
+        <span className="min-w-0 truncate text-xs font-medium text-ink-hi">
           <span className="truncate">{names}</span>
-          <span className="text-white/45"> · active now</span>
+          <span className="text-ink-mid"> · active now</span>
         </span>
 
         {/* Screen-reader summary (the dots are aria-hidden); polite live region above

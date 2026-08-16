@@ -195,7 +195,7 @@ export default function BudgetPanel() {
             >
               Trip Budget
             </h2>
-            <p className="mt-1 max-w-2xl text-sm text-white/60">
+            <p className="mt-1 max-w-2xl text-sm text-ink-mid">
               Track your budget, spending, pace, and who owes whom — all in one place, saved on this
               device.
             </p>
@@ -274,8 +274,8 @@ export default function BudgetPanel() {
             now={now}
           />
           {roll.totalBudgetHome <= 0 && (
-            <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
-              Set a budget on the <strong className="font-semibold text-white/80">Budget</strong> tab
+            <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-ink-mid">
+              Set a budget on the <strong className="font-semibold text-ink-hi">Budget</strong> tab
               to see how your spending is tracking against plan.
             </p>
           )}
@@ -292,8 +292,8 @@ export default function BudgetPanel() {
         >
           <SettleUpSummary settlements={settlements} />
           {settlements.length === 0 && (
-            <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/60">
-              Log a <strong className="font-semibold text-white/80">split</strong> expense on the
+            <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-ink-mid">
+              Log a <strong className="font-semibold text-ink-hi">split</strong> expense on the
               Expenses tab and this shows who owes whom.
             </p>
           )}
@@ -360,7 +360,7 @@ function MoneyTabs({ view, onChange }: { view: MoneyView; onChange: (v: MoneyVie
             className={`min-h-[44px] flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               active
                 ? 'bg-primary text-primary-foreground'
-                : 'text-white/70 hover:bg-white/5 hover:text-white'
+                : 'text-ink-mid hover:bg-white/5 hover:text-white'
             }`}
           >
             {t.label}
@@ -390,13 +390,13 @@ function SpentRemaining({
   if (budgetLocal <= 0 && spentLocal <= 0) return null;
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs" data-testid={testId}>
-      <span className="text-white/50">
+      <span className="text-ink-mid">
         Spent{' '}
-        <span className="font-semibold text-white/80" data-testid={`${testId}-spent`}>
+        <span className="font-semibold text-ink-hi" data-testid={`${testId}-spent`}>
           {formatMoney(spentLocal, cur)}
         </span>
       </span>
-      <span aria-hidden="true" className="text-white/20">
+      <span aria-hidden="true" className="text-ink-lo">
         ·
       </span>
       <span className={over ? 'text-red-400' : 'text-emerald-300/90'}>
@@ -450,7 +450,7 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
     >
       <div>
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Total trip budget</p>
-        <p className="mt-1 text-sm text-white/50">Nepal + Japan, converted to {home}</p>
+        <p className="mt-1 text-sm text-ink-mid">Nepal + Japan, converted to {home}</p>
       </div>
       <div className="sm:text-right">
         <p
@@ -462,16 +462,16 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
         </p>
         {anySpend && (
           <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs sm:justify-end">
-            <span className="text-white/50">
+            <span className="text-ink-mid">
               Spent{' '}
               <CountUpMoney
                 amount={roll.totalSpentHome}
                 cur={home}
                 testId="budget-grand-total-spent"
-                className="font-semibold text-white/80"
+                className="font-semibold text-ink-hi"
               />
             </span>
-            <span aria-hidden="true" className="text-white/20">
+            <span aria-hidden="true" className="text-ink-lo">
               ·
             </span>
             <span className={over ? 'text-red-400' : 'text-emerald-300/90'}>
@@ -523,18 +523,18 @@ function LegBudgetCard({
     >
       <div>
         <h3 className="text-sm font-semibold text-white">{title}</h3>
-        <p className="mt-0.5 text-xs text-white/50">{subtitle}</p>
+        <p className="mt-0.5 text-xs text-ink-mid">{subtitle}</p>
       </div>
 
       {/* Leg total budget (in the leg's local currency) */}
       <div className="flex flex-col gap-1">
-        <label htmlFor={legInputId} className="text-xs font-medium text-white/70">
+        <label htmlFor={legInputId} className="text-xs font-medium text-ink-mid">
           Total budget ({cur})
         </label>
         <div className="relative">
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-white/40"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-mid"
           >
             {sym}
           </span>
@@ -548,18 +548,18 @@ function LegBudgetCard({
             value={legTotal === 0 ? '' : String(legTotal)}
             placeholder="0"
             onChange={(e) => onLegBudget(e.target.value)}
-            className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-9' : 'pl-7'
             }`}
           />
         </div>
         {/* Home-currency echo of this leg's total (presentation-only). */}
-        <p className="text-xs text-white/50" data-testid={`budget-leg-${leg}-home`}>
+        <p className="text-xs text-ink-mid" data-testid={`budget-leg-${leg}-home`}>
           {home === cur ? (
-            <span className="text-white/55">Shown in {cur}</span>
+            <span className="text-ink-mid">Shown in {cur}</span>
           ) : (
             <>
-              ≈ <span className="font-semibold text-white/70">{formatMoney(budgetHome, home)}</span> in{' '}
+              ≈ <span className="font-semibold text-ink-hi">{formatMoney(budgetHome, home)}</span> in{' '}
               {home}
             </>
           )}
@@ -578,10 +578,10 @@ function LegBudgetCard({
       <details className="group rounded-lg border border-white/10 bg-surface/40">
         <summary
           data-testid={`budget-leg-${leg}-categories-toggle`}
-          className="flex min-h-[44px] cursor-pointer list-none items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-white/70 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="flex min-h-[44px] cursor-pointer list-none items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           <span>Break down by category (optional)</span>
-          <span aria-hidden="true" className="text-white/40 transition-transform group-open:rotate-90">
+          <span aria-hidden="true" className="text-ink-mid transition-transform group-open:rotate-90">
             ›
           </span>
         </summary>
@@ -606,7 +606,7 @@ function LegBudgetCard({
                   <div className="relative flex-1">
                     <span
                       aria-hidden="true"
-                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-white/40"
+                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-mid"
                     >
                       {sym}
                     </span>
@@ -621,7 +621,7 @@ function LegBudgetCard({
                       placeholder="0"
                       aria-label={`${category} budget for the ${leg} leg, in ${cur}`}
                       onChange={(e) => onCategoryBudget(category, e.target.value)}
-                      className={`w-full rounded-lg border border-white/15 bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+                      className={`w-full rounded-lg border border-white/15 bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
                         sym === 'Rs' ? 'pl-8' : 'pl-6'
                       }`}
                     />
@@ -632,8 +632,8 @@ function LegBudgetCard({
                     className="pl-[calc(6.5rem+0.75rem)] text-[11px]"
                     data-testid={`budget-cat-${leg}-${category}-spent-remaining`}
                   >
-                    <span className="text-white/55">Spent {formatMoney(catRoll.spentLocal, cur)}</span>
-                    <span aria-hidden="true" className="mx-1.5 text-white/20">
+                    <span className="text-ink-mid">Spent {formatMoney(catRoll.spentLocal, cur)}</span>
+                    <span aria-hidden="true" className="mx-1.5 text-ink-lo">
                       ·
                     </span>
                     <span className={catRoll.remainingLocal < 0 ? 'text-red-400' : 'text-emerald-300/80'}>

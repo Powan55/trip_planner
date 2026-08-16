@@ -424,7 +424,7 @@ export function ConciergeChat() {
               "services" would have been a second false note. "here" stays: it scopes the storage
               claim to this panel rather than reading as a claim about the whole data path
               */}
-          <SheetDescription className="text-white/55">
+          <SheetDescription className="text-ink-mid">
             Ask about the Nepal &amp; Japan itinerary. Your messages and trip details go to a
             third-party AI provider that may retain and review them on free plans — the model
             that answers is named under each reply. Nothing is stored here; the chat clears on
@@ -447,7 +447,7 @@ export function ConciergeChat() {
                   type="button"
                   data-testid="concierge-starter-chip"
                   onClick={() => void send(prompt)}
-                  className="inline-flex min-h-[44px] items-center rounded-full border border-white/10 bg-white/5 px-3.5 text-sm text-white/75 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="inline-flex min-h-[44px] items-center rounded-full border border-white/10 bg-white/5 px-3.5 text-sm text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   {prompt}
                 </button>
@@ -472,7 +472,7 @@ export function ConciergeChat() {
                 className={
                   turn.role === 'user'
                     ? 'ml-6 whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary/10 px-3 py-2 text-sm text-white'
-                    : 'mr-6 whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/5 px-3 py-2 text-sm text-white/85'
+                    : 'mr-6 whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/5 px-3 py-2 text-sm text-ink-hi'
                 }
               >
                 {turn.role === 'assistant'
@@ -491,7 +491,7 @@ export function ConciergeChat() {
                   nothing at all — no "unknown", no placeholder — when absent, which is the normal
                   case against the deployed v1.4.0 Worker. */}
               {turn.role === 'assistant' && turn.model && (
-                <p data-testid="concierge-turn-model" className="mr-6 px-3 text-xs text-white/55">
+                <p data-testid="concierge-turn-model" className="mr-6 px-3 text-xs text-ink-mid">
                   {turn.model}
                 </p>
               )}
@@ -536,7 +536,7 @@ export function ConciergeChat() {
                             className="mr-6 rounded-xl border border-ring/25 bg-primary/5 px-3 py-2"
                           >
                             <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm text-white/90">{label}</span>
+                              <span className="text-sm text-ink-hi">{label}</span>
                               <div className="flex shrink-0 items-center gap-1">
                                 <button
                                   type="button"
@@ -552,7 +552,7 @@ export function ConciergeChat() {
                                   data-testid="concierge-op-dismiss"
                                   onClick={() => resolve(key)}
                                   aria-label={`Dismiss: ${label}`}
-                                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg border border-white/15 bg-white/5 text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                 >
                                   <X className="h-4 w-4" aria-hidden="true" />
                                 </button>
@@ -589,7 +589,7 @@ export function ConciergeChat() {
                       {dropped.length > 0 && (
                         <p
                           data-testid="concierge-ops-dropped"
-                          className="mr-6 px-3 text-xs text-white/50"
+                          className="mr-6 px-3 text-xs text-ink-mid"
                         >
                           {dropped.length} suggested change{dropped.length === 1 ? '' : 's'}{' '}
                           didn&rsquo;t match the current plan: {reasons.join('; ')}.
@@ -644,7 +644,7 @@ export function ConciergeChat() {
             // one control the user is actually typing into. Screen-reader order becomes:
             // "Message the concierge, edit text, Sent to a third-party AI — nothing stored here."
             aria-describedby={PRIVACY_NOTE_ID}
-            className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/35 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <button
             type="submit"
@@ -659,9 +659,9 @@ export function ConciergeChat() {
 
         {/* (owner ruling Q5, second half) — the small privacy label, sited at the input
             rather than buried in the header paragraph, because this is where the user decides
-            what to type. `text-white/55` is the same tone the SheetDescription already uses and
+            what to type. `text-ink-mid` is the same tone the SheetDescription already uses and
             already clears the axe colour-contrast check on this panel. */}
-        <p id={PRIVACY_NOTE_ID} data-testid="concierge-privacy-note" className="mt-2 px-1 text-xs text-white/55">
+        <p id={PRIVACY_NOTE_ID} data-testid="concierge-privacy-note" className="mt-2 px-1 text-xs text-ink-mid">
           Sent to a third-party AI — nothing stored here.
         </p>
       </SheetContent>

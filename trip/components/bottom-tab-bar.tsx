@@ -113,7 +113,10 @@ export default function BottomTabBar() {
                 data-active={isActive ? 'true' : undefined}
                 className="relative flex h-full min-h-[44px] w-full flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-medium outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
                 // the active color is dynamic (route-accent var) → inline style, never a
-                // dynamic Tailwind class. Inactive tabs use a static muted white.
+                // dynamic Tailwind class. Inactive tabs take ink-mid (#27): an unselected
+                // option in a control is a live destination, not a receded one — same call
+                // the swept token-gate mode toggle makes. "You are here" is carried by the
+                // accent + hairline + aria-current, not by dimming the other four.
                 style={isActive ? { color: 'hsl(var(--accent-scroll))' } : undefined}
               >
                 {/* Active top hairline in the same accent (decorative). */}
@@ -125,10 +128,10 @@ export default function BottomTabBar() {
                   />
                 )}
                 <Icon
-                  className={`h-5 w-5 shrink-0 ${isActive ? '' : 'text-white/60'}`}
+                  className={`h-5 w-5 shrink-0 ${isActive ? '' : 'text-ink-mid'}`}
                   aria-hidden="true"
                 />
-                <span className={`truncate ${isActive ? '' : 'text-white/60'}`}>{item.label}</span>
+                <span className={`truncate ${isActive ? '' : 'text-ink-mid'}`}>{item.label}</span>
               </Link>
             </li>
           );

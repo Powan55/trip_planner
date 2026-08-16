@@ -91,7 +91,7 @@ function HighlightCard({ highlight }: { highlight: InspirationHighlight }) {
 
       <div className="flex flex-1 flex-col p-5">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-white/60">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-ink-lo">
             {highlight.when}
           </p>
           <span
@@ -106,7 +106,7 @@ function HighlightCard({ highlight }: { highlight: InspirationHighlight }) {
           </span>
         </div>
         <h3 className="mt-2 font-display font-bold text-white">{highlight.title}</h3>
-        <p className="mt-2 text-xs leading-relaxed text-white/60">{highlight.blurb}</p>
+        <p className="mt-2 text-xs leading-relaxed text-ink-mid">{highlight.blurb}</p>
       </div>
     </m.article>
   );

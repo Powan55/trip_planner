@@ -73,7 +73,7 @@ export default function TravelArrivalToast() {
               <p id={titleId} className="text-sm font-semibold text-white">
                 You&rsquo;re on the trip
               </p>
-              <p className="mt-0.5 text-xs text-white/60">
+              <p className="mt-0.5 text-xs text-ink-mid">
                 Open Travel Mode for a focused, on-the-go companion.
               </p>
             </div>
@@ -91,7 +91,7 @@ export default function TravelArrivalToast() {
                 onClick={dismiss}
                 aria-label="Dismiss Travel Mode suggestion"
                 data-testid="travel-arrival-dismiss"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-white/50 outline-none transition-colors duration-200 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-ink-mid outline-none transition-colors duration-200 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>

@@ -66,7 +66,7 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
         <h2 id="travel-hero-title" className="mt-1 font-display text-lg font-bold text-white">
           Not on the road yet
         </h2>
-        <p className="mt-1 text-sm text-white/60" data-testid="travel-hero-offtrip">
+        <p className="mt-1 text-sm text-ink-mid" data-testid="travel-hero-offtrip">
           Travel Mode lights up during your trip (Dec 9 – Jan 9).
         </p>
       </section>
@@ -93,7 +93,7 @@ export default function TravelHeroCard({ date }: { date?: string } = {}) {
       <div className="flex items-center justify-between gap-3">
         <h2 id="travel-hero-title" className="font-display text-sm font-bold leading-tight text-white">
           Day <span className="text-display-emphasis">{resolvedDayNumber}</span>
-          <span className="mx-1.5 text-white/40">—</span>
+          <span className="mx-1.5 text-ink-lo">—</span>
           {resolvedCity}
         </h2>
       </div>
@@ -108,9 +108,9 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
     return (
       <p
         data-testid="travel-hero-empty"
-        className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/60"
+        className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-mid"
       >
-        <Calendar className="h-4 w-4 text-white/25" aria-hidden="true" />
+        <Calendar className="h-4 w-4 text-ink-lo" aria-hidden="true" />
         Nothing planned yet.
         <Link
           href="/plan/"
@@ -124,7 +124,7 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
 
   if (state.phase === 'untimed') {
     return (
-      <p data-testid="travel-hero-untimed" className="mt-1 text-sm text-white/70">
+      <p data-testid="travel-hero-untimed" className="mt-1 text-sm text-ink-mid">
         <span className="font-semibold text-foreground">{state.untimedCount}</span>{' '}
         {state.untimedCount === 1 ? 'thing' : 'things'} planned today — no set times.
       </p>
@@ -133,7 +133,7 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
 
   if (state.phase === 'done') {
     return (
-      <p data-testid="travel-hero-flip" data-flip-animated="false" className="mt-1 text-sm font-medium text-white/80">
+      <p data-testid="travel-hero-flip" data-flip-animated="false" className="mt-1 text-sm font-medium text-ink-mid">
         You&rsquo;re all caught up for today.
       </p>
     );
@@ -150,7 +150,7 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
       <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
         <span
           className={`inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest ${
-            isNow ? 'text-gold-400' : 'text-white/50'
+            isNow ? 'text-gold-400' : 'text-ink-lo'
           }`}
         >
           {isNow ? <Clock className="h-3 w-3" aria-hidden="true" /> : <ArrowRight className="h-3 w-3" aria-hidden="true" />}
@@ -159,16 +159,16 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
         <span className="min-w-0 truncate font-semibold text-white" data-testid="travel-hero-headline">
           {headline.title}
         </span>
-        {timeInfo && <span className="font-mono text-xs text-white/55">{timeInfo.label}</span>}
+        {timeInfo && <span className="font-mono text-xs text-ink-mid">{timeInfo.label}</span>}
         {headline.location && (
-          <span className="inline-flex min-w-0 items-center gap-1 text-xs text-white/45">
+          <span className="inline-flex min-w-0 items-center gap-1 text-xs text-ink-mid">
             <MapPin className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
             <span className="truncate">{headline.location}</span>
           </span>
         )}
       </p>
       {isNow && state.next && (
-        <p className="mt-0.5 truncate text-xs text-white/45" data-testid="travel-hero-then">
+        <p className="mt-0.5 truncate text-xs text-ink-mid" data-testid="travel-hero-then">
           <span className="text-muted-foreground">Then ·</span> {state.next.title}
         </p>
       )}

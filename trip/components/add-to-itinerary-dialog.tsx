@@ -532,12 +532,12 @@ export default function AddToItineraryDialog({
               {isCustom ? 'Add your own plan' : isModifyMode ? 'Update plan' : 'Add to plan'}
             </h3>
             {isCustom ? (
-              <p className="text-sm text-white/60 mt-0.5 truncate">A dinner spot, a place a friend mentioned…</p>
+              <p className="text-sm text-ink-lo mt-0.5 truncate">A dinner spot, a place a friend mentioned…</p>
             ) : (
               <>
-                <p className="text-sm text-white/60 mt-0.5 truncate">{draft.title}</p>
+                <p className="text-sm text-ink-hi mt-0.5 truncate">{draft.title}</p>
                 {draft.location && (
-                  <p className="text-xs text-white/30 mt-0.5 flex items-center gap-1">
+                  <p className="text-xs text-ink-mid mt-0.5 flex items-center gap-1">
                     <MapPin className="w-3 h-3 shrink-0" />
                     <span className="truncate">{draft.location}</span>
                   </p>
@@ -545,7 +545,7 @@ export default function AddToItineraryDialog({
               </>
             )}
           </div>
-          <button type="button" data-testid="add-item-cancel" onClick={onClose} aria-label="Close dialog" className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+          <button type="button" data-testid="add-item-cancel" onClick={onClose} aria-label="Close dialog" className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -558,7 +558,7 @@ export default function AddToItineraryDialog({
         {/* Existing placements (modify/remove mode) */}
         {isModifyMode && (
           <div className="mb-5 space-y-2">
-            <span className="text-xs text-white/50 block">Already planned</span>
+            <span className="text-xs text-ink-lo block">Already planned</span>
             {existingPlacements.map((p) => {
               const isEditing = p.item.id === editingPlacementId;
               return (
@@ -569,8 +569,8 @@ export default function AddToItineraryDialog({
                   }`}
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white/90 truncate">{formatDate(p.date)}</p>
-                    <p className="text-xs text-white/55 truncate">
+                    <p className="text-sm text-ink-hi truncate">{formatDate(p.date)}</p>
+                    <p className="text-xs text-ink-mid truncate">
                       {placeLabelForDate(p.date)}
                       {(() => {
                         const timeInfo = describeItemTime(p.item, p.date);
@@ -583,7 +583,7 @@ export default function AddToItineraryDialog({
                     type="button"
                     onClick={() => startEditingPlacement(p)}
                     aria-pressed={isEditing}
-                    className="shrink-0 px-2.5 py-1 rounded-lg text-xs text-white/70 bg-white/5 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="shrink-0 px-2.5 py-1 rounded-lg text-xs text-ink-hi bg-white/5 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     Modify
                   </button>
@@ -603,7 +603,7 @@ export default function AddToItineraryDialog({
                       if (editingPlacementId === p.item.id) startAddingNew();
                     }}
                     aria-label={`Remove from ${formatDate(p.date)}`}
-                    className="shrink-0 p-1.5 rounded-lg text-white/40 hover:text-red-400 hover:bg-red-500/20 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"
+                    className="shrink-0 p-1.5 rounded-lg text-ink-mid hover:text-red-400 hover:bg-red-500/20 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -617,7 +617,7 @@ export default function AddToItineraryDialog({
               className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                 editingPlacementId === null
                   ? 'border-ring/40 text-primary bg-primary/5'
-                  : 'border-white/10 text-white/40 hover:text-white/70 hover:border-white/20'
+                  : 'border-white/10 text-ink-mid hover:text-ink-hi hover:border-white/20'
               }`}
             >
               <Plus className="w-3.5 h-3.5" />
@@ -632,7 +632,7 @@ export default function AddToItineraryDialog({
           {isCustom && (
             <>
               <div>
-                <label htmlFor={titleFieldId} className="text-xs text-white/50 mb-1 block">Title *</label>
+                <label htmlFor={titleFieldId} className="text-xs text-ink-lo mb-1 block">Title *</label>
                 <input
                   id={titleFieldId}
                   ref={titleInputRef}
@@ -645,7 +645,7 @@ export default function AddToItineraryDialog({
                 />
               </div>
               <div>
-                <label htmlFor={locationFieldId} className="text-xs text-white/50 mb-1 block">Location</label>
+                <label htmlFor={locationFieldId} className="text-xs text-ink-lo mb-1 block">Location</label>
                 <input
                   id={locationFieldId}
                   data-testid="add-item-location-input"
@@ -673,7 +673,7 @@ export default function AddToItineraryDialog({
                 <span
                   aria-disabled="true"
                   data-testid="add-item-maps-link"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-white/25 cursor-not-allowed select-none"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-ink-lo cursor-not-allowed select-none"
                 >
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                   Search on Google Maps
@@ -684,7 +684,7 @@ export default function AddToItineraryDialog({
 
           {/* Date select */}
           <div>
-            <label htmlFor={dateFieldId} className="text-xs text-white/50 mb-1 block">Date *</label>
+            <label htmlFor={dateFieldId} className="text-xs text-ink-lo mb-1 block">Date *</label>
             <select
               id={dateFieldId}
               ref={firstFieldRef}
@@ -703,7 +703,7 @@ export default function AddToItineraryDialog({
 
           {/* Category grid (same pattern as ItemEditor) */}
           <div>
-            <span id={categoryLabelId} className="text-xs text-white/50 mb-1 block">Category</span>
+            <span id={categoryLabelId} className="text-xs text-ink-lo mb-1 block">Category</span>
             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
               {ALL_CATEGORIES.map((cat) => {
                 const colors = CATEGORY_COLORS[cat];
@@ -716,7 +716,7 @@ export default function AddToItineraryDialog({
                     aria-pressed={isActive}
                     aria-label={`Category: ${cat}`}
                     className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                      isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-white/40 hover:bg-white/5'
+                      isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-ink-mid hover:bg-white/5'
                     }`}
                   >
                     {CATEGORY_ICON_MAP[cat]}
@@ -730,18 +730,18 @@ export default function AddToItineraryDialog({
           {/* Time + Duration */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor={timeFieldId} className="text-xs text-white/50 mb-1 block">Time</label>
+              <label htmlFor={timeFieldId} className="text-xs text-ink-lo mb-1 block">Time</label>
               <TimePicker id={timeFieldId} value={startMinutes} onChange={handleTimeChange} testId="add-item-time-input" />
             </div>
             <div>
-              <label htmlFor={durationFieldId} className="text-xs text-white/50 mb-1 block">Duration (min)</label>
+              <label htmlFor={durationFieldId} className="text-xs text-ink-lo mb-1 block">Duration (min)</label>
               <DurationField id={durationFieldId} value={durationMinutes} onChange={handleDurationChange} testId="add-item-duration-input" />
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label htmlFor={notesFieldId} className="text-xs text-white/50 mb-1 block">Notes</label>
+            <label htmlFor={notesFieldId} className="text-xs text-ink-lo mb-1 block">Notes</label>
             <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
           </div>
         </div>

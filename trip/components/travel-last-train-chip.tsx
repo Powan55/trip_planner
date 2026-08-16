@@ -19,7 +19,7 @@ export default function TravelLastTrainChip({ date }: { date: string }) {
   return (
     <p
       data-testid="travel-last-train-chip"
-      className="mx-auto mt-3 flex max-w-2xl items-center justify-center gap-1.5 text-center text-xs text-white/50"
+      className="mx-auto mt-3 flex max-w-2xl items-center justify-center gap-1.5 text-center text-xs text-ink-mid"
     >
       <Train className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
       {notice}

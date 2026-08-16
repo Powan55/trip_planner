@@ -33,10 +33,10 @@ export default function Footer() {
         <p className="text-sm text-muted-foreground mb-4">
           {TRIP_DATE_LABEL}
         </p>
-        {/* muted footer type brightened to meet WCAG AA on the navy field
-            (#0a0e27). Quieter copyright `/30`→`/50` (2.63:1 → 5.32:1), staying
-            clearly muted vs. the white wordmark above. */}
-        <p className="text-xs text-white/50">
+        {/* The copyright/version note qualifies the wordmark above rather than
+            being the footer's subject, so it takes ink-mid (#27) — still clearly
+            quieter than the white wordmark, and AA on the navy field by token. */}
+        <p className="text-xs text-ink-mid">
           &copy; {new Date().getFullYear()} Lax
           {' '}&middot;{' '}
           v{process.env.NEXT_PUBLIC_APP_VERSION}

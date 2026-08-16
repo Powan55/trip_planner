@@ -44,9 +44,10 @@ const STATE_ICON: Record<PreflightState, typeof CheckCircle2> = {
 const STATE_CLASS: Record<PreflightState, string> = {
   ok: 'text-emerald-300',
   attention: 'text-amber-300',
-  // Deliberately not dimmer than /70: the route is axe-scanned (e2e/docs-checklist-a11y.spec.ts)
-  // and a "couldn't check" verdict is exactly the line a traveler must not miss.
-  unknown: 'text-white/70',
+  // Deliberately the TOP ink tier, not a dimmed one: the route is axe-scanned
+  // (e2e/docs-checklist-a11y.spec.ts) and a "couldn't check" verdict is exactly the line a
+  // traveler must not miss. It is the row's headline, so it takes the headline's tier.
+  unknown: 'text-ink-hi',
 };
 
 const ROW_ICON: Record<string, typeof MapPinned> = {
@@ -73,7 +74,7 @@ function CheckRow({ check }: { check: PreflightCheck }) {
           <StateIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           {check.headline}
         </p>
-        <p className="mt-1 text-xs leading-relaxed text-white/60">{check.detail}</p>
+        <p className="mt-1 text-xs leading-relaxed text-ink-mid">{check.detail}</p>
       </div>
     </li>
   );
@@ -127,7 +128,7 @@ export default function PreflightChecks() {
         <h2 id="preflight-heading" className="font-display text-lg font-bold text-white">
           Ready to go?
         </h2>
-        <p className="mt-1 text-xs leading-relaxed text-white/60">
+        <p className="mt-1 text-xs leading-relaxed text-ink-mid">
           What this device can confirm on its own — no connection needed, and nothing here is sent
           anywhere.
         </p>
@@ -145,12 +146,12 @@ export default function PreflightChecks() {
         </span>
 
         {checks === null ? (
-          <p data-testid="preflight-loading" className="mt-4 text-sm text-white/55">
+          <p data-testid="preflight-loading" className="mt-4 text-sm text-ink-mid">
             Checking…
           </p>
         ) : (
           <>
-            <p data-testid="preflight-tally" className="mt-3 text-xs font-medium text-white/70">
+            <p data-testid="preflight-tally" className="mt-3 text-xs font-medium text-ink-mid">
               {tally('ok')} ready · {tally('attention')} to look at · {tally('unknown')} couldn&apos;t
               be checked
             </p>

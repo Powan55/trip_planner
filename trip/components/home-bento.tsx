@@ -109,13 +109,13 @@ export default function HomeBento() {
               firstPlanned && (
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-white truncate">{firstPlanned.item.title}</p>
-                  <p className="text-xs text-white/50 mt-0.5">First up &middot; {formatDate(firstPlanned.date)}</p>
+                  <p className="text-xs text-ink-mid mt-0.5">First up &middot; {formatDate(firstPlanned.date)}</p>
                 </div>
               )
             ) : upcoming ? (
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{upcoming.title}</p>
-                {upcomingTime && <p className="text-xs text-white/50 mt-0.5">{upcomingTime.label}</p>}
+                {upcomingTime && <p className="text-xs text-ink-mid mt-0.5">{upcomingTime.label}</p>}
               </div>
             ) : (
               <EmptyLine>You&rsquo;re all caught up today</EmptyLine>
@@ -128,7 +128,7 @@ export default function HomeBento() {
             {roll.totalBudgetHome > 0 ? (
               <p className="text-sm font-semibold text-white">
                 {formatMoney(roll.totalSpentHome, roll.home)}{' '}
-                <span className="text-white/40 font-normal">/ {formatMoney(roll.totalBudgetHome, roll.home)}</span>
+                <span className="text-ink-mid font-normal">/ {formatMoney(roll.totalBudgetHome, roll.home)}</span>
               </p>
             ) : (
               <EmptyLine>Set a budget in Settings</EmptyLine>
@@ -192,7 +192,7 @@ export default function HomeBento() {
               <MapIcon className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
               <span className="text-sm font-semibold text-white">Open the map</span>
             </div>
-            <ArrowRight className="relative w-4 h-4 text-white/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+            <ArrowRight className="relative w-4 h-4 text-ink-mid group-hover:text-primary group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
           </Link>
 
           {/* Travel Mode entry — spans 2 cols, shares the ONE entry path. */}
@@ -206,7 +206,7 @@ export default function HomeBento() {
               <Compass className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
               <span className="text-sm font-semibold text-white">Open Travel Mode</span>
             </span>
-            <ArrowRight className="w-4 h-4 text-white/40" aria-hidden="true" />
+            <ArrowRight className="w-4 h-4 text-ink-mid" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -232,7 +232,7 @@ function BentoTile({
       data-testid={testId}
       className={`rounded-2xl glass-card p-4 flex flex-col justify-between min-h-[5.5rem] ${className ?? ''}`}
     >
-      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-white/40 mb-2">
+      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-ink-lo mb-2">
         <span className="text-muted-foreground">{icon}</span>
         {label}
       </p>
@@ -242,7 +242,7 @@ function BentoTile({
 }
 
 function EmptyLine({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-white/35">{children}</p>;
+  return <p className="text-xs text-ink-mid">{children}</p>;
 }
 
 function PctBar({ pct, testId }: { pct: number; testId: string }) {

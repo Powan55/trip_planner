@@ -97,7 +97,7 @@ export default function UserTokenShowOnce({
       >
         {groups.map((chunks, gi) => (
           <Fragment key={gi}>
-            {gi > 0 && <span className="text-white/40">-</span>}
+            {gi > 0 && <span className="text-ink-lo">-</span>}
             {chunks.map((chunk, ci) => (
               <span key={ci}>{chunk}</span>
             ))}
@@ -105,15 +105,15 @@ export default function UserTokenShowOnce({
         ))}
       </code>
 
-      <p className="text-xs leading-relaxed text-white/60">
+      <p className="text-xs leading-relaxed text-ink-mid">
         It&rsquo;s how you get back in. There&rsquo;s no email and no password, so if you lose it,
         the account is gone. Put it in your notes app or password manager right now.
       </p>
 
-      <p className="flex items-start gap-1.5 text-xs leading-relaxed text-white/60">
+      <p className="flex items-start gap-1.5 text-xs leading-relaxed text-ink-mid">
         <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold-400" aria-hidden="true" />
         <span>
-          <strong className="font-semibold text-white/80">Never share it:</strong> it opens your
+          <strong className="font-semibold text-ink-hi">Never share it:</strong> it opens your
           whole account. To share a single trip, share that trip&rsquo;s Trip Token instead.
         </span>
       </p>
@@ -150,7 +150,7 @@ export default function UserTokenShowOnce({
           data-testid={`${testIdPrefix}-ack`}
           className="h-5 w-5 shrink-0 cursor-pointer accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         />
-        <label htmlFor={ackId} className="cursor-pointer text-sm text-white/80">
+        <label htmlFor={ackId} className="cursor-pointer text-sm text-ink-hi">
           I&rsquo;ve saved my key
         </label>
       </div>

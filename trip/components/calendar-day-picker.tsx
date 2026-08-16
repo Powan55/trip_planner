@@ -56,7 +56,7 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
       <div className="glass-card rounded-2xl p-3 sm:p-6">
         <div className="grid grid-cols-7 gap-1 mb-2">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-            <div key={d} className="min-w-0 text-center text-[10px] sm:text-xs text-white/30 py-1">{d}</div>
+            <div key={d} className="min-w-0 text-center text-[10px] sm:text-xs text-ink-lo py-1">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -91,7 +91,7 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
                       ? country === 'nepal'
                         ? 'bg-himalaya-500/10 text-himalaya-400 hover:bg-himalaya-500/20'
                         : 'bg-sakura-400/10 text-sakura-400 hover:bg-sakura-400/20'
-                      : 'text-white/40 hover:bg-white/5'
+                      : 'text-ink-mid hover:bg-white/5'
                 }`}
               >
                 {new Date(date + 'T12:00:00').getDate()}
@@ -143,14 +143,14 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
                 onClick={() => onSelectDate(date)}
                 aria-pressed={isSelected}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                  isSelected ? 'bg-primary/20 ring-1 ring-ring/30 text-white' : 'text-white/60 hover:bg-white/5'
+                  isSelected ? 'bg-primary/20 ring-1 ring-ring/30 text-white' : 'text-ink-mid hover:bg-white/5'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`} />
                   <span>{formatDate(date)}</span>
                 </div>
-                {hasItems && <span className="text-xs text-white/30">{dayPlan.items?.length ?? 0} items</span>}
+                {hasItems && <span className="text-xs text-ink-mid">{dayPlan.items?.length ?? 0} items</span>}
               </button>
             );
           })}
