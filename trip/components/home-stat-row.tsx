@@ -29,8 +29,13 @@ import HomeMilestone from '@/components/home-milestone';
  *
  * ISSUE #31 EXTENDS THIS by adding entries to `cells` — that is the whole extension point,
  * and it is why the cells are data rather than four hand-written blocks. Milestone moments
- * are #31's, not this file's. The grid is `grid-cols-2 sm:grid-cols-4`, so a fifth and
- * sixth cell wrap rather than squeeze; past six, revisit the reservation in `app/page.tsx`.
+ * are #31's, not this file's.
+ *
+ * ADDING A CELL IS NOT FREE: the column count must divide the cell count exactly, or the
+ * leftover grid tracks paint as a solid `bg-border` slab (the dividers are the container
+ * showing through — see the grid element below, where the full reasoning lives). The grid
+ * is `grid-cols-2 sm:grid-cols-3` for the current SIX cells. Past six, move both the column
+ * count and the reservation in `app/page.tsx`.
  *
  * ISSUE #31 TOOK BOTH OF THOSE SLOTS, and kept the rule above: neither is re-derived here.
  * `home-stat-plans` is `deriveWrapped(...).activitiesDone` — literally the producer behind
@@ -149,10 +154,24 @@ export default function HomeStatRow() {
       </h2>
       {/* The dividers are the container showing through 1px gaps rather than borders on the
           cells, so no cell owns an edge and the corners stay clean under `overflow-hidden`.
-          --border is decorative at 1.99:1 and is never the only thing separating the cells —
-          the fill step from --bg to --surface-low does that too. 20px is the ruled stat-tile
-          radius; it has no Tailwind key (see `.countdown-cell` in globals.css). */}
-      <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-px overflow-hidden rounded-[20px] bg-border sm:grid-cols-4">
+          --border is decorative and is never the only thing separating the cells — the fill
+          step from --bg to --surface-low does that too. 20px is the ruled stat-tile radius;
+          it has no Tailwind key (see `.countdown-cell` in globals.css).
+
+          🔴 THE COLUMN COUNT MUST DIVIDE THE CELL COUNT EXACTLY, and that is not a
+          preference — it is forced by the divider mechanism above. Because the gaps are the
+          CONTAINER showing through, an empty grid track is not empty: it paints `bg-border`
+          as a solid block. This shipped as a visible defect. The grid was `sm:grid-cols-4`
+          while the row carried SIX cells, so at >=640px the last two tracks stood empty and
+          rendered as one blank purple slab under the third and fourth cells.
+          6 % 4 = 2 leftover; 6 % 3 = 0 and 6 % 2 = 0, so both breakpoints are now exact.
+
+          The count went 4 -> 6 when the two reserved slots were taken (issue #31) and the
+          column count was never moved with it. If a seventh cell is ever added, this line
+          moves again — 7 divides by neither 2 nor 3, so it would reintroduce the slab.
+          `STAT_ROW_H` in `app/page.tsx` is derived from the MOBILE row count (3 rows at
+          2 columns) and is unchanged by this: >=640px is still 2 rows, as its comment says. */}
+      <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-px overflow-hidden rounded-[20px] bg-border sm:grid-cols-3">
         {cells.map((cell) => (
           <div key={cell.testId} data-testid={cell.testId} className="bg-surface-low px-4 py-4">
             {/* Tabular figures so a changing value never reflows its own cell — the live
