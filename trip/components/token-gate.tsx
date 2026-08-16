@@ -13,6 +13,7 @@ import { TRIP_START } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import LandingPage from '@/components/landing-page';
+import OptimizedImage from '@/components/optimized-image';
 
 /**
  * The front door — the app's WALL, shown iff
@@ -400,9 +401,63 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
       // declarations from globals.css along with the rest of the ambient decoration, and
       // this file was fenced to the lane at the time, so its engineer could not follow.
       // Left in place they were class names resolving to no CSS. `hero-gradient` stays and
-      // still paints the wall, so this flattens the backdrop rather than blanking it.
-      className="fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 overflow-y-auto hero-gradient"
+      // still paints the wall — it is what the LANDING view sits on, and it is what shows
+      // through if the cover raster below ever fails to decode.
+      //
+      // #25 — `wall-auth-open` is the class D-293 R4 is implemented with. It is on the WALL
+      // ROOT and not on the panel because the thing it has to reach (the cover's Ken Burns)
+      // is a sibling of the panel, not a descendant. See globals.css.
+      className={`fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 overflow-y-auto hero-gradient ${
+        view === 'auth' ? 'wall-auth-open' : ''
+      }`}
     >
+      {/* ── #25 · THE COVER, STILL MOUNTED ───────────────────────────────────────────────
+          The design rule puts the auth panel's scrim `rgba(10,7,20,.72)` OVER the cover, not
+          instead of it: the front door is photographic in BOTH views, and the auth card is a
+          Tier-3 form floating on the picture. This layer is what the wall used to lose when a
+          CTA swapped the view — the landing (which owns the cover inside the panel) unmounts,
+          and before this the auth card was left on a flat gradient with no photography at all.
+
+          It is a SIBLING of the panel rather than something inside it, which is what keeps the
+          three pinned front-door behaviours untouched: it is not in `panelRef`, so the Tab-trap
+          and the `panel.querySelector('button:not([disabled])')` focus query cannot see it, and
+          it contains nothing focusable in any case.
+
+          The stack is the ruled photo engine, reused element for element (`photo-header__media`
+          gives it the isolation, the img grade and the children's inset; `.door-wall` is the
+          two-declaration delta). The ONE thing that differs from the cover is the scrim: this
+          is the flat panel scrim the design rule names, not `.photo-header`'s bottom-weighted
+          ramp, because the card floats mid-screen instead of sitting in the dark end of a band.
+
+          DECORATIVE, which is the ruled treatment for a duotone-graded, scrimmed backdrop:
+          `alt=""` plus `aria-hidden` on the wrapper. The panel's own
+          heading carries the meaning, and the axe scan is scoped to `[role="dialog"]` anyway.
+
+          `sizes` deliberately matches the cover's rather than saying `100vw`: the landing has
+          already fetched that derivative by the time any CTA can be pressed, so the second view
+          re-uses the bytes in cache instead of asking the network for a wider variant of a
+          picture that is about to sit under a .72 scrim. No `priority`: the LCP image of this
+          door is the cover on the first view, and this mounts on a click. */}
+      {view === 'auth' && (
+        <div
+          className="door-wall photo-header__media"
+          data-country="np"
+          data-testid="door-wall-photo"
+          aria-hidden="true"
+        >
+          <span className="door-kb">
+            <OptimizedImage
+              src="/images/featured/boudhanath.jpg"
+              alt=""
+              fill
+              sizes="(min-width: 1120px) 1088px, 100vw"
+            />
+          </span>
+          <span className="photo-header__duo-lo" />
+          <span className="photo-header__duo-hi" />
+          <span className="door-wall-scrim" />
+        </div>
+      )}
       <m.div
         ref={panelRef}
         role="dialog"
