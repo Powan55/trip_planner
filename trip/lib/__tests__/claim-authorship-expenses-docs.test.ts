@@ -174,7 +174,8 @@ function seedExpenses(): Expense[] {
     // ("absent ⇒ the current traveler", core/budget/expenses.ts:57). This is the row that gives the
     // absent-field case discriminating power: it IS claimed, so the rewrite reaches it, and a
     // rewrite that "helpfully" filled the field in would show up in `moneyBytes` as an added key.
-    // `settle()` falls its payer back to `self`, so it carries real money too.
+    // It carries a real 800 NPR and a real two-person split, and since D-333 `settle()` attributes
+    // it to NOBODY — the reason a rename can no longer move its balance (see the settle test below).
     {
       id: 'exp-nopayer',
       leg: 'nepal',
@@ -325,7 +326,7 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
   });
 
   it('settle() returns the IDENTICAL balances and transfers before and after the claim', async () => {
-    const before = settle(seedExpenses(), ROSTER, ME);
+    const before = settle(seedExpenses(), ROSTER);
     // A vacuous guard would pass on two empty arrays — pin that there is real money at stake.
     expect(before.length).toBeGreaterThan(0);
     expect(before.flatMap((l) => l.transfers).length).toBeGreaterThan(0);
@@ -333,7 +334,36 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
     const h = renderStore(useExpenses);
     await h.run((s) => s.claimAuthorship(OLD));
 
-    expect(settle(storedExpenses(), ROSTER, ME)).toEqual(before);
+    expect(settle(storedExpenses(), ROSTER)).toEqual(before);
+    h.unmount();
+  });
+
+  it('REGRESSION (D-333): the two sides of the rename settle IDENTICALLY', async () => {
+    // `exp-nopayer` is live, split ['Traveler','Powan'] and worth 800 NPR — everything a settling
+    // row needs except a payer. It used to be attributed to the signed-in traveller, so a claim,
+    // which changes who is signed in from 'Traveler' to 'Powan', moved 800 NPR of balance onto the
+    // new name while every byte of `paidBy`/`split` sat still. The byte-identity guard above is
+    // blind to that by construction: no byte moved. This is the assertion that sees it.
+    //
+    // 🔴 The identity has to be SUPPLIED to be disproved. The removed `self` was optional, so the
+    // defective code also returned the right answer when called with two arguments — see the long
+    // note in `settlement.test.ts`. Both calls below carry an identity; on the pre-D-333 code they
+    // differ by that 800, which is the defect this test exists for.
+    const settleAs = settle as unknown as (
+      expenses: readonly Expense[],
+      travelers: readonly string[],
+      self?: string,
+    ) => unknown;
+    expect(settleAs(seedExpenses(), ROSTER, OLD)).toEqual(settleAs(seedExpenses(), ROSTER, ME));
+
+    // …and the row is genuinely inert, not merely equal on both sides: dropping it changes nothing.
+    const before = settle(seedExpenses(), ROSTER);
+    expect(settle(seedExpenses().filter((e) => e.id !== 'exp-nopayer'), ROSTER)).toEqual(before);
+
+    const h = renderStore(useExpenses);
+    await h.run((s) => s.claimAuthorship(OLD));
+    expect(settle(storedExpenses(), ROSTER)).toEqual(before);
+    expect(storedExpense('exp-nopayer')?.split).toEqual([OLD, ME]); // still a real, still-split row
     h.unmount();
   });
 

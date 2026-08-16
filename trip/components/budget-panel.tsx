@@ -26,7 +26,6 @@ import { expensesToSpent, type Expense } from '@/core/budget/expenses';
 import { settle } from '@/core/budget/settlement';
 import { EXPENSE_OPEN_EVENT } from '@/components/expense-log-host';
 import { getNow } from '@/lib/trip-now';
-import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { rosterForActiveTrip } from '@/lib/token-auth';
 import BurnRateView from '@/components/burn-rate-view';
 import ExpenseLog from '@/components/expense-log';
@@ -123,12 +122,12 @@ export default function BudgetPanel() {
 
   // the read-only "who owes whom" settlement over the SAME expenses (per-leg / per-currency).
   // Separate from the spend rollup above — split never changes totals, only who reimburses whom.
-  // `me` (the active traveler) is the payer fallback for a split expense logged without an explicit
-  // payer. Empty until ≥1 split expense exists, so the summary stays hidden on the fast path.
-  const { traveler } = useActiveTraveler();
+  // Empty until ≥1 split expense exists, so the summary stays hidden on the fast path. It takes NO
+  // identity: a split row without a recorded `paidBy` settles to nobody rather than to whoever is
+  // signed in (D-333), so this view is identical on every device.
   const settlements = useMemo(
-    () => settle(expenses, rosterForActiveTrip(expenses), traveler?.name),
-    [expenses, traveler],
+    () => settle(expenses, rosterForActiveTrip(expenses)),
+    [expenses],
   );
 
   // delete an expense immediately (fast-log ethos — no confirm dialog), then offer a sonner
