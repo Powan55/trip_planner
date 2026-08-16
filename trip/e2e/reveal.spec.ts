@@ -143,7 +143,10 @@ test.describe('S214 · Reveal — reduced motion: CSS path NEVER renders (D-007/
  * with a FLOOR (`initial:{opacity:FADE_FLOOR}`). On the four sites that had no
  * reduced-motion fork — reveal.tsx, trip-dashboard, flights-section, nightlife-section —
  * that floor would have applied under `prefers-reduced-motion: reduce` too, leaving any
- * reveal whose `whileInView` has not fired resting at 70% opacity. That reintroduces, by a
+ * reveal whose `whileInView` has not fired resting at 70% opacity. (Issue #106 deleted the
+ * trip-dashboard site outright along with its section, so THREE of those four forks remain;
+ * the reasoning below and every assertion in this file are unchanged, and the target here
+ * has always been reveal.tsx.) That reintroduces, by a
  * different mechanism, exactly the sub-AA contrast failure D-100 exists to prevent — and
  * `e2e/a11y-intrip.spec.ts` scans WITH reduced motion pinned, so axe would sample it.
  *
