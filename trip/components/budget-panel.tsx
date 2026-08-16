@@ -124,7 +124,7 @@ export default function BudgetPanel() {
   // Separate from the spend rollup above — split never changes totals, only who reimburses whom.
   // Empty until ≥1 split expense exists, so the summary stays hidden on the fast path. It takes NO
   // identity: a split row without a recorded `paidBy` settles to nobody rather than to whoever is
-  // signed in (D-328), so this view is identical on every device.
+  // signed in (D-333), so this view is identical on every device.
   const settlements = useMemo(
     () => settle(expenses, rosterForActiveTrip(expenses)),
     [expenses],

@@ -174,7 +174,7 @@ function seedExpenses(): Expense[] {
     // ("absent ⇒ the current traveler", core/budget/expenses.ts:57). This is the row that gives the
     // absent-field case discriminating power: it IS claimed, so the rewrite reaches it, and a
     // rewrite that "helpfully" filled the field in would show up in `moneyBytes` as an added key.
-    // It carries a real 800 NPR and a real two-person split, and since D-328 `settle()` attributes
+    // It carries a real 800 NPR and a real two-person split, and since D-333 `settle()` attributes
     // it to NOBODY — the reason a rename can no longer move its balance (see the settle test below).
     {
       id: 'exp-nopayer',
@@ -338,7 +338,7 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
     h.unmount();
   });
 
-  it('REGRESSION (D-328): the two sides of the rename settle IDENTICALLY', async () => {
+  it('REGRESSION (D-333): the two sides of the rename settle IDENTICALLY', async () => {
     // `exp-nopayer` is live, split ['Traveler','Powan'] and worth 800 NPR — everything a settling
     // row needs except a payer. It used to be attributed to the signed-in traveller, so a claim,
     // which changes who is signed in from 'Traveler' to 'Powan', moved 800 NPR of balance onto the
@@ -347,7 +347,7 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
     //
     // 🔴 The identity has to be SUPPLIED to be disproved. The removed `self` was optional, so the
     // defective code also returned the right answer when called with two arguments — see the long
-    // note in `settlement.test.ts`. Both calls below carry an identity; on the pre-D-328 code they
+    // note in `settlement.test.ts`. Both calls below carry an identity; on the pre-D-333 code they
     // differ by that 800, which is the defect this test exists for.
     const settleAs = settle as unknown as (
       expenses: readonly Expense[],

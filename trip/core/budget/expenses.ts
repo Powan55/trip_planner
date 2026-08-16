@@ -56,7 +56,7 @@ export interface Expense {
   // still counts fully toward spend regardless of split.
   /**
    * TRAVELERS id who fronted the money. Absent ⇒ UNKNOWN, not "me": `settle()` skips a split row
-   * that has no payer rather than attributing it to whoever is signed in (D-328). The expense
+   * that has no payer rather than attributing it to whoever is signed in (D-333). The expense
    * dialog prefills the picker with the active traveller, but that is an editing default the user
    * can see and change — it is not what an absent field means once stored.
    */

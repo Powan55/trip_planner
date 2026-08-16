@@ -12,7 +12,7 @@
  * (paid − owed), then greedily match the largest creditor to the largest debtor to emit a MINIMAL
  * transfer set (≤ participants−1; circular debts a→b→c→a net flat ⇒ zero transfers).
  *
- * ── A split row with NO `paidBy` is UNATTRIBUTABLE, never "me" (D-328) ──────────────────────
+ * ── A split row with NO `paidBy` is UNATTRIBUTABLE, never "me" (D-333) ──────────────────────
  * This function takes NO identity argument on purpose. It used to fall an absent `paidBy` back to
  * the signed-in traveller, which made a settlement a function of WHO IS LOOKING: the same synced row
  * settled to a different person on each device, and a claim-authorship rename moved its balance to
@@ -60,7 +60,7 @@ function uniq(ids: readonly string[]): string[] {
 
 /**
  * Settle every leg's split expenses into net balances + a minimal transfer set. Fast-path/no-split
- * expenses, tombstoned rows, and split rows with no recorded `paidBy` (D-328) all contribute
+ * expenses, tombstoned rows, and split rows with no recorded `paidBy` (D-333) all contribute
  * NOTHING. `travelers` is the roster used only for a stable output order — it carries no identity
  * and there is deliberately no "who am I" parameter, so the result is the same on every device.
  * Returns one `LegSettlement` per leg with ≥1 attributable split — an empty array when nothing is
@@ -84,7 +84,7 @@ export function settle(
       const members = uniq(e.split.filter((m) => typeof m === 'string' && m.length > 0));
       if (members.length === 0) continue;
       const payer = e.paidBy;
-      // No recorded payer ⇒ unattributable. NOT the signed-in traveller (D-328) — see the header.
+      // No recorded payer ⇒ unattributable. NOT the signed-in traveller (D-333) — see the header.
       if (typeof payer !== 'string' || payer.length === 0) continue;
       const amount = typeof e.amount === 'number' && e.amount > 0 ? e.amount : 0;
       if (amount <= 0) continue;

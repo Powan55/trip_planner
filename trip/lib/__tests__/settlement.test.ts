@@ -121,7 +121,7 @@ describe('settle — fast path contributes zero', () => {
     expect(s.balances).toEqual({ Powan: 150, Sushil: -150 });
   });
 
-  // ── D-328 · a split row with no payer is UNATTRIBUTABLE, not "mine" ────────────────────────
+  // ── D-333 · a split row with no payer is UNATTRIBUTABLE, not "mine" ────────────────────────
   // These replace a test that pinned the OPPOSITE: `settle(…, ROSTER, 'Powan')` attributed a
   // payer-less row to a third `self` argument. That made a settlement a function of who was
   // looking — the same synced row settled to a different person on each device, and a
@@ -141,10 +141,10 @@ describe('settle — fast path contributes zero', () => {
     self?: string,
   ) => LegSettlement[];
 
-  it('REGRESSION (D-328): paidBy absent + split present ⇒ NO settlement, for ANY supplied identity', () => {
+  it('REGRESSION (D-333): paidBy absent + split present ⇒ NO settlement, for ANY supplied identity', () => {
     const nopayer = [exp({ split: ['Powan', 'Sushil'], amount: 300 })];
     expect(settle(nopayer, ROSTER)).toEqual([]);
-    // The three that fail on the pre-D-328 code: an identity in the split, one outside it, and the
+    // The three that fail on the pre-D-333 code: an identity in the split, one outside it, and the
     // empty-string edge. Each used to hand the whole 300 to whoever was passed in.
     expect(settleWithIdentity(nopayer, ROSTER, 'Powan')).toEqual([]);
     expect(settleWithIdentity(nopayer, ROSTER, 'Uttam')).toEqual([]);
@@ -154,7 +154,7 @@ describe('settle — fast path contributes zero', () => {
     expect(settle([exp({ paidBy: '', split: ['Powan', 'Sushil'], amount: 300 })], ROSTER)).toEqual([]);
   });
 
-  it('REGRESSION (D-328): who is looking cannot change a settlement', () => {
+  it('REGRESSION (D-333): who is looking cannot change a settlement', () => {
     // The device-local half of the defect, which the rename only made visible: `self` was
     // `traveler?.name`, so the SAME synced rows settled differently on each traveller's device.
     const rows = [
