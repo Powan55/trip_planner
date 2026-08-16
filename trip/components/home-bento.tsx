@@ -207,10 +207,7 @@ export default function HomeBento() {
             <div
               aria-hidden="true"
               className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity"
-              style={{
-                background:
-                  'radial-gradient(60% 80% at 0% 0%, rgba(244,196,107,0.35) 0%, rgba(244,196,107,0) 60%), radial-gradient(60% 80% at 100% 100%, rgba(244,143,177,0.30) 0%, rgba(244,143,177,0) 60%)',
-              }}
+              style={{ background: 'var(--map-wash)' }}
             />
             <div className="relative flex items-center gap-2">
               <MapIcon className="w-4 h-4 text-muted-foreground" aria-hidden="true" />

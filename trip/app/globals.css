@@ -313,6 +313,16 @@
     --grad-japan: linear-gradient(118deg, var(--jp-a) 0%, var(--jp-b) 100%);
     --grad-journey: linear-gradient(90deg, #4ADE80 0%, #FF8A3D 38%, #FF8FC7 72%, #C08CFF 100%);
     --grad-celebrate: linear-gradient(135deg, #FF8FC7 0%, #FFC43D 100%);
+    /* Home bento's map-tile wash — the two country identity stops above, --np-b (255 196 61)
+       and --jp-a (255 143 199), written out in channels because a gradient stop cannot
+       interpolate a hex custom property AT A GIVEN ALPHA. Declared here, next to the stops it
+       copies, rather than inline on the tile: `components/home-bento.tsx` carried the RETIRED
+       gold-400 #F4C46B / sakura-400 #F48FB1 literals for exactly as long as an inline copy
+       survives a recolour (the same survivor class as the ten route headers). D-334 holds the
+       country stops byte-identical, so these two lines are the thing to re-derive from if
+       either ever moves. White over the resulting composite measures 12.25:1. */
+    --map-wash: radial-gradient(60% 80% at 0% 0%, rgb(255 196 61 / 0.35) 0%, transparent 60%),
+                radial-gradient(60% 80% at 100% 100%, rgb(255 143 199 / 0.30) 0%, transparent 60%);
 
     /* ---- The photo engine ----
        NO CONSUMERS YET — deliberate. The duotone grade ends with a
