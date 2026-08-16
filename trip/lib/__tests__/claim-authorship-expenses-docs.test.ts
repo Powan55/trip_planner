@@ -102,9 +102,14 @@ function renderStore<S>(useStore: () => S) {
 }
 
 /**
- * Four expenses, seeded straight to disk so the test controls every byte.
+ * Six expenses, seeded straight to disk so the test controls every byte.
  * The money in here is REAL: `exp-shared` is a 3000 NPR bill fronted by 'Traveler' and split with
  * 'Powan'. Claiming the NAME must leave that settlement untouched.
+ *
+ * The last two rows exist because the fixture was too narrow to prove what this file claims:
+ * `exp-dead` was the ONLY row with `paidBy` absent, and the rewrite skips a tombstone BEFORE any
+ * money field is read — so deleting the `paidBy` handling entirely would have left it green. And
+ * every row carried `SEED_HLC`, so nothing exercised a row the sync stamps have never touched.
  */
 function seedExpenses(): Expense[] {
   return [
@@ -164,6 +169,38 @@ function seedExpenses(): Expense[] {
       deleted: true,
       rev: 2,
       hlc: SEED_HLC,
+    },
+    // 🔴 A LIVE row with NO `paidBy` — the shape the dialog writes when the payer was left implicit
+    // ("absent ⇒ the current traveler", core/budget/expenses.ts:57). This is the row that gives the
+    // absent-field case discriminating power: it IS claimed, so the rewrite reaches it, and a
+    // rewrite that "helpfully" filled the field in would show up in `moneyBytes` as an added key.
+    // `settle()` falls its payer back to `self`, so it carries real money too.
+    {
+      id: 'exp-nopayer',
+      leg: 'nepal',
+      category: 'sightseeing',
+      amount: 800,
+      createdAt: '2026-01-05T13:00:00.000Z',
+      split: [OLD, ME],
+      createdBy: OLD,
+      updatedBy: OLD,
+      rev: 1,
+      hlc: SEED_HLC,
+    },
+    // A LEGACY row: written before sync existed, so it carries NEITHER `rev` NOR `hlc`. The stamp
+    // helpers are total over that (`prev?.hlc ? parse(…) : null`, `(prev?.rev ?? 1) + 1`), and
+    // `mergeItems` seeds a missing `hlc` from `updatedAt`, which an Expense does not have — so the
+    // peer's un-rewritten copy sits at pt 0 and the claimed row must win the merge outright.
+    {
+      id: 'exp-legacy',
+      leg: 'japan',
+      category: 'shopping',
+      amount: 2500,
+      createdAt: '2026-01-05T14:00:00.000Z',
+      paidBy: OLD,
+      split: [OLD, 'Uttam'],
+      createdBy: OLD,
+      updatedBy: OLD,
     },
   ];
 }
@@ -266,12 +303,17 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
       claimed = s.claimAuthorship(OLD);
     });
 
-    // Two LIVE rows carry the old name in an attribution field (the tombstone is skipped).
-    expect(claimed).toBe(2);
-    // The guard would be vacuous if the claim had done nothing — prove it ran.
+    // Four LIVE rows carry the old name in an attribution field (the tombstone is skipped).
+    expect(claimed).toBe(4);
+    // The guard would be vacuous if the claim had done nothing — prove it ran, on the two rows
+    // amendment 7 added as well as the originals.
     expect(storedExpense('exp-shared')?.createdBy).toBe(ME);
     expect(storedExpense('exp-shared')?.updatedBy).toBe(ME);
     expect(storedExpense('exp-mine')?.createdBy).toBe(ME);
+    expect(storedExpense('exp-nopayer')?.updatedBy).toBe(ME);
+    expect(storedExpense('exp-legacy')?.updatedBy).toBe(ME);
+    // The absent field STAYS absent: the rewrite never invents a payer for the implicit-payer row.
+    expect('paidBy' in (storedExpense('exp-nopayer') as Expense)).toBe(false);
     // Per FIELD: Sushil keeps the edit that is genuinely his.
     expect(storedExpense('exp-mine')?.updatedBy).toBe('Sushil');
 
@@ -331,6 +373,23 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
       'hlc',
       'rev',
     ]);
+    // The `paidBy`-absent row. `changedKeys` unions BOTH key sets, so `paidBy` appearing out of
+    // nowhere lands in this list and fails here — the discriminating power the tombstone never had.
+    expect(changedKeys(seed[4], storedExpense('exp-nopayer') as Expense)).toEqual([
+      'createdBy',
+      'hlc',
+      'rev',
+      'updatedBy',
+    ]);
+    // The legacy row: `hlc` and `rev` are ADDED (absent in the seed), which the union catches the
+    // same way — a claim that left an unstamped row unstamped would come back missing them.
+    expect(changedKeys(seed[5], storedExpense('exp-legacy') as Expense)).toEqual([
+      'createdBy',
+      'hlc',
+      'rev',
+      'updatedBy',
+    ]);
+    expect(storedExpense('exp-legacy')?.rev).toBe(2); // (undefined ?? 1) + 1
 
     // Same invariant for a document: `updatedBy` is its only identity field.
     const hd = renderStore(useDocs);
@@ -441,6 +500,15 @@ describe('S408 — the claim SURVIVES a remote merge (run, not asserted)', () =>
     // The mechanism that makes the above true.
     expect(local.rev).toBe(2);
     expect((local.hlc ?? '') > SEED_HLC).toBe(true);
+
+    // Same, for the LEGACY row that had no `hlc` to advance from: the peer's copy still has none,
+    // so `mergeItems` seeds it from an absent `updatedAt` (pt 0) and the claim wins outright.
+    const legacy = storedExpense('exp-legacy') as Expense;
+    const stalePeerLegacy = seedExpenses().find((e) => e.id === 'exp-legacy') as Expense;
+    expect(stalePeerLegacy.hlc).toBeUndefined();
+    expect(mergeItems([legacy], [stalePeerLegacy])[0].createdBy).toBe(ME);
+    expect(mergeItems([stalePeerLegacy], [legacy])[0].createdBy).toBe(ME);
+    expect(mergeItems([legacy], [stalePeerLegacy])[0].paidBy).toBe(OLD); // money, still the old name
     h.unmount();
   });
 

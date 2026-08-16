@@ -386,8 +386,11 @@ describe('D-316 — firstClashWith: ONE predicate feeding both the badge and the
 });
 
 describe('D-316 — GRANDFATHERING: the guard is delta-scoped to the time footprint', () => {
-  // The seed ships three deliberate containments. This is the test that keeps them editable.
-  const parent = mk('parent', { startMinutes: 540, durationMinutes: 480 }); // 9:00–17:00, the USJ day
+  // #18 corrected the seed, so the SHIPPED content no longer overlaps. The escape is still
+  // load-bearing for a row that reached the device some other way — a synced peer's write, a
+  // vault import, a plan saved by an older build — which can carry a collision the intent-layer
+  // guard never saw. The fixture below is synthetic, shaped like the old USJ containment.
+  const parent = mk('parent', { startMinutes: 540, durationMinutes: 480 }); // 9:00–17:00, a full-day block
   const lunch = mk('lunch', { startMinutes: 780, durationMinutes: 60 }); // 13:00–14:00, inside it
 
   it('a save that does NOT move the footprint is not guarded, even though the item overlaps', () => {
@@ -448,18 +451,44 @@ describe('D-316 — the shipped seed content under the now-live predicate', () =
     return [...clashingItemIds(day.items, day.date, offsetForCountry(day.country))].sort();
   };
 
-  it('the three DELIBERATE containments badge, and they are the only overlaps left', () => {
+  const seedItem = (date: string, id: string): ItineraryItem =>
+    TRIP_ITINERARY.find((d) => d.date === date)!.items.find((i) => i.id === id)!;
+
+  it('#18: the shipped seed is CLEAN — not one day holds an overlap of any kind', () => {
     const all = TRIP_ITINERARY.flatMap((day) =>
       [...clashingItemIds(day.items, day.date, offsetForCountry(day.country))].map((id) => `${day.date}/${id}`),
     ).sort();
-    expect(all).toEqual([
-      '2026-12-21/j3-1', // USJ full day …
-      '2026-12-21/j3-2', // … with lunch inside it
-      '2026-12-23/j5-1', // Shinsekai flex block …
-      '2026-12-23/j5-2', // … with lunch inside it
-      '2026-12-31/j13-3', // NYE club block …
-      '2026-12-31/j13-4', // … with the countdown inside it
-    ]);
+    expect(all).toEqual([]);
+  });
+
+  it('#18: the three former containments were un-nested by SHORTENING the container, so each pair TOUCHES', () => {
+    // Issue #18 required the pre-existing overlaps to be corrected, not grandfathered: being
+    // fully inside another plan counts. Each container keeps its start and gives up the time
+    // the nested item occupies (the `j1-4` precedent), so the pair meets exactly and the
+    // half-open rule leaves it clean.
+    for (const [date, container, nested] of [
+      ['2026-12-21', 'j3-1', 'j3-2'], // USJ morning → lunch + the afternoon rides
+      ['2026-12-23', 'j5-1', 'j5-2'], // Shinsekai wander → the kushikatsu lunch
+      ['2026-12-31', 'j13-3', 'j13-4'], // NYE club block → the countdown and the rest of the night
+    ] as const) {
+      const a = seedItem(date, container);
+      const b = seedItem(date, nested);
+      expect(
+        effectiveStartMinutes(a)! + effectiveDurationMinutes(a)!,
+        `${date} ${container} must end exactly when ${nested} starts`,
+      ).toBe(effectiveStartMinutes(b)!);
+      expect(clashesOn(date), date).toEqual([]);
+    }
+  });
+
+  it('containment still counts — a synthetic item dropped inside the real USJ block badges and blocks', () => {
+    // The containment RULE is unchanged by the content fix; only the seed stopped exercising it.
+    // Synthetic fixture, real day: 10:00–11:00 sits fully inside j3-1's 09:00–13:00.
+    const day = TRIP_ITINERARY.find((d) => d.date === '2026-12-21')!;
+    const offset = offsetForCountry(day.country);
+    const nested = mk('nested', { time: '10:00', duration: '1h' });
+    expect([...clashingItemIds([...day.items, nested], day.date, offset)].sort()).toEqual(['j3-1', 'nested']);
+    expect(firstClashWith(nested, day.items, day.date, offset)?.id).toBe('j3-1');
   });
 
   it('Dec 19 is clean: j1-4 hotel check-in is 45m, so it no longer runs into the 19:00 walk', () => {

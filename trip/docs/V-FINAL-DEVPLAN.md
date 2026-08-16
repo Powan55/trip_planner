@@ -314,7 +314,9 @@ too broadly in an earlier draft, and the corrected versions are the record:
 
 The eight-step automated checklist and the five-part manual device script are specified in full in
 the final QA gate notes. Eight amendments are mandatory, and without the first one
-the checklist as written produces a false red.
+the checklist as written produces a false red. Amendment 8 adds a sixth part to that script, so the
+script the gate actually runs is six parts; because the script itself is not in this repo, that
+sixth part is written out below the amendment list rather than only described.
 
 > This count and the list below were changed together on 2026-08-09. They have diverged in this document
 > before: the F1 row in section 0.2 and the backlog's S420 row both said "five" while this section said
@@ -352,7 +354,10 @@ the checklist as written produces a false red.
    puts S419 as the last code touch, so either fold it into S412 (which already edits user-facing copy)
    or accept the residue explicitly in the gate record. Do not let "record the exact copy" be satisfied
    by recording copy that omits the residue; that verb is why this criterion cannot fail for the reason
-   it exists.
+   it exists. **Met 2026-08-15**, not inside S412 but as its own edit to `components/settings-panel.tsx`:
+   the paragraph now ends *"…so the old name does not leave the money side: Settle up keeps showing
+   “{from}” in its balances, and a shared expense is still filed as paid by “{from}” on its paid-by
+   chips, not by you."* Record that string, not this summary of it.
 7. **Fixture breadth on the claim rewrite.** The money guard's fixture has to include a tombstone row, a
    `paidBy`-absent row and a legacy row with no `hlc`. The implementation is incidentally safe for all
    three, none of them is *proven*, and "incidentally safe" is not evidence. Sharpened 2026-08-09: the
@@ -362,7 +367,12 @@ the checklist as written produces a false red.
    read, so deleting the `paidBy` handling entirely would leave it green. And no row omits `hlc`; every
    seed row carries `SEED_HLC`. So one case of three has discriminating power. This last point is the
    one item here that was never independently double-checked, so re-read the fixture before acting; the
-   claim is cheap to check and cheap to be wrong about.
+   claim is cheap to check and cheap to be wrong about. **Re-read and confirmed exactly as written, then
+   met, 2026-08-15**: `lib/__tests__/claim-authorship-expenses-docs.test.ts` gained `exp-nopayer` (live,
+   `paidBy` absent) and `exp-legacy` (no `rev`, no `hlc`), and the claim count moved 2 → 4. The rewrite
+   needed no fix — it is safe on both — but "incidentally safe" is now proven rather than assumed: two
+   mutants that the old fixture passed (invent a `paidBy` for the absent-payer row; skip the rev/hlc
+   stamp on a row with no `hlc`) each fail the new one.
 8. **No console errors on load or interaction.** This is a named bullet of the founding acceptance
    contract that the final gate inherited not at all: the string "console" occurs zero times in
    the final QA gate notes, and only 25 of 95 e2e specs attach a
@@ -372,6 +382,12 @@ the checklist as written produces a false red.
    console clean") and record the 25/95 split in the gate record as the accepted automated floor, so the
    gap is a decision and not an oversight. Playwright could not be run for this audit, so there is no
    claim here that any route errors today, only that nothing would tell us.
+
+**M6 · Console clean** — the line amendment 8 adds to the manual device script, written out here
+because the script lives in the gate notes and not in this repo:
+
+> Open each route in turn with DevTools open: no console errors on load, and none after one
+> interaction on the route.
 
 The two-client sync scenarios stay manual forever, because closing them automatically would bake network
 access and credentials into the last gate anyone runs. They are executed once, on two real phones,

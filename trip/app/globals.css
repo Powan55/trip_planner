@@ -881,10 +881,14 @@ html {
    motion, via the named list in the block at the end of this file — the frame is
    still overscanned and a crop can never reveal an edge.
 
-   D-293 R4 ("nothing else animates while a dialog is open") needs no class here.
-   The wall renders the landing OR the auth card, never both, so choosing a CTA
-   unmounts this element outright. There is no paused state to maintain because
-   there is nothing left running to pause. */
+   D-293 R4 ("nothing else animates while a dialog is open") IS implemented with a
+   class, `.wall-auth-open` — see the rule under `.door-wall` below. It used to say
+   here that no class was needed, because the wall rendered the landing OR the auth
+   card and choosing a CTA unmounted this element outright. That was true, and it
+   was the same line of reasoning that left the auth view with no photography at
+   all: leaning on the unmount satisfied R4 by deleting the surface the rule was
+   about. The cover now stays mounted behind the card (the ruled treatment for the
+   wall), so the loop is still there and the ruled mechanism is what stops it. */
 .door-cover {
   min-height: clamp(400px, 62svh, 580px);
   border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
@@ -905,6 +909,51 @@ html {
 @keyframes door-kenburns {
   from { transform: scale(1.04); }
   to   { transform: scale(1.13) translate3d(-1.6%, -2.2%, 0); }
+}
+
+/* ---- The wall's second view keeps the cover (issue #25) --------------------
+   The auth card is a Tier-3 FORM that opens on the loudest surface in the product,
+   and the ruled treatment is a panel scrim OVER the cover — the front door is
+   photographic in both of its views. The landing owns the cover inside the panel
+   and unmounts with it, so the wall carries its own copy of the same photo stack
+   as a sibling of the panel (components/token-gate.tsx).
+
+   `.door-wall` is composed with `.photo-header__media` and is only the DELTA over
+   it, which is why it is two declarations and not a fourth photographic recipe:
+     · FIXED, not absolute. The wall is `overflow-y-auto`, so an absolutely
+       positioned backdrop is part of the scrolled content and slides off the top
+       of a short viewport, showing the flat gradient underneath. Fixed pins it to
+       the viewport while the panel scrolls over it.
+     · OVERFLOW HIDDEN, because `.door-kb` overscans to scale(1.13) and this box IS
+       the viewport — without it the pan would push the document sideways, which is
+       the horizontal-overflow assertion in e2e/login.spec.ts.
+   Everything else — the isolation, the img grade, the children's inset:0, the
+   duotone pair — comes from the shared recipe unchanged. */
+.door-wall {
+  position: fixed;
+  overflow: hidden;
+}
+
+/* The panel scrim, at the ruled value: a FLAT rgba(10,7,20,.72), not
+   `.photo-header`'s bottom-weighted ramp. The ramp exists to put text in the dark
+   end of a band; this card floats mid-screen and its own fill is opaque
+   surface-2, so what the scrim owes is a uniform floor everywhere the panel can
+   land. Measured in scripts/contrast-tokens.mjs against the graded worst-case
+   pixel, same as every other pairing over photography. */
+.door-wall-scrim {
+  background: rgb(var(--scrim-ink-rgb) / 0.72);
+}
+
+/* D-293 R4, and this is the rule the spec names: "nothing else on the page
+   animates while [the auth view] is open — including the cover's Ken Burns, which
+   must pause or be occluded". Nothing animates under the cursor or the caret, so
+   an infinite loop may not run behind an open form. `animation-play-state` rather
+   than `animation: none` on purpose: the frame is held where it is instead of
+   snapping back to the start, and the loop resumes if a view ever returns. The
+   reduced-motion block at the end of this file already hard-stops `.door-kb`
+   outright, which outranks this. */
+.wall-auth-open .door-kb {
+  animation-play-state: paused;
 }
 
 /* ---- The passport page (issue #5, D-294) ------------------------------------------
@@ -1535,6 +1584,50 @@ html[data-vt-active] .animate-route-fade {
   ::view-transition-new(*) {
     animation: none !important;
   }
+}
+
+/* ── R4 · nothing animates under the cursor or the caret ──────────────────────
+   D-293 rule 4, and the one rule of the motion budget that is CSS or nothing:
+   "no animation may start on an element while it has focus, while any text input
+   in the same form is focused, or while a dialog or sheet is open. Reading and
+   typing are motion-free." The design system spells the implementation as
+   `.planner:focus-within .row, .planner:focus-within .day { transition: none }`
+   and says to generalise it to every form container — this is that, written
+   against the containers this app actually has (there is no `.row`/`.day` here;
+   the equivalent rows are Tailwind utilities on semantic elements).
+
+   The dialog half comes free with the form half: every dialog in this app traps
+   focus, so `[role="dialog"]:focus-within` is true for as long as one is open.
+
+   WHAT THIS TOUCHES IS TRANSITIONS, deliberately, and not `animation-play-state`.
+   A transition that is removed still lands on its target value, so R8's
+   fork-to-the-END-state holds for free. A paused KEYFRAME does not: caught at 0%
+   it freezes there, and any entrance that starts at opacity 0 would then hold its
+   content INVISIBLE for as long as the caret sat in the form — trading a motion
+   rule for a blank panel. The two keyframe loops that would be in range are the
+   state indicators D-322 exempts (`.animate-shimmer` "still loading",
+   `.animate-today-pulse` "this cell is today"), and a form that freezes the
+   spinner reporting its own save is not calm, it is broken. Both also carry their
+   fact in text, so nothing here is conveyed by motion alone.
+
+   1ms rather than `0s` matches the idiom the reduced-motion block above already
+   uses, and keeps any `transitionend` listener firing rather than never. */
+:is(form, fieldset, [role='dialog'], [role='alertdialog']):focus-within,
+:is(form, fieldset, [role='dialog'], [role='alertdialog']):focus-within * {
+  transition-duration: 1ms !important;
+}
+
+/* The one ambient loop R4 names explicitly: the front door's Ken Burns must PAUSE
+   while the auth form is open (the design system's front-door section — "no
+   animation may start while any text input in the same form is focused" applies
+   to the loop BEHIND the card, which is not inside it and so is out of the
+   subtree rule above). Written
+   from the motion layer without touching `.door-kb`'s own rules, which belong to
+   issue #25. It is a pause and not a stop: `.door-kb` carries scale(1.04) as its
+   base transform, so what is held is a still, slightly overscanned frame, and it
+   resumes exactly where it left off when focus leaves the form. */
+body:has(form:focus-within) .door-kb {
+  animation-play-state: paused;
 }
 
 /* DnD Kit styles */

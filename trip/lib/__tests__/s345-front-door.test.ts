@@ -303,6 +303,83 @@ describe('S355 — TokenGate opens on the landing, and its CTAs pick the auth pa
   });
 });
 
+/**
+ * #25 — THE FRONT DOOR IS PHOTOGRAPHIC IN BOTH VIEWS.
+ *
+ * The landing half shipped with a full-bleed cover; the auth half did not, because the wall
+ * renders the landing XOR the auth card and opening the card unmounted the cover outright. Spec
+ * The design rule puts the panel's scrim OVER the cover, so the wall now carries its own copy of
+ * the photo as a sibling of the panel.
+ *
+ * Asserting the layer EXISTS is the first half. The second half is where it exists: outside the
+ * dialog panel, carrying nothing focusable. That is what makes the pinned front-door behaviours
+ * (the Tab-trap, and `panel.querySelector('button:not([disabled])')` deciding entry focus)
+ * structurally unable to see it — a check that would fail if a later change moved the backdrop
+ * inside the panel, which is the version of this that would break the focus contract.
+ *
+ * The Ken Burns pause is CSS (`.wall-auth-open .door-kb { animation-play-state: paused }`) and
+ * jsdom applies no stylesheet, so what is checkable here is that the wall stamps the class the
+ * rule keys off. The rule itself is globals.css's, and `npm run loop-check` is what holds the
+ * loop to D-293 R2/R8.
+ */
+describe('#25 — the auth view keeps the cover mounted, outside the focus trap', () => {
+  function openAuth(view: { container: HTMLElement }) {
+    act(() => {
+      view.container
+        .querySelector('[data-testid="landing-cta-login"]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+  }
+
+  it('the landing view has no wall backdrop — the cover it shows is its own, inside the panel', () => {
+    const view = render(createElement(TokenGate));
+    expect(view.container.querySelector('[data-testid="door-wall-photo"]')).toBeNull();
+    expect(view.container.querySelector('[data-testid="landing-page"] .door-kb')).not.toBeNull();
+    view.unmount();
+  });
+
+  it('opening the auth card keeps a cover on screen, and pauses the loop with the ruled class', () => {
+    const view = render(createElement(TokenGate));
+    openAuth(view);
+
+    // The landing (and with it the cover inside the panel) is gone...
+    expect(view.container.querySelector('[data-testid="landing-page"]')).toBeNull();
+    // ...and the wall's own cover is what the card now floats on.
+    const photo = view.container.querySelector<HTMLElement>('[data-testid="door-wall-photo"]');
+    expect(photo).not.toBeNull();
+    expect(photo!.getAttribute('aria-hidden')).toBe('true');
+    expect(photo!.querySelector('img')).not.toBeNull();
+    // Every <img> in a decorative layer is empty-alt: the LQIP backdrop and the raster.
+    for (const img of Array.from(photo!.querySelectorAll('img'))) expect(img.alt).toBe('');
+    // D-293 R4 — the class the pause rule keys off is on the wall root, and only in this view.
+    const wall = view.container.querySelector('.fixed');
+    expect(wall?.classList.contains('wall-auth-open')).toBe(true);
+    expect(photo!.querySelector('.door-kb')).not.toBeNull();
+    view.unmount();
+  });
+
+  it('the backdrop is OUTSIDE the dialog panel and holds nothing focusable', () => {
+    const view = render(createElement(TokenGate));
+    openAuth(view);
+    const panel = view.container.querySelector<HTMLElement>('[role="dialog"]')!;
+    const photo = view.container.querySelector<HTMLElement>('[data-testid="door-wall-photo"]')!;
+    // Not in `panelRef`, so neither the Tab-trap nor the entry-focus query can reach it.
+    expect(panel.contains(photo)).toBe(false);
+    expect(
+      photo.querySelectorAll('a[href], button, input, textarea, select, [tabindex]').length,
+    ).toBe(0);
+    view.unmount();
+  });
+
+  it('the wall-open class is not on the landing view', () => {
+    const view = render(createElement(TokenGate));
+    expect(view.container.querySelector('.fixed')?.classList.contains('wall-auth-open')).toBe(
+      false,
+    );
+    view.unmount();
+  });
+});
+
 // ── #10 — the door validates a NEW key against the account identity doc ─────────────────────────
 describe('#10 — handleLogin probes the pasted key; only a server-confirmed absence rejects', () => {
   async function flush() {

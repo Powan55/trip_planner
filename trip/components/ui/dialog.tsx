@@ -5,6 +5,28 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { overlayMotion } from '@/lib/motion';
+
+/**
+ * D-292's no-exceptions clause, enforced instead of remembered (issue #24): a dialog is Tier 3
+ * whatever route opened it, so it asks `lib/motion.ts` for permission rather than carrying
+ * shadcn's default spring. `isMotionAllowed('entrance', OVERLAY_TIER)` is false, so what ships
+ * is CALM — and if the tier table ever changes, this follows it without an edit here.
+ *
+ * CALM is not "nothing" (R8: every path forks to its END state, never to nothing). It is the
+ * design system's dialog budget: ≤200 ms opacity + an 8 px rise in, ≤160 ms opacity out.
+ * What Tier 3 revokes is the `zoom-in-95` scale — the spec's "no spring, no scale-from-0.9".
+ *
+ * The `slide-in-from-top-[48%]` pairing with `translate-y-[-50%]` is load-bearing and is NOT a
+ * typo for a 2 px slide: tailwindcss-animate's `enter` keyframe REPLACES the element's own
+ * transform, so the 48/50 pair is what keeps a centred dialog centred while it rises the last
+ * 2% of its height into place. A plain `slide-in-from-bottom-2` here would drop the centring
+ * for the length of the animation and the dialog would fly in from the corner.
+ */
+const DIALOG_ENTER_LOUD =
+  'duration-200 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]';
+const DIALOG_ENTER_CALM =
+  'duration-200 data-[state=closed]:duration-150 data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]';
 
 const Dialog = DialogPrimitive.Root;
 
@@ -38,7 +60,8 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-lg',
+        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:rounded-lg',
+        overlayMotion('entrance', DIALOG_ENTER_LOUD, DIALOG_ENTER_CALM),
         className
       )}
       {...props}

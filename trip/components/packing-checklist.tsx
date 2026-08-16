@@ -67,7 +67,7 @@ export default function PackingChecklist() {
 
   return (
     <section aria-labelledby="packing-heading" data-testid="packing-checklist" className="relative mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
-      <CelebrationBurst active={celebrate} testId="packing-celebration" />
+      <CelebrationBurst active={celebrate} testId="packing-celebration" celebrationId="packing-complete" />
       <header className="mb-6">
         <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
           <Backpack className="h-3.5 w-3.5" aria-hidden="true" />

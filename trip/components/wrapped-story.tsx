@@ -193,7 +193,12 @@ export default function WrappedStory() {
         <Reveal>
           <div className="relative">
             <div data-testid="wrapped-entry" className="glass-card mx-auto rounded-3xl p-8 text-center sm:p-12">
-              <CelebrationBurst active={celebrate && !reducedMotion} testId="wrapped-celebration" />
+              <CelebrationBurst
+                active={celebrate && !reducedMotion}
+                testId="wrapped-celebration"
+                celebrationId="wrapped-post-trip"
+                weight="burst"
+              />
               <p className="text-eyebrow mb-3 uppercase text-muted-foreground">{copy.eyebrow}</p>
               <h2 id="wrapped-title" className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
                 <span className="text-display-emphasis">{copy.title}</span>
