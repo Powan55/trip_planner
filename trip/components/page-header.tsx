@@ -57,7 +57,7 @@ export default function PageHeader({
           <p className="text-eyebrow mb-3 uppercase" style={{ color: accent }}>
             {eyebrow}
           </p>
-          <h1 id={titleId} className="font-display text-display-lg text-display-emphasis">
+          <h1 id={titleId} className="text-display-lg text-display-emphasis">
             {title}
           </h1>
           <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">

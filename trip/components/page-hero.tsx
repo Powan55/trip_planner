@@ -199,7 +199,7 @@ export default function PageHero({
           {eyebrow}
         </p>
       )}
-      <Heading className={`font-display text-display-lg ${titleClass}`}>{title}</Heading>
+      <Heading className={`text-display-lg ${titleClass}`}>{title}</Heading>
       {subtitle && (
         <p className={`mt-3 max-w-2xl text-base leading-relaxed ${photo ? 'text-ink-mid' : 'text-muted-foreground'}`}>
           {subtitle}
