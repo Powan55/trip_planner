@@ -58,10 +58,10 @@ const PRECACHE_PREFIX = 'trip-precache-';
  * It has to be content, not filename: the built chunks are content-hashed and carry no name
  * (D-286), so there is nothing to pattern-match a URL against.
  */
-// COUPLED to `scripts/gen-sw.mjs:243`, which uses the identical marker to decide what gets
+// COUPLED to `scripts/gen-sw.mjs:255`, which uses the identical marker to decide what gets
 // precached. Built chunk filenames are content-hashed and carry no name (D-286), so content match
 // is the only handle either side has. If gen-sw's marker changes and this one does not, this row
-// reports "Map engine missing" to EVERY user while the engine is in fact present — a false
+// reports "Map engine not saved yet" to EVERY user while the engine is in fact present — a false
 // ALARM rather than a false pass, so it fails safe, but it fails loudly and for everyone. The two
 // strings must move together.
 //
@@ -119,14 +119,17 @@ function formatBytes(bytes: number): string {
  * 🔴 D-286 BINDS THIS COPY. There is no offline map and there is not going to be one: basemap
  * tiles come from `basemaps.cartocdn.com`, which is cross-origin, and the SW's first fetch-handler
  * line passes cross-origin through untouched, so tiles are never cached. Offline PMTiles was
- * closed NO-GO (D-173 → D-197: 180 MB–3.7 GB against a 100 MB cap). What IS precached is the
- * maplibre ENGINE, which buys pins and the route line on a navy canvas — no street imagery.
- * Say that and no more.
+ * closed NO-GO (D-173 → D-197: 180 MB–3.7 GB against a 100 MB cap). The maplibre ENGINE is not
+ * precached either (V6-14): it is RUNTIME-cached into the precache on the first ONLINE `/map`
+ * visit, and once it is there it buys pins and the route line on a navy canvas — no street
+ * imagery. Say that and no more.
  *
- * Precached is not the same as present (cold cache, failed precache fetch, storage eviction),
- * which is why this is a real check and not a tautology. We find the engine the same way the
- * build does: by content match over the cached `.js` entries. Largest-first ordering because the
- * engine is the ~1 MB chunk, so the common answer costs one cached read rather than 124.
+ * Cached is not the same as present (never opened `/map` online, storage eviction, a cold or
+ * failed install), which is why this is a real check and not a tautology — and since V6-14 the
+ * common answer on a fresh install is "not yet", with one online map visit as the fix. We find
+ * the engine the same way the build does: by content match over the cached `.js` entries.
+ * Largest-first ordering because the engine is the ~1 MB chunk, so the common answer costs one
+ * cached read rather than 124.
  */
 export async function checkMapShell(cacheStorage: CacheStorage | undefined): Promise<PreflightCheck> {
   const base = { id: 'map-shell', label: 'Map shell' };
@@ -176,9 +179,9 @@ export async function checkMapShell(cacheStorage: CacheStorage | undefined): Pro
     return {
       ...base,
       state: 'attention',
-      headline: 'Map engine missing',
+      headline: 'Map engine not saved yet',
       detail:
-        "The app is saved offline but the map's engine isn't in that copy, so the map may not open on the plane. Reload once with a connection, then check again.",
+        "The map's engine is saved the first time you open the map with a connection. Do that once and the map opens offline afterwards, with your pins and your route on it.",
     };
   } catch {
     return {

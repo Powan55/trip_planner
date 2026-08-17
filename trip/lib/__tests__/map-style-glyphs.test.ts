@@ -10,7 +10,7 @@ import { buildMapStyle } from '@/lib/map-style';
  *   lib/map-style.ts        the `glyphs` URL template (must be same-origin + basePath'd)
  *   components/trip-map.tsx the `text-font` stacks MapLibre substitutes into it
  *   public/font/**          the PBFs that must sit at exactly the resulting path
- *   scripts/gen-sw.mjs      the precache branch that makes them work offline
+ *   scripts/gen-sw.mjs      the precache list — which must NOT carry them (V6-14, below)
  *
  * Every failure mode here is SILENT at runtime: a wrong directory name, a missing
  * range file or an external host that is merely unreachable all render as markers
@@ -103,10 +103,36 @@ describe('map glyphs — the PBFs sit where MapLibre will ask for them', () => {
   );
 });
 
-describe('map glyphs — precached, or the offline fix does not land', () => {
-  it('gen-sw.mjs adds font/** to the precache list', () => {
-    // public/** is NOT precached wholesale; each family is an explicit branch in
-    // buildPrecacheList. Delete this branch and offline day markers go blank again.
-    expect(genSwSrc).toMatch(/rel\.startsWith\('font\/'\)\)\s*set\.add\(rel\)/);
+describe('map glyphs — RUNTIME-cached, never precached (V6-14)', () => {
+  /**
+   * 🔴 THIS INVARIANT IS INVERTED FROM WHAT IT ONCE WAS, deliberately — the old shape
+   * ("gen-sw.mjs adds font/** to the precache list") is worth knowing so nobody restores it.
+   *
+   * V6-14 took the glyph PBFs BACK OUT of the install list: 154 KiB (~87 KB gzip) on EVERY
+   * install, for `/map` — the one route D-274 already declines to promise offline. The
+   * maplibre engine that consumes them is withheld for the same reason.
+   *
+   * What issue #8 actually bought is untouched and is what makes the runtime path possible
+   * at all: while the glyphs were CROSS-ORIGIN the SW's first fetch-handler line returned
+   * them untouched and nothing could ever cache them. Self-hosted, they are same-origin
+   * non-image GETs, so they fall to the static cacheFirst branch and land in the precache on
+   * the first ONLINE map visit. The named cost: labels are blank on a COLD-offline first
+   * open of /map. Everything above this describe — same-origin template, basePath, the PBFs
+   * sitting at the resolved path — is what that runtime path depends on, so it all stands.
+   */
+  it('gen-sw.mjs does NOT add font/** to the precache list', () => {
+    // Deliberately keyed to `startsWith('font/` and NOT to the full branch shape: the exact
+    // form `else if (rel.startsWith('font/')) set.add(rel);` is only one way to put the
+    // glyphs back. Braces, or an `&&`, would re-add them under a green test. There are zero
+    // hits for this substring in gen-sw.mjs today, so the stronger form is free.
+    expect(genSwSrc).not.toMatch(/startsWith\('font\//);
+  });
+
+  it('…and the branch shape that negative is written against is still the one gen-sw uses', () => {
+    // ANTI-VACUITY. A bare `not.toMatch` passes for the wrong reason the moment
+    // buildPrecacheList is reformatted past the pattern — font/** would be back in every
+    // install under a green test. `icons/` is the sibling branch, precached on purpose and
+    // written in the identical shape, so it proves the pattern still has a subject to match.
+    expect(genSwSrc).toMatch(/rel\.startsWith\('icons\/'\)\)\s*set\.add\(rel\)/);
   });
 });

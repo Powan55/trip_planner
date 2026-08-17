@@ -311,16 +311,26 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
     what: 'the JournalBrowse island (app/journal/sections.tsx -> @/components/journal-browse)',
   },
   '/map/': {
-    anchor: '[data-testid="map-shell"]',
-    what: 'the MapSection island (app/map/sections.tsx -> @/components/map-section)',
-    // S394 PROMOTED this from a `skip`. It was carved out because D-271 ① kept maplibre's
-    // engine out of the precache, so cold-offline /map/ could only ever render the
-    // MapIslandBoundary fallback and asserting route content would have contradicted the
-    // decision. The owner reversed that: the engine (1.01 MiB) now ships with the install,
-    // so /map/ owes the same cold-offline guarantee as every other route and gets the same
-    // assertion. The boundary's degradation path did NOT lose its test — see the eviction-
-    // driven one below, which now creates the missing-chunk condition itself instead of
-    // borrowing it from an exclusion that no longer exists.
+    anchor: '[data-testid="map-island-unavailable"]',
+    what: "the MapIslandBoundary pane for the MapSection island (app/map/sections.tsx -> @/components/map-section), which is what /map/ owes cold-offline",
+    // 🔴 THE ONE ROUTE WHOSE COLD-OFFLINE CONTRACT IS THE BOUNDARY, NOT THE BODY, and it has
+    // moved twice. D-271 ① kept maplibre out of the precache and this was a `skip`; S394
+    // precached the engine and promoted it to `[data-testid="map-shell"]`; V6-14 withholds
+    // the engine again (~363 KB gzip off every install, spent on the one route D-274 already
+    // declines to promise offline) and runtime-caches it on the first ONLINE /map visit.
+    //
+    // So `map-shell` is the WRONG anchor now, and it is wrong by CONSTRUCTION, not by luck:
+    // it lives at components/map-section.tsx:1291, i.e. INSIDE <MapSectionIsland/>, which is
+    // the child of <MapIslandBoundary> at app/map/sections.tsx:22-24. Cold-offline the
+    // island's chunk group carries a withheld maplibre chunk, React.lazy throws, the
+    // boundary catches, and the subtree holding `map-shell` never renders at all.
+    //
+    // Re-skipping would have been the other honest option and is worse: this anchor keeps
+    // /map/ inside the loop, so it still proves the route did NOT crash to app/error.tsx
+    // (expectRouteBodyRendered's absence half) and that the degradation is the named,
+    // contained one. `map-island-unavailable` is absent from the cached HTML — the ssr:false
+    // bailout means the static export carries the SectionSkeleton, never this pane — so it
+    // keeps the discriminating power every other anchor here is chosen for.
   },
   '/more/': {
     anchor: '[data-testid="more-link-flights"]',
@@ -749,6 +759,28 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
   });
 
   /**
+   * Delete every cached `_next/static/**.js` whose body carries the `maplibregl` marker,
+   * and report how many went. Zero-arg by construction so it can ride `safeEval`, and
+   * idempotent — a second run over an already-evicted cache simply removes nothing.
+   */
+  const evictMaplibreFromCaches = async (): Promise<number> => {
+    let removed = 0;
+    for (const name of await caches.keys()) {
+      const cache = await caches.open(name);
+      for (const req of await cache.keys()) {
+        if (!new URL(req.url).pathname.match(/^\/_next\/static\/.*\.js$/)) continue;
+        const res = await cache.match(req);
+        if (!res) continue;
+        if ((await res.text()).includes('maplibregl')) {
+          await cache.delete(req);
+          removed++;
+        }
+      }
+    }
+    return removed;
+  };
+
+  /**
    * S365 / S394 — a missing maplibre chunk must DEGRADE, not crash.
    *
    * In the App Router a `dynamic()` whose chunk is missing makes `React.lazy` THROW,
@@ -766,6 +798,15 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
    * only proof at the exact moment its trigger became rarer and therefore less likely
    * to be noticed. So the test now CREATES the condition itself, by evicting maplibre
    * from the cache — which is a closer model of the real remaining failure anyway.
+   *
+   * 🔴 WHAT V6-14 CHANGED. The engine is withheld from the precache AGAIN, and is now
+   * runtime-cached by the SW's static cacheFirst branch on the first ONLINE `/map/`
+   * visit. That broke this test in the one way a cache test breaks: there was nothing
+   * left in any cache to evict, so it died on its own anti-vacuity guard ("no maplibre
+   * chunk was found in any cache to evict"). The fix is to CREATE the subject the way a
+   * real traveller does — open `/map/` online once, let the backfill land — and only
+   * then evict. That models the true remaining failure exactly: the engine WAS saved on
+   * this device, and storage pressure took it back.
    *
    * The eviction is by CONTENT (`maplibregl` in the chunk body), the same predicate
    * `scripts/gen-sw.mjs`'s isMaplibreChunk() uses, because the filenames are bare
@@ -790,26 +831,28 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
       )
       .toBeGreaterThan(20);
 
-    const evicted = await safeEval(page, async () => {
-      let removed = 0;
-      for (const name of await caches.keys()) {
-        const cache = await caches.open(name);
-        for (const req of await cache.keys()) {
-          if (!new URL(req.url).pathname.match(/^\/_next\/static\/.*\.js$/)) continue;
-          const res = await cache.match(req);
-          if (!res) continue;
-          if ((await res.text()).includes('maplibregl')) {
-            await cache.delete(req);
-            removed++;
-          }
-        }
-      }
-      return removed;
-    });
-    expect(
-      evicted,
-      'no maplibre chunk was found in any cache to evict — the eviction matched nothing, so anything below would be a green test of a working map',
-    ).toBeGreaterThan(0);
+    // V6-14: nothing to evict until something put it there. ONE online /map/ visit is the
+    // whole mechanism — the island's chunks and then the engine itself are same-origin,
+    // non-image, non-navigate GETs, so they land on the SW's last fetch branch and
+    // cacheFirst() writes them into the precache. `map-shell` renders only from inside the
+    // island, so it proves that import resolved rather than that the HTML was served.
+    await page.goto('/map/', { waitUntil: 'load' });
+    await expect(
+      page.getByTestId('map-shell'),
+      'ONLINE /map/: the map island never mounted, so nothing backfilled maplibre into the cache and the eviction below would have no subject',
+    ).toBeVisible({ timeout: 30_000 });
+
+    // cacheFirst()'s `cache.put` is deliberately fire-and-forget (it must not delay the
+    // response), so POLL the eviction rather than assume the write has landed. Evicting
+    // nothing is a no-op, so re-running is safe; the poll's own failure is the anti-vacuity
+    // guard the single-shot assertion used to be.
+    await expect
+      .poll(() => safeEval(page, evictMaplibreFromCaches), {
+        message:
+          'no maplibre chunk was found in any cache to evict — the online /map/ visit did not backfill it (V6-14 runtime-caches the engine there), so anything below would be a green test of a working map',
+        timeout: 20_000,
+      })
+      .toBeGreaterThan(0);
 
     await context.setOffline(true);
     await page.goto('/map/', { waitUntil: 'load' });

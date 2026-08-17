@@ -1,6 +1,6 @@
 import { test, expect } from './fixtures';
 import type { Page } from '@playwright/test';
-import { readdirSync, existsSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /**
@@ -10,14 +10,22 @@ import { join } from 'node:path';
  * the app shell's share of it. Route HTML is UNCHANGED and still fully precached — that
  * is the D-073 contract and the S271 torn-update invariant.
  *
- * 🔴 S394 INVERTED THE FIRST TEST HERE, deliberately, and the old shape is worth knowing
- * so nobody "restores" it. Under D-271 ① maplibre's engine was the heaviest thing the
- * scoping dropped, and this file proved the runtime BACKFILL rescued it: it asserted the
- * ~1 MB asset was in the cache but NOT in the install list. The owner reversed that
- * ruling (S394 — the two maplibre chunks total 1.01 MiB, under the 2 MB bar), so that
- * assertion now fails BY CONSTRUCTION. The coverage was not deleted, it was flipped:
- *   · Test 1 asserts the NEW invariant — the engine IS in the install list, and /map/
- *     therefore renders offline on a cache holding nothing but the install set.
+ * 🔴 THE FIRST TEST HERE HAS NOW BEEN INVERTED TWICE. Read this before "restoring" either
+ * older shape, because both existed and both were deliberate.
+ *   · D-271 ① kept maplibre's engine OUT of the precache; this file proved the runtime
+ *     BACKFILL rescued it (asset in the cache, NOT in the install list).
+ *   · S394 reversed that on the owner's ruling (1.01 MiB, under the 2 MB bar) and the test
+ *     was flipped to require the engine IN the install list, with a cold-offline /map/
+ *     rendering a real GL canvas.
+ *   · V6-14 reverses it again on a MEASUREMENT S394 did not have: the engine plus the glyph
+ *     PBFs are ~363 KB GZIPPED, 21% of the gzipped install, spent on /map — the one route
+ *     D-274 already declines to promise offline. So the engine is withheld again and
+ *     runtime-cached on the first ONLINE /map visit instead, and a cold-offline /map/
+ *     degrades to the island error boundary BY DESIGN.
+ * The coverage was never deleted, only re-pointed:
+ *   · Test 1 asserts the CURRENT invariant — the engine is NOT in the install list, and a
+ *     cold-offline /map/ on an install-only cache paints the named boundary pane instead of
+ *     a GL canvas, with the route itself still alive.
  *   · Test 2 keeps the runtime-backfill coverage, retargeted onto a chunk that is
  *     genuinely still outside the shell (20 of them survive on this tree, ~963 KB) and
  *     picked by DIFFING the build against the shipped worker rather than by hoping a
@@ -81,7 +89,7 @@ function builtStaticFiles(): string[] {
 }
 
 test.describe('S359B/S394 · what the scoped precache ships, and what it backfills', () => {
-  test("maplibre's engine ships WITH the install, so /map/ renders offline on an install-only cache", async ({
+  test("maplibre's engine is NOT in the install list, so a cold-offline /map/ degrades to the island pane", async ({
     page,
     context,
   }) => {
@@ -91,21 +99,38 @@ test.describe('S359B/S394 · what the scoped precache ships, and what it backfil
     await expect.poll(async () => (await precachedStatic(page)).length).toBeGreaterThan(20);
 
     const installedStatic = await installedStaticUrls(page);
+    // ANTI-VACUITY FLOOR. The assertion below FLIPPED at V6-14: `toContain` used to fail on
+    // an empty list, `not.toContain` passes on one. `installedStaticUrls` filters on
+    // `/_next/static/`, so a basePath build (`/trip_planner/_next/…`) yields [] and every
+    // negative below would then pass by inspecting nothing — and step 3's set-equality
+    // passes on [] too, so nothing downstream catches it.
+    expect(
+      installedStatic.length,
+      'the shipped worker installs no _next/static asset at all — the negative below would pass by inspecting nothing',
+    ).toBeGreaterThan(20);
 
-    // 2) THE INVERTED ASSERTION (S394). The ~1 MB asset is identified by RUNTIME BYTE
-    //    SIZE, so no content hash is hard-coded — but where the old test required it to
-    //    be ABSENT from the install list, it must now be PRESENT in it. This is the half
-    //    with discriminating power: it is exactly what the pre-S394 worker failed.
-    const bigCached: string[] = await page.evaluate(async (paths: string[]) => {
-      const big: string[] = [];
-      for (const p of paths) {
-        const res = await caches.match(p);
-        if (res && (await res.clone().arrayBuffer()).byteLength > 500_000) big.push(p);
-      }
-      return big;
-    }, await precachedStatic(page));
-    expect(bigCached.length, 'no >500 KB asset is cached at all — the engine never shipped').toBeGreaterThan(0);
-    for (const p of bigCached) expect(installedStatic).toContain(p);
+    // 2) THE INVERTED ASSERTION (V6-14). The subject is read off DISK, not off the cache:
+    //    the cache is not supposed to hold it, so sampling the cache would find nothing and
+    //    assert nothing. Identified the way `gen-sw.mjs`'s isMaplibreChunk() and
+    //    `e2e/pwa.spec.ts`'s eviction both identify it — by CONTENT, because the filenames
+    //    are bare contenthashes — narrowed by size to the ENGINE itself (~1008 KiB). The
+    //    size half matters: `lib/preflight.ts` carries the same literal to look FOR the
+    //    engine, and a small chunk that merely mentions the marker is not the subject here.
+    const engineChunks = builtStaticFiles().filter((f) => {
+      if (!f.endsWith('.js')) return false;
+      const body = readFileSync(join(process.cwd(), 'out', f.slice(1)));
+      return body.byteLength > 500_000 && body.toString('utf8').includes('maplibregl');
+    });
+    expect(
+      engineChunks.length,
+      'the build emitted no >500 KB chunk carrying the maplibre marker — this test has lost its subject and must be retired deliberately rather than pass on an empty loop',
+    ).toBeGreaterThan(0);
+    for (const p of engineChunks) {
+      expect(
+        installedStatic,
+        `${p} is the maplibre engine and it is in the INSTALL list — V6-14 withholds it from the precache (~363 KB gzip off every install) and runtime-caches it on the first ONLINE /map visit instead`,
+      ).not.toContain(p);
+    }
 
     // 3) PRUNE the cache back to exactly the install set. Without this the offline render
     //    below would also pass on a cache that a runtime backfill happened to warm — i.e.
@@ -141,18 +166,26 @@ test.describe('S359B/S394 · what the scoped precache ships, and what it backfil
     test.info().annotations.push({ type: 'pruned-non-install-entries', description: String(pruned) });
     expect(new Set(await precachedStatic(page))).toEqual(new Set(installedStatic));
 
-    // 4) OFFLINE, on a cache holding nothing but the install set, and WITHOUT this
-    //    context ever having opened /map/ online. The GL canvas only exists once
-    //    maplibre's engine has actually executed, so it is the proof the engine shipped.
-    //    NOTE what is deliberately NOT asserted: basemap imagery. Tiles come from
-    //    basemaps.cartocdn.com, which is cross-origin and hits the SW's untouched
-    //    cross-origin passthrough — offline the canvas paints the navy underlay, the
-    //    marker circles and the day route, with no street artwork. That is exactly what
-    //    the landing copy promises and no more.
+    // 4) OFFLINE, on a cache holding nothing but the install set, and WITHOUT this context
+    //    ever having opened /map/ online. What must appear is the ISLAND ERROR BOUNDARY's
+    //    named pane (components/map-island-boundary.tsx), not a GL canvas: the island's
+    //    chunk group carries a withheld maplibre chunk, so React.lazy throws at the
+    //    `app/map/sections.tsx -> @/components/map-section` call site. That degradation is
+    //    what D-274 already promises and what V6-14 spends 363 KB gzip to buy back.
+    //
+    //    Both halves are asserted, and each is vacuous alone: the pane's PRESENCE (the
+    //    boundary really caught it and named it) plus the canvas's ABSENCE (no engine ran,
+    //    so this cannot pass on a cache a backfill happened to warm).
     await context.setOffline(true);
     await page.goto('/map/', { waitUntil: 'domcontentloaded' });
-    await expect(page.getByTestId('map-shell')).toBeVisible();
-    await expect(page.locator('canvas.maplibregl-canvas')).toBeVisible({ timeout: 20_000 });
+    await expect(
+      page.getByTestId('map-island-unavailable'),
+      'cold-offline /map/ on an install-only cache: the map island neither degraded to its boundary pane nor was contained at all',
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('canvas.maplibregl-canvas')).toHaveCount(0);
+    // …and the boundary contained it AT THE ISLAND: app/error.tsx did not replace the route,
+    // so the hero and the rest of /map/ are still there.
+    await expect(page.getByRole('heading', { name: 'Trip Map', level: 1 })).toBeVisible();
 
     await context.setOffline(false);
   });
@@ -161,10 +194,11 @@ test.describe('S359B/S394 · what the scoped precache ships, and what it backfil
     page,
     context,
   }) => {
-    // The safety argument for everything the scoping still drops. S394 precached the
-    // maplibre engine, so the old vehicle for this proof is gone — the subject is now
-    // DERIVED: diff what the build emitted against what the shipped worker installs, and
-    // take a chunk from the difference. That keeps the test honest if the shell grows.
+    // The safety argument for everything the scoping still drops — and under V6-14 that
+    // includes the maplibre engine again, whose runtime backfill is exactly this mechanism.
+    // The subject stays DERIVED rather than named: diff what the build emitted against what
+    // the shipped worker installs, and take a chunk from the difference. That keeps the test
+    // honest whichever way the maplibre ruling swings next, and if the shell grows.
     await page.goto('/', { waitUntil: 'load' });
     await waitForActivatedSW(page);
     await expect.poll(async () => (await precachedStatic(page)).length).toBeGreaterThan(20);
