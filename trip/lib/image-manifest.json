@@ -133,12 +133,36 @@
       }
     ]
   },
+  "/images/hero/hero-japan.jpg": {
+    "webp": "/images/hero/hero-japan.webp",
+    "avif": "/images/hero/hero-japan.avif",
+    "blurDataURL": "data:image/webp;base64,UklGRnYAAABXRUJQVlA4IGoAAACwAwCdASoUAAsAPu1iqU2ppaOiMAgBMB2JQBOgA895OM7rG6wrAAD8XIYsDnCMQvdLQYvdZPNNvzizOWtmf39pKFof2NiobaraurkQ8ZgPu85/ZKaGoBhNxULzyf9FFvsg4XlkTjJMUAAA",
+    "width": 1920,
+    "height": 1023,
+    "variants": [
+      {
+        "width": 640,
+        "webp": "/images/hero/hero-japan-640w.webp",
+        "avif": "/images/hero/hero-japan-640w.avif"
+      },
+      {
+        "width": 1024,
+        "webp": "/images/hero/hero-japan-1024w.webp",
+        "avif": "/images/hero/hero-japan-1024w.avif"
+      },
+      {
+        "width": 1920,
+        "webp": "/images/hero/hero-japan.webp",
+        "avif": "/images/hero/hero-japan.avif"
+      }
+    ]
+  },
   "/images/hero/hero.jpg": {
     "webp": "/images/hero/hero.webp",
     "avif": "/images/hero/hero.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRm4AAABXRUJQVlA4IGIAAACQAwCdASoUAA0APu1iqU2ppaOiMAgBMB2JQBOgAmecBcpeKAegAPrN8e9wsOdNAa7NhvQiEV+o222rPC0ahzhmGi89nImb2SI/cAAxys9RyvSsA/GZ/3M7wyeLa9RikiAAAA==",
-    "width": 1600,
-    "height": 1066,
+    "blurDataURL": "data:image/webp;base64,UklGRogAAABXRUJQVlA4IHwAAAAwBACdASoUAA0APu1iqU2ppaOiMAgBMB2JZgCdH8ACREP4B8acmsKzpAgA/sjuAfo+6Tz2vABUKOnekMmx7PG44F4HZvIpaT3ThoCEbDsvFO7p+bKKNVq651Ku0RxxD6DC/YUyovwGHWcPSZEuzsboqFlTWRE+0YQ5+6QA",
+    "width": 1920,
+    "height": 1280,
     "variants": [
       {
         "width": 640,
@@ -151,7 +175,7 @@
         "avif": "/images/hero/hero-1024w.avif"
       },
       {
-        "width": 1600,
+        "width": 1920,
         "webp": "/images/hero/hero.webp",
         "avif": "/images/hero/hero.avif"
       }

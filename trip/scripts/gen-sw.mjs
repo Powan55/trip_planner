@@ -608,7 +608,8 @@ async function assertMapIslandsWrapped(mapSites) {
 // - manifest.webmanifest
 // - icons/** and favicon.svg
 // - font/** — the self-hosted MapLibre glyph PBFs (154 KiB, issue #8)
-// - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead.
+// - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead,
+//   WITH ONE NAMED EXCEPTION: images/hero/*.avif (D-335; see HERO_PRECACHE below).
 //
 // Route HTML is DISCOVERED by walking out/ (below), not a hand-kept
 // literal. Every route MUST be precached so navigations resolve offline; the
@@ -619,6 +620,62 @@ async function assertMapIslandsWrapped(mapSites) {
 // routes actually reference (see eagerStaticAssets above). Route HTML itself is
 // untouched and still precached in full: that is the D-073 contract and
 // the torn-update invariant, NOT a side effect of scoping chunks.
+
+// THE ONE IMAGE EXCEPTION — the Home hero rasters, and nothing else (D-335, issue #89).
+//
+// D-335 AMENDS D-073 and D-086(b), which say images are NEVER precached. Read D-335
+// before touching this: the "never" is superseded for THIS PATH PREFIX and for nothing
+// else, and everything else in D-086 (the LRU-80 cap, the content-hashed precache name,
+// the origin-check-first rule, the images cache surviving `activate`) is untouched.
+//
+// WHY (i) — THE NEW BUG. The hero photograph follows the trip leg (lib/hero-image.ts):
+// the Himalaya frame everywhere, the Shinjuku frame for the Japan leg. The Japan frame
+// is a URL the device has NEVER requested before the leg flips on 19 Dec, so it is not
+// in the runtime image cache either — and offline is this product's whole premise. Cold,
+// the fetch fails, OptimizedImage's onError fires, and the hero paints the invented SVG
+// mountain range in hero-section.tsx. A leg-aware hero that shows fake mountains on the
+// one day it changes is worse than no swap at all.
+//
+// WHY (ii) — THE PRE-EXISTING ONE, AND IT IS THE BIGGER HALF. `trip-images-v1` is
+// FIFO-80, not LRU-80: trimImageCache() evicts oldest BY INSERTION and a cache HIT does
+// not refresh recency. There are 105 other manifest images. Home is the entry route, so
+// the hero is among the very FIRST things inserted and therefore among the very first
+// evicted — ordinary gallery browsing is enough. The DEFAULT hero was already cold
+// offline before the leg swap existed. This exception fixes that too.
+//
+// WHY THIS SHAPE. `images/hero/` holds ONLY the two hero frames and their build-time
+// derivatives — every gallery photograph lives under images/{nepal,japan,map,featured,
+// photography,landing}/ — so a path PREFIX matched against the real out/ walk is narrow
+// BY CONSTRUCTION rather than by a list somebody has to keep. A renamed variant cannot
+// silently fall out of coverage. A third hero (hero-antarctica) would join
+// automatically, which is intended; a gallery image cannot, because it is not here.
+//
+// WHY .avif ONLY, AND THE HOLE THAT LEAVES — NAMED. OptimizedImage renders <picture>
+// with an AVIF <source>, a WebP <source> and the .jpg as the universal <img> fallback.
+// A <source> whose `type` the browser supports WINS, so an AVIF-capable engine never
+// requests the others. The engines that are SW-capable but have NO AVIF decoder are
+// Edge < 121, iOS Safari 16.0–16.3, Firefox < 93 and Chrome < 85; those request the
+// WebP or the .jpg, and neither is precached. MEASURED, not assumed: offline with the
+// runtime image cache wiped, `hero-japan.webp` and `hero-japan.jpg` both come back
+// FETCH REJECTED — so those engines get the SVG fallback art offline, not a soft miss.
+// That hole is bounded and ACCEPTED (D-335): closing it costs +1.16 MB of WebP and
+// +1.22 MB of JPG to serve browsers three-plus years behind.
+//
+// WHY ALL THREE WIDTHS. The hero passes `sizes="100vw"`, so the browser picks by
+// viewport x DPR and there is no partial credit: a device that selects 1024w gets NO
+// benefit from a precached 1920w. Measured selections — 390@3 and every desktop
+// >=1280 take the native 1920 (that includes the `chromium` Playwright project, which
+// is Desktop Chrome at 1280x720), 375@2 and 768@1 take 1024w, 390@1 takes 640w.
+//
+// WHAT IT COSTS, IN THE DENOMINATOR THAT MATTERS. Raw, the six files are 555.2 KiB of a
+// 4.57 MiB precache — 11.9%, which understates it. AVIF does not compress and the HTML
+// and JS do, so on the wire the install is 1.81 MiB gzipped and the hero is 555.3 KiB of
+// THAT: 30.0%. Without it a new user downloads 1.26 MiB; with it, 1.81 MiB — +43% on the
+// install payload for the offline hero guarantee. All six stay (D-335): every trim drops
+// a real device class, and dropping the two native 1920s would put the hole on DPR-3
+// phones, which select native.
+const HERO_PRECACHE = /^images\/hero\/[^/]+\.avif$/;
+
 async function buildPrecacheList(allFiles) {
   const set = new Set();
   const eager = await eagerStaticAssets(allFiles.filter((r) => r.endsWith('.html')));
@@ -647,7 +704,12 @@ async function buildPrecacheList(allFiles) {
     else if (rel.startsWith('font/')) set.add(rel);
     else if (rel === 'favicon.svg') set.add(rel);
     else if (rel === 'manifest.webmanifest') set.add(rel);
-    // NOTE: images/** deliberately excluded (runtime cache).
+    // NOTE: images/** is deliberately excluded (runtime cache) EXCEPT the hero
+    // rasters (D-335) — see HERO_PRECACHE above for the whole argument. Matching against
+    // what the walk actually found (rather than a literal URL list) also keeps the
+    // ATOMIC install honest: a variant that gen-images.mjs did not emit is simply
+    // not listed, instead of 404-ing every install.
+    else if (HERO_PRECACHE.test(rel)) set.add(rel);
   }
 
   // Deterministic order so the hash is stable across identical builds.
@@ -927,9 +989,17 @@ self.addEventListener('fetch', (event) => {
           }
           return res;
         } catch (err) {
-          // Offline and uncached — fall through to a network error (the app's
-          // <img onError> fallback art handles the missing image,).
-          return caches.match(request) || Response.error();
+          // Offline. Fall back to ANY cache — which is how the hero rasters'
+          // offline guarantee is actually delivered: they live in the PRECACHE,
+          // not in IMAGES_CACHE, so the cacheName-scoped lookup above misses them
+          // by design and this is the line that finds them (D-335).
+          //
+          // The \`await\` is load-bearing and was missing: \`caches.match()\` returns a
+          // Promise, which is always truthy, so \`|| Response.error()\` could never
+          // run and a genuine miss resolved to \`undefined\` instead of a network
+          // error. Harmless while nothing depended on this branch; not harmless now
+          // that the hero's offline guarantee flows through it.
+          return (await caches.match(request)) || Response.error();
         }
       })()
     );

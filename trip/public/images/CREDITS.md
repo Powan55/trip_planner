@@ -4,13 +4,22 @@ Almost every image bundled under `public/images/` is freely licensed (Public Dom
 
 **The exception is `public/images/landing/` — see the last section. Those three are self-generated, not sourced, and no Wikimedia attribution applies to them.**
 
-Total assets: 106 — 103 Wikimedia-sourced (tabulated below) + 3 self-generated landing screenshots.
+Total assets: **107 paths / 68 distinct images** — 104 Wikimedia-sourced paths (tabulated below) resolving to **65 distinct upstream files**, plus 3 self-generated landing screenshots.
+
+Paths outnumber photographs because the same upstream file is deliberately bundled more than once at different widths for different surfaces — **63 of the 104 entries below share an upstream file with at least one other**, falling into 24 shared groups (e.g. Boudhanath is `nepal/na1`, `photography/ps3`, `featured/boudhanath` and `map/np-boudhanath`). The remaining 41 entries are one-of-a-kind, and 63 + 41 = 104 rows just as 24 + 41 = 65 distinct upstream files. Note when recounting: one of the 24 groups is the four Nagarkot copies (`nepal/na17`, `photography/ps1`, `featured/nagarkot`, `map/np-nagarkot`), whose `[file]` cells are empty, so a count driven off the source links alone finds 23 groups / 59 entries and misses them. That is normal here and is not a defect to clean up: each copy is fetched at the width its surface needs (`scripts/fetch-images.mjs`, `CARD_WIDTH = 1200` with a per-entry override), so collapsing them would either soften the large surface or bloat the small one.
 
 ## Hero
 
 | Local path | Subject | Author | License | Source |
 |---|---|---|---|---|
-| `/images/hero/hero.jpg` | Himalayas | NASA Landsat image | Public domain | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Himalayas_and_allied_ranges_NASA_Landsat_showing_the_eight_thousanders%2C_annotated_with_major_rivers.jpg/1920px-Himalayas_and_allied_ranges_NASA_Landsat_showing_the_eight_thousanders%2C_annotated_with_major_rivers.jpg) |
+| `/images/hero/hero.jpg` | Ama Dablam, Himalayas | Vyacheslav Argenberg | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Himalayas%2C_Ama_Dablam%2C_Nepal.jpg/1920px-Himalayas%2C_Ama_Dablam%2C_Nepal.jpg) |
+| `/images/hero/hero-japan.jpg` | Shinjuku skyline, Tokyo | Morio | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Skyscrapers_of_Shinjuku_2009_January.jpg/1920px-Skyscrapers_of_Shinjuku_2009_January.jpg) |
+
+There are TWO heroes because the hero photograph follows the trip leg: `hero.jpg` carries the Nepal leg and every day outside the trip window, `hero-japan.jpg` takes over for the Japan leg. See `lib/hero-image.ts`.
+
+**`/images/hero/hero-japan.jpg` and `/images/map/jp-park-hyatt.jpg` are the same upstream Wikimedia file** — `Skyscrapers_of_Shinjuku_2009_January.jpg` by Morio — bundled twice at two different widths: 1920×1023 for the hero (`HERO_WIDTH`) and 1200×639 for the map card (`CARD_WIDTH`, fetched from the 1280px Commons thumb). Confirmed by pixel comparison: greyscale RMS difference 7.5/255 at a common 1200×639, which is rescaling and JPEG noise on the building edges, not a different frame.
+
+**This duplication is deliberate and must not be "deduped".** The hero is the app's one full-bleed surface and the only place the extra pixels are actually spent; repointing it at the 1200px copy would visibly soften it on any desktop. Repointing the map card at the 1920px copy would put a 533 KiB raster behind a thumbnail.
 
 ## Nepal (attractions & food)
 

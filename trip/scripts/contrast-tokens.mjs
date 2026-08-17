@@ -114,12 +114,13 @@ C.docsNoteFill = over('#FFFFFF', C.surface1, 0.03);
 // The hero used to hold its photo at opacity .45 under TWO stacked overlays; it now paints
 // at full strength under ONE ramp, `.hero-scrim`, whose floor is 0.76 (globals.css).
 //
-// THE WORST-CASE PIXEL IS PURE WHITE, NOT A DUOTONE CAP, AND THAT IS DELIBERATE. The
-// duotone tokens above (--duo-*-high) cap every channel of every pixel and would let this
-// be measured against #F5D4AC — but the hero has no duotone layer, so that cap does not
-// exist on this surface and assuming it would be measuring a photograph that is not there.
-// White is the honest bound for an ungraded photo, and it is also the bound for the
-// custom-trip vibe gradient, whose stops this repo does not author.
+// THE WORST-CASE PIXEL IS STILL PURE WHITE, AND THAT IS STILL DELIBERATE — but the reason
+// changed with issue #89 and this paragraph is the one that has to say so. The photograph
+// branch NOW carries a --duo-*-high darken cap (`.hero-cap`, modelled ~20 lines below), so
+// on THAT branch the brightest pixel really is the cap. The scrim, however, also covers the
+// two branches that have NO cap and no photograph: the custom-trip vibe gradient (whose
+// stops this repo does not author) and the SVG fallback art. White is the bound that holds
+// for all three, so the ramp is sized by it and the cap is only ever headroom.
 //
 // The scrim ramps toward --bg (the page field) rather than --scrim-ink so its last stop IS
 // the page below it and the section blends with no seam; that also makes it very slightly
@@ -131,6 +132,24 @@ C.heroScrim90 = over(C.bg, '#FFFFFF', 0.90); // the ramp's top/bottom, under the
 // 95% over the floor stop — the darkest frame the reveal can be caught in.
 C.heroHiFading = over(C.textHi, C.heroScrim76, 0.95);
 C.heroMidFading = over(C.textMid, C.heroScrim76, 0.95);
+// ---- issue #89: the hero photograph now carries a highlight cap ---------------------
+// `.hero-cap` is one `mix-blend-mode: darken` div of --duo-*-high over the raster (and
+// ONLY over the raster — see below). Darken keeps the darker of the two per channel, so
+// every channel of every photo pixel is clamped at the cap and the brightest pixel the
+// scrim can sit on stops being white. Same engine as `.photo-header`, minus its
+// `filter: grayscale(1)` opening — greyscaling Home would spend the Tier-1 photographic
+// privilege D-292 grants it.
+//
+// The cap FOLLOWS THE LEG, exactly as the photograph does, so both are modelled: the
+// Himalaya frame takes --duo-np-high, the Shinjuku frame --duo-jp-high.
+//
+// THE WHITE PAIRS ABOVE STAY, AND ARE STILL THE RULE. Two of the hero's three backdrop
+// branches have no cap because they have no photograph — a custom trip's vibe gradient
+// (D8, stops this repo does not author) and the SVG fallback art when the raster fails.
+// The scrim is sized by the branch with the least protection; these rows only record the
+// headroom the graded branch gains, and NOTHING may be re-tiered off them.
+C.heroCapNp76 = over(C.bg, C.duoNpHigh, 0.76);
+C.heroCapJp76 = over(C.bg, C.duoJpHigh, 0.76);
 
 // ---- issue #5, the passport sheet DURING its entrance -------------------------------
 // Same mechanism as the two rows above and the reason it is measured on this page too: a
@@ -391,6 +410,20 @@ const pairs = [
   ['hero copy (mid), darkest reveal frame', C.heroMidFading, C.heroScrim76, 4.5],
   ['hero mark (lo) at the floor, 3:1 only', C.textLo, C.heroScrim76, 3],
   ['hero copy (mid) at the ramp top .90', C.textMid, C.heroScrim90, 4.5],
+  // Issue #89. The SAME pairings over the CAPPED photograph. Every one of them is a strict
+  // improvement on the white bound above (hi 9.22 -> 10.60/10.84, mid 5.62 -> 6.46/6.61)
+  // because darken can only ever remove light. Listed so the improvement is a measured
+  // number rather than an assumption.
+  //
+  // THESE FOUR CANNOT FAIL ON A CAP RE-VALUE, AND CLAIMING THEY COULD WOULD BE THE USUAL
+  // LIE. Lightening --duo-*-high walks them back toward the pure-white limit measured
+  // above — 9.22 hi / 5.62 mid — which still clears 4.5; darkening it only improves them.
+  // So they bind on --text-hi/--text-mid moving, not on the cap. The lines that DO fire on
+  // a cap re-value are the two guards below, and they fire on DARKENING.
+  ['hero title (hi) over the capped photo, NP', C.textHi, C.heroCapNp76, 4.5],
+  ['hero copy (mid) over the capped photo, NP', C.textMid, C.heroCapNp76, 4.5],
+  ['hero title (hi) over the capped photo, JP', C.textHi, C.heroCapJp76, 4.5],
+  ['hero copy (mid) over the capped photo, JP', C.textMid, C.heroCapJp76, 4.5],
   ['countdown value (hi) on a cell', C.textHi, C.surface2, 4.5],
   ['countdown label (lo) on a cell', C.textLo, C.surface2, 4.5],
   ['live cell digits, japan stop A', C.jpA, C.surface2, 4.5],
@@ -454,6 +487,21 @@ const guards = [
   // passing, the scrim got darker and hero copy can be re-tiered — which is a decision
   // somebody should make on purpose, having seen this line flip.
   ['--text-lo as hero copy over the photo', C.textLo, C.heroScrim76, 4.5],
+  // Issue #89. THE CAP DOES NOT UNLOCK THE FLOOR TIER, and this is the line that proves it
+  // rather than asserting it. The `.hero-cap` darken layer lifts the floor tier from 3.55
+  // to 4.08 (NP) / 4.18 (JP) — a real gain, and still short of 4.5. Somebody reading the
+  // capped rows above will reasonably wonder whether hero copy can now drop a tier; the
+  // answer is no, on both legs, and these two guards keep answering it after the comment
+  // above has been skimmed past.
+  //
+  // AND THESE ARE THE TWO LINES THAT CAN ACTUALLY FIRE, unlike the four capped pairings up
+  // in `pairs`. A guard trips when its pair starts PASSING, and --text-lo clears 4.5 over
+  // this composite only once the composite gets DARKER — i.e. on darkening --duo-*-high
+  // (or the page field it composites over). That is precisely the direction in which a
+  // floor-tier re-tier would become defensible, so it should be a decision somebody makes
+  // having watched this line flip, not a side effect of a palette tweak.
+  ['--text-lo as hero copy over the capped photo, NP', C.textLo, C.heroCapNp76, 4.5],
+  ['--text-lo as hero copy over the capped photo, JP', C.textLo, C.heroCapJp76, 4.5],
   // Issue #25. The front door reuses the header ramp, so the floor tier DOES clear AA over the
   // cover — but the ghost CTA's edge is the pair that would bind first if that ramp is ever
   // lightened, and --border is what an author reaches for when they do not know that. Measured
@@ -525,6 +573,7 @@ for (const k of ['npScrim72', 'npScrim82', 'jpScrim72', 'jpScrim82', 'rowHover',
                  'docsRowHover', 'docsNoteFill', 'npHdrMin', 'jpHdrMin', 'npHdrRest', 'jpHdrRest',
                  'doorWall',
                  'heroScrim76', 'heroScrim90', 'heroHiFading', 'heroMidFading',
+                 'heroCapNp76', 'heroCapJp76',
                  'paperFading', 'inkGreenFading'])
   console.log('  ' + k.padEnd(11), C[k]);
 console.log('\nhex -> hsl (the form the shadcn tokens in globals.css take):');
