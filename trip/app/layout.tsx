@@ -10,6 +10,7 @@ import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
 import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
 import { SyncStatusBadge } from '@/components/sync-status-badge'
+import SeasonAccentEngine from '@/components/season-accent-engine'
 import { withBasePath } from '@/lib/utils'
 // the app-wide chrome islands (Navbar, Footer, mobile tab bar,
 // quick-add FAB + host, expense-log host). Declared in a `'use client'` module
@@ -118,6 +119,9 @@ export default function RootLayout({
           forcedTheme="dark"
           disableTransitionOnChange
         >
+          {/* app-shell month/season background tint (issue #83). Renders nothing; root-level
+              so it mounts once and is never torn down by route navigation. */}
+          <SeasonAccentEngine />
           <ItineraryProvider>
             {/* App chrome: one persistent navbar/footer around the routed
                 page content. TokenGate + PresenceBar render inside the provider. */}
