@@ -7,6 +7,7 @@
 // metadata. Reached via a direct URL or the command palette's "Packing" entry —
 // deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar in this change (those
 // files are fenced — a follow-up rider, same historical pattern as).
+import PageHeader from '@/components/page-header';
 import { PackingChecklist } from './sections';
 
 export const metadata = {
@@ -17,32 +18,11 @@ export const metadata = {
 export default function PackingPage() {
   return (
     <main className="min-h-screen bg-surface">
-      {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
-          text-display-emphasis / animate-reveal-up) directly rather than extending PageHero's
-          closed `HeroVariant` union (fenced per the precedent: "do not extend
-          page-hero.tsx"). Supplies the page's <h1> (mirrors app/journal/page.tsx). */}
-      <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
-        <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                'var(--hero-wash)',
-            }}
-          />
-          <div className="relative">
-            <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
-              Two legs, one bag
-            </p>
-            <h1 className="font-display text-display-lg text-display-emphasis">Packing Checklist</h1>
-            <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-              Nepal-leg, Japan-leg, and universal items — check them off as you pack. Saved on
-              this device only.
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Two legs, one bag"
+        title="Packing Checklist"
+        description="Nepal-leg, Japan-leg, and universal items — check them off as you pack. Saved on this device only."
+      />
       <PackingChecklist />
     </main>
   );

@@ -3843,3 +3843,23 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 **Two honest limits, recorded so nobody trusts the harness further than it goes.** (1) **This check would not have caught G-1 on the day.** The #27 sweep changed `.tsx` consumers, not tokens, and a hand-mirror of token values is structurally blind to a consumer change. It is the right shape only *now*, because the fix moves TM legibility out of a classname-dependent selector and into tokens. (2) **The surface-ramp collapse warning is only half-measured.** TM[i] equals normal[i-1], so a TM step *lightened* onto its lighter neighbour fires; a step *darkened*, or two steps collapsed onto one value, exits 0 silently.
 
 **Changes if:** a re-tune genuinely cannot hold 12 — a decision to make on purpose, having watched the line go red — or the two TM overrides the mirror does not model (`--border`, `--muted-foreground`) are brought into it.
+
+### D-342 · LOCKED · (V6-12 / sweep-E E-3 + sweep-G G-4, 2026-08-17) · Two masthead components, split by tier, and `HeroVariant` stays closed
+
+**Decision.** `components/page-header.tsx` is the Tier-3 **text** masthead (glass panel, brand wash, eyebrow, `<h1>`, description). `components/page-hero.tsx` is the Tier-2 **photographic** band. Eight routes — `/checklist`, `/packing`, `/profile`, `/recap`, `/safety`, `/settings`, `/share`, `/trips` — take the former. **They are not merged and `HeroVariant` is not widened.**
+
+**Why not widen the union.** G-4 proposed exactly that; rejected on two grounds. It buys a longer closed enum plus a Tier-2 photo code path none of the eight ever take — and `page-hero.tsx:1` is `'use client'`, so widening it would have pushed a client boundary onto eight Server Components that export `metadata`. The second reason was not the one the ruling was made for, and it is the more expensive one.
+
+**What it fixed, and what it did NOT.** Eight byte-for-byte hand copies, identical down to class order; `app/trips/page.tsx`'s own comment admitted it "reuses the /settings header tokens verbatim". `2fddaf5` ("the retired gold survived the recolour on ten route headers") is that duplication having already cost one recolour bug. **The duplication was the whole defect.** All eight carried the accent as an inline `hsl(var(--accent-scroll))`, and that is **token-compliant** under `page-hero.tsx:21` — the rule there is token-not-literal, not class-not-inline, and `page-hero.tsx:198` uses the identical construct. It was wrong in eight places, not wrong in kind. Recording this because the scoping brief claimed otherwise, and a wrong rationale outlives the entry.
+
+**Proven a no-op, not asserted.** All eight were compared old-versus-new through `renderToStaticMarkup` and are byte-identical, 693–794 B each — a string compare of the full serialized HTML, so it covers class order, attribute order, the `&amp;`/`&apos;` entity round-trip on `/checklist`, and JSX whitespace collapsing in the multi-line descriptions. The harness was proved to have teeth by deliberately breaking two of the three real differences and watching it report DIFF.
+
+**Three real differences, preserved as props.** `/profile` alone lacks `animate-reveal-up` (`reveal={false}`); `/settings` alone carries `id="settings-title"` (`titleId` — the target of `settings-panel.tsx:123`'s `aria-labelledby`, which before that id existed pointed at nothing); per-route eyebrow, title and description text.
+
+**Two conditional lifetimes, named so they do not become permanent by accident.** `reveal` exists only because `/profile` dropped the class **accidentally** in `ac66787`, whose own comment says the header "mirrors app/settings/page.tsx" — which has it. Restore the entrance and the prop goes with it. `accent` has no caller varying it and exists only to make G-4's per-route accent reachable without touching the union; retire that requirement and delete the prop.
+
+**Net −76 lines, not the −133 the scoping estimate claimed.** −146 across the eight pages, +70 for the new file. The estimate assumed a ~25-line component with no prose, which contradicts this repo's own docblock standard (`page-hero.tsx`'s is 81 lines). The prose was kept and the number was not chased.
+
+**Known ceiling: nothing in CI pins this.** Zero test coupling is what made the extraction provably safe, and it also means a future edit to that class-string template literal is unguarded. No presentational component in this repo has a test and the eight copies it replaced were equally unguarded and strictly worse — but it is a ceiling, not an oversight.
+
+**Changes if:** any of the eight routes wants photography — at which point it is a Tier-2 route and takes `PageHero`, which is the whole basis of the split.
