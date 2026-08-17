@@ -1292,7 +1292,9 @@ export default function CalendarPlanner() {
 
             {/* Author filter: presentational, read-only. Self-hides when no item is
                 attributed (dormant/portfolio build unchanged). Narrows the day-detail list
-                below AND the timeline (shared selection via lib/author-filter). */}
+                below AND the rest of this day's chrome (shared selection via
+                lib/author-filter). (#94: the timeline it also used to drive is deleted — this
+                is the only mount site now.) */}
             <AuthorFilterControl plans={plans} />
 
             {/* Clear day + Select — moved out of the day card into this row. Both

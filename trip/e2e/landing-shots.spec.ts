@@ -309,7 +309,9 @@ test.describe('S356 — landing product shots', () => {
     await gotoSettled(page, '/plan/');
     // The planner is a dynamic(ssr:false) island — wait for its own furniture, not just the h1.
     await expect(page.getByTestId('calendar-add-item')).toBeVisible({ timeout: 20_000 });
-    // Testid, not text: the same title also renders in the TripTimeline below (strict-mode clash).
+    // Testid, not text: the title is not unique as a text locator on this route (it was a
+    // strict-mode clash with the TripTimeline below until #94 deleted that section), and a
+    // testid stays stable across copy changes either way.
     await expect(page.getByTestId('calendar-row-swipe-ls-d1-1')).toBeVisible({ timeout: 20_000 });
     await frame(page, 'calendar-day-glance', 120);
     await page.screenshot({ path: path.join(outDir, 'shot-1-day-planner.png') });

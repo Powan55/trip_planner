@@ -23,9 +23,10 @@ import type { Page } from '@playwright/test';
  *
  * ROUTE NOTE (verified against source, not assumed): `NightlifeSection` is dynamically
  * imported and mounted ONLY on `/nepal/page.tsx` and `/japan/page.tsx` — Home
- * (`app/page.tsx`) never renders it (its section list is Hero/TodayPanel/TripRecap/
- * TripDashboard/TripTimeline/TravelInspiration/LegacyHashRedirect — FlightsSection moved
- * off Home to its own `/flights/` route in S113D; no NightlifeSection import at all).
+ * (`app/page.tsx`) never renders it (its section list is HeroSection/HomeTripStrip/HomeStatRow/
+ * HomeSectionNav/TodayPanel/TripRecap/HomeBento/TravelInspiration/CustomTripMyPlaces/
+ * LegacyHashRedirect — FlightsSection moved off Home to its own `/flights/` route in S113D;
+ * TripDashboard was deleted in #106 and TripTimeline in #94; no NightlifeSection import at all).
  * The original "mounted on /, /nepal, /japan" premise
  * does not match the shipped code — a recorded finding. This spec's gate
  * assertions therefore target `/nepal/` and `/japan/` only, where the gate is real and

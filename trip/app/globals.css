@@ -2070,7 +2070,6 @@ body:has(form:focus-within) .door-kb {
   scroll-margin-top: 4rem;
 }
 #dashboard,
-#timeline,
 #inspiration {
   scroll-margin-top: 7.5rem;
 }

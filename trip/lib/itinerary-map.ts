@@ -335,8 +335,8 @@ export function tripDayNumber(date: string): number | null {
 }
 
 // Flatten plans → one row PER ITEM, numbered by trip day. `chrono` picks the ordering:
-// • true — the day's rows are sorted by TIME, the one ordering on every
-// surface, using the same `sortItemsByTime` the Home timeline uses. No second sort.
+// • true — the day's rows are sorted by TIME, using `sortItemsByTime`. Since #94
+// deleted the timeline island this is that function's only production consumer.
 // • false (/plan, /travel) — the STORED order, which on those surfaces is the user's own
 // manually dragged order; re-sorting it there would silently override the drag.
 function buildRows(plans: DayPlan[], chrono: boolean): PlacementRow[] {

@@ -90,8 +90,8 @@ non-default pack (fix belongs in the gateway, not the island).
 |---|---|---|---|
 | `calendar-planner` | /plan | itinerary (scoped ✓), expenses | itinerary **safe**; expenses **inherits S234-F1** |
 | `today-panel` | / | itinerary (scoped ✓) | **safe** |
-| `trip-dashboard` | / | itinerary via `loadPlans` (scoped ✓) | **safe** |
-| `trip-timeline` | / | itinerary via `loadPlans` (scoped ✓) | **safe** |
+| `trip-dashboard`³ | / | itinerary via `loadPlans` (scoped ✓) | **safe** |
+| `trip-timeline`³ | / | itinerary via `loadPlans` (scoped ✓) | **safe** |
 | `quick-add-host` | all (chrome) | itinerary via provider (scoped ✓) | **safe** |
 | `quick-add-fab` | all (chrome) | none (opens host) | **safe** |
 | `itinerary-provider`¹ | all | itinerary + opens remote subscribe | **safe** (itinerary scoped; remote `getTripId()` per-call) |
@@ -123,7 +123,10 @@ non-default pack (fix belongs in the gateway, not the island).
 
 ¹ `itinerary-provider` is an always-mounted client provider (not a `dynamic` import) included because
 it owns the itinerary hydrate + remote-subscribe seam. ² `recommendation-section` is a child of the
-nepal/japan section islands (favorites live there).
+nepal/japan section islands (favorites live there). ³ `trip-dashboard` and `trip-timeline` no longer
+exist: issues #106 and #94 deleted both components after this audit. Their rows are kept as part of
+the 2026-07-18 record — the island set enumerated above is what was on disk that day — but neither
+is a surface to re-audit.
 
 ## Bottom line
 

@@ -176,7 +176,7 @@ reasoned about as "the add-to-itinerary form."
 | `calendar-item-time-<id>` | S125: the card's time/duration/location meta `<div>` | Wraps the display-rule output (`describeItemTime`, see section 5 of `docs/time-model-blueprint.md`): AM/PM + badge, or a verbatim legacy string, or nothing. |
 | `calendar-item-time-badge-<id>` | S125: the NPT/JST badge `<span>` inside the meta div | Only rendered when `effectiveStartMinutes` is defined (never for a legacy-only unparseable `time`, which shows unbadged). |
 | `calendar-item-clash-<id>` | S126: the warn-only overlap badge `<span>` inside the meta div | See section 23 below. Never blocks save/drag. S383 amended the source set: it is now `clashingItemIds(visibleItems)`, the author-filtered day rather than the full stored day. Order-independent either way; with no filter selected the two sets are identical. |
-| `author-filter` | S383 (D-092): the "Filter by" chip row root `<div>` (`author-filter.tsx`) | Renders nothing at all when no item carries attribution (dormant/portfolio build). Exactly one per page: S383 deleted the duplicate mount in `trip-timeline.tsx`, since both it and the planner used to render one and both are on `/plan` since S321. A count > 1 is a regression. |
+| `author-filter` | S383 (D-092): the "Filter by" chip row root `<div>` (`author-filter.tsx`) | Renders nothing at all when no item carries attribution (dormant/portfolio build). Exactly ONE mount in the whole tree — `calendar-planner.tsx`, in the day-detail toolbar on `/plan`. A count > 1 anywhere is a regression. History: S383 deleted a second mount in `trip-timeline.tsx`, since both it and the planner rendered one and both were on `/plan` since S321; issue #94 then deleted that timeline outright, which is why the planner is now the only mount site rather than one of two. |
 | `author-filter-all` | S383: the "All" chip `<button>` | Always present when the row renders; the inert default. `aria-pressed` carries the selection. |
 | `author-filter-mine` | S383: the "My edits" chip `<button>` | Only rendered when a display name is set and that name actually appears as an author in the data. |
 | `author-filter-author-<name>` | S383: one chip `<button>` per distinct author | `<name>` is the raw display name, not slugified, so a name containing a space produces e.g. `author-filter-author-Jane Doe` and has to be quoted in a selector. The current user's own chip is omitted when `author-filter-mine` is shown (they would filter identically). |
@@ -490,9 +490,15 @@ it (the no-write proof). All copy meets AA at rest (D-100).
 
 ## 21. Lazy-island placeholder: `components/lazy-visible.tsx` (route: `/`)
 
-The S107 (D-116) below-the-fold lazy-island wrapper. On Home it defers the below-the-fold
-sections (`TripDashboard`, `TripTimeline`, `TravelEssentials`; `FlightsSection` moved off
-Home to its own `/flights/` route in S113D). On first paint it renders a sized
+The S107 (D-116) below-the-fold lazy-island wrapper. On Home it now defers `HomeStatRow`,
+`HomeSectionNav`, `HomeBento`, `GatedTravelInspiration` and `CustomTripMyPlaces`, plus
+`HomeTripStrip` inside the hero column (`app/page.tsx`; `TodayPanel` and `TripRecap` are
+deliberately plain `dynamic({ ssr:false })`, NOT wrapped — they render null pre-trip, so they
+are near-free where they sit). The S107 set was `TripDashboard`, `TripTimeline` and
+`TravelEssentials`, with `FlightsSection` already moved off Home to its own `/flights/` route
+in S113D; issues #106 and #94 deleted the first two sections outright and the
+travel-essentials card now mounts on `/travel` (`travel-date-picker.tsx`), so none of that
+original three is on Home any more. On first paint it renders a sized
 `SectionSkeleton` placeholder in
 place of each, and only mounts the real (own-chunk) section once it nears the viewport or a
 post-hydration idle beat fires, which drops those chunks out of Home's First Load JS.
@@ -527,26 +533,39 @@ Every option button is `min-h-[44px]` (D-141 a11y floor); each column is a `role
 with roving `tabIndex` (arrow keys/Home/End move within a column; Tab moves between the three
 columns' single reachable stops, then Clear/Done/Close).
 
-## 23. Timeline chronological sort + warn-only clash badges: `lib/sort-items-by-time.ts`, `components/trip-timeline.tsx`, `components/calendar-planner.tsx` (D-142)
+## 23. Chronological sort + warn-only clash badges: `lib/sort-items-by-time.ts`, `components/calendar-planner.tsx` (D-142)
 
 S126. Two passive, non-destructive views on top of the structured time model (S124/S125):
-a pure view-level chronological sort applied only to the timeline's day list
-(`sortItemsByTime`, stable, untimed items sink to the end preserving relative order; the
-calendar's manually-dragged order is never touched, D-018), and warn-only clash badges
-(`clashingItemIds`, half-open overlap on `effectiveStartMinutes`/`durationMinutes`) shown
-on both the timeline and the calendar. Zero store writes.
+a pure view-level chronological sort (`sortItemsByTime`, stable, untimed items sink to the end
+preserving relative order; the calendar's manually-dragged order is never touched, D-018), and
+warn-only clash badges (`clashingItemIds`, half-open overlap on
+`effectiveStartMinutes`/`durationMinutes`). Zero store writes.
 
-| testid | element | notes |
-|---|---|---|
-| `timeline-item-<id>` | each day-detail item `<li>` on the Home timeline (`components/trip-timeline.tsx`) | `<id>` = `item.id`. Rendered in the `sortItemsByTime` projection order (chronological, untimed last), not the stored order, which stays the calendar's (D-018). |
-| `timeline-item-clash-<id>` | the warn-only overlap badge `<span>` inside a timeline item row | Only rendered when the item's id is in `clashingItemIds(selectedItems)` for that day. `title`/`aria-label` "Overlaps another timed item"; never blocks anything (no modal, no disabled state). |
+Both functions are live; neither renders a `timeline-*` id any more. The sort's only production
+consumer is the map's per-day stop ordering (`lib/itinerary-map.ts`, one `sortItemsByTime` call,
+no second sort); the badge's is the calendar day-detail list, registered as
+`calendar-item-clash-<id>` in section 11 above. The net for the sort itself is a unit one —
+`lib/__tests__/sort-items-by-time.test.ts` :91 and :106 run the projection over the REAL seed
+content for the S377 Jan-9 date-line day (the DTW layover has to sort after the HND→DTW flight
+that produces it, and the rendered wall-clock stays deliberately non-monotonic), which is where a
+date-line regression is caught. `e2e/sort-clash.spec.ts` says the same in its header and now
+proves only the calendar surface.
+
+> **The two `timeline-item-*` ids are gone.** `timeline-item-<id>` (each day-detail item `<li>`,
+> rendered in the `sortItemsByTime` projection order rather than the stored order) and
+> `timeline-item-clash-<id>` (its warn-only overlap badge) belonged to the 32-day timeline
+> island, `components/trip-timeline.tsx` — on Home at S126, on `/plan` from S321. Issue #94
+> deleted that island: it held its own `selectedDate` and `LazyVisible` mounts islands prop-less,
+> so `/plan` shipped two 32-day day selectors that never synced. **Nothing replaced either id**,
+> and the behaviour they carried is asserted at the two consumers named above instead.
 
 The calendar's `calendar-item-clash-<id>` (added to section 11's table above) is the same badge
-pattern, computed at the day-render level off the full stored set (`clashingItemIds(dayItems)`)
-and threaded into `SortableItem` as a plain boolean. `handleDragEnd`/`arrayMove`/
-`SortableContext` are byte-unchanged; only the passive badge was added. Both badges are static
+pattern, computed at the day-render level (`clashingItemIds`, over the author-filtered
+`visibleItems` since S383 — see that row) and threaded into `SortableItem` as a plain boolean.
+`handleDragEnd`/`arrayMove`/
+`SortableContext` are byte-unchanged; only the passive badge was added. It is static
 Tailwind (`text-amber-300 bg-amber-500/15 border-amber-500/30`, D-020), contrast-checked ≥4.5,
-and carry no motion (reduced-motion-safe by construction, D-007).
+and carries no motion (reduced-motion-safe by construction, D-007).
 ## 24. Journal browse: `components/journal-browse.tsx` (route: `/journal`) + `components/journal-card.tsx` (route: `/`)
 
 S153. A new dedicated route listing every persisted journal entry (S104's localStorage-only
@@ -737,7 +756,7 @@ behind Radix `AlertDialog` confirms). There is no notifications group (D-130 dec
 |---|---|---|
 | `settings-export-expenses-csv` | the "Export expenses (CSV)" `<button>` in the settings Data-management group | Blob/`URL.createObjectURL` download (`nepal-japan-expenses.csv`); disabled + empty-safe when no expenses. Read-only over `useExpenses` (`lib/expense-csv.ts`). |
 | `home-section-nav` | the Home in-page sticky section `<nav>` | `position:sticky` under the navbar; real `<a href="#id">` anchors, keyboard-focusable, smooth-scroll via the global `html{scroll-behavior}` (reduced-motion-neutralized, D-007). |
-| `home-section-nav-{hero,dashboard,timeline,inspiration}` | each section jump link | `aria-current="true"` tracks the section in the reading band via a small `IntersectionObserver` (D-088, no scroll-spy dependency). |
+| `home-section-nav-{hero,dashboard,inspiration}` | each section jump link | One per entry in `SECTIONS` (`home-section-nav.tsx`) — three, not four. `aria-current="true"` tracks the section in the reading band via a small `IntersectionObserver` (D-088, no scroll-spy dependency). S158 shipped a fourth, `home-section-nav-timeline`; it was dropped when the 32-day timeline moved off Home to `/plan` (and issue #94 has since deleted that section entirely), so `#timeline` is not an in-page anchor anywhere. `home-section-nav-dashboard` outlived its own section: `#dashboard` moved onto `home-bento` (see section 2) and still resolves. |
 
 ## S155: first-run guided tour, `components/first-run-tour.tsx` (all routes, mounted at app root)
 
@@ -917,7 +936,11 @@ Not a `data-testid` but a state/marker attribute, the same idiom `scroll-progres
 S180's dual-path scroll-driven-CSS pattern from the page-progress bar to `<Reveal>`, the
 section-entrance slide-in used by `SectionHeading` and ~12 content-route consumers
 (Nepal/Japan guides, photography guide, nightlife, country-essentials, budget panel,
-flights, trip-timeline, trip-dashboard, trip-recap, trip-story-recap). This is internals
+flights, trip-timeline, trip-dashboard, trip-recap, trip-story-recap). That is the S214-era
+list and is kept as the record of the change's reach; `trip-timeline` and `trip-dashboard` have
+since been deleted (issues #94 and #106), and `<Reveal>` is today imported by
+`components/section-heading.tsx`, `components/wrapped-story.tsx` and `app/passport/page.tsx`
+only — everything else reaches it through `SectionHeading`. This is internals
 only: `<Reveal>`'s external API (`children`, `className`) and visual output are unchanged.
 
 | attribute | element | notes |

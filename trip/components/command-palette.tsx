@@ -5,7 +5,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import {
   Calendar,
   Gauge,
-  ListOrdered,
   Plane,
   Mountain,
   Compass,
@@ -124,8 +123,11 @@ type Section = {
 // rename of that slot).
 const SECTIONS: Section[] = [
   { route: '/', hash: '#dashboard', label: 'Dashboard', group: 'Plan', keywords: ['countdown', 'timer', 'days', 'home'], icon: Gauge },
-  { route: '/', hash: '#timeline', label: 'Trip Timeline', group: 'Plan', keywords: ['schedule', 'days', 'route'], icon: ListOrdered },
-  { route: '/plan/', label: 'Itinerary Planner', group: 'Plan', keywords: ['calendar', 'plan', 'events'], icon: Calendar },
+  // (#94) "Trip Timeline" (`/#timeline`) was removed: the section left Home for /plan in S321
+  // — so this entry had been landing on Home with no `#timeline` to scroll to — and #94 deleted
+  // the section outright as a duplicate of the planner. "Itinerary Planner" below is the target
+  // it should have pointed at, and it already carries the `days` keyword.
+  { route: '/plan/', label: 'Itinerary Planner', group: 'Plan', keywords: ['calendar', 'plan', 'events', 'schedule', 'days', 'timeline'], icon: Calendar },
   { route: '/flights/', label: 'Flights', group: 'Plan', keywords: ['airport', 'travel', 'arrivals', 'departures'], icon: Plane },
   { route: '/nepal/', label: 'Nepal', group: 'Destinations', keywords: ['kathmandu', 'himalaya', 'pokhara'], icon: Mountain },
   { route: '/japan/', label: 'Japan', group: 'Destinations', keywords: ['tokyo', 'kyoto', 'osaka'], icon: Compass },
