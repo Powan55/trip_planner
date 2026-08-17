@@ -12,7 +12,7 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
-## v6.0.0 (app) · NOT DEPLOYED · prepared 2026-08-16 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+## ⛔ v6.0.0 (app) · **NOT DEPLOYED** · prepared 2026-08-16 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
 
 **Held deliberately.** This entry exists so the version is pinned and the gate is satisfiable; it is NOT cleared to ship. A full bug sweep and a research pass on further changes are being run separately, and `main` stays at `v5.14.4` until those finish. Do not merge `dev` into `main` on the strength of this entry alone — that merge deploys immediately.
 
@@ -22,7 +22,7 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ### What is new since the v5.15.0 notes were written
 
-**The chrome accent moved off gold (#91, D-334).** Marigold `#FFC43D` → volt `#22D3EE` for `--primary` and `--ring`, over a chromatic purple ramp. Two follow-ups were needed because a recolour is never one value: `/map` keeps marigold deliberately rather than taking the chrome accent (D-334), and the retired gold turned out to have survived on ten route headers, which is the kind of thing only a grep finds.
+**The chrome accent moved off gold (#91, D-334).** Marigold `#FFC43D` → volt `#3ED8FF` for `--primary` and `--ring`, over a chromatic purple ramp. Two follow-ups were needed because a recolour is never one value: `/map` keeps marigold deliberately rather than taking the chrome accent (D-334), and the retired gold turned out to have survived on ten route headers, which is the kind of thing only a grep finds.
 
 **Two empty grid tracks that painted as solid slabs.** The stat row was `sm:grid-cols-4` while carrying six cells (#90), so at ≥640px the last two tracks stood empty — and because the dividers are the container showing through 1px gaps, an empty track is not empty, it paints `bg-border`. The bento had the same defect in every tile-count state (#106). Both are grid-arithmetic bugs with a visual signature, and the stat row now carries a comment saying the column count must divide the cell count exactly, because it will happen again otherwise.
 
@@ -46,7 +46,7 @@ Also on that slice: a per-frame `object-position` knob, a one-div highlight cap 
 
 ---
 
-## v5.15.0 (app) · 2026-08-16 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+## ⛔ v5.15.0 (app) · **NOT DEPLOYED** · 2026-08-16 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
 
 The redesign lands, and it is the largest single release in this repo's history: 61 commits, and it closes 35 tracker issues. The app that ships here does not look like the one before it.
 

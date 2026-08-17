@@ -172,9 +172,14 @@ So before opening the pull request from `dev` into `main`, on `dev`:
 2. Add an entry at the top of `trip/docs/RELEASES.md` headed `## v<version> `,
    saying what changed.
 
-Patch for a fix, minor for a feature. After a successful deploy the workflow pushes
-the matching `v<version>` tag itself — and only then, which is why a deploy that
-failed can be re-run on the same version.
+Patch for a fix, minor for a feature. The version must also go *up*: the check refuses
+anything that is not strictly above the newest `v*` tag, so even a revert bumps forward
+rather than restoring an older number. And the entry may not say the release is held — a
+heading carrying `NOT DEPLOYED`, `NOT SHIPPED` or `⛔` refuses the deploy, which is how you
+park a built-but-unshipped version without it sliding into `main`.
+
+After a successful deploy the workflow pushes the matching `v<version>` tag itself — and
+only then, which is why a deploy that failed can be re-run on the same version.
 
 What changed here is *when* you find out. The version check used to run only on the
 push to `main`, so a pull request could go green, merge into the live branch, and
