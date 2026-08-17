@@ -3805,3 +3805,41 @@ D-326 measured the auth panel's **fill** against the cover — 1.74:1 — and ru
 **Not a shared component.** Three files, one markup inversion each. Extracting a Card primitive was considered and rejected — `components/ui/` is not the shared layer here (`ui/button.tsx` ships 8 variants against 2 importers, versus 211 raw `<button>`s in 54 files), and a fourth abstraction nobody imports is how that happened.
 
 **Changes if:** a fourth card surface wants the same pattern — at that point extract it, and put the `z-10` requirement in the component rather than in this entry.
+
+### D-340 · LOCKED · (V6-11 / sweep-G G-2, 2026-08-17) · `.font-display` pins weight 400, unlayered — and which family a heading takes is still a per-site choice
+
+**Decision, part one — the invariant.** `app/globals.css` carries one unlayered rule, `.font-display { font-weight: 400 }`. Instrument Serif ships weight 400 and nothing else, so this is not a remedy, it is the statement "this family has exactly one weight" expressed once instead of 93 times. **No site opts out, and it is never removed.**
+
+**Unlayered is load-bearing.** It wins over `.font-bold` / `.font-semibold` at equal specificity (0,1,0) purely on source order — unlayered rules are emitted after `@tailwind utilities`. Verify in the compiled artifact, never in the source: `.font-display{font-weight:400}` must come **after** `.font-bold` and `.font-semibold`. Reproduce with `npx tailwindcss -i app/globals.css -o - | grep -n 'font-weight'`. **No line numbers are recorded here on purpose** — they were, and they were wrong within one revision: the pin measured 5054, then 5070, then 5074 across three rounds of *comment* edits to this same file. A compiled-artifact line number has no stable anchor. The ordering is the load-bearing fact and it is permanently true; the offsets are noise. **Moving this rule into `@layer base` or `@layer components` silently disables it** and returns all 70 faux bolds with nothing going red.
+
+**What it fixed.** 70 of 93 `font-display` sites across 45 files paired the serif with `font-bold`/`font-semibold`, so every page title, section masthead, error heading and dialog title in the app rendered a browser-synthesised faux bold. `tailwind.config.ts:112-118` had documented this in writing as a live defect while the tree shipped 70 of them.
+
+**Decision, part two — the remedy ruling.** `landing-page.tsx:238-242` and `token-gate.tsx:546-548` fix the same defect the other way, by **dropping `font-display`** and taking a sans display step. Those are not competing remedies and must not be reconciled: the pin is an invariant about the family, while **which family a heading takes is a design choice, per site.** Serif elegance keeps `font-display` and the pin makes it honest; real weight contrast takes the sans step and drops `font-display`. Both of those two sites stay as they are — their comments are right about the defect, they now just describe one the pin has already neutralised.
+
+**Open follow-up, named so it is not lost.** The thing actually still wrong is `font-display` paired with a `text-display-*` step: those are sans steps tracked at `-0.035em`, while the serif steps use `-0.02em`. Those sites now render serif 400 at sans-800 tracking — weight honest, step mismatched. They want `text-editorial-*`, or the sans step without `font-display`; **which one is a design call, not a mechanical swap**, which is why it is not folded in here.
+
+**It is three sites, not the nine-plus-one this entry first said.** V6-12 (D-342) landed between the two and collapsed eight of the nine page titles into one component. Current state of the pattern:
+
+```
+components/page-header.tsx:60     one site, covers 8 routes
+app/travel/page.tsx:37            V6-12 did not touch /travel
+components/page-hero.tsx:202
+```
+
+Note what that means: `page-header.tsx:60` is a **brand-new instance of the pattern this entry names as the open defect**, created after the entry was written — the extraction faithfully carried the mismatch forward, which is what a proven no-op extraction is supposed to do. The migration is now one component edit plus two, and it is the thing that stops a later author reading `landing-page.tsx` and stripping `font-display` off headings V6-11 repaired.
+
+**Changes if:** a second weight of Instrument Serif is ever loaded — at which point this rule is wrong and must go, in the same commit as the font change.
+
+### D-341 · LOCKED · (V6-11 / sweep-G G-1, 2026-08-17) · Travel Mode carries a 12:1 outdoor floor, and it is a headroom number, not a legality one
+
+**Decision.** `scripts/contrast-tokens.mjs` models the `html[data-tm-legibility='high']` block. Over every text-tier × surface pairing it asserts a strict **raise** against the same pairing in normal mode and a **12:1 outdoor floor**; separately, once and globally, it asserts the three TM tier hexes are **three distinct values**. `--text-mid` (`#F2EFF9`) and `--text-lo` (`#E9E4F5`) are mirrored in both `globals.css` and that script and must move together.
+
+**Why a floor at all.** The raise alone is not a check, and this was measured rather than argued: in the G-1 defect state every pairing still "rose" by 0.29–1.40 purely because the surface ramp darkens one step under fixed-hex text. A raise-only assertion would have been green on the dead feature. 12 is chosen because the overrides bottom out at 13.22, leaving 1.22 for a re-tune; 13 would leave 0.22 and go red on any nudge. Be precise about what it does not do: the defect state's ceiling among the rows the fix moves is 12.34, which clears 12 by 0.34 — the floor is sized to catch the ramp that broke, not to be unreachable.
+
+**Why the distinctness assertion exists separately.** Setting all three tiers to `#FFFFFF` satisfies both the raise and the floor, and is exactly the shape of the deleted `[class*='text-white/']` rule that flattened every tier onto white@0.92. Measured: without the third assertion, a flattened ramp exits 0.
+
+**AA is not the guarantee here.** Travel Mode's promise is headroom for sun on the screen. Every TM site passed AA for the entire time the feature was dead — `text-ink-lo` on a card sat at 7.06:1 where the deleted selector used to give 15.53:1, a 55% loss that no contrast guard could fire on.
+
+**Two honest limits, recorded so nobody trusts the harness further than it goes.** (1) **This check would not have caught G-1 on the day.** The #27 sweep changed `.tsx` consumers, not tokens, and a hand-mirror of token values is structurally blind to a consumer change. It is the right shape only *now*, because the fix moves TM legibility out of a classname-dependent selector and into tokens. (2) **The surface-ramp collapse warning is only half-measured.** TM[i] equals normal[i-1], so a TM step *lightened* onto its lighter neighbour fires; a step *darkened*, or two steps collapsed onto one value, exits 0 silently.
+
+**Changes if:** a re-tune genuinely cannot hold 12 — a decision to make on purpose, having watched the line go red — or the two TM overrides the mirror does not model (`--border`, `--muted-foreground`) are brought into it.
