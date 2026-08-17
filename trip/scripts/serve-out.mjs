@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Zero-dependency static file server for `nextjs_space/out/`.
+ * Zero-dependency static file server for `trip/out/`.
  *
  * Serves the EXACT static-export artifact (`next build`, `output:'export'` +
  * `trailingSlash:true`) that deploys to GitHub Pages — the Playwright E2E harness

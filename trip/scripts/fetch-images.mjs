@@ -2,7 +2,7 @@
 //
 // One-shot image fetcher for. Sources freely-licensed photos for the
 // trip-planner's four image areas from Wikipedia/Wikimedia Commons — no API key
-// required. Run from nextjs_space/: node scripts/fetch-images.mjs
+// required. Run from the app root (trip/): node scripts/fetch-images.mjs
 //
 // Mechanism (deterministic, free, no key):
 // 1. Wikipedia REST summary API gives a representative thumbnail per page.
