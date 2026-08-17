@@ -1,4 +1,4 @@
-// Contrast harness for the D-291 / D-292 / D-293 token layer. Exits 1 on any failure.
+// Contrast harness for the D-291 / D-292 / D-293 / D-334 token layer. Exits 1 on any failure.
 //   npm run contrast-check     (or: node scripts/contrast-tokens.mjs)
 //
 // WHY THIS EXISTS. Accessibility is an acceptance criterion in this repo, not polish,
@@ -41,8 +41,9 @@ const hsl = h => {
 };
 
 const C = {
-  // ---- canvas ----
-  bg: '#100C1A', surface1: '#1A1428', surface2: '#241C36', surface3: '#2E2442',
+  // ---- canvas (D-334: more chromatic and cooler; the base hue barely moved, the
+  // saturation went 32% -> 50%, and that lift is what removes the warm cast) ----
+  bg: '#0E0920', surface1: '#170F2F', surface2: '#221745', surface3: '#2F2159',
   // D-294: the passport page is PARCHMENT, not the earlier cream #F4EDE0. It is a
   // material scoped to one surface, not a light mode.
   paper: '#DCCDAE',
@@ -52,19 +53,29 @@ const C = {
   // with only 5.27:1 of headroom, and D-294's darker parchment forced it to #524563.
   // Re-measure this one before ever changing --paper again.
   onAccent: '#140F20', onPaper: '#2A2036', paperLo: '#524563',
-  // ---- accents ----
+  // ---- accents. STILL SIX. D-334 retires `sky` #5CD2F5 and puts `volt` in its slot,
+  // because the chrome accent must be one of the six rather than a seventh bolted on.
+  // The other five keep their hexes — marigold most deliberately of all: it stops being
+  // the interaction colour and stays Nepal's gold stop (npB below is the same 24 bits).
   marigold: '#FFC43D', coral: '#FF7A6B', mint: '#4ADE80',
-  sky: '#5CD2F5', violet: '#C08CFF', pink: '#FF8FC7',
-  // ---- country gradient stops (D-291, re-valued onto this canvas) ----
+  volt: '#3ED8FF', violet: '#C08CFF', pink: '#FF8FC7',
+  // The chrome accent's lip and the primary CTA's gradient stops. The lip is a SHADING
+  // (1.96 against its own fill, by design); what it owes is 3:1 against the page field
+  // so a button never dissolves at its bottom edge. Both CTA stops must carry the ink
+  // ALONE — a gradient fill under text is measured per stop, never averaged.
+  lipVolt: '#1C97CC', ctaA: '#6E8BFF', ctaB: '#43E4FF',
+  // ---- country gradient stops. BYTE-IDENTICAL ACROSS D-334 and that is the point of
+  // it: these are CONTENT wayfinding for a two-country product, the chrome accent is
+  // not, and the reason the chrome moved is that marigold was doing both jobs. ----
   npA: '#FF8A3D', npB: '#FFC43D',            // Nepal: orange -> gold
   jpA: '#FF8FC7', jpB: '#C08CFF',            // Japan: pink -> violet
-  // ---- borders ----
-  border: '#4B3C6E', borderUI: '#8877B8',
+  // ---- borders (D-334: --border-ui's worst case goes 3.72 -> 4.28) ----
+  border: '#4A3880', borderUI: '#9184C9',
   // ---- the derived steps of the three Tailwind brand families ----
   // Not part of the ruled palette, but they are rendered as TEXT (`text-gold-400`
   // and friends) and lib/token-auth.ts hashes traveller accents into two of them, so
-  // they need a guard like anything else. himalaya600 at 4.91 is the TIGHTEST PAIR
-  // IN THE WHOLE HARNESS — 9% over the floor — which is exactly why it is here
+  // they need a guard like anything else. himalaya600 at 4.96 is the TIGHTEST PAIR
+  // IN THE WHOLE HARNESS — 10% over the floor — which is exactly why it is here
   // rather than asserted in a comment.
   gold600: '#C08400', sakura300: '#FFB1D8', himalaya600: '#C2692E',
   // ---- stamp inks on paper (D-294 values, NOT the pre-D-294 #B3123C/#2B4B9B/#0F6E5C) ----
@@ -85,7 +96,9 @@ C.jpScrim72 = over(C.scrimInk, C.duoJpHigh, 0.72);
 C.jpScrim82 = over(C.scrimInk, C.duoJpHigh, 0.82);
 // calm working surfaces: a hovered/selected row tint over surface-1
 C.rowHover = over('#FFFFFF', C.surface1, 0.05);
-C.rowSel = over(C.marigold, C.surface1, 0.10);
+// A selected row is INTERACTIVE STATE, so its tint follows the chrome accent (D-334),
+// not the country stop the old value happened to share bytes with.
+C.rowSel = over(C.volt, C.surface1, 0.10);
 // chip fill inside a calm row
 C.chip = over('#FFFFFF', C.surface2, 0.06);
 // ---- issue #27 route 1 (/checklist) — the fills that route's text ACTUALLY sits on ----
@@ -237,8 +250,10 @@ const pairs = [
   ['coral on surface-2', C.coral, C.surface2, 4.5],
   ['mint on bg', C.mint, C.bg, 4.5],
   ['mint on surface-2', C.mint, C.surface2, 4.5],
-  ['sky on bg', C.sky, C.bg, 4.5],
-  ['sky on surface-2', C.sky, C.surface2, 4.5],
+  ['volt on bg', C.volt, C.bg, 4.5],
+  ['volt on surface-1', C.volt, C.surface1, 4.5],
+  ['volt on surface-2', C.volt, C.surface2, 4.5],
+  ['volt on surface-3', C.volt, C.surface3, 4.5],
   ['violet on bg', C.violet, C.bg, 4.5],
   ['violet on surface-2', C.violet, C.surface2, 4.5],
   ['pink on bg', C.pink, C.bg, 4.5],
@@ -261,7 +276,9 @@ const pairs = [
   ['ink on marigold', C.onAccent, C.marigold, 4.5],
   ['ink on coral', C.onAccent, C.coral, 4.5],
   ['ink on mint', C.onAccent, C.mint, 4.5],
-  ['ink on sky', C.onAccent, C.sky, 4.5],
+  ['ink on volt', C.onAccent, C.volt, 4.5],
+  ['ink on CTA gradient stop A', C.onAccent, C.ctaA, 4.5],
+  ['ink on CTA gradient stop B', C.onAccent, C.ctaB, 4.5],
   ['ink on violet', C.onAccent, C.violet, 4.5],
   ['ink on pink', C.onAccent, C.pink, 4.5],
   ['ink on nepal stop A', C.onAccent, C.npA, 4.5],
@@ -302,7 +319,19 @@ const pairs = [
   ['/guides eyebrow (coral) on JP header', C.coral, C.jpHdrMin, 4.5],
   ['/nepal eyebrow (nepal B) on NP header', C.npB, C.npHdrMin, 4.5],
   ['/japan eyebrow (japan A) on JP header', C.jpA, C.jpHdrMin, 4.5],
-  ['/map eyebrow (sky) on JP header', C.sky, C.jpHdrMin, 4.5],
+  // /map's page accent was --sky, so it MECHANICALLY inherited --volt when that slot was
+  // re-valued — making /map the one route whose identity accent was the chrome accent,
+  // which page-hero.tsx's own rule forbids. Resolved to --marigold rather than left for
+  // the /map palette slice, because the collision was introduced by D-334 and should not
+  // outlive the commit that caused it.
+  //
+  // MARIGOLD IS GENUINELY FREE, and that is the whole argument: it had exactly two roles,
+  // primary action (now --volt's) and Nepal. Nepal's identity is carried by --np-a/--np-b/
+  // --grad-nepal, which are their own tokens — --np-b merely SHARES marigold's hex, it is
+  // not this token. So handing /map --marigold does not re-double-book the way D-334 just
+  // un-double-booked the accent. What /map's palette slice still owes is the map PINS
+  // (D-292), which is a different question from the header eyebrow.
+  ['/map eyebrow (marigold) on JP header', C.marigold, C.jpHdrMin, 4.5],
   ['/journal eyebrow (violet) on NP header', C.violet, C.npHdrMin, 4.5],
   ['/flights eyebrow (mint) on NP header', C.mint, C.npHdrMin, 4.5],
   // And where the text actually sits, once the band ramp has run its course.
@@ -320,7 +349,11 @@ const pairs = [
   // ARE npHdrMin / jpHdrMin above and nothing about the ramp is re-derived here. What is new is
   // the set of FOREGROUNDS the front door puts on them, and that is what this block measures.
   // The cover is Nepal-graded, chapter 01 Nepal, chapter 02 Japan.
-  ['door eyebrow (marigold) on the NP cover', C.marigold, C.npHdrMin, 4.5],
+  // The eyebrow, the join link and the step numerals are all `text-primary` in
+  // landing-page.tsx, i.e. the CHROME ACCENT — so they moved with it under D-334 and
+  // are measured as volt. The two chapter NUMERALS are not: they are `var(--marigold)`
+  // / `var(--pink)`, the country stops, and they stay put.
+  ['door eyebrow (volt) on the NP cover', C.volt, C.npHdrMin, 4.5],
   ['door headline (hi) on the NP cover', C.textHi, C.npHdrMin, 4.5],
   ['door lead + join note (mid) on the NP cover', C.textMid, C.npHdrMin, 4.5],
   // The secondary CTA over a photograph is an outline and nothing else, so its EDGE is the only
@@ -328,7 +361,7 @@ const pairs = [
   // is why it is --border-ui and not --border: --border measures 1.31:1 here and would be a
   // button with no visible boundary on the loudest surface in the product.
   ['door ghost CTA edge (border-ui) on the cover', C.borderUI, C.npHdrMin, 3],
-  ['door join link (marigold) on the NP cover', C.marigold, C.npHdrMin, 4.5],
+  ['door join link (volt) on the NP cover', C.volt, C.npHdrMin, 4.5],
   // The chapter numerals are Instrument Serif at the editorial-lg step (>=2.4rem), i.e. LARGE
   // text, so 3:1 — measured over each chapter's own grade rather than borrowing the other's.
   ['chapter 01 numeral (marigold) on NP', C.marigold, C.npHdrMin, 3],
@@ -340,12 +373,12 @@ const pairs = [
   // names, so it adds no new pair. The closing block is the flat mint fill, and its button
   // INVERTS — the ink becomes the fill and marigold becomes the label.
   ['closing block ink on mint', C.onAccent, C.mint, 4.5],
-  ['inverted CTA label (marigold) on ink', C.marigold, C.onAccent, 4.5],
-  // The inverted button's FOCUS INDICATOR, both halves of it. The ring is marigold and the 2px
-  // offset gap is --surface, so what a keyboard user sees is ring-on-gap and gap-on-block. Both
-  // are measured because 1.4.11 asks about the indicator against what surrounds it, and the
+  ['inverted CTA label (volt) on ink', C.volt, C.onAccent, 4.5],
+  // The inverted button's FOCUS INDICATOR, both halves of it. The ring is the chrome accent and
+  // the 2px offset gap is --surface, so what a keyboard user sees is ring-on-gap and gap-on-block.
+  // Both are measured because 1.4.11 asks about the indicator against what surrounds it, and the
   // surround here is a saturated fill rather than the page.
-  ['closing CTA focus ring vs its offset gap', C.marigold, C.bg, 3],
+  ['closing CTA focus ring vs its offset gap', C.volt, C.bg, 3],
   ['closing CTA offset gap vs the mint block', C.bg, C.mint, 3],
   // The wall's second view — the auth card, Tier 3, on the opaque surface-2 panel. The field
   // fill is surface-3 and its EDGE is the interactive boundary token (both measured under
@@ -363,7 +396,8 @@ const pairs = [
   // D-332. The auth panel's own edge, at BOTH ends of the graded backdrop. The `2` at the
   // bright end is the RULED FLOOR FOR THIS CONTAINER EDGE, not a WCAG number: 3 is
   // unreachable there for anything that is not a text tier or the focus ring (only --text-lo
-  // at 3.58 and --marigold at 5.85 clear it, and neither may be spent on a resting border),
+  // at 3.58, --volt at 5.52 and --marigold at 5.85 clear it, and none may be spent on a
+  // resting border),
   // and a harness that pretends otherwise is a harness that has started lying. The fill guard
   // further down proves why the edge has to carry this rather than the fill.
   ['auth panel edge (border-ui) on the cover, brightest', C.borderUI, C.doorWall, 2],
@@ -419,22 +453,33 @@ const pairs = [
   ['the sheet itself vs the canvas, darkest reveal frame', C.paperFading, C.bg, 3],
 
   ['-- NON-TEXT UI, WCAG 1.4.11 (needs 3:1) --'],
-  ['focus ring vs bg', C.marigold, C.bg, 3],
-  ['focus ring vs surface-2', C.marigold, C.surface2, 3],
+  ['focus ring vs bg', C.volt, C.bg, 3],
+  ['focus ring vs surface-1', C.volt, C.surface1, 3],
+  ['focus ring vs surface-2', C.volt, C.surface2, 3],
+  ['focus ring vs surface-3', C.volt, C.surface3, 3],
   ['focus ring vs paper', C.inkNepal, C.paper, 3],
   ['interactive border vs bg', C.borderUI, C.bg, 3],
+  ['interactive border vs surface-1', C.borderUI, C.surface1, 3],
   ['interactive border vs surface-2', C.borderUI, C.surface2, 3],
   ['interactive border vs surface-3', C.borderUI, C.surface3, 3],
   ['paper page edge vs bg', C.paper, C.bg, 3],
-  ['selected-row rail (marigold) vs surface-1', C.marigold, C.surface1, 3],
+  ['selected-row rail (volt) vs surface-1', C.volt, C.surface1, 3],
+  // The chrome accent's button lip. It is a SHADING against its own fill and is measured
+  // that way in globals.css (1.96); what it owes as a NON-TEXT edge is 3:1 against the
+  // page, so a control never dissolves at its bottom edge.
+  ['volt button lip vs bg', C.lipVolt, C.bg, 3],
 ];
 
 // These MUST FAIL — they encode the rules the system depends on, and a guard that
 // starts passing means someone changed a value the rule was protecting.
 const guards = [
+  // THE INK RULE. `volt` is the one that matters most now — it is the chrome accent, so
+  // it is the fill an author is most likely to put a white label on. 1.68:1.
+  ['white on volt      (=> use --on-accent ink)', C.textHi, C.volt, 4.5],
   ['white on marigold  (=> use --on-accent ink)', C.textHi, C.marigold, 4.5],
   ['white on mint      (=> use --on-accent ink)', C.textHi, C.mint, 4.5],
   ['white on nepal B   (=> use --on-accent ink)', C.textHi, C.npB, 4.5],
+  ['white on CTA stop B(=> use --on-accent ink)', C.textHi, C.ctaB, 4.5],
   ['--border as text/UI cue (decorative only)', C.border, C.bg, 3],
   // Issue #26. The hero's rule is "no floor-tier TEXT over the photograph", and this is
   // what makes it load-bearing instead of a comment: --text-lo is 3.55:1 at the scrim
@@ -466,9 +511,10 @@ const guards = [
   ['--border as the door CTA edge (decorative)', C.border, C.npHdrMin, 3],
   // Issue #25. The closing CTA's ring offset is --surface and it looks like an inconsistency
   // sitting on a mint block, so somebody will eventually "fix" it to match. This is the number
-  // that fix produces: a marigold focus ring directly on mint, 1.10:1, i.e. no focus ring at all
-  // on the loudest button on the front door.
-  ['marigold ring straight onto mint (no offset)', C.marigold, C.mint, 3],
+  // that fix produces: the chrome-accent focus ring directly on mint, 1.03:1, i.e. no focus ring
+  // at all on the loudest button on the front door. It got WORSE under D-334, not better —
+  // volt and mint are closer in luminance than marigold and mint were.
+  ['volt ring straight onto mint (no offset)', C.volt, C.mint, 3],
   // Issue #25, the wall's second view. Two rules about the cover behind the auth card, each
   // stated as the number that would have to move for it to stop being true.
   //
@@ -495,13 +541,15 @@ const guards = [
   // guard is what makes that override load-bearing: if it ever starts passing, --border or the
   // scrim moved and the override may no longer be needed — decide that on purpose.
   ['--border as the auth panel edge over the cover', C.border, C.doorWall, 2],
-  // Issue #5 / D-294. The app-wide :focus-visible fallback is MARIGOLD, which is a 12:1 signal
-  // on the near-black canvas and nothing at all on parchment — a light material dropped into a
-  // dark-only app inherits chrome that was measured against a different surface. globals.css
-  // therefore overrides the ring to --ink-nepal inside `.passport-page`, and this is what makes
-  // that override load-bearing rather than a preference: if this guard ever starts passing,
-  // marigold became legible on the page and somebody should decide that on purpose.
-  ['marigold focus ring on parchment (=> use --ink-nepal)', C.marigold, C.paper, 3],
+  // Issue #5 / D-294. The app-wide :focus-visible fallback is the chrome accent, an ~11.6:1
+  // signal on the near-black canvas and nothing at all on parchment — a light material dropped
+  // into a dark-only app inherits chrome that was measured against a different surface.
+  // globals.css therefore overrides the ring to --ink-nepal inside `.passport-page`, and this is
+  // what makes that override load-bearing rather than a preference: if this guard ever starts
+  // passing, the accent became legible on the page and somebody should decide that on purpose.
+  // D-334 moved the ring marigold -> volt and this guard held at 1.07 (it was 1.31), so the
+  // override is MORE necessary now, not less.
+  ['volt focus ring on parchment (=> use --ink-nepal)', C.volt, C.paper, 3],
 ];
 
 let fail = 0;

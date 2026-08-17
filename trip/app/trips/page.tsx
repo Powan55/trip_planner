@@ -23,7 +23,7 @@ export default function TripsPage() {
             className="pointer-events-none absolute inset-0"
             style={{
               background:
-                'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.12) 0%, transparent 55%)',
+                'var(--hero-wash)',
             }}
           />
           <div className="relative">

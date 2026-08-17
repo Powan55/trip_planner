@@ -271,7 +271,10 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
     // not rendered, so `countdown-days` is absent whenever the real remaining day count
     // divides by 7, a once-a-week false failure. The clock cells always render.
     anchor: '[data-testid="countdown-hours"]',
-    what: 'the TripDashboard countdown island (app/page.tsx -> @/components/trip-dashboard)',
+    // Named the TripDashboard island until issue #106 deleted that section. The anchor is
+    // unchanged and was never that section's: `countdown-hours` has always been the HERO's
+    // clock cell, which is the island this row actually proves loaded.
+    what: 'the HeroSection countdown island (app/page.tsx -> @/components/hero-section)',
   },
   '/404/': {
     skip:

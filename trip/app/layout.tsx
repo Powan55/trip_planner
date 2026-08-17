@@ -10,6 +10,7 @@ import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
 import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
 import { SyncStatusBadge } from '@/components/sync-status-badge'
+import SeasonAccentEngine from '@/components/season-accent-engine'
 import { withBasePath } from '@/lib/utils'
 // the app-wide chrome islands (Navbar, Footer, mobile tab bar,
 // quick-add FAB + host, expense-log host). Declared in a `'use client'` module
@@ -100,9 +101,8 @@ export const viewport: Viewport = {
   // manifest's theme_color/background_color emitted by gen-sw.mjs). This is the
   // browser/OS chrome colour and it MUST track --background: it is a hardcoded copy
   // of that token with no compiler tie, so a canvas re-value that misses it leaves a
-  // strip of the retired palette framing the app. Now #100C1A, the D-291/D-292/D-293
-  // page field.
-  themeColor: '#100C1A',
+  // strip of the retired palette framing the app. Now #0E0920, the D-334 page field.
+  themeColor: '#0E0920',
 }
 
 export default function RootLayout({
@@ -119,6 +119,9 @@ export default function RootLayout({
           forcedTheme="dark"
           disableTransitionOnChange
         >
+          {/* app-shell month/season background tint (issue #83). Renders nothing; root-level
+              so it mounts once and is never torn down by route navigation. */}
+          <SeasonAccentEngine />
           <ItineraryProvider>
             {/* App chrome: one persistent navbar/footer around the routed
                 page content. TokenGate + PresenceBar render inside the provider. */}

@@ -46,8 +46,8 @@ const withBase = (p) => `${BASE_PATH}${p}`;
 // `themeColor` in app/layout.tsx, so installed app + splash + address bar all agree
 // — three hand-synced copies with no compiler tie, so they move together or the
 // installed app is framed in a palette the app no longer uses. Re-valued to the
-// D-291/D-292/D-293 page field.
-const THEME_COLOR = '#100C1A';
+// D-334 page field.
+const THEME_COLOR = '#0E0920';
 
 // -------------------------------------------------------------------------
 // Recursively list every file under a directory as out/-relative POSIX paths.

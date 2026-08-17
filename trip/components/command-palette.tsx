@@ -123,7 +123,7 @@ type Section = {
 // Home's photo-gallery section (id stays `inspiration`, as it has through every
 // rename of that slot).
 const SECTIONS: Section[] = [
-  { route: '/', hash: '#dashboard', label: 'Countdown Dashboard', group: 'Plan', keywords: ['countdown', 'timer', 'days', 'home'], icon: Gauge },
+  { route: '/', hash: '#dashboard', label: 'Dashboard', group: 'Plan', keywords: ['countdown', 'timer', 'days', 'home'], icon: Gauge },
   { route: '/', hash: '#timeline', label: 'Trip Timeline', group: 'Plan', keywords: ['schedule', 'days', 'route'], icon: ListOrdered },
   { route: '/plan/', label: 'Itinerary Planner', group: 'Plan', keywords: ['calendar', 'plan', 'events'], icon: Calendar },
   { route: '/flights/', label: 'Flights', group: 'Plan', keywords: ['airport', 'travel', 'arrivals', 'departures'], icon: Plane },
