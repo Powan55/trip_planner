@@ -36,26 +36,17 @@ spec author should know anyway: `countdown-seconds` is now the LIVE cell (`.coun
 so its computed `color` is `transparent` while `textContent` is unchanged), and the eyebrow
 above the grid reads "Countdown to day one".
 
-## 2. Dashboard: `components/trip-dashboard.tsx` (route: `/`)
-
-Namespaced `dashboard-*`, deliberately distinct from the hero's `countdown-*` since
-both can render on `/` simultaneously.
-
-| testid | metric |
-|---|---|
-| `dashboard-trip-duration` | Total Trip Duration (days) |
-| `dashboard-days-remaining` | Days Until Departure |
-| `dashboard-trip-status` | Trip Status (Upcoming / On the trip / Completed) |
-
-S321: the dashboard was trimmed from 9 cards to these 3 temporal facts. The six removed
-ids (`dashboard-countries`, `-cities`, `-attractions-saved`, `-restaurants-listed`,
-`-photo-spots-saved`, `-planned-days`) no longer render; the actionable at-a-glance data
-(budget/packing/next-up/weather) lives in `home-bento` instead.
-
-Implementation note: `StatCardProps` gained a `testId: string` field (threaded
-through the existing `stats` array → `<StatCard>` → the card's root `m.div`) so
-each of the 9 cards gets a distinct, stable id. This is the one non-trivial "wiring"
-change in the slice. No existing prop, className, or render path was altered.
+> **Section 2 was the `dashboard-*` registry** (`components/trip-dashboard.tsx`:
+> `dashboard-trip-duration`, `dashboard-days-remaining`, `dashboard-trip-status`). Issue #106
+> deleted that section: it reprinted the stat row's `32` and `114` one scroll further down,
+> and its "Trip Status" card said what the stat row's live-cell caption already says. **All
+> three ids are gone; nothing replaced them under that prefix.** The facts they carried are
+> read from section 42's `home-stat-days` and `home-stat-live` instead, and
+> `e2e/countdown.spec.ts` now asserts there. `#dashboard` is NOT gone — the anchor moved to
+> `home-bento`, which is where the nav, the command palette and the legacy hash redirect all
+> still land. The number is left vacant rather than reused: every "see section N" cross-
+> reference below counts on the existing numbering, and this file already carries two
+> sections numbered 24.
 
 ## 3. Top nav: `components/navbar.tsx` (desktop `md:` and up)
 
@@ -279,7 +270,8 @@ no testids yet."
 ## 14. Today panel: `components/today-panel.tsx` (route: `/`)
 
 The in-trip "Today" agenda island (S98). Mounted on Home via
-`dynamic({ ssr:false })` right after `<HeroSection />` and before `<TripDashboard />`.
+`dynamic({ ssr:false })` right after `<HeroSection />` and before `<HomeBento />` (it sat
+before `<TripDashboard />` until issue #106 deleted that section).
 Outside the trip window it renders `null` and taps nothing (`getTodayInTrip()` is
 `null` pre- and post-trip). To reveal it in a dev/E2E run without waiting for December,
 drive the clock with `?today=2026-12-12` (or any in-window date) per the D-075
@@ -464,7 +456,8 @@ All copy meets AA at rest (D-100).
 ## 20. Day recap (plan-vs-actual): `components/trip-recap.tsx` (route: `/`)
 
 The read-only plan-vs-actual day recap island (S105, D-114), mounted on Home via
-`dynamic({ ssr:false })` right after `<TodayPanel />` and before `<TripDashboard />`. For each trip
+`dynamic({ ssr:false })` right after `<TodayPanel />` and before `<HomeBento />` (it sat before
+`<TripDashboard />` until issue #106 deleted that section). For each trip
 day that has already happened (via `elapsedTripDates(getNow())`, incl. the D-075 `?today=` override),
 it pairs the plan (that day's `getDayPlan(date).items`, read-only), the actual (each item's `done`
 tick + a "{done} of {planned} done" line, S98), and the reflection (that day's `getEntry(date)`
@@ -1153,8 +1146,9 @@ stable, meaningful selector, and the existing visual baselines locate the masthe
 ## 42. Home stat row: `components/home-stat-row.tsx` (route: `/`), issue #26, extended by issue #31
 
 The band directly under the hero, outside the `min-h-[100svh]` fold column. Namespaced
-`home-stat-*`, distinct from the hero's `countdown-*`, the dashboard's `dashboard-*` and the
-bento's `home-bento-*` — all four can render on `/` at once.
+`home-stat-*`, distinct from the hero's `countdown-*` and the bento's `home-bento-*` — all
+three can render on `/` at once. (There were four until issue #106 deleted the `dashboard-*`
+surface; see the note where section 2 used to be.)
 
 Mounted through `LazyVisible`, so on a cold load the section is preceded by a
 `[data-lazy-visible="pending"]` placeholder; wait for `toHaveCount(0)` (the precedent in
@@ -1163,7 +1157,7 @@ Mounted through `LazyVisible`, so on a cold load the section is preceded by a
 | testid | element | notes |
 |---|---|---|
 | `home-stat-row` | the section `<section>` | Always present once the island mounts. Labelled by the visually-hidden `#home-stats-title`. |
-| `home-stat-days` | the trip-length cell | `TRIP_DATES.length` — the same number `dashboard-trip-duration` shows. Static; does not depend on the clock. |
+| `home-stat-days` | the trip-length cell | `TRIP_DATES.length`. Static; does not depend on the clock. Since issue #106 this is the ONLY place that figure is printed on Home — `dashboard-trip-duration` used to print it a second time further down the page, which is what got that section deleted. `e2e/countdown.spec.ts` asserts the 32 here. |
 | `home-stat-countries` | the country-count cell | Distinct `getCountryForDate` values across the trip dates. Trip-scoped, so a custom trip counts its own legs. |
 | `home-stat-cities` | the city-count cell | Distinct `getCityForDate` values across the trip dates. Trip-scoped for the same reason. |
 | `home-stat-live` | the one clock-driven cell | Three states, all from existing producers: pre-trip `computeCountdown(...).totalDays` + "Days to go"; in-trip `getTodayInTrip().dayNumber` + "Day on trip"; post-trip the trip length + "Days travelled". Drive it with `?today=` exactly as for `hero-travel-mode`. Re-reads on a 60s interval, not the hero's 1s. |
