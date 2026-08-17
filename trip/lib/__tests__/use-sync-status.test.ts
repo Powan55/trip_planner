@@ -116,8 +116,7 @@ describe('useSyncStatus (S229)', () => {
     expect(h.current.pending).toBe(0);
 
     const failing = new Set<string>(['d1']);
-    const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(makeHarness(failing), storage);
+    const push = withOutbox(makeHarness(failing));
 
     await act(async () => {
       await push({}, { d1: 1 }); // enqueues + fails → stays dirty
@@ -133,7 +132,7 @@ describe('useSyncStatus (S229)', () => {
     const failing = new Set<string>(['d1']);
     const storage = makeStorage({ d1: 1 });
     const cs = makeHarness(failing);
-    const push = withOutbox(cs, storage);
+    const push = withOutbox(cs);
 
     await act(async () => {
       await push({}, { d1: 1 });
@@ -171,8 +170,7 @@ describe('useSyncStatus (S229)', () => {
 
   it('DORMANT: reads {pending:0, lastAckAt:null} even with real dirty+acked bytes on disk (D-038)', async () => {
     const failing = new Set<string>();
-    const storage = makeStorage({ d1: 1 });
-    await withOutbox(makeHarness(failing), storage)({}, { d1: 1 }); // acks, writes real bytes
+    await withOutbox(makeHarness(failing))({}, { d1: 1 }); // acks, writes real bytes
 
     gate.remoteOn = false;
     const h = renderSyncStatus();

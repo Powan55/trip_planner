@@ -85,7 +85,7 @@ export const itinerarySyncPort: SyncPort<DayPlan[]> = {
   // Self-gates on configured AND identified traveler (dormant/guest never write the slot), so the
   // dormant build still pulls NO firebase onto the hot path (the pushChunk import is gated behind
   // that). Never throws to the commit caller.
-  push: withOutbox(itineraryChunkSync, itineraryStoragePort),
+  push: withOutbox(itineraryChunkSync),
 
   subscribe(onApplied) {
     // Dormant gate: no config ⇒ no firebase import, a no-op unsubscribe.

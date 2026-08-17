@@ -13,8 +13,7 @@ import type { Page } from '@playwright/test';
  * localStorage. That makes the "badge absent on a dormant build" case the one thing this
  * harness can prove with a REAL browser run — which is exactly what's below, on TWO routes.
  *
- * ── WHAT NEEDS A FIREBASE-CONFIGURED BUILD (documented, not faked — mirrors
- *    e2e/sync-two-client.spec.ts's honesty pattern for the exact same sandbox constraint) ──────
+ * ── WHAT NEEDS A FIREBASE-CONFIGURED BUILD (documented, not faked) ──────────────────────
  * "Pending count appears after an offline-queued edit / clears after reconnect+flush", the
  * badge's own axe scan, and its reduced-motion transform-identity check ALL require
  * `isRemoteConfigured()` to read `true` in the SERVED build — impossible to fake from inside a
@@ -26,9 +25,10 @@ import type { Page } from '@playwright/test';
  *     `withOutbox`/`flushOutbox` enqueue→ack cycle (no mocked event), a real cross-tab `storage`
  *     event, dormant gating even with real bytes on disk, and the 4th-domain pending-sum
  *     tolerance S229 calls out by name.
- * The `test.skip` block below is the manual/integration-QA procedure for the browser-only
- * residue (axe + reduced-motion + live count on a REAL rendered pill), kept visible as SKIPPED
- * (not silently omitted) per the same policy `sync-two-client.spec.ts` documents in full.
+ * The browser-only residue (axe + reduced-motion + live count on a REAL rendered pill) is a
+ * MANUAL procedure, not a test. It used to sit here as a `test.describe.skip` with
+ * `expect(true).toBe(true)` bodies, which inflated the spec count while asserting nothing;
+ * it now lives in `docs/two-phone-sync-check.md` where a runbook belongs.
  */
 
 async function goto(page: Page, path: string) {
@@ -72,33 +72,3 @@ test.describe('S229 · sync-status badge — dormant build (this sandbox, signed
     await expect(page.getByTestId('sync-status-badge')).toHaveCount(0);
   });
 });
-
-test.describe.skip(
-  'S229 · sync-status badge — LIVE proof against a firebase-configured build (integration-QA, see file header)',
-  () => {
-    test('pending count appears the instant an edit is queued offline, and clears on reconnect+flush', async () => {
-      // Preconditions: a build WITH real NEXT_PUBLIC_FIREBASE_* env (so isRemoteConfigured() is
-      // true) served over `out/`, signed in as a real Trip Token traveler.
-      //   1. context.setOffline(true); make an itinerary edit (e.g. add a plan item on /plan).
-      //   2. Assert `sync-status-badge` is visible, data-state="pending", text contains "1 pending".
-      //   3. context.setOffline(false); wait for the app's flush trigger (online event / visible).
-      //   4. Assert the badge either disappears (if `lastAckAt` was already null pre-edit — first
-      //      ever sync) or flips to data-state="synced" with "Synced just now".
-      expect(true).toBe(true); // placeholder body; test.describe.skip prevents execution
-    });
-
-    test('zero serious/critical axe violations on the rendered "N pending" pill', async () => {
-      // Same offline-queue setup as above, then AxeBuilder(page).include('[data-testid="sync-status-badge"]').analyze()
-      // → expect(results.violations.filter(v => ['serious','critical'].includes(v.impact ?? ''))).toEqual([]).
-      expect(true).toBe(true);
-    });
-
-    test('reduced motion: the reveal transform is neutralized (animationName/transform identity)', async () => {
-      // page.emulateMedia({ reducedMotion: 'reduce' }) BEFORE navigation, trigger the offline
-      // queue as above, then assert getComputedStyle(badge).transform is the identity matrix (or
-      // 'none') and animationName is 'none' — mirrors e2e/motion.spec.ts's pattern for
-      // OfflineBanner's identical `m.div` reveal.
-      expect(true).toBe(true);
-    });
-  },
-);

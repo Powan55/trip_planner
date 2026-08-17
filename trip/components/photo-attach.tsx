@@ -260,7 +260,7 @@ function PhotoThumb({ meta, onDelete }: { meta: PhotoMeta; onDelete: () => void 
         onClick={onDelete}
         data-testid={`photo-delete-${meta.id}`}
         aria-label={`Remove photo: ${meta.altText}`}
-        className="absolute right-1 top-1 inline-flex h-8 w-8 items-center justify-center rounded-md bg-black/50 text-white outline-none hover:bg-red-500/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+        className="absolute right-1 top-1 inline-flex h-tap w-tap items-center justify-center rounded-md bg-black/50 text-white outline-none hover:bg-red-500/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
       </button>

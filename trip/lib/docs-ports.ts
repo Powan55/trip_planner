@@ -48,7 +48,7 @@ export const docsSyncPort: SyncPort<DocItem[]> = {
   // Offline-outbox-decorated push: write-ahead enqueue → merge-aware singleton push →
   // ack-on-resolve; a rejecting push stays dirty and retries on the next flush. Self-gates on
   // configured AND identified traveler (dormant/guest never write the slot). Never throws.
-  push: withOutbox(docsChunkSync, docsStoragePort),
+  push: withOutbox(docsChunkSync),
 
   subscribe(onApplied) {
     // Dormant gate: no config ⇒ no firebase import, a no-op unsubscribe.

@@ -67,7 +67,7 @@ export default function QuickAddInput({
         disabled={!title.trim()}
         aria-label="Add plan"
         data-testid={`${testId}-submit`}
-        className="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-primary/90 text-primary-foreground hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+        className="shrink-0 inline-flex h-tap w-tap items-center justify-center rounded-xl bg-primary/90 text-primary-foreground hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
       >
         <Plus className="w-4 h-4" aria-hidden="true" />
       </button>

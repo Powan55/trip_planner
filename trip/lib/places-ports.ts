@@ -50,7 +50,7 @@ export const placesSyncPort: SyncPort<MyPlace[]> = {
   // ack-on-resolve; a rejecting push stays dirty and retries on the next flush. `withOutbox`
   // self-gates on `isTripRemoteConfigured()` AND an identified traveler (dormant / default pack /
   // guest never write the slot). Never throws.
-  push: withOutbox(placesChunkSync, myPlacesStoragePort),
+  push: withOutbox(placesChunkSync),
 
   subscribe(onApplied) {
     // Dormant / default-pack gate: no remote trip ⇒ no firebase import, a no-op unsubscribe.

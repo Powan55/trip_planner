@@ -93,7 +93,7 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
             aria-haspopup="dialog"
             data-testid={`myplace-add-${place.id}`}
             aria-label={`Add ${place.name} to your plan`}
-            className="flex-1 min-w-0 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-ink-hi hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex-1 min-w-0 inline-flex min-h-tap items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-ink-hi hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             {placements.length > 0 ? 'Added · edit plan' : 'Add to plan'}
           </button>
@@ -104,7 +104,7 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
               rel="noopener noreferrer"
               data-testid={`myplace-link-${place.id}`}
               aria-label={`Open ${place.name} in Google Maps`}
-              className="shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-xl bg-white/5 border border-white/10 text-ink-mid hover:bg-white/10 hover:text-primary transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="shrink-0 inline-flex items-center justify-center h-tap w-tap rounded-xl bg-white/5 border border-white/10 text-ink-mid hover:bg-white/10 hover:text-primary transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <ExternalLink className="w-4 h-4" aria-hidden="true" />
             </a>
@@ -114,7 +114,7 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
             onClick={onDelete}
             data-testid={`myplace-delete-${place.id}`}
             aria-label={`Delete ${place.name}`}
-            className="shrink-0 inline-flex items-center justify-center h-9 w-9 rounded-xl bg-white/5 border border-white/10 text-ink-mid hover:bg-red-500/20 hover:text-red-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="shrink-0 inline-flex items-center justify-center h-tap w-tap rounded-xl bg-white/5 border border-white/10 text-ink-mid hover:bg-red-500/20 hover:text-red-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <Trash2 className="w-4 h-4" aria-hidden="true" />
           </button>

@@ -2,7 +2,8 @@
 //
 // S141 — the offline push outbox mechanics (core/sync/outbox.ts, D-150, FU-19). Exercised at the
 // UNIT level with a MOCKED pushChunk + a real gateway-backed localStorage slot (jsdom). This is
-// the deterministic proof the two-client live scenario (JDK/emulator-gated, sync-two-client.spec)
+// the deterministic proof the two-client live scenario (JDK/emulator-gated; the manual
+// procedure lives in docs/two-phone-sync-check.md)
 // cannot run here: it proves the write-ahead-enqueue / ack-on-resolve / reject-stays-dirty /
 // flush-retry / exactly-once / dormant-guest-no-write mechanics, and the RELOAD scenario (an
 // offline push persists the dirty slot → a later flush pushes each chunk once → slot cleared).
@@ -97,8 +98,7 @@ afterEach(() => {
 describe('outbox mechanics (mocked pushChunk)', () => {
   it('enqueue on push, then ack-on-resolve CLEARS the chunk (clean push prunes dirty to {}, stamps lastAckAt — S229)', async () => {
     const h = makeHarness();
-    const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1 }); // d1 changed undefined→1
 
@@ -116,8 +116,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
   it('a REJECTING pushChunk leaves the chunk DIRTY (write-ahead record persists)', async () => {
     const h = makeHarness();
     h.failing.add('d1');
-    const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1 });
 
@@ -130,7 +129,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
     const h = makeHarness();
     h.failing.add('d1');
     const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1 }); // fails → dirty
     expect(outboxDirty('itinerary')).toEqual(['d1']);
@@ -152,7 +151,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
   it('EXACTLY-ONCE: once acked, further flushes issue NO new push (ack ends retries)', async () => {
     const h = makeHarness();
     const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1 }); // pushes + acks
     await flushOutbox(h.cs, storage); // nothing dirty → no push
@@ -165,7 +164,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
     const h = makeHarness();
     h.failing.add('d1');
     const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1 }); // attempt 1 (fail)
     await flushOutbox(h.cs, storage); // attempt 2 (fail — still offline)
@@ -182,8 +181,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
   it('re-enqueueing an already-dirty chunk is a set no-op (no duplicate in the dirty set)', async () => {
     const h = makeHarness();
     h.failing.add('d1');
-    const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1 }); // dirty [d1]
     await push({ d1: 1 }, { d1: 2 }); // d1 changed again → still just [d1]
@@ -194,8 +192,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
   it('multi-chunk push: a resolving chunk acks while a rejecting one stays dirty', async () => {
     const h = makeHarness();
     h.failing.add('d2');
-    const storage = makeStorage({ d1: 1, d2: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1, d2: 1 });
 
@@ -206,7 +203,7 @@ describe('outbox mechanics (mocked pushChunk)', () => {
     const h = makeHarness();
     h.failing.add('d1');
     const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
     await push({}, { d1: 1 }); // dirty
 
     h.failing.delete('d1');
@@ -235,8 +232,7 @@ describe('RELOAD scenario — the FU-19 fix (offline edit survives + pushes once
     const h = makeHarness();
     h.failing.add('2026-12-09');
     h.failing.add('2026-12-10');
-    const storage = makeStorage({ '2026-12-09': 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { '2026-12-09': 1 }); // edit day 09 (offline → dirty)
     await push({ '2026-12-09': 1 }, { '2026-12-09': 1, '2026-12-10': 1 }); // edit day 10 (offline → dirty)
@@ -272,7 +268,7 @@ describe('DORMANT / GUEST — the slot is NEVER written (D-038 / D-055)', () => 
     gate.remoteOn = false;
     const h = makeHarness();
     const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1 });
 
@@ -285,8 +281,7 @@ describe('DORMANT / GUEST — the slot is NEVER written (D-038 / D-055)', () => 
   it('GUEST (configured but no active traveler): push writes NO outbox slot', async () => {
     gate.traveler = null;
     const h = makeHarness();
-    const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1 });
 
@@ -298,7 +293,7 @@ describe('DORMANT / GUEST — the slot is NEVER written (D-038 / D-055)', () => 
     const h = makeHarness();
     h.failing.add('d1');
     const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
     await push({}, { d1: 1 }); // dirty while signed in
     expect(outboxDirty('itinerary')).toEqual(['d1']);
 
@@ -331,8 +326,7 @@ describe('S229 — lastAckAt + outboxSnapshot() + the same-tab change event', ()
   it('outboxSnapshot() is GATED exactly like every other entry point (D-038/D-055): dormant/guest reads the neutral shape even with real bytes on disk', async () => {
     // Write a real dirty+acked slot while enabled…
     const h = makeHarness();
-    const storage = makeStorage({ d1: 1 });
-    await withOutbox(h.cs, storage)({}, { d1: 1 }); // acks → lastAckAt set
+    await withOutbox(h.cs)({}, { d1: 1 }); // acks → lastAckAt set
     expect(outboxSnapshot().lastAckAt).not.toBeNull();
 
     // …then go dormant: outboxSnapshot must NOT surface the on-disk bytes.
@@ -347,8 +341,7 @@ describe('S229 — lastAckAt + outboxSnapshot() + the same-tab change event', ()
 
   it('lastAckAt is stamped on ack and SURVIVES a later enqueue (not clobbered by write-ahead)', async () => {
     const h = makeHarness();
-    const storage = makeStorage({ d1: 1, d2: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1 }); // acks d1 → lastAckAt set
     const firstAck = outboxSnapshot().lastAckAt;
@@ -369,7 +362,7 @@ describe('S229 — lastAckAt + outboxSnapshot() + the same-tab change event', ()
     const h = makeHarness();
     h.failing.add('d1');
     const storage = makeStorage({ d1: 1 });
-    const push = withOutbox(h.cs, storage);
+    const push = withOutbox(h.cs);
 
     await push({}, { d1: 1 }); // ① enqueue write (fails, no ack)
     expect(seen).toEqual(['changed']);

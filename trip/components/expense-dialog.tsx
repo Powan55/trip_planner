@@ -446,7 +446,7 @@ export default function ExpenseDialog({
                             aria-pressed={active}
                             onClick={() => setPaidBy(name)}
                             data-testid={`expense-payer-${name}`}
-                            className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                            className={`inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                               active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-ink-mid hover:bg-white/5'
                             }`}
                           >
@@ -471,7 +471,7 @@ export default function ExpenseDialog({
                             aria-pressed={active}
                             onClick={() => toggleMember(name)}
                             data-testid={`expense-split-member-${name}`}
-                            className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                            className={`inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                               active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-ink-mid hover:bg-white/5'
                             }`}
                           >

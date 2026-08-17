@@ -318,7 +318,7 @@ function FlightCard({ journey }: { journey: Journey }) {
                   href={tracker}
                   online={online}
                   testId={`travel-essentials-tracker-${leg.id}`}
-                  className="inline-flex min-h-[36px] items-center rounded-lg px-2 text-xs font-medium text-primary outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="inline-flex min-h-tap items-center rounded-lg px-2 text-xs font-medium text-primary outline-none transition-colors hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   Track flight
                 </DeepLink>
@@ -332,7 +332,7 @@ function FlightCard({ journey }: { journey: Journey }) {
           href={r2r}
           online={online}
           testId={`travel-essentials-rome2rio-${journey.id}`}
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex min-h-tap items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Plan this route (Rome2Rio)
         </DeepLink>
@@ -340,7 +340,7 @@ function FlightCard({ journey }: { journey: Journey }) {
           href={gflights}
           online={online}
           testId={`travel-essentials-gflights-${journey.id}`}
-          className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex min-h-tap items-center gap-1 rounded-lg bg-white/5 px-3 font-medium text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Google Flights
         </DeepLink>

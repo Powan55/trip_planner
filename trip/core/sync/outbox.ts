@@ -193,8 +193,12 @@ async function pushChunks<T>(cs: ChunkSync<T>, current: T, chunks: string[]): Pr
  * ② attempt `pushChunk` for each of THIS diff's chunks from `next` (the just-committed state),
  * ③ ack each on resolve, ④ swallow rejections (the chunk stays dirty for the next flush).
  * Dormant/guest ⇒ no-op, no slot write. Never throws.
+ *
+ * Takes NO StoragePort: the push path only ever writes `next`, the state the caller just
+ * committed. `flushOutbox` is the one that needs `storage.load()`, because it runs later and must
+ * re-read the freshest local state.
  */
-export function withOutbox<T>(cs: ChunkSync<T>, _storage: StoragePort<T>): SyncPort<T>['push'] {
+export function withOutbox<T>(cs: ChunkSync<T>): SyncPort<T>['push'] {
   return async (prev: T, next: T): Promise<void> => {
     if (!enabled()) return;
     const chunks = cs.chunkDiff(prev, next);

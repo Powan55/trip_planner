@@ -414,7 +414,6 @@ export function ConciergeChat() {
         </button>
       </SheetTrigger>
       <SheetContent
-        side="right"
         data-testid="concierge-panel"
         className="glass-card-dark flex w-full flex-col gap-0 border-white/10 text-white sm:max-w-lg"
       >
@@ -545,7 +544,7 @@ export function ConciergeChat() {
                                   data-testid="concierge-op-confirm"
                                   onClick={() => confirmOp(key, op)}
                                   aria-label={`Confirm: ${label}`}
-                                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg bg-primary text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                  className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg bg-primary text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                 >
                                   <Check className="h-4 w-4" aria-hidden="true" />
                                 </button>
@@ -554,7 +553,7 @@ export function ConciergeChat() {
                                   data-testid="concierge-op-dismiss"
                                   onClick={() => resolve(key)}
                                   aria-label={`Dismiss: ${label}`}
-                                  className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg border border-white/15 bg-white/5 text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                  className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg border border-white/15 bg-white/5 text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                 >
                                   <X className="h-4 w-4" aria-hidden="true" />
                                 </button>

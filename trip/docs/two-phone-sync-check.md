@@ -2,10 +2,10 @@
 
 A hand-run pass of the live deployed site (`https://powan55.github.io/trip_planner/`) from two
 independent browser profiles, standing in for "two phones" — separate storage, separate anon-auth
-identity, exactly the shape the app treats as two different devices. This is the manual
-integration-QA procedure `e2e/sync-two-client.spec.ts` documents and skips (no live/emulated
-Firestore in CI); this run is that procedure carried out for real, extended to the domains the
-spec file doesn't cover (saved places, expenses, documents) and to the offline-reconnect case.
+identity, exactly the shape the app treats as two different devices. This run carries out the manual
+integration-QA procedure recorded in the appendix below (there is no live or emulated Firestore
+in CI), extended to the domains that procedure doesn't cover (saved places, expenses, documents)
+and to the offline-reconnect case.
 
 **Who ran it:** Uttam, from the assistant session, 2026-08-15.
 **Against:** a throwaway custom trip ("QA Sync Check", id `f18f907a-264d-4a2e-a934-f1659fd41e12`)
@@ -96,3 +96,64 @@ Given the expenses gap is a real, reproducible bug (not a missing feature) that 
 data for every custom trip, this should block the freeze until it's fixed or the release scope is
 explicitly narrowed to accept it. Flagged separately rather than fixed in this PR, since this PR's
 job is the QA pass, not the transport rewrite — see the follow-up task.
+
+---
+
+## Appendix — the manual procedure itself
+
+Kept here rather than in a `.spec.ts`. It used to live as an all-`test.skip` Playwright file with
+`expect(true).toBe(true)` bodies, which asserted nothing and inflated the spec count; a runbook
+belongs in `docs/`. Nothing about the procedure changed in the move.
+
+**Why it cannot be automated in this sandbox.** Two-client convergence needs a live or emulated
+Firestore. The static harness serves `out/` built with no firebase env, so `isRemoteConfigured()`
+is false and the remote layer never activates. The emulator is not reachable either: installing
+`firebase-tools` hits the TLS wall recorded in D-088, and the current version needs JDK >= 21
+against this machine's JDK 17. Forcing a green here would be a lie, so the proof is manual.
+
+**What is already proven off-Firebase**, so this run is confirmatory rather than blind:
+`lib/__tests__/core-merge-day.test.ts` (mergeDay commutative + idempotent, different-items-same-day,
+HLC tie-break, delete-vs-edit), `lib/__tests__/itinerary-remote-sync.test.ts` (snapshot handler
+merges and applies without pushing; `pushDayMerged` read-merge-writes inside a transaction;
+default-on-read makes a v1 doc mergeable), `lib/__tests__/core-sync-outbox.test.ts` and
+`lib/__tests__/use-sync-status.test.ts` (outbox gating, `lastAckAt`, the pending -> 0 cycle).
+What the live run adds is the FIRESTORE TRANSPORT: transaction retry under real contention, real
+anon uids, real snapshot timing.
+
+**Preconditions.** A build with the firebase env (`.env.local` present); two browser profiles,
+each signed in under a DIFFERENT traveller token so they carry distinct anon uids and actors. Use
+a throwaway test day or trip — do not pollute real trip data on the live project.
+
+### Itinerary merge
+
+1. **Different items, same day** (the v1 clobber this replaced). Both clients open `/plan` and
+   select the same day D; near-simultaneously A adds "A-only" and B adds "B-only". After the
+   snapshots settle, BOTH clients must show BOTH items on day D.
+2. **Same item, both edited.** Both change the same item's title concurrently to different
+   values. After settle both clients converge on the same title — the higher-HLC edit, tie-broken
+   by actor uid (D-105) — with no console error on either side.
+3. **Delete vs concurrent edit.** A deletes item X while B edits it. Both converge per the D-106
+   default policy: the delete wins unless B's edit is strictly HLC-later. The deleted item must
+   not permanently flicker back on the losing client.
+4. **v1 day-doc survives a v2 write** (dual-read, D-107). Pick a day whose remote doc is still v1
+   (no per-item `rev`/`hlc`/`deleted`), edit one item on it, and confirm the edit round-trips with
+   no loss while the un-edited items keep their data.
+
+### Sync-status badge (S229)
+
+Needs the same firebase-configured build, because `isRemoteConfigured()` is inlined at
+`next build` time and cannot be toggled from inside a test.
+
+1. **Pending count.** Go offline, make an itinerary edit; the `sync-status-badge` shows
+   `data-state="pending"` and "1 pending". Go back online and wait for the flush trigger (the
+   `online` event or the tab becoming visible): the badge either disappears (when `lastAckAt` was
+   null before the edit — the first ever sync) or flips to `data-state="synced"`.
+2. **Axe.** With the pending pill rendered, scan `[data-testid="sync-status-badge"]` and expect
+   zero serious or critical violations.
+3. **Reduced motion.** Emulate `prefers-reduced-motion: reduce` before navigating, trigger the
+   pending pill, and confirm the badge's computed `transform` is the identity matrix (or `none`)
+   and `animationName` is `none` — the same check `e2e/motion.spec.ts` makes on OfflineBanner's
+   identical reveal.
+
+Paste both clients' final state and a clean console into the integration-QA record. Playwright can
+drive all of it with two `browser.newContext()` calls on a JDK-21 machine with network egress.
