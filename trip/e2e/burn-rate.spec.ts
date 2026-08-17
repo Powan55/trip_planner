@@ -79,7 +79,7 @@ async function logExpense(page: Page, amount: string, category: string) {
   await expect(page.getByTestId('expense-dialog')).toBeVisible();
   await page.getByTestId('expense-amount-input').fill(amount);
   await page.getByTestId(`expense-category-${category}`).click();
-  await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('expense-save').click();
   await expect(page.getByTestId('expense-dialog')).toHaveCount(0);
 }

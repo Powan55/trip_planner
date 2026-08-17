@@ -149,6 +149,12 @@ export default function Sheet({
 
   if (!mounted) return null;
 
+  // The scrim carries NO `overscroll-contain`: `overscroll-behavior` only applies to a scroll
+  // container, and this element is `overflow: visible`. B-6's two halves are
+  // body[data-dialog-open]{overflow:hidden} in globals.css (page cannot scroll behind) and
+  // `overscroll-contain` on each consumer's own `overflow-y-auto` body (a flick that bottoms
+  // out inside the sheet does not chain). This primitive owns neither — the panel is
+  // `overflow-hidden` and the scrolling element belongs to the consumer.
   const scrimClass =
     side === 'center'
       ? 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm'

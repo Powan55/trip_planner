@@ -700,6 +700,16 @@
   }
 }
 
+/* B-6 — scroll-lock the page behind any open modal. `data-dialog-open` is already set by
+   ui/sheet-dark.tsx, add-to-itinerary-dialog.tsx, expense-dialog.tsx and token-gate.tsx (the
+   quick-add FAB observes the same flag); until now nothing acted on it, so flicking inside a
+   sheet scrolled the page underneath once the inner scroll bottomed out. Deliberately
+   UNLAYERED so it wins over any utility class; map-section.tsx's fullscreen sets
+   `body.style.overflow` inline, which still wins over this, so the two never fight. */
+body[data-dialog-open] {
+  overflow: hidden;
+}
+
 [data-hydration-error] {
   display: none !important;
 }

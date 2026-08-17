@@ -221,7 +221,7 @@ function PhotoThumb({ meta, onDelete }: { meta: PhotoMeta; onDelete: () => void 
   const { url, missing } = usePhotoObjectUrl(meta.id);
 
   return (
-    <li data-testid={`photo-thumb-${meta.id}`} className="group relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]">
+    <li data-testid={`photo-thumb-${meta.id}`} className="relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]">
       {missing ? (
         <div
           data-testid={`photo-placeholder-${meta.id}`}
@@ -252,12 +252,15 @@ function PhotoThumb({ meta, onDelete }: { meta: PhotoMeta; onDelete: () => void 
         </span>
       )}
 
+      {/* Permanently visible, NOT hover/focus-revealed. A touch device fires neither,
+          so the hover-only version left no way to remove a photo on this feature's primary
+          device. It sits on a bg-black/50 chip over the caption's from-black/70 gradient. */}
       <button
         type="button"
         onClick={onDelete}
         data-testid={`photo-delete-${meta.id}`}
         aria-label={`Remove photo: ${meta.altText}`}
-        className="absolute right-1 top-1 inline-flex h-8 w-8 items-center justify-center rounded-md bg-black/50 text-ink-mid opacity-0 outline-none transition-opacity duration-200 hover:bg-red-500/70 hover:text-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 group-hover:opacity-100"
+        className="absolute right-1 top-1 inline-flex h-8 w-8 items-center justify-center rounded-md bg-black/50 text-white outline-none hover:bg-red-500/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
       </button>

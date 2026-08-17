@@ -45,8 +45,10 @@ const INLINE = /`([^`]+)`|\[([^\]\n]+)\]\(([^)\s]+)\)|\*\*(?=\S)(.+?)\*\*|\*(?=\
 const CODE_CLASS = 'rounded bg-white/10 px-1 py-0.5 font-code text-[0.9em] text-foreground/90';
 // Block-sized counterpart to CODE_CLASS above — same code palette, fenced-block padding (;
 // today a fenced reply renders as one `<pre>` instead of one pill per line).
+// The focus ring pairs with the `tabIndex={0}` at the render site: a fenced block scrolls
+// horizontally but contains only plain text, so nothing inside it can take focus.
 const FENCE_CLASS =
-  'my-2 block overflow-x-auto whitespace-pre-wrap rounded-lg bg-white/10 px-3 py-2 font-code text-[0.9em] text-foreground/90';
+  'my-2 block overflow-x-auto whitespace-pre-wrap rounded-lg bg-white/10 px-3 py-2 font-code text-[0.9em] text-foreground/90 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** Inline spans within ONE line. Non-recursive on purpose — INLINE is a global (stateful) regex. */
 function renderInline(text: string, keyPrefix: number): ReactNode[] {
@@ -200,7 +202,7 @@ export function renderAssistantContent(text: string): ReactNode[] {
     switch (block.type) {
       case 'fence':
         return (
-          <pre key={i} className={FENCE_CLASS}>
+          <pre key={i} tabIndex={0} className={FENCE_CLASS}>
             {block.lines.join('\n') || ' '}
           </pre>
         );

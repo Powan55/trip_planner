@@ -184,6 +184,15 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
    */
   const seedRef = useRef<Promise<unknown> | null>(null);
 
+  // body[data-dialog-open] seam flag while open (Lane-M FAB hides on it). Same effect as the
+  // other four modals; the wall has no `open` prop because mounting IS open (B-6).
+  useEffect(() => {
+    document.body.dataset.dialogOpen = '1';
+    return () => {
+      delete document.body.dataset.dialogOpen;
+    };
+  }, []);
+
   // Storage + URL are client-only facts; read once after mount (this island never SSRs its values).
   useEffect(() => {
     setSavedToken(getSyncCode());
@@ -407,7 +416,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
       // #25 — `wall-auth-open` is the class D-293 R4 is implemented with. It is on the WALL
       // ROOT and not on the panel because the thing it has to reach (the cover's Ken Burns)
       // is a sibling of the panel, not a descendant. See globals.css.
-      className={`fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 overflow-y-auto hero-gradient ${
+      className={`fixed inset-0 z-[70] flex items-center justify-center p-4 sm:p-6 overflow-y-auto overscroll-contain hero-gradient ${
         view === 'auth' ? 'wall-auth-open' : ''
       }`}
     >

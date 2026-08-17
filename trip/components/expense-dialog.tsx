@@ -296,7 +296,7 @@ export default function ExpenseDialog({
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6">
           <div className="space-y-4 pb-1">
             {/* Amount — the autofocused, "type first" field */}
             <div>
@@ -337,8 +337,11 @@ export default function ExpenseDialog({
             {/* Leg toggle — preset, one tap to override */}
             <div>
               <span id={legLabelId} className="text-xs text-ink-lo mb-1 block">Leg</span>
+              {/* B-5: `role="group"` + `aria-pressed`, NOT radiogroup/radio. The composite
+                  role promises arrow-key navigation and a roving tabIndex that this toggle
+                  never implemented; a wrong role is worse than none. */}
               <div
-                role="radiogroup"
+                role="group"
                 aria-labelledby={legLabelId}
                 data-testid="expense-leg-toggle"
                 className="flex gap-2"
@@ -352,8 +355,7 @@ export default function ExpenseDialog({
                     <button
                       key={l}
                       type="button"
-                      role="radio"
-                      aria-checked={active}
+                      aria-pressed={active}
                       onClick={() => setLeg(l)}
                       data-testid={`expense-leg-${l}`}
                       className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none ${
@@ -434,15 +436,14 @@ export default function ExpenseDialog({
                   {/* Payer */}
                   <div>
                     <span id={`${baseId}-payer-label`} className="text-xs text-ink-lo mb-1 block">Paid by</span>
-                    <div role="radiogroup" aria-labelledby={`${baseId}-payer-label`} className="flex flex-wrap gap-2">
+                    <div role="group" aria-labelledby={`${baseId}-payer-label`} className="flex flex-wrap gap-2">
                       {allNames.map((name) => {
                         const active = paidBy === name;
                         return (
                           <button
                             key={name}
                             type="button"
-                            role="radio"
-                            aria-checked={active}
+                            aria-pressed={active}
                             onClick={() => setPaidBy(name)}
                             data-testid={`expense-payer-${name}`}
                             className={`inline-flex min-h-[36px] items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${

@@ -84,7 +84,7 @@ async function logExpense(page: Page, amount: string, category: string) {
   await page.getByTestId('expense-amount-input').fill(amount);
   await page.getByTestId(`expense-category-${category}`).click();
   // Leg preset is Nepal (first trip day) outside the trip window — confirm before saving.
-  await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('expense-save').click();
   await expect(page.getByTestId('expense-dialog')).toHaveCount(0);
 }
@@ -199,11 +199,11 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await expect(page.getByTestId('expense-dialog')).toBeVisible();
     await page.getByTestId('expense-amount-input').fill('300');
     await page.getByTestId('expense-category-food').click();
-    await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-pressed', 'true');
     // Opt into split (default payer = Powan, members = whole roster).
     await page.getByTestId('expense-split-toggle').click();
     await expect(page.getByTestId('expense-split-panel')).toBeVisible();
-    await expect(page.getByTestId('expense-payer-Powan')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('expense-payer-Powan')).toHaveAttribute('aria-pressed', 'true');
     await page.getByTestId('expense-save').click();
     await expect(page.getByTestId('expense-dialog')).toHaveCount(0);
 

@@ -215,7 +215,13 @@ export function JournalPhotoStrip({ date, photos }: { date: string; photos: Phot
         <Camera className="h-3.5 w-3.5" aria-hidden="true" />
         Photos
       </p>
-      <ul className="flex gap-2 overflow-x-auto pb-1" aria-label={`Photos from ${formatDateLong(date)}`}>
+      {/* tabIndex=0 keeps the horizontal strip scrollable without a mouse. No role="region"
+          here — it would clobber the list role, and the aria-label already names it. */}
+      <ul
+        tabIndex={0}
+        className="flex gap-2 overflow-x-auto pb-1 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`Photos from ${formatDateLong(date)}`}
+      >
         {photos.map((meta) => (
           <JournalPhotoThumb key={meta.id} meta={meta} />
         ))}

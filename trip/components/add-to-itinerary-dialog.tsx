@@ -554,7 +554,7 @@ export default function AddToItineraryDialog({
             the flex column so the pinned footer is never pushed off-screen on short
             viewports. A native scrollbar (no `scrollbar-hide`) makes the
             overflow discoverable when the content is taller than the viewport. */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6">
         {/* Existing placements (modify/remove mode) */}
         {isModifyMode && (
           <div className="mb-5 space-y-2">

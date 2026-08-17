@@ -298,7 +298,9 @@ function StatPanel({
         <span aria-hidden="true">{icon}</span>
         {label}
       </p>
-      <p className="text-sm leading-relaxed text-ink-hi">{children}</p>
+      {/* #101 — a <div>, not a <p>: the Spend panel passes a flex column as `children`,
+          and <div> inside <p> is invalid DOM (React logs on every /recap visit). */}
+      <div className="text-sm leading-relaxed text-ink-hi">{children}</div>
     </div>
   );
 }

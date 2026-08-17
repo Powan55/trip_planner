@@ -189,7 +189,7 @@ export default function PlaceDetailSheet({
             {/* Scrollable body — the only scroll region. tabIndex=0 keeps it
                 keyboard-reachable (axe scrollable-region-focusable): the body holds only
                 read-only text, so at 17px it can scroll with no focusable child of its own. */}
-            <div tabIndex={0} className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4">
+            <div tabIndex={0} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6 py-4">
               <div className="flex items-start justify-between gap-3 mb-1">
                 <h3
                   id={titleId}

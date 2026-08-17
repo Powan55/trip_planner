@@ -3779,3 +3779,15 @@ D-326 measured the auth panel's **fill** against the cover — 1.74:1 — and ru
 **What DOES hold the hero** is therefore assertion, not pixels: `lib/__tests__/hero-image.test.ts` pins both paths to real `image-manifest.json` keys, `e2e/countdown.spec.ts` pins the resolved raster per leg at `?today=`, `e2e/pwa.spec.ts` pins the precached set and the offline decode (D-335), and `npm run contrast-check` pins every text pairing over the composite. All four were added or extended in #89 precisely because the pixel gate could not carry it.
 
 **Changes if:** the scrim floor drops materially (more photograph on screen raises the diff ratio and could make the pack meaningful again), `maxDiffPixelRatio` is tightened for this spec specifically, or the hero gets its own dedicated shot at a stricter threshold — which is the cheap fix if this keeps costing time.
+
+### D-338 · LOCKED · (V6-9 / sweep-B B-5, 2026-08-17) · Composite ARIA roles are deleted, not implemented
+
+**Decision.** A surface may declare `radiogroup`/`radio`, `menu`/`menuitem`, `listbox`/`option` or `tablist`/`tab` only if it also ships roving tabIndex and arrow-key handling. Where it does not, downgrade rather than build the contract: `radiogroup` → `role="group"`, `radio` + `aria-checked` → `aria-pressed`, `menu`/`menuitem` + `aria-haspopup` → deleted, with `role="group"` retained on the container.
+
+**Why the container keeps a role.** `aria-label`/`aria-labelledby` on a bare `<div>` resolves to `generic` and the accessible name is dropped — deleting the role outright is a silent name loss, not a simplification. `group` itself carries no keyboard contract in APG, so this trades a lie for nothing. A role that promises navigation it does not honour is worse than no role: AT announces "radio button, 1 of 4", the user presses an arrow key, and nothing happens.
+
+**Why not implement the pattern.** It is ~40 lines of roving-tabindex primitive plus five migrations, against six attribute deletions. The app already implements `tablist` (`budget-panel.tsx`), `listbox` (`time-picker.tsx`) and `combobox` (`plan-search.tsx`) correctly, which is what made the broken five actively misleading — the app teaches the user that arrows work and then five surfaces silently do not.
+
+**Known holdout:** `components/settings-panel.tsx:1268/:1279` still carries `radiogroup`/`radio`. Deliberately untouched — a concurrent session owns that file, and `e2e/settings.spec.ts:447` asserts `aria-checked` on it, so the attribute flip and the assertion flip must land in one commit.
+
+**Changes if:** a surface genuinely needs radio semantics for a screen-reader user's mental model badly enough to pay for the keyboard contract — in which case build one shared roving-tabindex component and migrate all of them, never one hand-rolled instance.
