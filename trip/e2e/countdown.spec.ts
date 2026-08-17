@@ -88,13 +88,13 @@ function liveStat(page: Page) {
  * their own — one navigation, both facts.
  *
  * It reads `currentSrc`, NOT the React prop and NOT `src`. `OptimizedImage` renders a
- * <picture> with AVIF and WebP <source>s and passes `sizes="100vw"`, so what the browser
+ * <picture> with an AVIF <source> and passes `sizes="100vw"`, so what the browser
  * actually fetches is a width-selected derivative that the `src` attribute never names;
  * `currentSrc` is the only thing that reports the resolved URL. `picture img` also
  * disambiguates the raster from the LQIP backdrop, which is a sibling data: URI.
  *
  * The stem is compared, not the whole URL, so the assertion survives the basePath build,
- * the -640w/-1024w/native variant the viewport happens to pick, and the AVIF/WebP choice.
+ * the -640w/-1024w/native variant the viewport happens to pick, and the avif/jpg choice.
  */
 async function resolvedHeroStem(page: Page): Promise<string> {
   const img = page.locator('.hero-photo-wrap picture img');
@@ -105,7 +105,7 @@ async function resolvedHeroStem(page: Page): Promise<string> {
   return new URL(currentSrc).pathname
     .split('/')
     .pop()!
-    .replace(/\.(avif|webp|jpe?g|png)$/i, '')
+    .replace(/\.(avif|jpe?g|png)$/i, '')
     .replace(/-\d+w$/, '');
 }
 
