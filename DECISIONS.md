@@ -3791,3 +3791,17 @@ D-326 measured the auth panel's **fill** against the cover — 1.74:1 — and ru
 **Known holdout:** `components/settings-panel.tsx:1268/:1279` still carries `radiogroup`/`radio`. Deliberately untouched — a concurrent session owns that file, and `e2e/settings.spec.ts:447` asserts `aria-checked` on it, so the attribute flip and the assertion flip must land in one commit.
 
 **Changes if:** a surface genuinely needs radio semantics for a screen-reader user's mental model badly enough to pay for the keyboard contract — in which case build one shared roving-tabindex component and migrate all of them, never one hand-rolled instance.
+
+### D-339 · LOCKED · (V6-10 / sweep-B B-2, 2026-08-17) · Place cards are a stretched-`::after` title button, and every interactive sibling must be lifted
+
+**Decision.** `recommendation-section.tsx`, `photography-guide.tsx` and `nightlife-section.tsx` make the **title** the details control, not the card. The `<h3>`'s `<button>` carries `after:absolute after:inset-0 after:rounded-2xl`, the card root carries `relative`, and **every interactive sibling in the card carries `relative z-10`**. The title button takes no `aria-label`: the visible name is both the heading text and the button's accessible name.
+
+**Why the inversion.** A card-wide `<button>` is invalid twice over. `button` may only contain phrasing content, and `<h3>`/`<p>`/`<div>` are flow content — React's `validateDOMNesting` does not warn on it, which is how it survived. Worse, `button` is a **children-presentational** ARIA role, so everything inside collapses into the button's name: roughly 60 card titles on `/nepal` and `/japan` were absent from the heading outline entirely, leaving those routes at `h1` → `h2` → nothing.
+
+**The trap this entry exists for.** The `::after` covers the whole card, so **an interactive sibling added without `relative z-10` is a control nobody can click** — and no test in the suite would catch it. Badges (`added-badge.tsx`) are passive `<span>`s and need no lift; `AddToPlanButton` and `guide-favorite-*` do have it. If a guard is ever wanted, the cheap version is one `elementFromPoint`-at-centre assertion per control, not a new abstraction.
+
+**Two testids are now misnomers, deliberately.** `guide-card-*` and `nightlife-add-*` identify the **title button**, not the card wrapper — `nightlife-add-*` is the worse of the two, since it names an add action but opens the detail sheet, and always did. Both are kept because moving them touches ~20 spec references across 5 files. `guide-tilt-*` is the card-root handle if one is needed.
+
+**Not a shared component.** Three files, one markup inversion each. Extracting a Card primitive was considered and rejected — `components/ui/` is not the shared layer here (`ui/button.tsx` ships 8 variants against 2 importers, versus 211 raw `<button>`s in 54 files), and a fourth abstraction nobody imports is how that happened.
+
+**Changes if:** a fourth card surface wants the same pattern — at that point extract it, and put the `z-10` requirement in the component rather than in this entry.

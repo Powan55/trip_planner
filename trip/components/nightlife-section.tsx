@@ -41,76 +41,82 @@ function VenueCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       whileHover={{ y: -4 }}
-      className="rounded-2xl bg-gradient-to-br from-purple-900/20 to-fuchsia-900/20 border border-purple-500/10 hover:border-purple-500/20 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-300 overflow-hidden"
+      className="relative p-5 rounded-2xl bg-gradient-to-br from-purple-900/20 to-fuchsia-900/20 border border-purple-500/10 hover:border-purple-500/20 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-300 overflow-hidden"
     >
-      <button
-        type="button"
-        onClick={onOpen}
-        data-testid={`nightlife-add-${venue.id}`}
-        aria-label={`View details for ${venue.name}`}
-        className="block w-full text-left p-5 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-2xl"
-      >
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-fuchsia-500/10">
-              <Music className="w-4 h-4 text-fuchsia-400" />
-            </div>
-            <div>
-              <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-xl bg-fuchsia-500/10">
+            <Music className="w-4 h-4 text-fuchsia-400" />
+          </div>
+          <div>
+            <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
+              {/* V6-10: the details control is the TITLE, not the card body — a button
+                  cannot legally wrap flow content, and its children-presentational ARIA
+                  role hid this <h3> from the heading outline entirely. The `::after`
+                  restores the whole-card hit area against the `relative` root above, and
+                  dropping the old aria-label lets the visible name serve as BOTH the
+                  heading text and the button's accessible name. */}
+              <button
+                type="button"
+                onClick={onOpen}
+                data-testid={`nightlife-add-${venue.id}`}
+                className="block text-left outline-none after:absolute after:inset-0 after:content-[''] after:rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 {venue.name}
-                {/* same content-semantic "must-see" label as the gold ribbon. */}
-                {venue.mustSee && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
-              </h3>
-              <p className="text-[11px] text-ink-mid flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {venue.location}
-              </p>
-            </div>
-          </div>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
-            {venue.country}
-          </span>
-        </div>
-
-        <p className="text-xs text-ink-mid mb-3">{venue.description}</p>
-
-        <div className="grid grid-cols-2 gap-2 text-[11px]">
-          <div className="flex items-center gap-1.5 text-ink-mid">
-            <Headphones className="w-3 h-3 text-purple-400" />
-            <span>{venue.musicType}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-ink-mid">
-            <DollarSign className="w-3 h-3 text-green-400" />
-            <span>{venue.priceRange}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-ink-mid">
-            <Music className="w-3 h-3 text-fuchsia-400" />
-            <span>{venue.vibe}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-ink-mid">
-            <Calendar className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-            <span>{venue.bestDays}</span>
+              </button>
+              {/* same content-semantic "must-see" label as the gold ribbon. */}
+              {venue.mustSee && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
+            </h3>
+            <p className="text-[11px] text-ink-mid flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              {venue.location}
+            </p>
           </div>
         </div>
+        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
+          {venue.country}
+        </span>
+      </div>
 
-        {/* passive planned-state indicator — decorative only (no nested
-            interactive control inside this button; add/modify/remove lives in the
-            detail sheet the tap above opens). Reactive to the shared itinerary store. */}
-        {isAdded && (
-          <span
-            data-testid={`nightlife-added-${venue.id}`}
-            className="mt-3 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-ring/40 text-primary text-[11px] font-medium"
-          >
-            <Check className="w-3 h-3 shrink-0" />
-            <span>Added</span>
-            <span className="text-muted-foreground" aria-hidden="true">·</span>
-            <span className="flex items-center gap-1 text-foreground">
-              <CalendarDays className="w-3 h-3 shrink-0" />
-              {summary}
-            </span>
+      <p className="text-xs text-ink-mid mb-3">{venue.description}</p>
+
+      <div className="grid grid-cols-2 gap-2 text-[11px]">
+        <div className="flex items-center gap-1.5 text-ink-mid">
+          <Headphones className="w-3 h-3 text-purple-400" />
+          <span>{venue.musicType}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-ink-mid">
+          <DollarSign className="w-3 h-3 text-green-400" />
+          <span>{venue.priceRange}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-ink-mid">
+          <Music className="w-3 h-3 text-fuchsia-400" />
+          <span>{venue.vibe}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-ink-mid">
+          <Calendar className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+          <span>{venue.bestDays}</span>
+        </div>
+      </div>
+
+      {/* passive planned-state indicator — decorative only (still NOT interactive:
+          add/modify/remove lives in the detail sheet the title opens), so it needs no
+          `z-10` lift above the stretched `::after`. Reactive to the shared itinerary
+          store. */}
+      {isAdded && (
+        <span
+          data-testid={`nightlife-added-${venue.id}`}
+          className="mt-3 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-ring/40 text-primary text-[11px] font-medium"
+        >
+          <Check className="w-3 h-3 shrink-0" />
+          <span>Added</span>
+          <span className="text-muted-foreground" aria-hidden="true">·</span>
+          <span className="flex items-center gap-1 text-foreground">
+            <CalendarDays className="w-3 h-3 shrink-0" />
+            {summary}
           </span>
-        )}
-      </button>
+        </span>
+      )}
     </m.div>
   );
 }

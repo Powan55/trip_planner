@@ -24,89 +24,100 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
       viewport={{ once: true }}
       whileHover={reduce ? undefined : { y: -6 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-      className={`group rounded-2xl p-5 transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)] ${
+      className={`group relative rounded-2xl p-5 transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)] ${
         isNepal ? 'glass-nepal' : 'glass-japan'
       }`}
     >
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`View details for ${spot.name}`}
-        className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-xl"
-      >
-        {spot.image && !imgError && (
-          <div className="relative -mx-5 -mt-5 mb-4 aspect-[16/10] overflow-hidden rounded-t-2xl bg-surface-raised motion-safe:group-hover:[&_img]:scale-105 [&_img]:transition-transform [&_img]:duration-500">
-            <OptimizedImage
-              src={spot.image}
-              alt={`${spot.name}, ${spot.city}`}
-              fill
-              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-              className="object-cover"
-              onError={() => setImgError(true)}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-            <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
-              {spot.mustSee && (
-                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                  <Star className="w-3 h-3 fill-surface" />
-                  Must-see
-                </span>
-              )}
-              <AddedBadge added={added} testId={`photo-added-${spot.id}`} />
-            </div>
+      {spot.image && !imgError && (
+        <div className="relative -mx-5 -mt-5 mb-4 aspect-[16/10] overflow-hidden rounded-t-2xl bg-surface-raised motion-safe:group-hover:[&_img]:scale-105 [&_img]:transition-transform [&_img]:duration-500">
+          <OptimizedImage
+            src={spot.image}
+            alt={`${spot.name}, ${spot.city}`}
+            fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover"
+            onError={() => setImgError(true)}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+          <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+            {spot.mustSee && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                <Star className="w-3 h-3 fill-surface" />
+                Must-see
+              </span>
+            )}
+            <AddedBadge added={added} testId={`photo-added-${spot.id}`} />
           </div>
-        )}
+        </div>
+      )}
 
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className={`p-2 rounded-xl ${isNepal ? 'bg-himalaya-400/10' : 'bg-sakura-400/10'}`}>
-              <Camera className={`w-4 h-4 ${isNepal ? 'text-himalaya-400' : 'text-sakura-400'}`} />
-            </div>
-            <div>
-              <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className={`p-2 rounded-xl ${isNepal ? 'bg-himalaya-400/10' : 'bg-sakura-400/10'}`}>
+            <Camera className={`w-4 h-4 ${isNepal ? 'text-himalaya-400' : 'text-sakura-400'}`} />
+          </div>
+          <div>
+            <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
+              {/* V6-10: the details control is the TITLE, not the card body. A button
+                  wrapping flow content is non-conforming HTML, and `button` is a
+                  children-presentational ARIA role — it swallowed this <h3> so the ~60
+                  card titles per page were absent from the heading outline. The `::after`
+                  restores the whole-card hit area (it resolves against the `relative` root
+                  above). No aria-label: the visible title text IS the accessible name, so
+                  heading navigation announces the place, not "View details for …". */}
+              <button
+                type="button"
+                onClick={onOpen}
+                className="block text-left outline-none after:absolute after:inset-0 after:content-[''] after:rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 {spot.name}
-                {/* this is the "Must-see" RIBBON's no-image fallback — the same
-                    content-semantic label in icon form — so it keeps the ribbon's gold. */}
-                {spot.mustSee && !spot.image && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
-              </h3>
-              <p className="text-[11px] text-ink-mid">{spot.city}, {spot.country}</p>
-            </div>
-          </div>
-          <div className="flex flex-col items-end gap-1.5">
-            <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
-              {spot.category}
-            </span>
-            {/* No-image cards have no top-left overlay stack, so surface the chip here. */}
-            {(!spot.image || imgError) && <AddedBadge added={added} testId={`photo-added-${spot.id}`} />}
+              </button>
+              {/* this is the "Must-see" RIBBON's no-image fallback — the same
+                  content-semantic label in icon form — so it keeps the ribbon's gold. */}
+              {spot.mustSee && !spot.image && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
+            </h3>
+            <p className="text-[11px] text-ink-mid">{spot.city}, {spot.country}</p>
           </div>
         </div>
-
-        <div className="space-y-2 text-xs">
-          <div className="flex items-center gap-2 text-ink-mid">
-            <Clock className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
-            <span>{spot.bestTime}</span>
-          </div>
-          <div className="flex items-center gap-2 text-ink-mid">
-            <Aperture className="w-3.5 h-3.5 text-purple-400" />
-            <span>{spot.style}</span>
-          </div>
-          <div className="flex items-center gap-2 text-ink-mid">
-            <Camera className="w-3.5 h-3.5 text-blue-400" />
-            <span>{spot.gear}</span>
-          </div>
+        <div className="flex flex-col items-end gap-1.5">
+          <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
+            {spot.category}
+          </span>
+          {/* No-image cards have no top-left overlay stack, so surface the chip here. */}
+          {(!spot.image || imgError) && <AddedBadge added={added} testId={`photo-added-${spot.id}`} />}
         </div>
+      </div>
 
-        <div className="mt-3 p-2.5 rounded-lg bg-white/5">
-          <p className="text-[11px] text-ink-mid italic">💡 {spot.tip}</p>
+      <div className="space-y-2 text-xs">
+        <div className="flex items-center gap-2 text-ink-mid">
+          <Clock className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
+          <span>{spot.bestTime}</span>
         </div>
-      </button>
+        <div className="flex items-center gap-2 text-ink-mid">
+          <Aperture className="w-3.5 h-3.5 text-purple-400" />
+          <span>{spot.style}</span>
+        </div>
+        <div className="flex items-center gap-2 text-ink-mid">
+          <Camera className="w-3.5 h-3.5 text-blue-400" />
+          <span>{spot.gear}</span>
+        </div>
+      </div>
 
-      {/* Add-to-plan affordance — additive; a sibling of the details button. */}
-      <AddToPlanButton
-        source={spot}
-        sourceType="photo"
-        accentColor={isNepal ? 'text-himalaya-400' : 'text-sakura-400'}
-      />
+      <div className="mt-3 p-2.5 rounded-lg bg-white/5">
+        <p className="text-[11px] text-ink-mid italic">💡 {spot.tip}</p>
+      </div>
+
+      {/* Add-to-plan affordance — additive; a sibling of the details button. `relative
+          z-10` lifts it above the title button's stretched `::after`, which would
+          otherwise paint over it (positioned pseudo beats a static sibling) and swallow
+          its clicks. */}
+      <div className="relative z-10">
+        <AddToPlanButton
+          source={spot}
+          sourceType="photo"
+          accentColor={isNepal ? 'text-himalaya-400' : 'text-sakura-400'}
+        />
+      </div>
     </m.div>
   );
 }

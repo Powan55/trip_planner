@@ -73,85 +73,93 @@ function RecommendationCard({
       onPointerLeave={tilt.onPointerLeave}
       data-testid={`guide-tilt-${item.id}`}
       data-tilt-enabled={tilt.enabled}
-      className="glass-card rounded-2xl overflow-hidden group transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)]"
+      className="glass-card relative rounded-2xl overflow-hidden group transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)]"
     >
-      {/* The image + text (down to notes) is a single button that opens the detail
-          sheet. The AddToPlanButton stays a sibling so it isn't nested in a button. */}
-      <button
-        type="button"
-        onClick={onOpen}
-        data-testid={`guide-card-${item.id}`}
-        aria-label={`View details for ${item.name}`}
-        className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-2xl"
-      >
-        {item.image && !imgError ? (
-          <div
-            className="vt-shared relative aspect-[16/10] bg-surface-raised overflow-hidden motion-reduce:[&_img]:!transform-none"
-            style={{ ['--vt-name']: `place-photo-${item.id}` } as CSSProperties}
+      {item.image && !imgError ? (
+        <div
+          className="vt-shared relative aspect-[16/10] bg-surface-raised overflow-hidden motion-reduce:[&_img]:!transform-none"
+          style={{ ['--vt-name']: `place-photo-${item.id}` } as CSSProperties}
+        >
+          <OptimizedImage
+            src={item.image}
+            alt={item.name}
+            fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={() => setImgError(true)}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
+          <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
+            <Camera className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+            <span className="text-xs font-mono text-foreground">{item.photoRating}/5</span>
+          </div>
+          <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+            {item.mustSee && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                <Star className="w-3 h-3 fill-surface" />
+                Must-see
+              </span>
+            )}
+            <AddedBadge added={added} testId={`guide-added-${item.id}`} />
+          </div>
+        </div>
+      ) : (
+        <div className="aspect-[16/10] bg-gradient-to-br from-surface-raised to-surface-overlay flex items-center justify-center relative">
+          <MapPin className={`w-8 h-8 ${accentColor} opacity-30`} />
+          <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+            {item.mustSee && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                <Star className="w-3 h-3 fill-surface" />
+                Must-see
+              </span>
+            )}
+            <AddedBadge added={added} testId={`guide-added-${item.id}`} />
+          </div>
+        </div>
+      )}
+      <div className="p-4 pb-0">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h3
+            className="vt-shared font-display font-bold text-white text-sm leading-tight"
+            style={{ ['--vt-name']: `place-title-${item.id}` } as CSSProperties}
           >
-            <OptimizedImage
-              src={item.image}
-              alt={item.name}
-              fill
-              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
-              onError={() => setImgError(true)}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
-            <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
-              <Camera className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-              <span className="text-xs font-mono text-foreground">{item.photoRating}/5</span>
-            </div>
-            <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
-              {item.mustSee && (
-                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                  <Star className="w-3 h-3 fill-surface" />
-                  Must-see
-                </span>
-              )}
-              <AddedBadge added={added} testId={`guide-added-${item.id}`} />
-            </div>
-          </div>
-        ) : (
-          <div className="aspect-[16/10] bg-gradient-to-br from-surface-raised to-surface-overlay flex items-center justify-center relative">
-            <MapPin className={`w-8 h-8 ${accentColor} opacity-30`} />
-            <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
-              {item.mustSee && (
-                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                  <Star className="w-3 h-3 fill-surface" />
-                  Must-see
-                </span>
-              )}
-              <AddedBadge added={added} testId={`guide-added-${item.id}`} />
-            </div>
-          </div>
-        )}
-        <div className="p-4 pb-0">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <h3
-              className="vt-shared font-display font-bold text-white text-sm leading-tight"
-              style={{ ['--vt-name']: `place-title-${item.id}` } as CSSProperties}
+            {/* V6-10: the details control is the TITLE, not the whole card body. A
+                button may only contain phrasing content, and its children-presentational
+                ARIA role collapsed this <h3> into the button's name — so every card title
+                on the page was missing from the heading outline. The `::after` stretches
+                the hit area back over the card (it resolves against the `relative` root;
+                `vt-shared` sets only `view-transition-name`, which adds no containment
+                outside a running transition). No aria-label — the visible name is both
+                the heading text and the button's accessible name. */}
+            <button
+              type="button"
+              onClick={onOpen}
+              data-testid={`guide-card-${item.id}`}
+              className="block text-left outline-none after:absolute after:inset-0 after:content-[''] after:rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {item.name}
-            </h3>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full ${accentColor} bg-white/5 whitespace-nowrap`}>{item.category}</span>
-          </div>
-          <p className="text-xs text-ink-mid mb-3 line-clamp-2">{item.description}</p>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-mid">
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{item.bestTime}</span>
-            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{item.duration}</span>
-            <span className="flex items-center gap-1">
-              {Array.from({ length: item.photoRating }).map((_, i) => (
-                <Star key={i} className="w-2.5 h-2.5 fill-current text-muted-foreground" />
-              ))}
-            </span>
-          </div>
-          {item.notes && <p className="text-[11px] text-ink-mid mt-2 italic">💡 {item.notes}</p>}
+            </button>
+          </h3>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full ${accentColor} bg-white/5 whitespace-nowrap`}>{item.category}</span>
         </div>
-      </button>
+        <p className="text-xs text-ink-mid mb-3 line-clamp-2">{item.description}</p>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-mid">
+          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{item.bestTime}</span>
+          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{item.duration}</span>
+          <span className="flex items-center gap-1">
+            {Array.from({ length: item.photoRating }).map((_, i) => (
+              <Star key={i} className="w-2.5 h-2.5 fill-current text-muted-foreground" />
+            ))}
+          </span>
+        </div>
+        {item.notes && <p className="text-[11px] text-ink-mid mt-2 italic">💡 {item.notes}</p>}
+      </div>
+      {/* Both controls in this row need `relative z-10`: the title button's stretched
+          `::after` is a positioned box and would otherwise paint over these static
+          siblings and swallow their clicks. */}
       <div className="px-4 pb-4 flex items-start gap-2">
         {/* Add-to-plan affordance — additive; a sibling of the details button. */}
-        <div className="flex-1 min-w-0">
+        <div className="relative z-10 flex-1 min-w-0">
           <AddToPlanButton source={item} sourceType="recommendation" accentColor={accentColor} />
         </div>
         {/* Favorite/bookmark toggle — a sibling of AddToPlanButton, real <button>, and
@@ -164,7 +172,7 @@ function RecommendationCard({
             aria-pressed={favorited}
             aria-label={favorited ? `Remove ${item.name} from saved` : `Save ${item.name}`}
             data-testid={`guide-favorite-${item.id}`}
-            className={`mt-3 shrink-0 p-2 rounded-xl border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+            className={`relative z-10 mt-3 shrink-0 p-2 rounded-xl border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               favorited
                 ? 'bg-primary/10 border-ring/40 text-primary hover:bg-primary/25'
                 : 'bg-white/5 border-white/10 text-ink-mid hover:bg-white/10 hover:text-ink-hi'
