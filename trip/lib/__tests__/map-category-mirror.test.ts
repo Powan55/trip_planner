@@ -26,6 +26,52 @@ const tripMapSrc = readFileSync(
   'utf8',
 );
 
+const globalsCss = readFileSync(resolve(__dirname, '../../app/globals.css'), 'utf8');
+
+/**
+ * The LIVE chrome accent, read out of `app/globals.css` rather than hardcoded.
+ *
+ * D-334. The hue check below used to compare against a literal `189` — the cyan that was
+ * the interaction signal when the guard was written. Two accent changes later that number
+ * described nothing, so the guard PASSED THROUGH a real three-way collision: against the
+ * live marigold, `Attraction` sat 0.0 degrees away, `Cultural` 4.1 and `Restaurant` 19.7.
+ * A guard whose reference value is a copy is a guard that stops being about the thing it
+ * names, so it reads the token instead.
+ *
+ * `--primary`, `--accent`, `--ring` and `--accent-scroll` are ONE accent expressed four
+ * times (globals.css says so twice, at length, because moving a subset is the recurring
+ * mistake). They are all parsed and asserted equal, which makes THAT a test too.
+ */
+const ACCENT_TOKENS = ['--primary', '--accent', '--ring', '--accent-scroll'] as const;
+
+function accentHslFromCss(token: string): string {
+  // Matches a declaration carrying a real HSL triplet, never the prose in the comments.
+  const m = globalsCss.match(new RegExp(`${token}:\\s*(\\d+ \\d+% \\d+%)\\s*;`));
+  if (!m) throw new Error(`no HSL triplet declared for ${token} in app/globals.css`);
+  return m[1];
+}
+
+/** hue of a hex, 0-360 */
+function hueOf(hex: string): number {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const d = max - min;
+  let hue = 0;
+  if (d !== 0) {
+    if (max === r) hue = 60 * (((g - b) / d) % 6);
+    else if (max === g) hue = 60 * ((b - r) / d + 2);
+    else hue = 60 * ((r - g) / d + 4);
+  }
+  return hue < 0 ? hue + 360 : hue;
+}
+
+/** shortest angular distance between two hues, 0-180 */
+const hueGap = (a: number, b: number) => {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+};
+
 /** `'Day Trip': { icon: Bus, pin: 'bg-green-500 text-surface', ... }` -> ['Day Trip', 'green'] */
 function pinFamiliesFromSource(): Map<string, string> {
   const out = new Map<string, string>();
@@ -69,22 +115,23 @@ describe('map category palette — GL hex vs DOM Tailwind class', () => {
     },
   );
 
-  it('Day Trip is off the interaction signal hue (S353C/Ruling-3)', () => {
-    // --ring / --primary is hsl(189 90% 60%). The old cyan-500 was hsl(189 94% 43%) — the
-    // SAME hue, which is the collision this slice existed to remove. Require >= 30 deg away.
-    const hex = CATEGORY_COLOR['Day Trip'];
-    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
-    const max = Math.max(r, g, b);
-    const min = Math.min(r, g, b);
-    const d = max - min;
-    let hue = 0;
-    if (d !== 0) {
-      if (max === r) hue = 60 * (((g - b) / d) % 6);
-      else if (max === g) hue = 60 * ((b - r) / d + 2);
-      else hue = 60 * ((r - g) / d + 4);
-    }
-    if (hue < 0) hue += 360;
-    const delta = Math.min(Math.abs(hue - 189), 360 - Math.abs(hue - 189));
-    expect(delta).toBeGreaterThanOrEqual(30);
+  // The four names are one accent. If this fails, somebody moved a subset of them and the
+  // chrome is now painting two colours — see the --accent-scroll block in globals.css.
+  it('the four chrome-accent tokens are one value', () => {
+    const values = ACCENT_TOKENS.map(accentHslFromCss);
+    expect(new Set(values).size, `chrome accent disagrees: ${values.join(' | ')}`).toBe(1);
   });
+
+  it.each(Object.keys(CATEGORY_COLOR))(
+    '%s sits >= 30 deg off the LIVE interaction accent (S353C/Ruling-3)',
+    (category) => {
+      const accentHue = Number(accentHslFromCss('--primary').split(' ')[0]);
+      const hue = hueOf(CATEGORY_COLOR[category as keyof typeof CATEGORY_COLOR]);
+      const gap = hueGap(hue, accentHue);
+      expect(
+        gap,
+        `${category} is ${hue.toFixed(1)} deg, accent is ${accentHue} deg, gap ${gap.toFixed(1)}`,
+      ).toBeGreaterThanOrEqual(30);
+    },
+  );
 });

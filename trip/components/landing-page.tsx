@@ -375,7 +375,7 @@ export default function LandingPage({
                     elements (not just their classes) is the fix; `e2e/login.spec.ts` and
                     `lib/__tests__/s345-front-door.test.ts` both assert `document.activeElement`, so a
                     future edit that reorders these back fails rather than silently regressing.
-                    #25 inherits the constraint whole: the marigold fill moved onto the log-in button
+                    #25 inherits the constraint whole: the `bg-primary` fill moved onto the log-in button
                     and the outline onto create, in place, with the elements where they were.
                 Signup is NOT removed: it is still one click here, still the closing CTA below, and
                 still the always-rendered toggle inside the auth card. */}
@@ -564,9 +564,11 @@ export default function LandingPage({
       {/* ── F · The closing CTA ──────────────────────────────────────────────────────────
           A mint block at the loudest container radius, and one of only two --r-xl containers in
           the product. Everything on it is --on-accent, and the button INVERTS: the ink becomes
-          the fill and marigold becomes the label, which is the one place on this page a saturated
-          accent is used as text on a dark fill rather than as a fill under the ink. Both
-          directions are measured. ── */}
+          the fill and the CHROME ACCENT becomes the label, which is the one place on this page a
+          saturated accent is used as text on a dark fill rather than as a fill under the ink.
+          Both directions are measured. The label is `var(--volt)` and not `text-primary` only
+          because it sits on an inline style beside its own background; it is the same role, so
+          D-334 moved it with the rest of the chrome (11.15:1 on the ink). ── */}
       <div
         className="flex flex-col items-center gap-4 rounded-3xl px-6 py-9 text-center"
         style={{ background: 'var(--mint)', color: 'var(--on-accent)' }}
@@ -580,13 +582,14 @@ export default function LandingPage({
           onClick={onCreate}
           data-testid="landing-cta-create-footer"
           // CTA_BASE unchanged, ring OFFSET included, and that is deliberate rather than
-          // inherited. The offset colour is --surface, so the focus indicator is a marigold ring
-          // on a dark gap: 12.13:1 ring-to-gap, and the gap is 11.06:1 against the mint fill.
-          // "Tidying" the offset to match the block would paint marigold straight onto mint —
-          // 1.10:1, an invisible focus ring on the page's loudest button. Measured in
-          // scripts/contrast-tokens.mjs, where the bad pairing is kept as a guard.
+          // inherited. The offset colour is --surface, so the focus indicator is a volt ring
+          // on a dark gap: 11.56:1 ring-to-gap, and the gap is 11.17:1 against the mint fill.
+          // "Tidying" the offset to match the block would paint volt straight onto mint —
+          // 1.03:1, an invisible focus ring on the page's loudest button, and D-334 made that
+          // WORSE rather than better. Measured in scripts/contrast-tokens.mjs, where the bad
+          // pairing is kept as a guard.
           className={CTA_BASE}
-          style={{ background: 'var(--on-accent)', color: 'var(--marigold)' }}
+          style={{ background: 'var(--on-accent)', color: 'var(--volt)' }}
         >
           Create an account
         </button>

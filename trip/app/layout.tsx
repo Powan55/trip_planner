@@ -100,9 +100,8 @@ export const viewport: Viewport = {
   // manifest's theme_color/background_color emitted by gen-sw.mjs). This is the
   // browser/OS chrome colour and it MUST track --background: it is a hardcoded copy
   // of that token with no compiler tie, so a canvas re-value that misses it leaves a
-  // strip of the retired palette framing the app. Now #100C1A, the D-291/D-292/D-293
-  // page field.
-  themeColor: '#100C1A',
+  // strip of the retired palette framing the app. Now #0E0920, the D-334 page field.
+  themeColor: '#0E0920',
 }
 
 export default function RootLayout({

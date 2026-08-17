@@ -35,14 +35,14 @@ import { withBasePath } from '@/lib/utils';
 // THE RULE FOR THIS OBJECT, because it is now deliberately half-swept:
 //   · SURFACES FOLLOW THE CANVAS. navy900 (the map's own background layer, the label
 //     halo, and the approx-marker fill/stroke) and navy800 (the popup and tooltip
-//     chrome) are re-valued onto the aubergine ramp with the rest of the app; leaving
-//     them behind would have framed the map in the retired palette. navy800 was still
+//     chrome) are re-valued with the rest of the app every time the ramp moves; leaving
+//     them behind frames the map in the retired palette. navy800 was once still
 //     '#111640' — a leftover from the blue field two palettes ago, older than the
 //     charcoal it outlived. navy700 is NOT re-valued because it has zero consumers;
 //     it is stale, harmless, and deletable by whoever next touches this object.
-//     Measured, since two of these are contrast pairs: gold400 on navy900 12.15 ->
-//     11.97, white on the navy800 popup 17.32 -> 16.22, navy900 ink on a gold500 pin
-//     8.84 -> 8.70. All three stay far above AA.
+//     Measured, since two of these are contrast pairs, at the D-334 ramp: gold400 on
+//     navy900 11.97 -> 12.09, white on the navy800 popup 16.22 -> 16.45, navy900 ink on
+//     a gold500 pin 8.70 -> 8.79. All three stay far above AA.
 //   · BRAND HUES ARE FROZEN. gold400/gold500/sakura400/himalaya500 are the map's own
 //     identity colours — route line, stop stroke, label halo, marker stroke, and the
 //     CATEGORY_COLOR pins below. They stay at the retired values until /map's palette
@@ -50,9 +50,20 @@ import { withBasePath } from '@/lib/utils';
 //     designing the route, so choosing new pin and route hues is that slice's call,
 //     not a token slice's. Moving one of these without the others is what produces a
 //     map whose line disagrees with its own legend.
+//
+//     D-334 is why that slice got easier rather than harder. While marigold was the
+//     interaction accent, THREE of the seven CATEGORY_COLOR pins collided with it —
+//     `Attraction` at 0.0 degrees of hue separation, `Cultural` at 4.1, `Restaurant`
+//     at 19.7 — so a pin and "this is pressable" were the same signal. The chrome
+//     accent is now volt (hue 192) and the closest of the seven is `Hotel` at 46.7,
+//     which clears the >= 30 degree rule with room. That rule is enforced for EVERY
+//     category by lib/__tests__/map-category-mirror.test.ts, which now reads the live
+//     accent out of globals.css instead of the hardcoded 189 that let the collision
+//     through. So the freeze is no longer hiding a defect — it is just an unfinished
+//     palette.
 export const BRAND = {
-  navy900: '#100C1A',
-  navy800: '#241C36',
+  navy900: '#0E0920',
+  navy800: '#221745',
   navy700: '#1a2050',
   gold400: '#f0c760',
   gold500: '#d4a843',

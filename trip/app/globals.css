@@ -5,53 +5,68 @@
 @layer base {
   :root {
     /* ---- Core surfaces ----
-       D-291/D-292/D-293. The near-neutral CHARCOAL ramp (single hue 220, saturation
-       pulled right down) is RETIRED for an AUBERGINE one at hue ~258. The reasoning
+       D-291/D-292/D-293, amended by D-334. The near-neutral CHARCOAL ramp (single hue
+       220, saturation pulled right down) is RETIRED for an AUBERGINE one. The reasoning
        that put the charcoal here is unchanged and still holds — chrome should read as
        material, not as brand colour, and identity comes from CONTENT (Nepal
        orange->gold, Japan pink->violet), never from the surfaces. What changed is
-       that the material is now a warm-dark violet rather than a grey.
+       that the material is now a dark violet rather than a grey.
+
+       D-334 RE-VALUES THAT RAMP, and the interesting part is what did NOT move: the
+       base hue barely shifts (258 -> ~254). The change that actually removes the warm
+       "night shift" cast is SATURATION, 32% -> 50%. This was measured, not assumed —
+       pushing the hue up toward 270 for "more purple" RAISES the red channel and makes
+       the cast worse. Blue:red at surface-2 goes 1.50 -> 2.20 on the saturation lift
+       alone.
+
        Steps stay deliberately close together, and the reason is measured: pushing
        surface lightness apart to "separate" the tiers is what breaks the text tiers.
        Do NOT chase more separation here — the edge comes from --border/--border-ui.
 
        Every value below is a straight HSL conversion of a hex whose contrast is
        measured; `npm run contrast-check` (scripts/contrast-tokens.mjs) re-measures the
-       whole set and exits non-zero on any regression. Tightest text pair is 5.59:1
-       (--text-lo on --surface-3), so all twelve text/surface pairings clear AA. */
-    --background: 257 37% 7%;    /* #100C1A -- the page field.   was 220 12% 5%  */
-    --foreground: 0 0% 100%;     /* #FFFFFF -- --text-hi.        was 210 20% 96% */
-    --card: 258 32% 16%;         /* #241C36 -- surface-2.        was 220 10% 9%  */
+       whole set and exits non-zero on any regression. Tightest text pair is 5.46:1
+       (--text-lo on --surface-3), so all twelve text/surface pairings clear AA — 21%
+       over the floor at the tightest. */
+    --background: 253 56% 8%;    /* #0E0920 -- the page field.   was 257 37% 7%   */
+    --foreground: 0 0% 100%;     /* #FFFFFF -- --text-hi.        unchanged        */
+    --card: 254 50% 18%;         /* #221745 -- surface-2.        was 258 32% 16%  */
     --card-foreground: 0 0% 100%;
-    --popover: 258 32% 16%;      /* #241C36 -- surface-2                         */
+    --popover: 254 50% 18%;      /* #221745 -- surface-2                          */
     --popover-foreground: 0 0% 100%;
-    /* The chrome accent moves winter-neon CYAN -> MARIGOLD #FFC43D. Cyan was chosen
-       when the canvas was a neutral charcoal and the brand hues were demoted to
-       content; on the aubergine canvas the primary action, the focus ring and Nepal
-       are one warm accent again. Marigold measures 12.13:1 on the page field, the
-       highest of the six accents, which is why it is the focus ring. */
-    --primary: 42 100% 62%;
+    /* The chrome accent moves MARIGOLD -> VOLT #3ED8FF (D-334). Marigold was chosen
+       when the canvas moved to aubergine and it made ONE colour mean two things at
+       once: "pressable" AND "Nepal" (--np-b IS #FFC43D). Volt splits them — chrome is
+       cool and functional, country identity stays warm and content-owned, and the two
+       country gradients below are byte-identical because of it. Volt measures 11.56:1
+       on the page field, which is why it is also the focus ring. Marigold keeps its
+       hex and survives as Nepal's identity stop; it just stops being the interaction
+       colour. */
+    --primary: 192 100% 62%;
     /* THE INK RULE, and it is load-bearing: never white text on a saturated fill,
-       always --on-accent #140F20. White on marigold measures 1.59:1 — it is not a
-       near miss, it is unreadable. That is why BOTH --primary-foreground (29 sites
-       via text-primary-foreground) and --accent-foreground move to the ink, and why
-       contrast-tokens.mjs carries white-on-marigold as a guard that MUST keep
-       failing. A guard that starts passing means someone lightened a fill. */
+       always --on-accent #140F20. White on volt measures 1.68:1 and white on marigold
+       1.59:1 — neither is a near miss, both are unreadable. That is why BOTH
+       --primary-foreground (29 sites via text-primary-foreground) and
+       --accent-foreground are the ink, and why contrast-tokens.mjs carries
+       white-on-volt and white-on-marigold as guards that MUST keep failing. A guard
+       that starts passing means someone lightened a fill. */
     --primary-foreground: 258 36% 9%;   /* #140F20 --on-accent */
-    --secondary: 258 33% 12%;    /* #1A1428 -- surface-1.        was 220 14% 12% */
+    --secondary: 255 52% 12%;    /* #170F2F -- surface-1.        was 258 33% 12%  */
     --secondary-foreground: 0 0% 100%;
-    --muted: 260 29% 20%;        /* #2E2442 -- surface-3.        was 220 14% 16% */
-    --muted-foreground: 259 23% 68%;    /* #A79BC0 --text-lo — the FLOOR tier, 7.43:1
-                                           on the page field. was 218 10% 56%.
+    --muted: 255 46% 24%;        /* #2F2159 -- surface-3.        was 260 29% 20%  */
+    --muted-foreground: 259 23% 68%;    /* #A79BC0 --text-lo — the FLOOR tier, 7.50:1
+                                           on the page field. UNCHANGED by D-334.
                                            There is no fourth text tier below this. */
     /* shadcn interactive-fill accent (menus/toggles/selected). One chrome accent
-       site-wide, now marigold — same one-accent rule, new hue. The Japan/Nepal
+       site-wide, now volt — same one-accent rule, new hue. The Japan/Nepal
        gradients remain CONTENT wayfinding (section tints, guide cards, map legs),
-       never interactive chrome. */
-    --accent: 42 100% 62%;
+       never interactive chrome, and D-334 is what finally makes that separation real
+       rather than stated: while the chrome accent WAS --np-b, "one accent site-wide"
+       and "Nepal's identity stop" were the same 24 bits. */
+    --accent: 192 100% 62%;
     --accent-foreground: 258 36% 9%;    /* #140F20 --on-accent — see the ink rule */
     /* --destructive's HUE is DELIBERATELY LEFT at its old value: destructive is not
-       one of the six accents in the locked direction (marigold/coral/mint/sky/violet/
+       one of the six accents in the locked direction (marigold/coral/mint/volt/violet/
        pink), so there is no ruled replacement for it. That is a decision, not an
        oversight — do not "finish the sweep" by inventing one.
 
@@ -65,14 +80,15 @@
        which is the last place to be casual about legibility. */
     --destructive: 356 82% 65%;
     --destructive-foreground: 258 36% 9%;   /* #140F20 --on-accent — 5.74:1 */
-    /* Borders/inputs = --border #4B3C6E. DECORATIVE ONLY at 1.99:1 on the page field
-       (1.68:1 on surface-2) — it wraps content that already carries its own contrast
-       and may NEVER be the sole cue for anything. An INTERACTIVE control's boundary
-       is --border-ui #8877B8 (4.94:1), declared below. contrast-tokens.mjs guards
-       --border from ever being read as a UI cue by asserting it stays under 3:1. */
-    --border: 258 29% 33%;
-    --input: 258 29% 33%;
-    --ring: 42 100% 62%;         /* marigold — 12.13:1 on bg, 9.13:1 on surface-3 */
+    /* Borders/inputs = --border #4A3880. DECORATIVE ONLY at 2.01:1 on the page field
+       — it wraps content that already carries its own contrast and may NEVER be the
+       sole cue for anything. An INTERACTIVE control's boundary is --border-ui #9184C9
+       (5.89 / 5.54 / 4.97 / 4.28 across the four steps, up from a 3.72 worst case),
+       declared below. contrast-tokens.mjs guards --border from ever being read as a UI
+       cue by asserting it stays under 3:1. */
+    --border: 255 39% 36%;
+    --input: 255 39% 36%;
+    --ring: 192 100% 62%;        /* volt — 11.56:1 on bg, 8.41:1 on surface-3 */
 
     /* ---- Radii — DE-FLATTENED ----
        Previously everything at `lg` and above collapsed onto 8/12px (-xl and -2xl
@@ -127,17 +143,18 @@
        reduced-transparency nav fallback. A stable wrong name beats a rename that
        silently drops a consumer.
 
-       RE-VALUED onto the aubergine ramp (charcoal 220deg -> aubergine 258deg):
-         --navy-900 = #100C1A = --bg        = --background
-         --navy-850 = #1A1428 = --surface-1 = --secondary   <- NEW step
-         --navy-800 = #241C36 = --surface-2 = --card
-         --navy-700 = #2E2442 = --surface-3 = --muted
-       --navy-850 is added because the ruled ramp has FOUR steps and this channel had
+       RE-VALUED AGAIN under D-334 — same four names, same four roles, more chromatic
+       and cooler (the saturation lift, not a hue swing):
+         --navy-900 = #0E0920 = --bg        = --background   was #100C1A
+         --navy-850 = #170F2F = --surface-1 = --secondary     was #1A1428
+         --navy-800 = #221745 = --surface-2 = --card          was #241C36
+         --navy-700 = #2F2159 = --surface-3 = --muted         was #2E2442
+       --navy-850 was added when the ramp went to FOUR steps and this channel had
        three; the alias below (--surface-low) is what .glass-subtle fills from. */
-    --navy-900: 16 12 26;
-    --navy-850: 26 20 40;
-    --navy-800: 36 28 54;
-    --navy-700: 46 36 66;
+    --navy-900: 14 9 32;
+    --navy-850: 23 15 47;
+    --navy-800: 34 23 69;
+    --navy-700: 47 33 89;
     /* Semantic surface tier — components reference INTENT, not palette steps.
        surface = deepest page/base field; -low = calm/recessed fills (list rows,
        stat cells); -raised = lifted panels/fills; -overlay = top overlay step.
@@ -165,8 +182,10 @@
        ================================================================ */
 
     /* ---- Text — THREE TIERS, AND NO FOURTH ----
-       Measured on the four surface steps: hi 19.27/17.88/16.22/14.51,
-       mid 11.75/10.90/9.89/8.85, lo 7.43/6.89/6.25/5.59. All twelve clear AA and
+       THE THREE HEXES DID NOT MOVE UNDER D-334 and re-hueing them is out of scope of
+       any recolour that does not also sweep the ~728 sites that were moved onto them
+       under issue #27. Re-MEASURED on the new ramp: hi 19.47/18.33/16.45/14.16,
+       mid 11.87/11.18/10.03/8.64, lo 7.50/7.06/6.34/5.46. All twelve clear AA and
        --text-lo IS the floor — there is nothing below it. Because no tier is
        expressed as an alpha on white, a wrapper opacity can no longer multiply a
        floored alpha below AA, which is the D-100 / D-246 defect class by
@@ -269,41 +288,89 @@
        FADE_FLOOR stay until the LAST route lands — 80 files still depend on them. */
 
     /* ---- The six accents ----
+       STILL SIX, AND NO SEVENTH. D-334 RENAMES AND RE-VALUES ONE OF THEM: --sky
+       #5CD2F5 is gone and --volt #3ED8FF stands in its slot, because the chrome accent
+       has to be one of the six rather than a seventh colour bolted on beside them. The
+       other five keep their hexes exactly — marigold included, which is the point:
+       marigold survives as Nepal's identity stop and only stops being the interaction
+       colour.
+
        Each is >=4.5:1 as text on the page field AND >=4.5:1 against --on-accent when
-       used as a fill, so any one of them is legal both ways round. Measured on --bg:
-       marigold 12.13 · coral 7.57 · mint 11.06 · sky 11.01 · violet 7.74 · pink 9.18.
-       --sky is deliberately NOT Japan's identity colour any more; it is a functional
-       information/photography accent. There are exactly six, and no seventh. */
-    --marigold: #FFC43D;  /* primary action · focus ring · Nepal   */
+       used as a fill, so any one of them is legal both ways round. Measured on the new
+       --bg: marigold 12.25 · coral 7.65 · mint 11.17 · volt 11.56 · violet 7.82 ·
+       pink 9.28. */
+    --marigold: #FFC43D;  /* Nepal's gold stop · celebration       */
     --coral:    #FF7A6B;  /* food · warmth · streaks               */
     --mint:     #4ADE80;  /* done · offline-ready · sightseeing    */
-    --sky:      #5CD2F5;  /* information · photography             */
+    --volt:     #3ED8FF;  /* THE CHROME ACCENT: action · focus ring */
     --violet:   #C08CFF;  /* passport · collection · nightlife     */
     --pink:     #FF8FC7;  /* celebration · Japan                   */
     /* Button lips — the shade one step down that makes a control read as a physical
-       object. A lip measures 1.90-2.02:1 against its OWN fill: that is deliberate, it
-       is a shading, not a boundary. The control's boundary against the page is the
-       FILL vs --bg (7.57-12.13:1). Every lip also clears 3:1 against --bg on its own
-       (3.90-6.00:1) so a button never dissolves at its bottom edge. A LIP MAY NEVER
-       BE THE ONLY CUE FOR ANYTHING, and the calm/Tier-3 controls have no lips at all. */
+       object. A lip measures 1.90-2.02:1 against its OWN fill (volt/--lip-volt: 1.96):
+       that is deliberate, it is a shading, not a boundary. The control's boundary
+       against the page is the FILL vs --bg (7.65-12.25:1). Every lip also clears 3:1
+       against --bg on its own (3.94-6.07:1, and --lip-volt at 5.89) so a button never
+       dissolves at its bottom edge. A LIP MAY NEVER BE THE ONLY CUE FOR ANYTHING, and
+       the calm/Tier-3 controls have no lips at all. */
     --lip-marigold: #C08400;
     --lip-coral:    #C24A3D;
     --lip-mint:     #22A15A;
-    --lip-sky:      #2E93B8;
+    --lip-volt:     #1C97CC;
     --lip-violet:   #8A55CC;
     --lip-pink:     #C25C90;
+    /* The primary CTA's gradient, D-334. NO CONSUMER YET, and declared here for the
+       same reason the photo engine and the passport inks are: the values are measured,
+       so the slice that builds the button inherits them instead of picking a second
+       pair by eye. Both stops carry --on-accent ALONE (6.08 / 12.32), which is what
+       makes a gradient fill legal under the ink rule — a reader lands on whichever stop
+       falls under the glyph they are reading, so an average would prove nothing. */
+    --cta-a: #6E8BFF;
+    --cta-b: #43E4FF;
+    --grad-cta: linear-gradient(118deg, var(--cta-a) 0%, var(--cta-b) 100%);
 
     /* ---- Borders ----
        --border (declared above as an HSL triplet for the shadcn/Tailwind `border`
-       key) is #4B3C6E and is DECORATIVE ONLY. --border-ui is the boundary of an
-       INTERACTIVE control: 4.94:1 on --bg, 4.58 on surface-1, 4.15 on surface-2,
-       3.72 on surface-3 — clears WCAG 1.4.11's 3:1 on every step. If a control's
-       edge is the thing telling you it is a control, it takes --border-ui. */
-    --border-ui: #8877B8;
+       key) is #4A3880 and is DECORATIVE ONLY. --border-ui is the boundary of an
+       INTERACTIVE control: 5.89:1 on --bg, 5.54 on surface-1, 4.97 on surface-2,
+       4.28 on surface-3 — clears WCAG 1.4.11's 3:1 on every step, with more room than
+       the 3.72 worst case it replaces. If a control's edge is the thing telling you it
+       is a control, it takes --border-ui. */
+    --border-ui: #9184C9;
+
+    /* ---- The page-header corner wash ----
+       DECORATIVE ONLY, and it is NOT a page-identity claim — see the rule in
+       page-hero.tsx, which forbids a route's identity from being the chrome accent.
+       This is a lift on the panel's top-left corner, nothing more; the identity a
+       route carries is its EYEBROW, and that is assigned per route.
+
+       WHY THIS IS A TOKEN AND NOT A LITERAL, which is the whole point of it. Until
+       D-334 this gradient was pasted as `rgba(240,199,96,0.12)` into NINE places —
+       page-hero.tsx's shared Tier-3 variant plus eight route files that hand-roll
+       their own header. That hex is the RETIRED gold-400 #f0c760, two palettes old.
+       Because it was a literal and not a token, the D-334 sweep went straight past
+       it, and the recolour shipped with a warm gold radial still painting the top
+       corner of ten routes' headers. Measured on the live /settings header at 1280:
+       the panel's top-LEFT sampled rgb(51,38,71) — blue:red 1.39 — against
+       rgb(34,23,69) = 2.03 on the clean surface beside it. That is WARMER than the
+       1.50 the whole change existed to remove, on the routes a user spends the most
+       time in. It is exactly the "hardcoded copy of a token that silently drifts"
+       defect this file already documents three times over.
+
+       So the value lives here, once. Re-pointing the wash is now a one-line edit
+       rather than a nine-file sweep that someone will do eight-ninths of.
+
+       Composited over --surface-2 this measures rgb(37,42,88), blue:red 2.38 — i.e.
+       the wash now reads COOLER than the surface it sits on rather than warmer. */
+    --hero-wash: radial-gradient(120% 140% at 0% 0%, rgb(62 216 255 / 0.10) 0%, transparent 55%);
 
     /* ---- Country identity ----
+       BYTE-IDENTICAL ACROSS D-334, and that is the structural point of that decision
+       rather than an omission from it: these four stops are CONTENT wayfinding for a
+       two-country product, the chrome accent is not, and the whole reason the chrome
+       moved is that marigold was doing both jobs. Do not "harmonise" these with the
+       cooler canvas.
        Japan is PINK -> VIOLET. Nepal is ORANGE -> GOLD. Every stop passes 4.5:1
-       ALONE (np-a 8.22, np-b 12.13, jp-a 9.18, jp-b 7.74 on --bg), which is what
+       ALONE (np-a 8.30, np-b 12.25, jp-a 9.28, jp-b 7.82 on --bg), which is what
        makes these gradients legal as TEXT fills and not only as backgrounds. */
     --np-a: #FF8A3D;
     --np-b: #FFC43D;
@@ -375,8 +442,8 @@
     /* ---- hairline separator ----
        Space-separated RGB channels + alpha so `rgb(var(--hairline))` resolves.
        RE-VALUED from the neutral white/.08 to the ruled rgba(207,198,224,.14), which
-       is the aubergine-tinted separator: it composites to #2B2636 on the page field
-       (1.32:1) and #3C344E on surface-2 (1.39:1).
+       is the aubergine-tinted separator: on the D-334 ramp it composites to #29233B on
+       the page field (1.30:1) and #3A305B on surface-2 (1.37:1).
 
        IT NOW HAS ZERO CONSUMERS, deliberately. The six .glass-* recipes below used
        to take their edge from this token; they now take it from --border, because a
@@ -386,7 +453,7 @@
     --hairline: 207 198 224 / 0.14;
 
     /* ---- semantic tokens ----
-       --accent-scroll: the SINGLE scroll-driven accent. Defaults to marigold;
+       --accent-scroll: the SINGLE scroll-driven accent. Defaults to volt;
        the scroll engine animates it between the country stops by position.
        Consumers reference this var only, so the warm/cool engine has one hook.
        --accent-scroll-rgb mirrors it as an "r, g, b" list for
@@ -401,13 +468,17 @@
        for `ring-ring`. Moving primary/accent/ring to cyan but leaving THIS gold
        would mean the chrome accent never actually moves. Moved as one unit.
 
-       Moved as one unit again here, cyan -> marigold, for the same reason: this is
-       the copy that actually paints :focus-visible's app-wide outline, every
+       Moved as one unit AGAIN under D-334, marigold -> volt, for the same reason: this
+       is the copy that actually paints :focus-visible's app-wide outline, every
        eyebrow, the tab-bar active tint, the h2 underline, --shadow-glow, today-pulse
-       and the drag overlay. Marigold at 12.13:1 on the page field is the ruled focus
-       ring, so the fallback ring and the ring token now agree by construction. */
-    --accent-scroll: 42 100% 62%;
-    --accent-scroll-rgb: 255, 196, 61;
+       and the drag overlay. Volt at 11.56:1 on the page field is the ruled focus ring,
+       so the fallback ring and the ring token still agree by construction. If you are
+       here to change the accent again: --primary, --accent, --ring and THESE TWO are
+       one edit, and --accent-scroll-rgb is the one people forget (it is the "r, g, b"
+       list, not the HSL triplet — the two forms of the same colour cannot be copied
+       between each other). */
+    --accent-scroll: 192 100% 62%;
+    --accent-scroll-rgb: 62, 216, 255;
 
     /* the ambient-phase palette
        (--ambient-a/-b), the 5-layer --gradient-aurora, and both feTurbulence grain
@@ -448,13 +519,21 @@
        seconds cell. A second consumer is a defect — the glow is what marks the one
        thing on screen that is genuinely live, and a second one destroys the signal.
        --shadow-glow keeps its name (8 live var() consumers plus Tailwind's
-       `shadow-glow` key) and is re-pointed at the Nepal glow — it used to be built
-       from --accent-scroll, and marigold IS the Nepal stop, so the warm reading is
-       preserved while the value becomes the ruled one. */
+       `shadow-glow` key). It used to alias --glow-nepal, on the grounds that marigold
+       IS the Nepal stop and was also the chrome accent, so one glow served both.
+       D-334 SPLITS THOSE, and this alias had to move with it: EVERY consumer of
+       --shadow-glow is a `hover:`/`focus-within:` pair that sets
+       `border-[hsl(var(--accent-scroll)/0.55)]` in the same class string
+       (country-essentials x2, photography-guide, recommendation-section,
+       travel-inspiration). Leaving the alias on the Nepal glow would have painted a
+       volt edge inside a gold halo on all five. --glow-volt is that same recipe at the
+       new chrome accent; --glow-nepal keeps its name and value as the COUNTRY glow,
+       with no consumer today, exactly like --grad-nepal. */
+    --glow-volt: 0 16px 34px -12px rgba(62, 216, 255, 0.55);
     --glow-nepal: 0 16px 34px -12px rgba(255, 196, 61, 0.55);
     --glow-japan: 0 16px 34px -12px rgba(192, 140, 255, 0.50);
     --glow-live: 0 0 0 1px rgba(255, 143, 199, 0.34), 0 0 46px -14px rgba(192, 140, 255, 0.75);
-    --shadow-glow: var(--glow-nepal);
+    --shadow-glow: var(--glow-volt);
 
     /* motion values. The previous scale was roughly halved for a "crisp" identity;
        the locked direction re-times it — a touch slower and with a proper reveal
@@ -526,29 +605,29 @@
        harder against direct sunlight glare. Values are pixel-identical in the normal state
        (this block only applies once the attribute is stamped).
 
-       RE-VALUED with the canvas: these were hardcoded copies of the RETIRED blue-navy
-       ramp, so once the channel moved to aubergine this block would have painted the
-       old palette back onto /travel — the same "hardcoded copy of a token that
-       silently drifts" defect this file already documents elsewhere. Same
-       RELATIONSHIP as before (one step darker than the base ramp, a stronger border,
-       a brighter secondary ink), now on the aubergine hue. --border is pointed at
-       --border-ui #8877B8 = hsl(256 31% 59%), which is the ruled INTERACTIVE
-       boundary at 4.94:1 — exactly the right target for a high-legibility mode.
+       RE-VALUED WITH THE CANVAS, TWICE NOW: these are hardcoded copies of the base
+       ramp, so a base-ramp change that skips this block silently paints the RETIRED
+       palette back onto /travel — the same "hardcoded copy of a token that drifts"
+       defect this file documents elsewhere. It happened once already (these were still
+       the blue-navy ramp after the aubergine move) and D-334 is the second time they
+       had to move. Same RELATIONSHIP as before (one step darker than the base ramp, a
+       stronger border, a brighter secondary ink), now on the D-334 ramp. --border is
+       pointed at --border-ui #9184C9 = hsl(251 39% 65%), the ruled INTERACTIVE boundary
+       at 5.89:1 — exactly the right target for a high-legibility mode.
 
-       FOUR STEPS, FOUR VALUES. The base ramp gained --surface-low in this change, so
-       this block gained a slot; each step here is the base ramp shifted down one, and
+       FOUR STEPS, FOUR VALUES. Each step here is the base ramp shifted down one, and
        --surface takes a new deepest value below --bg. Do not collapse two of these
        onto the same value to save a line — if -low and -raised are equal, the 8
        `.glass-subtle` sites become pixel-identical to a raised card and the calm tier
        silently disappears in outdoor mode. Nothing measures this: contrast-tokens.mjs
        does not model the high-legibility ramp, and a collapsed step is not a contrast
        failure anyway, it is a lost distinction. */
-    --surface: 8 6 14;         /* below --bg  — new deepest step */
-    --surface-low: 16 12 26;   /* = --bg        */
-    --surface-raised: 26 20 40;/* = --surface-1 */
-    --surface-overlay: 36 28 54;/* = --surface-2 */
+    --surface: 7 5 16;          /* below --bg  — new deepest step */
+    --surface-low: 14 9 32;     /* = --bg        */
+    --surface-raised: 23 15 47; /* = --surface-1 */
+    --surface-overlay: 34 23 69;/* = --surface-2 */
     --foreground: 0 0% 100%;
-    --border: 256 31% 59%;
+    --border: 251 39% 65%;
     --muted-foreground: 260 25% 88%;
     /* Type-scale bump: `rem` is always ROOT-relative in CSS
        (not ancestor-relative), so every Tailwind `text-*` utility TM's cards use (all `rem`-
@@ -625,7 +704,7 @@ html {
    Country tints survive as CONTENT wayfinding: `.glass-nepal` / `.glass-japan` keep
    a SOLID low-alpha brand tint over the surface fill — re-pointed from the retired
    himalaya/sakura literals to the ruled country stops --np-a / --jp-a. Measured over
-   the new surface-2: --text-hi 13.77 / 13.38, --text-lo 5.31 / 5.16. Both tinted
+   the D-334 surface-2: --text-hi 14.07 / 13.72, --text-lo 5.42 / 5.29. Both tinted
    fills still clear AA for every text tier.
 
    Each recipe below keeps a BORDER, and that is not decoration. F-8, recorded
@@ -661,7 +740,7 @@ html {
 }
 
 /* SPLIT OUT of the shared `.glass-card` rule — it no longer has the same fill. The
-   calm/recessed tier sits on --surface-low (#1A1428), one step below a raised card,
+   calm/recessed tier sits on --surface-low (#170F2F), one step below a raised card,
    which is the whole point of the name. */
 .glass-subtle {
   background: rgb(var(--surface-low));
@@ -1063,8 +1142,8 @@ html {
 }
 
 /* THE FOCUS RING IS INK ON THIS SURFACE, AND THAT IS NOT A PREFERENCE. The app-wide
-   fallback ring is marigold (`:focus-visible`, above), which is a ~12:1 signal on the
-   near-black canvas and a ~1.3:1 non-signal on parchment — a light material dropped
+   fallback ring is volt (`:focus-visible`, above), which is an ~11.6:1 signal on the
+   near-black canvas and a ~1.1:1 non-signal on parchment — a light material dropped
    into a dark-only app takes the whole chrome's contrast assumptions with it. The
    harness carries that pair as a GUARD (it must keep failing) beside the ink pairing
    it is replaced by. The page ships no focusable element of its own today; this rule
@@ -1220,7 +1299,7 @@ html {
    These are the reason every gradient stop had to pass 4.5:1 ALONE: the gradient is
    clipped to TEXT, so a reader lands on whichever stop happens to fall under the
    glyph they are looking at. An average would not be a measurement. Stops on the
-   page field: jp-a 9.18, jp-b 7.74, np-a 8.22, np-b 12.13. */
+   D-334 page field: jp-a 9.28, jp-b 7.82, np-a 8.30, np-b 12.25. */
 .text-gradient-sakura {
   background: linear-gradient(135deg, var(--jp-a) 0%, var(--jp-b) 100%);
   -webkit-background-clip: text;
@@ -1772,7 +1851,9 @@ body:has(form:focus-within) .door-kb {
 .home-nav-link[aria-current='true'] {
   /* was the #f0c760 gold-400 literal. The active-section tint is chrome, so it is
      pointed at the same var the tab-bar's active tint and the focus ring use and
-     can't drift from them. That var is now marigold; this needed no edit. */
+     can't drift from them. That var has since gone gold -> marigold -> volt (D-334)
+     and this line has needed no edit at any of them, which is the whole argument for
+     it. */
   color: hsl(var(--accent-scroll));
 }
 

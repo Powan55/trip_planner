@@ -159,17 +159,19 @@ const config: Config = {
         // D-292 (a route asserted into a tier without being designed). A token change
         // is the wrong place to settle it.
         //
-        // 🔴 THE FINDING THAT GOES WITH THAT, so nobody re-derives it: the retired
+        // 🔴 THE FINDING THAT WENT WITH THAT, AND HOW D-334 CLOSED IT. The retired
         // `gold-500 #d4a843` measures hue 41.8 and marigold measures hue 41.8 — a
-        // delta of ZERO. So the `Attraction` map pin now sits exactly ON the
-        // interaction accent, and it does so whether the 500 moves or not, because
-        // the old gold was already next to the new marigold. The guard in
+        // delta of ZERO — so while marigold was the interaction accent the
+        // `Attraction` map pin sat exactly ON it, with `Cultural` (4.1deg) and
+        // `Restaurant` (19.7deg) barely better. The guard in
         // map-category-mirror.test.ts that exists to catch precisely this (a category
-        // hue must sit >=30deg from the interaction signal) HARDCODES 189, the
-        // retired cyan, so it will keep passing while the collision is real. Making
-        // that guard honest makes it fail, and the only fix for the failure is the
-        // /map palette decision above. Left as-is on purpose; hand it to the /map
-        // slice.
+        // hue must sit >=30deg from the interaction signal) HARDCODED 189, the
+        // retired cyan, so it passed through two whole accent changes while the
+        // collision was real. D-334 moved the chrome accent to volt (hue 192) and made
+        // that guard read the LIVE accent out of globals.css: the closest of the seven
+        // categories is now `Hotel` at 46.7deg and every one passes honestly. The 500s
+        // stay frozen — that is still the /map palette slice's call — but the freeze is
+        // no longer covering for a defect.
         //
         // THE 600 STEPS take the new one-step-down shades. They have ZERO class sites
         // today, which is why they were free to move:
@@ -180,11 +182,13 @@ const config: Config = {
         //                  six ruled lips use, so this lands the missing lip on the
         //                  same rule rather than by eye.
         //
-        // MEASURED on the page field, because these are used as text and not only as
-        // fills: gold-400 12.13, gold-500 8.70, gold-600 6.00 · sakura-300 11.50,
-        // sakura-400 9.18, sakura-500 8.15, sakura-600 4.80 · himalaya-400 8.22,
-        // himalaya-500 6.43, himalaya-600 4.91. Every step clears AA as text on the
-        // new canvas, including the frozen ones.
+        // MEASURED on the D-334 page field, because these are used as text and not
+        // only as fills: gold-400 12.25, gold-500 8.79, gold-600 6.07 · sakura-300
+        // 11.62, sakura-400 9.28, sakura-500 8.23, sakura-600 4.85 · himalaya-400
+        // 8.30, himalaya-500 6.50, himalaya-600 4.96. Every step clears AA as text on
+        // the canvas, including the frozen ones. NONE OF THESE NINE HEXES MOVED in
+        // D-334 — only the chrome accent and the surface ramp did, and these three
+        // families are neither. The numbers changed because the FIELD under them did.
         //
         // THE COST OF FREEZING, named rather than left to be discovered: about 10
         // gold-500 sites now pair a retired-gold wash with marigold text — the

@@ -26,7 +26,7 @@ export default function GlobalError({
           alignItems: 'center',
           justifyContent: 'center',
           padding: '1.5rem',
-          background: '#100C1A', // the page field; a hardcoded copy of --background
+          background: '#0E0920', // the page field; a hardcoded copy of --background (D-334)
           color: '#f7fafc',
           fontFamily:
             'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',

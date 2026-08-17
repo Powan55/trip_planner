@@ -22,16 +22,33 @@ import OptimizedImage from '@/components/optimized-image';
  * component in this file names a colour of its own:
  *
  *   /guides   --coral    | /nepal   --np-b (with the country gradient on the h1)
- *   /map      --sky      | /japan   --jp-a (with the country gradient on the h1)
+ *   /map      --marigold | /japan   --jp-a (with the country gradient on the h1)
  *   /journal  --violet   | /flights --mint
  *
- * `--marigold` is deliberately NOT used as a page identity: it is the app-wide chrome
- * accent (focus ring, tab-bar active tint, section underline), so a route that claimed
- * it would collide with the chrome rather than distinguish itself. `--sky` is the ruled
- * accent for BOTH /map and /flights; /map keeps it, being the information surface, and
- * /flights takes `--mint` ("done · offline-ready" — a booked leg), because two routes
- * sharing an accent defeats the point of a route having one. That is the one deviation
- * in the table above and it is a one-token change either way.
+ * THE RULE IS THAT A PAGE IDENTITY MAY NOT BE THE CHROME ACCENT — a route that claims the
+ * app-wide accent (focus ring, tab-bar active tint, section underline) collides with the
+ * chrome rather than distinguishing itself from it. Under D-334 that used to exclude
+ * `--marigold`; the chrome accent is now `--volt`, and marigold is free.
+ *
+ * WHY /map IS MARIGOLD, since it was briefly --volt and that broke the rule above.
+ * /map's accent was `--sky`, and D-334 renamed and re-valued that slot to `--volt` — the
+ * new chrome accent — so /map inherited the collision MECHANICALLY, as a side effect of a
+ * rename rather than as anyone's decision. Fixed in the same change that caused it: a
+ * collision introduced by a token slice should not outlive it.
+ *
+ * Marigold is genuinely free, and that is the whole argument. It had exactly two roles:
+ * primary action, which is now `--volt`'s, and Nepal. Nepal's identity is carried by
+ * `--np-a` / `--np-b` / `--grad-nepal`, which are their OWN tokens — `--np-b` merely
+ * SHARES marigold's hex, it is not this token. So this does not re-double-book the accent
+ * the way D-334 just un-double-booked it.
+ *
+ * What the /map palette slice still owes (D-292, which asserted /map into a tier without
+ * designing the route) is the map PIN palette. That is a different question from the
+ * header eyebrow and is untouched here.
+ *
+ * `--sky` was previously the ruled accent for BOTH /map and /flights; /flights takes
+ * `--mint` ("done · offline-ready" — a booked leg), because two routes sharing an accent
+ * defeats the point of a route having one.
  *
  * PHOTOGRAPHY. Every image is already bundled and already attributed in
  * `public/images/CREDITS.md`; nothing new was fetched and nothing is hotlinked. Each
@@ -135,7 +152,7 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   // billboards stacked six storeys up, glass towers either side. An aerial — the map
   // page's header is a place seen from above, which is what the page does.
   map: {
-    accent: 'var(--sky)',
+    accent: 'var(--marigold)',
     titleClass: 'text-display-emphasis',
     photo: { src: '/images/featured/shibuya.jpg', country: 'jp', focus: 'center 48%' },
   },
@@ -160,7 +177,7 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   plan: {
     accent: 'hsl(var(--accent-scroll))',
     titleClass: 'text-display-emphasis',
-    wash: 'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.12) 0%, transparent 55%)',
+    wash: 'var(--hero-wash)',
   },
 };
 
