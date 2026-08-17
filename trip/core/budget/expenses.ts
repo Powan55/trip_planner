@@ -24,7 +24,7 @@
 
 import type { ItineraryCategory } from '@/lib/trip-data';
 import type { Leg, SpentInput } from '@/core/budget/model';
-import { BUDGET_CATEGORIES, LEGS, safeAmount } from '@/core/budget/model';
+import { BUDGET_CATEGORIES, isLeg, safeAmount } from '@/core/budget/model';
 
 // ── The Expense shape (gateway key 11 stores an `Expense[]`) ─────────────────────────────
 /**
@@ -36,7 +36,11 @@ import { BUDGET_CATEGORIES, LEGS, safeAmount } from '@/core/budget/model';
 export interface Expense {
   /** Stable unique id — injected by the caller (the hook uses a monotonic browser id). */
   id: string;
-  /** 'nepal' | 'japan' — === the budget model's Leg. */
+  /**
+   * === the budget model's `Leg` (a `string`; 'nepal' | 'japan' for the default pack, 'main' for a
+   * custom single-leg trip). Kept VERBATIM by `sanitizeExpense` even when the active pack does not
+   * know it — see that function for why, and where such a row is excluded instead.
+   */
   leg: Leg;
   /** One of the 10 canonical ItineraryCategory values. */
   category: ItineraryCategory;
@@ -81,20 +85,39 @@ export interface Expense {
   updatedBy?: string;
 }
 
-/** Type guard: the value is one of the ACTIVE pack's legs. */
-function isLeg(value: unknown): value is Leg {
-  return typeof value === 'string' && LEGS.includes(value);
-}
-
 /** Type guard: the value is one of the 10 canonical categories. */
 function isCategory(value: unknown): value is ItineraryCategory {
   return typeof value === 'string' && (BUDGET_CATEGORIES as readonly string[]).includes(value);
 }
 
 /**
- * Coerce any parsed-from-storage / caller-supplied value into a valid `Expense`, or `null` when
- * it is too malformed to salvage (missing/invalid id, leg, or category — those have no safe
- * default). A bad amount degrades to 0 (via `safeAmount`); `date` / `note` drop when not usable;
+ * Coerce any parsed-from-storage / caller-supplied value into a valid `Expense`, or `null` when it
+ * is too malformed to salvage — that is now exactly a missing/invalid `id` or `category`, the two
+ * fields with no safe default.
+ *
+ * ── `leg` is RETAINED VERBATIM, not validated against `LEGS` ──────────────────────────────
+ * Any non-empty string is kept as-is. This used to be `if (!isLeg(v.leg)) return null`, and that
+ * was a data-loss bug, not a guard: `LEGS` is resolved ONCE at module load from whatever pack the
+ * active-trip pointer names, while the storage slot OUTLIVES that resolution. A joiner who logs
+ * expenses before the trip's meta doc arrives, a whole-trip backup restored under a different
+ * pack, and an expenses-only import all hand this function rows whose leg this build does not
+ * recognise. Rejecting them was not "hiding a row" — `saveExpenses` sanitizes on WRITE as well as
+ * read, so the very next commit or remote snapshot deleted them permanently, silently, and the
+ * restore path still reported success because a fully-emptied `[]` is not `null`.
+ *
+ * An unknown leg is INERT, not fatal. It is excluded exactly where it would otherwise corrupt a
+ * number — in the AGGREGATES: `expensesToSpent` and `expensesByDate` skip a row whose leg fails
+ * `isLeg`, and `settle` excludes it structurally by iterating `LEGS`. So a foreign-leg row survives
+ * to be re-homed later without ever inflating a total, a per-day bucket, or a settlement balance.
+ *
+ * ── The retention is LOCAL, and that boundary is exact ────────────────────────────────────
+ * It holds for `loadExpenses` / `saveExpenses`, and therefore for a whole-trip restore and an
+ * expenses-only import. It does NOT survive remote sync: `subscribeRemoteExpenses`' `applySnapshot`
+ * rebuilds the entire local slot by partitioning on its own hardcoded leg list
+ * (`lib/expenses-remote.ts:35`) and persists that result, so on a remote-synced trip a foreign-leg
+ * row is absent from the rebuilt list and erased from the slot on the first snapshot.
+ *
+ * A bad amount degrades to 0 (via `safeAmount`); `date` / `note` drop when not usable;
  * `createdAt` falls back to `''` (kept sortable-last, never a throw). TOTAL.
  */
 export function sanitizeExpense(value: unknown): Expense | null {
@@ -103,12 +126,14 @@ export function sanitizeExpense(value: unknown): Expense | null {
 
   const id = typeof v.id === 'string' && v.id.length > 0 ? v.id : null;
   if (id === null) return null;
-  if (!isLeg(v.leg)) return null;
+  // `Leg` is already `string` (model.ts), so keeping an unrecognised id needs no cast.
+  const leg = typeof v.leg === 'string' && v.leg.length > 0 ? v.leg : null;
+  if (leg === null) return null;
   if (!isCategory(v.category)) return null;
 
   const expense: Expense = {
     id,
-    leg: v.leg,
+    leg,
     category: v.category,
     amount: safeAmount(v.amount),
     createdAt: typeof v.createdAt === 'string' ? v.createdAt : '',
@@ -218,8 +243,9 @@ const noStamp: ExpenseStamper = (e) => e;
  * Append a sanitized new expense to the list. The caller injects `id` + `createdAt` (so the core
  * stays deterministic) and an optional `stamp`. Newest-first is
  * NOT imposed here — the list keeps insertion order; the UI sorts by `createdAt`. Returns a NEW
- * array (never mutates). TOTAL: a malformed input (invalid leg/category) is dropped, returning the
- * list unchanged.
+ * array (never mutates). TOTAL: an unsalvageable input (invalid category / missing id) is dropped,
+ * returning the list unchanged. An unrecognised LEG is not unsalvageable — it is accepted and kept
+ * verbatim (`sanitizeExpense`).
  */
 export function addExpense(
   expenses: readonly Expense[],

@@ -85,13 +85,30 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     const raw = JSON.stringify({
       schemaVersion: 1,
       updatedAt: 'x',
-      payload: [E1, { id: 'bad', leg: 'not-a-leg', category: 'food', amount: 1, createdAt: '' }],
+      payload: [E1, { id: 'bad', leg: 'nepal', category: 'not-a-category', amount: 1, createdAt: '' }],
     });
     const result = parseExpenseBackup(raw);
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.expenses).toHaveLength(1);
       expect(result.expenses[0].id).toBe('e1');
+    }
+  });
+
+  it('a row whose LEG is unknown to the active pack is IMPORTED, not dropped', () => {
+    // This case used to sit in the test above, with `leg: 'not-a-leg'` as the malformed row. It was
+    // pinning a data-loss bug: an expenses-only backup taken under another pack imported 0 rows and
+    // still reported success. An unknown leg is inert (excluded from the aggregates), not fatal.
+    const raw = JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: 'x',
+      payload: [E1, { id: 'm1', leg: 'main', category: 'food', amount: 1, createdAt: '' }],
+    });
+    const result = parseExpenseBackup(raw);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.expenses.map((e) => e.id)).toEqual(['e1', 'm1']);
+      expect(result.expenses[1].leg).toBe('main');
     }
   });
 
