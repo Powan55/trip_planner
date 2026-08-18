@@ -273,6 +273,14 @@ test.describe('S234 — full localStorage key classification on a non-default pa
     'tripPlannerTravelReturn',
     'nepal_japan_device_id',
     'tripPlannerPriorNames', // S390-C key 30 — prior display names (app-scoped, like the identity it belongs to)
+    // Keys 32 and 34 are LIFETIME-scoped (D-314, D-320): deliberately outside the trip namespace
+    // AND outside wipeAllTripData(), which is what this bucket means — they are not trip data and
+    // never carry a `trip:` prefix. `core/storage/gateway.ts:334-346` and `:370-393`. Neither is
+    // written by this spec's own run since D-342 moved the config-less placeholder's span off
+    // today, but a run under `?today=` inside a trip window writes both legitimately, so the
+    // classification has to be right on its own terms rather than by absence.
+    'tripPlannerLifetimeVisits',
+    'tripPlannerVisitConfirmations',
   ]);
   // The default pack's grandfathered trip-scoped literals (D-172): present because the default pack
   // wrote them, and correctly UNTOUCHED while a non-default pack is active.
