@@ -3779,3 +3779,21 @@ D-326 measured the auth panel's **fill** against the cover — 1.74:1 — and ru
 **What DOES hold the hero** is therefore assertion, not pixels: `lib/__tests__/hero-image.test.ts` pins both paths to real `image-manifest.json` keys, `e2e/countdown.spec.ts` pins the resolved raster per leg at `?today=`, `e2e/pwa.spec.ts` pins the precached set and the offline decode (D-335), and `npm run contrast-check` pins every text pairing over the composite. All four were added or extended in #89 precisely because the pixel gate could not carry it.
 
 **Changes if:** the scrim floor drops materially (more photograph on screen raises the diff ratio and could make the pack meaningful again), `maxDiffPixelRatio` is tightened for this spec specifically, or the hero gets its own dedicated shot at a stricter threshold — which is the cheap fix if this keeps costing time.
+
+### D-337 · LOCKED (amends D-073 and D-086 clause (c)) · (issue #109, 2026-08-18) · The image handler decides whether a response IS the image, and falls back to the cache when it is not
+
+`gen-sw.mjs`'s runtime image branch was cache-first → network → `catch` → cache. The `catch` only runs when `fetch` **rejects**, which is a clean disconnect. A captive portal, a hotel or airport splash page, or a lie-fi gateway **resolves** the fetch and returns a login page or an error, so that response was handed straight to the decoder while the real bytes sat in the cache — including the six hero AVIFs D-335 precached specifically so offline is survivable. The condition a traveller hits most was the one condition the fallback did not cover.
+
+The handler now classifies the response before using it (`isUsableImageResponse`), and on an unusable one consults the cache, returning the original response when the cache misses so nothing that works today changes shape.
+
+**The rule, in the order it is applied:**
+
+- **Opaque** (`type === 'opaque'`, `status === 0`) → **trusted, returned as-is.** It cannot be introspected, so classifying it as unusable would route every opaque response to a cache lookup that misses. Unreachable in practice — the origin check in D-086(c) returns first — but the guard must not be what breaks if that ever changes.
+- **404 / 410** → **trusted, returned as-is.** An image that is genuinely gone must keep 404ing rather than resurrecting from cache forever; masking it hides a real deletion from whoever has to fix it. This is the explicit call the issue asked for.
+- **Any other non-`ok`** (a gateway 502, any 5xx) → **cache.**
+- **`ok` with a content type that is present and not `image/*`** → **cache.** This is the captive-portal case and the reason an `ok`-only guard is not enough: a splash page is a *200*, so `!res.ok` alone would miss the very condition this exists for.
+- **`ok` with an ABSENT content type** → **trusted.** Some hosts omit it, and rejecting on absence would break serving that works today.
+
+**Why not blanket `!res.ok`:** it is both too narrow (misses the 200 splash page) and too broad (would mask a real 404). The content type is what actually separates an image from a login page.
+
+**Changes if:** a host starts serving real images with a non-image content type (then the type check needs an allowlist), or 404 masking becomes desirable for a specific path.

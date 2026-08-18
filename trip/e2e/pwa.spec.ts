@@ -573,6 +573,96 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
   });
 
   /**
+   * #109 — the captive-portal shape: the network is UP, and that is the problem.
+   *
+   * The test above covers a clean disconnect, which is the case that already worked: fetch
+   * REJECTS, the catch runs, the cache answers. A hotel/airport gateway does the opposite —
+   * it RESOLVES the fetch with a 200 login page, so the catch never runs and the handler used
+   * to hand that HTML to the image decoder while the precached AVIF sat one cache lookup away.
+   *
+   * WHY THE ROUTE COUNT IS ASSERTED. Playwright only intercepts the service worker's own
+   * fetches under some configurations; if it silently did not, every image would load normally
+   * from the network and this test would pass while exercising nothing. The portalHits check is
+   * what makes a vacuous pass impossible — it fails loudly rather than going green for the wrong
+   * reason, which is the same discipline as the IMAGES_CACHE delete-and-prove above.
+   *
+   * The image cache is wiped first for the same reason as the offline test: it would otherwise
+   * answer from IMAGES_CACHE and never reach the branch under test (D-337).
+   */
+  test('a captive-portal 200 for an image still resolves the hero from cache (#109, D-337)', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/', { waitUntil: 'load' });
+    await waitForActivatedSW(page);
+    await expect
+      .poll(async () =>
+        safeEval(page, async () => {
+          const names = await caches.keys();
+          const precacheName = names.find((n) => n.startsWith('trip-precache-'));
+          if (!precacheName) return 0;
+          const cache = await caches.open(precacheName);
+          return (await cache.keys()).length;
+        }),
+      )
+      .toBeGreaterThan(20);
+
+    const remaining = await safeEval(page, async () => {
+      await caches.delete('trip-images-v1');
+      return (await caches.keys()).filter((n) => n.includes('images'));
+    });
+    expect(
+      remaining,
+      'trip-images-v1 survived the delete (renamed?) — the hero could be served from it and this test would prove nothing',
+    ).toEqual([]);
+
+    // The gateway: every image request resolves 200 with a login page instead of bytes.
+    let portalHits = 0;
+    await context.route(/\.(avif|webp|jpe?g|png)(\?.*)?$/i, async (route) => {
+      portalHits += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: '<!doctype html><html><body>Sign in to continue using this Wi-Fi network</body></html>',
+      });
+    });
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/?today=2026-12-19', { waitUntil: 'load' });
+    await expect(page.getByTestId('hero-travel-mode')).toContainText('Osaka');
+
+    const heroImg = page.locator('.hero-photo-wrap picture img');
+    await expect(
+      heroImg,
+      'captive portal: the hero photograph layer is absent — OptimizedImage errored and hero-section fell to its SVG art',
+    ).toBeVisible();
+
+    await expect
+      .poll(
+        async () =>
+          heroImg.evaluate((el: HTMLImageElement) =>
+            el.complete && el.naturalWidth > 0 ? el.currentSrc : '',
+          ),
+        {
+          message:
+            'captive portal: the hero raster never decoded — the handler returned the login page instead of consulting the cache (#109)',
+        },
+      )
+      .toMatch(/\/images\/hero\/hero-japan(-\d+w)?\.avif$/);
+
+    await expect(
+      page.locator('path[fill="url(#rangeFar)"]'),
+      'captive portal: hero-section painted its SVG fallback mountains, so a hero raster failed to load',
+    ).toHaveCount(0);
+
+    // If this is 0 the portal was never actually simulated and everything above is vacuous.
+    expect(
+      portalHits,
+      'no image request was intercepted — the captive portal was never simulated, so this test proved nothing',
+    ).toBeGreaterThan(0);
+  });
+
+  /**
    * D-335 (issue #89) — the Home hero raster resolves OFFLINE with the runtime image
    * cache gone. This is the only test of the hero precache's actual purpose.
    *

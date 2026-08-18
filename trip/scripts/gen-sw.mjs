@@ -974,6 +974,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Is this response actually the image, or something a gateway substituted for it (#109)?
+  //
+  //  - OPAQUE (status 0, cross-origin no-cors) is trusted and returned as-is. It cannot be
+  //    introspected, so treating it as unusable would send every one to a cache lookup that
+  //    misses. Unreachable here anyway -- cross-origin returns earlier (D-086c) -- but the guard
+  //    must not be the thing that breaks if that ever changes.
+  //  - 404 / 410 are trusted and returned as-is. An image that is genuinely gone should 404, not
+  //    resurrect from cache forever; masking it hides a real deletion from whoever has to fix it.
+  //  - Any other non-ok (a gateway 502, a 5xx) is unusable -> consult the cache.
+  //  - An ok response whose content type is present and is not image/* is the captive-portal
+  //    login page -> consult the cache. An ABSENT content type is trusted rather than rejected:
+  //    some hosts omit it, and rejecting on absence would break serving that works today.
+  const isUsableImageResponse = (res) => {
+    if (!res) return false;
+    if (res.type === 'opaque') return true;
+    if (res.status === 404 || res.status === 410) return true;
+    if (!res.ok) return false;
+    const type = (res.headers.get('Content-Type') || '').toLowerCase();
+    return type === '' || type.startsWith('image/');
+  };
+
   // Runtime image cache (cache-first, LRU-capped, separate cache).
   if (isImageRequest(request, url)) {
     event.respondWith(
@@ -982,7 +1003,23 @@ self.addEventListener('fetch', (event) => {
         if (cached) return cached;
         try {
           const res = await fetch(request);
-          if (res && res.ok && res.type === 'basic') {
+          // A response is not the same thing as the image (#109). A captive portal, a hotel or
+          // airport gateway, or a lie-fi proxy RESOLVES the fetch and hands back a login page or
+          // an error, so the catch below never runs and we used to return that straight to the
+          // decoder -- while the real bytes sat in the cache. Decide here whether what came back
+          // is actually usable, and consult the cache when it is not.
+          //
+          // THE 200 CASE IS THE POINT. A splash page is ok, so an ok-only guard would miss the
+          // very condition this exists for; the content type is what separates an image from a
+          // login page. On a miss we return the original response, so nothing that works today
+          // changes shape.
+          if (!isUsableImageResponse(res)) {
+            return (await caches.match(request)) || res;
+          }
+          // res.ok is restated here deliberately: isUsableImageResponse lets a 404/410
+          // THROUGH (it is a real answer and must not be masked), but a 404 must never be
+          // written into the image cache the way the pre-#109 res.ok guard already prevented.
+          if (res.ok && res.type === 'basic') {
             const cache = await caches.open(IMAGES_CACHE);
             await cache.put(request, res.clone());
             trimImageCache();
