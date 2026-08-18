@@ -235,7 +235,7 @@ service cloud.firestore {
       // would have to know a membership before it is allowed to check whether the account
       // exists at all.
       match /profile/{document=**} {
-        allow get, delete: if request.auth != null;
+        allow get: if request.auth != null;
         allow create, update: if request.auth != null && boundedWrite();
       }
 
@@ -249,15 +249,23 @@ service cloud.firestore {
 
       // ── everything under a known trip ─────────────────────────────────────────
       // days/{date}, expenses/{leg}, budget/model, docs/checklist, meta/info,
-      // profile/tripList, presence/{deviceId} — verified against every real write call
-      // site in nextjs_space/lib/*-remote.ts + presence.ts as of S358. Full read+write,
+      // profile/tripList, presence/{deviceId}, places/list — verified against every real
+      // write call site in nextjs_space/lib/*-remote.ts + presence.ts as of S358. Full read+write,
       // including subcollection queries, to any MEMBER (which, on a trip with no members
       // map, is anyone signed in who holds the tripId — the capability model, unchanged).
       // `get, list, delete` + `create, update` is exactly the former `get, list, write`
       // (write ≡ create+update+delete) with the shape guard on the two ops that carry a
-      // payload — the D-219 block split is UNCHANGED.
+      // payload — the D-219 block split is UNCHANGED, except `delete` now carries the
+      // D-9 `sub != 'profile'` exception directly below.
       match /{sub}/{document=**} {
-        allow get, list, delete: if isMember();
+        // `delete` excludes `sub == 'profile'` (D-9): matches ORed across sibling blocks
+        // mean this wildcard would otherwise re-grant the delete the carve-out above just
+        // narrowed away — `isMember()` is trivially true here on any trip id with no
+        // top-level doc yet, which is exactly the account-path shape (D-296) the carve-out
+        // exists for. `get, list` are unaffected: that capability-only read/write exposure
+        // on `profile/**` is the accepted cost stated in the carve-out's own header.
+        allow get, list: if isMember();
+        allow delete: if isMember() && sub != 'profile';
         allow create, update: if isMember() && boundedWrite();
       }
     }

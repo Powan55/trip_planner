@@ -2,7 +2,7 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v5.14.4`, deployed 2026-08-14. The newest live worker is `v1.8.0`, shipped 2026-08-09. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, which is a stronger condition than `v5.14.0` being deployed. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v5.14.4`, deployed 2026-08-14. The newest live worker is `v1.8.1`, shipped 2026-08-17. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, which is a stronger condition than `v5.14.0` being deployed. Read the heading before assuming a version is in production.
 
 **The newest entry is ahead of the live app, by two versions now.** `v6.0.0` and `v5.15.0` are both recorded below and neither is deployed — `main` is at `v5.14.4` and `v5.14.4` is the newest deploy tag. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is now the same case** — it was prepared, never tagged, and its contents ship inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
@@ -12,7 +12,22 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
-## v6.0.0 (app) · NOT DEPLOYED · prepared 2026-08-16 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+## v1.8.1 (worker) — 2026-08-17 · **LIVE**
+
+A rate limit on the concierge Worker, which had none at all before this. Worker-only: the app did not deploy, `trip/package.json` stays at `6.0.0`, and `main` is still at `v5.14.4`. This is the one carve-out from the hold recorded on the entry below (approved 2026-08-17), because the Worker is a separate service on its own version line and a deploy of it touches neither `main` nor the app bundle.
+
+- The Worker had no rate limiting of any kind. Its URL ships inlined in the public Pages bundle by construction (`NEXT_PUBLIC_*`) and is committed in the clear in this repo, and the trip-token gate has nothing to check a token against (D-221), so any non-empty string passes it. Two headers was the whole recipe for unlimited LLM calls.
+- The cost was availability, not money: free tiers only, no card on file. Groq's daily cap dies first and every concierge turn starts returning 502; then Cloudflare's 100k requests/day takes both routes dark. Nobody gets a bill, the app just stops answering.
+- What shipped is a first-class `[[ratelimits]]` binding at 60 requests per 60 s keyed on the client IP, plus `[observability]` so the effect is measurable at all.
+- The ceiling, stated rather than softened: the binding offers only 10 s and 60 s windows, so a per-minute limit does not bound a daily quota. At 60/60 s a single IP still gets 86,400/day, past Groq's cap. It is per-colo and best-effort, not a global counter, and IP keying is defeated by a distributed source. The guard also sits after the origin, route and token checks, so 403/405/401 responses never consult it and still spend Cloudflare's daily allowance. This converts "one laptop with a `for` loop" into "sustained traffic from many IPs for hours" — a real improvement and **not a fix**.
+- It fails open by design, on both an absent binding and a rejecting one. The reasoning is in **D-338**, and that is where a reader should go before changing any of it.
+- Worker `v1.9.0` is still built and still deliberately unshipped. This shipped as a patch on the live 1.8.x line precisely so that number stays reserved for the membership gate.
+
+**Shipped:** version id `5031e0fb-7b1d-41f3-aac8-341703463233`, deployed 2026-08-17, replacing `157ed2e0-2cfb-4044-af3e-ea80bc1b4ce6` (`v1.8.0`, 2026-08-09). Live-probed after deploy: a normal concierge turn returns 200 with `access-control-allow-origin: https://powan55.github.io`, answered by `openai/gpt-oss-120b`.
+
+---
+
+## ⛔ v6.0.0 (app) · **NOT DEPLOYED** · prepared 2026-08-16 · worker is at v1.8.1 (v1.9.0 built and deliberately unshipped)
 
 **Held deliberately.** This entry exists so the version is pinned and the gate is satisfiable; it is NOT cleared to ship. A full bug sweep and a research pass on further changes are being run separately, and `main` stays at `v5.14.4` until those finish. Do not merge `dev` into `main` on the strength of this entry alone — that merge deploys immediately.
 
@@ -22,7 +37,7 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ### What is new since the v5.15.0 notes were written
 
-**The chrome accent moved off gold (#91, D-334).** Marigold `#FFC43D` → volt `#22D3EE` for `--primary` and `--ring`, over a chromatic purple ramp. Two follow-ups were needed because a recolour is never one value: `/map` keeps marigold deliberately rather than taking the chrome accent (D-334), and the retired gold turned out to have survived on ten route headers, which is the kind of thing only a grep finds.
+**The chrome accent moved off gold (#91, D-334).** Marigold `#FFC43D` → volt `#3ED8FF` for `--primary` and `--ring`, over a chromatic purple ramp. Two follow-ups were needed because a recolour is never one value: `/map` keeps marigold deliberately rather than taking the chrome accent (D-334), and the retired gold turned out to have survived on ten route headers, which is the kind of thing only a grep finds.
 
 **Two empty grid tracks that painted as solid slabs.** The stat row was `sm:grid-cols-4` while carrying six cells (#90), so at ≥640px the last two tracks stood empty — and because the dividers are the container showing through 1px gaps, an empty track is not empty, it paints `bg-border`. The bento had the same defect in every tile-count state (#106). Both are grid-arithmetic bugs with a visual signature, and the stat row now carries a comment saying the column count must divide the cell count exactly, because it will happen again otherwise.
 
@@ -46,7 +61,7 @@ Also on that slice: a per-frame `object-position` knob, a one-div highlight cap 
 
 ---
 
-## v5.15.0 (app) · 2026-08-16 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
+## ⛔ v5.15.0 (app) · **NOT DEPLOYED** · 2026-08-16 · worker stays at v1.8.0 (v1.9.0 built and deliberately unshipped)
 
 The redesign lands, and it is the largest single release in this repo's history: 61 commits, and it closes 35 tracker issues. The app that ships here does not look like the one before it.
 

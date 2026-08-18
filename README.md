@@ -43,8 +43,11 @@ devices when the build is wired to Firebase.
 - **Installable PWA** – web app manifest + a hand-rolled service worker precache the app
   shell, so the app installs to a home screen and keeps working offline; updates surface as
   a "New version available" toast (never a silent refresh).
-- **Design** – dark, glassy, gold/himalaya/sakura-accented theme; responsive down to small
-  phones; `prefers-reduced-motion` respected throughout.
+- **Design** – dark, glassy theme on an aubergine night field (`#0E0920` → `#2F2159`), with
+  one cool chrome accent for anything pressable (volt `#3ED8FF`, which is also the focus ring)
+  and warm country gradients kept for content rather than controls (Nepal `#FF8A3D` → `#FFC43D`,
+  Japan `#FF8FC7` → `#C08CFF`); text sits on three solid tiers that all clear AA; responsive
+  down to small phones; `prefers-reduced-motion` respected throughout.
 
 ## Tech stack
 
@@ -61,7 +64,7 @@ devices when the build is wired to Firebase.
 
 ```bash
 cd trip
-npm install --legacy-peer-deps
+npm ci --legacy-peer-deps
 npm run dev
 ```
 

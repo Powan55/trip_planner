@@ -86,6 +86,13 @@ function refuses(code: number) {
   });
 }
 
+/** Today (UTC), derived exactly as the PRE-D-342 placeholder trip config derived its own span. */
+function realTodayUtc(): string {
+  const now = new Date();
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${now.getUTCFullYear()}-${p(now.getUTCMonth() + 1)}-${p(now.getUTCDate())}`;
+}
+
 /** Everything currently on disk, keys and values, as one string — for the privacy sweep. */
 function dumpStorage(): string {
   const parts: string[] = [];
@@ -417,6 +424,33 @@ describe('one shot, on DAY CHANGE only', () => {
     expect(getCurrentPosition).not.toHaveBeenCalled();
     // ...and the trip still counted itself in full on the way past.
     expect(after.getVisited().cities).toContain('Tokyo');
+  });
+
+  it('a config-less joined trip is never IN PROGRESS — nothing counted, no prompt (D-342)', async () => {
+    const getCurrentPosition = grants(KATHMANDU);
+    setGeolocation({ getCurrentPosition });
+
+    // The joiner's NORMAL state (SB-6 / A-2): a registered TripMeta with no config block, so the
+    // active pack resolves to `placeholderTripConfig` — one day, at a fixed unreachable sentinel.
+    const { joinTrip } = await import('@/core/trips/registry');
+    joinTrip('joined-no-config');
+
+    // The clock is the REAL current UTC day, uniquely in this file, and that is the point: it is
+    // the one reading that catches a placeholder span moved back onto "today" (the pre-D-342 code
+    // asked for a location every day of the year, and stamped 'Somewhere' into the LIFETIME
+    // record). Still deterministic — with a fixed far-future span, no real date is ever a trip day.
+    const today = realTodayUtc();
+    const { runVisitAutocount, getVisited, getVisitConfirmations } = await load({ today });
+
+    runVisitAutocount();
+
+    // Nothing reached key 32, which survives sign-out and wipeAllTripData() (D-314).
+    expect(getVisited().cities).toEqual([]);
+    expect(window.localStorage.getItem(VISITS_KEY)).toBeNull();
+    // `getTodayInTrip()` is null, so the one-shot check hard-stops BEFORE markVisitCheck.
+    expect(getVisitConfirmations().checkedOn).not.toBe(today);
+    expect(getVisitConfirmations().checkedOn).toBeNull();
+    expect(getCurrentPosition).not.toHaveBeenCalled();
   });
 
   it('uses a one-shot getCurrentPosition and never a position stream', async () => {

@@ -65,9 +65,18 @@ async function gotoSettled(page: Page, path: string) {
   await waitForPlannerReady(page);
 }
 
-/** Add an itinerary item on KNOWN_DAY via the real editor (mirrors persistence.spec's proven flow). */
-async function addItineraryItem(page: Page, title: string) {
-  await page.getByTestId(`calendar-day-${KNOWN_DAY}`).click();
+/**
+ * Add an itinerary item via the real editor (mirrors persistence.spec's proven flow).
+ * `day` defaults to KNOWN_DAY (the default Nepal×Japan pack). Pass `'auto'` for a pack whose day
+ * cells aren't known in advance (e.g. the SB-6 single-day placeholder pack) to resolve the first
+ * `calendar-day-*` cell live, the same pattern `waitForPlannerReady` uses.
+ */
+async function addItineraryItem(page: Page, title: string, day: string = KNOWN_DAY) {
+  if (day === 'auto') {
+    await page.locator('[data-testid^="calendar-day-"]').first().click();
+  } else {
+    await page.getByTestId(`calendar-day-${day}`).click();
+  }
   await page.getByTestId('calendar-add-item').click();
   await expect(page.getByTestId('calendar-editor')).toBeVisible();
   await page.getByTestId('calendar-editor-title-input').pressSequentially(title, { delay: 10 });
@@ -105,10 +114,12 @@ async function openTripGroup(page: Page) {
  * S390-F deleted Settings' own "Create new trip" card (two create paths with different guarantees —
  * `/trips/` is the one that names the trip and pushes its meta). Add-by-Trip-Token is the
  * behaviour-preserving substitute for THIS net, and deliberately so: it calls the same `joinTrip(id)`
- * primitive with no trip config, so the resulting pack still renders the Nepal×Japan template that
- * every assertion below reads (`calendar-day-2026-12-11`, the packing template item). Driving
- * `/trips/`'s create instead would mint a CUSTOM-dated trip and silently stop testing isolation
- * against the seeded content. Returns the new pack's token.
+ * primitive with no trip config. Since SB-6 (A-2 fix), joining a never-before-seen id no longer falls
+ * back to the Nepal×Japan template — it resolves to `placeholderTripConfig`, a single-day pack (leg
+ * id `'main'`, `start=end=today`, city `'Somewhere'`). Assertions against this fresh pack must resolve
+ * its one day dynamically rather than assume `calendar-day-2026-12-11` is present. Driving `/trips/`'s
+ * create instead would mint a CUSTOM-dated trip and silently stop testing isolation against the seeded
+ * content. Returns the new pack's token.
  */
 async function createPackViaSettings(page: Page): Promise<string> {
   const id = crypto.randomUUID();
@@ -153,15 +164,15 @@ test.describe('S234 — itinerary isolation across a real Create/Join round-trip
     // The default pack's itinerary key is UNTOUCHED by the switch (still holds the edit).
     expect(await readKey(page, ITINERARY_KEY)).toBe(defaultItineraryBefore);
 
-    // ── On the new pack: it shows the template seed, NOT the default pack's edit. ──
+    // ── On the new pack: it's the SB-6 single-day placeholder, NOT the default pack's edit. ──
     await gotoSettled(page, '/plan/');
-    await page.getByTestId(`calendar-day-${KNOWN_DAY}`).click();
+    await page.locator('[data-testid^="calendar-day-"]').first().click();
     await expect(
       page.locator('[data-testid^="calendar-item-"]').filter({ hasText: 'DEFAULT-PACK-ITEM' }),
     ).toHaveCount(0);
 
     // Write in the new pack. It must land in trip:{token}:itinerary, never the legacy literal.
-    await addItineraryItem(page, 'NEWPACK-ITEM');
+    await addItineraryItem(page, 'NEWPACK-ITEM', 'auto');
     expect(await readKey(page, `trip:${newToken}:itinerary`)).toContain('NEWPACK-ITEM');
     const defaultDuringNewPack = await readKey(page, ITINERARY_KEY);
     expect(defaultDuringNewPack).toBe(defaultItineraryBefore); // legacy key still pristine
@@ -262,6 +273,14 @@ test.describe('S234 — full localStorage key classification on a non-default pa
     'tripPlannerTravelReturn',
     'nepal_japan_device_id',
     'tripPlannerPriorNames', // S390-C key 30 — prior display names (app-scoped, like the identity it belongs to)
+    // Keys 32 and 34 are LIFETIME-scoped (D-314, D-320): deliberately outside the trip namespace
+    // AND outside wipeAllTripData(), which is what this bucket means — they are not trip data and
+    // never carry a `trip:` prefix. `core/storage/gateway.ts:334-346` and `:370-393`. Neither is
+    // written by this spec's own run since D-342 moved the config-less placeholder's span off
+    // today, but a run under `?today=` inside a trip window writes both legitimately, so the
+    // classification has to be right on its own terms rather than by absence.
+    'tripPlannerLifetimeVisits',
+    'tripPlannerVisitConfirmations',
   ]);
   // The default pack's grandfathered trip-scoped literals (D-172): present because the default pack
   // wrote them, and correctly UNTOUCHED while a non-default pack is active.
@@ -297,7 +316,7 @@ test.describe('S234 — full localStorage key classification on a non-default pa
 
     // Write in the new pack so a trip:{token}:* key exists.
     await gotoSettled(page, '/plan/');
-    await addItineraryItem(page, 'CLASSIFY-NEWPACK');
+    await addItineraryItem(page, 'CLASSIFY-NEWPACK', 'auto');
 
     const all = await readAll(page);
     const keys = Object.keys(all);

@@ -122,9 +122,18 @@ describe('addExpense / updateExpense / removeExpense — pure transforms (inject
     expect(base).toHaveLength(0);
   });
 
-  it('addExpense drops a wholly-malformed input (invalid leg) — list returned unchanged', () => {
-    const bad = { leg: 'atlantis', category: 'food', amount: 100 } as unknown as NewExpenseInput;
-    expect(addExpense([exp()], bad, 'z', 'w')).toHaveLength(1);
+  it('addExpense ACCEPTS an unknown leg (kept verbatim) — an unrecognised leg is not malformed', () => {
+    const foreign = { leg: 'main', category: 'food', amount: 100 } as unknown as NewExpenseInput;
+    const list = addExpense([exp()], foreign, 'z', 'w');
+    expect(list).toHaveLength(2);
+    expect(list[1]).toMatchObject({ id: 'z', leg: 'main', category: 'food', amount: 100 });
+  });
+
+  it('addExpense still drops a wholly-malformed input (bad category / missing id) — list unchanged', () => {
+    const badCategory = { leg: 'nepal', category: 'bogus', amount: 100 } as unknown as NewExpenseInput;
+    expect(addExpense([exp()], badCategory, 'z', 'w')).toHaveLength(1);
+    // An empty injected id is unsalvageable too (id has no safe default).
+    expect(addExpense([exp()], { leg: 'nepal', category: 'food', amount: 100 }, '', 'w')).toHaveLength(1);
   });
 
   it('updateExpense patches a matching id, PRESERVING id + createdAt; non-match is a no-op', () => {
@@ -166,11 +175,14 @@ describe('sanitizers — TOTAL (a corrupt slot never crashes the store)', () => 
     expect(e).not.toHaveProperty('note');
   });
 
-  it('sanitizeExpense returns null when id / leg / category cannot be salvaged', () => {
+  it('sanitizeExpense returns null when id / category cannot be salvaged (leg is NOT one of them)', () => {
     expect(sanitizeExpense(null)).toBeNull();
     expect(sanitizeExpense({ leg: 'nepal', category: 'food' })).toBeNull(); // no id
-    expect(sanitizeExpense({ id: 'x', leg: 'atlantis', category: 'food' })).toBeNull();
     expect(sanitizeExpense({ id: 'x', leg: 'nepal', category: 'bogus' })).toBeNull();
+    // A leg still has to BE something — an absent / empty / non-string leg is unsalvageable.
+    expect(sanitizeExpense({ id: 'x', category: 'food' })).toBeNull();
+    expect(sanitizeExpense({ id: 'x', leg: '', category: 'food' })).toBeNull();
+    expect(sanitizeExpense({ id: 'x', leg: 7, category: 'food' })).toBeNull();
   });
 
   it('sanitizeExpenses drops non-array input and unsalvageable entries', () => {
@@ -183,5 +195,53 @@ describe('sanitizers — TOTAL (a corrupt slot never crashes the store)', () => 
       { garbage: true },
     ]);
     expect(cleaned.map((e) => e.id)).toEqual(['a', 'b']);
+  });
+});
+
+describe('an UNKNOWN leg is retained by the sanitizers and excluded from the aggregates', () => {
+  it("sanitizeExpense KEEPS a 'main' row verbatim, every other field intact", () => {
+    const e = sanitizeExpense({
+      id: 'm1',
+      leg: 'main', // the custom single-leg pack's id — not in the default pack's LEGS
+      category: 'food',
+      amount: 1200,
+      date: '2026-12-11',
+      note: 'Lunch',
+      createdAt: '2026-12-11T09:00:00.000Z',
+    });
+    expect(e).toEqual({
+      id: 'm1',
+      leg: 'main',
+      category: 'food',
+      amount: 1200,
+      date: '2026-12-11',
+      note: 'Lunch',
+      createdAt: '2026-12-11T09:00:00.000Z',
+    });
+  });
+
+  it("the A-6 shape: a list whose legs are ALL unknown sanitizes to a NON-EMPTY list, never []", () => {
+    // A cross-pack backup restore. `[] !== null` cleared the backup lib's never-destroy gate, so an
+    // emptied list was WRITTEN and the UI reported "Trip restored" over a wipe.
+    const restored = sanitizeExpenses([
+      { id: 'm1', leg: 'main', category: 'food', amount: 1200, createdAt: 't1' },
+      { id: 'm2', leg: 'main', category: 'hotel', amount: 8000, createdAt: 't2' },
+      { id: 'm3', leg: 'main', category: 'transportation', amount: 300, createdAt: 't3' },
+    ]);
+    expect(restored).toHaveLength(3);
+    expect(restored.map((e) => e.leg)).toEqual(['main', 'main', 'main']);
+  });
+
+  it('expensesToSpent still EXCLUDES the retained unknown-leg row from every total', () => {
+    const spent = expensesToSpent([
+      exp({ id: 'n', leg: 'nepal', category: 'food', amount: 1000 }),
+      exp({ id: 'm', leg: 'main', category: 'food', amount: 9999 }), // retained on disk, not counted
+    ]);
+    expect(spent).toEqual({ byLeg: { nepal: 1000 }, byCategory: { nepal: { food: 1000 } } });
+    expect(spent.byLeg).not.toHaveProperty('main');
+    // …and therefore contributes nothing to the rollup the panel renders.
+    const roll = rollUp(budget({ legBudgets: { nepal: 5000, japan: 0 } }), spent);
+    expect(roll.legs.find((l) => l.leg === 'nepal')!.spentLocal).toBe(1000);
+    expect(roll.legs.map((l) => l.leg)).toEqual(['nepal', 'japan']); // no 'main' line appears
   });
 });

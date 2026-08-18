@@ -5,7 +5,8 @@
  * (`export-import.ts` is untouched). THIS module is the wider "back up my WHOLE trip" that
  * "changes if the scope widens" clause names: one gzip file carrying every LOCAL user domain of the
  * ACTIVE trip — journal, photos (meta + blob bytes), expenses, budget, docs, packing, favorites,
- * day-anchors, share-inbox — plus the itinerary nested as its own existing versioned Vault envelope.
+ * day-anchors, share-inbox, my-places — plus the itinerary nested as its own existing versioned
+ * Vault envelope.
  *
  * PRIVACY: photos are device-local, zero-egress. They are included here ONLY in a file the
  * user explicitly downloads to their own device — never a network egress — and the UI copy
@@ -15,8 +16,11 @@
  *
  * NEVER-DESTROY on import:
  * Phase A — parse the whole file into memory with ZERO writes. A non-JSON / unrecognized file is
- * quarantined (via the itinerary corrupt slot) and rejected. A malformed single domain is
- * DROPPED (its current on-disk data left untouched), never aborting the whole restore.
+ * quarantined (via the itinerary corrupt slot) and rejected. A recognized full backup whose
+ * `tripId` does not match the currently ACTIVE trip is refused outright (A-5) — export trip A,
+ * switch to trip B, restore, and without this check every domain of B silently becomes A's. A
+ * malformed single domain is DROPPED (its current on-disk data left untouched), never aborting
+ * the whole restore.
  * Phase B — commit each successfully-parsed domain via its existing accessor. Photo blobs are
  * written FIRST (id-preserving `putWithId`, so meta↔blob links survive) then the meta index; a
  * blob that fails to store leaves its meta as a placeholder and increments `photosSkipped`.
@@ -35,13 +39,16 @@ import {
   dayAnchorStore,
   shareInboxStore,
   getActiveTripId,
+  type TripScopedSlot,
 } from '@/core/storage/gateway';
+import { myPlacesStore } from '@/core/storage/my-places-store';
 import { sanitizeEntries } from '@/core/journal/model';
 import { sanitizeExpenses } from '@/core/budget/expenses';
 import { normalizeModel } from '@/core/budget/model';
 import { sanitizeItems as sanitizeDocs } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
 import { sanitizeItems as sanitizeShare } from '@/core/share/model';
+import { sanitizePlaces } from '@/core/places/model';
 import { sanitizePhotos, type PhotoMeta } from '@/core/photos/model';
 import { loadPhotos, savePhotos } from '@/core/photos/storage';
 import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
@@ -94,7 +101,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * The eight generic (non-itinerary, non-photo) domains. Each entry knows how to READ its raw value for
+ * The nine generic (non-itinerary, non-photo) domains. Each entry knows how to READ its raw value for
  * export, WRITE a cleaned value on import, and VALIDATE an imported value — returning `null` to DROP a
  * malformed domain (never-destroy: a drop leaves the live on-disk data untouched). The validate gate is
  * a TOP-LEVEL shape check (array vs object) followed by the domain's own existing sanitizer; the shape
@@ -106,7 +113,10 @@ type DomainSpec = {
   validate: (parsed: unknown) => unknown | null;
 };
 
-const DOMAINS: Record<string, DomainSpec> = {
+// Declared with `satisfies` rather than a `: Record<string, DomainSpec>` annotation so `keyof typeof
+// DOMAINS` below stays the literal key union instead of widening to `string` — the annotation would
+// make the exhaustiveness guard below vacuously true regardless of which keys actually exist.
+const DOMAINS = {
   journal: {
     read: () => journalStore.get<unknown>(ABSENT),
     write: (v) => journalStore.set(v),
@@ -152,7 +162,35 @@ const DOMAINS: Record<string, DomainSpec> = {
     write: (v) => shareInboxStore.set(v),
     validate: (v) => (Array.isArray(v) ? sanitizeShare(v) : null),
   },
-};
+  // A-9: the one TRIP_SCOPED_SLOTS domain the original DOMAINS list omitted. Same read/write/validate
+  // shape as every other generic domain, reusing the places domain's own total sanitizer
+  // (`core/places/model.ts`) rather than inventing one — an imported place is a `MyPlace[]`, same
+  // array-of-rows shape as journal/expenses/etc. `myPlacesStore` is imported from its own module
+  // (not `gateway.ts`, which deliberately omits it for bundle-size reasons — see that store's header)
+  // since backup.ts is not part of the app-wide First Load chunk.
+  myPlaces: {
+    read: () => myPlacesStore.get<unknown>(ABSENT),
+    write: (v) => myPlacesStore.set(v),
+    validate: (v) => (Array.isArray(v) ? sanitizePlaces(v) : null),
+  },
+} satisfies Record<string, DomainSpec>;
+
+/**
+ * Root-cause guard for A-9: a compile-time tie between `DOMAINS`' keys and every `TripScopedSlot`,
+ * the same exhaustiveness idiom `gateway.ts`'s `_ExhaustiveTripScopedSlots` uses. `itinerary` and
+ * `photos` are handled OUTSIDE `DOMAINS` (their own sections above/below) rather than missing; the
+ * other three are D-227's deliberate exclusions (`weatherCache` regenerable, `syncOutbox` transient
+ * sync machinery, `itineraryCorrupt` quarantine). Add a member to `TripScopedSlot` without adding it
+ * to one of these four buckets and `tsc` fails here — so a slot can never again silently ride along
+ * in `TRIP_SCOPED_SLOTS` (and therefore get wiped by the sign-out "back up first" button) without
+ * this backup module knowing to carry it.
+ */
+type _ExhaustiveBackupDomains = [TripScopedSlot] extends
+  [keyof typeof DOMAINS | 'itinerary' | 'photos' | 'weatherCache' | 'syncOutbox' | 'itineraryCorrupt']
+  ? true
+  : never;
+const _exhaustiveBackupDomains: _ExhaustiveBackupDomains = true;
+void _exhaustiveBackupDomains;
 
 // ── base64 (large-blob safe) ────────────────────────────────────────────────
 /**
@@ -292,8 +330,20 @@ export async function importTripBackup(
     return { ok: true, restored: ['itinerary'], photosSkipped: 0 };
   }
 
-  // ── Phase A — parse everything into memory, ZERO domain writes ──
+  // A-5: refuse a cross-trip restore rather than silently overwriting the active trip. `env.tripId`
+  // is stamped by `exportTripBackup` (above) at export time; comparing it to the CURRENTLY active
+  // trip is the only signal in the envelope naming which trip it belongs to. Without this, exporting
+  // trip A, switching to trip B, and restoring silently replaces every domain of B with A's — and
+  // under sync propagates to B's other members. Zero writes have happened yet (still Phase A).
   const env = parsed;
+  if (env.tripId !== getActiveTripId()) {
+    return {
+      ok: false,
+      error: 'This backup is from a different trip. Switch to that trip, then restore it there.',
+    };
+  }
+
+  // ── Phase A — parse everything into memory, ZERO domain writes ──
   const domainWrites: Array<[string, unknown]> = [];
   for (const [slot, spec] of Object.entries(DOMAINS)) {
     if (!(slot in env.domains)) continue;
@@ -340,8 +390,11 @@ export async function importTripBackup(
     if (metas.length > 0) restored.push('photos');
   }
 
+  // `slot` here is a runtime string key (built from `Object.entries` above), not one of DOMAINS'
+  // literal keys — the cast is safe because `slot` only ever came FROM `Object.entries(DOMAINS)`.
+  const domainsBySlot = DOMAINS as Record<string, DomainSpec>;
   for (const [slot, cleaned] of domainWrites) {
-    DOMAINS[slot].write(cleaned);
+    domainsBySlot[slot].write(cleaned);
     restored.push(slot);
   }
 

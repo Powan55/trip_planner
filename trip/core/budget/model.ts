@@ -53,6 +53,19 @@ export type Leg = string; // === DayPlan.country
  */
 export const LEGS: readonly Leg[] = getActiveTrip().legs.map((l) => l.id);
 
+/**
+ * Type guard: the value is one of the ACTIVE pack's legs. Lives HERE, next to `LEGS` (its only
+ * source), so `core/budget/expenses.ts` and `core/budget/burn-rate.ts` share one definition rather
+ * than each keeping a private copy.
+ *
+ * Note where it is and is NOT applied: the read/write sanitizers deliberately do NOT use it (an
+ * unrecognised leg is kept verbatim — see `sanitizeExpense`), while every AGGREGATE does, so a
+ * retained foreign-leg row round-trips through storage without corrupting a total.
+ */
+export function isLeg(value: unknown): value is Leg {
+  return typeof value === 'string' && LEGS.includes(value);
+}
+
 /** Each leg's fixed LOCAL currency, derived from the active pack. */
 const LEG_CURRENCY: Record<Leg, CurrencyCode> = Object.fromEntries(
   getActiveTrip().legs.map((l) => [l.id, normalizeCurrency(l.currency)]),
@@ -353,15 +366,43 @@ export function normalizeModel(value: unknown): BudgetModel {
   if (value === null || typeof value !== 'object') return { ...DEFAULT_BUDGET, rates: { ...SEED_RATES } };
   const v = value as Partial<BudgetModel>;
 
+  // ── Unknown leg keys are PRESERVED (a deliberate stored-schema guard) ────────────────────
+  // `LEGS` is resolved ONCE at module load from whatever pack the active-trip pointer names, but
+  // the storage slot OUTLIVES that resolution: a config-less join that later heals, a whole-trip
+  // backup restored under a different pack, or a budget import all present leg ids this build does
+  // not know. Rebuilding these maps from `LEGS` alone turned `{ main: 5000 }` into
+  // `{ nepal: 0, japan: 0 }` — and since the storage adapter normalizes on WRITE as well as read,
+  // that was a permanent deletion of real money on the next save, not a hidden field. So: seed
+  // every active leg, and KEEP any other stored key (still `safeAmount`-coerced).
+  // The retention is INERT — `rollUp` iterates `LEGS.map`, so a preserved extra key contributes to
+  // no line and no total; outbound sync is inert too (`flattenBudget` iterates `LEGS` for BOTH
+  // maps, so a preserved key is never emitted, never stamped, never written up). It survives the
+  // LOCAL round-trip, which is what makes a later change to the `legBudgets` key set
+  // non-destructive. Inbound is where it stops: `unflattenBudget` rebuilds `legBudgets` from `LEGS`
+  // alone (`core/budget/flatten.ts:64`), so on a remote-synced trip the first budget snapshot
+  // persists a model without the preserved key.
+  //
+  // `__proto__` is the one stored key NOT preserved (D-307 family). It arrives as a real own
+  // property out of `JSON.parse`, but assigning it hits the `Object.prototype` setter rather than
+  // defining a key: on `legBudgets` a number is silently swallowed, and on `categoryBudgets` an
+  // object REPLACES the prototype of the map we return. Skip it in both loops.
   const legBudgetsRaw = (v.legBudgets ?? {}) as Partial<Record<Leg, unknown>>;
   const legBudgets: Record<Leg, number> = {};
+  for (const [key, amt] of Object.entries(legBudgetsRaw)) {
+    if (key === '__proto__') continue;
+    legBudgets[key] = safeAmount(amt);
+  }
   for (const leg of LEGS) legBudgets[leg] = safeAmount(legBudgetsRaw[leg]);
 
   const catRaw = (v.categoryBudgets ?? {}) as Partial<
     Record<Leg, Partial<Record<ItineraryCategory, unknown>>>
   >;
   const categoryBudgets: BudgetModel['categoryBudgets'] = {};
-  for (const leg of LEGS) {
+  // Same guard, same reason: iterate the UNION of the active pack's legs and the leg keys the slot
+  // actually carries. Categories are still filtered to `BUDGET_CATEGORIES` and non-positive amounts
+  // still dropped, so an unknown leg buys no laxity beyond keeping its own key.
+  for (const leg of new Set<Leg>([...LEGS, ...Object.keys(catRaw)])) {
+    if (leg === '__proto__') continue; // see above — this assignment would rewrite the prototype
     const legCats = catRaw[leg];
     if (!legCats || typeof legCats !== 'object') continue;
     const cleaned: Partial<Record<ItineraryCategory, number>> = {};
