@@ -4,6 +4,8 @@ import {
   sanitizeTripConfig,
   setTripConfig,
   getKnownTrip,
+  joinTrip,
+  upsertKnownTrip,
   type TripConfigBlock,
 } from '@/core/trips/registry';
 import { customTripConfig, buildDayShells, VIBES, vibeFor } from '@/core/trips/custom';
@@ -86,9 +88,34 @@ describe('customTripConfig — single-leg synthesis (Plan D2)', () => {
     expect(cfg!.legs[0].currency).toBe('USD');
   });
 
-  it('returns null when the meta carries no config (⇒ caller falls to the default pack)', () => {
-    expect(customTripConfig({ id: 'x', name: 'X', joinedAt: 1 })).toBeNull();
+  it('returns null only when the id is not a known trip at all (⇒ caller falls to the default pack)', () => {
     expect(customTripConfig(undefined)).toBeNull();
+    expect(customTripConfig(null)).toBeNull();
+  });
+
+  // A-2 (SB-6): a REGISTERED trip (join-by-Trip-Token's normal, config-less state) must never
+  // fall through null → NEPAL_JAPAN_2026 — that silently handed a stranger's trip the whole
+  // Nepal×Japan pack. It now gets a placeholder instead.
+  it('a known trip with no config block gets a placeholder, not null', () => {
+    const cfg = customTripConfig({ id: 'x', name: 'X', joinedAt: 1 });
+    expect(cfg).not.toBeNull();
+    expect(cfg!.id).toBe('x');
+    expect(cfg!.label).toBe('X');
+    expect(cfg!.contentRef).toBe('empty');
+    expect(cfg!.legs).toHaveLength(1);
+    expect(cfg!.legs[0].id).toBe('main');
+    expect(cfg!.legs[0].currency).toBe('USD');
+    // Never Kathmandu/Tokyo (A-28 — the downstream visited-city symptom of A-2).
+    expect(cfg!.legs[0].fallbackCity).not.toMatch(/Kathmandu|Tokyo|Osaka/);
+    expect(cfg!.start).toBe(cfg!.end); // single-day placeholder span
+  });
+
+  it('the placeholder is a single day → buildDayShells manufactures ONE shell, not 32', () => {
+    const cfg = customTripConfig({ id: 'x', name: 'X', joinedAt: 1 })!;
+    const shells = buildDayShells(cfg);
+    expect(shells).toHaveLength(1);
+    expect(shells[0].country).toBe('main');
+    expect(shells[0].items).toEqual([]);
   });
 });
 
@@ -144,6 +171,68 @@ describe('getTripConfig — pack → custom → default fallthrough (Plan D2)', 
     expect(isDefaultTrip()).toBe(true); // unset pointer ⇒ default
     setActiveTripId('custom-1');
     expect(isDefaultTrip()).toBe(false);
+  });
+});
+
+// A-4 (SB-6, D-307): a prototype-key trip id must resolve TOTAL — never a function, never a
+// crash — through `TRIP_PACKS`'s own-key read guard.
+describe('getTripConfig — prototype-pollution-shaped ids never leak a function (A-4, D-307)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  for (const poison of ['constructor', '__proto__', 'toString']) {
+    it(`getTripConfig('${poison}') never joined ⇒ safe fallback to the default pack, never a function`, () => {
+      const cfg = getTripConfig(poison);
+      expect(typeof cfg).toBe('object');
+      expect(Array.isArray(cfg.legs)).toBe(true);
+      expect(cfg.legs.length).toBeGreaterThan(0);
+      expect(cfg).toBe(NEPAL_JAPAN_2026); // unregistered id ⇒ same as any other unknown id
+    });
+
+    it(`getTripConfig('${poison}') after joinTrip('${poison}') ⇒ the config-less placeholder, never a crash`, () => {
+      // The reachable path: pasting the poison string into "Add a trip by Trip Token" (or
+      // `?trip=${poison}`) calls joinTrip, which registers it with NO config block — exactly
+      // the A-2 config-less state, now on a prototype-key id.
+      joinTrip(poison);
+      const cfg = getTripConfig(poison);
+      // was TRIP_PACKS[poison] === the Object constructor (typeof 'function') pre-fix.
+      expect(typeof cfg).not.toBe('function');
+      expect(Array.isArray(cfg.legs)).toBe(true);
+      expect(cfg.legs[0].id).toBe('main'); // the placeholder, not NEPAL_JAPAN_2026's 'nepal'/'japan'
+      // The old bug crashed HERE: `activeTrip.legs.find(...)` at module load
+      // (core/dates/trip-dates.ts:33) on a `.legs === undefined` config. Prove it no longer throws.
+      expect(() => cfg.legs.find((l) => l.id === 'nepal')).not.toThrow();
+    });
+  }
+});
+
+// A-2 root-cause proof: the seed branch `reconcileFirstSnapshot` (lib/itinerary-remote.ts) pushes
+// to Firestore is `loadPlans()`'s vault fallback, `buildDayShells(getActiveTrip())` — this proves
+// that fallback shrinks from the default pack's 32 Nepal/Japan shells to the placeholder's 1,
+// without needing a Firestore fake (buildDayShells/getTripConfig are pure; itinerary-remote.ts is
+// untouched by this slice).
+describe('A-2 — a config-less joiner writes ~0 day docs, not the whole Nepal×Japan pack', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it('config-less join: the itinerary Vault fallback is 1 shell (was 32 Nepal/Japan shells pre-fix)', () => {
+    joinTrip('joined-no-config');
+    const cfg = getTripConfig('joined-no-config');
+    expect(cfg).not.toBe(NEPAL_JAPAN_2026); // the actual pre-fix defect
+    const shells = buildDayShells(cfg);
+    expect(shells).toHaveLength(1); // reconcileFirstSnapshot's seed branch pushes exactly this
+    expect(shells[0].country).toBe('main');
+    expect(shells[0].city).not.toMatch(/Kathmandu|Osaka|Tokyo/); // A-28 closed as a side effect
+  });
+
+  it('a config-less join never resolves to a 2-leg (nepal/japan) config', () => {
+    upsertKnownTrip('joined-2', 'Some Trip');
+    const cfg = getTripConfig('joined-2');
+    expect(cfg.legs.map((l) => l.id)).toEqual(['main']);
   });
 });
 
