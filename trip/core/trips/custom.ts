@@ -68,12 +68,23 @@ export function vibeFor(key: string | undefined): Vibe {
 }
 
 /**
- * Synthesize a single-leg `TripConfig` from a TripMeta's config block, or `null` when the meta
- * carries no config (⇒ the caller falls through to the default pack). PURE + TOTAL.
+ * Synthesize a single-leg `TripConfig` from a TripMeta's config block, or a PLACEHOLDER
+ * single-leg config when the meta is registered but carries no config yet, or `null` when the
+ * id isn't a known trip at all (⇒ the caller falls through to the default pack). PURE + TOTAL.
+ *
+ * A-2 (SB-6): join-by-Trip-Token / the `?trip=` handshake register a `TripMeta` with NO
+ * `config` block — that is the NORMAL state for a joiner, not an edge case (`TripMeta.config`'s
+ * own doc comment: "Absent for … join-by-key"). The old code returned `null` here for that case,
+ * so `getTripConfig` fell through to `NEPAL_JAPAN_2026` — the joiner's own trip silently became a
+ * 32-day Nepal×Japan itinerary, and `reconcileFirstSnapshot`'s seed branch (`lib/itinerary-remote.ts`)
+ * then wrote those 32 Nepal/Japan day shells into the joiner's OWN (empty) Firestore trip. A
+ * genuinely unknown id (`meta` itself absent — never joined) still returns `null` so an unrelated
+ * lookup keeps falling to the default pack (unchanged, pinned by `trips-pack.test.ts`).
  */
 export function customTripConfig(meta: TripMeta | undefined | null): TripConfig | null {
-  const c = meta?.config;
-  if (!meta || !c) return null;
+  if (!meta) return null;
+  const c = meta.config;
+  if (!c) return placeholderTripConfig(meta);
   const countryLabel = c.destinations.join(' × ');
   const currency = c.currency ?? 'USD';
   return {
@@ -92,6 +103,47 @@ export function customTripConfig(meta: TripMeta | undefined | null): TripConfig 
         contentKey: 'main',
         utcOffsetMin: 0,
         fallbackCity: c.destinations[0],
+      },
+    ],
+  };
+}
+
+/** `fallbackCity` for a placeholder trip — no destination is known yet, so this is a generic,
+ * honest stand-in rather than guessing a real place (never Kathmandu/Tokyo — that was A-28, a
+ * downstream symptom of A-2: `getCityForDate`'s custom-trip branch reads `legForDate(…).fallbackCity`,
+ * so a config-less trip that fell through to the Nepal×Japan pack stamped the lifetime visited-city
+ * record with whichever of those cities the CURRENT calendar date happened to land on). */
+const PLACEHOLDER_CITY = 'Somewhere';
+
+/**
+ * A minimal single-day, single-leg `TripConfig` for a KNOWN trip (a registered `TripMeta`) that
+ * has no user-authored config yet. Its itinerary Vault fallback (`buildDayShells`, below) then
+ * manufactures exactly ONE empty day shell instead of the default pack's 32 — the day
+ * `reconcileFirstSnapshot`'s seed branch pushes to Firestore for a config-less joiner. The span is
+ * "today" (UTC) both start and end, re-evaluated fresh each call — deliberately not cached at
+ * module load like the pack constants, since a placeholder has no fixed dates to freeze. PURE
+ * relative to its args (no storage read) but NOT time-pure — `meta` alone can't decide "today",
+ * and freezing a stale date here would be worse than a moving one.
+ */
+function placeholderTripConfig(meta: TripMeta): TripConfig {
+  const now = new Date();
+  const today = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
+  return {
+    id: meta.id,
+    label: meta.name,
+    start: today,
+    end: today,
+    contentRef: 'empty',
+    legs: [
+      {
+        id: 'main',
+        countryLabel: meta.name,
+        currency: 'USD',
+        start: today,
+        end: today,
+        contentKey: 'main',
+        utcOffsetMin: 0,
+        fallbackCity: PLACEHOLDER_CITY,
       },
     ],
   };

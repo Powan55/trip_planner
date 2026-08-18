@@ -31,12 +31,27 @@ export const TRIP_PACKS: Record<string, TripConfig> = {
 
 /**
  * TOTAL — resolve a trip's config. Precedence: a registered static PACK, else a
- * CUSTOM trip's synthesized single-leg config (from its TripMeta config block), else the default
- * pack. The default pack short-circuits on the first lookup, so its path is unchanged (no registry
- * read, no side effect) and byte-identical to pre-. Never throws.
+ * CUSTOM trip's synthesized single-leg config (from its TripMeta config block, or a placeholder
+ * when that block is absent — `customTripConfig`), else the default pack. The default pack
+ * short-circuits on the first lookup, so its path is unchanged (no registry read, no side effect)
+ * and byte-identical to pre-. Never throws.
+ *
+ * A-4 (SB-6, D-307): `TRIP_PACKS` is a plain object literal, so a bare `TRIP_PACKS[id]` returns a
+ * non-nullish value for a prototype key name — `TRIP_PACKS['constructor']` is the `Object`
+ * function, `TRIP_PACKS['toString']` a function, `TRIP_PACKS['__proto__']` is `Object.prototype`
+ * — and `??` never fires. `id` is `getActiveTripId()`, a raw unvalidated localStorage string a
+ * user can set to any of those via "Add a trip by Trip Token" or `?trip=`, so this returned a
+ * FUNCTION where every caller expects a `TripConfig`. `core/dates/trip-dates.ts` then reads
+ * `activeTrip.legs.find(...)` at MODULE LOAD and throws — pulled in by `lib/trip-data.ts`, which
+ * `components/command-palette.tsx` imports and root `app/layout.tsx` mounts statically, so EVERY
+ * route fails to evaluate with no in-app recovery. Read through the own-key idiom already
+ * established at the 4 sibling sites for this exact defect class (`core/budget/model.ts:165`,
+ * `core/dates/trip-cities.ts:88`, `lib/city-coords.ts:63`, `lib/leg-label.ts:63`) instead of the
+ * bare index.
  */
 export function getTripConfig(id: string): TripConfig {
-  return TRIP_PACKS[id] ?? customTripConfig(getKnownTrip(id)) ?? NEPAL_JAPAN_2026;
+  const pack = Object.prototype.hasOwnProperty.call(TRIP_PACKS, id) ? TRIP_PACKS[id] : undefined;
+  return pack ?? customTripConfig(getKnownTrip(id)) ?? NEPAL_JAPAN_2026;
 }
 
 /** The active trip — resolved through the gateway pointer. Unknown/unset ⇒ default pack. */
