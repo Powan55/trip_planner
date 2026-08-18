@@ -105,6 +105,13 @@ const ALLOWED_LINES = [
   /getFullYear\(\)\} Lax/,
   // SVG keyword and the npm package name, neither related to work-slicing.
   /xMidYMax slice|prototype\.slice/,
+  // Cloudflare Worker deploy "Version ID"s (RELEASES.md, DECISIONS.md,
+  // V-FINAL-DEVPLAN.md) are UUID-shaped but name a `wrangler` deploy, not a
+  // Firestore trip — a different namespace entirely, recorded on purpose.
+  /version id `/i,
+  // trip-key-migration.md's own instructions show the UUID SHAPE as a worked
+  // example ("a v4 UUID, e.g. `...`"), not a real trip's id.
+  /UUID, e\.g\. `/,
 ];
 
 // Two files legitimately contain the very strings this script looks for: the
@@ -166,6 +173,33 @@ function scanDocRefs(text, relPath, repoRoot) {
       if (!candidates.some((p) => fs.existsSync(p))) {
         hits.push({ file: relPath, line: idx + 1, rule: 'dangling-doc-ref', text: ref });
       }
+    }
+  });
+  return hits;
+}
+
+/**
+ * Flag a bare UUID-shaped string in a markdown doc — the shape
+ * `crypto.randomUUID()` produces for a Firestore trip id (`core/trips/custom.ts`,
+ * `getTripId()`). A trip id IS the capability: anyone who opens one is
+ * self-enrolled into that trip's roster (`ensureMembership`,
+ * `lib/trips-remote.ts`), so one landing in this public repo's prose is a
+ * live leak, not a cosmetic one — D-341 records the one this rule follows.
+ *
+ * Markdown-only, deliberately, same reasoning as `dangling-doc-ref`: a
+ * UUID-shaped constant in a `.test.ts`/`.spec.ts` fixture or in
+ * `scripts/rules-check.mjs` is a synthetic id exercised only against the
+ * local emulator project — a different risk class — and a repo-wide rule
+ * would be swamped by those before it ever caught a real doc leak.
+ */
+function scanTripIds(text, relPath) {
+  const hits = [];
+  const re = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
+  text.split('\n').forEach((line, idx) => {
+    if (ALLOWED_LINES.some((r) => r.test(line))) return;
+    re.lastIndex = 0;
+    if (re.test(line)) {
+      hits.push({ file: relPath, line: idx + 1, rule: 'trip-id', text: line.trim().slice(0, 120) });
     }
   });
   return hits;
@@ -238,6 +272,20 @@ function selfTest() {
   assert.deepEqual(refs('see **docs/definitely-not-here.md**'), ['docs/definitely-not-here.md']);
   assert.deepEqual(refs('see `DECISIONS.md` at the root'), []);
 
+  // trip-id is markdown-only too (same reasoning as dangling-doc-ref above):
+  // catches a bare Firestore trip id in prose, leaves the two UUID-shaped
+  // exceptions already living in this repo alone.
+  const tripIds = (s) => scanTripIds(s, 'x.md').map((h) => h.rule);
+  assert.deepEqual(
+    tripIds('a throwaway trip ("QA Sync Check", id `0a1b2c3d-4e5f-6789-abcd-ef0123456789`)'),
+    ['trip-id'],
+  );
+  assert.deepEqual(tripIds('**Shipped:** Version ID `157ed2e0-2cfb-4044-af3e-ea80bc1b4ce6`'), []);
+  assert.deepEqual(
+    tripIds('Copy the result (a v4 UUID, e.g. `e1a9c2f4-7b3d-4c1a-9e2b-6f8a1d4c7b90`).'),
+    [],
+  );
+
   console.log('self-test: all assertions passed');
 }
 
@@ -268,7 +316,10 @@ function main() {
     const text = buf.toString('utf-8');
     scanned++;
     hits.push(...scanText(text, rel));
-    if (ext === '.md') hits.push(...scanDocRefs(text, rel, repoRoot));
+    if (ext === '.md') {
+      hits.push(...scanDocRefs(text, rel, repoRoot));
+      hits.push(...scanTripIds(text, rel));
+    }
   }
 
   if (hits.length === 0) {

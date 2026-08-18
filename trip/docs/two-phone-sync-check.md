@@ -8,7 +8,7 @@ Firestore in CI); this run is that procedure carried out for real, extended to t
 spec file doesn't cover (saved places, expenses, documents) and to the offline-reconnect case.
 
 **Who ran it:** Uttam, from the assistant session, 2026-08-15.
-**Against:** a throwaway custom trip ("QA Sync Check", id `f18f907a-264d-4a2e-a934-f1659fd41e12`)
+**Against:** a throwaway custom trip ("QA Sync Check", id `[redacted — see D-341]`)
 created for this check — NOT the live `nepalxjapan` trip, so nothing here touches real trip data.
 **Setup:** Device A = the sandboxed browser pane, signed in as "QA Device A". Device B = a separate
 real-Chrome profile, signed in as "QA Device B", joined via Device A's Trip Token. Two distinct
