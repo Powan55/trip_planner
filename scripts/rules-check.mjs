@@ -515,7 +515,7 @@ await expect('authed get on the PRESENT identity doc -> EXISTS', 'ALLOWED', asyn
   const snap = await getDoc(doc(db, 'trips', ACCT, 'profile', 'identity'));
   if (!snap.exists()) throw new Error('fixture: the probe target must exist by now');
 });
-await expect('authed deletes trips/{acct}/profile/identity', 'ALLOWED',
+await expect('authed deletes trips/{acct}/profile/identity -> DENIED (D-9: no client path deletes a profile doc; the door\'s identity doc must not be destroyable by a token-holder)', 'DENIED',
   () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'identity')));
 await expect('UNAUTH gets trips/{acct}/profile/identity', 'DENIED',
   () => getDoc(doc(dbU, 'trips', ACCT, 'profile', 'identity')));
