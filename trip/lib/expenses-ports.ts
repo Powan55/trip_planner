@@ -10,17 +10,28 @@
 import type { StoragePort, SyncPort } from '@/core/ports';
 import type { Expense } from '@/core/budget/expenses';
 import { expensesStoragePort } from '@/core/budget/storage';
+// The ACTIVE pack's leg ids. Pack-derived, never a literal tuple — see the legRows note below.
+import { LEGS, type Leg } from '@/core/budget/model';
 import { isRemoteConfigured } from './firebase-config';
 import { withOutbox, type ChunkSync } from '@/core/sync/outbox';
 
-/** Rows for one leg, in stable insertion order (for the prev/next chunk-diff compare). */
-function legRows(list: Expense[], leg: 'nepal' | 'japan'): Expense[] {
+/**
+ * Rows for one leg, in stable insertion order (for the prev/next chunk-diff compare).
+ *
+ * `leg` is a pack-derived `Leg`, NOT the `'nepal' | 'japan'` literal union it used to be (#85).
+ * That union WAS the bug: a custom trip's only leg is `'main'`, so its rows fell outside both the
+ * type and the `chunkDiff` loop below, and the whole domain silently stopped syncing.
+ */
+function legRows(list: Expense[], leg: Leg): Expense[] {
   return list.filter((e) => e.leg === leg);
 }
 
 /**
- * Expense `ChunkSync` for the offline outbox. Chunk = a leg (`'nepal'` | `'japan'`,
- *).
+ * Expense `ChunkSync` for the offline outbox. Chunk = a leg — whichever legs the ACTIVE pack
+ * declares (`['nepal','japan']` on the default pack, `['main']` on a custom trip), read from
+ * `core/budget/model`'s pack-derived `LEGS`. It used to be a hardcoded `['nepal','japan']`
+ * tuple, which is #85: on a custom trip `chunkDiff` compared two permanently-empty buckets,
+ * never reported a change, so `pushChunk` was never called at all.
  * - `chunkDiff` = the legs whose row-set changed prev→next (per-leg JSON compare, inlined so
  * this module keeps NOT statically importing `expenses-remote` — firebase stays off the
  * dormant hot path,).
@@ -31,7 +42,7 @@ const expensesChunkSync: ChunkSync<Expense[]> = {
   domain: 'expenses',
   chunkDiff(prev, next) {
     const changed: string[] = [];
-    for (const leg of ['nepal', 'japan'] as const) {
+    for (const leg of LEGS) {
       if (JSON.stringify(legRows(prev, leg)) !== JSON.stringify(legRows(next, leg))) {
         changed.push(leg);
       }
