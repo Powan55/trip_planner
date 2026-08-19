@@ -462,7 +462,9 @@ test.describe('S146 settings — relocated currency & rates re-express the /plan
     });
 
     await expandGroup(page, 'settings-group-currency');
-    await page.getByTestId('budget-rate-npr').fill('100'); // 13800 / 100 = 138 USD
+    const rate = page.getByTestId('budget-rate-npr');
+    await rate.fill('100'); // 13800 / 100 = 138 USD
+    await rate.blur();
 
     await expect
       .poll(async () => (await readKey(page, BUDGET_KEY) as { rates: { NPR: number } }).rates.NPR)

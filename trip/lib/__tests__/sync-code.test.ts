@@ -82,6 +82,8 @@ vi.mock('firebase/app', () => ({
 }));
 vi.mock('firebase/firestore', () => ({
   getFirestore: () => fake,
+  initializeFirestore: () => fake,
+  persistentLocalCache: () => ({}),
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: segs.join('/') }),
   setDoc: async (ref: { path: string }, data: DocData) => {
     writeLog.push({ path: ref.path, data });

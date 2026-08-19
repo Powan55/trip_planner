@@ -13,11 +13,14 @@
 import { packingStore, hasKey, keyFor } from '@/core/storage/gateway';
 import type { StoragePort } from '@/core/ports';
 import { sanitizeItems, DEFAULT_TEMPLATE, type PackingItem } from '@/core/packing/model';
+import { isDefaultTrip } from '@/core/trips';
 
-/** Load + sanitize the persisted packing list (the built-in template when absent/SSR/corrupt/empty). */
+/** Load + sanitize the persisted packing list (the built-in template when absent/SSR/corrupt/empty
+ * on the default trip; just the `universal`-category items on a custom trip — A-15/#102). */
 export function loadPacking(): PackingItem[] {
-  const raw = packingStore.get<unknown>(DEFAULT_TEMPLATE);
-  return sanitizeItems(raw);
+  const fallback = isDefaultTrip() ? DEFAULT_TEMPLATE : DEFAULT_TEMPLATE.filter((i) => i.category === 'universal');
+  const raw = packingStore.get<unknown>(fallback);
+  return sanitizeItems(raw, fallback);
 }
 
 /** Sanitize + persist the whole packing list as JSON. No-op / never-throws under SSR or storage failure. */

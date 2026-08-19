@@ -39,6 +39,7 @@ import TripMap, {
 } from '@/components/trip-map';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { cityCoord } from '@/lib/city-coords';
+import { legLabel } from '@/lib/leg-label';
 import { visitedCountryFootprints } from '@/lib/visited-footprint';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useOnline } from '@/hooks/use-online';
@@ -386,7 +387,7 @@ export default function MapSection() {
           category: 'Attraction',
           // The trip LEG the day belongs to (the same value the rest of the app reads),
           // not a geographic claim — see core/content/itinerary.ts on Dec 9 / New York.
-          country: day.country === 'nepal' ? 'Nepal' : 'Japan',
+          country: legLabel(day.country),
           area: 'A city on your trip',
           description:
             'One of the cities on your itinerary. The map centres on the city itself, not on a single address.',

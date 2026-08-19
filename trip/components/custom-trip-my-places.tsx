@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
+import { getActiveTrip } from '@/core/trips';
 
 /**
  * CustomTripMyPlaces — the "My places" mount for a CUSTOM trip's home surface. Custom trips
@@ -29,5 +30,11 @@ export default function CustomTripMyPlaces() {
   }, []);
 
   if (!isCustom) return null;
-  return <MyPlacesSection legId="main" />;
+  // A-17: a custom trip is always single-leg (core/trips/custom.ts) — same precedent as
+  // core/places/model.ts's `inferLegId` (legs.length === 1 → legs[0].id). The static
+  // `getActiveTrip` import here adds no weight to Home's First Load JS: this whole component is
+  // `dynamic(..., { ssr: false })`'d at app/page.tsx (`CustomTripMyPlaces`), so it's its own
+  // chunk and never lands in Home's initial bundle regardless of what it imports statically
+  // inside its own module.
+  return <MyPlacesSection legId={getActiveTrip().legs[0]?.id ?? 'main'} />;
 }

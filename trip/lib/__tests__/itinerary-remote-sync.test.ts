@@ -58,6 +58,9 @@ type DocData = Record<string, unknown>;
 class FakeFirestore {
   docs = new Map<string, DocData>(); // path -> data
   snapshotListeners: Array<(snap: FakeQuerySnapshot) => void> = [];
+  // A-20 test hook only: when set, getDocFromServer awaits this before resolving — lets a test
+  // hold the first-snapshot trip-doc marker read open so it can unsubscribe mid-flight.
+  markerReadDelay: Promise<void> | null = null;
 
   setDocData(path: string, data: DocData) {
     this.docs.set(path, JSON.parse(JSON.stringify(data)));
@@ -115,6 +118,8 @@ vi.mock('firebase/app', () => ({
 vi.mock('firebase/firestore', () => {
   return {
     getFirestore: () => fake,
+  initializeFirestore: () => fake,
+  persistentLocalCache: () => ({}),
     collection: (_db: unknown, ...segs: string[]) => ({ __type: 'collection', path: pathOf(segs) }),
     doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: pathOf(segs) }),
     onSnapshot: (
@@ -133,6 +138,7 @@ vi.mock('firebase/firestore', () => {
       return { exists: () => data !== undefined, data: () => data };
     },
     getDocFromServer: async (ref: { path: string }) => {
+      if (ref.path === `trips/${TRIP_ID}` && fake.markerReadDelay) await fake.markerReadDelay;
       const data = fake.docs.get(ref.path);
       return { exists: () => data !== undefined, data: () => data };
     },
@@ -197,6 +203,7 @@ beforeEach(() => {
   localStorage.clear();
   fake.docs.clear();
   fake.snapshotListeners = [];
+  fake.markerReadDelay = null;
   writeLog.length = 0;
 });
 
@@ -316,6 +323,43 @@ describe('SNAPSHOT-MERGE applies remote against local WITHOUT pushing (echo-supp
     expect(c.rev).toBe(1); // defaulted on read
     expect(c.deleted).toBe(false);
     unsub();
+  });
+});
+
+describe('A-20 — an in-flight first-snapshot reconcile is discarded if cancelled before it lands', () => {
+  it('unsubscribing while the marker read is pending drops the applied result: no local write, nothing pushed', async () => {
+    // A synced group (marker present) with a remote day the peer already wrote — the shape that
+    // would otherwise take the AUTHORITATIVE apply branch in reconcileFirstSnapshot.
+    fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+    fake.setDocData(`trips/${TRIP_ID}/days/2026-12-09`, {
+      date: '2026-12-09',
+      city: 'Kathmandu',
+      country: 'nepal',
+      items: [item('R', { title: 'R remote', hlc: hlc(1000, 'peer'), rev: 1 })],
+    });
+
+    // Hold the trip-doc marker read open so the test controls exactly when it resolves.
+    let releaseMarkerRead: () => void = () => {};
+    fake.markerReadDelay = new Promise<void>((resolve) => {
+      releaseMarkerRead = resolve;
+    });
+
+    const unsub = subscribeRemote();
+    await flush(); // attemptSetup resolves getRemote(); the onSnapshot listener is attached
+    fake.emitServerSnapshot(); // drives reconcileFirstSnapshot(), which now hangs on the marker read
+    await flush(); // let the async IIFE run up to the pending getDocFromServer await
+
+    // Unsubscribe (sets `cancelled = true`) BEFORE the marker read resolves.
+    unsub();
+    releaseMarkerRead();
+    await flush();
+    await flush();
+
+    // The wrapped callback re-checked `cancelled` when it actually ran and no-op'd: the local
+    // itinerary key was never written to (still absent — nothing was ever persisted here), and
+    // nothing was pushed either.
+    expect(window.localStorage.getItem(ITINERARY_STORAGE_KEY)).toBeNull();
+    expect(writeLog).toEqual([]);
   });
 });
 

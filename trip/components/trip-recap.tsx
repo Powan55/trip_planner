@@ -5,7 +5,7 @@ import { m, useReducedMotion, type Variants } from 'framer-motion';
 import { BookOpen, Check, Clock, History, Sparkles, Wallet } from 'lucide-react';
 import { formatDateLong, CATEGORY_COLORS, type ItineraryItem } from '@/lib/trip-data';
 import { getCityForDate, getCountryForDate } from '@/core/dates';
-import { getNow } from '@/lib/trip-now';
+import { getNowAtTrip } from '@/lib/trip-now';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useJournal } from '@/hooks/use-journal';
 import { type Mood, type JournalEntry } from '@/core/journal/model';
@@ -34,10 +34,11 @@ import { FADE_FLOOR } from '@/lib/motion';
  * that have logged spend — READ-ONLY, same as the plan/journal reads above.
  *
  * Clock cadence: unlike the Today panel, the recap does NOT need a per-second render (that would be 32
- * cards re-rendering every tick). `nowDateStr` is resolved once on mount from `getNow()` (local Y-M-D
- * parts, matching `dayInTripFor`'s local-date approach) and re-resolved on a LIGHT 60s interval so a
- * midnight day-rollover self-corrects without a reload — the elapsed-day set only changes at a day
- * boundary, so minute cadence is plenty (a reload also suffices).
+ * cards re-rendering every tick). `nowDateStr` is resolved once on mount from `getNowAtTrip().date`
+ * (A-22: the SAME destination-local trip day every other trip-day surface reads — not a device-local
+ * Y-M-D read, which disagreed with Home by a day near a leg's midnight) and re-resolved on a LIGHT 60s
+ * interval so a midnight day-rollover self-corrects without a reload — the elapsed-day set only
+ * changes at a day boundary, so minute cadence is plenty (a reload also suffices).
  *
  * A11y AA: a section `h2`, per-day `h3`s, list semantics for items, `aria-hidden` decorative
  * glyphs, visible focus rings on the one navigation link. Static markup + CSS-only transitions →
@@ -54,13 +55,6 @@ const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
   rough: { glyph: '😮‍💨', label: 'Rough' },
 };
 
-/** The resolved clock's LOCAL calendar day as 'YYYY-MM-DD' (matches `dayInTripFor`'s local-date parts). */
-function nowDateString(): string {
-  const d = getNow();
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-}
-
 export default function TripRecap() {
   const { getDayPlan, hydrated: itineraryHydrated } = useItineraryContext();
   const { getEntry, hydrated: journalHydrated } = useJournal();
@@ -73,8 +67,8 @@ export default function TripRecap() {
   // so a per-minute check is ample — no per-second render of 32 cards).
   const [nowDateStr, setNowDateStr] = useState<string>('');
   useEffect(() => {
-    setNowDateStr(nowDateString());
-    const timer = setInterval(() => setNowDateStr(nowDateString()), 60_000);
+    setNowDateStr(getNowAtTrip().date);
+    const timer = setInterval(() => setNowDateStr(getNowAtTrip().date), 60_000);
     return () => clearInterval(timer);
   }, []);
 

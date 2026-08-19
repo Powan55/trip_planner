@@ -58,6 +58,28 @@ function uniq(ids: readonly string[]): string[] {
   return Array.from(new Set(ids));
 }
 
+/** Round every balance to its currency's display unit (0.01 for a 2-decimal currency like USD,
+ * 1 for a whole-unit currency), using largest-remainder apportionment so the rounded balances
+ * still sum to exactly 0 — the property `minimalTransfers` needs: since it matches by
+ * Math.min(creditor, debtor) on already-rounded numbers, every emitted transfer is naturally a
+ * whole display-unit, and each creditor's transfers-received sum to exactly their rounded
+ * balance. Without this, three balances derived from a repeating decimal (e.g. a 3-way split)
+ * round independently and no longer sum to 0, so transfers can't sum to the displayed balance. */
+function roundBalances(balances: Record<string, number>, unit: number): Record<string, number> {
+  const ids = Object.keys(balances);
+  const scaled = ids.map((id) => balances[id] / unit);
+  const floors = scaled.map(Math.floor);
+  const remainders = scaled.map((v, i) => v - floors[i]);
+  const deficit = Math.round(scaled.reduce((s, v) => s + v, 0) - floors.reduce((s, v) => s + v, 0));
+  // Hand out the leftover whole units, one at a time, to the entries with the largest remainder.
+  const order = ids.map((_, i) => i).sort((a, b) => remainders[b] - remainders[a]);
+  const rounded = [...floors];
+  for (let k = 0; k < deficit && k < order.length; k++) rounded[order[k]] += 1;
+  const out: Record<string, number> = {};
+  ids.forEach((id, i) => { out[id] = rounded[i] * unit; });
+  return out;
+}
+
 /**
  * Settle every leg's split expenses into net balances + a minimal transfer set. Fast-path/no-split
  * expenses, tombstoned rows, and split rows with no recorded `paidBy` (D-333) all contribute
@@ -99,11 +121,13 @@ export function settle(
     }
 
     if (Object.keys(balances).length === 0) continue; // no attributable split on this leg
+    const currency = legCurrency(leg);
+    const rounded = roundBalances(balances, currency === 'USD' ? 0.01 : 1);
     out.push({
       leg,
-      currency: legCurrency(leg),
-      balances,
-      transfers: minimalTransfers(balances, travelers),
+      currency,
+      balances: rounded,
+      transfers: minimalTransfers(rounded, travelers),
     });
   }
 

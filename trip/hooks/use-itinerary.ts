@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
 import { DayPlan, ItineraryItem } from '@/lib/trip-data';
 import { keyFor } from '@/core/storage/gateway';
 import { getUserName } from '@/lib/identity';
@@ -641,7 +641,7 @@ export function useItinerary(): ItineraryStore {
       source.map((d) => ({ ...d, items: d.items.filter((it) => it.deleted !== true) })),
     [],
   );
-  const exposedPlans = visiblePlans(plans);
+  const exposedPlans = useMemo(() => visiblePlans(plans), [plans, visiblePlans]);
 
   // Selectors (pure, derived from the exposed/filtered plans — delegated to core).
   const getDayPlan = useCallback(
@@ -657,24 +657,46 @@ export function useItinerary(): ItineraryStore {
     [plans],
   );
 
-  return {
-    plans: exposedPlans,
-    hydrated,
-    addItem,
-    updateItem,
-    removeItem,
-    restoreItem,
-    clearDay,
-    clearAll,
-    restoreDay,
-    restorePlans,
-    moveItem,
-    deleteItems,
-    moveItems,
-    claimAuthorship,
-    copyDay,
-    reorderItems,
-    getDayPlan,
-    findPlacements,
-  };
+  return useMemo(
+    () => ({
+      plans: exposedPlans,
+      hydrated,
+      addItem,
+      updateItem,
+      removeItem,
+      restoreItem,
+      clearDay,
+      clearAll,
+      restoreDay,
+      restorePlans,
+      moveItem,
+      deleteItems,
+      moveItems,
+      claimAuthorship,
+      copyDay,
+      reorderItems,
+      getDayPlan,
+      findPlacements,
+    }),
+    [
+      exposedPlans,
+      hydrated,
+      addItem,
+      updateItem,
+      removeItem,
+      restoreItem,
+      clearDay,
+      clearAll,
+      restoreDay,
+      restorePlans,
+      moveItem,
+      deleteItems,
+      moveItems,
+      claimAuthorship,
+      copyDay,
+      reorderItems,
+      getDayPlan,
+      findPlacements,
+    ],
+  );
 }

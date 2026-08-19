@@ -44,7 +44,7 @@ export interface ActivePresence {
 // scale (with lib/token-auth.ts's ACCENT_PALETTE and tailwind.config.ts), so it moves
 // when they move — otherwise an unresolved traveller renders in the retired palette.
 const FALLBACK_ACCENT = '#FFC43D';
-const ACTIVE_WINDOW_MS = 3 * 60_000; // mirror lib/presence ACTIVE_WINDOW_MS (eviction tick)
+const ACTIVE_WINDOW_MS = 2 * 180_000; // mirror lib/presence ACTIVE_WINDOW_MS (eviction tick) — 2× the 180s heartbeat
 
 /** Map a traveler name → its brand accent. Case-insensitive, defensive. */
 function accentFor(name: string): string {

@@ -95,6 +95,7 @@ test.describe('S101 Trip Budget — set budgets + see totals (persistence)', () 
     // Set the Nepal leg budget to 13,800 NPR (= 100 USD at the NPR rate THIS fixture pins, 138).
     const nepal = page.getByTestId('budget-leg-nepal-input');
     await nepal.fill('13800');
+    await nepal.blur();
 
     // The grand total re-expresses live in USD at the pinned rate: 13800 / 138 = 100.
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$100');
@@ -118,8 +119,12 @@ test.describe('S101 Trip Budget — set budgets + see totals (persistence)', () 
 
     // Nepal 13,800 NPR (=100 USD) + Japan 31,000 JPY (=200 USD) = 300 USD — at the two rates THIS
     // fixture pins (138 / 155), which is what makes both halves of the sum checkable at once.
-    await page.getByTestId('budget-leg-nepal-input').fill('13800');
-    await page.getByTestId('budget-leg-japan-input').fill('31000');
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('13800');
+    await nepal.blur();
+    const japan = page.getByTestId('budget-leg-japan-input');
+    await japan.fill('31000');
+    await japan.blur();
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$300');
 
     // The stored LOCAL amounts are exactly as entered.
@@ -140,6 +145,7 @@ test.describe('S101 Trip Budget — set budgets + see totals (persistence)', () 
     await page.getByTestId('budget-leg-nepal-categories-toggle').click();
     const food = page.getByTestId('budget-cat-nepal-food');
     await food.fill('2760');
+    await food.blur();
 
     // Persisted under the category map.
     const stored = await readStored(page);

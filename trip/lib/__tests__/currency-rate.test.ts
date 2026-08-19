@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fetchCurrencyRate, parseFrankfurter, type CurrencyRateNow } from '@/lib/currency-rate';
+import { STORAGE_KEYS } from '@/core/storage/gateway';
 
 /**
  * S188 — Frankfurter currency-rate client. DETERMINISTIC: `fetch` is mocked, the pure parser
@@ -98,6 +99,21 @@ describe('fetchCurrencyRate (total; write-through + offline fallback)', () => {
     expect(result).toEqual({ status: 'unavailable', currency: 'EUR' });
   });
 
+  it('USD: short-circuits to the identity rate WITHOUT ever calling fetch or touching the cache (V6-3/#99)', async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('fetchImpl must never be called for USD');
+    });
+    const result = await fetchCurrencyRate('USD', fetchImpl as unknown as typeof fetch);
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.data.currency).toBe('USD');
+      expect(result.data.rate).toBe(1);
+      expect(result.data.stale).toBe(false);
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(localStorage.getItem('nepal_japan_currency_rate_cache')).toBeNull();
+  });
+
   it('NPR (confirmed unsupported by Frankfurter, live-checked): short-circuits to a labeled static reference rate WITHOUT ever calling fetch', async () => {
     let called = false;
     const fetchImpl = async () => {
@@ -146,6 +162,13 @@ describe('fetchCurrencyRate (total; write-through + offline fallback)', () => {
       throw new Error('offline');
     });
     expect(result).toEqual({ status: 'unavailable', currency: 'JPY' });
+  });
+
+  it('A-26: the cache now reads/writes through the gateway registry key, same literal as before', async () => {
+    expect(STORAGE_KEYS.currencyRateCache).toBe('nepal_japan_currency_rate_cache');
+    await fetchCurrencyRate('JPY', async () => jsonResponse(FRANKFURTER_JPY_FIXTURE));
+    const cached = JSON.parse(localStorage.getItem(STORAGE_KEYS.currencyRateCache)!);
+    expect(cached.JPY.rate).toBe(155.32);
   });
 
   it('per-currency: caching JPY does not evict a previously cached NPR entry', async () => {

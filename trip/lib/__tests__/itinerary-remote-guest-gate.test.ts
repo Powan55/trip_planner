@@ -31,8 +31,8 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 });
 
 // A fake Firestore whose getters/writes are all counted — so we can assert a guest push touches
-// NONE of it. `getFirestore` being called at all means the lazy handle started initializing.
-const calls = vi.hoisted(() => ({ getFirestore: 0, writes: 0 }));
+// NONE of it. `initializeFirestore` being called at all means the lazy handle started initializing.
+const calls = vi.hoisted(() => ({ initializeFirestore: 0, writes: 0 }));
 // #10 — `getRemote()` now signs the device in anonymously BEFORE it resolves (the rules grew an
 // auth floor), so the auth module is faked here too. `queueMicrotask`, not `setTimeout`: the
 // observer must resolve after the synchronous return of `onAuthStateChanged` (as the real SDK
@@ -54,10 +54,11 @@ vi.mock('firebase/app', () => ({
 vi.mock('firebase/firestore', () => {
   const store = new Map<string, unknown>();
   return {
-    getFirestore: () => {
-      calls.getFirestore += 1;
+    initializeFirestore: () => {
+      calls.initializeFirestore += 1;
       return { __fake: true };
     },
+    persistentLocalCache: () => ({}),
     doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: segs.join('/') }),
     collection: (_db: unknown, ...segs: string[]) => ({ __type: 'collection', path: segs.join('/') }),
     getDoc: async (ref: { path: string }) => ({ exists: () => store.has(ref.path), data: () => store.get(ref.path) }),
@@ -98,7 +99,7 @@ function day(date: string, items: ItineraryItem[]): DayPlan {
 }
 
 beforeEach(() => {
-  calls.getFirestore = 0;
+  calls.initializeFirestore = 0;
   calls.writes = 0;
 });
 afterEach(() => {
@@ -114,7 +115,7 @@ describe('pushPlans — guest gate (F2, D-055 LOCKED)', () => {
     await pushPlans(prev, next);
 
     // Returned before any firebase handle work: the firestore getter never ran and no doc was written.
-    expect(calls.getFirestore).toBe(0);
+    expect(calls.initializeFirestore).toBe(0);
     expect(calls.writes).toBe(0);
   });
 
@@ -126,7 +127,7 @@ describe('pushPlans — guest gate (F2, D-055 LOCKED)', () => {
     await pushPlans(prev, next);
 
     // With an identified traveler the push runs: the handle initialized and the changed day was written.
-    expect(calls.getFirestore).toBeGreaterThan(0);
+    expect(calls.initializeFirestore).toBeGreaterThan(0);
     expect(calls.writes).toBeGreaterThan(0);
   });
 });

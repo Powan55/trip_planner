@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useDraftOnBlur } from '@/hooks/use-draft-on-blur';
 import {
   User,
   LogOut,
@@ -1348,6 +1349,7 @@ function RateField({
   // Show the empty string when the stored rate is the "unset" sentinel 0 (so the placeholder seed
   // shows through); otherwise the typed number. This keeps a mid-edit blank possible.
   const display = value === 0 ? '' : String(value);
+  const draft = useDraftOnBlur(display, onChange);
   return (
     <div className="flex flex-col gap-1">
       <label htmlFor={id} className="text-xs font-medium text-ink-lo">
@@ -1360,9 +1362,8 @@ function RateField({
         inputMode="decimal"
         min={0}
         step="any"
-        value={display}
         placeholder={String(seed)}
-        onChange={(e) => onChange(e.target.value)}
+        {...draft}
         className="w-full rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       />
     </div>

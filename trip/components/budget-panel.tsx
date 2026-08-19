@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { m, useReducedMotion, useInView } from 'framer-motion';
 import { useCountUp } from '@/hooks/use-count-up';
+import { useDraftOnBlur } from '@/hooks/use-draft-on-blur';
 import { showUndoToast } from '@/lib/undo-toast';
 import { Wallet } from 'lucide-react';
 import { CATEGORY_COLORS, type ItineraryCategory } from '@/lib/trip-data';
@@ -14,9 +15,11 @@ import {
   formatMoney,
   safeAmount,
   BUDGET_CATEGORIES,
+  LEGS,
   type BudgetModel,
   type BudgetRollup,
   type LegRollup,
+  type CategoryRollup,
   type CurrencyCode,
   type Leg,
 } from '@/core/budget/model';
@@ -27,6 +30,9 @@ import { settle } from '@/core/budget/settlement';
 import { EXPENSE_OPEN_EVENT } from '@/components/expense-log-host';
 import { getNow } from '@/lib/trip-now';
 import { rosterForActiveTrip } from '@/lib/token-auth';
+import { getActiveTrip } from '@/core/trips';
+import { formatDate } from '@/core/dates';
+import { legLabel } from '@/lib/leg-label';
 import BurnRateView from '@/components/burn-rate-view';
 import ExpenseLog from '@/components/expense-log';
 import SettleUpSummary from '@/components/settle-up-summary';
@@ -214,26 +220,26 @@ export default function BudgetPanel() {
           className="mt-6 focus-visible:outline-none"
         >
           <div className="grid gap-4 lg:grid-cols-2">
-            <LegBudgetCard
-              leg="nepal"
-              title="Nepal leg"
-              subtitle="Dec 9 – 18 · Kathmandu & around"
-              model={model}
-              home={home}
-              legRoll={roll.legs[0]}
-              onLegBudget={(v) => setLegBudget('nepal', v)}
-              onCategoryBudget={(c, v) => setCategoryBudget('nepal', c, v)}
-            />
-            <LegBudgetCard
-              leg="japan"
-              title="Japan leg"
-              subtitle="Dec 19 – Jan 9 · Tokyo, Kyoto & more"
-              model={model}
-              home={home}
-              legRoll={roll.legs[1]}
-              onLegBudget={(v) => setLegBudget('japan', v)}
-              onCategoryBudget={(c, v) => setCategoryBudget('japan', c, v)}
-            />
+            {LEGS.map((leg) => {
+              const tripLeg = getActiveTrip().legs.find((l) => l.id === leg);
+              return (
+                <LegBudgetCard
+                  key={leg}
+                  leg={leg}
+                  title={`${legLabel(leg)} leg`}
+                  subtitle={
+                    tripLeg
+                      ? `${formatDate(tripLeg.start)} – ${formatDate(tripLeg.end)} · ${tripLeg.fallbackCity}`
+                      : ''
+                  }
+                  model={model}
+                  home={home}
+                  legRoll={roll.legs.find((l) => l.leg === leg)}
+                  onLegBudget={(v) => setLegBudget(leg, v)}
+                  onCategoryBudget={(c, v) => setCategoryBudget(leg, c, v)}
+                />
+              );
+            })}
           </div>
           <GrandTotal roll={roll} home={home} />
         </div>
@@ -449,7 +455,9 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
     >
       <div>
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Total trip budget</p>
-        <p className="mt-1 text-sm text-ink-mid">Nepal + Japan, converted to {home}</p>
+        <p className="mt-1 text-sm text-ink-mid">
+          {LEGS.map(legLabel).join(' + ')}, converted to {home}
+        </p>
       </div>
       <div className="sm:text-right">
         <p
@@ -514,6 +522,7 @@ function LegBudgetCard({
   const budgetHome = legRoll?.budgetHome ?? 0;
   // Per-category spent/remaining, keyed by category, from the rollup (only touched categories).
   const catRollByCategory = new Map((legRoll?.categories ?? []).map((c) => [c.category, c]));
+  const legDraft = useDraftOnBlur(legTotal === 0 ? '' : String(legTotal), onLegBudget);
 
   return (
     <div
@@ -544,9 +553,8 @@ function LegBudgetCard({
             inputMode="decimal"
             min={0}
             step="any"
-            value={legTotal === 0 ? '' : String(legTotal)}
             placeholder="0"
-            onChange={(e) => onLegBudget(e.target.value)}
+            {...legDraft}
             className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-9' : 'pl-7'
             }`}
@@ -585,67 +593,98 @@ function LegBudgetCard({
           </span>
         </summary>
         <div className="flex flex-col gap-2 px-3 pb-3 pt-1">
-          {BUDGET_CATEGORIES.map((category) => {
-            const colors = CATEGORY_COLORS[category];
-            const catId = `budget-cat-${leg}-${category}`;
-            const stored = safeAmount(legCats[category]);
-            const catRoll = catRollByCategory.get(category);
-            // Only show a category's spent/remaining once it HAS a budget set (by design:
-            // per-category where a category budget exists).
-            const showCatSpend = stored > 0 && (catRoll?.spentLocal ?? 0) >= 0 && !!catRoll;
-            return (
-              <div key={category} className="flex flex-col gap-1">
-                <div className="flex items-center gap-3">
-                  <label
-                    htmlFor={catId}
-                    className={`inline-flex min-w-[6.5rem] items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${colors.bg} ${colors.text}`}
-                  >
-                    {category}
-                  </label>
-                  <div className="relative flex-1">
-                    <span
-                      aria-hidden="true"
-                      className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-mid"
-                    >
-                      {sym}
-                    </span>
-                    <input
-                      id={catId}
-                      data-testid={catId}
-                      type="number"
-                      inputMode="decimal"
-                      min={0}
-                      step="any"
-                      value={stored === 0 ? '' : String(stored)}
-                      placeholder="0"
-                      aria-label={`${category} budget for the ${leg} leg, in ${cur}`}
-                      onChange={(e) => onCategoryBudget(category, e.target.value)}
-                      className={`w-full rounded-lg border border-white/15 bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
-                        sym === 'Rs' ? 'pl-8' : 'pl-6'
-                      }`}
-                    />
-                  </div>
-                </div>
-                {showCatSpend && catRoll && (
-                  <p
-                    className="pl-[calc(6.5rem+0.75rem)] text-[11px]"
-                    data-testid={`budget-cat-${leg}-${category}-spent-remaining`}
-                  >
-                    <span className="text-ink-mid">Spent {formatMoney(catRoll.spentLocal, cur)}</span>
-                    <span aria-hidden="true" className="mx-1.5 text-ink-lo">
-                      ·
-                    </span>
-                    <span className={catRoll.remainingLocal < 0 ? 'text-red-400' : 'text-emerald-300/80'}>
-                      {catRoll.remainingLocal < 0 ? 'over by ' : 'left '}
-                      {formatMoney(Math.abs(catRoll.remainingLocal), cur)}
-                    </span>
-                  </p>
-                )}
-              </div>
-            );
-          })}
+          {BUDGET_CATEGORIES.map((category) => (
+            <CategoryBudgetInput
+              key={category}
+              leg={leg}
+              category={category}
+              cur={cur}
+              sym={sym}
+              stored={safeAmount(legCats[category])}
+              catRoll={catRollByCategory.get(category)}
+              onCommit={(v) => onCategoryBudget(category, v)}
+            />
+          ))}
         </div>
       </details>
+    </div>
+  );
+}
+
+/** One per-category budget row — its own `useDraftOnBlur` instance so a keystroke in one
+ * category's field never re-renders/commits any other row. Preserves every `data-testid`/
+ * `id`/`aria-label` byte-for-byte (`e2e` reads `budget-cat-{leg}-{category}` directly). */
+function CategoryBudgetInput({
+  leg,
+  category,
+  cur,
+  sym,
+  stored,
+  catRoll,
+  onCommit,
+}: {
+  leg: Leg;
+  category: ItineraryCategory;
+  cur: CurrencyCode;
+  sym: string;
+  stored: number;
+  catRoll: CategoryRollup | undefined;
+  onCommit: (value: string) => void;
+}) {
+  const colors = CATEGORY_COLORS[category];
+  const catId = `budget-cat-${leg}-${category}`;
+  // Only show a category's spent/remaining once it HAS a budget set (by design:
+  // per-category where a category budget exists).
+  const showCatSpend = stored > 0 && (catRoll?.spentLocal ?? 0) >= 0 && !!catRoll;
+  const draft = useDraftOnBlur(stored === 0 ? '' : String(stored), onCommit);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center gap-3">
+        <label
+          htmlFor={catId}
+          className={`inline-flex min-w-[6.5rem] items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${colors.bg} ${colors.text}`}
+        >
+          {category}
+        </label>
+        <div className="relative flex-1">
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-mid"
+          >
+            {sym}
+          </span>
+          <input
+            id={catId}
+            data-testid={catId}
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            placeholder="0"
+            aria-label={`${category} budget for the ${leg} leg, in ${cur}`}
+            {...draft}
+            className={`w-full rounded-lg border border-white/15 bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+              sym === 'Rs' ? 'pl-8' : 'pl-6'
+            }`}
+          />
+        </div>
+      </div>
+      {showCatSpend && catRoll && (
+        <p
+          className="pl-[calc(6.5rem+0.75rem)] text-[11px]"
+          data-testid={`budget-cat-${leg}-${category}-spent-remaining`}
+        >
+          <span className="text-ink-mid">Spent {formatMoney(catRoll.spentLocal, cur)}</span>
+          <span aria-hidden="true" className="mx-1.5 text-ink-lo">
+            ·
+          </span>
+          <span className={catRoll.remainingLocal < 0 ? 'text-red-400' : 'text-emerald-300/80'}>
+            {catRoll.remainingLocal < 0 ? 'over by ' : 'left '}
+            {formatMoney(Math.abs(catRoll.remainingLocal), cur)}
+          </span>
+        </p>
+      )}
     </div>
   );
 }

@@ -223,30 +223,31 @@ test.describe('Boundary matrix (S65) — all four corners of the trip window', (
 });
 
 test.describe('Post-trip state', () => {
-  test('?today=2027-01-15 -> travel mode gone, countdown grid shows the zero clock (isPast), Completed', async ({
+  test('?today=2027-01-15 -> travel mode gone, digit-grid countdown gone, the post-trip panel shows, Days travelled 32', async ({
     page,
   }) => {
-    // Jan 15, 2027 is outside TRIP_DATES entirely (trip ends Jan 9), so
-    // getTodayInTrip() is null and the hero falls back to the countdown branch.
-    // computeCountdown returns its ZERO_PAST shape once `now >= target`. A zero calendar
-    // unit is not rendered, so months/weeks/days are ABSENT here; the clock cells stay
-    // (they tick, and a running clock reading 00 is a clock) and read "00".
+    // Jan 15, 2027 is outside TRIP_DATES entirely (trip ends Jan 9), so getTodayInTrip() is
+    // null. Before #98, that landed the hero in the SAME branch pre-trip uses — the six-cell
+    // countdown digit grid — and computeCountdown's ZERO_PAST shape rendered it permanently
+    // frozen at "00:00:00" / 0 total days under "Countdown to day one", which is a wrong
+    // claim once the trip is over. This test used to assert that zeroed grid as CORRECT
+    // (`countdown-hours` etc reading '00'); it now asserts the grid is gone and the new
+    // `hero-post-trip` static panel (isPostTrip(getNowAtTrip().date)-gated) renders instead.
     await gotoWithClock(page, '2027-01-15');
 
     await expect(page.getByTestId('hero-travel-mode')).toHaveCount(0);
-    await expect(page.getByTestId('countdown-months')).toHaveCount(0);
-    await expect(page.getByTestId('countdown-weeks')).toHaveCount(0);
-    await expect(page.getByTestId('countdown-days')).toHaveCount(0);
-    await expect(page.getByTestId('countdown-hours')).toHaveText('00');
-    await expect(page.getByTestId('countdown-minutes')).toHaveText('00');
-    await expect(page.getByTestId('countdown-seconds')).toHaveText('00');
-    await expect(page.getByTestId('countdown-total-days')).toHaveText('0');
+    await expect(page.getByTestId('countdown-hours')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-minutes')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-seconds')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-total-days')).toHaveCount(0);
+    await expect(page.getByTestId('hero-post-trip')).toBeVisible();
+    await expect(page.getByTestId('hero-post-trip')).toContainText('Trip complete');
 
-    // The POST-TRIP lifecycle state (the deleted dashboard's "Completed"). `liveCell()`
-    // reaches it only through `computeCountdown(...).isPast`, so this caption is the same
-    // proof the old assertion was: it cannot read "Days travelled" unless the clock is
-    // past TRIP_START and `getTodayInTrip()` is null, i.e. the trip is over. The figure
-    // is then the trip LENGTH (32), not a remaining count.
+    // The POST-TRIP lifecycle state (the deleted dashboard's "Completed") is unrelated to
+    // the hero and unaffected by #98 — `liveCell()` still reaches it only through
+    // `computeCountdown(...).isPast`, so this caption still proves the clock is past
+    // TRIP_START with `getTodayInTrip()` null. The figure is the trip LENGTH (32), not a
+    // remaining count.
     await scrollLiveStatIntoView(page);
     await expect(liveStat(page).caption).toHaveText('Days travelled');
     await expect(liveStat(page).value).toHaveText('32');

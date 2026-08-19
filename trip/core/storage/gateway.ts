@@ -432,6 +432,33 @@ export const STORAGE_KEYS = {
    * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
    */
   motionCelebrationsFired: 'motion_celebrations_fired',
+  /**
+   * localStorage — the expense-import quarantine slot for rejected/corrupt backup payloads
+   * (expenses-corrupt, key 37; #100/A-10). Same move as `itineraryCorrupt` above: this literal was
+   * historically owned by `lib/expense-export.ts` as a bare constant, read/written via raw
+   * `window.localStorage` calls, and never routed through the gateway or `keyFor` — so a non-default
+   * pack's rejected import silently wrote into the SAME global key any other pack's quarantine used.
+   * Moved here (byte-identical string) so `keyFor('expensesCorrupt')` namespaces a non-default pack's
+   * quarantine slot exactly like every other `TRIP_SCOPED_SLOTS` member. TRIP-SCOPED (paired with
+   * `expenses`, key 11). NOTE: grepped for the highest existing "key N" before picking this one — key
+   * 36 (`motionCelebrationsFired`) was the highest at the time this was written, so 37 is the next
+   * free number.
+   */
+  expensesCorrupt: 'nepal_japan_expenses_corrupt',
+  /**
+   * localStorage — the Frankfurter currency-rate cache, a `Record<currency, CurrencyRateNow>` JSON
+   * map (currency-rate-cache, key 38; A-26). Same move as `expensesCorrupt` above: this literal was
+   * historically owned by `lib/currency-rate.ts` as a bare module constant, read/written via raw
+   * `window.localStorage` calls, deliberately outside the registry (see that file's own former
+   * header comment). Moved here for the one-registry invariant only — NOT added to
+   * `TripScopedSlot`/`ALL_TRIP_SCOPED_SLOTS` (mirrors `deviceId`/`firstRunTour`'s plain-registry-
+   * entry pattern): rates are genuinely global, not trip data, so this stays APP-SCOPED, is never
+   * namespaced by `keyFor`, and is never swept by `wipeAllTripData`/`wipeTripData` — retention policy
+   * is UNCHANGED by this move. Value shape owned by `lib/currency-rate.ts` (the gateway is
+   * byte-transport only). The key STRING is unchanged (same bytes, same cache) — only where the
+   * literal is declared moved.
+   */
+  currencyRateCache: 'nepal_japan_currency_rate_cache',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -532,7 +559,8 @@ export type TripScopedSlot =
   | 'packing'
   | 'dayAnchors'
   | 'shareInbox'
-  | 'myPlaces';
+  | 'myPlaces'
+  | 'expensesCorrupt';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -558,6 +586,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'dayAnchors',
   'shareInbox',
   'myPlaces',
+  'expensesCorrupt',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -587,7 +616,7 @@ export function keyFor(slot: TripScopedSlot): string {
  * Full local teardown for sign-out. Clears
  * EVERY on-disk trace of the previous traveler's TRIP DATA on this device — not just the active pack:
  *
- * - BOTH trip-scoped namespaces: the `trip:*` prefix sweep (every non-default pack) AND the 14 bare
+ * - BOTH trip-scoped namespaces: the `trip:*` prefix sweep (every non-default pack) AND the 15 bare
  * `STORAGE_KEYS[slot]` literals from `TRIP_SCOPED_SLOTS` (the default pack's data — `keyFor`
  * grandfathers it to the UNPREFIXED literal, so a `trip:` sweep ALONE misses it entirely;
  * the default pack is the common case on a fresh/shared device, not an edge case).
@@ -640,6 +669,39 @@ export function wipeAllTripData(): void {
   removeKey('local', STORAGE_KEYS.removedTrips);
   removeKey('local', STORAGE_KEYS.syncCode);
   removeKey('local', STORAGE_KEYS.travelMode);
+}
+
+/**
+ * Full local teardown for ONE forgotten trip (A-10 / #100). Mirrors `wipeAllTripData()`'s
+ * collect-then-delete `trip:` prefix sweep above, scoped to `trip:{id}:*` for a SINGLE non-default
+ * id instead of every pack — every `TRIP_SCOPED_SLOTS` member under that id (itinerary, expenses,
+ * budget, journal, photos meta, docs, packing, share-inbox, favorites, day-anchors, weather cache,
+ * my-places, sync outbox, both quarantine slots) goes with it. `core/trips/registry.ts`'s
+ * `removeKnownTrip` calls this alongside its existing list/tombstone writes, so forgetting a trip no
+ * longer leaves its data on disk forever — bloat, a privacy leak on a shared device, and (since
+ * `syncOutbox` is itself a `TRIP_SCOPED_SLOTS` member) a dirty outbox for that id can never survive
+ * to replay stale local edits over the live remote on a later re-join.
+ *
+ * No-op on an empty id or `DEFAULT_TRIP_ID` (mirrors `removeKnownTrip`'s own guard — the default
+ * pack is never removable, so it is never swept by id here; use `wipeAllTripData()` for that case).
+ * SSR-safe, never throws. Collect-then-delete for the same reason as `wipeAllTripData()`: removing
+ * while iterating re-indexes `s.key(i)` and silently skips half the keys.
+ */
+export function wipeTripData(id: string): void {
+  if (!id || id === DEFAULT_TRIP_ID) return;
+  const s = backing('local');
+  if (s === null) return;
+  try {
+    const prefix = `trip:${id}:`;
+    const doomed: string[] = [];
+    for (let i = 0; i < s.length; i++) {
+      const k = s.key(i);
+      if (k !== null && k.startsWith(prefix)) doomed.push(k);
+    }
+    for (const k of doomed) s.removeItem(k);
+  } catch {
+    /* disabled storage / privacy mode — never throw out of the gateway */
+  }
 }
 
 // ── Low-level typed primitives (store-aware, SSR-safe, never-throw) ──────────

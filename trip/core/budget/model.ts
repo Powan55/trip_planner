@@ -447,13 +447,16 @@ export function currencySymbol(cur: CurrencyCode): string {
 }
 
 /**
- * Format an amount for display: grouped, no decimals (whole units read cleaner for these
- * currencies at trip scale — ¥ and NPR are never sub-unit here, and USD rounds fine for a
- * budget overview). TOTAL — a bad amount shows as the symbol + 0, never `NaN`.
+ * Format an amount for display: grouped, no decimals for ¥/NPR (never sub-unit at trip scale),
+ * up to 2 decimals for USD — a whole USD amount still renders with none (`$100`, not `$100.00`),
+ * a genuinely fractional one keeps its cents (`$99.6`). TOTAL — a bad amount shows as the symbol
+ * + 0, never `NaN`.
  */
 export function formatMoney(amount: unknown, cur: CurrencyCode): string {
-  const n = Math.round(safeAmount(amount));
-  const grouped = n.toLocaleString('en-US');
+  const raw = safeAmount(amount);
+  const maxDigits = cur === 'USD' ? 2 : 0;
+  const n = maxDigits === 0 ? Math.round(raw) : raw;
+  const grouped = n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: maxDigits });
   const sym = currencySymbol(cur);
   // "$1,200" / "Rs165,600" / "¥310,000" — space after the alpha "Rs" prefix for legibility.
   return sym === 'Rs' ? `${sym} ${grouped}` : `${sym}${grouped}`;

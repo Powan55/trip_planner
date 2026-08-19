@@ -6,6 +6,7 @@ import { Compass, Wallet, CloudSun, Backpack, FileCheck2, Map as MapIcon, ArrowR
 import { getTodayInTrip, getNowUtcMsForPlace, type TripToday } from '@/lib/trip-now';
 import { offsetForCountry, formatDate } from '@/core/dates';
 import { nextUp } from '@/lib/whats-next';
+import { earliestTimedItem } from '@/lib/phase-of-day';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useBudget } from '@/hooks/use-budget';
 import { useExpenses } from '@/hooks/use-expenses';
@@ -75,7 +76,11 @@ export default function HomeBento() {
     const day = [...plans]
       .filter((p) => p.items?.length)
       .sort((a, b) => a.date.localeCompare(b.date))[0];
-    return day ? { date: day.date, item: day.items[0] } : null;
+    // A-24: the day's EARLIEST timed item, not its first STORED item — persisted item order
+    // is manual/drag order, not time order, so `items[0]` could be anything on the day.
+    // `earliestTimedItem` falls back to `undefined`; `?? day.items[0]` is the same "nothing
+    // timed → show whatever is first" fallback this tile already had.
+    return day ? { date: day.date, item: earliestTimedItem(day.items) ?? day.items[0] } : null;
   }, [plans, itineraryHydrated]);
 
   const cachedForecast = todayInTrip

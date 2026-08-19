@@ -8,6 +8,7 @@ import {
   keyFor,
   deviceStore,
   wipeAllTripData,
+  wipeTripData,
   TRIP_SCOPED_SLOTS,
 } from '@/core/storage/gateway';
 
@@ -23,7 +24,8 @@ import {
  * S352: the hand-maintained 9-slot `TRIP_SCOPED` array formerly declared here is DELETED — it had
  * already drifted from the type (missing `docsChecklist`/`packing`/`dayAnchors`/`shareInbox`/
  * `myPlaces`). Every loop below now drives off the canonical `TRIP_SCOPED_SLOTS` export instead, so
- * the coverage widened to the full 14-slot union with no behavior change.
+ * the coverage widens automatically as slots are added (15-slot union as of `expensesCorrupt`,
+ * #100/A-10) with no behavior change.
  */
 
 describe('gateway trip-scope (S183 / D-172)', () => {
@@ -109,6 +111,9 @@ describe('gateway trip-scope (S183 / D-172)', () => {
       // Vault already uses, so the deployed trip's itinerary bytes are untouched.
       expect(keyFor('itinerary')).toBe('nepal_japan_itinerary');
       expect(keyFor('itineraryCorrupt')).toBe('nepal_japan_itinerary_corrupt');
+      // #100/A-10 — the expenses quarantine slot grandfathers the same way, byte-identical to the
+      // pre-gateway `EXPENSE_QUARANTINE_KEY` literal in lib/expense-export.ts.
+      expect(keyFor('expensesCorrupt')).toBe('nepal_japan_expenses_corrupt');
     });
   });
 
@@ -195,6 +200,16 @@ describe('gateway trip-scope (S183 / D-172)', () => {
       expect(() => keyFor('activeTrip')).not.toThrow();
       // @ts-expect-error — 'firstRunTour' is app-scoped.
       expect(() => keyFor('firstRunTour')).not.toThrow();
+      // @ts-expect-error — 'currencyRateCache' (A-26) is APP-SCOPED and deliberately never
+      // namespaced: rates are global, not trip data.
+      expect(() => keyFor('currencyRateCache')).not.toThrow();
+    });
+
+    it('currencyRateCache (A-26) is a plain registry entry: the literal is unchanged and it is NOT swept by wipeAllTripData', () => {
+      expect(STORAGE_KEYS.currencyRateCache).toBe('nepal_japan_currency_rate_cache');
+      window.localStorage.setItem(STORAGE_KEYS.currencyRateCache, JSON.stringify({ JPY: { rate: 1 } }));
+      wipeAllTripData();
+      expect(window.localStorage.getItem(STORAGE_KEYS.currencyRateCache)).not.toBeNull();
     });
   });
 });
@@ -293,5 +308,66 @@ describe('wipeAllTripData — the sign-out teardown clears BOTH trip-scoped name
       throw new Error('disabled');
     });
     expect(() => wipeAllTripData()).not.toThrow();
+  });
+});
+
+// ── wipeTripData (A-10 / #100) — forget-ONE-trip teardown, scoped to a single trip:{id}:* ──────
+describe('wipeTripData — forgetting ONE trip sweeps only that id\'s trip:{id}:* keys', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('sweeps every trip-scoped slot under the target id and leaves another trip + the default pack untouched', () => {
+    for (const slot of TRIP_SCOPED_SLOTS) {
+      window.localStorage.setItem(`trip:target-trip:${slot}`, 'target');
+      window.localStorage.setItem(`trip:other-trip:${slot}`, 'other');
+      window.localStorage.setItem(STORAGE_KEYS[slot], 'default-pack');
+    }
+    wipeTripData('target-trip');
+    for (const slot of TRIP_SCOPED_SLOTS) {
+      expect(window.localStorage.getItem(`trip:target-trip:${slot}`)).toBeNull();
+      expect(window.localStorage.getItem(`trip:other-trip:${slot}`)).toBe('other');
+      expect(window.localStorage.getItem(STORAGE_KEYS[slot])).toBe('default-pack');
+    }
+  });
+
+  it('sweeps a dirty syncOutbox for the forgotten id too, so a re-join can never replay it (A-10)', () => {
+    window.localStorage.setItem(
+      'trip:target-trip:syncOutbox',
+      JSON.stringify({ version: 1, dirty: { itinerary: ['2026-12-09'] } }),
+    );
+    wipeTripData('target-trip');
+    expect(window.localStorage.getItem('trip:target-trip:syncOutbox')).toBeNull();
+  });
+
+  it('is a no-op for an empty id or the default trip id (mirrors removeKnownTrip\'s own guard)', () => {
+    window.localStorage.setItem(`trip:${DEFAULT_TRIP_ID}:budget`, 'x'); // shouldn't normally exist, but proves no sweep runs
+    wipeTripData('');
+    wipeTripData(DEFAULT_TRIP_ID);
+    expect(window.localStorage.getItem(`trip:${DEFAULT_TRIP_ID}:budget`)).toBe('x');
+  });
+
+  it('is SSR-safe: with no window, wipeTripData is a silent no-op', () => {
+    const saved = globalThis.window;
+    // @ts-expect-error — intentionally remove window for the SSR path.
+    delete globalThis.window;
+    try {
+      expect(() => wipeTripData('some-trip')).not.toThrow();
+    } finally {
+      globalThis.window = saved;
+    }
+  });
+
+  it('never throws when storage is disabled (throwing key/removeItem accessors)', () => {
+    window.localStorage.setItem('trip:some-trip:budget', '1');
+    vi.spyOn(Storage.prototype, 'key').mockImplementation(() => {
+      throw new Error('disabled');
+    });
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('disabled');
+    });
+    expect(() => wipeTripData('some-trip')).not.toThrow();
   });
 });

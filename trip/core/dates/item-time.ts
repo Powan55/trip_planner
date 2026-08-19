@@ -25,10 +25,16 @@ export const NPT_OFFSET_MIN = offsetForLeg('nepal');
 /** Japan Standard Time = UTC+9:00 = +540 min. */
 export const JST_OFFSET_MIN = offsetForLeg('japan');
 
+// A pack with no leg carrying a real offset (every leg's utcOffsetMin is the "unknown
+// geography" placeholder 0) has no basis for a UTC anchor — fall back to the device's own
+// offset, the same convention lib/trip-now.ts's tripOffsetMinFor already uses for this case.
+const hasRealGeography = activeTrip.legs.some((l) => l.utcOffsetMin !== 0);
+
 /** The day's place offset from its leg. Looks the leg up
  * by id in the active pack; an unknown id defaults to
  * NPT. For the default pack, `'nepal'` → 345 and `'japan'` → 540 exactly as before. */
 export function offsetForCountry(c: string): number {
+  if (!hasRealGeography) return -new Date().getTimezoneOffset();
   const leg = activeTrip.legs.find((l) => l.id === c);
   return leg ? leg.utcOffsetMin : NPT_OFFSET_MIN;
 }

@@ -1,4 +1,4 @@
-import PageHero from '@/components/page-hero';
+import PlanHero from '@/components/plan-hero';
 
 // PLAN: the calendar/itinerary planner. Its author-filter control
 // mounts inside CalendarPlanner (unchanged).: the 32-day TripTimeline (+ its
@@ -19,14 +19,9 @@ export const metadata = {
 export default function PlanPage() {
   return (
     <main className="min-h-screen bg-surface">
-      {/* PageHero supplies the page's <h1> ( pages shipped
+      {/* PlanHero supplies the page's <h1> ( pages shipped
           without one — a11y win). Section components keep their own <h2>s. */}
-      <PageHero
-        variant="plan"
-        title="Trip Planner"
-        eyebrow="Day by day"
-        subtitle="All 32 days across Nepal and Japan — add, edit, and reorder every stop of the journey."
-      />
+      <PlanHero />
       <CalendarPlanner />
       <PlanTimeline />
       <BudgetPanel />
