@@ -3780,7 +3780,9 @@ D-326 measured the auth panel's **fill** against the cover — 1.74:1 — and ru
 
 **Changes if:** the scrim floor drops materially (more photograph on screen raises the diff ratio and could make the pack meaningful again), `maxDiffPixelRatio` is tightened for this spec specifically, or the hero gets its own dedicated shot at a stricter threshold — which is the cheap fix if this keeps costing time.
 
-### D-338 · LOCKED · (V6-9 / sweep-B B-5, 2026-08-17) · Composite ARIA roles are deleted, not implemented
+### D-343 · LOCKED · (V6-9 / sweep-B B-5, 2026-08-17) · Composite ARIA roles are deleted, not implemented
+
+_Renumbered from D-338 on 2026-08-17: Session A claimed the same id in parallel for the Worker rate limiter, and that entry had already shipped and was cited from `trip/docs/RELEASES.md`. This one had no references, so it moved._
 
 **Decision.** A surface may declare `radiogroup`/`radio`, `menu`/`menuitem`, `listbox`/`option` or `tablist`/`tab` only if it also ships roving tabIndex and arrow-key handling. Where it does not, downgrade rather than build the contract: `radiogroup` → `role="group"`, `radio` + `aria-checked` → `aria-pressed`, `menu`/`menuitem` + `aria-haspopup` → deleted, with `role="group"` retained on the container.
 
@@ -3863,3 +3865,98 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 **Known ceiling: nothing in CI pins this.** Zero test coupling is what made the extraction provably safe, and it also means a future edit to that class-string template literal is unguarded. No presentational component in this repo has a test and the eight copies it replaced were equally unguarded and strictly worse — but it is a ceiling, not an oversight.
 
 **Changes if:** any of the eight routes wants photography — at which point it is a Tier-2 route and takes `PageHero`, which is the whole basis of the split.
+
+### D-344 · LOCKED · (V6-13 / sweep-E E-1, 2026-08-17) · Two image tiers, not three — and the LQIP stays WebP
+
+**Decision.** `<picture>` ships AVIF plus the original raster (`.jpg`/`.png`) and nothing between them. The 296 `.webp` files and every `webp` key in `lib/image-manifest.json` are deleted, `gen-images.mjs` no longer emits the tier, and `ImageVariant` in `lib/image-srcset.ts` loses the field.
+
+**Why the tier was dead, arithmetically.** Source order was AVIF → WebP → JPEG, so WebP could only ever win for a browser that decodes WebP but **not** AVIF. **Within the declared browserslist** (last-2 Chrome/Edge/Firefox/Safari/iOS + Firefox ESR + not dead) that set is empty.
+
+**Outside it, the set is not empty, and saying "empty" unqualified would be the fourth false claim in these records.** `gen-sw.mjs:671-673` names them: Edge < 121, iOS Safari 16.0–16.3, Firefox < 93, Chrome < 85. Those engines were being served the WebP and now fall through to the **heavier JPEG**. Accepted — they are three-plus years behind and outside the support target — but it is a real regression for them, not a no-op.
+
+**One transitional consequence, bounded to a single session.** A device holding an old service worker also holds old route HTML that still renders `<source type="image/webp">`. An AVIF-capable browser never requests it (the AVIF source wins). An AVIF-less one selects it, 404s, the SW image branch finds nothing cached and returns the real 404, and `OptimizedImage`'s `onError` swaps in the caller's fallback art. So: fallback art instead of photographs, on an already-degraded browser class, until the SW update lands and the page reloads. Self-healing, and shipped knowingly.
+
+**Be honest about the win — it is not a payload win.** No user ever fetched these bytes. Tracked working-tree bytes went 100,614,781 → 59,226,489, so the tier was **41.1% of the repo**: clone, CI checkout and deploy time, nothing else. Any future note claiming this made the app faster is wrong.
+
+**The 107 `blurDataURL` LQIPs stay `data:image/webp;base64`.** They are inlined into the manifest and never fetched, so the browserslist argument does not reach them, and `gen-images.mjs` keeps that one encode path. A reader grepping `webp` will find 107 hits in the manifest and they are all correct.
+
+**One file outside the brief had to move, and it is the interesting one.** `lib/image-srcset.ts` declared `webp` as *required* on `ImageVariant`, so `tsc` broke the moment the manifest lost the key — the type was load-bearing in a way the file list did not predict. Its `format` parameter went single-valued with the tier and was dropped; the signature is now `buildSrcSet(variants, resolve)`.
+
+**Guarded, not assumed.** `e2e/responsive-images.spec.ts` was inverted rather than deleted — it now asserts `toHaveCount(0)` on the webp `<source>` on both paths, plus a scan that no remaining `source` srcset carries a `.webp` URL, deliberately written not to match the `data:image/webp` LQIP (which rides a plain `<img>`). `lib/__tests__/image-srcset.test.ts`'s "builds srcset for webp" case became a `not.toMatch(/\.webp/)` regression guard.
+
+**Changes if:** the browserslist ever admits a browser with WebP-but-not-AVIF support. Check that before regenerating the tier, not after.
+
+### D-345 · LOCKED · (V6-14 / sweep-C C-5 + issue #109, 2026-08-17) · The precache is the shell and the hero, not the map — and `/map` cold-offline owes the boundary pane
+
+**Decision.** MapLibre's engine chunks and the `font/**` glyph PBFs are **withheld** from the precache and runtime-cached instead. Measured off every install: **363,100 B gzip (354.6 KiB)** — 87,073 B for the two PBFs, 276,027 B for the engine. The SW's last fetch branch (`cacheFirst(request, PRECACHE)`) backfills the engine on the first **online** `/map` visit, into the same cache the checks read, so the preflight row flips to `ok` afterwards.
+
+**Two mechanisms fed it, and both had to go.** Dropping only the explicit union left the engine riding in three call sites' own chunk lists via the island walk. The content scan and its anti-vacuity floor are kept — the floor now guards the opposite direction, "the engine drifts back INTO the precache unnoticed".
+
+**The `/map` cold-offline contract, named once so the next flip is not archaeology.** It has moved three times (D-271 ① → S394 → here). The asserted artifact is **`data-testid="map-island-unavailable"`** (`components/map-island-boundary.tsx:93`), not a canvas. `data-testid="map-shell"` sits strictly *inside* that boundary — `map-section.tsx:1291` → `app/map/sections.tsx:9,22-24` → `app/map/page.tsx:27` — so cold-offline it never renders, by design and per D-274.
+
+**#109, and the refutation that shaped it.** The image branch only fell back to cache when `fetch` **rejected**; a captive portal *resolves* (511, a redirect, or an opaque 200), so the offline hero broke with the correct bytes sitting in the precache. Fixed by returning the network response only when `res.ok` and otherwise falling through to `caches.match(request)`, scoped to the image branch. A genuine 404 with nothing cached still returns the real 404, not `Response.error()`. **C-3's proposed remedy (`res.redirected || res.type !== 'basic'`) was NOT implemented** — review refuted it, and correctly: the transparent-200 shape it names *is* basic and not redirected, so the guard misses the very case it was written for. C-4 was also refuted — the hero precache is present and landed in #110.
+
+**Proven red-then-green, not asserted.** A synthetic `out/` fixture ran HEAD's `gen-sw.mjs` against the edited one: 23 → 19 precache entries, exactly four leaving, hero AVIFs byte-identical. The emitted `sw.js` was then executed in a `vm` with a stubbed Cache API — 6/6 green after, and red on HEAD with the exact symptom (`'<html>Sign in to WiFi</html>'` where `'HERO BYTES'` was expected).
+
+**Known ceiling, reasoned but NOT measured.** MapLibre requests glyphs from inside a **blob-URL worker**. A blob worker inherits its creator's SW controller per spec and in Chromium/Firefox, so interception should hold — nobody measured it on this tree. If it does not hold, offline `/map` labels stay blank permanently rather than until one online visit. That degradation sits inside the D-274 boundary either way.
+
+**The user-facing copy moved with it.** `lib/preflight.ts`'s map-shell row keeps `state: 'attention'` — there is a real action the traveller can take, so the row is honest — but "Map engine missing" read as an install fault and became the common case. It is now "Map engine not saved yet", naming the action. The D-286 constraint above it (cartocdn cross-origin, tiles never cached, PMTiles NO-GO) is untouched and still binding.
+
+### D-346 · LOCKED · (V6-15 / sweep-G G-3 + sweep-B B-8 + issue #105, 2026-08-17) · `--tap` is reachable from a class name, and two sweep findings were wrong
+
+**Decision.** `--tap: 44px` gains exactly three Tailwind keys — `spacing.tap` (→ `h-tap`/`w-tap`), `minHeight.tap`, `minWidth.tap` — and those are the canonical way to write the floor. 20 controls across 8 files were raised to it, headlined by `/plan`'s 17×17 drag grip. `ui/button.tsx` loses `glass-light` (it carried `text-gray-900`, a light-mode value forbidden under D-009) and `glass-dark`, both at zero consumers.
+
+**Corrections to the sweep's own numbers.** G-3 said three live `ui/button.tsx` sizes were under the floor; at this app's real **17px root** it is five (default 42.5, xs 29.75, sm 38.25, icon 42.5, icon-sm 34) — G-3 used 16px math and omitted `icon`. `lg` at 46.75 was already clear. 136 sites still write `min-h-[44px]` literally; they are already at the floor and were left for opportunistic migration.
+
+**Two findings were wrong, and the refusals are the point.**
+
+1. **E-11's "three unused CSS classes" are live.** `.maplibregl-compact`, `.maplibregl-ctrl-attrib-inner` and `.maplibregl-ctrl-attrib-button` have zero *source* hits because **MapLibre generates that DOM at runtime** (15/1/1 hits in `maplibre-gl.js`). The block at `globals.css:1961` is a documented axe fix — MapLibre's default attribution measures **1.1:1** (`#000000` on `#0a0e27`). Deleting them re-opens a contrast failure on a route the a11y specs scan. They stay. A zero-hit grep is not proof of death when a library writes the DOM.
+2. **E-7 described `e2e/sync-status-badge.spec.ts` as entirely skipped. Lines 47–74 are three real, running tests.** Only the trailing `test.describe.skip` block was removed. The all-skip spec was `sync-two-client.spec.ts`, deleted, with its manual runbook appended to `docs/two-phone-sync-check.md` as E-7 itself asked.
+
+**Left under 44 deliberately:** `navbar.tsx:385` sign-out and `trip-map.tsx:295` drag affordance, both 29.75 and both desktop-only, where WCAG 2.2's floor is 24px.
+
+**`/plan` rows now `flex-wrap`, and that is a real layout change.** Four 44×44 controls cost 51px of row width; without wrapping, a 360px phone's title drops from ~180px to ~92px. The action cluster moves to its own right-aligned line below `sm`, and nothing changes at ≥640px. Taken because the tap floor is an acceptance criterion and title width is not.
+
+**Known ceiling:** every size above is computed from class strings against the 17px root, not measured in a live layout. `--tap` is a px literal, so it does not scale with the root or with `/travel`'s 112.5% override — correct for a physical-finger floor.
+
+**E-8 and E-13 landed with this slice.** `ui/sheet.tsx` loses its single-variant `cva` block, `SheetFooter` and `SheetClose` (zero consumers each), with `SheetPortal`/`SheetOverlay` unexported; the inlined class string was proved **token-identical** to what `cva` emitted, and byte-identical after `twMerge` normalises a stray double space. `withOutbox`'s unused `_storage` parameter is gone from 25 call sites. E-13's stated benefit — "removes a false dependency edge, five modules import a storage port purely to satisfy a parameter" — **is wrong**: all five re-export that port on purpose for `flushOutbox`, and zero imports were removed. The parameter was genuinely unused, so the change stands; the payoff is 25 shorter call sites, not a dependency-graph win.
+
+### D-347 · LOCKED · (V6-16 / sweep-D D-7, D-8, D-10, D-13, D-14, 2026-08-17) · Actions are SHA-pinned, and the `.npmrc` exit condition was tested and failed
+
+**Decision.** All 17 `uses: actions/*` lines carry a 40-character commit SHA with the version as a trailing comment, Node moves to 22 across all five job pins (with `engines: {node: ">=22"}`), `zod` and `tailwind-merge` move to `dependencies` because they ship, and `marker-check --self-test` runs in CI as its own step ahead of the scan.
+
+**Why SHA and not tag.** `deploy.yml`'s `publish-rules` is the one job that will hold `FIREBASE_SERVICE_ACCOUNT`. A mutable tag there is a credential-adjacent supply-chain hole. Renovate and Dependabot both understand the `@sha # vX.Y.Z` form, so bumps stay automatable. Resolved via `gh api` and re-verified per SHA; every tag ref came back `.object.type == "commit"`, so no annotated-tag dereference was needed. The scoping note said six `checkout` sites; there are **eight**.
+
+**This was not only a pinning change — six actions moved a MAJOR version**, and that is the riskier half: `checkout` v4→v7, `setup-node` v4→v7, `upload-artifact` v4→v7, `configure-pages` v5→v6, `upload-pages-artifact` v3→v5, `deploy-pages` v4→v5.
+
+**Three of the six cannot be exercised before a push to `main`.** `deploy.yml:12-14` is `on: push: branches: [main]` with `workflow_dispatch` deliberately removed, so `configure-pages`, `upload-pages-artifact` and `deploy-pages` run for the first time **as the live deploy**. No `dev` sweep can cover them; that is a permanent hole in the pre-`main` gate, not an oversight of this slice. The evidence that makes it acceptable, read from the release notes rather than assumed: all three are **Node-runtime majors** (`configure-pages` v6 = "upgrade to node 24"; `deploy-pages` v5 = "Update Node.js version to 24.x"; `upload-pages-artifact` v5 = "Update upload-artifact action to version 7" plus `include-hidden-files`), with **no input or output API change named**, and the artifact producer/consumer pair was bumped in lockstep so they cannot disagree about artifact format.
+
+**The self-test had never run.** `MUST_CATCH` exists to stop the leak gate reporting "clean" on a partial marker set, and nothing exercised it. Proved it is a live gate rather than a no-op by renaming one rule in a scratch copy: `AssertionError [ERR_ASSERTION]: PATTERNS and MUST_CATCH have drifted`.
+
+**`trip/.npmrc` is NOT deleted, and the reason is worth recording so nobody re-derives it.** The scoping claim was that all three blockers now publish React-19 lines. They do — *upstream*. What is installed here is `cmdk@1.0.0`, `next-themes@0.3.0`, `sonner@1.5.0`, all peering `^18`, confirmed against `package-lock.json`. Deleting `.npmrc` today ERESOLVEs every install. Getting there means three bumps, two of them majors, a lock regeneration and a full suite run — `components/ui/sonner.tsx` calls `useTheme()` and is the known fragile spot. **Checked 2026-08-17, exit condition not met.**
+
+**Trap paid for once:** moving both packages dev → prod desyncs `package-lock.json`, and `npm ci` treats that as fatal. `npm install --package-lock-only --legacy-peer-deps` is the fix and it must run in the same commit.
+
+**`engines` is advisory** — npm only warns without `engine-strict=true`, which interacts with `.npmrc` and was left alone.
+
+**The `nextjs_space/` sweep is partial on purpose.** Only the two refs that are live, wrong *instructions* were fixed (`scripts/fetch-images.mjs`, `scripts/serve-out.mjs`). The 21 in `DECISIONS.md` and 1 in `docs/V4-DEVPLAN.md` accurately describe the past and stay — rewriting a decision log to erase a path is worse than a stale path in it. The 2 in `firestore.rules` belong to Session A's SB-7, which had not landed at the time of writing.
+
+### D-348 · LOCKED · (#94, 2026-08-17) · `/plan` renders the itinerary once, and its two-column layout is the planner's own grid
+
+**Decision.** `components/trip-timeline.tsx` is deleted. `/plan` is `PageHero` → `CalendarPlanner` → `PlanActivity` → `BudgetPanel`. `ActivityFeed` — the one surface the timeline held that the planner does not — is re-mounted as its own lazy island. **No page-level grid was added.**
+
+**The defect was worse than "rendered twice".** `trip-timeline.tsx:40` held its **own** `selectedDate`, and `LazyVisible` renders its component prop-less (`lazy-visible.tsx:171`), so the `onDateSelect` callback was dead code. The route shipped **two 32-day day selectors that never synced**, showing the same day in two different orders — the planner in stored/manual order (D-018), the timeline in `sortItemsByTime` order.
+
+**Why no outer grid, arithmetically.** `calendar-planner.tsx:1334` is already `grid lg:grid-cols-[340px_1fr] gap-6`, splitting again at `xl` when the map opens. At the 1280×900 `plan-map-split.spec.ts:30` pins, the day-detail column resolves to **452px** today and to **68px** inside an outer `[1fr_360px]` rail. A `2xl` rail is no better: 1536 − 360 − gaps → 348px, still worse than 452. There is also no page-level container to hang a grid on — every island owns its own `px-4 sm:px-6` + `max-w-[1200px] mx-auto`, a literal appearing at 20+ sites. **The two-column layout the issue asked for was already shipped; the page-level job was only to stop stacking.**
+
+**What deletion cost, named honestly.** The chronological read of a day (`sortItemsByTime` projected into a UI) has no other home — `today-panel.tsx:192` passes items unsorted and `whats-next.ts` returns a single item. The *logic* survives with two live consumers and its own suites; what died is a surface. The trip-progress bar and country band died with it (12 lines of CSS, no other home). A chronological/manual toggle on the planner's day list is **deferred, not rejected** — it is its own slice, because a `sortMode` switch has to disable DnD while sorted or a drag writes an order the view contradicts, which is D-018 territory.
+
+**One net was genuinely lost, and it was accepted with evidence.** `e2e/sort-clash.spec.ts`'s S377 test — the Jan-9 date-line day, DTW layover after the flight that produces it — was timeline-only and is deleted. `lib/__tests__/sort-items-by-time.test.ts:91` and `:106` assert the same `j22-1..j22-6` ordering against the **real `TRIP_ITINERARY` seed content**, so the regression net moved from e2e to unit rather than disappearing. The spec header now names that file, so the next reader does not have to find it.
+
+**No vacuous test was left behind.** Four surviving `sort-clash` tests were retitled to match what they still prove via the calendar. `author-filter-propagation.spec.ts`'s "exactly one control even with the timeline scrolled into view" was **deleted, not rewritten** — `AuthorFilterControl` now has exactly one mount site in the tree, so no surface can produce a second and a `toHaveCount(1)` would pass for the wrong reason forever.
+
+**Two navigation entries were already broken before this slice** and went with it: `command-palette.tsx:127` pointed `#timeline` at `/` (the timeline moved to `/plan` at S321), and `legacy-hash-redirect.tsx:41` polled Home for the same dead anchor. The `#timeline` scroll-margin selector in `globals.css` went too.
+
+**Heading order is `h1` → `h2` "Itinerary Planner" → `h3` "Recent changes" → `h2` "Trip Budget".** `h2→h3` is a legal descent and axe `heading-order` stays clean. **Do not "fix" that h3 up to an h2.**
+
+**Known ceiling:** the `pb-16` wrapper around `PlanActivity` is `budget-panel.tsx:177`'s own class verbatim and is load-bearing when the feed renders, because `BudgetPanel` has no top padding. On a build where nothing is attributed `ActivityFeed` returns `null` and the wrapper still contributes 64px of phantom gap. The one-line upgrade is to move the padding onto a `className`-applying reference component and pass that to `LazyVisible` — the `GatedTravelInspiration` precedent.
