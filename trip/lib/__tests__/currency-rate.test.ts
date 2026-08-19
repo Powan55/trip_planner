@@ -98,6 +98,21 @@ describe('fetchCurrencyRate (total; write-through + offline fallback)', () => {
     expect(result).toEqual({ status: 'unavailable', currency: 'EUR' });
   });
 
+  it('USD: short-circuits to the identity rate WITHOUT ever calling fetch or touching the cache (V6-3/#99)', async () => {
+    const fetchImpl = vi.fn(async () => {
+      throw new Error('fetchImpl must never be called for USD');
+    });
+    const result = await fetchCurrencyRate('USD', fetchImpl as unknown as typeof fetch);
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.data.currency).toBe('USD');
+      expect(result.data.rate).toBe(1);
+      expect(result.data.stale).toBe(false);
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+    expect(localStorage.getItem('nepal_japan_currency_rate_cache')).toBeNull();
+  });
+
   it('NPR (confirmed unsupported by Frankfurter, live-checked): short-circuits to a labeled static reference rate WITHOUT ever calling fetch', async () => {
     let called = false;
     const fetchImpl = async () => {

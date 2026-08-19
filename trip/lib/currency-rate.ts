@@ -164,6 +164,22 @@ export async function fetchCurrencyRate(
   currency: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<CurrencyRateResult> {
+  // Frankfurter's base is always USD, so USD→USD is an identity — never worth a network call
+  // (and never worth a cache read/write either). Checked BEFORE `UNSUPPORTED_CURRENCIES` since
+  // that branch still does a cache lookup.
+  if (currency === 'USD') {
+    return {
+      status: 'ok',
+      data: {
+        currency: 'USD',
+        rate: 1,
+        asOf: new Date().toISOString().slice(0, 10),
+        stale: false,
+        fetchedAt: new Date().toISOString(),
+        source: 'live',
+      },
+    };
+  }
   if (UNSUPPORTED_CURRENCIES.has(currency)) {
     const cached = readCache(currency);
     if (cached) return { status: 'ok', data: { ...cached, stale: true } };

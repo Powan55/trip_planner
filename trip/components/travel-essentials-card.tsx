@@ -18,6 +18,7 @@ import {
 import { buildFlightTrackerUrl, buildRome2RioUrl, buildGoogleFlightsUrl } from '@/lib/flight-deep-links';
 import { useWakeLock } from '@/lib/use-wake-lock';
 import { useOnline } from '@/hooks/use-online';
+import { useBudget } from '@/hooks/use-budget';
 import { cn } from '@/lib/utils';
 
 /**
@@ -50,6 +51,8 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
   const country = getCountryForDate(date);
   const city = getCityForDate(date);
   const currency = legCurrency(country);
+  const { model } = useBudget();
+  const home = model.homeCurrency;
 
   const [weather, setWeather] = useState<WeatherResult | null>(null);
   const [rate, setRate] = useState<CurrencyRateResult | null>(null);
@@ -65,6 +68,9 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
   }, [city]);
 
   useEffect(() => {
+    // Leg currency === home currency: nothing to convert, so skip the fetch (and the panel
+    // that would render it) entirely rather than fetch-and-hide.
+    if (currency === home) return;
     let cancelled = false;
     fetchCurrencyRate(currency).then((r) => {
       if (!cancelled) setRate(r);
@@ -72,7 +78,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
     return () => {
       cancelled = true;
     };
-  }, [currency]);
+  }, [currency, home]);
 
   // Wake lock: held the whole time this card (i.e. Travel Mode with a resolved day) is
   // on-screen; released automatically on unmount (navigation away) or tab hide.
@@ -119,7 +125,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <WeatherPanel city={city} weather={weather} />
-          <CurrencyPanel currency={currency} rate={rate} />
+          {currency !== home && <CurrencyPanel currency={currency} rate={rate} />}
         </div>
 
         <SafetyPanel country={country === 'nepal' ? 'Nepal' : 'Japan'} contacts={contacts} />
