@@ -179,14 +179,23 @@ const DOMAINS = {
  * Root-cause guard for A-9: a compile-time tie between `DOMAINS`' keys and every `TripScopedSlot`,
  * the same exhaustiveness idiom `gateway.ts`'s `_ExhaustiveTripScopedSlots` uses. `itinerary` and
  * `photos` are handled OUTSIDE `DOMAINS` (their own sections above/below) rather than missing; the
- * other three are D-227's deliberate exclusions (`weatherCache` regenerable, `syncOutbox` transient
- * sync machinery, `itineraryCorrupt` quarantine). Add a member to `TripScopedSlot` without adding it
- * to one of these four buckets and `tsc` fails here — so a slot can never again silently ride along
- * in `TRIP_SCOPED_SLOTS` (and therefore get wiped by the sign-out "back up first" button) without
- * this backup module knowing to carry it.
+ * other four are D-227's deliberate exclusions (`weatherCache` regenerable, `syncOutbox` transient
+ * sync machinery, `itineraryCorrupt`/`expensesCorrupt` quarantine — #100/A-10 added the latter,
+ * same bucket as its sibling: a quarantine slot holds raw corrupt bytes, not a domain worth
+ * restoring). Add a member to `TripScopedSlot` without adding it to one of these buckets and `tsc`
+ * fails here — so a slot can never again silently ride along in `TRIP_SCOPED_SLOTS` (and therefore
+ * get wiped by the sign-out "back up first" button) without this backup module knowing to carry it.
  */
 type _ExhaustiveBackupDomains = [TripScopedSlot] extends
-  [keyof typeof DOMAINS | 'itinerary' | 'photos' | 'weatherCache' | 'syncOutbox' | 'itineraryCorrupt']
+  [
+    | keyof typeof DOMAINS
+    | 'itinerary'
+    | 'photos'
+    | 'weatherCache'
+    | 'syncOutbox'
+    | 'itineraryCorrupt'
+    | 'expensesCorrupt',
+  ]
   ? true
   : never;
 const _exhaustiveBackupDomains: _ExhaustiveBackupDomains = true;

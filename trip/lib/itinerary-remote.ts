@@ -694,10 +694,17 @@ export function subscribeRemote(
 
               if (!firstSnapshotHandled) {
                 firstSnapshotHandled = true;
+                // A-20: reconcileFirstSnapshot awaits getDoc/getDocFromServer/setDoc, and
+                // `cancelled` can flip true (sign-out's wipeAllTripData + reload) while that's
+                // in flight. Re-check at the point the callback actually fires, not just at the
+                // call site above, so a late-arriving continuation can never write a wiped-out
+                // account's itinerary back to disk.
                 await reconcileFirstSnapshot(
                   remoteDays,
                   { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid },
-                  applyRemoteAuthoritative,
+                  (plans) => {
+                    if (!cancelled) applyRemoteAuthoritative(plans);
+                  },
                 );
                 return;
               }

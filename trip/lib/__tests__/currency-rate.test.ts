@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { fetchCurrencyRate, parseFrankfurter, type CurrencyRateNow } from '@/lib/currency-rate';
+import { STORAGE_KEYS } from '@/core/storage/gateway';
 
 /**
  * S188 — Frankfurter currency-rate client. DETERMINISTIC: `fetch` is mocked, the pure parser
@@ -161,6 +162,13 @@ describe('fetchCurrencyRate (total; write-through + offline fallback)', () => {
       throw new Error('offline');
     });
     expect(result).toEqual({ status: 'unavailable', currency: 'JPY' });
+  });
+
+  it('A-26: the cache now reads/writes through the gateway registry key, same literal as before', async () => {
+    expect(STORAGE_KEYS.currencyRateCache).toBe('nepal_japan_currency_rate_cache');
+    await fetchCurrencyRate('JPY', async () => jsonResponse(FRANKFURTER_JPY_FIXTURE));
+    const cached = JSON.parse(localStorage.getItem(STORAGE_KEYS.currencyRateCache)!);
+    expect(cached.JPY.rate).toBe(155.32);
   });
 
   it('per-currency: caching JPY does not evict a previously cached NPR entry', async () => {

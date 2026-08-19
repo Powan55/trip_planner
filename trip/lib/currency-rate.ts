@@ -8,11 +8,11 @@
 // `core/budget/model.ts`'s manual, user-overridable rates — "zero rate APIs" line in
 // that module governs the BUDGET specifically and is unchanged/untouched here.
 //
-// NO new gateway key — the cache lives
-// under its OWN localStorage key, read/written directly here (mirrors `weatherCache`'s SHAPE —
-// module-owned JSON map, SSR-safe, try/catch, never throws — without adding a STORAGE_KEYS
-// registry entry). See the for why this is a deliberate, flagged exception to
-// "one registry" convention rather than a silent one.
+// A-26: the cache now routes through the gateway (`STORAGE_KEYS.currencyRateCache`, gateway key
+// 38) for the one-registry invariant — this was the last raw-localStorage holdout. Deliberately
+// NOT run through `keyFor`/`TripScopedSlot`: rates are genuinely global, not trip data, so the key
+// stays flat/app-scoped and is never namespaced per pack, never wiped by `wipeAllTripData`/
+// `wipeTripData`. Retention policy is unchanged — only where the literal + read/write live moved.
 //
 // Offline / failure = graceful: on fetch failure OR when Frankfurter
 // doesn't carry the requested symbol (its ECB-sourced list is ~30 currencies; NPR is NOT
@@ -20,7 +20,8 @@
 // (stale:true) or an honest `unavailable` state — never a spinner that hangs, never a thrown
 // error. `fetchCurrencyRate` is TOTAL: it resolves, it never rejects.
 
-const CACHE_KEY = 'nepal_japan_currency_rate_cache';
+import { readJson, writeJson, STORAGE_KEYS } from '@/core/storage/gateway';
+
 const FRANKFURTER_URL = 'https://api.frankfurter.dev/v1/latest';
 
 /**
@@ -61,26 +62,13 @@ export type CurrencyRateResult =
 // ── Cache (module-owned localStorage map, mirrors weatherCache's get/set shape) ──────────────
 
 function readCacheMap(): Record<string, CurrencyRateNow> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(CACHE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, CurrencyRateNow>) : {};
-  } catch {
-    return {};
-  }
+  return readJson<Record<string, CurrencyRateNow>>('local', STORAGE_KEYS.currencyRateCache, {});
 }
 
 function writeCacheEntry(currency: string, value: CurrencyRateNow): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const map = readCacheMap();
-    map[currency] = value;
-    window.localStorage.setItem(CACHE_KEY, JSON.stringify(map));
-  } catch {
-    /* quota / disabled storage — degrade quietly */
-  }
+  const map = readCacheMap();
+  map[currency] = value;
+  writeJson('local', STORAGE_KEYS.currencyRateCache, map);
 }
 
 function readCache(currency: string): CurrencyRateNow | null {
