@@ -11,12 +11,15 @@
 
 import { docsStore, hasKey, keyFor } from '@/core/storage/gateway';
 import type { StoragePort } from '@/core/ports';
-import { sanitizeItems, DEFAULT_TEMPLATE, type DocItem } from '@/core/docs/model';
+import { sanitizeItems, DEFAULT_TEMPLATE, UNIVERSAL_TEMPLATE, type DocItem } from '@/core/docs/model';
+import { isDefaultTrip } from '@/core/trips';
 
-/** Load + sanitize the persisted docs checklist (the built-in template when absent/SSR/corrupt/empty). */
+/** Load + sanitize the persisted docs checklist (the built-in template when absent/SSR/corrupt/empty
+ * on the default trip; the country-neutral `UNIVERSAL_TEMPLATE` on a custom trip — A-15/#102). */
 export function loadDocs(): DocItem[] {
-  const raw = docsStore.get<unknown>(DEFAULT_TEMPLATE);
-  return sanitizeItems(raw);
+  const fallback = isDefaultTrip() ? DEFAULT_TEMPLATE : UNIVERSAL_TEMPLATE;
+  const raw = docsStore.get<unknown>(fallback);
+  return sanitizeItems(raw, fallback);
 }
 
 /** Sanitize + persist the whole docs checklist as JSON. No-op / never-throws under SSR or storage failure. */

@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
  * safety inherited from the gateway. Mirrors journal-storage.test.ts.
  */
 
-import { STORAGE_KEYS, packingStore } from '@/core/storage/gateway';
+import { STORAGE_KEYS, packingStore, setActiveTripId } from '@/core/storage/gateway';
 import { loadPacking, savePacking } from '@/core/packing/storage';
 import { DEFAULT_TEMPLATE, type PackingItem } from '@/core/packing/model';
 
@@ -109,5 +109,33 @@ describe('packing checklist storage (gateway key 21, D-097)', () => {
       throw new DOMException('QuotaExceededError');
     });
     expect(() => savePacking([...DEFAULT_TEMPLATE])).not.toThrow();
+  });
+});
+
+describe('loadPacking — trip-aware fallback (D-345, A-15/#102)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it('default trip (unset pointer): absent slot seeds the full 28-item DEFAULT_TEMPLATE, incl. nepal/japan items', () => {
+    const loaded = loadPacking();
+    expect(loaded).toEqual(DEFAULT_TEMPLATE);
+    expect(loaded.some((i) => i.category === 'nepal')).toBe(true);
+    expect(loaded.some((i) => i.category === 'japan')).toBe(true);
+  });
+
+  it('a custom trip: absent slot seeds only the universal-category items, no nepal/japan rows', () => {
+    setActiveTripId('custom-1');
+    const loaded = loadPacking();
+    expect(loaded.every((i) => i.category === 'universal')).toBe(true);
+    expect(loaded).toEqual(DEFAULT_TEMPLATE.filter((i) => i.category === 'universal'));
+  });
+
+  it('a custom trip with a CORRUPT slot also falls back to universal-only, not the full template', () => {
+    setActiveTripId('custom-1');
+    window.localStorage.setItem(KEY, '{not json');
+    const loaded = loadPacking();
+    expect(loaded.every((i) => i.category === 'universal')).toBe(true);
   });
 });

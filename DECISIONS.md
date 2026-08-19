@@ -3930,3 +3930,11 @@ This slice's session brief flagged a possible stored-schema concern: once `budge
 **Why this needs recording rather than just skipping silently.** The session file explicitly says this question "goes in `DECISIONS.md`" — so this entry closes it rather than the fix quietly doing nothing where a migration step was expected.
 
 **Changes if:** custom trips ship live (a tag past `v6.0.0` deploys) before this entry is revisited — at that point any future rekey of `legBudgets` needs the read-both/migrate-on-read step this entry currently rules unnecessary.
+
+### D-345 · Session B, V6-6 · (v6 session B, 2026-08-18) · A custom trip's docs/packing fallback is a derived, country-neutral template — not `DEFAULT_TEMPLATE`
+
+**Decision.** `core/docs/model.ts` gets `UNIVERSAL_TEMPLATE`, a `DEFAULT_TEMPLATE` filter (drops `nepal-visa`/`japan-entry`) plus a 4-label override map, kept as a derivation so it can't drift from `DEFAULT_TEMPLATE` on a future edit rather than as a hand-written second array. `loadDocs()`/`loadPacking()` pick their fallback via `isDefaultTrip()` — the Nepal×Japan template on the default trip, the country-neutral one (or, for packing, just the `universal`-category items) on any custom trip. In-memory template selection only; no persisted-key rename, no stored-schema change. Fixes A-15/#102: a custom trip's absent/corrupt docs slot was seeding — and, once synced, pushing to Firestore for every peer — six Nepal/Japan-specific rows into a trip that has neither.
+
+**The static-export ceiling.** `app/layout.tsx`'s sitewide `<title>`/meta description and `app/plan/page.tsx`'s own `metadata.description` are deliberately left untouched: `next.config.js` has `output: 'export'` (D-010, LOCKED), so Server Component `metadata` bakes once at build time, before any visitor's trip exists — there is no per-request personalization mechanism available. Only the client-rendered `/plan` hero subtitle (a new `components/plan-hero.tsx`, mount-gated like `hero-section.tsx`'s `custom` flag) is fixed. `app/map/page.tsx`'s subtitle has the same issue and is out of scope here.
+
+**Changes if:** a non-static (server-rendered) build ever becomes possible — at that point the layout/page `metadata` exports could read the active trip per-request instead of staying generic.
