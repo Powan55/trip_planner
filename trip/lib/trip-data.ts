@@ -123,10 +123,14 @@ export interface DayPlan {
   items: ItineraryItem[];
 }
 
-// These 30 class names are scanned by Tailwind: `tailwind.config.ts` carries
-// './lib/**/*.{js,ts,jsx,tsx,mdx}' in `content`, and the comment there explains why that glob is
-// load-bearing and must not be pruned. Do not "fix" a row by copying its classes into a
-// component — that is the accidental coupling this table exists to avoid.
+// These 30 class names live in `lib/`, which Tailwind only scans because
+// `tailwind.config.ts` includes './lib/**/*.{js,ts,jsx,tsx,mdx}' in `content`. That glob is
+// load-bearing for this table: without it these utilities emit CSS only when some component
+// happens to contain the byte-identical string, which is how four categories once shipped with
+// no colour at all. See the note on the glob itself before touching it.
+//
+// Do not "fix" a row by copying its classes into a component — that accidental coupling is what
+// made the original breakage invisible.
 export const CATEGORY_COLORS: Record<ItineraryCategory, { bg: string; text: string; border: string }> = {
   sightseeing: { bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/30' },
   food: { bg: 'bg-orange-500/20', text: 'text-orange-300', border: 'border-orange-500/30' },
