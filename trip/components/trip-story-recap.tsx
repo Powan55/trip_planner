@@ -11,7 +11,8 @@ import { useJournal } from '@/hooks/use-journal';
 import { type Mood, type JournalEntry } from '@/core/journal/model';
 import { summarizePlan, elapsedTripDates, sumExpensesForDate, isPostTrip, type PlanSummary } from '@/core/recap/model';
 import { useExpenses } from '@/hooks/use-expenses';
-import { legCurrency, formatMoney } from '@/core/budget/model';
+import { legCurrency, formatMoney, LEGS, isLeg, type Leg } from '@/core/budget/model';
+import { legLabel } from '@/lib/leg-label';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
 import type { PhotoMeta } from '@/core/photos/model';
@@ -96,8 +97,7 @@ export default function TripStoryRecap() {
   let totalDone = 0;
   let totalPlanned = 0;
   let journaledDays = 0;
-  let spendNepal = 0;
-  let spendJapan = 0;
+  const spendByLeg: Record<Leg, number> = Object.fromEntries(LEGS.map((l) => [l, 0]));
 
   const dayData = days.map((date) => {
     const items = getDayPlan(date).items;
@@ -108,12 +108,16 @@ export default function TripStoryRecap() {
     totalPlanned += summary.planned;
     if (entry) journaledDays += 1;
     if (spend > 0) {
-      if (getCountryForDate(date) === 'nepal') spendNepal += spend;
-      else spendJapan += spend;
+      const leg = getCountryForDate(date);
+      if (isLeg(leg)) spendByLeg[leg] += spend;
     }
     const photos = photosFor({ kind: 'journal', date });
     return { date, items, summary, entry, spend, photos };
   });
+
+  const spendFragments = LEGS.filter((leg) => spendByLeg[leg] > 0).map(
+    (leg) => `spent ${formatMoney(spendByLeg[leg], legCurrency(leg))} in ${legLabel(leg)}`,
+  );
 
   return (
     <section
@@ -138,12 +142,10 @@ export default function TripStoryRecap() {
             ) : (
               'A trip with room to wander'
             )}
-            {(spendNepal > 0 || spendJapan > 0) && (
+            {spendFragments.length > 0 && (
               <>
                 {' — '}
-                {spendNepal > 0 && <>spent {formatMoney(spendNepal, 'NPR')} in Nepal</>}
-                {spendNepal > 0 && spendJapan > 0 && ' and '}
-                {spendJapan > 0 && <>spent {formatMoney(spendJapan, 'JPY')} in Japan</>}
+                {spendFragments.join(' and ')}
               </>
             )}
             {journaledDays > 0 && (
@@ -172,7 +174,7 @@ export default function TripStoryRecap() {
 
         <footer className="mt-12 text-center">
           <p className="text-sm italic text-ink-lo">
-            And that was the trip — Nepal, then Japan, {days.length} days in all.
+            And that was the trip — {LEGS.map(legLabel).join(', then ')}, {days.length} days in all.
           </p>
         </footer>
       </div>

@@ -15,6 +15,7 @@ import {
   formatMoney,
   safeAmount,
   BUDGET_CATEGORIES,
+  LEGS,
   type BudgetModel,
   type BudgetRollup,
   type LegRollup,
@@ -29,6 +30,9 @@ import { settle } from '@/core/budget/settlement';
 import { EXPENSE_OPEN_EVENT } from '@/components/expense-log-host';
 import { getNow } from '@/lib/trip-now';
 import { rosterForActiveTrip } from '@/lib/token-auth';
+import { getActiveTrip } from '@/core/trips';
+import { formatDate } from '@/core/dates';
+import { legLabel } from '@/lib/leg-label';
 import BurnRateView from '@/components/burn-rate-view';
 import ExpenseLog from '@/components/expense-log';
 import SettleUpSummary from '@/components/settle-up-summary';
@@ -216,26 +220,26 @@ export default function BudgetPanel() {
           className="mt-6 focus-visible:outline-none"
         >
           <div className="grid gap-4 lg:grid-cols-2">
-            <LegBudgetCard
-              leg="nepal"
-              title="Nepal leg"
-              subtitle="Dec 9 – 18 · Kathmandu & around"
-              model={model}
-              home={home}
-              legRoll={roll.legs[0]}
-              onLegBudget={(v) => setLegBudget('nepal', v)}
-              onCategoryBudget={(c, v) => setCategoryBudget('nepal', c, v)}
-            />
-            <LegBudgetCard
-              leg="japan"
-              title="Japan leg"
-              subtitle="Dec 19 – Jan 9 · Tokyo, Kyoto & more"
-              model={model}
-              home={home}
-              legRoll={roll.legs[1]}
-              onLegBudget={(v) => setLegBudget('japan', v)}
-              onCategoryBudget={(c, v) => setCategoryBudget('japan', c, v)}
-            />
+            {LEGS.map((leg) => {
+              const tripLeg = getActiveTrip().legs.find((l) => l.id === leg);
+              return (
+                <LegBudgetCard
+                  key={leg}
+                  leg={leg}
+                  title={`${legLabel(leg)} leg`}
+                  subtitle={
+                    tripLeg
+                      ? `${formatDate(tripLeg.start)} – ${formatDate(tripLeg.end)} · ${tripLeg.fallbackCity}`
+                      : ''
+                  }
+                  model={model}
+                  home={home}
+                  legRoll={roll.legs.find((l) => l.leg === leg)}
+                  onLegBudget={(v) => setLegBudget(leg, v)}
+                  onCategoryBudget={(c, v) => setCategoryBudget(leg, c, v)}
+                />
+              );
+            })}
           </div>
           <GrandTotal roll={roll} home={home} />
         </div>
@@ -451,7 +455,9 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
     >
       <div>
         <p className="text-xs uppercase tracking-widest text-muted-foreground">Total trip budget</p>
-        <p className="mt-1 text-sm text-ink-mid">Nepal + Japan, converted to {home}</p>
+        <p className="mt-1 text-sm text-ink-mid">
+          {LEGS.map(legLabel).join(' + ')}, converted to {home}
+        </p>
       </div>
       <div className="sm:text-right">
         <p

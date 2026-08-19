@@ -3922,3 +3922,11 @@ A flag day is therefore correct, not merely convenient: there is nothing to dual
 **Why not `persistentMultipleTabManager()` too.** No reported case of a traveler running two tabs on one device needing offline reads in both; adding the multi-tab manager now solves a problem nobody has hit. Cheap to add later — a second constructor argument, not a restructure.
 
 **Changes if:** a multi-tab usage pattern is reported (trip kept open in two tabs while syncing offline) — swap in `persistentMultipleTabManager()`.
+
+### D-344 · Session B, V6-4 · (v6 session B, 2026-08-18) · No `legBudgets` migration needed — the custom-trip feature has never deployed
+
+This slice's session brief flagged a possible stored-schema concern: once `budget-panel.tsx` renders a real card for a custom trip's `'main'` leg (instead of two hardcoded `nepal`/`japan` cards that write into keys a custom trip's rollup never reads), does any already-shipped device need its `legBudgets.nepal`/`.japan` data migrated forward into `.main`? **No — verified, not assumed.** `git tag --sort=-creatordate` tops out at `v5.14.4`. `trip/docs/RELEASES.md`'s `v5.15.0` and `v6.0.0` entries — the two releases where custom trips first appear at all — are both marked **NOT DEPLOYED**. No tag past `v5.14.4` exists, so no live device has ever run a build with a custom-trip budget UI, and no orphaned `legBudgets.nepal`/`.japan` data from a real custom trip exists to migrate. `'main'` is a **new** key on write, not a renamed one.
+
+**Why this needs recording rather than just skipping silently.** The session file explicitly says this question "goes in `DECISIONS.md`" — so this entry closes it rather than the fix quietly doing nothing where a migration step was expected.
+
+**Changes if:** custom trips ship live (a tag past `v6.0.0` deploys) before this entry is revisited — at that point any future rekey of `legBudgets` needs the read-both/migrate-on-read step this entry currently rules unnecessary.

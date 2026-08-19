@@ -12,8 +12,9 @@ import { useJournal } from '@/hooks/use-journal';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePacking } from '@/hooks/use-packing';
 import { useDocs } from '@/hooks/use-docs';
-import { legCurrency, formatMoney } from '@/core/budget/model';
+import { legCurrency, formatMoney, LEGS, type Leg } from '@/core/budget/model';
 import { legLabel } from '@/lib/leg-label';
+import { getActiveTrip } from '@/core/trips';
 import { Reveal } from '@/components/reveal';
 import CelebrationBurst from '@/components/celebration-burst';
 import SectionSkeleton from '@/components/section-skeleton';
@@ -73,24 +74,22 @@ const STATUS_COPY: Record<WrappedStats['status'], { eyebrow: string; title: stri
 /** A compact, human, TEXT-only share summary. Emoji fine, no markdown. */
 function buildShareText(stats: WrappedStats): string {
   const parts: string[] = [];
+  const tripLabel = getActiveTrip().legs.map((l) => l.countryLabel).join(' × ');
   parts.push(
-    `✈️ Nepal × Japan trip, wrapped — ${stats.daysElapsed}/${stats.totalTripDays} days${
+    `✈️ ${tripLabel} trip, wrapped — ${stats.daysElapsed}/${stats.totalTripDays} days${
       stats.status === 'post' ? ' lived' : ' in'
     }, ${stats.activitiesDone}/${stats.activitiesPlanned} activities done.`,
   );
 
   const spendBits: string[] = [];
-  if (stats.spend.nepal.total > 0) {
-    const top = stats.spend.nepal.topCategory;
-    spendBits.push(
-      `${formatMoney(stats.spend.nepal.total, legCurrency('nepal'))} in Nepal${top ? ` (top: ${capitalize(top.category)})` : ''}`,
-    );
-  }
-  if (stats.spend.japan.total > 0) {
-    const top = stats.spend.japan.topCategory;
-    spendBits.push(
-      `${formatMoney(stats.spend.japan.total, legCurrency('japan'))} in Japan${top ? ` (top: ${capitalize(top.category)})` : ''}`,
-    );
+  for (const leg of LEGS) {
+    const legSpend = stats.spend[leg];
+    if (legSpend.total > 0) {
+      const top = legSpend.topCategory;
+      spendBits.push(
+        `${formatMoney(legSpend.total, legCurrency(leg))} in ${legLabel(leg)}${top ? ` (top: ${capitalize(top.category)})` : ''}`,
+      );
+    }
   }
   if (spendBits.length > 0) parts.push(`💰 Spent ${spendBits.join(' + ')}.`);
 
@@ -236,9 +235,10 @@ export default function WrappedStory() {
           <Reveal className="sm:col-span-2">
             <StatPanel testId="wrapped-stat-spend" icon={<Wallet className="h-4 w-4" aria-hidden="true" />} label="Spend">
               <div className="flex flex-col gap-1">
-                <LegSpendLine leg="nepal" spend={stats.spend.nepal} />
-                <LegSpendLine leg="japan" spend={stats.spend.japan} />
-                {stats.spend.nepal.total === 0 && stats.spend.japan.total === 0 && (
+                {LEGS.map((leg) => (
+                  <LegSpendLine key={leg} leg={leg} spend={stats.spend[leg]} />
+                ))}
+                {LEGS.every((leg) => stats.spend[leg].total === 0) && (
                   <span className="text-ink-lo">Nothing logged yet</span>
                 )}
               </div>
@@ -303,7 +303,7 @@ function StatPanel({
   );
 }
 
-function LegSpendLine({ leg, spend }: { leg: 'nepal' | 'japan'; spend: WrappedStats['spend']['nepal'] }) {
+function LegSpendLine({ leg, spend }: { leg: Leg; spend: WrappedStats['spend'][Leg] }) {
   if (spend.total === 0) return null;
   return (
     <span data-testid={`wrapped-spend-${leg}`}>

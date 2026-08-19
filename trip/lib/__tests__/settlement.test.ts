@@ -177,6 +177,22 @@ describe('settle — fast path contributes zero', () => {
   });
 });
 
+describe('settle — largest-remainder rounding keeps balances summing to 0 (D-337 family)', () => {
+  it('a 3-way split of an odd amount rounds balances so a creditor’s transfers-received sum to exactly their balance', () => {
+    const [s] = settle(
+      [exp({ leg: 'nepal', paidBy: 'Powan', split: ['Powan', 'Sushil', 'Uttam'], amount: 1000 })],
+      ROSTER,
+    );
+    // 1000 / 3 = 333.33...; unrounded balances would not sum to a clean 0. Rounded, they must.
+    expect(Object.values(s.balances).reduce((a, b) => a + b, 0)).toBe(0);
+    for (const [id, net] of Object.entries(s.balances)) {
+      if (net <= 0) continue;
+      const received = s.transfers.filter((t) => t.to === id).reduce((sum, t) => sum + t.amount, 0);
+      expect(received).toBeCloseTo(net, 6);
+    }
+  });
+});
+
 describe('paidBy/split — sanitize passthrough + mergeItems row merge (S142, no new sync code)', () => {
   it('sanitizeExpense passes paidBy + split through; a no-split expense is byte-identical', () => {
     const withSplit = sanitizeExpense({
