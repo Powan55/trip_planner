@@ -3780,7 +3780,7 @@ D-326 measured the auth panel's **fill** against the cover — 1.74:1 — and ru
 
 **Changes if:** the scrim floor drops materially (more photograph on screen raises the diff ratio and could make the pack meaningful again), `maxDiffPixelRatio` is tightened for this spec specifically, or the hero gets its own dedicated shot at a stricter threshold — which is the cheap fix if this keeps costing time.
 
-### D-343 · LOCKED · (V6-9 / sweep-B B-5, 2026-08-17) · Composite ARIA roles are deleted, not implemented
+### D-347 · LOCKED · (V6-9 / sweep-B B-5, 2026-08-17) · Composite ARIA roles are deleted, not implemented
 
 _Renumbered from D-338 on 2026-08-17: Session A claimed the same id in parallel for the Worker rate limiter, and that entry had already shipped and was cited from `trip/docs/RELEASES.md`. This one had no references, so it moved._
 
@@ -3794,7 +3794,7 @@ _Renumbered from D-338 on 2026-08-17: Session A claimed the same id in parallel 
 
 **Changes if:** a surface genuinely needs radio semantics for a screen-reader user's mental model badly enough to pay for the keyboard contract — in which case build one shared roving-tabindex component and migrate all of them, never one hand-rolled instance.
 
-### D-339 · LOCKED · (V6-10 / sweep-B B-2, 2026-08-17) · Place cards are a stretched-`::after` title button, and every interactive sibling must be lifted
+### D-343 · LOCKED · (V6-10 / sweep-B B-2, 2026-08-17) · Place cards are a stretched-`::after` title button, and every interactive sibling must be lifted
 
 **Decision.** `recommendation-section.tsx`, `photography-guide.tsx` and `nightlife-section.tsx` make the **title** the details control, not the card. The `<h3>`'s `<button>` carries `after:absolute after:inset-0 after:rounded-2xl`, the card root carries `relative`, and **every interactive sibling in the card carries `relative z-10`**. The title button takes no `aria-label`: the visible name is both the heading text and the button's accessible name.
 
@@ -3808,7 +3808,7 @@ _Renumbered from D-338 on 2026-08-17: Session A claimed the same id in parallel 
 
 **Changes if:** a fourth card surface wants the same pattern — at that point extract it, and put the `z-10` requirement in the component rather than in this entry.
 
-### D-340 · LOCKED · (V6-11 / sweep-G G-2, 2026-08-17) · `.font-display` pins weight 400, unlayered — and which family a heading takes is still a per-site choice
+### D-344 · LOCKED · (V6-11 / sweep-G G-2, 2026-08-17) · `.font-display` pins weight 400, unlayered — and which family a heading takes is still a per-site choice
 
 **Decision, part one — the invariant.** `app/globals.css` carries one unlayered rule, `.font-display { font-weight: 400 }`. Instrument Serif ships weight 400 and nothing else, so this is not a remedy, it is the statement "this family has exactly one weight" expressed once instead of 93 times. **No site opts out, and it is never removed.**
 
@@ -3820,7 +3820,7 @@ _Renumbered from D-338 on 2026-08-17: Session A claimed the same id in parallel 
 
 **Open follow-up, named so it is not lost.** The thing actually still wrong is `font-display` paired with a `text-display-*` step: those are sans steps tracked at `-0.035em`, while the serif steps use `-0.02em`. Those sites now render serif 400 at sans-800 tracking — weight honest, step mismatched. They want `text-editorial-*`, or the sans step without `font-display`; **which one is a design call, not a mechanical swap**, which is why it is not folded in here.
 
-**It is three sites, not the nine-plus-one this entry first said.** V6-12 (D-342) landed between the two and collapsed eight of the nine page titles into one component. Current state of the pattern:
+**It is three sites, not the nine-plus-one this entry first said.** V6-12 (D-346) landed between the two and collapsed eight of the nine page titles into one component. Current state of the pattern:
 
 ```
 components/page-header.tsx:60     one site, covers 8 routes
@@ -3832,7 +3832,7 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 
 **Changes if:** a second weight of Instrument Serif is ever loaded — at which point this rule is wrong and must go, in the same commit as the font change.
 
-### D-341 · LOCKED · (V6-11 / sweep-G G-1, 2026-08-17) · Travel Mode carries a 12:1 outdoor floor, and it is a headroom number, not a legality one
+### D-345 · LOCKED · (V6-11 / sweep-G G-1, 2026-08-17) · Travel Mode carries a 12:1 outdoor floor, and it is a headroom number, not a legality one
 
 **Decision.** `scripts/contrast-tokens.mjs` models the `html[data-tm-legibility='high']` block. Over every text-tier × surface pairing it asserts a strict **raise** against the same pairing in normal mode and a **12:1 outdoor floor**; separately, once and globally, it asserts the three TM tier hexes are **three distinct values**. `--text-mid` (`#F2EFF9`) and `--text-lo` (`#E9E4F5`) are mirrored in both `globals.css` and that script and must move together.
 
@@ -3846,7 +3846,7 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 
 **Changes if:** a re-tune genuinely cannot hold 12 — a decision to make on purpose, having watched the line go red — or the two TM overrides the mirror does not model (`--border`, `--muted-foreground`) are brought into it.
 
-### D-342 · LOCKED · (V6-12 / sweep-E E-3 + sweep-G G-4, 2026-08-17) · Two masthead components, split by tier, and `HeroVariant` stays closed
+### D-346 · LOCKED · (V6-12 / sweep-E E-3 + sweep-G G-4, 2026-08-17) · Two masthead components, split by tier, and `HeroVariant` stays closed
 
 **Decision.** `components/page-header.tsx` is the Tier-3 **text** masthead (glass panel, brand wash, eyebrow, `<h1>`, description). `components/page-hero.tsx` is the Tier-2 **photographic** band. Eight routes — `/checklist`, `/packing`, `/profile`, `/recap`, `/safety`, `/settings`, `/share`, `/trips` — take the former. **They are not merged and `HeroVariant` is not widened.**
 
@@ -3866,7 +3866,7 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 
 **Changes if:** any of the eight routes wants photography — at which point it is a Tier-2 route and takes `PageHero`, which is the whole basis of the split.
 
-### D-344 · LOCKED · (V6-13 / sweep-E E-1, 2026-08-17) · Two image tiers, not three — and the LQIP stays WebP
+### D-348 · LOCKED · (V6-13 / sweep-E E-1, 2026-08-17) · Two image tiers, not three — and the LQIP stays WebP
 
 **Decision.** `<picture>` ships AVIF plus the original raster (`.jpg`/`.png`) and nothing between them. The 296 `.webp` files and every `webp` key in `lib/image-manifest.json` are deleted, `gen-images.mjs` no longer emits the tier, and `ImageVariant` in `lib/image-srcset.ts` loses the field.
 
@@ -3886,7 +3886,7 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 
 **Changes if:** the browserslist ever admits a browser with WebP-but-not-AVIF support. Check that before regenerating the tier, not after.
 
-### D-345 · LOCKED · (V6-14 / sweep-C C-5 + issue #109, 2026-08-17) · The precache is the shell and the hero, not the map — and `/map` cold-offline owes the boundary pane
+### D-349 · LOCKED · (V6-14 / sweep-C C-5 + issue #109, 2026-08-17) · The precache is the shell and the hero, not the map — and `/map` cold-offline owes the boundary pane
 
 **Decision.** MapLibre's engine chunks and the `font/**` glyph PBFs are **withheld** from the precache and runtime-cached instead. Measured off every install: **363,100 B gzip (354.6 KiB)** — 87,073 B for the two PBFs, 276,027 B for the engine. The SW's last fetch branch (`cacheFirst(request, PRECACHE)`) backfills the engine on the first **online** `/map` visit, into the same cache the checks read, so the preflight row flips to `ok` afterwards.
 
@@ -3902,7 +3902,7 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 
 **The user-facing copy moved with it.** `lib/preflight.ts`'s map-shell row keeps `state: 'attention'` — there is a real action the traveller can take, so the row is honest — but "Map engine missing" read as an install fault and became the common case. It is now "Map engine not saved yet", naming the action. The D-286 constraint above it (cartocdn cross-origin, tiles never cached, PMTiles NO-GO) is untouched and still binding.
 
-### D-346 · LOCKED · (V6-15 / sweep-G G-3 + sweep-B B-8 + issue #105, 2026-08-17) · `--tap` is reachable from a class name, and two sweep findings were wrong
+### D-350 · LOCKED · (V6-15 / sweep-G G-3 + sweep-B B-8 + issue #105, 2026-08-17) · `--tap` is reachable from a class name, and two sweep findings were wrong
 
 **Decision.** `--tap: 44px` gains exactly three Tailwind keys — `spacing.tap` (→ `h-tap`/`w-tap`), `minHeight.tap`, `minWidth.tap` — and those are the canonical way to write the floor. 20 controls across 8 files were raised to it, headlined by `/plan`'s 17×17 drag grip. `ui/button.tsx` loses `glass-light` (it carried `text-gray-900`, a light-mode value forbidden under D-009) and `glass-dark`, both at zero consumers.
 
@@ -3921,7 +3921,7 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 
 **E-8 and E-13 landed with this slice.** `ui/sheet.tsx` loses its single-variant `cva` block, `SheetFooter` and `SheetClose` (zero consumers each), with `SheetPortal`/`SheetOverlay` unexported; the inlined class string was proved **token-identical** to what `cva` emitted, and byte-identical after `twMerge` normalises a stray double space. `withOutbox`'s unused `_storage` parameter is gone from 25 call sites. E-13's stated benefit — "removes a false dependency edge, five modules import a storage port purely to satisfy a parameter" — **is wrong**: all five re-export that port on purpose for `flushOutbox`, and zero imports were removed. The parameter was genuinely unused, so the change stands; the payoff is 25 shorter call sites, not a dependency-graph win.
 
-### D-347 · LOCKED · (V6-16 / sweep-D D-7, D-8, D-10, D-13, D-14, 2026-08-17) · Actions are SHA-pinned, and the `.npmrc` exit condition was tested and failed
+### D-351 · LOCKED · (V6-16 / sweep-D D-7, D-8, D-10, D-13, D-14, 2026-08-17) · Actions are SHA-pinned, and the `.npmrc` exit condition was tested and failed
 
 **Decision.** All 17 `uses: actions/*` lines carry a 40-character commit SHA with the version as a trailing comment, Node moves to 22 across all five job pins (with `engines: {node: ">=22"}`), `zod` and `tailwind-merge` move to `dependencies` because they ship, and `marker-check --self-test` runs in CI as its own step ahead of the scan.
 
@@ -3941,7 +3941,7 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 
 **The `nextjs_space/` sweep is partial on purpose.** Only the two refs that are live, wrong *instructions* were fixed (`scripts/fetch-images.mjs`, `scripts/serve-out.mjs`). The 21 in `DECISIONS.md` and 1 in `docs/V4-DEVPLAN.md` accurately describe the past and stay — rewriting a decision log to erase a path is worse than a stale path in it. The 2 in `firestore.rules` belong to Session A's SB-7, which had not landed at the time of writing.
 
-### D-348 · LOCKED · (#94, 2026-08-17) · `/plan` renders the itinerary once, and its two-column layout is the planner's own grid
+### D-352 · LOCKED · (#94, 2026-08-17) · `/plan` renders the itinerary once, and its two-column layout is the planner's own grid
 
 **Decision.** `components/trip-timeline.tsx` is deleted. `/plan` is `PageHero` → `CalendarPlanner` → `PlanActivity` → `BudgetPanel`. `ActivityFeed` — the one surface the timeline held that the planner does not — is re-mounted as its own lazy island. **No page-level grid was added.**
 
