@@ -49,7 +49,7 @@ import { effectiveStartMinutes, offsetForCountry } from '@/core/dates';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { extractQuickAddTime } from '@/lib/quick-add-parse';
 import { describeItemTime } from '@/lib/item-time-display';
-import { dayPlaceLabel } from '@/lib/leg-label';
+import { dayPlaceLabel, legLabel } from '@/lib/leg-label';
 import { clashingItemIds, describeClash, firstClashWith, timeFootprintChanged } from '@/lib/sort-items-by-time';
 import TimePicker, { DurationField } from '@/components/time-picker';
 import PlanSearch from '@/components/plan-search';
@@ -1119,7 +1119,7 @@ export default function CalendarPlanner() {
   // BEATS name/sourceId match,), so a row and its map stop always agree. Drives the
   // row ring + the "show on map" affordance.
   const markerIdFor = (item: ItineraryItem) =>
-    stopMarkerFor(item, currentPlan.country === 'nepal' ? 'Nepal' : 'Japan')?.id ?? null;
+    stopMarkerFor(item, legLabel(currentPlan.country))?.id ?? null;
 
   // Per-date meta for the mobile day-strip. Precomputed here so the strip stays a
   // pure presentational consumer — same country + item-count source the month grid uses.

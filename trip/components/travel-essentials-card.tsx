@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Cloud, Wallet, ShieldAlert, Plane, ChevronDown } from 'lucide-react';
 import { getCountryForDate, getCityForDate } from '@/core/dates';
+import { isDefaultTrip } from '@/core/trips';
 import { legCurrency } from '@/core/budget/model';
 import { EMERGENCY_CONTACTS } from '@/core/content/safety';
 import { fetchWeather, weatherCodeToLabel, formatWeatherAsOf, type WeatherResult } from '@/lib/weather';
@@ -84,11 +85,20 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
   // on-screen; released automatically on unmount (navigation away) or tab hide.
   const wakeLock = useWakeLock(true);
 
-  const contacts = EMERGENCY_CONTACTS.filter(
-    (c) => c.country === (country === 'nepal' ? 'Nepal' : 'Japan'),
-  ).slice(0, 3);
+  // A-12: real emergency contacts and confirmed-flight journeys are DEFAULT-PACK content —
+  // a custom trip has neither, and showing Japan/Nepal's numbers to a traveler who isn't
+  // there is a safety defect, not a labeling one. Gate both to the default trip.
+  const showRealSafety = isDefaultTrip();
+  const safetyCountry: 'Nepal' | 'Japan' | null = showRealSafety
+    ? country === 'nepal'
+      ? 'Nepal'
+      : 'Japan'
+    : null;
+  const contacts = showRealSafety
+    ? EMERGENCY_CONTACTS.filter((c) => c.country === safetyCountry).slice(0, 3)
+    : [];
 
-  const journeys = TRAVEL_DAY_JOURNEYS[date] ?? [];
+  const journeys = showRealSafety ? (TRAVEL_DAY_JOURNEYS[date] ?? []) : [];
 
   // Essentials collapses to ONE row (a native <details>, closed by default) so the day's
   // checklist is the primary surface. Content stays mounted while collapsed — the weather/currency
@@ -128,7 +138,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
           {currency !== home && <CurrencyPanel currency={currency} rate={rate} />}
         </div>
 
-        <SafetyPanel country={country === 'nepal' ? 'Nepal' : 'Japan'} contacts={contacts} />
+        <SafetyPanel country={safetyCountry} contacts={contacts} />
 
         {journeys.length > 0 && (
           <div className="mt-5 flex flex-col gap-4" data-testid="travel-essentials-flights">
@@ -225,29 +235,40 @@ function SafetyPanel({
   country,
   contacts,
 }: {
-  country: 'Nepal' | 'Japan';
+  /** `null` on a non-default (custom) trip: there is no real emergency-contacts pack for it. */
+  country: 'Nepal' | 'Japan' | null;
   contacts: typeof EMERGENCY_CONTACTS;
 }) {
   return (
     <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4" data-testid="travel-essentials-safety">
       <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
         <ShieldAlert className="h-3.5 w-3.5" aria-hidden="true" />
-        Emergency — {country}
+        {country ? `Emergency — ${country}` : 'Emergency'}
       </p>
-      <ul className="mt-2 flex flex-wrap gap-2">
-        {contacts.map((c) => (
-          <li key={c.id}>
-            <a
-              href={`tel:${c.tel}`}
-              aria-label={`Call ${c.service}, ${c.number}`}
-              data-testid={`travel-essentials-safety-${c.id}`}
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-primary/10 px-3 font-mono text-sm font-semibold text-primary outline-none transition-colors hover:bg-primary/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-            >
-              {c.service}: {c.number}
-            </a>
-          </li>
-        ))}
-      </ul>
+      {country ? (
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {contacts.map((c) => (
+            <li key={c.id}>
+              <a
+                href={`tel:${c.tel}`}
+                aria-label={`Call ${c.service}, ${c.number}`}
+                data-testid={`travel-essentials-safety-${c.id}`}
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-primary/10 px-3 font-mono text-sm font-semibold text-primary outline-none transition-colors hover:bg-primary/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              >
+                {c.service}: {c.number}
+              </a>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        // A-12: a custom trip has no real emergency-contacts pack. Going silent here would
+        // read as "nothing to report" — worse than saying so — so this fallback line stays
+        // in the SAME card shell/testid rather than omitting the section.
+        <p className="mt-2 text-sm text-ink-mid" data-testid="travel-essentials-safety-unavailable">
+          Emergency numbers aren&apos;t available for this trip yet — check local guidance for
+          your destination.
+        </p>
+      )}
       <Link
         href="/safety/"
         data-testid="travel-essentials-safety-link"

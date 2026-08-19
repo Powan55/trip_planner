@@ -15,6 +15,7 @@ import type { DayPlan, ItineraryItem, ItineraryCategory } from '@/lib/trip-data'
 import { cityCoord } from '@/lib/city-coords';
 import { sortItemsByTime } from '@/lib/sort-items-by-time';
 import { offsetForCountry, TRIP_DATES } from '@/core/dates';
+import { legLabel } from '@/lib/leg-label';
 
 // Planned items match a curated marker by (a) sourceId when present (card-created
 // items,), else (b) a name match against the marker vocabulary so the rich
@@ -163,7 +164,7 @@ const PIN_CATEGORY: Partial<Record<ItineraryCategory, MarkerCategory>> = {
 // Synthesize a MapMarker from an item's manual pin. Only called when BOTH lat/lng are
 // defined (see stopMarkerFor). `x`/`y` are the legacy 0-100% mock-panel fields — harmless
 // zeros, same as every real curated marker post- (nothing renders them anymore).
-function pinMarker(item: ItineraryItem, country: 'Nepal' | 'Japan'): MapMarker {
+function pinMarker(item: ItineraryItem, country: string): MapMarker {
   return {
     id: item.id,
     name: item.title,
@@ -184,7 +185,7 @@ function pinMarker(item: ItineraryItem, country: 'Nepal' | 'Japan'): MapMarker {
 // item falls back to the existing `matchMarker` join, byte-identical to pre-
 // behavior. `country` comes from the item's own day (DayPlan.country), the correct
 // source of truth for a synthesized marker's cosmetic country styling.
-export function stopMarkerFor(item: ItineraryItem, country: 'Nepal' | 'Japan'): MapMarker | null {
+export function stopMarkerFor(item: ItineraryItem, country: string): MapMarker | null {
   if (typeof item.lat === 'number' && typeof item.lng === 'number') {
     return pinMarker(item, country);
   }
@@ -234,7 +235,7 @@ export const AREA_INDEX: Map<string, MapMarker> = (() => {
 // item's own name and the verbatim text the coordinate came from, so the popup can quote it.
 function derivedMarker(
   item: ItineraryItem,
-  country: 'Nepal' | 'Japan',
+  country: string,
   derivedFrom: string,
   lat: number,
   lng: number,
@@ -259,7 +260,7 @@ function derivedMarker(
  * country used for a synthesized marker's cosmetic styling.
  */
 export function resolvePlacement(item: ItineraryItem, day: DayPlan): Placement {
-  const country: 'Nepal' | 'Japan' = day.country === 'nepal' ? 'Nepal' : 'Japan';
+  const country = legLabel(day.country);
 
   // 1 — an explicit pin is unambiguous intent and beats every curated match.
   if (typeof item.lat === 'number' && typeof item.lng === 'number') {

@@ -38,9 +38,11 @@ export interface ItemTimeDisplay {
  * ⚖️ Two properties are load-bearing, keep both:
  * · The override is detected via `effectiveOffsetMin`, never `item.tzOffsetMin` directly, so the
  * badge cannot drift out of agreement with the instant math — one resolver, one answer.
- * · The day-country path is BYTE-IDENTICAL to before (`country === 'japan' ? 'JST': 'NPT'`), so
- * no non-override item — including on a custom pack with its own leg offsets — changes.
- * An offset with no entry in the table stays UNBADGED (`null`) — silence, never a guess.
+ * · The day-country path (no override) now goes through the SAME `zoneAbbrevForOffset` lookup as
+ * an overridden item, rather than a hardcoded `country === 'japan' ? 'JST' : 'NPT'` ternary. For
+ * the default pack this is still NPT/JST (345/540 are both table entries), but a day offset with
+ * no entry in the table — e.g. a custom pack's own leg offset — now stays UNBADGED (`null`)
+ * instead of fabricating "NPT". Silence, never a guess.
  */
 export function describeItemTime(item: ItineraryItem, dateStr: string): ItemTimeDisplay | null {
   const eff = effectiveStartMinutes(item);
@@ -48,12 +50,7 @@ export function describeItemTime(item: ItineraryItem, dateStr: string): ItemTime
     const country = getCountryForDate(dateStr);
     const dayOffset = offsetForCountry(country);
     const itemOffset = effectiveOffsetMin(item, dayOffset);
-    const badge =
-      itemOffset === dayOffset
-        ? country === 'japan'
-          ? 'JST'
-          : 'NPT'
-        : zoneAbbrevForOffset(itemOffset);
+    const badge = zoneAbbrevForOffset(itemOffset);
     return { label: formatTimeAmPm(eff), badge };
   }
   if (item.time) return { label: item.time, badge: null };

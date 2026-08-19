@@ -408,10 +408,11 @@ export interface TripMapHandle {
    *
    * 🔴 That is the whole point, not a shortcut. The caller is the world search, whose results are
    * places the trip knows nothing about: they have no curated `area`, no `description`, and no
-   * `country` — and `MapMarker.country` is `'Nepal' | 'Japan'`, rendered verbatim in the popup as
-   * "{area} · {country}". Synthesising a marker for Reykjavík would therefore print "· Japan"
-   * under its name, which is D-271's defect class (a surface asserting something untrue) in one
-   * line. The popup would also offer "Add to plan", and `ItineraryDraft` carries no coordinate
+   * real `country` — and `MapMarker.country`, rendered verbatim in the popup as "{area} ·
+   * {country}", is only ever legLabel(day.country)-derived or hand-authored curated content.
+   * Synthesising a marker for Reykjavík would have to invent one of those, which is D-271's
+   * defect class (a surface asserting something untrue) in one line. The popup would also offer
+   * "Add to plan", and `ItineraryDraft` carries no coordinate
    * (D-280, deferred), so the point the user just picked would be dropped on the way into the
    * itinerary and the item would re-place itself at the day's city centroid.
    *
