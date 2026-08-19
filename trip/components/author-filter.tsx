@@ -10,10 +10,11 @@ import { useAuthorFilter } from '@/hooks/use-author-filter';
 
 /**
  * Author filter control — a presentational, READ-ONLY view filter that
- * narrows the calendar and timeline item lists to All / "My edits" / a specific traveler,
+ * narrows the calendar's item list (and the rest of its day chrome — count pill, From pill,
+ * clash badges, month dots, span bands, day map) to All / "My edits" / a specific traveler,
  * using the existing `createdBy` / `updatedBy` attribution. It NEVER mutates
  * stored data: selecting an option only updates the shared in-memory selection
- * (lib/author-filter), which both surfaces read.
+ * (lib/author-filter), which every consumer reads.
  *
  * DORMANT / NO-ATTRIBUTION (the portfolio case): when NO item carries attribution,
  * `distinctAuthors` is empty and this control renders NOTHING — so the portfolio build is
@@ -33,11 +34,11 @@ import { useAuthorFilter } from '@/hooks/use-author-filter';
  * `<name>` is the raw display name, so a name with a space yields e.g.
  * `author-filter-author-Jane Doe` — quote it in a selector.
  *
- * 🔴 also made this control render ONCE per page. It used to be mounted by BOTH
+ * 🔴 S383 made this control render ONCE per page. It used to be mounted by BOTH
  * `calendar-planner.tsx` and `trip-timeline.tsx`, which since both render on `/plan` — so the
- * identical chip row appeared twice. Only the planner mounts it now; the timeline still obeys the
- * selection through the shared module-level value. Do not re-mount it elsewhere without checking
- * what else is on that route.
+ * identical chip row appeared twice. (#94 has since deleted `trip-timeline.tsx` entirely, so
+ * `calendar-planner.tsx` is the ONLY mount site now.) Do not re-mount it elsewhere without
+ * checking what else is on that route.
  */
 export default function AuthorFilterControl({
   plans,

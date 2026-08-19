@@ -126,7 +126,14 @@ const config: Config = {
         gutter: 'clamp(1rem, 4vw, 2rem)',    /* responsive page inset */
         '18': '4.5rem',
         '22': '5.5rem',
+        /* the 44px tap floor (--tap, globals.css). Placed in `spacing` so `h-tap`/`w-tap`
+           exist for fixed-size icon buttons; the two keys below give the min-* floor for
+           targets whose box is content-sized. These three are the ONLY way to reach --tap
+           from a class name — it had zero consumers while 136 sites wrote `min-h-[44px]`. */
+        tap: 'var(--tap)',
       },
+      minHeight: { tap: 'var(--tap)' },
+      minWidth: { tap: 'var(--tap)' },
       colors: {
         // former raw `navy` scale, now semantic surface tokens driven by
         // CSS vars (globals.css --surface* → --navy-* channel single source).

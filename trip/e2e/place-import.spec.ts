@@ -130,7 +130,7 @@ test.describe('S285 · place import — persistence hard guarantee (paste → co
     // carrying on green.
     await assertResolveWired(page, hits);
     await expect(page.getByTestId('import-place-name-input')).toHaveValue(PLACE_NAME);
-    await expect(page.getByTestId('import-place-leg-nepal')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('import-place-leg-nepal')).toHaveAttribute('aria-pressed', 'true');
 
     // Force the leg deterministically (Nepal) so the card lands on /nepal/ regardless of build.
     await page.getByTestId('import-place-leg-nepal').click();

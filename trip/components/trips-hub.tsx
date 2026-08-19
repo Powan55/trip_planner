@@ -660,13 +660,14 @@ export default function TripsHub() {
 
             <fieldset className="flex flex-col gap-2">
               <legend className="text-xs text-ink-mid">Vibe (optional)</legend>
-              <div role="radiogroup" aria-label="Trip vibe" className="flex flex-wrap gap-2">
+              {/* B-5: `role="group"` + `aria-pressed`, not radiogroup/radio — the composite
+                  role promises arrow-key navigation this toggle never implemented. */}
+              <div role="group" aria-label="Trip vibe" className="flex flex-wrap gap-2">
                 {Object.entries(VIBES).map(([key, vibe]) => (
                   <button
                     key={key}
                     type="button"
-                    role="radio"
-                    aria-checked={createVibe ? createVibe === key : key === Object.keys(VIBES)[0]}
+                    aria-pressed={createVibe ? createVibe === key : key === Object.keys(VIBES)[0]}
                     data-testid={`trips-hub-create-vibe-${key}`}
                     onClick={() => setCreateVibe(key)}
                     className={`inline-flex min-h-[44px] items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${

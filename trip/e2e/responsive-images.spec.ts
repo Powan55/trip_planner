@@ -11,11 +11,15 @@ import { test, expect } from './fixtures';
  * This proves it on the REAL served static `out/` build (not just a component-level
  * check): /nepal renders `recommendation-section.tsx` cards, which already pass
  * `sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"` — the built,
- * hydrated DOM must contain a real multi-entry `srcset` for at least one <source>, no
+ * hydrated DOM must contain a real multi-entry `srcset` on the AVIF <source>, no
  * broken images, and no console errors.
+ *
+ * V6-13 — the WebP tier is gone (AVIF + the original raster only), so the same spec
+ * also asserts NO <source type="image/webp"> is rendered. That inversion is what stops
+ * a WebP tier from being reintroduced, or the delete from being reverted, silently.
  */
 
-test('nepal — recommendation cards render a real multi-width srcset, no broken images, no console errors', async ({
+test('nepal — recommendation cards render a real multi-width AVIF srcset and no WebP tier, no broken images, no console errors', async ({
   page,
 }) => {
   const consoleErrors: string[] = [];
@@ -31,9 +35,22 @@ test('nepal — recommendation cards render a real multi-width srcset, no broken
   // element once the img is absolutely positioned via `fill`, so we assert on the <img>).
   await expect(page.getByTestId('guide-card-na8')).toBeVisible();
 
+  // The WebP tier is deleted: not one <source> may advertise it anywhere on the page.
+  await expect(page.locator('picture source[type="image/webp"]')).toHaveCount(0);
+
+  // ...and no srcset may still point at a .webp file (the LQIP is a `data:image/webp`
+  // URI on a plain <img>, which this deliberately does not match).
+  const webpUrls = await page.evaluate(() =>
+    Array.from(document.querySelectorAll('picture source'))
+      .map((s) => s.getAttribute('srcset') || '')
+      .filter((s) => /\.webp(\s|,|$)/.test(s)),
+  );
+  expect(webpUrls, `srcsets still referencing .webp: ${webpUrls.join(' | ')}`).toEqual([]);
+
   // Real multi-entry srcset in the RENDERED (hydrated) DOM, sourced from the manifest's
-  // `variants` — not a hand-authored fixture.
-  const sources = page.locator('picture source[type="image/webp"]');
+  // `variants` — not a hand-authored fixture. Now read off the AVIF source, the only
+  // <source> tier that remains.
+  const sources = page.locator('picture source[type="image/avif"]');
   const count = await sources.count();
   expect(count).toBeGreaterThan(0);
 
@@ -42,12 +59,15 @@ test('nepal — recommendation cards render a real multi-width srcset, no broken
     const srcset = await sources.nth(i).getAttribute('srcset');
     if (srcset && (srcset.match(/\d+w/g) || []).length > 1) {
       sawMultiWidth = true;
-      // e.g. ".../na1-640w.webp 640w, .../na1-1024w.webp 1024w, .../na1.webp 1200w"
+      // e.g. ".../na1-640w.avif 640w, .../na1-1024w.avif 1024w, .../na1.avif 1200w"
       expect(srcset).toMatch(/640w/);
+      expect(srcset).toMatch(/\.avif\s+640w/);
       break;
     }
   }
-  expect(sawMultiWidth, 'expected at least one <source> with a real multi-entry srcset').toBe(true);
+  expect(sawMultiWidth, 'expected at least one AVIF <source> with a real multi-entry srcset').toBe(
+    true,
+  );
 
   // No broken <img> — every decoded image has non-zero natural dimensions.
   const broken = await page.evaluate(() =>
@@ -73,6 +93,12 @@ test('japan — hero image (priority, single-URL fallback path) still renders wi
 
   await page.goto('/japan/');
   await expect(page.locator('h1').first()).toBeVisible();
+
+  // Same V6-13 inversion on the single-URL (no-`variants`) path. The AVIF assertion is the
+  // anti-vacuity half: a bare `toHaveCount(0)` on the webp source also passes on a route that
+  // rendered no `<picture>` at all, which is the failure this negative is least able to see.
+  await expect(page.locator('picture source[type="image/avif"]').first()).toBeAttached();
+  await expect(page.locator('picture source[type="image/webp"]')).toHaveCount(0);
 
   const broken = await page.evaluate(() =>
     Array.from(document.images)

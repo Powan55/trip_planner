@@ -123,17 +123,10 @@ export interface DayPlan {
   items: ItineraryItem[];
 }
 
-// 🔴 FINDING — these 30 class names are NOT scanned by Tailwind. `tailwind.config.ts`
-// content =./pages./components./app only; `lib/` is absent, so each utility here emits CSS
-// ONLY when some component/app file happens to contain the byte-identical string. Measured on
-// the 1a3958c build: 14 of the 31 colour utilities under lib/ emit nothing at all — sightseeing,
-// food, shopping and free render completely uncoloured today, and nature/nightlife are partial.
-// `transportation` rendered only because components/trip-map.tsx carried the same cyan trio for
-// its "Day Trip" map badge; re-hues both, so this row is now dead too until the one-line
-// root fix lands (add './lib/**/*.{ts,tsx}' to the content globs — deliberately NOT done here:
-// it would revive 13 dead utilities across six categories at once, which needs its own visual
-// pass). Do not "fix" a single row by copying its classes into a component — that is exactly the
-// accidental coupling that made this invisible for so long.
+// These 30 class names are scanned by Tailwind: `tailwind.config.ts` carries
+// './lib/**/*.{js,ts,jsx,tsx,mdx}' in `content`, and the comment there explains why that glob is
+// load-bearing and must not be pruned. Do not "fix" a row by copying its classes into a
+// component — that is the accidental coupling this table exists to avoid.
 export const CATEGORY_COLORS: Record<ItineraryCategory, { bg: string; text: string; border: string }> = {
   sightseeing: { bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/30' },
   food: { bg: 'bg-orange-500/20', text: 'text-orange-300', border: 'border-orange-500/30' },

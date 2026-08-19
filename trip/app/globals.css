@@ -606,19 +606,47 @@
      ONLY while mounted on /travel with the flag on (removed on toggle-off / route leave /
      unmount) — TM-LOCAL, the rest of the app never sees this attribute.
 
-     retunes TOKENS here, but TM's own cards (travel-hero-card / travel-agenda-card /
-     travel-essentials-card / travel-safety-kit / travel-date-picker) render their body copy as
-     raw `text-white/NN` opacity utilities, not `text-foreground` — so the semantic surface
-     tokens alone wouldn't move a pixel of TM's actual text contrast. The catch-all attribute
-     selector below re-values EVERY `text-white/*` utility's computed color, wherever it
-     appears under the stamped <html> (i.e. only ever the current TM content) — this changes
-     what the SAME classNames compute to, not the classNames themselves (no component edited).
-     The target alpha (0.92) is higher than every `text-white/*` variant TM actually uses
-     (10-90), so this is a monotonic contrast RAISE only, never a lowering, at every site it
-     touches — verified >=4.5:1 AA against the darkest TM card fill in the
-     (the pre-existing worst case, text-white/45 on.glass-card, measures ~4.4:1
-     normal / ~14.4:1 high). `!important` is required to outrank the utility class's own
-     specificity without touching the component classNames it targets. */
+     WHAT TM'S BODY COPY IS, CORRECTED (G-1). This comment used to say that TM's cards
+     (travel-hero-card / travel-agenda-card / travel-essentials-card / travel-safety-kit /
+     travel-date-picker) "render their body copy as raw `text-white/NN` opacity utilities",
+     and that a catch-all `[class*='text-white/']` selector was therefore the only way to
+     move TM's text. That was true when it was written and it is FALSE NOW: issue #27's
+     sweep moved every one of those sites onto the three fixed-hex tiers
+     (`text-ink-hi/-mid/-lo` -> --text-hi/-mid/-lo), and `lib/__tests__/text-tier-sweep.test.ts`
+     fails on any reintroduction anywhere under app/ or components/. So the old selector had
+     stopped matching a single element in the tree, PERMANENTLY rather than incidentally —
+     it is deleted here rather than left as a belt, for the same reason the AA alpha floor
+     it resembles was deleted (a rule matching an empty set cannot fail loudly).
+
+     THE COST OF THAT, which is the defect this block is being fixed for: the ONLY thing
+     left raising TM's text contrast was the surface ramp below darkening one step, and the
+     tiers are fixed hexes that do not move with it. `text-ink-lo` on a TM card measured
+     7.06:1 with the toggle ON, against the 15.53:1 the deleted selector used to give it —
+     a 55% loss of exactly the headroom the one mode built for sun on a screen exists for.
+     Still AA, so no contrast guard fired; nothing measured the high-legibility ramp at all.
+     The tier overrides below are what restore it, and scripts/contrast-tokens.mjs now models
+     this whole block — the four surfaces AND the three tiers — so it stops being unmeasured.
+
+     WHAT THAT HARNESS ASSERTS, and why it is not just this block's own promise: a strict
+     RAISE per tier x surface pairing, PLUS a 12:1 OUTDOOR FLOOR. The raise alone is not a
+     check, which was measured rather than argued — in the defect state above every pairing
+     still "rose" by 0.29-1.40 purely from the surface ramp darkening under fixed-hex text, so
+     a raise-only assertion is green on a dead feature. The floor is what fires. It is 12
+     because these overrides bottom out at 13.22, which leaves 1.22 of room for a re-tune —
+     13 would leave 0.22 and go red on any nudge. Be honest about what 12 does and does not
+     do: it fires on 7 of the 12 defect-state pairings and on every `lo` row, but the defect
+     state's ceiling AMONG THE ROWS THIS FIX MOVES — mid and lo; `hi` is #FFFFFF in both modes
+     and was never broken — is 12.34 (text-mid on --surface), which CLEARS 12
+     by 0.34. So the floor is not "far above" what the surface ramp reaches alone — on the
+     tightest row it is a third of a point above it. It is chosen to catch the ramp that
+     actually broke, not to be unreachable.
+
+     AND IT WOULD NOT HAVE CAUGHT G-1 ON THE DAY. Worth writing down so nobody trusts it
+     backwards: the #27 sweep changed .tsx consumers, not tokens, and a hand-mirror of token
+     values is structurally blind to a consumer change — no value moved, so nothing could go
+     red. What makes the mirror the right shape NOW is that this fix converts the mechanism:
+     TM legibility used to live in a selector that depended on classnames elsewhere in the
+     tree, and it now lives entirely in tokens, which is exactly what the mirror can see. */
   html[data-tm-legibility='high'] {
     /* Semantic surface tier: push the page-root `bg-surface` + card tiers darker
        (still the same hue family — not a light-mode flip) so white/accent content pops
@@ -639,9 +667,15 @@
        --surface takes a new deepest value below --bg. Do not collapse two of these
        onto the same value to save a line — if -low and -raised are equal, the 8
        `.glass-subtle` sites become pixel-identical to a raised card and the calm tier
-       silently disappears in outdoor mode. Nothing measures this: contrast-tokens.mjs
-       does not model the high-legibility ramp, and a collapsed step is not a contrast
-       failure anyway, it is a lost distinction. */
+       silently disappears in outdoor mode. HALF-MEASURED NOW, and know which half.
+       contrast-tokens.mjs models all four surfaces, and TM[i] is exactly normal[i-1] — so a
+       TM step LIGHTENED onto its lighter neighbour lands on that row's own normal background,
+       fg and bg identical, ratio not strictly greater, and the run exits 1 (verified:
+       -low onto -raised fails `text-hi on --surface-low`, 18.33 vs 18.33, NOT A RAISE). A TM
+       step DARKENED raises the ratio and sails through both assertions. So collapsing two
+       steps ONTO ONE VALUE — which is what this warning literally describes, and the way a
+       dev actually does it — is still SILENT: setting -low and -raised both to #0E0920, or
+       both to some new middle value, exits 0. Only the lighten direction is covered. */
     --surface: 7 5 16;          /* below --bg  — new deepest step */
     --surface-low: 14 9 32;     /* = --bg        */
     --surface-raised: 23 15 47; /* = --surface-1 */
@@ -649,6 +683,28 @@
     --foreground: 0 0% 100%;
     --border: 251 39% 65%;
     --muted-foreground: 260 25% 88%;
+    /* THREE TIERS, THREE VALUES — the same rule as FOUR STEPS, FOUR VALUES above, and it
+       is the one the deleted `[class*='text-white/']` selector broke: that rule flattened
+       every tier onto white@0.92, so all three computed identically and the tier system
+       silently disappeared in outdoor mode. Restoring the headroom by collapsing them
+       again would be restoring the bug's shape. --text-hi is already #FFFFFF and stays;
+       these two are lavender-tinted near-whites on the same hue (258) as the tiers they
+       replace, so TM reads as the same palette turned up, not as a second one.
+
+       MEASURED, not chosen by eye (scripts/contrast-tokens.mjs, TM section — these hexes
+       are mirrored there and the two files must move together). On --surface-raised, the
+       fill of a TM card: hi 18.33 · mid 16.14 · lo 14.73, against the flat 15.53 the old
+       selector produced — and against 18.33/11.18/7.06, which is what these same three
+       tiers computed to in TM WITHOUT these overrides, i.e. the defect state (all three
+       numbers on this line are TM-context; the normal-mode triple on this surface is
+       16.45/10.03/6.34, a different quantity). Every one of the
+       twelve tier x surface pairings is strictly higher than its normal-mode counterpart,
+       which is the "monotonic contrast RAISE only" promise this block has always claimed
+       and, between the sweep and now, had stopped keeping. --text-lo lands ~5% under the
+       old flat 15.53 deliberately: that is the price of the tiers staying three distinct
+       values, and 14.73:1 is over three times AA. */
+    --text-mid: #F2EFF9;
+    --text-lo: #E9E4F5;
     /* Type-scale bump: `rem` is always ROOT-relative in CSS
        (not ancestor-relative), so every Tailwind `text-*` utility TM's cards use (all `rem`-
        based) only scales up if the <html> element's own font-size grows — a container-level
@@ -658,10 +714,6 @@
        on the page for this to affect), and the attribute is removed on toggle-off / route
        leave (travel-legibility-toggle.tsx), so every other route's rem base is untouched. */
     font-size: 112.5%;
-  }
-
-  html[data-tm-legibility='high'] [class*='text-white/'] {
-    color: rgb(255 255 255 / 0.92) !important;
   }
 }
 
@@ -700,6 +752,16 @@
   }
 }
 
+/* B-6 — scroll-lock the page behind any open modal. `data-dialog-open` is already set by
+   ui/sheet-dark.tsx, add-to-itinerary-dialog.tsx, expense-dialog.tsx and token-gate.tsx (the
+   quick-add FAB observes the same flag); until now nothing acted on it, so flicking inside a
+   sheet scrolled the page underneath once the inner scroll bottomed out. Deliberately
+   UNLAYERED so it wins over any utility class; map-section.tsx's fullscreen sets
+   `body.style.overflow` inline, which still wins over this, so the two never fight. */
+body[data-dialog-open] {
+  overflow: hidden;
+}
+
 [data-hydration-error] {
   display: none !important;
 }
@@ -723,6 +785,40 @@ html {
      Safari has no CSS property that kills the bounce ITSELF (see the identical
      caveat on `.travel-mode-root`,) — this only stops the chain-through. */
   overscroll-behavior-y: contain;
+}
+
+/* ---- The serif cannot be bold, so stop asking it to (G-2) ---------------------
+   Instrument Serif ships WEIGHT 400 ONLY (app/layout.tsx pins `weight: '400'`, and
+   there is no other weight to pin). tailwind.config.ts already says in writing, on the
+   `editorial-*` steps, that pairing `font-display` with `font-bold`/`font-semibold`
+   "produces a browser-SYNTHESISED bold, which is already a live defect in this
+   codebase" — and then the tree shipped 70 of them, across 45 files: every page title,
+   section masthead, error heading and dialog title in the app was rendering a smeared
+   algorithmic fake bold (the browser double-strikes/shears the 400 outlines).
+
+   ONE RULE INSTEAD OF 70 CALL-SITE EDITS. `font-bold`/`font-semibold` on those sites
+   are almost always doing a SECOND job — they sit in a shared class string with the
+   sans steps, or they were copied off a sans heading — so deleting them one by one is
+   45 files of churn with 45 chances to also change a size or a colour by accident.
+   Pinning the family's only real weight at the family utility fixes every site at once
+   and keeps working for sites that do not exist yet.
+
+   UNLAYERED, AND THAT IS THE WHOLE MECHANISM — do not "tidy" this into `@layer base`
+   or `@layer components`. `.font-display` and `.font-bold` are both 0,1,0, so this only
+   wins by SOURCE ORDER, and plain CSS below the `@tailwind utilities` injection point
+   at the top of this file is emitted after every utility. In a layer it would lose and
+   the fix would be silently inert. Same idiom, and same reason, as `.glass-card` below.
+   No `!important`: order is enough, and `!important` here would also beat the inline
+   `style` a future animation might need.
+
+   IT PINS THE SERIF ONLY. `display` is `var(--font-display), Georgia, serif` in
+   tailwind.config.ts — a family of its own, never the UI sans (`font-sans`/`font-mono`
+   both resolve `--font-sans`), so no sans weight is affected. It also pins the GEORGIA
+   fallback, which is deliberate: Georgia has a real bold, so without this the heading
+   weight would visibly change when the lazily-loaded webfont (`preload: false`) swaps
+   in. A heading that needs weight contrast takes a sans display step, not a fake bold. */
+.font-display {
+  font-weight: 400;
 }
 
 /* ---- Surfaces ------------------------------------
@@ -1974,7 +2070,6 @@ body:has(form:focus-within) .door-kb {
   scroll-margin-top: 4rem;
 }
 #dashboard,
-#timeline,
 #inspiration {
   scroll-margin-top: 7.5rem;
 }

@@ -4,7 +4,7 @@
 // (the sortable row + its droppable day column) plus the local category-icon map they render.
 // Zero behavior change — this is the same code, same props, same markup/testids, lifted out to
 // shrink calendar-planner.tsx. The category-icon map is kept as a file-local copy to match the
-// repo's existing idiom (add-to-itinerary-dialog / expense-dialog / trip-timeline each hold
+// repo's existing idiom (add-to-itinerary-dialog and expense-dialog each hold
 // their own copy — there is no shared module), so this file has no import back into the parent.
 
 import { useState, useRef, useId } from 'react';
@@ -120,24 +120,32 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
   // badge; legacy-only `time` -> verbatim, unbadged; else nothing.
   const timeInfo = describeItemTime(item, date);
 
+  // `flex-wrap` + the body's 10rem basis is what pays for the 44px targets below: on a narrow
+  // phone the action cluster drops to its own line instead of squeezing the title to ~90px.
+  // At >=640px everything still fits on one line, so desktop layout is unchanged.
   return (
-    <div ref={setNodeRef} style={style} data-testid={`calendar-item-${item.id}`} data-highlighted={highlighted ? 'true' : undefined} className={`flex items-start gap-2 p-3 rounded-xl ${colors.bg} border ${selected ? 'border-ring ring-1 ring-ring/50' : highlighted ? 'border-ring/70 ring-2 ring-ring/70' : colors.border} group hover:scale-[1.01] transition-transform`}>
+    <div ref={setNodeRef} style={style} data-testid={`calendar-item-${item.id}`} data-highlighted={highlighted ? 'true' : undefined} className={`flex flex-wrap items-start gap-2 p-3 rounded-xl ${colors.bg} border ${selected ? 'border-ring ring-1 ring-ring/50' : highlighted ? 'border-ring/70 ring-2 ring-ring/70' : colors.border} group hover:scale-[1.01] transition-transform`}>
       {selectMode ? (
-        <input
-          type="checkbox"
-          checked={selected}
-          onChange={onToggleSelect}
-          aria-label={`Select ${item.title}`}
-          data-testid={`calendar-item-select-${item.id}`}
-          className="mt-1 h-4 w-4 shrink-0 accent-primary cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded"
-        />
+        /* The BOX stays 17px — a bigger checkbox glyph is not the fix. The label around it
+           carries the 44px target (the `docs-checklist.tsx` idiom), and `items-start pt-1`
+           keeps the glyph exactly where `mt-1` had it while the hit area grows downward. */
+        <label className="shrink-0 inline-flex min-h-tap min-w-tap items-start justify-center pt-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={selected}
+            onChange={onToggleSelect}
+            aria-label={`Select ${item.title}`}
+            data-testid={`calendar-item-select-${item.id}`}
+            className="h-4 w-4 accent-primary cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded"
+          />
+        </label>
       ) : (
-        <button {...attributes} {...listeners} aria-label={`Reorder ${item.title}`} className="mt-1 cursor-grab active:cursor-grabbing text-ink-mid hover:text-ink-hi touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded">
+        <button {...attributes} {...listeners} aria-label={`Reorder ${item.title}`} className="shrink-0 inline-flex min-h-tap min-w-tap items-start justify-center pt-1 cursor-grab active:cursor-grabbing text-ink-mid hover:text-ink-hi touch-none outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded">
           <GripVertical className="w-4 h-4" />
         </button>
       )}
       <div
-        className="flex-1 min-w-0"
+        className="flex-1 min-w-0 basis-[10rem]"
         data-testid={`calendar-row-swipe-${item.id}`}
         style={{ touchAction: 'pan-y' }}
         onPointerDown={onSwipeDown}
@@ -208,15 +216,17 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
           aria-label={`Show ${item.title} on map`}
           aria-pressed={highlighted}
           data-testid={`calendar-item-locate-${item.id}`}
-          className={`shrink-0 mt-0.5 p-1.5 rounded hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${highlighted ? 'text-primary' : 'text-ink-mid hover:text-primary'}`}
+          className={`shrink-0 mt-0.5 inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${highlighted ? 'text-primary' : 'text-ink-mid hover:text-primary'}`}
         >
           <MapPin className="w-3.5 h-3.5" />
         </button>
       )}
-      <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
-        <button onClick={() => setDupOpen((v) => !v)} aria-label={`Duplicate ${item.title}`} aria-expanded={dupOpen} data-testid={`calendar-item-duplicate-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Copy className="w-3.5 h-3.5" /></button>
-        <button onClick={onEdit} aria-label={`Edit ${item.title}`} data-testid={`calendar-item-edit-${item.id}`} className="p-1.5 rounded hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
-        <button onClick={onDelete} aria-label={`Delete ${item.title}`} data-testid={`calendar-item-delete-${item.id}`} className="p-1.5 rounded hover:bg-red-500/20 text-ink-mid hover:text-red-400 outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
+      {/* `group-focus-within` mirrors `group-hover`: at >=640px these are hover-revealed,
+          so without it keyboard focus lands on three fully transparent buttons (B-3). */}
+      <div className="ml-auto flex shrink-0 gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
+        <button onClick={() => setDupOpen((v) => !v)} aria-label={`Duplicate ${item.title}`} aria-expanded={dupOpen} data-testid={`calendar-item-duplicate-${item.id}`} className="inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Copy className="w-3.5 h-3.5" /></button>
+        <button onClick={onEdit} aria-label={`Edit ${item.title}`} data-testid={`calendar-item-edit-${item.id}`} className="inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
+        <button onClick={onDelete} aria-label={`Delete ${item.title}`} data-testid={`calendar-item-delete-${item.id}`} className="inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-red-500/20 text-ink-mid hover:text-red-400 outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
     </div>
   );

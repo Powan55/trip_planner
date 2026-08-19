@@ -746,7 +746,7 @@ export default function MapSection() {
               aria-label={searchOpen ? 'Close map search' : 'Search places on map'}
               aria-expanded={searchOpen}
               data-testid="map-search-toggle"
-              className="flex items-center justify-center w-8 h-8 rounded-lg text-ink-mid border border-white/10 hover:bg-white/5 hover:text-ink-hi transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="flex items-center justify-center h-tap w-tap rounded-lg text-ink-mid border border-white/10 hover:bg-white/5 hover:text-ink-hi transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <Search className="w-3.5 h-3.5" />
             </button>
@@ -789,7 +789,7 @@ export default function MapSection() {
                     disabled={!searchQuery.trim()}
                     aria-busy={world.phase === 'searching'}
                     data-testid="map-search-world-submit"
-                    className="mt-1.5 w-full flex items-center justify-center gap-1.5 min-h-[36px] px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs font-medium text-ink-hi hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:hover:bg-white/5 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    className="mt-1.5 w-full flex items-center justify-center gap-1.5 min-h-tap px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs font-medium text-ink-hi hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:hover:bg-white/5 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   >
                     <Globe className="w-3.5 h-3.5" aria-hidden="true" />
                     {world.phase === 'searching' ? 'Searching…' : 'Search the world'}
@@ -1334,7 +1334,7 @@ export default function MapSection() {
           aria-label={isFullscreen ? 'Exit fullscreen map' : 'Open map fullscreen'}
           aria-pressed={isFullscreen}
           data-testid="map-fullscreen-toggle"
-          className="absolute top-3 left-3 z-10 grid place-items-center w-9 h-9 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-ink-mid hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute top-3 left-3 z-10 grid place-items-center h-tap w-tap rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-ink-mid hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {isFullscreen ? (
             <Minimize2 className="w-4 h-4" />
@@ -1351,10 +1351,16 @@ export default function MapSection() {
             // control group and won on z-index — MEASURED in a real fullscreen browser:
             // a 27×27 overlap of the 29×29 zoom-in button, and elementFromPoint at that
             // button's centre returned this Close button, i.e. zoom-in was unclickable.
-            // Moved beside the fullscreen toggle (top-3 left-3, w-9 → ends at ~51px) so the
+            // Moved beside the fullscreen toggle so the
             // app's own chrome sits together on the left and MapLibre keeps its conventional
             // top-right corner untouched.
-            className="absolute top-3 left-14 z-10 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-ink-hi text-xs hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            // CLEARANCE, and it moved once already: the toggle was w-9 and ended at ~51px,
+            // leaving 8.5px before this button's old `left-14` (59.5px @ the 17px root).
+            // Issue #105 grew the toggle to the 44px tap floor, so it now ends at 56.75px
+            // and that gap fell to 2.75px — still WCAG 2.5.8-clean (both ≥24px) but visually
+            // touching, and this pair has ALREADY caused one unclickable-control bug. `left-16`
+            // (68px) restores 11.25px. Recompute this if either control changes width again.
+            className="absolute top-3 left-16 z-10 flex min-h-tap items-center gap-1.5 px-3 py-2 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-ink-hi text-xs hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="w-4 h-4" />
             Close

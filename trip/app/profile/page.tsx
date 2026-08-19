@@ -15,6 +15,7 @@
 //
 // The island is lazy + ssr:false (app/settings/sections.tsx's shape); this Server Component page
 // exports the metadata and owns the <h1>.
+import PageHeader from '@/components/page-header';
 import { VisitedPlaces } from './sections';
 
 export const metadata = {
@@ -26,31 +27,17 @@ export const metadata = {
 export default function ProfilePage() {
   return (
     <main className="min-h-screen bg-surface">
-      {/* Local page header — reuses the PageHero design tokens directly rather than extending
-          page-hero.tsx's closed variant union (mirrors app/settings/page.tsx). Supplies the <h1>. */}
-      <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
-        <div className="glass-panel relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                'var(--hero-wash)',
-            }}
-          />
-          <div className="relative">
-            <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
-              Where you have been
-            </p>
-            <h1 className="font-display text-display-lg text-display-emphasis">Profile</h1>
-            <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-              Add the countries and cities you had already been to before this trip, so your totals
-              count a lifetime of travel and not just this one journey. Everything here is kept on
-              this device and survives clearing a trip or signing out.
-            </p>
-          </div>
-        </div>
-      </header>
+      {/* `reveal={false}` preserves what this route actually ships: it is the ONE of the eight
+          that never carried `animate-reveal-up`, dropped when the page was written (ac66787)
+          even though its own comment claimed to mirror /settings. Restoring the entrance is a
+          visual change and therefore not this refactor's call — it is a one-prop deletion when
+          someone decides to make it. */}
+      <PageHeader
+        eyebrow="Where you have been"
+        title="Profile"
+        description="Add the countries and cities you had already been to before this trip, so your totals count a lifetime of travel and not just this one journey. Everything here is kept on this device and survives clearing a trip or signing out."
+        reveal={false}
+      />
       <VisitedPlaces />
     </main>
   );

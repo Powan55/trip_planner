@@ -125,6 +125,3 @@ export const JAPAN_FOOD: Recommendation[] = [
 ];
 
 export const JAPAN_CATEGORIES = ['All', 'Must-See', 'Hidden Gem', 'Winter', 'Anime', 'Cultural', 'Scenic', 'Shopping', 'Experience', 'Food', 'Ramen', 'Sushi', 'Street Food', 'Restaurant', 'Dessert'];
-
-/** === `TripConfig.contentRef` for the default pack (core/trips/packs/nepal-japan-2026.ts). */
-export const DEFAULT_CONTENT_REF = 'nepal-japan-2026';

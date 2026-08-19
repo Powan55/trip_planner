@@ -20,20 +20,22 @@ const buttonVariants = cva(
           "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80",
         ghost:
           "hover:bg-accent hover:text-accent-foreground",
-        "glass-dark":
-          "bg-white/10 backdrop-blur-md border border-white/20 [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.1)] text-foreground shadow-sm hover:bg-white/25 hover:border-white/40 hover:shadow-lg focus-visible:ring-white/50 focus-visible:ring-ring/0",
-        "glass-light":
-          "bg-black/[0.06] backdrop-blur-md border border-black/10 [box-shadow:inset_0_0_0_1px_rgba(255,255,255,0.5)] text-gray-900 shadow-sm hover:bg-black/[0.12] hover:border-black/20 hover:shadow-lg focus-visible:ring-black/30 focus-visible:ring-ring/0",
         link:
           "text-primary underline-offset-4 hover:underline focus-visible:underline focus-visible:ring-0 focus-visible:ring-offset-0",
       },
+      // Every size now sits on `--tap` (44px) rather than a fixed sub-floor height.
+      // Measured at this app's 17px root, the old scale was default 42.5 · xs 29.75 ·
+      // sm 38.25 · icon 42.5 · icon-sm 34 — five of six under the floor the token
+      // declares. `lg` (h-11 = 46.75) already cleared it and is left alone. The size
+      // names still differ in padding, radius and text step; they no longer differ in
+      // how easy the control is to hit.
       size: {
-        default: "h-10 px-4 py-2",
-        xs: "h-7 rounded-md px-2 text-xs",
-        sm: "h-9 rounded-md px-3",
+        default: "min-h-tap px-4 py-2",
+        xs: "min-h-tap rounded-md px-2 text-xs",
+        sm: "min-h-tap rounded-md px-3",
         lg: "h-11 rounded-lg px-6 text-base",
-        icon: "h-10 w-10",
-        "icon-sm": "h-8 w-8 rounded-md",
+        icon: "h-tap w-tap",
+        "icon-sm": "min-h-tap min-w-tap rounded-md",
       },
     },
     defaultVariants: {

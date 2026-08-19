@@ -213,3 +213,34 @@ test('axe: /nepal with the filters sheet OPEN has zero serious/critical/moderate
       .join('; ')}`,
   ).toEqual([]);
 });
+
+/**
+ * The skip link (B-1, WCAG 2.4.1) — one assertion, because axe cannot see this one.
+ *
+ * `bypass` already passed on every route BEFORE the link existed: each page renders a real
+ * `<main>`, which satisfies the rule on its own. So the automated pack is blind to whether a
+ * keyboard user can actually reach content, and the whole fix rests on Tailwind emitting
+ * `.fixed` after `.not-sr-only` — an ordering a future Tailwind bump can flip silently, turning
+ * the visible chip back into a 1px clipped box with nothing on screen to tell you.
+ *
+ * Asserted here rather than per-route: the link and its `#main` target both live in
+ * `app/layout.tsx`, so one route proves the mechanism for all 19.
+ */
+test('the first Tab reveals a real skip link that moves focus to #main', async ({ page }) => {
+  await gotoSettled(page, '/');
+  await waitForRouteContent(page);
+
+  await page.locator('body').press('Tab');
+
+  const skip = page.locator('a[href="#main"]');
+  await expect(skip).toBeFocused();
+  // Visible on screen, not merely un-clipped: `sr-only`'s 1px box must actually be undone.
+  await expect(skip).toBeVisible();
+  const box = await skip.boundingBox();
+  expect(box, 'the focused skip link has no layout box').not.toBeNull();
+  expect(box!.width, 'the skip link is still sr-only-sized when focused').toBeGreaterThan(40);
+  expect(await skip.evaluate((el) => getComputedStyle(el).position)).toBe('fixed');
+
+  await skip.press('Enter');
+  await expect(page.locator('#main')).toBeFocused();
+});

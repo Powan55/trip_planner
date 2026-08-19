@@ -97,7 +97,7 @@ describe('#20 · map shell — the engine, never "the offline map"', () => {
     expect(reads).toEqual(['https://x/big.js']);
   });
 
-  it('FAIL: a precache with no maplibre chunk reports the engine missing, not a pass', async () => {
+  it('ATTENTION: a precache with no maplibre chunk says the engine is not saved yet, not a pass', async () => {
     const check = await checkMapShell(
       fakeCacheStorage({
         'trip-precache-abc': {
@@ -107,7 +107,12 @@ describe('#20 · map shell — the engine, never "the offline map"', () => {
       })
     );
     expect(check.state).toBe('attention');
-    expect(check.headline).toBe('Map engine missing');
+    expect(check.headline).toBe('Map engine not saved yet');
+    // V6-14 made this the state of EVERY fresh install until the first online /map visit, so
+    // the copy must name that action and must not read as a fault. It stays 'attention'
+    // because there IS something to do; what changed is that it says what.
+    expect(check.detail).toMatch(/open the map with a connection/i);
+    expect(check.detail).not.toMatch(/missing|isn't in that copy/i);
   });
 
   it('FAIL: no trip-precache-* cache at all reports "not saved yet"', async () => {

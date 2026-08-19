@@ -60,7 +60,16 @@ export default function TravelSafetyKit() {
           {Object.entries(phrasesByCategory).map(([category, phrases]) => (
             <div key={category}>
               <h3 className="font-display text-base font-semibold text-ink-hi">{category}</h3>
-              <div className="mt-2 overflow-x-auto rounded-xl border border-white/10">
+              {/* tabIndex=0 keeps the horizontal scroller keyboard-reachable (axe
+                  scrollable-region-focusable): the table holds only read-only text, so it has
+                  no focusable child of its own to scroll it with. Same idiom as
+                  place-detail-sheet.tsx, plus a visible ring since this one sits in the page. */}
+              <div
+                tabIndex={0}
+                role="region"
+                aria-label={`${category} phrases`}
+                className="mt-2 overflow-x-auto rounded-xl border border-white/10 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <table className="w-full min-w-[480px] border-collapse text-left text-sm">
                   <caption className="sr-only">{category} phrases — English, Nepali in Devanagari with romanization, Japanese in kana/kanji with romanization</caption>
                   <thead>

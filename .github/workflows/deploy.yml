@@ -35,7 +35,7 @@ jobs:
       # fetch-depth/fetch-tags are load-bearing, not habit: the gate decides by
       # looking for a tag, and checkout's defaults fetch none, so a shallow
       # checkout makes it pass on a version that is already live.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -75,10 +75,10 @@ jobs:
       run:
         working-directory: trip
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: trip/package-lock.json
       - run: npm ci --legacy-peer-deps
@@ -125,8 +125,8 @@ jobs:
           esac
           echo "concierge-url present: yes"
           npm run build
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: trip/out
 
@@ -166,14 +166,14 @@ jobs:
     env:
       FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Pinned, and not decoration: this is the one job that runs with a Google credential, and
       # `npx firebase-tools@14` needs Node >= 20. Today's ubuntu-latest ships it, so leaving this
       # off would work right up until the runner image moves and the publish breaks with the key
       # already in hand. No npm cache: nothing here installs from a lockfile.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20
+          node-version: 22
       # Deliberately green, not red. Arming this is an OWNER decision (D-314), because the
       # v5.14.0 client has been writing member rosters into Firestore under the OLD permissive
       # rules since 2026-08-10: publishing the members-gated ruleset before those live rosters
@@ -224,10 +224,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
       # Only reached if deploy-pages succeeded (a failed step halts the job),
       # so the tag records a genuinely-live version, never a failed attempt.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-tags: true
       - name: Tag this version as successfully deployed

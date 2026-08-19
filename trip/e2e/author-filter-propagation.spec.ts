@@ -15,9 +15,16 @@ import type { Page } from '@playwright/test';
  *  1. PROPAGATION — with a name selected, every number narrows together.
  *  2. 🔴 NON-REGRESSION — with NO filter selected, every one of those numbers is byte-identical to
  *     the pre-S383 build. `NO_FILTER_BASELINE` below is not a guess or a self-capture: it was
- *     recorded by running this exact spec against the UNMODIFIED `calendar-planner.tsx` /
- *     `trip-timeline.tsx` and pasting the printed snapshot in. So it is a genuine before/after
- *     comparison, and a future change that quietly filters the no-filter path fails here.
+ *     recorded by running this exact spec against the UNMODIFIED `calendar-planner.tsx` (and the
+ *     then-extant `trip-timeline.tsx`, since deleted by #94) and pasting the printed snapshot in.
+ *     So it is a genuine before/after comparison, and a future change that quietly filters the
+ *     no-filter path fails here.
+ *
+ * (#94): the pack had a THIRD half — "the Filter by row renders once on /plan" — whose premise
+ * was that `trip-timeline.tsx` mounted a SECOND copy of the control. #94 deleted that component,
+ * so `calendar-planner.tsx` is now the only mount site in the tree and both of those tests were
+ * removed rather than left asserting `toHaveCount(1)` against a surface that can no longer
+ * produce a second one.
  *
  * Harness conventions are `sort-clash.spec.ts`'s verbatim: the shared signed-in fixture (which
  * also dismisses the app-wide `duration:Infinity` install toast), `domcontentloaded` +
@@ -172,8 +179,9 @@ async function selectDay(page: Page, date: string) {
  * `/plan` (planner toolbar + timeline), so an unscoped `getByTestId` is a strict-mode violation on
  * the old build. An unscoped locator would therefore fail every test in this file for the WRONG
  * reason ("resolved to 2 elements"), masking the propagation defect the pack exists to measure.
- * Scoping keeps each test failing for its own reason; the duplicate itself has its own test below,
- * which is deliberately NOT scoped.
+ * Scoping keeps each test failing for its own reason. #94 deleted the timeline outright, so the
+ * planner toolbar is now the only mount site — the scoping is kept because it still pins WHICH
+ * control each assertion drives, which is what makes a future second mount fail loudly here.
  */
 function plannerFilter(page: Page) {
   return page.getByTestId('calendar-toolbar-panel');
@@ -328,10 +336,11 @@ test.describe('S383 — a selected author narrows the WHOLE calendar surface', (
 // ─────────────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * Recorded by running this spec against the PRE-S383 build (`calendar-planner.tsx` and
- * `trip-timeline.tsx` at HEAD, with only the inert testid additions applied so the spec could
- * run at all). Do not "update" these to make a run go green — if they move, the no-filter path
- * changed, and that is the thing this slice promised not to do.
+ * Recorded by running this spec against the PRE-S383 build (`calendar-planner.tsx` and the
+ * then-extant `trip-timeline.tsx` at HEAD, with only the inert testid additions applied so the
+ * spec could run at all). Do not "update" these to make a run go green — if they move, the
+ * no-filter path changed, and that is the thing this slice promised not to do. Every field below
+ * is read off the CALENDAR, so #94's deletion of the timeline does not touch this recording.
  */
 const NO_FILTER_BASELINE = {
   rowIds: ['af-p1', 'af-p2', 'af-s1', 'af-s2', 'af-p3'],
@@ -406,47 +415,18 @@ test.describe('S383 — NON-REGRESSION: no filter selected means nothing changed
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-// 3. The duplicated control (the discoverability half)
+// 3. (#94) REMOVED — "the duplicated control (the discoverability half)".
+//
+// Both tests here were premised on `trip-timeline.tsx` mounting a SECOND `author-filter`, and
+// the load-bearing part of each was the `#timeline` scroll that mounted that island. #94 deleted
+// the component, so:
+//   · "exactly one control, even with the timeline island scrolled into view" had nothing left
+//     but a `toHaveCount(1)` against a tree with exactly one structural mount site
+//     (`calendar-planner.tsx:1296`) — it could not fail, so it was deleted rather than kept as a
+//     green assertion that proves nothing. There is no other surface on /plan that can render a
+//     second control, so there was nothing to rewrite it against.
+//   · "the surviving control still narrows the TIMELINE too" asserted on `timeline-item-*`
+//     testids that no longer exist.
+// The propagation the first of those two cared about — one selection narrowing the whole
+// surface — is section 1 above, which is measured, not incidental.
 // ─────────────────────────────────────────────────────────────────────────────────────────────
-
-test.describe('S383 — the "Filter by" row renders once on /plan', () => {
-  test('exactly one control, even with the timeline island scrolled into view', async ({
-    page,
-  }) => {
-    await gotoSettled(page, '/plan/');
-    await seedTwoAuthorDays(page);
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await waitForPlannerReady(page);
-
-    // 🔴 The scroll is load-bearing. `TripTimeline` is a `LazyVisible` island, so before S383 a
-    // test that never scrolled counted ONE control and passed on the broken build. Mounting the
-    // timeline is what makes this check able to fail.
-    await page.locator('#timeline').scrollIntoViewIfNeeded();
-    await page.locator('#timeline').getByRole('button', { name: /Day \d+/ }).first().waitFor();
-
-    await expect(page.getByTestId('author-filter')).toHaveCount(1);
-    await expect(page.getByRole('group', { name: 'Filter itinerary items by author' })).toHaveCount(
-      1,
-    );
-  });
-
-  test('the surviving control still narrows the TIMELINE too (one selection, both surfaces)', async ({
-    page,
-  }) => {
-    await gotoSettled(page, '/plan/');
-    await seedTwoAuthorDays(page);
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await waitForPlannerReady(page);
-
-    // Deleting the timeline's own copy must not orphan it: the selection is a shared
-    // module-level value, so the planner's control still drives it.
-    await pickAuthor(page, OTHER);
-    await page.locator('#timeline').scrollIntoViewIfNeeded();
-    await page.locator('#timeline').getByRole('button', { name: /Day \d+, .*Dec 15/ }).click();
-
-    const timelineIds = await page
-      .locator('[data-testid^="timeline-item-af-"]')
-      .evaluateAll((els) => els.map((el) => el.getAttribute('data-testid')));
-    expect(timelineIds).toEqual(['timeline-item-af-s1', 'timeline-item-af-s2']);
-  });
-});

@@ -80,6 +80,19 @@ const C = {
   gold600: '#C08400', sakura300: '#FFB1D8', himalaya600: '#C2692E',
   // ---- stamp inks on paper (D-294 values, NOT the pre-D-294 #B3123C/#2B4B9B/#0F6E5C) ----
   inkNepal: '#8E0E30', inkJapan: '#223C7C', inkGreen: '#0C5849',
+  // ---- TRAVEL MODE, outdoor high-legibility (`html[data-tm-legibility='high']`) ----
+  // The one mode built for direct sunlight on a screen, and until now the ONE ramp this
+  // harness did not model — which is how it stayed green while the feature was dead. The
+  // block re-values the four SEMANTIC surface names one step darker (--surface takes a new
+  // deepest step BELOW --bg), so a TM card fills from tmRaised, not surface2. These eight
+  // hexes are a mirror of that block; edit both or /travel silently drifts.
+  tmSurface: '#070510', tmLow: '#0E0920', tmRaised: '#170F2F', tmOverlay: '#221745',
+  // The tiers move WITH it. They did not before: issue #27's sweep put TM's body copy on
+  // fixed hexes, which the surface ramp cannot lift, and the `[class*='text-white/']`
+  // catch-all that used to raise them stopped matching anything. --text-hi is #FFFFFF in
+  // both modes; only mid and lo need an override, and they stay three DISTINCT values
+  // (same hue 258) rather than flattening onto one the way the deleted rule did.
+  tmMid: '#F2EFF9', tmLo: '#E9E4F5',
   // ---- duotone highlight caps (the photo engine) ----
   duoNpHigh: '#F5D4AC', duoJpHigh: '#EFC6D6',
   // The duotone SHADOW stop, i.e. the other end of the same grade. Modelled because
@@ -470,6 +483,53 @@ const pairs = [
   ['volt button lip vs bg', C.lipVolt, C.bg, 3],
 ];
 
+// ---- TRAVEL MODE HIGH LEGIBILITY (the one ramp nothing measured) ----------------------
+// `html[data-tm-legibility='high']` promises, in its own comment, "a monotonic contrast
+// RAISE only, never a lowering, at every site it touches". Nothing measured that, and it
+// quietly stopped being true: issue #27's sweep moved TM's body copy onto fixed-hex tiers,
+// the `[class*='text-white/']` catch-all that used to raise them stopped matching anything,
+// and the tiers were left riding the surface ramp alone (text-lo on a TM card: 15.53 ->
+// 7.06). AA passed at every site throughout, which is precisely why an AA-floor assertion
+// could not have caught it — an outdoor mode that is merely AA has lost the thing it is for.
+//
+// TWO ASSERTIONS PER ROW, AND THE SECOND ONE IS THE LOAD-BEARING ONE. Each row is one tier
+// on one SEMANTIC surface name; both sides move between the modes (the tier hex AND the
+// surface that name resolves to), which is what makes the pairing the right unit.
+//
+//   1. THE RAISE. TM-high > normal, strictly, at every pairing. This is the block's own
+//      stated promise — and ON ITS OWN IT IS NOT ENOUGH, which was measured rather than
+//      assumed: with the tiers left at their normal hexes (i.e. the exact defect being
+//      fixed here) every pairing still "rises", by 0.29-1.40, purely because the surface
+//      ramp darkens one step under them. A check that shipped with only this in it would
+//      have been green on the broken tree and this comment would be a lie.
+//
+//   2. THE OUTDOOR FLOOR, 12:1, and it is deliberately NOT 4.5. TM exists to be readable
+//      with the sun on the screen; the number it has to hold is a headroom number, not a
+//      legality number. 12 is calibrated against the two real reference points rather than
+//      picked: the deleted `text-white/*` rule's OWN WORST pairing was 13.99 (white@0.92 on
+//      --surface-overlay) and the tier overrides that replace it bottom out at 13.22. So 12
+//      sits below everything TM has ever actually delivered, with 1.22 of room for a re-tune
+//      — 13 would leave 0.22 and go red on any nudge.
+//      BE PRECISE ABOUT WHAT IT CATCHES, because the tempting sentence here is false: 12 is
+//      NOT far above what the surface ramp reaches on its own. The defect state fires 7 of
+//      these 12 rows and every `lo` row, but its own ceiling is 12.34 (text-mid on
+//      --surface), which CLEARS 12 by 0.34. The floor is sized to catch the ramp that broke,
+//      not to be unreachable. If a future retune genuinely cannot hold 12, that is a decision
+//      to make on purpose, having watched this line go red.
+//
+//   3. TIER DISTINCTNESS, asserted separately below. The raise and the floor are both
+//      satisfied by setting all three tiers to #FFFFFF — which is the deleted rule's exact
+//      shape, the tier system collapsing in outdoor mode. Measured: without this assertion a
+//      flattened ramp exits 0. So the three TM tier hexes must differ from each other.
+// [label, normal fg, normal bg, TM fg, TM bg, outdoor floor]
+const TM_FLOOR = 12;
+const tmSurfaces = [['--surface', C.bg, C.tmSurface], ['--surface-low', C.surface1, C.tmLow],
+                    ['--surface-raised (a TM card)', C.surface2, C.tmRaised],
+                    ['--surface-overlay', C.surface3, C.tmOverlay]];
+const tmPairs = [['hi', C.textHi, C.textHi], ['mid', C.textMid, C.tmMid], ['lo', C.textLo, C.tmLo]]
+  .flatMap(([tier, nFg, tFg]) => tmSurfaces.map(([sName, nBg, tBg]) =>
+    [`text-${tier} on ${sName}`, nFg, nBg, tFg, tBg, TM_FLOOR]));
+
 // These MUST FAIL — they encode the rules the system depends on, and a guard that
 // starts passing means someone changed a value the rule was protecting.
 const guards = [
@@ -566,6 +626,29 @@ for (const [label, fg, bg, t] of guards) {
   const r = ratio(fg, bg), ok = r < t;
   if (!ok) fail++;
   console.log(('  ' + label).padEnd(42), r.toFixed(2).padStart(6), ` <${t}  `, ok ? 'guard ok' : 'GUARD BROKEN');
+}
+
+console.log(`\ntravel mode, outdoor high legibility (each tier x surface MUST rise AND clear the ${TM_FLOOR}:1 outdoor floor):`);
+console.log('  ' + 'pair'.padEnd(38), 'normal', '    high', '  floor   verdict');
+for (const [label, nFg, nBg, tFg, tBg, target] of tmPairs) {
+  const n = ratio(nFg, nBg), h = ratio(tFg, tBg), ok = h > n && h >= target;
+  if (!ok) fail++;
+  console.log('  ' + label.padEnd(38), n.toFixed(2).padStart(6), h.toFixed(2).padStart(7),
+    '  ', String(target).padEnd(6),
+    ok ? `RAISE +${(h - n).toFixed(2)}`
+       : h <= n ? '*** FAIL (NOT A RAISE) ***'
+       : `*** FAIL (below the ${TM_FLOOR}:1 outdoor floor) ***`);
+}
+// Assertion 3 — the tiers must stay three values. Neither the raise nor the floor can see a
+// collapse: setting all three to #FFFFFF passes both and is exactly the shape of the deleted
+// `text-white/*` rule, which flattened every tier onto white@0.92.
+{
+  const tm = [['hi', C.textHi], ['mid', C.tmMid], ['lo', C.tmLo]];
+  const distinct = new Set(tm.map(([, h]) => h.toUpperCase())).size === 3;
+  if (!distinct) fail++;
+  console.log('  ' + 'the three tiers stay three values'.padEnd(38),
+    tm.map(([t, h]) => `${t} ${h}`).join('  '),
+    distinct ? '  DISTINCT' : '  *** FAIL (a collapsed tier ramp is the deleted rule\'s shape) ***');
 }
 
 console.log('\ncomposited worst-case pixels:');

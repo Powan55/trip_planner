@@ -241,7 +241,6 @@ export default function Navbar() {
                     onClick={() => setMoreOpen((v) => !v)}
                     aria-expanded={moreOpen}
                     aria-controls="navbar-more-menu"
-                    aria-haspopup="true"
                     className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none text-ink-mid hover:text-white hover:bg-white/5"
                   >
                     More
@@ -257,7 +256,10 @@ export default function Navbar() {
                         ref={morePanelRef}
                         id="navbar-more-menu"
                         data-testid="navbar-more-menu"
-                        role="menu"
+                        // `group`, not `menu`: this is a div of Links in plain tab order, and
+                        // the role is what keeps `aria-label` exposed (a bare div is generic
+                        // and drops the name).
+                        role="group"
                         aria-label="More"
                         initial={panelInitial}
                         animate={panelAnimate}
@@ -275,7 +277,6 @@ export default function Navbar() {
                                 vtClick(item.href)(e);
                               }}
                               data-testid={`navbar-more-link-${item.label.toLowerCase()}`}
-                              role="menuitem"
                               aria-current={isActive ? 'page' : undefined}
                               className={`flex items-center gap-2.5 w-full min-h-[40px] px-3 py-2 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                                 isActive ? 'text-white bg-white/5' : 'text-ink-mid hover:text-white hover:bg-white/5'
@@ -287,12 +288,11 @@ export default function Navbar() {
                           );
                         })}
 
-                        <div className="my-1.5 border-t border-white/[0.08]" role="separator" aria-hidden="true" />
+                        <div className="my-1.5 border-t border-white/[0.08]" aria-hidden="true" />
 
                         <button
                           type="button"
                           data-testid="navbar-more-search"
-                          role="menuitem"
                           onClick={() => {
                             closeMore();
                             window.dispatchEvent(new CustomEvent('palette:open'));

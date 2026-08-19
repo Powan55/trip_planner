@@ -54,7 +54,7 @@ export const expensesSyncPort: SyncPort<Expense[]> = {
   // ack-on-resolve; a rejecting leg stays dirty and retries on the next flush. Self-gates on
   // configured AND identified traveler (dormant/guest never write the slot), so the dormant build
   // still pulls NO firebase onto the hot path. Never throws to the commit caller.
-  push: withOutbox(expensesChunkSync, expensesStoragePort),
+  push: withOutbox(expensesChunkSync),
 
   subscribe(onApplied) {
     // Dormant gate: no config ⇒ no firebase import, a no-op unsubscribe.

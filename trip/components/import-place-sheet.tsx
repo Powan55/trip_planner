@@ -249,7 +249,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6">
           <div className="space-y-4">
             {/* Link */}
             <div>
@@ -326,15 +326,16 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
             {multiLeg && (
               <div>
                 <span id={legLabelId} className="text-xs text-ink-mid mb-1 block">Country</span>
-                <div className="flex flex-wrap gap-2" role="radiogroup" aria-labelledby={legLabelId}>
+                {/* B-5: `role="group"` + `aria-pressed`, not radiogroup/radio — the composite
+                    role promises arrow-key navigation this toggle never implemented. */}
+                <div className="flex flex-wrap gap-2" role="group" aria-labelledby={legLabelId}>
                   {legs.map((leg) => {
                     const active = legId === leg.id;
                     return (
                       <button
                         key={leg.id}
                         type="button"
-                        role="radio"
-                        aria-checked={active}
+                        aria-pressed={active}
                         data-testid={`import-place-leg-${leg.id}`}
                         onClick={() => setLegId(leg.id)}
                         className={`min-h-[44px] px-4 rounded-lg text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${

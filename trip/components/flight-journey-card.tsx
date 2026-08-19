@@ -179,7 +179,7 @@ function LayoverRow({ layover }: { layover: Layover }) {
 }
 
 const RAIL_LINK =
-  'inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-white/5 px-3 text-[11px] font-medium text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
+  'inline-flex min-h-tap items-center gap-1.5 rounded-lg bg-white/5 px-3 text-[11px] font-medium text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
 
 // "Check live status" rail: external deep-links OUT only, built from the SAME
 // `lib/flight-deep-links.ts` builders Travel Mode uses so the two can't drift.

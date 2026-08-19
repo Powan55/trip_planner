@@ -7,6 +7,7 @@
 // DOCUMENTS + departure readiness. The island is lazy + ssr:false, mirroring app/packing/sections.tsx;
 // this Server Component page exports metadata. Reached via a direct URL or the command palette's
 // "Documents" entry.
+import PageHeader from '@/components/page-header';
 import { DocsChecklist, PreflightChecks } from './sections';
 
 export const metadata = {
@@ -18,31 +19,11 @@ export const metadata = {
 export default function ChecklistPage() {
   return (
     <main className="min-h-screen bg-surface">
-      {/* Local page header — reuses the PageHero design tokens directly rather than extending
-          page-hero.tsx's closed variant union. Supplies the page's <h1>
-          (mirrors app/packing/page.tsx). */}
-      <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
-        <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                'var(--hero-wash)',
-            }}
-          />
-          <div className="relative">
-            <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
-              Before you fly
-            </p>
-            <h1 className="font-display text-display-lg text-display-emphasis">Documents &amp; Readiness</h1>
-            <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-              Your critical travel documents and day-zero departure checklist — tick each one off as
-              it&apos;s handled. Saved on this device and synced across your travelers.
-            </p>
-          </div>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow="Before you fly"
+        title="Documents & Readiness"
+        description="Your critical travel documents and day-zero departure checklist — tick each one off as it's handled. Saved on this device and synced across your travelers."
+      />
       <DocsChecklist />
       {/* #20 — the machine-checked half of "am I ready?", below the human-attested list it
           complements (same page, same moment: the evening before flying). */}

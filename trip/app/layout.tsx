@@ -113,6 +113,15 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="dark">
       <body className={`${geist.variable} ${instrumentSerif.variable} font-sans bg-surface`}>
+        {/* WCAG 2.4.1 (B-1). ONE link at the root covers every route: all 19 pages
+            render inside the `#main` wrapper below, so no page-level skip link is needed.
+            Invisible until focused, then a real chip above the navbar (z-50). */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:border focus:border-white/15 focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          Skip to content
+        </a>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
@@ -128,7 +137,9 @@ export default function RootLayout({
             <Navbar />
             {/* routed content + footer must clear the fixed mobile
                 tab bar; 64px fallback = the bar's published height contract. */}
-            <div className="pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] md:pb-0">
+            {/* `#main` is the skip link's target; tabIndex=-1 makes a non-interactive
+                wrapper programmatically focusable, `outline-none` keeps that focus silent. */}
+            <div id="main" tabIndex={-1} className="outline-none pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] md:pb-0">
               {children}
               <Footer />
             </div>
