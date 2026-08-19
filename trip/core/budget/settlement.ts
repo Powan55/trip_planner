@@ -70,7 +70,7 @@ function roundBalances(balances: Record<string, number>, unit: number): Record<s
   const scaled = ids.map((id) => balances[id] / unit);
   const floors = scaled.map(Math.floor);
   const remainders = scaled.map((v, i) => v - floors[i]);
-  let deficit = Math.round(scaled.reduce((s, v) => s + v, 0) - floors.reduce((s, v) => s + v, 0));
+  const deficit = Math.round(scaled.reduce((s, v) => s + v, 0) - floors.reduce((s, v) => s + v, 0));
   // Hand out the leftover whole units, one at a time, to the entries with the largest remainder.
   const order = ids.map((_, i) => i).sort((a, b) => remainders[b] - remainders[a]);
   const rounded = [...floors];
