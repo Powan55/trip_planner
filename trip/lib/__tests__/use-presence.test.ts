@@ -50,7 +50,7 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 import { usePresence, type ActivePresence } from '@/hooks/use-presence';
 import { IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
 
-const ACTIVE_WINDOW_MS = 3 * 60_000; // mirrors the hook's own copy (lib/presence.ts's ACTIVE_WINDOW_MS)
+const ACTIVE_WINDOW_MS = 2 * 180_000; // mirrors the hook's own copy (lib/presence.ts's ACTIVE_WINDOW_MS)
 const POWAN = { name: 'Powan', token: 'Powan', accent: '#FFC43D' }; // gold-400
 
 interface HookHandle {

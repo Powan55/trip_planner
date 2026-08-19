@@ -101,7 +101,9 @@ test.describe('S103 Burn-rate vs plan — pace figures over the live budget + cl
 
     // Set the Nepal leg budget to 27,600 NPR (= 200 USD at the NPR rate THIS fixture pins, 138) so
     // there's a plan to pace against. The daily budget is 200/32 ≈ $6.25/day.
-    await page.getByTestId('budget-leg-nepal-input').fill('27600');
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('27600');
+    await nepal.blur();
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$200');
 
     // Before any spend, the burn-rate view is present (budget is set) and reads the real elapsed day.
@@ -140,7 +142,9 @@ test.describe('S103 Burn-rate vs plan — pace figures over the live budget + cl
     await settleBudget(page);
 
     // A large budget: 138,000 NPR (= 1000 USD at the pinned 138) → daily budget $31.25.
-    await page.getByTestId('budget-leg-nepal-input').fill('138000');
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('138000');
+    await nepal.blur();
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$1,000');
 
     // Spend just 1,380 NPR (= 10 USD) over 4 days → $2.50/day → projected $80 << $1000 → under.
@@ -161,7 +165,9 @@ test.describe('S103 Calendar cost overlay — read-only per-day spend (D-018 pre
 
     // The calendar's travel-mode default selects today (2026-12-12) under the override, so the
     // single-day view is already on the day we'll log against.
-    await page.getByTestId('budget-leg-nepal-input').fill('27600');
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('27600');
+    await nepal.blur();
     // Log a dated Nepal expense (attributed to 2026-12-12 by the host preset).
     await logExpense(page, '5000', 'food');
 
@@ -201,7 +207,9 @@ test.describe('S103 Calendar cost overlay — read-only per-day spend (D-018 pre
     await gotoPlanWithClock(page, IN_TRIP_DAY);
     await settleBudget(page);
 
-    await page.getByTestId('budget-leg-nepal-input').fill('27600');
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('27600');
+    await nepal.blur();
     await logExpense(page, '5000', 'food'); // logged to 2026-12-12
     await expect(page.getByTestId('calendar-day-spend-total')).toBeVisible();
 

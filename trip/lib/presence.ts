@@ -23,8 +23,8 @@
 //
 // FREE-TIER: cadence is HEARTBEAT_MS (>=30s) and the
 // loop is PAUSED while hidden, so it can never become a sustained sub-30s write loop.
-// Budget: ~1 write / HEARTBEAT_MS / traveler. At 60s × 3 travelers ≈ 4,320 writes/day ≈
-// ~22% of Spark's ~20k writes/day. One onSnapshot on <=3 docs is negligible reads.
+// Budget: ~1 write / HEARTBEAT_MS / traveler. At 180s × 3 travelers ≈ 1,440 writes/day ≈
+// ~7% of Spark's ~20k writes/day. One onSnapshot on <=3 docs is negligible reads.
 //
 // REUSES the existing firebase init: it awaits itinerary-remote.ts's `getRemote()`, which owns
 // the one app + the one anonymous session. There is no second initialization path here.
@@ -44,10 +44,10 @@ import { deviceStore } from '@/core/storage/gateway';
 // ---------------------------------------------------------------------------
 
 /** Heartbeat cadence. >= 30s. */
-export const HEARTBEAT_MS = 60_000;
+export const HEARTBEAT_MS = 180_000;
 
-/** A traveler counts as "active now" if their lastSeen is within this window (~3 min). */
-export const ACTIVE_WINDOW_MS = 3 * 60_000;
+/** A traveler counts as "active now" if their lastSeen is within this window (~6 min). */
+export const ACTIVE_WINDOW_MS = 2 * HEARTBEAT_MS;
 
 /** A presence record as surfaced to the UI. `lastSeen` is epoch ms (or null if pending). */
 export interface PresenceRecord {

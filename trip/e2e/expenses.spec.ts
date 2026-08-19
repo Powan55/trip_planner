@@ -98,7 +98,9 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
 
     // Set the Nepal leg budget to 13,800 NPR (= 100 USD at the NPR rate THIS fixture pins, 138), so
     // remaining is meaningful.
-    await page.getByTestId('budget-leg-nepal-input').fill('13800');
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('13800');
+    await nepal.blur();
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$100');
 
     // Log a 6,900 NPR food expense (= 50 USD).
@@ -139,7 +141,9 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await gotoPlanSettled(page);
     await settleBudget(page);
 
-    await page.getByTestId('budget-leg-nepal-input').fill('1000'); // small budget
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('1000'); // small budget
+    await nepal.blur();
     await logExpense(page, '3000', 'transportation'); // spend more than budgeted
 
     // Remaining goes negative → the panel shows "Over by …" (the over-budget cue). 3000 − 1000 = 2000 over.
@@ -153,7 +157,9 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await gotoPlanSettled(page);
     await settleBudget(page);
 
-    await page.getByTestId('budget-leg-nepal-input').fill('13800');
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('13800');
+    await nepal.blur();
     await logExpense(page, '6900', 'food'); // 50 USD
     await expect(page.getByTestId('budget-grand-total-spent')).toHaveText('$50');
 
@@ -259,7 +265,9 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await gotoPlanSettled(page);
     await settleBudget(page);
 
-    await page.getByTestId('budget-leg-nepal-input').fill('13800');
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('13800');
+    await nepal.blur();
     await logExpense(page, '6900', 'food');
     await expect(page.getByTestId('budget-grand-total-spent')).toHaveText('$50');
 
