@@ -112,7 +112,7 @@ describe('packing checklist storage (gateway key 21, D-097)', () => {
   });
 });
 
-describe('loadPacking — trip-aware fallback (D-345, A-15/#102)', () => {
+describe('loadPacking — trip-aware fallback (D-355, A-15/#102)', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();

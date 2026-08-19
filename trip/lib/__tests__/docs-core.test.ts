@@ -49,7 +49,7 @@ describe('DEFAULT_TEMPLATE', () => {
   });
 });
 
-describe('UNIVERSAL_TEMPLATE (A-15/#102, D-345)', () => {
+describe('UNIVERSAL_TEMPLATE (A-15/#102, D-355)', () => {
   it('is DEFAULT_TEMPLATE minus nepal-visa/japan-entry — 16 items, derived not hand-duplicated', () => {
     expect(UNIVERSAL_TEMPLATE).toHaveLength(16);
     const ids = UNIVERSAL_TEMPLATE.map((i) => i.id);

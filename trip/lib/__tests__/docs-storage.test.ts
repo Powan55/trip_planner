@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 /**
  * V6-6 (A-15/#102) — docs-checklist persistence round-trip through the typed storage gateway
  * (key 25) + the `core/docs/storage.ts` load/save adapter, plus the trip-aware fallback split
- * (D-345): the default trip still seeds the 18-item Nepal/Japan `DEFAULT_TEMPLATE`, a custom trip
+ * (D-355): the default trip still seeds the 18-item Nepal/Japan `DEFAULT_TEMPLATE`, a custom trip
  * seeds the 16-item country-neutral `UNIVERSAL_TEMPLATE` instead — so an absent/corrupt slot on a
  * custom trip never seeds (and, once synced, pushes to Firestore) Nepal/Japan-specific rows.
  * Mirrors packing-storage.test.ts.
@@ -55,7 +55,7 @@ describe('docs checklist storage (gateway key 25)', () => {
   });
 });
 
-describe('loadDocs — trip-aware fallback (D-345, A-15/#102)', () => {
+describe('loadDocs — trip-aware fallback (D-355, A-15/#102)', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
