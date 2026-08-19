@@ -103,14 +103,16 @@ export function getRemote(): Promise<RemoteHandle> {
       import('firebase/auth'),
     ]);
 
-    const { getFirestore } = firestoreMod;
+    const { initializeFirestore, persistentLocalCache } = firestoreMod;
     const { getAuth, onAuthStateChanged, signInAnonymously } = authMod;
 
     // Reuse the singleton app if it already exists (one init across the app),
     // otherwise create it from the single-source config.
     const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
 
-    const db = getFirestore(app);
+    const db = initializeFirestore(app, { localCache: persistentLocalCache() });
+    // Single-tab persistent cache; switch to persistentMultipleTabManager() if a second
+    // open tab on the same device needs offline reads too.
     const auth = getAuth(app);
 
     // AWAIT THE FIRST AUTH-STATE RESOLUTION BEFORE SIGNING IN. Firebase restores a persisted

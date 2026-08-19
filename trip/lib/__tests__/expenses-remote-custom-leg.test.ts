@@ -91,6 +91,8 @@ function pathOf(segments: string[]): string {
 
 vi.mock('firebase/firestore', () => ({
   getFirestore: () => fake,
+  initializeFirestore: () => fake,
+  persistentLocalCache: () => ({}),
   collection: (_db: unknown, ...segs: string[]) => ({ __type: 'collection', path: pathOf(segs) }),
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: pathOf(segs) }),
   onSnapshot: (

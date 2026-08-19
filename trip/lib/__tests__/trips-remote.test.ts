@@ -67,6 +67,8 @@ vi.mock('firebase/app', () => ({
 }));
 vi.mock('firebase/firestore', () => ({
   getFirestore: () => fake,
+  initializeFirestore: () => fake,
+  persistentLocalCache: () => ({}),
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: pathOf(segs) }),
   setDoc: async (ref: { path: string }, data: DocData) => {
     if (fake.failWrites) throw new Error('transport down');
