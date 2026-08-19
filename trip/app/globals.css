@@ -2102,6 +2102,9 @@ body:has(form:focus-within) .door-kb {
   overscroll-behavior-y: contain;
 }
 
+/* TM ships zero chrome, so 2.4.1 has no repeated block to bypass here; TM-9's Tab walk enforces it. */
+body:has(.travel-mode-root) a[href="#main"] { display: none; }
+
 /* — thumb-zone contract for TM primary actions.
    A fixed bottom band pinned inside env(safe-area-inset-bottom); each action inside must be
    ≥44×44px. Empty in (no actions yet) — the class

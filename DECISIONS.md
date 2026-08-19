@@ -4160,3 +4160,45 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 **Heading order is `h1` → `h2` "Itinerary Planner" → `h3` "Recent changes" → `h2` "Trip Budget".** `h2→h3` is a legal descent and axe `heading-order` stays clean. **Do not "fix" that h3 up to an h2.**
 
 **Known ceiling:** the `pb-16` wrapper around `PlanActivity` is `budget-panel.tsx:177`'s own class verbatim and is load-bearing when the feed renders, because `BudgetPanel` has no top padding. On a build where nothing is attributed `ActivityFeed` returns `null` and the wrapper still contributes 64px of phantom gap. The one-line upgrade is to move the padding onto a `className`-applying reference component and pass that to `LazyVisible` — the `GatedTravelInspiration` precedent.
+
+### D-359 · LOCKED · (V6-18 sweep, issue #114 fallout, 2026-08-19) · A Tailwind opacity step that does not exist emits nothing, so the broken class was load-bearing — and axe, not `contrast-tokens.mjs`, owns stock-palette contrast
+
+**The defect.** `flight-journey-card.tsx:169` carried `text-amber-200/45` for months. **45 is not a step in Tailwind's opacity scale, so no rule was ever generated**, and the span silently inherited the parent `li`'s `text-amber-200/70`. It rendered at 0.7 alpha and passed contrast. #114 corrected the typo to `/50` — a real step — which **activated** the declaration and dropped the composite to **4.24:1** against the 4.5:1 AA floor (11px, normal weight, no large-text exemption). Fixed here at `/60` = **5.48:1**, independently derived twice; the model was validated against axe's own reported figure (predicted 4.219 at `/50`, axe reported 4.24).
+
+**The bug class, which is the part worth keeping.** A non-emitting utility is invisible to every static check in this repo: it type-checks, it lints, it greps as present, and it reads correctly in review. Only a rendered-page axe pass can see it, and only *after* someone "fixes" the typo. Correcting a class name is therefore not a cosmetic change — it can activate a declaration that has never once applied. Treat a typo'd utility as untested code, not as dead code.
+
+**Guard boundary, so nobody re-litigates it.** `contrast-tokens.mjs` owns the **design tokens** — the navy/duo/scrim/ink ramps, with real alpha compositing. **axe owns stock-Tailwind palette usage on rendered routes.** Adding an `amber-*` pairing to `contrast-tokens.mjs` was proposed and **REJECTED**: axe already caught this correctly, twice, as serious. Nothing failed to detect it. What failed is that **PR #114 was merged with its E2E job red (24m24s)**. A second detector does not fix a process that merges past a red first detector. Add amber to that script only if a *design token* goes amber.
+
+**Changes if:** a design token adopts the amber ramp, or axe stops covering `/flights/`.
+
+### D-360 · LOCKED · (V6-18 sweep, V6-9 fallout, 2026-08-19) · The skip link is suppressed on `/travel`, because a zero-chrome route has no repeated block for WCAG 2.4.1 to bypass
+
+**Decision.** `app/globals.css` carries `body:has(.travel-mode-root) a[href="#main"] { display: none; }`, adjacent to the `.travel-mode-root` block it is coupled to.
+
+**Why it was needed.** V6-9 (D-343) added one root-layout skip link to satisfy 2.4.1 across all 19 routes. `/travel` renders as `children` inside the `#main` wrapper, so `[data-testid="travel-mode-root"]` sits **below** the skip link in tab order, and TM-9's Tab walk failed at **focus step 0**. One a11y fix broke a different a11y contract.
+
+**Why suppression rather than relaxing TM-9.** Travel Mode deliberately ships zero chrome — no navbar, footer, tab bar or FAB — which TM-9 asserts separately and which still passes. 2.4.1 exists to let a keyboard user bypass *repeated blocks of content*; on a route with none, there is nothing to bypass and the link is pure leakage. Relaxing the assertion to whitelist the link would weaken a deliberate contract to accommodate a regression. `display:none` removes it from the tab order outright.
+
+**Verified, not assumed:** `.travel-mode-root` is a real class (`app/travel/page.tsx:34`), not merely a testid; specificity (0,2,2) beats `focus:not-sr-only` (0,2,0), and neither `sr-only` nor `not-sr-only` sets `display` at all, so there is no conflict to win; `:has()` is Chrome 105+, inside browserslist. The one spec asserting the skip link runs on `/` only, where the selector cannot match, and it stays green.
+
+### D-361 · LOCKED · (V6-18 sweep, 2026-08-19) · Any spec that runs axe must settle finite animations first — the helper lives in `e2e/fixtures.ts`, and there is exactly one copy
+
+**Decision.** `settleAnimations` and `ANIMATION_SETTLE_BUDGET_MS` move out of `a11y.spec.ts` into `e2e/fixtures.ts`, exported. `a11y-full-audit.spec.ts` calls it **inside `expectAxeClean`**, not at its 11 call sites, so every present and future scan inherits it.
+
+**This is a recurring defect class, not a one-off.** It was root-caused once in `a11y.spec.ts` — that helper's doc comment records the original `text-green-200` / `#52906a` / 4.31:1 instance — and then **re-introduced by a sibling pack whose own header claims it "mirrors a11y.spec.ts"**. It did the `h1` half and dropped the settle. Copy-that-didn't-get-the-fix is the mechanism; one shared copy is the remedy.
+
+**The symptom, for recognition.** axe scans mid-reveal and reports violations against elements still at `opacity: 0`, producing composite colours that no token pairing actually specifies. **The tell is a violation count that varies run to run** — observed at 3, then 62, then 71 nodes on the same route. Measured failure rate before the fix: 1 in 4. After: 10/10 clean.
+
+**Rejected: `emulateMedia({ reducedMotion: 'reduce' })`.** It would audit only the reduced-motion branch and leave the default-motion branch — what most users get — audited nowhere in the suite, and it would not cover the next animation added outside a reduced-motion guard. **Rejected: leaving it to CI `retries: 2`.** `playwright.config.ts` states in terms that retries are "NOT the mechanism for any known flake".
+
+**Corollary worth its own line: a real defect can mask a flake.** The amber violation of D-359 made this test fail deterministically for months, so its non-determinism was invisible until the real defect was fixed. **After fixing a long-standing red, re-run the newly-green test under `--repeat-each` rather than assuming it is stable.**
+
+### D-362 · LOCKED · (V6-18 / issue #93, 2026-08-19) · The 36 visual baselines are Windows-canonical and the CI visual job is advisory by design — the platform suffix is why, not AA tolerance
+
+**Decision.** The committed baselines are shot on Windows and end `-win32`. The CI visual job stays `continue-on-error: true`. Re-baselining is a Windows-local operation, and a `-win32`-only diff is the expected shape of a V6-18-class commit.
+
+**The mechanism, stated correctly.** The older caveat said a Linux runner "will differ by sub-pixel AA on text — enough to trip a strict compare", absorbed by `maxDiffPixelRatio`. That understates it. Playwright's snapshot path template appends `{platform}`, so on Linux it looks for `-linux`, **finds nothing, and reports a MISSING snapshot — never a diff.** `maxDiffPixelRatio` never enters the picture. Generating Linux baselines any other way would mean committing 36 files nobody actually rendered.
+
+**What V6-18 established about the tolerance.** `-u all` rewrote **36 of 36** files, not the 12 that were failing. Passing at `maxDiffPixelRatio: 0.02` means *differs by under 2%*, not *identical* — so the whole set had drifted and 24 of them were sitting under the threshold. This generalises D-336, which measured a total hero swap at **0.283%** because `.hero-scrim` holds the photograph at ~24% of the composite: three `home-hero-*` PNGs still contained the retired satellite map and the retired gold CTA, and no assertion could ever have reported it.
+
+**Therefore, binding on the next re-baseline:** use `--update-snapshots=all` (the bare flag defaults to `changed` and rewrites nothing when the compare already passes), **read `git status` rather than the exit code**, and **open the files** — after `-u all` there is no automated check left in the system at all. Confirm reproducibility with a no-flag run before committing; a baseline that cannot re-pass is one captured frame, not a baseline.

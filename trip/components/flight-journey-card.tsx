@@ -166,7 +166,7 @@ function LayoverRow({ layover }: { layover: Layover }) {
         </span>
         <span>
           Layover {layover.duration} · {layover.airportCode}
-          {layover.airportName ? <span className="text-amber-200/50"> — {layover.airportName}</span> : null}
+          {layover.airportName ? <span className="text-amber-200/60"> — {layover.airportName}</span> : null}
         </span>
         {v && (
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${v.cls}`}>

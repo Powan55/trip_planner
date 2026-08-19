@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, settleAnimations } from './fixtures';
 import type { Page, TestInfo } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -8,7 +8,7 @@ import AxeBuilder from '@axe-core/playwright';
  * historically-gated surfaces.
  *
  * ── Current coverage BEFORE this pack (enumerated so the gap is explicit) ───────────────
- *   - a11y.spec.ts (S85/S157):        /, /plan, /nepal, /japan, /map   — serious/critical/MODERATE
+ *   - a11y.spec.ts (S85/S157):        /, /plan, /nepal, /japan, /map, /flights   — serious/critical/MODERATE
  *   - a11y-intrip.spec.ts (F19b):     / + /plan in-trip panels          — serious/critical
  *   - packing-a11y.spec.ts (S206):    /packing                          — serious/critical
  *   - docs-checklist-a11y (S217):     /checklist                        — serious/critical
@@ -18,7 +18,9 @@ import AxeBuilder from '@axe-core/playwright';
  *                                     time-picker / command-palette dialogs (SCOPED subtree scan)
  *
  * ── The GAP this pack closes ────────────────────────────────────────────────────────────
- *   - Routes NEVER axe-gated:   /flights, /safety, /recap, /settings, /share  (traveler state)
+ *   - Routes with NO full-page axe gate:  /safety, /recap, /settings, /share  (traveler state).
+ *     `/flights` joined a11y.spec.ts's ROUTES afterwards (S325) at the stricter moderate bar, so
+ *     it is now double-scanned — kept here deliberately, since this pack is the full-page net.
  *   - TM designed states on the DESKTOP net (TM-12 only runs iPhone): pre / nepal / japan /
  *     post / empty / legibility-ON — full-page scans, not the scoped hero.
  *   - v5 dialogs/overlays as FULL-PAGE scans (background + dialog together, stronger than the
@@ -32,7 +34,10 @@ import AxeBuilder from '@axe-core/playwright';
  * exclude is a STOP-and-report; none was needed).
  *
  * Harness mirrors a11y.spec.ts: signed-in wall-bypass fixture, settle past the D-073
- * first-load SW reload, wait for real content, `waitUntil:'load'` (never networkidle, D-093).
+ * first-load SW reload, wait for real content, and settle the reveal animations before every
+ * scan (`settleAnimations`, shared from e2e/fixtures.ts — this pack copied the rest of that
+ * harness without the settle and re-ran its contrast race). `waitUntil:'load'` (never
+ * networkidle, D-093).
  */
 
 async function settleSW(page: Page) {
@@ -57,6 +62,7 @@ function scanFor(page: Page) {
 
 /** Shared serious/critical assertion + advisory logging (identical strength to a11y.spec.ts). */
 async function expectAxeClean(page: Page, label: string, testInfo: TestInfo) {
+  await settleAnimations(page);
   const results = await scanFor(page).analyze();
   const blocking = results.violations.filter(
     (v) => v.impact === 'serious' || v.impact === 'critical',

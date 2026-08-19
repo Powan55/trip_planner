@@ -21,10 +21,11 @@ import type { Page, Locator } from '@playwright/test';
  * │    1. Every assertion sets a TOLERANT `maxDiffPixelRatio` (~0.01–0.02) to  │
  * │       absorb AA noise (set PER-ASSERTION — playwright.config.ts is NOT     │
  * │       touched by this slice; the global harness config stays as-is).      │
- * │    2. The CANONICAL baselines MUST be REGENERATED ON THE CI RUNNER once    │
- * │       (a single `npx playwright test e2e/visual.spec.ts --update-snapshots`│
- * │       on that OS) when the CI visual job is wired (S87/S88). Until then a   │
- * │       CI visual failure is EXPECTED font drift, NOT a real regression.     │
+ * │    2. Linux CI CANNOT consume these files at all, and the reason is the    │
+ * │       PLATFORM SUFFIX, not the tolerance: Playwright looks for -linux      │
+ * │       and finds nothing, so it is a MISSING snapshot, never a diff.        │
+ * │       ci.yml runs the visual job advisory (continue-on-error) for that     │
+ * │       reason and carries the promotion path to a blocking Linux job.       │
  * │  This caveat is also flagged in the S86 notes.                             │
  * └──────────────────────────────────────────────────────────────────────────┘
  *
