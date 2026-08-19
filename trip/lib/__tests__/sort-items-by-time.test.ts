@@ -433,6 +433,35 @@ describe('D-316 — GRANDFATHERING: the guard is delta-scoped to the time footpr
   });
 });
 
+describe('D-316 addendum (A-14) — a STALE endDate no longer exempts an item forever', () => {
+  // `endDate` exempts an item only while it still covers `dayDate` (`item.endDate > dayDate`).
+  // A span moved/copied past its own `endDate` (so the field no longer reaches the day the item
+  // now sits on) falls back to a plain timed interval and is checked like anything else.
+  const nine = mk('nine', { startMinutes: 540, durationMinutes: 60 }); // 9:00–10:00
+
+  it('firstClashWith: a stale endDate (before dayDate) is a plain interval and blocks', () => {
+    const stale = mk('stale', { startMinutes: 570, durationMinutes: 60, endDate: '2026-12-18' });
+    expect(firstClashWith(stale, [nine], DAY, DAY_OFFSET)?.id).toBe('nine');
+  });
+
+  it('firstClashWith: endDate === dayDate is also stale (the span no longer reaches forward)', () => {
+    const stale = mk('stale', { startMinutes: 570, durationMinutes: 60, endDate: DAY });
+    expect(firstClashWith(stale, [nine], DAY, DAY_OFFSET)?.id).toBe('nine');
+  });
+
+  it('firstClashWith: endDate strictly after dayDate is still a genuine span and stays exempt', () => {
+    const genuine = mk('genuine', { startMinutes: 570, durationMinutes: 60, endDate: '2026-12-22' });
+    expect(firstClashWith(genuine, [nine], DAY, DAY_OFFSET)).toBeUndefined();
+  });
+
+  it('clashingItemIds: a stale-endDate item is included in the clashing set', () => {
+    const stale = mk('stale', { startMinutes: 570, durationMinutes: 60, endDate: '2026-12-18' });
+    const result = clashingItemIds([nine, stale], DAY, DAY_OFFSET);
+    expect(result.has('nine')).toBe(true);
+    expect(result.has('stale')).toBe(true);
+  });
+});
+
 describe('D-316 — the copy fragment the five guarded surfaces share', () => {
   it('names the blocking item and its span', () => {
     expect(describeClash(mk('x', { title: 'Dinner', startMinutes: 1140, durationMinutes: 90 })))

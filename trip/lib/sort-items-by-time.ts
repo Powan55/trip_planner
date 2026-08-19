@@ -65,11 +65,13 @@ export function sortItemsByTime(
  * in `core/content/itinerary.ts`, so the shipped seed is clean and the badge now only ever
  * reports a collision a user, a peer's sync or an import produced.)
  *
- * — MULTI-DAY SPANS ARE EXCLUDED (clash v1): an item carrying an `endDate` is a
- * multi-day span (the field is only ever written strictly after the item's start day, so
- * its presence means "genuine span"). Its clock-time overlap with a same-day timed item
- * is not a meaningful conflict (a hotel stay "overlapping" a dinner is expected), so spans
- * are simply dropped before the pairwise check — no cross-day clash math in v1.
+ * — MULTI-DAY SPANS ARE EXCLUDED (clash v1): an item carrying an `endDate` that still
+ * covers the day being checked is a multi-day span. Its clock-time overlap with a same-day
+ * timed item is not a meaningful conflict (a hotel stay "overlapping" a dinner is expected),
+ * so a genuine span is simply dropped before the pairwise check — no cross-day clash math in
+ * v1. A STALE `endDate` (left behind when a span is moved/copied past the day it names — see
+ * `toInterval`, D-316 addendum) no longer earns the exemption: it falls back to a plain timed
+ * interval and is checked like anything else.
  */
 interface Interval {
   id: string;
@@ -82,18 +84,26 @@ interface Interval {
  * `firstClashWith` (the block) share one truth. Two predicates would eventually disagree,
  * and a badge that says "clash" over a save that was allowed (or the reverse) is worse than
  * either behaviour alone. `null` = this item has no span and therefore cannot participate:
- * it is a multi-day span (clash v1 excludes those), it is untimed, or it has no duration.
+ * it is a genuine (still-forward-reaching) multi-day span (clash v1 excludes those), it is
+ * untimed, or it has no duration.
  *
  * D-316: the duration comes from `effectiveDurationMinutes`, so the free-text `duration`
  * the 158 seed items carry is now derived at read. Before that this returned `null` for
  * every seed item and the whole clash feature could not fire.
+ *
+ * D-316 addendum (A-14): `endDate` exempts an item only while it still covers `dayDate` —
+ * `item.endDate > dayDate`. A span moved or copied past its own `endDate` (so the field no
+ * longer reaches the day the item now sits on) is a STALE span, not a genuine one, and falls
+ * through to a plain timed interval so it can clash like anything else. Matches the band
+ * renderer's own "is this still a genuine forward span" reading (`item.endDate <= plan.date`,
+ * `components/calendar-planner.tsx`), same comparison, opposite sense.
  */
 function toInterval(
   item: ItineraryItem,
   dayDate: string,
   dayOffsetMin: number,
 ): Interval | null {
-  if (item.endDate) return null; // spans are excluded from clash v1
+  if (item.endDate && item.endDate > dayDate) return null; // a genuine forward span is exempt
   const min = effectiveStartMinutes(item);
   const dur = effectiveDurationMinutes(item);
   if (typeof min !== 'number' || typeof dur !== 'number' || dur <= 0) return null;

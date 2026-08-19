@@ -8,9 +8,10 @@ import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
-import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
+import { getNow, getTodayInTrip, getNowAtTrip, type TripToday } from '@/lib/trip-now';
 import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN } from '@/lib/hero-image';
 import { isDefaultTrip } from '@/core/trips';
+import { isPostTrip } from '@/core/recap/model';
 import { getKnownTrip } from '@/core/trips/registry';
 import { vibeFor } from '@/core/trips/custom';
 import { getActiveTripId } from '@/core/storage/gateway';
@@ -245,6 +246,15 @@ export default function HeroSection() {
   const orbsY = useTransform(scrollYProgress, [0, 1], prefersReducedMotion ? [0, 0] : [0, -70]);
 
   const reveal = prefersReducedMotion ? itemVariantsReduced : itemVariants;
+
+  // #98 — the third hero state, POST-trip. Pre-trip and post-trip both leave `todayInTrip`
+  // null, so without this the countdown-grid branch below ran for both and post-trip showed
+  // a permanently zeroed clock ("00:00:00", 0 total days) under "Countdown to day one" —
+  // wrong once the trip is over. Mount-gated for the same hydration reason as `custom` above.
+  // Reuses `getNowAtTrip().date` (the SAME destination-local trip-day source A-22's
+  // `trip-recap.tsx` fix and `trip-story-recap.tsx`/`core/recap/wrapped.ts` already read) —
+  // no new device-local date helper.
+  const postTrip = mounted && !todayInTrip && isPostTrip(getNowAtTrip().date);
 
   // — custom (non-default-pack) trips get a versatile vibe hero: no Nepal×Japan art/copy.
   // Mount-gated (SSR always renders the default pack's prerendered content,/SSG hydration
@@ -543,11 +553,12 @@ export default function HeroSection() {
         {/* the decorative quote was dropped to keep the hero calm and content-first
             (one obvious action, less above-fold noise). The subtitle above carries the mood. */}
 
-        {/* Countdown ⇄ Travel mode. Both are gated behind `mounted` so the
-            client-only clock never renders on the server (no hydration mismatch — the
-            Day-N panel only ever appears post-mount). When the app clock is inside the
-            trip window, `todayInTrip` is non-null and the "Day N — {city}" panel replaces
-            the countdown grid; otherwise the live countdown shows. */}
+        {/* Countdown ⇄ Travel mode ⇄ Post-trip. All three are gated behind `mounted` so the
+            client-only clock never renders on the server (no hydration mismatch — none of
+            these panels appears pre-mount). When the app clock is inside the trip window,
+            `todayInTrip` is non-null and the "Day N — {city}" panel replaces the countdown
+            grid; off-trip and past the last trip day (#98), a static "trip complete" panel
+            replaces it instead; otherwise (pre-trip) the live countdown shows. */}
         {mounted && (todayInTrip ? (
           <m.div variants={reveal} className="relative mb-10">
             <CelebrationBurst active={celebrate} testId="hero-arrival-celebration" celebrationId="hero-arrival" />
@@ -577,6 +588,24 @@ export default function HeroSection() {
                 <Compass className="w-4 h-4" />
                 Open Travel Mode
               </button>
+            </div>
+          </m.div>
+        ) : postTrip ? (
+          // #98 — post-trip: the countdown-grid branch used to run here too (todayInTrip is
+          // null both pre- and post-trip), showing a permanently zeroed clock under "Countdown
+          // to day one". This is a static replacement, not a live surface — there is nothing
+          // left to count — and deliberately lighter than the six-cell digit grid it replaces,
+          // so it cannot threaten the 740px fold-clearance budget (D-311) the grid was sized
+          // against.
+          <m.div variants={reveal} className="relative mb-10">
+            {/* ink-mid, matching the in-trip panel's caption above: this line also sits over
+                the hero photograph, where the floor tier fails contrast. */}
+            <p className="text-sm text-ink-mid mb-4 uppercase tracking-widest">The journey&rsquo;s over</p>
+            <div data-testid="hero-post-trip" className="inline-flex flex-col items-center gap-2 glass-card rounded-2xl px-6 sm:px-10 py-5 sm:py-6 max-w-full">
+              <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
+                Trip complete
+              </div>
+              <p className="text-sm sm:text-base text-ink-mid">{TRIP_DATE_LABEL}</p>
             </div>
           </m.div>
         ) : (
