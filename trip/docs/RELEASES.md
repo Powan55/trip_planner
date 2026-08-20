@@ -27,49 +27,284 @@ A rate limit on the concierge Worker, which had none at all before this. Worker-
 
 ---
 
-## ⛔ v6.0.0 (app) · **NOT DEPLOYED** · prepared 2026-08-16 · worker is at v1.8.1 (v1.9.0 built and deliberately unshipped)
+## ⛔ v6.0.0 (app) · **NOT DEPLOYED** · prepared 2026-08-16 · notes completed 2026-08-19 · worker stays at v1.8.1 (v1.9.0 built and deliberately unshipped)
 
-**Held deliberately.** This entry exists so the version is pinned and the gate is satisfiable; it is NOT cleared to ship. A full bug sweep and a research pass on further changes are being run separately, and `main` stays at `v5.14.4` until those finish. Do not merge `dev` into `main` on the strength of this entry alone — that merge deploys immediately.
+**Still held, but for one reason now rather than three.** This entry carried a `NOT DEPLOYED`
+heading from 2026-08-16 while a full bug sweep and a research pass ran against it. Both have
+finished and everything they found that was worth fixing is in this release, so the body below is
+now a complete and accurate account of what would ship — which it was not before, in three places
+it claimed as known-open work that had already landed. What remains is the manual run on a real
+device, scoped to the paths this release actually moved: one live round-trip with the deployed
+assistant, a two-device pass over a custom trip's expenses and restore, and one offline cold start
+on Home. The marker stays until that is done; taking it off is what tells the release gate this
+version may ship, and the gate is now a required check on `main` rather than an advisory one.
+179 commits sit between this and `v5.14.4`, which stayed live while they accumulated on `dev`.
+**Why the major bump, and it is not ceremony.** `v5.15.0` was already the largest release in this
+repo's history; everything below it in this file is still true and still ships here. On top of
+that, the interaction colour of the entire app moved, the front page's photograph and structure
+changed, the app shell now tints by month, and a trip that is not Nepal × Japan finally behaves
+like a trip of its own rather than a Nepal × Japan trip with the labels changed. Someone who last
+opened `v5.14.4` does not recognise this build. Semver's major slot is for exactly that, and
+calling it `5.16.0` would have understated it to the only audience that reads version numbers —
+us, six months from now, trying to work out when the app changed.
 
-**Why the major bump, and it is not ceremony.** `v5.15.0` was already the largest release in this repo's history; everything below it in this file is still true and still ships here. On top of that, the interaction colour of the entire app moved, the front page's photograph and structure changed, and the app shell now tints by month. Someone who last opened `v5.14.4` does not recognise this build. Semver's major slot is for exactly that, and calling it `5.16.0` would have understated it to the only audience that reads version numbers — us, six months from now, trying to work out when the app changed.
-
-**`v5.15.0` ships inside this and will never exist on its own.** It was prepared, never tagged, never deployed. Its entry stays below because the detail in it is the record of that work — read it as part of this release. This is the same shape as `v5.13.0` riding inside `v5.14.0` and `v5.14.1` inside `v5.14.2`.
+**`v5.15.0` ships inside this and will never exist on its own.** It was prepared, never tagged,
+never deployed. Its entry stays below because the detail in it is the record of that work — read
+it as part of this release. This is the same shape as `v5.13.0` riding inside `v5.14.0` and
+`v5.14.1` inside `v5.14.2`.
 
 ### What is new since the v5.15.0 notes were written
 
-**The chrome accent moved off gold (#91, D-334).** Marigold `#FFC43D` → volt `#3ED8FF` for `--primary` and `--ring`, over a chromatic purple ramp. Two follow-ups were needed because a recolour is never one value: `/map` keeps marigold deliberately rather than taking the chrome accent (D-334), and the retired gold turned out to have survived on ten route headers, which is the kind of thing only a grep finds.
+**The chrome accent moved off gold (#91, D-334).** Marigold `#FFC43D` → volt `#3ED8FF` for
+`--primary` and `--ring`, over a chromatic purple ramp. Two follow-ups were needed because a
+recolour is never one value: `/map` keeps marigold deliberately rather than taking the chrome
+accent (D-334), and the retired gold turned out to have survived on ten route headers, which is
+the kind of thing only a grep finds.
 
-**Two empty grid tracks that painted as solid slabs.** The stat row was `sm:grid-cols-4` while carrying six cells (#90), so at ≥640px the last two tracks stood empty — and because the dividers are the container showing through 1px gaps, an empty track is not empty, it paints `bg-border`. The bento had the same defect in every tile-count state (#106). Both are grid-arithmetic bugs with a visual signature, and the stat row now carries a comment saying the column count must divide the cell count exactly, because it will happen again otherwise.
+**Two empty grid tracks that painted as solid slabs.** The stat row was `sm:grid-cols-4` while
+carrying six cells (#90), so at ≥640px the last two tracks stood empty — and because the dividers
+are the container showing through 1px gaps, an empty track is not empty, it paints `bg-border`.
+The bento had the same defect in every tile-count state (#106). Both are grid-arithmetic bugs with
+a visual signature, and the stat row now carries a comment saying the column count must divide the
+cell count exactly, because it will happen again otherwise.
 
-**Home stopped printing the same number three times (#106).** `trip-dashboard.tsx` is deleted. Its own header claimed it "deliberately does NOT duplicate" the stat row while two of its three cards duplicated exactly that — total trip days, and days until departure, which the hero also renders as a countdown grid and again as a ring. `114` rendered in four places above the fold at 1280.
+**Home stopped printing the same number three times (#106).** `trip-dashboard.tsx` is deleted. Its
+own header claimed it "deliberately does NOT duplicate" the stat row while two of its three cards
+duplicated exactly that — total trip days, and days until departure, which the hero also renders
+as a countdown grid and again as a ring. `114` rendered in four places above the fold at 1280. It
+renders twice now; the last duplicate is deferred with #92, below.
 
-**The app shell tints by month (#83).** `lib/season-theme.ts` plus a `season-accent-engine` island.
+**The app shell tints by month (#83).** `lib/season-theme.ts` plus a `season-accent-engine`
+island. Six of the twelve months are warm and the two months of the actual trip are cool, which is
+worth knowing before anyone reads a warm cast as a regression.
 
-**The Home hero is a photograph again (#89).** It was a labelled NASA satellite relief map with "Tibetan plateau", "Ganges river" and a `200 km` scale bar burned into the pixels, full-bleed under the `h1` inside an `alt=""` image. It is now Ama Dablam for the Nepal leg and every day outside the trip window, and the Shinjuku skyline with Fuji for the Japan leg, following the trip clock through a pure `heroImageForLeg()`.
+**The Home hero is a photograph again (#89).** It was a labelled NASA satellite relief map with
+"Tibetan plateau", "Ganges river" and a `200 km` scale bar burned into the pixels, full-bleed under
+the `h1` inside an `alt=""` image. It is now Ama Dablam for the Nepal leg and every day outside the
+trip window, and the Shinjuku skyline with Fuji for the Japan leg, following the trip clock through
+a pure `heroImageForLeg()`.
 
-That swap had a hole worth recording, because it is the kind that passes every check. `public/images/**` was excluded from the precache, so `hero-japan.*` was a URL the device had never requested: offline on 19 Dec — a travel day, on an offline-first app — the fetch fails and the hero paints the invented SVG mountain range it keeps as fallback art. Fixing it surfaced a worse one. `trimImageCache()` evicts oldest **by insertion** and a cache hit does not refresh recency, so the runtime image cache is FIFO-80 against 105 manifest images, and Home is the entry route — **the default hero was already cold offline before any of this**. Six hero AVIFs are now precached (D-335, amending D-073 and D-086(b), which are LOCKED and said images are never precached). It costs 555.2 KiB, which is 11.9% of the raw precache but **30.0% of the gzip install**, taking a new user from 1.26 to 1.81 MiB. AVIF does not compress and the HTML and JS do; the raw number understates it, and it is paid knowingly.
+That swap had a hole worth recording, because it is the kind that passes every check.
+`public/images/**` was excluded from the precache, so `hero-japan.*` was a URL the device had never
+requested: offline on 19 Dec — a travel day, on an offline-first app — the fetch fails and the hero
+paints the invented SVG mountain range it keeps as fallback art. Fixing it surfaced a worse one.
+`trimImageCache()` evicts oldest **by insertion** and a cache hit does not refresh recency, so the
+runtime image cache is FIFO-80 against 105 manifest images, and Home is the entry route — **the
+default hero was already cold offline before any of this**. Six hero AVIFs are now precached
+(D-335, amending D-073 and D-086(b), which are LOCKED and said images are never precached). It
+costs 555.2 KiB, which is 11.9% of the raw precache but **30.0% of the gzip install**. AVIF does
+not compress and the HTML and JS do; the raw number understates it, and it is paid knowingly. The
+map-engine change further down this entry gives back more than this spends.
 
-Also on that slice: a per-frame `object-position` knob, a one-div highlight cap (`mix-blend-mode: darken` over the leg's duotone token) that raises hero contrast rather than lowering it and still does not unlock the floor tier, and the four assertions the feature had none of — the hero paths are pinned to real manifest keys, the resolved raster is pinned per leg, the offline decode is pinned with the image cache wiped, and every text pairing over the new composite is in the contrast harness.
+Also on that slice: a per-frame `object-position` knob, a one-div highlight cap
+(`mix-blend-mode: darken` over the leg's duotone token) that raises hero contrast rather than
+lowering it and still does not unlock the floor tier, and the four assertions the feature had none
+of — the hero paths are pinned to real manifest keys, the resolved raster is pinned per leg, the
+offline decode is pinned with the image cache wiped, and every text pairing over the new composite
+is in the contrast harness.
 
-**Four sync and export defects that could lose data, found in the bug sweep (#123, #126, #124, #115).**
+**Four sync and export defects that could lose data, found in the bug sweep**
+(#123, #126, #124, #115).
 
-One malformed itinerary item arriving over sync could empty the whole trip on every device (#123). It was two bugs wearing one hat: a `null` or primitive row threw inside `mergeItems`, and the snapshot handler's `catch` swallowed it, so sync went silently dead for that trip — no apply, no push, no error; separately, a merely *invalid* row rode through to disk and failed the whole-payload parse on the **next** load, which is the wipe people saw. The itinerary was the last domain with no per-row sanitizer, and it now shares one definition of a valid row with the Vault schema (D-363). The load path drops bad rows instead of quarantining 31 good days over one of them.
+One malformed itinerary item arriving over sync could empty the whole trip on every device (#123).
+It was two bugs wearing one hat: a `null` or primitive row threw inside `mergeItems`, and the
+snapshot handler's `catch` swallowed it, so sync went silently dead for that trip — no apply, no
+push, no error; separately, a merely *invalid* row rode through to disk and failed the
+whole-payload parse on the **next** load, which is the wipe people saw. The itinerary was the last
+domain with no per-row sanitizer, and it now shares one definition of a valid row with the Vault
+schema (D-363). The load path drops bad rows instead of quarantining 31 good days over one of them.
 
-That fix then broke a different guarantee, and the review caught it before it shipped. Making the shared parser lenient also made the **import** path lenient, so a garbage backup file validated as an empty trip and `savePlans([])` wiped the live one while reporting success — and under sync `restorePlans` propagates that as tombstones to every device. The two boundaries now use deliberately different strictness, because the tradeoff inverts: on disk there is no second copy, so partial beats nothing; on import the user still holds the file, so rejecting costs them nothing. D-098 is unchanged and now has a test that fails if anyone weakens it again (D-364).
+That fix then broke a different guarantee, and the review caught it before it shipped. Making the
+shared parser lenient also made the **import** path lenient, so a garbage backup file validated as
+an empty trip and `savePlans([])` wiped the live one while reporting success — and under sync
+`restorePlans` propagates that as tombstones to every device. The two boundaries now use
+deliberately different strictness, because the tradeoff inverts: on disk there is no second copy,
+so partial beats nothing; on import the user still holds the file, so rejecting costs them nothing.
+D-098 is unchanged and now has a test that fails if anyone weakens it again (D-364).
 
-**Expenses and docs had the same bare cast at the remote read boundary (#126).** A single poison row rejected the transaction, so the chunk stayed dirty and retried forever — that device's sync wedged, silently. The sanitizers already existed and were already used on local reads; they were just never wired at the remote edge (D-365).
+**Expenses and docs had the same bare cast at the remote read boundary (#126).** A single poison
+row rejected the transaction, so the chunk stayed dirty and retried forever — that device's sync
+wedged, silently. The sanitizers already existed and were already used on local reads; they were
+just never wired at the remote edge (D-365).
 
-**The outbox could mark an edit synced that never reached Firestore (#124).** Two rapid edits to the same day started two independent pushes, and the older one's ack cleared the dirty flag while the newer was still in flight; if that newer push then failed, nothing retried it. Pushes now serialize per day, and an ack only counts for the attempt carrying the newest state (D-366).
+**The outbox could mark an edit synced that never reached Firestore (#124).** Two rapid edits to
+the same day started two independent pushes, and the older one's ack cleared the dirty flag while
+the newer was still in flight; if that newer push then failed, nothing retried it. Pushes now
+serialize per day, and an ack only counts for the attempt carrying the newest state (D-366).
 
-**The expense CSV export executed formulas (#115).** Any traveller's note beginning `=`, `+`, `-` or `@` ran as a live formula when the organizer opened the export — `=cmd|'/c calc'!A1`, or a `=HYPERLINK()` that exfiltrates the row. The payload author and the victim are different people, which is what made it worth fixing now rather than later. Leading triggers are neutralized, tab/CR/LF included since spreadsheets strip those first; values that are entirely a number are exempt so the Amount column still sums (D-367).
+**The expense CSV export executed formulas (#115).** A traveller's note beginning with an equals,
+plus, minus or at sign ran as a live formula when the organizer opened the export — a shell escape
+in one direction, a link function that exfiltrates the row in the other. The payload author and the
+victim are different people, which is what made it worth fixing now rather than later. Leading
+triggers are neutralized, tab/CR/LF included since spreadsheets strip those first; values that are
+entirely a number are exempt so the Amount column still sums (D-367).
 
-### Known open, and none of it is cosmetic
+### One app, any trip
 
-- **The 36 visual baselines are stale, and three of them cannot tell you so.** #93 is the slice, and it now genuinely runs last: the palette move invalidated the whole pack, and the hero change moved pixels the pack cannot see. D-336 records the measurement — a total hero swap moves **0.283%** of pixels against a 2% allowance, because `.hero-scrim` holds the photograph at ~24% of the composite. The three `home-hero-*` PNGs still contain the retired satellite map. Re-shoot with `--update-snapshots=all` and open the files; the bare flag defaults to `changed` and will report green and rewrite nothing.
-- **#108** — four CC BY-SA rows in `trip/public/images/CREDITS.md` ship with no source link. A licensing gap on a public repo, not a tidiness one.
-- **#109** — the SW's image branch only falls back to cache when `fetch` *rejects*. A captive portal returns a *response*, so airport wifi breaks the offline hero with the bytes sitting in the precache. The offline-hero guarantee added here does not cover the network condition a traveller hits most.
-- **Expenses still do not sync on a custom trip.** Carried unchanged from `v5.15.0` — the transport hardcodes the two default-pack legs. The default Nepal × Japan trip is unaffected.
-- **Firestore rules publishing is still inert.** The pipeline can publish and proves them against a real emulator first, but the step is gated on a `FIREBASE_SERVICE_ACCOUNT` secret that does not exist. The live ruleset is still whatever was last applied by hand.
+`v5.15.0` shipped custom trips and then treated them as a special case of Nepal × Japan in about a
+dozen places. The sweep that followed found the pattern rather than the instances: a two-value
+`nepal`/`japan` ternary, or a hardcoded pair of leg ids, in whichever module nobody had revisited.
+Every one of them now derives from the active trip's own legs.
+
+- **Expenses never synced on a custom trip, in either direction, and the pull was destructive.**
+  `expenses-remote.ts` declared its own leg pair, and `applySnapshot` rebuilds the entire local
+  row-set by iterating it before overwriting the slot — so on a single-leg trip the loop never
+  considered the only leg there was, and the first empty server snapshot wrote `[]` over every
+  logged expense. `expenses-ports.ts` had the identical hardcode in `chunkDiff`, so the write side
+  was equally dead and nothing had ever pushed. Two independent no-ops sharing one wrong constant:
+  nothing had ever synced, so the first snapshot had nothing to confirm and everything to erase.
+  The `v5.15.0` notes below record this as "expenses do not sync on a custom trip"; it was worse
+  than that sentence says.
+- **A leg id that was not `nepal` or `japan` quietly became `japan` everywhere.** Item times,
+  timezone badges, map pins, My Places and Travel Mode's safety panel all defaulted into the Japan
+  branch. Worst case, a traveller who is not in Japan saw Japan's real emergency numbers, and via
+  date-keyed flight data could see someone else's real flight numbers, under a panel headed "Japan".
+- **Money assumed two legs (#95, #96).** The budget panel rendered fixed Nepal and Japan cards, so a
+  typed leg budget on a custom trip had nowhere real to go, and Wrapped and the story recap tallied
+  spend against a hardcoded pair, so a custom trip's spend reported as zero or came back labelled in
+  yen. `formatMoney` also rounded every USD amount to whole dollars — a $4.50 coffee showed $5 — so
+  a three-way split's displayed transfers did not sum to the displayed balance. USD now keeps two
+  decimals, and `settle()` apportions the rounding remainder before splitting into transfers, so the
+  two agree to the cent.
+- **The seeded checklist and packing lists leaked Nepal and Japan content into every trip (#102),**
+  and because a custom trip has its own remote document, that seed was pushed on first sync.
+  Durable, not merely rendered. A non-default trip now seeds from a country-neutral template.
+- **A trip joined by token carries no config block, which is that field's normal state for a
+  joiner,** and the app silently handed the joiner a 32-day Nepal × Japan itinerary instead. The
+  same line was also reachable with a prototype key name, which returned a function where every
+  caller expects a trip config — a module-load throw on every route, with no in-app recovery.
+- **Forgetting a trip left all of its data on the device (#100).** Only the entry in the known-trips
+  list was removed; every itinerary, expense, budget, photo and outbox slot stayed on disk — a
+  privacy problem on a shared device, and a dirty outbox that could resurrect deleted items on
+  re-join. The last two raw `localStorage` holdouts moved onto the storage gateway in the same pass.
+- **Restoring a backup could silently replace a different trip.** The envelope has carried its
+  `tripId` since it was written and the import path never read it back, so exporting trip A and
+  restoring it while trip B was active replaced every domain of B with A's — no warning, no undo,
+  and under sync it propagated to B's other members. It now refuses on a mismatch, before the first
+  write. The same envelope never carried My Places, so the "Back up this trip first" button in the
+  sign-out dialog promised something it could not deliver: sign-out wipes My Places and the restore
+  could not bring it back.
+- **Five smaller correctness bugs (#98).** A multi-day item stayed exempt from clash detection
+  forever once its end date fell behind the day it was moved to; the recap used device-local "today"
+  while the hero uses destination-local, so the two disagreed by a day near the date line; pre-trip
+  Travel Mode read "0 days" for the whole day before departure; "Next up" showed the day's first
+  stored item rather than its earliest by time; and the Home hero had no post-trip state at all, so
+  it showed a zeroed countdown clock forever after the trip ended.
+
+### The keyboard, and what a screen reader could actually hear
+
+Accessibility is an acceptance criterion here, and this pass found defects at the root of the app
+rather than at its edges.
+
+- **Nothing linked to the `<main>` that all 19 routes already rendered.** Every keyboard user tabbed
+  brand, primaries, More, Travel Mode and sign-out before reaching the content, on every navigation.
+  One anchor, and one id on a wrapper that already existed.
+- **Sixty card titles on `/nepal` and `/japan` were not headings.** Three sibling card components
+  wrapped the whole card body in a `<button>`, which is invalid twice over — a button may only
+  contain phrasing content, and everything inside one collapses into its accessible name. The
+  heading outline on those routes ran `h1`, `h2`, nothing. Inverted rather than patched: the title
+  is now the control, and its button stretches the hit area back over the whole card, so nothing
+  changes for a mouse or a finger.
+- **The serif faked 70 bolds.** Instrument Serif ships weight 400 and nothing else, and 70 of the 93
+  `font-display` sites across 45 files also carried `font-bold` or `font-semibold`, so every page
+  title, section masthead, error heading and dialog title rendered a browser-synthesised faux bold.
+  One unlayered declaration, zero component edits.
+- **The 44px tap floor had no consumers (#105).** The token was declared and unreachable from a class
+  name while `/plan` shipped 17×17 drag grips. Twenty controls across eight files move onto the
+  floor, and `/plan` rows now wrap below 640px, because four 44px controls cost 51px of row width
+  and without wrapping a 360px phone's title drops to about 92px.
+- **`/plan` row actions had no focus variant,** so tabbing a day moved focus onto three fully
+  transparent buttons per row, with the focus ring drawn on an invisible element.
+- **There was no `not-found` page,** so the framework fallback injected a white background on a
+  dark-only app — and under a static export that is also what GitHub Pages serves for every unknown
+  path.
+- The skip link was the first Tab stop on `/travel` but sat outside the Travel Mode root, a layover
+  airport name failed contrast only once its class started working, and the axe audit was itself
+  sampling `/flights` mid-reveal and failing about one run in four.
+
+### What it weighs, and what it costs to check out
+
+- **The map engine is out of the install.** MapLibre's chunks and the glyph PBFs are runtime-cached
+  rather than precached: 363,100 B gzip off every install, for a route most sessions never open.
+  The first online `/map` visit backfills it into the same cache the readiness check reads.
+- **The WebP tier is deleted.** The `<picture>` order is AVIF, WebP, JPEG, so WebP could only win
+  for a browser that decodes WebP but not AVIF, and within the declared browserslist that set is
+  empty. 296 files nobody ever fetched were 41.1% of the tracked repo — 100.6 MB down to 59.2 MB.
+  That is clone, CI and deploy time, **not** a payload win: no user was ever served those bytes.
+  Outside the browserslist the fallback is now the heavier JPEG, and a device holding an old
+  service worker holds old HTML pointing at deleted files for one session until the update lands.
+- **`/plan` shipped two 32-day day selectors that never synced (#94).** The route rendered the same
+  itinerary twice, stacked, in two different orders, and the timeline's date callback was dead code
+  because the island renders its component without props. The timeline is deleted and the one
+  surface it owned is remounted as its own island.
+- **Eight routes hand-copied the same page header,** down to the class order — two of them differed
+  in three text strings and nothing else. That duplication had already cost one recolour bug. One
+  component carries it now, and all eight keep their server-component boundary.
+
+### What stands between a merge and the live site
+
+- **The release gate called this very release clear to ship.** Its assertion looked for a fixed
+  `## v6.0.0 ` string, and its own comment claimed a `NOT DEPLOYED` heading would fail it. It never
+  did — the marker is a suffix, so the string matched and the gate printed "clear to ship" on an
+  entry whose body says the opposite. That gate is the only automated signal on the `dev` → `main`
+  pull request, and that merge deploys. It now scans heading lines, matches the tag as a whole token
+  with emphasis stripped, and refuses a hold marker wherever it sits on the line. A second assertion
+  is new: the version must be strictly **above** the highest existing tag. Seven versions in this
+  file were never tagged, so setting the version backwards to any of them passed the old
+  inequality-only check and would then have stamped a tag that lied about history.
+- **All 17 action uses are SHA-pinned,** with the version as a trailing comment so the bots still
+  read them. Six are major bumps, and **three of them cannot be exercised before a push to `main`**
+  — `deploy.yml` runs on that push alone and has no manual trigger — so `configure-pages`,
+  `upload-pages-artifact` and `deploy-pages` run for the first time as this deploy. All three are
+  runtime majors with no named input or output change, and the artifact producer and consumer moved
+  in lockstep, but the first proof is the live run. Watch that job.
+- **The leak scan's own self-test now runs in CI,** ahead of the scan. That table exists to stop the
+  scan reporting "clean" on a partial marker set, and until now nothing exercised it.
+- **All 36 visual baselines were re-shot (#93)** — all of them, not the twelve anyone expected,
+  because the 2% comparison tolerance lets a stale shot pass without counting as changed. CI runs
+  the visual job advisory, since Windows-generated baselines cannot be consumed on a Linux runner at
+  all, so those files are proven locally and nowhere else.
+
+### Deliberately not in this release
+
+**#92 (the Home editorial restructure) and #88 (the UI/UX overhaul it hangs off) wait for
+`v6.1.0`.** Nothing on Home is half-migrated without them: the photographic hero, the stat row, the
+utility band and the inspiration gallery are a finished surface, and #92 adds to it — a
+whole-journey timeline bar, numbered chapter photo bands, editorial serif titles. Holding four
+data-loss fixes and a custom-trip correctness sweep behind an additive design slice buys users
+nothing. #92 also carries its own acceptance criteria — motion, contrast over new photographic
+composites, zero horizontal overflow at three phone widths — and another re-baselining of the Home
+hero snapshots, which can only be done and eyeballed locally. It is a release of its own and it
+will be a better one for not being folded into this.
+
+One visible consequence, stated rather than buried: pre-trip, the "days to go" figure still prints
+twice above the fold at widths of 420px and up, once as the hero's ring and once in the stat row.
+The first slice of #92 is the fix, and it is about fifteen lines.
+
+### Known open
+
+- **#136** — the service worker's image branch now falls back to the cache on any non-ok response,
+  which closed the captive-portal hole for redirects and 511s. A portal that answers **200** with an
+  HTML login page is still treated as an image. The content-type check is not in.
+- **#138 and #139** — two remote read boundaries where a field a *newer* client wrote is dropped by
+  an older one, and the stripped row is written back up. Nothing round-trips badly today, because no
+  build currently writes such a field. It becomes real the first time two versions are in the field
+  at once, which for a lazily-updating installed app is the normal state and not the exception.
+- **#125** — `pushTripList` is the one sync write in its family that is not transactional, so two
+  devices reconciling the known-trips list at the same time can lose one another's change. A
+  forgotten trip can come back.
+- **#119** — deleting an expense or clearing the journal never frees the attached photo. The blob
+  stays in IndexedDB, invisible and un-freeable short of forgetting the device.
+- **#135** — the visual snapshots still carry a 2% tolerance. All 36 are fresh as of this release,
+  and that tolerance is what let the previous set go stale unnoticed.
+- **Firestore rules publishing is still inert.** The pipeline can publish, and proves the rules
+  against a real emulator first, but the step is gated on a `FIREBASE_SERVICE_ACCOUNT` secret that
+  does not exist. The live ruleset is still whatever was last applied by hand. Arming it is an owner
+  step and D-314's order matters: confirm every traveller is in the live rosters first, because
+  afterwards only an existing member can add anyone.
+- **Worker `v1.9.0` stays unshipped.** It requires a signed token that only a `v5.14.0`-or-later
+  client sends, and the condition is that such a client is live on **every** device, which this
+  deploy makes likely rather than certain. The concierge stays on `v1.8.1`.
 
 ---
 
