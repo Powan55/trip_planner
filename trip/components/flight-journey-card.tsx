@@ -21,40 +21,38 @@ import { getFlightTiming, type FlightPhase, type FlightTiming } from '@/lib/flig
 import { buildFlightTrackerUrl, buildRome2RioUrl, buildGoogleFlightsUrl } from '@/lib/flight-deep-links';
 
 // --- Static class/label records: never interpolate Tailwind class names. ---
+// Opacity modifiers must be real Tailwind scale steps. /12 and /15 emit no rule at all, so the
+// badges below rendered with no fill until they were moved to /10 and /20.
 
-// (Seam G) — this card's CONTENT vocabularies used to sit on cyan/teal, the same
-// hue as the interactive signal (`--ring`/`--primary` = hsl(189 90% 60%); cyan-500 = hsl(189 94%
-// 43%) — IDENTICAL hue, so "Economy" and "focused" were indistinguishable by hue). The content is
-// re-hued into the 60-160 deg band; the signal never moves. That band holds exactly TWO Tailwind
-// families at >=30 deg off 189 (lime 83 deg, green 142 deg — emerald is 160 deg, only 29 deg off,
-// and teal/sky are 16/10 deg off), so a collision-free mapping for all four re-hued slots does not
-// exist. The two reuses across vocabularies are deliberate; every control here carries its own TEXT
-// label, so hue reuse costs no information. Within each vocabulary the spacing
-// is maximal.
+// KNOWN CEILING: these vocabularies sit on cyan/teal, which is also the interaction signal's hue
+// (`--ring`/`--primary` = hsl(189 90% 60%), cyan-500 = hsl(189 94% 43%)), so hue alone does not
+// separate "Economy" from "focused". They were moved off it into the 60-160 deg band once and the
+// result read as olive; owner reverted it and ruled that band out. Every control here carries its
+// own TEXT label, so the collision costs no information — fix it with a non-hue focus treatment,
+// not by re-hueing the content.
 
 // Phase strip: color + a TEXT label + an icon.
 const PHASE: Record<FlightPhase, { label: string; strip: string; Icon: typeof Timer }> = {
-  upcoming: { label: 'Upcoming', strip: 'bg-green-500/12 text-green-200 border-green-500/25', Icon: Timer },
-  departing: { label: 'Departing today', strip: 'bg-amber-500/15 text-amber-200 border-amber-500/30', Icon: PlaneTakeoff },
+  upcoming: { label: 'Upcoming', strip: 'bg-cyan-500/10 text-cyan-200 border-cyan-500/25', Icon: Timer },
+  departing: { label: 'Departing today', strip: 'bg-amber-500/20 text-amber-200 border-amber-500/30', Icon: PlaneTakeoff },
   completed: { label: 'Completed', strip: 'bg-white/[0.06] text-ink-lo border-white/10', Icon: CheckCircle2 },
 };
 
 // Layover verdict: color + TEXT label, never color-only.
-// Severity now reads as a monotonic hue ramp: tight amber (38) -> normal lime (83) -> relaxed
-// green (142). Previously the middle value was cyan, i.e. off the ramp AND on the signal hue.
+// Severity: tight amber -> normal cyan -> relaxed green.
 const VERDICT: Record<'relaxed' | 'normal' | 'tight', { label: string; cls: string }> = {
-  relaxed: { label: 'Relaxed', cls: 'bg-green-500/15 text-green-200 border border-green-500/30' },
-  normal: { label: 'Normal', cls: 'bg-lime-500/15 text-lime-200 border border-lime-500/25' },
-  tight: { label: 'Tight', cls: 'bg-amber-500/15 text-amber-200 border border-amber-500/30' },
+  relaxed: { label: 'Relaxed', cls: 'bg-green-500/20 text-green-200 border border-green-500/30' },
+  normal: { label: 'Normal', cls: 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/25' },
+  tight: { label: 'Tight', cls: 'bg-amber-500/20 text-amber-200 border border-amber-500/30' },
 };
 
-// Cabin tier ladder, distinguishable step to step: lime (83) -> green (142) -> indigo (239) ->
-// gold (44). Smallest gap 59 deg. Business/First are already off-band and unchanged.
+// Cabin tier ladder: cyan -> teal -> indigo -> gold. KNOWN CEILING: cyan and teal are 16 deg
+// apart, so Economy vs Premium Economy separates by label, not by hue.
 const CABIN_BADGE: Record<string, string> = {
-  'Economy': 'bg-lime-500/15 text-lime-200 border border-lime-500/25',
-  'Premium Economy': 'bg-green-500/15 text-green-200 border border-green-500/25',
-  'Business': 'bg-indigo-500/15 text-indigo-200 border border-indigo-500/25',
-  'First': 'bg-gold-500/15 text-gold-400 border border-gold-500/25',
+  'Economy': 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/25',
+  'Premium Economy': 'bg-teal-500/20 text-teal-200 border border-teal-500/25',
+  'Business': 'bg-indigo-500/20 text-indigo-200 border border-indigo-500/25',
+  'First': 'bg-gold-500/20 text-gold-400 border border-gold-500/25',
 };
 
 // Build a short proximity string from the countdown's significant units. Far out → mo/w/d;
@@ -93,7 +91,7 @@ function LegRow({ leg }: { leg: FlightLeg }) {
     <li className="rounded-xl bg-white/[0.03] border border-white/5 p-4">
       <div className="flex items-center justify-between gap-2 mb-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-green-500/10 text-green-300 shrink-0">
+          <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-cyan-500/10 text-cyan-300 shrink-0">
             <Plane className="w-4 h-4" aria-hidden="true" />
           </span>
           <span className="font-semibold text-white text-sm truncate">{leg.flightNumber}</span>
@@ -110,7 +108,7 @@ function LegRow({ leg }: { leg: FlightLeg }) {
           <div className="font-mono font-bold text-white text-base">{leg.fromCode}</div>
           <div className="text-[11px] text-ink-mid leading-tight">{leg.fromName}</div>
         </div>
-        <ArrowRight className="w-4 h-4 text-green-400/60 shrink-0" aria-hidden="true" />
+        <ArrowRight className="w-4 h-4 text-cyan-400/60 shrink-0" aria-hidden="true" />
         <div className="min-w-0 flex-1 text-right">
           <div className="font-mono font-bold text-white text-base">{leg.toCode}</div>
           <div className="text-[11px] text-ink-mid leading-tight">{leg.toName}</div>
@@ -138,7 +136,7 @@ function LegRow({ leg }: { leg: FlightLeg }) {
 
       {leg.seats && leg.seats.length > 0 && (
         <div className="mt-2 flex items-center gap-1.5 text-[11px] text-ink-mid">
-          <Armchair className="w-3 h-3 text-green-300/70" aria-hidden="true" />
+          <Armchair className="w-3 h-3 text-cyan-300/70" aria-hidden="true" />
           <span className="text-ink-lo">Seats</span>
           <span className="font-mono text-ink-hi">{leg.seats.join(' · ')}</span>
         </div>
@@ -188,7 +186,7 @@ function JourneyActionsRail({ journey }: { journey: Journey }) {
   const gflights = buildGoogleFlightsUrl(journey.fromSummary, journey.toSummary);
   return (
     <div className="mt-4 pt-4 border-t border-white/5">
-      <p className="mb-2 text-[11px] uppercase tracking-widest text-green-300/70">Check live status</p>
+      <p className="mb-2 text-[11px] uppercase tracking-widest text-cyan-300/70">Check live status</p>
       <div className="flex flex-wrap gap-2">
         {journey.legs.map((leg) => {
           const tracker = buildFlightTrackerUrl(leg.flightNumber);
@@ -282,7 +280,7 @@ export function FlightJourneyCard({ journey, index = 0 }: { journey: Journey; in
         </h3>
         <div className="mt-2 flex items-center gap-3 font-mono font-bold text-white text-2xl sm:text-3xl">
           <span>{routeFrom}</span>
-          <ArrowRight className="w-6 h-6 text-green-400/70 shrink-0" aria-hidden="true" />
+          <ArrowRight className="w-6 h-6 text-cyan-400/70 shrink-0" aria-hidden="true" />
           <span>{routeTo}</span>
         </div>
         <div className="mt-1 text-sm text-ink-mid">
@@ -294,9 +292,9 @@ export function FlightJourneyCard({ journey, index = 0 }: { journey: Journey; in
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
         <span className="text-ink-hi"><span className="text-ink-lo">Depart</span> {journey.legs[0]?.departLabel}</span>
         <span className="text-ink-hi"><span className="text-ink-lo">Arrive</span> {journey.legs[journey.legs.length - 1]?.arriveLabel}</span>
-        <span className="inline-flex items-center gap-1 rounded-lg bg-green-500/10 px-2 py-0.5 text-green-200">
+        <span className="inline-flex items-center gap-1 rounded-lg bg-cyan-500/10 px-2 py-0.5 text-cyan-200">
           <Clock className="w-3 h-3" aria-hidden="true" />
-          <span className="text-green-300/70">Total</span>
+          <span className="text-cyan-300/70">Total</span>
           <span className="font-mono font-semibold">{journey.totalDuration}</span>
         </span>
       </div>
@@ -307,7 +305,7 @@ export function FlightJourneyCard({ journey, index = 0 }: { journey: Journey; in
         className="mt-3 flex items-center gap-2 rounded-xl bg-white/[0.03] border border-white/5 px-3 py-2"
         data-testid={`flight-countdown-${journey.id}`}
       >
-        <phaseMeta.Icon className="w-4 h-4 text-green-300/70 shrink-0" aria-hidden="true" />
+        <phaseMeta.Icon className="w-4 h-4 text-cyan-300/70 shrink-0" aria-hidden="true" />
         {phase === 'upcoming' && timing ? (
           <span className="text-sm text-ink-mid">
             <span className="text-ink-lo">Departs in </span>
