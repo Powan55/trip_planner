@@ -27,17 +27,35 @@ A rate limit on the concierge Worker, which had none at all before this. Worker-
 
 ---
 
-## ⛔ v6.0.0 (app) · **NOT DEPLOYED** · prepared 2026-08-16 · notes completed 2026-08-19 · worker stays at v1.8.1 (v1.9.0 built and deliberately unshipped)
+## v6.0.0 (app) · 2026-08-20 · worker stays at v1.8.1 (v1.9.0 built and deliberately unshipped)
 
-**Still held, but for one reason now rather than three.** This entry carried a `NOT DEPLOYED`
-heading from 2026-08-16 while a full bug sweep and a research pass ran against it. Both have
-finished and everything they found that was worth fixing is in this release, so the body below is
-now a complete and accurate account of what would ship — which it was not before, in three places
-it claimed as known-open work that had already landed. What remains is the manual run on a real
-device, scoped to the paths this release actually moved: one live round-trip with the deployed
-assistant, a two-device pass over a custom trip's expenses and restore, and one offline cold start
-on Home. The marker stays until that is done; taking it off is what tells the release gate this
-version may ship, and the gate is now a required check on `main` rather than an advisory one.
+**The hold is off by explicit owner waiver, not by completing the checklist below.** This entry
+carried a `NOT DEPLOYED` heading from 2026-08-16 while a full bug sweep and a research pass ran
+against it. Both finished and everything they found that was worth fixing is in this release, so
+the body below is a complete and accurate account of what ships. Three manual on-device checks were
+named as the remaining condition — one live round-trip with the deployed assistant, a two-device
+pass over a custom trip's expenses and restore, and one offline cold start on Home — and the owner
+waived them on 2026-08-20 rather than running them. **None of the three has been performed.** If a
+concierge round-trip, a two-device custom-trip sync, or an offline Home load misbehaves after this
+ships, start here: those are the paths this release moved and nobody exercised them on a real
+device before it went out.
+
+**Two more fixes landed after the sweep closed, caught by their own dedicated pass (#141, #142).**
+The DST test suite had silently never run — `TZ` was unset, so every DST-dependent case executed
+under the runner's local zone and asserted nothing about the boundary it named. Pinning
+`TZ=America/New_York` in `vitest.config.ts` made them run for the first time, which surfaced a
+real bug: `countdown()` computed the days remaining from two independent walks —
+`differenceInDays` back from the target and `addDays` forward from now — reconciled by a
+hand-rolled borrow that assumed the two walks were exact inverses. They stop being inverses across
+a UTC-offset change, so the countdown showed impossible fields (negative days, or a 24-hour
+miscount) in both directions around a DST transition. Replaced with one sequential walk — months
+maximal, then days maximal from where months landed, then hours/minutes/seconds as the residue —
+so every field is non-negative by construction and the old borrow can't recur (D-313 addendum,
+2026-08-20). Full suite (2355 tests) is green with the fix in; the D-313 leap-day and sum-back
+invariant regression sweeps pass unchanged. One retraction is folded into the same addendum: months
+stay anchored on `now` rather than the target, by owner ruling, which means the days cell can tick
+up by one at a month boundary — that's arithmetic, not a defect, and D-313's original monotonicity
+claim is retracted accordingly.
 179 commits sit between this and `v5.14.4`, which stayed live while they accumulated on `dev`.
 **Why the major bump, and it is not ceremony.** `v5.15.0` was already the largest release in this
 repo's history; everything below it in this file is still true and still ships here. On top of
