@@ -5,6 +5,10 @@ import { Camera, ImageOff, Trash2, X, Check } from 'lucide-react';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
 import type { PhotoMeta, PhotoOwner } from '@/core/photos/model';
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 
 /**
  * PhotoAttach — the ONE reusable capture/render surface for BOTH journal
@@ -48,6 +52,10 @@ export default function PhotoAttach({
   const [caption, setCaption] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Delete confirm gate (#116). The blob is gone from IndexedDB the moment `removePhoto` runs and
+  // there is no capture-and-restore path for the bytes, so this is the confirm arm of the
+  // house pattern, not the undo arm.
+  const [pendingDelete, setPendingDelete] = useState<PhotoMeta | null>(null);
 
   // Focus the alt field when the prompt opens (first-field-on-open, mirrors the journal editor).
   useEffect(() => {
@@ -197,7 +205,7 @@ export default function PhotoAttach({
       {photos.length > 0 ? (
         <ul data-testid="photo-grid" className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((meta) => (
-            <PhotoThumb key={meta.id} meta={meta} onDelete={() => removePhoto(meta.id)} />
+            <PhotoThumb key={meta.id} meta={meta} onDelete={() => setPendingDelete(meta)} />
           ))}
         </ul>
       ) : (
@@ -207,6 +215,31 @@ export default function PhotoAttach({
           </p>
         )
       )}
+
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent className="glass-card-dark border-white/10 text-white" data-testid="photo-delete-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this photo?</AlertDialogTitle>
+            <AlertDialogDescription className="text-ink-mid">
+              {pendingDelete?.caption ?? pendingDelete?.altText} — this deletes it from this device
+              for good. It is not backed up anywhere and there is no undo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="photo-delete-cancel">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="photo-delete-action"
+              onClick={() => {
+                if (pendingDelete) void removePhoto(pendingDelete.id);
+                setPendingDelete(null);
+              }}
+              className="bg-rose-500 text-white hover:bg-rose-400"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

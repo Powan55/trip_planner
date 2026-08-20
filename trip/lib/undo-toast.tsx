@@ -45,12 +45,27 @@ function UndoRing() {
   );
 }
 
-export function showUndoToast(message: string, onUndo: () => void): void {
+/**
+ * `onSettled` runs once the undo window has closed WITHOUT the user taking it — the hook for
+ * cleanup that undo could not survive, e.g. freeing an expense receipt's blob (#119). It never
+ * runs after Undo. KNOWN CEILING: a reload before the toast closes skips it, so the cleanup is
+ * best-effort, not a guarantee.
+ */
+export function showUndoToast(message: string, onUndo: () => void, onSettled?: () => void): void {
+  let undone = false;
+  const settle = () => {
+    if (!undone) onSettled?.();
+  };
   toast.success(message, {
     icon: <UndoRing />,
     action: {
       label: 'Undo',
-      onClick: onUndo,
+      onClick: () => {
+        undone = true;
+        onUndo();
+      },
     },
+    onAutoClose: settle,
+    onDismiss: settle,
   });
 }
