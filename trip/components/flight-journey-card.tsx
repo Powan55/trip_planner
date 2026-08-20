@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import type { Journey, FlightLeg, Layover } from '@/lib/booking-data';
 import { getFlightTiming, type FlightPhase, type FlightTiming } from '@/lib/flight-phase';
+import { useTravelTick, requestFastTick } from '@/lib/travel-tick';
 import { buildFlightTrackerUrl, buildRome2RioUrl, buildGoogleFlightsUrl } from '@/lib/flight-deep-links';
 
 // --- Static class/label records: never interpolate Tailwind class names. ---
@@ -242,14 +243,24 @@ export function FlightJourneyCard({ journey, index = 0 }: { journey: Journey; in
   // Timing is clock-dependent → set after mount so this component is SSR/hydration-safe even if
   // a future embedder renders it server-side. Ticks every second so the countdown reads live.
   const [timing, setTiming] = useState<FlightTiming | null>(null);
+  // The four cards on /flights each ran their own 1 Hz interval, never pausing on a hidden tab and
+  // never relaxing while the countdown was months out and could not visibly change (#118). They
+  // share the one module-level tick now; the clock read per tick is unchanged.
+  const tick = useTravelTick();
   useEffect(() => {
-    const tick = () => setTiming(getFlightTiming(journey));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [journey]);
+    setTiming(getFlightTiming(journey));
+  }, [journey, tick]);
 
   const phase = timing?.phase ?? 'upcoming';
+  // Only the inside-a-week reading carries seconds (see `proximityText`) — that is the one state
+  // worth 1 Hz, and it releases the moment the card leaves or the countdown widens again.
+  const needsSeconds =
+    phase === 'upcoming' && !!timing && !timing.countdown.months && !timing.countdown.weeks;
+  useEffect(() => {
+    if (!needsSeconds) return;
+    return requestFastTick();
+  }, [needsSeconds]);
+
   const phaseMeta = PHASE[phase];
   const routeFrom = journey.legs[0]?.fromCode ?? '';
   const routeTo = journey.legs[journey.legs.length - 1]?.toCode ?? '';

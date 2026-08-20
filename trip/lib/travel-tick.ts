@@ -1,9 +1,12 @@
 'use client';
 
-// — ONE shared tick source for `/travel`. Replaces the four independent
+// — ONE shared tick source. Replaces the four independent
 // per-card `setInterval(…, 1000)` clocks (hero / agenda / tonight / date-picker) with a single
-// module-level interval every subscribing card reads from. A slow base cadence covers every
-// time label ("in 2h", agenda, next-up, tonight, day-strip); the ONE genuinely per-second thing
+// module-level interval every subscribing card reads from. `/flights`' four journey cards ran the
+// same anti-pattern and now subscribe here too (#118) — nothing in this module was ever
+// `/travel`-specific. A slow base cadence covers every
+// time label ("in 2h", agenda, next-up, tonight, day-strip, flight countdowns further out than a
+// week); the ONE genuinely per-second thing
 // (the current-activity progress bar) requests a fast rate while it is on screen and releases it
 // on unmount. Time VALUES are unchanged — each tick re-reads the real clock (`getNow()` via each
 // card's existing recompute), we only changed HOW OFTEN that recompute runs.
@@ -41,7 +44,10 @@ function fire() {
  * clearInterval+setInterval when the rate ACTUALLY changes. SSR-safe (no window → no timer). */
 function reschedule() {
   if (typeof window === 'undefined') return;
-  const want = subscribers.size === 0 ? 0 : fastCount > 0 ? FAST_MS : BASE_MS;
+  // A hidden tab has nothing to repaint, and the next `visibilitychange` fires a catch-up tick,
+  // so every label is correct the moment it is looked at again (#118).
+  const idle = subscribers.size === 0 || (typeof document !== 'undefined' && document.hidden);
+  const want = idle ? 0 : fastCount > 0 ? FAST_MS : BASE_MS;
   if (want === currentMs) return;
   if (timer !== null) {
     clearInterval(timer);
@@ -55,12 +61,25 @@ function reschedule() {
  * subscriber leaves. Cards recompute from the real clock inside their own effect keyed on the
  * tick counter (see `useTravelTick`). */
 export function subscribeTravelTick(cb: Cb): () => void {
+  bindVisibility();
   subscribers.add(cb);
   reschedule();
   return () => {
     subscribers.delete(cb);
     reschedule();
   };
+}
+
+// Bound once, on the first subscribe, and never removed — one document-level listener for the
+// lifetime of the page is cheaper than add/remove around every subscriber.
+let visibilityBound = false;
+function bindVisibility(): void {
+  if (visibilityBound || typeof document === 'undefined') return;
+  visibilityBound = true;
+  document.addEventListener('visibilitychange', () => {
+    reschedule();
+    if (!document.hidden) fire(); // catch up before the next scheduled tick
+  });
 }
 
 /** Ref-counted request for the fast (1s) cadence — held by the current-activity progress bar
