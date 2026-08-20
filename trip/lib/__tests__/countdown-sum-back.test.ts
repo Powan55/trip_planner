@@ -311,8 +311,10 @@ describe('S423 (4) "4 weeks" is never rendered', () => {
 
 describe('S423 (5) crossing DST', () => {
   it('crosses every DST transition the runtime has: the walk is date-fns field math, never epoch arithmetic', () => {
-    // The transitions are LOCATED, not hardcoded, because the suite pins no TZ: a
-    // developer machine on America/New_York finds two, a UTC CI runner finds none. An
+    // The zone is PINNED (`vitest.config.ts` sets TZ=America/New_York), which is what makes this
+    // case run at all -- it located zero transitions on the UTC CI runner and passed vacuously
+    // until then. The transitions are still LOCATED rather than hardcoded so the case survives a
+    // re-pin to another zone, and the count is asserted below so it can never go vacuous again. An
     // epoch-ms walk drifts an hour across each; a field walk does not. Both a multi-day
     // interval straddling the shift and a sub-day one landing on it are checked, and the
     // sub-day one is where a broken walk would push `hours` to 24 or 25.
@@ -336,6 +338,10 @@ describe('S423 (5) crossing DST', () => {
         expect(differenceInDays(walkOnly(now, c), now), where).toBe(c.totalDays);
       }
     }
+    // NON-VACUITY. `0 % 2` is 0, so the parity check below passes HARDEST when the loop above did
+    // nothing -- which is exactly how this case sat green on every CI run before the zone was
+    // pinned. Assert the count first: America/New_York has exactly two transitions a year.
+    expect(shifts.length, `transitions found: ${shifts.map(fmt).join(", ") || "none"}`).toBe(2);
     // A TZ with transitions must have an even number of them (out and back).
     expect(shifts.length % 2, `transitions found: ${shifts.map(fmt).join(', ') || 'none'}`).toBe(0);
   });
