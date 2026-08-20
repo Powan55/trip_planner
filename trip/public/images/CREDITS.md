@@ -1,6 +1,6 @@
 # Image Credits
 
-Almost every image bundled under `public/images/` is freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision ****, sourced from Wikimedia Commons / Wikipedia via `scripts/fetch-images.mjs` and hosted locally (no hotlinking). Attribution in the tables below is captured automatically from each file’s Wikimedia `extmetadata`.
+Almost every image bundled under `public/images/` is freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision D-015, sourced from Wikimedia Commons / Wikipedia via `scripts/fetch-images.mjs` and hosted locally (no hotlinking). Attribution in the tables below is captured automatically from each file’s Wikimedia `extmetadata`.
 
 **The exception is `public/images/landing/` — see the last section. Those three are self-generated, not sourced, and no Wikimedia attribution applies to them.**
 
