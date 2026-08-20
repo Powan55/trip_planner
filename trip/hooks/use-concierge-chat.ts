@@ -5,7 +5,6 @@ import { useOnline } from '@/hooks/use-online';
 import { getActiveTripId } from '@/core/storage/gateway';
 import { getActiveTrip, isDefaultTrip } from '@/core/trips';
 import { getKnownTrip } from '@/core/trips/registry';
-import { isRemoteConfigured } from '@/lib/firebase-config';
 import { CONCIERGE_URL } from '@/lib/concierge-config';
 import { workerAuthHeader } from '@/lib/worker-auth';
 import { TRIP_DATE_LABEL, TRIP_DATES } from '@/core/dates/trip-dates';
@@ -335,22 +334,19 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       }
 
       // #10 — the concierge serves only trips that are ON THIS ACCOUNT, checked BEFORE any digest
-      // is built or a byte leaves the device. Two refusals, same error-row mechanism as offline:
-      // (a) a custom trip the registry does not know (someone drove the pointer to an arbitrary
-      //     id without joining it) gets no digest and no POST — the digest would read whatever
-      //     sits under that pointer's storage namespace;
-      // (b) the default pack on a CONFIGURED build: it is a local-only sample now, and the
-      //     concierge belongs to real trips. Keyed on isRemoteConfigured() deliberately, so the
-      //     dormant/e2e build (remote unconfigured) keeps today's default-trip behavior exactly.
-      if (!isDefaultTrip()) {
-        if (!getKnownTrip(getActiveTripId())) {
-          setStatus('error');
-          setError("This trip isn't on your account, so the concierge can't help with it.");
-          return;
-        }
-      } else if (isRemoteConfigured()) {
+      // is built or a byte leaves the device: a custom trip the registry does not know (someone
+      // drove the pointer to an arbitrary id without joining it) gets no digest and no POST,
+      // because the digest would read whatever sits under that pointer's storage namespace.
+      //
+      // v6.0.1 removed a second refusal that stood here — the default pack on a configured build.
+      // It was the client half of a membership gate (worker 1.9.0) that never deployed, so it
+      // protected nothing and left the concierge dead on the trip a first-time visitor lands on.
+      // Worker 1.9.0 must not ship without 1.10.0's sample-pack allowance or this comes back as a
+      // 403: the sample has no Firestore trip doc, so membership can only answer no. See
+      // docs/RELEASES.md, v6.0.1.
+      if (!isDefaultTrip() && !getKnownTrip(getActiveTripId())) {
         setStatus('error');
-        setError('The concierge works on your own trips — open one of your trips to chat.');
+        setError("This trip isn't on your account, so the concierge can't help with it.");
         return;
       }
       sendingRef.current = true;
