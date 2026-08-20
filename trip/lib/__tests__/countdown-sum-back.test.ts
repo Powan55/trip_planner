@@ -391,3 +391,72 @@ describe('D-313 (6) leap-day overshoot guard — `now` on a 29th/30th/31st walki
     expect(sumBack(now, c).getTime()).toBe(target.getTime());
   });
 });
+
+describe('(7) offset changes — the residue half survives a day that is not 24 hours long', () => {
+  // These two are REGRESSIONS, both reproduced against the shipped implementation before the fix.
+  // The zone is pinned in vitest.config.ts, so `dstTransitions` finds exactly two a year and both
+  // instants below are deterministic. They are separate from the located sweep in (5) above, which
+  // asserts general properties over every transition and must stay zone-portable — these assert
+  // exact strings and are therefore zone-specific by nature.
+
+  it('a fall-back day is 25 hours long, and the extra hour carries into days rather than showing "24 HOURS"', () => {
+    // The day the user is standing in genuinely has 25 hours, so the honest residue reaches 24h.
+    // Shipped rendered `0m 0w 0d 24h 31m 0s` — a literal 24 in the HOURS cell.
+    const fallBack = dstTransitions(2026)[1]; // 2026-11-01, the second transition of the year
+    const now = new Date(fallBack.getFullYear(), fallBack.getMonth(), fallBack.getDate(), 0, 29, 0);
+    const target = addDays(startOfDay(now), 1);
+
+    const c = computeCountdown(target, now);
+    expect(show(c)).toBe('0m 0w 1d 0h 31m 0s');
+    expect(c.hours).toBeLessThan(24);
+    // Deliberately NOT asserting sumBack here. The carry is what buys "never render a 24 in the
+    // hours cell", and moving a 25-hour day into the day count is exactly what a calendar
+    // reconstruction cannot undo. This instant is the documented exception, not an oversight.
+  });
+
+  it('a spring-forward day is 23 hours long, and no field goes negative', () => {
+    // Shipped read `0m 0w 1d -1h -53m 0s` here: `differenceInDays` counted a day that `addDays`
+    // then overshot, so the residue went negative and the sum-back failed outright.
+    const springFwd = dstTransitions(2026)[0]; // 2026-03-08
+    const now = new Date(springFwd.getFullYear(), springFwd.getMonth(), springFwd.getDate() - 1, 2, 53, 0);
+    const target = new Date(springFwd.getFullYear(), springFwd.getMonth(), springFwd.getDate(), 3, 0, 0);
+
+    const c = computeCountdown(target, now);
+    expect(show(c)).toBe('0m 0w 0d 23h 7m 0s');
+    for (const [field, value] of Object.entries(c)) {
+      if (typeof value === 'number') expect(value, `${field} is non-negative`).toBeGreaterThanOrEqual(0);
+    }
+    expect(sumBack(now, c).getTime()).toBe(target.getTime());
+  });
+
+  it('sweeps the target shapes that actually reach each failure mode: hours under 24, nothing negative', () => {
+    // The sweep in (5) cannot reach either defect: it pins TARGET at 2026-12-09 for every case, and
+    // both only appear when the target itself sits within about a day of a transition.
+    //
+    // Each arm below EARNS its place, measured against the pre-fix implementation using this
+    // sweep's own shape. The 05:30 arm this replaced caught nothing on either failure mode:
+    //
+    //   transition day   @ 03:00  ->  hours>=24: 18   negative: 25
+    //   transition day+1 @ 00:00  ->  hours>=24: 18   negative:  0
+    //   transition day+1 @ 05:30  ->  hours>=24:  0   negative:  0   (guards nothing)
+    //
+    // The negative-field class needs the target ON the transition day, not the day after, so a
+    // day+1-only sweep never reaches it at all.
+    for (const day of dstTransitions(2026)) {
+      for (const [dayOffset, hh, mm] of [[0, 3, 0], [1, 0, 0]] as const) {
+        const target = new Date(day.getFullYear(), day.getMonth(), day.getDate() + dayOffset, hh, mm, 0);
+        for (let back = 1; back <= 3 * 24 * 60; back += 7) {
+          const now = new Date(target.getTime() - back * 60_000);
+          const c = computeCountdown(target, now);
+          const where = `${fmt(day)}+${dayOffset}d ${hh}:${mm} target, now ${fmt(now)} -> ${show(c)}`;
+          expect(c.hours, where).toBeLessThan(24);
+          expect(c.months, where).toBeGreaterThanOrEqual(0);
+          expect(c.weeks, where).toBeGreaterThanOrEqual(0);
+          expect(c.days, where).toBeGreaterThanOrEqual(0);
+          expect(c.minutes, where).toBeGreaterThanOrEqual(0);
+          expect(c.seconds, where).toBeGreaterThanOrEqual(0);
+        }
+      }
+    }
+  });
+});
