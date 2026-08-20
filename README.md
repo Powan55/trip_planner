@@ -43,8 +43,11 @@ devices when the build is wired to Firebase.
 - **Installable PWA** – web app manifest + a hand-rolled service worker precache the app
   shell, so the app installs to a home screen and keeps working offline; updates surface as
   a "New version available" toast (never a silent refresh).
-- **Design** – dark, glassy, gold/himalaya/sakura-accented theme; responsive down to small
-  phones; `prefers-reduced-motion` respected throughout.
+- **Design** – dark, glassy theme on an aubergine night field (`#0E0920` → `#2F2159`), with
+  one cool chrome accent for anything pressable (volt `#3ED8FF`, which is also the focus ring)
+  and warm country gradients kept for content rather than controls (Nepal `#FF8A3D` → `#FFC43D`,
+  Japan `#FF8FC7` → `#C08CFF`); text sits on three solid tiers that all clear AA; responsive
+  down to small phones; `prefers-reduced-motion` respected throughout.
 
 ## Tech stack
 
@@ -54,14 +57,14 @@ devices when the build is wired to Firebase.
 - [Framer Motion](https://www.framer.com/motion/) for animation
 - [MapLibre GL](https://maplibre.org/) for the map (CARTO raster basemap)
 - [date-fns](https://date-fns.org/) for date math
-- Optional [Firebase](https://firebase.google.com/) (Firestore only: Firebase Auth is not
-  used; the trip id is the capability) for cross-device sync, entirely inert unless configured
+- Optional [Firebase](https://firebase.google.com/) (Firestore for the data, Firebase Auth for
+  the signed-in floor the rules enforce) for cross-device sync, entirely inert unless configured
 
 ## Getting started
 
 ```bash
 cd trip
-npm install --legacy-peer-deps
+npm ci --legacy-peer-deps
 npm run dev
 ```
 
@@ -90,39 +93,60 @@ are derived from the repository name at build time, so no configuration is hard-
 gates run first: a repository-hygiene check, and a `version-gate` that fails the run when a tag
 `v<version>` for the current `trip/package.json` version already exists, so a push to `main`
 without a version bump does not publish. The workflow pushes that tag itself once the deploy
-succeeds.
+succeeds. The same run has a step to publish `firestore.rules` from the tree it built, between
+the build and the Pages deploy; it is inert until the service-account secret is set — see
+**Firestore rules** below.
 
 To deploy your own copy, push to `main` and set **Settings → Pages → Source** to **GitHub Actions**.
 
 ## Firestore rules
 
-`firestore.rules` at the repo root is the source of truth for the database's access rules.
-Before any change to it ships, validate it against the real rules engine with the local
-emulator (needs Java and the `firebase` CLI; run from the repo root):
+`firestore.rules` at the repo root is the source of truth for the database's access rules, and
+the release is what publishes it: `.github/workflows/deploy.yml` deploys the rules from the same
+tree it builds, between the build and the Pages deploy.
+
+**It is inert until the owner sets the `FIREBASE_SERVICE_ACCOUNT` secret.** Without it the job
+warns, publishes nothing, and lets the release through. Until it is set, the live ruleset is
+still whatever was last deployed by hand, which may be older than the file in this tree — so do
+not read `git show v<version>:firestore.rules` as the live authorization gate yet. Once the
+secret is set, that command becomes the answer to "what rules are live", which is the whole point
+of publishing from the release.
+
+**Once armed, the Firebase console is read-only for rules.** The publish is unconditional, not
+conditioned on the file having changed, so a rule edited in the console is reverted by the next
+release without warning. If you ever hotfix there, land the same change in this repo straight
+after.
+
+Nothing unproven ships: the `rules-check` job in `.github/workflows/ci.yml` validates the rules
+against the real rules engine in a local emulator, on every pull request, on pushes to `lax`,
+`uttam` and `dev`, and again on the push to `main` that deploys. Run the same check yourself
+(needs Java and the `firebase` CLI; run from the repo root):
 
 ```bash
 firebase emulators:exec --only firestore,auth --project demo-rules "node scripts/rules-check.mjs"
 ```
 
-Exit code 0 means every phase passed (the two negative-control phases are *supposed* to show
-failures in their own output — the script accounts for that). The harness resolves the
-`firebase` SDK out of `trip/node_modules`, so `npm ci --legacy-peer-deps` inside `trip/`
-must have run first. It is deliberately not part of CI or the app's test suite: it needs a
-running emulator.
+The harness reports eleven phases (the two negative-control phases are *supposed* to show
+failures in their own output — the script accounts for that). Trust its verdict rather than the
+CLI's: `emulators:exec` has been seen exiting 2 after a completely green run, while shutting the
+emulator down, which is why the CI job records the harness's own exit code in a sentinel file
+instead. The harness resolves the `firebase` SDK out of `trip/node_modules`, so
+`npm ci --legacy-peer-deps` inside `trip/` must have run first.
 
 The **auth** emulator is required as well as firestore, because the rules now have an
 authentication floor: the harness signs in three anonymous users (owner, member, stranger)
 and keeps a fourth client signed out, so that both the membership rules and the floor itself
 are exercised rather than assumed. Running with `--only firestore` fails in phase 0.
 
-Publishing the rules is a **manual owner action** — no workflow deploys them:
+Break-glass, for when the rules have to move and the workflow cannot do it:
 
 ```bash
 firebase deploy --only firestore:rules
 ```
 
-After any rules deploy, re-verify live that trip enumeration is still denied (a plain
-`getDocs(collection('trips'))` must fail with permission-denied).
+That is the same command the release runs, against the project named in `.firebaserc`. After any
+rules deploy, by hand or by workflow, re-verify live that trip enumeration is still denied (a
+plain `getDocs(collection('trips'))` must fail with permission-denied).
 
 ## Notes
 

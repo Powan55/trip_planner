@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 // S124 — the ONE core time module (matrix item 11; D-137/D-139/D-140).
 // Pure math, framework-free — lands GREEN before the migration consumes `parseTimeString`.
@@ -15,6 +15,8 @@ import {
 } from '@/core/dates';
 import { TRIP_ITINERARY } from '@/core/content/itinerary';
 import type { ItineraryItem } from '@/lib/trip-data';
+import { setActiveTripId } from '@/core/storage/gateway';
+import { setTripConfig, type TripConfigBlock } from '@/core/trips/registry';
 
 function mk(fields: Partial<ItineraryItem>): ItineraryItem {
   return { id: 'x', title: 'X', category: 'sightseeing', ...fields };
@@ -110,6 +112,36 @@ describe('offset constants + offsetForCountry', () => {
   it('country → offset', () => {
     expect(offsetForCountry('nepal')).toBe(345);
     expect(offsetForCountry('japan')).toBe(540);
+  });
+});
+
+// A-8 — a custom trip's single leg carries the "unknown geography" placeholder
+// `utcOffsetMin: 0` (core/trips/custom.ts). `hasRealGeography`/`offsetForCountry` are captured
+// at MODULE LOAD from the active pack (core/dates/item-time.ts), so this sets the active-trip
+// pointer/config FIRST, then `vi.resetModules()` + dynamic-imports the module — the same
+// technique lib/__tests__/leg-label.test.ts and trip-cities-scoped.test.ts use for other
+// module-load-captured state derived from the active pack.
+describe('offsetForCountry — custom-trip fallback when no leg has real geography (A-8)', () => {
+  const NO_TZ: TripConfigBlock = {
+    start: '2027-03-01',
+    end: '2027-03-05',
+    destinations: ['Nowhere'],
+    vibe: 'city',
+    currency: 'USD',
+    updatedAt: 1000,
+  };
+
+  it('falls back to the device offset, not 0, when every leg is the placeholder', async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    setActiveTripId('custom-notz');
+    setTripConfig('custom-notz', NO_TZ);
+
+    vi.resetModules();
+    const { offsetForCountry: freshOffsetForCountry } = await import('@/core/dates/item-time');
+
+    expect(freshOffsetForCountry('main')).toBe(-new Date().getTimezoneOffset());
+    expect(freshOffsetForCountry('main')).not.toBe(0);
   });
 });
 

@@ -13,9 +13,19 @@ import {
 } from '@/components/ui/sheet';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { isConciergeConfigured } from '@/lib/concierge-config';
+import { FADE_FLOOR } from '@/lib/motion';
 import { useConciergeChat } from '@/hooks/use-concierge-chat';
 import { useItinerary } from '@/hooks/use-itinerary';
-import { validateOps, describeOp, applyOp, type Op } from '@/lib/concierge-ops';
+import {
+  validateOps,
+  describeOp,
+  applyOp,
+  clashForOp,
+  dropReason,
+  type DropCode,
+  type Op,
+} from '@/lib/concierge-ops';
+import { describeClash } from '@/lib/sort-items-by-time';
 import { showUndoToast } from '@/lib/undo-toast';
 
 // Model output is UNTRUSTED input: only these href schemes become a real <a>; anything else
@@ -35,8 +45,10 @@ const INLINE = /`([^`]+)`|\[([^\]\n]+)\]\(([^)\s]+)\)|\*\*(?=\S)(.+?)\*\*|\*(?=\
 const CODE_CLASS = 'rounded bg-white/10 px-1 py-0.5 font-code text-[0.9em] text-foreground/90';
 // Block-sized counterpart to CODE_CLASS above — same code palette, fenced-block padding (;
 // today a fenced reply renders as one `<pre>` instead of one pill per line).
+// The focus ring pairs with the `tabIndex={0}` at the render site: a fenced block scrolls
+// horizontally but contains only plain text, so nothing inside it can take focus.
 const FENCE_CLASS =
-  'my-2 block overflow-x-auto whitespace-pre-wrap rounded-lg bg-white/10 px-3 py-2 font-code text-[0.9em] text-foreground/90';
+  'my-2 block overflow-x-auto whitespace-pre-wrap rounded-lg bg-white/10 px-3 py-2 font-code text-[0.9em] text-foreground/90 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /** Inline spans within ONE line. Non-recursive on purpose — INLINE is a global (stateful) regex. */
 function renderInline(text: string, keyPrefix: number): ReactNode[] {
@@ -190,7 +202,7 @@ export function renderAssistantContent(text: string): ReactNode[] {
     switch (block.type) {
       case 'fence':
         return (
-          <pre key={i} className={FENCE_CLASS}>
+          <pre key={i} tabIndex={0} className={FENCE_CLASS}>
             {block.lines.join('\n') || ' '}
           </pre>
         );
@@ -241,6 +253,45 @@ const STARTER_PROMPTS = [
 ];
 
 /**
+ * Issue #13 — the sentence for one `DropCode`. The copy lives HERE and the code lives in
+ * `lib/concierge-ops.ts`, which is what makes D-234's surviving invariant structural: no rule
+ * number, field name, JSON or other machine text can reach a traveller, because none of it
+ * crosses the seam in the first place. Same reason-code → copy switch as
+ * `components/photo-attach.tsx::reasonMessage`.
+ *
+ * Each clause completes "…didn't match the current plan: <clause>", so they are lower-case
+ * fragments, phrased as what the SUGGESTION got wrong — never as an instruction, because there is
+ * nothing for the traveller to press here (the op is gone; asking again is the whole recourse).
+ */
+function dropMessage(code: DropCode): string {
+  switch (code) {
+    case 'date-not-in-trip':
+      return 'it named a day outside the trip';
+    case 'no-title':
+      return 'it had no name for the plan';
+    case 'bad-category':
+      return 'it used a category this app doesn’t have';
+    case 'no-such-item':
+      return 'the plan it pointed at isn’t on your itinerary';
+    case 'nothing-to-change':
+      return 'it didn’t actually change anything';
+    case 'bad-time':
+      return 'the time wasn’t a real time of day';
+    case 'bad-duration':
+      return 'the length wasn’t a real duration';
+    case 'already-there':
+      return 'that plan is already on that day';
+    case 'unknown-verb':
+    case 'unreadable':
+      return 'it asked for something this app can’t do';
+  }
+  // No `default:` here, deliberately. With all ten codes listed the switch is exhaustive and this
+  // compiles; an ELEVENTH `DropCode` makes it fall off the end and TS2366 fails the build. A
+  // `default` would instead have silently rendered the generic sentence for a code that deserves
+  // its own — the same fail-open asymmetry `clashForOp` is guarded against in D-316.
+}
+
+/**
  * AI concierge chat — the client surface for the Cloudflare Worker's `POST` relay
  * Mounted once in the persistent
  * navbar chrome (`components/navbar.tsx`), next to the Travel Mode entry — the "durable entry
@@ -278,6 +329,13 @@ export function ConciergeChat() {
   // re-render. Keyed per turn + op content (validateOps re-runs each render against LIVE plans, so
   // a positional index would be unstable; content is stable regardless of which ops survive).
   const [resolvedOps, setResolvedOps] = useState<Set<string>>(new Set());
+  // Issue #19 — the refusal for the last blocked Confirm, per chip (same `opKey`), or absent.
+  // It is the result of pressing Confirm, exactly like a form validation message: it stays until
+  // that chip is confirmed again (which re-checks against live plans) or dismissed. Deliberately
+  // NOT auto-cleared on a `plans` change — `useItinerary` rebuilds `plans` on every render
+  // (`visiblePlans(plans)` is a fresh array each time), so an effect keyed on it would fire in a
+  // loop rather than on a real edit.
+  const [clashByOp, setClashByOp] = useState<Record<string, string>>({});
 
   // — "every time I send a message I have to re-click the textbox". Root cause was
   // `disabled={status==='streaming'}` on the input: disabling blurs it and nothing ever restored
@@ -313,6 +371,22 @@ export function ConciergeChat() {
   // Execute ONLY on explicit confirm: route through useItinerary(), then
   // offer undo capturing pre-state. Dismiss just drops the chip — nothing mutates.
   const confirmOp = (key: string, op: Op) => {
+    // Issue #19 / D-316 — the concierge's Confirm was the one authoring surface Slice A left
+    // unguarded. On a collision NOTHING is applied and `resolve(key)` is NOT called, so the chip
+    // stays on screen and the proposal is still there to confirm once the clash is settled — the
+    // "not add anything until that's settled" half, which is the non-negotiable part. The check
+    // is here and not in `isValidOp` on purpose: `validateOps` drops silently, so a conflicting
+    // suggestion would have vanished from the chat instead of explaining itself.
+    const clash = clashForOp(op, plans);
+    if (clash) {
+      setClashByOp((prev) => ({
+        ...prev,
+        // `describeClash` is the same fragment the five surfaces D-316 guards use, so the two
+        // refusals can never name the same collision differently.
+        [key]: `Nothing changed — this overlaps ${describeClash(clash)}. Ask me for a different time, or change that plan first, then confirm again.`,
+      }));
+      return;
+    }
     const { message, undo } = applyOp(op, store, plans);
     showUndoToast(message, undo);
     resolve(key);
@@ -340,7 +414,6 @@ export function ConciergeChat() {
         </button>
       </SheetTrigger>
       <SheetContent
-        side="right"
         data-testid="concierge-panel"
         className="glass-card-dark flex w-full flex-col gap-0 border-white/10 text-white sm:max-w-lg"
       >
@@ -352,7 +425,7 @@ export function ConciergeChat() {
               "services" would have been a second false note. "here" stays: it scopes the storage
               claim to this panel rather than reading as a claim about the whole data path
               */}
-          <SheetDescription className="text-white/55">
+          <SheetDescription className="text-ink-mid">
             Ask about the Nepal &amp; Japan itinerary. Your messages and trip details go to a
             third-party AI provider that may retain and review them on free plans — the model
             that answers is named under each reply. Nothing is stored here; the chat clears on
@@ -375,7 +448,7 @@ export function ConciergeChat() {
                   type="button"
                   data-testid="concierge-starter-chip"
                   onClick={() => void send(prompt)}
-                  className="inline-flex min-h-[44px] items-center rounded-full border border-white/10 bg-white/5 px-3.5 text-sm text-white/75 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="inline-flex min-h-[44px] items-center rounded-full border border-white/10 bg-white/5 px-3.5 text-sm text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   {prompt}
                 </button>
@@ -384,15 +457,23 @@ export function ConciergeChat() {
           )}
           {messages.map((turn, i) => (
             <Fragment key={i}>
+              {/* 🔴 opacity starts at FADE_FLOOR, NOT 0 — the same rule, and the same reason, as
+                  every other reveal in the app (see lib/motion.ts). A wrapper opacity MULTIPLIES
+                  its text's alpha, and the axe pass runs WITHOUT reduced motion, so it can and
+                  does sample a frame mid-flight: this bubble was scanned at `opacity: 0` and its
+                  `text-white` composited to #898491 on the panel, 4.06:1 — a serious
+                  color-contrast violation on a turn that reads pure white to a human eye. The
+                  slide (`y`) is the reveal anyone actually perceives; at 0.95 the fade is close
+                  to imperceptible, which is exactly why it costs nothing to make it legal. */}
               <m.div
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: FADE_FLOOR, y: 6 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
                 data-testid={`concierge-turn-${turn.role}`}
                 className={
                   turn.role === 'user'
                     ? 'ml-6 whitespace-pre-wrap rounded-2xl rounded-br-sm bg-primary/10 px-3 py-2 text-sm text-white'
-                    : 'mr-6 whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/5 px-3 py-2 text-sm text-white/85'
+                    : 'mr-6 whitespace-pre-wrap rounded-2xl rounded-bl-sm bg-white/5 px-3 py-2 text-sm text-ink-hi'
                 }
               >
                 {turn.role === 'assistant'
@@ -411,13 +492,14 @@ export function ConciergeChat() {
                   nothing at all — no "unknown", no placeholder — when absent, which is the normal
                   case against the deployed v1.4.0 Worker. */}
               {turn.role === 'assistant' && turn.model && (
-                <p data-testid="concierge-turn-model" className="mr-6 px-3 text-xs text-white/55">
+                <p data-testid="concierge-turn-model" className="mr-6 px-3 text-xs text-ink-mid">
                   {turn.model}
                 </p>
               )}
 
               {/* Proposal chips — validated against LIVE plans at render time so a stale
-                  op (target since deleted) silently drops. Nothing mutates until Confirm. */}
+                  op (target since deleted) drops, and says why it dropped (#13). Nothing
+                  mutates until Confirm. */}
               {turn.role === 'assistant' &&
                 turn.ops &&
                 (() => {
@@ -429,7 +511,17 @@ export function ConciergeChat() {
                   // stops validating once its target is gone — that is not a drop).
                   const dropped = turn.ops!.filter(
                     (op) => !valid.includes(op) && !resolvedOps.has(opKey(i, op)),
-                  ).length;
+                  );
+                  // Issue #13 — and WHY, which is the half that was missing. Derived at RENDER
+                  // time from `(rawOp, plans)`, never held in state: `useItinerary().plans` has a
+                  // fresh identity every render, so an effect keyed on it is an infinite loop, not
+                  // a cache (D-316's addendum records that trap). Deduped by CODE, so a model that
+                  // fluffs three dates the same way says it once. `?? 'unreadable'` is
+                  // unreachable — an op with no reason is by definition in `valid` — and exists
+                  // only so the copy switch is total without a filter.
+                  const reasons = [
+                    ...new Set(dropped.map((op) => dropReason(op, plans) ?? 'unreadable')),
+                  ].map(dropMessage);
                   return (
                     <>
                       {valid.map((op) => {
@@ -442,39 +534,66 @@ export function ConciergeChat() {
                             role="group"
                             aria-label={`Proposed change: ${label}`}
                             data-testid="concierge-op-chip"
-                            className="mr-6 flex items-center justify-between gap-2 rounded-xl border border-ring/25 bg-primary/5 px-3 py-2"
+                            className="mr-6 rounded-xl border border-ring/25 bg-primary/5 px-3 py-2"
                           >
-                            <span className="text-sm text-white/90">{label}</span>
-                            <div className="flex shrink-0 items-center gap-1">
-                              <button
-                                type="button"
-                                data-testid="concierge-op-confirm"
-                                onClick={() => confirmOp(key, op)}
-                                aria-label={`Confirm: ${label}`}
-                                className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg bg-primary text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                              >
-                                <Check className="h-4 w-4" aria-hidden="true" />
-                              </button>
-                              <button
-                                type="button"
-                                data-testid="concierge-op-dismiss"
-                                onClick={() => resolve(key)}
-                                aria-label={`Dismiss: ${label}`}
-                                className="inline-flex min-h-[36px] min-w-[36px] items-center justify-center rounded-lg border border-white/15 bg-white/5 text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                              >
-                                <X className="h-4 w-4" aria-hidden="true" />
-                              </button>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm text-ink-hi">{label}</span>
+                              <div className="flex shrink-0 items-center gap-1">
+                                <button
+                                  type="button"
+                                  data-testid="concierge-op-confirm"
+                                  onClick={() => confirmOp(key, op)}
+                                  aria-label={`Confirm: ${label}`}
+                                  className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg bg-primary text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                >
+                                  <Check className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                                <button
+                                  type="button"
+                                  data-testid="concierge-op-dismiss"
+                                  onClick={() => resolve(key)}
+                                  aria-label={`Dismiss: ${label}`}
+                                  className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg border border-white/15 bg-white/5 text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                >
+                                  <X className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                              </div>
                             </div>
+                            {/* Issue #19 — the refusal, INSIDE its own chip so it can never be
+                                read against the wrong proposal. A BLOCKED user action, so
+                                `role="alert"` (assertive), not `role="status"` — the pattern
+                                backup-restore.tsx / photo-attach.tsx and D-316's five surfaces
+                                already use. Always mounted with one line of reserved height, so
+                                the live region exists before it has anything to say and the
+                                announcement is a text change rather than a node insertion — which
+                                is what makes it reliably announced. (The chip does still grow when
+                                the message wraps past that line; the reserve buys the live region,
+                                not a fixed height.) Focus is deliberately NOT moved: it is already on the
+                                Confirm button the user just pressed, which is where they act
+                                next. No shake, no flash — nothing motion-dependent to reduce. */}
+                            <p
+                              role="alert"
+                              data-testid="concierge-op-clash"
+                              className="mt-1 min-h-[1rem] text-xs text-destructive"
+                            >
+                              {clashByOp[key]}
+                            </p>
                           </div>
                         );
                       })}
-                      {dropped > 0 && (
+                      {/* Issue #13 — ONE line, evolved rather than doubled: the count that
+                          shipped at S342 plus the reason it was missing. A plain <p>, NOT
+                          `role="alert"` — a drop is not a blocked user action, it is part of the
+                          reply, and it is already inside the panel's `role="log" aria-live=
+                          "polite"` region, so it is announced with the turn it belongs to. The
+                          assertive region above is for the Confirm refusal, which answers a press. */}
+                      {dropped.length > 0 && (
                         <p
                           data-testid="concierge-ops-dropped"
-                          className="mr-6 px-3 text-xs text-white/50"
+                          className="mr-6 px-3 text-xs text-ink-mid"
                         >
-                          {dropped} suggested change{dropped === 1 ? '' : 's'} didn&rsquo;t match the
-                          current plan.
+                          {dropped.length} suggested change{dropped.length === 1 ? '' : 's'}{' '}
+                          didn&rsquo;t match the current plan: {reasons.join('; ')}.
                         </p>
                       )}
                     </>
@@ -526,7 +645,7 @@ export function ConciergeChat() {
             // one control the user is actually typing into. Screen-reader order becomes:
             // "Message the concierge, edit text, Sent to a third-party AI — nothing stored here."
             aria-describedby={PRIVACY_NOTE_ID}
-            className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-white/35 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="min-h-[44px] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 text-sm text-white placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           <button
             type="submit"
@@ -541,9 +660,9 @@ export function ConciergeChat() {
 
         {/* (owner ruling Q5, second half) — the small privacy label, sited at the input
             rather than buried in the header paragraph, because this is where the user decides
-            what to type. `text-white/55` is the same tone the SheetDescription already uses and
+            what to type. `text-ink-mid` is the same tone the SheetDescription already uses and
             already clears the axe colour-contrast check on this panel. */}
-        <p id={PRIVACY_NOTE_ID} data-testid="concierge-privacy-note" className="mt-2 px-1 text-xs text-white/55">
+        <p id={PRIVACY_NOTE_ID} data-testid="concierge-privacy-note" className="mt-2 px-1 text-xs text-ink-mid">
           Sent to a third-party AI — nothing stored here.
         </p>
       </SheetContent>

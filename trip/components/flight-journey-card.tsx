@@ -36,7 +36,7 @@ import { buildFlightTrackerUrl, buildRome2RioUrl, buildGoogleFlightsUrl } from '
 const PHASE: Record<FlightPhase, { label: string; strip: string; Icon: typeof Timer }> = {
   upcoming: { label: 'Upcoming', strip: 'bg-green-500/12 text-green-200 border-green-500/25', Icon: Timer },
   departing: { label: 'Departing today', strip: 'bg-amber-500/15 text-amber-200 border-amber-500/30', Icon: PlaneTakeoff },
-  completed: { label: 'Completed', strip: 'bg-white/[0.06] text-white/50 border-white/10', Icon: CheckCircle2 },
+  completed: { label: 'Completed', strip: 'bg-white/[0.06] text-ink-lo border-white/10', Icon: CheckCircle2 },
 };
 
 // Layover verdict: color + TEXT label, never color-only.
@@ -80,8 +80,8 @@ function Chip({ label, value }: { label: string; value?: string | null }) {
   const empty = !value;
   return (
     <div className="rounded-lg bg-white/[0.03] border border-white/5 px-2.5 py-1.5 min-w-0">
-      <div className="text-[9px] uppercase tracking-wider text-white/35">{label}</div>
-      <div className={`text-[11px] font-medium truncate ${empty ? 'text-white/25 italic' : 'text-white/70'}`}>
+      <div className="text-[9px] uppercase tracking-wider text-ink-lo">{label}</div>
+      <div className={`text-[11px] font-medium truncate ${empty ? 'text-ink-lo italic' : 'text-ink-hi'}`}>
         {value ?? 'Not yet assigned'}
       </div>
     </div>
@@ -108,21 +108,21 @@ function LegRow({ leg }: { leg: FlightLeg }) {
       <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="font-mono font-bold text-white text-base">{leg.fromCode}</div>
-          <div className="text-[11px] text-white/45 leading-tight">{leg.fromName}</div>
+          <div className="text-[11px] text-ink-mid leading-tight">{leg.fromName}</div>
         </div>
         <ArrowRight className="w-4 h-4 text-green-400/60 shrink-0" aria-hidden="true" />
         <div className="min-w-0 flex-1 text-right">
           <div className="font-mono font-bold text-white text-base">{leg.toCode}</div>
-          <div className="text-[11px] text-white/45 leading-tight">{leg.toName}</div>
+          <div className="text-[11px] text-ink-mid leading-tight">{leg.toName}</div>
         </div>
       </div>
 
       {/* Depart / Arrive / duration — VERBATIM labels. The weekday+date is already IN
           the label ("Thu Dec 10"); we do NOT compute a +1d badge (that would be parsing). */}
       <div className="mt-3 pt-3 border-t border-white/5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
-        <span className="text-white/55"><span className="text-white/40">Depart</span> {leg.departLabel}</span>
-        <span className="text-white/55"><span className="text-white/40">Arrive</span> {leg.arriveLabel}</span>
-        <span className="inline-flex items-center gap-1 text-white/45">
+        <span className="text-ink-hi"><span className="text-ink-lo">Depart</span> {leg.departLabel}</span>
+        <span className="text-ink-hi"><span className="text-ink-lo">Arrive</span> {leg.arriveLabel}</span>
+        <span className="inline-flex items-center gap-1 text-ink-mid">
           <Clock className="w-3 h-3" aria-hidden="true" />{leg.duration}
         </span>
       </div>
@@ -137,10 +137,10 @@ function LegRow({ leg }: { leg: FlightLeg }) {
       </div>
 
       {leg.seats && leg.seats.length > 0 && (
-        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-white/45">
+        <div className="mt-2 flex items-center gap-1.5 text-[11px] text-ink-mid">
           <Armchair className="w-3 h-3 text-green-300/70" aria-hidden="true" />
-          <span className="text-white/40">Seats</span>
-          <span className="font-mono text-white/60">{leg.seats.join(' · ')}</span>
+          <span className="text-ink-lo">Seats</span>
+          <span className="font-mono text-ink-hi">{leg.seats.join(' · ')}</span>
         </div>
       )}
     </li>
@@ -166,7 +166,7 @@ function LayoverRow({ layover }: { layover: Layover }) {
         </span>
         <span>
           Layover {layover.duration} · {layover.airportCode}
-          {layover.airportName ? <span className="text-amber-200/45"> — {layover.airportName}</span> : null}
+          {layover.airportName ? <span className="text-amber-200/60"> — {layover.airportName}</span> : null}
         </span>
         {v && (
           <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${v.cls}`}>
@@ -179,7 +179,7 @@ function LayoverRow({ layover }: { layover: Layover }) {
 }
 
 const RAIL_LINK =
-  'inline-flex min-h-[36px] items-center gap-1.5 rounded-lg bg-white/5 px-3 text-[11px] font-medium text-white/70 outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
+  'inline-flex min-h-tap items-center gap-1.5 rounded-lg bg-white/5 px-3 text-[11px] font-medium text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
 
 // "Check live status" rail: external deep-links OUT only, built from the SAME
 // `lib/flight-deep-links.ts` builders Travel Mode uses so the two can't drift.
@@ -285,15 +285,15 @@ export function FlightJourneyCard({ journey, index = 0 }: { journey: Journey; in
           <ArrowRight className="w-6 h-6 text-green-400/70 shrink-0" aria-hidden="true" />
           <span>{routeTo}</span>
         </div>
-        <div className="mt-1 text-sm text-white/50">
-          {journey.fromSummary} <span className="text-white/30">→</span> {journey.toSummary}
+        <div className="mt-1 text-sm text-ink-mid">
+          {journey.fromSummary} <span className="text-ink-lo">→</span> {journey.toSummary}
         </div>
       </div>
 
       {/* Verbatim journey depart/arrive + total. */}
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px]">
-        <span className="text-white/55"><span className="text-white/40">Depart</span> {journey.legs[0]?.departLabel}</span>
-        <span className="text-white/55"><span className="text-white/40">Arrive</span> {journey.legs[journey.legs.length - 1]?.arriveLabel}</span>
+        <span className="text-ink-hi"><span className="text-ink-lo">Depart</span> {journey.legs[0]?.departLabel}</span>
+        <span className="text-ink-hi"><span className="text-ink-lo">Arrive</span> {journey.legs[journey.legs.length - 1]?.arriveLabel}</span>
         <span className="inline-flex items-center gap-1 rounded-lg bg-green-500/10 px-2 py-0.5 text-green-200">
           <Clock className="w-3 h-3" aria-hidden="true" />
           <span className="text-green-300/70">Total</span>
@@ -309,16 +309,16 @@ export function FlightJourneyCard({ journey, index = 0 }: { journey: Journey; in
       >
         <phaseMeta.Icon className="w-4 h-4 text-green-300/70 shrink-0" aria-hidden="true" />
         {phase === 'upcoming' && timing ? (
-          <span className="text-sm text-white/70">
-            <span className="text-white/40">Departs in </span>
+          <span className="text-sm text-ink-mid">
+            <span className="text-ink-lo">Departs in </span>
             <span className="font-mono font-semibold text-white">{proximityText(timing.countdown)}</span>
           </span>
         ) : phase === 'departing' ? (
           <span className="text-sm font-semibold text-amber-200">Departing today</span>
         ) : phase === 'completed' ? (
-          <span className="text-sm text-white/45">This journey is complete</span>
+          <span className="text-sm text-ink-mid">This journey is complete</span>
         ) : (
-          <span className="text-sm text-white/30">Loading…</span>
+          <span className="text-sm text-ink-mid">Loading…</span>
         )}
       </div>
 

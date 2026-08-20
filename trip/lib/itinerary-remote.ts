@@ -42,6 +42,7 @@ import { savePlans, loadPlans, hasStoredPlans } from './itinerary-storage';
 import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
 import { FIREBASE_CONFIG, isRemoteConfigured, isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
+import { sanitizeItineraryItems } from '@/core/itinerary/model';
 import { mergeDay, mergeDays, gcTombstones } from '@/core/sync/merge-day';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
 import { outboxDirty } from '@/core/sync/outbox';
@@ -103,14 +104,16 @@ export function getRemote(): Promise<RemoteHandle> {
       import('firebase/auth'),
     ]);
 
-    const { getFirestore } = firestoreMod;
+    const { initializeFirestore, persistentLocalCache } = firestoreMod;
     const { getAuth, onAuthStateChanged, signInAnonymously } = authMod;
 
     // Reuse the singleton app if it already exists (one init across the app),
     // otherwise create it from the single-source config.
     const app = getApps().length ? getApp() : initializeApp(FIREBASE_CONFIG);
 
-    const db = getFirestore(app);
+    const db = initializeFirestore(app, { localCache: persistentLocalCache() });
+    // Single-tab persistent cache; switch to persistentMultipleTabManager() if a second
+    // open tab on the same device needs offline reads too.
     const auth = getAuth(app);
 
     // AWAIT THE FIRST AUTH-STATE RESOLUTION BEFORE SIGNING IN. Firebase restores a persisted
@@ -272,7 +275,7 @@ export function isPermissionDenied(err: unknown): boolean {
  * `.passthrough()` (`core/vault/schema.ts`, "unknown future fields survive a read"). Every
  * other layer already keeps unknown keys, and now this one agrees with them. A new per-day
  * field therefore needs NO edit here; do NOT reintroduce a field list. The one-off
- * `countryLabel` line this replaced (the Dec-9 header reverting to "Syracuse, Nepal" after a
+ * `countryLabel` line this replaced (the Dec-9 header reverting to "New York, Nepal" after a
  * sync) was the same bug hit once and patched by name.
  *
  * `countryLabel` is nonetheless the ONE key still checked by name below, and the check is a
@@ -285,6 +288,8 @@ export function isPermissionDenied(err: unknown): boolean {
  * BEHAVIOR-FROZEN: this mapper is pinned by the merge-primitive suite
  * (`itinerary-remote.test.ts`) and MUST stay a pure shape-mapper (no field defaulting).
  * Pass-through does not default anything: an absent key stays absent, so #42 holds the freeze.
+ * The items sanitize (#123, at the `items` line) holds it too, for the same reason: dropping an
+ * unsalvageable ROW is not defaulting a FIELD, and every surviving row is returned verbatim.
  * The freeze has been deliberately broken EXACTLY ONCE, with the owner's sign-off: the `country`
  * assertion was re-pointed so a LEG ID passes through instead of being coerced to 'nepal' (see
  * D-303 and the note at that line — the old rule silently corrupted every synced custom trip).
@@ -307,7 +312,20 @@ export function docToDayPlan(id: string, data: Record<string, unknown>): DayPlan
   // shape-mapper — the default fills ABSENT input, it never rewrites input that is present. D-303.
   const country = typeof data.country === 'string' && data.country ? data.country : 'nepal';
   const city = typeof data.city === 'string' ? data.city : '';
-  const items = Array.isArray(data.items) ? (data.items as ItineraryItem[]) : [];
+  // SANITIZED, was `data.items as ItineraryItem[]` — a bare cast over untrusted remote bytes
+  // (#123), and the two ways one bad row in a day doc hurt were BOTH downstream of it:
+  // - a `null`/primitive element threw on `it.id`/`it.rev` in `defaultDayForMerge`+`mergeItems`
+  //   (both dereference every row unconditionally). The throw is swallowed by the snapshot
+  //   handler's catch, so sync went silently dead for that trip — no apply, no push, no error.
+  // - a row that is an OBJECT but fails the vault's item contract did not throw: it rode through
+  //   to `savePlans()`, and the NEXT load quarantined the whole payload and fell back to the
+  //   sample/empty shells. That is the reported wipe, and it reached every device the snapshot
+  //   did. The read half is fixed too (`parseItineraryPayload`); this is the write half.
+  // `sanitizeItineraryItems` IS the vault's contract (core/itinerary/model.ts wraps
+  // `itineraryItemSchema`), so the two boundaries can no longer disagree about what a row is.
+  // Inside the freeze: it DROPS unsalvageable rows and defaults nothing — an absent field on a
+  // surviving row stays absent, and `.passthrough()` keys still ride through.
+  const items = sanitizeItineraryItems(data.items);
   const day = { ...data, date, city, country, items } as DayPlan;
   // `countryLabel` keeps its type guard because it is a DECLARED field with a real consumer:
   // a number here reaches `dayPlaceLabel`'s string ops (lib/leg-label.ts) and throws. Unknown
@@ -692,10 +710,17 @@ export function subscribeRemote(
 
               if (!firstSnapshotHandled) {
                 firstSnapshotHandled = true;
+                // A-20: reconcileFirstSnapshot awaits getDoc/getDocFromServer/setDoc, and
+                // `cancelled` can flip true (sign-out's wipeAllTripData + reload) while that's
+                // in flight. Re-check at the point the callback actually fires, not just at the
+                // call site above, so a late-arriving continuation can never write a wiped-out
+                // account's itinerary back to disk.
                 await reconcileFirstSnapshot(
                   remoteDays,
                   { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid },
-                  applyRemoteAuthoritative,
+                  (plans) => {
+                    if (!cancelled) applyRemoteAuthoritative(plans);
+                  },
                 );
                 return;
               }

@@ -15,6 +15,7 @@ import {
   WifiOff,
   CalendarPlus,
   MapPin,
+  Globe,
 } from 'lucide-react';
 import {
   MAP_MARKERS,
@@ -25,6 +26,8 @@ import {
 import {
   buildItineraryPlacements,
   placementStops,
+  stopsForDay,
+  tripDayNumber,
   MARKER_BY_ID,
   type DayStop,
   type PlacementRow,
@@ -36,6 +39,8 @@ import TripMap, {
 } from '@/components/trip-map';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { cityCoord } from '@/lib/city-coords';
+import { legLabel } from '@/lib/leg-label';
+import { visitedCountryFootprints } from '@/lib/visited-footprint';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useOnline } from '@/hooks/use-online';
 import { TRIP_DATES, formatDate } from '@/lib/trip-data';
@@ -43,6 +48,13 @@ import { generateItemId } from '@/lib/item-id';
 import { toItineraryDraft } from '@/lib/itinerary-adapter';
 import { haversineKm, MAP_PIN_DND_TYPE, type LatLng } from '@/lib/day-anchor';
 import { dayAnchorStore } from '@/core/storage/gateway';
+import {
+  searchWorldPlaces,
+  dropTripDuplicates,
+  WORLD_SEARCH_MESSAGES,
+  type WorldPlace,
+  type WorldSearchFailure,
+} from '@/lib/world-search';
 
 type FilterValue = MarkerCategory | 'All';
 
@@ -61,6 +73,12 @@ const ASSIGN_DAYS: AssignDayOption[] = TRIP_DATES.map((date, i) => ({
   label: `Day ${i + 1} · ${formatDate(date)}`,
 }));
 
+/** "Nepal", "Nepal and Japan", "USA, Nepal and Japan" — a plain English list, no Intl needed. */
+function visitedCountryLine(countries: readonly string[]): string {
+  if (countries.length <= 1) return countries[0] ?? '';
+  return `${countries.slice(0, -1).join(', ')} and ${countries[countries.length - 1]}`;
+}
+
 // ──: what the map search can resolve ───────────────────────────────────────────────────
 // One row shape for THREE in-bundle sources — the 27 curated places, the cities the trip
 // actually visits, and the user's own planned stops. `marker` is what the camera flies to, so
@@ -69,10 +87,19 @@ const ASSIGN_DAYS: AssignDayOption[] = TRIP_DATES.map((date, i) => ({
 // popup, the favourites store and the guide cards — a city or a plan is none of those things,
 // and widening it would push an "is this real content?" branch into every one of them).
 //
-// 🔴: every source is data already in the bundle. There is NO geocoder, no provider, no
-// network call anywhere in this path — which is exactly why a place that is NOT in the trip
-// does not resolve. That ceiling is deliberate, was chosen by the owner over adding a geocoding
-// service, and is pinned by `e2e/map-trip-mode.spec.ts`'s "never reaches the network" test.
+// 🔴 EVERY `SearchHit` IS IN-BUNDLE DATA. No geocoder, no provider, no network call reaches this
+// type — which is why it filters live, on every keystroke, with nothing to wait for.
+//
+// 🔴 ISSUE #22 CHANGED THE CEILING, NOT THIS PATH. A place that is not in the trip used to be
+// unreachable by name at all; it is now reachable through `lib/world-search.ts`, a keyless
+// Nominatim lookup that is a SEPARATE state (`world`), rendered in a SEPARATE list, and issued
+// ONLY from the submit handler. Two consequences worth stating where someone will read them:
+//   • trip places still win — they are computed here, from the bundle, and always render first;
+//     a world row naming one of them is dropped (`dropTripDuplicates`).
+//   • typing STILL never touches the network. Nominatim's usage policy forbids as-you-type
+//     querying, and `e2e/map-trip-mode.spec.ts` pins that: the old test asserted the query never
+//     reached the network at all, and now asserts it never reaches it FROM A KEYSTROKE. That is
+//     the same tripwire, aimed at the thing that is still forbidden.
 interface SearchHit {
   /** Stable row identity (react key + testid). */
   id: string;
@@ -87,6 +114,12 @@ interface SearchHit {
   marker: MapMarker;
   /** A planned stop is only DRAWN while the itinerary overlay is on — see focusStop. */
   needsOverlay?: boolean;
+  /**
+   * Issue #1 — the trip date a planned stop belongs to. The route is scoped to the selected
+   * day, so flying to this hit has to select its day too, or the pin it targets is not drawn.
+   * Absent on curated places and cities, which are browse markers and always on the map.
+   */
+  date?: string;
 }
 
 const CURATED_HITS: SearchHit[] = MAP_MARKERS.map((mk) => ({
@@ -159,7 +192,7 @@ export default function MapSection() {
         return next;
       });
       setSelectedDay(date);
-      const dayNo = TRIP_DATES.indexOf(date) + 1;
+      const dayNo = tripDayNumber(date) ?? 0;
       // the old toast promised "stops re-ordered by distance", a behaviour this
       // code no longer has. The anchor now sets the day's base point (the distance labels).
       toast.success(
@@ -188,6 +221,28 @@ export default function MapSection() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ── Issue #22 — the WORLD half of the search ────────────────────────────────────────────
+  // The trip half above is unchanged and still filters live as you type. This is the fallback
+  // underneath it, and it is a SEPARATE, EXPLICIT act: Nominatim's usage policy forbids
+  // search-as-you-type outright (see `lib/world-search.ts`), so there is a submit button and
+  // there is no effect anywhere that fires a lookup on a query change. That constraint is the
+  // reason for the shape, not a limitation of it — the trip search is the one that has to feel
+  // instant, and it is in-bundle, so it does.
+  const [world, setWorld] = useState<
+    | { phase: 'idle' }
+    | { phase: 'searching'; query: string }
+    | { phase: 'done'; query: string; places: WorldPlace[] }
+    | { phase: 'error'; query: string; kind: WorldSearchFailure }
+  >({ phase: 'idle' });
+  // Monotonic token for the in-flight lookup. Bumped on submit AND on every keystroke, so a
+  // response that lands after the query changed is dropped rather than rendered under text it
+  // does not describe — the one race an explicit-submit search still has.
+  const worldReqRef = useRef(0);
+  // Focus lands here when a search settles: a screen-reader user hears the outcome (the count,
+  // or the plain-words failure) instead of being left on a button whose page just changed
+  // underneath it, and the results are the next thing in tab order.
+  const searchStatusRef = useRef<HTMLParagraphElement | null>(null);
 
   // the camera, reflected into the DOM as "lng,lat,zoom" — the same `onViewChange` →
   // `data-map-view` reflection `components/plan-day-map.tsx` already uses, so an E2E can assert
@@ -227,6 +282,14 @@ export default function MapSection() {
     return list;
   }, [filter, savedOnly, favorites]);
 
+  // Issue #31 — the visited wash. Read ONCE per mount, deliberately: #30's autocount writes the
+  // visit record on boot, before this island's chunk has loaded, and nothing else on `/map` can
+  // add a visit. A poll or a storage listener here would be machinery for an event that cannot
+  // happen while the page is open. This component is `ssr:false`, so the storage read is never
+  // a prerender/hydration mismatch. Never filtered by the category chips: the footprint is
+  // where you have BEEN, not which restaurants are currently shown.
+  const footprints = useMemo(() => visitedCountryFootprints(), []);
+
   // /: EVERY itinerary item, in time order, each with its resolved placement —
   // exact (a pin / a curated marker) or approximate (a district or the day's city) or, on a
   // custom trip whose city we don't know, none. Derived from the shared store, so it
@@ -257,9 +320,15 @@ export default function MapSection() {
   // Itinerary route stops fed to TripMap — in TIME order (: one ordering on every
   // surface; `buildItineraryPlacements` sorts, so the drawn day line is chronological),
   // empty when the overlay is off.
+  //
+  // 🔴 ISSUE #1 — SCOPED TO THE SELECTED DAY. Picking a day used to change only the panel
+  // below the map while the canvas kept every one of the trip's 32 days drawn, so "select
+  // Dec 9" left the Kathmandu plans on screen. The filter is by DATE (`stopsForDay`), and a
+  // selected day with nothing planned yields `[]` — which CLEARS the route rather than
+  // leaving the last day's pins behind. No day selected still means the whole trip.
   const stops = useMemo(
-    () => (showItinerary ? overlayStops : []),
-    [showItinerary, overlayStops],
+    () => (showItinerary ? stopsForDay(overlayStops, selectedDay) : []),
+    [showItinerary, overlayStops, selectedDay],
   );
 
   // The selected day's rows shown in the day-order panel below the strip — EVERY plan of
@@ -317,8 +386,8 @@ export default function MapSection() {
           name: day.city,
           category: 'Attraction',
           // The trip LEG the day belongs to (the same value the rest of the app reads),
-          // not a geographic claim — see core/content/itinerary.ts on Dec 9 / Syracuse.
-          country: day.country === 'nepal' ? 'Nepal' : 'Japan',
+          // not a geographic claim — see core/content/itinerary.ts on Dec 9 / New York.
+          country: legLabel(day.country),
           area: 'A city on your trip',
           description:
             'One of the cities on your itinerary. The map centres on the city itself, not on a single address.',
@@ -365,6 +434,7 @@ export default function MapSection() {
             : 'A stop you planned',
         haystack: row.item.title.toLowerCase(),
         needsOverlay: true,
+        date: row.date,
       });
     }
     return hits;
@@ -386,6 +456,39 @@ export default function MapSection() {
   const closeSearch = () => {
     setSearchOpen(false);
     setSearchQuery('');
+    worldReqRef.current += 1;
+    setWorld({ phase: 'idle' });
+  };
+
+  // Editing the query invalidates whatever the world lookup was about to say: the results below
+  // the box must always describe the text IN the box. It does NOT start a new lookup — see the
+  // policy note on the `world` state.
+  const onQueryChange = (value: string) => {
+    setSearchQuery(value);
+    worldReqRef.current += 1;
+    if (world.phase !== 'idle') setWorld({ phase: 'idle' });
+  };
+
+  // The ONLY caller of the world lookup. A real form submit, so Enter in the box works natively
+  // and the button is a plain `type="submit"` — no key handling of our own.
+  const runWorldSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const query = searchQuery.trim();
+    if (!query || world.phase === 'searching') return;
+    const token = (worldReqRef.current += 1);
+    setWorld({ phase: 'searching', query });
+    // The trip hits for THIS query, captured now: a world row naming a place the trip already
+    // returned is dropped, so the local result stays the only one and stays first.
+    const tripNames = searchResults.map((h) => h.name);
+    const outcome = await searchWorldPlaces(query);
+    if (token !== worldReqRef.current) return; // the query moved on; this answer is stale
+    setWorld(
+      outcome.status === 'ok'
+        ? { phase: 'done', query, places: dropTripDuplicates(outcome.places, tripNames) }
+        : { phase: 'error', query, kind: outcome.status },
+    );
+    // After the DOM has the outcome in it.
+    requestAnimationFrame(() => searchStatusRef.current?.focus());
   };
 
   // ── Flying to a PLANNED STOP (the one path both callers route through) ──────────────────
@@ -400,10 +503,19 @@ export default function MapSection() {
   // a child's effects flush before its parent's, so TripMap's route fit has already been
   // issued by the time this runs, and the focus wins. (The day-order rows have gone through
   // this same path since and had the same race — one fix, both callers.)
+  //
+  // 🔴 ISSUE #1 adds the second half of the same rule: the stop's DAY must be the drawn one.
+  // Now that the route is scoped to `selectedDay`, flying to a stop on another day would land
+  // the popup on a pin that is not on the canvas AND miss TripMap's `routeStops` lookup —
+  // exactly the curated-popup-over-a-centroid failure the paragraph above exists to prevent.
+  // So callers pass the stop's date and it becomes the selected day. Switching day changes
+  // `stops`, which re-fits the camera, so that case QUEUES too rather than flying into a fit.
   const pendingFocusRef = useRef<MapMarker | null>(null);
-  const focusStop = (marker: MapMarker) => {
+  const focusStop = (marker: MapMarker, date?: string) => {
     setFilter('All');
-    if (showItinerary) {
+    const dayChanging = date !== undefined && date !== selectedDay;
+    if (date !== undefined) setSelectedDay(date);
+    if (showItinerary && !dayChanging) {
       tripMapRef.current?.focusMarker(marker);
       return;
     }
@@ -422,11 +534,23 @@ export default function MapSection() {
   // imperative handle (ONE camera engine, already reduced-motion aware).
   const selectSearchResult = (hit: SearchHit) => {
     if (hit.needsOverlay) {
-      focusStop(hit.marker);
+      focusStop(hit.marker, hit.date);
     } else {
       setFilter('All');
       tripMapRef.current?.focusMarker(hit.marker);
     }
+    closeSearch();
+  };
+
+  // Issue #22 — pick a world result: the camera goes there and the note under the controls says
+  // which place is being shown. Deliberately NOT `focusMarker`: there is no marker, and inventing
+  // one would print a false country in the popup — see `TripMapHandle.flyToPoint`. The category
+  // filter is left alone too; it filters curated markers, and this is not one.
+  const selectWorldPlace = (place: WorldPlace) => {
+    tripMapRef.current?.flyToPoint(place.lat, place.lng);
+    setGeoNote(
+      `Showing ${place.displayName}. It isn't part of your trip, so there's no pin for it — the map is just centred there.`,
+    );
     closeSearch();
   };
 
@@ -437,7 +561,7 @@ export default function MapSection() {
   // synthesized marker would land the popup on a pin that was never drawn.
   const flyToRow = (row: PlacementRow) => {
     const stop = stopByItemId.get(row.item.id);
-    if (stop) focusStop(stop.marker);
+    if (stop) focusStop(stop.marker, stop.date);
   };
 
   // ── Map-host relocation ─────────────────────────────────────────────
@@ -530,6 +654,23 @@ export default function MapSection() {
     [plans],
   );
 
+  // Issue #22 — the ONE sentence the search panel says out loud. It carries the result COUNT
+  // (announced by `role="status"` as the trip list filters, and read aloud again when focus lands
+  // here after a world search) and, on a failure, the plain-words explanation from the one place
+  // those words live. Never a raw error string.
+  const tripHitCount = searchResults.length;
+  const tripCountText = `${tripHitCount} ${tripHitCount === 1 ? 'place' : 'places'} on your trip`;
+  const searchStatusText =
+    world.phase === 'searching'
+      ? `Searching the world for “${world.query}”…`
+      : world.phase === 'error'
+        ? `${tripCountText}. ${WORLD_SEARCH_MESSAGES[world.kind]}`
+        : world.phase === 'done'
+          ? `${tripCountText}, ${world.places.length} ${
+              world.places.length === 1 ? 'place' : 'places'
+            } elsewhere in the world.`
+          : `${tripCountText}. Search the world for anywhere else.`;
+
   return (
     <section
       id="map"
@@ -563,7 +704,7 @@ export default function MapSection() {
                     ? value === 'All'
                       ? 'bg-white/10 text-white border-white/20'
                       : `${style!.badge}`
-                    : 'text-white/55 border-transparent hover:bg-white/5 hover:text-white/80'
+                    : 'text-ink-mid border-transparent hover:bg-white/5 hover:text-ink-hi'
                 }`}
               >
                 {Icon && <Icon className="w-3.5 h-3.5" />}
@@ -584,12 +725,12 @@ export default function MapSection() {
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                 savedOnly
                   ? 'bg-primary/20 text-primary border-primary/40'
-                  : 'text-white/55 border-transparent hover:bg-white/5 hover:text-white/80'
+                  : 'text-ink-mid border-transparent hover:bg-white/5 hover:text-ink-hi'
               }`}
             >
               <Heart className={`w-3.5 h-3.5 ${savedOnly ? 'fill-current' : ''}`} />
               Saved
-              <span className="text-white/50 font-mono">{savedCount}</span>
+              <span className="text-ink-mid font-mono">{savedCount}</span>
             </button>
           )}
         </div>
@@ -605,7 +746,7 @@ export default function MapSection() {
               aria-label={searchOpen ? 'Close map search' : 'Search places on map'}
               aria-expanded={searchOpen}
               data-testid="map-search-toggle"
-              className="flex items-center justify-center w-8 h-8 rounded-lg text-white/50 border border-white/10 hover:bg-white/5 hover:text-white/70 transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="flex items-center justify-center h-tap w-tap rounded-lg text-ink-mid border border-white/10 hover:bg-white/5 hover:text-ink-hi transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               <Search className="w-3.5 h-3.5" />
             </button>
@@ -613,50 +754,146 @@ export default function MapSection() {
             {searchOpen && (
               <div
                 data-testid="map-search-panel"
-                className="absolute z-10 top-full mt-2 left-1/2 -translate-x-1/2 w-64 max-w-[85vw] glass-card rounded-xl p-2 border border-white/10 shadow-xl"
+                className="absolute z-10 top-full mt-2 left-1/2 -translate-x-1/2 w-72 max-w-[85vw] glass-card rounded-xl p-2 border border-white/10 shadow-xl"
               >
-                <label htmlFor="map-search-input" className="sr-only">
-                  Search places on the map
-                </label>
-                <input
-                  id="map-search-input"
-                  ref={searchInputRef}
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') closeSearch();
-                  }}
-                  placeholder="Search places…"
-                  data-testid="map-search-input"
-                  className="w-full px-2.5 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-xs text-white placeholder:text-white/30 outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
-                />
+                {/* Issue #22 — a real <form>. Enter submits natively (no key handler of ours),
+                    and the submit button is the ONLY thing that ever queries the world: typing
+                    filters the trip, submitting adds the world. Nominatim's policy forbids
+                    as-you-type querying, so this separation is a requirement, not a preference. */}
+                <form onSubmit={runWorldSearch}>
+                  <label htmlFor="map-search-input" className="sr-only">
+                    Search places on the map
+                  </label>
+                  <input
+                    id="map-search-input"
+                    ref={searchInputRef}
+                    // Deliberately `text`, not `search`: `type="search"` adds a UA-styled clear
+                    // button that does not follow the dark palette, for no behaviour we don't
+                    // already have (Escape closes, and the panel clears itself on close).
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => onQueryChange(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') closeSearch();
+                    }}
+                    placeholder="Search places…"
+                    data-testid="map-search-input"
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-xs text-white placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  />
+                  <button
+                    type="submit"
+                    // Disabled only on an EMPTY query, never while the request is in flight:
+                    // disabling a focused button blurs it to <body>, and losing the user's place
+                    // mid-search is the exact thing the focus handling here exists to prevent.
+                    // The in-flight guard lives in `runWorldSearch` instead.
+                    disabled={!searchQuery.trim()}
+                    aria-busy={world.phase === 'searching'}
+                    data-testid="map-search-world-submit"
+                    className="mt-1.5 w-full flex items-center justify-center gap-1.5 min-h-tap px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs font-medium text-ink-hi hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:hover:bg-white/5 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  >
+                    <Globe className="w-3.5 h-3.5" aria-hidden="true" />
+                    {world.phase === 'searching' ? 'Searching…' : 'Search the world'}
+                  </button>
+                </form>
+
                 {searchQuery.trim() && (
-                  <ul data-testid="map-search-results" className="mt-1.5 max-h-56 overflow-y-auto">
-                    {searchResults.length === 0 ? (
-                      <li className="px-2.5 py-1.5 text-xs text-white/35">
-                        No places match &ldquo;{searchQuery.trim()}&rdquo;.
-                      </li>
-                    ) : (
-                      searchResults.map((hit) => (
-                        <li key={hit.id}>
-                          <button
-                            type="button"
-                            onClick={() => selectSearchResult(hit)}
-                            data-testid={`map-search-result-${hit.id}`}
-                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-white/75 hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                  <>
+                    {/* The announced count + the failure sentence, in one node. `role="status"`
+                        speaks it as the trip list filters; focus is moved here when a world
+                        search settles, so the outcome is heard either way. */}
+                    <p
+                      ref={searchStatusRef}
+                      tabIndex={-1}
+                      role="status"
+                      data-testid="map-search-status"
+                      className="mt-2 px-0.5 text-[11px] text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
+                    >
+                      {searchStatusText}
+                    </p>
+
+                    <div className="mt-1.5 max-h-64 overflow-y-auto">
+                      {/* TRIP PLACES FIRST, ALWAYS — in the DOM, not just visually. The world
+                          list can only ever appear below this one. */}
+                      <p
+                        id="map-search-trip-heading"
+                        className="px-2.5 pt-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-ink-lo"
+                      >
+                        On your trip
+                      </p>
+                      <ul data-testid="map-search-results" aria-labelledby="map-search-trip-heading">
+                        {searchResults.length === 0 ? (
+                          <li className="px-2.5 py-1.5 text-xs text-ink-mid">
+                            No places on your trip match &ldquo;{searchQuery.trim()}&rdquo;.
+                          </li>
+                        ) : (
+                          searchResults.map((hit) => (
+                            <li key={hit.id}>
+                              <button
+                                type="button"
+                                onClick={() => selectSearchResult(hit)}
+                                data-testid={`map-search-result-${hit.id}`}
+                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                              >
+                                <span className="block font-medium">{hit.name}</span>
+                                {/* says WHAT this result is — a curated place ("Boudha,
+                                    Kathmandu · Nepal"), a city on the trip, or one of the user's
+                                    own plans — so three different kinds of thing don't read as
+                                    one undifferentiated list. */}
+                                <span className="block text-ink-mid text-[11px]">{hit.source}</span>
+                              </button>
+                            </li>
+                          ))
+                        )}
+                      </ul>
+
+                      {world.phase === 'done' && (
+                        <>
+                          {/* The world group is a SEPARATE list under its own heading, with its
+                              own icon and the data's attribution (ODbL — the same courtesy the
+                              basemap's own attribution control pays). A row here is not a place
+                              on the trip and never renders as one. */}
+                          <p
+                            id="map-search-world-heading"
+                            className="flex items-center gap-1.5 px-2.5 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-ink-lo border-t border-white/10 mt-1.5"
                           >
-                            <span className="block font-medium">{hit.name}</span>
-                            {/* says WHAT this result is — a curated place ("Boudha,
-                                Kathmandu · Nepal"), a city on the trip, or one of the user's
-                                own plans — so three different kinds of thing don't read as
-                                one undifferentiated list. */}
-                            <span className="block text-white/55 text-[11px]">{hit.source}</span>
-                          </button>
-                        </li>
-                      ))
-                    )}
-                  </ul>
+                            <Globe className="w-3 h-3" aria-hidden="true" />
+                            Elsewhere in the world
+                            <span className="font-normal normal-case tracking-normal text-ink-lo">
+                              · OpenStreetMap
+                            </span>
+                          </p>
+                          <ul
+                            data-testid="map-search-world-results"
+                            aria-labelledby="map-search-world-heading"
+                          >
+                            {world.places.length === 0 ? (
+                              <li className="px-2.5 py-1.5 text-xs text-ink-mid">
+                                Nothing else in the world matches &ldquo;{world.query}&rdquo;.
+                              </li>
+                            ) : (
+                              world.places.map((place) => (
+                                <li key={place.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => selectWorldPlace(place)}
+                                    data-testid={`map-search-result-${place.id}`}
+                                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                  >
+                                    <span className="block font-medium">{place.name}</span>
+                                    {/* Nominatim's own `display_name`, verbatim — the full
+                                        region trail is what tells two same-named places apart. */}
+                                    <span className="block text-ink-mid text-[11px]">
+                                      {place.displayName}
+                                    </span>
+                                  </button>
+                                </li>
+                              ))
+                            )}
+                          </ul>
+                        </>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
             )}
@@ -672,7 +909,7 @@ export default function MapSection() {
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               showItinerary
                 ? 'bg-primary/20 text-primary border-primary/40'
-                : 'text-white/50 border-white/10 hover:bg-white/5 hover:text-white/70'
+                : 'text-ink-mid border-white/10 hover:bg-white/5 hover:text-ink-hi'
             }`}
           >
             <RouteIcon className="w-3.5 h-3.5" />
@@ -691,22 +928,54 @@ export default function MapSection() {
 
         {/* schematic-line caveat — an honest passive note, only while the
             itinerary overlay is on (the drawn line is a schematic day-order
-            connection between stops, not a routed driving/transit path). */}
+            connection between stops, not a routed driving/transit path).
+            Issue #1: it also has to say WHICH day is drawn. Scoping the route to one day
+            hides the other 31, and a map that quietly shows less than the user thinks it
+            does is the same class of defect as copy that claims more (D-271). */}
         {showItinerary && (
           <p
             data-testid="map-route-caveat"
-            className="max-w-md mx-auto mb-4 text-center text-[11px] text-white/35"
+            className="max-w-md mx-auto mb-4 text-center text-[11px] text-ink-mid"
           >
+            {selectedDay && (
+              <>
+                Showing Day {tripDayNumber(selectedDay)} only — tap that day again for the
+                whole trip.{' '}
+              </>
+            )}
             Lines are schematic connections between stops — not driving or transit routes.
           </p>
         )}
 
+        {/* Issue #31 — the visited wash, IN WORDS. Two jobs, and both are load-bearing.
+            (1) The shapes live in a WebGL canvas, so a screen-reader user gets nothing from
+            them; this sentence is the whole feature for that user. (2) It says what the shape
+            IS. A gold blob over Honshu invites exactly one wrong reading — "that is Japan's
+            border" — and `lib/visited-footprint.ts` explains at length why it is not one and
+            why no border dataset was added. Copy that let the wrong reading stand would be the
+            D-271 defect the route caveat above already exists to avoid. */}
+        {footprints.length > 0 && (
+          <p
+            data-testid="map-visited-note"
+            className="max-w-md mx-auto mb-4 text-center text-[11px] text-ink-mid"
+          >
+            Filled in so far: {visitedCountryLine(footprints.map((fp) => fp.country))}. The soft
+            gold wash is the ground your visits cover — drawn from the cities you have actually
+            been to, not a national border.
+          </p>
+        )}
+
+        {/* The passive note under the controls. TWO writers now: TripMap's geolocate control
+            (`onGeoNote`), and issue #22's world search, which says which off-trip place the
+            camera was just centred on. One banner rather than two identical ones — it is the
+            same job (a calm, announced sentence about where the map is), and last message wins. */}
         {geoNote && (
           <div
             role="status"
-            className="max-w-md mx-auto mb-4 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60"
+            data-testid="map-note"
+            className="max-w-md mx-auto mb-4 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-ink-mid"
           >
-            <LocateFixed className="w-3.5 h-3.5 shrink-0 mt-0.5 text-white/40" />
+            <LocateFixed className="w-3.5 h-3.5 shrink-0 mt-0.5 text-ink-lo" />
             <span>{geoNote}</span>
           </div>
         )}
@@ -724,9 +993,9 @@ export default function MapSection() {
           <div
             role="status"
             data-testid="map-offline-hint"
-            className="max-w-md mx-auto mb-4 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/60"
+            className="max-w-md mx-auto mb-4 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-ink-mid"
           >
-            <WifiOff className="w-3.5 h-3.5 shrink-0 mt-0.5 text-white/40" />
+            <WifiOff className="w-3.5 h-3.5 shrink-0 mt-0.5 text-ink-lo" />
             <span>
               You&apos;re offline — your pins and route still show, but the map background
               needs a connection.
@@ -749,23 +1018,26 @@ export default function MapSection() {
               directly above the map — a second row of noise carrying nothing new. */}
         </div>
 
-        {/* ──: day-target strip — assign a pin to a trip day ──────────────
-            The map becomes an INPUT to planning: drag a pin's popup handle onto a
-            day (desktop pointer) OR use the popup's day <select> + Anchor button
-            (keyboard/touch). The dropped/selected pin is added to that day via the
-            existing itinerary CRUD and becomes the day's ANCHOR — the day's stops
-            then re-order by client-side haversine distance. */}
+        {/* ──: day-target strip — pick the day the map shows, and assign pins to it ────
+            TWO jobs. Issue #1: tapping a day scopes the drawn route to that day (and opens
+            its panel below). And the map is an INPUT to planning: drag a pin's popup handle
+            onto a day (desktop pointer) OR use the popup's day <select> + Anchor button
+            (keyboard/touch). The dropped/selected pin is added to that day via the existing
+            itinerary CRUD and becomes the day's ANCHOR — which, since D-281, is the day's
+            BASE POINT (the origin of the per-row distance labels) and re-orders nothing.
+            The old "then re-order by client-side haversine distance" wording here described
+            behaviour the code has not had since `orderByProximity` was deleted. */}
         <div className="mt-6" data-testid="map-day-strip">
-          <div className="flex items-center gap-1.5 mb-2 text-xs font-medium text-white/60">
+          <div className="flex items-center gap-1.5 mb-2 text-xs font-medium text-ink-mid">
             <CalendarPlus className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
-            <span>Plan a day around a pin</span>
-            <span className="text-white/55 font-normal">
-              — drag a pin here, or use a pin&apos;s “Anchor” menu
+            <span>Pick a day, or plan one around a pin</span>
+            <span className="text-ink-lo font-normal">
+              — tap a day to see just that day, or drag a pin here
             </span>
           </div>
           <ul
             className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x"
-            aria-label="Trip days — drop a map pin onto a day to anchor it"
+            aria-label="Trip days — activate a day to show only its stops, or drop a map pin onto a day to anchor it"
           >
             {ASSIGN_DAYS.map(({ date, label }, i) => {
               const exact = exactCountByDate.get(date) ?? 0;
@@ -777,7 +1049,19 @@ export default function MapSection() {
                 <li key={date} className="snap-start shrink-0">
                   <button
                     type="button"
-                    onClick={() => setSelectedDay(isSelected ? null : date)}
+                    // Issue #1: picking a day SHOWS that day. Selecting also turns the
+                    // itinerary overlay on — the day's pins are drawn by the overlay, so
+                    // without this the gesture would answer "which day?" with an empty
+                    // canvas from a cold /map load (the overlay starts off). Deselecting
+                    // leaves the overlay alone and the whole trip comes back.
+                    onClick={() => {
+                      if (isSelected) {
+                        setSelectedDay(null);
+                        return;
+                      }
+                      setSelectedDay(date);
+                      setShowItinerary(true);
+                    }}
                     onDragOver={(e) => {
                       e.preventDefault();
                       e.dataTransfer.dropEffect = 'copy';
@@ -804,15 +1088,17 @@ export default function MapSection() {
                       planned === 0
                         ? 'nothing planned yet'
                         : `${planned} ${planned === 1 ? 'plan' : 'plans'}, ${exact} exact`
-                    }${
-                      anchored ? ', anchored' : ''
-                    }. Drop a pin to anchor this day, or view its stops.`}
+                    }${anchored ? ', anchored' : ''}. ${
+                      isSelected
+                        ? 'Showing this day on the map — activate to show the whole trip again.'
+                        : 'Activate to show only this day on the map. Drop a pin here to anchor it.'
+                    }`}
                     className={`flex flex-col items-start gap-0.5 min-w-[92px] min-h-[44px] px-3 py-2 rounded-xl border text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                       isDropTarget
                         ? 'border-ring bg-primary/20 ring-2 ring-ring/50'
                         : isSelected
                           ? 'border-ring/50 bg-primary/10 text-primary'
-                          : 'border-white/10 bg-white/5 text-white/70 hover:bg-white/10'
+                          : 'border-white/10 bg-white/5 text-ink-mid hover:bg-white/10'
                     }`}
                   >
                     <span className="flex items-center gap-1 text-[11px] font-semibold">
@@ -824,16 +1110,16 @@ export default function MapSection() {
                         />
                       )}
                     </span>
-                    <span className="text-[10px] text-white/60">
+                    <span className="text-[10px] text-ink-mid">
                       {formatDate(date).replace(/^[A-Za-z]+,\s*/, '')}
                     </span>
-                    <span className="text-[10px] text-white/55 font-mono">
+                    <span className="text-[10px] text-ink-mid font-mono">
                       {planned === 0 ? (
                         'no plans'
                       ) : (
                         <>
                           {planned} {planned === 1 ? 'plan' : 'plans'}
-                          <span className="text-white/40"> · {exact} exact</span>
+                          <span className="text-ink-lo"> · {exact} exact</span>
                         </>
                       )}
                     </span>
@@ -855,29 +1141,32 @@ export default function MapSection() {
               {(() => {
                 const anchorId = anchorsReady ? anchors[selectedDay] : undefined;
                 const anchorMarker = anchorId ? MARKER_BY_ID.get(anchorId) : undefined;
-                const dayNo = TRIP_DATES.indexOf(selectedDay) + 1;
+                // One source of truth for "which day is this" (issue #1) — the same
+                // function the stops themselves are numbered by, so the panel heading and
+                // the pins can never disagree.
+                const dayNo = tripDayNumber(selectedDay) ?? 0;
                 const coord = anchorCoordFor(selectedDay);
                 return (
                   <>
-                    <p className="text-xs font-medium text-white/70 mb-2 flex items-center gap-1.5">
+                    <p className="text-xs font-medium text-ink-mid mb-2 flex items-center gap-1.5">
                       <MapPin className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
                       Day {dayNo}
                       {anchorMarker ? (
                         // was "ordered by distance from X" — a claim the code no
                         // longer honours. The anchor is the day's base point now.
-                        <span className="text-white/60 font-normal">
+                        <span className="text-ink-lo font-normal">
                           · distances from{' '}
                           <span className="text-foreground">{anchorMarker.name}</span>
                         </span>
                       ) : (
-                        <span className="text-white/55 font-normal">· plans in time order</span>
+                        <span className="text-ink-lo font-normal">· plans in time order</span>
                       )}
                     </p>
                     {selectedDayRows.length === 0 ? (
                       // Only one honest empty case is left: a day with no plans at all. The
                       // old second branch ("none of this day's N items have a map location")
                       // is now false by construction — under every plan has a position.
-                      <p data-testid="map-day-order-empty" className="text-[11px] text-white/55 py-1">
+                      <p data-testid="map-day-order-empty" className="text-[11px] text-ink-mid py-1">
                         Nothing planned for this day yet — drop a pin here to start.
                       </p>
                     ) : (
@@ -899,21 +1188,21 @@ export default function MapSection() {
                                 <div
                                   data-testid={`map-day-order-stop-${row.item.id}`}
                                   data-placement="none"
-                                  className="w-full flex items-center gap-2 min-h-[44px] -mx-1 px-1 text-[11px] text-white/70"
+                                  className="w-full flex items-center gap-2 min-h-[44px] -mx-1 px-1 text-[11px] text-ink-mid"
                                 >
                                   <span
-                                    className="grid place-items-center w-5 h-5 shrink-0 rounded-full border border-dashed border-white/35 text-white/50 font-mono text-[10px]"
+                                    className="grid place-items-center w-5 h-5 shrink-0 rounded-full border border-dashed border-white/35 text-ink-lo font-mono text-[10px]"
                                     aria-hidden="true"
                                   >
                                     ?
                                   </span>
-                                  <span className="min-w-0 truncate text-white/80">
+                                  <span className="min-w-0 truncate text-ink-hi">
                                     {row.item.title}
                                   </span>
                                   <a
                                     href="/plan/"
                                     data-testid={`map-day-order-locate-${row.item.id}`}
-                                    className="ml-auto shrink-0 rounded text-white/60 underline underline-offset-2 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                    className="ml-auto shrink-0 rounded text-ink-mid underline underline-offset-2 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                                   >
                                     No location yet — set one
                                   </a>
@@ -944,7 +1233,7 @@ export default function MapSection() {
                                     ? `Show ${row.item.title} on the map — approximate, placed from ${p.derivedFrom} — ${position}`
                                     : `Show ${row.item.title} on the map — ${position}`
                                 }
-                                className="w-full flex items-center gap-2 min-h-[44px] -mx-1 px-1 rounded-lg text-left text-[11px] text-white/70 hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                className="w-full flex items-center gap-2 min-h-[44px] -mx-1 px-1 rounded-lg text-left text-[11px] text-ink-mid hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                               >
                                 {/* the approximate marker must survive GREYSCALE, so
                                     it is a SHAPE (hollow ring, no solid core) plus TEXT (the
@@ -952,26 +1241,26 @@ export default function MapSection() {
                                 <span
                                   className={`grid place-items-center w-5 h-5 shrink-0 rounded-full font-mono text-[10px] ${
                                     approx
-                                      ? 'border border-white/45 text-white/70'
+                                      ? 'border border-white/45 text-ink-mid'
                                       : 'bg-muted text-foreground'
                                   }`}
                                   aria-hidden="true"
                                 >
                                   {idx + 1}
                                 </span>
-                                <span className="min-w-0 truncate text-white/80">
+                                <span className="min-w-0 truncate text-ink-hi">
                                   {row.item.title}
                                 </span>
                                 {approx && (
                                   <span
-                                    className="shrink-0 max-w-[45%] truncate font-normal text-white/55"
+                                    className="shrink-0 max-w-[45%] truncate font-normal text-ink-mid"
                                     aria-hidden="true"
                                   >
                                     ≈ {p.derivedFrom}
                                   </span>
                                 )}
                                 {km !== null && (
-                                  <span className="ml-auto shrink-0 font-mono text-white/55">
+                                  <span className="ml-auto shrink-0 font-mono text-ink-mid">
                                     {km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`}
                                   </span>
                                 )}
@@ -1003,6 +1292,18 @@ export default function MapSection() {
         data-testid="map-shell"
         data-visible-count={visibleMarkers.length}
         data-map-view={mapView}
+        // Issue #1 — the assertion seam for what is DRAWN. The route lives in a WebGL
+        // canvas, so without this there is no observable signal that the map is showing one
+        // day (or nothing) rather than the whole trip. Same idiom as `travel-day-map`'s
+        // `data-stop-ids`: the ids, not just a count, so a test can tell "the pins changed"
+        // from "the pins happen to number the same". `data-route-day` is the date being
+        // drawn, empty for the whole trip — the two together separate an EMPTY DAY (a day
+        // set, no ids) from an overlay that is simply off (no day, no ids).
+        data-route-day={showItinerary ? (selectedDay ?? '') : ''}
+        data-route-stop-ids={stops.map((s) => s.marker.id).join(',')}
+        // Issue #31 — the same assertion seam for the visited wash, for the same reason: the
+        // shapes are inside a WebGL canvas and nothing else in the DOM proves they are drawn.
+        data-visited-countries={footprints.map((fp) => fp.country).join(',')}
         className={
           isFullscreen
             ? 'fixed inset-0 z-[65] bg-surface'
@@ -1022,6 +1323,7 @@ export default function MapSection() {
           enableStopPopup
           assignDays={ASSIGN_DAYS}
           onAssignDay={assignPinToDay}
+          countryFills={footprints}
         />
 
         {/* Fullscreen toggle (visible on the map, keyboard-accessible). Travels
@@ -1032,7 +1334,7 @@ export default function MapSection() {
           aria-label={isFullscreen ? 'Exit fullscreen map' : 'Open map fullscreen'}
           aria-pressed={isFullscreen}
           data-testid="map-fullscreen-toggle"
-          className="absolute top-3 left-3 z-10 grid place-items-center w-9 h-9 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-white/80 hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute top-3 left-3 z-10 grid place-items-center h-tap w-tap rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-ink-mid hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {isFullscreen ? (
             <Minimize2 className="w-4 h-4" />
@@ -1049,10 +1351,16 @@ export default function MapSection() {
             // control group and won on z-index — MEASURED in a real fullscreen browser:
             // a 27×27 overlap of the 29×29 zoom-in button, and elementFromPoint at that
             // button's centre returned this Close button, i.e. zoom-in was unclickable.
-            // Moved beside the fullscreen toggle (top-3 left-3, w-9 → ends at ~51px) so the
+            // Moved beside the fullscreen toggle so the
             // app's own chrome sits together on the left and MapLibre keeps its conventional
             // top-right corner untouched.
-            className="absolute top-3 left-14 z-10 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-white/80 text-xs hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            // CLEARANCE, and it moved once already: the toggle was w-9 and ended at ~51px,
+            // leaving 8.5px before this button's old `left-14` (59.5px @ the 17px root).
+            // Issue #105 grew the toggle to the 44px tap floor, so it now ends at 56.75px
+            // and that gap fell to 2.75px — still WCAG 2.5.8-clean (both ≥24px) but visually
+            // touching, and this pair has ALREADY caused one unclickable-control bug. `left-16`
+            // (68px) restores 11.25px. Recompute this if either control changes width again.
+            className="absolute top-3 left-16 z-10 flex min-h-tap items-center gap-1.5 px-3 py-2 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-ink-hi text-xs hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="w-4 h-4" />
             Close

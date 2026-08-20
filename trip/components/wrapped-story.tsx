@@ -12,8 +12,9 @@ import { useJournal } from '@/hooks/use-journal';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePacking } from '@/hooks/use-packing';
 import { useDocs } from '@/hooks/use-docs';
-import { legCurrency, formatMoney } from '@/core/budget/model';
+import { legCurrency, formatMoney, LEGS, type Leg } from '@/core/budget/model';
 import { legLabel } from '@/lib/leg-label';
+import { getActiveTrip } from '@/core/trips';
 import { Reveal } from '@/components/reveal';
 import CelebrationBurst from '@/components/celebration-burst';
 import SectionSkeleton from '@/components/section-skeleton';
@@ -73,24 +74,22 @@ const STATUS_COPY: Record<WrappedStats['status'], { eyebrow: string; title: stri
 /** A compact, human, TEXT-only share summary. Emoji fine, no markdown. */
 function buildShareText(stats: WrappedStats): string {
   const parts: string[] = [];
+  const tripLabel = getActiveTrip().legs.map((l) => l.countryLabel).join(' × ');
   parts.push(
-    `✈️ Nepal × Japan trip, wrapped — ${stats.daysElapsed}/${stats.totalTripDays} days${
+    `✈️ ${tripLabel} trip, wrapped — ${stats.daysElapsed}/${stats.totalTripDays} days${
       stats.status === 'post' ? ' lived' : ' in'
     }, ${stats.activitiesDone}/${stats.activitiesPlanned} activities done.`,
   );
 
   const spendBits: string[] = [];
-  if (stats.spend.nepal.total > 0) {
-    const top = stats.spend.nepal.topCategory;
-    spendBits.push(
-      `${formatMoney(stats.spend.nepal.total, legCurrency('nepal'))} in Nepal${top ? ` (top: ${capitalize(top.category)})` : ''}`,
-    );
-  }
-  if (stats.spend.japan.total > 0) {
-    const top = stats.spend.japan.topCategory;
-    spendBits.push(
-      `${formatMoney(stats.spend.japan.total, legCurrency('japan'))} in Japan${top ? ` (top: ${capitalize(top.category)})` : ''}`,
-    );
+  for (const leg of LEGS) {
+    const legSpend = stats.spend[leg];
+    if (legSpend.total > 0) {
+      const top = legSpend.topCategory;
+      spendBits.push(
+        `${formatMoney(legSpend.total, legCurrency(leg))} in ${legLabel(leg)}${top ? ` (top: ${capitalize(top.category)})` : ''}`,
+      );
+    }
   }
   if (spendBits.length > 0) parts.push(`💰 Spent ${spendBits.join(' + ')}.`);
 
@@ -193,12 +192,17 @@ export default function WrappedStory() {
         <Reveal>
           <div className="relative">
             <div data-testid="wrapped-entry" className="glass-card mx-auto rounded-3xl p-8 text-center sm:p-12">
-              <CelebrationBurst active={celebrate && !reducedMotion} testId="wrapped-celebration" />
+              <CelebrationBurst
+                active={celebrate && !reducedMotion}
+                testId="wrapped-celebration"
+                celebrationId="wrapped-post-trip"
+                weight="burst"
+              />
               <p className="text-eyebrow mb-3 uppercase text-muted-foreground">{copy.eyebrow}</p>
               <h2 id="wrapped-title" className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
                 <span className="text-display-emphasis">{copy.title}</span>
               </h2>
-              <p data-testid="wrapped-blurb" className="mx-auto max-w-xl text-base leading-relaxed text-white/65">
+              <p data-testid="wrapped-blurb" className="mx-auto max-w-xl text-base leading-relaxed text-ink-mid">
                 {copy.blurb(stats)}
               </p>
               <button
@@ -231,10 +235,11 @@ export default function WrappedStory() {
           <Reveal className="sm:col-span-2">
             <StatPanel testId="wrapped-stat-spend" icon={<Wallet className="h-4 w-4" aria-hidden="true" />} label="Spend">
               <div className="flex flex-col gap-1">
-                <LegSpendLine leg="nepal" spend={stats.spend.nepal} />
-                <LegSpendLine leg="japan" spend={stats.spend.japan} />
-                {stats.spend.nepal.total === 0 && stats.spend.japan.total === 0 && (
-                  <span className="text-white/50">Nothing logged yet</span>
+                {LEGS.map((leg) => (
+                  <LegSpendLine key={leg} leg={leg} spend={stats.spend[leg]} />
+                ))}
+                {LEGS.every((leg) => stats.spend[leg].total === 0) && (
+                  <span className="text-ink-lo">Nothing logged yet</span>
                 )}
               </div>
             </StatPanel>
@@ -267,7 +272,7 @@ export default function WrappedStory() {
           </Reveal>
         </div>
 
-        <footer className="mt-8 flex items-center justify-center gap-1.5 text-center text-sm italic text-white/45">
+        <footer className="mt-8 flex items-center justify-center gap-1.5 text-center text-sm italic text-ink-lo">
           <Sparkles className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           That&rsquo;s the trip, wrapped up in numbers.
         </footer>
@@ -293,19 +298,21 @@ function StatPanel({
         <span aria-hidden="true">{icon}</span>
         {label}
       </p>
-      <p className="text-sm leading-relaxed text-white/80">{children}</p>
+      {/* #101 — a <div>, not a <p>: the Spend panel passes a flex column as `children`,
+          and <div> inside <p> is invalid DOM (React logs on every /recap visit). */}
+      <div className="text-sm leading-relaxed text-ink-hi">{children}</div>
     </div>
   );
 }
 
-function LegSpendLine({ leg, spend }: { leg: 'nepal' | 'japan'; spend: WrappedStats['spend']['nepal'] }) {
+function LegSpendLine({ leg, spend }: { leg: Leg; spend: WrappedStats['spend'][Leg] }) {
   if (spend.total === 0) return null;
   return (
     <span data-testid={`wrapped-spend-${leg}`}>
-      <span className="font-semibold text-white/90">{legLabel(leg)}:</span>{' '}
+      <span className="font-semibold text-ink-hi">{legLabel(leg)}:</span>{' '}
       <span className="font-semibold text-foreground">{formatMoney(spend.total, legCurrency(leg))}</span>
       {spend.topCategory && (
-        <span className="text-white/55"> — top category {capitalize(spend.topCategory.category)}</span>
+        <span className="text-ink-mid"> — top category {capitalize(spend.topCategory.category)}</span>
       )}
     </span>
   );

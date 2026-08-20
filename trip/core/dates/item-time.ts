@@ -25,10 +25,16 @@ export const NPT_OFFSET_MIN = offsetForLeg('nepal');
 /** Japan Standard Time = UTC+9:00 = +540 min. */
 export const JST_OFFSET_MIN = offsetForLeg('japan');
 
+// A pack with no leg carrying a real offset (every leg's utcOffsetMin is the "unknown
+// geography" placeholder 0) has no basis for a UTC anchor — fall back to the device's own
+// offset, the same convention lib/trip-now.ts's tripOffsetMinFor already uses for this case.
+const hasRealGeography = activeTrip.legs.some((l) => l.utcOffsetMin !== 0);
+
 /** The day's place offset from its leg. Looks the leg up
  * by id in the active pack; an unknown id defaults to
  * NPT. For the default pack, `'nepal'` → 345 and `'japan'` → 540 exactly as before. */
 export function offsetForCountry(c: string): number {
+  if (!hasRealGeography) return -new Date().getTimezoneOffset();
   const leg = activeTrip.legs.find((l) => l.id === c);
   return leg ? leg.utcOffsetMin : NPT_OFFSET_MIN;
 }
@@ -119,6 +125,57 @@ export function parseTimeString(raw: string): number | undefined {
   }
 
   return undefined;
+}
+
+/**
+ * The ONE free-text `duration` parser (D-316). Derives minutes AT READ from the text the
+ * seed content and the v5 vault already hold — there is deliberately NO migration and no
+ * re-authoring of the 158 seed strings (D-139 locks "the migration never sets
+ * `durationMinutes`"; D-095 forbids reordering shipped steps).
+ *
+ * The grammar is EXACTLY what the data holds and what `lib/time-picker-format.ts`'s
+ * `formatDurationText` emits, nothing wider — case-insensitive, trimmed:
+ * 1. `<h>h [<m>m]` with an optional decimal hour — '1h', '1.5h', '3.25h', '14h 55m'
+ * 2. `<m>m` / `<m>min` — '45m', '30min'
+ *
+ * Everything else → `undefined`, and so does anything resolving to zero or less ('0h',
+ * '0m'). An item with no parseable duration has NO SPAN: it can never clash and can never
+ * block a save. That permissive failure is the same one D-139 chose for `time` — never
+ * throws, never logs, never defaults. TOTAL (guards a non-string, like `parseTimeString`).
+ */
+export function parseDurationText(raw: string): number | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const s = raw.trim().toLowerCase();
+  if (s === '') return undefined;
+
+  // <h>h with an optional decimal part, plus an optional trailing <m>m.
+  const hm = /^(\d+(?:\.\d+)?)h(?:\s*(\d{1,2})m)?$/.exec(s);
+  if (hm) {
+    const total = Math.round(Number(hm[1]) * 60) + (hm[2] === undefined ? 0 : Number(hm[2]));
+    return total > 0 ? total : undefined;
+  }
+
+  // bare minutes: '45m' / '30min'
+  const m = /^(\d+)\s*m(?:in)?$/.exec(s);
+  if (m) {
+    const total = Number(m[1]);
+    return total > 0 ? total : undefined;
+  }
+
+  return undefined;
+}
+
+/**
+ * The item's effective span length in minutes, or `undefined` (no span). Mirrors
+ * `effectiveStartMinutes` exactly: a valid positive-integer `durationMinutes` wins, else the
+ * legacy free-text `duration` is parsed, else `undefined`. So a structured value written by
+ * the picker always beats the text, and a buggy structured value degrades to the text (or to
+ * "no span") rather than asserting a bogus interval.
+ */
+export function effectiveDurationMinutes(item: ItineraryItem): number | undefined {
+  const dm = item.durationMinutes;
+  if (typeof dm === 'number' && Number.isInteger(dm) && dm > 0) return dm;
+  return typeof item.duration === 'string' ? parseDurationText(item.duration) : undefined;
 }
 
 /**

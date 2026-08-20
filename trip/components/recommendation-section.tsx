@@ -73,85 +73,93 @@ function RecommendationCard({
       onPointerLeave={tilt.onPointerLeave}
       data-testid={`guide-tilt-${item.id}`}
       data-tilt-enabled={tilt.enabled}
-      className="glass-card rounded-2xl overflow-hidden group transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)]"
+      className="glass-card relative rounded-2xl overflow-hidden group transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)]"
     >
-      {/* The image + text (down to notes) is a single button that opens the detail
-          sheet. The AddToPlanButton stays a sibling so it isn't nested in a button. */}
-      <button
-        type="button"
-        onClick={onOpen}
-        data-testid={`guide-card-${item.id}`}
-        aria-label={`View details for ${item.name}`}
-        className="block w-full text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-2xl"
-      >
-        {item.image && !imgError ? (
-          <div
-            className="vt-shared relative aspect-[16/10] bg-surface-raised overflow-hidden motion-reduce:[&_img]:!transform-none"
-            style={{ ['--vt-name']: `place-photo-${item.id}` } as CSSProperties}
+      {item.image && !imgError ? (
+        <div
+          className="vt-shared relative aspect-[16/10] bg-surface-raised overflow-hidden motion-reduce:[&_img]:!transform-none"
+          style={{ ['--vt-name']: `place-photo-${item.id}` } as CSSProperties}
+        >
+          <OptimizedImage
+            src={item.image}
+            alt={item.name}
+            fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={() => setImgError(true)}
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
+          <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
+            <Camera className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+            <span className="text-xs font-mono text-foreground">{item.photoRating}/5</span>
+          </div>
+          <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+            {item.mustSee && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                <Star className="w-3 h-3 fill-surface" />
+                Must-see
+              </span>
+            )}
+            <AddedBadge added={added} testId={`guide-added-${item.id}`} />
+          </div>
+        </div>
+      ) : (
+        <div className="aspect-[16/10] bg-gradient-to-br from-surface-raised to-surface-overlay flex items-center justify-center relative">
+          <MapPin className={`w-8 h-8 ${accentColor} opacity-30`} />
+          <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
+            {item.mustSee && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
+                <Star className="w-3 h-3 fill-surface" />
+                Must-see
+              </span>
+            )}
+            <AddedBadge added={added} testId={`guide-added-${item.id}`} />
+          </div>
+        </div>
+      )}
+      <div className="p-4 pb-0">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <h3
+            className="vt-shared font-display font-bold text-white text-sm leading-tight"
+            style={{ ['--vt-name']: `place-title-${item.id}` } as CSSProperties}
           >
-            <OptimizedImage
-              src={item.image}
-              alt={item.name}
-              fill
-              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
-              onError={() => setImgError(true)}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
-            <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
-              <Camera className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-              <span className="text-xs font-mono text-foreground">{item.photoRating}/5</span>
-            </div>
-            <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
-              {item.mustSee && (
-                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                  <Star className="w-3 h-3 fill-surface" />
-                  Must-see
-                </span>
-              )}
-              <AddedBadge added={added} testId={`guide-added-${item.id}`} />
-            </div>
-          </div>
-        ) : (
-          <div className="aspect-[16/10] bg-gradient-to-br from-surface-raised to-surface-overlay flex items-center justify-center relative">
-            <MapPin className={`w-8 h-8 ${accentColor} opacity-30`} />
-            <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
-              {item.mustSee && (
-                <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                  <Star className="w-3 h-3 fill-surface" />
-                  Must-see
-                </span>
-              )}
-              <AddedBadge added={added} testId={`guide-added-${item.id}`} />
-            </div>
-          </div>
-        )}
-        <div className="p-4 pb-0">
-          <div className="flex items-start justify-between gap-2 mb-2">
-            <h3
-              className="vt-shared font-display font-bold text-white text-sm leading-tight"
-              style={{ ['--vt-name']: `place-title-${item.id}` } as CSSProperties}
+            {/* V6-10: the details control is the TITLE, not the whole card body. A
+                button may only contain phrasing content, and its children-presentational
+                ARIA role collapsed this <h3> into the button's name — so every card title
+                on the page was missing from the heading outline. The `::after` stretches
+                the hit area back over the card (it resolves against the `relative` root;
+                `vt-shared` sets only `view-transition-name`, which adds no containment
+                outside a running transition). No aria-label — the visible name is both
+                the heading text and the button's accessible name. */}
+            <button
+              type="button"
+              onClick={onOpen}
+              data-testid={`guide-card-${item.id}`}
+              className="block text-left outline-none after:absolute after:inset-0 after:content-[''] after:rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {item.name}
-            </h3>
-            <span className={`text-[10px] px-2 py-0.5 rounded-full ${accentColor} bg-white/5 whitespace-nowrap`}>{item.category}</span>
-          </div>
-          <p className="text-xs text-white/40 mb-3 line-clamp-2">{item.description}</p>
-          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/30">
-            <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{item.bestTime}</span>
-            <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{item.duration}</span>
-            <span className="flex items-center gap-1">
-              {Array.from({ length: item.photoRating }).map((_, i) => (
-                <Star key={i} className="w-2.5 h-2.5 fill-current text-muted-foreground" />
-              ))}
-            </span>
-          </div>
-          {item.notes && <p className="text-[11px] text-white/25 mt-2 italic">💡 {item.notes}</p>}
+            </button>
+          </h3>
+          <span className={`text-[10px] px-2 py-0.5 rounded-full ${accentColor} bg-white/5 whitespace-nowrap`}>{item.category}</span>
         </div>
-      </button>
+        <p className="text-xs text-ink-mid mb-3 line-clamp-2">{item.description}</p>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-mid">
+          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{item.bestTime}</span>
+          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{item.duration}</span>
+          <span className="flex items-center gap-1">
+            {Array.from({ length: item.photoRating }).map((_, i) => (
+              <Star key={i} className="w-2.5 h-2.5 fill-current text-muted-foreground" />
+            ))}
+          </span>
+        </div>
+        {item.notes && <p className="text-[11px] text-ink-mid mt-2 italic">💡 {item.notes}</p>}
+      </div>
+      {/* Both controls in this row need `relative z-10`: the title button's stretched
+          `::after` is a positioned box and would otherwise paint over these static
+          siblings and swallow their clicks. */}
       <div className="px-4 pb-4 flex items-start gap-2">
         {/* Add-to-plan affordance — additive; a sibling of the details button. */}
-        <div className="flex-1 min-w-0">
+        <div className="relative z-10 flex-1 min-w-0">
           <AddToPlanButton source={item} sourceType="recommendation" accentColor={accentColor} />
         </div>
         {/* Favorite/bookmark toggle — a sibling of AddToPlanButton, real <button>, and
@@ -164,10 +172,10 @@ function RecommendationCard({
             aria-pressed={favorited}
             aria-label={favorited ? `Remove ${item.name} from saved` : `Save ${item.name}`}
             data-testid={`guide-favorite-${item.id}`}
-            className={`mt-3 shrink-0 p-2 rounded-xl border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+            className={`relative z-10 mt-3 shrink-0 p-2 rounded-xl border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               favorited
                 ? 'bg-primary/10 border-ring/40 text-primary hover:bg-primary/25'
-                : 'bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white/80'
+                : 'bg-white/5 border-white/10 text-ink-mid hover:bg-white/10 hover:text-ink-hi'
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${favorited ? 'fill-current' : ''}`} />
@@ -215,12 +223,12 @@ function FilterSheet({
           data-testid="guide-filters-close"
           onClick={onClose}
           aria-label="Close filters"
-          className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/60 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <X className="w-5 h-5" />
         </button>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-5">{children}</div>
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6 py-5">{children}</div>
     </Sheet>
   );
 }
@@ -389,7 +397,7 @@ export default function RecommendationSection({
             one tap away in the sheet so the grid is content-first. */}
         <div className="flex gap-3 mb-8 max-w-2xl mx-auto">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo pointer-events-none" />
             <input
               type="search"
               value={query}
@@ -397,14 +405,14 @@ export default function RecommendationSection({
               placeholder="Search by name or description…"
               aria-label={`Search ${title} guide`}
               data-testid="guide-search-input"
-              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/40 hover:text-white/70 hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-ink-mid hover:text-ink-hi hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -420,7 +428,7 @@ export default function RecommendationSection({
             aria-label={activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : 'Filters'}
             className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
-            <SlidersHorizontal className="w-4 h-4 text-white/50" />
+            <SlidersHorizontal className="w-4 h-4 text-ink-mid" />
             <span>Filters</span>
             {activeFilterCount > 0 && (
               <span className={`ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-xs font-mono bg-white/10 ${accentColor}`}>
@@ -442,7 +450,7 @@ export default function RecommendationSection({
           <div className="space-y-6">
             {/* Sort */}
             <div>
-              <label htmlFor={`${id}-sort`} className="text-xs font-medium text-white/50 mb-2 block">Sort</label>
+              <label htmlFor={`${id}-sort`} className="text-xs font-medium text-ink-mid mb-2 block">Sort</label>
               <select
                 id={`${id}-sort`}
                 value={sort}
@@ -458,7 +466,7 @@ export default function RecommendationSection({
             {/* City filter chips (only when more than one city is present) */}
             {cities.length > 2 && (
               <div>
-                <span className="text-xs font-medium text-white/50 mb-2 block">City</span>
+                <span className="text-xs font-medium text-ink-mid mb-2 block">City</span>
                 <div className="flex flex-wrap gap-2">
                   {cities.map((city) => (
                     <button
@@ -469,11 +477,11 @@ export default function RecommendationSection({
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         activeCity === city
                           ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                          : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                          : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
                       }`}
                     >
                       {city === 'All' ? 'All cities' : city}
-                      <span className="ml-1.5 text-white/50 font-mono">{cityCounts[city] ?? 0}</span>
+                      <span className="ml-1.5 text-ink-mid font-mono">{cityCounts[city] ?? 0}</span>
                     </button>
                   ))}
                 </div>
@@ -486,7 +494,7 @@ export default function RecommendationSection({
                 favorites to hydrate). */}
             {((favoritesReady && savedCount > 0) || plannedCount > 0) && (
               <div>
-                <span className="text-xs font-medium text-white/50 mb-2 block">Status</span>
+                <span className="text-xs font-medium text-ink-mid mb-2 block">Status</span>
                 <div className="flex flex-wrap gap-2">
                   {favoritesReady && savedCount > 0 && (
                     <button
@@ -497,12 +505,12 @@ export default function RecommendationSection({
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         savedOnly
                           ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                          : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                          : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
                       }`}
                     >
                       <Heart className={`w-3 h-3 ${savedOnly ? 'fill-current' : ''}`} />
                       Saved
-                      <span className="ml-0.5 text-white/50 font-mono">{savedCount}</span>
+                      <span className="ml-0.5 text-ink-mid font-mono">{savedCount}</span>
                     </button>
                   )}
                   {plannedCount > 0 && (
@@ -514,12 +522,12 @@ export default function RecommendationSection({
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         plannedOnly
                           ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                          : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                          : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
                       }`}
                     >
                       <Check className="w-3 h-3" />
                       Planned
-                      <span className="ml-0.5 text-white/50 font-mono">{plannedCount}</span>
+                      <span className="ml-0.5 text-ink-mid font-mono">{plannedCount}</span>
                     </button>
                   )}
                 </div>
@@ -528,7 +536,7 @@ export default function RecommendationSection({
 
             {/* Category filter chips with live counts */}
             <div>
-              <span className="text-xs font-medium text-white/50 mb-2 block">Category</span>
+              <span className="text-xs font-medium text-ink-mid mb-2 block">Category</span>
               <div className="flex flex-wrap gap-2">
                 {categories.map((cat) => (
                   <button
@@ -539,11 +547,11 @@ export default function RecommendationSection({
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       activeCategory === cat
                         ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                        : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                        : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
                     }`}
                   >
                     {cat}
-                    <span className="ml-1.5 text-white/50 font-mono">{categoryCounts[cat] ?? 0}</span>
+                    <span className="ml-1.5 text-ink-mid font-mono">{categoryCounts[cat] ?? 0}</span>
                   </button>
                 ))}
               </div>
@@ -556,7 +564,7 @@ export default function RecommendationSection({
                 onClick={clearAllFilters}
                 disabled={activeFilterCount === 0}
                 data-testid="guide-filters-clear"
-                className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-white/70 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-ink-hi hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Clear all
               </button>
@@ -579,7 +587,7 @@ export default function RecommendationSection({
               type="button"
               onClick={gyro.request}
               data-testid="guide-tilt-optin"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-white/55 bg-white/5 border border-white/10 hover:bg-white/10 hover:text-white/80 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-ink-mid bg-white/5 border border-white/10 hover:bg-white/10 hover:text-ink-hi transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <SlidersHorizontal className="w-3 h-3" />
               Enable motion tilt
@@ -605,9 +613,9 @@ export default function RecommendationSection({
           </div>
         ) : (
           <div data-testid="guide-empty-state" className={`text-center py-16 px-6 rounded-2xl ${glassClass}`}>
-            <SearchX className="w-10 h-10 mx-auto mb-4 text-white/20" />
-            <p className="text-white/60 font-medium mb-1">No places match your filters</p>
-            <p className="text-white/35 text-sm mb-5">Try a different search, city, or category.</p>
+            <SearchX className="w-10 h-10 mx-auto mb-4 text-ink-lo" />
+            <p className="text-ink-mid font-medium mb-1">No places match your filters</p>
+            <p className="text-ink-lo text-sm mb-5">Try a different search, city, or category.</p>
             <button
               type="button"
               onClick={resetFilters}

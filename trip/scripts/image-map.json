@@ -2,12 +2,23 @@
   "hero": {
     "path": "/images/hero/hero.jpg",
     "alt": "",
-    "title": "Himalayas",
-    "artist": "NASA Landsat image",
-    "license": "Public domain",
-    "licenseUrl": "",
-    "credit": "https://eoimages.gsfc.nasa.gov/images/imagerecords/82000/82581/himalaya_map_color_lrg.jpg",
-    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Himalayas_and_allied_ranges_NASA_Landsat_showing_the_eight_thousanders%2C_annotated_with_major_rivers.jpg/1920px-Himalayas_and_allied_ranges_NASA_Landsat_showing_the_eight_thousanders%2C_annotated_with_major_rivers.jpg",
+    "title": "Ama Dablam",
+    "artist": "Vyacheslav Argenberg",
+    "license": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0",
+    "credit": "Own work",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Himalayas%2C_Ama_Dablam%2C_Nepal.jpg/1920px-Himalayas%2C_Ama_Dablam%2C_Nepal.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "ext": ".jpg"
+  },
+  "hero-japan": {
+    "path": "/images/hero/hero-japan.jpg",
+    "alt": "",
+    "title": "Tokyo",
+    "artist": "Morio",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "http://creativecommons.org/licenses/by-sa/3.0/",
+    "credit": "Own work",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Skyscrapers_of_Shinjuku_2009_January.jpg/1920px-Skyscrapers_of_Shinjuku_2009_January.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     "ext": ".jpg"
   }
 }

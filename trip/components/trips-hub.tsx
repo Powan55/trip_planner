@@ -361,7 +361,7 @@ export default function TripsHub() {
         {/* 1 — Every trip this browser knows. */}
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
           <h3 className="text-sm font-semibold text-white">Your trips</h3>
-          <p className="mt-1 max-w-2xl text-sm text-white/60">
+          <p className="mt-1 max-w-2xl text-sm text-ink-mid">
             Every trip this browser has created or joined. Tap one to switch to it.
           </p>
           <ul data-testid="trips-hub-list" className="mt-3 flex flex-col gap-2">
@@ -396,7 +396,7 @@ export default function TripsHub() {
                         maxLength={40}
                         autoFocus
                         autoComplete="off"
-                        className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                        className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                       />
                       <button
                         type="submit"
@@ -419,7 +419,7 @@ export default function TripsHub() {
                               Current
                             </span>
                           </span>
-                          <span className="text-xs text-white/50">{subtitle}</span>
+                          <span className="text-xs text-ink-mid">{subtitle}</span>
                         </Link>
                       ) : canManage ? (
                         <button
@@ -428,14 +428,14 @@ export default function TripsHub() {
                           className="flex min-h-[44px] min-w-0 flex-1 flex-col justify-center rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <span className="truncate text-sm font-semibold text-white">{t.name}</span>
-                          <span className="text-xs text-white/50">{subtitle} · tap to switch</span>
+                          <span className="text-xs text-ink-mid">{subtitle} · tap to switch</span>
                         </button>
                       ) : (
                         // Unidentified render: readable, but switching is a trip-mutating registry
                         // action — see canManage's docstring above.
                         <div className="flex min-h-[44px] min-w-0 flex-1 flex-col justify-center px-2 py-1.5">
                           <span className="truncate text-sm font-semibold text-white">{t.name}</span>
-                          <span className="text-xs text-white/50">{subtitle}</span>
+                          <span className="text-xs text-ink-mid">{subtitle}</span>
                         </div>
                       )}
                       {canManage && (
@@ -490,7 +490,7 @@ export default function TripsHub() {
                           onClick={() => setForgetId(t.id)}
                           data-testid={`trips-hub-forget-${i}`}
                           aria-label={`Forget ${t.name}`}
-                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-white/15 text-white/70 transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-white/15 text-ink-mid transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                         >
                           <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </button>
@@ -543,7 +543,7 @@ export default function TripsHub() {
             ) : (
               <>
                 <h3 className="text-sm font-semibold text-white">Finish setting up your account</h3>
-                <p className="mt-1 max-w-2xl text-sm text-white/60">
+                <p className="mt-1 max-w-2xl text-sm text-ink-mid">
                   You signed in before accounts existed, so you don&rsquo;t have a key yet.
                   Creating one takes a second, changes nothing you already have, and is what lets you
                   log in on another device and see these same trips.
@@ -570,7 +570,7 @@ export default function TripsHub() {
             className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
           >
             <h3 className="text-sm font-semibold text-white">Log in to manage trips</h3>
-            <p className="mt-1 max-w-2xl text-sm text-white/60">
+            <p className="mt-1 max-w-2xl text-sm text-ink-mid">
               Creating a trip, adding one by Trip Token, renaming and sharing all belong to an
               account &mdash; log in with your key, or create an account in a few seconds.
             </p>
@@ -581,7 +581,7 @@ export default function TripsHub() {
         {canManage && (
         <form onSubmit={create} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
           <h3 className="text-sm font-semibold text-white">Create a trip</h3>
-          <p className="mt-1 max-w-2xl text-sm text-white/60">
+          <p className="mt-1 max-w-2xl text-sm text-ink-mid">
             Starts a fresh, empty trip with its own Trip Token. You&rsquo;ll switch to it now; copy
             that Trip Token (or its link) from the list above to invite anyone you want to plan with.
           </p>
@@ -599,13 +599,13 @@ export default function TripsHub() {
                 maxLength={40}
                 required
                 autoComplete="off"
-                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <label htmlFor="trips-hub-create-start" className="text-xs text-white/50">
+                <label htmlFor="trips-hub-create-start" className="text-xs text-ink-mid">
                   Start date (optional, defaults to today)
                 </label>
                 <input
@@ -621,7 +621,7 @@ export default function TripsHub() {
                 />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <label htmlFor="trips-hub-create-end" className="text-xs text-white/50">
+                <label htmlFor="trips-hub-create-end" className="text-xs text-ink-mid">
                   End date (optional, defaults to +30 days)
                 </label>
                 <input
@@ -644,7 +644,7 @@ export default function TripsHub() {
             )}
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="trips-hub-create-destinations" className="text-xs text-white/50">
+              <label htmlFor="trips-hub-create-destinations" className="text-xs text-ink-mid">
                 Destinations (optional, comma-separated — defaults to the trip name)
               </label>
               <input
@@ -654,19 +654,20 @@ export default function TripsHub() {
                 onChange={(e) => setCreateDestinations(e.target.value)}
                 placeholder="e.g. Kochi, Munnar, Alleppey"
                 autoComplete="off"
-                className="min-w-0 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-w-0 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
             </div>
 
             <fieldset className="flex flex-col gap-2">
-              <legend className="text-xs text-white/50">Vibe (optional)</legend>
-              <div role="radiogroup" aria-label="Trip vibe" className="flex flex-wrap gap-2">
+              <legend className="text-xs text-ink-mid">Vibe (optional)</legend>
+              {/* B-5: `role="group"` + `aria-pressed`, not radiogroup/radio — the composite
+                  role promises arrow-key navigation this toggle never implemented. */}
+              <div role="group" aria-label="Trip vibe" className="flex flex-wrap gap-2">
                 {Object.entries(VIBES).map(([key, vibe]) => (
                   <button
                     key={key}
                     type="button"
-                    role="radio"
-                    aria-checked={createVibe ? createVibe === key : key === Object.keys(VIBES)[0]}
+                    aria-pressed={createVibe ? createVibe === key : key === Object.keys(VIBES)[0]}
                     data-testid={`trips-hub-create-vibe-${key}`}
                     onClick={() => setCreateVibe(key)}
                     className={`inline-flex min-h-[44px] items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
@@ -699,7 +700,7 @@ export default function TripsHub() {
         {canManage && (
         <form onSubmit={join} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
           <h3 className="text-sm font-semibold text-white">Add a trip by Trip Token</h3>
-          <p className="mt-1 max-w-2xl text-sm text-white/60">
+          <p className="mt-1 max-w-2xl text-sm text-ink-mid">
             Paste the Trip Token a friend shared with you to add their trip to your list and switch
             to it.
           </p>
@@ -716,7 +717,7 @@ export default function TripsHub() {
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
-              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             />
             <div className="flex flex-col gap-2 sm:flex-row">
               <label htmlFor="trips-hub-join-name" className="sr-only">
@@ -730,7 +731,7 @@ export default function TripsHub() {
                 placeholder="Shared trip"
                 maxLength={40}
                 autoComplete="off"
-                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
               <button
                 type="submit"
@@ -742,7 +743,7 @@ export default function TripsHub() {
               </button>
             </div>
           </div>
-          <p className="mt-3 max-w-2xl text-xs text-white/50">
+          <p className="mt-3 max-w-2xl text-xs text-ink-lo">
             A Trip Token opens one trip &mdash; it is not a login, and your own key never goes
             here. Trip Tokens can&rsquo;t be verified in advance: if the trip opens empty, it may be
             mistyped or the trip is brand new.
@@ -756,9 +757,9 @@ export default function TripsHub() {
         <AlertDialogContent className="glass-card-dark border-white/10 text-white" data-testid="trips-hub-forget-confirm">
           <AlertDialogHeader>
             <AlertDialogTitle>Forget {forgetTrip?.name ?? 'this trip'}?</AlertDialogTitle>
-            <AlertDialogDescription className="text-white/60">
+            <AlertDialogDescription className="text-ink-mid">
               This removes the trip from your list on this browser (and your other synced devices). It
-              does <strong className="font-semibold text-white/80">not</strong> delete the trip&rsquo;s
+              does <strong className="font-semibold text-ink-hi">not</strong> delete the trip&rsquo;s
               cloud data &mdash; anyone holding its Trip Token can still open it, and you can add it
               back any time by pasting that Trip Token.
             </AlertDialogDescription>

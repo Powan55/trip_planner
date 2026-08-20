@@ -210,7 +210,7 @@ export default function Navbar() {
                     aria-current={isActive ? 'page' : undefined}
                     data-active={isActive ? 'true' : undefined}
                     className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                      isActive ? 'text-white' : 'text-white/70 hover:text-white hover:bg-white/5'
+                      isActive ? 'text-white' : 'text-ink-mid hover:text-white hover:bg-white/5'
                     }`}
                   >
                     <item.icon className="w-4 h-4" />
@@ -241,8 +241,7 @@ export default function Navbar() {
                     onClick={() => setMoreOpen((v) => !v)}
                     aria-expanded={moreOpen}
                     aria-controls="navbar-more-menu"
-                    aria-haspopup="true"
-                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none text-white/70 hover:text-white hover:bg-white/5"
+                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none text-ink-mid hover:text-white hover:bg-white/5"
                   >
                     More
                     <ChevronDown
@@ -257,7 +256,10 @@ export default function Navbar() {
                         ref={morePanelRef}
                         id="navbar-more-menu"
                         data-testid="navbar-more-menu"
-                        role="menu"
+                        // `group`, not `menu`: this is a div of Links in plain tab order, and
+                        // the role is what keeps `aria-label` exposed (a bare div is generic
+                        // and drops the name).
+                        role="group"
                         aria-label="More"
                         initial={panelInitial}
                         animate={panelAnimate}
@@ -275,10 +277,9 @@ export default function Navbar() {
                                 vtClick(item.href)(e);
                               }}
                               data-testid={`navbar-more-link-${item.label.toLowerCase()}`}
-                              role="menuitem"
                               aria-current={isActive ? 'page' : undefined}
                               className={`flex items-center gap-2.5 w-full min-h-[40px] px-3 py-2 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                                isActive ? 'text-white bg-white/5' : 'text-white/80 hover:text-white hover:bg-white/5'
+                                isActive ? 'text-white bg-white/5' : 'text-ink-mid hover:text-white hover:bg-white/5'
                               }`}
                             >
                               <item.icon className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
@@ -287,23 +288,22 @@ export default function Navbar() {
                           );
                         })}
 
-                        <div className="my-1.5 border-t border-white/[0.08]" role="separator" aria-hidden="true" />
+                        <div className="my-1.5 border-t border-white/[0.08]" aria-hidden="true" />
 
                         <button
                           type="button"
                           data-testid="navbar-more-search"
-                          role="menuitem"
                           onClick={() => {
                             closeMore();
                             window.dispatchEvent(new CustomEvent('palette:open'));
                           }}
-                          className="flex items-center justify-between gap-2.5 w-full min-h-[40px] px-3 py-2 rounded-lg text-sm text-white/80 hover:text-white hover:bg-white/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                          className="flex items-center justify-between gap-2.5 w-full min-h-[40px] px-3 py-2 rounded-lg text-sm text-ink-mid hover:text-white hover:bg-white/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         >
                           <span className="flex items-center gap-2.5">
                             <Search className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
                             Search
                           </span>
-                          <span className="text-xs text-white/40">⌘K / Ctrl+K</span>
+                          <span className="text-xs text-ink-lo">⌘K / Ctrl+K</span>
                         </button>
                       </m.div>
                     )}
@@ -367,7 +367,7 @@ function TravelerChip({ name, accent }: { name: string; accent: string }) {
       className="flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full border bg-white/5"
       style={{ borderColor: `${accent}40` }}
     >
-      <span className="flex items-center gap-1.5 min-w-0 text-xs text-white/70">
+      <span className="flex items-center gap-1.5 min-w-0 text-xs text-ink-mid">
         <span
           aria-hidden="true"
           className="shrink-0 w-2 h-2 rounded-full"
@@ -382,7 +382,7 @@ function TravelerChip({ name, accent }: { name: string; accent: string }) {
           aria-label={`Sign out ${name}`}
           title="Sign out"
           data-testid="navbar-sign-out"
-          className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-white/50 hover:text-white hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-ink-mid hover:text-white hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
         </button>

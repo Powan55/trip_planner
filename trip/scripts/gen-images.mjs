@@ -8,22 +8,28 @@
 // so 0 bytes of sharp ship to the browser.
 //
 // For each source raster (.jpg/.jpeg/.png) under public/images/** it emits a sibling
-// `.webp` and `.avif` at NATIVE resolution, reads the intrinsic width/height, and
-// computes a tiny base64 `blurDataURL` (LQIP). It writes lib/image-manifest.json
-// mapping the SAME root-relative string the app passes to withBasePath() (e.g.
-// "/images/nepal/na1.jpg") → { webp, avif, blurDataURL, width, height, variants }.
+// `.avif` at NATIVE resolution, reads the intrinsic width/height, and computes a tiny
+// base64 `blurDataURL` (LQIP). It writes lib/image-manifest.json mapping the SAME
+// root-relative string the app passes to withBasePath() (e.g.
+// "/images/nepal/na1.jpg") → { avif, blurDataURL, width, height, variants }.
 // SVGs and already-tiny files are skipped.
+//
+// Two tiers only, AVIF + the original raster: <picture> order was AVIF → WebP → JPEG,
+// so the WebP tier could only ever win for a browser that decodes WebP but NOT AVIF,
+// and that set is empty under this repo's browserslist. Those files were committed
+// bytes nobody fetched. Dropping the tier is a repo/checkout-size win, not a runtime
+// one. The LQIP below is still WebP-encoded — it is inlined base64, not a request.
 //
 // Responsive widths: real source widths in this repo run ~800-1600px (checked
 // via the existing manifest), so a third breakpoint above ~1200 never fires — two
 // sub-native breakpoints (640/1024) plus the native resolution itself as the top
 // entry cover the real range without generating unreachable derivatives. For each
-// source, additionally emits `-640w`/`-1024w`.webp/.avif siblings for any breakpoint
+// source, additionally emits `-640w`/`-1024w`.avif siblings for any breakpoint
 // STRICTLY below the source's native width (never upscale), and records them in
-// `variants: [{width, webp, avif},...]` ascending, with native width as the last
-// entry (pointing at the same top-level webp/avif — the "largest" fallback). The
-// top-level `webp`/`avif` fields are UNCHANGED (still native-resolution, still the
-// single-URL fallback for callers that don't opt into `sizes`-driven selection).
+// `variants: [{width, avif},...]` ascending, with native width as the last entry
+// (pointing at the same top-level avif — the "largest" fallback). The top-level
+// `avif` field stays native-resolution: the single-URL fallback for callers that
+// don't opt into `sizes`-driven selection.
 //
 // Idempotent: re-running regenerates derivatives and the manifest from sources.
 
@@ -39,9 +45,8 @@ const IMAGES_DIR = path.join(APP_ROOT, 'public', 'images');
 const MANIFEST_PATH = path.join(APP_ROOT, 'lib', 'image-manifest.json');
 
 // Encode quality. AVIF is dramatically smaller at a given perceptual quality than
-// JPEG/WebP, so we can afford a slightly lower numeric quality for the same look.
-const WEBP_QUALITY = 80; // visually ~lossless for photographic content
-const AVIF_QUALITY = 50; // AVIF q50 ≈ WebP q80 perceptually, far fewer bytes
+// JPEG, so we can afford a slightly lower numeric quality for the same look.
+const AVIF_QUALITY = 50; // ≈ JPEG q80 perceptually, far fewer bytes
 const AVIF_EFFORT = 4; // 0..9 encode effort (speed vs size); 4 is a good local default
 
 // LQIP: downscale to a tiny raster and inline as base64. ~20px wide keeps the data
@@ -94,14 +99,12 @@ async function run() {
   let processed = 0;
   let skippedTiny = 0;
   let totalSrc = 0;
-  let totalWebp = 0;
   let totalAvif = 0;
   const samples = [];
 
   for (const src of sources.sort()) {
     const ext = path.extname(src);
     const base = src.slice(0, -ext.length);
-    const webpPath = `${base}.webp`;
     const avifPath = `${base}.avif`;
     const key = toManifestKey(src);
 
@@ -121,7 +124,6 @@ async function run() {
 
     // Derivatives. `rotate()` with no arg applies EXIF orientation so the encoded
     // raster matches the intrinsic w/h we report.
-    await sharp(input).rotate().webp({ quality: WEBP_QUALITY }).toFile(webpPath);
     await sharp(input).rotate().avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT }).toFile(avifPath);
 
     // LQIP — tiny WebP, inlined base64.
@@ -132,7 +134,6 @@ async function run() {
       .toBuffer();
     const blurDataURL = `data:image/webp;base64,${lqipBuf.toString('base64')}`;
 
-    const webpSize = (await stat(webpPath)).size;
     const avifSize = (await stat(avifPath)).size;
 
     // Sub-native width variants — skip any breakpoint >= the source's own width so
@@ -140,25 +141,18 @@ async function run() {
     const variants = [];
     for (const bp of WIDTH_BREAKPOINTS) {
       if (bp >= width) continue;
-      const webpVariantPath = `${base}-${bp}w.webp`;
       const avifVariantPath = `${base}-${bp}w.avif`;
-      await sharp(input).rotate().resize(bp).webp({ quality: WEBP_QUALITY }).toFile(webpVariantPath);
       await sharp(input)
         .rotate()
         .resize(bp)
         .avif({ quality: AVIF_QUALITY, effort: AVIF_EFFORT })
         .toFile(avifVariantPath);
-      variants.push({
-        width: bp,
-        webp: toManifestKey(webpVariantPath),
-        avif: toManifestKey(avifVariantPath),
-      });
+      variants.push({ width: bp, avif: toManifestKey(avifVariantPath) });
     }
     // Native resolution is always the largest/top entry.
-    variants.push({ width, webp: key.replace(ext, '.webp'), avif: key.replace(ext, '.avif') });
+    variants.push({ width, avif: key.replace(ext, '.avif') });
 
     manifest[key] = {
-      webp: key.replace(ext, '.webp'),
       avif: key.replace(ext, '.avif'),
       blurDataURL,
       width,
@@ -167,11 +161,10 @@ async function run() {
     };
 
     totalSrc += srcStat.size;
-    totalWebp += webpSize;
     totalAvif += avifSize;
     processed += 1;
     if (samples.length < 6) {
-      samples.push({ key, src: srcStat.size, webp: webpSize, avif: avifSize, width, height });
+      samples.push({ key, src: srcStat.size, avif: avifSize, width, height });
     }
   }
 
@@ -184,18 +177,14 @@ async function run() {
   console.log(`[gen-images] manifest → ${path.relative(APP_ROOT, MANIFEST_PATH)} (${processed} entries)`);
   console.log('\n[gen-images] sample savings (source → derivative):');
   for (const s of samples) {
-    const wPct = ((1 - s.webp / s.src) * 100).toFixed(0);
     const aPct = ((1 - s.avif / s.src) * 100).toFixed(0);
     console.log(
-      `  ${s.key}  ${s.width}x${s.height}  jpg ${fmtKB(s.src)} → webp ${fmtKB(s.webp)} (-${wPct}%)  avif ${fmtKB(s.avif)} (-${aPct}%)`,
+      `  ${s.key}  ${s.width}x${s.height}  jpg ${fmtKB(s.src)} → avif ${fmtKB(s.avif)} (-${aPct}%)`,
     );
   }
   if (processed > 0) {
-    const wTot = ((1 - totalWebp / totalSrc) * 100).toFixed(0);
     const aTot = ((1 - totalAvif / totalSrc) * 100).toFixed(0);
-    console.log(
-      `\n[gen-images] TOTAL  jpg ${fmtKB(totalSrc)} → webp ${fmtKB(totalWebp)} (-${wTot}%)  avif ${fmtKB(totalAvif)} (-${aTot}%)`,
-    );
+    console.log(`\n[gen-images] TOTAL  jpg ${fmtKB(totalSrc)} → avif ${fmtKB(totalAvif)} (-${aTot}%)`);
   }
 }
 

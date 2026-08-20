@@ -15,7 +15,7 @@
 import type { DayPlan, ItineraryCategory } from '@/lib/trip-data';
 import type { Expense } from '@/core/budget/expenses';
 import { expensesToSpent } from '@/core/budget/expenses';
-import type { Leg } from '@/core/budget/model';
+import { LEGS, type Leg } from '@/core/budget/model';
 import type { JournalEntry } from '@/core/journal/model';
 import type { PhotoMeta } from '@/core/photos/model';
 import type { PackingItem } from '@/core/packing/model';
@@ -61,8 +61,6 @@ export interface WrappedInputs {
   docItems: readonly DocItem[] | null | undefined;
 }
 
-const LEGS: readonly Leg[] = ['nepal', 'japan'];
-
 function emptyLegSpend(): WrappedLegSpend {
   return { total: 0, topCategory: null };
 }
@@ -92,7 +90,9 @@ export function deriveWrapped(inputs: WrappedInputs, nowDateStr: string): Wrappe
   }
 
   const spentInput = expensesToSpent(inputs.expenses);
-  const spend: Record<Leg, WrappedLegSpend> = { nepal: emptyLegSpend(), japan: emptyLegSpend() };
+  const spend: Record<Leg, WrappedLegSpend> = Object.fromEntries(
+    LEGS.map((l) => [l, emptyLegSpend()]),
+  ) as Record<Leg, WrappedLegSpend>;
   for (const leg of LEGS) {
     const total = spentInput.byLeg?.[leg] ?? 0;
     let top: WrappedLegSpend['topCategory'] = null;

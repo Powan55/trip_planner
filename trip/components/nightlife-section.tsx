@@ -41,76 +41,82 @@ function VenueCard({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       whileHover={{ y: -4 }}
-      className="rounded-2xl bg-gradient-to-br from-purple-900/20 to-fuchsia-900/20 border border-purple-500/10 hover:border-purple-500/20 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-300 overflow-hidden"
+      className="relative p-5 rounded-2xl bg-gradient-to-br from-purple-900/20 to-fuchsia-900/20 border border-purple-500/10 hover:border-purple-500/20 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-300 overflow-hidden"
     >
-      <button
-        type="button"
-        onClick={onOpen}
-        data-testid={`nightlife-add-${venue.id}`}
-        aria-label={`View details for ${venue.name}`}
-        className="block w-full text-left p-5 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-2xl"
-      >
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-xl bg-fuchsia-500/10">
-              <Music className="w-4 h-4 text-fuchsia-400" />
-            </div>
-            <div>
-              <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="p-2 rounded-xl bg-fuchsia-500/10">
+            <Music className="w-4 h-4 text-fuchsia-400" />
+          </div>
+          <div>
+            <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
+              {/* V6-10: the details control is the TITLE, not the card body — a button
+                  cannot legally wrap flow content, and its children-presentational ARIA
+                  role hid this <h3> from the heading outline entirely. The `::after`
+                  restores the whole-card hit area against the `relative` root above, and
+                  dropping the old aria-label lets the visible name serve as BOTH the
+                  heading text and the button's accessible name. */}
+              <button
+                type="button"
+                onClick={onOpen}
+                data-testid={`nightlife-add-${venue.id}`}
+                className="block text-left outline-none after:absolute after:inset-0 after:content-[''] after:rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 {venue.name}
-                {/* same content-semantic "must-see" label as the gold ribbon. */}
-                {venue.mustSee && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
-              </h3>
-              <p className="text-[11px] text-white/40 flex items-center gap-1">
-                <MapPin className="w-3 h-3" />
-                {venue.location}
-              </p>
-            </div>
-          </div>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
-            {venue.country}
-          </span>
-        </div>
-
-        <p className="text-xs text-white/40 mb-3">{venue.description}</p>
-
-        <div className="grid grid-cols-2 gap-2 text-[11px]">
-          <div className="flex items-center gap-1.5 text-white/40">
-            <Headphones className="w-3 h-3 text-purple-400" />
-            <span>{venue.musicType}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-white/40">
-            <DollarSign className="w-3 h-3 text-green-400" />
-            <span>{venue.priceRange}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-white/40">
-            <Music className="w-3 h-3 text-fuchsia-400" />
-            <span>{venue.vibe}</span>
-          </div>
-          <div className="flex items-center gap-1.5 text-white/40">
-            <Calendar className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-            <span>{venue.bestDays}</span>
+              </button>
+              {/* same content-semantic "must-see" label as the gold ribbon. */}
+              {venue.mustSee && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
+            </h3>
+            <p className="text-[11px] text-ink-mid flex items-center gap-1">
+              <MapPin className="w-3 h-3" />
+              {venue.location}
+            </p>
           </div>
         </div>
+        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
+          {venue.country}
+        </span>
+      </div>
 
-        {/* passive planned-state indicator — decorative only (no nested
-            interactive control inside this button; add/modify/remove lives in the
-            detail sheet the tap above opens). Reactive to the shared itinerary store. */}
-        {isAdded && (
-          <span
-            data-testid={`nightlife-added-${venue.id}`}
-            className="mt-3 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-ring/40 text-primary text-[11px] font-medium"
-          >
-            <Check className="w-3 h-3 shrink-0" />
-            <span>Added</span>
-            <span className="text-muted-foreground" aria-hidden="true">·</span>
-            <span className="flex items-center gap-1 text-foreground">
-              <CalendarDays className="w-3 h-3 shrink-0" />
-              {summary}
-            </span>
+      <p className="text-xs text-ink-mid mb-3">{venue.description}</p>
+
+      <div className="grid grid-cols-2 gap-2 text-[11px]">
+        <div className="flex items-center gap-1.5 text-ink-mid">
+          <Headphones className="w-3 h-3 text-purple-400" />
+          <span>{venue.musicType}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-ink-mid">
+          <DollarSign className="w-3 h-3 text-green-400" />
+          <span>{venue.priceRange}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-ink-mid">
+          <Music className="w-3 h-3 text-fuchsia-400" />
+          <span>{venue.vibe}</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-ink-mid">
+          <Calendar className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+          <span>{venue.bestDays}</span>
+        </div>
+      </div>
+
+      {/* passive planned-state indicator — decorative only (still NOT interactive:
+          add/modify/remove lives in the detail sheet the title opens), so it needs no
+          `z-10` lift above the stretched `::after`. Reactive to the shared itinerary
+          store. */}
+      {isAdded && (
+        <span
+          data-testid={`nightlife-added-${venue.id}`}
+          className="mt-3 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-ring/40 text-primary text-[11px] font-medium"
+        >
+          <Check className="w-3 h-3 shrink-0" />
+          <span>Added</span>
+          <span className="text-muted-foreground" aria-hidden="true">·</span>
+          <span className="flex items-center gap-1 text-foreground">
+            <CalendarDays className="w-3 h-3 shrink-0" />
+            {summary}
           </span>
-        )}
-      </button>
+        </span>
+      )}
     </m.div>
   );
 }
@@ -289,7 +295,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
       <div className="max-w-[1200px] mx-auto">
         {/* masthead entrance now FLOORS the fade (FADE_FLOOR → 1) instead of
             pinning it at 1. The floor is shallow enough that the (non-reduced-motion) axe
-            scan still sees the muted `text-white/50` subtitle ≥AA at the darkest frame —
+            scan still sees the muted `text-ink-mid` subtitle ≥AA at the darkest frame —
             the guarantee, preserved. Under reduce we keep the pin outright:
             MotionConfig neutralises `y` but not opacity, so an un-forked floor would
             strand an off-screen reveal at 0.7. */}
@@ -302,7 +308,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
           <h2 id="nightlife-heading" className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
             Nightlife <span className="text-gradient-sakura">& Bars</span>
           </h2>
-          <p className="text-white/50 max-w-xl mx-auto mb-4">
+          <p className="text-ink-mid max-w-xl mx-auto mb-4">
             Discover the best clubs, bars, and late-night experiences {scopeLabel}.
           </p>
           <button
@@ -312,7 +318,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
             className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               visible
                 ? 'bg-fuchsia-500/20 text-fuchsia-300 ring-1 ring-fuchsia-500/30 hover:bg-fuchsia-500/30'
-                : 'bg-white/5 text-white/55 hover:bg-white/10 hover:text-white/80'
+                : 'bg-white/5 text-ink-mid hover:bg-white/10 hover:text-ink-hi'
             }`}
           >
             {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -346,28 +352,28 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
               {/* Search + sort */}
               <div className="flex flex-col sm:flex-row gap-3 mb-5 max-w-2xl mx-auto">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/30 pointer-events-none" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-lo pointer-events-none" />
                   <input
                     type="search"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search bars, clubs, music…"
                     aria-label="Search nightlife venues"
-                    className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-white/30 focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+                    className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
                   />
                   {query && (
                     <button
                       type="button"
                       onClick={() => setQuery('')}
                       aria-label="Clear search"
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-white/40 hover:text-white/70 hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-ink-mid hover:text-ink-hi hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <SlidersHorizontal className="w-4 h-4 text-white/30" />
+                  <SlidersHorizontal className="w-4 h-4 text-ink-mid" />
                   <label htmlFor="nightlife-sort" className="sr-only">Sort</label>
                   <select
                     id="nightlife-sort"
@@ -392,11 +398,11 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                       className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                         activeCity === city
                           ? 'text-fuchsia-300 bg-fuchsia-500/15 ring-1 ring-fuchsia-500/30'
-                          : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                          : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
                       }`}
                     >
                       {city === 'All' ? 'All cities' : city}
-                      <span className="ml-1.5 text-white/50 font-mono">{cityCounts[city] ?? 0}</span>
+                      <span className="ml-1.5 text-ink-mid font-mono">{cityCounts[city] ?? 0}</span>
                     </button>
                   ))}
                 </div>
@@ -412,11 +418,11 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                     className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                       activeVibe === vibe
                         ? 'text-fuchsia-300 bg-fuchsia-500/15 ring-1 ring-fuchsia-500/30'
-                        : 'text-white/55 hover:bg-white/5 hover:text-white/80'
+                        : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
                     }`}
                   >
                     {vibe === 'All' ? 'All vibes' : vibe}
-                    <span className="ml-1.5 text-white/50 font-mono">{vibeCounts[vibe] ?? 0}</span>
+                    <span className="ml-1.5 text-ink-mid font-mono">{vibeCounts[vibe] ?? 0}</span>
                   </button>
                 ))}
               </div>
@@ -434,9 +440,9 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                 </div>
               ) : (
                 <div className="text-center py-16 px-6 rounded-2xl bg-gradient-to-br from-purple-900/20 to-fuchsia-900/20 border border-purple-500/10">
-                  <SearchX className="w-10 h-10 mx-auto mb-4 text-white/20" />
-                  <p className="text-white/60 font-medium mb-1">No venues match your filters</p>
-                  <p className="text-white/35 text-sm mb-5">Try a different search, city, or vibe.</p>
+                  <SearchX className="w-10 h-10 mx-auto mb-4 text-ink-lo" />
+                  <p className="text-ink-mid font-medium mb-1">No venues match your filters</p>
+                  <p className="text-ink-lo text-sm mb-5">Try a different search, city, or vibe.</p>
                   <button
                     type="button"
                     onClick={resetFilters}

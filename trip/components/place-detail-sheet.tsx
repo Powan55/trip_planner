@@ -174,7 +174,7 @@ export default function PlaceDetailSheet({
                 data-testid="place-detail-close"
                 onClick={onClose}
                 aria-label="Close details"
-                className="absolute top-3 right-3 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-black/50 hover:bg-black/70 text-white/80 backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="absolute top-3 right-3 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-black/50 hover:bg-black/70 text-ink-hi backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -189,7 +189,7 @@ export default function PlaceDetailSheet({
             {/* Scrollable body — the only scroll region. tabIndex=0 keeps it
                 keyboard-reachable (axe scrollable-region-focusable): the body holds only
                 read-only text, so at 17px it can scroll with no focusable child of its own. */}
-            <div tabIndex={0} className="flex-1 min-h-0 overflow-y-auto px-5 sm:px-6 py-4">
+            <div tabIndex={0} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6 py-4">
               <div className="flex items-start justify-between gap-3 mb-1">
                 <h3
                   id={titleId}
@@ -201,7 +201,7 @@ export default function PlaceDetailSheet({
               </div>
               <div className="flex flex-wrap items-center gap-2 mb-4">
                 {place.location && (
-                  <span className="inline-flex items-center gap-1 text-xs text-white/50">
+                  <span className="inline-flex items-center gap-1 text-xs text-ink-mid">
                     <MapPin className="w-3 h-3 shrink-0" />
                     {place.location}
                   </span>
@@ -215,7 +215,7 @@ export default function PlaceDetailSheet({
               </div>
 
               {bodyText && (
-                <p className="text-sm text-white/60 leading-relaxed mb-5">{bodyText}</p>
+                <p className="text-sm text-ink-mid leading-relaxed mb-5">{bodyText}</p>
               )}
 
               {/* Practical info rows — each optional; omitted when unknown.
@@ -224,7 +224,7 @@ export default function PlaceDetailSheet({
                   used to sit as a THIRD sibling in that wrapping div, which violated it.
                   Fix: each icon now lives INSIDE its `<dt>` (still purely decorative, no
                   text) so the wrapping `<div>` holds exactly one dt + one dd. The label
-                  text keeps its ORIGINAL `text-white/40 w-24 shrink-0` box (unchanged,
+                  text keeps its ORIGINAL `w-24 shrink-0` box (unchanged,
                   now a `<span>` inside the dt) so it wraps exactly as before; `dt` just
                   flexes the icon and that span together with the same `gap-2.5` the icon
                   used to have as a dl-row sibling — so `<dd>` still starts at the same
@@ -235,34 +235,34 @@ export default function PlaceDetailSheet({
                     <div className="flex items-center gap-2.5 text-sm">
                       <dt className="flex items-center gap-2.5 shrink-0">
                         <Clock className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
-                        <span className="text-white/40 w-24 shrink-0">Best time</span>
+                        <span className="text-ink-lo w-24 shrink-0">Best time</span>
                       </dt>
-                      <dd className="text-white/70">{place.bestTime}</dd>
+                      <dd className="text-ink-hi">{place.bestTime}</dd>
                     </div>
                   )}
                   {place.duration && (
                     <div className="flex items-center gap-2.5 text-sm">
                       <dt className="flex items-center gap-2.5 shrink-0">
                         <CalendarClock className="w-4 h-4 text-blue-400 shrink-0" aria-hidden="true" />
-                        <span className="text-white/40 w-24 shrink-0">Duration</span>
+                        <span className="text-ink-lo w-24 shrink-0">Duration</span>
                       </dt>
-                      <dd className="text-white/70">{place.duration}</dd>
+                      <dd className="text-ink-hi">{place.duration}</dd>
                     </div>
                   )}
                   {place.priceHint && (
                     <div className="flex items-center gap-2.5 text-sm">
                       <dt className="flex items-center gap-2.5 shrink-0">
                         <Coins className="w-4 h-4 text-green-400 shrink-0" aria-hidden="true" />
-                        <span className="text-white/40 w-24 shrink-0">Price</span>
+                        <span className="text-ink-lo w-24 shrink-0">Price</span>
                       </dt>
-                      <dd className="text-white/70">{place.priceHint}</dd>
+                      <dd className="text-ink-hi">{place.priceHint}</dd>
                     </div>
                   )}
                   {typeof place.rating === 'number' && place.rating > 0 && (
                     <div className="flex items-center gap-2.5 text-sm">
                       <dt className="flex items-center gap-2.5 shrink-0">
                         <Star className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
-                        <span className="text-white/40 w-24 shrink-0">Photo rating</span>
+                        <span className="text-ink-lo w-24 shrink-0">Photo rating</span>
                       </dt>
                       <dd className="flex items-center gap-0.5">
                         {Array.from({ length: Math.min(5, Math.max(0, Math.round(place.rating))) }).map((_, i) => (

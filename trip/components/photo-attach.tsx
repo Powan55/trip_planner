@@ -112,7 +112,7 @@ export default function PhotoAttach({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           data-testid="photo-add-button"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-hi outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Camera className="h-4 w-4" aria-hidden="true" />
           Add photo
@@ -133,7 +133,7 @@ export default function PhotoAttach({
       {pending && (
         <div data-testid="photo-prompt" className="mb-3 space-y-3 rounded-lg border border-white/15 bg-surface/60 p-3">
           <div>
-            <label htmlFor={altId} className="mb-1.5 block text-xs font-medium text-white/60">
+            <label htmlFor={altId} className="mb-1.5 block text-xs font-medium text-ink-mid">
               Describe this photo <span className="text-foreground">(required)</span>
             </label>
             <input
@@ -145,12 +145,12 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder={altPlaceholder}
               data-testid="photo-alt-input"
-              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div>
-            <label htmlFor={captionId} className="mb-1.5 block text-xs font-medium text-white/60">
-              Caption <span className="text-white/45">(optional)</span>
+            <label htmlFor={captionId} className="mb-1.5 block text-xs font-medium text-ink-mid">
+              Caption <span className="text-ink-lo">(optional)</span>
             </label>
             <input
               id={captionId}
@@ -160,7 +160,7 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder="A note to remember it by…"
               data-testid="photo-caption-input"
-              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/35 outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div className="flex items-center justify-end gap-2">
@@ -168,7 +168,7 @@ export default function PhotoAttach({
               type="button"
               onClick={cancelPending}
               data-testid="photo-cancel"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="h-4 w-4" aria-hidden="true" />
               Cancel
@@ -202,7 +202,7 @@ export default function PhotoAttach({
         </ul>
       ) : (
         !pending && (
-          <p className="text-xs text-white/45" data-testid="photo-empty">
+          <p className="text-xs text-ink-mid" data-testid="photo-empty">
             {hydrated ? 'No photos yet.' : 'No photos yet…'}
           </p>
         )
@@ -221,15 +221,15 @@ function PhotoThumb({ meta, onDelete }: { meta: PhotoMeta; onDelete: () => void 
   const { url, missing } = usePhotoObjectUrl(meta.id);
 
   return (
-    <li data-testid={`photo-thumb-${meta.id}`} className="group relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]">
+    <li data-testid={`photo-thumb-${meta.id}`} className="relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]">
       {missing ? (
         <div
           data-testid={`photo-placeholder-${meta.id}`}
           className="flex h-full w-full flex-col items-center justify-center gap-1 p-2 text-center"
           title={meta.caption ?? meta.altText}
         >
-          <ImageOff className="h-4 w-4 text-white/40" aria-hidden="true" />
-          <span className="line-clamp-2 text-[10px] leading-tight text-white/50">
+          <ImageOff className="h-4 w-4 text-ink-lo" aria-hidden="true" />
+          <span className="line-clamp-2 text-[10px] leading-tight text-ink-mid">
             {meta.caption ?? meta.altText}
           </span>
           <span className="sr-only">Photo no longer on this device</span>
@@ -247,17 +247,20 @@ function PhotoThumb({ meta, onDelete }: { meta: PhotoMeta; onDelete: () => void 
       )}
 
       {(meta.caption || meta.altText) && !missing && (
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3 text-[10px] text-white/80">
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3 text-[10px] text-ink-hi">
           {meta.caption ?? meta.altText}
         </span>
       )}
 
+      {/* Permanently visible, NOT hover/focus-revealed. A touch device fires neither,
+          so the hover-only version left no way to remove a photo on this feature's primary
+          device. It sits on a bg-black/50 chip over the caption's from-black/70 gradient. */}
       <button
         type="button"
         onClick={onDelete}
         data-testid={`photo-delete-${meta.id}`}
         aria-label={`Remove photo: ${meta.altText}`}
-        className="absolute right-1 top-1 inline-flex h-8 w-8 items-center justify-center rounded-md bg-black/50 text-white/80 opacity-0 outline-none transition-opacity duration-200 hover:bg-red-500/70 hover:text-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 group-hover:opacity-100"
+        className="absolute right-1 top-1 inline-flex h-tap w-tap items-center justify-center rounded-md bg-black/50 text-white outline-none hover:bg-red-500/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
       </button>

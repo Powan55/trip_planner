@@ -11,7 +11,8 @@ import { useJournal } from '@/hooks/use-journal';
 import { type Mood, type JournalEntry } from '@/core/journal/model';
 import { summarizePlan, elapsedTripDates, sumExpensesForDate, isPostTrip, type PlanSummary } from '@/core/recap/model';
 import { useExpenses } from '@/hooks/use-expenses';
-import { legCurrency, formatMoney } from '@/core/budget/model';
+import { legCurrency, formatMoney, LEGS, isLeg, type Leg } from '@/core/budget/model';
+import { legLabel } from '@/lib/leg-label';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
 import type { PhotoMeta } from '@/core/photos/model';
@@ -96,8 +97,7 @@ export default function TripStoryRecap() {
   let totalDone = 0;
   let totalPlanned = 0;
   let journaledDays = 0;
-  let spendNepal = 0;
-  let spendJapan = 0;
+  const spendByLeg: Record<Leg, number> = Object.fromEntries(LEGS.map((l) => [l, 0]));
 
   const dayData = days.map((date) => {
     const items = getDayPlan(date).items;
@@ -108,12 +108,16 @@ export default function TripStoryRecap() {
     totalPlanned += summary.planned;
     if (entry) journaledDays += 1;
     if (spend > 0) {
-      if (getCountryForDate(date) === 'nepal') spendNepal += spend;
-      else spendJapan += spend;
+      const leg = getCountryForDate(date);
+      if (isLeg(leg)) spendByLeg[leg] += spend;
     }
     const photos = photosFor({ kind: 'journal', date });
     return { date, items, summary, entry, spend, photos };
   });
+
+  const spendFragments = LEGS.filter((leg) => spendByLeg[leg] > 0).map(
+    (leg) => `spent ${formatMoney(spendByLeg[leg], legCurrency(leg))} in ${legLabel(leg)}`,
+  );
 
   return (
     <section
@@ -129,7 +133,7 @@ export default function TripStoryRecap() {
           <h2 id="story-title" className="font-display text-2xl sm:text-3xl font-bold text-white mb-4">
             <span className="text-display-emphasis">{days.length} days</span>, one journey
           </h2>
-          <p data-testid="story-trip-summary" className="mx-auto max-w-2xl text-base leading-relaxed text-white/65">
+          <p data-testid="story-trip-summary" className="mx-auto max-w-2xl text-base leading-relaxed text-ink-mid">
             {totalPlanned > 0 ? (
               <>
                 <span className="font-semibold text-foreground">{totalDone}</span> of {totalPlanned} planned
@@ -138,12 +142,10 @@ export default function TripStoryRecap() {
             ) : (
               'A trip with room to wander'
             )}
-            {(spendNepal > 0 || spendJapan > 0) && (
+            {spendFragments.length > 0 && (
               <>
                 {' — '}
-                {spendNepal > 0 && <>spent {formatMoney(spendNepal, 'NPR')} in Nepal</>}
-                {spendNepal > 0 && spendJapan > 0 && ' and '}
-                {spendJapan > 0 && <>spent {formatMoney(spendJapan, 'JPY')} in Japan</>}
+                {spendFragments.join(' and ')}
               </>
             )}
             {journaledDays > 0 && (
@@ -171,8 +173,8 @@ export default function TripStoryRecap() {
         </div>
 
         <footer className="mt-12 text-center">
-          <p className="text-sm italic text-white/45">
-            And that was the trip — Nepal, then Japan, {days.length} days in all.
+          <p className="text-sm italic text-ink-lo">
+            And that was the trip — {LEGS.map(legLabel).join(', then ')}, {days.length} days in all.
           </p>
         </footer>
       </div>
@@ -199,13 +201,13 @@ function StoryLocked({ nowDateStr }: { nowDateStr: string }) {
         <h2 id="story-locked-title" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Your story unlocks after the trip
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-white/60">
+        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-ink-mid">
           Once the last day in Japan wraps on {formatDateLong(LAST_TRIP_DATE)}, this page becomes a
           full day-by-day narrative of the trip — weaving what was planned, what actually happened,
           your journal reflections, and what was spent.
         </p>
         {elapsed.length > 0 && (
-          <p className="mt-4 text-sm text-white/45">
+          <p className="mt-4 text-sm text-ink-mid">
             So far you&apos;ve lived <span className="font-semibold text-foreground">{elapsed.length}</span> of{' '}
             {TRIP_DATES.length} trip days — come back once the trip wraps to read the whole story.
           </p>
@@ -251,22 +253,22 @@ function DayStory({
       <header className="mb-4">
         <h3 id={headingId} className="font-display text-lg font-bold leading-tight text-white sm:text-xl">
           Day <span className="text-foreground">{dayNumber}</span>
-          <span className="mx-2 text-white/40" aria-hidden="true">
+          <span className="mx-2 text-ink-lo" aria-hidden="true">
             —
           </span>
           {city}
         </h3>
-        <p className="mt-0.5 text-xs text-white/55">{formatDateLong(date)}</p>
+        <p className="mt-0.5 text-xs text-ink-mid">{formatDateLong(date)}</p>
       </header>
 
       {/* Plan-vs-actual, in prose: the run-rate line + the read-only item list. */}
       {summary.planned === 0 ? (
-        <p data-testid={`story-no-plan-${date}`} className="mb-3 text-sm italic text-white/55">
+        <p data-testid={`story-no-plan-${date}`} className="mb-3 text-sm italic text-ink-mid">
           A free day — nothing was planned.
         </p>
       ) : (
         <>
-          <p data-testid={`story-plan-summary-${date}`} className="mb-2 text-sm text-white/70">
+          <p data-testid={`story-plan-summary-${date}`} className="mb-2 text-sm text-ink-mid">
             <span className="font-semibold text-foreground">{summary.done}</span> of {summary.planned} planned{' '}
             {summary.planned === 1 ? 'activity' : 'activities'} done.
           </p>
@@ -280,10 +282,10 @@ function DayStory({
                   data-done={done ? 'true' : 'false'}
                   className="flex items-start gap-2 text-sm"
                 >
-                  <span aria-hidden="true" className={`mt-0.5 flex-shrink-0 ${done ? 'text-emerald-400' : 'text-white/25'}`}>
+                  <span aria-hidden="true" className={`mt-0.5 flex-shrink-0 ${done ? 'text-emerald-400' : 'text-ink-lo'}`}>
                     <Check className="h-3.5 w-3.5" strokeWidth={3} />
                   </span>
-                  <span className={done ? 'text-white/45 line-through' : 'text-white/80'}>{item.title}</span>
+                  <span className={done ? 'text-ink-lo line-through' : 'text-ink-hi'}>{item.title}</span>
                   <span className="sr-only">{done ? '— done' : '— not done'}</span>
                 </li>
               );
@@ -313,7 +315,7 @@ function DayStory({
               {entry.highlight && (
                 <span
                   data-testid={`story-journal-highlight-${date}`}
-                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-white/90"
+                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-ink-hi"
                 >
                   <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0 break-words">{entry.highlight}</span>
@@ -324,7 +326,7 @@ function DayStory({
           {entry.text && (
             <p
               data-testid={`story-journal-body-${date}`}
-              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white/65"
+              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-hi"
             >
               {entry.text}
             </p>
@@ -337,9 +339,9 @@ function DayStory({
 
       {/* The day's logged spend, in the day's leg-local currency — only when >0. */}
       {spend > 0 && (
-        <p data-testid={`story-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-white/60">
+        <p data-testid={`story-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-ink-mid">
           <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
-          Spent <span className="font-semibold text-white/85">{formatMoney(spend, legCurrency(country))}</span>
+          Spent <span className="font-semibold text-ink-hi">{formatMoney(spend, legCurrency(country))}</span>
         </p>
       )}
     </m.article>
@@ -372,8 +374,11 @@ export function StoryPhotos({
         <Camera className="h-3.5 w-3.5" aria-hidden="true" />
         Photos
       </p>
+      {/* tabIndex=0 keeps the horizontal strip scrollable without a mouse. No role="region"
+          here — it would clobber the list role, and the aria-label already names it. */}
       <ul
-        className="flex gap-2 overflow-x-auto pb-1"
+        tabIndex={0}
+        className="flex gap-2 overflow-x-auto pb-1 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         aria-label={`Photos from Day ${dayNumber}, ${city}`}
       >
         {photos.map((meta) => (
@@ -403,7 +408,7 @@ function StoryPhotoThumb({ meta }: { meta: PhotoMeta }) {
           className="flex h-full w-full flex-col items-center justify-center gap-1 p-1 text-center"
           title={meta.caption ?? meta.altText}
         >
-          <ImageOff className="h-4 w-4 text-white/40" aria-hidden="true" />
+          <ImageOff className="h-4 w-4 text-ink-lo" aria-hidden="true" />
           <span className="sr-only">Photo no longer on this device</span>
         </div>
       ) : url ? (
@@ -414,7 +419,7 @@ function StoryPhotoThumb({ meta }: { meta: PhotoMeta }) {
       )}
 
       {meta.caption && !missing && (
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1 pb-0.5 pt-2 text-[9px] text-white/80">
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1 pb-0.5 pt-2 text-[9px] text-ink-hi">
           {meta.caption}
         </span>
       )}

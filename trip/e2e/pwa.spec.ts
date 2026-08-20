@@ -271,7 +271,10 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
     // not rendered, so `countdown-days` is absent whenever the real remaining day count
     // divides by 7, a once-a-week false failure. The clock cells always render.
     anchor: '[data-testid="countdown-hours"]',
-    what: 'the TripDashboard countdown island (app/page.tsx -> @/components/trip-dashboard)',
+    // Named the TripDashboard island until issue #106 deleted that section. The anchor is
+    // unchanged and was never that section's: `countdown-hours` has always been the HERO's
+    // clock cell, which is the island this row actually proves loaded.
+    what: 'the HeroSection countdown island (app/page.tsx -> @/components/hero-section)',
   },
   '/404/': {
     skip:
@@ -308,16 +311,26 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
     what: 'the JournalBrowse island (app/journal/sections.tsx -> @/components/journal-browse)',
   },
   '/map/': {
-    anchor: '[data-testid="map-shell"]',
-    what: 'the MapSection island (app/map/sections.tsx -> @/components/map-section)',
-    // S394 PROMOTED this from a `skip`. It was carved out because D-271 ① kept maplibre's
-    // engine out of the precache, so cold-offline /map/ could only ever render the
-    // MapIslandBoundary fallback and asserting route content would have contradicted the
-    // decision. The owner reversed that: the engine (1.01 MiB) now ships with the install,
-    // so /map/ owes the same cold-offline guarantee as every other route and gets the same
-    // assertion. The boundary's degradation path did NOT lose its test — see the eviction-
-    // driven one below, which now creates the missing-chunk condition itself instead of
-    // borrowing it from an exclusion that no longer exists.
+    anchor: '[data-testid="map-island-unavailable"]',
+    what: "the MapIslandBoundary pane for the MapSection island (app/map/sections.tsx -> @/components/map-section), which is what /map/ owes cold-offline",
+    // 🔴 THE ONE ROUTE WHOSE COLD-OFFLINE CONTRACT IS THE BOUNDARY, NOT THE BODY, and it has
+    // moved twice. D-271 ① kept maplibre out of the precache and this was a `skip`; S394
+    // precached the engine and promoted it to `[data-testid="map-shell"]`; V6-14 withholds
+    // the engine again (~363 KB gzip off every install, spent on the one route D-274 already
+    // declines to promise offline) and runtime-caches it on the first ONLINE /map visit.
+    //
+    // So `map-shell` is the WRONG anchor now, and it is wrong by CONSTRUCTION, not by luck:
+    // it lives at components/map-section.tsx:1291, i.e. INSIDE <MapSectionIsland/>, which is
+    // the child of <MapIslandBoundary> at app/map/sections.tsx:22-24. Cold-offline the
+    // island's chunk group carries a withheld maplibre chunk, React.lazy throws, the
+    // boundary catches, and the subtree holding `map-shell` never renders at all.
+    //
+    // Re-skipping would have been the other honest option and is worse: this anchor keeps
+    // /map/ inside the loop, so it still proves the route did NOT crash to app/error.tsx
+    // (expectRouteBodyRendered's absence half) and that the degradation is the named,
+    // contained one. `map-island-unavailable` is absent from the cached HTML — the ssr:false
+    // bailout means the static export carries the SectionSkeleton, never this pane — so it
+    // keeps the discriminating power every other anchor here is chosen for.
   },
   '/more/': {
     anchor: '[data-testid="more-link-flights"]',
@@ -331,9 +344,17 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
     anchor: '[data-testid="packing-checklist"]',
     what: 'the PackingChecklist island (app/packing/sections.tsx -> @/components/packing-checklist)',
   },
+  '/passport/': {
+    anchor: '[data-testid="passport-stamps"]',
+    what: 'the PassportStamps island (app/passport/sections.tsx -> @/components/passport-stamps)',
+  },
   '/plan/': {
     anchor: '[data-testid="calendar-toolbar"]',
     what: 'the CalendarPlanner island (app/plan/sections.tsx -> @/components/calendar-planner)',
+  },
+  '/profile/': {
+    anchor: '[data-testid="visited-places-panel"]',
+    what: 'the VisitedPlacesPanel island (app/profile/sections.tsx -> @/components/visited-places-panel)',
   },
   '/recap/': {
     anchor: '[data-testid="trip-story-recap"]',
@@ -464,21 +485,50 @@ test.describe('S84 · precache manifest present (D-073 shell contract)', () => {
     }
   });
 
-  test('images are NOT in the precache (runtime cache-first LRU, D-073)', async ({ page }) => {
+  /**
+   * The image exclusion is STILL the rule (D-073 / D-086(b)) — D-335 exempts exactly one
+   * named path prefix from it, so this test is retargeted rather than retired.
+   *
+   * It has to fail in BOTH directions, which is why it is not "some images are allowed":
+   *   - a GALLERY image sneaking into the precache still fails, because every `/images/`
+   *     entry must match `images/hero/*.avif`;
+   *   - a SEVENTH hero file arriving unnoticed still fails, because the count is pinned.
+   * The second half is the one that matters for the payload argument in D-335: the
+   * exception is priced at six files / 555.2 KiB, and a prefix rule grows silently.
+   */
+  test('the ONLY /images/ precache entries are the six hero AVIFs (D-073 exclusion, D-335 exception)', async ({
+    page,
+  }) => {
     await page.goto('/', { waitUntil: 'load' });
     await waitForActivatedSW(page);
 
-    const hasImages = await safeEval(page, async () => {
+    const imageEntries = await safeEval(page, async () => {
       const names = await caches.keys();
       const precacheName = names.find((n) => n.startsWith('trip-precache-'));
       if (!precacheName) return null;
       const cache = await caches.open(precacheName);
       const reqs = await cache.keys();
-      return reqs.some((r) => /\/images\//.test(new URL(r.url).pathname));
+      return reqs
+        .map((r) => new URL(r.url).pathname)
+        .filter((p) => p.includes('/images/'))
+        .sort();
     });
-    // gen-sw.mjs deliberately EXCLUDES public/images/** from the precache (they
-    // are runtime-cached in a separate LRU-capped cache), so none appear here.
-    expect(hasImages).toBe(false);
+
+    expect(imageEntries, 'no trip-precache-* cache was found').not.toBeNull();
+
+    // (a) Nothing under /images/ is precached EXCEPT the hero AVIFs. gen-sw.mjs's
+    // HERO_PRECACHE is a path prefix, and this is the assertion that keeps it narrow.
+    const strays = imageEntries!.filter((p) => !/\/images\/hero\/[^/]+\.avif$/.test(p));
+    expect(
+      strays,
+      'a non-hero image is in the precache — D-073/D-086(b) exclude public/images/** and D-335 exempts images/hero/*.avif ONLY',
+    ).toEqual([]);
+
+    // (b) …and there are exactly six of them, the set D-335 priced.
+    expect(
+      imageEntries,
+      'the hero precache changed size — D-335 costs six files / 555.2 KiB and that number is load-bearing in the decision',
+    ).toHaveLength(6);
   });
 });
 
@@ -529,6 +579,98 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
     await expectRootShellRendered(page, 'offline nav fallback for an uncached route');
 
     // Restore the network for context teardown hygiene.
+    await context.setOffline(false);
+  });
+
+  /**
+   * D-335 (issue #89) — the Home hero raster resolves OFFLINE with the runtime image
+   * cache gone. This is the only test of the hero precache's actual purpose.
+   *
+   * 🔴 WHY THE IMAGE CACHE IS DELETED FIRST. `trip-images-v1` would otherwise answer the
+   * request and the test would prove nothing: it would be green with HERO_PRECACHE
+   * deleted. Wiping it leaves the precache as the ONLY cache that can serve the raster,
+   * so a pass means the precache served it. That is also the honest model of the real
+   * failure D-335 fixes — the cache is FIFO-80 against 105 other manifest images, so
+   * ordinary gallery browsing evicts the hero, and on 19 Dec the leg-aware Japan frame
+   * has never been inserted into it in the first place.
+   *
+   * 🔴 WHY BOTH ASSERTIONS. `currentSrc`/`naturalWidth` alone would pass on a page that
+   * ALSO painted the fallback; the fallback count alone would pass on a hero that never
+   * mounted. Together they say "the photograph is there and the invented mountains are
+   * not". `naturalWidth > 0` is the part that cannot be faked by a cached-but-broken
+   * response: a failed image decodes to 0.
+   *
+   * `?today=2026-12-19` is the Japan leg (the same frozen date the B-01 guard in
+   * countdown.spec.ts uses), so this exercises the URL the device has never requested.
+   */
+  test('offline with the image cache wiped, the leg-aware hero raster still resolves from the precache (D-335)', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/', { waitUntil: 'load' });
+    await waitForActivatedSW(page);
+    await expect
+      .poll(async () =>
+        safeEval(page, async () => {
+          const names = await caches.keys();
+          const precacheName = names.find((n) => n.startsWith('trip-precache-'));
+          if (!precacheName) return 0;
+          const cache = await caches.open(precacheName);
+          return (await cache.keys()).length;
+        }),
+      )
+      .toBeGreaterThan(20);
+
+    // Wipe the runtime image cache, and PROVE it is gone — a rename of IMAGES_CACHE
+    // would otherwise turn this whole test into a green check of a warm cache.
+    const remaining = await safeEval(page, async () => {
+      await caches.delete('trip-images-v1');
+      return (await caches.keys()).filter((n) => n.includes('images'));
+    });
+    expect(
+      remaining,
+      'trip-images-v1 survived the delete (renamed?) — the hero could be served from it and this test would prove nothing',
+    ).toEqual([]);
+
+    await context.setOffline(true);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/?today=2026-12-19', { waitUntil: 'load' });
+
+    // The Japan leg really is the one being rendered (otherwise this asserts the
+    // DEFAULT hero offline and silently stops covering the leg swap).
+    await expect(page.getByTestId('hero-travel-mode')).toContainText('Osaka');
+
+    const heroImg = page.locator('.hero-photo-wrap picture img');
+    await expect(
+      heroImg,
+      'offline: the hero photograph layer is absent — OptimizedImage errored and hero-section fell to its SVG art',
+    ).toBeVisible();
+
+    // The raster RESOLVED — one poll asserting both halves at once: the element
+    // reports `complete` with a NON-ZERO naturalWidth (a failed image decodes to 0, so
+    // this cannot be satisfied by a cached-but-broken response), and the URL it settled
+    // on is the Japan-leg AVIF. `currentSrc` is the only attribute that names the
+    // width-selected derivative the browser actually fetched.
+    await expect
+      .poll(
+        async () =>
+          heroImg.evaluate((el: HTMLImageElement) =>
+            el.complete && el.naturalWidth > 0 ? el.currentSrc : '',
+          ),
+        {
+          message:
+            'offline: the hero raster never decoded — the precached hero AVIF did not serve (D-335)',
+        },
+      )
+      .toMatch(/\/images\/hero\/hero-japan(-\d+w)?\.avif$/);
+
+    // …and the fallback art is NOT on screen. `url(#rangeFar)` is unique to the
+    // invented mountain range in components/hero-section.tsx.
+    await expect(
+      page.locator('path[fill="url(#rangeFar)"]'),
+      'offline: hero-section painted its SVG fallback mountains, so a hero raster failed to load',
+    ).toHaveCount(0);
+
     await context.setOffline(false);
   });
 
@@ -617,6 +759,28 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
   });
 
   /**
+   * Delete every cached `_next/static/**.js` whose body carries the `maplibregl` marker,
+   * and report how many went. Zero-arg by construction so it can ride `safeEval`, and
+   * idempotent — a second run over an already-evicted cache simply removes nothing.
+   */
+  const evictMaplibreFromCaches = async (): Promise<number> => {
+    let removed = 0;
+    for (const name of await caches.keys()) {
+      const cache = await caches.open(name);
+      for (const req of await cache.keys()) {
+        if (!new URL(req.url).pathname.match(/^\/_next\/static\/.*\.js$/)) continue;
+        const res = await cache.match(req);
+        if (!res) continue;
+        if ((await res.text()).includes('maplibregl')) {
+          await cache.delete(req);
+          removed++;
+        }
+      }
+    }
+    return removed;
+  };
+
+  /**
    * S365 / S394 — a missing maplibre chunk must DEGRADE, not crash.
    *
    * In the App Router a `dynamic()` whose chunk is missing makes `React.lazy` THROW,
@@ -634,6 +798,15 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
    * only proof at the exact moment its trigger became rarer and therefore less likely
    * to be noticed. So the test now CREATES the condition itself, by evicting maplibre
    * from the cache — which is a closer model of the real remaining failure anyway.
+   *
+   * 🔴 WHAT V6-14 CHANGED. The engine is withheld from the precache AGAIN, and is now
+   * runtime-cached by the SW's static cacheFirst branch on the first ONLINE `/map/`
+   * visit. That broke this test in the one way a cache test breaks: there was nothing
+   * left in any cache to evict, so it died on its own anti-vacuity guard ("no maplibre
+   * chunk was found in any cache to evict"). The fix is to CREATE the subject the way a
+   * real traveller does — open `/map/` online once, let the backfill land — and only
+   * then evict. That models the true remaining failure exactly: the engine WAS saved on
+   * this device, and storage pressure took it back.
    *
    * The eviction is by CONTENT (`maplibregl` in the chunk body), the same predicate
    * `scripts/gen-sw.mjs`'s isMaplibreChunk() uses, because the filenames are bare
@@ -658,26 +831,28 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
       )
       .toBeGreaterThan(20);
 
-    const evicted = await safeEval(page, async () => {
-      let removed = 0;
-      for (const name of await caches.keys()) {
-        const cache = await caches.open(name);
-        for (const req of await cache.keys()) {
-          if (!new URL(req.url).pathname.match(/^\/_next\/static\/.*\.js$/)) continue;
-          const res = await cache.match(req);
-          if (!res) continue;
-          if ((await res.text()).includes('maplibregl')) {
-            await cache.delete(req);
-            removed++;
-          }
-        }
-      }
-      return removed;
-    });
-    expect(
-      evicted,
-      'no maplibre chunk was found in any cache to evict — the eviction matched nothing, so anything below would be a green test of a working map',
-    ).toBeGreaterThan(0);
+    // V6-14: nothing to evict until something put it there. ONE online /map/ visit is the
+    // whole mechanism — the island's chunks and then the engine itself are same-origin,
+    // non-image, non-navigate GETs, so they land on the SW's last fetch branch and
+    // cacheFirst() writes them into the precache. `map-shell` renders only from inside the
+    // island, so it proves that import resolved rather than that the HTML was served.
+    await page.goto('/map/', { waitUntil: 'load' });
+    await expect(
+      page.getByTestId('map-shell'),
+      'ONLINE /map/: the map island never mounted, so nothing backfilled maplibre into the cache and the eviction below would have no subject',
+    ).toBeVisible({ timeout: 30_000 });
+
+    // cacheFirst()'s `cache.put` is deliberately fire-and-forget (it must not delay the
+    // response), so POLL the eviction rather than assume the write has landed. Evicting
+    // nothing is a no-op, so re-running is safe; the poll's own failure is the anti-vacuity
+    // guard the single-shot assertion used to be.
+    await expect
+      .poll(() => safeEval(page, evictMaplibreFromCaches), {
+        message:
+          'no maplibre chunk was found in any cache to evict — the online /map/ visit did not backfill it (V6-14 runtime-caches the engine there), so anything below would be a green test of a working map',
+        timeout: 20_000,
+      })
+      .toBeGreaterThan(0);
 
     await context.setOffline(true);
     await page.goto('/map/', { waitUntil: 'load' });

@@ -54,6 +54,8 @@ vi.mock('firebase/app', () => ({
 }));
 vi.mock('firebase/firestore', () => ({
   getFirestore: () => ({ __type: 'db' }),
+  initializeFirestore: () => ({ __type: 'db' }),
+  persistentLocalCache: () => ({}),
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: segs.join('/') }),
 }));
 vi.mock('firebase/auth', () => ({

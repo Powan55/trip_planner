@@ -23,12 +23,24 @@
 // idiom scroll-progress.tsx uses, proven live in e2e/motion.spec.ts's S180 pack), and the
 // framer fallback is what renders whenever the CSS primitive isn't supported.
 
-import { describe, it, expect, afterEach } from 'vitest';
+// Issue #24: <Reveal> now asks lib/motion.ts which surface it is on, so it needs a pathname.
+// `/nepal/` is Tier 2, where D-292 permits scroll-reveal entrances — the tier that lets these
+// three assertions still be about the CSS-vs-framer path and nothing else. With no router
+// mounted `usePathname()` is null, which the tier gate reads as unscoped and refuses.
+//
+// The three renders below all sit on that one surface, so they share ONE entrance decision
+// (lib/motion.ts's per-surface memo) — the ledger is not what varies here.
+
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 
 import { Reveal } from '@/components/reveal';
+
+// Hoisted by vitest above the import above, which is the point — <Reveal> reads the pathname
+// at module scope through `usePathname`, and there is no app router in this harness.
+vi.mock('next/navigation', () => ({ usePathname: () => '/nepal/' }));
 
 function render(el: ReactElement) {
   const container = document.createElement('div');

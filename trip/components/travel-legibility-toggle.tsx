@@ -63,7 +63,7 @@ export default function TravelLegibilityToggle() {
       className={`inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
         high
           ? 'bg-primary/20 text-primary hover:bg-primary/25'
-          : 'text-white/60 hover:bg-white/10 hover:text-white'
+          : 'text-ink-mid hover:bg-white/10 hover:text-white'
       }`}
     >
       <Sun className="h-4 w-4" aria-hidden="true" />

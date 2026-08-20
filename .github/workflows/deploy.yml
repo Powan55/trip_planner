@@ -35,7 +35,7 @@ jobs:
       # fetch-depth/fetch-tags are load-bearing, not habit: the gate decides by
       # looking for a tag, and checkout's defaults fetch none, so a shallow
       # checkout makes it pass on a version that is already live.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -64,6 +64,10 @@ jobs:
     name: Checks
     uses: ./.github/workflows/ci.yml
 
+  # `checks` covers ci.yml's new `rules-check` job too, and it has to: `needs` can only name
+  # jobs declared in THIS file, so `needs: [version-gate, checks, rules-check]` would not be a
+  # stricter gate, it would be a parse error on an unknown job. A called workflow succeeds or
+  # fails as a unit, so a red rules-check makes `checks` red and nothing below it runs.
   build:
     needs: [version-gate, checks]
     runs-on: ubuntu-latest
@@ -71,10 +75,10 @@ jobs:
       run:
         working-directory: trip
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
           cache-dependency-path: trip/package-lock.json
       - run: npm ci --legacy-peer-deps
@@ -121,13 +125,92 @@ jobs:
           esac
           echo "concierge-url present: yes"
           npm run build
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: trip/out
 
-  deploy:
+  # Publishing firestore.rules is part of the release now instead of something someone
+  # remembers (issue #39, D-314). The contract that buys: the live ruleset is the
+  # firestore.rules from the tree of the most recent successful deploy tag, so "what is live"
+  # is answerable offline with `git show v<version>:firestore.rules`.
+  #
+  # The publish is UNCONDITIONAL — no paths: filter, no "did the file change" test. A file-change
+  # test answers "did the repo change", which gets read as "is the live ruleset current", and the
+  # two diverge silently after a console edit, a failed earlier publish, or a release cut from a
+  # branch that never carried the change. Unconditional means the console is now READ-ONLY for
+  # rules: a console edit is reverted here without warning, so a console hotfix has to end in a
+  # commit.
+  #
+  # BETWEEN build and deploy, not after it, and that ordering is the whole safety story. A failed
+  # publish then ships NOTHING, leaving the live client and the live ruleset the matched pair
+  # they already were — the same fail-closed idiom as `build: needs: [version-gate, checks]`.
+  # After the deploy, a failure here would leave a new client running against old rules.
+  #
+  # THE CREDENTIAL LIVES IN THIS FILE AND CAN NEVER MOVE INTO ci.yml. Per D-302 clause 2 a
+  # called workflow receives no secrets (the `checks:` call above passes no `secrets: inherit`),
+  # so a `secrets.*` read in ci.yml resolves to the EMPTY STRING WITH NO ERROR on the deploy
+  # path: one file, two call paths, silently different configuration, and the silent one is the
+  # path that matters. ci.yml proves the rules against an emulator; only this file publishes.
+  publish-rules:
+    name: Publish firestore.rules
     needs: build
+    runs-on: ubuntu-latest
+    # Narrower than the workflow default on purpose: this is the one job holding a Google
+    # credential, and it has no business with the Pages token or OIDC.
+    permissions:
+      contents: read
+    # The `secrets` context is NOT readable from a job-level `if:`, but it IS readable in `env:`,
+    # and `env` IS readable from a step-level `if:`. That indirection is what lets this land
+    # INERT: with no secret set the job runs, warns, and changes nothing about the live project.
+    env:
+      FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Pinned, and not decoration: this is the one job that runs with a Google credential, and
+      # `npx firebase-tools@14` needs Node >= 20. Today's ubuntu-latest ships it, so leaving this
+      # off would work right up until the runner image moves and the publish breaks with the key
+      # already in hand. No npm cache: nothing here installs from a lockfile.
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      # Deliberately green, not red. Arming this is an OWNER decision (D-314), because the
+      # v5.14.0 client has been writing member rosters into Firestore under the OLD permissive
+      # rules since 2026-08-10: publishing the members-gated ruleset before those live rosters
+      # are inspected can permanently lock out a traveller whose device has not opened the app
+      # since — after the publish, only an existing member can add anyone.
+      #
+      # The ceiling, stated so nobody is surprised by it: a warning nobody reads is a gate
+      # nobody has. Until the secret exists this job proves only that the workflow runs.
+      - name: No credential — rules NOT published
+        if: env.FIREBASE_SERVICE_ACCOUNT == ''
+        run: |
+          echo "::warning::FIREBASE_SERVICE_ACCOUNT is not set, so firestore.rules was NOT published. The live ruleset is whatever was last deployed by hand."
+          {
+            echo "### Firestore rules were not published"
+            echo ""
+            echo "\`FIREBASE_SERVICE_ACCOUNT\` is unset, so this release did not touch the live ruleset."
+            echo "The live rules are whatever was last deployed by hand, which may be older than the \`firestore.rules\` in this tree."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish firestore.rules
+        if: env.FIREBASE_SERVICE_ACCOUNT != ''
+        run: |
+          # RUNNER_TEMP, never the workspace: the workspace is what gets built and uploaded as
+          # the Pages artifact, and a service-account key that lands in it is published to the
+          # public web. printf, not echo, so nothing is appended to or interpreted in the JSON.
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          # No --project flag: the target comes from the committed .firebaserc, so the project id
+          # lives in exactly one reviewable place. That file is also the ONLY thing aiming this
+          # at the right project — rules-check proves the rules against an emulator, never
+          # against a live project, so it cannot catch a publish pointed somewhere else.
+          npx --yes firebase-tools@14 deploy --only firestore:rules --non-interactive
+
+  deploy:
+    # publish-rules, not build: a failed publish must ship nothing (see the note above).
+    # version-gate, checks and build are still upstream, transitively.
+    needs: publish-rules
     runs-on: ubuntu-latest
     # contents: write is needed only to push the success-marker tag below; the
     # job-level block overrides the read-only default, so pages/id-token
@@ -141,10 +224,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
       # Only reached if deploy-pages succeeded (a failed step halts the job),
       # so the tag records a genuinely-live version, never a failed attempt.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-tags: true
       - name: Tag this version as successfully deployed
@@ -158,4 +241,25 @@ jobs:
           else
             git tag -a "$TAG" -m "Successful GitHub Pages deploy of $TAG"
             git push origin "refs/tags/$TAG"
+          fi
+      # The gate already proved trip/docs/RELEASES.md carries this version's entry with no
+      # hold marker, so the same file is fit to ship as the release's own notes — no separate
+      # changelog to keep in sync. Recomputes TAG rather than reading it from the step above:
+      # steps do not share shell state, and re-deriving from package.json is one line either way.
+      # continue-on-error: a failure here (heading missing, transient API hiccup) must not
+      # redden a deploy that already shipped — Pages is live and the tag is pushed by this
+      # point, and this repo has no rollback, so a red run here inviting a panicked revert
+      # would be a worse outcome than a release that's simply late.
+      - name: Publish GitHub Release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./trip/package.json').version")
+          TAG="v$VERSION"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — nothing to record."
+          else
+            node scripts/release-notes.mjs "$TAG" > "$RUNNER_TEMP/release-notes.md"
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
           fi

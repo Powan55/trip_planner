@@ -64,12 +64,12 @@ function ForecastRow({ day, index }: { day: ForecastDay; index: number }) {
       data-testid="weather-forecast-day"
       className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/5 py-2 text-xs first:border-t-0 first:pt-1"
     >
-      <span className="w-16 flex-shrink-0 font-medium text-white/75">
+      <span className="w-16 flex-shrink-0 font-medium text-ink-hi">
         {formatDayLabel(day.date, index)}
       </span>
-      <span className="min-w-[6rem] flex-1 text-white/55">{day.condition}</span>
+      <span className="min-w-[6rem] flex-1 text-ink-mid">{day.condition}</span>
       <span
-        className="text-white/70"
+        className="text-ink-mid"
         aria-label={`High ${day.highC} degrees, low ${day.lowC} degrees`}
       >
         {day.highC}° / {day.lowC}°
@@ -99,13 +99,13 @@ function ForecastRow({ day, index }: { day: ForecastDay; index: number }) {
 function ForecastOutlook({ days, stale }: { days: ForecastDay[]; stale: boolean }) {
   return (
     <details data-testid="weather-forecast" className="group mt-4">
-      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-medium text-white/70 outline-none transition-colors duration-200 hover:text-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+      <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-medium text-ink-mid outline-none transition-colors duration-200 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
         <span>
           7-day outlook
           {stale && <span className="sr-only"> (cached — offline)</span>}
         </span>
         <ChevronDown
-          className="h-4 w-4 shrink-0 text-white/50 transition-transform duration-200 group-open:rotate-180"
+          className="h-4 w-4 shrink-0 text-ink-mid transition-transform duration-200 group-open:rotate-180"
           aria-hidden="true"
         />
       </summary>
@@ -141,7 +141,7 @@ function GoldenRow({
       <span className="text-muted-foreground" aria-hidden="true">
         {icon}
       </span>
-      <span className="flex-1 text-xs font-medium text-white/70">{label}</span>
+      <span className="flex-1 text-xs font-medium text-ink-hi">{label}</span>
       <span className="text-sm font-semibold text-foreground" aria-label={`${label}: ${range}`}>
         {range}
       </span>
@@ -157,7 +157,7 @@ function Attribution() {
       target="_blank"
       rel="noopener noreferrer"
       data-testid="weather-attribution"
-      className="mt-3 inline-block text-[10px] text-white/50 hover:text-white/70 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded"
+      className="mt-3 inline-block text-[10px] text-ink-mid hover:text-ink-hi transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded"
     >
       {OPEN_METEO_ATTRIBUTION.label}
     </a>
@@ -206,8 +206,8 @@ function UnavailableState() {
       data-state="unavailable"
       className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4"
     >
-      <CloudOff className="h-5 w-5 flex-shrink-0 text-white/25" aria-hidden="true" />
-      <p className="text-sm text-white/55">Weather is unavailable right now.</p>
+      <CloudOff className="h-5 w-5 flex-shrink-0 text-ink-lo" aria-hidden="true" />
+      <p className="text-sm text-ink-mid">Weather is unavailable right now.</p>
     </div>
   );
 }
@@ -236,14 +236,14 @@ function WeatherBody({ data }: { data: WeatherNow }) {
               >
                 {data.tempC}°
               </span>
-              <span className="text-lg text-white/50">C</span>
+              <span className="text-lg text-ink-mid">C</span>
             </p>
-            <p data-testid="weather-condition" className="mt-1 text-sm text-white/70">
+            <p data-testid="weather-condition" className="mt-1 text-sm text-ink-mid">
               {data.condition}
             </p>
           </div>
         </div>
-        <p className="text-right text-xs text-white/50" data-testid="weather-hilo">
+        <p className="text-right text-xs text-ink-mid" data-testid="weather-hilo">
           <span aria-label={`High ${data.highC} degrees`}>H: {data.highC}°</span>
           <br />
           <span aria-label={`Low ${data.lowC} degrees`}>L: {data.lowC}°</span>
@@ -281,7 +281,7 @@ function WeatherBody({ data }: { data: WeatherNow }) {
       {data.stale && (
         <p
           data-testid="weather-cached-indicator"
-          className="mt-3 flex items-center gap-1.5 text-[11px] text-white/55"
+          className="mt-3 flex items-center gap-1.5 text-[11px] text-ink-mid"
           aria-live="polite"
         >
           <WifiOff className="h-3 w-3" aria-hidden="true" />

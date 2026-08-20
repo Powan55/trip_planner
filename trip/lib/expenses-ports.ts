@@ -10,17 +10,18 @@
 import type { StoragePort, SyncPort } from '@/core/ports';
 import type { Expense } from '@/core/budget/expenses';
 import { expensesStoragePort } from '@/core/budget/storage';
+import { LEGS, type Leg } from '@/core/budget/model';
 import { isRemoteConfigured } from './firebase-config';
 import { withOutbox, type ChunkSync } from '@/core/sync/outbox';
 
 /** Rows for one leg, in stable insertion order (for the prev/next chunk-diff compare). */
-function legRows(list: Expense[], leg: 'nepal' | 'japan'): Expense[] {
+function legRows(list: Expense[], leg: Leg): Expense[] {
   return list.filter((e) => e.leg === leg);
 }
 
 /**
- * Expense `ChunkSync` for the offline outbox. Chunk = a leg (`'nepal'` | `'japan'`,
- *).
+ * Expense `ChunkSync` for the offline outbox. Chunk = a leg of the ACTIVE pack — `LEGS` from
+ * `core/budget/model.ts` (`'nepal'` | `'japan'` for the default pack; `'main'` for a custom trip).
  * - `chunkDiff` = the legs whose row-set changed prev→next (per-leg JSON compare, inlined so
  * this module keeps NOT statically importing `expenses-remote` — firebase stays off the
  * dormant hot path,).
@@ -31,7 +32,7 @@ const expensesChunkSync: ChunkSync<Expense[]> = {
   domain: 'expenses',
   chunkDiff(prev, next) {
     const changed: string[] = [];
-    for (const leg of ['nepal', 'japan'] as const) {
+    for (const leg of LEGS) {
       if (JSON.stringify(legRows(prev, leg)) !== JSON.stringify(legRows(next, leg))) {
         changed.push(leg);
       }
@@ -53,7 +54,7 @@ export const expensesSyncPort: SyncPort<Expense[]> = {
   // ack-on-resolve; a rejecting leg stays dirty and retries on the next flush. Self-gates on
   // configured AND identified traveler (dormant/guest never write the slot), so the dormant build
   // still pulls NO firebase onto the hot path. Never throws to the commit caller.
-  push: withOutbox(expensesChunkSync, expensesStoragePort),
+  push: withOutbox(expensesChunkSync),
 
   subscribe(onApplied) {
     // Dormant gate: no config ⇒ no firebase import, a no-op unsubscribe.

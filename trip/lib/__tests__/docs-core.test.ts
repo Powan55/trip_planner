@@ -16,6 +16,7 @@ import {
   setNote,
   docsCompletion,
   DEFAULT_TEMPLATE,
+  UNIVERSAL_TEMPLATE,
   type DocItem,
 } from '@/core/docs/model';
 
@@ -44,6 +45,37 @@ describe('DEFAULT_TEMPLATE', () => {
       expect(i.rev).toBeUndefined();
       expect(i.hlc).toBeUndefined();
       expect(i.note).toBeUndefined();
+    }
+  });
+});
+
+describe('UNIVERSAL_TEMPLATE (A-15/#102, D-355)', () => {
+  it('is DEFAULT_TEMPLATE minus nepal-visa/japan-entry — 16 items, derived not hand-duplicated', () => {
+    expect(UNIVERSAL_TEMPLATE).toHaveLength(16);
+    const ids = UNIVERSAL_TEMPLATE.map((i) => i.id);
+    expect(ids).not.toContain('nepal-visa');
+    expect(ids).not.toContain('japan-entry');
+    // Every remaining id/section/checked is byte-identical to DEFAULT_TEMPLATE — only the 4
+    // labels below are allowed to differ.
+    const overridden = new Set(['flight-tickets', 'cards-cash', 'passport-validity', 'chargers-adapters']);
+    for (const item of UNIVERSAL_TEMPLATE) {
+      const source = DEFAULT_TEMPLATE.find((d) => d.id === item.id)!;
+      expect(source).toBeDefined();
+      expect(item.section).toBe(source.section);
+      expect(item.checked).toBe(source.checked);
+      if (overridden.has(item.id)) expect(item.label).not.toBe(source.label);
+      else expect(item.label).toBe(source.label);
+    }
+  });
+
+  it('genericizes the 4 country/date-specific labels, dropping Nepal/Japan/hardcoded-year copy', () => {
+    const byId = new Map(UNIVERSAL_TEMPLATE.map((i) => [i.id, i.label]));
+    expect(byId.get('flight-tickets')).toBe('Flight e-tickets saved offline');
+    expect(byId.get('cards-cash')).toBe('Payment cards + emergency cash');
+    expect(byId.get('passport-validity')).toBe('Passport valid 6+ months beyond your return date');
+    expect(byId.get('chargers-adapters')).toBe('Chargers, cables & power adapters');
+    for (const label of byId.values()) {
+      expect(label).not.toMatch(/Nepal|Japan|Kathmandu|2027/i);
     }
   });
 });

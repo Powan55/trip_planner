@@ -34,7 +34,7 @@ export default function TravelPage() {
       className="travel-mode-root min-h-[100dvh] bg-surface px-gutter"
     >
       <div className="mx-auto flex max-w-2xl items-center justify-between gap-2">
-        <h1 className="font-display text-display-lg text-display-emphasis">Travel Mode</h1>
+        <h1 className="text-display-lg text-display-emphasis">Travel Mode</h1>
         <div className="flex shrink-0 items-center gap-1">
           {/* outdoor high-legibility toggle — TM-local, chrome-free header row. */}
           <TravelLegibilityToggle />

@@ -57,7 +57,7 @@ export default function DefaultTripOnly({ children }: { children: ReactNode }) {
       <p className="font-display text-lg font-semibold text-white">
         This page belongs to the Nepal × Japan trip
       </p>
-      <p className="mt-2 text-sm text-white/60">
+      <p className="mt-2 text-sm text-ink-mid">
         Your current trip doesn&apos;t use this section.
       </p>
       <div className="mt-6 flex items-center justify-center gap-3">
@@ -72,7 +72,7 @@ export default function DefaultTripOnly({ children }: { children: ReactNode }) {
         <a
           href={withBasePath('/trips/')}
           data-testid="default-trip-only-trips-link"
-          className="inline-flex min-h-[44px] items-center rounded-lg border border-white/15 px-4 text-sm font-medium text-white/80 outline-none transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex min-h-[44px] items-center rounded-lg border border-white/15 px-4 text-sm font-medium text-ink-hi outline-none transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Manage trips
         </a>

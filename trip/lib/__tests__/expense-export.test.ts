@@ -9,6 +9,7 @@ import {
   EXPENSE_QUARANTINE_KEY,
 } from '@/lib/expense-export';
 import type { Expense } from '@/core/budget/expenses';
+import { setActiveTripId, keyFor, STORAGE_KEYS } from '@/core/storage/gateway';
 
 const E1: Expense = {
   id: 'e1',
@@ -85,7 +86,7 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     const raw = JSON.stringify({
       schemaVersion: 1,
       updatedAt: 'x',
-      payload: [E1, { id: 'bad', leg: 'not-a-leg', category: 'food', amount: 1, createdAt: '' }],
+      payload: [E1, { id: 'bad', leg: 'nepal', category: 'not-a-category', amount: 1, createdAt: '' }],
     });
     const result = parseExpenseBackup(raw);
     expect(result.ok).toBe(true);
@@ -95,10 +96,50 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     }
   });
 
+  it('a row whose LEG is unknown to the active pack is IMPORTED, not dropped', () => {
+    // This case used to sit in the test above, with `leg: 'not-a-leg'` as the malformed row. It was
+    // pinning a data-loss bug: an expenses-only backup taken under another pack imported 0 rows and
+    // still reported success. An unknown leg is inert (excluded from the aggregates), not fatal.
+    const raw = JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: 'x',
+      payload: [E1, { id: 'm1', leg: 'main', category: 'food', amount: 1, createdAt: '' }],
+    });
+    const result = parseExpenseBackup(raw);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.expenses.map((e) => e.id)).toEqual(['e1', 'm1']);
+      expect(result.expenses[1].leg).toBe('main');
+    }
+  });
+
   it('a future higher schemaVersion is still read leniently (forward-compat)', () => {
     const raw = JSON.stringify({ schemaVersion: 99, updatedAt: 'x', payload: [E1] });
     const result = parseExpenseBackup(raw);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.expenses).toEqual([E1]);
+  });
+});
+
+// ── #100/A-10 — quarantine now routes through keyFor('expensesCorrupt') ──────────────────────
+describe('expense quarantine key — routed through the gateway (keyFor), grandfathered on the default pack', () => {
+  it('EXPENSE_QUARANTINE_KEY is byte-identical to the gateway\'s STORAGE_KEYS.expensesCorrupt', () => {
+    expect(EXPENSE_QUARANTINE_KEY).toBe(STORAGE_KEYS.expensesCorrupt);
+    expect(EXPENSE_QUARANTINE_KEY).toBe('nepal_japan_expenses_corrupt');
+  });
+
+  it('default pack: a rejected import still quarantines under the exact legacy literal (grandfather)', () => {
+    const result = parseExpenseBackup('{not json');
+    expect(result.ok).toBe(false);
+    expect(localStorage.getItem(EXPENSE_QUARANTINE_KEY)).toBe('{not json');
+    expect(keyFor('expensesCorrupt')).toBe(EXPENSE_QUARANTINE_KEY);
+  });
+
+  it('non-default pack: a rejected import quarantines under trip:{id}:expensesCorrupt, NOT the legacy literal', () => {
+    setActiveTripId('some-other-trip');
+    const result = parseExpenseBackup('{not json');
+    expect(result.ok).toBe(false);
+    expect(localStorage.getItem('trip:some-other-trip:expensesCorrupt')).toBe('{not json');
+    expect(localStorage.getItem(EXPENSE_QUARANTINE_KEY)).toBeNull();
   });
 });

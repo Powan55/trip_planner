@@ -18,6 +18,7 @@ import {
   setKnownTripsRaw,
   getRemovedTripsRaw,
   setRemovedTripsRaw,
+  wipeTripData,
 } from '@/core/storage/gateway';
 
 /**
@@ -297,6 +298,9 @@ const REMOVED_TRIPS_CAP = 200;
  * - REFUSES `DEFAULT_TRIP_ID` (the main pack is never removable) — no-op.
  * - Forgetting the ACTIVE trip first switches the pointer to the default pack ( semantics: the
  * CALLER performs the reload), so the browser lands on a valid pack.
+ * - A-10/#100: also sweeps every `trip:{id}:*` slot (`wipeTripData`) — a forgotten trip no longer
+ * leaves its itinerary/expenses/budget/etc. on disk forever, and a dirty `syncOutbox` for that id
+ * can never survive to replay stale local edits over the live remote on a later re-join.
  */
 export function removeKnownTrip(id: string): void {
   if (!id || id === DEFAULT_TRIP_ID) return;
@@ -304,6 +308,7 @@ export function removeKnownTrip(id: string): void {
   writeStored(readStored().filter((t) => t.id !== id));
   const removed = [{ id, removedAt: Date.now() }, ...readRemoved().filter((r) => r.id !== id)];
   writeRemoved(removed.slice(0, REMOVED_TRIPS_CAP)); // newest-first, drop-oldest cap
+  wipeTripData(id);
 }
 
 /**

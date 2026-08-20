@@ -4,6 +4,7 @@
 // exports metadata. Reached via a direct URL or the "View all entries" link on
 // `journal-card.tsx`; deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar /
 // command palette in this change (those files are fenced — deferred follow-up, by design).
+import PageHero from '@/components/page-hero';
 import { JournalBrowse } from './sections';
 
 export const metadata = {
@@ -14,32 +15,17 @@ export const metadata = {
 export default function JournalPage() {
   return (
     <main className="min-h-screen bg-surface">
-      {/* Local page header — reuses the PageHero design tokens (glass-panel / text-display-lg /
-          text-display-emphasis / animate-reveal-up) directly rather than extending PageHero's
-          closed `HeroVariant` union (`app/plan/`, `/nepal/`, `/japan/`, `/map/` only — fenced
-          at: "do not extend page-hero.tsx"). Supplies the page's <h1> (mirrors
-          the PageHero convention — a route without its own <h1> gets one here). */}
-      <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
-        <div className="glass-panel animate-reveal-up relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12">
-          <span
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0"
-            style={{
-              background:
-                'radial-gradient(120% 140% at 0% 0%, rgba(240,199,96,0.12) 0%, transparent 55%)',
-            }}
-          />
-          <div className="relative">
-            <p className="text-eyebrow mb-3 uppercase" style={{ color: 'hsl(var(--accent-scroll))' }}>
-              Every day, in your words
-            </p>
-            <h1 className="font-display text-display-lg text-display-emphasis">Journal</h1>
-            <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
-              Browse and edit every trip-day entry you've written — private, on this device only.
-            </p>
-          </div>
-        </div>
-      </header>
+      {/* The hand-rolled copy of the old glass masthead is GONE, and that is the point:
+          it existed only because `HeroVariant` was fenced to four routes at the time.
+          /journal is a Tier-2 route, it gets the photographic band like its five
+          siblings, and one header implementation is what stops the next design change
+          having to be made twice. Same <h1>, eyebrow and subtitle text as before. */}
+      <PageHero
+        variant="journal"
+        title="Journal"
+        eyebrow="Every day, in your words"
+        subtitle="Browse and edit every trip-day entry you've written — private, on this device only."
+      />
       <JournalBrowse />
     </main>
   );

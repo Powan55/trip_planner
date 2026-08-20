@@ -53,8 +53,8 @@ export default function ExpenseLog({
           data-testid="expense-log-empty"
           className="rounded-lg border border-dashed border-white/10 px-4 py-8 text-center"
         >
-          <p className="text-sm text-white/60">No expenses logged yet.</p>
-          <p className="mt-1 text-xs text-white/55">
+          <p className="text-sm text-ink-mid">No expenses logged yet.</p>
+          <p className="mt-1 text-xs text-ink-mid">
             Tap “Log expense” to record a meal, a taxi, or a ticket — it counts against your budget above.
           </p>
         </div>
@@ -90,11 +90,11 @@ export default function ExpenseLog({
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold text-white sm:truncate" data-testid={`expense-item-${e.id}-amount`}>
                     {formatMoney(e.amount, cur)}
-                    <span className="ml-1.5 text-xs font-normal capitalize text-white/40">· {e.leg}</span>
+                    <span className="ml-1.5 text-xs font-normal capitalize text-ink-mid">· {e.leg}</span>
                     {splitCount > 0 && (
                       <span
                         data-testid={`expense-item-${e.id}-split`}
-                        className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-white/10 px-1.5 py-0.5 align-middle text-[0.65rem] font-normal text-white/60"
+                        className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-white/10 px-1.5 py-0.5 align-middle text-[0.65rem] font-normal text-ink-mid"
                       >
                         <Users className="h-3 w-3" aria-hidden="true" />
                         split {splitCount}
@@ -103,7 +103,7 @@ export default function ExpenseLog({
                   </p>
                   {e.note && (
                     <p
-                      className="text-xs text-white/50 sm:truncate"
+                      className="text-xs text-ink-hi sm:truncate"
                       data-testid={`expense-item-${e.id}-note`}
                     >
                       {e.note}
@@ -112,7 +112,7 @@ export default function ExpenseLog({
                   {/* "Logged by {name}" attribution — present only on a synced
                       expense stamped by an active traveler; dormant rows carry no createdBy. */}
                   {e.createdBy && (
-                    <p className="text-[0.7rem] text-white/40 sm:truncate" data-testid={`expense-item-${e.id}-author`}>
+                    <p className="text-[0.7rem] text-ink-mid sm:truncate" data-testid={`expense-item-${e.id}-author`}>
                       logged by {e.createdBy}
                     </p>
                   )}
@@ -122,7 +122,7 @@ export default function ExpenseLog({
                   onClick={() => onEdit(e)}
                   data-testid={`expense-item-edit-${e.id}`}
                   aria-label={`Edit ${e.category} expense of ${formatMoney(e.amount, cur)}`}
-                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-white/50 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-ink-mid transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -131,7 +131,7 @@ export default function ExpenseLog({
                   onClick={() => onDelete(e)}
                   data-testid={`expense-item-delete-${e.id}`}
                   aria-label={`Delete ${e.category} expense of ${formatMoney(e.amount, cur)}`}
-                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-white/40 transition-colors hover:bg-red-500/20 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-ink-mid transition-colors hover:bg-red-500/20 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </button>

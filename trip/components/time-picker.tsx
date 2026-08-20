@@ -126,8 +126,8 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
         data-testid={testId ?? 'time-picker-trigger'}
         className="w-full min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:outline-none"
       >
-        <Clock className="w-4 h-4 text-white/40 shrink-0" aria-hidden="true" />
-        <span className={value !== undefined ? 'text-white' : 'text-white/55'}>{label}</span>
+        <Clock className="w-4 h-4 text-ink-lo shrink-0" aria-hidden="true" />
+        <span className={value !== undefined ? 'text-white' : 'text-ink-lo'}>{label}</span>
       </button>
 
       {mounted &&
@@ -161,7 +161,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
                       onClick={() => setOpen(false)}
                       aria-label="Close time picker"
                       data-testid="time-picker-close"
-                      className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-white/50 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -202,7 +202,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
                       type="button"
                       onClick={clear}
                       data-testid="time-picker-clear"
-                      className="flex-1 min-h-[44px] px-3 py-2 rounded-lg text-xs font-medium text-white/70 bg-white/5 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="flex-1 min-h-[44px] px-3 py-2 rounded-lg text-xs font-medium text-ink-hi bg-white/5 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       Clear time
                     </button>
@@ -276,7 +276,7 @@ function TimeColumn<T extends string | number>({
 
   return (
     <div className="flex flex-col min-w-0">
-      <span id={`${listId}-label`} className="text-[10px] uppercase tracking-wide text-white/50 mb-1 text-center">
+      <span id={`${listId}-label`} className="text-[10px] uppercase tracking-wide text-ink-mid mb-1 text-center">
         {label}
       </span>
       <div
@@ -302,7 +302,7 @@ function TimeColumn<T extends string | number>({
               onClick={() => onSelect(opt)}
               onKeyDown={(e) => onKeyDown(e, idx)}
               className={`w-full min-h-[44px] flex items-center justify-center rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                selected ? 'bg-primary text-primary-foreground' : 'text-white/70 hover:bg-white/10'
+                selected ? 'bg-primary text-primary-foreground' : 'text-ink-mid hover:bg-white/10'
               }`}
             >
               {format(opt)}

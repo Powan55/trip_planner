@@ -68,7 +68,7 @@ export default function JournalBrowse() {
         <h2 id="journal-browse-heading" className="sr-only">
           All journal entries
         </h2>
-        <p className="text-sm text-white/55">Loading your journal…</p>
+        <p className="text-sm text-ink-mid">Loading your journal…</p>
       </section>
     );
   }
@@ -99,8 +99,8 @@ export default function JournalBrowse() {
 
       {datesDesc.length === 0 ? (
         <div data-testid="journal-browse-empty" className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center">
-          <p className="text-sm text-white/65">No journal entries yet.</p>
-          <p className="mt-1 text-xs text-white/50">
+          <p className="text-sm text-ink-mid">No journal entries yet.</p>
+          <p className="mt-1 text-xs text-ink-lo">
             Write about a trip day from the Today panel — it will show up here.
           </p>
         </div>
@@ -156,7 +156,7 @@ function JournalRow({
           onClick={onEdit}
           data-testid={`journal-browse-edit-${date}`}
           aria-label={`Edit journal entry for ${formatDateLong(date)}`}
-          className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-white/70 outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
           Edit
@@ -177,7 +177,7 @@ function JournalRow({
           {entry?.highlight && (
             <span
               data-testid={`journal-browse-highlight-${date}`}
-              className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-white/90"
+              className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-ink-hi"
             >
               <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
               <span className="min-w-0 break-words">{entry.highlight}</span>
@@ -189,7 +189,7 @@ function JournalRow({
       {entry?.text && (
         <p
           data-testid={`journal-browse-body-${date}`}
-          className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white/70"
+          className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-hi"
         >
           {entry.text}
         </p>
@@ -215,7 +215,13 @@ export function JournalPhotoStrip({ date, photos }: { date: string; photos: Phot
         <Camera className="h-3.5 w-3.5" aria-hidden="true" />
         Photos
       </p>
-      <ul className="flex gap-2 overflow-x-auto pb-1" aria-label={`Photos from ${formatDateLong(date)}`}>
+      {/* tabIndex=0 keeps the horizontal strip scrollable without a mouse. No role="region"
+          here — it would clobber the list role, and the aria-label already names it. */}
+      <ul
+        tabIndex={0}
+        className="flex gap-2 overflow-x-auto pb-1 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        aria-label={`Photos from ${formatDateLong(date)}`}
+      >
         {photos.map((meta) => (
           <JournalPhotoThumb key={meta.id} meta={meta} />
         ))}
@@ -243,7 +249,7 @@ function JournalPhotoThumb({ meta }: { meta: PhotoMeta }) {
           className="flex h-full w-full flex-col items-center justify-center gap-1 p-1 text-center"
           title={meta.caption ?? meta.altText}
         >
-          <ImageOff className="h-4 w-4 text-white/40" aria-hidden="true" />
+          <ImageOff className="h-4 w-4 text-ink-lo" aria-hidden="true" />
           <span className="sr-only">Photo no longer on this device</span>
         </div>
       ) : url ? (
@@ -254,7 +260,7 @@ function JournalPhotoThumb({ meta }: { meta: PhotoMeta }) {
       )}
 
       {meta.caption && !missing && (
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1 pb-0.5 pt-2 text-[9px] text-white/80">
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1 pb-0.5 pt-2 text-[9px] text-ink-hi">
           {meta.caption}
         </span>
       )}

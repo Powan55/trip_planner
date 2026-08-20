@@ -30,7 +30,7 @@ export default function TravelExitButton() {
       onClick={onExit}
       aria-label="Exit Travel Mode"
       data-testid="travel-exit"
-      className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-white/60 outline-none transition-colors duration-200 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-ink-mid outline-none transition-colors duration-200 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
     >
       <X className="h-5 w-5" aria-hidden="true" />
     </button>

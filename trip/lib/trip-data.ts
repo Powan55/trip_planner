@@ -115,25 +115,22 @@ export interface DayPlan {
   // single leg is `'main'`). For the DEFAULT pack the values are still exactly nepal/japan.
   country: string;
   // DISPLAY-ONLY override for the country half of the day's "City, Country" line — set
-  // when the day is not spent in its leg's country (Dec 9 is spent in Syracuse/JFK/the air, so
-  // 'USA' while `country` stays the 'nepal' LEG ID that drives currency + UTC offset). Absent
+  // when the day is not spent in its leg's country (Dec 9 is spent in Syracuse/JFK/the air and is
+  // named New York, so 'USA' while `country` stays the 'nepal' LEG ID driving currency + offset). Absent
   // on nearly every day; `lib/leg-label.ts` falls back to the leg's own label. NEVER read as
   // behaviour — no currency, offset, filtering or colour branch may key off it.
   countryLabel?: string;
   items: ItineraryItem[];
 }
 
-// 🔴 FINDING — these 30 class names are NOT scanned by Tailwind. `tailwind.config.ts`
-// content =./pages./components./app only; `lib/` is absent, so each utility here emits CSS
-// ONLY when some component/app file happens to contain the byte-identical string. Measured on
-// the 1a3958c build: 14 of the 31 colour utilities under lib/ emit nothing at all — sightseeing,
-// food, shopping and free render completely uncoloured today, and nature/nightlife are partial.
-// `transportation` rendered only because components/trip-map.tsx carried the same cyan trio for
-// its "Day Trip" map badge; re-hues both, so this row is now dead too until the one-line
-// root fix lands (add './lib/**/*.{ts,tsx}' to the content globs — deliberately NOT done here:
-// it would revive 13 dead utilities across six categories at once, which needs its own visual
-// pass). Do not "fix" a single row by copying its classes into a component — that is exactly the
-// accidental coupling that made this invisible for so long.
+// These 30 class names live in `lib/`, which Tailwind only scans because
+// `tailwind.config.ts` includes './lib/**/*.{js,ts,jsx,tsx,mdx}' in `content`. That glob is
+// load-bearing for this table: without it these utilities emit CSS only when some component
+// happens to contain the byte-identical string, which is how four categories once shipped with
+// no colour at all. See the note on the glob itself before touching it.
+//
+// Do not "fix" a row by copying its classes into a component — that accidental coupling is what
+// made the original breakage invisible.
 export const CATEGORY_COLORS: Record<ItineraryCategory, { bg: string; text: string; border: string }> = {
   sightseeing: { bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/30' },
   food: { bg: 'bg-orange-500/20', text: 'text-orange-300', border: 'border-orange-500/30' },

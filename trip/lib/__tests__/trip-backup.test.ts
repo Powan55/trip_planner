@@ -28,8 +28,11 @@ import {
   dayAnchorStore,
   shareInboxStore,
   setActiveTripId,
+  wipeAllTripData,
   STORAGE_KEYS,
 } from '@/core/storage/gateway';
+import { myPlacesStore } from '@/core/storage/my-places-store';
+import { loadMyPlaces, saveMyPlaces } from '@/core/places/storage';
 import { savePlans, loadPlans } from '@/lib/itinerary-storage';
 import { exportItinerary } from '@/core/vault/export-import';
 import { savePhotos } from '@/core/photos/storage';
@@ -39,6 +42,7 @@ import { normalizeModel } from '@/core/budget/model';
 import { sanitizeItems as sanitizeDocs } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
 import { sanitizeItems as sanitizeShare } from '@/core/share/model';
+import { sanitizePlaces, type MyPlace } from '@/core/places/model';
 import type { PhotoMeta } from '@/core/photos/model';
 import type { DayPlan } from '@/lib/trip-data';
 
@@ -64,6 +68,9 @@ const SEED_FAVORITES = ['naBoudha', 'jaFushimi'];
 const SEED_ANCHORS = { '2026-12-10': 'marker-boudha' };
 const SEED_SHARE = sanitizeShare([
   { id: 's1', receivedAt: '2026-07-01T00:00:00.000Z', title: 'A ryokan to book', url: 'https://example.com' },
+]);
+const SEED_PLACES: MyPlace[] = sanitizePlaces([
+  { id: 'pl1', name: 'Pokhara Lakeside cafe', legId: 'nepal', addedAt: '2026-07-01T00:00:00.000Z' },
 ]);
 
 function photoMeta(id: string, date = '2026-12-10'): PhotoMeta {
@@ -99,6 +106,7 @@ async function seedAll(store: BlobStorePort, photoCount = 2): Promise<Map<string
   favoritesStore.set(SEED_FAVORITES);
   dayAnchorStore.set(SEED_ANCHORS);
   shareInboxStore.set(SEED_SHARE);
+  myPlacesStore.set(SEED_PLACES);
 
   const metas: PhotoMeta[] = [];
   const blobBytes = new Map<string, number[]>();
@@ -117,7 +125,7 @@ async function seedAll(store: BlobStorePort, photoCount = 2): Promise<Map<string
 function domainSnapshot(): Record<string, string | null> {
   const keys = [
     'journal', 'expenses', 'budget', 'docsChecklist', 'packing',
-    'favorites', 'dayAnchors', 'shareInbox', 'photos',
+    'favorites', 'dayAnchors', 'shareInbox', 'photos', 'myPlaces',
   ] as const;
   const out: Record<string, string | null> = {};
   for (const k of keys) out[k] = localStorage.getItem(STORAGE_KEYS[k]);
@@ -369,5 +377,88 @@ describe('S273 — case 7: compression self-check (20-photo round-trip through t
     expect(res.ok).toBe(true);
     expect(localStorage.getItem(STORAGE_KEYS.journal)).toBe(before.journal);
     expect(loadPlans()).toEqual(SEED_PLANS);
+  });
+});
+
+describe('A-5 — cross-trip restore is refused, not silently applied', () => {
+  it('refuses a backup whose tripId differs from the active trip, and leaves the active trip untouched', async () => {
+    // Export trip A ("nepal-japan-2026", the default pack).
+    const storeA = makeInMemoryBlobStore();
+    await seedAll(storeA);
+    const fileFromTripA = await exportTripBackup(storeA);
+
+    // Switch to trip B and seed it with DIFFERENT data. `journalStore`/`myPlacesStore` resolve their
+    // key through `keyFor(activeTripId)`, so — unlike `domainSnapshot()`, which reads the DEFAULT
+    // pack's literal keys — these correctly read/write trip B's own `trip:trip-b:*` namespace.
+    setActiveTripId('trip-b');
+    const storeB = makeInMemoryBlobStore();
+    const tripBJournal = sanitizeEntries([{ date: '2026-12-11', text: "Trip B's own entry", createdAt: '', updatedAt: '' }]);
+    const tripBPlaces = sanitizePlaces([{ id: 'plB', name: "Trip B's place", legId: 'main', addedAt: '2026-07-02T00:00:00.000Z' }]);
+    journalStore.set(tripBJournal);
+    myPlacesStore.set(tripBPlaces);
+
+    // Restore trip A's backup while trip B is active.
+    const res = await importTripBackup(fileFromTripA, storeB);
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toMatch(/different trip/i);
+    // Trip B's data is byte-for-byte untouched — no domain was written.
+    expect(journalStore.get<unknown>(null)).toEqual(tripBJournal);
+    expect(myPlacesStore.get<unknown>(null)).toEqual(tripBPlaces);
+  });
+
+  it('still allows a same-trip restore through (the guard is not overbroad)', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const file = await exportTripBackup(store);
+
+    localStorage.clear(); // same trip pointer default (DEFAULT_TRIP_ID) after clear
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+
+    expect(res.ok).toBe(true);
+  });
+});
+
+describe('A-9 — myPlaces round-trips through backup → sign-out wipe → restore', () => {
+  it('the imported places survive exportTripBackup → wipeAllTripData → importTripBackup', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const beforePlaces = loadMyPlaces();
+    expect(beforePlaces).toEqual(SEED_PLACES);
+
+    const file = await exportTripBackup(store);
+
+    // The exact teardown the sign-out dialog's "Back up this trip first" button runs.
+    wipeAllTripData();
+    expect(loadMyPlaces()).toEqual([]);
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).toContain('myPlaces');
+    expect(loadMyPlaces()).toEqual(beforePlaces);
+  });
+
+  it('a malformed myPlaces domain is dropped (never-destroy), not wiped to []', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    saveMyPlaces(SEED_PLACES); // ensure the on-disk value matches SEED_PLACES exactly
+
+    const env = {
+      format: 'nepal-japan-trip-backup',
+      version: 1,
+      exportedAt: '2026-07-10T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      domains: { myPlaces: 'not-an-array' },
+      photos: { meta: [], blobs: {} },
+    };
+    const file = new Blob([JSON.stringify(env)], { type: 'application/json' });
+    const res = await importTripBackup(file, store);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).not.toContain('myPlaces');
+    expect(loadMyPlaces()).toEqual(SEED_PLACES); // untouched, not cleared
   });
 });

@@ -20,8 +20,15 @@
  */
 import { makeEnvelope } from '@/core/vault/envelope';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
+import { keyFor, readString, writeString } from '@/core/storage/gateway';
 
 export const EXPENSE_EXPORT_VERSION = 1;
+/**
+ * Historical bare literal, kept exported for callers/tests — byte-identical to
+ * `STORAGE_KEYS.expensesCorrupt` (gateway key 37). #100/A-10: the actual read/write below now
+ * routes through `keyFor('expensesCorrupt')` so a non-default pack quarantines under its own
+ * `trip:{id}:expensesCorrupt` slot instead of colliding on this literal.
+ */
 export const EXPENSE_QUARANTINE_KEY = 'nepal_japan_expenses_corrupt';
 
 export type ExpenseParseResult = { ok: true; expenses: Expense[] } | { ok: false; error: string };
@@ -34,15 +41,11 @@ export function exportExpenses(expenses: readonly Expense[]): string {
 
 /** Quarantine a rejected import blob verbatim so its raw bytes are recoverable. */
 function quarantine(raw: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    if (window.localStorage.getItem(EXPENSE_QUARANTINE_KEY) === null) {
-      window.localStorage.setItem(EXPENSE_QUARANTINE_KEY, raw);
-    }
-    console.warn('[expenses] rejected expenses import; original preserved at', EXPENSE_QUARANTINE_KEY);
-  } catch {
-    /* ignore (quota / disabled storage) — never throw from a preserve attempt */
+  const key = keyFor('expensesCorrupt');
+  if (readString('local', key) === null) {
+    writeString('local', key, raw);
   }
+  console.warn('[expenses] rejected expenses import; original preserved at', key);
 }
 
 /**

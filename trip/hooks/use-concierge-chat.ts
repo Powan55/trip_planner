@@ -37,7 +37,7 @@ export interface ChatTurn {
 // raised BOTH to 7000 (from 2000) so the whole fully-planned 32-day digest fits
 // without mid-trip truncation. raised BOTH to 9500, because the digest now carries a
 // per-item time + category prefix. MEASURED, not estimated:
-// fully-planned 32-day sample trip, 158 items: 6610 chars BEFORE → 9426 AFTER.
+// fully-planned 32-day sample trip, 158 items: 6636 chars BEFORE → 9452 AFTER.
 // Both numbers are pinned EXACTLY by the "MEASUREMENT" test in
 // lib/__tests__/concierge-digest-s327.test.ts (constants MEASURED_DIGEST_BEFORE/AFTER), so the
 // slack claim below is backed by a test that goes red rather than by a run someone did once —
@@ -45,9 +45,12 @@ export interface ChatTurn {
 //
 // ⚠️ THE SLACK IS THIN NOW, AND IT CANNOT BE BOUGHT BACK FROM THIS FILE. #12 spent 402 of it:
 // +351 taking the per-item times 24-hour → 12-hour (`18:30` → `6:30 PM`, the bug), and +51
-// making the date line unconditional. Measured worst case is 9435 chars, on an in-window clock
-// (the "(Day 31 of 32, Tokyo)." branch is longer than "(before the trip)."), leaving 65 chars,
-// about one more itinerary item, where there used to be room for ten. The cap test in that same
+// making the date line unconditional. #18 then spent 26 more, and NOT by changing this format:
+// D-327 retitled a seed item, the title is in the digest, and the digest grew. Worst case is now
+// 9461 chars, on an in-window clock (the "(Day 31 of 32, Tokyo)." branch is longer than
+// "(before the trip)."), leaving about 39 chars — under one itinerary item, where there used to
+// be room for ten. Note what that means: this budget is now spent by editing the TRIP, not only
+// by editing the builder, so a longer plan title is a cap change. The cap test in that same
 // file walks all 32 trip days and fails if any of them truncates.
 // If a future change needs more room, DIGEST_CAP and the Worker's CONTEXT_TRUNCATE_LENGTH move
 // TOGETHER, in a Worker deploy. Raising this one alone does not buy room, it just moves the
@@ -252,6 +255,32 @@ export function capHistory(turns: ChatTurn[]): ChatTurn[] {
 export type ChatStatus = 'idle' | 'streaming' | 'error';
 
 /**
+ * Issue #13 — our OWN sentence for a non-2xx concierge response, chosen by status class. The
+ * response body is never read: whatever `{error}` string came back does not reach the traveller.
+ *
+ * THE RULE, and the evidence for it. The Worker authors every `error` string it sends
+ * (`worker/src/index.ts::jsonError`, `providers.ts`' 502) and never passes an upstream provider
+ * body through — so "is this text ours?" was the question, and the answer is that the status code
+ * does not separate the useful copy from the machine text. 401 carries `missing trip token`
+ * (protocol jargon, and D-239 bans an unqualified "token" in UI copy), 400 carries
+ * `context must be a string`, while the genuinely readable sentence sits on a 502; a 500 comes
+ * from something that is not our Worker at all, since the Worker emits none. There is no clean
+ * split to pass through, so nothing from the wire is rendered — which also holds if a proxy, a
+ * CDN error page or a future Worker version answers instead.
+ *
+ * Copy convention (matching the offline + timeout lines below): name what happened, give the next
+ * action, never show machine text. The buckets are the ones with DIFFERENT next actions — an
+ * auth failure must not tell someone to press "Try again" forever.
+ */
+function statusMessage(status: number): string {
+  if (status === 401 || status === 403) {
+    return 'The concierge couldn’t confirm this trip is yours. Sign in again, or open the trip from your trips list.';
+  }
+  if (status === 413) return 'That message was too long to send. Shorten it and try again.';
+  return 'The concierge is having trouble right now. Try again in a moment.';
+}
+
+/**
  * Drives one concierge turn against the deployed Worker.
  *
  * SESSION-ONLY HISTORY: messages live in component state
@@ -332,6 +361,17 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       setStatus('streaming');
       setError(null);
 
+      // The ONE failure exit, so every path that fails after the in-flight bubble was pushed pops
+      // it and reports in the same words (issue #13 replaced a `throw`-and-read-`err.message`
+      // round trip with this: there is now no expression anywhere below that can put a machine
+      // string into `setError`).
+      const fail = (reason: string) => {
+        setStatus('error');
+        setError(reason);
+        // Drop the empty in-flight assistant bubble so the error state doesn't leave a blank turn.
+        setMessages((prev) => prev.slice(0, -1));
+      };
+
       try {
         const context = buildTripDigest();
         const trip = buildTripDescriptor();
@@ -357,16 +397,12 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
           signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
         });
 
+        // Issue #13 — the body is not read at all. It used to be parsed and its `error` string
+        // rendered verbatim, which put whatever the Worker (or anything in front of it) wrote in
+        // front of a traveller. See `statusMessage` for the rule and the evidence behind it.
         if (!res.ok) {
-          const raw = await res.text().catch(() => '');
-          let reason = `Concierge is unavailable (${res.status}).`;
-          try {
-            const parsed = JSON.parse(raw) as { error?: string };
-            if (parsed.error) reason = parsed.error;
-          } catch {
-            /* non-JSON error body (or no body) — keep the status-based reason */
-          }
-          throw new Error(reason);
+          fail(statusMessage(res.status));
+          return; // `finally` still clears sendingRef
         }
 
         // the structured turn returns ONE `application/json` object `{reply, ops}`, not
@@ -397,23 +433,26 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         historyRef.current = [...history, userTurn, { role: 'assistant', content: reply }];
         setStatus('idle');
       } catch (err) {
-        setStatus('error');
         // A CHAT_TIMEOUT_MS abort surfaces as a DOMException whose raw message ("signal timed out")
-        // is useless to a traveler — swap in a friendly, actionable one. Everything else keeps the
-        // Worker's own `error` text, which is the whole point of the non-200 branch above.
+        // is useless to a traveler — swap in a friendly, actionable one.
         // Matched on `.name` WITHOUT an `instanceof Error` guard on purpose: whether a DOMException
         // subclasses Error varies by implementation (jsdom's does not), and this must not depend on
         // that — `.name === 'TimeoutError'` is the part the spec actually pins.
+        //
+        // Issue #13 — EVERYTHING ELSE is our own sentence too; `err.message` is gone. A dead or
+        // unreachable provider while `navigator.onLine` is true (Worker deleted, DNS/TLS failure,
+        // CORS rejection, captive portal — common on foreign mobile data, not exotic) rejects with
+        // `TypeError: Failed to fetch`, and that exact machine string was being rendered in the
+        // panel's error row. The offline pre-check above only catches the case where the device
+        // knows it is offline; online-but-dead lands here. Nothing is lost by not naming the
+        // TypeError separately: the non-200 branch already returned through `fail` with the
+        // Worker's own status message, so this catch has no case left that deserves distinct words.
         const timedOut = (err as { name?: unknown } | null)?.name === 'TimeoutError';
-        setError(
+        fail(
           timedOut
             ? 'The concierge took too long to respond. Try again.'
-            : err instanceof Error
-              ? err.message
-              : 'Concierge is unavailable.',
+            : 'The concierge couldn’t be reached. Check your connection and try again.',
         );
-        // Drop the empty in-flight assistant bubble so the error state doesn't leave a blank turn.
-        setMessages((prev) => prev.slice(0, -1));
       } finally {
         sendingRef.current = false;
       }

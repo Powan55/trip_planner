@@ -36,8 +36,20 @@
  * lives at the root next to firestore.rules and stays INERT: it is not in any vitest include glob
  * and not in the app's tsc project, so it can never turn the app's own build or gate red.
  *
- * NOT wired into CI on purpose — that needs an emulator in the runner. Run it by hand whenever
- * firestore.rules changes.
+ * IT IS IN CI NOW (issue #39 / D-314). The `rules-check` job in .github/workflows/ci.yml installs
+ * firebase-tools and runs the command above in the runner, on every pull request, on pushes to
+ * `lax`, `uttam` and `dev` (ci.yml's push trigger lists exactly those — a push to a feature
+ * branch runs nothing), and again on the push to `main` that deploys — because the release now
+ * has a step that PUBLISHES firestore.rules
+ * (deploy.yml's `publish-rules`), so nothing unproven may reach the live project. Still worth
+ * running by hand when you change the rules: the gate tells you red or green, the phase output
+ * tells you what actually moved.
+ *
+ * IF YOU EDIT THAT CI JOB, KEEP THE SENTINEL FILE. `emulators:exec` returns exit code 2 even when
+ * the inner script exits 0 — measured twice locally, including with a trivial `node -e ''`: it
+ * logs "Script exited successfully (code 0)" and then errors tearing the emulator down on SIGINT.
+ * So CI runs `node scripts/rules-check.mjs && touch "$RUNNER_TEMP/rules-ok"`, discards the CLI's
+ * exit code, and asserts the file. Wiring the bare command in gives a RED gate on GREEN rules.
  *
  * WHAT IT PROVES, in eleven phases:
  *   0. control      — deny-all really denies, allow-all really allows (else every PASS is noise)
@@ -503,7 +515,7 @@ await expect('authed get on the PRESENT identity doc -> EXISTS', 'ALLOWED', asyn
   const snap = await getDoc(doc(db, 'trips', ACCT, 'profile', 'identity'));
   if (!snap.exists()) throw new Error('fixture: the probe target must exist by now');
 });
-await expect('authed deletes trips/{acct}/profile/identity', 'ALLOWED',
+await expect('authed deletes trips/{acct}/profile/identity -> DENIED (D-9: no client path deletes a profile doc; the door\'s identity doc must not be destroyable by a token-holder)', 'DENIED',
   () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'identity')));
 await expect('UNAUTH gets trips/{acct}/profile/identity', 'DENIED',
   () => getDoc(doc(dbU, 'trips', ACCT, 'profile', 'identity')));

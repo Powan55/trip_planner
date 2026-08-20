@@ -102,9 +102,14 @@ function renderStore<S>(useStore: () => S) {
 }
 
 /**
- * Four expenses, seeded straight to disk so the test controls every byte.
+ * Six expenses, seeded straight to disk so the test controls every byte.
  * The money in here is REAL: `exp-shared` is a 3000 NPR bill fronted by 'Traveler' and split with
  * 'Powan'. Claiming the NAME must leave that settlement untouched.
+ *
+ * The last two rows exist because the fixture was too narrow to prove what this file claims:
+ * `exp-dead` was the ONLY row with `paidBy` absent, and the rewrite skips a tombstone BEFORE any
+ * money field is read — so deleting the `paidBy` handling entirely would have left it green. And
+ * every row carried `SEED_HLC`, so nothing exercised a row the sync stamps have never touched.
  */
 function seedExpenses(): Expense[] {
   return [
@@ -164,6 +169,39 @@ function seedExpenses(): Expense[] {
       deleted: true,
       rev: 2,
       hlc: SEED_HLC,
+    },
+    // 🔴 A LIVE row with NO `paidBy` — the shape the dialog writes when the payer was left implicit
+    // ("absent ⇒ the current traveler", core/budget/expenses.ts:57). This is the row that gives the
+    // absent-field case discriminating power: it IS claimed, so the rewrite reaches it, and a
+    // rewrite that "helpfully" filled the field in would show up in `moneyBytes` as an added key.
+    // It carries a real 800 NPR and a real two-person split, and since D-333 `settle()` attributes
+    // it to NOBODY — the reason a rename can no longer move its balance (see the settle test below).
+    {
+      id: 'exp-nopayer',
+      leg: 'nepal',
+      category: 'sightseeing',
+      amount: 800,
+      createdAt: '2026-01-05T13:00:00.000Z',
+      split: [OLD, ME],
+      createdBy: OLD,
+      updatedBy: OLD,
+      rev: 1,
+      hlc: SEED_HLC,
+    },
+    // A LEGACY row: written before sync existed, so it carries NEITHER `rev` NOR `hlc`. The stamp
+    // helpers are total over that (`prev?.hlc ? parse(…) : null`, `(prev?.rev ?? 1) + 1`), and
+    // `mergeItems` seeds a missing `hlc` from `updatedAt`, which an Expense does not have — so the
+    // peer's un-rewritten copy sits at pt 0 and the claimed row must win the merge outright.
+    {
+      id: 'exp-legacy',
+      leg: 'japan',
+      category: 'shopping',
+      amount: 2500,
+      createdAt: '2026-01-05T14:00:00.000Z',
+      paidBy: OLD,
+      split: [OLD, 'Uttam'],
+      createdBy: OLD,
+      updatedBy: OLD,
     },
   ];
 }
@@ -266,12 +304,17 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
       claimed = s.claimAuthorship(OLD);
     });
 
-    // Two LIVE rows carry the old name in an attribution field (the tombstone is skipped).
-    expect(claimed).toBe(2);
-    // The guard would be vacuous if the claim had done nothing — prove it ran.
+    // Four LIVE rows carry the old name in an attribution field (the tombstone is skipped).
+    expect(claimed).toBe(4);
+    // The guard would be vacuous if the claim had done nothing — prove it ran, on the two rows
+    // amendment 7 added as well as the originals.
     expect(storedExpense('exp-shared')?.createdBy).toBe(ME);
     expect(storedExpense('exp-shared')?.updatedBy).toBe(ME);
     expect(storedExpense('exp-mine')?.createdBy).toBe(ME);
+    expect(storedExpense('exp-nopayer')?.updatedBy).toBe(ME);
+    expect(storedExpense('exp-legacy')?.updatedBy).toBe(ME);
+    // The absent field STAYS absent: the rewrite never invents a payer for the implicit-payer row.
+    expect('paidBy' in (storedExpense('exp-nopayer') as Expense)).toBe(false);
     // Per FIELD: Sushil keeps the edit that is genuinely his.
     expect(storedExpense('exp-mine')?.updatedBy).toBe('Sushil');
 
@@ -283,7 +326,7 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
   });
 
   it('settle() returns the IDENTICAL balances and transfers before and after the claim', async () => {
-    const before = settle(seedExpenses(), ROSTER, ME);
+    const before = settle(seedExpenses(), ROSTER);
     // A vacuous guard would pass on two empty arrays — pin that there is real money at stake.
     expect(before.length).toBeGreaterThan(0);
     expect(before.flatMap((l) => l.transfers).length).toBeGreaterThan(0);
@@ -291,7 +334,36 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
     const h = renderStore(useExpenses);
     await h.run((s) => s.claimAuthorship(OLD));
 
-    expect(settle(storedExpenses(), ROSTER, ME)).toEqual(before);
+    expect(settle(storedExpenses(), ROSTER)).toEqual(before);
+    h.unmount();
+  });
+
+  it('REGRESSION (D-333): the two sides of the rename settle IDENTICALLY', async () => {
+    // `exp-nopayer` is live, split ['Traveler','Powan'] and worth 800 NPR — everything a settling
+    // row needs except a payer. It used to be attributed to the signed-in traveller, so a claim,
+    // which changes who is signed in from 'Traveler' to 'Powan', moved 800 NPR of balance onto the
+    // new name while every byte of `paidBy`/`split` sat still. The byte-identity guard above is
+    // blind to that by construction: no byte moved. This is the assertion that sees it.
+    //
+    // 🔴 The identity has to be SUPPLIED to be disproved. The removed `self` was optional, so the
+    // defective code also returned the right answer when called with two arguments — see the long
+    // note in `settlement.test.ts`. Both calls below carry an identity; on the pre-D-333 code they
+    // differ by that 800, which is the defect this test exists for.
+    const settleAs = settle as unknown as (
+      expenses: readonly Expense[],
+      travelers: readonly string[],
+      self?: string,
+    ) => unknown;
+    expect(settleAs(seedExpenses(), ROSTER, OLD)).toEqual(settleAs(seedExpenses(), ROSTER, ME));
+
+    // …and the row is genuinely inert, not merely equal on both sides: dropping it changes nothing.
+    const before = settle(seedExpenses(), ROSTER);
+    expect(settle(seedExpenses().filter((e) => e.id !== 'exp-nopayer'), ROSTER)).toEqual(before);
+
+    const h = renderStore(useExpenses);
+    await h.run((s) => s.claimAuthorship(OLD));
+    expect(settle(storedExpenses(), ROSTER)).toEqual(before);
+    expect(storedExpense('exp-nopayer')?.split).toEqual([OLD, ME]); // still a real, still-split row
     h.unmount();
   });
 
@@ -331,6 +403,23 @@ describe('S408 expenses — the money guard: a claim rewrites attribution and NO
       'hlc',
       'rev',
     ]);
+    // The `paidBy`-absent row. `changedKeys` unions BOTH key sets, so `paidBy` appearing out of
+    // nowhere lands in this list and fails here — the discriminating power the tombstone never had.
+    expect(changedKeys(seed[4], storedExpense('exp-nopayer') as Expense)).toEqual([
+      'createdBy',
+      'hlc',
+      'rev',
+      'updatedBy',
+    ]);
+    // The legacy row: `hlc` and `rev` are ADDED (absent in the seed), which the union catches the
+    // same way — a claim that left an unstamped row unstamped would come back missing them.
+    expect(changedKeys(seed[5], storedExpense('exp-legacy') as Expense)).toEqual([
+      'createdBy',
+      'hlc',
+      'rev',
+      'updatedBy',
+    ]);
+    expect(storedExpense('exp-legacy')?.rev).toBe(2); // (undefined ?? 1) + 1
 
     // Same invariant for a document: `updatedBy` is its only identity field.
     const hd = renderStore(useDocs);
@@ -441,6 +530,15 @@ describe('S408 — the claim SURVIVES a remote merge (run, not asserted)', () =>
     // The mechanism that makes the above true.
     expect(local.rev).toBe(2);
     expect((local.hlc ?? '') > SEED_HLC).toBe(true);
+
+    // Same, for the LEGACY row that had no `hlc` to advance from: the peer's copy still has none,
+    // so `mergeItems` seeds it from an absent `updatedAt` (pt 0) and the claim wins outright.
+    const legacy = storedExpense('exp-legacy') as Expense;
+    const stalePeerLegacy = seedExpenses().find((e) => e.id === 'exp-legacy') as Expense;
+    expect(stalePeerLegacy.hlc).toBeUndefined();
+    expect(mergeItems([legacy], [stalePeerLegacy])[0].createdBy).toBe(ME);
+    expect(mergeItems([stalePeerLegacy], [legacy])[0].createdBy).toBe(ME);
+    expect(mergeItems([legacy], [stalePeerLegacy])[0].paidBy).toBe(OLD); // money, still the old name
     h.unmount();
   });
 

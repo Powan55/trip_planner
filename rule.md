@@ -51,7 +51,7 @@ git switch lax && git merge dev
 
 ## What CI runs
 
-Three jobs, in `.github/workflows/ci.yml`.
+Four jobs, in `.github/workflows/ci.yml`.
 
 **Checks** (about 5 minutes) runs on every push to `lax`, `uttam` and `dev`, on
 every pull request into `dev` or `main`, and again on the push to `main` that
@@ -62,6 +62,12 @@ deploys:
 - `npm run lint`
 - `npm test` (Vitest)
 - `npm run build`
+
+**Firestore rules** (3-5 minutes) runs on the same triggers as Checks, and
+on nothing conditional — it must not be skippable, because the deploy publishes
+`firestore.rules`. It runs `scripts/rules-check.mjs` against the real rules
+engine in a local emulator. No credentials: the emulator is aimed at a fake
+project id, so it cannot touch the live one.
 
 **E2E** (about 13 minutes) runs on pull requests only, after Checks passes:
 
@@ -91,6 +97,11 @@ or deploy until it is green, so nothing reaches the live site without passing it
 One consequence worth knowing before you need it: a red check now blocks every
 deploy, including a fix you are in a hurry to ship. There is deliberately no
 bypass. The way out is to revert, or to fix the check.
+
+The deploy run also publishes `firestore.rules` to Firebase, between the build
+and the Pages deploy, so the rules and the client that expects them ship
+together. It is inert until the owner sets the service-account secret; without
+it the job warns and publishes nothing.
 
 E2E stays on the pull request. When the deploy came from a merged pull request
 that is just economy, because the browser suite already ran against the merge
@@ -161,9 +172,16 @@ So before opening the pull request from `dev` into `main`, on `dev`:
 2. Add an entry at the top of `trip/docs/RELEASES.md` headed `## v<version> `,
    saying what changed.
 
-Patch for a fix, minor for a feature. After a successful deploy the workflow pushes
-the matching `v<version>` tag itself — and only then, which is why a deploy that
-failed can be re-run on the same version.
+Patch for a fix, minor for a feature. The version must also go *up*: the check refuses
+anything that is not strictly above the newest `v*` tag, so even a revert bumps forward
+rather than restoring an older number. And the entry may not say the release is held — a
+heading carrying `NOT DEPLOYED`, `NOT SHIPPED` or `⛔` refuses the deploy, which is how you
+park a built-but-unshipped version without it sliding into `main`.
+
+After a successful deploy the workflow pushes the matching `v<version>` tag itself — and
+only then, which is why a deploy that failed can be re-run on the same version. It then
+publishes a GitHub Release on that tag, with the matching `trip/docs/RELEASES.md` entry as the notes
+verbatim — one file to write, not a changelog kept in sync with a second one.
 
 What changed here is *when* you find out. The version check used to run only on the
 push to `main`, so a pull request could go green, merge into the live branch, and
@@ -217,10 +235,27 @@ you, so `npm run build` first or every spec fails at startup.
 Next.js static export. Nothing of ours serves it. Data is written to the browser
 (`localStorage`, plus IndexedDB for photo bytes) and, when the build carries a
 Firebase web config, mirrored to Firestore under the trip's id. `firestore.rules`
-lives in this repo and is the whole access model: no Firebase Auth, no per-user
-check. Whoever holds the trip id can read and write that trip. Separately, every
-route sits behind the front-door wall in `trip/components/token-gate.tsx`; there is
-no guest mode. There is one Cloudflare Worker behind the AI concierge; it is
-deployed, and its source is not in this repo.
+lives in this repo and is the whole access model. Everything in it sits behind
+`request.auth != null` — the app signs in anonymously, so there is no login
+screen but there is always a uid. Above that floor a trip is in one of two
+modes. If its trip document carries a `members` map, only a uid in that map can
+reach the trip's *content*; an owner may remove members, change roles and delete
+the trip, while a plain member has full content read and write and may add
+another member — add-only, so a member can never remove or re-role an existing
+entry. Two carve-outs sit deliberately outside that gate, for two different
+reasons. Any signed-in user can read and write `profile/**`, because the
+front-door check reads an account's identity to validate a pasted User Token,
+and it has to be able to do that before any membership exists — if that read
+could come back denied, token validation would go quietly vacuous instead of
+loudly broken. And any signed-in user can read `meta/**`, so that someone
+opening an invite link can see which trip they are being asked to join before
+anyone has added them. If the document carries no `members` map, the older capability model
+still applies: any signed-in holder of the trip id can read and write it. That
+second mode is what keeps trips made before the members map working. Publishing
+the rules is part of the release, though it stays inert until the owner sets the
+service-account secret. Separately, every route sits behind the front-door wall in
+`trip/components/token-gate.tsx`; there is no guest mode. There is one
+Cloudflare Worker behind the AI concierge; it is deployed, and its source is not
+in this repo.
 
 Everything is on a free tier and must stay that way.

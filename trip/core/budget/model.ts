@@ -53,6 +53,19 @@ export type Leg = string; // === DayPlan.country
  */
 export const LEGS: readonly Leg[] = getActiveTrip().legs.map((l) => l.id);
 
+/**
+ * Type guard: the value is one of the ACTIVE pack's legs. Lives HERE, next to `LEGS` (its only
+ * source), so `core/budget/expenses.ts` and `core/budget/burn-rate.ts` share one definition rather
+ * than each keeping a private copy.
+ *
+ * Note where it is and is NOT applied: the read/write sanitizers deliberately do NOT use it (an
+ * unrecognised leg is kept verbatim — see `sanitizeExpense`), while every AGGREGATE does, so a
+ * retained foreign-leg row round-trips through storage without corrupting a total.
+ */
+export function isLeg(value: unknown): value is Leg {
+  return typeof value === 'string' && LEGS.includes(value);
+}
+
 /** Each leg's fixed LOCAL currency, derived from the active pack. */
 const LEG_CURRENCY: Record<Leg, CurrencyCode> = Object.fromEntries(
   getActiveTrip().legs.map((l) => [l.id, normalizeCurrency(l.currency)]),
@@ -125,8 +138,10 @@ export interface BudgetModel {
 }
 
 // ── Seeds / defaults (build-time constants; NOT authoritative — the point is the override) ──
-/** Approximate mid-2026 seed rates (units of local currency per 1 USD). Clearly a default. */
-export const SEED_RATES: { NPR: number; JPY: number } = { NPR: 138, JPY: 155 };
+/** Approximate seed rates (units of local currency per 1 USD), checked 2026-08-15. Clearly a
+ * default, and overridable — but a seed a traveller never touches is the number they budget
+ * against, so it gets re-checked with the NPR reference rate rather than left to drift. */
+export const SEED_RATES: { NPR: number; JPY: number } = { NPR: 152.7, JPY: 159.2 };
 
 /** The seeded default model a fresh visitor sees (no budgets set yet, USD display). `legBudgets`
  * is keyed by the ACTIVE pack's legs — `{ nepal: 0, japan: 0 }` for the default pack. */
@@ -351,15 +366,43 @@ export function normalizeModel(value: unknown): BudgetModel {
   if (value === null || typeof value !== 'object') return { ...DEFAULT_BUDGET, rates: { ...SEED_RATES } };
   const v = value as Partial<BudgetModel>;
 
+  // ── Unknown leg keys are PRESERVED (a deliberate stored-schema guard) ────────────────────
+  // `LEGS` is resolved ONCE at module load from whatever pack the active-trip pointer names, but
+  // the storage slot OUTLIVES that resolution: a config-less join that later heals, a whole-trip
+  // backup restored under a different pack, or a budget import all present leg ids this build does
+  // not know. Rebuilding these maps from `LEGS` alone turned `{ main: 5000 }` into
+  // `{ nepal: 0, japan: 0 }` — and since the storage adapter normalizes on WRITE as well as read,
+  // that was a permanent deletion of real money on the next save, not a hidden field. So: seed
+  // every active leg, and KEEP any other stored key (still `safeAmount`-coerced).
+  // The retention is INERT — `rollUp` iterates `LEGS.map`, so a preserved extra key contributes to
+  // no line and no total; outbound sync is inert too (`flattenBudget` iterates `LEGS` for BOTH
+  // maps, so a preserved key is never emitted, never stamped, never written up). It survives the
+  // LOCAL round-trip, which is what makes a later change to the `legBudgets` key set
+  // non-destructive. Inbound is where it stops: `unflattenBudget` rebuilds `legBudgets` from `LEGS`
+  // alone (`core/budget/flatten.ts:64`), so on a remote-synced trip the first budget snapshot
+  // persists a model without the preserved key.
+  //
+  // `__proto__` is the one stored key NOT preserved (D-307 family). It arrives as a real own
+  // property out of `JSON.parse`, but assigning it hits the `Object.prototype` setter rather than
+  // defining a key: on `legBudgets` a number is silently swallowed, and on `categoryBudgets` an
+  // object REPLACES the prototype of the map we return. Skip it in both loops.
   const legBudgetsRaw = (v.legBudgets ?? {}) as Partial<Record<Leg, unknown>>;
   const legBudgets: Record<Leg, number> = {};
+  for (const [key, amt] of Object.entries(legBudgetsRaw)) {
+    if (key === '__proto__') continue;
+    legBudgets[key] = safeAmount(amt);
+  }
   for (const leg of LEGS) legBudgets[leg] = safeAmount(legBudgetsRaw[leg]);
 
   const catRaw = (v.categoryBudgets ?? {}) as Partial<
     Record<Leg, Partial<Record<ItineraryCategory, unknown>>>
   >;
   const categoryBudgets: BudgetModel['categoryBudgets'] = {};
-  for (const leg of LEGS) {
+  // Same guard, same reason: iterate the UNION of the active pack's legs and the leg keys the slot
+  // actually carries. Categories are still filtered to `BUDGET_CATEGORIES` and non-positive amounts
+  // still dropped, so an unknown leg buys no laxity beyond keeping its own key.
+  for (const leg of new Set<Leg>([...LEGS, ...Object.keys(catRaw)])) {
+    if (leg === '__proto__') continue; // see above — this assignment would rewrite the prototype
     const legCats = catRaw[leg];
     if (!legCats || typeof legCats !== 'object') continue;
     const cleaned: Partial<Record<ItineraryCategory, number>> = {};
@@ -404,13 +447,16 @@ export function currencySymbol(cur: CurrencyCode): string {
 }
 
 /**
- * Format an amount for display: grouped, no decimals (whole units read cleaner for these
- * currencies at trip scale — ¥ and NPR are never sub-unit here, and USD rounds fine for a
- * budget overview). TOTAL — a bad amount shows as the symbol + 0, never `NaN`.
+ * Format an amount for display: grouped, no decimals for ¥/NPR (never sub-unit at trip scale),
+ * up to 2 decimals for USD — a whole USD amount still renders with none (`$100`, not `$100.00`),
+ * a genuinely fractional one keeps its cents (`$99.6`). TOTAL — a bad amount shows as the symbol
+ * + 0, never `NaN`.
  */
 export function formatMoney(amount: unknown, cur: CurrencyCode): string {
-  const n = Math.round(safeAmount(amount));
-  const grouped = n.toLocaleString('en-US');
+  const raw = safeAmount(amount);
+  const maxDigits = cur === 'USD' ? 2 : 0;
+  const n = maxDigits === 0 ? Math.round(raw) : raw;
+  const grouped = n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: maxDigits });
   const sym = currencySymbol(cur);
   // "$1,200" / "Rs165,600" / "¥310,000" — space after the alpha "Rs" prefix for legibility.
   return sym === 'Rs' ? `${sym} ${grouped}` : `${sym}${grouped}`;

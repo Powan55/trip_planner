@@ -48,8 +48,8 @@ describe('isRouteActive', () => {
 });
 
 describe('NAV_ITEMS (S320, D-231 — 5-tab IA delta)', () => {
-  it('has exactly 13 items in S320 order (Home→Today; Nepal/Japan out, Guides in; Documents/Shared Links added)', () => {
-    expect(NAV_ITEMS.length).toBe(13);
+  it('has exactly 15 items in S320 order + the issue #4 Profile and issue #5 Passport companions', () => {
+    expect(NAV_ITEMS.length).toBe(15);
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
       'Today',
       'Plan',
@@ -63,6 +63,8 @@ describe('NAV_ITEMS (S320, D-231 — 5-tab IA delta)', () => {
       'Documents',
       'Shared Links',
       'Trips',
+      'Profile',
+      'Passport',
       'Settings',
     ]);
     expect(NAV_ITEMS.map((item) => item.href)).toEqual([
@@ -78,6 +80,8 @@ describe('NAV_ITEMS (S320, D-231 — 5-tab IA delta)', () => {
       '/checklist/',
       '/share/',
       '/trips/',
+      '/profile/',
+      '/passport/',
       '/settings/',
     ]);
   });
@@ -141,6 +145,8 @@ describe('navItemsForActiveTrip / primaryItemsForActiveTrip (S252)', () => {
       'Documents',
       'Shared Links',
       'Trips',
+      'Profile',
+      'Passport',
       'Settings',
     ]);
   });

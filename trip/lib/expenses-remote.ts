@@ -1,12 +1,21 @@
 // The expenses remote-sync seam — the read/write
 // directions for the EXPENSE domain, mirroring `lib/itinerary-remote.ts` but chunked BY LEG.
 //
+// The chunk set is `LEGS` from `core/budget/model.ts` — the ACTIVE pack's leg ids, resolved
+// once at module load (default pack: `['nepal', 'japan']`; a custom trip: `['main']`). This
+// module used to hardcode its own local `['nepal', 'japan']` copy instead of importing the real
+// one, so a custom trip's chunk was never a chunk this module recognized: the write side dropped
+// it silently (`pushExpenseChunk`'s guard) and the read side never iterated it when building the
+// applied row-set (`applySnapshot`'s `for (const leg of LEGS)`), so a first (empty) remote
+// snapshot on a custom trip wiped every local expense instead of leaving an unrecognized leg
+// alone. D-340.
+//
 // WRITE (local → remote): `pushExpenseChunk(current, leg)` performs a merge-aware
 // transactional read→merge→set of ONE leg doc `trips/{TRIP_ID}/expenses/{leg}` — the
 // `pushDayMerged` analog over `mergeItems`. Invoked ONLY from the outbox
 // decorator, which is driven from `commit()`. MUST REJECT on failure so the
 // outbox keeps the chunk dirty (the decorator is the swallower).
-// READ (remote → local): `subscribeRemoteExpenses` opens `onSnapshot` on the 2-doc
+// READ (remote → local): `subscribeRemoteExpenses` opens `onSnapshot` on the `LEGS.length`-doc
 // `expenses` collection; each chunk's first-snapshot marker is DOC PRESENCE (, NOT
 // the itinerary trip-doc marker — they coexist). Applies via `saveExpenses()` + the
 // `expenses:changed` event DIRECTLY (never `commit()`) so the snapshot path can never
@@ -22,8 +31,8 @@
 'use client';
 
 import { saveExpenses, loadExpenses } from '@/core/budget/storage';
-import { type Expense } from '@/core/budget/expenses';
-import type { Leg } from '@/core/budget/model';
+import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
+import { LEGS, type Leg } from '@/core/budget/model';
 import { EXPENSES_CHANGED_EVENT } from '@/hooks/use-expenses';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
@@ -31,12 +40,19 @@ import { mergeItems, gcTombstoneRows } from '@/core/sync/merge-items';
 import { outboxDirty } from '@/core/sync/outbox';
 import { clock } from './trip-now';
 
-// The two leg chunks, in a stable order.
-const LEGS: readonly Leg[] = ['nepal', 'japan'] as const;
-
-/** Map a raw Firestore expense chunk-doc into its `Expense[]` (defensive: tolerate a partial doc). */
+/**
+ * Map a raw Firestore expense chunk-doc into its `Expense[]` (defensive: tolerate a partial doc).
+ *
+ * `sanitizeExpenses` rather than a bare cast, because the cast was a LIE about untrusted bytes: one
+ * `null` element written by a peer on an older build (or by anything else with write access) makes
+ * `mergeItems` dereference `it.id` and throw. In the snapshot path that is caught and the update is
+ * dropped; inside `pushChunkMerged` it rejects the transaction, so that leg's chunk stays dirty and
+ * retries FOREVER — a poison row that silently wedges this device's outbox. Same read-boundary
+ * discipline `docToPlaceRows` already applies, and the same one `core/budget/storage.ts` applies to
+ * local bytes.
+ */
 export function chunkDocToRows(data: Record<string, unknown>): Expense[] {
-  return Array.isArray(data.items) ? (data.items as Expense[]) : [];
+  return Array.isArray(data.items) ? sanitizeExpenses(data.items) : [];
 }
 
 /**
@@ -80,7 +96,7 @@ export async function pushChunkMerged(
  * emptied leg is a real state, not a skip). Gated + lazy firebase stays behind `getRemote()`.
  */
 export async function pushExpenseChunk(current: Expense[], leg: string): Promise<void> {
-  if (leg !== 'nepal' && leg !== 'japan') return; // unknown chunk → ack (never a bad write)
+  if (!LEGS.includes(leg)) return; // not a chunk of the ACTIVE pack → ack (never a bad write)
   const legRows = current.filter((e) => e.leg === leg);
   const { db, fs } = await getRemote(); // rejects when unreachable → decorator keeps it dirty
   await pushChunkMerged(db, fs, leg, legRows); // rejects on transport error → stays dirty
@@ -187,7 +203,7 @@ export function subscribeRemoteExpenses(onApplied?: (rows: Expense[]) => void): 
             const remoteByLeg = new Map<Leg, Expense[]>();
             const presentLegs = new Set<Leg>();
             for (const d of snapshot.docs) {
-              if (d.id !== 'nepal' && d.id !== 'japan') continue;
+              if (!LEGS.includes(d.id)) continue; // a doc id not in the ACTIVE pack's legs
               presentLegs.add(d.id);
               remoteByLeg.set(d.id, chunkDocToRows(d.data() as Record<string, unknown>));
             }

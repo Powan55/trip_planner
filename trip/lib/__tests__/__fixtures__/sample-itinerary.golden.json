@@ -1,7 +1,7 @@
 [
   {
     "date": "2026-12-09",
-    "city": "Syracuse",
+    "city": "New York",
     "country": "nepal",
     "countryLabel": "USA",
     "items": [
@@ -690,7 +690,7 @@
         "title": "Check in to the Shinsaibashi hotel",
         "category": "hotel",
         "time": "18:15",
-        "duration": "1h",
+        "duration": "45m",
         "notes": "Real booked hotel in Shinsaibashi, Osaka. Drop bags and freshen up before the first Osaka night out",
         "location": "Shinsaibashi, Osaka"
       },
@@ -780,18 +780,18 @@
         "title": "Universal Studios Japan — Super Nintendo World",
         "category": "sightseeing",
         "time": "09:00",
-        "duration": "8h",
-        "notes": "A full day at USJ; prioritize Super Nintendo World and an Express Pass if available — check current anime/game collaborations closer to the date",
+        "duration": "4h",
+        "notes": "The morning half of a full USJ day, up to the lunch break; prioritize Super Nintendo World and an Express Pass if available — check current anime/game collaborations closer to the date",
         "location": "Universal Studios Japan, Konohana, Osaka",
         "sourceId": "ja28"
       },
       {
         "id": "j3-2",
-        "title": "Lunch inside the park",
+        "title": "Lunch inside the park, then the afternoon rides",
         "category": "food",
         "time": "13:00",
-        "duration": "1h",
-        "notes": "Quick refuel between rides",
+        "duration": "4h",
+        "notes": "Quick refuel between rides, then back in for the afternoon half of the park day — out around 5pm",
         "location": "Universal Studios Japan, Osaka"
       },
       {
@@ -869,8 +869,8 @@
         "title": "Shinsekai & Spa World flex day",
         "category": "sightseeing",
         "time": "10:30",
-        "duration": "4h",
-        "notes": "The retro Shinsekai district under Tsutenkaku Tower for kushikatsu and old-Osaka atmosphere, then an afternoon soak at the Spa World bathhouse complex — a relaxed recovery day before the last Osaka night",
+        "duration": "2.5h",
+        "notes": "The retro Shinsekai district under Tsutenkaku Tower and its old-Osaka atmosphere, up to the kushikatsu lunch at 1pm; the Spa World bathhouse soak then fills the open afternoon after it — a relaxed recovery day before the last Osaka night",
         "location": "Shinsekai, Osaka"
       },
       {
@@ -1297,7 +1297,7 @@
         "title": "New Year's Eve club/event",
         "category": "nightlife",
         "time": "21:30",
-        "duration": "4h",
+        "duration": "2h 15m",
         "notes": "Shibuya's street countdown is fenced off/cancelled — do not plan on it. Book ahead instead: Club Camelot NYE (hip-hop/R&B — best vibe match) or WOMB New Year's Countdown to 2027 (Dec 31 2026, ¥6,500 online / ¥8,000 door, ~22:00-04:30 — bigger, techno/house); tickets typically go on sale ~Nov, so grab them the week they drop. Free backup: the Shinjuku Tokyo Met-Gov building's official countdown. Verify lineups/tickets before relying on any of these.",
         "location": "Shinjuku/Shibuya/Roppongi, Tokyo"
       },
@@ -1306,8 +1306,8 @@
         "title": "New Year countdown",
         "category": "nightlife",
         "time": "23:45",
-        "duration": "1h",
-        "notes": "See in 2027 with the club/event crowd; trains run all night on New Year's Eve",
+        "duration": "1h 45m",
+        "notes": "See in 2027 with the club/event crowd and stay on the floor after it; trains run all night on New Year's Eve",
         "location": "Tokyo"
       }
     ]

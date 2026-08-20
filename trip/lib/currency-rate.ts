@@ -8,11 +8,11 @@
 // `core/budget/model.ts`'s manual, user-overridable rates — "zero rate APIs" line in
 // that module governs the BUDGET specifically and is unchanged/untouched here.
 //
-// NO new gateway key — the cache lives
-// under its OWN localStorage key, read/written directly here (mirrors `weatherCache`'s SHAPE —
-// module-owned JSON map, SSR-safe, try/catch, never throws — without adding a STORAGE_KEYS
-// registry entry). See the for why this is a deliberate, flagged exception to
-// "one registry" convention rather than a silent one.
+// A-26: the cache now routes through the gateway (`STORAGE_KEYS.currencyRateCache`, gateway key
+// 38) for the one-registry invariant — this was the last raw-localStorage holdout. Deliberately
+// NOT run through `keyFor`/`TripScopedSlot`: rates are genuinely global, not trip data, so the key
+// stays flat/app-scoped and is never namespaced per pack, never wiped by `wipeAllTripData`/
+// `wipeTripData`. Retention policy is unchanged — only where the literal + read/write live moved.
 //
 // Offline / failure = graceful: on fetch failure OR when Frankfurter
 // doesn't carry the requested symbol (its ECB-sourced list is ~30 currencies; NPR is NOT
@@ -20,7 +20,8 @@
 // (stale:true) or an honest `unavailable` state — never a spinner that hangs, never a thrown
 // error. `fetchCurrencyRate` is TOTAL: it resolves, it never rejects.
 
-const CACHE_KEY = 'nepal_japan_currency_rate_cache';
+import { readJson, writeJson, STORAGE_KEYS } from '@/core/storage/gateway';
+
 const FRANKFURTER_URL = 'https://api.frankfurter.dev/v1/latest';
 
 /**
@@ -61,26 +62,13 @@ export type CurrencyRateResult =
 // ── Cache (module-owned localStorage map, mirrors weatherCache's get/set shape) ──────────────
 
 function readCacheMap(): Record<string, CurrencyRateNow> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(CACHE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, CurrencyRateNow>) : {};
-  } catch {
-    return {};
-  }
+  return readJson<Record<string, CurrencyRateNow>>('local', STORAGE_KEYS.currencyRateCache, {});
 }
 
 function writeCacheEntry(currency: string, value: CurrencyRateNow): void {
-  if (typeof window === 'undefined') return;
-  try {
-    const map = readCacheMap();
-    map[currency] = value;
-    window.localStorage.setItem(CACHE_KEY, JSON.stringify(map));
-  } catch {
-    /* quota / disabled storage — degrade quietly */
-  }
+  const map = readCacheMap();
+  map[currency] = value;
+  writeJson('local', STORAGE_KEYS.currencyRateCache, map);
 }
 
 function readCache(currency: string): CurrencyRateNow | null {
@@ -131,14 +119,20 @@ const UNSUPPORTED_CURRENCIES = new Set(['NPR']);
  * `fetchCurrencyRate` flags every value from here `source: 'reference'` so the UI can render it
  * distinctly ("≈ reference rate") and NEVER present it as a live quote.
  *
- * `rate`/`asOf` are a hand-set calibration knob, not derived from anything live — NPR
- * has held roughly 133-136/USD through 2026 under the NRB's currency-board peg to INR. Set
- * 134.5 as-of 2026-07-24 (today, this change). Refresh both fields if the real rate visibly
- * drifts from this band; there is no automated way to know it has (that's the whole reason NPR
- * needs a reference value instead of a feed).
+ * `rate`/`asOf` are a hand-set calibration knob, not derived from anything live. The peg to INR
+ * holds the NPR/INR cross steady; it does NOT hold NPR/USD steady, and the previous note here
+ * claiming a 133-136/USD band was wrong on its own terms — over the six months to 2026-08-15 the
+ * real rate ran 145.03 (2026-02-15) to 154.94 (2026-05-21). Set 152.7 as-of 2026-08-15, checked
+ * that day against three independent sources that agreed: NRB's own open-market table (buy
+ * 152.39 / sell 152.99), Wise's mid-market rate (152.7) and open.er-api.com (152.85). Mid-market
+ * is the right figure here because the panel labels it "≈ reference rate" rather than a quote.
+ *
+ * Refresh both fields when the real rate visibly drifts; there is no automated way to know it
+ * has (that's the whole reason NPR needs a reference value instead of a feed), so re-check by
+ * hand before a release rather than trusting the band this comment happens to record.
  */
 const STATIC_REFERENCE_RATES: Record<string, { rate: number; asOf: string }> = {
-  NPR: { rate: 134.5, asOf: '2026-07-24' },
+  NPR: { rate: 152.7, asOf: '2026-08-15' },
 };
 
 /**
@@ -158,6 +152,22 @@ export async function fetchCurrencyRate(
   currency: string,
   fetchImpl: typeof fetch = fetch,
 ): Promise<CurrencyRateResult> {
+  // Frankfurter's base is always USD, so USD→USD is an identity — never worth a network call
+  // (and never worth a cache read/write either). Checked BEFORE `UNSUPPORTED_CURRENCIES` since
+  // that branch still does a cache lookup.
+  if (currency === 'USD') {
+    return {
+      status: 'ok',
+      data: {
+        currency: 'USD',
+        rate: 1,
+        asOf: new Date().toISOString().slice(0, 10),
+        stale: false,
+        fetchedAt: new Date().toISOString(),
+        source: 'live',
+      },
+    };
+  }
   if (UNSUPPORTED_CURRENCIES.has(currency)) {
     const cached = readCache(currency);
     if (cached) return { status: 'ok', data: { ...cached, stale: true } };

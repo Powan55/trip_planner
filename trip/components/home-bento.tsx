@@ -6,6 +6,7 @@ import { Compass, Wallet, CloudSun, Backpack, FileCheck2, Map as MapIcon, ArrowR
 import { getTodayInTrip, getNowUtcMsForPlace, type TripToday } from '@/lib/trip-now';
 import { offsetForCountry, formatDate } from '@/core/dates';
 import { nextUp } from '@/lib/whats-next';
+import { earliestTimedItem } from '@/lib/phase-of-day';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useBudget } from '@/hooks/use-budget';
 import { useExpenses } from '@/hooks/use-expenses';
@@ -75,7 +76,11 @@ export default function HomeBento() {
     const day = [...plans]
       .filter((p) => p.items?.length)
       .sort((a, b) => a.date.localeCompare(b.date))[0];
-    return day ? { date: day.date, item: day.items[0] } : null;
+    // A-24: the day's EARLIEST timed item, not its first STORED item — persisted item order
+    // is manual/drag order, not time order, so `items[0]` could be anything on the day.
+    // `earliestTimedItem` falls back to `undefined`; `?? day.items[0]` is the same "nothing
+    // timed → show whatever is first" fallback this tile already had.
+    return day ? { date: day.date, item: earliestTimedItem(day.items) ?? day.items[0] } : null;
   }, [plans, itineraryHydrated]);
 
   const cachedForecast = todayInTrip
@@ -87,13 +92,30 @@ export default function HomeBento() {
   const docsPct = docsCompletion.total > 0 ? Math.round((docsCompletion.done / docsCompletion.total) * 100) : null;
 
   return (
-    <section aria-labelledby="home-bento-title" data-testid="home-bento" className="relative bg-surface py-4 sm:py-6 px-4 sm:px-6">
-      <div className="max-w-5xl mx-auto">
-        <h2 id="home-bento-title" className="sr-only">
-          Trip at a glance
+    <section id="dashboard" aria-labelledby="dashboard-heading" data-testid="home-bento" className="relative bg-surface py-10 sm:py-14 px-4 sm:px-6">
+      <div className="max-w-[1200px] mx-auto">
+        {/* `-heading`, and that suffix is load-bearing: globals.css hangs a decorative gradient
+            underline off every `h2[id$="-heading"]`. This heading used to be `sr-only` and named
+            `-title` precisely to dodge that rule, because hanging an underline off a
+            visually-hidden heading paints a stray 3rem bar. Issue #106 made it a REAL centred
+            section heading — which is the case that rule was written for — and gave it the
+            `#dashboard` anchor the deleted trip-dashboard used to own, so the naming flips with
+            it. `components/home-stat-row.tsx`'s heading is still hidden and still `-title`. */}
+        <h2
+          id="dashboard-heading"
+          className="mb-8 text-center font-display text-3xl font-bold tracking-tight text-ink-hi sm:text-4xl"
+        >
+          At a <span className="text-display-emphasis">glance</span>
         </h2>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-          {/* Next up — spans 2 cols on every breakpoint (the widest tile).: no longer
+        {/* `flex flex-wrap`, NOT a fixed-column grid. The tile count varies by design (weather
+            and next-up are conditional), so no column count is exact for all of them: at
+            `grid-cols-2 lg:grid-cols-4` with four double-width tiles the states came to 9, 10 and
+            8 column units and every one of them left an EMPTY track. Wrapping spends the leftover
+            width INSIDE the row instead, where a hole is not representable. DOM order is visual
+            order — do not reach for `grid-auto-flow: dense`, which reorders position away from
+            tab order. */}
+        <div className="flex flex-wrap gap-3 sm:gap-4">
+          {/* Next up — the widest tile (grows at 2× a narrow tile's rate).: no longer
               in-trip only, and no longer a "come back later" placeholder. In-trip it is the
               next upcoming item; PRE-trip it is the first thing on the itinerary. If there is
               genuinely nothing to say (an emptied itinerary, pre-trip) the whole tile is not
@@ -101,7 +123,7 @@ export default function HomeBento() {
           {(todayInTrip || firstPlanned) && (
           <BentoTile
             testId="home-bento-next-up"
-            className="col-span-2"
+            className="flex-[2_1_18rem] sm:flex-[2_1_26rem]"
             icon={<ArrowRight className="w-4 h-4" aria-hidden="true" />}
             label="Next up"
           >
@@ -109,13 +131,13 @@ export default function HomeBento() {
               firstPlanned && (
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-white truncate">{firstPlanned.item.title}</p>
-                  <p className="text-xs text-white/50 mt-0.5">First up &middot; {formatDate(firstPlanned.date)}</p>
+                  <p className="text-xs text-ink-mid mt-0.5">First up &middot; {formatDate(firstPlanned.date)}</p>
                 </div>
               )
             ) : upcoming ? (
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{upcoming.title}</p>
-                {upcomingTime && <p className="text-xs text-white/50 mt-0.5">{upcomingTime.label}</p>}
+                {upcomingTime && <p className="text-xs text-ink-mid mt-0.5">{upcomingTime.label}</p>}
               </div>
             ) : (
               <EmptyLine>You&rsquo;re all caught up today</EmptyLine>
@@ -128,7 +150,7 @@ export default function HomeBento() {
             {roll.totalBudgetHome > 0 ? (
               <p className="text-sm font-semibold text-white">
                 {formatMoney(roll.totalSpentHome, roll.home)}{' '}
-                <span className="text-white/40 font-normal">/ {formatMoney(roll.totalBudgetHome, roll.home)}</span>
+                <span className="text-ink-mid font-normal">/ {formatMoney(roll.totalBudgetHome, roll.home)}</span>
               </p>
             ) : (
               <EmptyLine>Set a budget in Settings</EmptyLine>
@@ -174,39 +196,43 @@ export default function HomeBento() {
             )}
           </BentoTile>
 
-          {/* Mini map/photo link tile — spans 2 cols, decorative gradient art. */}
+          {/* Mini map/photo link tile — a wide tile, decorative gradient art. It and the Travel
+              Mode button below hand-roll their class strings rather than going through
+              `BentoTile`, so they carry the wide flex basis AND `min-h-[5.5rem]` explicitly:
+              without the min-height they measured 57px tall against their 94-102px neighbours,
+              which both ragged the last row and left two full-width tap targets under the
+              comfortable size. `hover:bg-white/10` matches the Travel Mode button — two
+              identical-looking bars owe the same hover response; the gradient's opacity lift
+              is this tile's own extra. */}
           <Link
             href="/map/"
             data-testid="home-bento-map"
-            className="col-span-2 group relative overflow-hidden rounded-2xl glass-card p-4 flex items-center justify-between gap-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex-[2_1_18rem] sm:flex-[2_1_26rem] min-h-[5.5rem] group relative overflow-hidden rounded-2xl glass-card p-4 flex items-center justify-between gap-3 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <div
               aria-hidden="true"
               className="absolute inset-0 opacity-40 group-hover:opacity-60 transition-opacity"
-              style={{
-                background:
-                  'radial-gradient(60% 80% at 0% 0%, rgba(244,196,107,0.35) 0%, rgba(244,196,107,0) 60%), radial-gradient(60% 80% at 100% 100%, rgba(244,143,177,0.30) 0%, rgba(244,143,177,0) 60%)',
-              }}
+              style={{ background: 'var(--map-wash)' }}
             />
             <div className="relative flex items-center gap-2">
               <MapIcon className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
               <span className="text-sm font-semibold text-white">Open the map</span>
             </div>
-            <ArrowRight className="relative w-4 h-4 text-white/40 group-hover:text-primary group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
+            <ArrowRight className="relative w-4 h-4 text-ink-mid group-hover:text-primary group-hover:translate-x-0.5 transition-all" aria-hidden="true" />
           </Link>
 
-          {/* Travel Mode entry — spans 2 cols, shares the ONE entry path. */}
+          {/* Travel Mode entry — a wide tile, shares the ONE entry path. */}
           <button
             type="button"
             onClick={() => enterTravel()}
             data-testid="home-bento-travel-mode"
-            className="col-span-2 flex items-center justify-between gap-3 rounded-2xl glass-card p-4 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="flex-[2_1_18rem] sm:flex-[2_1_26rem] min-h-[5.5rem] flex items-center justify-between gap-3 rounded-2xl glass-card p-4 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <span className="flex items-center gap-2">
               <Compass className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
               <span className="text-sm font-semibold text-white">Open Travel Mode</span>
             </span>
-            <ArrowRight className="w-4 h-4 text-white/40" aria-hidden="true" />
+            <ArrowRight className="w-4 h-4 text-ink-mid" aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -230,9 +256,29 @@ function BentoTile({
   return (
     <div
       data-testid={testId}
-      className={`rounded-2xl glass-card p-4 flex flex-col justify-between min-h-[5.5rem] ${className ?? ''}`}
+      // The narrow flex basis is the DEFAULT, not part of the base string: a wide tile passes
+      // its own, and if both landed in the list the winner would be decided by CSS source
+      // order (which of the two utilities Tailwind emitted first), not by the order they were
+      // written here. `??` makes it one or the other.
+      //
+      // `min-w-0` is NOT cosmetic. A flex item's automatic minimum size is its CONTENT's
+      // min-content width, and "Next up" renders a `truncate` (white-space:nowrap) title, whose
+      // min-content width is the whole untruncated string. Measured on the dev build at 390:
+      // the tile refused to shrink below 494px inside a 356px row — 138px of horizontal page
+      // overflow, and the title never ellipsised. The old `grid-cols-2` did not show this
+      // because Tailwind's grid columns are `minmax(0, 1fr)`, which caps the track at 0 min;
+      // flex-wrap has no equivalent, so the floor has to be written on the item.
+      //
+      // 8rem, and the root font is 17px so that is 136px: the largest basis that still PAIRS
+      // two tiles at 320, the narrowest supported width (2×136 + the 12px gap = 284 ≤ 286 of
+      // content box). At 9rem they went one-per-row there and the section grew by ~270px for
+      // no gain; every wider breakpoint packs identically either way, and >=640 uses the
+      // `sm:` basis regardless.
+      className={`rounded-2xl glass-card p-4 flex flex-col justify-between min-h-[5.5rem] min-w-0 ${
+        className ?? 'flex-[1_1_8rem] sm:flex-[1_1_12rem]'
+      }`}
     >
-      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-white/40 mb-2">
+      <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-ink-lo mb-2">
         <span className="text-muted-foreground">{icon}</span>
         {label}
       </p>
@@ -242,7 +288,7 @@ function BentoTile({
 }
 
 function EmptyLine({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs text-white/35">{children}</p>;
+  return <p className="text-xs text-ink-mid">{children}</p>;
 }
 
 function PctBar({ pct, testId }: { pct: number; testId: string }) {

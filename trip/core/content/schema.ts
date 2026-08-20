@@ -72,7 +72,7 @@ export const contentDayPlanSchema = z
     date: isoDate,
     city: z.string().min(1),
     country: z.enum(['nepal', 'japan']),
-    // — optional DISPLAY label for the country half of the day line ("Syracuse, USA").
+    // — optional DISPLAY label for the country half of the day line ("New York, USA").
     // `country` above stays the leg id/enum; this never affects currency or offset.
     countryLabel: z.string().min(1).optional(),
     items: z.array(contentItineraryItemSchema),
@@ -168,6 +168,25 @@ export const etiquetteTipSchema = z
     country: z.enum(['Nepal', 'Japan', 'Both']),
     description: z.string().min(1),
     icon: z.string().min(1),
+  })
+  .strict();
+
+// ── Travel inspiration (lib/inspiration-data.ts — InspirationHighlight) ────────────────────
+// `image` is REQUIRED here, unlike every other domain's optional `image?`: this domain IS the
+// imagery surface, and an entry without a photo is not a highlight, it is a blank card. The
+// path being a REAL bundled asset (a lib/image-manifest.json key) is a cross-content invariant
+// checked in the validate:content suite — the regex below only proves the shape.
+// `when` is a time-of-day mood ('After dark'), never a date: core/content/itinerary.ts owns
+// dates, so a date here would be a second source of truth. Nothing enforces that but review.
+export const inspirationHighlightSchema = z
+  .object({
+    id: z.string().min(1),
+    title: z.string().min(1),
+    country: z.enum(['Nepal', 'Japan']),
+    when: z.string().min(1),
+    blurb: z.string().min(1),
+    image: imagePath,
+    alt: z.string().min(1),
   })
   .strict();
 

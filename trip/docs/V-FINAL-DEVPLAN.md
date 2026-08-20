@@ -67,7 +67,7 @@ Six items. Everything else in this document is discretionary; these are not.
 | **F3** | The claim rewrite ships only under the nine money invariants | **S408, landed** | mostly closed; see section 0.4 |
 | **F4** | Scrub hardening + independent re-grep of every changed mirror file + the `EXCLUDE_DIRS` check | **S417 + S421** | open |
 | **F5** | The service-worker update toast verified **during** the final deploy | **S421** | open |
-| **F6** | **The NPR reference rate refreshed at deploy.** S419's surviving half, now that the concierge flag is already flipped (see S419 in section 2). Floor because the app is **already live** carrying `134.5` as-of `2026-07-24` against a December trip, and a half-satisfied S419 retires it silently | **S419** | open |
+| **F6** | **The NPR reference rate refreshed at deploy.** S419's surviving half, now that the concierge flag is already flipped (see S419 in section 2). Floor because the app was **already live** carrying `134.5` as-of `2026-07-24` against a December trip, and a half-satisfied S419 retires it silently | **S419** | refreshed to `152.7` as-of `2026-08-15` (#33); re-check by hand at the deploy |
 
 ### 0.3 · Slice numbering — the collision, resolved
 
@@ -160,9 +160,12 @@ Verified against the code and against provider terms retrieved 2026-08-08:
 | ~1 year+ | The community-run currency API stops. | JPY falls back to service-worker cache → last known → a labelled "unavailable". Never an error. |
 | ~2028 at the earliest | If the Google account holding the Firestore project goes two years unused, Google's inactivity policy allows deletion of its content, which would take the project with it. | Group sync stops. The app is local-first, so each device keeps its own data. |
 
-The NPR rate is the one value that is already stale: `134.5` as-of `2026-07-24`
-(`lib/currency-rate.ts:131`), hand-set, feeding a December trip. It is refreshed at deploy
-in S419 and labelled a reference rate. After that it can never be right again, only honest.
+The NPR rate is hand-set, feeds a December trip, and is labelled a reference rate rather than a
+quote. Refreshed to `152.7` as-of `2026-08-15` (`lib/currency-rate.ts`), checked that day against
+the NRB open-market table, Wise and open.er-api.com. The `134.5` it replaced had drifted about
+13%, and the note beside it claimed a 133-136/USD band that the real rate had left months
+earlier — so the lesson is that the band in a comment is not evidence. Re-check by hand before
+each deploy. After that it can never be right again, only honest.
 
 ---
 
@@ -311,7 +314,9 @@ too broadly in an earlier draft, and the corrected versions are the record:
 
 The eight-step automated checklist and the five-part manual device script are specified in full in
 the final QA gate notes. Eight amendments are mandatory, and without the first one
-the checklist as written produces a false red.
+the checklist as written produces a false red. Amendment 8 adds a sixth part to that script, so the
+script the gate actually runs is six parts; because the script itself is not in this repo, that
+sixth part is written out below the amendment list rather than only described.
 
 > This count and the list below were changed together on 2026-08-09. They have diverged in this document
 > before: the F1 row in section 0.2 and the backlog's S420 row both said "five" while this section said
@@ -349,7 +354,10 @@ the checklist as written produces a false red.
    puts S419 as the last code touch, so either fold it into S412 (which already edits user-facing copy)
    or accept the residue explicitly in the gate record. Do not let "record the exact copy" be satisfied
    by recording copy that omits the residue; that verb is why this criterion cannot fail for the reason
-   it exists.
+   it exists. **Met 2026-08-15**, not inside S412 but as its own edit to `components/settings-panel.tsx`:
+   the paragraph now ends *"…so the old name does not leave the money side: Settle up keeps showing
+   “{from}” in its balances, and a shared expense is still filed as paid by “{from}” on its paid-by
+   chips, not by you."* Record that string, not this summary of it.
 7. **Fixture breadth on the claim rewrite.** The money guard's fixture has to include a tombstone row, a
    `paidBy`-absent row and a legacy row with no `hlc`. The implementation is incidentally safe for all
    three, none of them is *proven*, and "incidentally safe" is not evidence. Sharpened 2026-08-09: the
@@ -359,7 +367,12 @@ the checklist as written produces a false red.
    read, so deleting the `paidBy` handling entirely would leave it green. And no row omits `hlc`; every
    seed row carries `SEED_HLC`. So one case of three has discriminating power. This last point is the
    one item here that was never independently double-checked, so re-read the fixture before acting; the
-   claim is cheap to check and cheap to be wrong about.
+   claim is cheap to check and cheap to be wrong about. **Re-read and confirmed exactly as written, then
+   met, 2026-08-15**: `lib/__tests__/claim-authorship-expenses-docs.test.ts` gained `exp-nopayer` (live,
+   `paidBy` absent) and `exp-legacy` (no `rev`, no `hlc`), and the claim count moved 2 → 4. The rewrite
+   needed no fix — it is safe on both — but "incidentally safe" is now proven rather than assumed: two
+   mutants that the old fixture passed (invent a `paidBy` for the absent-payer row; skip the rev/hlc
+   stamp on a row with no `hlc`) each fail the new one.
 8. **No console errors on load or interaction.** This is a named bullet of the founding acceptance
    contract that the final gate inherited not at all: the string "console" occurs zero times in
    the final QA gate notes, and only 25 of 95 e2e specs attach a
@@ -369,6 +382,12 @@ the checklist as written produces a false red.
    console clean") and record the 25/95 split in the gate record as the accepted automated floor, so the
    gap is a decision and not an oversight. Playwright could not be run for this audit, so there is no
    claim here that any route errors today, only that nothing would tell us.
+
+**M6 · Console clean** — the line amendment 8 adds to the manual device script, written out here
+because the script lives in the gate notes and not in this repo:
+
+> Open each route in turn with DevTools open: no console errors on load, and none after one
+> interaction on the route.
 
 The two-client sync scenarios stay manual forever, because closing them automatically would bake network
 access and credentials into the last gate anyone runs. They are executed once, on two real phones,

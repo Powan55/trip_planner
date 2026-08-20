@@ -2,16 +2,25 @@
 
 import * as React from 'react';
 import * as SheetPrimitive from '@radix-ui/react-dialog';
-import { cva, type VariantProps } from 'class-variance-authority';
 import { X } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
+import { overlayMotion } from '@/lib/motion';
+
+/**
+ * The same D-292 pin as `components/ui/dialog.tsx`: a sheet is Tier 3 whatever route opened it,
+ * so the timing comes from `lib/motion.ts`'s gate and not from shadcn's default. What Tier 3
+ * revokes here is the DURATION — 500 ms in / 300 ms out is over the design system's overlay
+ * budget of ≤200 ms in, ≤160 ms out, and R3's 900 ms ceiling is not the binding limit
+ * for something that opens over what you were reading. The side slide itself is kept: it is an
+ * opacity + translate, not a spring, and it is how a sheet says which edge it came from.
+ */
+const SHEET_TIMING_LOUD = 'data-[state=closed]:duration-300 data-[state=open]:duration-500';
+const SHEET_TIMING_CALM = 'data-[state=closed]:duration-150 data-[state=open]:duration-200';
 
 const Sheet = SheetPrimitive.Root;
 
 const SheetTrigger = SheetPrimitive.Trigger;
-
-const SheetClose = SheetPrimitive.Close;
 
 const SheetPortal = SheetPrimitive.Portal;
 
@@ -30,38 +39,28 @@ const SheetOverlay = React.forwardRef<
 ));
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 
-const sheetVariants = cva(
-  'fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:duration-300 data-[state=open]:duration-500',
-  {
-    variants: {
-      side: {
-        top: 'inset-x-0 top-0 border-b data-[state=closed]:slide-out-to-top data-[state=open]:slide-in-from-top',
-        bottom:
-          'inset-x-0 bottom-0 border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
-        left: 'inset-y-0 left-0 h-full w-3/4 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left sm:max-w-sm',
-        right:
-          'inset-y-0 right-0 h-full w-3/4  border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm',
-      },
-    },
-    defaultVariants: {
-      side: 'right',
-    },
-  }
-);
-
-interface SheetContentProps
-  extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-    VariantProps<typeof sheetVariants> {}
+/**
+ * There is no `side` prop. The one consumer (`components/concierge-chat.tsx`) opens from the
+ * right, which was also the cva `defaultVariants` — so the other three branches were unreachable
+ * configuration. This is the string `side: 'right'` already resolved to (base then side, the same
+ * order cva concatenated them). If a second sheet ever needs another edge, add the variant back
+ * for that edge, not for four.
+ */
+const SHEET_CONTENT_CLASS = `fixed z-50 gap-4 bg-background p-6 shadow-lg transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out ${overlayMotion(
+  'entrance',
+  SHEET_TIMING_LOUD,
+  SHEET_TIMING_CALM,
+)} inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm`;
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
-  SheetContentProps
->(({ side = 'right', className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
-      className={cn(sheetVariants({ side }), className)}
+      className={cn(SHEET_CONTENT_CLASS, className)}
       {...props}
     >
       {children}
@@ -88,20 +87,6 @@ const SheetHeader = ({
 );
 SheetHeader.displayName = 'SheetHeader';
 
-const SheetFooter = ({
-  className,
-  ...props
-}: React.HTMLAttributes<HTMLDivElement>) => (
-  <div
-    className={cn(
-      'flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2',
-      className
-    )}
-    {...props}
-  />
-);
-SheetFooter.displayName = 'SheetFooter';
-
 const SheetTitle = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof SheetPrimitive.Title>
@@ -126,15 +111,5 @@ const SheetDescription = React.forwardRef<
 ));
 SheetDescription.displayName = SheetPrimitive.Description.displayName;
 
-export {
-  Sheet,
-  SheetPortal,
-  SheetOverlay,
-  SheetTrigger,
-  SheetClose,
-  SheetContent,
-  SheetHeader,
-  SheetFooter,
-  SheetTitle,
-  SheetDescription,
-};
+// `SheetPortal` and `SheetOverlay` stay unexported: `SheetContent` is their only caller.
+export { Sheet, SheetTrigger, SheetContent, SheetHeader, SheetTitle, SheetDescription };

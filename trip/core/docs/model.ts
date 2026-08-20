@@ -75,6 +75,19 @@ export const DEFAULT_TEMPLATE: readonly DocItem[] = [
   { id: 'airport-transfer', section: 'dayzero', label: 'Airport transfer / pickup booked', checked: false },
 ] as const;
 
+/** Country-neutral fallback for a non-default (custom) trip — `DEFAULT_TEMPLATE` minus the 2
+ * inherently Nepal/Japan items, with 4 labels genericized. Derived (filter + override), never a
+ * second literal, so the 12 untouched items can't drift from `DEFAULT_TEMPLATE` on a future edit. */
+const UNIVERSAL_LABEL_OVERRIDES: Readonly<Record<string, string>> = {
+  'flight-tickets': 'Flight e-tickets saved offline',
+  'cards-cash': 'Payment cards + emergency cash',
+  'passport-validity': 'Passport valid 6+ months beyond your return date',
+  'chargers-adapters': 'Chargers, cables & power adapters',
+};
+export const UNIVERSAL_TEMPLATE: readonly DocItem[] = DEFAULT_TEMPLATE.filter(
+  (i) => i.id !== 'nepal-visa' && i.id !== 'japan-entry'
+).map((i) => (UNIVERSAL_LABEL_OVERRIDES[i.id] ? { ...i, label: UNIVERSAL_LABEL_OVERRIDES[i.id] } : i));
+
 /**
  * Coerce any parsed-from-storage value into a valid `DocItem`, or `null` when too malformed to
  * salvage (no id, no label, or an invalid section). `checked` coerces to a strict boolean. The

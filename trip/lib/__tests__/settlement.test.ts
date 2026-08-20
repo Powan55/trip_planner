@@ -7,7 +7,7 @@ import { describe, it, expect } from 'vitest';
  * Also pins that `paidBy`/`split` survive the S142 `mergeItems` row merge (no new sync code).
  */
 
-import { settle } from '@/core/budget/settlement';
+import { settle, type LegSettlement } from '@/core/budget/settlement';
 import { sanitizeExpense, type Expense } from '@/core/budget/expenses';
 import { mergeItems } from '@/core/sync/merge-items';
 
@@ -121,15 +121,75 @@ describe('settle — fast path contributes zero', () => {
     expect(s.balances).toEqual({ Powan: 150, Sushil: -150 });
   });
 
-  it('paidBy absent + split present ⇒ falls back to `self`', () => {
-    const [s] = settle([exp({ split: ['Powan', 'Sushil'], amount: 300 })], ROSTER, 'Powan');
-    expect(s.balances).toEqual({ Powan: 150, Sushil: -150 });
+  // ── D-333 · a split row with no payer is UNATTRIBUTABLE, not "mine" ────────────────────────
+  // These replace a test that pinned the OPPOSITE: `settle(…, ROSTER, 'Powan')` attributed a
+  // payer-less row to a third `self` argument. That made a settlement a function of who was
+  // looking — the same synced row settled to a different person on each device, and a
+  // claim-authorship rename moved its balance to the new name. D-288 keeps the claim rewrite away
+  // from `paidBy`/`split` precisely so money cannot be re-pointed by a rename; the fallback did it
+  // anyway, through the read path.
+  //
+  // 🔴 READ `settleWithIdentity` BEFORE SIMPLIFYING IT AWAY. The old `self` was OPTIONAL, so the
+  // old defective code ALSO returned [] when called with two arguments — a two-arg assertion
+  // documents the property but cannot fail on the defect, and dropping the argument is not a proof
+  // that the argument stopped mattering. The discriminating question is "does supplying an identity
+  // change the answer?", and asking it requires actually supplying one. Deleting the signature is
+  // what FIXED this; the cast below is what TESTS it.
+  const settleWithIdentity = settle as unknown as (
+    expenses: readonly Expense[],
+    travelers: readonly string[],
+    self?: string,
+  ) => LegSettlement[];
+
+  it('REGRESSION (D-333): paidBy absent + split present ⇒ NO settlement, for ANY supplied identity', () => {
+    const nopayer = [exp({ split: ['Powan', 'Sushil'], amount: 300 })];
+    expect(settle(nopayer, ROSTER)).toEqual([]);
+    // The three that fail on the pre-D-333 code: an identity in the split, one outside it, and the
+    // empty-string edge. Each used to hand the whole 300 to whoever was passed in.
+    expect(settleWithIdentity(nopayer, ROSTER, 'Powan')).toEqual([]);
+    expect(settleWithIdentity(nopayer, ROSTER, 'Uttam')).toEqual([]);
+    expect(settleWithIdentity(nopayer, ROSTER, '')).toEqual([]);
+    // `paidBy: ''` — the shape `sanitizeExpense` produces from an import or a merged peer row when
+    // the payer field is present but empty: the split survives, the payer does not.
+    expect(settle([exp({ paidBy: '', split: ['Powan', 'Sushil'], amount: 300 })], ROSTER)).toEqual([]);
+  });
+
+  it('REGRESSION (D-333): who is looking cannot change a settlement', () => {
+    // The device-local half of the defect, which the rename only made visible: `self` was
+    // `traveler?.name`, so the SAME synced rows settled differently on each traveller's device.
+    const rows = [
+      exp({ paidBy: 'Powan', split: ['Powan', 'Sushil'], amount: 300 }),
+      exp({ split: ['Powan', 'Sushil'], amount: 800 }), // no payer
+    ];
+    const asPowan = settleWithIdentity(rows, ROSTER, 'Powan');
+    expect(settleWithIdentity(rows, ROSTER, 'Sushil')).toEqual(asPowan);
+    expect(settleWithIdentity(rows, ROSTER, undefined)).toEqual(asPowan);
+    // NON-VACUOUS: the leg does settle, and to EXACTLY the attributable row's numbers. Attributing
+    // the 800 to any name at all — including one already in the split — breaks both equalities.
+    expect(asPowan[0].balances).toEqual({ Powan: 150, Sushil: -150 });
+    expect(asPowan[0].transfers).toEqual([{ from: 'Sushil', to: 'Powan', amount: 150 }]);
   });
 
   it('tombstoned split expense is ignored', () => {
     expect(
       settle([exp({ paidBy: 'Powan', split: ['Powan', 'Sushil'], amount: 300, deleted: true })], ROSTER),
     ).toEqual([]);
+  });
+});
+
+describe('settle — largest-remainder rounding keeps balances summing to 0 (D-337 family)', () => {
+  it('a 3-way split of an odd amount rounds balances so a creditor’s transfers-received sum to exactly their balance', () => {
+    const [s] = settle(
+      [exp({ leg: 'nepal', paidBy: 'Powan', split: ['Powan', 'Sushil', 'Uttam'], amount: 1000 })],
+      ROSTER,
+    );
+    // 1000 / 3 = 333.33...; unrounded balances would not sum to a clean 0. Rounded, they must.
+    expect(Object.values(s.balances).reduce((a, b) => a + b, 0)).toBe(0);
+    for (const [id, net] of Object.entries(s.balances)) {
+      if (net <= 0) continue;
+      const received = s.transfers.filter((t) => t.to === id).reduce((sum, t) => sum + t.amount, 0);
+      expect(received).toBeCloseTo(net, 6);
+    }
   });
 });
 

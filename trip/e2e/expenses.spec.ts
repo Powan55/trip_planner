@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, seedPinnedRates } from './fixtures';
 import type { Page } from '@playwright/test';
 
 /**
@@ -16,6 +16,15 @@ import type { Page } from '@playwright/test';
  *   2. EDIT: change an expense's amount → the list + totals update → persists.
  *   3. DELETE: remove an expense → the list + totals revert → persists.
  *
+ * ── THE RATES ARE PINNED BY THE FIXTURE, NOT READ FROM THE SEED ─────────────────────────────
+ * Expenses are entered and stored in the leg's LOCAL currency, so the `Rs …` assertions below are
+ * rate-free. The grand-total spent/remaining figures are not: they are the same NPR amounts rolled
+ * up into USD. Those are checked against `PINNED_RATES` (138 NPR/$1), seeded into the budget slot by
+ * `seedPinnedRates` before the app boots — NOT against `SEED_RATES`, a build-time default that moves
+ * when the real market has (it did on 2026-08-15, and took every dollar figure here red). What is
+ * under test is that a logged/edited/deleted expense reaches the roll-up at all, not what the seed
+ * happens to say this month.
+ *
  * ── SETTLE DISCIPLINE (mirrors budget.spec.ts) ──────────────────────────────────────────────
  * The budget panel is a lazy `ssr:false` island that hydrates from `loadBudget()`/`loadExpenses()`
  * in mount effects. Every navigation/reload goes through `waitUntil:'domcontentloaded'` + `settleBudget`,
@@ -29,6 +38,7 @@ import type { Page } from '@playwright/test';
 const EXPENSES_KEY = 'nepal_japan_expenses';
 
 async function gotoPlanSettled(page: Page) {
+  await seedPinnedRates(page); // see the header — the USD roll-up figures are checked against these
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('/plan/', { waitUntil: 'domcontentloaded' });
 }
@@ -74,7 +84,7 @@ async function logExpense(page: Page, amount: string, category: string) {
   await page.getByTestId('expense-amount-input').fill(amount);
   await page.getByTestId(`expense-category-${category}`).click();
   // Leg preset is Nepal (first trip day) outside the trip window — confirm before saving.
-  await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-checked', 'true');
+  await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-pressed', 'true');
   await page.getByTestId('expense-save').click();
   await expect(page.getByTestId('expense-dialog')).toHaveCount(0);
 }
@@ -86,8 +96,11 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await gotoPlanSettled(page);
     await settleBudget(page);
 
-    // Set the Nepal leg budget to 13,800 NPR (= 100 USD at the seed rate 138), so remaining is meaningful.
-    await page.getByTestId('budget-leg-nepal-input').fill('13800');
+    // Set the Nepal leg budget to 13,800 NPR (= 100 USD at the NPR rate THIS fixture pins, 138), so
+    // remaining is meaningful.
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('13800');
+    await nepal.blur();
     await expect(page.getByTestId('budget-grand-total-value')).toHaveText('$100');
 
     // Log a 6,900 NPR food expense (= 50 USD).
@@ -128,7 +141,9 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await gotoPlanSettled(page);
     await settleBudget(page);
 
-    await page.getByTestId('budget-leg-nepal-input').fill('1000'); // small budget
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('1000'); // small budget
+    await nepal.blur();
     await logExpense(page, '3000', 'transportation'); // spend more than budgeted
 
     // Remaining goes negative → the panel shows "Over by …" (the over-budget cue). 3000 − 1000 = 2000 over.
@@ -142,7 +157,9 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await gotoPlanSettled(page);
     await settleBudget(page);
 
-    await page.getByTestId('budget-leg-nepal-input').fill('13800');
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('13800');
+    await nepal.blur();
     await logExpense(page, '6900', 'food'); // 50 USD
     await expect(page.getByTestId('budget-grand-total-spent')).toHaveText('$50');
 
@@ -188,11 +205,11 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await expect(page.getByTestId('expense-dialog')).toBeVisible();
     await page.getByTestId('expense-amount-input').fill('300');
     await page.getByTestId('expense-category-food').click();
-    await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-pressed', 'true');
     // Opt into split (default payer = Powan, members = whole roster).
     await page.getByTestId('expense-split-toggle').click();
     await expect(page.getByTestId('expense-split-panel')).toBeVisible();
-    await expect(page.getByTestId('expense-payer-Powan')).toHaveAttribute('aria-checked', 'true');
+    await expect(page.getByTestId('expense-payer-Powan')).toHaveAttribute('aria-pressed', 'true');
     await page.getByTestId('expense-save').click();
     await expect(page.getByTestId('expense-dialog')).toHaveCount(0);
 
@@ -248,7 +265,9 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     await gotoPlanSettled(page);
     await settleBudget(page);
 
-    await page.getByTestId('budget-leg-nepal-input').fill('13800');
+    const nepal = page.getByTestId('budget-leg-nepal-input');
+    await nepal.fill('13800');
+    await nepal.blur();
     await logExpense(page, '6900', 'food');
     await expect(page.getByTestId('budget-grand-total-spent')).toHaveText('$50');
 

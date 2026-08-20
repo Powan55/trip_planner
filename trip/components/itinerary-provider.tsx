@@ -16,6 +16,7 @@ import { itineraryStoragePort, itineraryOutboxSync, itinerarySyncPort } from '@/
 import { expensesSyncPort, expensesOutboxSync, expensesStoragePort } from '@/lib/expenses-ports';
 import { budgetSyncPort, budgetOutboxSync, budgetStoragePort } from '@/lib/budget-ports';
 import { docsSyncPort, docsOutboxSync, docsStoragePort } from '@/lib/docs-ports';
+import { placesSyncPort, placesOutboxSync, myPlacesStoragePort } from '@/lib/places-ports';
 import { flushOutbox } from '@/core/sync/outbox';
 import { withBasePath } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -24,10 +25,11 @@ import PresenceBar from '@/components/presence-bar';
 import FirstRunTour from '@/components/first-run-tour';
 import dynamic from 'next/dynamic';
 
-// the relaunch bounce + arrival toast (combined in TravelModeMounts) ride ONE
-// `dynamic(ssr:false)` to stay OUT of the app-wide First Load chunk — the route
-// budgets sit AT the 106/107 kB line. Both are non-blocking (a boot-once null-render bounce and a
-// deferred suggestion), so a post-hydration mount is exactly right; no loading placeholder needed.
+// the relaunch bounce + arrival toast + #30's visit autocount (combined in TravelModeMounts) ride
+// ONE `dynamic(ssr:false)` to stay OUT of the app-wide First Load chunk — the route
+// budgets sit AT the 106/107 kB line. All three are non-blocking (two boot-once null-render islands
+// and a deferred suggestion), so a post-hydration mount is exactly right; no loading placeholder
+// needed. Add a fourth island to that file rather than a second `dynamic()` here.
 const TravelModeMounts = dynamic(() => import('@/components/travel-mode-mounts'), { ssr: false });
 
 /**
@@ -550,6 +552,56 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  // Gated MY-PLACES remote sync (issue #17, D-229 addendum). Mirrors the docs effect above:
+  // flush-then-subscribe on mount + reactively on `identity:changed`, driven through the places
+  // SyncPort's own `subscribe` (one subscribe surface). `placesSyncPort.subscribe` self-gates on
+  // `isTripRemoteConfigured()` (a no-op unsub when dormant OR on the default sample pack, pulling
+  // NO firebase); the traveler gate here matches the others (a guest never opens the subscription).
+  // Flush no-ops when dormant/guest or the outbox is clean, so `online`/visible are harmless.
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+
+    const flush = () => {
+      void flushOutbox(placesOutboxSync, myPlacesStoragePort);
+    };
+
+    const activate = () => {
+      if (!(isRemoteConfigured() && getActiveTraveler())) return;
+      if (unsubscribe) return; // already subscribed for the current identity
+      flush(); // ① flush the outbox before ② opening the subscribe (push-before-subscribe)
+      unsubscribe = placesSyncPort.subscribe();
+    };
+
+    const teardown = () => {
+      if (unsubscribe) {
+        unsubscribe();
+        unsubscribe = null;
+      }
+    };
+
+    const onOnline = () => flush();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') flush();
+    };
+    window.addEventListener('online', onOnline);
+    document.addEventListener('visibilitychange', onVisible);
+
+    activate();
+
+    const onIdentityChanged = () => {
+      teardown();
+      activate();
+    };
+    window.addEventListener(IDENTITY_CHANGED_EVENT, onIdentityChanged);
+
+    return () => {
+      window.removeEventListener(IDENTITY_CHANGED_EVENT, onIdentityChanged);
+      window.removeEventListener('online', onOnline);
+      document.removeEventListener('visibilitychange', onVisible);
+      teardown();
+    };
+  }, []);
+
   // TRIP-META SELF-HEAL — see `runTripMetaSelfHeal` (extracted so it has a runnable unit check
   // without mounting the whole provider tree, same as `createSyncCodeTripListSync` above).
   useEffect(() => runTripMetaSelfHeal(), []);
@@ -664,8 +716,9 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
           progress bar. */}
       <FirstRunTour />
       {/* PWA-relaunch re-enter (behavioral, renders null) + the on-trip arrival
-          auto-suggest toast, behind one lazy boundary. Siblings of the tour so they ride every
-          route behind the gate; both are guest-blocked and self-suppress on /travel. */}
+          auto-suggest toast + #30's visit autocount (behavioral, renders null), behind one lazy
+          boundary. Siblings of the tour so they ride every route behind the gate; all three are
+          guest-blocked, and the first two self-suppress on /travel. */}
       <TravelModeMounts />
       {/* Active-traveler presence bar. Renders nothing — and pulls no
           firebase — when dormant or guest (usePresence short-circuits on the same gate as

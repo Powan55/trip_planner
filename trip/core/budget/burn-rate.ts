@@ -36,7 +36,7 @@
 
 import type { Expense } from '@/core/budget/expenses';
 import { TRIP_DATES, TRIP_START, TRIP_END } from '@/core/dates';
-import { safeAmount } from '@/core/budget/model';
+import { isLeg, safeAmount } from '@/core/budget/model';
 
 /** The trip length in inclusive days — derived from the single date backbone, currently 32. */
 const DAYS_TOTAL = TRIP_DATES.length;
@@ -167,7 +167,8 @@ export function burnRate(budgetHome: unknown, spentHome: unknown, now: Date): Bu
  * plain sum in that day's currency — no conversion (the calendar overlay formats it with the day's
  * `legCurrency`). Undated expenses are EXCLUDED (they have no day to attribute to) — they still count
  * in the leg/total spend that `rollUp` reports, so the burn-rate total and the sum of the per-day
- * buckets can legitimately differ by the undated amount. A malformed / 0 / negative amount contributes
+ * buckets can legitimately differ by the undated amount. A row whose leg the active pack does not
+ * recognise is EXCLUDED too (see the guard below). A malformed / 0 / negative amount contributes
  * nothing; a bad date string is ignored. Returns a plain object keyed by the ISO date (empty when no
  * dated expense exists).
  */
@@ -180,6 +181,11 @@ export function expensesByDate(expenses: readonly Expense[] | null | undefined):
   for (const e of expenses) {
     // Defensive on a runtime-untyped list (a corrupt slot could smuggle a bad entry past the type).
     if (e === null || typeof e !== 'object') continue;
+    // A leg the ACTIVE pack does not know contributes nothing. `sanitizeExpense` deliberately
+    // RETAINS such a row verbatim (dropping it deleted real data on the next save), so the
+    // exclusion has to happen in every aggregate instead — `expensesToSpent` already carries the
+    // identical guard, and the two views must not disagree about which rows count.
+    if (!isLeg(e.leg)) continue;
     const date = e.date;
     if (typeof date !== 'string' || !DATE_RE.test(date)) continue; // undated / bad date → excluded
     const amount = safeAmount(e.amount);

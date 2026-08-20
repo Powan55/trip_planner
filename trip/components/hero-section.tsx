@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import { m, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
@@ -8,8 +8,10 @@ import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
-import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
+import { getNow, getTodayInTrip, getNowAtTrip, type TripToday } from '@/lib/trip-now';
+import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN } from '@/lib/hero-image';
 import { isDefaultTrip } from '@/core/trips';
+import { isPostTrip } from '@/core/recap/model';
 import { getKnownTrip } from '@/core/trips/registry';
 import { vibeFor } from '@/core/trips/custom';
 import { getActiveTripId } from '@/core/storage/gateway';
@@ -68,6 +70,51 @@ function CountUpNumber({
 
 const padUnit = (n: number) => String(n).padStart(2, '0');
 const identity = (n: number) => n;
+
+/**
+ * Per-FRAME crop and highlight cap for the hero photograph (issue #89), keyed by the
+ * resolved `src` so there is exactly ONE answer to "which leg is this" — the same
+ * `heroImageForLeg()` call drives the photograph, the crop and the cap colour.
+ *
+ * `narrow`/`wide` feed --hero-focus-narrow / --hero-focus, the `object-position` knob
+ * `.hero-photo-wrap img` reads (globals.css). It is the same mechanism
+ * `.photo-header__media img` uses via --photo-focus, deliberately: two crop knobs with
+ * different names doing the same job is how one of them silently rots.
+ *
+ * WHY EACH NUMBER. `object-cover` on a landscape source in a portrait box crops
+ * HORIZONTALLY; in a wide desktop box it crops VERTICALLY. So the two breakpoints are
+ * not the same photograph tightened, they are two different axes, and one value cannot
+ * serve both.
+ *
+ *  - Ama Dablam (1920x1280, peak at x 50% / y 11%): measured off contact sheets against
+ *    the vertically-centred content block. `center 38%` at >= 768 lifts the vertical
+ *    window off the valley floor and onto the summit — measured in the browser, a
+ *    1440x900 window shows source y 7.5%-87.8% instead of 14.9%-95.2%. `center 32%`
+ *    below 768 is the same correction for a tighter box. Note that on a PORTRAIT phone
+ *    the vertical value is inert (the 1.5-aspect source is taller than the box needs,
+ *    so the crop is entirely horizontal and the peak is already at x 50%); it earns its
+ *    keep in landscape and on short wide windows.
+ *
+ *  - Shinjuku (1920x1023): Fuji occupies x 23.4%-40.6% (peak 31.8%). MEASURED IN THE
+ *    BROWSER at 390x844, the hero box is 390x715 and shows a 29.0%-wide slice of the
+ *    source — at the default `center` that slice is x 35.5%-64.5%, so all but the last
+ *    5 points of the mountain is outside the frame. That is what the design review
+ *    objected to. x=30% moves the window to 21.3%-50.3% and the whole cone is in. It
+ *    costs the Mode Gakuen Cocoon tower (x 51%-55%), and that is the compromise — the
+ *    mountain is why this frame was chosen at all. Also checked at 320 (21.7%-49.3%)
+ *    and 430 (21.4%-50.0%): the cone survives across the phone range.
+ *    At >= 768 the box is wide enough to hold both (768x1024 measures 22.8%-68.5%), so
+ *    `42% center` only nudges the composition left of dead centre; past the source's
+ *    1.88 aspect the horizontal value goes inert entirely (1440x900 measures
+ *    0.2%-99.7%) because the full width is on screen and the crop moves to y.
+ *
+ * `cap` is the --duo-*-high brightness clamp `.hero-cap` paints. Both values already
+ * exist as tokens; this adds no colour.
+ */
+const HERO_FRAME: Record<string, { narrow: string; wide: string; cap: string }> = {
+  [HERO_DEFAULT]: { narrow: 'center 32%', wide: 'center 38%', cap: 'var(--duo-np-high)' },
+  [HERO_JAPAN]: { narrow: '30% center', wide: '42% center', cap: 'var(--duo-jp-high)' },
+};
 
 /**
  * — Hero entrance reveal variants.
@@ -200,6 +247,15 @@ export default function HeroSection() {
 
   const reveal = prefersReducedMotion ? itemVariantsReduced : itemVariants;
 
+  // #98 — the third hero state, POST-trip. Pre-trip and post-trip both leave `todayInTrip`
+  // null, so without this the countdown-grid branch below ran for both and post-trip showed
+  // a permanently zeroed clock ("00:00:00", 0 total days) under "Countdown to day one" —
+  // wrong once the trip is over. Mount-gated for the same hydration reason as `custom` above.
+  // Reuses `getNowAtTrip().date` (the SAME destination-local trip-day source A-22's
+  // `trip-recap.tsx` fix and `trip-story-recap.tsx`/`core/recap/wrapped.ts` already read) —
+  // no new device-local date helper.
+  const postTrip = mounted && !todayInTrip && isPostTrip(getNowAtTrip().date);
+
   // — custom (non-default-pack) trips get a versatile vibe hero: no Nepal×Japan art/copy.
   // Mount-gated (SSR always renders the default pack's prerendered content,/SSG hydration
   // note) so `isDefaultTrip()` — a client-only gateway read — never causes a hydration mismatch.
@@ -208,6 +264,49 @@ export default function HeroSection() {
   const customVibe = custom ? vibeFor(customMeta?.config?.vibe) : undefined;
   const customName = customMeta?.name ?? 'Your Trip';
   const customDestinations = customMeta?.config?.destinations?.join(' × ') ?? '';
+
+  // — the two states with NO photograph behind the hero (issue #26): a custom trip, which
+  // has none by rule (D8), and the default pack when the raster fails to load. Those are
+  // the only two states the decorative CSS/SVG art is for; with a photograph present it is
+  // a competing layer, not a backdrop. One flag so the glow layer and the silhouette can
+  // never disagree about which state they are in.
+  const artOnly = custom || heroImgError;
+
+  // The hero photograph follows the LEG you are actually on: the Himalaya peak through the Nepal
+  // leg (and every day outside the trip window), the Tokyo skyline through the Japan leg. Mapping
+  // lives in `lib/hero-image.ts` so it is testable without React.
+  //
+  // Mount-gated exactly like `custom` above, and for the same reason: `todayInTrip` comes from a
+  // clock read whose `?today=` override only resolves CLIENT-side, so the server and the first
+  // paint must both render the default, or hydration mismatches.
+  //
+  // WHAT THIS COSTS, STATED HONESTLY. Every Japan-leg pageview still renders `hero.jpg` with
+  // `priority` on the server, Next emits the preload for it, and the browser fetches it — then
+  // mount swaps the src and that raster is NEVER PAINTED. Roughly 242 KiB (the 1920w AVIF)
+  // downloaded and thrown away, once per cold load, for the 14 days of the Japan leg. It is
+  // unavoidable with a client-only clock: the server cannot know which leg you are on, and the
+  // alternative — dropping `priority` — would cost the LCP on all 351 other days. Do not "fix"
+  // this by removing the mount gate; that trades a wasted fetch for a hydration mismatch.
+  //
+  // `todayInTrip` is refreshed on the same 1s tick as the countdown, so a leg change mid-session
+  // swaps the photo on its own.
+  //
+  // DELIBERATE DEVIATION FROM ISSUE #89, recorded here because it is nowhere else. #89 asked for
+  // a replacement chosen from photography the repo already ships, and this change fetched two new
+  // Wikimedia files instead. The reason is resolution: the hero is the one FULL-BLEED surface in
+  // the app, so it is the one place the pixels are actually spent, and the best bundled candidate
+  // is 1200px native — upscaled across a 1440+ desktop it is visibly soft, which is the same
+  // "the top looks bad" complaint #89 opened with. `scripts/fetch-images.mjs` already carries a
+  // per-entry `width` knob, so the two hero entries take HERO_WIDTH = 1920 while the gallery
+  // stays at 1280; no pipeline change, two rows of config. Both files are CC BY / CC BY-SA
+  // Wikimedia, credited in public/images/CREDITS.md, and the no-new-assets rule elsewhere
+  // (`lib/__tests__/content-validation.test.ts`) is scoped to the inspiration gallery and is
+  // untouched by this.
+  const heroSrc = heroImageForLeg(mounted ? todayInTrip?.country : undefined);
+  // Crop + cap for whichever frame that resolved to. Keyed off `heroSrc`, NOT off a second read
+  // of `todayInTrip.country`: two independent answers to "which leg" is how the cap ends up
+  // Nepal-warm over the Tokyo skyline for one render.
+  const heroFrame = HERO_FRAME[heroSrc] ?? HERO_FRAME[HERO_DEFAULT];
 
   return (
     // `flex-1 min-h-0` (NOT `min-h-[100svh]`): the hero is not the whole fold — the trip
@@ -231,35 +330,66 @@ export default function HeroSection() {
               : 'linear-gradient(180deg, #0b1020 0%, #15203c 32%, #2a3252 52%, #6e5a78 70%, #b9786b 82%, #e8a86a 92%, #f4cf8e 100%)',
           }}
         />
-        {/* Bundled Himalayan photo layer — sits between the base gradient and the
-            glows so the gradient tints it and the SVG + dark overlays render on
-            top. Tuned to ~45% so the title and countdown stay legible. On error
-            (or if the asset is absent) the original CSS/SVG art shows through.
+        {/* Bundled Himalayan photo layer — at FULL strength (issue #26). It used to be
+            held at `opacity:.45` and then buried under two stacked dark overlays, which
+            between them left about 7% of the picture on screen — the photo was not dim,
+            it was very nearly gone, and that is what made the front page read flat. The
+            single `.hero-scrim` below is now the only thing over it, at a measured floor
+            (see the rule in globals.css); the photograph paints at 24% of the composite.
+            On error (or if the asset is absent) the CSS/SVG art below shows through — and
+            it now shows through ONLY THEN, which is what the fallback always claimed to
+            be. Keeping a fake SVG mountain range permanently on top of a real photograph
+            of mountains was the other half of the same defect.
             the PARENT div is a parallax layer (drifts slow + scales subtly,
             reading as the deepest plane); the image element itself is untouched.
             custom trips skip this layer entirely — the vibe gradient IS the backdrop
             (D8: "NO photo/SVG art" for a custom trip). */}
         {!custom && !heroImgError && (
-          <m.div className="absolute inset-0" style={{ y: photoY, scale: photoScale }}>
+          <m.div
+            className="absolute inset-0 hero-photo-wrap"
+            style={{
+              y: photoY,
+              scale: photoScale,
+              // The per-frame crop + cap knobs (see HERO_FRAME). `.hero-photo-wrap` also
+              // carries `isolation: isolate`, which is what keeps the cap's `darken` from
+              // reaching the page behind this section — see the rule in globals.css.
+              ...({
+                ['--hero-focus-narrow']: heroFrame.narrow,
+                ['--hero-focus']: heroFrame.wide,
+                ['--hero-cap']: heroFrame.cap,
+              } as CSSProperties),
+            }}
+          >
             <OptimizedImage
-              src="/images/hero/hero.jpg"
+              src={heroSrc}
               alt=""
               fill
               priority
               sizes="100vw"
-              className="object-cover opacity-[0.45]"
+              className="object-cover"
               onError={() => setHeroImgError(true)}
             />
+            {/* The highlight cap — the ONE layer of the duotone engine this hero takes.
+                Decorative and inside an aria-hidden subtree already. It renders only on
+                this branch: a custom trip has no photograph by rule (D8) and the SVG
+                fallback is not a photograph either, so neither has anything to grade. */}
+            <div className="hero-cap" />
           </m.div>
         )}
         {/* Soft radial glows — a Himalayan "sun" on the left, a sakura/neon bloom on the right.
             drifts UP slightly and fades as the hero leaves, a mid-depth plane.
+            NOW PART OF THE NO-PHOTOGRAPH BRANCH ONLY (issue #26): this is chroma for the
+            CSS/SVG art, and over a real photograph it was a fourth compositing layer whose
+            only effect was to tint the picture and make the worst-case pixel under the
+            scrim unknowable. A custom trip has no photo by rule, and the default pack has
+            none when the raster fails — those are exactly the two cases that still want it.
             under reduced motion the scroll-linked MotionValues are NOT bound at all —
             framer hardware-accelerates the scroll-linked `opacity` into a WAAPI ViewTimeline
             animation, which stays permanently "running" even with the ranges collapsed to a
             constant. rule (reduced motion never renders a scroll-timeline path) makes
             the static style the correct branch; the rendered pixels are identical (y=0,
             opacity=1 — the collapsed ranges' resting values). */}
+        {artOnly && (
         <m.div
           className="absolute inset-0"
           style={{
@@ -268,12 +398,16 @@ export default function HeroSection() {
               'radial-gradient(60% 50% at 22% 86%, rgba(244,196,107,0.45) 0%, rgba(244,196,107,0) 60%), radial-gradient(45% 40% at 82% 30%, rgba(244,143,177,0.30) 0%, rgba(244,143,177,0) 65%), radial-gradient(40% 35% at 95% 70%, rgba(99,179,237,0.22) 0%, rgba(99,179,237,0) 70%)',
           }}
         />
+        )}
 
-        {/* Layered mountain-range / skyline silhouette.
+        {/* Layered mountain-range / skyline silhouette — THE PHOTO'S FALLBACK ART, and
+            only that (issue #26). The comment on the photo layer above has always called
+            this the fallback; the markup rendered it unconditionally, so a real photograph
+            of the Himalaya spent its life under an opaque SVG of invented mountains.
             wrapped in a parallax m.div that drifts DOWN the most slowly of the
             backdrop planes (deepest fixed scenery feel). The SVG art is unchanged.
             custom trips skip this SVG entirely (D8: "NO photo/SVG art"). */}
-        {!custom && (
+        {!custom && heroImgError && (
         <m.div className="absolute inset-x-0 bottom-0 w-full h-[62%]" style={{ y: silhouetteY }}>
         <svg
           className="absolute inset-0 w-full h-full"
@@ -345,9 +479,15 @@ export default function HeroSection() {
         </m.div>
         )}
 
-        {/* Existing dark overlays — keep the title/countdown legible over the art */}
-        <div className="absolute inset-0 hero-gradient" />
-        <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-surface/50" />
+        {/* THE scrim — singular (issue #26). It replaces `.hero-gradient` stacked under a
+            second `from-surface via-transparent to-surface/50` wash. Its ramp never drops
+            below 0.76 anywhere a text node can land, which is what carries the contrast
+            guarantee for a content block that is vertically CENTRED and whose height moves
+            as zero countdown units drop out. Every ratio is measured in
+            `scripts/contrast-tokens.mjs` against the worst pixel a photograph can produce
+            (pure white), not against an assumed duotone cap. Do not add a second overlay
+            here; darken the one ramp instead, and re-run `npm run contrast-check`. */}
+        <div className="absolute inset-0 hero-scrim" />
       </div>
 
       {/* Floating Decorative Elements —: lifted as the foreground parallax plane
@@ -396,10 +536,14 @@ export default function HeroSection() {
           )}
         </m.h1>
 
-        {/* Subtitle —: a custom trip shows its destinations + vibe tagline. */}
+        {/* Subtitle —: a custom trip shows its destinations + vibe tagline.
+            Issue #27 tier: it qualifies the title rather than being the title, so ink-mid.
+            It sits over the photograph, where ink-mid measures 5.62:1 (5.27:1 at the
+            entrance's darkest frame) and ink-LO would measure 3.55:1 — which is why no
+            hero copy over the photo may drop to the floor tier. */}
         <m.p
           variants={reveal}
-          className="text-lg sm:text-xl text-white/60 max-w-2xl mx-auto mb-3"
+          className="text-lg sm:text-xl text-ink-mid max-w-2xl mx-auto mb-3"
         >
           {custom
             ? [customDestinations, customVibe?.tagline].filter(Boolean).join(' — ')
@@ -409,22 +553,26 @@ export default function HeroSection() {
         {/* the decorative quote was dropped to keep the hero calm and content-first
             (one obvious action, less above-fold noise). The subtitle above carries the mood. */}
 
-        {/* Countdown ⇄ Travel mode. Both are gated behind `mounted` so the
-            client-only clock never renders on the server (no hydration mismatch — the
-            Day-N panel only ever appears post-mount). When the app clock is inside the
-            trip window, `todayInTrip` is non-null and the "Day N — {city}" panel replaces
-            the countdown grid; otherwise the live countdown shows. */}
+        {/* Countdown ⇄ Travel mode ⇄ Post-trip. All three are gated behind `mounted` so the
+            client-only clock never renders on the server (no hydration mismatch — none of
+            these panels appears pre-mount). When the app clock is inside the trip window,
+            `todayInTrip` is non-null and the "Day N — {city}" panel replaces the countdown
+            grid; off-trip and past the last trip day (#98), a static "trip complete" panel
+            replaces it instead; otherwise (pre-trip) the live countdown shows. */}
         {mounted && (todayInTrip ? (
           <m.div variants={reveal} className="relative mb-10">
-            <CelebrationBurst active={celebrate} testId="hero-arrival-celebration" />
-            <p className="text-sm text-muted-foreground mb-4 uppercase tracking-widest">You're on the trip</p>
+            <CelebrationBurst active={celebrate} testId="hero-arrival-celebration" celebrationId="hero-arrival" />
+            {/* ink-mid, NOT `text-muted-foreground`: this line sits OVER THE PHOTOGRAPH
+                (the card below it does not), and --muted-foreground resolves to the floor
+                tier, which measures 3.55:1 there. */}
+            <p className="text-sm text-ink-mid mb-4 uppercase tracking-widest">You're on the trip</p>
             <div data-testid="hero-travel-mode" className="inline-flex flex-col items-center gap-2 glass-card rounded-2xl px-6 sm:px-10 py-5 sm:py-6 max-w-full">
               <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
                 Day <span data-testid="hero-day-number" className="text-display-emphasis">{todayInTrip.dayNumber}</span>
-                <span className="text-white/40 mx-2 sm:mx-3">—</span>
+                <span className="text-ink-lo mx-2 sm:mx-3">—</span>
                 {todayInTrip.city}
               </div>
-              <p className="text-sm sm:text-base text-white/50">{formatDateLong(todayInTrip.date)}</p>
+              <p className="text-sm sm:text-base text-ink-mid">{formatDateLong(todayInTrip.date)}</p>
             </div>
             {/* in-trip, the ONE obvious action is Travel Mode — the
                 purpose-built on-trip experience. Collapsed from two buttons to this single
@@ -442,12 +590,30 @@ export default function HeroSection() {
               </button>
             </div>
           </m.div>
+        ) : postTrip ? (
+          // #98 — post-trip: the countdown-grid branch used to run here too (todayInTrip is
+          // null both pre- and post-trip), showing a permanently zeroed clock under "Countdown
+          // to day one". This is a static replacement, not a live surface — there is nothing
+          // left to count — and deliberately lighter than the six-cell digit grid it replaces,
+          // so it cannot threaten the 740px fold-clearance budget (D-311) the grid was sized
+          // against.
+          <m.div variants={reveal} className="relative mb-10">
+            {/* ink-mid, matching the in-trip panel's caption above: this line also sits over
+                the hero photograph, where the floor tier fails contrast. */}
+            <p className="text-sm text-ink-mid mb-4 uppercase tracking-widest">The journey&rsquo;s over</p>
+            <div data-testid="hero-post-trip" className="inline-flex flex-col items-center gap-2 glass-card rounded-2xl px-6 sm:px-10 py-5 sm:py-6 max-w-full">
+              <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
+                Trip complete
+              </div>
+              <p className="text-sm sm:text-base text-ink-mid">{TRIP_DATE_LABEL}</p>
+            </div>
+          </m.div>
         ) : (
           <m.div
             variants={reveal}
             className="mb-2 min-[420px]:mb-10"
           >
-            <p className="text-sm text-white/50 mb-2 min-[420px]:mb-4 uppercase tracking-widest">Countdown to Departure</p>
+            <p className="text-sm text-ink-mid mb-2 min-[420px]:mb-4 uppercase tracking-widest">Countdown to day one</p>
             <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center gap-3 sm:gap-4 mb-2 min-[420px]:mb-4">
               {/* the cells lost `.animate-pulse-glow` — a 3s infinite box-shadow breathe
                   on all six. They already read as a group via.glass-card; the glow added
@@ -458,18 +624,47 @@ export default function HeroSection() {
                   puts three per row on mobile and `sm:flex-wrap justify-center` still
                   centres the rows above it, so a short row wraps instead of stretching.
                   Six units is still six units, so the layout that ships today is
-                  untouched. */}
+                  untouched.
+
+                  Issue #26 restyles these cells and deliberately does NOT resize them.
+                  Every font-size, padding and min-width below is the value that shipped,
+                  because the hero's height is a hard budget: `e2e/countdown.spec.ts`
+                  asserts the CTA below still clears a 740px fold with 12px of margin at
+                  320 and 360 wide (D-311), and the ruled cell metrics would have spent
+                  more than that margin on their own. What changes is the LOOK — the ruled
+                  20px radius, Geist tabular figures instead of the mono face, the label on
+                  the floor tier, and the one live cell. Re-timing the type scale is the
+                  root-size question (the app runs a 17px root) and it needs the overflow
+                  matrix re-run at 360/390/414, which is its own slice. */}
               {[
                 ...COUNTDOWN_DATE_UNITS.filter(({ key }) => timeLeft[key] > 0),
                 ...COUNTDOWN_CLOCK_UNITS,
-              ].map(({ key, label }) => (
-                <div key={key} className="glass-card rounded-xl px-3 sm:px-5 py-3 sm:py-4 min-w-[70px] sm:min-w-[90px]">
-                  <div data-testid={`countdown-${key}`} className="font-mono text-2xl sm:text-3xl md:text-4xl font-bold text-foreground">
+              ].map(({ key, label }) => {
+                // The seconds cell is the only thing on this surface that is genuinely
+                // live, and it is marked as such three ways — a pink edge, the --glow-live
+                // ring, and gradient-filled digits — on top of a label that already says
+                // SECONDS in words. Motion never carries information alone here because
+                // there is no motion: see the note on `.countdown-cell--live`.
+                const live = key === 'seconds';
+                return (
+                <div
+                  key={key}
+                  className={`countdown-cell glass-card px-3 sm:px-5 py-3 sm:py-4 min-w-[70px] sm:min-w-[90px]${
+                    live ? ' countdown-cell--live' : ''
+                  }`}
+                >
+                  <div
+                    data-testid={`countdown-${key}`}
+                    className={`text-2xl sm:text-3xl md:text-4xl font-extrabold tabular-nums tracking-tight ${
+                      live ? 'text-gradient-sakura' : 'text-foreground'
+                    }`}
+                  >
                     <CountUpNumber live={timeLeft[key] ?? 0} active={mounted} format={padUnit} />
                   </div>
-                  <div className="text-[10px] sm:text-xs text-white/50 uppercase tracking-wider mt-1">{label}</div>
+                  <div className="text-[10px] sm:text-xs text-ink-lo uppercase tracking-wider mt-1 font-bold">{label}</div>
                 </div>
-              ))}
+                );
+              })}
             </div>
             {/* — radial progress ring wrapping the existing total-days digit. `ringFraction`
                 is a pure derivation over the SAME computeCountdown() output driving the digit
@@ -480,13 +675,13 @@ export default function HeroSection() {
                 reducedMotion={!!prefersReducedMotion}
               >
                 <div className="flex flex-col items-center">
-                  <span data-testid="countdown-total-days" className="font-mono text-xl sm:text-2xl text-foreground font-bold leading-none">
+                  <span data-testid="countdown-total-days" className="text-xl sm:text-2xl text-foreground font-extrabold tabular-nums leading-none">
                     <CountUpNumber live={timeLeft.totalDays} active={mounted} format={identity} />
                   </span>
-                  <span className="text-[9px] uppercase tracking-widest text-white/40 mt-1">days to go</span>
+                  <span className="text-[9px] uppercase tracking-widest text-ink-mid mt-1">days to go</span>
                 </div>
               </CountdownRing>
-              <p className="text-sm text-white/40">until adventure begins</p>
+              <p className="text-sm text-ink-mid">until adventure begins</p>
             </div>
           </m.div>
         ))}
@@ -519,7 +714,11 @@ export default function HeroSection() {
         transition={{ delay: 2 }}
         className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden sm:block"
       >
-        <ChevronDown className="w-6 h-6 text-white/30" />
+        {/* A decorative mark, not text — WCAG 1.4.11's 3:1 is the bar it has to clear,
+            and ink-mid clears it by a distance (5.62:1) over the photograph. The floor
+            tier would sit at 3.55:1: still legal for a mark, but this is the only cue
+            that there is anything below the fold, so it takes the tier that reads. */}
+        <ChevronDown className="w-6 h-6 text-ink-mid" aria-hidden="true" />
       </m.div>
     </section>
   );

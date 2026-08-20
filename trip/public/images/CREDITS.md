@@ -1,16 +1,25 @@
 # Image Credits
 
-Almost every image bundled under `public/images/` is freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision ****, sourced from Wikimedia Commons / Wikipedia via `scripts/fetch-images.mjs` and hosted locally (no hotlinking). Attribution in the tables below is captured automatically from each file’s Wikimedia `extmetadata`.
+Almost every image bundled under `public/images/` is freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision D-015, sourced from Wikimedia Commons / Wikipedia via `scripts/fetch-images.mjs` and hosted locally (no hotlinking). Attribution in the tables below is captured automatically from each file’s Wikimedia `extmetadata`.
 
 **The exception is `public/images/landing/` — see the last section. Those three are self-generated, not sourced, and no Wikimedia attribution applies to them.**
 
-Total assets: 106 — 103 Wikimedia-sourced (tabulated below) + 3 self-generated landing screenshots.
+Total assets: **107 paths / 68 distinct images** — 104 Wikimedia-sourced paths (tabulated below) resolving to **65 distinct upstream files**, plus 3 self-generated landing screenshots.
+
+Paths outnumber photographs because the same upstream file is deliberately bundled more than once at different widths for different surfaces — **63 of the 104 entries below share an upstream file with at least one other**, falling into 24 shared groups (e.g. Boudhanath is `nepal/na1`, `photography/ps3`, `featured/boudhanath` and `map/np-boudhanath`). The remaining 41 entries are one-of-a-kind, and 63 + 41 = 104 rows just as 24 + 41 = 65 distinct upstream files. Every row now carries a source link, so a count driven off the links alone finds all 24 groups / 63 entries. Grouping is by upstream file, not by bytes: a group is normally the same photograph fetched at the width each surface needs (`scripts/fetch-images.mjs`, `CARD_WIDTH = 1200` with a per-entry override), so collapsing one would either soften the large surface or bloat the small one. **The four Nagarkot copies (`nepal/na17`, `photography/ps1`, `featured/nagarkot`, `map/np-nagarkot`) are the exception**: all four are byte-identical at 1200×800, sha256 `62dba067e92dfe15…`, so that justification does not apply to them and they could be collapsed to one path if anyone wants the 3 × 276 KiB back.
 
 ## Hero
 
 | Local path | Subject | Author | License | Source |
 |---|---|---|---|---|
-| `/images/hero/hero.jpg` | Himalayas | NASA Landsat image | Public domain | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/c/c8/Himalayas_and_allied_ranges_NASA_Landsat_showing_the_eight_thousanders%2C_annotated_with_major_rivers.jpg/1920px-Himalayas_and_allied_ranges_NASA_Landsat_showing_the_eight_thousanders%2C_annotated_with_major_rivers.jpg) |
+| `/images/hero/hero.jpg` | Ama Dablam, Himalayas | Vyacheslav Argenberg | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/2/29/Himalayas%2C_Ama_Dablam%2C_Nepal.jpg/1920px-Himalayas%2C_Ama_Dablam%2C_Nepal.jpg) |
+| `/images/hero/hero-japan.jpg` | Shinjuku skyline, Tokyo | Morio | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/Skyscrapers_of_Shinjuku_2009_January.jpg/1920px-Skyscrapers_of_Shinjuku_2009_January.jpg) |
+
+There are TWO heroes because the hero photograph follows the trip leg: `hero.jpg` carries the Nepal leg and every day outside the trip window, `hero-japan.jpg` takes over for the Japan leg. See `lib/hero-image.ts`.
+
+**`/images/hero/hero-japan.jpg` and `/images/map/jp-park-hyatt.jpg` are the same upstream Wikimedia file** — `Skyscrapers_of_Shinjuku_2009_January.jpg` by Morio — bundled twice at two different widths: 1920×1023 for the hero (`HERO_WIDTH`) and 1200×639 for the map card (`CARD_WIDTH`, fetched from the 1280px Commons thumb). Confirmed by pixel comparison: greyscale RMS difference 7.5/255 at a common 1200×639, which is rescaling and JPEG noise on the building edges, not a different frame.
+
+**This duplication is deliberate and must not be "deduped".** The hero is the app's one full-bleed surface and the only place the extra pixels are actually spent; repointing it at the 1200px copy would visibly soften it on any desktop. Repointing the map card at the 1920px copy would put a 533 KiB raster behind a thumbnail.
 
 ## Nepal (attractions & food)
 
@@ -24,7 +33,7 @@ Total assets: 106 — 103 Wikimedia-sourced (tabulated below) + 3 self-generated
 | `/images/nepal/na14.jpg` | Chobhar | Gerd Eichmann | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/a/af/Chobhar-Terrassenlandschaft-20-2007-gje.jpg/1280px-Chobhar-Terrassenlandschaft-20-2007-gje.jpg) |
 | `/images/nepal/na15.jpg` | Kopan Monastery | Irina Gelbukh | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Kopan_01.JPG/1280px-Kopan_01.JPG) |
 | `/images/nepal/na16.jpg` | Phulchowki Hill, Kathmandu Valley | Shadow Ayush | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Phulchowki_Hill_and_Rainbow.jpg/1280px-Phulchowki_Hill_and_Rainbow.jpg) |
-| `/images/nepal/na17.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file] |
+| `/images/nepal/na17.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg/1280px-2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg) |
 | `/images/nepal/na18.jpg` | Chandragiri Hills cable car | Khemsang | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Chandragiri_Cable_Car_Hills.jpg/1280px-Chandragiri_Cable_Car_Hills.jpg) |
 | `/images/nepal/na19.jpg` | Dhulikhel | Saddam19 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/4/4c/Panoramic_view_of_the_Great_Himalayan_Range_from_Dhulikhel%2C_Nepal_in_2025.jpg/1280px-Panoramic_view_of_the_Great_Himalayan_Range_from_Dhulikhel%2C_Nepal_in_2025.jpg) |
 | `/images/nepal/na2.jpg` | Swayambhunath | Nabin K. Sapkota | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/f/fe/Swayambhunath_2018.jpg/1280px-Swayambhunath_2018.jpg) |
@@ -86,7 +95,7 @@ Total assets: 106 — 103 Wikimedia-sourced (tabulated below) + 3 self-generated
 
 | Local path | Subject | Author | License | Source |
 |---|---|---|---|---|
-| `/images/photography/ps1.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file] |
+| `/images/photography/ps1.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg/1280px-2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg) |
 | `/images/photography/ps10.jpg` | Tsukiji Market | Kakidai | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/2018_Tsukiji_fish_market.jpg/1280px-2018_Tsukiji_fish_market.jpg) |
 | `/images/photography/ps11.jpg` | Arashiyama | Chris Spackman / TakuyaMurata at en.wikipedia | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) | [file](https://upload.wikimedia.org/wikipedia/commons/d/de/Arashiyama_013.jpg) |
 | `/images/photography/ps12.jpg` | Pashupatinath Temple | Bijay Chaurasia | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Pashupatinath_Temple-2020.jpg/1280px-Pashupatinath_Temple-2020.jpg) |
@@ -106,7 +115,7 @@ Total assets: 106 — 103 Wikimedia-sourced (tabulated below) + 3 self-generated
 | `/images/featured/arashiyama.jpg` | Arashiyama | Chris Spackman / TakuyaMurata at en.wikipedia | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) | [file](https://upload.wikimedia.org/wikipedia/commons/d/de/Arashiyama_013.jpg) |
 | `/images/featured/boudhanath.jpg` | Boudhanath | Sumitbhatt222 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Boudhanath_stupa_%2C_Kathmandu%2C_Nepal.jpg/1280px-Boudhanath_stupa_%2C_Kathmandu%2C_Nepal.jpg) |
 | `/images/featured/mount-fuji.jpg` | Mount Fuji | Suicasmo | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/f/f8/View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg/1280px-View_of_Mount_Fuji_from_%C5%8Cwakudani_20211202.jpg) |
-| `/images/featured/nagarkot.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file] |
+| `/images/featured/nagarkot.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg/1280px-2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg) |
 | `/images/featured/patan-durbar.jpg` | Patan Durbar Square | Zulufive | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [file](https://upload.wikimedia.org/wikipedia/commons/8/89/Patan_durbar_square.jpg) |
 | `/images/featured/shibuya.jpg` | Shibuya Crossing | David Kernan | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/8/88/Shibuya_Crossing%2C_Aerial.jpg/1280px-Shibuya_Crossing%2C_Aerial.jpg) |
 
@@ -131,7 +140,7 @@ Total assets: 106 — 103 Wikimedia-sourced (tabulated below) + 3 self-generated
 | `/images/map/np-boudhanath.jpg` | Boudhanath | Sumitbhatt222 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/Boudhanath_stupa_%2C_Kathmandu%2C_Nepal.jpg/1280px-Boudhanath_stupa_%2C_Kathmandu%2C_Nepal.jpg) |
 | `/images/map/np-durbar-ktm.jpg` | Kathmandu Durbar Square | Artha at English Wikipedia | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) | [file](https://upload.wikimedia.org/wikipedia/commons/f/fd/Basantapurpalace.JPG) |
 | `/images/map/np-kopan.jpg` | Kopan Monastery | Irina Gelbukh | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/1/14/Kopan_01.JPG/1280px-Kopan_01.JPG) |
-| `/images/map/np-nagarkot.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file] |
+| `/images/map/np-nagarkot.jpg` | Nagarkot | 松岡明芳 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/6/66/2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg/1280px-2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg) |
 | `/images/map/np-newa-kitchen.jpg` | Nepalese cuisine | Subhashish Panigrahi | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/6/60/Nepali_dal-bhat-tarkari.jpg/1280px-Nepali_dal-bhat-tarkari.jpg) |
 | `/images/map/np-pashupatinath.jpg` | Pashupatinath Temple | Bijay Chaurasia | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) | [file](https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Pashupatinath_Temple-2020.jpg/1280px-Pashupatinath_Temple-2020.jpg) |
 | `/images/map/np-patan.jpg` | Patan Durbar Square | Zulufive | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) | [file](https://upload.wikimedia.org/wikipedia/commons/8/89/Patan_durbar_square.jpg) |

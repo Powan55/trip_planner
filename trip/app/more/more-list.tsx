@@ -31,8 +31,8 @@ import { useViewTransition } from '@/hooks/use-view-transition';
 // Group definitions keyed by href. Labels/icons come from the catalog.
 const GROUPS: { title: string; hrefs: string[] }[] = [
   { title: 'Plan & prep', hrefs: ['/flights/', '/packing/', '/checklist/', '/safety/', '/share/'] },
-  { title: 'Memories', hrefs: ['/journal/', '/recap/'] },
-  { title: 'Account', hrefs: ['/trips/', '/settings/'] },
+  { title: 'Memories', hrefs: ['/journal/', '/recap/', '/passport/'] },
+  { title: 'Account', hrefs: ['/trips/', '/profile/', '/settings/'] },
 ];
 
 export default function MoreList() {
@@ -77,7 +77,7 @@ export default function MoreList() {
             <section key={group.title} aria-labelledby={headingId} className="mb-8">
               <h2
                 id={headingId}
-                className="mb-2 px-1 text-eyebrow uppercase tracking-wide text-white/70"
+                className="mb-2 px-1 text-eyebrow uppercase tracking-wide text-ink-lo"
               >
                 {group.title}
               </h2>
@@ -90,7 +90,7 @@ export default function MoreList() {
                         href={item.href}
                         onClick={vtClick(item.href)}
                         data-testid={`more-link-${item.label.toLowerCase().replace(/[^a-z]+/g, '-')}`}
-                        className="flex min-h-[52px] items-center gap-3 px-4 text-sm text-white/85 outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
+                        className="flex min-h-[52px] items-center gap-3 px-4 text-sm text-ink-hi outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
                       >
                         <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                         <span className="flex-1">{item.label}</span>
@@ -104,7 +104,7 @@ export default function MoreList() {
                       <button
                         type="button"
                         data-testid="more-sign-out"
-                        className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-sm text-white/85 outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
+                        className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-sm text-ink-hi outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
                       >
                         <LogOut className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
                         <span className="flex-1">Sign out</span>

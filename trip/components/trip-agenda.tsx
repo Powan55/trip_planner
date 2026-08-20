@@ -25,8 +25,8 @@ function CompletedFooter({ item }: { item: ItineraryItem }) {
     >
       <Check className="h-3 w-3" aria-hidden="true" strokeWidth={3} />
       Completed
-      {item.doneBy && <span className="text-white/45">· {item.doneBy}</span>}
-      {when && <span className="text-white/35">· {when}</span>}
+      {item.doneBy && <span className="text-ink-mid">· {item.doneBy}</span>}
+      {when && <span className="text-ink-mid">· {when}</span>}
     </span>
   );
 }
@@ -71,9 +71,9 @@ function TodayAgenda({ items, date, dayNumber, city, onToggle }: CommonProps) {
   return items.length === 0 ? (
     // Empty state — mirrors the calendar's empty-state tone.
     <div className="text-center py-10" data-testid="today-empty-state">
-      <Calendar className="w-10 h-10 text-white/10 mx-auto mb-3" aria-hidden="true" />
-      <p className="text-white/55 text-sm">Nothing planned for today yet</p>
-      <p className="text-white/55 text-xs mt-1">A free day — or head to the planner to add something.</p>
+      <Calendar className="w-10 h-10 text-ink-lo mx-auto mb-3" aria-hidden="true" />
+      <p className="text-ink-mid text-sm">Nothing planned for today yet</p>
+      <p className="text-ink-mid text-xs mt-1">A free day — or head to the planner to add something.</p>
       <Link
         href="/plan/"
         className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-lg glass-card text-white text-sm font-medium hover:bg-white/10 transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
@@ -139,18 +139,18 @@ function TodayAgendaItem({ item, date, onToggle }: { item: ItineraryItem; date: 
           <span
             data-testid="today-agenda-item"
             className={`block truncate font-medium transition-colors duration-200 ${
-              done ? 'text-white/50 line-through' : 'text-white'
+              done ? 'text-ink-lo line-through' : 'text-white'
             }`}
           >
             {item.title}
           </span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-white/55">
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-mid">
             {timeInfo && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" aria-hidden="true" />
                 {timeInfo.label}
                 {timeInfo.badge && (
-                  <span className="text-[10px] uppercase tracking-wide text-white/55">{timeInfo.badge}</span>
+                  <span className="text-[10px] uppercase tracking-wide text-ink-mid">{timeInfo.badge}</span>
                 )}
               </span>
             )}
@@ -186,8 +186,8 @@ function TravelAgenda({ items, date, dayNumber, city, onToggle, ctx }: CommonPro
   if (items.length === 0) {
     return (
       <div className="mx-auto mt-4 max-w-2xl text-center py-8" data-testid="travel-agenda-empty">
-        <Calendar className="mx-auto mb-3 h-9 w-9 text-white/10" aria-hidden="true" />
-        <p className="text-sm text-white/60">No agenda for today — a free day.</p>
+        <Calendar className="mx-auto mb-3 h-9 w-9 text-ink-lo" aria-hidden="true" />
+        <p className="text-sm text-ink-mid">No agenda for today — a free day.</p>
         <Link
           href="/plan/"
           className="mt-4 inline-flex items-center gap-2 rounded-lg glass-card px-4 py-2 text-sm font-medium text-white outline-none transition-colors duration-200 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
@@ -212,7 +212,7 @@ function TravelAgenda({ items, date, dayNumber, city, onToggle, ctx }: CommonPro
         <h2 id="travel-agenda-title" className="text-xs uppercase tracking-widest text-muted-foreground">
           Today&rsquo;s agenda
         </h2>
-        <p className="text-xs text-white/50" aria-live="polite">
+        <p className="text-xs text-ink-mid" aria-live="polite">
           <span className="font-semibold text-foreground">{doneCount}</span>
           <span aria-hidden="true"> / </span>
           <span className="sr-only"> of </span>
@@ -278,12 +278,12 @@ function TravelAgendaItem({
           <span
             data-testid="travel-agenda-item"
             className={`block truncate font-medium transition-colors duration-200 ${
-              done ? 'text-white/50 line-through' : 'text-white'
+              done ? 'text-ink-lo line-through' : 'text-white'
             }`}
           >
             {item.title}
           </span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-white/55">
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-mid">
             {phase === 'now' && (
               <span className="inline-flex items-center gap-1 font-semibold text-gold-400">
                 <Clock className="h-3 w-3" aria-hidden="true" />
@@ -295,7 +295,7 @@ function TravelAgendaItem({
                 {phase !== 'now' && <Clock className="h-3 w-3" aria-hidden="true" />}
                 {timeInfo.label}
                 {timeInfo.badge && (
-                  <span className="text-[10px] uppercase tracking-wide text-white/55">{timeInfo.badge}</span>
+                  <span className="text-[10px] uppercase tracking-wide text-ink-mid">{timeInfo.badge}</span>
                 )}
               </span>
             )}

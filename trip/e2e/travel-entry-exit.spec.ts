@@ -161,6 +161,20 @@ test.describe('S351B · redirect-loop regression (signed-out visitor, stale acti
       window.localStorage.setItem(k, 'active');
     }, TRAVEL_KEY);
 
+    // Issue #7 — the third-party calls /travel makes when it DOES mount. Collected from before the
+    // first navigation so nothing can slip through during boot. The gate is not in the card: it is
+    // `itinerary-provider.tsx`'s `{mounted && traveler ? children : null}`, which withholds the
+    // whole page subtree, so `TravelEssentialsCard` never mounts and its two bare effects (keyed on
+    // city/currency, with NO identity term of their own) never run. That means this assertion is
+    // pinning a property of the WALL, and the day someone "helpfully" renders children behind the
+    // overlay instead of withholding them, an unattended signed-out tab starts calling two public
+    // APIs forever with nobody to read the answer — the exact thing #7 reports.
+    const thirdParty: string[] = [];
+    page.on('request', (r) => {
+      const host = new globalThis.URL(r.url()).host;
+      if (host === 'api.open-meteo.com' || host === 'api.frankfurter.dev') thirdParty.push(r.url());
+    });
+
     await goto(page, '/');
 
     // Boot bounce (relaunch, a client-side `router.replace` — same mechanism the signed-in
@@ -187,6 +201,20 @@ test.describe('S351B · redirect-loop regression (signed-out visitor, stale acti
     // Not bricked: the front door is up (TokenGate covers /travel exactly like every other route),
     // so the visitor can recover by signing in — not a blank or looping screen.
     await expect(page.locator('[role="dialog"]')).toBeVisible();
+
+    // Issue #7 — and in those 6 seconds sitting on /travel behind the wall, zero calls went out.
+    //
+    // WHICH HOST ACTUALLY BITES, so nobody trusts coverage that is not here: today this catches a
+    // wall regression through `api.open-meteo.com` ALONE. The pre-trip default day is the Nepal
+    // leg, so the currency is NPR, and `lib/currency-rate.ts` short-circuits on
+    // `UNSUPPORTED_CURRENCIES` and returns 'unavailable' BEFORE issuing any request — a mounted
+    // card would never call Frankfurter on this date. The host stays in the list because it costs
+    // nothing and goes live again the moment the default day, the leg, or that set changes.
+    // Asserted AFTER the dialog check on purpose: an empty list is only meaningful once we know the
+    // visitor really did land on /travel and really is walled, otherwise it would pass for the
+    // boring reason that we never got there. The failure message carries the offending URLs,
+    // because "expected 2 to be 0" would not say which API woke up.
+    expect(thirdParty, `signed-out /travel called third-party APIs:\n${thirdParty.join('\n')}`).toEqual([]);
   });
 });
 
@@ -236,7 +264,7 @@ test.describe('S190 · a11y + console', () => {
 
     // S336 settle-guard (ported S351B — this test IS the toast-open case the guard exists for,
     // yet never had it): `toBeVisible()` above does not wait for the opacity 0->1 entrance fade to
-    // finish, so axe can sample it mid-fade and misread its text-white/60 subtitle as a false
+    // finish, so axe can sample it mid-fade and misread its text-ink-mid subtitle as a false
     // contrast failure (rests at ~7:1 on the glass surface). Settle before scanning.
     await expect(toast(page)).toHaveCSS('opacity', '1');
 

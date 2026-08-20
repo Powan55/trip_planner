@@ -58,6 +58,15 @@ describe('resolveTravelDate', () => {
     expect(r.outOfRange).toBe(false);
   });
 
+  it('no `?date=`, pre-trip with <24h left → daysUntilStart is still 1, not 0 (A-23)', () => {
+    const oneHourBefore = new Date(TRIP_START.getTime() - 60 * 60 * 1000);
+    const r = resolveTravelDate({ dateParam: null, todayDate: null, now: oneHourBefore });
+    expect(r.date).toBe(DEC9);
+    expect(r.isPreTripDefault).toBe(true);
+    expect(r.daysUntilStart).toBe(1);
+    expect(r.outOfRange).toBe(false);
+  });
+
   it('no `?date=`, post-trip (off-trip, not pre-trip) → null, not an error', () => {
     const afterTrip = new Date('2027-02-01T12:00:00');
     const r = resolveTravelDate({ dateParam: null, todayDate: null, now: afterTrip });

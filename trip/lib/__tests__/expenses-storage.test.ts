@@ -49,14 +49,36 @@ describe('expense storage (gateway key 11, D-097)', () => {
     expect(JSON.parse(raw as string)).toEqual(list);
   });
 
-  it('saveExpenses SANITIZES on write — a malformed entry never reaches disk', () => {
+  it('saveExpenses SANITIZES on write — an UNSALVAGEABLE entry never reaches disk (an unknown leg is not one)', () => {
     saveExpenses([
       { id: 'ok', leg: 'nepal', category: 'food', amount: 1000, createdAt: 't' },
-      { id: 'bad', leg: 'atlantis', category: 'food', amount: 1 } as unknown as Expense, // dropped
+      { id: 'foreign', leg: 'atlantis', category: 'food', amount: 1 } as unknown as Expense, // RETAINED
       { leg: 'japan', category: 'hotel', amount: 5000, createdAt: 't' } as unknown as Expense, // no id, dropped
+      { id: 'badcat', leg: 'nepal', category: 'bogus', amount: 1 } as unknown as Expense, // bad category, dropped
     ]);
     const back = loadExpenses();
-    expect(back.map((e) => e.id)).toEqual(['ok']);
+    // 'foreign' survives: sanitize-on-write is what made a leg mismatch a PERMANENT deletion rather
+    // than a hidden row, so the leg check moved out of the sanitizer and into the aggregates.
+    expect(back.map((e) => e.id)).toEqual(['ok', 'foreign']);
+    expect(back.find((e) => e.id === 'foreign')!.leg).toBe('atlantis');
+  });
+
+  it("a row whose leg is unknown to the active pack ('main') round-trips save → load", () => {
+    // The exact A-6 shape: a whole-trip backup taken under a single-leg custom pack, restored while
+    // the active pack is the default nepal/japan one. Every row's leg is foreign to this build.
+    const foreign: Expense[] = [
+      { id: 'm1', leg: 'main', category: 'food', amount: 1200, createdAt: '2026-12-10T09:00:00.000Z', note: 'Lunch' },
+      { id: 'm2', leg: 'main', category: 'hotel', amount: 8000, createdAt: '2026-12-11T18:00:00.000Z', date: '2026-12-11' },
+    ];
+    saveExpenses(foreign);
+    const back = loadExpenses();
+    expect(back).toEqual(foreign); // leg still 'main', every other field intact
+    expect(back.map((e) => e.leg)).toEqual(['main', 'main']);
+    // And on disk, not just in memory — this is the write-side sanitize that used to erase them.
+    expect(JSON.parse(window.localStorage.getItem(KEY) as string)).toEqual(foreign);
+    // Re-saving what was loaded is stable: the old bug emptied the slot on the NEXT commit.
+    saveExpenses(back);
+    expect(loadExpenses()).toEqual(foreign);
   });
 
   it('a corrupt (non-JSON) slot → [] , never throws', () => {

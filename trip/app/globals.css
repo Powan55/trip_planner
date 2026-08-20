@@ -5,111 +5,469 @@
 @layer base {
   :root {
     /* ---- Core surfaces ----
-       (full visual overhaul): the v2 BLUE navy field is retired for a near-neutral charcoal ramp at a
-       single hue (220) with the saturation pulled right down, so the chrome reads
-       as material rather than as brand colour. Brand hue survives only as a trace
-       (10-14% sat); all warmth/identity now comes from CONTENT (himalaya/sakura),
-       never from the surfaces. Steps are deliberately close together — the
-       elevation ramp is carried by the hairline ring (--shadow-sm), not by fills. */
-    --background: 220 12% 5%;
-    --foreground: 210 20% 96%;
-    --card: 220 10% 9%;
-    --card-foreground: 210 20% 96%;
-    --popover: 220 10% 9%;
-    --popover-foreground: 210 20% 96%;
-    /* the chrome accent moves GOLD -> winter-neon cyan. Gold is demoted to a
-       warning/attention colour (--gold below) and is no longer the interactive hue. */
-    --primary: 189 90% 60%;
-    --primary-foreground: 220 12% 5%;
-    --secondary: 220 14% 12%;
-    --secondary-foreground: 210 20% 96%;
-    --muted: 220 14% 16%;
-    --muted-foreground: 218 10% 56%;
-    /* shadcn interactive-fill accent (menus/toggles/selected). unified
-       this to ONE chrome accent site-wide; keeps the one-accent rule and just
-       re-points it to cyan. The sakura/himalaya hues remain CONTENT wayfinding
-       (section tints, guide cards, map legs), never interactive chrome. */
-    --accent: 189 90% 60%;
-    /* accent-foreground is the darkest surface step. Cyan (189 90% 60%)
-       is LIGHTER than the gold it replaces, so dark-on-accent contrast RISES, not
-       falls — every bg-accent consumer (cmdk selected item, dropdown/menubar/select/
-       toggle) stays ≥AA under the switch. */
-    --accent-foreground: 220 12% 5%;
+       D-291/D-292/D-293, amended by D-334. The near-neutral CHARCOAL ramp (single hue
+       220, saturation pulled right down) is RETIRED for an AUBERGINE one. The reasoning
+       that put the charcoal here is unchanged and still holds — chrome should read as
+       material, not as brand colour, and identity comes from CONTENT (Nepal
+       orange->gold, Japan pink->violet), never from the surfaces. What changed is
+       that the material is now a dark violet rather than a grey.
+
+       D-334 RE-VALUES THAT RAMP, and the interesting part is what did NOT move: the
+       base hue barely shifts (258 -> ~254). The change that actually removes the warm
+       "night shift" cast is SATURATION, 32% -> 50%. This was measured, not assumed —
+       pushing the hue up toward 270 for "more purple" RAISES the red channel and makes
+       the cast worse. Blue:red at surface-2 goes 1.50 -> 2.20 on the saturation lift
+       alone.
+
+       Steps stay deliberately close together, and the reason is measured: pushing
+       surface lightness apart to "separate" the tiers is what breaks the text tiers.
+       Do NOT chase more separation here — the edge comes from --border/--border-ui.
+
+       Every value below is a straight HSL conversion of a hex whose contrast is
+       measured; `npm run contrast-check` (scripts/contrast-tokens.mjs) re-measures the
+       whole set and exits non-zero on any regression. Tightest text pair is 5.46:1
+       (--text-lo on --surface-3), so all twelve text/surface pairings clear AA — 21%
+       over the floor at the tightest. */
+    --background: 253 56% 8%;    /* #0E0920 -- the page field.   was 257 37% 7%   */
+    --foreground: 0 0% 100%;     /* #FFFFFF -- --text-hi.        unchanged        */
+    --card: 254 50% 18%;         /* #221745 -- surface-2.        was 258 32% 16%  */
+    --card-foreground: 0 0% 100%;
+    --popover: 254 50% 18%;      /* #221745 -- surface-2                          */
+    --popover-foreground: 0 0% 100%;
+    /* The chrome accent moves MARIGOLD -> VOLT #3ED8FF (D-334). Marigold was chosen
+       when the canvas moved to aubergine and it made ONE colour mean two things at
+       once: "pressable" AND "Nepal" (--np-b IS #FFC43D). Volt splits them — chrome is
+       cool and functional, country identity stays warm and content-owned, and the two
+       country gradients below are byte-identical because of it. Volt measures 11.56:1
+       on the page field, which is why it is also the focus ring. Marigold keeps its
+       hex and survives as Nepal's identity stop; it just stops being the interaction
+       colour. */
+    --primary: 192 100% 62%;
+    /* THE INK RULE, and it is load-bearing: never white text on a saturated fill,
+       always --on-accent #140F20. White on volt measures 1.68:1 and white on marigold
+       1.59:1 — neither is a near miss, both are unreadable. That is why BOTH
+       --primary-foreground (29 sites via text-primary-foreground) and
+       --accent-foreground are the ink, and why contrast-tokens.mjs carries
+       white-on-volt and white-on-marigold as guards that MUST keep failing. A guard
+       that starts passing means someone lightened a fill. */
+    --primary-foreground: 258 36% 9%;   /* #140F20 --on-accent */
+    --secondary: 255 52% 12%;    /* #170F2F -- surface-1.        was 258 33% 12%  */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 255 46% 24%;        /* #2F2159 -- surface-3.        was 260 29% 20%  */
+    --muted-foreground: 259 23% 68%;    /* #A79BC0 --text-lo — the FLOOR tier, 7.50:1
+                                           on the page field. UNCHANGED by D-334.
+                                           There is no fourth text tier below this. */
+    /* shadcn interactive-fill accent (menus/toggles/selected). One chrome accent
+       site-wide, now volt — same one-accent rule, new hue. The Japan/Nepal
+       gradients remain CONTENT wayfinding (section tints, guide cards, map legs),
+       never interactive chrome, and D-334 is what finally makes that separation real
+       rather than stated: while the chrome accent WAS --np-b, "one accent site-wide"
+       and "Nepal's identity stop" were the same 24 bits. */
+    --accent: 192 100% 62%;
+    --accent-foreground: 258 36% 9%;    /* #140F20 --on-accent — see the ink rule */
+    /* --destructive's HUE is DELIBERATELY LEFT at its old value: destructive is not
+       one of the six accents in the locked direction (marigold/coral/mint/volt/violet/
+       pink), so there is no ruled replacement for it. That is a decision, not an
+       oversight — do not "finish the sweep" by inventing one.
+
+       ITS INK IS NOT AN EXEMPTION. --destructive resolves to #ef5d66, which is a
+       SATURATED FILL, so the ink rule covers it like any other. Measured: white on it
+       is 3.27:1 (sub-AA), the near-white it used to carry was 2.99:1 (worse), and
+       --on-accent is 5.74:1. The rule is "never white text on a saturated fill" — a
+       palette that ships four guards proving that and then writes prose exempting one
+       fill has not got a rule, it has got a habit. One consumer:
+       components/ui/button.tsx's destructive variant, i.e. the delete-confirm label,
+       which is the last place to be casual about legibility. */
     --destructive: 356 82% 65%;
-    --destructive-foreground: 210 20% 96%;
-    /* Borders/inputs: a low-saturation hairline that reads as an edge, not a glow. */
-    --border: 220 14% 20%;
-    --input: 220 14% 20%;
-    --ring: 189 90% 60%;
-    /* radii: tightened and FLATTENED. Everything at `lg` and above collapses
-       onto 8/12px so the app stops reading as pill-soft. NOTE:
-       `--radius-sm` is a DEAD token — Tailwind's `rounded-sm` key resolves through
-       `calc(var(--radius) - 4px)` (tailwind.config.ts:36), not through this var.
-       It is kept (name-stability rule) and set to the value that calc already
-       produces, so the two can never disagree if a consumer ever picks it up. */
-    --radius: 0.5rem;
-    --radius-sm: 0.25rem;
-    --radius-lg: 0.75rem;
-    /* -xl/-2xl now ALIAS -lg: `rounded-2xl` (72 sites) and `rounded-3xl` (6 sites)
-       flatten onto the same 12px as `rounded-xl` (128 sites). Zero component edits. */
-    --radius-xl: var(--radius-lg);
-    --radius-2xl: var(--radius-lg);
+    --destructive-foreground: 258 36% 9%;   /* #140F20 --on-accent — 5.74:1 */
+    /* Borders/inputs = --border #4A3880. DECORATIVE ONLY at 2.01:1 on the page field
+       — it wraps content that already carries its own contrast and may NEVER be the
+       sole cue for anything. An INTERACTIVE control's boundary is --border-ui #9184C9
+       (5.89 / 5.54 / 4.97 / 4.28 across the four steps, up from a 3.72 worst case),
+       declared below. contrast-tokens.mjs guards --border from ever being read as a UI
+       cue by asserting it stays under 3:1. */
+    --border: 255 39% 36%;
+    --input: 255 39% 36%;
+    --ring: 192 100% 62%;        /* volt — 11.56:1 on bg, 8.41:1 on surface-3 */
+
+    /* ---- Radii — DE-FLATTENED ----
+       Previously everything at `lg` and above collapsed onto 8/12px (-xl and -2xl
+       literally ALIASED -lg) so the app would stop reading as pill-soft. The locked
+       direction restores the range: a chunky container radius is part of the
+       identity, and the flat scale made every surface the same object.
+
+       EXPRESSED IN PX, NOT REM, DELIBERATELY: the root is 17px (html{font-size:106.25%}
+       below), so rem here would render 6.38/12.75/29.75/42.5px instead of the ruled
+       6/12/28/40. Radius is geometry, not type — it has no reason to scale with the
+       reading size — and the Tailwind keys already mix units (`calc(var(--radius) -
+       2px)`), so px is the honest unit. Rendered px == the number written.
+
+       BLAST RADIUS, audited in-tree. Moving -xl/-2xl repaints 76 `rounded-2xl`
+       elements + 6 `rounded-3xl` + 9 directional (`rounded-t-2xl` x7,
+       `rounded-l-2xl` x2), and — the largest single jump in the app — the
+       `.glass-panel` consumers (10 files, 18 class sites), which read
+       var(--radius-2xl) directly in the class body (app/checklist|guides|journal|
+       packing|recap|safety|settings|share|trips + components/page-hero.tsx):
+       12px -> 40px. Moving `--radius` also moves
+       Tailwind's rounded-lg/md/sm, which derive from it: 8.5 -> 12px, 6.5 -> 10px,
+       4.5 -> 8px. `rounded-xl` (134 sites) does NOT move; it stays at 12px. */
+    --radius-sm: 6px;    /* r-xs  — tier badges, tiny chips                        */
+    --radius: 12px;      /* r-sm  — Tailwind rounded-lg/md/sm derive from this     */
+    --radius-lg: 12px;   /* r-sm  — `rounded-xl` (134 sites) STAYS at 12px         */
+    --radius-xl: 28px;   /* r-lg  — `rounded-2xl`: cards, colour blocks            */
+    --radius-2xl: 40px;  /* r-xl  — `rounded-3xl` + .glass-panel; loudest containers */
+    /* NOTE, corrected: `--radius-sm` used to be described as a DEAD token pinned to
+       whatever `calc(var(--radius) - 4px)` produces, so the two could never disagree.
+       They now DO disagree by design — 6px here vs 8px from the calc — because 6px is
+       the ruled r-xs and 8px is just an arithmetic by-product. Tailwind's `rounded-sm`
+       still resolves through the calc, so nothing renders 6px until a consumer picks
+       this var up deliberately. */
 
     /* ---- Brand surface scale ----
        Single source for the night-field steps, as space-separated RGB channels so
        rgb(var(--x) / <alpha>) opacity modifiers resolve.
 
-       FINDING — this channel, not the shadcn --background/--card tokens, is
-       where the app's surfaces ACTUALLY come from: `bg-surface` has 86 sites (the
-       <body> itself), `text-surface` 36, and the six `.glass-*` recipes below (131
-       class sites) all fill from `rgb(var(--surface-raised))`. `bg-card` has ZERO
-       sites. So re-valuing only the shadcn tokens would have repainted almost
-       nothing. These three are re-valued to the SAME ramp, in RGB:
-         --navy-900 = hsl(220 12% 5%) = --background
-         --navy-800 = hsl(220 10% 9%) = --card
-         --navy-700 = hsl(220 14% 12%) = --secondary
-       The `navy-*` NAMES are now a misnomer (the ramp is neutral charcoal), but
-       renaming is forbidden — they are referenced by --surface*,.home-nav, the
-       maplibre attribution pill and the reduced-transparency nav fallback. */
-    --navy-900: 11 12 14;
-    --navy-800: 21 22 25;
-    --navy-700: 26 29 35;
+       FINDING, and it is the whole reason this slice touches two files instead of a
+       hundred — this channel, not the shadcn --background/--card tokens, is where the
+       app's surfaces ACTUALLY come from: `bg-surface` has 86 sites (the <body>
+       itself), `text-surface` 36, and the `.glass-*` recipes below all fill from it.
+       `bg-card` has ZERO sites. So re-valuing only the shadcn tokens would have
+       repainted almost nothing. The two sets are kept at the SAME values, one
+       expressed in RGB channels and one in HSL triplets, because their consumers need
+       different wrappers — not because they are different colours.
+
+       The `navy-*` NAMES were already a documented misnomer under the charcoal ramp,
+       and they are one again under the aubergine ramp: nothing here is navy, and
+       renaming is still forbidden — they are referenced by --surface*, .home-nav,
+       .sheet-surface, .hero-gradient, the maplibre attribution pill and the
+       reduced-transparency nav fallback. A stable wrong name beats a rename that
+       silently drops a consumer.
+
+       RE-VALUED AGAIN under D-334 — same four names, same four roles, more chromatic
+       and cooler (the saturation lift, not a hue swing):
+         --navy-900 = #0E0920 = --bg        = --background   was #100C1A
+         --navy-850 = #170F2F = --surface-1 = --secondary     was #1A1428
+         --navy-800 = #221745 = --surface-2 = --card          was #241C36
+         --navy-700 = #2F2159 = --surface-3 = --muted         was #2E2442
+       --navy-850 was added when the ramp went to FOUR steps and this channel had
+       three; the alias below (--surface-low) is what .glass-subtle fills from. */
+    --navy-900: 14 9 32;
+    --navy-850: 23 15 47;
+    --navy-800: 34 23 69;
+    --navy-700: 47 33 89;
     /* Semantic surface tier — components reference INTENT, not palette steps.
-       surface = deepest page/base field; -raised = lifted panels/fills;
-       -overlay = top overlay/hairline step. Each aliases one navy step above so
-       Glass 2.0 / outdoor toggle retune tokens, not components. */
+       surface = deepest page/base field; -low = calm/recessed fills (list rows,
+       stat cells); -raised = lifted panels/fills; -overlay = top overlay step.
+       Each aliases one navy step above so a retune touches tokens, not components. */
     --surface: var(--navy-900);
+    --surface-low: var(--navy-850);
     --surface-raised: var(--navy-800);
     --surface-overlay: var(--navy-700);
 
     /* ---- Brand accent channels (HSL triplets, for hsl()/rgba() reuse) ----
-       FINDING: these three vars have ZERO consumers — the live brand colours
-       are the Tailwind hex scales plus the.text-gradient-* literals below.
-       re-valued them, which was a no-op at render time; then did the actual
-       component-layer sweep the note below called for.
+       STILL ZERO CONSUMERS, and that is unchanged — the live brand colours are the
+       Tailwind hex scales (tailwind.config.ts) plus the .text-gradient-* bodies
+       below. They are kept under the name-stability rule and re-valued so they can
+       never become a second, stale palette: these are the HSL forms of --marigold,
+       --jp-a and --np-a respectively. */
+    --gold: 42 100% 62%;       /* = --marigold #FFC43D */
+    --sakura: 330 100% 78%;    /* = --jp-a     #FF8FC7 — Japan's first stop */
+    --himalaya: 24 100% 62%;   /* = --np-a     #FF8A3D */
 
-       the 843 gold/sakura/himalaya class sites were SORTED, not repainted
-       wholesale — cyan (--primary/--ring) for interaction, gold for semantic status,
-       ink (--muted-foreground) for decoration. The scales in tailwind.config.ts:101-103
-       are deliberately UNTOUCHED: one config edit would have repainted all 843 at once,
-       and the identical class name carried two different intents. `gold-400` is now
-       ~40 sites, all Bucket 2 status/wayfinding. These three vars remain unconsumed. */
-    --gold: 38 95% 60%;        /* DEMOTED: warning/attention only, no longer chrome */
-    --sakura: 344 85% 74%;     /* Japan — CONTENT wayfinding only, never chrome */
-    --himalaya: 18 92% 62%;    /* Nepal — CONTENT wayfinding only, never chrome */
+    /* ================================================================
+       D-291 / D-292 / D-293 token set. Declared as HEX (not the HSL
+       triplet form the shadcn tokens above use) because these are consumed directly
+       as `var(--x)` in a colour position, never through hsl()/rgb(). Keep them hex;
+       a half-and-half convention is how a value gets pasted into the wrong wrapper.
+       ================================================================ */
 
-    /* ---- hairline separator — ONE token for de-glassed content edges.
-       Space-separated RGB channels + alpha so `rgb(var(--hairline))` resolves
-       Replaces the per-glass gradient border
-       edges the de-glass removes. Nav/tab-bar/input `border-white/1x` literals are
-       left as-is for A5 (nav layer; a later Lane-E tidy). */
-    --hairline: 255 255 255 / 0.08;
+    /* ---- Text — THREE TIERS, AND NO FOURTH ----
+       THE THREE HEXES DID NOT MOVE UNDER D-334 and re-hueing them is out of scope of
+       any recolour that does not also sweep the ~728 sites that were moved onto them
+       under issue #27. Re-MEASURED on the new ramp: hi 19.47/18.33/16.45/14.16,
+       mid 11.87/11.18/10.03/8.64, lo 7.50/7.06/6.34/5.46. All twelve clear AA and
+       --text-lo IS the floor — there is nothing below it. Because no tier is
+       expressed as an alpha on white, a wrapper opacity can no longer multiply a
+       floored alpha below AA, which is the D-100 / D-246 defect class by
+       construction. (The @layer utilities alpha floor that used to sit further down was
+       the OLD mechanism. The sweep retired it, and it is deleted — see the note where
+       it stood. A wrapper opacity can still dim a SOLID tier during an entrance, which
+       is a different defect and is what FADE_FLOOR still guards.) */
+    --text-hi: #FFFFFF;
+    --text-mid: #CFC6E0;
+    --text-lo: #A79BC0;
+    --on-accent: #140F20;      /* the ONLY ink permitted on a saturated fill */
+
+    /* ==== THE ALPHA RAMP -> TIER MAPPING (issue #27). READ THIS BEFORE SWEEPING ====
+       ~728 `text-white/NN` sites across 81 files are being replaced with the three
+       tiers above, ONE ROUTE AT A TIME (the issue is explicit that a single sweep goes
+       red). Route 1 = /checklist (components/docs-checklist.tsx, 7 sites), landed. This
+       is the mapping it established, and it is meant to be APPLIED, not re-derived.
+
+       CONSUME A TIER AS `text-ink-hi` / `text-ink-mid` / `text-ink-lo` — Tailwind keys
+       `ink.hi/.mid/.lo` -> these three vars (tailwind.config.ts). Under the design
+       system's floor rule (R-TEXT) those three, the six accents and the on-* inks are
+       the ONLY legal text colours. THERE IS NO FOURTH TIER: if a site "needs" one, it
+       is the site that is wrong.
+
+       THE RULE IS THE ROLE, NEVER THE NEAREST ALPHA. Three questions, first hit wins:
+         1. Is it what this container exists to show — the label, title, value, or the
+            text the USER TYPED?                                          -> ink-hi
+         2. Is it there to qualify that thing — a count, status line, helper,
+            subtitle, note, timestamp?                                    -> ink-mid
+         3. Is it deliberately out of the way — a done/inactive item, or a hint standing
+            in for content that is not there yet?                         -> ink-lo
+       TIE-BREAK for 1 vs 2, which is the only tie that comes up: ask what the CONTAINER
+       is for. The node that IS its subject is hi; a node that describes the subject is
+       mid. Inside a control the user's own text is the subject, so an input VALUE is hi
+       and its PLACEHOLDER is lo — which is also the spec's `.field` recipe verbatim.
+
+       THE RECURRING CALLS, settled once the remaining 78 files were swept. Three people
+       swept 26 files each without seeing each other's work and independently agreed on
+       every one of these, which is the only reason they are written as rules rather than
+       as one person's taste:
+         input value -> hi, placeholder -> lo          (the .field recipe, unchanged)
+         unselected option in a live control -> mid    NOT lo: "inactive" in q3 means
+                                                       DONE, not "not currently chosen"
+         empty state: the explanatory line -> mid,     the follow-on hint and the big
+                                                       decorative glyph -> lo
+         a note RENDERED outside a control -> mid      it qualifies the item it hangs off;
+                                                       q1's "text the user typed" is
+                                                       scoped to inside a control
+         a journal/recap body -> hi                    that container exists to show it,
+                                                       so it IS the subject
+         separators, chevrons, adornment icons -> lo   marks, not words
+         label paired with its value -> lo             measured precedent: home-stat-row's
+                                                       caption at ink-lo, 6.89:1
+       ONE EXCEPTION, and it is about contrast, never about role: over PHOTOGRAPHY, ink-lo
+       measures 3.55:1 and fails AA, so a label there goes mid instead (hero's "days to
+       go", the landing eyebrow). Do not generalise that into "big labels are mid" — the
+       role is unchanged, only the surface forced it. Splitting on typography is the
+       smuggled fourth rule this system exists to prevent.
+
+       Route 1's seven sites, old alpha -> tier, so the shape of the mapping is visible:
+         text-white/85   row item label — the row's subject          -> ink-hi
+         text-white/75   note input VALUE — typed by the user        -> ink-hi
+         text-white/70   "0/18 ready" header readout                 -> ink-mid
+         text-white/55   "Loading your checklist…" — app status      -> ink-mid
+         text-white/55   per-section "3/9" readout                   -> ink-mid
+         text-white/50   a CHECKED item's label — done, receded      -> ink-lo
+         text-white/30   note input PLACEHOLDER — no content yet     -> ink-lo
+       IT IS NOT MONOTONIC IN THE ALPHA, and that is the whole point: /75 lands ABOVE
+       /85's neighbour on hi, while /70 and /50 straddle the mid/lo split. A sweep that
+       ordered by number would have put the note value below its own label, and would
+       have put a placeholder and a completed item on the same tier as a live readout.
+
+       WHY A NUMERIC SWEEP GOES RED — measured on this branch, not assumed. Tailwind's
+       default opacity scale has no 15/35/45/55/65/85/95 step and this config does not
+       extend it, so `text-white/85` and `text-white/55` EMIT NO CSS AT ALL. What paints
+       them WAS either inheritance (/85 -> the body's `text-foreground`, i.e. pure
+       white already) or the @layer utilities floor that then sat further down, whose
+       `~=` attribute selector matched the class token whether or not Tailwind generated
+       a utility (/55 -> 0.62). So the ramp's rendered value was NOT its written value,
+       and "preserve the current contrast" was never the same instruction as "keep the
+       number". That is why this mapping is by ROLE. The sweep is finished and the floor
+       is deleted, so this paragraph is now history — kept because it is the reasoning
+       behind the rule above, and the rule outlives the ramp.
+
+       OUT OF SCOPE, deliberately, so nobody widens the next route: bare `text-white`
+       (no alpha) already IS --text-hi and R-TEXT does not touch it — do not churn those
+       sites. `bg-white/NN`, `border-white/NN` and `hover:bg-white/NN` are FILLS and
+       EDGES, not text; they belong with --border / --border-ui, not here.
+
+       An opacity modifier on a tier is not a thing: `text-ink-mid/50` is not in
+       Tailwind's opacity scale for a `var()` colour and generates NOTHING, so the class
+       is inert and the element inherits. Write the bare tier. The ramp cannot be
+       rebuilt on top of the tiers, which is the D-100/D-246 defect class closed by
+       construction.
+
+       PER-ROUTE ORDER OF WORK: convert the route, add its file to SWEPT in
+       lib/__tests__/text-tier-sweep.test.ts (that is what stops the ramp coming back),
+       add the route's real composited fills to scripts/contrast-tokens.mjs and re-run
+       it, then run the route's axe spec on dev. The floor block and lib/motion.ts's
+       FADE_FLOOR stay until the LAST route lands — 80 files still depend on them. */
+
+    /* ---- The six accents ----
+       STILL SIX, AND NO SEVENTH. D-334 RENAMES AND RE-VALUES ONE OF THEM: --sky
+       #5CD2F5 is gone and --volt #3ED8FF stands in its slot, because the chrome accent
+       has to be one of the six rather than a seventh colour bolted on beside them. The
+       other five keep their hexes exactly — marigold included, which is the point:
+       marigold survives as Nepal's identity stop and only stops being the interaction
+       colour.
+
+       Each is >=4.5:1 as text on the page field AND >=4.5:1 against --on-accent when
+       used as a fill, so any one of them is legal both ways round. Measured on the new
+       --bg: marigold 12.25 · coral 7.65 · mint 11.17 · volt 11.56 · violet 7.82 ·
+       pink 9.28. */
+    --marigold: #FFC43D;  /* Nepal's gold stop · celebration       */
+    --coral:    #FF7A6B;  /* food · warmth · streaks               */
+    --mint:     #4ADE80;  /* done · offline-ready · sightseeing    */
+    --volt:     #3ED8FF;  /* THE CHROME ACCENT: action · focus ring */
+    --violet:   #C08CFF;  /* passport · collection · nightlife     */
+    --pink:     #FF8FC7;  /* celebration · Japan                   */
+    /* Button lips — the shade one step down that makes a control read as a physical
+       object. A lip measures 1.90-2.02:1 against its OWN fill (volt/--lip-volt: 1.96):
+       that is deliberate, it is a shading, not a boundary. The control's boundary
+       against the page is the FILL vs --bg (7.65-12.25:1). Every lip also clears 3:1
+       against --bg on its own (3.94-6.07:1, and --lip-volt at 5.89) so a button never
+       dissolves at its bottom edge. A LIP MAY NEVER BE THE ONLY CUE FOR ANYTHING, and
+       the calm/Tier-3 controls have no lips at all. */
+    --lip-marigold: #C08400;
+    --lip-coral:    #C24A3D;
+    --lip-mint:     #22A15A;
+    --lip-volt:     #1C97CC;
+    --lip-violet:   #8A55CC;
+    --lip-pink:     #C25C90;
+    /* The primary CTA's gradient, D-334. NO CONSUMER YET, and declared here for the
+       same reason the photo engine and the passport inks are: the values are measured,
+       so the slice that builds the button inherits them instead of picking a second
+       pair by eye. Both stops carry --on-accent ALONE (6.08 / 12.32), which is what
+       makes a gradient fill legal under the ink rule — a reader lands on whichever stop
+       falls under the glyph they are reading, so an average would prove nothing. */
+    --cta-a: #6E8BFF;
+    --cta-b: #43E4FF;
+    --grad-cta: linear-gradient(118deg, var(--cta-a) 0%, var(--cta-b) 100%);
+
+    /* ---- Borders ----
+       --border (declared above as an HSL triplet for the shadcn/Tailwind `border`
+       key) is #4A3880 and is DECORATIVE ONLY. --border-ui is the boundary of an
+       INTERACTIVE control: 5.89:1 on --bg, 5.54 on surface-1, 4.97 on surface-2,
+       4.28 on surface-3 — clears WCAG 1.4.11's 3:1 on every step, with more room than
+       the 3.72 worst case it replaces. If a control's edge is the thing telling you it
+       is a control, it takes --border-ui. */
+    --border-ui: #9184C9;
+
+    /* ---- The page-header corner wash ----
+       DECORATIVE ONLY, and it is NOT a page-identity claim — see the rule in
+       page-hero.tsx, which forbids a route's identity from being the chrome accent.
+       This is a lift on the panel's top-left corner, nothing more; the identity a
+       route carries is its EYEBROW, and that is assigned per route.
+
+       WHY THIS IS A TOKEN AND NOT A LITERAL, which is the whole point of it. Until
+       D-334 this gradient was pasted as `rgba(240,199,96,0.12)` into NINE places —
+       page-hero.tsx's shared Tier-3 variant plus eight route files that hand-roll
+       their own header. That hex is the RETIRED gold-400 #f0c760, two palettes old.
+       Because it was a literal and not a token, the D-334 sweep went straight past
+       it, and the recolour shipped with a warm gold radial still painting the top
+       corner of ten routes' headers. Measured on the live /settings header at 1280:
+       the panel's top-LEFT sampled rgb(51,38,71) — blue:red 1.39 — against
+       rgb(34,23,69) = 2.03 on the clean surface beside it. That is WARMER than the
+       1.50 the whole change existed to remove, on the routes a user spends the most
+       time in. It is exactly the "hardcoded copy of a token that silently drifts"
+       defect this file already documents three times over.
+
+       So the value lives here, once. Re-pointing the wash is now a one-line edit
+       rather than a nine-file sweep that someone will do eight-ninths of.
+
+       Composited over --surface-2 this measures rgb(37,42,88), blue:red 2.38 — i.e.
+       the wash now reads COOLER than the surface it sits on rather than warmer. */
+    --hero-wash: radial-gradient(120% 140% at 0% 0%, rgb(62 216 255 / 0.10) 0%, transparent 55%);
+
+    /* ---- Country identity ----
+       BYTE-IDENTICAL ACROSS D-334, and that is the structural point of that decision
+       rather than an omission from it: these four stops are CONTENT wayfinding for a
+       two-country product, the chrome accent is not, and the whole reason the chrome
+       moved is that marigold was doing both jobs. Do not "harmonise" these with the
+       cooler canvas.
+       Japan is PINK -> VIOLET. Nepal is ORANGE -> GOLD. Every stop passes 4.5:1
+       ALONE (np-a 8.30, np-b 12.25, jp-a 9.28, jp-b 7.82 on --bg), which is what
+       makes these gradients legal as TEXT fills and not only as backgrounds. */
+    --np-a: #FF8A3D;
+    --np-b: #FFC43D;
+    --jp-a: #FF8FC7;
+    --jp-b: #C08CFF;
+    --grad-nepal: linear-gradient(118deg, var(--np-a) 0%, var(--np-b) 100%);
+    --grad-japan: linear-gradient(118deg, var(--jp-a) 0%, var(--jp-b) 100%);
+    --grad-journey: linear-gradient(90deg, #4ADE80 0%, #FF8A3D 38%, #FF8FC7 72%, #C08CFF 100%);
+    --grad-celebrate: linear-gradient(135deg, #FF8FC7 0%, #FFC43D 100%);
+    /* Home bento's map-tile wash — the two country identity stops above, --np-b (255 196 61)
+       and --jp-a (255 143 199), written out in channels because a gradient stop cannot
+       interpolate a hex custom property AT A GIVEN ALPHA. Declared here, next to the stops it
+       copies, rather than inline on the tile: `components/home-bento.tsx` carried the RETIRED
+       gold-400 #F4C46B / sakura-400 #F48FB1 literals for exactly as long as an inline copy
+       survives a recolour (the same survivor class as the ten route headers). D-334 holds the
+       country stops byte-identical, so these two lines are the thing to re-derive from if
+       either ever moves. White over the resulting composite measures 12.25:1. */
+    --map-wash: radial-gradient(60% 80% at 0% 0%, rgb(255 196 61 / 0.35) 0%, transparent 60%),
+                radial-gradient(60% 80% at 100% 100%, rgb(255 143 199 / 0.30) 0%, transparent 60%);
+
+    /* ---- The photo engine ----
+       NO CONSUMERS YET — deliberate. The duotone grade ends with a
+       `mix-blend-mode:darken` layer of --duo-*-high, which CAPS every channel of
+       every pixel at that colour. That is what makes "text over a photograph" a
+       measurable number instead of a guess: the brightest possible pixel under a
+       scrim is over(--scrim-ink, --duo-*-high, alpha). Declared here so the
+       photography slice inherits the values rather than re-deriving them. */
+    --duo-np-shadow: #2E1408;
+    --duo-np-high: #F5D4AC;    /* NEPAL brightness CAP */
+    --duo-jp-shadow: #190E2C;
+    --duo-jp-high: #EFC6D6;    /* JAPAN brightness CAP */
+    --scrim-ink: #0A0714;      /* every scrim ramps toward this */
+    /* The SAME colour in space-separated channels, because a scrim is nothing but
+       this ink at a series of alphas and `rgb(var(--x) / a)` is the only wrapper that
+       resolves one. Declared rather than hardcoded into each gradient stop: a literal
+       rgb(10 7 20 / .52) is the "hardcoded copy of a token that can silently drift"
+       defect this file already documents twice. `rgb(from var(--scrim-ink) r g b / a)`
+       would express it from the hex directly, and is NOT used: if that syntax is ever
+       unsupported the whole gradient declaration is dropped, which fails to NO SCRIM
+       AT ALL — text over an ungraded photograph. Two forms of one value beats a
+       failure mode that removes the legibility layer. */
+    --scrim-ink-rgb: 10 7 20;
+
+    /* ---- Passport page (D-294) ----
+       ALSO NO CONSUMERS YET, and also deliberate. F-4, recorded against D-294: the
+       prototype wrote `outline-color: var(--ink-nepal, #B3123C)` against a variable
+       that was never declared anywhere, so the FALLBACK painted — and the fallback
+       was the superseded pre-D-294 red. A var() fallback that silently carries a
+       retired value is worse than no fallback. These are declared as real custom
+       properties for exactly that reason, and CONSUMERS MUST NOT CARRY var()
+       FALLBACKS: if the var is missing, the right outcome is a visible break.
+
+       --paper is the only light surface in the product and IS NOT A LIGHT MODE. It
+       is a parchment MATERIAL scoped to the passport page, the way a photograph is
+       light-coloured without being a theme. forcedTheme="dark" stays. Measured:
+       on-paper 9.86:1, paper-lo 5.60:1, the three inks 5.93/6.68/5.34, page vs
+       canvas 12.29:1 — the page reads as an object without depending on a shadow.
+       --paper-lo BINDS FIRST if --paper ever darkens again; re-measure it before
+       touching --paper. --bind-hi/-lo are the binding-edge stripes, retuned for the
+       D-294 parchment (F-3: on the darker page the old light stripe measured 1.00:1
+       against it, i.e. the bound-book edge had silently vanished). Decorative. */
+    --paper: #DCCDAE;
+    --on-paper: #2A2036;
+    --paper-lo: #524563;
+    --ink-nepal: #8E0E30;
+    --ink-japan: #223C7C;
+    --ink-green: #0C5849;
+    --bind-hi: #C4B392;
+    --bind-lo: #B39F7B;
+
+    /* ---- Geometry ----
+       --tap is the 44px floor for every interactive element. --shell is the centred
+       page measure. --stack is the vertical rhythm between major sections; it steps
+       up at 900px in the media query at the end of this layer. */
+    --tap: 44px;
+    --shell: min(1180px, 100%);
+    --stack: 40px;
+
+    /* ---- hairline separator ----
+       Space-separated RGB channels + alpha so `rgb(var(--hairline))` resolves.
+       RE-VALUED from the neutral white/.08 to the ruled rgba(207,198,224,.14), which
+       is the aubergine-tinted separator: on the D-334 ramp it composites to #29233B on
+       the page field (1.30:1) and #3A305B on surface-2 (1.37:1).
+
+       IT NOW HAS ZERO CONSUMERS, deliberately. The six .glass-* recipes below used
+       to take their edge from this token; they now take it from --border, because a
+       raised surface needs a border that is a colour, not a wash. --hairline's ruled
+       role is narrower: the CALM LIST SEPARATOR, and nothing else. Decorative — at
+       1.3:1 it can never be the sole cue for anything. */
+    --hairline: 207 198 224 / 0.14;
 
     /* ---- semantic tokens ----
-       --accent-scroll: the SINGLE scroll-driven accent. Defaults to gold;
-       animates it himalaya<->sakura by scroll position. Consumers reference this
-       var only, so the warm/cool engine has one hook. --accent-scroll-rgb mirrors
-       it as an "r, g, b" list for rgba(var(--accent-scroll-rgb) / a) usage.
+       --accent-scroll: the SINGLE scroll-driven accent. Defaults to volt;
+       the scroll engine animates it between the country stops by position.
+       Consumers reference this var only, so the warm/cool engine has one hook.
+       --accent-scroll-rgb mirrors it as an "r, g, b" list for
+       rgba(var(--accent-scroll-rgb) / a) usage.
 
        — a deliberate call, and a one-line revert if it is wrong: before this change,
        --gold, --primary, --accent, --ring, --accent-scroll and --ambient-a were all
@@ -118,9 +476,19 @@
        every page's eyebrow, the bottom-tab-bar active tint, the h2 section
        underline, --shadow-glow, today-pulse and the drag overlay (40 sites), vs 5
        for `ring-ring`. Moving primary/accent/ring to cyan but leaving THIS gold
-       would mean the chrome accent never actually moves. Moved as one unit. */
-    --accent-scroll: 189 90% 60%;
-    --accent-scroll-rgb: 61, 217, 245;
+       would mean the chrome accent never actually moves. Moved as one unit.
+
+       Moved as one unit AGAIN under D-334, marigold -> volt, for the same reason: this
+       is the copy that actually paints :focus-visible's app-wide outline, every
+       eyebrow, the tab-bar active tint, the h2 underline, --shadow-glow, today-pulse
+       and the drag overlay. Volt at 11.56:1 on the page field is the ruled focus ring,
+       so the fallback ring and the ring token still agree by construction. If you are
+       here to change the accent again: --primary, --accent, --ring and THESE TWO are
+       one edit, and --accent-scroll-rgb is the one people forget (it is the "r, g, b"
+       list, not the HSL triplet — the two forms of the same colour cannot be copied
+       between each other). */
+    --accent-scroll: 192 100% 62%;
+    --accent-scroll-rgb: 62, 216, 255;
 
     /* the ambient-phase palette
        (--ambient-a/-b), the 5-layer --gradient-aurora, and both feTurbulence grain
@@ -131,48 +499,100 @@
        de-glass removed the glass background lists it stacked into. Do not re-add:
        decoration that costs an infinite animation is exactly what this change retired. */
 
-    /* ---- Elevation tiers —: collapsed to TWO (resting + elevated).
-       --shadow-sm = resting (content surfaces); --shadow-lg = elevated (sheets,
-       dialogs, nav). --shadow-md/-xl/-2xl are ALIASES so every existing
-       `shadow-*` utility + glass box-shadow resolves through the two survivors
-       with zero component edits. --shadow-glow (below) is a separate accent
-       EFFECT, not an elevation tier — kept.
+    /* --bg-season (issue #83): a subtle month-keyed background tint, NOT a revival of the
+       aurora above. Three differences that keep this on the right side of the "do not re-add"
+       rule: (1) it is a ONE-SHOT settle on load (`components/season-accent-engine.tsx`), never
+       a running/looping animation; (2) it is consumed at LOW ALPHA by a single two-blob
+       body::before wash (see the `body` rule below), not a 5-layer full-bleed field; (3) the
+       page's actual fill stays `bg-background` alone — this only tints the corners. Seeded here
+       to a quiet neutral (muted marigold) so the pre-hydration / no-JS state looks intentional;
+       the engine tweens it to the resolved month's hue on mount. */
+    --bg-season: 44 40% 35%;
 
-       the resting tier stops being a BLUR and becomes a HAIRLINE RING. On a
-       near-black neutral field a drop shadow is invisible anyway (it was 0 1px 2px
-       of near-black on near-black); a 1px ring is what actually separates a resting
-       surface from the page. --shadow-lg keeps its blur and is reserved for
-       genuinely floating surfaces (sheets, dialogs, nav). */
-    --shadow-sm: 0 0 0 1px hsl(220 14% 18%);
-    --shadow-lg: 0 16px 40px -8px rgba(0, 0, 0, 0.58), 0 4px 12px -4px rgba(0, 0, 0, 0.40);
+    /* ---- Elevation tiers — TWO in use (resting + elevated), plus one declared.
+       --shadow-sm = resting (content surfaces); --shadow-lg = elevated (sheets,
+       dialogs, nav); --shadow-paper = the passport page, no consumer yet.
+       --shadow-md/-xl/-2xl stay ALIASES so every existing `shadow-*` utility +
+       glass box-shadow resolves through the two survivors with zero component
+       edits. --shadow-glow (below) is a separate accent EFFECT, not an elevation
+       tier — kept.
+
+       The resting tier had stopped being a BLUR and become a HAIRLINE RING, on the
+       grounds that on a near-black field a drop shadow is invisible anyway. IT GOES
+       BACK TO A BLUR here because the locked direction says so — but the objection
+       was correct and is recorded as F-8 against D-291, so read this before leaning
+       on it: --shadow-sm and --shadow-lg are BLACK BLURS ON A NEAR-BLACK CANVAS and
+       contribute almost nothing on their own. --border (1.99:1) and --border-ui
+       (4.94:1) are what actually define an edge here. NEVER SHIP A SURFACE WHOSE
+       ONLY SEPARATION IS --shadow-sm. That is why every one of the six glass recipes
+       below keeps a real border, and why the ring is not simply gone: its job moved
+       to the border, not to the blur. --shadow-lg stays reserved for genuinely
+       floating surfaces (sheets, dialogs, nav). --shadow-paper is the passport page
+       and has no consumer yet. */
+    --shadow-sm: 0 8px 20px -12px rgba(0, 0, 0, 0.7);
+    --shadow-lg: 0 18px 40px -14px rgba(0, 0, 0, 0.75);
+    --shadow-paper: 0 26px 60px -18px rgba(0, 0, 0, 0.85);
     --shadow-md: var(--shadow-sm);
     --shadow-xl: var(--shadow-lg);
     --shadow-2xl: var(--shadow-lg);
-    /* Glow keyed to the scroll accent so it warms/cools with the page,
-       nudged a touch richer in v2 (still sized within prior glow footprint). */
-    --shadow-glow: 0 0 0 1px hsl(var(--accent-scroll) / 0.22), 0 0 34px hsl(var(--accent-scroll) / 0.26);
+    /* Glows. --glow-live has EXACTLY ONE intended consumer, the live countdown
+       seconds cell. A second consumer is a defect — the glow is what marks the one
+       thing on screen that is genuinely live, and a second one destroys the signal.
+       --shadow-glow keeps its name (8 live var() consumers plus Tailwind's
+       `shadow-glow` key). It used to alias --glow-nepal, on the grounds that marigold
+       IS the Nepal stop and was also the chrome accent, so one glow served both.
+       D-334 SPLITS THOSE, and this alias had to move with it: EVERY consumer of
+       --shadow-glow is a `hover:`/`focus-within:` pair that sets
+       `border-[hsl(var(--accent-scroll)/0.55)]` in the same class string
+       (country-essentials x2, photography-guide, recommendation-section,
+       travel-inspiration). Leaving the alias on the Nepal glow would have painted a
+       volt edge inside a gold halo on all five. --glow-volt is that same recipe at the
+       new chrome accent; --glow-nepal keeps its name and value as the COUNTRY glow,
+       with no consumer today, exactly like --grad-nepal. */
+    --glow-volt: 0 16px 34px -12px rgba(62, 216, 255, 0.55);
+    --glow-nepal: 0 16px 34px -12px rgba(255, 196, 61, 0.55);
+    --glow-japan: 0 16px 34px -12px rgba(192, 140, 255, 0.50);
+    --glow-live: 0 0 0 1px rgba(255, 143, 199, 0.34), 0 0 46px -14px rgba(192, 140, 255, 0.75);
+    --shadow-glow: var(--glow-volt);
 
-    /* motion values — roughly halved across the board. The v2 scale was tuned
-       for "editorial"; the new identity is crisp, so every tier tightens. The 64
-       HARDCODED `duration-200/300/500` utility sites (47/12/5 — counted in-repo)
-       are retired without a single component edit by aliasing those three Tailwind
-       keys onto these vars in tailwind.config.ts (`extend` overrides the built-in
-       at the same key), so they move with this scale from now on. */
-    --duration-fast: 90ms;
-    --duration-normal: 180ms;
-    --duration-slow: 240ms;
-    --duration-slower: 320ms;
+    /* motion values. The previous scale was roughly halved for a "crisp" identity;
+       the locked direction re-times it — a touch slower and with a proper reveal
+       tier, because the reveals now have something to reveal. The 64 HARDCODED
+       `duration-200/300/500` utility sites (47/12/5 — counted in-repo) still move
+       with this scale with zero component edits, via the Tailwind key remap in
+       tailwind.config.ts (`extend` overrides the built-in at the same key).
+       --duration-draw (900ms) is the LONGEST single animation permitted (D-293 R3);
+       --duration-loop-kb is the ambient Ken Burns loop, and D-293 R2 puts the floor
+       for any loop at 6s. Only the variables land here — the motion SYSTEM (session
+       entrance ledger, loop counter, tier gate) is a separate piece of work. */
+    --duration-fast: 120ms;
+    --duration-normal: 200ms;
+    --duration-slow: 320ms;
+    --duration-slower: 620ms;
+    --duration-draw: 900ms;
+    --duration-loop-kb: 30s;
     /* (new): exits are faster than entrances and use an accelerating curve —
        a thing leaving should not linger. Declared here; the CONSUMERS are
       , so nothing references these two yet by design. */
     --duration-exit: 160ms;
     --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 
-    /* ---- v2 motion vocabulary (spring; reduced-motion aware) ----
-       Consumed by keyframe utilities and hero/skeleton/transition
-       components. */
-    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* gentle overshoot */
-    --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);    /* expo-ish settle */
+    /* ---- motion vocabulary (spring; reduced-motion aware) ----
+       Consumed by keyframe utilities and hero/skeleton/transition components.
+       Unchanged values — the two curves the locked direction rules for presses and
+       reveals are byte-identical to the two already here, which is the cheapest
+       possible migration. --ease-inout is added for ambient loops. */
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* presses, pops — gentle overshoot */
+    --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);    /* reveals, draws — expo settle */
+    --ease-inout: cubic-bezier(0.42, 0, 0.58, 1);       /* ambient loops */
+  }
+
+  /* --stack steps up on the wide layout. Declared here rather than in a component
+     so the section rhythm has exactly one home. */
+  @media (min-width: 900px) {
+    :root {
+      --stack: 60px;
+    }
   }
 
   /* the ambient trip-phase overrides are deleted with the aurora they
@@ -186,30 +606,105 @@
      ONLY while mounted on /travel with the flag on (removed on toggle-off / route leave /
      unmount) — TM-LOCAL, the rest of the app never sees this attribute.
 
-     retunes TOKENS here, but TM's own cards (travel-hero-card / travel-agenda-card /
-     travel-essentials-card / travel-safety-kit / travel-date-picker) render their body copy as
-     raw `text-white/NN` opacity utilities, not `text-foreground` — so the semantic surface
-     tokens alone wouldn't move a pixel of TM's actual text contrast. The catch-all attribute
-     selector below re-values EVERY `text-white/*` utility's computed color, wherever it
-     appears under the stamped <html> (i.e. only ever the current TM content) — this changes
-     what the SAME classNames compute to, not the classNames themselves (no component edited).
-     The target alpha (0.92) is higher than every `text-white/*` variant TM actually uses
-     (10-90), so this is a monotonic contrast RAISE only, never a lowering, at every site it
-     touches — verified >=4.5:1 AA against the darkest TM card fill in the
-     (the pre-existing worst case, text-white/45 on.glass-card, measures ~4.4:1
-     normal / ~14.4:1 high). `!important` is required to outrank the utility class's own
-     specificity without touching the component classNames it targets. */
+     WHAT TM'S BODY COPY IS, CORRECTED (G-1). This comment used to say that TM's cards
+     (travel-hero-card / travel-agenda-card / travel-essentials-card / travel-safety-kit /
+     travel-date-picker) "render their body copy as raw `text-white/NN` opacity utilities",
+     and that a catch-all `[class*='text-white/']` selector was therefore the only way to
+     move TM's text. That was true when it was written and it is FALSE NOW: issue #27's
+     sweep moved every one of those sites onto the three fixed-hex tiers
+     (`text-ink-hi/-mid/-lo` -> --text-hi/-mid/-lo), and `lib/__tests__/text-tier-sweep.test.ts`
+     fails on any reintroduction anywhere under app/ or components/. So the old selector had
+     stopped matching a single element in the tree, PERMANENTLY rather than incidentally —
+     it is deleted here rather than left as a belt, for the same reason the AA alpha floor
+     it resembles was deleted (a rule matching an empty set cannot fail loudly).
+
+     THE COST OF THAT, which is the defect this block is being fixed for: the ONLY thing
+     left raising TM's text contrast was the surface ramp below darkening one step, and the
+     tiers are fixed hexes that do not move with it. `text-ink-lo` on a TM card measured
+     7.06:1 with the toggle ON, against the 15.53:1 the deleted selector used to give it —
+     a 55% loss of exactly the headroom the one mode built for sun on a screen exists for.
+     Still AA, so no contrast guard fired; nothing measured the high-legibility ramp at all.
+     The tier overrides below are what restore it, and scripts/contrast-tokens.mjs now models
+     this whole block — the four surfaces AND the three tiers — so it stops being unmeasured.
+
+     WHAT THAT HARNESS ASSERTS, and why it is not just this block's own promise: a strict
+     RAISE per tier x surface pairing, PLUS a 12:1 OUTDOOR FLOOR. The raise alone is not a
+     check, which was measured rather than argued — in the defect state above every pairing
+     still "rose" by 0.29-1.40 purely from the surface ramp darkening under fixed-hex text, so
+     a raise-only assertion is green on a dead feature. The floor is what fires. It is 12
+     because these overrides bottom out at 13.22, which leaves 1.22 of room for a re-tune —
+     13 would leave 0.22 and go red on any nudge. Be honest about what 12 does and does not
+     do: it fires on 7 of the 12 defect-state pairings and on every `lo` row, but the defect
+     state's ceiling AMONG THE ROWS THIS FIX MOVES — mid and lo; `hi` is #FFFFFF in both modes
+     and was never broken — is 12.34 (text-mid on --surface), which CLEARS 12
+     by 0.34. So the floor is not "far above" what the surface ramp reaches alone — on the
+     tightest row it is a third of a point above it. It is chosen to catch the ramp that
+     actually broke, not to be unreachable.
+
+     AND IT WOULD NOT HAVE CAUGHT G-1 ON THE DAY. Worth writing down so nobody trusts it
+     backwards: the #27 sweep changed .tsx consumers, not tokens, and a hand-mirror of token
+     values is structurally blind to a consumer change — no value moved, so nothing could go
+     red. What makes the mirror the right shape NOW is that this fix converts the mechanism:
+     TM legibility used to live in a selector that depended on classnames elsewhere in the
+     tree, and it now lives entirely in tokens, which is exactly what the mirror can see. */
   html[data-tm-legibility='high'] {
     /* Semantic surface tier: push the page-root `bg-surface` + card tiers darker
-       (still the same navy hue family — not a light-mode flip) so white/gold content pops
+       (still the same hue family — not a light-mode flip) so white/accent content pops
        harder against direct sunlight glare. Values are pixel-identical in the normal state
-       (this block only applies once the attribute is stamped). */
-    --surface: 4 6 16;
-    --surface-raised: 8 11 28;
-    --surface-overlay: 13 17 42;
-    --foreground: 210 40% 100%;
-    --border: 220 30% 42%;
-    --muted-foreground: 214 25% 84%;
+       (this block only applies once the attribute is stamped).
+
+       RE-VALUED WITH THE CANVAS, TWICE NOW: these are hardcoded copies of the base
+       ramp, so a base-ramp change that skips this block silently paints the RETIRED
+       palette back onto /travel — the same "hardcoded copy of a token that drifts"
+       defect this file documents elsewhere. It happened once already (these were still
+       the blue-navy ramp after the aubergine move) and D-334 is the second time they
+       had to move. Same RELATIONSHIP as before (one step darker than the base ramp, a
+       stronger border, a brighter secondary ink), now on the D-334 ramp. --border is
+       pointed at --border-ui #9184C9 = hsl(251 39% 65%), the ruled INTERACTIVE boundary
+       at 5.89:1 — exactly the right target for a high-legibility mode.
+
+       FOUR STEPS, FOUR VALUES. Each step here is the base ramp shifted down one, and
+       --surface takes a new deepest value below --bg. Do not collapse two of these
+       onto the same value to save a line — if -low and -raised are equal, the 8
+       `.glass-subtle` sites become pixel-identical to a raised card and the calm tier
+       silently disappears in outdoor mode. HALF-MEASURED NOW, and know which half.
+       contrast-tokens.mjs models all four surfaces, and TM[i] is exactly normal[i-1] — so a
+       TM step LIGHTENED onto its lighter neighbour lands on that row's own normal background,
+       fg and bg identical, ratio not strictly greater, and the run exits 1 (verified:
+       -low onto -raised fails `text-hi on --surface-low`, 18.33 vs 18.33, NOT A RAISE). A TM
+       step DARKENED raises the ratio and sails through both assertions. So collapsing two
+       steps ONTO ONE VALUE — which is what this warning literally describes, and the way a
+       dev actually does it — is still SILENT: setting -low and -raised both to #0E0920, or
+       both to some new middle value, exits 0. Only the lighten direction is covered. */
+    --surface: 7 5 16;          /* below --bg  — new deepest step */
+    --surface-low: 14 9 32;     /* = --bg        */
+    --surface-raised: 23 15 47; /* = --surface-1 */
+    --surface-overlay: 34 23 69;/* = --surface-2 */
+    --foreground: 0 0% 100%;
+    --border: 251 39% 65%;
+    --muted-foreground: 260 25% 88%;
+    /* THREE TIERS, THREE VALUES — the same rule as FOUR STEPS, FOUR VALUES above, and it
+       is the one the deleted `[class*='text-white/']` selector broke: that rule flattened
+       every tier onto white@0.92, so all three computed identically and the tier system
+       silently disappeared in outdoor mode. Restoring the headroom by collapsing them
+       again would be restoring the bug's shape. --text-hi is already #FFFFFF and stays;
+       these two are lavender-tinted near-whites on the same hue (258) as the tiers they
+       replace, so TM reads as the same palette turned up, not as a second one.
+
+       MEASURED, not chosen by eye (scripts/contrast-tokens.mjs, TM section — these hexes
+       are mirrored there and the two files must move together). On --surface-raised, the
+       fill of a TM card: hi 18.33 · mid 16.14 · lo 14.73, against the flat 15.53 the old
+       selector produced — and against 18.33/11.18/7.06, which is what these same three
+       tiers computed to in TM WITHOUT these overrides, i.e. the defect state (all three
+       numbers on this line are TM-context; the normal-mode triple on this surface is
+       16.45/10.03/6.34, a different quantity). Every one of the
+       twelve tier x surface pairings is strictly higher than its normal-mode counterpart,
+       which is the "monotonic contrast RAISE only" promise this block has always claimed
+       and, between the sweep and now, had stopped keeping. --text-lo lands ~5% under the
+       old flat 15.53 deliberately: that is the price of the tiers staying three distinct
+       values, and 14.73:1 is over three times AA. */
+    --text-mid: #F2EFF9;
+    --text-lo: #E9E4F5;
     /* Type-scale bump: `rem` is always ROOT-relative in CSS
        (not ancestor-relative), so every Tailwind `text-*` utility TM's cards use (all `rem`-
        based) only scales up if the <html> element's own font-size grows — a container-level
@@ -220,10 +715,6 @@
        leave (travel-legibility-toggle.tsx), so every other route's rem base is untouched. */
     font-size: 112.5%;
   }
-
-  html[data-tm-legibility='high'] [class*='text-white/'] {
-    color: rgb(255 255 255 / 0.92) !important;
-  }
 }
 
 @layer base {
@@ -232,14 +723,43 @@
   }
   body {
     @apply bg-background text-foreground;
-    /* the two fixed z-index:-1 ambient layers this stacking context was
-       created for (body::before aurora + body::after grain) are DELETED — the page
-       field is now the flat `bg-background` fill alone. `position: relative` STAYS
-       deliberately: it is also the containing block for any absolutely-positioned
-       descendant with no nearer positioned ancestor, so dropping it would be a
-       layout change, not a cleanup. Kept on purpose, not by oversight. */
+    /* the two fixed z-index:-1 ambient layers this stacking context was originally
+       created for (the old aurora + grain, both an infinite-loop decoration) were deleted —
+       see the --bg-season comment above. `position: relative` STAYS regardless: it is also
+       the containing block for any absolutely-positioned descendant with no nearer positioned
+       ancestor, so dropping it would be a layout change, not a cleanup. Kept on purpose, not
+       by oversight — and it's what body::before below anchors to. */
     position: relative;
   }
+  /* issue #83 — the month-tinted wash. Two soft, low-alpha radial blooms in opposite
+     corners, tinted by --bg-season (tweened by season-accent-engine.tsx). Fixed + z-index:-1
+     so it sits strictly BEHIND every card/text (never between content and its own background),
+     and pointer-events:none so it can never intercept a tap. No animation/transition rule
+     here — the crossfade is the engine writing a new --bg-season value every frame while it
+     tweens, not a CSS-driven transition, so this rule stays a plain static paint. Alpha is
+     capped low (0.10/0.06) specifically so it can never meaningfully move text-on-background
+     contrast; kept out of scripts/contrast-tokens.mjs for the same reason the old aurora
+     never appeared there — it's an ambient corner tint, not a named text/surface pairing. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse 60% 45% at 15% -5%, hsl(var(--bg-season) / 0.10), transparent 60%),
+      radial-gradient(ellipse 55% 40% at 100% 105%, hsl(var(--bg-season) / 0.06), transparent 65%);
+  }
+}
+
+/* B-6 — scroll-lock the page behind any open modal. `data-dialog-open` is already set by
+   ui/sheet-dark.tsx, add-to-itinerary-dialog.tsx, expense-dialog.tsx and token-gate.tsx (the
+   quick-add FAB observes the same flag); until now nothing acted on it, so flicking inside a
+   sheet scrolled the page underneath once the inner scroll bottomed out. Deliberately
+   UNLAYERED so it wins over any utility class; map-section.tsx's fullscreen sets
+   `body.style.overflow` inline, which still wins over this, so the two never fight. */
+body[data-dialog-open] {
+  overflow: hidden;
 }
 
 [data-hydration-error] {
@@ -267,24 +787,99 @@ html {
   overscroll-behavior-y: contain;
 }
 
+/* ---- The serif cannot be bold, so stop asking it to (G-2) ---------------------
+   Instrument Serif ships WEIGHT 400 ONLY (app/layout.tsx pins `weight: '400'`, and
+   there is no other weight to pin). tailwind.config.ts already says in writing, on the
+   `editorial-*` steps, that pairing `font-display` with `font-bold`/`font-semibold`
+   "produces a browser-SYNTHESISED bold, which is already a live defect in this
+   codebase" — and then the tree shipped 70 of them, across 45 files: every page title,
+   section masthead, error heading and dialog title in the app was rendering a smeared
+   algorithmic fake bold (the browser double-strikes/shears the 400 outlines).
+
+   ONE RULE INSTEAD OF 70 CALL-SITE EDITS. `font-bold`/`font-semibold` on those sites
+   are almost always doing a SECOND job — they sit in a shared class string with the
+   sans steps, or they were copied off a sans heading — so deleting them one by one is
+   45 files of churn with 45 chances to also change a size or a colour by accident.
+   Pinning the family's only real weight at the family utility fixes every site at once
+   and keeps working for sites that do not exist yet.
+
+   UNLAYERED, AND THAT IS THE WHOLE MECHANISM — do not "tidy" this into `@layer base`
+   or `@layer components`. `.font-display` and `.font-bold` are both 0,1,0, so this only
+   wins by SOURCE ORDER, and plain CSS below the `@tailwind utilities` injection point
+   at the top of this file is emitted after every utility. In a layer it would lose and
+   the fix would be silently inert. Same idiom, and same reason, as `.glass-card` below.
+   No `!important`: order is enough, and `!important` here would also beat the inline
+   `style` a future animation might need.
+
+   IT PINS THE SERIF ONLY. `display` is `var(--font-display), Georgia, serif` in
+   tailwind.config.ts — a family of its own, never the UI sans (`font-sans`/`font-mono`
+   both resolve `--font-sans`), so no sans weight is affected. It also pins the GEORGIA
+   fallback, which is deliberate: Georgia has a real bold, so without this the heading
+   weight would visibly change when the lazily-loaded webfont (`preload: false`) swaps
+   in. A heading that needs weight contrast takes a sans display step, not a fake bold. */
+.font-display {
+  font-weight: 400;
+}
+
 /* ---- Surfaces ------------------------------------
    Apple-HIG correction: glass/vibrancy belongs on the NAV/OVERLAY layer, not on
-   CONTENT. The former six translucent `.glass-*` tiers are gutted to SOLID
-   `surface-raised` fills with a flat `--hairline` edge and the resting shadow —
-   edited at the class BODY, so every one of the ~60 consumers repaints solid with
-   ZERO component edits. Removing the translucent scrim makes text sit on a darker,
-   fully-opaque fill, so contrast RISES.
+   CONTENT. The former six translucent `.glass-*` tiers are SOLID fills — most on
+   `--surface-raised`, with `.glass-subtle` one step down on `--surface-low` — each
+   carrying a `hsl(var(--border))` edge and one of the two shadow tiers. Edited at
+   the class BODY, so all 122 consumers repaint with ZERO component edits
+   (`.glass-card` 67, `.glass-card-dark` 18, `.glass-panel` 18, `.glass-subtle` 8,
+   `.glass-nepal` 5, `.glass-japan` 5, `.sheet-surface` 2 — counted in-tree, not
+   relayed). Removing the translucent scrim makes text sit on a darker, fully-opaque
+   fill, so contrast RISES.
 
    The ONE surviving glass recipe lives in `.sheet-surface` (below) and is consumed
    only by the Sheet primitive — the nav/overlay layer, HIG-legal. The
    navbar/tab-bar hand-roll their own `backdrop-blur` and are untouched.
 
-   Country tints (himalaya/sakura) survive as CONTENT wayfinding: `.glass-nepal`
-   /`.glass-japan` keep a SOLID low-alpha brand tint over the navy fill. */
-.glass-card,
-.glass-subtle {
+   Country tints survive as CONTENT wayfinding: `.glass-nepal` / `.glass-japan` keep
+   a SOLID low-alpha brand tint over the surface fill — re-pointed from the retired
+   himalaya/sakura literals to the ruled country stops --np-a / --jp-a. Measured over
+   the D-334 surface-2: --text-hi 14.07 / 13.72, --text-lo 5.42 / 5.29. Both tinted
+   fills still clear AA for every text tier.
+
+   Each recipe below keeps a BORDER, and that is not decoration. F-8, recorded
+   against D-291: the resting shadow is a black blur on a near-black canvas and
+   separates almost nothing on its own; --border is what actually draws the edge. A
+   glass recipe without a border would be a surface with no boundary. */
+.glass-card {
   background: rgb(var(--surface-raised));
-  border: 1px solid rgb(var(--hairline));
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-sm);
+}
+
+/* `.glass-card`'s DEFAULT radius, and the ONLY declaration in this file placed in
+   `@layer components` rather than in the plain unlayered CSS above. That is the whole
+   point of it, so do not "tidy" it back into the rule above.
+
+   Every other rule here is unlayered and therefore lands AFTER the `@tailwind
+   utilities` injection point at the top of the file, which is exactly how the glass
+   fills win over utility classes without `!important`. A radius must NOT win that
+   way. Counted across app/ + components/: of the 67 `.glass-card` class strings, 58
+   already declare their own radius — 43 `rounded-2xl` (which agree with this value
+   anyway), 5 `rounded-xl`, 3 `rounded-lg`, 3 `rounded-3xl`, and 4 `rounded-full`. An
+   unlayered `border-radius` here would silently override all 58, and turning four
+   circles into 28px rectangles is not a repaint, it is a break.
+
+   `@layer components` is emitted BEFORE the utilities, so this is a genuine default:
+   the 9 sites that set no radius of their own get the ruled card radius, and the 58
+   that made a decision keep it. */
+@layer components {
+  .glass-card {
+    border-radius: var(--radius-xl);
+  }
+}
+
+/* SPLIT OUT of the shared `.glass-card` rule — it no longer has the same fill. The
+   calm/recessed tier sits on --surface-low (#170F2F), one step below a raised card,
+   which is the whole point of the name. */
+.glass-subtle {
+  background: rgb(var(--surface-low));
+  border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-sm);
 }
 
@@ -292,28 +887,28 @@ html {
    elevated shadow. Its former sheet glass moved to `.sheet-surface`. */
 .glass-card-dark {
   background: rgb(var(--surface-raised));
-  border: 1px solid rgb(var(--hairline));
+  border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-lg);
 }
 
-/* Nepal — solid himalaya tint over the navy fill (content wayfinding, not chrome). */
+/* Nepal — 10% --np-a over the surface fill (content wayfinding, not chrome). */
 .glass-nepal {
-  background: linear-gradient(0deg, rgb(255 140 66 / 0.10), rgb(255 140 66 / 0.10)), rgb(var(--surface-raised));
-  border: 1px solid rgb(var(--hairline));
+  background: linear-gradient(0deg, rgb(255 138 61 / 0.10), rgb(255 138 61 / 0.10)), rgb(var(--surface-raised));
+  border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-sm);
 }
 
-/* Japan — solid sakura tint over the navy fill (content wayfinding, not chrome). */
+/* Japan — 10% --jp-a over the surface fill (content wayfinding, not chrome). */
 .glass-japan {
-  background: linear-gradient(0deg, rgb(247 160 179 / 0.10), rgb(247 160 179 / 0.10)), rgb(var(--surface-raised));
-  border: 1px solid rgb(var(--hairline));
+  background: linear-gradient(0deg, rgb(255 143 199 / 0.10), rgb(255 143 199 / 0.10)), rgb(var(--surface-raised));
+  border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-sm);
 }
 
-/* Page heroes/panels — solid, larger radius preserved, resting shadow. */
+/* Page heroes/panels — solid, the loudest container radius, resting shadow. */
 .glass-panel {
   background: rgb(var(--surface-raised));
-  border: 1px solid rgb(var(--hairline));
+  border: 1px solid hsl(var(--border));
   border-radius: var(--radius-2xl);
   box-shadow: var(--shadow-sm);
 }
@@ -324,9 +919,13 @@ html {
    is HIG-legal for glass. This is the former `.glass-card-dark` glass body, minus
    the grain layer; the 1px gradient edge + blur + elevated shadow are kept. */
 .sheet-surface {
-  /* the two fill stops were hardcoded blue-navy literals; re-expressed
-     against the re-valued surface channel so the one surviving glass recipe sits
-     on the new neutral ramp instead of the retired navy. Alphas unchanged. */
+  /* RECIPE UNCHANGED, and verified rather than assumed: the two fill stops were
+     already re-expressed against the --navy-800/-900 channel (they used to be
+     hardcoded blue literals), so re-valuing that channel carries this surface onto
+     the aubergine ramp on its own, with no edit here and no alpha change. This is
+     the payoff of the earlier de-hardcoding — the same fix is still outstanding for
+     the map style and a handful of page washes, which is why they will need their
+     own slices. */
   background:
     linear-gradient(180deg, rgb(var(--navy-800) / 0.88) 0%, rgb(var(--navy-900) / 0.86) 100%) padding-box,
     linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 55%, rgba(255, 255, 255, 0.02) 100%) border-box;
@@ -338,40 +937,475 @@ html {
     var(--shadow-lg);
 }
 
-/* CONSIDERED DELETING THIS BLOCK AND REJECTED IT (deliberate ruling). The plan
-   claimed it was an obsolete `!important` shim, dead once --muted-foreground
-   reached 5.3:1 on card. All three parts of that are false: it uses NO `!important`
-   (it wins by @layer utilities source order — see below), it is not
-   and it protects STATIC, permanent, animation-independent sub-AA text. The floored
-   fade introduced has no bearing on it. Do not re-derive that conclusion. */
-/* ---- · AA floor for low-opacity tertiary text ------------------
-   The de-glass replaced the gradient background-IMAGE fills — which axe cannot
-   flatten, so it returned "incomplete" (NOT a violation) for text on them — with
-   SOLID surfaces axe CAN evaluate. That exposed pre-existing sub-AA tertiary text:
-   `text-white/25..45` maxes at ~3.7:1 even over pure black, so NO surface darken
-   saves it. This floors those low tiers to
-   an AA-passing alpha on the dark navy surfaces (≥4.5:1 verified against the
-   lightest realistic fill — a `bg-white/10` chip over `surface-raised`). Monotonic
-   RAISE only, so it never lowers contrast anywhere it applies.
+/* ---- The Tier-2 photographic page header (issue #3) -------------------------------
+   The ONE photographic surface a Tier-2 route is allowed: /guides, /nepal, /japan,
+   /map, /journal, /flights. Below the band every one of those routes is Tier 3 again,
+   which is why this recipe is scoped to `.photo-header` and its own children and
+   leaks nothing downward. The wrapper also carries `data-tier="2-header"` so the
+   containment rule is greppable — the loud tokens are permitted INSIDE that subtree
+   and nowhere else on the route.
 
-   Placed in `@layer utilities` (not unlayered) DELIBERATELY: at equal specificity
-   it beats Tailwind's own `text-white/NN` utility by later source order, but a
-   `hover:text-white` (specificity 0,2,0) still wins — so hover brightening is
-   preserved with NO `!important`. The `~=` matcher targets the exact base token,
-   leaving `border-white/NN` and responsive/variant tokens untouched. TM's
-   legibility `!important` rule still overrides this under `data-tm-legibility`. */
-@layer utilities {
-  [class~='text-white/25'],
-  [class~='text-white/30'],
-  [class~='text-white/35'],
-  [class~='text-white/40'],
-  [class~='text-white/45'],
-  [class~='text-white/50'],
-  [class~='text-white/55'],
-  [class~='text-white/60'] {
-    color: rgb(255 255 255 / 0.62);
+   This is the first consumer of the --duo-* and --scrim-ink photo engine declared at the
+   top of this file. The engine's whole point is that the `mix-blend-mode: darken`
+   layer CAPS every channel of every pixel at --duo-*-high, so the brightest pixel a
+   scrim can ever sit on is a number rather than a guess, and text over a photograph
+   is measurable. scripts/contrast-tokens.mjs models both ramps below and asserts
+   every text/accent pairing this header can produce; it must be edited with them.
+
+   TWO RAMPS, AND THE SECOND ONE IS THE GUARANTEE. Bottom alignment is the ruled
+   legibility mechanism for the full-bleed surfaces whose heights are pinned — but a
+   Tier-2 header's height is per-route, so alignment alone would be a layout hope.
+   The text block therefore carries its OWN local scrim, in px, sized so that every
+   text pixel lands at floor alpha >= .62 whatever the band does. Measured worst case
+   behind any text pixel: white 12.96:1 (NP) / 13.31:1 (JP); the tightest pairing in
+   the whole header is --text-lo at 4.99 / 5.13.
+
+   NO GRAIN LAYER, deliberately, and it is not an omission: the ruled stack ends with
+   an feTurbulence tile at opacity .06 / mix-blend-mode:overlay, which over a dark base
+   LIGHTENS every channel and costs a real ~0.4-0.6 ratio points. The tiles were
+   deleted from this file with the aurora and the note above says not to re-add them.
+   The harness applies the grain multiplier to these composites ANYWAY, so the numbers
+   quoted above are the ones that hold if a later slice does add it back.
+
+   NO AMBIENT MOTION either — no Ken Burns, no parallax, no zoom. Tier 2 forbids
+   looping motion including in the header, so there is nothing here for
+   prefers-reduced-motion to switch off. The only animation on the surface is the
+   one-shot .animate-reveal-up entrance on the text block, which already rests at its
+   visible end-state and is collapsed by the reduced-motion block at the end of this
+   file. */
+.photo-header {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  /* BOTTOM-ALIGNED. This is a legibility mechanism, not a layout preference: it puts
+     the content in the dark end of the band. Do not centre this content. */
+  justify-content: flex-end;
+  min-height: clamp(300px, 40svh, 380px);
+  /* Full-bleed touches the viewport edge, so there is nothing to round. */
+  border-radius: 0;
+}
+
+@media (min-width: 900px) {
+  .photo-header {
+    min-height: clamp(360px, 46svh, 460px);
   }
 }
+
+.photo-header__media {
+  position: absolute;
+  inset: 0;
+  /* the stacking context that keeps the two blend modes from reaching the page */
+  isolation: isolate;
+}
+
+/* Applies to both <img>s OptimizedImage renders. The LQIP backdrop keeps its own
+   inline `filter: blur(12px)` (an inline style outranks this rule), so only the
+   decoded raster takes the grade — which is the right way round: the placeholder is
+   a 20px-wide smudge under a scrim for one frame, and fighting it would mean editing
+   the shared image component for a header.
+   --photo-focus is the per-route crop knob, set on the <header>. These are real
+   photographs of real places, the subject is in a different part of the frame in every
+   one of them, and a full-bleed band is a far wider crop than any of the sources. */
+.photo-header__media img {
+  object-fit: cover;
+  object-position: var(--photo-focus, center);
+  filter: grayscale(1) contrast(1.16) brightness(.92);
+}
+
+.photo-header__media > span {
+  position: absolute;
+  inset: 0;
+}
+
+/* The duotone pair. `lighten` lifts the shadows to the country's warm/violet floor;
+   `darken` clamps the highlights at the cap, which is the layer the whole measurement
+   rests on. Country is switched by data-country on the wrapper, never by a class the
+   caller composes, so a route cannot half-apply the grade. */
+[data-country='np'] .photo-header__duo-lo { background: var(--duo-np-shadow); }
+[data-country='np'] .photo-header__duo-hi { background: var(--duo-np-high); }
+[data-country='jp'] .photo-header__duo-lo { background: var(--duo-jp-shadow); }
+[data-country='jp'] .photo-header__duo-hi { background: var(--duo-jp-high); }
+.photo-header__duo-lo { mix-blend-mode: lighten; }
+.photo-header__duo-hi { mix-blend-mode: darken; }
+
+/* Ramp 1 — the band, plus the strip the app's own chrome sits in.
+
+   THE NAVBAR IS TEXT OVER THIS PHOTOGRAPH, and that is the part a header change is
+   most likely to miss. The bar is `fixed` and `bg-transparent` until you scroll, so a
+   full-bleed band puts the brand, the primary links and the MapPin glyph on top of a
+   graded photo on six routes at once. Measured on the band ramp alone (.52 at the top
+   edge) they came out at white/70 = 3.25:1 and --text-lo = 1.84:1 — both well under.
+   Hence the FIRST layer: a short top scrim held flat across the bar's own 64px and
+   released by 150px, which takes the strip to the same >= .8176 composite the text
+   block gets. There: white 12.96 / 13.31, the links' white/70 7.24 / 7.39, and
+   --text-lo (the brand separator and the pin glyph) 4.99 / 5.13. It only ever darkens,
+   so every number measured for the header's own text stays a lower bound.
+
+   The band ramp's own MINIMUM is .52, already above the ruled body-text floor over
+   either grade, so no text in the band is under-scrimmed even before the local floor.
+   It ends on the opaque page field so the band melts into the page rather than
+   stopping at an edge.
+
+   The ruled chroma radials are deliberately NOT here: the duotone shadow token already
+   carries the country hue, and a radial of --np-a/--jp-a over the scrim RAISES the red
+   channel, which would put a lightening layer above the thing being measured for the
+   sake of a tint the grade already supplies. */
+.photo-header__scrim {
+  background:
+    linear-gradient(
+      180deg,
+      rgb(var(--scrim-ink-rgb) / 0.62) 0,
+      rgb(var(--scrim-ink-rgb) / 0.62) 68px,
+      rgb(var(--scrim-ink-rgb) / 0) 150px
+    ),
+    linear-gradient(
+      180deg,
+      rgb(var(--scrim-ink-rgb) / 0.52) 0%,
+      rgb(var(--scrim-ink-rgb) / 0.56) 30%,
+      rgb(var(--scrim-ink-rgb) / 0.86) 72%,
+      rgb(var(--scrim-ink-rgb) / 0.94) 90%,
+      hsl(var(--background)) 100%
+    );
+}
+
+/* Ramp 2 — the local floor, and the reason the guarantee survives a per-route height.
+   THE PX ARE LOAD-BEARING: padding-top is 92px and the ramp is fully up at 68px, so
+   the first text pixel can only ever land in the >= .62 region. Moving either number
+   moves the worst case the harness measures. */
+.photo-header__body {
+  position: relative;
+  padding-top: 92px;
+  padding-bottom: 34px;
+  background: linear-gradient(
+    180deg,
+    rgb(var(--scrim-ink-rgb) / 0) 0,
+    rgb(var(--scrim-ink-rgb) / 0.62) 68px,
+    rgb(var(--scrim-ink-rgb) / 0.78) 100%
+  );
+}
+
+@media (min-width: 900px) {
+  .photo-header__body {
+    padding-top: 108px;
+    padding-bottom: 52px;
+  }
+}
+
+/* ---- The front door's cover, and its one loop (issue #25) -------------------
+   The front door REUSES the Tier-2 header recipe above verbatim — same media
+   stack, same duotone pair, same two-ramp scrim, same 92px/68px px contract —
+   because that recipe already solved "display type over full-bleed photography
+   with a measured floor" on this token layer, and a second scrim system would be
+   a second thing to keep measured. Everything below is the DELTA, and it is three
+   things: the cover is taller, it is rounded at the top, and it carries the
+   surface's one ambient loop. The cover's contrast numbers are therefore the
+   header's numbers — scripts/contrast-tokens.mjs measures the new FOREGROUNDS
+   (the marigold eyebrow, the ghost CTA's edge, the two chapter numerals) against
+   the same npHdrMin / jpHdrMin composites, and nothing about the ramp moved.
+
+   WHY THE RADIUS IS NOT ZERO, when the rule is that a full-bleed surface has
+   nothing to round: the front door never touches the viewport. It renders inside
+   the wall's role="dialog" panel (components/token-gate.tsx), so "full bleed"
+   means "to the panel's border" — and the panel is a card with --radius-2xl
+   corners. Square corners would poke out of it. It is declared HERE rather than
+   as a `rounded-t-3xl` utility because `.photo-header` sets `border-radius: 0`
+   from unlayered CSS, which lands after the Tailwind utilities and which no
+   utility can outrank without `!important`. Same reason the min-heights are here.
+
+   THE KEN BURNS IS THE SURFACE'S ONLY LOOP (D-293 R1) and it clears the 6s loop
+   floor (R2) five times over, because it runs at --duration-loop-kb, the token
+   declared for exactly this and previously unconsumed. It sits on a wrapper
+   around the IMAGE ONLY and never on `.photo-header__media`: animating that
+   wrapper would scale the scrim with it, sliding the ramp's stops relative to the
+   text, and the ramp holding still is the entire basis of the measured floor. The
+   RESTING transform is scale(1.04), so where the animation is stopped — reduced
+   motion, via the named list in the block at the end of this file — the frame is
+   still overscanned and a crop can never reveal an edge.
+
+   D-293 R4 ("nothing else animates while a dialog is open") IS implemented with a
+   class, `.wall-auth-open` — see the rule under `.door-wall` below. It used to say
+   here that no class was needed, because the wall rendered the landing OR the auth
+   card and choosing a CTA unmounted this element outright. That was true, and it
+   was the same line of reasoning that left the auth view with no photography at
+   all: leaning on the unmount satisfied R4 by deleting the surface the rule was
+   about. The cover now stays mounted behind the card (the ruled treatment for the
+   wall), so the loop is still there and the ruled mechanism is what stops it. */
+.door-cover {
+  min-height: clamp(400px, 62svh, 580px);
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+}
+
+@media (min-width: 900px) {
+  .door-cover {
+    min-height: clamp(460px, 68svh, 640px);
+  }
+}
+
+.door-kb {
+  transform: scale(1.04);
+  animation: door-kenburns var(--duration-loop-kb) var(--ease-inout) infinite alternate;
+  will-change: transform;
+}
+
+@keyframes door-kenburns {
+  from { transform: scale(1.04); }
+  to   { transform: scale(1.13) translate3d(-1.6%, -2.2%, 0); }
+}
+
+/* ---- The wall's second view keeps the cover (issue #25) --------------------
+   The auth card is a Tier-3 FORM that opens on the loudest surface in the product,
+   and the ruled treatment is a panel scrim OVER the cover — the front door is
+   photographic in both of its views. The landing owns the cover inside the panel
+   and unmounts with it, so the wall carries its own copy of the same photo stack
+   as a sibling of the panel (components/token-gate.tsx).
+
+   `.door-wall` is composed with `.photo-header__media` and is only the DELTA over
+   it, which is why it is two declarations and not a fourth photographic recipe:
+     · FIXED, not absolute. The wall is `overflow-y-auto`, so an absolutely
+       positioned backdrop is part of the scrolled content and slides off the top
+       of a short viewport, showing the flat gradient underneath. Fixed pins it to
+       the viewport while the panel scrolls over it.
+     · OVERFLOW HIDDEN, because `.door-kb` overscans to scale(1.13) and this box IS
+       the viewport — without it the pan would push the document sideways, which is
+       the horizontal-overflow assertion in e2e/login.spec.ts.
+   Everything else — the isolation, the img grade, the children's inset:0, the
+   duotone pair — comes from the shared recipe unchanged. */
+.door-wall {
+  position: fixed;
+  overflow: hidden;
+}
+
+/* The panel scrim, at the ruled value: a FLAT rgba(10,7,20,.72), not
+   `.photo-header`'s bottom-weighted ramp. The ramp exists to put text in the dark
+   end of a band; this card floats mid-screen and its own fill is opaque
+   surface-2, so what the scrim owes is a uniform floor everywhere the panel can
+   land. Measured in scripts/contrast-tokens.mjs against the graded worst-case
+   pixel, same as every other pairing over photography. */
+.door-wall-scrim {
+  background: rgb(var(--scrim-ink-rgb) / 0.72);
+}
+
+/* D-332 — the auth panel's EDGE steps up on the wall, and only on the wall.
+   `.glass-card-dark` draws `1px solid hsl(var(--border))`, which is the DECORATIVE
+   boundary. Over this cover that line measures 1.04:1 against the brightest pixel the
+   .72 scrim can pass — an invisible hairline exactly where the card crosses the
+   photograph's highlights, which is the half of D-326 nobody measured. --border-ui is
+   the same step already ruled for the door's key field and the ghost CTA over this
+   same photograph, for this same reason (see token-gate.tsx), so this is a precedent
+   applied, not a new value invented.
+
+   3:1 IS NOT THE TARGET HERE, AND CANNOT BE. The panel's fill sits BETWEEN the graded
+   backdrop's floor and its ceiling (`.photo-header__duo-lo` is mix-blend lighten, so
+   the grade floors every channel as well as capping it), so a container fill has no
+   single ratio against it: at --bg the card measures 1.00:1 against the cover's
+   shadows and disappears there. A fill tops out at 2.26:1 over this backdrop even at
+   pure black, so "just darken the panel" is arithmetically unreachable, not merely
+   unruled. This is depth plus a legible edge, which is what D-326 already ruled — the
+   fill and the .72 scrim are both deliberately BYTE-UNCHANGED.
+
+   Scoped by `.wall-auth-open` so the LANDING panel (flat gradient, no photograph) and
+   the other `.glass-card-dark` consumers are untouched. Wins on specificity (0,2,0 vs
+   0,1,0, both unlayered, later in source), so no `!important`. */
+.wall-auth-open [role='dialog'] {
+  border-color: var(--border-ui);
+}
+
+/* D-293 R4, and this is the rule the spec names: "nothing else on the page
+   animates while [the auth view] is open — including the cover's Ken Burns, which
+   must pause or be occluded". Nothing animates under the cursor or the caret, so
+   an infinite loop may not run behind an open form. `animation-play-state` rather
+   than `animation: none` on purpose: the frame is held where it is instead of
+   snapping back to the start, and the loop resumes if a view ever returns. The
+   reduced-motion block at the end of this file already hard-stops `.door-kb`
+   outright, which outranks this. */
+.wall-auth-open .door-kb {
+  animation-play-state: paused;
+}
+
+/* ---- The passport page (issue #5, D-294) ------------------------------------------
+   The app's ONE light material, and the tokens it paints with have had no consumer
+   until now — read the --paper block in @layer base above before touching anything
+   here, in particular the rule that a consumer MUST NOT carry a var() fallback (a
+   missing token has to break visibly, because the fallback that shipped in the
+   prototype was the SUPERSEDED pre-D-294 red).
+
+   Measured, in scripts/contrast-tokens.mjs rather than asserted here: on-paper 9.86,
+   paper-lo 5.60, the three stamp inks 5.93 / 6.68 / 5.34, and the page against the
+   dark canvas 12.29 — so the sheet reads as an object without depending on its
+   shadow, which is the whole argument D-294 was decided on.
+
+   --shadow-paper finally has its consumer. It is depth, never separation. */
+.passport-page {
+  position: relative;
+  overflow: hidden;
+  background: var(--paper);
+  color: var(--on-paper);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-paper);
+}
+
+/* The bound edge. Decorative and nothing else — --bind-hi/--bind-lo were retuned for
+   the darker D-294 parchment precisely because the old stripe measured 1.00:1 against
+   it, i.e. the book edge had silently vanished. Nothing is ever conveyed by it. */
+.passport-page::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  width: 14px;
+  background: linear-gradient(
+    90deg,
+    var(--bind-lo) 0%,
+    var(--bind-hi) 60%,
+    var(--paper) 100%
+  );
+}
+
+.passport-page__body {
+  position: relative;
+  padding: 28px 20px 32px;
+  /* clears the spine above */
+  padding-inline-start: 34px;
+}
+
+@media (min-width: 640px) {
+  .passport-page__body {
+    padding: 40px 40px 44px;
+    padding-inline-start: 54px;
+  }
+}
+
+/* THE FOCUS RING IS INK ON THIS SURFACE, AND THAT IS NOT A PREFERENCE. The app-wide
+   fallback ring is volt (`:focus-visible`, above), which is an ~11.6:1 signal on the
+   near-black canvas and a ~1.1:1 non-signal on parchment — a light material dropped
+   into a dark-only app takes the whole chrome's contrast assumptions with it. The
+   harness carries that pair as a GUARD (it must keep failing) beside the ink pairing
+   it is replaced by. The page ships no focusable element of its own today; this rule
+   exists so the next thing added to the sheet — issue #4's entry form is the obvious
+   one — inherits a visible ring instead of discovering this the hard way. */
+.passport-page :focus-visible {
+  outline: 2px solid var(--ink-nepal);
+  outline-offset: 2px;
+}
+
+/* One stamp. The ink is a per-stamp custom property so the three D-294 inks are the
+   only colours this component can take; `position: relative` is what <CelebrationBurst>
+   (absolute inset-0) needs from its host. */
+.passport-stamp {
+  --stamp-ink: var(--ink-green);
+  --stamp-tilt: -3deg;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 108px;
+  padding: 14px 10px;
+  text-align: center;
+  color: var(--stamp-ink);
+  border: 2px solid var(--stamp-ink);
+  border-radius: 14px;
+  /* the second ring of a rubber stamp, drawn in the page colour + the ink */
+  box-shadow:
+    inset 0 0 0 3px var(--paper),
+    inset 0 0 0 4px var(--stamp-ink);
+  transform: rotate(var(--stamp-tilt));
+}
+
+.passport-stamp--nepal { --stamp-ink: var(--ink-nepal); }
+.passport-stamp--japan { --stamp-ink: var(--ink-japan); }
+.passport-stamp--green { --stamp-ink: var(--ink-green); }
+
+/* Hand-pressed, not typeset: the tilt alternates by POSITION so the same country is
+   never at a different angle on two visits. */
+.passport-stamp:nth-child(3n + 1) { --stamp-tilt: -4deg; }
+.passport-stamp:nth-child(3n + 2) { --stamp-tilt: 3deg; }
+.passport-stamp:nth-child(3n) { --stamp-tilt: -1.5deg; }
+
+.passport-stamp__country {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  line-height: 1.15;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.passport-stamp__mark {
+  font-size: 0.75rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* The "new" flag is TEXT, deliberately — the unlock must not be conveyed by motion
+   alone, so a reduced-motion visitor and a screen-reader user get the same fact the
+   burst is decorating. Paper on ink is the same measured pair as ink on paper. */
+.passport-stamp__new {
+  margin-top: 2px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: var(--stamp-ink);
+  color: var(--paper);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+/* The press. One-shot, `both`, and it rests at the STAMPED state — so the universal
+   `animation-duration: 0.01ms` collapse in the reduced-motion block at the end of this
+   file lands it settled and upright, never mid-press and never invisible. That is the
+   whole reduced-motion fork for this animation: there is no JS branch to forget. The
+   companion <CelebrationBurst> carries its own hard guard (it renders NOTHING under
+   reduce) and is reused unmodified. */
+@keyframes stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(var(--stamp-tilt)) scale(1.55);
+  }
+  60% {
+    opacity: 1;
+    transform: rotate(var(--stamp-tilt)) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(var(--stamp-tilt)) scale(1);
+  }
+}
+
+.passport-stamp--new {
+  animation: stamp-in var(--duration-slower) var(--ease-out-soft) both;
+}
+
+/* The empty passport. A dashed ink-light frame where a stamp will go — decorative, and
+   the copy beside it carries the meaning. */
+.passport-slot {
+  min-height: 108px;
+  border: 2px dashed var(--paper-lo);
+  border-radius: 14px;
+  opacity: 0.5;
+}
+
+/* ---- the AA floor for low-opacity tertiary text is GONE (issue #27) ------------
+   It floored `text-white/25..60` to `rgb(255 255 255 / 0.62)`, because those alphas
+   max at ~3.7:1 even over pure black and no surface darken could save them. Its own
+   note said the three-tier text system was what would eventually retire it, and that
+   the sweep had to run per route rather than in one pass. Both happened: the last of
+   the ~729 `text-white/NN` sites moved onto `--text-hi/-mid/-lo`, so the selectors
+   below matched nothing and the block was dead code protecting an empty set.
+
+   It is deleted rather than kept as a belt: a floor that matches nothing cannot fail
+   loudly, so leaving it would have meant a future `text-white/40` silently inheriting
+   AA cover instead of being caught. `lib/__tests__/text-tier-sweep.test.ts` is now the
+   thing that goes red — it sweeps every file under app/ and components/ and fails on
+   any reintroduction, which the floor could never do.
+
+   `FADE_FLOOR` in lib/motion.ts does NOT go with it, despite the old note here pairing
+   them. It solves a different problem that the tiers do not touch: a wrapper `opacity`
+   during an entrance multiplies whatever colour it contains, solid or not, so text can
+   still be sampled sub-AA mid-fade. Five e2e specs settle an entrance before scanning
+   for exactly that reason. Deleting FADE_FLOOR would reopen it. */
 
 /* companion: secondary text INSIDE the cmdk selected item (e.g. the
    itinerary-result date span, `text-muted-foreground` in command-palette.tsx)
@@ -392,25 +1426,37 @@ html {
   color: hsl(var(--foreground));
 }
 
+/* The two country display gradients, re-valued onto the ruled stops: Japan is
+   PINK -> VIOLET (--jp-a -> --jp-b) and Nepal is ORANGE -> GOLD (--np-a -> --np-b).
+   The class names are kept (name-stability; sakura/himalaya are still the country
+   they name) and the three-stop sakura ramp collapses to the ruled two.
+
+   These are the reason every gradient stop had to pass 4.5:1 ALONE: the gradient is
+   clipped to TEXT, so a reader lands on whichever stop happens to fall under the
+   glyph they are looking at. An average would not be a measurement. Stops on the
+   D-334 page field: jp-a 9.28, jp-b 7.82, np-a 8.30, np-b 12.25. */
 .text-gradient-sakura {
-  background: linear-gradient(135deg, #ffb7c5 0%, #f7a0b3 50%, #e88fa2 100%);
+  background: linear-gradient(135deg, var(--jp-a) 0%, var(--jp-b) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
 .text-gradient-himalaya {
-  background: linear-gradient(135deg, #ff8c42 0%, #e67635 100%);
+  background: linear-gradient(135deg, var(--np-a) 0%, var(--np-b) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Full-bleed dark scrim (home hero overlay + the token-gate overlay).: the
-   four stops were hardcoded copies of the navy-900/800/700 steps at alpha, so once
-   the channel was re-valued they would have painted the RETIRED blue over the new
-   neutral hero. Re-expressed against the channel itself — same alphas, same stops,
-   and they can never drift from the ramp again. */
+/* Full-bleed dark scrim. SOLE CONSUMER IS NOW THE TOKEN-GATE OVERLAY
+   (components/token-gate.tsx) — the Home hero dropped it in issue #26, see
+   `.hero-scrim` below. The four stops were once hardcoded copies of the
+   -900/-800/-700 steps at alpha; they were re-expressed against the channel itself,
+   so they can never drift from the ramp again. VERIFIED, not assumed, for the
+   aubergine re-value: this rule needs no edit — it already reads the channel and
+   moves with it. Left at its exact former value BECAUSE the wall still uses it:
+   retuning it for the hero would have silently re-skinned the sign-in surface. */
 .hero-gradient {
   background: linear-gradient(
     135deg,
@@ -419,6 +1465,153 @@ html {
     rgb(var(--navy-700) / 0.68) 60%,
     rgb(var(--navy-900) / 0.92) 100%
   );
+}
+
+/* ---- The Home hero, issue #26 ------------------------------------------------
+   ONE scrim over the photograph, not two. The hero used to stack `.hero-gradient`
+   (0.68–0.95 of the surface ramp) UNDER a second `from-surface via-transparent
+   to-surface/50` wash, over a photo already held at `opacity:.45`. Compositing
+   those leaves about 7% of the picture on screen at the band the title sits in
+   ((1 − 0.84) × 0.45 = 0.072) — the photo was not dim, it was very nearly gone,
+   and that is what made the front page read flat. The photo now paints at full
+   strength and this single ramp is the only thing over it. Measured: the
+   photograph goes from ~7% to 24% of the painted pixel.
+
+   THE 0.76 FLOOR IS A MEASUREMENT, NOT A TASTE, and it may not be lowered without
+   re-running `npm run contrast-check`. The ramp never drops below 0.76 anywhere a
+   text node can land, because the hero's content block is vertically CENTRED and
+   its height CHANGES as zero countdown units drop out (the grid renders 3 to 6
+   cells) — so the bottom-alignment trick that lets a fixed photographic band put
+   its text in the darkest part of its ramp is not available here, and a
+   position-dependent guarantee would be re-derived wrong the first time the cell
+   count changed.
+
+   STILL MEASURED AGAINST A PURE WHITE PIXEL, AND THAT IS STILL THE RIGHT BOUND.
+   The photograph branch now carries `.hero-cap` (below), a --duo-*-high darken
+   layer, so on THAT branch the brightest possible pixel is the cap — but the scrim
+   also covers the two branches that have NO cap and no photograph: the custom-trip
+   vibe gradient (whose stops this file does not author) and the SVG fallback art.
+   White is the bound that holds for all three, so the ramp is sized by it and the
+   cap is only ever headroom. At 0.76 over white: --text-hi 9.22:1, --text-mid
+   5.62:1, and at the darkest frame of the entrance reveal (FADE_FLOOR 0.95) 8.53:1
+   and 5.27:1. --text-lo measures 3.55:1 there and therefore MAY NOT BE USED AS TEXT
+   OVER THE PHOTOGRAPH — in the hero it appears only on the opaque countdown
+   cells (6.25:1 on surface-2). 3.55 does clear the 3:1 bar for a decorative
+   non-text mark, and nothing in the hero relies on that.
+
+   The last stop is the opaque page field, so the section blends into the
+   `bg-surface` page below it with no seam, and every stop is the same token — the
+   ramp cannot drift from the canvas the way a hardcoded copy can. */
+.hero-scrim {
+  background: linear-gradient(
+    180deg,
+    rgb(var(--surface) / 0.9) 0%,
+    rgb(var(--surface) / 0.76) 20%,
+    rgb(var(--surface) / 0.76) 76%,
+    rgb(var(--surface) / 0.92) 92%,
+    rgb(var(--surface)) 100%
+  );
+}
+
+/* ---- The hero photograph layer: crop knob + highlight cap (issue #89) --------
+
+   ISOLATION IS LOAD-BEARING, not tidiness. `.hero-cap` is `mix-blend-mode: darken`,
+   and a blend mode composites against everything below it in the nearest stacking
+   context. Without this line that context is the page, so the cap would darken the
+   base gradient, the orbs and whatever the browser has already painted behind the
+   section — instead of only the photograph it is grading. The parallax transform on
+   this element happens to create a stacking context too, but it collapses to
+   `transform: none` when the MotionValues rest at identity (reduced motion), so it
+   cannot be relied on. Same guarantee, same mechanism, as `.photo-header__media`.
+
+   --hero-focus / --hero-focus-narrow are the per-FRAME crop knob, set on this
+   wrapper by components/hero-section.tsx. Exactly the `--photo-focus` pattern
+   `.photo-header__media img` already uses, for the same reason: these are real
+   photographs of real places, the subject sits somewhere different in each, and a
+   full-bleed hero is a far tighter crop than either source. Two variables rather
+   than one because the two frames want DIFFERENT values at different widths — a
+   portrait phone crops a landscape source horizontally, a wide desktop crops it
+   vertically, so one number cannot serve both. Narrow is the base (mobile-first);
+   768 is the breakpoint the measurements were taken at.
+
+   It targets `img` and so applies to BOTH images OptimizedImage renders — the LQIP
+   backdrop as well as the decoded raster — which is the point: a placeholder cropped
+   differently from the photograph that replaces it is a visible jump on first paint. */
+.hero-photo-wrap {
+  isolation: isolate;
+}
+
+.hero-photo-wrap img {
+  object-position: var(--hero-focus-narrow, center);
+}
+
+@media (min-width: 768px) {
+  .hero-photo-wrap img {
+    object-position: var(--hero-focus, center);
+  }
+}
+
+/* THE HIGHLIGHT CAP. `darken` keeps, per channel, the DARKER of the photograph and
+   this colour — so every channel of every pixel is clamped at --duo-*-high and the
+   brightest pixel the scrim can ever sit on becomes a number instead of a guess.
+   That is the same engine `.photo-header` runs on, and scripts/contrast-tokens.mjs
+   measures this composite: --text-hi 10.60 (NP) / 10.84 (JP) and --text-mid 6.46 /
+   6.61 at the 0.76 scrim floor, both up from 9.22 / 5.62 against bare white.
+
+   IT DOES NOT UNLOCK THE FLOOR TIER. --text-lo measures 4.08 (NP) / 4.18 (JP) here,
+   still short of 4.5, so the hero's "no floor-tier copy over the photograph" rule
+   stands exactly as written and the harness guard that encodes it still fails on
+   purpose. Do not re-tier hero copy off the back of this layer.
+
+   Deliberately NOT the full `.photo-header` duotone recipe: that opens with
+   `filter: grayscale(1)` plus a `lighten` shadow floor, and greyscaling Home would
+   throw away the Tier-1 photographic privilege D-292 grants it. This is the cap
+   alone — one div, no filter, no second blend layer.
+
+   The colour follows the leg exactly as the photograph does; hero-section.tsx
+   derives it from the resolved `heroSrc` so there is only ever ONE answer to
+   "which leg is this". Nothing here animates, so there is no reduced-motion fork. */
+.hero-cap {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: darken;
+  background: var(--hero-cap, var(--duo-np-high));
+}
+
+/* The countdown block's cells. Fill, border and resting shadow come from
+   `.glass-card` (unchanged); this adds only the one geometry the utility scale
+   cannot express. 20px is the ruled countdown-cell radius and it is the single
+   step of the radius scale with no Tailwind key — --radius-xl is 28px (cards) and
+   --radius-lg is 12px — so it is written once, here, rather than promoted to a
+   token nobody else would consume.
+
+   Unlayered on purpose, like every other rule in this half of the file, which is
+   how it wins over `.glass-card`'s `@layer components` default without
+   `!important`. The consumer therefore carries NO `rounded-*` utility; adding one
+   would be dead code, not an override. */
+.countdown-cell {
+  border-radius: 20px;
+}
+
+/* THE ONE LIVE THING ON THE SURFACE. --glow-live has exactly one intended
+   consumer and this is it. A second consumer destroys the signal: the glow is what
+   marks the single thing on screen that is genuinely ticking, so two of them mark
+   nothing. Add one and this comment is what you have to argue with.
+
+   Motion never carries information alone: the cell also says SECONDS in text and
+   paints its digits with the Japan gradient, so the glow and the pink edge are
+   decoration on top of an already-legible state. There is deliberately NO breathe
+   loop — this file retired every infinite animation and says so above, and a
+   static glow is exactly what the reduced-motion fork of that loop would render
+   anyway. If the loop is ever wanted it belongs with the motion system (the
+   session ledger and the per-surface loop counter), not smuggled in here.
+
+   --jp-a as the edge measures 7.73:1 against the cell fill, far past the 3:1 a
+   non-text boundary needs; it wins over `.glass-card`'s --border edge by source
+   order at equal specificity. */
+.countdown-cell--live {
+  border-color: var(--jp-a);
+  box-shadow: var(--shadow-sm), var(--glow-live);
 }
 
 /* ---- --accent-scroll consumers ---- */
@@ -457,7 +1650,18 @@ h2[id$="-heading"]::after {
      · `pulse-glow` /.animate-pulse-glow (3s) · `aurora-shift` /.animate-aurora (18s)
    Each ran forever, settled at nothing and burned battery for decoration the identity retired. `.animate-shimmer` (busy-state sweep) and
    `.animate-today-pulse` (calendar today cell) are a DIFFERENT category — both are
-   state indicators, both survive, both stay neutralized in the reduced-motion block. */
+   state indicators, both survive, both stay neutralized in the reduced-motion block.
+
+   THAT CATEGORY IS NOW THE RULE, NOT A NOTE (D-322, issue #24). D-293 rule 2 floors any
+   loop at 6s, and these two run at 1.6s and 2.4s: the argument three lines up is what the
+   owner ruled on, so a STATE INDICATOR — something that reports a condition the app is in
+   right now — is exempt from the floor, and ambient decoration is not. Slowing an
+   indicator to 6s does not calm it, it breaks what it is for.
+   `scripts/motion-loops.mjs` (npm run loop-check, dependency-free, runs in CI before the
+   install) parses THIS FILE for `infinite` animations and fails on any sub-6s loop that is
+   not on its two-entry allowlist — so the exemption covers these two and the NEXT one is
+   caught. It also re-checks that every loop here, exempt or not, is named in the
+   reduced-motion block below with an explicit `animation: none`. */
 
 .scrollbar-hide {
   -ms-overflow-style: none;
@@ -486,7 +1690,11 @@ h2[id$="-heading"]::after {
 }
 
 /* Skeleton sweep — INFINITE (loops), so it is neutralized under reduced motion.
-   Elements pair this with a moving-gradient background sized 200%. */
+   Elements pair this with a moving-gradient background sized 200%.
+   1.6s is UNDER D-293 rule 2's 6s loop floor and stays there: a busy indicator is a state
+   indicator, not ambience (D-322), and it is allowlisted as one in scripts/motion-loops.mjs.
+   That allowlist is keyed on THIS SELECTOR, so renaming the class without renaming it there
+   fails the audit (a listed selector that matches no loop is an error, not a pass). */
 @keyframes shimmer {
   100% { background-position-x: -200%; }
 }
@@ -501,7 +1709,11 @@ h2[id$="-heading"]::after {
    there, so they rest at their base (visible/settled) state, never mid-sweep. */
 
 /* Day-cell "today" pulse — a gentle ring breathing on the calendar's today cell.
-   INFINITE → hard-neutralized under reduced motion (added to the block below). */
+   INFINITE → hard-neutralized under reduced motion (added to the block below).
+   2.4s is under the 6s loop floor and it renders on /plan/, a TIER-3 route, so it breaks
+   D-293 rules 1 and 2 as originally written. Both are amended for this one category by
+   D-322: it marks WHICH cell is today, which is a state, and it never carries that fact
+   alone (the cell is labelled too — rule 9). Allowlisted in scripts/motion-loops.mjs. */
 @keyframes today-pulse {
   0%, 100% { box-shadow: 0 0 0 0 hsl(var(--accent-scroll) / 0.45); }
   50% { box-shadow: 0 0 0 5px hsl(var(--accent-scroll) / 0); }
@@ -660,6 +1872,12 @@ html[data-vt-active] .animate-route-fade {
      at their base state (today cell static, undo ring full, overlay lifted-but-still). */
   .animate-today-pulse,
   .animate-undo-ring,
+  /* issue #25 — the front door's Ken Burns, the surface's one ambient loop. It is
+     INFINITE, so the universal 0.01ms collapse above would leave it running one
+     ultra-fast iteration rather than stopping it; this is what actually stops it.
+     `.door-kb` carries scale(1.04) as its own base transform, so what is left is a
+     still, slightly overscanned frame — never a mid-pan one, and never an edge. */
+  .door-kb,
   .drag-overlay {
     animation: none !important;
   }
@@ -678,6 +1896,50 @@ html[data-vt-active] .animate-route-fade {
   ::view-transition-new(*) {
     animation: none !important;
   }
+}
+
+/* ── R4 · nothing animates under the cursor or the caret ──────────────────────
+   D-293 rule 4, and the one rule of the motion budget that is CSS or nothing:
+   "no animation may start on an element while it has focus, while any text input
+   in the same form is focused, or while a dialog or sheet is open. Reading and
+   typing are motion-free." The design system spells the implementation as
+   `.planner:focus-within .row, .planner:focus-within .day { transition: none }`
+   and says to generalise it to every form container — this is that, written
+   against the containers this app actually has (there is no `.row`/`.day` here;
+   the equivalent rows are Tailwind utilities on semantic elements).
+
+   The dialog half comes free with the form half: every dialog in this app traps
+   focus, so `[role="dialog"]:focus-within` is true for as long as one is open.
+
+   WHAT THIS TOUCHES IS TRANSITIONS, deliberately, and not `animation-play-state`.
+   A transition that is removed still lands on its target value, so R8's
+   fork-to-the-END-state holds for free. A paused KEYFRAME does not: caught at 0%
+   it freezes there, and any entrance that starts at opacity 0 would then hold its
+   content INVISIBLE for as long as the caret sat in the form — trading a motion
+   rule for a blank panel. The two keyframe loops that would be in range are the
+   state indicators D-322 exempts (`.animate-shimmer` "still loading",
+   `.animate-today-pulse` "this cell is today"), and a form that freezes the
+   spinner reporting its own save is not calm, it is broken. Both also carry their
+   fact in text, so nothing here is conveyed by motion alone.
+
+   1ms rather than `0s` matches the idiom the reduced-motion block above already
+   uses, and keeps any `transitionend` listener firing rather than never. */
+:is(form, fieldset, [role='dialog'], [role='alertdialog']):focus-within,
+:is(form, fieldset, [role='dialog'], [role='alertdialog']):focus-within * {
+  transition-duration: 1ms !important;
+}
+
+/* The one ambient loop R4 names explicitly: the front door's Ken Burns must PAUSE
+   while the auth form is open (the design system's front-door section — "no
+   animation may start while any text input in the same form is focused" applies
+   to the loop BEHIND the card, which is not inside it and so is out of the
+   subtree rule above). Written
+   from the motion layer without touching `.door-kb`'s own rules, which belong to
+   issue #25. It is a pause and not a stop: `.door-kb` carries scale(1.04) as its
+   base transform, so what is held is a still, slightly overscanned frame, and it
+   resumes exactly where it left off when focus leaves the form. */
+body:has(form:focus-within) .door-kb {
+  animation-play-state: paused;
 }
 
 /* DnD Kit styles */
@@ -789,9 +2051,11 @@ html[data-vt-active] .animate-route-fade {
   background: rgb(255 255 255 / 0.05);
 }
 .home-nav-link[aria-current='true'] {
-  /* was the #f0c760 gold-400 literal. The active-section tint is chrome, and
-     chrome is now the cyan accent — pointed at the same var the tab-bar's active
-     tint and the focus ring use, so it can't drift from them. */
+  /* was the #f0c760 gold-400 literal. The active-section tint is chrome, so it is
+     pointed at the same var the tab-bar's active tint and the focus ring use and
+     can't drift from them. That var has since gone gold -> marigold -> volt (D-334)
+     and this line has needed no edit at any of them, which is the whole argument for
+     it. */
   color: hsl(var(--accent-scroll));
 }
 
@@ -806,7 +2070,6 @@ html[data-vt-active] .animate-route-fade {
   scroll-margin-top: 4rem;
 }
 #dashboard,
-#timeline,
 #inspiration {
   scroll-margin-top: 7.5rem;
 }
@@ -838,6 +2101,9 @@ html[data-vt-active] .animate-route-fade {
      cosmetic bounce). */
   overscroll-behavior-y: contain;
 }
+
+/* TM ships zero chrome, so 2.4.1 has no repeated block to bypass here; TM-9's Tab walk enforces it. */
+body:has(.travel-mode-root) a[href="#main"] { display: none; }
 
 /* — thumb-zone contract for TM primary actions.
    A fixed bottom band pinned inside env(safe-area-inset-bottom); each action inside must be

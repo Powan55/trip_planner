@@ -21,18 +21,26 @@ export interface CityCoord {
   longitude: number;
 }
 
-// All 13 trip cities. Every per-day city in `core/dates`' TRIP_CITIES / the sample
+// 14 rows. Every per-day city in `core/dates`' TRIP_CITIES / the sample
 // itinerary has real coordinates, so day-trip days (Nagarkot, Kyoto, Osaka, …) get real
 // weather instead of the graceful `unavailable` fallback. The original two (Kathmandu, Tokyo)
 // are byte-identical to keep the weather net exact. A weather-coords coverage unit test
 // asserts `isKnownWeatherCity` is true for all 8 canonical trip cities so no trip day loses weather
-// (8 VISITED cities out of the 13 rows here — the extra rows are day-trip cities the reroute
-// dropped, kept because a custom trip may still name them).
+// (8 VISITED cities out of the 14 rows here — the extra rows are day-trip cities the reroute
+// dropped plus Syracuse, kept because a custom trip may still name them).
 export const CITY_COORDS: Record<string, CityCoord> = {
-  // Departure: Dec 9 is spent in Syracuse / JFK / the air, so the trip's first day names
-  // Syracuse. Weather at the airport you are actually departing from is the useful reading, and a
-  // coordinate here is REQUIRED — the content validator's "every itinerary city is weather-known"
-  // case fails without it.
+  // Departure: Dec 9 is spent in Syracuse, JFK and the air, and D-315 names that day New York —
+  // the JFK layover and the long-haul out are most of it. Coordinates are JFK's, because weather
+  // at the airport you are actually sitting in is the useful reading, and a coordinate here is
+  // REQUIRED — the content validator's "every itinerary city is weather-known" case fails without it.
+  'New York': { latitude: 40.6413, longitude: -73.7781 },
+  // No longer a trip city (D-315 moved Dec 9 to New York), and DO NOT DELETE IT on the grounds
+  // that nothing reads it any more. The load-bearing reason is not the custom-trip rule below:
+  // any device that already saved or synced a 2026-12-09 day doc still holds `city: 'Syracuse'`,
+  // because day-level fields come from the LOCAL side of `mergeDay` on ingest
+  // (`lib/itinerary-remote.ts:623`) and a seed swap never rewrites live saved data. Drop this row
+  // and those devices silently lose Dec-9 weather (`isKnownWeatherCity`) and their derived map pin
+  // (rung 5, `lib/itinerary-map.ts`). The custom-trip rule and the SYR flight are secondary.
   Syracuse: { latitude: 43.0481, longitude: -76.1474 },
   // Nepal
   Kathmandu: { latitude: 27.7172, longitude: 85.324 },

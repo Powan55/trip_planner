@@ -5,7 +5,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import {
   Calendar,
   Gauge,
-  ListOrdered,
   Plane,
   Mountain,
   Compass,
@@ -23,6 +22,8 @@ import {
   FileCheck2,
   Luggage,
   MapPin,
+  User,
+  Stamp,
 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -41,6 +42,7 @@ import { searchPlanItems } from '@/lib/search-plan';
 import { formatDate, type DayPlan } from '@/lib/trip-data';
 import { parseConversionQuery, convertCurrency, type ConversionResult } from '@/lib/currency-convert';
 import { isDefaultTrip } from '@/core/trips';
+import { prefersReducedMotion } from '@/lib/motion';
 
 /**
  * ⌘K / Ctrl+K command palette.
@@ -116,20 +118,23 @@ type Section = {
 
 // Targets follow the route tree; hash sub-anchors match the section ids
 // kept on each page. Photography/Nightlife point at /nepal/ (the guide pages'
-// canonical home, mirroring the legacy-hash redirect map); Travel Essentials is
-// the renamed Home half of the old Travel Inspiration section (id stays
-// `inspiration`).
+// canonical home, mirroring the legacy-hash redirect map); Travel Inspiration is
+// Home's photo-gallery section (id stays `inspiration`, as it has through every
+// rename of that slot).
 const SECTIONS: Section[] = [
-  { route: '/', hash: '#dashboard', label: 'Countdown Dashboard', group: 'Plan', keywords: ['countdown', 'timer', 'days', 'home'], icon: Gauge },
-  { route: '/', hash: '#timeline', label: 'Trip Timeline', group: 'Plan', keywords: ['schedule', 'days', 'route'], icon: ListOrdered },
-  { route: '/plan/', label: 'Itinerary Planner', group: 'Plan', keywords: ['calendar', 'plan', 'events'], icon: Calendar },
+  { route: '/', hash: '#dashboard', label: 'Dashboard', group: 'Plan', keywords: ['countdown', 'timer', 'days', 'home'], icon: Gauge },
+  // (#94) "Trip Timeline" (`/#timeline`) was removed: the section left Home for /plan in S321
+  // — so this entry had been landing on Home with no `#timeline` to scroll to — and #94 deleted
+  // the section outright as a duplicate of the planner. "Itinerary Planner" below is the target
+  // it should have pointed at, and it already carries the `days` keyword.
+  { route: '/plan/', label: 'Itinerary Planner', group: 'Plan', keywords: ['calendar', 'plan', 'events', 'schedule', 'days', 'timeline'], icon: Calendar },
   { route: '/flights/', label: 'Flights', group: 'Plan', keywords: ['airport', 'travel', 'arrivals', 'departures'], icon: Plane },
   { route: '/nepal/', label: 'Nepal', group: 'Destinations', keywords: ['kathmandu', 'himalaya', 'pokhara'], icon: Mountain },
   { route: '/japan/', label: 'Japan', group: 'Destinations', keywords: ['tokyo', 'kyoto', 'osaka'], icon: Compass },
   { route: '/nepal/', hash: '#photography', label: 'Photography Guide', group: 'Guides', keywords: ['camera', 'photos', 'gear', 'spots'], icon: Camera },
   { route: '/nepal/', hash: '#nightlife', label: 'Nightlife & Bars', group: 'Guides', keywords: ['clubs', 'drinks', 'bars', 'night'], icon: Wine },
   { route: '/map/', label: 'Map', group: 'Guides', keywords: ['locations', 'pins', 'regions'], icon: MapIcon },
-  { route: '/', hash: '#inspiration', label: 'Travel Essentials', group: 'Guides', keywords: ['inspiration', 'weather', 'ideas'], icon: Sparkles },
+  { route: '/', hash: '#inspiration', label: 'Travel Inspiration', group: 'Guides', keywords: ['inspiration', 'ideas', 'photos', 'highlights', 'gallery'], icon: Sparkles },
   // the 3 companion routes — deliberately kept off the desktop top row (
   // width ceiling) and off the mobile tab bar; the palette is
   // their desktop discoverability path (the mobile hamburger panel is the other).
@@ -141,6 +146,8 @@ const SECTIONS: Section[] = [
   { route: '/share/', label: 'Import a place', group: 'More', keywords: ['import', 'place', 'google', 'maps', 'link', 'paste'], icon: MapPin }, //
   { route: '/recap/', label: 'Recap', group: 'More', keywords: ['story', 'summary', 'post-trip'], icon: Scroll },
   { route: '/trips/', label: 'Trips', group: 'More', keywords: ['switch', 'create', 'join', 'share', 'key', 'manage'], icon: Luggage }, //
+  { route: '/profile/', label: 'Profile', group: 'More', keywords: ['visited', 'countries', 'cities', 'been there', 'travel history', 'lifetime'], icon: User }, // issue #4
+  { route: '/passport/', label: 'Passport', group: 'More', keywords: ['stamps', 'countries', 'collection', 'souvenir', 'keepsake'], icon: Stamp }, // issue #5
   { route: '/settings/', label: 'Settings', group: 'More', keywords: ['identity', 'currency', 'rates', 'sign out', 'clear', 'backup', 'export', 'import'], icon: Settings }, //
 ];
 
@@ -230,10 +237,8 @@ function formatConvertedAmount(n: number): string {
   return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
-function prefersReducedMotion(): boolean {
-  if (typeof window === 'undefined' || !window.matchMedia) return false;
-  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-}
+// Issue #24: the local copy of the media-query read is gone — `prefersReducedMotion`
+// is imported from lib/motion.ts, the one place the preference is read.
 
 export default function CommandPalette() {
   const [open, setOpen] = React.useState(false);

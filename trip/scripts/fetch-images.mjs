@@ -2,7 +2,7 @@
 //
 // One-shot image fetcher for. Sources freely-licensed photos for the
 // trip-planner's four image areas from Wikipedia/Wikimedia Commons — no API key
-// required. Run from nextjs_space/: node scripts/fetch-images.mjs
+// required. Run from the app root (trip/): node scripts/fetch-images.mjs
 //
 // Mechanism (deterministic, free, no key):
 // 1. Wikipedia REST summary API gives a representative thumbnail per page.
@@ -39,8 +39,19 @@ const MAX_RETRIES = 5; // retry transient throttling (400/429/5xx) with backoff
 // Each entry: { id, area, title, width?, alt? }. width defaults per area.
 /** @type {{id:string, area:string, title:string, width?:number, alt?:string}[]} */
 const MANIFEST = [
-  // Hero (decorative — empty alt)
-  { id: 'hero', area: 'hero', title: 'Himalayas', width: HERO_WIDTH, alt: '' },
+  // Hero (decorative — empty alt). TWO heroes, one per trip leg (#83 follow-up): the hero
+  // photograph follows the leg you are actually on — see `lib/hero-image.ts` for the mapping
+  // and `components/hero-section.tsx` for the swap.
+  //
+  // `hero` was `title: 'Himalayas'` and that was the bug behind "the top looks ugly": this
+  // fetcher asks the Wikipedia REST summary API for a PAGE's representative thumbnail, and the
+  // "Himalayas" page's lead image is an annotated NASA Landsat SATELLITE MAP (red "Tibetan
+  // plateau" labels and all), not a photograph of mountains. Ask for a peak, not a range, and
+  // the lead image is a real photo. Same trap disqualified 'Kathmandu Valley' (also a satellite
+  // image) and 'Annapurna Massif' (a good panorama, but overlaid with red peak-name labels) —
+  // check the actual lead image before changing either title here.
+  { id: 'hero', area: 'hero', title: 'Ama Dablam', width: HERO_WIDTH, alt: '' },
+  { id: 'hero-japan', area: 'hero', title: 'Tokyo', width: HERO_WIDTH, alt: '' },
 
   // Nepal attractions
   { id: 'na1', area: 'nepal', title: 'Boudhanath' },
@@ -286,15 +297,37 @@ async function downloadBytes(url) {
 async function main() {
   await mkdir(IMAGES_DIR, { recursive: true });
 
+  // `--only=id1,id2` re-fetches JUST those manifest ids and MERGES the result into the existing
+  // image-map.json instead of rewriting it from scratch. Without this, changing one subject means
+  // re-downloading all ~106 images, and every upstream page whose lead image has since changed
+  // silently swaps its photo in the same commit — a one-image edit arrives as a repo-wide diff
+  // nobody can review. A full run (no flag) still rebuilds everything from scratch, unchanged.
+  const onlyArg = process.argv.find((a) => a.startsWith('--only='));
+  const only = onlyArg ? new Set(onlyArg.slice('--only='.length).split(',').map((s) => s.trim()).filter(Boolean)) : null;
+  const work = only ? MANIFEST.filter((e) => only.has(e.id)) : MANIFEST;
+  if (only) {
+    const missing = [...only].filter((id) => !MANIFEST.some((e) => e.id === id));
+    if (missing.length) throw new Error(`--only names unknown manifest id(s): ${missing.join(', ')}`);
+    console.log(`--only: fetching ${work.length} of ${MANIFEST.length} entries (${[...only].join(', ')})`);
+  }
+
   // title -> { buf, ext, sourceUrl, attribution } cache
   const cache = new Map();
 
+  // Seed from the existing map on a filtered run so untouched entries survive the write below.
   const imageMap = {};
+  if (only) {
+    try {
+      Object.assign(imageMap, JSON.parse(await readFile(path.join(__dirname, 'image-map.json'), 'utf8')));
+    } catch {
+      console.log('  (no existing image-map.json to merge into — writing a fresh one)');
+    }
+  }
   const perArea = {};
   const skipped = [];
   let totalBytes = 0;
 
-  for (const entry of MANIFEST) {
+  for (const entry of work) {
     const { id, area, title } = entry;
     const width = entry.width ?? CARD_WIDTH;
     perArea[area] ??= { resolved: 0, skipped: 0 };

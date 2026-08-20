@@ -170,7 +170,11 @@ describe('S137 — buildItineraryStops includes pinned custom items as real stop
     const ids = stops.map((s) => s.marker.id).sort();
     expect(ids).toEqual(['np-boudhanath', 'pinned']);
     const pinnedStop = stops.find((s) => s.marker.id === 'pinned')!;
-    expect(pinnedStop.day).toBe(1);
+    // ⚠️ This asserted `1` until issue #1. It was not a typo: `day` was the stop's INDEX in
+    // the `DayPlan[]` handed in, and this call hands in one day — so every stop /plan and
+    // /travel ever drew claimed to be Day 1. It is now the trip-day number of the DATE, and
+    // 2026-12-12 is the trip's fourth day. See `tripDayNumber`.
+    expect(pinnedStop.day).toBe(4);
     expect(pinnedStop.date).toBe('2026-12-12');
     expect(pinnedStop.title).toBe('Rooftop breakfast spot');
   });

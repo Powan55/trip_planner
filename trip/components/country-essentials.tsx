@@ -9,11 +9,12 @@ import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 
 /**
- * Country Essentials — the country-parameterized half of the old
- * `travel-inspiration.tsx` split: featured destinations, local foods, and
- * cultural etiquette, filtered to ONE country for the /nepal/ and /japan/ pages
- * (etiquette additionally includes the 'Both' tips). The Home half (weather
- * outlook) lives in `travel-essentials.tsx`.
+ * Country Essentials — the country-parameterized half of the v1
+ * inspiration split: featured destinations, local foods, and cultural etiquette,
+ * filtered to ONE country for the /nepal/ and /japan/ pages (etiquette
+ * additionally includes the 'Both' tips). Home's own `#inspiration` slot is the
+ * photo gallery in `travel-inspiration.tsx`; the two are separate content
+ * domains (`FEATURED_DESTINATIONS` here, `INSPIRATION_HIGHLIGHTS` there).
  *
  * FeaturedCard / FoodCard moved here VERBATIM ( micro-interaction recipe,
  * add-to-plan affordance on Featured only). All Tailwind classes stay
@@ -63,7 +64,7 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
             {destination.country}
           </span>
         </div>
-        <p className="mt-2 text-xs text-white/40 leading-relaxed">{destination.blurb}</p>
+        <p className="mt-2 text-xs text-ink-mid leading-relaxed">{destination.blurb}</p>
         {/* Add-to-plan affordance — additive; only Featured cards get
             it (not food/etiquette/weather). Featured has no id/category;
             the adapter derives sourceId from the name and uses 'sightseeing'. */}
@@ -100,7 +101,7 @@ function FoodCard({ food }: { food: typeof LOCAL_FOODS[0] }) {
               {food.country}
             </span>
           </div>
-          <p className="text-xs text-white/40 mt-1">{food.description}</p>
+          <p className="text-xs text-ink-mid mt-1">{food.description}</p>
         </div>
       </div>
     </m.div>
@@ -161,9 +162,9 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-sm font-semibold text-white">{tip.title}</h4>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-white/30">{tip.country}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-ink-mid">{tip.country}</span>
                   </div>
-                  <p className="text-xs text-white/40 mt-0.5">{tip.description}</p>
+                  <p className="text-xs text-ink-mid mt-0.5">{tip.description}</p>
                 </div>
               </div>
             ))}

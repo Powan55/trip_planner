@@ -23,14 +23,47 @@
 // are needed for a raster source.
 
 import type { MarkerCategory } from '@/lib/map-data';
+// The single basePath source (lib/utils.ts). Pure — no React, no browser API, no
+// 'use client' — so importing it keeps this module safe to import from anywhere.
+import { withBasePath } from '@/lib/utils';
 
-// Brand hex, mirrored from tailwind.config.ts (navy/gold/himalaya/sakura). These
-// are READ copies of's tokens — the config is the source of truth; we do
-// not write it. Kept here so GL paint properties (which take raw colors, not
-// Tailwind classes) stay in one place.
+// Brand hex, mirrored from tailwind.config.ts / globals.css. These are READ copies
+// of the token layer — the config is the source of truth; we do not write it. Kept
+// here so GL paint properties (which take raw colors, not Tailwind classes) stay in
+// one place.
+//
+// THE RULE FOR THIS OBJECT, because it is now deliberately half-swept:
+//   · SURFACES FOLLOW THE CANVAS. navy900 (the map's own background layer, the label
+//     halo, and the approx-marker fill/stroke) and navy800 (the popup and tooltip
+//     chrome) are re-valued with the rest of the app every time the ramp moves; leaving
+//     them behind frames the map in the retired palette. navy800 was once still
+//     '#111640' — a leftover from the blue field two palettes ago, older than the
+//     charcoal it outlived. navy700 is NOT re-valued because it has zero consumers;
+//     it is stale, harmless, and deletable by whoever next touches this object.
+//     Measured, since two of these are contrast pairs, at the D-334 ramp: gold400 on
+//     navy900 11.97 -> 12.09, white on the navy800 popup 16.22 -> 16.45, navy900 ink on
+//     a gold500 pin 8.70 -> 8.79. All three stay far above AA.
+//   · BRAND HUES ARE FROZEN. gold400/gold500/sakura400/himalaya500 are the map's own
+//     identity colours — route line, stop stroke, label halo, marker stroke, and the
+//     CATEGORY_COLOR pins below. They stay at the retired values until /map's palette
+//     is designed. D-292 is where that is open: it asserted /map into a tier without
+//     designing the route, so choosing new pin and route hues is that slice's call,
+//     not a token slice's. Moving one of these without the others is what produces a
+//     map whose line disagrees with its own legend.
+//
+//     D-334 is why that slice got easier rather than harder. While marigold was the
+//     interaction accent, THREE of the seven CATEGORY_COLOR pins collided with it —
+//     `Attraction` at 0.0 degrees of hue separation, `Cultural` at 4.1, `Restaurant`
+//     at 19.7 — so a pin and "this is pressable" were the same signal. The chrome
+//     accent is now volt (hue 192) and the closest of the seven is `Hotel` at 46.7,
+//     which clears the >= 30 degree rule with room. That rule is enforced for EVERY
+//     category by lib/__tests__/map-category-mirror.test.ts, which now reads the live
+//     accent out of globals.css instead of the hardcoded 189 that let the collision
+//     through. So the freeze is no longer hiding a defect — it is just an unfinished
+//     palette.
 export const BRAND = {
-  navy900: '#0b0c0e',
-  navy800: '#111640',
+  navy900: '#0E0920',
+  navy800: '#221745',
   navy700: '#1a2050',
   gold400: '#f0c760',
   gold500: '#d4a843',
@@ -72,15 +105,35 @@ export const MAP_ATTRIBUTION =
 export function buildMapStyle(): Record<string, unknown> {
   return {
     version: 8,
-    // Glyphs endpoint (free, keyless) for the symbol layers that render cluster
-    // counts and numbered day markers. MapLibre's own demotiles font server
-    // serves valid SDF glyph PBFs for the exact fonts we use ("Noto Sans
-    // Regular"/"Noto Sans Bold"). NOTE: fonts.openmaptiles.org was rejected — it
-    // returns an HTML page (text/html) for these font stacks, which MapLibre
-    // parses as protobuf and throws "Unimplemented type: 4", silently breaking
-    // every symbol layer (verified in headless). demotiles returns a real PBF
-    // (application/octet-stream), so counts/numbers render and the error is gone.
-    glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+    // Glyphs endpoint for the symbol layers that render cluster counts and
+    // numbered day markers. SELF-HOSTED under public/font/ — the PBFs are ours,
+    // served same-origin, no third-party host on the runtime path.
+    //
+    // MEASURED before deciding (issue #8): both label fields are NUMERIC
+    // ('point_count_abbreviated', 'day' — item titles render in HTML popups, not
+    // as SDF glyphs), so range 0-255 of two stacks is everything the map can ever
+    // request: "Noto Sans Regular" 76,580 B + "Noto Sans Bold" 81,170 B =
+    // 157,750 B (154.05 KiB). No other range is ever fetched.
+    //
+    // The byte count decided it, but the stronger reason is an OFFLINE DEFECT the
+    // old cross-origin URL had: the service worker's fetch handler returns
+    // cross-origin requests untouched as its FIRST line (scripts/gen-sw.mjs), so
+    // demotiles glyphs were never cacheable and the numbered day markers rendered
+    // BLANK offline. Same-origin PBFs are precached with the rest of the shell,
+    // so labels now survive the offline state the app promises.
+    //
+    // Historical, so it is not re-litigated: demotiles was chosen over
+    // fonts.openmaptiles.org, which returns an HTML page (text/html) for these
+    // stacks — MapLibre parses it as protobuf and throws "Unimplemented type: 4",
+    // silently breaking every symbol layer. Both are moot now.
+    //
+    // PATH SHAPE: MapLibre substitutes the fontstack into the template RAW
+    // (`url.replace('{fontstack}', stack)`, no encodeURIComponent), so the
+    // directory on disk carries literal spaces — public/font/Noto Sans Bold/
+    // 0-255.pbf — and the browser percent-encodes the space on the wire. The
+    // basePath prefix is mandatory: this deploys to GitHub Pages under a subpath,
+    // where a bare '/font/...' 404s.
+    glyphs: withBasePath('/font/{fontstack}/{range}.pbf'),
     sources: {
       'carto-dark': {
         type: 'raster',

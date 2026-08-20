@@ -12,8 +12,11 @@
  * The gateway is byte-transport only: it does NOT know the `MyPlace` shape — the value
  * type is a caller-supplied generic `T`, owned by `core/places/model.ts`. `get(fallback)` returns the
  * parsed slot or `fallback` (absent / SSR / corrupt JSON); the CALLER sanitizes (`sanitizePlaces`).
- * `set(places)` writes the whole list as JSON. TRIP-SCOPED + LOCAL-ONLY (cross-device sync is the
- * deferred). Never throws (inherits `readJson`/`writeJson`).
+ * `set(places)` writes the whole list as JSON. TRIP-SCOPED, and since the D-229 addendum (issue
+ * #17) also SYNCED on a custom trip — `lib/places-remote.ts` mirrors this slot to
+ * `trips/{tripId}/places/list`. This accessor is unchanged by that: it is still byte-transport
+ * only, and the default sample pack (no remote trip id) still never leaves the device.
+ * Never throws (inherits `readJson`/`writeJson`).
  */
 import { readJson, writeJson, keyFor } from '@/core/storage/gateway';
 

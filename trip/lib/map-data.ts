@@ -21,7 +21,9 @@ export interface MapMarker {
   id: string;
   name: string;
   category: MarkerCategory;
-  country: 'Nepal' | 'Japan';
+  /** A leg's `legLabel()` — `'Nepal'` / `'Japan'` on the default pack, a custom trip's own
+   * destinations label (or `''` for a bare world-search point) on a custom trip. */
+  country: string;
   area: string;
   description: string;
   /** Real longitude. Source of truth for map placement. */

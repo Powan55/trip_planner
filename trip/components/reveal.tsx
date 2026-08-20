@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { m, useReducedMotion } from 'framer-motion';
+import { m } from 'framer-motion';
+import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-import { FADE_FLOOR } from '@/lib/motion';
+import { FADE_FLOOR, entranceFor } from '@/lib/motion';
 
 /**
  * Reveal — the ONE canonical section-masthead entrance (; scroll-driven CSS
@@ -70,6 +71,35 @@ import { FADE_FLOOR } from '@/lib/motion';
  * negative-control run read 0.7 off the off-screen photography masthead on
  * /nepal/. So `reduceMotion` now also forks the framer path's `initial`, landing
  * reduced-motion users at full opacity. e2e/reveal.spec.ts asserts it.
+ *
+ * ISSUE #24 — the fork is no longer this component's own judgement. It asks
+ * `entranceFor()` (lib/motion.ts), which is the ONE place D-292's tier gate,
+ * D-293's once-per-session entrance ledger and `prefers-reduced-motion` are
+ * decided. Three things follow, and they are the point of the change:
+ *
+ * - **Reduced motion is no longer a claim made here.** The framer
+ * `useReducedMotion()` call is gone; there is no branch in this file that can
+ * forget the preference, because the only branch reads a decision that already
+ * accounts for it. Behaviour under reduce is unchanged — `'present'` renders the
+ * exact `initial={{opacity:1}}` fork D-246 landed.
+ * - **A Tier-3 route no longer reveals at all.** D-292 forbids scroll-reveal on
+ * the working screens. Exactly one Tier-3 route reaches a `<Reveal>` today —
+ * /plan/, through `calendar-planner.tsx`'s `<SectionHeading>` — so its masthead
+ * is now simply present. That is the gate biting, not a regression, and it is
+ * the whole behavioural delta of this change.
+ * - **The tenth visit in a session is quiet.** A surface already greeted this
+ * session renders present, no transition.
+ *
+ * `'present'` is the SAME branch as the reduced-motion fork, deliberately: it is
+ * already shipped and already reviewed, so this adds no new rendering shape and
+ * no new hydration characteristic. The server always prerenders `'animate'` for a
+ * Tier-1/2 route (no window, empty ledger), exactly as it did before; only a
+ * returning client's first render differs, in the same way and to the same degree
+ * a reduced-motion client's already did.
+ *
+ * `data-entrance` is on both paths so the rule is observable from outside — an
+ * e2e spec can assert that every reveal on /plan/ is `"present"` without knowing
+ * anything about the ledger.
  */
 export function Reveal({
   children,
@@ -78,7 +108,10 @@ export function Reveal({
   children: ReactNode;
   className?: string;
 }) {
-  const reduceMotion = useReducedMotion();
+  // `usePathname()` is null with no app router mounted (a unit-test harness);
+  // `entranceFor` reads that as an unscoped surface and returns 'present'.
+  const entrance = entranceFor(usePathname());
+  const animating = entrance === 'animate';
 
   const [cssTimeline, setCssTimeline] = useState(false);
   useEffect(() => {
@@ -89,10 +122,11 @@ export function Reveal({
     );
   }, []);
 
-  if (cssTimeline && !reduceMotion) {
+  if (cssTimeline && animating) {
     return (
       <div
         data-scroll-driven="css"
+        data-entrance={entrance}
         className={className ? `reveal-view-css ${className}` : 'reveal-view-css'}
       >
         {children}
@@ -103,6 +137,7 @@ export function Reveal({
   return (
     <m.div
       data-scroll-driven="js"
+      data-entrance={entrance}
       // the floor is for the ANIMATED path only. Under reduce we keep the old
       // pin (settle at full opacity, no fade, no slide) — `MotionConfig
       // reducedMotion="user"` neutralises the `y` transform but NOT opacity, so an
@@ -110,7 +145,7 @@ export function Reveal({
       // exactly the users least able to tolerate it. Measured, not assumed: the
       // negative-control run read 0.7 off the off-screen photography masthead before this
       // fork existed. Asserted in e2e/reveal.spec.ts.
-      initial={reduceMotion ? { opacity: 1 } : { opacity: FADE_FLOOR, y: 20 }}
+      initial={animating ? { opacity: FADE_FLOOR, y: 20 } : { opacity: 1 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       className={className}

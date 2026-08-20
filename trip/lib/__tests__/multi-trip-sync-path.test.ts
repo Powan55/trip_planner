@@ -153,7 +153,8 @@ describe('S235 Part B — LOCAL storage scope: EVERY trip-scoped domain routes t
   // wired to keyFor (its write table entry can be missed, but its keyFor contract can't).
   // S352: the hand-maintained 13-slot copy formerly declared here is DELETED — it had already
   // drifted from the type (missing `myPlaces`, S284) — in favor of the canonical `TRIP_SCOPED_SLOTS`
-  // export, so this guard now covers the full 14-slot union.
+  // export, so this guard covers whatever the union currently is (15 slots as of `expensesCorrupt`,
+  // #100/A-10) automatically.
 
   it('DEFAULT pack: keyFor(slot) === the legacy literal for every slot (grandfather)', () => {
     for (const slot of TRIP_SCOPED_SLOTS) expect(keyFor(slot)).toBe(STORAGE_KEYS[slot]);

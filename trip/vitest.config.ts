@@ -32,10 +32,30 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: false,
+    // Three modules ASSERT in their own comments that this suite runs under
+    // `TZ=America/New_York` — `core/dates/trip-dates.ts`, `lib/__tests__/core-clock.test.ts` and
+    // `lib/__tests__/burn-rate-core.test.ts` — and until now nothing set it. Tests inherited the
+    // machine's zone, so the DST sweep in `countdown-sum-back.test.ts` found two transitions on a
+    // US-East dev box and ZERO on the UTC CI runner, where it silently became a no-op. Every DST
+    // guarantee in the countdown was unproven by CI.
+    //
+    // `env` is the right seam on the DEFAULT `forks` pool, which this repo uses (no `pool` is set
+    // anywhere): the variable lands before the first `Date` construction, so no `cross-env` and no
+    // npm-script change. It is NOT general -- under `pool: 'threads'`/`'vmThreads'` the variable is
+    // set but the isolate stays on the host zone, silently reopening this. If a pool is ever set,
+    // move the pin to a `process.env.TZ = ...` assignment at this file's module scope.
+    env: { TZ: 'America/New_York' },
     // S350: components/__tests__ joins lib/__tests__ as a second, JSX-bearing test root (the
     // concierge renderer test uses real .tsx JSX rather than lib/__tests__'s createElement-only
     // convention) — everything else about the run (jsdom, the @ alias, oxc's automatic JSX
     // runtime) is unchanged.
-    include: ['lib/__tests__/**/*.test.ts', 'components/__tests__/**/*.test.tsx'],
+    //
+    // Issue #32: BOTH extensions in BOTH roots, deliberately, though today every file happens
+    // to sit on the diagonal (156 .test.ts in lib, 2 .test.tsx in components). The old pair of
+    // globs pinned each root to one extension, so the first `lib/__tests__/*.test.tsx` or
+    // `components/__tests__/*.test.ts` anyone added would have been collected by nothing and
+    // simply never run — passing CI by being absent, which is the failure mode a test suite
+    // can least afford. Widening costs nothing: the extra half of the matrix is empty today.
+    include: ['{lib,components}/__tests__/**/*.test.{ts,tsx}'],
   },
 });

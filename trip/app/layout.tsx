@@ -10,6 +10,7 @@ import { ServiceWorkerRegistrar } from '@/components/service-worker-registrar'
 import { StoragePersistence } from '@/components/storage-persistence'
 import { OfflineBanner } from '@/components/offline-banner'
 import { SyncStatusBadge } from '@/components/sync-status-badge'
+import SeasonAccentEngine from '@/components/season-accent-engine'
 import { withBasePath } from '@/lib/utils'
 // the app-wide chrome islands (Navbar, Footer, mobile tab bar,
 // quick-add FAB + host, expense-log host). Declared in a `'use client'` module
@@ -97,8 +98,11 @@ export const viewport: Viewport = {
   // behavior, so this can never break anything where it's unsupported.
   interactiveWidget: 'resizes-content',
   // surface — the visible app surface color (matches the PWA
-  // manifest's theme_color/background_color emitted by gen-sw.mjs).
-  themeColor: '#0b0c0e',
+  // manifest's theme_color/background_color emitted by gen-sw.mjs). This is the
+  // browser/OS chrome colour and it MUST track --background: it is a hardcoded copy
+  // of that token with no compiler tie, so a canvas re-value that misses it leaves a
+  // strip of the retired palette framing the app. Now #0E0920, the D-334 page field.
+  themeColor: '#0E0920',
 }
 
 export default function RootLayout({
@@ -109,19 +113,33 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning className="dark">
       <body className={`${geist.variable} ${instrumentSerif.variable} font-sans bg-surface`}>
+        {/* WCAG 2.4.1 (B-1). ONE link at the root covers every route: all 19 pages
+            render inside the `#main` wrapper below, so no page-level skip link is needed.
+            Invisible until focused, then a real chip above the navbar (z-50). */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:border focus:border-white/15 focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-ring"
+        >
+          Skip to content
+        </a>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
           forcedTheme="dark"
           disableTransitionOnChange
         >
+          {/* app-shell month/season background tint (issue #83). Renders nothing; root-level
+              so it mounts once and is never torn down by route navigation. */}
+          <SeasonAccentEngine />
           <ItineraryProvider>
             {/* App chrome: one persistent navbar/footer around the routed
                 page content. TokenGate + PresenceBar render inside the provider. */}
             <Navbar />
             {/* routed content + footer must clear the fixed mobile
                 tab bar; 64px fallback = the bar's published height contract. */}
-            <div className="pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] md:pb-0">
+            {/* `#main` is the skip link's target; tabIndex=-1 makes a non-interactive
+                wrapper programmatically focusable, `outline-none` keeps that focus silent. */}
+            <div id="main" tabIndex={-1} className="outline-none pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] md:pb-0">
               {children}
               <Footer />
             </div>

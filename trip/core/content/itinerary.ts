@@ -20,13 +20,16 @@ import type { DayPlan } from '@/lib/trip-data';
 export const TRIP_ITINERARY: DayPlan[] = [
   {
     date: '2026-12-09',
-    // (Q4, owner-ruled): Dec 9 is spent in Syracuse, JFK and the air — the traveller does not
-    // reach Kathmandu until Dec 10. `country` stays 'nepal' because it is the LEG ID that drives the
-    // currency and the day offset, not a label; only the displayed city was wrong.
-    city: 'Syracuse',
+    // (D-315, owner-ruled 2026-08-14, amending D-285): Dec 9 is spent in Syracuse, JFK and the
+    // air — the traveller does not reach Kathmandu until Dec 10 — and the day is NAMED for
+    // New York, where most of it is actually spent (the JFK layover and the long-haul out).
+    // `country` stays 'nepal' because it is the LEG ID that drives the currency and the day
+    // offset, not a label; only the displayed city moved. The item titles below still say
+    // Syracuse because SYR is where the plane really leaves from: facts, not labels.
+    city: 'New York',
     country: 'nepal',
-    // — the display half of the day line. Syracuse is in the USA; the 'nepal' leg id above
-    // is behaviour (currency + UTC offset) and stays. Without this the header read "Syracuse, Nepal".
+    // — the display half of the day line. New York is in the USA; the 'nepal' leg id above
+    // is behaviour (currency + UTC offset) and stays. Without this the header read "New York, Nepal".
     countryLabel: 'USA',
     items: [
       { id: 'n1-1', title: 'Depart Syracuse (SYR) — Regional connection to New York (JFK)', category: 'transportation', time: '05:30', duration: '1h 32m', notes: 'SYR → JFK Terminal 4 · Regional connection · arrive 7:02am · Economy. Keep passport & onward boarding passes handy', location: 'Syracuse Hancock Intl (SYR) → New York JFK (T4)', tzOffsetMin: -300 },
@@ -162,7 +165,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
       { id: 'j1-2', title: 'Fly Guangzhou (CAN) → Tokyo Haneda (HND) — Connecting flight to Tokyo', category: 'transportation', time: '08:50', duration: '3h 45m', notes: 'CAN T2 → HND Terminal 3 · Connecting flight to Tokyo · arrives 1:35pm · Economy. Fill out Visit Japan Web before landing', location: 'Guangzhou (CAN T2) → Tokyo Haneda (HND T3)', tzOffsetMin: 480 },
       { id: 'j1-3', title: 'Immigration, baggage & transfer to Haneda domestic terminal (T1)', category: 'transportation', time: '13:45', duration: '2h 40m', notes: 'Clear immigration and collect baggage after the international arrival, then transfer across Haneda to the domestic terminal (T1) to check in for the Osaka flight', location: 'Tokyo Haneda (HND T3 → T1)' },
       { id: 'j1-3b', title: 'Fly Tokyo Haneda (HND) → Osaka Itami (ITM) — Domestic hop to Osaka', category: 'transportation', time: '16:25', duration: '1h 10m', notes: 'HND Terminal 1 → ITM · Domestic hop to Osaka · arrives 5:35pm · Economy (Q). Real booked domestic flight — render the times exactly as booked', location: 'Tokyo Haneda (HND T1) → Osaka Itami (ITM)' },
-      { id: 'j1-4', title: 'Check in to the Shinsaibashi hotel', category: 'hotel', time: '18:15', duration: '1h', notes: 'Real booked hotel in Shinsaibashi, Osaka. Drop bags and freshen up before the first Osaka night out', location: 'Shinsaibashi, Osaka' },
+      { id: 'j1-4', title: 'Check in to the Shinsaibashi hotel', category: 'hotel', time: '18:15', duration: '45m', notes: 'Real booked hotel in Shinsaibashi, Osaka. Drop bags and freshen up before the first Osaka night out', location: 'Shinsaibashi, Osaka' },
       { id: 'j1-5', title: 'Dotonbori evening walk & the Glico sign', category: 'sightseeing', time: '19:00', duration: '1.5h', notes: 'First look at the neon canal-front strip — the Glico Running Man sign, the giant crab and puffer-fish signs; an easy, low-effort orientation for jet-lagged legs', location: 'Dotonbori, Osaka', sourceId: 'ja12' },
       { id: 'j1-6', title: 'Namba/Shinsaibashi bars & late-night food', category: 'nightlife', time: '21:00', duration: '3h', notes: 'Ease into the trip with a first round of Namba/Shinsaibashi bars, then ramen or takoyaki to close out night one — confirm cover charges and drink prices before sitting down. Last train ~00:00, first ~05:00 — taxi or plan to stay out.', location: 'Namba/Shinsaibashi, Osaka' },
     ],
@@ -184,8 +187,8 @@ export const TRIP_ITINERARY: DayPlan[] = [
     city: 'Osaka',
     country: 'japan',
     items: [
-      { id: 'j3-1', title: 'Universal Studios Japan — Super Nintendo World', category: 'sightseeing', time: '09:00', duration: '8h', notes: 'A full day at USJ; prioritize Super Nintendo World and an Express Pass if available — check current anime/game collaborations closer to the date', location: 'Universal Studios Japan, Konohana, Osaka', sourceId: 'ja28' },
-      { id: 'j3-2', title: 'Lunch inside the park', category: 'food', time: '13:00', duration: '1h', notes: 'Quick refuel between rides', location: 'Universal Studios Japan, Osaka' },
+      { id: 'j3-1', title: 'Universal Studios Japan — Super Nintendo World', category: 'sightseeing', time: '09:00', duration: '4h', notes: 'The morning half of a full USJ day, up to the lunch break; prioritize Super Nintendo World and an Express Pass if available — check current anime/game collaborations closer to the date', location: 'Universal Studios Japan, Konohana, Osaka', sourceId: 'ja28' },
+      { id: 'j3-2', title: 'Lunch inside the park, then the afternoon rides', category: 'food', time: '13:00', duration: '4h', notes: 'Quick refuel between rides, then back in for the afternoon half of the park day — out around 5pm', location: 'Universal Studios Japan, Osaka' },
       { id: 'j3-3', title: 'Dinner near Namba', category: 'food', time: '19:00', duration: '1.5h', notes: 'Recover from a long theme-park day before a lighter night', location: 'Namba, Osaka' },
       { id: 'j3-4', title: 'Lighter Namba night', category: 'nightlife', time: '21:00', duration: '2h', notes: 'A lower-key night after USJ — late food and a couple of easy bars in Namba, or swap in a Big Echo/Karaoke Kan karaoke box for a lower-output alternative. Last train ~00:00, first ~05:00 — taxi or stay out till first train.', location: 'Namba, Osaka' },
     ],
@@ -206,7 +209,7 @@ export const TRIP_ITINERARY: DayPlan[] = [
     city: 'Osaka',
     country: 'japan',
     items: [
-      { id: 'j5-1', title: 'Shinsekai & Spa World flex day', category: 'sightseeing', time: '10:30', duration: '4h', notes: 'The retro Shinsekai district under Tsutenkaku Tower for kushikatsu and old-Osaka atmosphere, then an afternoon soak at the Spa World bathhouse complex — a relaxed recovery day before the last Osaka night', location: 'Shinsekai, Osaka' },
+      { id: 'j5-1', title: 'Shinsekai & Spa World flex day', category: 'sightseeing', time: '10:30', duration: '2.5h', notes: 'The retro Shinsekai district under Tsutenkaku Tower and its old-Osaka atmosphere, up to the kushikatsu lunch at 1pm; the Spa World bathhouse soak then fills the open afternoon after it — a relaxed recovery day before the last Osaka night', location: 'Shinsekai, Osaka' },
       { id: 'j5-2', title: 'Lunch — kushikatsu in Shinsekai', category: 'food', time: '13:00', duration: '1h', notes: "Deep-fried skewers, Osaka's other signature street food; the rule is no double-dipping the sauce", location: 'Shinsekai, Osaka' },
       { id: 'j5-3', title: 'Dinner before the final Osaka night', category: 'food', time: '18:30', duration: '1.5h', notes: 'Fuel up before the biggest party night of the Osaka leg', location: 'Namba, Osaka' },
       { id: 'j5-4', title: 'Biggest Osaka party night', category: 'nightlife', time: '21:30', duration: '3.5h', notes: "The final and biggest Osaka night out — try GHOST Ultra Lounge or Club Bambi across Shinsaibashi, Amerikamura and Namba before the move to Kyoto (verify hours/cover before going); pace the group for tomorrow's checkout. One more round of Kinryu Ramen Dotonbori (24h) before calling it. Last train ~00:00, first ~05:00 — taxi or stay out till first train.", location: 'Shinsaibashi/Amerikamura/Namba, Osaka' },
@@ -302,8 +305,8 @@ export const TRIP_ITINERARY: DayPlan[] = [
     items: [
       { id: 'j13-1', title: 'Late brunch & easy shopping', category: 'free', time: '11:00', duration: '2h', notes: 'Keep the daytime light — rest up for the big night ahead', location: 'Shinjuku, Tokyo' },
       { id: 'j13-2', title: 'Pre-game dinner', category: 'food', time: '18:00', duration: '1.5h', notes: 'A relaxed dinner in Shinjuku or Shibuya before the countdown', location: 'Shinjuku/Shibuya, Tokyo' },
-      { id: 'j13-3', title: "New Year's Eve club/event", category: 'nightlife', time: '21:30', duration: '4h', notes: "Shibuya's street countdown is fenced off/cancelled — do not plan on it. Book ahead instead: Club Camelot NYE (hip-hop/R&B — best vibe match) or WOMB New Year's Countdown to 2027 (Dec 31 2026, ¥6,500 online / ¥8,000 door, ~22:00-04:30 — bigger, techno/house); tickets typically go on sale ~Nov, so grab them the week they drop. Free backup: the Shinjuku Tokyo Met-Gov building's official countdown. Verify lineups/tickets before relying on any of these.", location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
-      { id: 'j13-4', title: 'New Year countdown', category: 'nightlife', time: '23:45', duration: '1h', notes: "See in 2027 with the club/event crowd; trains run all night on New Year's Eve", location: 'Tokyo' },
+      { id: 'j13-3', title: "New Year's Eve club/event", category: 'nightlife', time: '21:30', duration: '2h 15m', notes: "Shibuya's street countdown is fenced off/cancelled — do not plan on it. Book ahead instead: Club Camelot NYE (hip-hop/R&B — best vibe match) or WOMB New Year's Countdown to 2027 (Dec 31 2026, ¥6,500 online / ¥8,000 door, ~22:00-04:30 — bigger, techno/house); tickets typically go on sale ~Nov, so grab them the week they drop. Free backup: the Shinjuku Tokyo Met-Gov building's official countdown. Verify lineups/tickets before relying on any of these.", location: 'Shinjuku/Shibuya/Roppongi, Tokyo' },
+      { id: 'j13-4', title: 'New Year countdown', category: 'nightlife', time: '23:45', duration: '1h 45m', notes: "See in 2027 with the club/event crowd and stay on the floor after it; trains run all night on New Year's Eve", location: 'Tokyo' },
     ],
   },
   {

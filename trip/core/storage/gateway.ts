@@ -317,14 +317,148 @@ export const STORAGE_KEYS = {
    * shared/pasted from a Google Maps link becomes a user-owned "My place" card in its country leg.
    * TRIP-SCOPED (added to the `TripScopedSlot` union, resolved via `keyFor('myPlaces')`) so a custom
    * trip's places never bleed into the default pack. Held NEWEST-FIRST, capped at 200 (drop-oldest,
-   * `core/places/model.ts` `PLACES_CAP`) so the value stays small. localStorage backend;
-   * additive, no migration, LOCAL-ONLY (NOT part of the itinerary Vault, NOT part of any sync path —
-   * cross-device sync is the deferred). Value shape owned by `core/places/model.ts` (the gateway
-   * is byte-transport only). ADDITIVE: a brand-new key, no back-compat surface changes. Mirrors
+   * `core/places/model.ts` `PLACES_CAP`) so the value stays small — the cap applies to live rows
+   * and to tombstones separately. localStorage backend; additive, no migration. NOT part of the
+   * itinerary Vault, but — since the D-229 addendum (issue #17) — this slot IS on a sync path: it
+   * mirrors to `trips/{tripId}/places/list` on a custom trip. On the DEFAULT pack `getTripId()` is
+   * '' (the remote id is retired), so places there stay local-only and the row keeps its pre-#17
+   * bytes (no `rev`/`hlc`/`deleted`). Value shape owned by `core/places/model.ts` and the merge by
+   * `core/places/merge.ts` (the gateway is byte-transport only, either way). NOTE the sibling key
+   * 14 `favorites` is deliberately NOT synced — see the D-229 addendum. ADDITIVE: a brand-new key,
+   * no back-compat surface changes. Mirrors
    * `shareInboxStore`/`favoritesStore` exactly. NOTE: the plan text sketched "key 30", but
    * `installHintDismissed` took 30 first — this is the next free number, key 31.
    */
   myPlaces: 'nepal_japan_my_places',
+  /**
+   * localStorage — JSON `{ cities: string[]; countries: string[] }` of every city and country this
+   * person has EVER been to (lifetime-visits, key 32; issue #29). LIFETIME-SCOPED — a THIRD scope
+   * beside trip-scoped and app-scoped, and the reason it is spelled out here rather than filed as
+   * "another app-scoped key": it sits outside the trip namespace AND outside `wipeAllTripData()` on
+   * purpose, so clearing a trip or signing out of this device never erases a permanent travel record
+   * that no trip owns and nothing can reconstruct (D-314). It is NOT in `TripScopedSlot` (handing it
+   * to `keyFor` is a compile error) and must NEVER be added to the wipe below. The `tripPlanner*`
+   * spelling rather than `nepal_japan_*` is deliberate: the pack-flavoured prefix reads as trip data
+   * at a glance, and this is not. Value shape + the unique/idempotent/insertion-order policy are
+   * owned by `core/places/visited.ts` (the gateway is byte-transport only — it does not know the
+   * `VisitedPlaces` shape). ADDITIVE: a brand-new key, no back-compat surface change and NO
+   * migration.
+   */
+  lifetimeVisits: 'tripPlannerLifetimeVisits',
+  /**
+   * sessionStorage — comma-joined `string[]` of SURFACE ids whose entrance has already played
+   * this browser session (entrance ledger, key 33; issue #24). Backs D-293 rule 7, "the tenth
+   * visit is quieter than the first": a surface animates its entrance on the FIRST view per
+   * session and is simply present, at its end state, on every later view. (Key 32 was taken by
+   * `lifetimeVisits`, which landed on dev while this was in flight — this is the next free
+   * number, exactly as `installHintDismissed` took 30 from `myPlaces`.)
+   *
+   * SESSION store, and the choice IS the rule — a new tab or a new browser session is a new
+   * greeting, everything inside one session is not. What that means concretely, because it is
+   * the part a later reader will get wrong: the ledger does NOT reset on a reload (sessionStorage
+   * survives a refresh in the same tab), on a client-side route change, on a component remount,
+   * on a reduced-motion toggle, or on sign-out. It DOES reset when the tab is closed. A
+   * DUPLICATED tab inherits the set, because browsers copy sessionStorage into the duplicate —
+   * accepted and named, not overlooked.
+   *
+   * Shape mirrors `tripMetaSelfHealGuard` (key 27) rather than one key per surface: the
+   * storage-literal rule wants one declared literal per slot, and there are at most 17 surfaces
+   * in the app, so the joined set stays tiny. APP-SCOPED (a greeting belongs to the tab session,
+   * not to a trip). ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   */
+  motionEntranceSeen: 'motion_entrance_seen',
+  /**
+   * localStorage — JSON `{ checkedOn: string | null; confirmed: VisitConfirmation[] }`, the
+   * GPS-confirmation half of the visit record (visit-confirmations, key 34; issue #30).
+   * (Key 33 went to `motionEntranceSeen`, which landed on dev while this was in flight — same
+   * next-free-number rule that gave #24 its own number after key 32.)
+   * LIFETIME-SCOPED for the same reasons as its sibling key 32, and held under the same three
+   * structural guarantees: not in `TripScopedSlot`, no `trip:` prefix, not among the teardown's
+   * removals. It is a separate key rather than a third field on key 32 so that #29's on-disk
+   * `{ cities, countries }` shape stays byte-stable — a reader written against D-314 must keep
+   * seeing exactly two fields.
+   *
+   * **This key is the one place the app persists anything derived from a device position, and the
+   * shape is the privacy contract (D-320 amends D-158).** `checkedOn` is the trip-clock day
+   * (`YYYY-MM-DD`) the one-shot location check last RAN, whatever came back — it is what makes the
+   * check one-shot-per-day rather than once-per-page-load, so a denied or timed-out check still
+   * writes it and still does not re-prompt. `confirmed[]` holds `{ city, country, at }`: a place
+   * name the app already had in its own coordinate table plus an ISO instant. **No latitude, no
+   * longitude, no accuracy, no altitude, no heading, no speed, and no raw `GeolocationPosition`
+   * field of any kind may ever be written here.** The fix is matched in memory against
+   * `lib/city-coords.ts` and discarded; only the resolved city name survives the call stack. Value
+   * shape and policy are owned by `core/places/visited.ts` (the gateway is byte-transport only).
+   * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   */
+  visitConfirmations: 'tripPlannerVisitConfirmations',
+  /**
+   * localStorage — JSON `string[]`, the countries whose passport stamp has ALREADY BEEN SHOWN
+   * (passport stamps, key 35; issue #5). Not a second copy of the visit set and never a source of
+   * truth for where anyone has been: key 32 owns that list, this one only remembers which of its
+   * entries the passport page has already greeted, so a stamp can animate on the visit that first
+   * counts a country and be simply present on every later one.
+   *
+   * LIFETIME-SCOPED, for a reason that is behavioural and not symmetry: key 32 survives
+   * `wipeAllTripData()` and `signOut()` (D-314), so a trip-scoped or session-scoped record here
+   * would come back empty against a country list that did not — and the next passport view would
+   * re-unlock every country the traveller has ever visited, at once. Held under the same three
+   * structural guarantees as its two siblings: not in `TripScopedSlot`, no `trip:` prefix, not
+   * among the teardown's removals.
+   *
+   * ABSENT IS NOT EMPTY, and that distinction is the whole feature. A missing slot means "this
+   * device has never rendered the passport", which SEEDS (every country already recorded is
+   * treated as history and celebrates nothing); `[]` means "seeded, and nothing has been greeted
+   * yet". `core/places/passport.ts` owns that rule — the gateway is byte-transport only. Values are
+   * the display strings key 32 stores, verbatim, so no second copy of its fold rule lives here.
+   * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   */
+  passportStamps: 'tripPlannerPassportStamps',
+  /**
+   * sessionStorage — comma-joined `string[]` of CELEBRATION claim keys (`<weight>:<entity id>`)
+   * already spent this browser session (celebration ledger, key 36; issue #24). Backs D-293
+   * rule 5's second clause ("a celebration id fires at most once per session per entity") and
+   * rule 6's caps ("pop: 3 per session"), which the false→true edge in `lib/celebration.ts`
+   * cannot see on its own — re-entering a route rebuilds the ref and the edge fires again.
+   *
+   * Shape and store are `motionEntranceSeen`'s (key 33) EXACTLY, deliberately: same session
+   * scope, same comma-joined set, same reset semantics (survives a reload and a route change,
+   * dies with the tab, is inherited by a duplicated tab). The weight prefix is what makes one
+   * key carry both rules — the cap for a weight is how many entries start with `<weight>:`, so
+   * there is no counter to drift out of step with the set.
+   *
+   * SSR-safe + never-throw (inherited): unreadable storage reads as "nothing fired yet", so the
+   * degraded behaviour is a celebration that fires again, never one that is silently swallowed.
+   * Same permissive direction as the entrance ledger, for the same reason. APP-SCOPED.
+   * ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   */
+  motionCelebrationsFired: 'motion_celebrations_fired',
+  /**
+   * localStorage — the expense-import quarantine slot for rejected/corrupt backup payloads
+   * (expenses-corrupt, key 37; #100/A-10). Same move as `itineraryCorrupt` above: this literal was
+   * historically owned by `lib/expense-export.ts` as a bare constant, read/written via raw
+   * `window.localStorage` calls, and never routed through the gateway or `keyFor` — so a non-default
+   * pack's rejected import silently wrote into the SAME global key any other pack's quarantine used.
+   * Moved here (byte-identical string) so `keyFor('expensesCorrupt')` namespaces a non-default pack's
+   * quarantine slot exactly like every other `TRIP_SCOPED_SLOTS` member. TRIP-SCOPED (paired with
+   * `expenses`, key 11). NOTE: grepped for the highest existing "key N" before picking this one — key
+   * 36 (`motionCelebrationsFired`) was the highest at the time this was written, so 37 is the next
+   * free number.
+   */
+  expensesCorrupt: 'nepal_japan_expenses_corrupt',
+  /**
+   * localStorage — the Frankfurter currency-rate cache, a `Record<currency, CurrencyRateNow>` JSON
+   * map (currency-rate-cache, key 38; A-26). Same move as `expensesCorrupt` above: this literal was
+   * historically owned by `lib/currency-rate.ts` as a bare module constant, read/written via raw
+   * `window.localStorage` calls, deliberately outside the registry (see that file's own former
+   * header comment). Moved here for the one-registry invariant only — NOT added to
+   * `TripScopedSlot`/`ALL_TRIP_SCOPED_SLOTS` (mirrors `deviceId`/`firstRunTour`'s plain-registry-
+   * entry pattern): rates are genuinely global, not trip data, so this stays APP-SCOPED, is never
+   * namespaced by `keyFor`, and is never swept by `wipeAllTripData`/`wipeTripData` — retention policy
+   * is UNCHANGED by this move. Value shape owned by `lib/currency-rate.ts` (the gateway is
+   * byte-transport only). The key STRING is unchanged (same bytes, same cache) — only where the
+   * literal is declared moved.
+   */
+  currencyRateCache: 'nepal_japan_currency_rate_cache',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -425,7 +559,8 @@ export type TripScopedSlot =
   | 'packing'
   | 'dayAnchors'
   | 'shareInbox'
-  | 'myPlaces';
+  | 'myPlaces'
+  | 'expensesCorrupt';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -451,6 +586,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'dayAnchors',
   'shareInbox',
   'myPlaces',
+  'expensesCorrupt',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -480,7 +616,7 @@ export function keyFor(slot: TripScopedSlot): string {
  * Full local teardown for sign-out. Clears
  * EVERY on-disk trace of the previous traveler's TRIP DATA on this device — not just the active pack:
  *
- * - BOTH trip-scoped namespaces: the `trip:*` prefix sweep (every non-default pack) AND the 14 bare
+ * - BOTH trip-scoped namespaces: the `trip:*` prefix sweep (every non-default pack) AND the 15 bare
  * `STORAGE_KEYS[slot]` literals from `TRIP_SCOPED_SLOTS` (the default pack's data — `keyFor`
  * grandfathers it to the UNPREFIXED literal, so a `trip:` sweep ALONE misses it entirely;
  * the default pack is the common case on a fresh/shared device, not an edge case).
@@ -498,9 +634,16 @@ export function keyFor(slot: TripScopedSlot): string {
  * Travel Mode redirect loop reachable by ordinary use — clearing it on sign-out removes the trigger
  * state at its source.
  *
- * Deliberately NOT cleared: identity (the caller, `signOut()`, clears that itself) and photo blobs
+ * Deliberately NOT cleared: identity (the caller, `signOut()`, clears that itself); photo blobs
  * (IndexedDB, app-scoped — cleared only by "Forget this device": a photo is expensive to re-acquire
- * and is not identity-linked).
+ * and is not identity-linked); and `lifetimeVisits` (key 32, D-314 — the lifetime record of cities
+ * and countries visited is not this trip's data, outlives every trip, and cannot be reconstructed
+ * from anything left on disk. It is absent from `TRIP_SCOPED_SLOTS` and from the removals below,
+ * both on purpose; `lib/__tests__/visited-lifetime.test.ts` fails if either changes). `visitConfirmations`
+ * (key 34, D-320 — issue #30) rides key 32's scope for the same reason: it records WHICH of those
+ * lifetime visits a one-shot location check confirmed and when, which is an attribute of the
+ * lifetime visit and not of any trip. It holds no coordinates, so what survives a teardown here is
+ * a city name and a timestamp, never a position.
  *
  * SSR-safe, never throws. Mirrors the deleted `wipeSandbox`'s collect-then-delete shape for the prefix
  * sweep — removing while iterating re-indexes `s.key(i)` and silently skips half the keys.
@@ -526,6 +669,39 @@ export function wipeAllTripData(): void {
   removeKey('local', STORAGE_KEYS.removedTrips);
   removeKey('local', STORAGE_KEYS.syncCode);
   removeKey('local', STORAGE_KEYS.travelMode);
+}
+
+/**
+ * Full local teardown for ONE forgotten trip (A-10 / #100). Mirrors `wipeAllTripData()`'s
+ * collect-then-delete `trip:` prefix sweep above, scoped to `trip:{id}:*` for a SINGLE non-default
+ * id instead of every pack — every `TRIP_SCOPED_SLOTS` member under that id (itinerary, expenses,
+ * budget, journal, photos meta, docs, packing, share-inbox, favorites, day-anchors, weather cache,
+ * my-places, sync outbox, both quarantine slots) goes with it. `core/trips/registry.ts`'s
+ * `removeKnownTrip` calls this alongside its existing list/tombstone writes, so forgetting a trip no
+ * longer leaves its data on disk forever — bloat, a privacy leak on a shared device, and (since
+ * `syncOutbox` is itself a `TRIP_SCOPED_SLOTS` member) a dirty outbox for that id can never survive
+ * to replay stale local edits over the live remote on a later re-join.
+ *
+ * No-op on an empty id or `DEFAULT_TRIP_ID` (mirrors `removeKnownTrip`'s own guard — the default
+ * pack is never removable, so it is never swept by id here; use `wipeAllTripData()` for that case).
+ * SSR-safe, never throws. Collect-then-delete for the same reason as `wipeAllTripData()`: removing
+ * while iterating re-indexes `s.key(i)` and silently skips half the keys.
+ */
+export function wipeTripData(id: string): void {
+  if (!id || id === DEFAULT_TRIP_ID) return;
+  const s = backing('local');
+  if (s === null) return;
+  try {
+    const prefix = `trip:${id}:`;
+    const doomed: string[] = [];
+    for (let i = 0; i < s.length; i++) {
+      const k = s.key(i);
+      if (k !== null && k.startsWith(prefix)) doomed.push(k);
+    }
+    for (const k of doomed) s.removeItem(k);
+  } catch {
+    /* disabled storage / privacy mode — never throw out of the gateway */
+  }
 }
 
 // ── Low-level typed primitives (store-aware, SSR-safe, never-throw) ──────────
@@ -857,6 +1033,62 @@ export const tripMetaSelfHealGuard = {
     const ids = raw ? raw.split(',') : [];
     if (!ids.includes(tripId)) ids.push(tripId);
     writeString('session', STORAGE_KEYS.tripMetaSelfHeal, ids.join(','));
+  },
+} as const;
+
+/**
+ * Entrance ledger (key 33) — the once-per-session record behind D-293 rule 7. Mirrors
+ * `tripMetaSelfHealGuard` exactly: a comma-joined id set in the SESSION store, read as a
+ * presence test and appended to at most once per id. Surface ids are route paths (`/`,
+ * `/nepal`), which never contain the `,` separator.
+ *
+ * The policy — which surfaces are eligible, and whether reduced motion or the tier gate
+ * short-circuits before the ledger is ever consulted — lives in `lib/motion.ts`. This is
+ * byte-transport only, like every other slot here.
+ *
+ * SSR-safe + never-throw (inherited): with storage disabled or unreadable every read returns
+ * `false` and every write no-ops, so the caller degrades to "always animate" and NEVER to
+ * "always hidden". That direction is load-bearing — a re-greeted surface is a cosmetic miss;
+ * a surface stuck at its start state is a blank screen.
+ */
+export const entranceLedger = {
+  hasGreeted(surface: string): boolean {
+    const raw = readString('session', STORAGE_KEYS.motionEntranceSeen);
+    return raw !== null && raw.split(',').includes(surface);
+  },
+  markGreeted(surface: string): void {
+    const raw = readString('session', STORAGE_KEYS.motionEntranceSeen);
+    const seen = raw ? raw.split(',') : [];
+    if (seen.includes(surface)) return;
+    seen.push(surface);
+    writeString('session', STORAGE_KEYS.motionEntranceSeen, seen.join(','));
+  },
+} as const;
+
+/**
+ * Celebration ledger (key 36) — the once-per-session record behind D-293 rule 5's second clause
+ * and rule 6's caps. The same slot as `entranceLedger` above with one difference: the whole set
+ * is readable, because a cap ("pop: 3 per session") is a COUNT and not a presence test.
+ *
+ * The policy — what a claim key is, which weights are capped and at what, and whether reduced
+ * motion short-circuits before the ledger is consulted — lives in `lib/celebration.ts`. This is
+ * byte-transport only, like every other slot here.
+ *
+ * SSR-safe + never-throw (inherited): with storage disabled `fired()` is always `[]` and
+ * `markFired` no-ops, so every claim succeeds. That direction is the same one the entrance
+ * ledger picked and for the same reason — a repeated celebration is a cosmetic miss, a
+ * celebration that can never fire is a feature that looks broken.
+ */
+export const celebrationLedger = {
+  fired(): string[] {
+    const raw = readString('session', STORAGE_KEYS.motionCelebrationsFired);
+    return raw ? raw.split(',') : [];
+  },
+  markFired(claimKey: string): void {
+    const spent = celebrationLedger.fired();
+    if (spent.includes(claimKey)) return;
+    spent.push(claimKey);
+    writeString('session', STORAGE_KEYS.motionCelebrationsFired, spent.join(','));
   },
 } as const;
 

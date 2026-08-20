@@ -309,7 +309,9 @@ test.describe('S356 — landing product shots', () => {
     await gotoSettled(page, '/plan/');
     // The planner is a dynamic(ssr:false) island — wait for its own furniture, not just the h1.
     await expect(page.getByTestId('calendar-add-item')).toBeVisible({ timeout: 20_000 });
-    // Testid, not text: the same title also renders in the TripTimeline below (strict-mode clash).
+    // Testid, not text: the title is not unique as a text locator on this route (it was a
+    // strict-mode clash with the TripTimeline below until #94 deleted that section), and a
+    // testid stays stable across copy changes either way.
     await expect(page.getByTestId('calendar-row-swipe-ls-d1-1')).toBeVisible({ timeout: 20_000 });
     await frame(page, 'calendar-day-glance', 120);
     await page.screenshot({ path: path.join(outDir, 'shot-1-day-planner.png') });
@@ -330,8 +332,22 @@ test.describe('S356 — landing product shots', () => {
     // Overlay the fictional trip's pinned stops on top of the curated markers.
     await page.getByTestId('map-itinerary-toggle').click();
     await expect(page.getByTestId('map-itinerary-count')).toBeVisible({ timeout: 20_000 });
+    // Issue #1 — pick a DAY, so the shot shows what the map now actually does: one day's stops,
+    // numbered 1,2,3 in itinerary order. Before #1 every pin was numbered from its index in the
+    // DayPlan[] the caller passed, so the shipped shot showed three pins all reading "1" — the
+    // bug, on the landing page, as the advertisement. The alt text already said "the day's
+    // numbered stops"; selecting a day is what makes that sentence true rather than rewriting it.
+    await page.getByTestId('map-day-target-2026-12-09').click();
+    // 🔴 NOT a fixed timeout. `map-shell` is visible while `trip-map.tsx` still shows its
+    // `!mapReady` skeleton over the GL canvas, and the 1500ms sleep that stood here lost that race
+    // on a cold engine load — the re-shoot for issue #34 captured "Loading map…" and would have
+    // shipped it. Wait for the skeleton to leave instead; it is the component's own readiness
+    // signal, so it cannot drift from what "the map is up" means.
+    await expect(page.getByTestId('map-shell').getByText('Loading map…')).toHaveCount(0, {
+      timeout: 30_000,
+    });
     await frame(page, 'map-shell', 72); // just clear of the sticky navbar
-    await page.waitForTimeout(1500); // GL canvas paint
+    await page.waitForTimeout(1200); // tiles + label paint, after the canvas exists
     await page.screenshot({ path: path.join(outDir, 'shot-3-map.png') });
   });
 });

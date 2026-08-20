@@ -41,10 +41,13 @@ const BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH || '';
 // BASE_PATH is empty, so local dev never gets a stray prefix.
 const withBase = (p) => `${BASE_PATH}${p}`;
 
-// The navy-900 the app's <body> actually paints (Tailwind token `navy-900`,
-// tailwind.config.ts; body className bg-navy-900 in app/layout.tsx). Same hex
-// as gen-icons.mjs so installed app + splash + address bar all agree.
-const THEME_COLOR = '#0b0c0e';
+// The page field the app's <body> actually paints (the --navy-900 channel /
+// --background token, app/globals.css). Same hex as gen-icons.mjs and as
+// `themeColor` in app/layout.tsx, so installed app + splash + address bar all agree
+// — three hand-synced copies with no compiler tie, so they move together or the
+// installed app is framed in a palette the app no longer uses. Re-valued to the
+// D-334 page field.
+const THEME_COLOR = '#0E0920';
 
 // -------------------------------------------------------------------------
 // Recursively list every file under a directory as out/-relative POSIX paths.
@@ -163,30 +166,39 @@ async function eagerStaticAssets(htmlFiles) {
 // IS in the layout's static graph, so without step 3 this would sweep ~600 KB of
 // Firebase into the offline shell. DO NOT LOOSEN IT.
 //
-// 🔴 maplibre — REVERSED ①. The engine is now PRECACHED. Read this before
-// trusting any older comment: two DIFFERENT mechanisms used to keep it out, and only
-// removing both actually ships it.
-// (a) `isMaplibreChunk()` — the explicit content-based exclusion, which withheld the
-// small 23 KB maplibre chunk that appears in three call sites' own chunk lists;
+// 🔴 maplibre — WITHHELD. This flipped twice; read it, do not trust an older comment.
+// ① kept the engine out, ② unioned it in ("prefetch it, it is under 2 MB"), and
+// V6-14 takes it back out on a MEASUREMENT ② did not have: the engine plus the glyph
+// PBFs are ~363 KB GZIPPED — 21% of the gzipped install — spent on `/map`, the one
+// route the app already declines to promise offline (D-274). Two mechanisms keep it
+// out, and both are load-bearing because they cover different files:
+// (a) `isMaplibreChunk()` — the content-based exclusion in the walk below, which
+// withholds the small ~23 KB maplibre chunk that appears in three call sites' own
+// chunk lists;
 // (b) the BARE-SPECIFIER STOP in step 3 — the ~1008 KiB ENGINE is reached only via
 // `components/trip-map.tsx -> maplibre-gl`, and `resolveLocal('maplibre-gl')`
-// returns null, so that call site is skipped before it can contribute anything.
-// The engine was therefore never a CANDIDATE, and relaxing (a) alone buys 23 KB.
-// So the engine is unioned in EXPLICITLY below, found by CONTENT across the whole
-// manifest (its filename is a bare contenthash — next.config.js sets
-// `output.chunkFilename = 'static/chunks/[contenthash:16].js'` — so no filename
-// pattern can find it). Measured on this tree: 1,032,412 + 23,621 = 1,056,033 B
-// = 1.01 MiB, under the owner's 2 MB bar.
+// returns null, so that call site is skipped before its chunk list is even read.
+// The engine is therefore not a candidate at all; the explicit content scan below
+// still runs, but only to MEASURE what is withheld and to keep the anti-vacuity
+// floor honest. Measured under ②: 1,032,412 + 23,621 = 1,056,033 B = 1.01 MiB raw.
 //
-// 🔴 THE BOUNDARY IS STILL REQUIRED, AND THAT IS NOT A LEFTOVER. Precached ≠ present:
-// the chunk can still be missing at render time on a cold cache (offline before the
-// install completed), after a failed precache fetch, or after storage-pressure
-// eviction — and a missing dynamic() chunk THROWS out to app/error.tsx, taking the
-// whole route down. So the maplibre call sites are still collected and still ENFORCED
-// by assertMapIslandsWrapped(); what changed is only that the list is derived from
-// "this call site renders a maplibre island" instead of from "we withheld its chunk".
-// Emptying that list would turn a fail-closed gate into one that passes because it
-// inspects nothing — see the floor below.
+// THE REGRESSION, NAMED: a cold-offline `/map` degrades to the island boundary, and
+// map labels are blank on a cold-offline first open. The ENGINE comes back on the first
+// online /map visit — it is a same-origin, non-image, non-navigate GET, so it lands on
+// the last branch of the fetch listener and cacheFirst() writes it into PRECACHE.
+// The GLYPHS take the same branch IF the worker sees them: maplibre requests them from
+// a BLOB-URL web worker, and a blob worker inherits its creator's controller, so the SW
+// should intercept — spec-and-implementation reasoning, NOT measured on this tree. If it
+// does not hold, the glyphs are never cached and offline map LABELS stay blank
+// permanently. Blank labels on a route D-274 already refuses to promise offline is a
+// degradation, not a crash; measure it before promising otherwise.
+//
+// 🔴 THE BOUNDARY IS REQUIRED, MORE THAN UNDER ②. A missing dynamic() chunk THROWS
+// out to app/error.tsx and takes the whole route down, and the chunk is now missing
+// on EVERY cold-offline render, not just after an eviction. The maplibre call sites
+// are still collected and still ENFORCED by assertMapIslandsWrapped(). Emptying that
+// list would turn a fail-closed gate into one that passes because it inspects
+// nothing — see the floor below.
 //
 // Entries this returns that are NOT on disk are ignored for free: `buildPrecacheList`
 // iterates the real out/ walk and only membership-tests this set, so a stale manifest
@@ -355,10 +367,13 @@ async function islandAssets() {
       sites.push(`${source} -> ${specifier}`);
       let mapChunks = 0;
       for (const file of chunkFiles) {
-        // no longer skipped. The count is kept because it identifies the call
-        // sites that render a MAP island — the ones that still need the error
-        // boundary even though their chunk now ships with the install.
-        if (await isMaplibreChunk(file)) mapChunks++;
+        // WITHHELD again (V6-14 / C-5) — see the maplibre note in this function's
+        // docblock. The count is kept because it identifies the call sites that
+        // render a MAP island, i.e. exactly the ones that need the error boundary.
+        if (await isMaplibreChunk(file)) {
+          mapChunks++;
+          continue;
+        }
         files.add(`_next/${file}`);
       }
       if (mapChunks > 0) mapSites.push({ site: `${source} -> ${specifier}`, mapChunks });
@@ -366,27 +381,28 @@ async function islandAssets() {
     }
   }
 
-  // — the maplibre ENGINE, unioned in explicitly. The walk above cannot reach it:
-  // it hangs off `components/trip-map.tsx -> maplibre-gl`, a BARE specifier, so
-  // `resolveLocal` returns null and the render-path `continue` fires before the chunk
-  // list is even read. Scanning the WHOLE manifest by CONTENT is the point — restricting
-  // the scan to the reachable graph is exactly the reasoning that lost the engine, and
-  // the filenames are bare contenthashes so nothing can be matched by name. Bounded and
-  // cheap: ~110 unique chunk files, deduped, each read once.
+  // — the maplibre ENGINE. NOT unioned in (V6-14 / C-5): it is scanned for, MEASURED
+  // and REPORTED, and then deliberately left out of `files`. The walk above cannot
+  // reach it anyway — it hangs off `components/trip-map.tsx -> maplibre-gl`, a BARE
+  // specifier, so `resolveLocal` returns null and the render-path `continue` fires
+  // before the chunk list is even read — so this scan exists ONLY to keep the numbers
+  // honest and to feed the anti-vacuity floor below. Scanning by CONTENT is still the
+  // only option: the filenames are bare contenthashes (next.config.js sets
+  // `output.chunkFilename = 'static/chunks/[contenthash:16].js'`) so nothing can be
+  // matched by name. Bounded and cheap: ~110 unique chunk files, deduped, read once.
   const manifestChunks = new Set();
   for (const entries of bySource.values()) {
     for (const { files: chunkFiles } of entries) for (const file of chunkFiles) manifestChunks.add(file);
   }
   let maplibreBytes = 0;
-  const maplibrePrecached = [];
+  const maplibreWithheld = [];
   for (const file of manifestChunks) {
     if (!(await isMaplibreChunk(file))) continue;
-    files.add(`_next/${file}`);
-    maplibrePrecached.push(file);
+    maplibreWithheld.push(file);
     try {
       maplibreBytes += (await stat(join(OUT_DIR, '_next', file))).size;
     } catch {
-      /* not on disk => buildPrecacheList drops it anyway */
+      /* not on disk => nothing to withhold */
     }
   }
 
@@ -421,29 +437,30 @@ async function islandAssets() {
   // the precache, AND assertMapIslandsWrapped iterates an empty list, inspects nothing,
   // and "passes". A gate that passes because it looked at nothing is the defect class
   // this project spent a session removing. Refuse to build instead.
-  if (maplibrePrecached.length === 0 || mapSites.length === 0) {
+  if (maplibreWithheld.length === 0 || mapSites.length === 0) {
     throw new Error(
-      `gen-sw — found ${maplibrePrecached.length} maplibre chunk(s) across ` +
+      `gen-sw — found ${maplibreWithheld.length} maplibre chunk(s) across ` +
         `${manifestChunks.size} manifest chunk file(s) and ${mapSites.length} maplibre call site(s); ` +
         'both must be non-zero. Zero means the content probe lost its grip (maplibre renamed the ' +
         `\`${MAPLIBRE_MARKER}\` marker, or the map islands were removed/restructured), which would ` +
-        'BOTH drop the map engine from the precache AND turn assertMapIslandsWrapped into a check ' +
-        'that inspects nothing while still passing. If the map really was removed, delete this ' +
-        'floor deliberately along with it.'
+        'BOTH let the map engine drift back INTO the precache unnoticed AND turn ' +
+        'assertMapIslandsWrapped into a check that inspects nothing while still passing. If the ' +
+        'map really was removed, delete this floor deliberately along with it.'
     );
   }
 
-  // report: the engine now SHIPS with the install.
+  // report: the engine is withheld, and the number is the point of the report.
   console.log(
-    `gen-sw: maplibre PRECACHED — ${maplibrePrecached.length} chunk(s), ` +
-      `${maplibreBytes} B (${(maplibreBytes / 1048576).toFixed(2)} MiB):`
+    `gen-sw: maplibre WITHHELD from the precache — ${maplibreWithheld.length} chunk(s), ` +
+      `${maplibreBytes} B (${(maplibreBytes / 1048576).toFixed(2)} MiB); ` +
+      'runtime-cached on the first online /map visit (cacheFirst, see the SW body)'
   );
-  for (const file of maplibrePrecached) console.log(`    maplibre ${file}`);
+  for (const file of maplibreWithheld) console.log(`    maplibre ${file}`);
 
-  // …and these call sites render a map island, so each STILL needs the island error
-  // boundary. Precached is not the same as present: a cold cache, a failed precache
-  // fetch or a storage eviction all leave the chunk missing, and React.lazy THROWS
-  // there — escaping to app/error.tsx and taking the whole route down, hero included.
+  // …and these call sites render a map island, so each needs the island error
+  // boundary — now MORE than before. The chunk is no longer precached at all, so any
+  // cold-offline (or captive-portal) render of /map finds it missing, and React.lazy
+  // THROWS there — escaping to app/error.tsx and taking the whole route down.
   console.log(
     `gen-sw: ${mapSites.length} maplibre island call site(s) — each MUST be wrapped in ` +
       'components/map-island-boundary.tsx or a missing chunk crashes its whole route:'
@@ -459,13 +476,12 @@ async function islandAssets() {
 // — PROVE each maplibre island call site is actually wrapped, and fail the
 // build if it is not.
 //
-// 🔴: the input list is no longer "call sites we withheld a chunk from" (nothing
-// is withheld any more) but "call sites that render a maplibre island". The gate covers
-// the SAME three sites and is still fail-closed, deliberately: precaching the engine
-// makes the missing-chunk path rarer, not impossible (cold cache before the install
-// finished, a failed precache fetch, storage-pressure eviction). Wiring this to the
-// withheld list would have quietly emptied it and left a gate that passes by inspecting
-// nothing — the floor in islandAssets() now refuses that outcome outright.
+// 🔴: the input list is "call sites that render a maplibre island", NOT "call sites
+// we withheld a chunk from" — and it stays that way even though V6-14 made the two
+// coincide again. They came apart once already (② precached the engine and the withheld
+// list went empty); keying the gate on the withheld list would have quietly emptied it
+// too and left a gate that passes by inspecting nothing. The floor in islandAssets()
+// refuses that outcome outright.
 //
 // 🔴 WHY THIS REPLACED A PRINTED LINE. printed the map-reduced list with a
 // "MUST be wrapped" instruction and stopped there. That is the same object as the
@@ -523,8 +539,8 @@ async function assertMapIslandsWrapped(mapSites) {
       `${specifier} island in <MapIslandBoundary label="…">…</MapIslandBoundary>. ` +
       'See app/map/sections.tsx for the shape.';
     const why =
-      `${specifier} renders a maplibre island. Its chunk is precached, but precached ` +
-      'is not present: on a cold cache, a failed precache fetch or a storage eviction, ' +
+      `${specifier} renders a maplibre island, and its chunk is deliberately NOT ` +
+      'precached (V6-14): on any cold-offline render — and after a storage eviction — ' +
       'React.lazy THROWS at this call site and app/error.tsx replaces the ENTIRE route.';
 
     let src;
@@ -604,7 +620,10 @@ async function assertMapIslandsWrapped(mapSites) {
 // scrape by construction; without them every route crashes cold-offline)
 // - manifest.webmanifest
 // - icons/** and favicon.svg
-// - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead.
+// - EXCLUDE font/** — the self-hosted MapLibre glyph PBFs (154 KiB, issue #8) are
+//   runtime-cached, not precached (V6-14; see the font/ note in the loop below)
+// - EXCLUDE public/images/** (~10 MB AVIF/WebP) — runtime-cached instead,
+//   WITH ONE NAMED EXCEPTION: images/hero/*.avif (D-335; see HERO_PRECACHE below).
 //
 // Route HTML is DISCOVERED by walking out/ (below), not a hand-kept
 // literal. Every route MUST be precached so navigations resolve offline; the
@@ -615,6 +634,63 @@ async function assertMapIslandsWrapped(mapSites) {
 // routes actually reference (see eagerStaticAssets above). Route HTML itself is
 // untouched and still precached in full: that is the D-073 contract and
 // the torn-update invariant, NOT a side effect of scoping chunks.
+
+// THE ONE IMAGE EXCEPTION — the Home hero rasters, and nothing else (D-335, issue #89).
+//
+// D-335 AMENDS D-073 and D-086(b), which say images are NEVER precached. Read D-335
+// before touching this: the "never" is superseded for THIS PATH PREFIX and for nothing
+// else, and everything else in D-086 (the LRU-80 cap, the content-hashed precache name,
+// the origin-check-first rule, the images cache surviving `activate`) is untouched.
+//
+// WHY (i) — THE NEW BUG. The hero photograph follows the trip leg (lib/hero-image.ts):
+// the Himalaya frame everywhere, the Shinjuku frame for the Japan leg. The Japan frame
+// is a URL the device has NEVER requested before the leg flips on 19 Dec, so it is not
+// in the runtime image cache either — and offline is this product's whole premise. Cold,
+// the fetch fails, OptimizedImage's onError fires, and the hero paints the invented SVG
+// mountain range in hero-section.tsx. A leg-aware hero that shows fake mountains on the
+// one day it changes is worse than no swap at all.
+//
+// WHY (ii) — THE PRE-EXISTING ONE, AND IT IS THE BIGGER HALF. `trip-images-v1` is
+// FIFO-80, not LRU-80: trimImageCache() evicts oldest BY INSERTION and a cache HIT does
+// not refresh recency. There are 105 other manifest images. Home is the entry route, so
+// the hero is among the very FIRST things inserted and therefore among the very first
+// evicted — ordinary gallery browsing is enough. The DEFAULT hero was already cold
+// offline before the leg swap existed. This exception fixes that too.
+//
+// WHY THIS SHAPE. `images/hero/` holds ONLY the two hero frames and their build-time
+// derivatives — every gallery photograph lives under images/{nepal,japan,map,featured,
+// photography,landing}/ — so a path PREFIX matched against the real out/ walk is narrow
+// BY CONSTRUCTION rather than by a list somebody has to keep. A renamed variant cannot
+// silently fall out of coverage. A third hero (hero-antarctica) would join
+// automatically, which is intended; a gallery image cannot, because it is not here.
+//
+// WHY .avif ONLY, AND THE HOLE THAT LEAVES — NAMED. OptimizedImage renders <picture>
+// with an AVIF <source> and the .jpg as the universal <img> fallback — there is no
+// WebP tier (V6-13 deleted it: zero delivered bytes changed under the declared
+// browserslist). A <source> whose `type` the browser supports WINS, so an AVIF-capable
+// engine never requests the .jpg. The engines that are SW-capable but have NO AVIF
+// decoder are Edge < 121, iOS Safari 16.0–16.3, Firefox < 93 and Chrome < 85; those
+// fall through to the .jpg, which is not precached. MEASURED, not assumed: offline with
+// the runtime image cache wiped, `hero-japan.jpg` comes back FETCH REJECTED — so those
+// engines get the SVG fallback art offline, not a soft miss. That hole is bounded and
+// ACCEPTED (D-335): closing it costs +1.22 MB of JPG to serve browsers three-plus
+// years behind.
+//
+// WHY ALL THREE WIDTHS. The hero passes `sizes="100vw"`, so the browser picks by
+// viewport x DPR and there is no partial credit: a device that selects 1024w gets NO
+// benefit from a precached 1920w. Measured selections — 390@3 and every desktop
+// >=1280 take the native 1920 (that includes the `chromium` Playwright project, which
+// is Desktop Chrome at 1280x720), 375@2 and 768@1 take 1024w, 390@1 takes 640w.
+//
+// WHAT IT COSTS, IN THE DENOMINATOR THAT MATTERS. Raw, the six files are 555.2 KiB of a
+// 4.57 MiB precache — 11.9%, which understates it. AVIF does not compress and the HTML
+// and JS do, so on the wire the install is 1.81 MiB gzipped and the hero is 555.3 KiB of
+// THAT: 30.0%. Without it a new user downloads 1.26 MiB; with it, 1.81 MiB — +43% on the
+// install payload for the offline hero guarantee. All six stay (D-335): every trim drops
+// a real device class, and dropping the two native 1920s would put the hole on DPR-3
+// phones, which select native.
+const HERO_PRECACHE = /^images\/hero\/[^/]+\.avif$/;
+
 async function buildPrecacheList(allFiles) {
   const set = new Set();
   const eager = await eagerStaticAssets(allFiles.filter((r) => r.endsWith('.html')));
@@ -634,9 +710,28 @@ async function buildPrecacheList(allFiles) {
     else if (rel.endsWith('/index.html') && rel !== '404/index.html') set.add(rel);
     else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
+    // NOTE: font/** — the self-hosted MapLibre SDF glyph PBFs
+    // (public/font/<fontstack>/0-255.pbf, 154 KiB / ~87 KB gzip — issue #8) — is
+    // deliberately NOT precached (V6-14). It only ever serves /map, and 154 KiB on
+    // EVERY install for a route most sessions never open is the wrong trade; the
+    // maplibre engine that consumes them is withheld for the same reason (see
+    // islandAssets). What issue #8 actually fixed was the CROSS-ORIGIN problem —
+    // while the glyphs were cross-origin the SW's first fetch-handler line returned
+    // them untouched and nothing could ever cache them. Self-hosted, they are
+    // same-origin non-image GETs, so the static cacheFirst handler should pick them up
+    // on the first online map visit — with the caveat named in islandAssets: maplibre
+    // requests glyphs from a BLOB-URL worker, and that interception is reasoned, not
+    // measured. The named regression: map labels are blank on a COLD-offline first
+    // open of /map, and possibly on every offline open if the worker is not
+    // intercepted. Labels on /map is a promise D-274 does not make.
     else if (rel === 'favicon.svg') set.add(rel);
     else if (rel === 'manifest.webmanifest') set.add(rel);
-    // NOTE: images/** deliberately excluded (runtime cache).
+    // NOTE: images/** is deliberately excluded (runtime cache) EXCEPT the hero
+    // rasters (D-335) — see HERO_PRECACHE above for the whole argument. Matching against
+    // what the walk actually found (rather than a literal URL list) also keeps the
+    // ATOMIC install honest: a variant that gen-images.mjs did not emit is simply
+    // not listed, instead of 404-ing every install.
+    else if (HERO_PRECACHE.test(rel)) set.add(rel);
   }
 
   // Deterministic order so the hash is stable across identical builds.
@@ -907,19 +1002,35 @@ self.addEventListener('fetch', (event) => {
       (async () => {
         const cached = await caches.match(request, { cacheName: IMAGES_CACHE });
         if (cached) return cached;
+        let res;
         try {
-          const res = await fetch(request);
+          res = await fetch(request);
           if (res && res.ok && res.type === 'basic') {
             const cache = await caches.open(IMAGES_CACHE);
             await cache.put(request, res.clone());
             trimImageCache();
           }
-          return res;
         } catch (err) {
-          // Offline and uncached — fall through to a network error (the app's
-          // <img onError> fallback art handles the missing image,).
-          return caches.match(request) || Response.error();
+          // Hard offline: the fetch REJECTED. Falls through to the cache lookup below.
         }
+        if (res && res.ok) return res;
+        // A REJECTED fetch is not the only offline (issue #109). A captive portal
+        // answers with a RESPONSE: a 511, a redirect to a portal, or an opaque
+        // result whose status is 0. Those three RESOLVE, so
+        // the catch above never runs, and the hero used to break with the correct
+        // bytes sitting in the precache. Non-ok is therefore treated exactly like
+        // offline: consult the cache first, and only hand back the real error
+        // response when nothing is cached, so a genuine 404 still reads as a 404.
+        //
+        // Fall back to ANY cache, not IMAGES_CACHE — that is how the hero rasters'
+        // offline guarantee is actually delivered: they live in the PRECACHE, so the
+        // cacheName-scoped lookup above misses them by design and this is the line
+        // that finds them (D-335).
+        //
+        // The \`await\` is load-bearing and was once missing: \`caches.match()\` returns
+        // a Promise, which is always truthy, so \`||\` could never reach the fallback
+        // and a genuine miss resolved to \`undefined\` instead of a network error.
+        return (await caches.match(request)) || res || Response.error();
       })()
     );
     return;

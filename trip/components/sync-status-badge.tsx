@@ -55,7 +55,7 @@ export function SyncStatusBadge() {
       data-state={isPending ? 'pending' : 'synced'}
       className="fixed top-20 right-4 z-40 max-w-[calc(100vw-2rem)]"
     >
-      <div className="flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] text-white/55">
+      <div className="flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] text-ink-mid">
         {isPending ? (
           <RefreshCw className="h-3 w-3 shrink-0" aria-hidden="true" />
         ) : (

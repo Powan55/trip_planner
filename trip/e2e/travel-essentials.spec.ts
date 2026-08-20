@@ -243,6 +243,45 @@ test.describe('S188 · axe — the Essentials block', () => {
   });
 });
 
+test.describe('V6-3/#99 · currency panel omitted when leg currency equals home currency', () => {
+  const CUSTOM_TRIP_ID = '11111111-2222-4333-8444-555566667777';
+
+  async function seedCustomTrip(page: Page) {
+    await page.addInitScript(
+      ({ id }: { id: string }) => {
+        window.localStorage.setItem('tripPlannerActiveTrip', id);
+        window.localStorage.setItem(
+          'tripPlannerKnownTrips',
+          JSON.stringify([{ id, name: 'Bali Getaway', joinedAt: 1 }]),
+        );
+      },
+      { id: CUSTOM_TRIP_ID },
+    );
+  }
+
+  test('a custom trip with no config yet (home + leg currency both default to USD) renders no currency panel, and Frankfurter is never hit', async ({
+    page,
+  }) => {
+    let frankfurterHit = false;
+    await page.route('**/api.frankfurter.dev/**', (route) => {
+      frankfurterHit = true;
+      return route.fulfill({ json: FRANKFURTER_JPY_FIXTURE });
+    });
+    await stubOpenMeteo(page);
+    await seedCustomTrip(page);
+
+    // A registered-but-unconfigured custom trip (no `config` block) resolves to the
+    // placeholder single-day trip (`core/trips/custom.ts`, `PLACEHOLDER_DATE`), whose sole
+    // leg's currency defaults to 'USD' — same as the unset `homeCurrency` default.
+    await page.goto('/travel/?date=2099-12-31', { waitUntil: 'load' });
+    await expect(page.getByTestId('travel-essentials')).toBeVisible();
+    await settleWeather(page);
+
+    await expect(page.getByTestId('travel-essentials-currency')).toHaveCount(0);
+    expect(frankfurterHit).toBe(false);
+  });
+});
+
 test.describe('S188 · no console errors', () => {
   test('a full essentials render (flight day, weather, currency, safety) runs with no console.error / pageerror', async ({
     page,

@@ -64,6 +64,8 @@ function permissionDenied(): Error {
 
 vi.mock('firebase/firestore', () => ({
   getFirestore: () => ({ __type: 'db' }),
+  initializeFirestore: () => ({ __type: 'db' }),
+  persistentLocalCache: () => ({}),
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: segs.join('/') }),
   serverTimestamp: () => '<server-timestamp>',
   setDoc: async (ref: { path: string }, data: DocData) => {

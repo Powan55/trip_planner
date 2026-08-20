@@ -58,7 +58,7 @@ test.describe('S205 — Home bento grid: seeded data renders', () => {
           version: 1,
           homeCurrency: 'USD',
           rates: { NPR: 138, JPY: 155 },
-          legBudgets: { nepal: 13800, japan: 0 }, // 13,800 NPR = 100 USD at the seed rate
+          legBudgets: { nepal: 13800, japan: 0 }, // 13,800 NPR = 100 USD at the rate THIS fixture pins
           categoryBudgets: {},
         };
         window.localStorage.setItem(budgetKey, JSON.stringify(model));

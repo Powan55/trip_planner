@@ -35,10 +35,13 @@ import type { Page } from '@playwright/test';
 const DEFAULT_TOKEN = 'Powan';
 
 /**
- * The map style's glyph endpoint, declared at `lib/map-style.ts:83`:
- * `glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf'`.
- * Stubbed pack-wide below — see the docblock at the `page.route` call for why, and for
- * the measured reason it is NOT on its own sufficient.
+ * ⚠️ VESTIGIAL since issue #8 — the glyphs are SELF-HOSTED now
+ * (`lib/map-style.ts` -> `withBasePath('/font/{fontstack}/{range}.pbf')`, PBFs under
+ * `public/font/`), so nothing in the app requests this host any more and the route below
+ * matches zero requests. Kept, not deleted, because the measured flake notes at its
+ * `page.route` call are the reason the CARTO stub underneath it exists — delete the pair
+ * together or not at all. Same-origin glyphs are served off disk by `scripts/serve-out.mjs`,
+ * so they no longer contribute to the reload-abort noise this stub was for.
  */
 const MAPLIBRE_GLYPH_URL = 'https://demotiles.maplibre.org/**';
 
@@ -72,9 +75,11 @@ export const test = base.extend({
       window.localStorage.setItem('nepal_japan_install_hint_dismissed', '1'); // S272: dismiss the app-wide install-to-Home toast (duration:Infinity would poison every axe scan)
     }, DEFAULT_TOKEN);
     /**
-     * S363 regression hunt (2026-08-01) — HARNESS ARTIFACT, not app behaviour.
+     * S363 regression hunt (2026-08-01) — HARNESS ARTIFACT, not app behaviour. Kept as the
+     * historical record of WHY the raster stub below exists; the glyph half no longer fires
+     * (see the vestigial note on `MAPLIBRE_GLYPH_URL`).
      *
-     * `lib/map-style.ts:83` declares the glyph endpoint above. MapLibre issues it hundreds of
+     * `lib/map-style.ts` then declared a cross-origin glyph endpoint. MapLibre issued it hundreds of
      * ms AFTER `map-shell` becomes visible, so a spec that calls `page.reload()` in that
      * window CANCELS the in-flight request: `net::ERR_ABORTED` → the fetch promise rejects
      * with a bare `TypeError: Failed to fetch`, and `Evented.fire` logs that error object
@@ -152,6 +157,58 @@ export const test = base.extend({
   },
 });
 
+/** The budget model's localStorage slot (typed storage gateway key 10). */
+const BUDGET_KEY = 'nepal_japan_budget';
+
+/**
+ * The FX rates every USD assertion in the budget / expenses / burn-rate packs is written against.
+ *
+ * A LOCAL CONSTANT ON PURPOSE — deliberately NOT `SEED_RATES` from `core/budget/model`. A spec that
+ * reads the seed can only assert that the app agrees with itself, and it goes red the moment the
+ * seed is refreshed for reasons that have nothing to do with the behaviour under test: the
+ * 2026-08-15 refresh (NPR 138 → 152.7, JPY 155 → 159.2, PR #71) took seven of those tests with it.
+ * A spec that PINS the rate its arithmetic is written against cannot be broken by a refresh — the
+ * shape `settings.spec.ts` (`BUDGET_100_300`) and `home-bento.spec.ts` were already using, which is
+ * why neither of them failed that run. Importing the seed here would re-couple every one of them.
+ *
+ * (No e2e spec imports through the `@/…` path alias, and this is not the place to become the first:
+ * Playwright's resolution for it is unverified in this harness.)
+ */
+export const PINNED_RATES = { NPR: 138, JPY: 155 };
+
+/**
+ * Seed a zero-budget model carrying `PINNED_RATES` before any app script runs, so a spec can set
+ * its budgets through the UI as a user would and still know the USD figure it should see. Every
+ * edit goes through `useBudget().commit` → `{ ...model, legBudgets }`, which spreads the current
+ * model, so the pinned rates survive every write, the reload, and re-hydration.
+ *
+ * FIRST NAVIGATION ONLY, and that guard is load-bearing: `addInitScript` re-runs on EVERY
+ * navigation, `page.reload()` included, so an unguarded seed would rewrite the budget back to zero
+ * mid-test and quietly turn every "survives a reload" assertion into a test of the harness. The
+ * sessionStorage marker outlives a reload and is untouched by a localStorage wipe — the same
+ * mechanism `settings.spec.ts`'s `gotoSettings` uses, for the same reason.
+ */
+export async function seedPinnedRates(page: Page): Promise<void> {
+  await page.addInitScript(
+    ({ key, rates }: { key: string; rates: { NPR: number; JPY: number } }) => {
+      const FIRST_NAV = '__e2e_pinned_rates_seeded__';
+      if (window.sessionStorage.getItem(FIRST_NAV) !== null) return;
+      window.sessionStorage.setItem(FIRST_NAV, '1');
+      window.localStorage.setItem(
+        key,
+        JSON.stringify({
+          version: 1,
+          homeCurrency: 'USD',
+          rates,
+          legBudgets: { nepal: 0, japan: 0 },
+          categoryBudgets: {},
+        }),
+      );
+    },
+    { key: BUDGET_KEY, rates: PINNED_RATES },
+  );
+}
+
 /**
  * R5 (S363A) — fail-fast guard for a spec that assumes a WIRED build, i.e. `NEXT_PUBLIC_
  * CONCIERGE_URL` baked in at build time so `ConciergeChat` actually mounts (see
@@ -197,6 +254,47 @@ export async function assertConciergeWired(page: Page): Promise<void> {
         'NEXT_PUBLIC_CONCIERGE_URL=https://concierge.test npm run build, then re-run.',
     );
   }
+}
+
+/**
+ * Let every FINITE animation finish before axe reads a colour off the page.
+ *
+ * Without this, `color-contrast` is measured on whatever frame the scan lands on. The reveal
+ * animations fade content up from a lower opacity, and a translucent chip mid-fade composites
+ * to a dimmer colour than it ever rests at — e.g. `text-green-200` on `bg-green-500/10` was
+ * reported as fg `#52906a` at 4.31:1, when `#bbf7d0` at rest is nowhere near that. The result
+ * was a contrast failure that came and went with timing, on a page that is compliant once it
+ * settles. #10 made it surface more often (the provider withholds `{children}` until an
+ * identified traveler, so content mounts — and therefore animates — later, overlapping the
+ * scan), but the race predates it and was always able to fire.
+ *
+ * INFINITE animations are excluded deliberately: `.animate-shimmer` and friends never resolve
+ * `finished`, so awaiting them would hang instead of settle. Their frames are still scanned —
+ * this only skips WAITING on them. And the wait is HARD-BOUNDED at 2s on top of that: an
+ * excluded-by-mistake or never-starting animation must never turn an accessibility scan into a
+ * 30s test timeout (it did, while this was being written — an unbounded await ate the whole
+ * budget and the scan never ran, which reads as a failure but proves nothing).
+ *
+ * Lives here, not in a spec: `e2e/a11y-full-audit.spec.ts` reintroduced this exact race by
+ * copying the rest of a11y.spec.ts's harness without this wait, and a spec must never import
+ * from another spec (Playwright would register the imported file's tests a second time).
+ */
+const ANIMATION_SETTLE_BUDGET_MS = 2000;
+
+export async function settleAnimations(page: Page) {
+  await page
+    .evaluate(async (budgetMs) => {
+      const finite = document
+        .getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity);
+      await Promise.race([
+        Promise.all(finite.map((a) => a.finished.catch(() => undefined))),
+        new Promise((resolve) => setTimeout(resolve, budgetMs)),
+      ]);
+    }, ANIMATION_SETTLE_BUDGET_MS)
+    .catch(() => {
+      /* animations API unavailable / context churn — scanning is still better than not */
+    });
 }
 
 export { expect };

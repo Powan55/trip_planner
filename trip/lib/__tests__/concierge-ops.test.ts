@@ -7,7 +7,7 @@
 // concierge-ops.integration.test.ts). jsdom only for crypto.randomUUID in generateItemId.
 
 import { describe, it, expect, vi } from 'vitest';
-import { validateOps, applyOp, describeOp, type Op } from '@/lib/concierge-ops';
+import { validateOps, applyOp, describeOp, dropReason, type DropCode, type Op } from '@/lib/concierge-ops';
 import { TRIP_DATES, formatDate } from '@/core/dates';
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
@@ -192,6 +192,52 @@ describe('validateOps (D-234)', () => {
       ];
       expect(validateOps(ops, PLANS)).toEqual([]);
     });
+  });
+
+  // ── #13 — the same rules, now ANSWERABLE ───────────────────────────────────────────────────
+  // `dropReason` holds the logic and `isValidOp` is its boolean wrapper, so this table IS the
+  // validation table: a rule that stopped firing would show up here as `undefined`, and a rule
+  // that fired for the wrong reason would show up as the wrong code. Codes only — the sentences
+  // live in `components/concierge-chat.tsx` and are asserted in concierge-op-feedback.test.ts.
+  describe('dropReason — one code per cause (#13)', () => {
+    const CASES: Array<[string, unknown, DropCode | undefined]> = [
+      ['not an object', 'nope', 'unreadable'],
+      ['null', null, 'unreadable'],
+      ['unknown verb', { type: 'clearDay', date: D0 }, 'unknown-verb'],
+      ['startMinutes out of range', { type: 'addItem', date: D0, title: 'x', category: 'food', startMinutes: 1440 }, 'bad-time'],
+      ['startMinutes not an integer', { type: 'addItem', date: D0, title: 'x', category: 'food', startMinutes: 12.5 }, 'bad-time'],
+      ['durationMinutes ≤ 0', { type: 'addItem', date: D0, title: 'x', category: 'food', durationMinutes: 0 }, 'bad-duration'],
+      // The three ANDed addItem checks, told apart — this split is the point of the slice.
+      ['addItem off-trip date', { type: 'addItem', date: OFF_TRIP, title: 'x', category: 'food' }, 'date-not-in-trip'],
+      ['addItem blank title', { type: 'addItem', date: D0, title: '  ', category: 'food' }, 'no-title'],
+      ['addItem unknown category', { type: 'addItem', date: D0, title: 'x', category: 'brunch' }, 'bad-category'],
+      ['updateItem with no itemId', { type: 'updateItem', date: D0, title: 'x' }, 'no-such-item'],
+      ['updateItem on a ghost id', { type: 'updateItem', itemId: 'ghost', title: 'x' }, 'no-such-item'],
+      ['updateItem on a TOMBSTONE', { type: 'updateItem', itemId: 'dead-1', title: 'x' }, 'no-such-item'],
+      ['updateItem with a blank title patch', { type: 'updateItem', itemId: 'live-1', title: '' }, 'no-title'],
+      ['updateItem with a bad category patch', { type: 'updateItem', itemId: 'live-1', category: 'wandering' }, 'bad-category'],
+      ['updateItem with a non-string notes patch', { type: 'updateItem', itemId: 'live-1', notes: 42 }, 'unreadable'],
+      ['updateItem with no patch at all', { type: 'updateItem', itemId: 'live-1', date: D0 }, 'nothing-to-change'],
+      ['updateItem with an all-null patch', { type: 'updateItem', itemId: 'live-1', notes: null, title: null }, 'nothing-to-change'],
+      ['removeItem with no itemId', { type: 'removeItem', date: D0 }, 'no-such-item'],
+      ['removeItem on a ghost id', { type: 'removeItem', itemId: 'ghost' }, 'no-such-item'],
+      ['moveItem with an off-trip toDate', { type: 'moveItem', itemId: 'live-1', toDate: OFF_TRIP }, 'date-not-in-trip'],
+      ['moveItem on a ghost id', { type: 'moveItem', itemId: 'ghost', toDate: D1 }, 'no-such-item'],
+      ['moveItem to the day it is already on', { type: 'moveItem', itemId: 'live-1', fromDate: D1, toDate: D0 }, 'already-there'],
+      // …and the valid ones answer `undefined`, which is what `isValidOp` filters on.
+      ['a valid addItem', { type: 'addItem', date: D0, title: 'Momo', category: 'food' }, undefined],
+      ['a valid updateItem', { type: 'updateItem', itemId: 'live-1', notes: 'bring cash' }, undefined],
+      ['a valid removeItem', { type: 'removeItem', itemId: 'live-1' }, undefined],
+      ['a valid moveItem', { type: 'moveItem', itemId: 'live-1', toDate: D1 }, undefined],
+    ];
+
+    for (const [name, op, expected] of CASES) {
+      it(`${name} → ${expected ?? 'valid'}`, () => {
+        expect(dropReason(op, PLANS)).toBe(expected);
+        // The wrapper can never disagree with the predicate it wraps.
+        expect(validateOps([op], PLANS)).toHaveLength(expected === undefined ? 1 : 0);
+      });
+    }
   });
 
   it('valid ops of each verb survive (order preserved), and a bad op does not nuke a good one', () => {
@@ -385,6 +431,8 @@ it('logs nothing (D-152)', () => {
   const spy = vi.spyOn(console, 'log').mockImplementation(() => {});
   const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   validateOps([{ type: 'clearDay' }, { type: 'addItem', date: D0, title: 'x', category: 'food' }], PLANS);
+  // #13 — explaining a drop must not become a reason to log one.
+  dropReason({ type: 'clearDay' }, PLANS);
   applyOp({ type: 'addItem', date: D0, title: 'x', category: 'food' }, fakeStore(), PLANS);
   expect(spy).not.toHaveBeenCalled();
   expect(warn).not.toHaveBeenCalled();

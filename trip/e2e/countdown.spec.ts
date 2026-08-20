@@ -6,8 +6,8 @@ import type { Page } from '@playwright/test';
  *
  * Drives the app-wide clock via the `?today=YYYY-MM-DD` override
  * (`lib/trip-now.ts`, LOCKED D-075) against the served static `out/` build, and
- * proves the hero countdown / travel-mode panel and the dashboard's clock-derived
- * cards flip correctly across the whole trip window: pre-trip countdown math,
+ * proves the hero countdown / travel-mode panel and the stat row's clock-derived
+ * live cell flip correctly across the whole trip window: pre-trip countdown math,
  * the in-trip "Day N — city" panel, the Dec-19 Nepal→Japan boundary (the
  * permanent B-01 regression guard fixed at S60), the full four-corner boundary
  * matrix, the post-trip state, and `?today=off` restoring the real clock.
@@ -20,19 +20,19 @@ import type { Page } from '@playwright/test';
  *    this pack is a fixed, computable target — not a moving one — and can be
  *    asserted exactly.
  *
- * 2. Two animation layers sit between that frozen target and the DOM, and both
- *    are neutralized the same way (`page.emulateMedia({ reducedMotion: 'reduce' })`,
- *    set once per test before navigating):
- *      - `useCountUp` (hooks/use-count-up.ts): a ~2s eased count-up reveal for
- *        every countdown unit and every dashboard stat. Under reduced motion it
- *        skips the rAF loop and reports the final value immediately (D-056b).
- *      - The dashboard's `StatCard` `whileInView` scroll-reveal (`opacity`/`y`
- *        transition on first intersection). Reduced motion collapses this too,
- *        but the card must still be SCROLLED INTO VIEW at least once for
- *        `viewport={{ once: true }}` to fire at all — confirmed live (CDP probe
- *        during this slice) that a dashboard `data-testid` card sits at
- *        `opacity: 0` (Playwright: not visible) until scrolled into view, even
- *        under reduced motion. `scrollDashboardIntoView()` below does this.
+ * 2. One animation layer sits between that frozen target and the DOM, and it is
+ *    neutralized by `page.emulateMedia({ reducedMotion: 'reduce' })` (set once per
+ *    test before navigating): `useCountUp` (hooks/use-count-up.ts), a ~2s eased
+ *    count-up reveal on every countdown unit. Under reduced motion it skips the rAF
+ *    loop and reports the final value immediately (D-056b).
+ *
+ *    Issue #106 removed the SECOND layer this note used to describe. The clock-derived
+ *    cards it named lived in `components/trip-dashboard.tsx`, whose `StatCard` carried a
+ *    `whileInView` reveal that had to be scrolled to before it would paint at all (its
+ *    `viewport={{ once: true }}` never fires off-screen, even under reduced motion). That
+ *    section is deleted; its two clock-derived facts are read from `home-stat-row`'s live
+ *    cell instead, which has no reveal and no count-up. `scrollLiveStatIntoView()` below
+ *    still scrolls, for the different and simpler reason given at its docstring.
  *
  * 3. Exact numbers below were computed two ways and cross-checked: (a) by hand
  *    against `lib/countdown.ts`'s `computeCountdown` (whole days via date-fns, then
@@ -53,12 +53,60 @@ async function gotoWithClock(page: Page, todayParam: string) {
 }
 
 /**
- * Scroll the dashboard's Trip Status card into view so its `whileInView` reveal
- * fires at least once (see note 2 above), then give the (now-instant, reduced-
- * motion) reveal a moment to flip `opacity`/`display` before asserting.
+ * Bring the stat row's one clock-driven cell into view before asserting on it.
+ *
+ * `home-stat-row` is a `LazyVisible` island (D-116) sitting below the hero's
+ * `min-h-[100svh]` column, so on a cold load its section is a sized placeholder until
+ * either its intersection trigger or the ~200ms idle fallback mounts it. Scrolling to
+ * the cell fires the trigger directly instead of racing the fallback, and
+ * `scrollIntoViewIfNeeded` auto-waits for the node to exist, so this doubles as the
+ * "island has mounted" wait. It is NOT waiting on a reveal: unlike the deleted
+ * trip-dashboard cards, this cell has no `whileInView` and no count-up (see note 2).
  */
-async function scrollDashboardIntoView(page: Page) {
-  await page.getByTestId('dashboard-trip-status').scrollIntoViewIfNeeded();
+async function scrollLiveStatIntoView(page: Page) {
+  await page.getByTestId('home-stat-live').scrollIntoViewIfNeeded();
+}
+
+/**
+ * The live cell's two lines. `home-stat-row.tsx`'s `liveCell()` puts the FIGURE in the
+ * first `<p>` and the state's CAPTION in the second, and the caption is what carries the
+ * trip-lifecycle fact the deleted `dashboard-trip-status` card used to spell out:
+ * "Days to go" pre-trip · "Day on trip" in-trip · "Days travelled" post-trip.
+ */
+function liveStat(page: Page) {
+  const cell = page.getByTestId('home-stat-live');
+  return { value: cell.locator('p').first(), caption: cell.locator('p').nth(1) };
+}
+
+/**
+ * The hero raster the browser ACTUALLY RESOLVED, as a bare filename stem.
+ *
+ * Issue #89 made the hero photograph leg-aware (`lib/hero-image.ts` ->
+ * `components/hero-section.tsx`), and nothing committed proved it: reverting `src={heroSrc}`
+ * to a literal left the whole suite green. These assertions are that proof, which is why
+ * they live on the two `?today=` cases that already pin the leg rather than in a spec of
+ * their own — one navigation, both facts.
+ *
+ * It reads `currentSrc`, NOT the React prop and NOT `src`. `OptimizedImage` renders a
+ * <picture> with an AVIF <source> and passes `sizes="100vw"`, so what the browser
+ * actually fetches is a width-selected derivative that the `src` attribute never names;
+ * `currentSrc` is the only thing that reports the resolved URL. `picture img` also
+ * disambiguates the raster from the LQIP backdrop, which is a sibling data: URI.
+ *
+ * The stem is compared, not the whole URL, so the assertion survives the basePath build,
+ * the -640w/-1024w/native variant the viewport happens to pick, and the avif/jpg choice.
+ */
+async function resolvedHeroStem(page: Page): Promise<string> {
+  const img = page.locator('.hero-photo-wrap picture img');
+  await expect(img).toBeVisible();
+  await expect.poll(async () => await img.evaluate((el: HTMLImageElement) => el.currentSrc)).not.toBe('');
+  const currentSrc = await img.evaluate((el: HTMLImageElement) => el.currentSrc);
+  // /base/images/hero/hero-japan-1024w.avif -> hero-japan
+  return new URL(currentSrc).pathname
+    .split('/')
+    .pop()!
+    .replace(/\.(avif|jpe?g|png)$/i, '')
+    .replace(/-\d+w$/, '');
 }
 
 test.describe('Pre-trip countdown + total-days math (D-016 computeCountdown, frozen clock)', () => {
@@ -91,12 +139,14 @@ test.describe('Pre-trip countdown + total-days math (D-016 computeCountdown, fro
     await expect(page.getByTestId('countdown-seconds')).toHaveText('00');
     await expect(page.getByTestId('countdown-total-days')).toHaveText('29');
 
-    // Dashboard: status = "Upcoming", duration = the full 32-day trip, days
-    // remaining mirrors the countdown's totalDays (29).
-    await scrollDashboardIntoView(page);
-    await expect(page.getByTestId('dashboard-trip-status')).toContainText('Upcoming');
-    await expect(page.getByTestId('dashboard-trip-duration')).toContainText('32');
-    await expect(page.getByTestId('dashboard-days-remaining')).toContainText('29');
+    // Stat row: the PRE-TRIP lifecycle state (what the deleted dashboard called
+    // "Upcoming") is the live cell's caption, duration = the full 32-day trip, and the
+    // live figure mirrors the countdown's totalDays (29) — `liveCell()` reads it from
+    // the same `computeCountdown(TRIP_START, now).totalDays` the hero's ring does.
+    await scrollLiveStatIntoView(page);
+    await expect(liveStat(page).caption).toHaveText('Days to go');
+    await expect(page.getByTestId('home-stat-days')).toContainText('32');
+    await expect(liveStat(page).value).toHaveText('29');
   });
 });
 
@@ -110,12 +160,20 @@ test.describe('In-trip flip — "Day N — city" panel replaces the countdown', 
     await expect(page.getByTestId('hero-day-number')).toHaveText('4');
     await expect(page.getByTestId('hero-travel-mode')).toContainText('Kathmandu');
 
+    // Issue #89: the Nepal leg keeps the Himalaya hero. Paired with the Dec-19 case below,
+    // this is what makes the leg swap revertible-with-a-failure instead of silently.
+    expect(await resolvedHeroStem(page)).toBe('hero');
+
     // Countdown grid must be ABSENT while in travel mode.
     await expect(page.getByTestId('countdown-days')).toHaveCount(0);
     await expect(page.getByTestId('countdown-total-days')).toHaveCount(0);
 
-    await scrollDashboardIntoView(page);
-    await expect(page.getByTestId('dashboard-trip-status')).toContainText('On the trip');
+    // The IN-TRIP lifecycle state (the deleted dashboard's "On the trip"): the live cell
+    // switches to `getTodayInTrip().dayNumber` under a "Day on trip" caption, so the
+    // caption proves the state and the figure agrees with the hero's own Day 4.
+    await scrollLiveStatIntoView(page);
+    await expect(liveStat(page).caption).toHaveText('Day on trip');
+    await expect(liveStat(page).value).toHaveText('4');
   });
 });
 
@@ -134,15 +192,21 @@ test.describe('Dec-19 boundary — permanent B-01 regression guard', () => {
     await expect(page.getByTestId('hero-day-number')).toHaveText('11');
     await expect(page.getByTestId('hero-travel-mode')).toContainText('Osaka');
     await expect(page.getByTestId('hero-travel-mode')).not.toContainText('Kathmandu');
+
+    // Issue #89: Dec 19 is the day the hero photograph itself changes, so this is where the
+    // swap is asserted. It resolves to hero-japan only if the mount-time leg read reaches
+    // the `src` — the SSR/first paint is hero.jpg for every leg by construction.
+    expect(await resolvedHeroStem(page)).toBe('hero-japan');
   });
 });
 
 test.describe('Boundary matrix (S65) — all four corners of the trip window', () => {
   const CASES = [
-    // S393 (Q4): Dec 9 is spent in Syracuse, JFK and the air, so the hero names Syracuse — the
-    // day is still Day 1 of the Nepal leg. Changed in deliberate lockstep with the content root
-    // (the S112/D-124 pattern for a frozen boundary city).
-    { today: '2026-12-09', day: '1', city: 'Syracuse', label: 'Dec 9 -> Day 1 (Nepal start)' },
+    // D-315 (owner-ruled 2026-08-14, amending D-285): Dec 9 is spent in Syracuse, JFK and the air
+    // and is NAMED New York, so the hero names New York — the day is still Day 1 of the Nepal leg.
+    // Changed in deliberate lockstep with the content root (the S112/D-124 pattern for a frozen
+    // boundary city).
+    { today: '2026-12-09', day: '1', city: 'New York', label: 'Dec 9 -> Day 1 (Nepal start)' },
     { today: '2026-12-18', day: '10', city: 'Kathmandu', label: 'Dec 18 -> Day 10 (Nepal end)' },
     { today: '2026-12-19', day: '11', city: 'Osaka', label: 'Dec 19 -> Day 11 (Japan start)' },
     { today: '2027-01-09', day: '32', city: 'Tokyo', label: 'Jan 9 -> Day 32 (Japan end / trip end)' },
@@ -159,27 +223,34 @@ test.describe('Boundary matrix (S65) — all four corners of the trip window', (
 });
 
 test.describe('Post-trip state', () => {
-  test('?today=2027-01-15 -> travel mode gone, countdown grid shows the zero clock (isPast), Completed', async ({
+  test('?today=2027-01-15 -> travel mode gone, digit-grid countdown gone, the post-trip panel shows, Days travelled 32', async ({
     page,
   }) => {
-    // Jan 15, 2027 is outside TRIP_DATES entirely (trip ends Jan 9), so
-    // getTodayInTrip() is null and the hero falls back to the countdown branch.
-    // computeCountdown returns its ZERO_PAST shape once `now >= target`. A zero calendar
-    // unit is not rendered, so months/weeks/days are ABSENT here; the clock cells stay
-    // (they tick, and a running clock reading 00 is a clock) and read "00".
+    // Jan 15, 2027 is outside TRIP_DATES entirely (trip ends Jan 9), so getTodayInTrip() is
+    // null. Before #98, that landed the hero in the SAME branch pre-trip uses — the six-cell
+    // countdown digit grid — and computeCountdown's ZERO_PAST shape rendered it permanently
+    // frozen at "00:00:00" / 0 total days under "Countdown to day one", which is a wrong
+    // claim once the trip is over. This test used to assert that zeroed grid as CORRECT
+    // (`countdown-hours` etc reading '00'); it now asserts the grid is gone and the new
+    // `hero-post-trip` static panel (isPostTrip(getNowAtTrip().date)-gated) renders instead.
     await gotoWithClock(page, '2027-01-15');
 
     await expect(page.getByTestId('hero-travel-mode')).toHaveCount(0);
-    await expect(page.getByTestId('countdown-months')).toHaveCount(0);
-    await expect(page.getByTestId('countdown-weeks')).toHaveCount(0);
-    await expect(page.getByTestId('countdown-days')).toHaveCount(0);
-    await expect(page.getByTestId('countdown-hours')).toHaveText('00');
-    await expect(page.getByTestId('countdown-minutes')).toHaveText('00');
-    await expect(page.getByTestId('countdown-seconds')).toHaveText('00');
-    await expect(page.getByTestId('countdown-total-days')).toHaveText('0');
+    await expect(page.getByTestId('countdown-hours')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-minutes')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-seconds')).toHaveCount(0);
+    await expect(page.getByTestId('countdown-total-days')).toHaveCount(0);
+    await expect(page.getByTestId('hero-post-trip')).toBeVisible();
+    await expect(page.getByTestId('hero-post-trip')).toContainText('Trip complete');
 
-    await scrollDashboardIntoView(page);
-    await expect(page.getByTestId('dashboard-trip-status')).toContainText('Completed');
+    // The POST-TRIP lifecycle state (the deleted dashboard's "Completed") is unrelated to
+    // the hero and unaffected by #98 — `liveCell()` still reaches it only through
+    // `computeCountdown(...).isPast`, so this caption still proves the clock is past
+    // TRIP_START with `getTodayInTrip()` null. The figure is the trip LENGTH (32), not a
+    // remaining count.
+    await scrollLiveStatIntoView(page);
+    await expect(liveStat(page).caption).toHaveText('Days travelled');
+    await expect(liveStat(page).value).toHaveText('32');
   });
 });
 
@@ -244,9 +315,11 @@ test.describe('?today=off restores the real clock', () => {
     await expect(page.getByTestId('hero-travel-mode')).toBeVisible();
 
     // ...then explicitly clear it. Per trip-now.ts, `?today=off` removes the
-    // sessionStorage key and falls through to `new Date()` — today (per the
-    // project's current-date context) is 2026-07-05, well before TRIP_START, so
-    // the real clock must show the countdown grid, not travel mode.
+    // sessionStorage key and falls through to `new Date()`. This test assumes only that the
+    // real clock is still PRE-trip (before TRIP_START, 2026-12-09), so the real clock must
+    // show the countdown grid rather than travel mode. It stops being meaningful once the
+    // real date reaches the trip window, which is a property of the fixture trip, not
+    // something a threshold here can paper over.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto('/?today=off', { waitUntil: 'load' });
 
@@ -257,16 +330,26 @@ test.describe('?today=off restores the real clock', () => {
     await expect(page.getByTestId('countdown-hours')).toBeVisible();
     await expect(page.getByTestId('countdown-total-days')).toBeVisible();
 
-    // The real clock's total-days must be a large positive number (months out),
-    // not one of the small fixed values used elsewhere in this file — this is
-    // the signal that the override was actually cleared rather than silently
-    // reused from sessionStorage.
+    // The signal that the override was actually cleared rather than silently reused from
+    // sessionStorage: the figure is a live pre-trip countdown and is NOT the one pre-trip
+    // value this file freezes.
+    //
+    // This asserted `> 100` until issue #106. That was a bound on the calendar, not on the
+    // behaviour under test, and it was 15 days from expiring when it was found — the real
+    // clock crosses TRIP_START - 100 days on 2026-08-31, after which a correct app fails a
+    // green test. Naming the frozen value instead says what the check is actually for and
+    // holds for as long as the surrounding pre-trip assumption does.
     const totalDaysText = await page.getByTestId('countdown-total-days').textContent();
     const totalDays = Number(totalDaysText);
     expect(Number.isFinite(totalDays)).toBe(true);
-    expect(totalDays).toBeGreaterThan(100);
+    expect(totalDays).toBeGreaterThan(0);
+    expect(totalDays).not.toBe(29); // `?today=2026-11-09` above
 
-    await scrollDashboardIntoView(page);
-    await expect(page.getByTestId('dashboard-trip-status')).toContainText('Upcoming');
+    // Back to the pre-trip lifecycle state on the REAL clock, and the live cell's figure
+    // must be the same large countdown the ring just reported — a stale override would
+    // have left it on one of this file's small fixed values.
+    await scrollLiveStatIntoView(page);
+    await expect(liveStat(page).caption).toHaveText('Days to go');
+    await expect(liveStat(page).value).toHaveText(String(totalDays));
   });
 });

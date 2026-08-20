@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useDraftOnBlur } from '@/hooks/use-draft-on-blur';
 import {
   User,
   LogOut,
@@ -219,12 +220,17 @@ function SettingsGroup({
       >
         {icon}
         <span className="min-w-0 flex-1">
-          <span className="block font-display text-lg font-bold text-white">{title}</span>
-          <span className="block text-sm text-white/60">{summary}</span>
+          {/* The group title is the section heading, not decoration: without it the page went
+              <h1> straight to the cards' <h3> and axe's heading-order failed. <h2> inside the
+              <summary>'s span mirrors travel-essentials-card.tsx. Tailwind preflight zeroes
+              heading font-size/weight/margin, so `text-lg font-bold` renders byte-identical to
+              the <span> it replaced; the `block` class is dropped because <h2> already is one. */}
+          <h2 className="font-display text-lg font-bold text-white">{title}</h2>
+          <span className="block text-sm text-ink-mid">{summary}</span>
         </span>
         <span
           aria-hidden="true"
-          className="text-white/40 transition-transform group-open:rotate-90"
+          className="text-ink-lo transition-transform group-open:rotate-90"
         >
           ›
         </span>
@@ -248,7 +254,7 @@ function SignInRequired({ what }: { what: 'trip' | 'sync' }) {
       className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
     >
       <h3 className="text-sm font-semibold text-white">Log in to unlock this</h3>
-      <p className="mt-1 max-w-2xl text-sm text-white/60">
+      <p className="mt-1 max-w-2xl text-sm text-ink-mid">
         {what === 'trip'
           ? 'A trip’s Trip Token lets anyone view and edit that trip, so it’s only shown to a logged-in user.'
           : 'Your key is an account credential, so it’s only shown to the logged-in user it belongs to.'}
@@ -263,7 +269,7 @@ function IdentityGroup({ name }: { name: string | null }) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-widest text-white/40">Signed in as</p>
+          <p className="text-xs uppercase tracking-widest text-ink-lo">Signed in as</p>
           <p
             data-testid="settings-identity-name"
             aria-live="polite"
@@ -271,7 +277,7 @@ function IdentityGroup({ name }: { name: string | null }) {
           >
             {name ?? 'Not signed in'}
           </p>
-          <p className="mt-1 max-w-md text-sm text-white/60">
+          <p className="mt-1 max-w-md text-sm text-ink-mid">
             {name
               ? 'Your itinerary edits are attributed to you across the shared trip.'
               : 'Log in with your key to attribute your edits.'}
@@ -306,7 +312,7 @@ function IdentityGroup({ name }: { name: string | null }) {
       {name && (
         <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
           <h3 className="text-sm font-semibold text-white">Forget this device</h3>
-          <p className="mt-1 max-w-2xl text-sm text-white/60">
+          <p className="mt-1 max-w-2xl text-sm text-ink-mid">
             Signs out and permanently deletes every photo stored on this device. Use this before
             handing the device to someone else or giving it away.
           </p>
@@ -353,7 +359,7 @@ function RenameIdentity({ current }: { current: string }) {
       className="flex flex-col gap-2 sm:flex-row sm:items-end"
     >
       <label className="flex-1">
-        <span className="text-xs uppercase tracking-widest text-white/40">Display name</span>
+        <span className="text-xs uppercase tracking-widest text-ink-lo">Display name</span>
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -362,7 +368,7 @@ function RenameIdentity({ current }: { current: string }) {
           autoCapitalize="words"
           spellCheck={false}
           data-testid="settings-identity-rename-input"
-          className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-ring"
+          className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </label>
       <button
@@ -450,7 +456,7 @@ function LinkGoogleIdentity() {
       className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
     >
       <h3 className="text-sm font-semibold text-white">Link a Google account</h3>
-      <p className="mt-1 max-w-2xl text-sm text-white/60">
+      <p className="mt-1 max-w-2xl text-sm text-ink-mid">
         Optional. This device already has its own identity for shared trips; linking Google is how
         you get it back if you clear your browser data or change phone. It doesn&rsquo;t change who
         you are on a trip, and nothing is posted anywhere.
@@ -477,7 +483,7 @@ function LinkGoogleIdentity() {
       )}
       <div aria-live="polite" className="mt-2 min-h-[1.25rem]">
         {status && (
-          <p data-testid="settings-identity-google-status" className="text-sm text-white/70">
+          <p data-testid="settings-identity-google-status" className="text-sm text-ink-mid">
             {status}
           </p>
         )}
@@ -607,7 +613,7 @@ function TripAccessGroup() {
       {/* This device's code — the out-of-band invite, and the thing a friend pastes. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">This device&rsquo;s code</h3>
-        <p className="mt-1 max-w-2xl text-sm text-white/60">
+        <p className="mt-1 max-w-2xl text-sm text-ink-mid">
           Send this to someone on the trip and ask them to add it below &mdash; that&rsquo;s how
           this device gets access. It identifies this browser, not you: it isn&rsquo;t a login and
           it opens nothing on its own.
@@ -615,7 +621,7 @@ function TripAccessGroup() {
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <code
             data-testid="settings-access-uid"
-            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white/80"
+            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-ink-hi"
           >
             {uid ?? '…'}
           </code>
@@ -643,7 +649,7 @@ function TripAccessGroup() {
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">Who can open this trip</h3>
         {tripKey === '' ? (
-          <p data-testid="settings-access-sample" className="mt-1 max-w-2xl text-sm text-white/60">
+          <p data-testid="settings-access-sample" className="mt-1 max-w-2xl text-sm text-ink-mid">
             This is the sample trip &mdash; it lives on this device only, so there is nobody to add.
             Create a trip from your Trips page to plan with someone.
           </p>
@@ -652,7 +658,7 @@ function TripAccessGroup() {
             {members === null ? (
               <p
                 data-testid="settings-access-open"
-                className="mt-1 flex items-start gap-1.5 max-w-2xl text-sm text-white/60"
+                className="mt-1 flex items-start gap-1.5 max-w-2xl text-sm text-ink-mid"
               >
                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 Anyone holding this trip&rsquo;s Trip Token can open it. Once this device has
@@ -668,10 +674,10 @@ function TripAccessGroup() {
                     className="flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-surface/60 p-2"
                   >
                     <span className="flex min-h-[44px] min-w-0 flex-1 flex-col justify-center px-2">
-                      <code className="truncate font-mono text-sm text-white/80">
+                      <code className="truncate font-mono text-sm text-ink-hi">
                         {memberUid.slice(0, 8)}…
                       </code>
-                      <span className="text-xs text-white/50">
+                      <span className="text-xs text-ink-mid">
                         {role === 'owner' ? 'Owner' : 'Member'}
                         {memberUid === uid ? ' · this device' : ''}
                       </span>
@@ -683,7 +689,7 @@ function TripAccessGroup() {
                         disabled={busy}
                         data-testid="settings-access-remove"
                         aria-label={`Remove device ${memberUid.slice(0, 8)}`}
-                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-white/15 text-white/70 transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-white/15 text-ink-mid transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
                       >
                         <X className="h-4 w-4" aria-hidden="true" />
                       </button>
@@ -706,7 +712,7 @@ function TripAccessGroup() {
                 autoCapitalize="off"
                 spellCheck={false}
                 data-testid="settings-access-add-input"
-                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
               <button
                 type="submit"
@@ -723,7 +729,7 @@ function TripAccessGroup() {
         )}
         <div aria-live="polite" className="mt-2 min-h-[1.25rem]">
           {status && (
-            <p data-testid="settings-access-status" className="text-sm text-white/70">
+            <p data-testid="settings-access-status" className="text-sm text-ink-mid">
               {status}
             </p>
           )}
@@ -839,7 +845,7 @@ function ClaimOldName({ current }: { current: string }) {
       className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
     >
       <h3 className="text-sm font-semibold text-white">Claim items under an old name</h3>
-      <p className="mt-1 max-w-2xl text-sm text-white/60">
+      <p className="mt-1 max-w-2xl text-sm text-ink-mid">
         If you renamed yourself, everything you added before the rename is still stamped with the
         old name — so you show up twice in the traveller filter. Claiming rewrites those stamps to
         “{current}” across your plan, your expenses and your document checklist.
@@ -863,7 +869,7 @@ function ClaimOldName({ current }: { current: string }) {
         className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end"
       >
         <label className="flex-1">
-          <span className="text-xs uppercase tracking-widest text-white/40">Old name</span>
+          <span className="text-xs uppercase tracking-widest text-ink-lo">Old name</span>
           <input
             value={value}
             onChange={(e) => {
@@ -874,7 +880,7 @@ function ClaimOldName({ current }: { current: string }) {
             autoComplete="off"
             spellCheck={false}
             data-testid="settings-claim-name-input"
-            className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-ring"
+            className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </label>
         <button
@@ -891,7 +897,7 @@ function ClaimOldName({ current }: { current: string }) {
       <p
         aria-live="polite"
         data-testid="settings-claim-name-status"
-        className="mt-2 text-sm text-white/70"
+        className="mt-2 text-sm text-ink-mid"
       >
         {claimed === null
           ? status
@@ -901,8 +907,10 @@ function ClaimOldName({ current }: { current: string }) {
         <p className="mt-1 max-w-2xl text-xs text-amber-200/70">
           Check that number first. It counts everything carrying that exact name — including
           anything a fellow traveller left while logged in as “{DEFAULT_TRAVELER_NAME}” — and the
-          rewrite syncs to every device. Only the “added by” and “last edited by” stamps change:
-          who paid for a shared expense, and how it splits, are never touched.
+          rewrite syncs to every device. Only the “added by” and “last edited by” stamps change.
+          Who paid for a shared expense, and how it splits, stay exactly as they are, so the old
+          name does not leave the money side: Settle up keeps showing “{from}” in its balances, and
+          a shared expense is still filed as paid by “{from}” on its paid-by chips, not by you.
         </p>
       )}
     </div>
@@ -992,7 +1000,7 @@ function TripGroup() {
             <ShieldAlert className="h-4 w-4 shrink-0 text-gold-400" aria-hidden="true" />
             You&rsquo;re on a shared trip
           </h3>
-          <p className="mt-1 max-w-2xl text-sm text-white/60">
+          <p className="mt-1 max-w-2xl text-sm text-ink-mid">
             This browser is viewing a trip you created or joined. Your own itinerary and data are
             safe on your main trip — switch back any time.
           </p>
@@ -1016,14 +1024,14 @@ function TripGroup() {
           // user a broken share link.
           <p
             data-testid="settings-trip-key-sample"
-            className="mt-1 max-w-2xl text-xs text-white/50"
+            className="mt-1 max-w-2xl text-xs text-ink-mid"
           >
             This is the sample trip &mdash; it lives on this device only and has no Trip Token.
             Create a trip from your Trips page to get one you can share.
           </p>
         ) : (
         <>
-        <p className="mt-1 flex items-start gap-1.5 text-xs text-white/50">
+        <p className="mt-1 flex items-start gap-1.5 text-xs text-ink-mid">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Share this to invite someone to THIS trip &mdash; anyone holding it can view and edit it.
           It opens nothing else in your account.
@@ -1031,7 +1039,7 @@ function TripGroup() {
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <code
             data-testid="settings-trip-key"
-            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white/80"
+            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-ink-hi"
           >
             {tripKey ?? '…'}
           </code>
@@ -1079,7 +1087,7 @@ function TripGroup() {
         className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
       >
         <h3 className="text-sm font-semibold text-white">Add a trip by Trip Token</h3>
-        <p className="mt-1 max-w-2xl text-sm text-white/60">
+        <p className="mt-1 max-w-2xl text-sm text-ink-mid">
           Paste the Trip Token a friend shared with you to add their trip and switch to it. Your own
           key is a login, not a trip &mdash; it never goes here.
         </p>
@@ -1096,7 +1104,7 @@ function TripGroup() {
             autoCapitalize="off"
             spellCheck={false}
             data-testid="settings-trip-join-input"
-            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           />
           <button
             type="submit"
@@ -1181,16 +1189,16 @@ function SyncGroup() {
       {/* Your User Token — masked until revealed. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">Your key</h3>
-        <p className="mt-1 flex items-start gap-1.5 text-xs text-white/50">
+        <p className="mt-1 flex items-start gap-1.5 text-xs text-ink-mid">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          This is how you log in. <strong className="font-semibold text-white/80">Never share it</strong>{' '}
+          This is how you log in. <strong className="font-semibold text-ink-hi">Never share it</strong>{' '}
           &mdash; it opens your whole account and every trip in it. Copy it only to log in on your own
           other device; to invite someone to a trip, share that trip&rsquo;s Trip Token instead.
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <code
             data-testid="settings-sync-code"
-            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white/80"
+            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-ink-hi"
           >
             {code === null ? 'Not set up yet' : revealed ? code : '•'.repeat(24)}
           </code>
@@ -1218,7 +1226,7 @@ function SyncGroup() {
         <div aria-live="polite" className="sr-only">
           {copied ? 'Your key copied to clipboard' : ''}
         </div>
-        <p className="mt-3 max-w-2xl text-xs text-white/50">
+        <p className="mt-3 max-w-2xl text-xs text-ink-mid">
           To use this account on another device, log out there (or open the app fresh) and enter this
           key at the front door.
         </p>
@@ -1276,7 +1284,7 @@ function CurrencyGroup() {
                 className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                   active
                     ? 'border-ring bg-primary/10 text-primary'
-                    : 'border-white/15 text-white/70 hover:bg-white/5'
+                    : 'border-white/15 text-ink-mid hover:bg-white/5'
                 }`}
               >
                 <span aria-hidden="true">{currencySymbol(cur)}</span>
@@ -1290,7 +1298,7 @@ function CurrencyGroup() {
       {/* Exchange rates (manual override; seeded) */}
       <fieldset className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
         <legend className="px-1 text-sm font-semibold text-white">Exchange rates</legend>
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-white/50">
+        <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-mid">
           <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Approximate defaults — edit to match today&apos;s rate. Units per 1 US dollar.
         </p>
@@ -1314,7 +1322,7 @@ function CurrencyGroup() {
           type="button"
           onClick={resetRates}
           data-testid="budget-rate-reset"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/70 transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
           Reset to defaults
@@ -1341,9 +1349,10 @@ function RateField({
   // Show the empty string when the stored rate is the "unset" sentinel 0 (so the placeholder seed
   // shows through); otherwise the typed number. This keeps a mid-edit blank possible.
   const display = value === 0 ? '' : String(value);
+  const draft = useDraftOnBlur(display, onChange);
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-white/70">
+      <label htmlFor={id} className="text-xs font-medium text-ink-lo">
         {label}
       </label>
       <input
@@ -1353,10 +1362,9 @@ function RateField({
         inputMode="decimal"
         min={0}
         step="any"
-        value={display}
         placeholder={String(seed)}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-white/30 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        {...draft}
+        className="w-full rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       />
     </div>
   );
@@ -1393,7 +1401,7 @@ function DataGroup() {
           above. Disabled when there is nothing to export (empty-safe: no zero-row file). */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">Export expenses</h3>
-        <p className="mt-1 max-w-2xl text-sm text-white/60">
+        <p className="mt-1 max-w-2xl text-sm text-ink-mid">
           Download every logged expense as a spreadsheet-ready CSV file.
         </p>
         <button
@@ -1415,7 +1423,7 @@ function DataGroup() {
       {/* Per-domain clears — each behind a Radix AlertDialog confirm. */}
       <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
         <h3 className="text-sm font-semibold text-white">Clear trip data</h3>
-        <p className="mt-1 max-w-2xl text-sm text-white/60">
+        <p className="mt-1 max-w-2xl text-sm text-ink-mid">
           Permanently remove data for one area of the trip. On a shared trip this clears it for
           everyone; the journal is always private to this device.
         </p>
@@ -1533,7 +1541,7 @@ function ExpensesBackupRestore({
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
       <h3 className="text-sm font-semibold text-white">Expenses backup</h3>
-      <p className="mt-1 max-w-2xl text-sm text-white/60">
+      <p className="mt-1 max-w-2xl text-sm text-ink-mid">
         Save your logged expenses to a file, or restore them from a backup. This is a separate file
         from the whole-trip export above — it covers expenses only.
       </p>
@@ -1601,7 +1609,7 @@ function ExpensesBackupRestore({
         >
           <AlertDialogHeader>
             <AlertDialogTitle>Replace your logged expenses?</AlertDialogTitle>
-            <AlertDialogDescription className="text-white/60">
+            <AlertDialogDescription className="text-ink-mid">
               Importing <span className="font-medium text-white">{pendingImport?.name}</span> will
               replace your current expenses with the contents of that file. On a shared trip this
               replaces expenses for everyone. This cannot be undone.
@@ -1650,7 +1658,7 @@ function ClearRow({
     <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-white">{label}</p>
-        <p className="text-xs text-white/55">{description}</p>
+        <p className="text-xs text-ink-mid">{description}</p>
       </div>
       <AlertDialog>
         <AlertDialogTrigger asChild>
@@ -1669,7 +1677,7 @@ function ClearRow({
         >
           <AlertDialogHeader>
             <AlertDialogTitle>{title}</AlertDialogTitle>
-            <AlertDialogDescription className="text-white/60">{body}</AlertDialogDescription>
+            <AlertDialogDescription className="text-ink-mid">{body}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid={`${testId}-cancel`}>Cancel</AlertDialogCancel>

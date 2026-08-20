@@ -16,6 +16,11 @@ import CelebrationBurst from '@/components/celebration-burst';
  * — the template is the value of the feature; only `checked`/`note` (and, under
  * sync, the stamps) persist.
  *
+ * TEXT COLOUR: this is issue #27's FIRST swept route — every text node here resolves to one of the
+ * three tiers (`text-ink-hi` / `-mid` / `-lo`), never to a `text-white/NN` alpha. The alpha->tier
+ * mapping and the role rule that produced it are recorded beside the token declarations in
+ * app/globals.css; apply that, do not re-derive it here.
+ *
  * A11y: a section `h2`, one `h3` per section group, real `<input type="checkbox">`/
  * `<label>` pairs (native semantics), a real `<input type="text">` note with its own label, ≥44px
  * targets, visible focus rings, static markup with no motion-only affordance (reduced-motion-safe).
@@ -57,7 +62,7 @@ function DocRow({
     <li className="border-b border-white/5 py-1 last:border-b-0">
       <label
         htmlFor={`docs-item-${item.id}`}
-        className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-white/85 outline-none transition-colors duration-200 hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface"
+        className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-ink-hi outline-none transition-colors duration-200 hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface"
       >
         <input
           id={`docs-item-${item.id}`}
@@ -70,7 +75,7 @@ function DocRow({
           }}
           className="h-5 w-5 flex-shrink-0 rounded border-white/30 bg-transparent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
-        <span className={item.checked ? 'text-white/50 line-through' : undefined}>{item.label}</span>
+        <span className={item.checked ? 'text-ink-lo line-through' : undefined}>{item.label}</span>
       </label>
       <div className="pl-10 pr-2 pb-1.5">
         <label htmlFor={`docs-note-${item.id}`} className="sr-only">
@@ -87,7 +92,7 @@ function DocRow({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commitNote}
           placeholder="Add a note — expiry, policy #, reference…"
-          className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-white/75 placeholder:text-white/30 outline-none transition-colors focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/60"
+          className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-ink-hi placeholder:text-ink-lo outline-none transition-colors focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/60"
         />
       </div>
     </li>
@@ -121,7 +126,7 @@ export default function DocsChecklist() {
         <h2 id="docs-heading" className="sr-only">
           Documents and readiness checklist
         </h2>
-        <p className="text-sm text-white/55">Loading your checklist…</p>
+        <p className="text-sm text-ink-mid">Loading your checklist…</p>
       </section>
     );
   }
@@ -135,7 +140,7 @@ export default function DocsChecklist() {
 
   return (
     <section aria-labelledby="docs-heading" data-testid="docs-checklist" className="relative mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
-      <CelebrationBurst active={celebrate} testId="docs-celebration" />
+      <CelebrationBurst active={celebrate} testId="docs-celebration" celebrationId="docs-complete" />
       <header className="mb-6">
         <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
           <FileCheck2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -144,7 +149,7 @@ export default function DocsChecklist() {
         <h2 id="docs-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
           Documents &amp; <span className="text-display-emphasis">readiness</span>
         </h2>
-        <p data-testid="docs-progress" className="mt-3 text-sm font-medium text-white/70">
+        <p data-testid="docs-progress" className="mt-3 text-sm font-medium text-ink-mid">
           {completion.done}/{completion.total} ready
         </p>
         <div
@@ -187,7 +192,7 @@ export default function DocsChecklist() {
                 </div>
                 <span
                   data-testid={`docs-section-progress-${section}`}
-                  className="shrink-0 text-xs font-medium text-white/55"
+                  className="shrink-0 text-xs font-medium text-ink-mid"
                 >
                   {sec.done}/{sec.total}
                 </span>

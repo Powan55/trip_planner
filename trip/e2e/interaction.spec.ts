@@ -244,8 +244,11 @@ test.describe('S83 · guide filters + search + sort (RecommendationSection, /nep
     // ascending (localeCompare) — the exact contract of the 'name' sort branch.
     // (S110-FIX F5: the card title is now an <h3>, was <h4> — heading-order fix. The
     // assertion below is unchanged; only this locator tracks the intentional level change.)
+    // (V6-10: the nesting INVERTED — `guide-card-*` is now the button INSIDE the <h3>,
+    // not a wrapper around it, so the trailing ` h3` matched nothing. The button's text
+    // content is exactly `item.name`, so it is now the title locator itself.)
     const titles = await page
-      .locator('[data-testid="guide-results"] [data-testid^="guide-card-"] h3')
+      .locator('[data-testid="guide-results"] [data-testid^="guide-card-"]')
       .allTextContents();
     expect(titles.length).toBeGreaterThan(1);
     const sorted = [...titles].sort((a, b) => a.localeCompare(b));

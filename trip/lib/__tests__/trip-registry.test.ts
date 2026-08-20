@@ -159,6 +159,29 @@ describe('trip registry (S238)', () => {
     expect(listKnownTrips().find((t) => t.id === 'abc-123')?.name).toBe('Named once');
   });
 
+  // ── removeKnownTrip sweeps the trip's local data (A-10 / #100) ─────────────
+  describe('removeKnownTrip — wipes the forgotten trip\'s trip:{id}:* data (A-10)', () => {
+    it('a forgotten trip\'s scoped slots are gone; another known trip\'s data is untouched', () => {
+      joinTrip('gone', 'Going away');
+      window.localStorage.setItem('trip:gone:budget', 'x');
+      window.localStorage.setItem('trip:gone:itinerary', 'y');
+      window.localStorage.setItem('trip:kept:budget', 'keep-me');
+
+      joinTrip(DEFAULT_TRIP_ID); // switch off 'gone' first (mirrors real usage)
+      removeKnownTrip('gone');
+
+      expect(window.localStorage.getItem('trip:gone:budget')).toBeNull();
+      expect(window.localStorage.getItem('trip:gone:itinerary')).toBeNull();
+      expect(window.localStorage.getItem('trip:kept:budget')).toBe('keep-me');
+    });
+
+    it('removeKnownTrip(DEFAULT_TRIP_ID) is a no-op and never wipes the default pack\'s bare keys', () => {
+      window.localStorage.setItem(STORAGE_KEYS.budget, 'default-pack-data');
+      removeKnownTrip(DEFAULT_TRIP_ID);
+      expect(window.localStorage.getItem(STORAGE_KEYS.budget)).toBe('default-pack-data');
+    });
+  });
+
   // ── removeKnownTrip tombstone cap (S352) ───────────────────────────────────
   describe('removeKnownTrip — the tombstone list caps at 200, newest-first (S352)', () => {
     it('a single forget records exactly one tombstone, newest (only) first', () => {
