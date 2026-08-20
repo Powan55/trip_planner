@@ -2,9 +2,9 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v5.14.4`, deployed 2026-08-14. The newest live worker is `v1.8.1`, shipped 2026-08-17. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, which is a stronger condition than `v5.14.0` being deployed. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v6.0.0`, deployed 2026-08-20. The newest live worker is `v1.8.1`, shipped 2026-08-17. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, which is a stronger condition than `v5.14.0` being deployed. Read the heading before assuming a version is in production.
 
-**The newest entry is ahead of the live app, by two versions now.** `v6.0.0` and `v5.15.0` are both recorded below and neither is deployed — `main` is at `v5.14.4` and `v5.14.4` is the newest deploy tag. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is now the same case** — it was prepared, never tagged, and its contents ship inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
+**`v6.0.0` shipped on 2026-08-20.** Tag `v6.0.0` is `0ecb444`, that commit is `origin/main`'s head, and its deploy run succeeded — verified against the tag and the run, not against this paragraph. `v6.0.1` is recorded below and is not deployed. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
 > **This paragraph was wrong for two days, which is why the sentence above says to check the tag.** It claimed `v5.14.4` was "recorded below and not yet deployed" and that `main` was at `v5.14.3`. Both were false: tag `v5.14.4` is commit `203cfc0`, that commit **is** `origin/main`'s head, `origin/main`'s `package.json` reads `5.14.4`, and its deploy run succeeded on 2026-08-14. The doc has now overstated what is live twice (`v5.14.0` was claimed about an hour early). The failure mode is always the same: this heading is edited when a release is *prepared* and nobody comes back to it when the release *ships*. Verify against `git tag` and the deploy run, never against this paragraph.
 
@@ -27,7 +27,57 @@ A rate limit on the concierge Worker, which had none at all before this. Worker-
 
 ---
 
-## v6.0.0 (app) · 2026-08-20 · worker stays at v1.8.1 (v1.9.0 built and deliberately unshipped)
+## v6.0.1 (app) · 2026-08-20 · worker stays at v1.8.1
+
+**The flight cards are back on blue.** The lime/green re-hue that shipped in `v6.0.0` read as olive
+on the day timeline, so `transportation` returns to the cyan trio it held before it and the journey
+card's own vocabularies return to cyan/teal. Cyan is the interaction signal's own hue, which is what
+the re-hue was for; that collision is now recorded as a known ceiling in both files rather than
+solved by moving the content, because every control there also carries a text label. The 60-160°
+band is ruled out.
+
+Doing it surfaced a second thing. Those badges used `/12` and `/15` opacity modifiers, which are not
+steps in Tailwind's scale and emit no rule at all, so the phase strip, the layover verdicts, the
+cabin tiers and the flights-page status chips had all been rendering with **no background** — with
+lime and with cyan alike. They are on `/10` and `/20` now. The same defect is still spread across
+about 25 other files, `border-white/15` in most of them; that is not swept here.
+
+Seven fixes on top, all of them things that either lost data or dead-ended a control:
+
+- **Photo delete had no confirm and no undo** (#116) — the only destructive action in the app with
+  neither. It now asks first. The blob is gone from IndexedDB the moment it runs and there is no way
+  to put the bytes back, so this takes the confirm arm of the house pattern, not the toast arm.
+- **Deleting an expense or clearing the journal never freed the attached photo** (#119) — the blob
+  stayed on the device with nothing left in the UI pointing at it, un-freeable short of forgetting
+  the whole device. The expense receipt has to outlive the undo window, so `showUndoToast` grew an
+  `onSettled` hook that fires only when that window closes un-taken (**D-368**).
+- **A zero or negative exchange rate persisted and redisplayed forever** (#120) while every
+  conversion quietly used the seeded rate underneath it. Rates were clamped at read time only; the
+  write path now collapses anything non-positive to the same blank sentinel a mid-edit empty field
+  already used.
+- **The ⌘K converter hit Frankfurter on every keystroke** (#117). "1000 usd to jpy" typed a digit at
+  a time was a dozen live calls to a free third-party API. It waits for typing to settle and holds
+  one rate per currency pair for the session — the gate `lib/world-search.ts` already applies to the
+  same class of API.
+- **One failed place lookup dead-ended "Look up" for that URL permanently** (#127). The single-flight
+  guard was set before the outcome was known and never cleared, and `resolvePlaceLink` degrades to
+  `null` on any failure — including every lookup in a build with no Worker configured.
+- **The offline banner and the sync badge overlapped at phone widths** (#129) — both `top-20` pills,
+  one centred and one right-anchored, showing together exactly when you are offline with unsynced
+  edits. The badge drops a row while the banner is up.
+- **`body[data-dialog-open]` had no ref-count** (#130) despite a comment claiming one. A dialog
+  opened over an open sheet cleared the flag on its way out. One hook owns the attribute now and
+  moves it only on the 0↔1 transitions (**D-369**).
+
+Full unit suite green (2355 tests). The e2e specs covering the touched surfaces were run against a
+real build: photos, currency-command, expenses, budget, offline-banner, sync-status-badge,
+flights-page, journal-browse-photos, recap-story-photos, interaction, travel-route,
+s157-a11y-close-targets, and all 24 visual baselines — 71 passed, 0 failed. One spec changed with
+the code: `photos.spec.ts` now clicks through the new delete confirm.
+
+---
+
+## v6.0.0 (app) · 2026-08-20 · **LIVE** · worker stays at v1.8.1 (v1.9.0 built and deliberately unshipped)
 
 **The hold is off by explicit owner waiver, not by completing the checklist below.** This entry
 carried a `NOT DEPLOYED` heading from 2026-08-16 while a full bug sweep and a research pass ran
