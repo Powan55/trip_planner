@@ -32,6 +32,19 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: false,
+    // Three modules ASSERT in their own comments that this suite runs under
+    // `TZ=America/New_York` — `core/dates/trip-dates.ts`, `lib/__tests__/core-clock.test.ts` and
+    // `lib/__tests__/burn-rate-core.test.ts` — and until now nothing set it. Tests inherited the
+    // machine's zone, so the DST sweep in `countdown-sum-back.test.ts` found two transitions on a
+    // US-East dev box and ZERO on the UTC CI runner, where it silently became a no-op. Every DST
+    // guarantee in the countdown was unproven by CI.
+    //
+    // `env` is the right seam on the DEFAULT `forks` pool, which this repo uses (no `pool` is set
+    // anywhere): the variable lands before the first `Date` construction, so no `cross-env` and no
+    // npm-script change. It is NOT general -- under `pool: 'threads'`/`'vmThreads'` the variable is
+    // set but the isolate stays on the host zone, silently reopening this. If a pool is ever set,
+    // move the pin to a `process.env.TZ = ...` assignment at this file's module scope.
+    env: { TZ: 'America/New_York' },
     // S350: components/__tests__ joins lib/__tests__ as a second, JSX-bearing test root (the
     // concierge renderer test uses real .tsx JSX rather than lib/__tests__'s createElement-only
     // convention) — everything else about the run (jsdom, the @ alias, oxc's automatic JSX
