@@ -69,11 +69,33 @@ Seven fixes on top, all of them things that either lost data or dead-ended a con
   opened over an open sheet cleared the flag on its way out. One hook owns the attribute now and
   moves it only on the 0↔1 transitions (**D-369**).
 
-Full unit suite green (2355 tests). The e2e specs covering the touched surfaces were run against a
+Four more, from the other half of the backlog:
+
+- **⌘K searched deleted items for up to 30 days** (#121) and selecting one did nothing. A tombstone
+  is retained so the delete can propagate and win; the palette is mounted outside
+  `ItineraryProvider` and reads a raw `loadPlans()` snapshot, so the provider's own filter never ran
+  on it. Filtered inside `searchPlanItems`, where `/plan`'s already-filtered plans hit a no-op and no
+  future caller can forget it.
+- **`pushTripList` was the one read-merge-write in its module family outside a transaction** (#125).
+  Two devices forgetting two different trips both read the same doc and the second write won
+  outright, so a forgotten trip could reappear or a new one vanish. It uses `runTransaction` now,
+  like `pushDayMerged`, `pushBudgetMerged`, `pushChecklistMerged` and `pushPlacesMerged`.
+- **Editing a past day's journal still said "Today's journal"** (#128) — in the heading, in the Edit
+  trigger's `aria-label`, and in the empty prompt, so it reached the accessible name and not just
+  the pixels. The card takes an optional flag; the Today panel's copy is unchanged.
+- **`/flights` ran four independent 1 Hz intervals** (#118), none pausing on a hidden tab, months out
+  from a departure whose label only shows `mo`/`w`/`d`. They share `lib/travel-tick.ts` now — built
+  to kill exactly this and never actually `/travel`-specific — at its 20s base cadence, escalating to
+  1 Hz only inside a week where the reading carries seconds. The shared tick also stops while the tab
+  is hidden and fires a catch-up on the way back, which applies to `/travel` too (**D-370**).
+
+Full unit suite green (2357 tests). The e2e specs covering every touched surface were run against a
 real build: photos, currency-command, expenses, budget, offline-banner, sync-status-badge,
-flights-page, journal-browse-photos, recap-story-photos, interaction, travel-route,
-s157-a11y-close-targets, and all 24 visual baselines — 71 passed, 0 failed. One spec changed with
-the code: `photos.spec.ts` now clicks through the new delete confirm.
+flights-page, journal, journal-browse, journal-browse-a11y, journal-browse-photos,
+recap-story-photos, interaction, travel-route, countdown, s157-a11y-close-targets, tm-acceptance,
+and all 24 visual baselines — 210 passed, 0 failed. Two specs changed with the code: `photos.spec.ts`
+clicks through the new delete confirm, and `sync-code.test.ts`'s fake Firestore learned
+`runTransaction`.
 
 ---
 
