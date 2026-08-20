@@ -3,6 +3,7 @@
 import { m } from 'framer-motion';
 import { Check, RefreshCw } from 'lucide-react';
 import { useSyncStatus } from '@/hooks/use-sync-status';
+import { useOnline } from '@/hooks/use-online';
 import { formatRelativeTime } from '@/lib/relative-time';
 
 /**
@@ -31,6 +32,10 @@ import { formatRelativeTime } from '@/lib/relative-time';
  */
 export function SyncStatusBadge() {
   const { pending, lastAckAt } = useSyncStatus();
+  // OfflineBanner owns top-center at the same `top-20`, and at 360-414px its centred pill
+  // overlaps this right-anchored one — which is exactly when both are showing (offline with
+  // unsynced edits). Drop a row while it is up (#129).
+  const online = useOnline();
 
   // Dormant/guest (both read as pending:0 + lastAckAt:null) OR a real build that has simply never
   // synced anything yet — either way, nothing to show.
@@ -53,7 +58,7 @@ export function SyncStatusBadge() {
       aria-label={label}
       data-testid="sync-status-badge"
       data-state={isPending ? 'pending' : 'synced'}
-      className="fixed top-20 right-4 z-40 max-w-[calc(100vw-2rem)]"
+      className={`fixed ${online ? 'top-20' : 'top-32'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
     >
       <div className="flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] text-ink-mid">
         {isPending ? (
