@@ -141,9 +141,47 @@ describe('Trip Vault — lenient Zod schema', () => {
     expect(parsed[0].items[0].futureField).toEqual({ a: 1 });
   });
 
-  it('returns null for a genuinely malformed payload (missing required id) — caller quarantines', () => {
-    const bad = [{ date: '2026-12-10', city: 'K', country: 'nepal', items: [{ title: 'no id' }] }];
-    expect(parseItineraryPayload(bad)).toBeNull();
+  // #123 — REPLACES 'returns null for a genuinely malformed payload (missing required id)'.
+  // That assertion pinned the all-or-nothing parse that was the bug: one item with no `id` made
+  // the whole payload null, the caller quarantined it, and every good day was replaced by the
+  // fallback shells. The trust boundary is still the same lenient schema; only the blast radius
+  // of one bad row changed.
+  it('drops ONLY the malformed item — the rest of the day (and the payload) survives', () => {
+    const mixed = [
+      {
+        date: '2026-12-10',
+        city: 'K',
+        country: 'nepal',
+        items: [{ title: 'no id' }, { id: 'ok', title: 'Kept', category: 'food' }, null],
+      },
+      { date: '2026-12-11', city: 'P', country: 'nepal', items: [] },
+    ];
+    const parsed = parseItineraryPayload(mixed);
+    expect(parsed).not.toBeNull();
+    expect(parsed!).toHaveLength(2);
+    expect(parsed![0].items).toEqual([{ id: 'ok', title: 'Kept', category: 'food' }]);
+    expect(parsed![1].date).toBe('2026-12-11');
+  });
+
+  it('drops ONLY the malformed day — a bad day never takes its neighbours with it', () => {
+    const mixed = [
+      { date: '2026-12-10', city: 'K', country: 'nepal', items: [] },
+      { city: 'no date', country: 'nepal', items: [] }, // fails dayPlanSchema
+      { date: '2026-12-11', city: 'P', country: 'nepal' }, // `items` absent → dropped, not emptied
+      null,
+      { date: '2026-12-12', city: 'B', country: 'nepal', items: [] },
+    ];
+    const parsed = parseItineraryPayload(mixed);
+    expect(parsed!.map((d) => d.date)).toEqual(['2026-12-10', '2026-12-12']);
+  });
+
+  it('returns null ONLY for a non-array payload — the caller still has a real quarantine trigger', () => {
+    expect(parseItineraryPayload('nope')).toBeNull();
+    expect(parseItineraryPayload({ days: [] })).toBeNull();
+    expect(parseItineraryPayload(null)).toBeNull();
+    expect(parseItineraryPayload(undefined)).toBeNull();
+    // An array whose every day is malformed is NOT corrupt — it is an empty (valid) itinerary.
+    expect(parseItineraryPayload([{ nope: true }])).toEqual([]);
   });
 });
 
@@ -252,14 +290,36 @@ describe('Trip Vault — load/save four-state resolution (D-018 via envelope)', 
     expect(spy).toHaveBeenCalled();
   });
 
-  it('STATE D — enveloped payload that fails the lenient Zod schema: quarantine → sample', () => {
-    // schemaVersion 3 but payload has an item missing the required `id`.
-    const badEnvelope = {
-      schemaVersion: 3,
+  // #123 — REPLACES 'STATE D — enveloped payload that fails the lenient Zod schema: quarantine
+  // → sample'. One malformed item is no longer state D at all: it is a good payload with one
+  // unusable row, and quarantining it cost the user every other day on the trip.
+  it('one malformed ITEM is NOT state D — the good days load and nothing is quarantined', () => {
+    const raw = JSON.stringify({
+      schemaVersion: 5,
       updatedAt: 'x',
-      payload: [{ date: '2026-12-10', city: 'K', country: 'nepal', items: [{ title: 'no id' }] }],
-    };
-    const raw = JSON.stringify(badEnvelope);
+      payload: [
+        {
+          date: '2026-12-10',
+          city: 'K',
+          country: 'nepal',
+          items: [{ title: 'no id' }, { id: 'ok', title: 'Kept', category: 'food' }],
+        },
+        { date: '2026-12-11', city: 'P', country: 'nepal', items: [] },
+      ],
+    });
+    localStorage.setItem(STORAGE_KEY, raw);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const loaded = loadItinerary(cfg);
+    expect(loaded).not.toEqual(FALLBACK);
+    expect(loaded.map((d) => d.date)).toEqual(['2026-12-10', '2026-12-11']);
+    expect(loaded[0].items).toEqual([{ id: 'ok', title: 'Kept', category: 'food' }]);
+    expect(localStorage.getItem(QUARANTINE_KEY)).toBeNull();
+  });
+
+  it('STATE D — an enveloped payload that is not an array at all: quarantine → sample', () => {
+    // Still a real state-D trigger after #123: `parseItineraryPayload` returns null only here.
+    const raw = JSON.stringify({ schemaVersion: 5, updatedAt: 'x', payload: 'not-a-list' });
     localStorage.setItem(STORAGE_KEY, raw);
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     expect(loadItinerary(cfg)).toEqual(FALLBACK);

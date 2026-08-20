@@ -15,6 +15,9 @@
  */
 import { z } from 'zod';
 import type { DayPlan } from '@/lib/trip-data';
+// Cycle by design: that module wraps `itineraryItemSchema` below so the per-item drop rule has
+// ONE definition. Safe because neither side reads the other at module-init time (#123).
+import { sanitizeItineraryItems } from '@/core/itinerary/model';
 
 // Mirrors lib/trip-data.ts `ItineraryItem`. `category` kept permissive (see note above).
 export const itineraryItemSchema = z
@@ -139,14 +142,76 @@ export const itineraryEnvelopeV5 = z.object({
 });
 
 /**
- * Validate an already-migrated payload against the CURRENT (v5) lenient itinerary schema.
+ * Validate an already-migrated payload against the CURRENT (v5) lenient itinerary schema,
+ * DEGRADING PER DAY AND PER ITEM.
  *
- * Returns the parsed `DayPlan[]` on success, or `null` on failure (the caller
- * quarantines + falls back — the schema never throws to the load path). `.passthrough()`
- * keeps unknown keys, so the returned objects retain any forward fields; the `DayPlan[]`
- * cast is safe because the schema is a superset-tolerant mirror of the type.
+ * Returns `null` ONLY when the payload is not an array at all — that is the genuinely-corrupt
+ * case, and it is still what triggers the callers' quarantine branch (`./load-save.ts`,
+ * `./export-import.ts`). Otherwise it always returns an array: a day that fails
+ * `dayPlanSchema` is dropped, an item that fails `itineraryItemSchema` is dropped from its
+ * day, and everything else is returned verbatim.
+ *
+ * WAS ALL-OR-NOTHING over the whole array (a bare `itineraryPayloadV5.safeParse`), which is
+ * the second half of #123: one malformed item failed the entire parse, the caller quarantined
+ * the payload, and 31 good days were replaced by the sample/empty shells over a single bad row.
+ * Per-row degradation at a lenient trust boundary is the policy the sibling importers already
+ * use (`sanitizeExpenses`, `sanitizePlaces`, `sanitizeItems`).
+ *
+ * The per-item rule is NOT restated here — `sanitizeItineraryItems` wraps `itineraryItemSchema`
+ * above, so the on-disk boundary and the remote-snapshot boundary (`docToDayPlan`) drop exactly
+ * the same rows. A day whose `items` is absent or not an array is still DROPPED whole rather
+ * than emptied: substituting `[]` there would be defaulting, which this read path does not do.
+ *
+ * `.passthrough()` keeps unknown keys, so the returned objects retain any forward fields; the
+ * `DayPlan[]` cast is safe because the schema is a superset-tolerant mirror of the type.
+ *
+ * DO NOT point the import/restore path at this function — use `parseItineraryPayloadStrict`
+ * below. The two boundaries differ for a concrete reason; see its note.
  */
 export function parseItineraryPayload(payload: unknown): DayPlan[] | null {
-  const result = itineraryPayloadV5.safeParse(payload);
-  return result.success ? (result.data as DayPlan[]) : null;
+  if (!Array.isArray(payload)) return null;
+  const days: DayPlan[] = [];
+  let dropped = 0;
+  for (const raw of payload) {
+    // Optional-chained so a null/primitive element cannot throw on the property read; such an
+    // element takes the `raw` branch and is dropped by `dayPlanSchema` a line later.
+    const items = (raw as { items?: unknown } | null | undefined)?.items;
+    let candidate: unknown = raw;
+    if (Array.isArray(items)) {
+      const sane = sanitizeItineraryItems(items);
+      dropped += items.length - sane.length;
+      candidate = { ...(raw as Record<string, unknown>), items: sane };
+    }
+    const parsed = dayPlanSchema.safeParse(candidate);
+    if (parsed.success) days.push(parsed.data as DayPlan);
+    else dropped++;
+  }
+  // A degraded read is SILENT otherwise, and the next `savePlans` rewrites the vault without the
+  // dropped rows — so this warn is the only trace that data went missing, and the only way to tell
+  // "the trip really is this short" from "the read ate rows". Gated on `dropped > 0` so a clean
+  // vault (the overwhelmingly common case) logs nothing.
+  if (dropped > 0) console.warn(`[vault] itinerary read dropped ${dropped} malformed row(s)`);
+  return days;
+}
+
+/**
+ * STRICT: the import/restore trust boundary (D-098). All-or-nothing, by design.
+ *
+ * WHY THIS IS NOT `parseItineraryPayload`: the two callers have opposite failure economics.
+ * - ON DISK there is no second copy. A vault with one bad row is all the user has, so dropping
+ * the row and keeping 31 good days beats quarantining the lot — partial beats nothing (#123).
+ * - ON IMPORT the user holds BOTH the file and their live trip. Accepting a partial parse
+ * silently overwrites the live trip with a truncated version of itself, and reports success:
+ * an array of pure garbage validates as `[]` and `savePlans([])` wipes the trip. Under sync it
+ * is worse — `restorePlans` tombstones every live item and re-adds nothing, and fresh-id-beats-
+ * tombstone propagates that whole-trip deletion to every device. Rejecting costs the user one
+ * failed import (the blob is quarantined, the live trip untouched); accepting costs them the
+ * trip. D-098 is LOCKED on exactly this: a bad or hostile import never destroys current data.
+ *
+ * So: do NOT merge these two back into one function, and do NOT soften this to "reject only when
+ * the result is empty" — that still lets two-days-becomes-one through silently.
+ */
+export function parseItineraryPayloadStrict(payload: unknown): DayPlan[] | null {
+  const r = itineraryPayloadV5.safeParse(payload);
+  return r.success ? (r.data as DayPlan[]) : null;
 }

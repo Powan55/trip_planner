@@ -26,15 +26,29 @@
 'use client';
 
 import { saveDocs, loadDocs } from '@/core/docs/storage';
-import type { DocItem } from '@/core/docs/model';
+import { sanitizeItems, type DocItem } from '@/core/docs/model';
 import { DOCS_CHANGED_EVENT } from '@/hooks/use-docs';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
 import { mergeItems } from '@/core/sync/merge-items';
 
-/** Map a raw Firestore checklist doc into its `DocItem[]` (defensive: tolerate a partial doc). */
+/**
+ * Map a raw Firestore checklist doc into its `DocItem[]` (defensive: tolerate a partial doc).
+ *
+ * `sanitizeItems` rather than a bare cast, because the cast was a LIE about untrusted bytes: one
+ * `null` element written by a peer on an older build (or by anything else with write access) makes
+ * `mergeItems` dereference `it.id` and throw. In the snapshot path that is caught and the update is
+ * dropped; inside `pushChecklistMerged` it rejects the transaction, so the `'checklist'` chunk stays
+ * dirty and retries FOREVER — a poison row that silently wedges this device's outbox. Same
+ * read-boundary discipline `docToPlaceRows` already applies, and the same one
+ * `core/docs/storage.ts` applies to local bytes.
+ */
 export function docToRows(data: Record<string, unknown>): DocItem[] {
-  return Array.isArray(data.items) ? (data.items as DocItem[]) : [];
+  // `[]` fallback, NOT the default `DEFAULT_TEMPLATE`: sanitizeItems returns its fallback for an
+  // empty OR all-garbage array, and here that would resurrect the seeded template as if it were
+  // remote state — re-seeding content the user deliberately cleared, and (on a custom trip) the
+  // Nepal/Japan rows `UNIVERSAL_TEMPLATE` exists to keep out. An empty remote list means empty.
+  return Array.isArray(data.items) ? sanitizeItems(data.items, []) : [];
 }
 
 /**

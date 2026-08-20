@@ -169,21 +169,89 @@ function ack(domain: SyncDomain, chunk: string): void {
   saveSlot(slot.dirty, new Date().toISOString());
 }
 
+// ── #124: at most ONE push in flight per (domain, chunk). ────────────────────────────────────
+// THE BUG IT FIXES: `withOutbox` runs on every commit, so two rapid edits to the same chunk used
+// to start two independent transaction+ack pairs. `enqueue` is a set no-op the second time (the
+// chunk is already dirty), so that dirty flag was the ONLY retry record for BOTH edits — and the
+// older push resolving acked it away while the newer one was still in flight. If the newer then
+// failed, or the tab closed before it settled, the newer edit was never retried. The rule this
+// restores: an ack may only clear a chunk when no NEWER push for that chunk is outstanding.
+//
+// STILL STATE-BASED — no op queue, no sequence number. A superseded attempt is DROPPED and the
+// newest local state re-pushed through the same single-chunk merged write the flush path uses;
+// coalescing keystroke-speed edits into one trailing push is the dirty set's set-no-op property
+// expressed in time rather than in the slot.
+//
+// KNOWN CEILING: module-scope ⇒ per-TAB, exactly like the `inFlight` flush flag below. Two tabs
+// editing the SAME chunk inside one push window can still race an ack against the other's
+// in-flight edit. Upgrade path if that ever matters: an in-flight lease written into the slot (or
+// a BroadcastChannel), which buys a cross-tab protocol and a lease-expiry problem; the per-tab
+// guard covers the real timeline this fixes — one tab, two edits a keystroke apart.
+interface ChunkRun {
+  /** Newest state to push for this chunk; overwritten by every joiner. */
+  latest: unknown;
+  /** Set by a joiner ⇒ the attempt currently in flight is stale and must NOT ack. */
+  superseded: boolean;
+  promise: Promise<void>;
+}
+const running = new Map<string, ChunkRun>();
+
+function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T): Promise<void> {
+  const key = `${cs.domain}\u0000${chunk}`; // NUL: chunk keys are dates / leg ids, never contain it
+  const live = running.get(key);
+  if (live) {
+    // Hand the running loop the newer state and join it, instead of opening a second transaction.
+    live.latest = current;
+    live.superseded = true;
+    return live.promise;
+  }
+  const run: ChunkRun = { latest: current, superseded: false, promise: Promise.resolve() };
+  running.set(key, run);
+  // The IIFE runs synchronously up to its first `await`, so `run.promise` is assigned before any
+  // other job can observe the entry — a joiner never sees the placeholder.
+  run.promise = (async () => {
+    try {
+      for (;;) {
+        run.superseded = false;
+        try {
+          await cs.pushChunk(chunk, run.latest as T); // ② attempt
+        } catch {
+          // ④ rejection swallowed — the write-ahead record persists, so the chunk retries on the
+          // next flush trigger (and across a reload). NEVER rethrow to the commit caller.
+          return;
+        }
+        // ③ ack-on-resolve, but ONLY for the attempt that carried the newest state. Both the
+        // supersede and this check are synchronous continuations (single-threaded JS), so there is
+        // no window where a joiner's edit is lost between the resolve and the ack.
+        if (!run.superseded) {
+          // Guarded because this sits OUTSIDE the attempt's own try: `ack` writes localStorage, and
+          // a throw here would reject `run.promise` — i.e. reject into the commit tail for the owner
+          // AND every joiner, breaking this module's never-throws contract. A failed ack just leaves
+          // the chunk dirty, which the next flush retries (idempotent merged write).
+          try {
+            ack(cs.domain, chunk);
+          } catch {
+            /* ignore — the chunk stays dirty and retries; never throw at the commit caller */
+          }
+          return;
+        }
+        // A newer edit landed mid-flight: loop and push it. Bounded by the edit rate, not
+        // unbounded — each turn awaits one real network write and pushes only the latest state.
+      }
+    } finally {
+      // Runs in the same job as the `return` above, so a run that has decided to finish can never
+      // be joined: a later commit starts a fresh run and re-acks on its own resolve.
+      running.delete(key);
+    }
+  })();
+  return run.promise;
+}
+
 /** Attempt each chunk from `current`; ack on resolve, swallow on reject (chunk stays dirty). The
  * ack read-modify-write is fully synchronous, so concurrent acks under one flush never interleave
- * destructively (single-threaded JS). */
+ * destructively (single-threaded JS). Same-chunk attempts are serialized by `pushChunkOnce`. */
 async function pushChunks<T>(cs: ChunkSync<T>, current: T, chunks: string[]): Promise<void> {
-  await Promise.all(
-    chunks.map(async (chunk) => {
-      try {
-        await cs.pushChunk(chunk, current); // ② attempt
-        ack(cs.domain, chunk); // ③ ack-on-resolve
-      } catch {
-        // ④ rejection swallowed — the write-ahead record persists, so the chunk retries on the
-        // next flush trigger (and across a reload). NEVER rethrow to the commit caller.
-      }
-    }),
-  );
+  await Promise.all(chunks.map((chunk) => pushChunkOnce(cs, chunk, current)));
 }
 
 /**
@@ -192,7 +260,11 @@ async function pushChunks<T>(cs: ChunkSync<T>, current: T, chunks: string[]): Pr
  * ① write-ahead enqueue `chunkDiff(prev,next)` (sync, before any network),
  * ② attempt `pushChunk` for each of THIS diff's chunks from `next` (the just-committed state),
  * ③ ack each on resolve, ④ swallow rejections (the chunk stays dirty for the next flush).
- * Dormant/guest ⇒ no-op, no slot write. Never throws.
+ * Dormant/guest ⇒ no-op, no slot write. Never throws. A commit for a chunk whose push is still in
+ * flight does NOT open a second transaction (#124) — it supersedes the running one, which re-pushes
+ * the newer state and acks only that. So on the RESOLVE path this settles once the newest edit has
+ * been attempted; on a REJECT the run returns without attempting a newer state that landed
+ * mid-flight, which is fine — the chunk stays dirty and the next flush pushes the netted state.
  *
  * Takes NO StoragePort: the push path only ever writes `next`, the state the caller just
  * committed. `flushOutbox` is the one that needs `storage.load()`, because it runs later and must
@@ -218,6 +290,12 @@ const inFlight = new Set<SyncDomain>();
  * FRESHEST local state (`storage.load()`) and re-pushes each dirty chunk with the same ack rule, so
  * the flush pushes the netted local state once. Dormant/guest ⇒ no-op. Concurrent same-domain
  * flushes are guarded. Never throws.
+ *
+ * The commit path deliberately does NOT take this domain flag — a commit while a flush runs must
+ * still push, and it can: it lands in `pushChunkOnce`, which either starts its own run for an
+ * untouched chunk or supersedes the flush's run for the same chunk (that run then also carries the
+ * commit's newer state, so the flush's await simply covers one more attempt). Nothing here waits on
+ * the domain flag, so neither path can deadlock or starve the other.
  */
 export async function flushOutbox<T>(cs: ChunkSync<T>, storage: StoragePort<T>): Promise<void> {
   if (!enabled()) return;

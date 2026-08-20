@@ -27,7 +27,7 @@ import { loadPlans, savePlans } from '@/lib/itinerary-storage';
 import { keyFor } from '@/core/storage/gateway';
 import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
 import { makeEnvelope } from './envelope';
-import { parseItineraryPayload } from './schema';
+import { parseItineraryPayloadStrict } from './schema';
 import { CURRENT_ITINERARY_VERSION, runItineraryMigrations } from './migrations';
 // Reuse the read path's version detection + payload extraction (exported export-only
 // from load-save.ts in) so import makes the IDENTICAL migrate-vs-quarantine
@@ -97,8 +97,8 @@ function quarantineImport(raw: string): void {
  * A version GREATER than current is accepted
  * leniently —
  * its payload is validated as-is, not migrated.
- * 4. parseItineraryPayload — lenient Zod (unknown categories/fields kept);
- * a genuinely malformed payload ⇒ reject + quarantine.
+ * 4. parseItineraryPayloadStrict — lenient-per-FIELD Zod (unknown categories/fields kept) but
+ * ALL-OR-NOTHING over the payload; any malformed day or item ⇒ reject + quarantine.
  * 5. savePlans(payload) — the ONLY write; goes through the Vault so the
  * on-disk envelope + all hold.
  * 6. dispatch ITINERARY_CHANGED_EVENT — same-tab liveness so the calendar/dashboard
@@ -167,8 +167,11 @@ export function parseBackup(rawText: string): ParseResult {
     }
   }
 
-  // The trust boundary: the SAME lenient schema the Vault read uses.
-  const validated = parseItineraryPayload(payload);
+  // The trust boundary: the same lenient SCHEMA the Vault read uses, but applied STRICTLY.
+  // Deliberately NOT `parseItineraryPayload` (the degrading on-disk variant, #123): a partial
+  // accept here overwrites the user's live trip with a truncated copy of the file and reports
+  // success, and under sync `restorePlans` propagates the missing rows as tombstones. D-098.
+  const validated = parseItineraryPayloadStrict(payload);
   if (validated === null) {
     quarantineImport(rawText);
     return {

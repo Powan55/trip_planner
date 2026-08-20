@@ -31,15 +31,20 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
   return { ...orig, getActiveTraveler: () => gate.traveler };
 });
 
-import {
-  withOutbox,
-  flushOutbox,
-  outboxDirty,
-  outboxSnapshot,
-  SYNC_OUTBOX_CHANGED_EVENT,
-  type ChunkSync,
-} from '@/core/sync/outbox';
+import type { ChunkSync } from '@/core/sync/outbox';
 import { STORAGE_KEYS } from '@/core/storage/gateway';
+
+// The outbox keeps per-tab state at MODULE scope (`running`, `inFlight`). A test that leaves a
+// push unsettled would leak an entry into the next test, which would then silently JOIN the stale
+// run instead of starting its own. Statically importing the module would make `vi.resetModules()`
+// a no-op, so bind the exports late and re-import per test — same names, no production-only reset
+// export, and each test gets a genuinely fresh module.
+type OutboxModule = typeof import('@/core/sync/outbox');
+let withOutbox: OutboxModule['withOutbox'];
+let flushOutbox: OutboxModule['flushOutbox'];
+let outboxDirty: OutboxModule['outboxDirty'];
+let outboxSnapshot: OutboxModule['outboxSnapshot'];
+let SYNC_OUTBOX_CHANGED_EVENT: OutboxModule['SYNC_OUTBOX_CHANGED_EVENT'];
 
 // ── A tiny controllable domain. T = Record<chunk, version>. `chunkDiff` = keys whose version
 //    changed prev→next. `pushChunk` records every attempt and resolves/rejects per `failing`. ──
@@ -85,7 +90,10 @@ function rawSlot(): unknown {
   return blob === null ? null : JSON.parse(blob);
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  vi.resetModules();
+  ({ withOutbox, flushOutbox, outboxDirty, outboxSnapshot, SYNC_OUTBOX_CHANGED_EVENT } =
+    await import('@/core/sync/outbox'));
   localStorage.clear();
   gate.remoteOn = true;
   gate.traveler = { name: 'Powan' };
@@ -197,6 +205,51 @@ describe('outbox mechanics (mocked pushChunk)', () => {
     await push({}, { d1: 1, d2: 1 });
 
     expect(outboxDirty('itinerary').sort()).toEqual(['d2']); // d1 acked, d2 dirty
+  });
+
+  it('#124: an earlier push resolving does NOT clear a NEWER in-flight edit (and that edit still retries)', async () => {
+    const h = makeHarness();
+    const storage = makeStorage({ d1: 2 }); // localStorage holds the netted state (edit 2)
+    const push = withOutbox(h.cs);
+
+    // Each attempt parks on its own gate, so the ticket's timeline is driven exactly: P1 resolves
+    // while P2 is still outstanding.
+    const gates: Array<(ok: boolean) => void> = [];
+    h.cs.pushChunk = (chunk, current) => {
+      h.attempts.push({ chunk, version: current[chunk] });
+      return new Promise<void>((resolve, reject) => {
+        gates.push((ok) => (ok ? resolve() : reject(new Error(`push failed for ${chunk}`))));
+      });
+    };
+    const settle = () => new Promise<void>((r) => setTimeout(r, 0));
+
+    const e1 = push({}, { d1: 1 }); // edit 1 → enqueue d1, P1 in flight
+    await settle();
+    expect(h.attempts).toEqual([{ chunk: 'd1', version: 1 }]);
+
+    const e2 = push({ d1: 1 }, { d1: 2 }); // edit 2 lands BEFORE P1 settles (enqueue is a set no-op)
+    await settle();
+
+    gates[0](true); // P1 RESOLVES FIRST — must NOT ack, edit 2 is newer and unconfirmed
+    await settle();
+    expect(outboxDirty('itinerary')).toEqual(['d1']); // the retry record survives a tab close here
+    expect(h.attempts).toEqual([
+      { chunk: 'd1', version: 1 },
+      { chunk: 'd1', version: 2 }, // the newer state is pushed promptly, not parked until a flush
+    ]);
+
+    gates[1](false); // P2 FAILS
+    await Promise.all([e1, e2]);
+    expect(outboxDirty('itinerary')).toEqual(['d1']); // still dirty ⇒ edit 2 is not lost
+
+    // Next load / reconnect retries it from the freshest local state.
+    h.cs.pushChunk = async (chunk, current) => {
+      h.attempts.push({ chunk, version: current[chunk] });
+    };
+    await flushOutbox(h.cs, storage);
+    expect(h.attempts).toHaveLength(3);
+    expect(h.attempts[2]).toEqual({ chunk: 'd1', version: 2 });
+    expect(outboxDirty('itinerary')).toEqual([]); // acked at last
   });
 
   it('concurrent same-domain flush is guarded (the second call is a no-op while one is in flight)', async () => {
