@@ -14,6 +14,7 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import LandingPage from '@/components/landing-page';
 import OptimizedImage from '@/components/optimized-image';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 
 /**
  * The front door — the app's WALL, shown iff
@@ -184,14 +185,9 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
    */
   const seedRef = useRef<Promise<unknown> | null>(null);
 
-  // body[data-dialog-open] seam flag while open (Lane-M FAB hides on it). Same effect as the
+  // body[data-dialog-open] seam flag while open (Lane-M FAB hides on it). Same hook as the
   // other four modals; the wall has no `open` prop because mounting IS open (B-6).
-  useEffect(() => {
-    document.body.dataset.dialogOpen = '1';
-    return () => {
-      delete document.body.dataset.dialogOpen;
-    };
-  }, []);
+  useDialogOpenFlag();
 
   // Storage + URL are client-only facts; read once after mount (this island never SSRs its values).
   useEffect(() => {

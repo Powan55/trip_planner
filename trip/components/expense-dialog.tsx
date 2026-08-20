@@ -20,6 +20,7 @@ import { overlayPanelMotion } from '@/lib/motion';
 import type { Expense } from '@/core/budget/expenses';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { rosterForActiveTrip, rosterAccent } from '@/lib/token-auth';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 
 /**
  * Fast expense-log dialog. A NEW, lightweight modal, deliberately
@@ -202,14 +203,8 @@ export default function ExpenseDialog({
   }, []);
 
   // body[data-dialog-open] flag (cross-lane seam): the itinerary FAB hides while it is set, so the
-  // FAB never floats over this dialog's scrim. Set while mounted-open, cleared on close/unmount.
-  useEffect(() => {
-    const body = document.body;
-    body.dataset.dialogOpen = '1';
-    return () => {
-      delete body.dataset.dialogOpen;
-    };
-  }, []);
+  // FAB never floats over this dialog's scrim. Ref-counted by the shared hook.
+  useDialogOpenFlag();
 
   // Esc closes at the document level so it fires wherever focus sits.
   useEffect(() => {
