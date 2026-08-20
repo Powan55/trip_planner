@@ -4294,3 +4294,13 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 **No visible symptom today, and that is not a reason to leave it.** The only reader, `quick-add-fab.tsx`, sits at `z-40` under the dialogs' `z-50`, which its own comment already names as the primary guarantee. The invariant was still false, and the next consumer would not have the z-index luck.
 
 **Per-tab by construction**, like every other module-scope guard here. Two tabs is not a case: the attribute is per-document.
+
+### D-370 · (issue #118, 2026-08-20) · `lib/travel-tick.ts` is the app's shared tick, not `/travel`'s, and it stops while the tab is hidden
+
+**Decision.** `/flights`' four `FlightJourneyCard`s subscribe to `subscribeTravelTick` instead of each opening `setInterval(…, 1000)`, and hold `requestFastTick()` only while their countdown is inside a week — the one reading that carries seconds. The module's scope was never technical: nothing in it referenced `/travel`, only its header comment did.
+
+**The tick now pauses on `document.hidden`** and fires one catch-up tick on `visibilitychange` back to visible. That is a change to the shared module, so it applies to `/travel` as well: a backgrounded tab does no work, and every label is correct the instant it is looked at again rather than up to one period stale. Held by a case in `lib/__tests__/travel-tick.test.ts` that advances 120s hidden and asserts zero callbacks.
+
+**One listener, bound on first subscribe, never removed.** A document-level `visibilitychange` handler for the life of the page is cheaper than add/remove around every subscriber, and `bindVisibility` is idempotent so repeated subscribes cost nothing.
+
+**Time values are unchanged.** Each tick re-reads the real clock through `getFlightTiming(journey)`, exactly as the per-card interval did; only the frequency moved. The visible countdown is byte-identical at every cadence because the text further out than a week has no seconds field to move.
