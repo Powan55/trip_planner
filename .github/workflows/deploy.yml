@@ -242,3 +242,24 @@ jobs:
             git tag -a "$TAG" -m "Successful GitHub Pages deploy of $TAG"
             git push origin "refs/tags/$TAG"
           fi
+      # The gate already proved trip/docs/RELEASES.md carries this version's entry with no
+      # hold marker, so the same file is fit to ship as the release's own notes — no separate
+      # changelog to keep in sync. Recomputes TAG rather than reading it from the step above:
+      # steps do not share shell state, and re-deriving from package.json is one line either way.
+      # continue-on-error: a failure here (heading missing, transient API hiccup) must not
+      # redden a deploy that already shipped — Pages is live and the tag is pushed by this
+      # point, and this repo has no rollback, so a red run here inviting a panicked revert
+      # would be a worse outcome than a release that's simply late.
+      - name: Publish GitHub Release
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(node -p "require('./trip/package.json').version")
+          TAG="v$VERSION"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — nothing to record."
+          else
+            node scripts/release-notes.mjs "$TAG" > "$RUNNER_TEMP/release-notes.md"
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "$TAG" --notes-file "$RUNNER_TEMP/release-notes.md"
+          fi

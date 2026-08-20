@@ -179,7 +179,9 @@ heading carrying `NOT DEPLOYED`, `NOT SHIPPED` or `⛔` refuses the deploy, whic
 park a built-but-unshipped version without it sliding into `main`.
 
 After a successful deploy the workflow pushes the matching `v<version>` tag itself — and
-only then, which is why a deploy that failed can be re-run on the same version.
+only then, which is why a deploy that failed can be re-run on the same version. It then
+publishes a GitHub Release on that tag, with the matching `trip/docs/RELEASES.md` entry as the notes
+verbatim — one file to write, not a changelog kept in sync with a second one.
 
 What changed here is *when* you find out. The version check used to run only on the
 push to `main`, so a pull request could go green, merge into the live branch, and
