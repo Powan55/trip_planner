@@ -137,6 +137,33 @@ describe('pushChecklistMerged — transactional read→merge→set converges two
     expect(writeLog).toContain(`tx-set:${DOC_PATH}`);
   });
 
+  it('a poison row from a peer does not wedge the outbox forever (#126)', async () => {
+    // The remote array is UNTRUSTED bytes. A null/garbage element used to reach `mergeItems`,
+    // which dereferences `it.id` and throws — rejecting the transaction, leaving the 'checklist'
+    // chunk dirty, and retrying forever. `docToRows` now sanitises at the read boundary.
+    fake.setDocData(DOC_PATH, {
+      version: 1,
+      items: [null, 'not-an-item', { noIdAtAll: true }, item('visa', { checked: true, hlc: '000000000002000:000000:friendB' })],
+    });
+
+    await expect(
+      pushChecklistMerged(fake as unknown as Firestore, fs, [item('passport', { checked: true })]),
+    ).resolves.not.toThrow();
+
+    const written = fake.docs.get(DOC_PATH) as { items: DocItem[] };
+    expect(written.items.map((e) => e.id).sort()).toEqual(['passport', 'visa']);
+    expect(writeLog).toEqual([`tx-set:${DOC_PATH}`]);
+  });
+
+  it('an empty remote list stays EMPTY — it never resurrects the seeded template (#126)', async () => {
+    // `sanitizeItems`' default fallback is DEFAULT_TEMPLATE, so passing it here would turn a
+    // deliberately-cleared remote doc into 18 reseeded rows. The read boundary passes `[]`.
+    fake.setDocData(DOC_PATH, { version: 1, items: [] });
+    await pushChecklistMerged(fake as unknown as Firestore, fs, [item('passport', { checked: true })]);
+    const written = fake.docs.get(DOC_PATH) as { items: DocItem[] };
+    expect(written.items.map((e) => e.id)).toEqual(['passport']);
+  });
+
   it('a same-item concurrent edit converges by HLC (higher wins, order-independent)', async () => {
     // Remote: passport UNchecked at a LATER hlc. Local: passport checked at an EARLIER hlc.
     fake.setDocData(DOC_PATH, {

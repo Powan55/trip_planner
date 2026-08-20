@@ -8,8 +8,10 @@ import type { Expense } from '@/core/budget/expenses';
  * `exportItinerary()`/Blob idiom).
  *
  * RFC-4180: CRLF (`\r\n`) row separators, a field is quoted iff it contains a comma, a double
- * quote, or a line break, and an interior double quote is escaped by doubling it. Currency is
- * DERIVED from the leg.
+ * quote, or a line break, and an interior double quote is escaped by doubling it. Quoting is NOT
+ * the whole story: RFC-4180 is a transport encoding and says nothing about what a spreadsheet does
+ * with the decoded text, so `csvField` ALSO neutralizes a leading formula trigger before quoting
+ * (#115). Currency is DERIVED from the leg.
  * `paidBy`/`split` are flattened read-only: `Paid By` as-is, `Split With` the
  * member names semicolon-joined; both are absent on the (default) unsplit fast path.
  *
@@ -28,9 +30,31 @@ const CSV_HEADERS = [
   'Split With',
 ] as const;
 
-/** Quote a field iff it contains a comma, a double quote, or a line break; double interior quotes. */
+/**
+ * Excel/Sheets/LibreOffice evaluate a cell whose text begins with `=`, `+`, `-` or `@` as a live
+ * formula (`=cmd|'/c calc'!A1`, or a `=HYPERLINK(...)` that exfiltrates the row) — and TAB / CR / LF
+ * count too, because they are stripped as leading whitespace before that test. Every one of those
+ * seven is a trigger here. Note text is written by ANY traveller in the trip and read by whoever
+ * exports, so the payload author and the victim are different people (#115).
+ */
+const FORMULA_TRIGGER = /^[=+\-@\t\r\n]/;
+/**
+ * ...but a field that is ENTIRELY a number literal is exempt: `String(e.amount)` puts `-42` in the
+ * Amount column, and prefixing it would turn a summable numeric cell into text — a real regression
+ * in the export. Safe because the exemption requires the WHOLE value to match, leaving no room for
+ * a payload after the digits (`-1+cmd|...` is not a number literal, so it is still neutralized).
+ */
+const PLAIN_NUMBER = /^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$/;
+
+/**
+ * Neutralize a leading formula trigger with an apostrophe (which spreadsheets strip on display and
+ * never evaluate), THEN quote iff the result contains a comma, a double quote, or a line break,
+ * doubling interior quotes. That order is load-bearing: the apostrophe must land INSIDE the quotes
+ * — `=1,2` → `"'=1,2"`, never `'"=1,2"`, which is not valid RFC-4180 and leaves the formula intact.
+ */
 function csvField(value: string): string {
-  return /[",\r\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+  const safe = FORMULA_TRIGGER.test(value) && !PLAIN_NUMBER.test(value) ? `'${value}` : value;
+  return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
 export function expensesToCsv(expenses: readonly Expense[]): string {

@@ -31,7 +31,7 @@
 'use client';
 
 import { saveExpenses, loadExpenses } from '@/core/budget/storage';
-import { type Expense } from '@/core/budget/expenses';
+import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
 import { LEGS, type Leg } from '@/core/budget/model';
 import { EXPENSES_CHANGED_EVENT } from '@/hooks/use-expenses';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
@@ -40,9 +40,19 @@ import { mergeItems, gcTombstoneRows } from '@/core/sync/merge-items';
 import { outboxDirty } from '@/core/sync/outbox';
 import { clock } from './trip-now';
 
-/** Map a raw Firestore expense chunk-doc into its `Expense[]` (defensive: tolerate a partial doc). */
+/**
+ * Map a raw Firestore expense chunk-doc into its `Expense[]` (defensive: tolerate a partial doc).
+ *
+ * `sanitizeExpenses` rather than a bare cast, because the cast was a LIE about untrusted bytes: one
+ * `null` element written by a peer on an older build (or by anything else with write access) makes
+ * `mergeItems` dereference `it.id` and throw. In the snapshot path that is caught and the update is
+ * dropped; inside `pushChunkMerged` it rejects the transaction, so that leg's chunk stays dirty and
+ * retries FOREVER — a poison row that silently wedges this device's outbox. Same read-boundary
+ * discipline `docToPlaceRows` already applies, and the same one `core/budget/storage.ts` applies to
+ * local bytes.
+ */
 export function chunkDocToRows(data: Record<string, unknown>): Expense[] {
-  return Array.isArray(data.items) ? (data.items as Expense[]) : [];
+  return Array.isArray(data.items) ? sanitizeExpenses(data.items) : [];
 }
 
 /**

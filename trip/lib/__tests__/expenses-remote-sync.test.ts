@@ -130,6 +130,24 @@ describe('pushChunkMerged — transactional read→merge→set does NOT clobber 
     expect(writeLog).toContain(`tx-set:trips/${TRIP_ID}/expenses/nepal`);
   });
 
+  it('a poison row from a peer does not wedge the leg chunk forever (#126)', async () => {
+    // The remote array is UNTRUSTED bytes. A null/garbage element used to reach `mergeItems`,
+    // which dereferences `it.id` and throws — rejecting the transaction, leaving the leg chunk
+    // dirty, and retrying forever. `chunkDocToRows` now sanitises at the read boundary.
+    fake.setDocData(`trips/${TRIP_ID}/expenses/nepal`, {
+      leg: 'nepal',
+      items: [null, 'not-an-expense', { noIdAtAll: true }, exp('B', { hlc: '000000000002000:000000:friend' })],
+    });
+
+    await expect(
+      pushChunkMerged(fake as unknown as Firestore, fs, 'nepal', [exp('A', { hlc: '000000000003000:000000:me' })]),
+    ).resolves.not.toThrow();
+
+    const written = fake.docs.get(`trips/${TRIP_ID}/expenses/nepal`) as { items: Expense[] };
+    expect(written.items.map((e) => e.id).sort()).toEqual(['A', 'B']);
+    expect(writeLog).toEqual([`tx-set:trips/${TRIP_ID}/expenses/nepal`]);
+  });
+
   it('an emptied leg writes items:[] (D-018/D-091 parity — not a skip)', async () => {
     await pushExpenseChunk([], 'japan'); // no rows for japan → write an empty leg doc
     const written = fake.docs.get(`trips/${TRIP_ID}/expenses/japan`) as { items: Expense[] };

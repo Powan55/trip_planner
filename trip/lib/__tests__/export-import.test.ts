@@ -141,6 +141,63 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
     expect(loadPlans()).toEqual(REAL_PLANS);
   });
 
+  // #123 made `parseItineraryPayload` degrade per day/per item — correct for the ON-DISK read,
+  // but it was wired into the import boundary too. An array of pure garbage then validated as
+  // `[]`, the import reported {ok:true}, and `savePlans([])` deleted the live trip; under sync
+  // `restorePlans([])` propagated that as tombstones. Import validates strictly again
+  // (`parseItineraryPayloadStrict`); the next two pin the exact shapes that regression admitted.
+  it('an array of pure GARBAGE never validates as an empty trip → {ok:false} + data unchanged + quarantined', () => {
+    savePlans(REAL_PLANS);
+    const before = localStorage.getItem(ITINERARY_STORAGE_KEY);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const raw = JSON.stringify({
+      schemaVersion: 5,
+      updatedAt: 'x',
+      payload: [{ nope: true }, 1, null],
+    });
+    const result = importItinerary(raw);
+
+    expect(result.ok).toBe(false);
+    expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before);
+    expect(loadPlans()).toEqual(REAL_PLANS);
+    expect(localStorage.getItem(ITINERARY_QUARANTINE_KEY)).toBe(raw);
+  });
+
+  it('a PARTIALLY malformed backup (day 2 has a numeric date) is rejected whole, not silently truncated', () => {
+    savePlans(REAL_PLANS);
+    const before = localStorage.getItem(ITINERARY_STORAGE_KEY);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // The realistic mangled-file case. Accepting the good half would replace the live two-day
+    // trip with a one-day copy of itself and still report success — the silent-truncation hole.
+    const mangled = makeEnvelope(
+      CURRENT_ITINERARY_VERSION,
+      [REAL_PLANS[0], { ...REAL_PLANS[1], date: 12 }] as never,
+      'x',
+    );
+    const result = importItinerary(JSON.stringify(mangled));
+
+    expect(result.ok).toBe(false);
+    expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before);
+    expect(loadPlans()).toEqual(REAL_PLANS);
+  });
+
+  it('a payload that is not an array at all → {ok:false} + data unchanged', () => {
+    savePlans(REAL_PLANS);
+    const before = localStorage.getItem(ITINERARY_STORAGE_KEY);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Envelope shape is recognized, but the payload can no longer be read as days at all —
+    // the one remaining reject-and-quarantine trigger.
+    const badEnvelope = { schemaVersion: 5, updatedAt: 'x', payload: 'not-a-list' };
+    const result = importItinerary(JSON.stringify(badEnvelope));
+
+    expect(result.ok).toBe(false);
+    expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before);
+    expect(loadPlans()).toEqual(REAL_PLANS);
+  });
+
   it('an unrecognized shape (a bare JSON object, not array/envelope) → {ok:false} + data unchanged', () => {
     savePlans(REAL_PLANS);
     const before = localStorage.getItem(ITINERARY_STORAGE_KEY);

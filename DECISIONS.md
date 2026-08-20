@@ -4202,3 +4202,61 @@ Note what that means: `page-header.tsx:60` is a **brand-new instance of the patt
 **What V6-18 established about the tolerance.** `-u all` rewrote **36 of 36** files, not the 12 that were failing. Passing at `maxDiffPixelRatio: 0.02` means *differs by under 2%*, not *identical* — so the whole set had drifted and 24 of them were sitting under the threshold. This generalises D-336, which measured a total hero swap at **0.283%** because `.hero-scrim` holds the photograph at ~24% of the composite: three `home-hero-*` PNGs still contained the retired satellite map and the retired gold CTA, and no assertion could ever have reported it.
 
 **Therefore, binding on the next re-baseline:** use `--update-snapshots=all` (the bare flag defaults to `changed` and rewrites nothing when the compare already passes), **read `git status` rather than the exit code**, and **open the files** — after `-u all` there is no automated check left in the system at all. Confirm reproducibility with a no-flag run before committing; a baseline that cannot re-pass is one captured frame, not a baseline.
+
+### D-363 · LOCKED · (issue #123, 2026-08-19) · The itinerary item read contract has ONE definition — `itineraryItemSchema` — and both untrusted boundaries wrap it
+
+**Decision.** `core/itinerary/model.ts` adds `sanitizeItineraryItem`/`sanitizeItineraryItems`, the per-row sanitizer the itinerary was the last domain to lack (`sanitizePlace`, `sanitizeItem`, `sanitizeExpense` are the siblings). `docToDayPlan` calls it instead of casting `data.items as ItineraryItem[]`. The rule is **not restated** — the sanitizer wraps `itineraryItemSchema` (`core/vault/schema.ts`), which is already the declared lenient read contract, so the remote-snapshot boundary and the on-disk boundary cannot drift about what a row is.
+
+**Two failures, not one.** The issue described a single bug; tracing found two. **Throwing rows** (`null`, primitives) die on the unconditional `it.rev`/`rit.id` derefs in `defaultDayForMerge` and `mergeItems` — and the snapshot handler's `catch → console.warn` swallows it, so sync goes *silently dead* for that trip with no apply, no push and no error. **Non-throwing bad rows** (no `category`, an unrecognised `sourceType`) ride through to disk and fail the *next* load. That second one is the reported wipe, and it reaches every device the snapshot did.
+
+**Lenient, deliberately: dropping a good row is worse than the bug.** Nothing is coerced, nothing absent is defaulted, `.passthrough()` forward keys survive, and rows are **not** deduped by id — `mergeItems` resolves same-id rows, and deduping here would discard the loser of a merge that has not happened yet. A blank `id` is rejected on top of the schema, because it is the merge key every sync path buckets on.
+
+**The import cycle is by design and is safe.** `schema.ts` imports the sanitizer; the sanitizer imports the schema. `sanitizeItineraryItems` is a function *declaration*, so its binding initializes at module instantiation before either body evaluates — no TDZ on either entry order. Neither side dereferences the other at init: `schema.ts` only builds `z.object(...)` literals, `model.ts` only declares functions. Note no test imported `core/itinerary/model` first before this slice; every path reaches it through `lib/itinerary-remote.ts`, which pulls `schema.ts` in earlier.
+
+**The `docToDayPlan` freeze holds.** Dropping a row is not defaulting a field, which is what the freeze forbids. `itinerary-remote.test.ts` took additions only, zero deletions; the D-303 `country` leg-id pass-through and the `countryLabel` delete-guard are byte-identical.
+
+### D-364 · LOCKED · (issue #123, 2026-08-19) · The on-disk read path degrades per-row; the import/restore path stays strict — D-098 is unchanged
+
+**Decision.** `parseItineraryPayload` drops malformed days and items and returns `null` only for a non-array payload. `parseItineraryPayloadStrict` is the all-or-nothing parse, and `parseBackup` uses it. `load-save.ts` keeps the degrading one. Both carry a do-not-merge-these comment.
+
+**The tradeoff inverts between the two boundaries, which is the whole reason for two functions.** On disk the alternative to degrading is quarantine plus a fall back to the sample/empty shells: the user has no second copy, so 31 good days beat none, and that is the fix #123 asked for. On import the user holds *both* the file and their live trip — rejecting costs them nothing, because the file is still there and the error names the problem, while accepting overwrites live data with a silently truncated version and reports success.
+
+**This was caught as a live regression, not reasoned about in advance.** Making `parseItineraryPayload` degrade left `parseBackup` still treating "not `null`" as "validated", so an array of pure garbage validated as `[]` and the import called `savePlans([])`. Measured against a live one-day trip: `{schemaVersion:5, payload:[{nope:true},1,null]}` returned `{ok:true}` and `loadPlans()` came back `[]` — trip gone, success reported, nothing quarantined. A mangled backup with `date: 12` on day 2 silently deleted day 2 the same way. Under sync it is worse than local loss: `restorePlans` with `plans: []` walks every current day, `stampSyncDeleted`s every live item, re-adds nothing, and fresh-id-beats-tombstone means that deletion **wins on every synced device**.
+
+**Guarding `parseBackup` closes all of it** — `importItinerary`, both `backup.ts` restore branches, and `restorePlans` via its two callers, all of which are fed from that one parse. No separate guard in `use-itinerary.ts`.
+
+**Rejected: rejecting only on `plans.length === 0`.** It still lets the two-days-becomes-one case through silently, which is the harder half to notice.
+
+**The lesson worth keeping:** D-098's never-destroy guarantee was defeated without anyone touching D-098, by redefining what counts as a rejection. The restored test in `export-import.test.ts` is the only automated pin on it — it was rewritten away during the fix and has been put back verbatim, with the garbage-array and partial-truncation shapes added alongside.
+
+### D-365 · LOCKED · (issue #126, 2026-08-19) · The expenses and docs remote reads sanitize, and the docs one passes `[]` rather than taking the default fallback
+
+**Decision.** `chunkDocToRows` calls `sanitizeExpenses`; `docToRows` calls `sanitizeItems(data.items, [])`. Both sanitizers already existed and were already used on the local load path — they were simply never applied at the remote read boundary.
+
+**Why the explicit `[]` is load-bearing.** `sanitizeItems(value, fallback = DEFAULT_TEMPLATE)` returns the fallback when the array sanitizes to **zero** items, not only when it is not an array. Taking the default at a remote boundary would turn "a peer deliberately cleared the checklist" into 18 resurrected template rows, written straight back up by `pushChecklistMerged` — and on a custom trip those include `nepal-visa`/`japan-entry`, the exact leak `UNIVERSAL_TEMPLATE` (D-355) exists to prevent. An empty remote list means empty.
+
+**Checked and deliberately not changed:** `budget-remote.ts` returns a field map, not a row array, and `mergeBudget` guards `!a`/`!b` before touching `hlc`; `trips-remote.ts` casts, but `mergeTripLists` runs every row through `sanitizeTripMetaEntry` one layer in.
+
+**Known asymmetry, accepted for now.** `sanitizeItem`/`sanitizeExpense` rebuild field-by-field, so unknown forward keys on remote rows are stripped and the merged write puts the stripped result back — erasing a newer client's forward fields from the server. The itinerary boundary stays `.passthrough()` and does not do this. Nothing round-trips today because the local write path already sanitizes, but the two boundaries do not agree and the docs/expenses side is the stricter one.
+
+### D-366 · LOCKED · (issue #124, 2026-08-19) · The outbox serializes per `(domain, chunk)`, and an ack may only clear a chunk when no newer push for it is outstanding
+
+**Decision.** `pushChunkOnce` allows at most one push in flight per `(domain, chunk)`. A second push for a chunk already in flight hands the running loop the newer state and joins its promise instead of opening a second transaction; the loop acks only when the attempt that carried the newest state resolves, and otherwise loops and pushes the newer state. `pushChunks` routes every chunk through it, so all five domains and both the commit and flush paths are fixed at one choke point.
+
+**Rejected: routing the commit path through the existing per-domain `inFlight` flag**, which the issue proposed as the simplest incremental fix. That flag is per *domain*, so it would drop a commit to day Y merely because day X was mid-push, and it makes the second caller a silent no-op — the dirty flag survives, but the newer edit then reaches the remote only on the next `online`/`visible`/app-start trigger, which never fires in a tab that stays open and online. Fixing the data-loss half by stranding the write is not a fix.
+
+**Still state-based.** No op queue, no sequence numbers; the dirty set remains the only durable record. A superseded attempt is dropped, not queued, and the newest local state is re-pushed through the same merged write — the dirty set's set-no-op property expressed in time rather than in the slot.
+
+**The commit path deliberately stays outside the per-domain flush flag**, so the two cannot deadlock or starve each other: nothing in `pushChunkOnce` reads `inFlight`, and `flushOutbox` never waits on the run map.
+
+**Ceiling, marked in the code:** the run map is module-scope and therefore per-tab, exactly like the flush flag. Two tabs editing the same chunk inside one push window can still race an ack against the other's in-flight edit. The upgrade path is a lease in the slot or a `BroadcastChannel`, which buys a cross-tab protocol and a lease-expiry problem; the per-tab guard covers the real timeline, which is one tab and two edits a keystroke apart.
+
+### D-367 · LOCKED · (issue #115, 2026-08-19) · `csvField` neutralizes a leading formula trigger, and exempts values that are entirely a number literal
+
+**Decision.** A field whose first character is one of `= + - @ TAB CR LF` is prefixed with `'`, unless the whole value matches `/^[-+]?\d+(\.\d+)?([eE][-+]?\d+)?$/`. The check lives inside `csvField`, so every column is covered and no future caller can forget; `csvField` is the only CSV serializer in the repo.
+
+**TAB, CR and LF are triggers because spreadsheets strip leading whitespace before the formula test** — `\t=1+1` executes exactly like `=1+1`. The four documented starters alone would leave that open.
+
+**The numeric exemption exists so the Amount column still sums.** `String(e.amount)` puts `-42` in a cell; prefixing it turns a numeric cell into text, which is a real regression in an export whose point is arithmetic. The exemption is anchored at both ends with no `m` flag, so there is no room for a payload after the digits — `-42+cmd|X`, `-4.2.3`, `- 42` and `-42=1` are all still neutralized. It is a value-shape carve-out, not a per-caller one.
+
+**Order is load-bearing: neutralize, then quote.** The apostrophe must land inside the quotes — `=1,2` becomes `"'=1,2"`, never `'"=1,2"`, which is not valid RFC-4180 and leaves the formula intact. The test pins the literal bytes rather than asserting the apostrophe is merely present.

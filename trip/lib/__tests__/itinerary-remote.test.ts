@@ -75,6 +75,48 @@ describe('docToDayPlan', () => {
     expect(docToDayPlan('id1', { items: 'not-an-array' }).items).toEqual([]);
     expect(docToDayPlan('id1', { items: {} }).items).toEqual([]);
   });
+
+  // #123 — the poison remote item. A `null` (or otherwise unsalvageable) element used to be
+  // cast straight through, and `mergeItems` then threw on `it.id` while assembling the
+  // snapshot, so the whole day set never reached savePlans on ANY device.
+  it('drops unsalvageable items and keeps every good one in the same array', () => {
+    const good = { id: 'i1', title: 'Shibuya crossing', category: 'sightseeing' };
+    const alsoGood = { id: 'i2', title: 'Ramen', category: 'food' };
+    const day = docToDayPlan('2026-12-20', {
+      date: '2026-12-20',
+      country: 'japan',
+      city: 'Tokyo',
+      items: [
+        null, // the reported poison value
+        undefined,
+        'not-an-object',
+        42,
+        good,
+        { title: 'no id', category: 'food' },
+        { id: '   ', title: 'blank id', category: 'food' }, // blank id is not a usable merge key
+        { id: 'no-title', category: 'food' },
+        alsoGood,
+      ],
+    });
+    expect(day.items).toEqual([good, alsoGood]);
+  });
+
+  it('a poisoned day still merges — every downstream id read is safe', () => {
+    const day = docToDayPlan('2026-12-20', {
+      items: [null, { id: 'i1', title: 'Kept', category: 'food' }],
+    });
+    // The exact dereference that used to throw (core/sync/merge-items.ts keys on `it.id`).
+    expect(() => day.items.map((it) => it.id.length)).not.toThrow();
+  });
+
+  it('a surviving item keeps unknown forward keys and defaults nothing that was absent', () => {
+    const day = docToDayPlan('2026-12-20', {
+      items: [{ id: 'i1', title: 'X', category: 'food', futureField: { a: 1 } }],
+    });
+    expect(day.items[0]).toEqual({ id: 'i1', title: 'X', category: 'food', futureField: { a: 1 } });
+    // No rev/hlc/deleted invented here — that is defaultDayForMerge's job, not the mapper's.
+    expect(Object.keys(day.items[0])).toEqual(['id', 'title', 'category', 'futureField']);
+  });
 });
 
 describe('dayEquals', () => {
