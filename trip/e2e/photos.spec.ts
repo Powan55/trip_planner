@@ -139,6 +139,9 @@ test.describe('S160 photo capture — render, persist, and zero egress', () => {
     await expect(page.getByTestId(/^photo-img-/).first()).toBeVisible();
 
     await page.getByTestId(/^photo-delete-/).first().click();
+    // #116: the trash button opens a confirm now — the blob is gone for good and there is no undo.
+    await expect(page.getByTestId('photo-delete-confirm')).toBeVisible();
+    await page.getByTestId('photo-delete-action').click();
     await expect(page.getByTestId(/^photo-thumb-/)).toHaveCount(0);
     await expect(page.getByTestId('photo-empty')).toBeVisible();
 

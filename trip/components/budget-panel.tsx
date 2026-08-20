@@ -121,7 +121,7 @@ export default function BudgetPanel() {
   const { expenses, removeExpense, restoreExpense } = useExpenses();
   // the sync-on expense Undo re-adds a FRESH-ID copy, so any receipt photo pointed at the
   // old id must follow. `repointExpense` is a no-op when the id is unchanged (dormant restore).
-  const { repointExpense } = usePhotos();
+  const { repointExpense, photosFor, removePhoto } = usePhotos();
   const spent = useMemo(() => expensesToSpent(expenses), [expenses]);
   const roll = useMemo(() => rollUp(model, spent), [model, spent]);
   const home = model.homeCurrency;
@@ -141,6 +141,9 @@ export default function BudgetPanel() {
   // restore path. Keeping the removed object captured in the closure is what makes the restore
   // byte-identical rather than a fresh-id re-log.
   const handleDeleteExpense = (expense: Expense) => {
+    // Captured BEFORE the delete: the receipt has to outlive the undo window (Undo re-points it),
+    // so it is freed only once that window closes un-taken (#119).
+    const receipts = photosFor({ kind: 'expense', expenseId: expense.id });
     removeExpense(expense.id);
     showUndoToast(
       `Deleted ${formatMoney(expense.amount, legCurrency(expense.leg))} ${expense.category}`,
@@ -149,6 +152,12 @@ export default function BudgetPanel() {
         // any receipt meta to it so a synced Undo doesn't strand the photo. No-op if unchanged.
         const newId = restoreExpense(expense);
         repointExpense(expense.id, newId);
+      },
+      () => {
+        void (async () => {
+          // Sequential: each removePhoto commits over the store's current value.
+          for (const photo of receipts) await removePhoto(photo.id);
+        })();
       },
     );
   };

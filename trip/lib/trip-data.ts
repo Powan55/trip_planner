@@ -138,9 +138,10 @@ export const CATEGORY_COLORS: Record<ItineraryCategory, { bg: string; text: stri
   shopping: { bg: 'bg-pink-500/20', text: 'text-pink-300', border: 'border-pink-500/30' },
   nature: { bg: 'bg-green-500/20', text: 'text-green-300', border: 'border-green-500/30' },
   cultural: { bg: 'bg-amber-500/20', text: 'text-amber-300', border: 'border-amber-500/30' },
-  // cyan-500 is hsl(189) — the interaction signal's own hue. Moved to lime
-  // (83 deg): 106 deg off the signal, 45 deg off cultural/amber, 59 deg off nature/green.
-  transportation: { bg: 'bg-lime-500/20', text: 'text-lime-300', border: 'border-lime-500/30' },
+  // KNOWN CEILING: cyan-500 is hsl(189), the interaction signal's own hue. It was moved to lime
+  // once to clear that; the cards read as olive and the owner reverted it. Separate flight cards
+  // from focus by something other than hue.
+  transportation: { bg: 'bg-cyan-500/20', text: 'text-cyan-300', border: 'border-cyan-500/30' },
   hotel: { bg: 'bg-indigo-500/20', text: 'text-indigo-300', border: 'border-indigo-500/30' },
   free: { bg: 'bg-gray-500/20', text: 'text-gray-300', border: 'border-gray-500/30' },
   nightlife: { bg: 'bg-fuchsia-500/20', text: 'text-fuchsia-300', border: 'border-fuchsia-500/30' },

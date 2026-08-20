@@ -44,6 +44,7 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import { useExpenses } from '@/hooks/use-expenses';
 import { useDocs } from '@/hooks/use-docs';
 import { useJournal } from '@/hooks/use-journal';
+import { usePhotos } from '@/hooks/use-photos';
 import { expensesToCsv } from '@/lib/expense-csv';
 import { exportExpenses, parseExpenseBackup } from '@/lib/expense-export';
 import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
@@ -1247,10 +1248,11 @@ function CurrencyGroup() {
   };
 
   const setRate = (currency: 'NPR' | 'JPY', value: string) => {
-    // Keep the raw typed number; the pure math seed-defaults a 0/blank at read time, so a mid-edit
-    // blank never breaks the totals. '' parses to 0, which `ratePerUsd` treats as "fall back to seed".
+    // 0 is the "blank / mid-edit / use the seed" sentinel that `ratePerUsd` already falls back on,
+    // so anything that isn't a positive number collapses to it here. A negative rate used to
+    // persist and redisplay while every conversion silently used the seed instead (#120).
     const n = value === '' ? 0 : Number(value);
-    const rate = Number.isFinite(n) ? n : 0;
+    const rate = Number.isFinite(n) && n > 0 ? n : 0;
     commit((cur) => ({ ...cur, rates: { ...cur.rates, [currency]: rate } }));
   };
 
@@ -1376,6 +1378,17 @@ function DataGroup() {
   const { expenses, clearAll: clearExpenses, restoreExpenses } = useExpenses();
   const { reset: resetBudget } = useBudget();
   const { clearAll: clearJournal } = useJournal();
+  const { photos, removePhoto } = usePhotos();
+
+  // "Day photos" render inside the journal entry, so clearing the journal has to free them too —
+  // otherwise the blobs stay on the device with nothing left in the UI pointing at them (#119).
+  const handleClearJournal = () => {
+    const dayPhotos = photos.filter((p) => p.owner.kind === 'journal');
+    clearJournal();
+    void (async () => {
+      for (const photo of dayPhotos) await removePhoto(photo.id);
+    })();
+  };
 
   // — CSV export of the logged expenses (read-only over `useExpenses`; no store change).
   // Mirrors BackupRestore's Blob/URL.createObjectURL download idiom exactly.
@@ -1462,7 +1475,7 @@ function DataGroup() {
             title="Clear the journal?"
             body="This removes every journal entry. The journal is private to this device and is never shared, so this only affects this browser. This cannot be undone."
             confirmLabel="Clear journal"
-            onConfirm={clearJournal}
+            onConfirm={handleClearJournal}
           />
         </ul>
       </div>

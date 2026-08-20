@@ -21,6 +21,24 @@ describe('travel-tick rate selection', () => {
     vi.useRealTimers();
   });
 
+  it('#118: a hidden tab runs no interval, and coming back fires a catch-up tick', () => {
+    const spy = vi.fn();
+    subscribeTravelTick(spy);
+    expect(currentTravelTickMs()).toBe(20_000);
+
+    const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(currentTravelTickMs()).toBeNull();
+    vi.advanceTimersByTime(120_000);
+    expect(spy).not.toHaveBeenCalled();
+
+    hidden.mockReturnValue(false);
+    document.dispatchEvent(new Event('visibilitychange'));
+    expect(spy).toHaveBeenCalledTimes(1); // catch-up, before the next scheduled tick
+    expect(currentTravelTickMs()).toBe(20_000);
+    hidden.mockRestore();
+  });
+
   it('runs no interval until something subscribes', () => {
     expect(currentTravelTickMs()).toBeNull();
   });

@@ -11,6 +11,7 @@ import { createPortal } from 'react-dom';
 import { m, AnimatePresence } from 'framer-motion';
 
 import { overlayPanelMotion } from '@/lib/motion';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 
 /**
  * Shared dark Sheet primitive.
@@ -115,14 +116,9 @@ export default function Sheet({
     return () => document.removeEventListener('keydown', onKey);
   }, [open, disableEscape]);
 
-  // body[data-dialog-open] seam flag while open (Lane-M FAB hides on it).
-  useEffect(() => {
-    if (!open) return;
-    document.body.dataset.dialogOpen = '1';
-    return () => {
-      delete document.body.dataset.dialogOpen;
-    };
-  }, [open]);
+  // body[data-dialog-open] seam flag while open (Lane-M FAB hides on it). Ref-counted, so a
+  // dialog opened on top of this sheet cannot clear it on its way out.
+  useDialogOpenFlag(open);
 
   // Tab focus-trap inside the panel.
   const handleKeyDown = (e: React.KeyboardEvent) => {
