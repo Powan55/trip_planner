@@ -603,10 +603,10 @@ test.describe('TM-11 · fully offline incl. reload', () => {
 // Device-real screenshots of the designed TM hero states, one baseline per device project (the
 // `-projectName` snapshot suffix distinguishes 393×852 from 430×932). Determinism follows
 // visual.spec.ts: a frozen `?today=` clock (no ticking), reduced motion (no mid-flight springs),
-// `animations:'disabled'`, and a tolerant `maxDiffPixelRatio`. We shoot the `travel-hero` element
+// `animations:'disabled'`, and no diff budget — every pixel must match (#135). We shoot the `travel-hero` element
 // only — it is fully deterministic under the frozen clock + seeded vault and contains NO network
 // tile (weather/currency live in the separate essentials card below), so no masking is needed.
-const TM_SHOT = { animations: 'disabled', maxDiffPixelRatio: 0.02, scale: 'css' } as const;
+const TM_SHOT = { animations: 'disabled', scale: 'css' } as const;
 
 test.describe('TM visual · per-state hero baselines (device-real)', () => {
   /** Frozen-clock + reduced-motion nav that settles past the D-073 first-load SW reload and fonts. */
