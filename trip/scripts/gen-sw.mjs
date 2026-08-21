@@ -886,7 +886,7 @@ self.addEventListener('install', (event) => {
           }
           if (!isExpectedPrecacheBody(url, res)) {
             throw new Error(
-              'precache body rejected: ' + url + ' -> ' + (res.headers.get('Content-Type') || 'no content type')
+              'precache body rejected: ' + url + ' -> ' + (contentTypeOf(res) || 'no content type')
             );
           }
           await cache.put(url, res.clone());
@@ -940,11 +940,17 @@ function isImageRequest(request, url) {
   return /\\.(?:png|jpe?g|gif|webp|avif|svg|ico)$/i.test(url.pathname);
 }
 
+// Degrades to '' instead of throwing on a response with no usable \`headers\`: this is read
+// inside the ATOMIC install, where any exception rejects the install and drops offline.
+function contentTypeOf(res) {
+  return (res.headers?.get?.('Content-Type') || '').toLowerCase();
+}
+
 // A 200 is not proof the body is the image: a captive portal answers every request with
 // its login page (#136). An ABSENT content type is trusted rather than rejected — some
 // hosts omit it, and an opaque response exposes no headers at all.
 function isImageResponse(res) {
-  const type = (res.headers.get('Content-Type') || '').toLowerCase();
+  const type = contentTypeOf(res);
   return type === '' || type.startsWith('image/');
 }
 
@@ -963,7 +969,7 @@ function isImageResponse(res) {
 function isExpectedPrecacheBody(url, res) {
   if (res.redirected) return false;
   if (url.endsWith('/') || url.endsWith('.html')) return true;
-  return !(res.headers.get('Content-Type') || '').toLowerCase().startsWith('text/html');
+  return !contentTypeOf(res).startsWith('text/html');
 }
 
 // LRU-ish cap on the runtime image cache: evict oldest (insertion order) on
