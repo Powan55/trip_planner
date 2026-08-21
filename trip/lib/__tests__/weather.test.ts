@@ -15,6 +15,20 @@ import {
   type ForecastDay,
 } from '@/lib/weather';
 import { weatherCache, STORAGE_KEYS } from '@/core/storage/gateway';
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { act } from 'react-dom/test-utils';
+
+(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+// The card's only clock read: the destination-local day its forecast rows are labelled against.
+// `lib/weather.ts` itself never imports this module, so the mock is scoped to the card.
+const tripNow = vi.hoisted(() => ({ date: '2026-12-12' }));
+vi.mock('@/lib/trip-now', () => ({
+  getNowAtTrip: () => ({ date: tripNow.date, minutes: 720 }),
+}));
+
+import WeatherCard from '@/components/weather-card';
 
 /**
  * S99 — weather + golden-hour client. DETERMINISTIC: `fetch` is mocked (vitest), the pure
@@ -113,6 +127,17 @@ describe('formatWeatherAsOf (pure, S276/P6 — stale weather age label)', () => 
 
   it('degrades to an empty string for an unparsable timestamp (never throws)', () => {
     expect(formatWeatherAsOf('not-a-date')).toBe('');
+  });
+
+  it('pins en-US instead of following the device language', () => {
+    // Asserted on the ARGUMENT, because the test runner's own locale is already en-US: with
+    // `undefined` this label rendered "8/21 10:05" on a phone set to Japanese, next to the card's
+    // English copy and its hand-rolled "6:42 AM" golden-hour times. Every other date in the app
+    // (`core/dates/trip-dates.ts`, `day-strip.tsx`) passes the locale explicitly.
+    const spy = vi.spyOn(Date.prototype, 'toLocaleString');
+    formatWeatherAsOf('2026-07-20T14:05:00.000Z');
+    expect(spy).toHaveBeenCalledWith('en-US', expect.objectContaining({ month: 'short' }));
+    spy.mockRestore();
   });
 });
 
@@ -493,5 +518,55 @@ describe('getCachedForecastForDate (gateway read-only, S216)', () => {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.weatherCache) as string);
     expect(Object.keys(raw)).toEqual(['Kathmandu:forecast']);
     expect(getCachedForecastForDate('Kathmandu', '2026-12-12')!.condition).toBe('Partly cloudy');
+  });
+});
+
+// ── The 7-day outlook labels rows from their DATE, never their position ───────────────────────
+// `weatherCache` has no TTL and offline is a designed-for state here, so `readCache` can hand the
+// card a window that is arbitrarily old. Labelling rows 0 and 1 "Today"/"Tomorrow" by index while
+// rows 2-6 read their real weekday off `day.date` produced a list that contradicted itself:
+// "Today / Tomorrow / Sat / Sun" where Saturday is three days BEFORE "Today".
+describe('WeatherCard forecast rows — a stale cached window does not claim to be today', () => {
+  const forecast = parseForecast(KATHMANDU_WEEK_FIXTURE)!; // 2026-12-12 … 2026-12-18
+  const data: WeatherNow = {
+    ...parseOpenMeteo(KATHMANDU_FIXTURE, 'Kathmandu', '2026-12-12T09:00:00.000Z')!,
+    stale: true,
+    forecast,
+  };
+
+  function rowLabels(): string[] {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() =>
+      root.render(createElement(WeatherCard, { result: { status: 'ok', data }, loading: false })),
+    );
+    const labels = Array.from(container.querySelectorAll('[data-testid="weather-forecast-day"]')).map(
+      (li) => li.querySelector('span')?.textContent ?? '',
+    );
+    act(() => root.unmount());
+    container.remove();
+    return labels;
+  }
+
+  it('three days stale: row 0 is its own weekday and "Today" sits on the row that IS today', () => {
+    tripNow.date = '2026-12-15'; // the cached window starts three days ago
+    const labels = rowLabels();
+    expect(labels[0]).toBe('Sat'); // 2026-12-12, not "Today"
+    expect(labels[1]).toBe('Sun'); // 2026-12-13, not "Tomorrow"
+    expect(labels[3]).toBe('Today'); // 2026-12-15
+    expect(labels[4]).toBe('Tomorrow'); // 2026-12-16
+    expect(labels.filter((l) => l === 'Today')).toHaveLength(1);
+  });
+
+  it('a fresh window still reads Today / Tomorrow on its first two rows', () => {
+    tripNow.date = '2026-12-12';
+    expect(rowLabels().slice(0, 3)).toEqual(['Today', 'Tomorrow', 'Mon']);
+  });
+
+  it('a window entirely in the past has NO "Today" row at all', () => {
+    tripNow.date = '2027-01-05';
+    expect(rowLabels()).not.toContain('Today');
+    expect(rowLabels()).not.toContain('Tomorrow');
   });
 });

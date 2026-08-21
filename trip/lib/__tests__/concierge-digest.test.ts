@@ -23,13 +23,14 @@ vi.mock('@/lib/concierge-config', () => ({
 
 import { useConciergeChat } from '@/hooks/use-concierge-chat';
 
-function sseStream(chunks: string[]): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  return new ReadableStream({
-    start(controller) {
-      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
-      controller.close();
-    },
+// The stub used to answer with an SSE body — a leftover from before D-234 made the turn ONE
+// `{reply, ops}` JSON object. It only survived because a 200-that-isn't-the-envelope used to
+// degrade to an empty reply and an 'idle' status; that is now an error turn, and an error turn does
+// not append to `historyRef` — which is the exact thing the two history tests below measure.
+function jsonEnvelope(reply: string): Response {
+  return new Response(JSON.stringify({ reply, ops: [] }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
   });
 }
 
@@ -68,10 +69,7 @@ describe('trip-context digest (S244)', () => {
 
   it('sends a capped plain-text context digest alongside the message', async () => {
     const fetchImpl = vi.fn(async () =>
-      new Response(sseStream(['data: {"choices":[{"delta":{"content":"ok"}}]}\n\n']), {
-        status: 200,
-        headers: { 'content-type': 'text/event-stream' },
-      }),
+      jsonEnvelope('ok'),
     ) as unknown as typeof fetch;
 
     const h = renderConciergeChat(fetchImpl);
@@ -98,10 +96,7 @@ describe('trip-context digest (S244)', () => {
 
   it('caps outgoing history at the last 12 turns', async () => {
     const fetchImpl = vi.fn(async () =>
-      new Response(sseStream(['data: {"choices":[{"delta":{"content":"ok"}}]}\n\n']), {
-        status: 200,
-        headers: { 'content-type': 'text/event-stream' },
-      }),
+      jsonEnvelope('ok'),
     ) as unknown as typeof fetch;
 
     const h = renderConciergeChat(fetchImpl);
@@ -115,7 +110,9 @@ describe('trip-context digest (S244)', () => {
       RequestInit,
     ];
     const body = JSON.parse(call[1].body as string) as { history: unknown[] };
-    expect(body.history.length).toBeLessThanOrEqual(12);
+    // Exactly 12, not "≤ 12": with the old SSE stub every turn failed, so `historyRef` never grew
+    // and this assertion was satisfied by a history of length 0.
+    expect(body.history.length).toBe(12);
 
     h.unmount();
   });
@@ -125,10 +122,7 @@ describe('trip-context digest (S244)', () => {
     // exactly the combination that would have started 413ing at the Worker's MAX_BODY_BYTES once
     // DIGEST_CAP went 7000 → 9000. This asserts on the REAL wire body, not on `capHistory` alone.
     const fetchImpl = vi.fn(async () =>
-      new Response(sseStream(['data: {"choices":[{"delta":{"content":"ok"}}]}\n\n']), {
-        status: 200,
-        headers: { 'content-type': 'text/event-stream' },
-      }),
+      jsonEnvelope('ok'),
     ) as unknown as typeof fetch;
 
     const h = renderConciergeChat(fetchImpl);
@@ -140,13 +134,13 @@ describe('trip-context digest (S244)', () => {
       RequestInit,
     ];
     const raw = call[1].body as string;
-    const body = JSON.parse(raw) as { history: { content: string }[] };
+    const body = JSON.parse(raw) as { history: { role: string; content: string }[] };
 
     expect(JSON.stringify(body.history).length).toBeLessThanOrEqual(3000); // HISTORY_CHAR_CAP
     expect(body.history.length).toBeLessThan(12); // the char bound bit before the turn cap did
-    // Oldest-dropped-first: the 13th send's user turn survives, the 1st send's does not. (The
-    // assistant turns are empty here — this stub returns an SSE body the JSON parser rejects.)
-    const userTurns = body.history.filter((t) => t.content !== '').map((t) => t.content);
+    // Oldest-dropped-first: the 13th send's user turn survives, the 1st send's does not. Selected
+    // by `role` — the stub answers a real envelope now, so the assistant turns carry text too.
+    const userTurns = body.history.filter((t) => t.role === 'user').map((t) => t.content);
     expect(userTurns.at(-1)).toContain('12 pasted itinerary blob');
     expect(userTurns.some((c) => c.startsWith('0 '))).toBe(false);
     // The end of the line: the whole serialized POST body clears the Worker's 413 ceiling.
@@ -180,10 +174,7 @@ describe('#12: the digest carries the real current date and time, and 12-hour ti
 
   const okStream = () =>
     vi.fn(async () =>
-      new Response(sseStream(['data: {"choices":[{"delta":{"content":"ok"}}]}\n\n']), {
-        status: 200,
-        headers: { 'content-type': 'text/event-stream' },
-      }),
+      jsonEnvelope('ok'),
     ) as unknown as typeof fetch;
 
   /** The `context` string as the Worker would receive it, from one real `send()`. */

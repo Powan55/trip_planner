@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import Sheet from '@/components/ui/sheet-dark';
 import { SectionHeading } from '@/components/section-heading';
@@ -274,10 +274,18 @@ export default function RecommendationSection({
   // Live counts per category and per city, computed over the OTHER active filters +
   // search so the numbers reflect what a chip would actually yield.
   const q = query.trim().toLowerCase();
-  const matchesSearch = (i: Recommendation) =>
-    !q ||
-    i.name.toLowerCase().includes(q) ||
-    i.description.toLowerCase().includes(q);
+  // `useCallback` rather than a plain closure so it can be a real dependency of the three memos
+  // below. All three used to silence exhaustive-deps to hide THIS closure — and the blanket
+  // disable also hid a live one: `filtered` reads `findPlacements`, whose identity changes on
+  // every itinerary commit, so with the "Planned" chip on the card list went stale while the
+  // unmemoized chip count beside it updated, and the screen contradicted itself.
+  const matchesSearch = useCallback(
+    (i: Recommendation) =>
+      !q ||
+      i.name.toLowerCase().includes(q) ||
+      i.description.toLowerCase().includes(q),
+    [q],
+  );
 
   const categoryCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -290,8 +298,7 @@ export default function RecommendationSection({
       ).length;
     });
     return counts;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, categories, activeCity, q]);
+  }, [items, categories, activeCity, matchesSearch]);
 
   const cityCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -304,8 +311,7 @@ export default function RecommendationSection({
       ).length;
     });
     return counts;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, cities, activeCategory, q]);
+  }, [items, cities, activeCategory, matchesSearch]);
 
   const filtered = useMemo(() => {
     const out = items.filter(
@@ -320,8 +326,7 @@ export default function RecommendationSection({
       sort === 'name' ? a.name.localeCompare(b.name) : b.photoRating - a.photoRating || a.name.localeCompare(b.name),
     );
     return out;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [items, activeCategory, activeCity, q, sort, savedOnly, favorites, plannedOnly]);
+  }, [items, activeCategory, activeCity, sort, savedOnly, favorites, plannedOnly, findPlacements, matchesSearch]);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState<Recommendation | null>(null);

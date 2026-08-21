@@ -63,8 +63,10 @@ export default function BackupRestore() {
   // Whether this build is syncing for a signed-in traveler. Under sync the itinerary is
   // restored via `restorePlans` (tombstone-replace MERGE — propagates + survives the next snapshot);
   // dormant/guest it is the plain local `savePlans` overwrite. Computed post-mount (getActiveTraveler
-  // reads localStorage → client-only) to avoid a hydration mismatch. Drives ONLY which itinerary
-  // commit path importTripBackup uses — every other domain is local-only regardless.
+  // reads localStorage → client-only) to avoid a hydration mismatch. Drives ONLY which ITINERARY
+  // commit path importTripBackup uses. Expenses/budget/docs/my-places are synced too (they are NOT
+  // local-only, whatever this comment used to claim); importTripBackup enqueues those itself through
+  // each domain's own outbox-decorated push, which self-gates on the same two conditions.
   const [synced, setSynced] = useState(false);
   useEffect(() => {
     setSynced(isRemoteConfigured() && !!getActiveTraveler());

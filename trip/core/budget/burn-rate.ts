@@ -163,6 +163,15 @@ export function burnRate(budgetHome: unknown, spentHome: unknown, now: Date): Bu
  * Per-day spend buckets: sum each DATED expense's leg-local amount by its `'YYYY-MM-DD'` date.
  * PURE + TOTAL.
  *
+ * KNOWN CEILING: the bucket keys on the date and DROPS `e.leg`, and every consumer formats it with
+ * the DAY's `legCurrency`. That holds for the itinerary but not for expenses — the log dialog lets
+ * the leg be switched while `date` stays pinned to the day it opened on, so a cross-leg row is
+ * printed with the other leg's symbol, and two legs on one date are added into one meaningless
+ * number. `core/recap/model.ts`'s `sumExpensesForDate` takes a `leg` argument for exactly this;
+ * the same fix here means keying on the (date, leg) pair, which changes the shape every consumer
+ * reads (`components/calendar-planner.tsx` + `calendar-day-picker.tsx`) — a wider diff than the
+ * recap seam, not a harder one.
+ *
  * Amounts are already leg-local and a single calendar day is one leg, so a day's bucket is a
  * plain sum in that day's currency — no conversion (the calendar overlay formats it with the day's
  * `legCurrency`). Undated expenses are EXCLUDED (they have no day to attribute to) — they still count

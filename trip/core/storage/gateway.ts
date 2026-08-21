@@ -608,7 +608,15 @@ export const TRIP_SCOPED_SLOTS: readonly TripScopedSlot[] = ALL_TRIP_SCOPED_SLOT
  * is untouched. TOTAL, never-throws.
  */
 export function keyFor(slot: TripScopedSlot): string {
-  const id = getActiveTripId();
+  return keyForTrip(getActiveTripId(), slot);
+}
+
+/**
+ * `keyFor` for an EXPLICIT trip id rather than the active one — same grandfather rule. Needed by
+ * the paths that touch a trip they are not standing in (forgetting a trip reads its photo index
+ * before wiping it). TOTAL, never-throws.
+ */
+export function keyForTrip(id: string, slot: TripScopedSlot): string {
   return id === DEFAULT_TRIP_ID ? STORAGE_KEYS[slot] : `trip:${id}:${slot}`;
 }
 
@@ -789,18 +797,33 @@ export function hasKey(store: Store, key: string): boolean {
 }
 
 /**
- * Read + `JSON.parse` a slot, returning `fallback` on absent / SSR / parse error.
- * Used by the checklist accessor (the only JSON-shaped non-itinerary slot). NOT used for
- * the nightlife pref — that is `String(boolean)`, not JSON (see `uiPrefs`).
+ * Read + `JSON.parse` a slot, returning `fallback` on absent / SSR / parse error / a parsed value
+ * that cannot be the caller's shape. Used by the checklist accessor (the only JSON-shaped
+ * non-itinerary slot). NOT used for the nightlife pref — that is `String(boolean)`, not JSON
+ * (see `uiPrefs`).
+ *
+ * The shape gate is what keeps the never-throw contract at the top of this file true. A slot
+ * holding a JSON SCALAR (`null`, `5`, `"x"` — devtools, another script on the origin, a corrupt
+ * profile) parses fine, so it used to be handed back typed as the caller's `T`; the accessors that
+ * dereference it directly rather than passing it to a domain sanitizer (`weatherCache`,
+ * `outbox.loadSlot`) then threw a TypeError OUT of the gateway, and `weatherCache`'s escapes into
+ * Home's render. Gated on an object-shaped fallback so the `ABSENT` sentinel callers (a symbol —
+ * `core/vault/backup.ts`'s export, which must tell an absent slot from a stored one) still get the
+ * raw parsed value.
  */
 export function readJson<T>(store: Store, key: string, fallback: T): T {
   const raw = readString(store, key);
   if (raw === null) return fallback;
+  let parsed: unknown;
   try {
-    return JSON.parse(raw) as T;
+    parsed = JSON.parse(raw);
   } catch {
     return fallback;
   }
+  if (typeof fallback === 'object' && fallback !== null && (parsed === null || typeof parsed !== 'object')) {
+    return fallback;
+  }
+  return parsed as T;
 }
 
 /** `JSON.stringify` + write a slot. No-op / never-throw exactly like `writeString`. */

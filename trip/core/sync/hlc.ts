@@ -69,6 +69,11 @@ export const CT_MAX = 10 ** CT_WIDTH - 1;
  * 24h covers real drift / a clock mis-set by hours / plausible offline-ahead edits;
  * year-3000 (~300000x over) is clamped. Calibration knob, not a fixed truth.
  * single tunable; only re-evaluate if a real device is seen legitimately >24h ahead.
+ *
+ * NO PRODUCTION CALLER, deliberately: its only consumer is `hlcReceive` below, which is also
+ * unwired. D-228 recorded that state and kept both as defence-in-depth for a future wiring of the
+ * running-clock primitive; D-309 re-affirmed it and named the residual it leaves. Read this as a
+ * primitive nobody runs, not as a check the merge performs.
  */
 export const MAX_SKEW_MS = 24 * 60 * 60 * 1000;
 
@@ -131,8 +136,16 @@ export function compareHlc(a: Hlc, b: Hlc): number {
  * under a slow clock); `ct` increments when `pt` did not advance (rapid/offline edits),
  * else resets to 0. The result is ALWAYS strictly greater than `last`.
  *
+ * `last` is NOT clamped to `physicalNow + MAX_SKEW_MS`, and must not be. In this state-based
+ * design `last` is the ROW's own stored stamp, so lowering it would mint a stamp that sorts BELOW
+ * the row being edited — `compareHlc` would then keep the stored row and the user's edit would be
+ * reverted by the next snapshot. That is data loss, not a defence, and it is why D-228 ruled the
+ * local mint unchanged. The invariant is pinned by the R5 monotonicity case in
+ * `lib/__tests__/core-sync-hlc.test.ts`, which drives `last.pt` a thousand years ahead.
+ *
  * @param last our previous stamp for this item, or null on first create.
- * @param physicalNow injected ms-since-epoch (ClockPort.now().getTime()).
+ * @param physicalNow injected ms-since-epoch (ClockPort.now().getTime()) — the REAL clock on every
+ * sync path (`realClock` in `lib/trip-now.ts`), never the `?today=` display override.
  * @param actor this device's uid — stamped onto the new HLC.
  */
 export function hlcSendOrLocal(last: Hlc | null, physicalNow: number, actor: string): Hlc {
@@ -143,7 +156,17 @@ export function hlcSendOrLocal(last: Hlc | null, physicalNow: number, actor: str
 }
 
 /**
- * (b) RECEIVE / MERGE: we observe a remote item's HLC. Absorb it (Lamport
+ * (b) RECEIVE / MERGE — NO PRODUCTION CALLER. Nothing outside this file and its test imports it.
+ *
+ * The state-based design never grew a receive step: absorption happens implicitly, because
+ * `nextSyncStamp(prev, …)` passes the merged winner's own `hlc` as `last`. So the clamp below runs
+ * nowhere, and the "far-future peer is capped" sentence describes this function, not the shipped
+ * merge path. D-228 kept it knowingly (defence-in-depth for a future device-wide running clock);
+ * D-309 named the residual that leaves — a concurrent offline edit from a correct-clock device can
+ * lose to one whose clock is hours wrong. It is NOT a hole a caller can plug by moving the clamp
+ * into `hlcSendOrLocal`; see that function's note.
+ *
+ * We observe a remote item's HLC. Absorb it (Lamport
  * "receive" rule) so our NEXT local stamp is causally after anything we've seen — including
  * a peer whose clock is far in the future. This is the skew-absorption guarantee: if
  * `remote.pt` is ahead of our real clock, `pt` ratchets up to it and `ct` advances, so a

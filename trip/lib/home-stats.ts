@@ -14,12 +14,15 @@
 // default pack's `TRIP_CITIES` map directly — that map is authored for the default trip
 // only, and a custom trip would have been given the wrong cities silently.
 //
-// PURE and clock-free on purpose. The live half of the stat row is the countdown, and
-// that has one implementation (`computeCountdown`, D-313) which this module does not
-// touch, wrap or re-derive. Keeping the shape pure is also what makes it testable with no
-// DOM and no clock, and what lets the row render its static cells before mount.
+// PURE on purpose, and `tripShape` is clock-free. The live half of the stat row is the
+// countdown, and that has one implementation (`computeCountdown`, D-313) which this module
+// does not touch, wrap or re-derive. Keeping the shape pure is also what makes it testable
+// with no DOM and no clock, and what lets the row render its static cells before mount.
+// `daysToGo` below takes its clock as an ARGUMENT for the same reason `computeCountdown`
+// does — nothing here reads a clock of its own.
 
-import { TRIP_DATES, getCityForDate, getCountryForDate } from '@/core/dates';
+import { differenceInCalendarDays } from 'date-fns';
+import { TRIP_DATES, TRIP_START, getCityForDate, getCountryForDate } from '@/core/dates';
 
 export interface TripShape {
   /** Inclusive day count of the active trip. */
@@ -45,4 +48,27 @@ export function tripShape(): TripShape {
     countries.add(getCountryForDate(date));
   }
   return { days: TRIP_DATES.length, cities: cities.size, countries: countries.size };
+}
+
+/**
+ * Calendar days from `now` until the trip's first day — "how many sleeps".
+ *
+ * THE ONE DERIVATION OF THIS NUMBER. Home renders it twice in a single frame (the hero
+ * ring's "days to go" digit and its ring fraction, and the stat row's live cell) and
+ * `/travel` renders it a third time as `daysUntilStart`. Each used to work it out for
+ * itself, so the hero's ring and the stat row printed numbers one apart at every instant
+ * except exactly local midnight: 2026-12-08T09:00 read 0 in the ring and 1 in the row.
+ *
+ * It is `differenceInCalendarDays`, NOT `computeCountdown(TRIP_START, now).totalDays`.
+ * `totalDays` is a truncated 24-hour count that borrows the partly-spent day into the
+ * hour/minute/second residue, so it reads 0 for the whole day before departure. It is
+ * correct for what it claims and D-313 (LOCKED) governs it; it is simply not this
+ * question. `computeCountdown` is untouched — the hero's month/week/day grid still reads
+ * it, and the grid still disagrees with the ring exactly as D-313 accepted.
+ *
+ * Negative once the trip has started, which is why every caller guards the pre-trip case
+ * before rendering it.
+ */
+export function daysToGo(now: Date): number {
+  return differenceInCalendarDays(TRIP_START, now);
 }

@@ -17,6 +17,7 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import { useMyPlaces } from '@/hooks/use-my-places';
 import { inferLegId, isGooglePlaceUrl } from '@/core/places/model';
 import { resolvePlaceLink } from '@/lib/place-resolve';
+import { isSafeHref } from '@/lib/safe-href';
 
 /**
  * ImportPlaceSheet — the ALWAYS-SHOWN confirm step for importing a Google place as a
@@ -100,19 +101,29 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
     setSelectedDate(TRIP_DATES[0]);
     setCategory('sightseeing');
     lastResolvedRef.current = null;
+    resolveGenRef.current += 1; // a reopen invalidates anything still in flight
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialUrl]);
 
   // Single-flight guard so a URL that already resolved is never resolved twice. Cleared on
   // failure so a failed lookup stays retryable.
   const lastResolvedRef = useRef<string | null>(null);
+  // Per-REQUEST generation, which `lastResolvedRef` is not — it only blocks a repeat of the SAME
+  // url. Two resolves for two different links both run (Enter in the field is not gated on
+  // `status === 'resolving'` the way the Look up button is, and the sheet stays mounted across
+  // open/close so an inbox Cancel→other-row lands here too), and without this they applied in
+  // COMPLETION order: link B's url could end up beside link A's name/pin, and a late failure wiped
+  // a newer success back to 'notfound'.
+  const resolveGenRef = useRef(0);
 
   const runResolve = async (candidate: string) => {
     const u = candidate.trim();
     if (!isGooglePlaceUrl(u) || lastResolvedRef.current === u) return;
     lastResolvedRef.current = u;
+    const gen = ++resolveGenRef.current;
     setStatus('resolving');
     const hints = await resolvePlaceLink(u);
+    if (resolveGenRef.current !== gen) return; // superseded — write nothing
     if (!hints) {
       // `resolvePlaceLink` degrades to null on ANY failure, so keeping the guard set here
       // permanently dead-ends "Look up" for that URL — release it so a retry can run (#127).
@@ -161,11 +172,16 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
     const trimmedName = name.trim();
     if (!trimmedName) return; // guard (button also disabled)
     const id = newPlaceId();
+    const trimmedUrl = url.trim();
     addPlace({
       id,
       name: trimmedName,
       legId,
-      sourceUrl: url.trim() || undefined,
+      // Whatever was typed here becomes a live `<a href>` on the place card, on THIS device and —
+      // places sync — on the other member's. `isGooglePlaceUrl` gates "Look up" only, and Save was
+      // never gated on it at all (manual entry is the point), so this is the check that stops a
+      // `javascript:` url being stored. Non-Google https links still save, as before.
+      sourceUrl: isSafeHref(trimmedUrl) ? trimmedUrl : undefined,
       resolvedUrl,
       lat: coords.lat,
       lng: coords.lng,
@@ -286,7 +302,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                     disabled={!isGooglePlaceUrl(url.trim()) || status === 'resolving'}
                     className="shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-ink-hi hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    {status === 'resolving' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                    {status === 'resolving' ? <Loader2 className="w-3.5 h-3.5 motion-safe:animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                     Look up
                   </button>
                 </div>

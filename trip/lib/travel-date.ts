@@ -16,8 +16,8 @@
 // - `?date=` absent + pre-trip (`now` < trip start) → Day 1 default + `daysUntilStart`.
 // - `?date=` absent + off-trip and NOT pre-trip (post-trip) → `date: null`, not an error; the
 // caller falls back to the existing off-trip UI.
-import { differenceInCalendarDays } from 'date-fns';
 import { TRIP_DATES, TRIP_START } from '@/core/dates';
+import { daysToGo } from '@/lib/home-stats';
 
 export interface TravelDateResolution {
   /** The day to render, or `null` when there is nothing to force (out-of-range, or off-trip
@@ -72,13 +72,14 @@ export function resolveTravelDate(opts: {
       isPreTripDefault: true,
       // A-23: `computeCountdown(TRIP_START, now).totalDays` truncates and read 0 for the
       // entire day before departure (a partly-spent day borrows into the hour/minute/second
-      // residue — D-313). `differenceInCalendarDays` gives the correct calendar-day count (1,
-      // not 0) for that day. No special-casing for 0: this branch only runs when
-      // `now < TRIP_START` (guard above) and TRIP_START is local midnight, so `now`'s calendar
-      // day is always strictly before TRIP_START's — 0 is unreachable here. Does NOT touch
-      // computeCountdown/totalDays itself (D-313's calendar-accurate breakdown does not
-      // reconcile with totalDays by design; that stays as-is).
-      daysUntilStart: differenceInCalendarDays(TRIP_START, now),
+      // residue — D-313). `daysToGo` is the calendar-day count (1, not 0) for that day, and
+      // it is the SAME function Home's hero ring and stat row call — the one derivation of
+      // this number, so three surfaces cannot print it three ways. No special-casing for 0:
+      // this branch only runs when `now < TRIP_START` (guard above) and TRIP_START is local
+      // midnight, so `now`'s calendar day is always strictly before TRIP_START's — 0 is
+      // unreachable here. Does NOT touch computeCountdown/totalDays itself (D-313's
+      // calendar-accurate breakdown does not reconcile with totalDays by design).
+      daysUntilStart: daysToGo(now),
       outOfRange: false,
     };
   }

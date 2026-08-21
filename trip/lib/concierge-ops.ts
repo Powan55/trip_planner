@@ -126,6 +126,23 @@ export type DropCode =
   | 'already-there'; // moveItem whose toDate IS the item's resolved day
 
 /**
+ * The type of every content field PRESENT on the op, as a `DropCode` or `undefined`. Shared by
+ * BOTH verbs that build a `contentPatch` — it used to live inside the `updateItem` loop, so
+ * `addItem` never ran it (see the call site). Rule 8's patch-count accounting stays in
+ * `updateItem`, which is the only verb it means anything for.
+ * startMinutes/durationMinutes are range-checked before the switch, for every verb.
+ */
+function contentTypeError(o: Record<string, unknown>): DropCode | undefined {
+  for (const k of CONTENT_KEYS) {
+    if (o[k] == null) continue;
+    if (k === 'title' && !isNonEmptyString(o[k])) return 'no-title';
+    if (k === 'category' && !isCategory(o[k])) return 'bad-category'; // Rule 5
+    if ((k === 'notes' || k === 'location') && typeof o[k] !== 'string') return 'unreadable';
+  }
+  return undefined;
+}
+
+/**
  * WHY one raw op fails against the LIVE itinerary, or `undefined` when it is valid.
  *
  * This holds the real rule logic and `isValidOp` is its boolean wrapper, so the reason shown to a
@@ -158,23 +175,21 @@ export function dropReason(raw: unknown, plans: DayPlan[]): DropCode | undefined
       if (!isTripDate(o.date)) return 'date-not-in-trip';
       if (!isNonEmptyString(o.title)) return 'no-title';
       if (!isCategory(o.category)) return 'bad-category';
-      return undefined;
+      // …and the SAME per-field typing updateItem applies. Without it an `addItem` carrying
+      // `notes: {…}` or `location: 5` validated, rendered an ordinary chip, and on Confirm wrote
+      // the value verbatim into the new item — which `itineraryItemSchema` (both fields
+      // `z.string().optional()`) then dropped on the very next read, in the same tick. The toast
+      // said `Added “Ramen”` and nothing was added, anywhere.
+      return contentTypeError(o);
 
     case 'updateItem': {
       // Rule 3 (itemId + ≥1 patch) + Rule 6 (target resolves by id) + Rule 8 (≥1 non-null patch).
       // No Rule 4 date check: the target's date comes from the ITINERARY, not from the op.
       if (!isNonEmptyString(o.itemId)) return 'no-such-item';
-      // Any present patch field must be well-typed; collect whether ≥1 valid patch exists (Rule 8).
-      let patchCount = 0;
-      for (const k of CONTENT_KEYS) {
-        if (o[k] == null) continue;
-        if (k === 'title' && !isNonEmptyString(o[k])) return 'no-title';
-        if (k === 'category' && !isCategory(o[k])) return 'bad-category'; // Rule 5
-        if ((k === 'notes' || k === 'location') && typeof o[k] !== 'string') return 'unreadable';
-        // startMinutes/durationMinutes already range-checked above.
-        patchCount += 1;
-      }
-      if (patchCount === 0) return 'nothing-to-change'; // Rule 8
+      const badField = contentTypeError(o);
+      if (badField) return badField;
+      // Rule 8 — ≥1 present patch field (all of them well-typed by the line above).
+      if (!CONTENT_KEYS.some((k) => o[k] != null)) return 'nothing-to-change';
       return resolveLive(plans, o.itemId) === undefined ? 'no-such-item' : undefined; // Rule 6
     }
 

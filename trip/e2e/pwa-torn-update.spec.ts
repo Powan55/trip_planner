@@ -101,6 +101,51 @@ test.describe('S271 · Part A — offline, the surviving worker serves real per-
 
     await context.setOffline(false);
   });
+
+  /**
+   * Every other offline assertion in this suite — here, in `pwa.spec.ts`, in
+   * `sw-shell-scope.spec.ts` — reaches its route with `page.goto`. Nothing ever
+   * CLICKED a link offline, and that is the path real use takes: `next/link` fetches
+   * the target's RSC payload from `<route>/index.txt`, and when that fetch fails Next
+   * falls back to a BROWSER NAVIGATION to the `.txt` URL itself. Nothing precached
+   * matches it, so the nav handler answered with the app-root shell: tap "Plan"
+   * offline, the address bar reads `…/plan/index.txt`, and Home renders — from which
+   * every further tap does the same, so the UI can never leave Home. `page.goto` never
+   * produces that URL, which is why a green suite said nothing about it.
+   */
+  test('offline, CLICKING an in-app link lands on that route, not back on Home', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/', { waitUntil: 'load' });
+    await waitForControllingSW(page);
+    await expect.poll(() => precacheCount(page)).toBeGreaterThan(20);
+
+    await context.setOffline(true);
+
+    // COLD-offline load, deliberately: nothing was prefetched in this session, so the
+    // router's RSC fetch for /plan/ genuinely has to fail. Reusing the warm page would
+    // let an already-prefetched payload soft-navigate and prove nothing.
+    await page.goto('/', { waitUntil: 'load' });
+    expect(await page.title()).toContain(HOME_TITLE_MARK);
+
+    await Promise.all([
+      page.waitForURL(/\/plan(\/|\.txt)/, { timeout: 20_000 }),
+      page.getByTestId('navbar-link-plan').click(),
+    ]);
+    await page.waitForLoadState('load');
+
+    expect(await page.title()).toBe(PLAN_TITLE);
+    expect(await page.title()).not.toContain(HOME_TITLE_MARK);
+
+    // The URL may still carry the RSC suffix. The hard navigation is Next's, and only
+    // precaching the 19 route payloads would keep the click a soft one — +461 KB on an
+    // ATOMIC install, which is an owner call, not a bug fix. Serving the right shell
+    // for that URL is the half that belongs to the worker.
+    expect(new URL(page.url()).pathname).toMatch(/\/plan\/(index\.txt)?$/);
+
+    await context.setOffline(false);
+  });
 });
 
 test.describe('S271 · Part B — the shipped install handler is ATOMIC (rejects on any non-OK precache fetch)', () => {

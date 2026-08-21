@@ -195,11 +195,17 @@ export default function PhotoAttach({
         </div>
       )}
 
-      {error && (
-        <p data-testid="photo-error" role="status" aria-live="polite" className="mb-3 text-xs text-destructive">
-          {error}
-        </p>
-      )}
+      {/* The region is mounted always and is empty (and boxless — the margin is on the <p>)
+          until there is something to say: a live region announces a MUTATION of a region
+          already in the tree, so one inserted together with its text is not reliably
+          announced. Same idiom as settings-panel.tsx / backup-restore.tsx. */}
+      <div role="status" aria-live="polite">
+        {error && (
+          <p data-testid="photo-error" className="mb-3 text-xs text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
 
       {/* Thumbnails. Empty (and no pending prompt) → a quiet hint; blobs resolve per-mount. */}
       {photos.length > 0 ? (
@@ -276,7 +282,7 @@ function PhotoThumb({ meta, onDelete }: { meta: PhotoMeta; onDelete: () => void 
           className="h-full w-full object-cover"
         />
       ) : (
-        <div className="h-full w-full animate-pulse bg-white/[0.04]" aria-hidden="true" />
+        <div className="h-full w-full motion-safe:animate-pulse bg-white/[0.04]" aria-hidden="true" />
       )}
 
       {(meta.caption || meta.altText) && !missing && (

@@ -5,10 +5,10 @@ import { keyFor } from '@/core/storage/gateway';
 import { expensesStoragePort } from '@/core/budget/storage';
 import { expensesSyncPort } from '@/lib/expenses-ports';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
-import { isRemoteConfigured } from '@/lib/firebase-config';
+import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
-import { clock } from '@/lib/trip-now';
+import { realClock } from '@/lib/trip-now';
 import { firstSyncStamp, nextSyncStamp } from '@/core/sync/stamp';
 import {
   addExpense as addExpenseCore,
@@ -31,7 +31,10 @@ import {
  *
  * ── THE DORMANT-BUILD BYTE-IDENTITY GATE ─────────────────────────────────────────────
  * ALL stamping — attribution (createdBy/updatedBy) AND the Sync-v2 fields (rev/hlc/deleted), and
- * turning `removeExpense` into a tombstone — is GATED on `isRemoteConfigured()`:
+ * turning `removeExpense` into a tombstone — is GATED on `isTripRemoteConfigured()`, the
+ * TRIP-scoped gate. The default sample pack has no remote id (#10), so a tombstone written there
+ * could never be pushed and `gcTombstoneRows` — which only runs on the remote paths — could never
+ * collect it: the slot grew with every delete, forever.
  * - DORMANT: `removeExpense` physically removes exactly as today, and NO sync/attribution field
  * is written. The dormant build is byte-for-byte unchanged (the storage/core suites hold
  * verbatim); the exposed filter is a no-op (dormant rows carry no `deleted`).
@@ -112,7 +115,7 @@ function generateExpenseId(): string {
 // Sync gate + actor (firebase-free, dormant-safe — mirrors use-itinerary's `syncEnabled`/
 // `syncActor`). Under sync there is always an active traveler, so `actor()` is their name.
 function syncEnabled(): boolean {
-  return isRemoteConfigured();
+  return isTripRemoteConfigured();
 }
 function actor(): string {
   return getActiveTraveler()?.name ?? getUserName() ?? '';
@@ -141,7 +144,7 @@ export function useExpenses(): ExpenseStore {
       ? (e) => {
           const name = actor();
           const attributed: Expense = name ? { ...e, createdBy: e.createdBy ?? name, updatedBy: name } : e;
-          return { ...attributed, ...firstSyncStamp(clock.now().getTime(), name) };
+          return { ...attributed, ...firstSyncStamp(realClock.now().getTime(), name) };
         }
       : undefined;
     commit((current) =>
@@ -154,7 +157,7 @@ export function useExpenses(): ExpenseStore {
       ? (e) => {
           const name = actor();
           const attributed: Expense = name ? { ...e, updatedBy: name } : e;
-          return { ...attributed, ...nextSyncStamp(e, clock.now().getTime(), name) };
+          return { ...attributed, ...nextSyncStamp(e, realClock.now().getTime(), name) };
         }
       : undefined;
     commit((current) => updateExpenseCore(current, id, patch, stamp));
@@ -171,7 +174,7 @@ export function useExpenses(): ExpenseStore {
       updateExpenseCore(current, id, {}, (e) => {
         const name = actor();
         const attributed: Expense = name ? { ...e, updatedBy: name } : e;
-        return { ...attributed, deleted: true, ...nextSyncStamp(e, clock.now().getTime(), name) };
+        return { ...attributed, deleted: true, ...nextSyncStamp(e, realClock.now().getTime(), name) };
       }),
     );
   }, [commit]);
@@ -195,7 +198,7 @@ export function useExpenses(): ExpenseStore {
       addExpenseCore(current, content, newId, new Date().toISOString(), (e) => {
         const name = actor();
         const attributed: Expense = name ? { ...e, createdBy: name, updatedBy: name } : e;
-        return { ...attributed, ...firstSyncStamp(clock.now().getTime(), name) };
+        return { ...attributed, ...firstSyncStamp(realClock.now().getTime(), name) };
       }),
     );
     return newId;
@@ -216,7 +219,7 @@ export function useExpenses(): ExpenseStore {
         return updateExpenseCore(acc, e.id, {}, (x) => {
           const name = actor();
           const attributed: Expense = name ? { ...x, updatedBy: name } : x;
-          return { ...attributed, deleted: true, ...nextSyncStamp(x, clock.now().getTime(), name) };
+          return { ...attributed, deleted: true, ...nextSyncStamp(x, realClock.now().getTime(), name) };
         });
       }, current),
     );
@@ -236,7 +239,7 @@ export function useExpenses(): ExpenseStore {
         if (e.deleted === true) return acc;
         return updateExpenseCore(acc, e.id, {}, (x) => {
           const attributed: Expense = name ? { ...x, updatedBy: name } : x;
-          return { ...attributed, deleted: true, ...nextSyncStamp(x, clock.now().getTime(), name) };
+          return { ...attributed, deleted: true, ...nextSyncStamp(x, realClock.now().getTime(), name) };
         });
       }, current);
       // (b) Add a fresh-id copy of every LIVE backup row (strip id/rev/hlc/deleted/attribution,
@@ -248,7 +251,7 @@ export function useExpenses(): ExpenseStore {
         void _id; void _rev; void _hlc; void _del; void _cb; void _ub; void _ca;
         next = addExpenseCore(next, content, generateExpenseId(), new Date().toISOString(), (x) => {
           const attributed: Expense = name ? { ...x, createdBy: name, updatedBy: name } : x;
-          return { ...attributed, ...firstSyncStamp(clock.now().getTime(), name) };
+          return { ...attributed, ...firstSyncStamp(realClock.now().getTime(), name) };
         });
       }
       return next;
@@ -269,7 +272,7 @@ export function useExpenses(): ExpenseStore {
     }
     const sync = syncEnabled();
     const name = actor();
-    const now = clock.now().getTime();
+    const now = realClock.now().getTime();
     let claimed = 0;
     commit((current) => {
       claimed = 0;

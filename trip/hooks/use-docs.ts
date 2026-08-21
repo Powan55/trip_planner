@@ -5,10 +5,10 @@ import { keyFor } from '@/core/storage/gateway';
 import { loadDocs, saveDocs, docsStoragePort } from '@/core/docs/storage';
 import { docsSyncPort } from '@/lib/docs-ports';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
-import { isRemoteConfigured } from '@/lib/firebase-config';
+import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
-import { clock } from '@/lib/trip-now';
+import { realClock } from '@/lib/trip-now';
 import { nextSyncStamp } from '@/core/sync/stamp';
 import {
   toggleItem as toggleItemCore,
@@ -27,7 +27,8 @@ import {
  * mutators + the sync/attribution stamping gate + the derived completion selector.
  *
  * ── DORMANT BYTE-IDENTITY ─────────────────────────────────────────────────────────────
- * The rev/hlc + attribution stamping is GATED on `isRemoteConfigured()` (mirrors use-expenses):
+ * The rev/hlc + attribution stamping is GATED on `isTripRemoteConfigured()` — the TRIP-scoped
+ * gate (#10), so the local-only default pack never stamps (mirrors use-expenses/use-my-places):
  * - DORMANT: `toggleItem`/`setNote` write NO sync field — the slot is byte-identical to a local-
  * only checklist. The remote subscribe/push are never opened (the provider gates on the same).
  * - SYNC ON: each edit advances `rev`/`hlc` (nextSyncStamp) + stamps `updatedBy`, so a peer's
@@ -64,7 +65,7 @@ export interface DocsStore {
 
 // Sync gate + actor (firebase-free, dormant-safe — mirrors use-expenses).
 function syncEnabled(): boolean {
-  return isRemoteConfigured();
+  return isTripRemoteConfigured();
 }
 function actor(): string {
   return getActiveTraveler()?.name ?? getUserName() ?? '';
@@ -75,7 +76,7 @@ function editStamp(): DocStamper {
   return (item) => {
     const name = actor();
     const attributed: DocItem = name ? { ...item, updatedBy: name } : item;
-    return { ...attributed, ...nextSyncStamp(item, clock.now().getTime(), name) };
+    return { ...attributed, ...nextSyncStamp(item, realClock.now().getTime(), name) };
   };
 }
 
@@ -119,7 +120,7 @@ export function useDocs(): DocsStore {
       if (!items.some((i) => i.deleted !== true && i.updatedBy === from)) return 0;
       const sync = syncEnabled();
       const name = actor();
-      const now = clock.now().getTime();
+      const now = realClock.now().getTime();
       let claimed = 0;
       commit((current) => {
         claimed = 0;

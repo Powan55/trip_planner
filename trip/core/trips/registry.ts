@@ -19,6 +19,8 @@ import {
   getRemovedTripsRaw,
   setRemovedTripsRaw,
   wipeTripData,
+  keyForTrip,
+  readJson,
 } from '@/core/storage/gateway';
 
 /**
@@ -55,8 +57,43 @@ export type RemovedTrip = { id: string; removedAt: number };
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
+ * Inclusive day cap on a custom trip's span — the ONE source for both the validator below and the
+ * create form (`components/trips-hub.tsx`), so the two cannot drift.
+ *
+ * There has to be a cap at all because every consumer treats the span as a length it materialises:
+ * `TRIP_DATES` and `buildDayShells` produce one entry per day, ~15 components render one node per
+ * entry, and `reconcileFirstSnapshot`'s seed branch pushes ONE FIRESTORE DOCUMENT PER DAY against a
+ * free-tier write ceiling. A one-digit year typo (`2027` → `2227`) is 73k days, ~4.3 MB of shells,
+ * and 73k writes. 730 is two years: past any real trip, and small enough that the worst case is
+ * survivable rather than a wedged account.
+ */
+export const TRIP_DAYS_MAX = 730;
+
+const DAY_MS = 86_400_000;
+
+/**
+ * `YYYY-MM-DD` → UTC midnight ms, or `NaN` when the string is ISO-SHAPED but not a real day.
+ * `ISO_DATE` alone accepts `2026-13-45`, which `new Date` silently rolls over to 2027-02-14 (or,
+ * with the `T00:00:00` suffix the date backbone uses, becomes an Invalid Date and yields an EMPTY
+ * `TRIP_DATES` — the state ~15 unguarded `TRIP_DATES[0]` readers crash on). The round-trip compare
+ * is what distinguishes "a real day" from "digits in the right places".
+ */
+function isoDayMs(iso: string): number {
+  const [y, m, d] = iso.split('-').map(Number);
+  const ms = Date.UTC(y, m - 1, d);
+  const back = new Date(ms);
+  return back.getUTCFullYear() === y && back.getUTCMonth() === m - 1 && back.getUTCDate() === d
+    ? ms
+    : NaN;
+}
+
+/**
  * Validate a stored/caller config block — returns a clean `TripConfigBlock` or `undefined` when
  * malformed (the ENTRY is kept, only its bad config is dropped — Plan D1). TOTAL, never throws.
+ *
+ * This is the trust boundary ALL FOUR config sources funnel through (create form, peer trip-meta
+ * doc, synced trip list, hand-edited storage), so the real-date and span checks live here rather
+ * than at any one of them.
  */
 export function sanitizeTripConfig(raw: unknown): TripConfigBlock | undefined {
   if (raw === null || typeof raw !== 'object') return undefined;
@@ -64,6 +101,10 @@ export function sanitizeTripConfig(raw: unknown): TripConfigBlock | undefined {
   if (typeof c.start !== 'string' || !ISO_DATE.test(c.start)) return undefined;
   if (typeof c.end !== 'string' || !ISO_DATE.test(c.end)) return undefined;
   if (c.end < c.start) return undefined;
+  const startMs = isoDayMs(c.start);
+  const endMs = isoDayMs(c.end);
+  if (Number.isNaN(startMs) || Number.isNaN(endMs)) return undefined;
+  if ((endMs - startMs) / DAY_MS + 1 > TRIP_DAYS_MAX) return undefined;
   if (!Array.isArray(c.destinations)) return undefined;
   const destinations = c.destinations
     .filter((d): d is string => typeof d === 'string' && d.trim().length > 0)
@@ -301,6 +342,13 @@ const REMOVED_TRIPS_CAP = 200;
  * - A-10/#100: also sweeps every `trip:{id}:*` slot (`wipeTripData`) — a forgotten trip no longer
  * leaves its itinerary/expenses/budget/etc. on disk forever, and a dirty `syncOutbox` for that id
  * can never survive to replay stale local edits over the live remote on a later re-join.
+ * - …AND that trip's photo BYTES. `wipeTripData` only sweeps localStorage, so it deletes the photo
+ * meta index — the only thing naming those blob ids — while the blobs themselves sit in the
+ * app-scoped IndexedDB forever, unreachable from every UI and still costing origin quota. The
+ * index is read here BEFORE the wipe; the delete itself is fire-and-forget (this function is
+ * synchronous and its callers reload). The blob store is imported DYNAMICALLY: this module is
+ * pulled in by the date backbone, i.e. by every route, and IndexedDB code has no business on that
+ * first-load chunk.
  */
 export function removeKnownTrip(id: string): void {
   if (!id || id === DEFAULT_TRIP_ID) return;
@@ -308,7 +356,13 @@ export function removeKnownTrip(id: string): void {
   writeStored(readStored().filter((t) => t.id !== id));
   const removed = [{ id, removedAt: Date.now() }, ...readRemoved().filter((r) => r.id !== id)];
   writeRemoved(removed.slice(0, REMOVED_TRIPS_CAP)); // newest-first, drop-oldest cap
+  const photoMeta = readJson<unknown>('local', keyForTrip(id, 'photos'), null);
   wipeTripData(id);
+  if (photoMeta !== null) {
+    import('@/core/photos/storage')
+      .then((m) => m.deletePhotoBlobs(photoMeta))
+      .catch((err) => console.warn('[trips] could not clear the forgotten trip\'s photos:', err));
+  }
 }
 
 /**
@@ -378,6 +432,14 @@ export function mergeTripLists(
  * DEFAULT pack entry verbatim — `mergeTripLists` strips the default, so we re-attach the local one,
  * first, if present. Returns `localHadExtras` so the caller can push back. `remoteRemoved` defaults to
  * `[]` (old-shape doc tolerated).
+ *
+ * An incoming tombstone for the ACTIVE trip also moves the pointer, exactly as `removeKnownTrip`
+ * does for a local forget. Without it the forget undoes itself: the merge drops the entry but the
+ * pointer keeps naming it, so the next `listKnownTrips()` self-heals the entry back in with a fresh
+ * `joinedAt`, `entryRecency` then outranks `removedAt`, and the next merge deletes the tombstone and
+ * re-pushes the trip to every device — including the one that forgot it. Moving the pointer removes
+ * the state the self-heal reacts to, so no second guard is needed. As with `removeKnownTrip`, the
+ * CALLER is responsible for reloading; the pack is re-resolved on the next load.
  */
 export function importRemoteTrips(
   remote: TripMeta[],
@@ -388,5 +450,7 @@ export function importRemoteTrips(
   const { merged, localHadExtras, removed } = mergeTripLists(stored, remote, readRemoved(), remoteRemoved);
   writeStored(defaultEntry ? [defaultEntry, ...merged] : merged);
   writeRemoved(removed);
+  const active = getActiveTripId();
+  if (removed.some((r) => r.id === active)) setActiveTripId(DEFAULT_TRIP_ID);
   return { localHadExtras };
 }

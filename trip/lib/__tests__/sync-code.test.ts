@@ -298,6 +298,33 @@ describe('removeKnownTrip — local forget + tombstone (S269, D-222)', () => {
     expect(listKnownTrips().map((t) => t.id)).not.toContain('t1');
   });
 
+  // The forget used to be undone by any OTHER device still sitting on that trip. The incoming
+  // tombstone dropped the entry but left the ACTIVE POINTER naming it, so the next
+  // `listKnownTrips()` self-healed the entry back in with a fresh `Date.now()` `joinedAt`,
+  // `entryRecency` outranked `removedAt`, and the next merge deleted the tombstone and re-pushed
+  // the trip to every device — including the one that forgot it.
+  it('a remote forget of the ACTIVE trip moves the pointer, so the self-heal cannot resurrect it', () => {
+    joinTrip('t1', 'One'); // joinTrip writes the pointer AND the entry
+    expect(getActiveTripId()).toBe('t1');
+    const removedAt = Date.now() + 60_000; // the peer forgot it after this device joined
+
+    importRemoteTrips([], [{ id: 't1', removedAt }]);
+
+    expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID); // pre-fix: still 't1'
+    // This read is the self-heal's own trigger — pre-fix it re-minted the entry right here.
+    expect(listKnownTrips().map((t) => t.id)).not.toContain('t1');
+    expect(listRemovedTrips().map((r) => r.id)).toContain('t1'); // and the tombstone survives
+  });
+
+  it('a remote forget of a NON-active trip leaves the pointer alone', () => {
+    joinTrip('keep-me', 'Active');
+    joinTrip('t1', 'One');
+    setActiveTripId('keep-me');
+    importRemoteTrips([], [{ id: 't1', removedAt: Date.now() + 60_000 }]);
+    expect(getActiveTripId()).toBe('keep-me');
+    expect(listKnownTrips().map((t) => t.id)).toContain('keep-me');
+  });
+
   it('a remote re-join (newer joinedAt) revives a locally-forgotten trip through import', () => {
     joinTrip('t1', 'One');
     setActiveTripId(DEFAULT_TRIP_ID);

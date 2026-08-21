@@ -23,6 +23,7 @@
 // now the default pack). The derivation is byte-identical to the old literals — the
 // unit suites gate that parity. `new Date('YYYY-MM-DDThh:mm:ss')` parses as LOCAL time (no
 // trailing Z), exactly as the old literals did, so every downstream value is unchanged.
+import { differenceInCalendarDays } from 'date-fns';
 import { getActiveTrip, legForDate } from '@/core/trips';
 
 const activeTrip = getActiveTrip();
@@ -89,4 +90,38 @@ export function formatDate(dateStr: string): string {
 export function formatDateLong(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00');
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+/**
+ * 'YYYY-MM-DD' → the short weekday name ("Wed"). Same two rules as `formatDate` above: LOCAL NOON
+ * anchor (so the day never slips at a negative offset) and an EXPLICIT 'en-US' — the surfaces that
+ * called `toLocaleDateString(undefined, …)` themselves rendered 水/木/金 next to the app's English
+ * copy on a device set to Japanese. TOTAL: an unparsable input comes back verbatim.
+ */
+export function formatWeekdayShort(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-US', { weekday: 'short' });
+}
+
+/**
+ * Label a dated row RELATIVE to a known "today": "Today" / "Tomorrow" / the short weekday.
+ *
+ * Both arguments are 'YYYY-MM-DD'. The point is that the label is derived from the DATE and never
+ * from a row's position in a list: the weather outlook labelled rows 0 and 1 "Today"/"Tomorrow"
+ * by index while rows 2-6 read their real weekday, so a cached forecast (the cache has no TTL and
+ * offline is a designed-for state) rendered "Today / Tomorrow / Sat / Sun" with Saturday three
+ * days BEFORE "Today". `differenceInCalendarDays` over the local-noon anchors is DST-proof.
+ * TOTAL: an unparsable `todayStr` degrades to the plain weekday, never a wrong "Today".
+ */
+export function formatRelativeDayLabel(dateStr: string, todayStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  const today = new Date(todayStr + 'T12:00:00');
+  if (Number.isNaN(d.getTime())) return dateStr;
+  if (!Number.isNaN(today.getTime())) {
+    const delta = differenceInCalendarDays(d, today);
+    if (delta === 0) return 'Today';
+    if (delta === 1) return 'Tomorrow';
+  }
+  return formatWeekdayShort(dateStr);
 }

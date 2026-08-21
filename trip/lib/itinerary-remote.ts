@@ -46,7 +46,7 @@ import { sanitizeItineraryItems } from '@/core/itinerary/model';
 import { mergeDay, mergeDays, gcTombstones } from '@/core/sync/merge-day';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
 import { outboxDirty } from '@/core/sync/outbox';
-import { clock } from './trip-now';
+import { realClock } from './trip-now';
 
 // ---------------------------------------------------------------------------
 // Shared lazy firebase handle. Both the read (subscribe) and write (push) paths
@@ -486,8 +486,9 @@ export async function pushDayMerged(
     // GC BOUNDARY ①: prune past-horizon, unreferenced tombstones from the
     // MERGED result before writing — never in the hot merge path, never as its own write (the
     // GC'd doc ships on THIS genuine edit). Structurally cannot drop a live or recent-tombstone
-    // item (gcTombstones' first guard). `nowPt` via the injected clock.
-    const merged = gcTombstones(mergeDay(remoteNow, localDay), clock.now().getTime());
+    // item (gcTombstones' first guard). `nowPt` via `realClock` — the `?today=` override would set
+    // the horizon months ahead and drop live-elsewhere tombstones out of a doc we then write back.
+    const merged = gcTombstones(mergeDay(remoteNow, localDay), realClock.now().getTime());
     tx.set(ref, sanitizeDayForWrite(merged));
   });
 }
@@ -663,7 +664,7 @@ export function subscribeRemote(
     // unreferenced tombstones from each MERGED day before persist (never in the hot merge path).
     // Convergent + conservative: a tombstone one client keeps re-enters via merge until every doc
     // holding it is rewritten past the 30-day horizon (near-inert at 32-day trip scale).
-    const nowPt = clock.now().getTime();
+    const nowPt = realClock.now().getTime();
     persistAndDispatch(merged.map((d) => gcTombstones(d, nowPt)));
   };
 

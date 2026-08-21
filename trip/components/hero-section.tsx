@@ -8,6 +8,7 @@ import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
+import { daysToGo } from '@/lib/home-stats';
 import { getNow, getTodayInTrip, getNowAtTrip, type TripToday } from '@/lib/trip-now';
 import { heroImageForLeg, HERO_DEFAULT, HERO_JAPAN } from '@/lib/hero-image';
 import { isDefaultTrip } from '@/core/trips';
@@ -53,7 +54,7 @@ const COUNTDOWN_CLOCK_UNITS = [
  * so `live` shows at once with no count-up.
  *
  * `format` keeps each surface's exact presentation — `padStart(2,'0')` for the
- * six unit cells, identity for `totalDays`.
+ * six unit cells, identity for the ring's days-to-go digit.
  */
 function CountUpNumber({
   live,
@@ -171,6 +172,14 @@ export default function HeroSection() {
   // window-guarded read that is safe during render. The 1s interval below still owns every
   // subsequent value.
   const [timeLeft, setTimeLeft] = useState<Countdown>(() => computeCountdown(TRIP_START, getNow()));
+  // The ring's "days to go" digit and its fill fraction. NOT `timeLeft.totalDays`: that is a
+  // truncated 24-hour count, and the stat row directly below prints the same caption from the
+  // calendar-day count, so the two cells read one apart at every instant except local midnight
+  // (2026-12-08T09:00 → ring 0, row 1). One derivation now, in `daysToGo` — see its docstring.
+  // D-313 is untouched: the month/week/day grid above still reads `computeCountdown`, and still
+  // does not reconcile with the ring, exactly as that entry accepted. What changed is which
+  // quantity the ring counts, not how the ring behaves.
+  const [daysLeft, setDaysLeft] = useState(() => daysToGo(getNow()));
   // Travel mode: when the app clock lands inside the trip window the hero
   // swaps the countdown grid for a "Day N — {city}" panel. Seeded from the same first clock
   // read (see above) so an in-trip load paints the Day-N panel directly instead of showing
@@ -195,14 +204,17 @@ export default function HeroSection() {
 
   useEffect(() => {
     setMounted(true);
-    // Clock reads flow through getNow() so `?today=` drives the hero. computeCountdown
-    // stays pure — we pass the clock in.
-    setTimeLeft(computeCountdown(TRIP_START, getNow()));
-    setTodayInTrip(getTodayInTrip());
-    const timer = setInterval(() => {
-      setTimeLeft(computeCountdown(TRIP_START, getNow()));
+    // Clock reads flow through getNow() so `?today=` drives the hero. computeCountdown and
+    // daysToGo stay pure — we pass the clock in, and ONE reading per tick feeds both, so the
+    // grid and the ring can never be a tick apart.
+    const tick = () => {
+      const now = getNow();
+      setTimeLeft(computeCountdown(TRIP_START, now));
+      setDaysLeft(daysToGo(now));
       setTodayInTrip(getTodayInTrip());
-    }, 1000);
+    };
+    tick();
+    const timer = setInterval(tick, 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -666,17 +678,19 @@ export default function HeroSection() {
                 );
               })}
             </div>
-            {/* — radial progress ring wrapping the existing total-days digit. `ringFraction`
-                is a pure derivation over the SAME computeCountdown() output driving the digit
-                grid above — see lib/countdown-ring.ts for the formula. */}
+            {/* — radial progress ring wrapping the "days to go" digit. Digit and fill both
+                read `daysLeft`, so the ring cannot disagree with itself or with the stat row
+                below — see lib/countdown-ring.ts for the fill formula and lib/home-stats.ts
+                for the count. The grid above is `computeCountdown` and still does not
+                reconcile with this number: D-313 ruled on that and it is unchanged. */}
             <div className="hidden min-[420px]:flex flex-col items-center gap-1.5">
               <CountdownRing
-                fraction={ringFraction(timeLeft.totalDays, timeLeft.isPast)}
+                fraction={ringFraction(daysLeft, timeLeft.isPast)}
                 reducedMotion={!!prefersReducedMotion}
               >
                 <div className="flex flex-col items-center">
                   <span data-testid="countdown-total-days" className="text-xl sm:text-2xl text-foreground font-extrabold tabular-nums leading-none">
-                    <CountUpNumber live={timeLeft.totalDays} active={mounted} format={identity} />
+                    <CountUpNumber live={daysLeft} active={mounted} format={identity} />
                   </span>
                   <span className="text-[9px] uppercase tracking-widest text-ink-mid mt-1">days to go</span>
                 </div>

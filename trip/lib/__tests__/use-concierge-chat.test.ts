@@ -40,10 +40,14 @@ vi.mock('@/lib/firebase-config', () => ({
 // #10 — the Worker's Authorization header. Default `{}` mirrors the real vitest environment (no
 // firebase ⇒ no session ⇒ no header), so every pre-#10 assertion in this file runs unchanged; ONE
 // test flips a session on to prove the header is actually wired to the request.
-const workerAuth = vi.hoisted(() => ({ header: {} as Record<string, string>, calls: 0 }));
+const workerAuth = vi.hoisted(() => ({ header: {} as Record<string, string>, calls: 0, stall: false }));
 vi.mock('@/lib/worker-auth', () => ({
   workerAuthHeader: async () => {
     workerAuth.calls += 1;
+    // `stall: true` is the CONCIERGE-4 case: a token refresh against securetoken.googleapis.com
+    // that neither resolves nor rejects (captive portal / dead cell handoff). The real
+    // `workerAuthHeader` catches rejections but cannot catch a pending promise.
+    if (workerAuth.stall) await new Promise(() => {});
     return workerAuth.header;
   },
 }));
@@ -198,6 +202,45 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
+  it('a token refresh that STALLS still ends the turn — the abort ceiling covers the turn, not just the fetch', async () => {
+    // The signal used to be constructed inside the `fetchImpl(...)` call, with two unbounded awaits
+    // ahead of it (the lazy `import('./itinerary-remote')` and the token refresh). A stall in either
+    // meant `send()` never settled, so `finally` never ran: status pinned on 'streaming', sendingRef
+    // stuck true, `error` null so the "Try again" row never mounted. Only a reload recovered.
+    workerAuth.stall = true;
+    // `AbortSignal.timeout` is a real 45 s timer that vitest's fake timers do not reach (see the
+    // `toFake: ['Date']` note in concierge-digest.test.ts) — so the ceiling itself is stubbed short.
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout').mockImplementation(() => {
+      const c = new AbortController();
+      setTimeout(() => c.abort(new DOMException('signal timed out', 'TimeoutError')), 10);
+      return c.signal;
+    });
+    // A fetch double that HONOURS the signal the way the real one does: reject with its reason.
+    const fetchImpl = vi.fn(
+      (_url: string, init: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          const s = init.signal as AbortSignal;
+          if (s.aborted) reject(s.reason);
+          else s.addEventListener('abort', () => reject(s.reason), { once: true });
+        }),
+    ) as unknown as typeof fetch;
+
+    const h = renderConciergeChat(fetchImpl);
+    const outcome = await Promise.race([
+      h.send('hello').then(() => 'settled'),
+      new Promise((r) => setTimeout(() => r('HUNG'), 3000)),
+    ]);
+
+    expect(outcome).toBe('settled'); // before the fix this promise never resolved
+    expect(h.status).toBe('error');
+    expect(h.error).toContain('took too long');
+    expect(h.messages).toEqual([{ role: 'user', content: 'hello' }]);
+
+    timeoutSpy.mockRestore();
+    workerAuth.stall = false;
+    h.unmount();
+  });
+
   it('pure-chat reply (ops: []) surfaces an empty ops array', async () => {
     const fetchImpl = vi.fn(async () =>
       jsonResponse({ reply: 'Kathmandu is chilly in December — pack layers.', ops: [] }),
@@ -212,7 +255,13 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     h.unmount();
   });
 
-  it('a malformed body (no reply/ops) degrades to an empty reply + empty ops, not an error', async () => {
+  // CHANGED DELIBERATELY. This used to be `'a malformed body (no reply/ops) degrades to an empty
+  // reply + empty ops, not an error'` and asserted `status === 'idle'` with an empty message — a
+  // chosen contract, but one that rendered a FAILED turn as a successful one: a blank grey bubble,
+  // no error row, no "Try again", and that empty turn shipped as history on every later turn. The
+  // canonical producer of a 200-that-isn't-the-envelope is a captive portal or an interposing
+  // proxy, i.e. the same "foreign mobile data" case the rest of this file treats as normal.
+  it('a 200 whose body is not the {reply, ops} envelope is an ERROR turn, not an empty bubble', async () => {
     const fetchImpl = vi.fn(async () =>
       new Response('not json at all', { status: 200, headers: { 'content-type': 'text/plain' } }),
     ) as unknown as typeof fetch;
@@ -220,9 +269,37 @@ describe('useConciergeChat (S329 — {reply, ops} JSON envelope)', () => {
     const h = renderConciergeChat(fetchImpl);
     await h.send('hello');
 
-    expect(h.status).toBe('idle');
-    expect(h.messages[1].content).toBe('');
-    expect(h.messages[1].ops).toEqual([]);
+    expect(h.status).toBe('error');
+    expect(h.error).toContain('Try again'); // the retry row mounts, which is the whole point
+    expect(h.messages).toEqual([{ role: 'user', content: 'hello' }]); // the blank bubble is popped
+    h.unmount();
+  });
+
+  it('…and so is a 200 that parses but carries no string reply (a 200 {"error":…})', async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ error: 'upstream exploded' })) as unknown as typeof fetch;
+
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('hello');
+
+    expect(h.status).toBe('error');
+    expect(h.error).not.toContain('upstream exploded'); // #13 still holds: never the body's words
+    h.unmount();
+  });
+
+  it('two byte-identical ops in one reply are deduped on arrival — they are one proposal', async () => {
+    // The chip key is content-derived (`${turnIndex}::${JSON.stringify(op)}`, concierge-chat.tsx)
+    // so it survives validateOps re-running each render. Two equal ops therefore shared ONE key:
+    // both chips rendered under it, Confirm on either resolved both, one applyOp ran, and the
+    // second proposal vanished with no chip, no undo entry and no "didn't match" line.
+    const op = { type: 'addItem', date: '2026-12-20', title: 'Ramen', category: 'food' };
+    const fetchImpl = vi.fn(async () =>
+      jsonResponse({ reply: 'Twice, apparently.', ops: [op, { ...op }, { type: 'removeItem', itemId: 'x' }] }),
+    ) as unknown as typeof fetch;
+
+    const h = renderConciergeChat(fetchImpl);
+    await h.send('add ramen on the 20th');
+
+    expect(h.messages[1].ops).toEqual([op, { type: 'removeItem', itemId: 'x' }]);
     h.unmount();
   });
 

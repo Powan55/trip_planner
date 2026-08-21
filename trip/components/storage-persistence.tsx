@@ -12,7 +12,8 @@
 // unsupported/denied/error — no toast, nothing written (persisted() IS the durable signal;
 // there's nothing to remember locally).
 // 2. NEAR-QUOTA WARNING: `navigator.storage.estimate()` checked once on mount; above
-// threshold, ONE sonner toast pointing at the /plan Backup & Restore export. At most once
+// threshold, ONE sonner toast pointing at the Settings → Data Backup & Restore export (it lived
+// on /plan until BackupRestore moved; /plan has had no export control since). At most once
 // per page session (a module-level flag, not sessionStorage — it only needs to survive one
 // check per mount, and a fresh module instance already resets it every real page load, so
 // this doesn't need to go through the gateway/ raw-storage rule). This is the
@@ -102,11 +103,14 @@ export function StoragePersistence() {
             quotaWarnedThisLoad = true;
             toast('Your device storage is nearly full', {
               description:
-                'Back up your trip from the Plan page so your itinerary, journal, and photos stay safe.',
+                'Back up your trip from Settings → Data so your itinerary, journal, and photos stay safe.',
               duration: 10000,
               action: {
                 label: 'Back up now',
-                onClick: () => router.push('/plan'),
+                // `/settings/`, not `/plan`: BackupRestore moved out of app/plan into the Settings
+                // Data group, so these two toasts — the app's ONLY recovery affordance when
+                // storage is full — were landing the user on a page with nothing to press.
+                onClick: () => router.push('/settings/'),
               },
             });
           }
@@ -140,11 +144,11 @@ export function StoragePersistence() {
       if (quotaExceededToastedThisLoad) return;
       quotaExceededToastedThisLoad = true;
       toast("Couldn't save — device storage is full", {
-        description: 'Export your trip and free up space.',
+        description: 'Export your trip from Settings → Data and free up space.',
         duration: 10000,
         action: {
           label: 'Export now',
-          onClick: () => router.push('/plan'),
+          onClick: () => router.push('/settings/'),
         },
       });
     };

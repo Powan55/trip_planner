@@ -87,8 +87,14 @@ export default function TravelDatePicker() {
   // never clears it). Do not reintroduce a traveler check here without re-reading that file's
   // docstring first.
 
-  const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(null);
-  const [nowMs, setNowMs] = useState<number>(0);
+  // Seeded from LAZY INITIALIZERS, the pattern `hero-section.tsx` and `home-stat-row.tsx` already
+  // use: the effect below runs after the FIRST PAINT, and `resolveTravelDate` has no "clock not
+  // read yet" state — it read the old `0` seed as a real instant (1970-01-01), took the pre-trip
+  // branch and painted "Trip starts in 20797 days". `null` for `todayInTrip` is a real sentinel;
+  // `0` for an epoch never was. This island is `ssr: false` (`app/travel/sections.tsx`), so
+  // reading the clock during render is safe — there is no server frame to mismatch.
+  const [todayInTrip, setTodayInTrip] = useState<TripToday | null>(() => getTodayInTrip());
+  const [nowMs, setNowMs] = useState<number>(() => getNow().getTime());
 
   // recompute on the shared `/travel` tick (base 20s) instead of a private 1s interval.
   const tickN = useTravelTick();

@@ -5,10 +5,10 @@ import { keyFor } from '@/core/storage/gateway';
 import { budgetStoragePort } from '@/core/budget/storage';
 import { budgetSyncPort } from '@/lib/budget-ports';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
-import { isRemoteConfigured } from '@/lib/firebase-config';
+import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
-import { clock } from '@/lib/trip-now';
+import { realClock } from '@/lib/trip-now';
 import { stampBudgetChanges } from '@/core/budget/flatten';
 import { SEED_RATES, type BudgetModel } from '@/core/budget/model';
 
@@ -28,7 +28,8 @@ import { SEED_RATES, type BudgetModel } from '@/core/budget/model';
  *
  * ── THE DORMANT-BUILD BYTE-IDENTITY GATE ─────────────────────────────────────────────
  * The exposed `commit` wraps the factory's commit to STAMP the changed leaf paths with a per-field
- * HLC — but ONLY when `isRemoteConfigured()`. DORMANT: the wrapper is a passthrough, no
+ * HLC — but ONLY when `isTripRemoteConfigured()` (the TRIP-scoped gate: the default sample pack
+ * has no remote id, so it never stamps). DORMANT: the wrapper is a passthrough, no
  * `sync.fieldHlc` is ever written, so the key-10 bytes are byte-for-byte (the panel's UX,
  * mutators, and money math are all unchanged — they still call `commit(() => next)`).
  */
@@ -56,7 +57,7 @@ export interface BudgetStore {
 
 // Sync gate + actor (firebase-free, dormant-safe — mirrors use-expenses' `syncEnabled`/`actor`).
 function syncEnabled(): boolean {
-  return isRemoteConfigured();
+  return isTripRemoteConfigured();
 }
 function actor(): string {
   return getActiveTraveler()?.name ?? getUserName() ?? '';
@@ -80,7 +81,7 @@ export function useBudget(): BudgetStore {
     rawCommit((current) => {
       const next = compute(current);
       if (!syncEnabled()) return next; // dormant: no sync.fieldHlc, byte-identical to
-      return stampBudgetChanges(current, next, clock.now().getTime(), actor());
+      return stampBudgetChanges(current, next, realClock.now().getTime(), actor());
     });
   }, [rawCommit]);
 

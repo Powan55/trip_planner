@@ -4410,3 +4410,240 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 **Measured, not assumed.** With the tolerance removed outright and no baseline rewritten: 24 + 12 green on one pass, 72 + 36 green at `--repeat-each=3`, and 24 green again after a rebuild — 144 strict assertions, zero differing pixels. `--update-snapshots` was never run.
 
 **Changes if:** a Linux baseline set lands and the visual job goes blocking. Measure the antialiasing drift on that runner and set a value from the measurement — do not restore 2% from memory.
+
+### D-378 · (SYNC-1 / DATES-3, 2026-08-21) · Two clock ports: `clock` is what the user reads, `realClock` is what sync stamps
+
+**Decision.** `lib/trip-now.ts` exports a second `ClockPort`, `realClock`, whose `now()` is `new Date()` and which never resolves the `?today=` override. Every HLC stamp site and every tombstone-GC horizon takes `realClock`; every countdown, day number and label takes `clock`/`getNow` exactly as before. That is the five domain hooks (`use-itinerary`, `use-expenses`, `use-docs`, `use-budget`, `use-my-places`) plus the GC/stamp sites in `lib/itinerary-remote.ts`, `lib/expenses-remote.ts` and `lib/places-remote.ts`.
+
+**Why one port could not serve both.** `?today=` exists so day numbers and countdowns can be demoed against a trip that is months away; it persists to sessionStorage for the whole page session and ships in every build. The sync layer was reading that same port for causality and for a GC horizon, where a faked instant is not a simulation but corruption written to the shared trip.
+
+- **Stamps.** `?today=2026-12-09` stamped every itinerary/expense/docs/places/budget write made under it with `hlc.pt = 2026-12-09T17:00Z`. `resolvePair` takes the higher `pt`, so those rows beat every genuine later edit from any device until the real clock passes the faked date — and because `hlcSendOrLocal` ratchets `pt` to the row's own stored stamp, the inflated value is inherited by every subsequent edit of that row on every device. Measured: an edit typed on Aug 21 under the override outranked a real edit made three days later by 107 days. The mirror case is as bad — a past-dated override mints stamps that LOSE every merge, so those edits are discarded in silence.
+- **GC horizon.** `gcTombstones`/`gcTombstoneRows` dropped every tombstone older than `faked − 30d` from a MERGED doc that `pushDayMerged`/`pushChunkMerged` then `tx.set` straight back to Firestore. Any peer still holding the row live re-adds it on the next merge, so a delete silently un-deletes for the whole group.
+
+**`lib/preflight.ts` already read `new Date()` by hand** for exactly this reason, with a comment saying so, and `lib/attribution.ts` stamps `updatedAt` from the real clock on the same edit — so a row written under the override carried `updatedAt` = the real day and `hlc.pt` = the faked one. The codebase already knew the two clocks differed; it had no seam that made the choice explicit at the call site. That is what the second port is.
+
+**`?today=` now rejects a date string that does not round-trip.** `DATE_RE` validated the SHAPE only, and `new Date(y, mo-1, d)` rolls out-of-range parts over silently: `2026-13-45` became 2027-02-14 and was accepted as the clock. `overrideMsFor` re-reads the constructed date and refuses it unless year, month and day all come back unchanged; a rejected override falls through to the persisted one and then to the real clock, rather than becoming a plausible-looking wrong day.
+
+**Not done here.** The two DISPLAY clocks still disagree with each other: `getTodayInTrip()` derives the trip day at the destination leg's fixed offset while `TRIP_START`, `getFlightTiming` and `elapsedInclusiveDays` use the device's own calendar, so for a traveller in New York the hero flips to "Day 1" 10h45m before the phone agrees. That needs a seam decision (origin-local until the first leg begins, or move the other three onto the offset), not a second port, and both write paths that default a new row's `date` from `getTodayInTrip()` inherit whichever answer wins. Recorded as open.
+
+**Changes if:** the override stops shipping in production builds — the second port would then be unnecessary, but not wrong.
+
+### D-379 · Amends D-374 · (SYNC-4, 2026-08-21) · Forward-key retention has call sites in three domains now, and places needs BOTH halves
+
+**Decision.** `sanitizePlace`/`sanitizePlaces` take the same `SanitizeOptions { keepUnknownKeys?: boolean }` the expenses and docs sanitizers took in D-374, and `mergePlaces` threads it to its closing sanitize. `lib/places-remote.ts` sets it at `docToPlaceRows` AND at both `mergePlaces` calls.
+
+**D-374's "set at exactly two call sites, both remote reads" is stale, and this is the correction.** It is now three domains, and places is the one that needs a second flag on a path that is not a read.
+
+**Why places is different.** Docs and expenses write `mergeItems` output directly, with no sanitize tail. `mergePlaces` closes with its own `sanitizePlaces` — it is the domain's one narrowing boundary — so at the strict default that rebuild re-stripped the forward keys `docToPlaceRows` had just retained, on the way INTO `tx.set`. Retention at the read alone was a complete no-op here, in the same way D-374 records it being a no-op on the docs checklist for a different reason. An older client therefore went on erasing a newer client's fields from the server on every push, which is the defect #138 was supposed to have closed.
+
+**`stripSeed` had to take over dropping `updatedAt`.** The transient legacy-HLC seed is applied inside `mergePlaces` and must never reach storage or the wire, because `rowHlc` seeds from it whenever `hlc` is absent — a persisted copy would be a second source of truth for the order key. Under retention the sanitizer spreads the source row instead of rebuilding it field by field, so the strict rebuild is no longer what removes the seed. `stripSeed` drops it UNCONDITIONALLY, which is exactly what the strict path did with that key: `updatedAt` is not a declared `MyPlace` field, so keeping a peer's copy of it would create the same second source of truth.
+
+**Default-strict is unchanged and still load-bearing.** `loadMyPlaces`/`saveMyPlaces` and backup stay strict, and it is that strict local re-save which creates the equal-HLC/different-key-set collision D-376 resolves in favour of the richer row. Retention at the read remains necessary but not sufficient without D-376.
+
+**Changes if:** a fifth synced domain grows a sanitizer tail. The rule is then "wherever the merge closes with a narrowing boundary, both halves", not "at the remote read".
+
+### D-380 · Addendum to D-228 / D-309 · (SYNC-2, 2026-08-21) · The skew clamp cannot move into `hlcSendOrLocal`, and the docstrings that implied it could were the defect
+
+**Decision.** `MAX_SKEW_MS` and `hlcReceive` stay where they are and stay unwired. `hlcSendOrLocal` does NOT clamp `last`. Both docstrings now say plainly that they have no production caller and that the "far-future peer is capped" sentence describes `hlcReceive`, not the shipped merge path.
+
+**Why the obvious fix is data loss.** In this state-based design `last` is the ROW's own stored stamp, not a device clock reading. Clamping it to `physicalNow + MAX_SKEW_MS` mints a new stamp that sorts BELOW the row being edited; `compareHlc` then keeps the stored row, and the user's edit is reverted by the next snapshot. One line, all five domains, silent.
+
+**Pinned by** the R5 monotonicity case in `lib/__tests__/core-sync-hlc.test.ts`, which drives `last.pt` a thousand years ahead and asserts the result is strictly greater than `last`.
+
+**Written down because it has now been proposed twice**, both times from a correct reading of the file: the docstrings described a 24h clamp as a live defence of the merge, so a reader looking for where it runs concludes it must belong in the one function every stamp routes through. It does not. The state-based design never grew a receive step — absorption happens implicitly, because `nextSyncStamp(prev, …)` passes the merged winner's own `hlc` as `last` — so there is no remote stamp for the clamp to be applied to at the moment it would mean something.
+
+**D-309's ceiling stands, unchanged:** a concurrent offline edit from a correct-clock device can still lose to one whose clock is hours wrong, and that is the accepted trusted-device residual. D-378 removes the app's own way of manufacturing that state.
+
+**Changes if:** a device-wide running-clock primitive lands — D-228's original reason for keeping both. `hlcReceive` then gets a caller and the clamp applies to a REMOTE stamp, which is the value it was written for.
+
+### D-381 · Amends D-313 (LOCKED) · (DATES-5, 2026-08-21) · The hero ring counts CALENDAR days, from one derivation
+
+**Decision.** `daysToGo(now)` in `lib/home-stats.ts` — `differenceInCalendarDays(TRIP_START, now)` — is the single producer of "days to go". The hero ring's digit and its fill fraction both read it, `home-stat-row.tsx`'s live cell reads it, and `lib/travel-date.ts`'s `daysUntilStart` reads it (A-23 had already fixed the identical reading there, in isolation, one file over).
+
+**`computeCountdown` is untouched.** `totalDays`, the month/week/day grid and the sum-back are byte-for-byte as D-313 left them, and the grid still does not reconcile with the ring — the non-reconciliation D-313 explicitly accepted is unchanged. What changed is which quantity the ring counts, not how the ring behaves and not how the countdown is computed.
+
+**Why.** `totalDays` is a truncated 24-hour count that borrows the partly-spent day into the hour/minute/second residue, so it reads 0 for the whole day before departure. It is correct for what it claims and it is simply not "how many sleeps". Home rendered the number twice in one frame from two derivations, so the ring and the stat row directly beneath it printed values one apart at every instant except exactly local midnight: `2026-12-08T09:00` read 0 in the ring and 1 in the row, and `/travel` on the same device read 1 while Home read 0.
+
+**Recorded consequence: the pinned `?today=2026-11-09` ring reading moves 29 → 30**, in both the ring and the stat row (`e2e/countdown.spec.ts`). `?today=` freezes the clock at local NOON, so the truncated count borrows half of Nov 9 into the 12h residue and the calendar count does not. The days cell inside the grid above still reads 29 and is labelled as one field of a breakdown, not as a day count. The two numbers answer different questions and each is now labelled with its own.
+
+**One clock read per tick feeds both.** The hero's interval calls `getNow()` once and passes the same instant to `computeCountdown` and `daysToGo`, so the grid and the ring cannot be a tick apart even transiently.
+
+**Changes if:** the ring's caption stops saying "days to go". The number follows the label, not the other way round.
+
+### D-382 · (CONTENT-7 / DATES-6, 2026-08-21) · `TRIP_DAYS_MAX = 730` is the one span cap, enforced at `sanitizeTripConfig`
+
+**Decision.** `TRIP_DAYS_MAX = 730` inclusive days, exported from `core/trips/registry.ts` and enforced inside `sanitizeTripConfig`. A config whose span exceeds it is REJECTED, not clamped. The create form imports the same constant and mirrors it natively — `min`/`max` on both date inputs — so the picker cannot offer a year that would breach it, and re-checks it in the submit handler because Enter-in-a-field bypasses a disabled button.
+
+**Why the validator and not the form.** `sanitizeTripConfig` is the trust boundary all four config sources funnel through: the create form, a peer's trip-meta doc, the synced trip list, and hand-edited storage. A check in the form covers exactly one of them, and the three it misses are the ones nobody is watching.
+
+**Why a cap has to exist at all.** Every consumer treats the span as a length it materialises: `TRIP_DATES` and `buildDayShells` emit one entry per day, roughly fifteen components render a node per entry, and `reconcileFirstSnapshot`'s seed branch pushes ONE FIRESTORE DOCUMENT PER DAY against a free-tier write ceiling. A one-digit year typo (`2027` → `2227`) is 73k days, ~4.3 MB of day shells and 73k writes. 730 is two years — past any real trip, and small enough that the worst case is survivable rather than a wedged account.
+
+**Reject rather than clamp, and the ceiling that buys.** Clamping would silently rewrite dates the user typed, and worse, would rewrite a PEER's config on read and push the altered version back. Refusing keeps the rule one-directional and keeps the bad bytes visible. The cost is named rather than hidden: a trip created before this cap with a longer span now fails the validator, so the registry entry survives with no config and the app falls back to the placeholder instead of rendering a 73k-day trip. Nothing is deleted; editing the dates restores it.
+
+**The other half of the same defect: `ISO_DATE` validated shape, not existence.** `2026-13-45` passed the regex, and `new Date` rolls it to 2027-02-14 — or, with the `T00:00:00` suffix the date backbone uses, becomes an Invalid Date and yields an EMPTY `TRIP_DATES`, which is the state the fifteen unguarded `TRIP_DATES[0]` readers crash on. `isoDayMs` re-reads the constructed UTC date and returns `NaN` unless year, month and day all round-trip. Same idiom as the `?today=` check in D-378, for the same reason: digits in the right places is not a day.
+
+**Changes if:** a trip legitimately needs to run longer than two years. Raise the constant — do not move the check, and do not add a second one at a call site.
+
+### D-383 · (CONCIERGE-3, 2026-08-21) · The href scheme allow-list is a shared security boundary, in one file
+
+**Decision.** `lib/safe-href.ts` exports `SAFE_HREF` and `isSafeHref`. The pattern is byte-identical to the one `components/concierge-chat.tsx` shipped inline; nothing was widened. It is applied at the two producing boundaries — `lib/place-resolve.ts` (`finalUrl` off the Worker's `/resolve`) and `components/import-place-sheet.tsx` (whatever was typed into the URL field, which Save was never gated on) — and at the render site, `components/my-places-section.tsx`, which links to the first of `resolvedUrl`/`sourceUrl` that passes and renders no link at all if neither does.
+
+**The render-site check is the load-bearing one.** Places is a SYNCED domain and the read boundary does not re-validate URLs, so a row arrives carrying whatever a peer's device or an older client put in it. Guarding only the producers would leave every such row live. The producers are guarded as well, so nothing bad reaches storage from this build — but that is defence in depth, not the boundary.
+
+**Why it matters on this deployment specifically.** The export is static GitHub Pages with no CSP, so a `javascript:` href runs on the app origin with the Firebase session and every trip key in localStorage in reach.
+
+**Widening the list is a security change** and should be handled as one. An allow-list is what keeps out `javascript:` and `data:` together with every scheme nobody has thought of yet; a deny-list would not.
+
+**Deliberately NOT tightened at the schema.** `myPlaceSchema` keeps `sourceUrl`/`resolvedUrl` as plain optional strings rather than `z.string().url()`. A `myPlaceSchema` failure drops the WHOLE row — `sanitizePlace` returns `null` — so a stricter schema would silently delete a synced place because its link was odd, which is the all-or-nothing failure #123 and D-375 already ruled against for other fields. Dropping the link and keeping the place is the correct degradation, and the render-site check is what performs it.
+
+**Changes if:** a CSP lands on the deployed site. The render-site check stays either way; it would just stop being the only line.
+
+### D-384 · (PWA-7, 2026-08-21) · Reachability is corroborated from real traffic, and a suspected outage EXPIRES
+
+**Decision.** `hooks/use-online.ts` reports online only when `navigator.onLine` is true AND reachability has not been contradicted. `navigator.onLine` stays the fast NEGATIVE — it is reliable when false — and the positive is corroborated from the outcome of requests the app already makes, via a one-time wrapper around `window.fetch` that observes and re-throws and never alters a result. No probe, no polling, no new dependency.
+
+**Why the flag alone was not the truth.** It reports that a network interface exists, not that anything is reachable. On captive-portal wifi, a dead uplink or a hotel AP that resolves nothing it stays `true`, so the banner never rendered and the Home connection tile read "Online" while weather, the currency rate, Firestore sync and the concierge were all failing — the one moment the banner exists for.
+
+**The rule worth recording, which is more general than this hook: a negative inferred from traffic has to expire.** Once the app believes it is offline it stops generating the traffic that would disprove it — `use-concierge-chat` refuses to send while `online` is false, so the concierge could never produce the evidence that clears its own false negative — and the `online` event is no rescue, because it does not fire on a link that never dropped. So `REACHABILITY_SUSPECT_MS = 30_000`: re-armed on every failure so a run of them holds the banner open through a real outage, cleared by any cross-origin success or by a real link-layer transition. 30s is deliberately shorter than the concierge's own 45s request deadline, so a traveller who was told "you're offline" can retry and actually be heard. Guessing wrong in the optimistic direction costs one banner flicker; guessing wrong in the pessimistic direction used to cost the feature for the rest of the session.
+
+**Only CROSS-ORIGIN outcomes are evidence, in both directions.** Same-origin requests are answered by the service worker's cache, which resolves happily while the network is dead (a false positive) and returns `Response.error()` for a plain miss (a false negative). Neither says anything about reachability.
+
+**`TimeoutError` is a caller hang-up, exactly like `AbortError`.** `AbortSignal.timeout()` rejects with `TimeoutError`, not `AbortError`, and both are the same statement: OUR deadline ran out, which is not a network fact. The concierge's deadline is 45s against a cross-origin Worker, so reading it as an outage took the concierge offline app-wide on one slow answer.
+
+**Known ceiling, marked in the code:** `api.frankfurter.dev` is the worker's one stale-while-revalidate exception, so a cached rate can resolve cross-origin without touching the network — one host, one request per rate read. Not worth teaching this module the worker's routing table.
+
+**Changes if:** a same-origin endpoint the worker never caches appears, which would give a second evidence source and let the cross-origin restriction relax.
+
+### D-385 · (CONCIERGE-6 / CONCIERGE-4 / CONCIERGE-7, 2026-08-21) · Two concierge contracts reversed on purpose, and identical ops are one proposal
+
+**Decision 1 — a 2xx whose body is not the `{reply, ops}` envelope is an ERROR turn, not an empty successful one.** `typeof data.reply !== 'string'` now calls `fail(statusMessage(0))` and returns. It used to swallow the parse failure, default `reply` to `''`, set status `idle` and leave `error` null — a blank grey bubble with no error row, no "Try again", and that empty turn shipped as history on every later turn. The canonical producer is a captive portal or an interposing proxy answering 200 with HTML. "Did the body parse into an envelope" and "was the request successful" are different questions, and this is the line that stops them being conflated.
+
+**Decision 2 — the abort ceiling is scoped to the TURN, not to the fetch.** `AbortSignal.timeout(CHAT_TIMEOUT_MS)` is constructed at the top of the try and the auth await is raced against it, resolving to no header if the ceiling wins. It used to be constructed inline in the `fetchImpl(...)` call, which left two unbounded awaits ahead of it — the lazy `import('./itinerary-remote')` and a `securetoken.googleapis.com` token refresh, neither with a timeout of its own. If either STALLS rather than rejecting, `send()` never settles, so `finally` never runs: status stuck on `streaming`, `sendingRef` stuck true, `error` still null so no retry row ever mounts, and only a reload recovers. That is the exact state `CHAT_TIMEOUT_MS` exists to prevent, on exactly the connections this file's other comments already treat as normal. Degrading to an unauthenticated request on a token we could not obtain in time is already `workerAuthHeader`'s documented catch behaviour, so an empty header is the correct fallback; the fetch then rejects on the already-aborted signal and lands in the catch with the timeout copy.
+
+**Knock-on, and the reason the two are recorded together: any concierge fetch stub in a test must now return a real envelope.** A stub resolving `{ ok: true, json: () => ({}) }` used to be a successful empty turn and is now an error turn. Two tests pinned the old behaviour by name; they were rewritten to assert the new contract rather than kept.
+
+**Also here — two byte-identical ops in one reply are ONE proposal**, deduped on arrival by the same `JSON.stringify` the chip's `opKey` is built from. A model repeating itself within a reply is an ordinary failure mode, and two identical ops produced one key: both chips rendered under the same React key, Confirm on either resolved both, only one `applyOp` ran, and the second proposal vanished with no chip, no undo entry and no "didn't match" line. Deduping is what makes "one proposal" true everywhere; the alternative is a positional key, which asks the user to confirm the same thing twice.
+
+**Not done here, and it is not a client decision.** The live Worker still verifies nothing — the membership gate exists only in a Worker version that was never deployed — so the panel's "this trip is on your account" gating remains client-only and guards nothing. No change in this repo can make it real, and nothing client-side should be treated as a security boundary for it. Recorded as open, including the in-code comment that still asserts the Worker checks membership.
+
+**Changes if:** the envelope grows a streaming shape, which would make "reply is a string" the wrong test rather than a stricter one.
+
+### D-386 · (CONTENT-3 / CONTENT-6, 2026-08-21) · Destinations are required at creation, and the active-trip pointer follows a tombstone from any device
+
+**Decision 1 — a custom trip cannot be created without at least one destination.** The field is `required`, the submit button is disabled without it, and the guard runs before `crypto.randomUUID()` so nothing is minted on the refusal path. The previous default was the trip NAME.
+
+**Why the default was the defect.** `destinations[0]` becomes the leg's `fallbackCity`; `getCityForDate` returns it for every day of the trip; `runVisitAutocount` writes it into the lifetime "cities visited" record — which sits outside the trip namespace, outside `wipeAllTripData()`, and survives sign-out, all by design (D-314). "Mum's 60th" was recorded permanently as a city the user had visited. The visit record is the one store the app deliberately cannot clean up, so the only honest boundary is the single place the value is authored.
+
+**Decision 2 — the active-trip pointer moves whenever the trip it names is tombstoned, from ANY device.** `removeKnownTrip` already did this for a local forget; `importRemoteTrips` now does it for an incoming tombstone.
+
+**Why, mechanically.** Without it the forget undid itself: the merge dropped the entry, the pointer kept naming it, the next `listKnownTrips()` self-healed the entry back in with a FRESH `joinedAt`, `entryRecency` then outranked `removedAt`, the next merge deleted the tombstone, and the trip was re-pushed to every device — including the one that had just forgotten it. Moving the pointer removes the state the self-heal reacts to, so no second guard is needed anywhere. As with `removeKnownTrip`, the CALLER reloads; the pack is re-resolved on the next load.
+
+**Changes if:** the self-heal in `listKnownTrips` is removed — the pointer move would then be unnecessary, and harmless.
+
+### D-387 · Extends D-307 · (CONTENT-5 / CONTENT-8, 2026-08-21) · The last two unguarded object indexes
+
+**Decision.** `vibeFor` (`core/trips/custom.ts`) and the legacy hash lookup (`components/legacy-hash-redirect.tsx`, extracted as `legacyHashTarget`) read their maps through `Object.prototype.hasOwnProperty.call(...)` rather than a bare index. Same one-line idiom D-307 established; these were the fifth and sixth surviving sites, and this sweep found no others.
+
+**Why the existing fallbacks did not cover it.** `VIBES['constructor']` is the `Object` function — non-nullish, so `??` never fires — and the hero then dereferenced `.gradient` on it and took the whole Home route to `app/error.tsx`. `ROUTE_REDIRECTS['constructor']` is likewise a truthy NON-STRING, so the truthiness guard passed and `target.indexOf('#')` threw, with the same result for anyone who opened `/#constructor`. Both keys are untrusted input: `TripConfigBlock.vibe` is stored/imported data that `sanitizeTripConfig` accepts as any non-empty string, and the hash is raw URL text.
+
+**The hash lookup was extracted to a named export** so the rule has a test seam. The redirect effect is otherwise unchanged.
+
+**Changes if:** either map becomes a `Map`, which has no prototype chain to fall through — the guard would then be redundant rather than wrong.
+
+### D-388 · (STORAGE-2 / STORAGE-1 / CONTENT-4, 2026-08-21) · A restore is not finished until it is enqueued, and an expense import is all-or-nothing
+
+**Decision 1 — the four synced domains are enqueued through their own outbox-decorated push before the bare write.** `enqueueRestored(port, storage)` in `core/vault/backup.ts` routes the restored value through `withOutbox` — the same seam every ordinary edit uses — for expenses, budget, docsChecklist and myPlaces. It reads the pre-restore local state as the push's `prev`, so it MUST run before `spec.write`, and the spec carries that ordering in its type.
+
+**Why.** `spec.write` is a gateway write and never reaches `commit()`, so nothing was enqueued in the sync outbox. On the reload that follows a restore, the first remote snapshot takes its "remote is authoritative" branch for every chunk that is present remotely and not dirty — which was all of them — and overwrote the just-restored rows while the UI reported success. Only the itinerary escaped, via the `CommitItinerary` dual path. The write-ahead enqueue is synchronous, so the dirty chunks are on disk before the reload and the first snapshot takes the MERGE branch instead. Self-gating: dormant and guest builds no-op exactly as before.
+
+**Known ceiling, marked in the code:** merge, not tombstone-replace. A row the backup DROPPED — present remotely, absent in the file — survives the merge, where the itinerary's `restorePlans` would tombstone it. Closing that needs a restore-shaped commit on each of the four domains (only expenses has one today); the upgrade path is to inject them the way `commitItinerary` is injected.
+
+**Decision 2 — `parseExpenseBackup` rejects the whole file if any payload row does not survive `sanitizeExpenses`.** That is D-098's rule (`parseItineraryPayloadStrict`) applied to the expense path, because the two boundaries have identical failure economics. On disk there is no second copy, so the storage read stays lenient and drops the bad row. On IMPORT the user holds both the file and their live expenses, and the caller applies the result as a tombstone-REPLACE that propagates to every device. The lenient gate meant any `{schemaVersion: number, payload: []}` file passed — including the ITINERARY export, which sits in the same Downloads folder and is offered by the same file picker: none of its rows is an `Expense`, so it sanitized to `[]`, wiped every logged expense everywhere, and reported success. Rejecting costs one failed import with the bytes quarantined.
+
+**Decision 3 — a legacy itinerary-only file is checked against the ACTIVE trip's DATES.** A-5 refuses a full backup whose `tripId` does not match the active trip, but the legacy envelope (`{schemaVersion, updatedAt, payload}`) carries no trip identity at all, so it sailed past that check and replaced whatever trip happened to be active — and under sync `commitItinerary` is `restorePlans`, which propagates the replacement to every other member. The only identity such a file carries is its dates, so the rule is that at least one day must fall inside the active trip's span. A legitimate same-trip restore costs nothing by construction; an empty payload is refused too, because committing it is the whole-trip wipe D-098 exists to prevent.
+
+**Changes if:** the legacy envelope is retired — decision 3 goes with it, and decisions 1 and 2 do not.
+
+### D-389 · (STORAGE-5 / STORAGE-4, 2026-08-21) · Two boundaries that promised TOTAL and were not
+
+**Decision 1 — `readJson` gates on SHAPE, not just on parseability.** A slot holding a JSON scalar (`null`, `5`, `"x"` — devtools, another script on the origin, a corrupt profile) parses fine and used to be handed straight back typed as the caller's `T`. Accessors that dereference it directly rather than passing it to a domain sanitizer (`weatherCache`, `outbox.loadSlot`) then threw a TypeError OUT of the gateway, and `weatherCache`'s escaped into Home's render. The gate fires only when the caller's `fallback` is object-shaped, so the `ABSENT`-sentinel callers — `core/vault/backup.ts`'s export, which must distinguish an absent slot from a stored one — still receive the raw parsed value.
+
+**Why at the gateway rather than at the accessors.** The never-throw contract is stated at the top of that file and every caller is written against it, so a leak there is a leak of the contract, not of one accessor. One gate is smaller than a guard per accessor and it is the version a future accessor inherits for free.
+
+**Decision 2 — the migration CHAIN drops rows a step cannot be applied to.** The steps are whole-array `map`s that throw on an unusable row, and they run BEFORE the per-row-degrading Zod read, so a pre-v5 vault with one malformed day quarantined the ENTIRE trip while the same data at v5 lost only that day. `isMigratableDay` filters in the chain runner, not inside any one step, so every current and future step inherits the rule; survivors are still re-validated by `parseItineraryPayload`, which reports the loss through its existing "dropped N malformed row(s)" warn.
+
+**This is #123's partial-beats-nothing rule, one layer up.** Applying it per-step would have to be re-done, correctly, for every step ever added.
+
+**Changes if:** a migration step ever needs to SEE a malformed row in order to repair it — then the filter moves inside the steps that do not.
+
+### D-390 · (PWA-2 / PWA-3 / PWA-4 / PWA-5 / PWA-1, 2026-08-21) · The worker owns only `trip-*` caches, normalizes its keys, and consults the precache first
+
+**Decision 1 — `activate` deletes only caches whose name starts with `trip-`.** The ownership prefix is not a duplicate of the allowlist: `caches.keys()` is scoped to the ORIGIN, not to the worker's scope, and the live app is a GitHub Pages PROJECT page sharing `powan55.github.io` with every other project on the account. Without the prefix, accepting an update here wiped a sibling app's Cache Storage — and that sibling only repopulates on ITS own next version bump.
+
+**Decision 2 — the cache key drops `_rsc`.** Next computes that param from the CURRENT router state tree, so one target route yields a different URL per source route and again for prefetch versus navigation. Keyed literally, each became its own permanent entry in a precache that has no size cap and no eviction: roughly 19 routes × 19 source states × 2 kinds, about 17 MB of near-duplicate JSON against a 4.57 MiB shell. `cacheKey(request)` normalizes once inside `cacheFirst`, which both the static branch and the glyph/lazy-chunk path route through. The consequence of not fixing it is not just size: when the origin is evicted under storage pressure the entire Cache Storage goes, precache included, and nothing rebuilds it as a unit because `install` has already run.
+
+**Decision 3 — the image handler consults the PRECACHE before `trip-images-v1`.** The precache name is content-hashed and rolls with every deploy; `IMAGES_CACHE` is `trip-images-v1` forever and is allowlisted through every activate, while `/images/**` filenames are not content-hashed. Runtime-first meant a re-encoded image stayed stale on a returning client permanently, with the fresh bytes sitting unread in the new precache — and meant the precached hero rasters (D-335, 30% of the gzipped install) were never served from cache on a first online paint, because anything not already in `IMAGES_CACHE` went to the network. Precache-first fixes both and keeps the heroes from burning one of the 80 FIFO slots.
+
+**Decision 4 — every `caches.match` goes through `cacheMatch`, which swallows a rejection.** A corrupted store, an eviction racing the read, or iOS storage reclamation can reject; an exception inside `respondWith` rejects the response and the browser paints its network-error page for a route the precache is holding. Guarding the one shared helper is what makes every branch degrade to "nothing cached" instead of failing. Two lookups that sat OUTSIDE their try blocks are gone with it, and the nav-branch `cache.put` grew a `.catch`.
+
+**Decision 5 — `normalizePath` strips a trailing `index.txt`/`.txt` before the trailing-slash rule.** Offline, the App Router's RSC fetch fails and Next falls back to a browser NAVIGATION to the `.txt` URL itself. Nothing precached matched it, so the nav handler answered with the app-root shell: tap "Plan" offline and Home rendered at `/plan/index.txt`, from which every further tap repeated it, so offline the UI could never leave Home. Only navigations reach `normalizePath` — the RSC fetch itself is not `mode:'navigate'` and takes the static branch.
+
+**Not done: the RSC payloads are still not precached.** Adding `out/<route>/index.txt` to `buildPrecacheList` is +461 KB raw across 19 files on an install that is atomic, fails from inside the worker, and has no rollback (D-372). That is an install-size decision and it is deliberately deferred, not missed. Decision 5 means an offline link tap now resolves to the correct route's shell; what remains without the payloads is that the navigation is a hard reload and the address bar still reads the `.txt` URL.
+
+**Changes if:** the install budget is re-measured and 461 KB is judged affordable. Decisions 2 and 5 are the prerequisites for it and both are in.
+
+### D-391 · (MONEY-2 / MONEY-3, 2026-08-21) · The settlement is device-independent, and there is exactly one tolerance
+
+**Decision.** `minimalTransfers` no longer takes the roster. Arithmetic ties in the greedy match break on the participant id itself (code-unit compare). `travelers` survives only as `orderBy`, a DISPLAY re-key of the balances object, and nothing arithmetic reads it.
+
+**Why.** `rosterForActiveTrip` puts the signed-in traveller FIRST on a custom trip, so ranking ties by roster order made the emitted transfers a function of who was looking: byte-identical expenses told Ana "pay Dee" and Cal "pay Ana", and two people reading the same trip could not reconcile. `settle`'s docstring already promised the result was the same on every device, and there is deliberately no "who am I" parameter — the roster was the identity leak that parameter was avoided to prevent. The id is device-independent, which is what the caller's promise actually requires.
+
+**`EPS` is exported and is the only threshold.** The "settled" chip in `components/settle-up-summary.tsx` used a hardcoded `0.5` — a whole-unit assumption written for the NPR/JPY legs — so on a USD leg, which every custom trip is, it called a 30-cent debt settled while printing the transfer that clears it: one card contradicting itself. A rounded balance is either exactly 0 or at least one display unit, so half a cent is the correct floor for both currency shapes and there is no reason for two numbers.
+
+**Changes if:** a currency with more than two decimal places ships — that moves the floor, not the rule.
+
+### D-392 · (MONEY-1, 2026-08-21) · An expense's leg is not its day's leg — fixed at the recap seam, named as a ceiling at the calendar one
+
+**Decision.** `sumExpensesForDate(expenses, date, leg?)` takes the leg, and both recap surfaces pass the DAY's leg — the same leg they format the result with. A row whose leg the ACTIVE pack does not recognise contributes nothing, matching `expensesToSpent` and `expensesByDate`, so all three aggregates agree about which rows count.
+
+**Why the leg is a real input and not a convenience.** A trip day belongs to exactly one leg, but an EXPENSE does not: the log dialog lets the leg chip be switched while `date` stays pinned to the day the dialog opened on ("paid for Japan while still in Nepal"), so `e.leg` and the day's leg are independent inputs. Summing by date alone handed a ¥50,000 row to a Nepal day, where the caller formats the bucket with the day's `legCurrency` and rendered it as "Rs 50,000" — and with rows from both legs on one date it added NPR to JPY into one meaningless number. In `trip-story-recap.tsx` the same sum also fed `spendByLeg`, which then contradicted `wrapped-story`'s own per-leg totals.
+
+**Known ceiling, marked in `core/budget/burn-rate.ts`:** `expensesByDate` still keys on the date and drops `e.leg`, and the calendar overlay formats each bucket with the day's `legCurrency`. Same defect, same cause, not fixed here. Closing it means keying on the (date, leg) pair, which changes the shape every consumer reads — `components/calendar-planner.tsx` and `calendar-day-picker.tsx` — a wider diff than the recap seam, not a harder one. Recorded so it is not re-found from scratch.
+
+**Changes if:** the log dialog stops letting the leg diverge from the date. Both seams then become unnecessary — and that is an input-design decision, not a money one.
+
+### D-393 · (A11Y-3, 2026-08-21) · A live region has to be in the tree BEFORE the text it announces
+
+**Decision.** The polite status regions mount their `role="status"` / `aria-live="polite"` wrapper ALWAYS and put the conditional content inside it: `offline-banner.tsx`, `sync-status-badge.tsx`, `presence-bar.tsx` and `photo-attach.tsx`, joining `settings-panel.tsx` and `backup-restore.tsx`, which already did. `aria-label` is set only when there is something to say, so an always-mounted region does not claim the device is offline for the whole time it is online.
+
+**Why.** A live region announces a MUTATION of a region already in the accessibility tree. A region inserted in the same commit as its text is not reliably announced by NVDA, JAWS or VoiceOver, so components that returned `null` when idle announced nothing at all — at exactly the moments they exist for. The bug was invisible in review because the markup was correct in isolation; only the mount timing was wrong.
+
+**It costs no layout.** An empty wrapper with no children has no box, and the `fixed` positioning and every visual class stay on the inner pill, so nothing moves by a pixel in either state.
+
+**Test seam:** the offline banner's region carries its own `data-testid` (`offline-banner-region`), because the pill's testid has to go on keeping its meaning — "the pill is showing".
+
+**Changes if:** a screen reader ships that announces a freshly-inserted region reliably. That is not a bet worth taking on a status surface.
+
+### D-394 · (A11Y-5, 2026-08-21) · The ambient-loop audit reads the SOURCE for Tailwind's utility loops, and fails closed
+
+**Decision.** `scripts/motion-loops.mjs` runs a second pass over `app`, `components`, `core`, `hooks` and `lib`, matching `animate-pulse|spin|bounce|ping` and judging each SITE against the same 6s floor, with a `motion-safe:` prefix as the per-site guard. Five live sub-6s loops were structurally invisible to pass 1 and now carry the prefix: `ui/button.tsx`, `photo-attach.tsx`, `journal-browse.tsx`, `trip-story-recap.tsx` and `import-place-sheet.tsx`.
+
+**Why pass 1 could not see them.** Its argument — the CSS is the fact, so a second copy would only prove the file agrees with itself — holds for loops somebody hand-wrote into `app/globals.css`. Tailwind emits `animate-pulse` (2s) and `animate-spin` (1s) into ITS stylesheet from a class written in a `.tsx` file, so the audit reported two loops while five shipped.
+
+**A grep of the source, not a read of the built CSS.** Reading `out/` would couple the audit to a prior `npm run build`; this check runs before `npm ci`, like the other two. Durations are pinned from Tailwind's own theme — that is the price of not needing `node_modules`, and they have not moved since Tailwind 1. Comments are blanked in place so line numbers survive and a class named in prose is not a hit.
+
+**It fails closed twice, and both are deliberate.** A pass that scans zero files means the roots moved and every verdict above it is vacuous, so that is a failure rather than a clean run. And the reduced-motion block losing `animation-iteration-count: 1` is a failure, because that universal rule is the only thing that stops a generated loop for a user with reduced motion on who hits a call site written before its guard — a utility loop has no selector of its own to name in the reduce block.
+
+**The guard lives at the call site**, not in `globals.css`, because that is where the class is written. `motion-safe:` means the class applies only at `prefers-reduced-motion: no-preference`, which is the fork `components/trip-map.tsx` already used.
+
+**Changes if:** Tailwind's default durations change. The pinned table is what to re-read, and the self-test should grow a row that notices.
+
+### D-395 · (SYNC-5, 2026-08-21) · The sync/tombstone gate is TRIP-scoped, not app-scoped
+
+**Decision.** `use-itinerary`, `use-expenses`, `use-docs` and `use-budget` gate on `isTripRemoteConfigured()` instead of `isRemoteConfigured()`, matching `use-my-places`, which already did.
+
+**Why.** The default sample pack has no remote id (#10: `getTripId()` returns `''`), so nothing written there can ever be pushed — and both tombstone-GC boundaries sit behind the same trip-scoped gate, so nothing can ever collect what it wrote. On the app-wide gate, a Firebase-configured build accumulated tombstones in the sample pack forever, and undo re-minted item ids against rows no merge would ever see.
+
+**The dormant byte-identity claim gets WIDER, not narrower.** "No firebase env" becomes "no firebase env, or the local-only sample pack", and the docstrings in all four hooks now say so. Nothing that was stamping stops stamping: a trip with a remote id behaves exactly as before, and the guarantee that a dormant slot is byte-identical to a local-only one now covers one more case rather than one fewer.
+
+**Changes if:** the sample pack is ever given a remote id, which would make the two gates equivalent again.

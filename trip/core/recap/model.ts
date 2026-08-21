@@ -24,6 +24,9 @@ import { TRIP_DATES } from '@/core/dates';
 // type-only import — the recap↔budget composition reads the `Expense` shape but never
 // writes it (READ-ONLY over the budget/expense domain, same layering as the two imports above).
 import type { Expense } from '@/core/budget/expenses';
+// runtime core→core: the same active-pack leg guard `expensesToSpent`/`expensesByDate` use, so
+// all three aggregates agree on which rows count.
+import { isLeg } from '@/core/budget/model';
 
 /**
  * The plan-vs-actual completion summary for a single day: how many activities were PLANNED and
@@ -91,19 +94,37 @@ export function isPostTrip(nowDateStr: string): boolean {
 
 /**
  * — the recap's per-day spend line: sum of every logged expense whose `date` matches the
- * given trip day, in that day's LEG-LOCAL currency ( — expenses are already leg-local, and
- * a trip day belongs to exactly one leg, so this is a plain sum, no conversion). READ-ONLY
- * derivation over the expense domain — no write path reachable from here.
+ * given trip day AND whose own `leg` matches `leg`, in that leg's currency. READ-ONLY derivation
+ * over the expense domain — no write path reachable from here.
+ *
+ * `leg` IS THE FIX, not a convenience. A day belongs to one leg but an expense does not: the log
+ * dialog lets you tap the other leg's chip while `date` stays pinned to the day you opened it on
+ * ("paid for Japan while still in Nepal"), so `e.leg` and the day's leg are independent inputs.
+ * Summing by date alone handed a ¥50,000 row to a Nepal day, where every caller formats the bucket
+ * with the DAY's `legCurrency` and rendered it as "Rs 50,000" — and with rows from both legs on one
+ * date it added NPR to JPY. Callers pass the leg they are about to format with, so the number and
+ * the currency symbol can no longer disagree. Omitting `leg` sums every KNOWN-leg row for the date
+ * (the pre-existing shape, still cross-currency — pass a leg unless you have no currency to print).
+ *
+ * A row whose leg the ACTIVE pack does not recognise contributes nothing, matching `expensesToSpent`
+ * and `expensesByDate` — `sanitizeExpense` retains such a row verbatim, so every aggregate has to
+ * exclude it or the recap and the budget disagree about which rows count.
  *
  * TOTAL: a non-array `expenses`, a corrupt entry (non-object), or a non-matching/undated expense
  * contributes 0; a bad/negative/non-finite `amount` also contributes 0. Never throws.
  */
-export function sumExpensesForDate(expenses: readonly Expense[] | null | undefined, date: string): number {
+export function sumExpensesForDate(
+  expenses: readonly Expense[] | null | undefined,
+  date: string,
+  leg?: string,
+): number {
   if (!Array.isArray(expenses)) return 0;
   let total = 0;
   for (const e of expenses) {
     if (e === null || typeof e !== 'object') continue;
     if (e.date !== date) continue;
+    if (!isLeg(e.leg)) continue;
+    if (leg !== undefined && e.leg !== leg) continue;
     const amt = e.amount;
     if (typeof amt === 'number' && Number.isFinite(amt) && amt > 0) total += amt;
   }

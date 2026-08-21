@@ -20,6 +20,12 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // (`[data-sonner-toaster][data-y-position='bottom']`) using the same calc. Keep this
       // prop for desktop; keep the calc in both places in sync.
       offset="calc(var(--tab-bar-h, 64px) + env(safe-area-inset-bottom) + 8px)"
+      // WCAG 2.1.1: sonner's only built-in dismissal is a pointer swipe, and Escape
+      // collapses the stack rather than closing anything. A `duration: Infinity` toast
+      // (the service-worker update prompt) was therefore keyboard-undismissable — its one
+      // action reloads the app. Set on the Toaster, not per toast, so the next permanent
+      // toast inherits the way out.
+      closeButton
       toastOptions={{
         classNames: {
           toast:

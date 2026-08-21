@@ -6,6 +6,7 @@ import {
   formatDate,
   formatDateLong,
 } from '../trip-data';
+import { formatWeekdayShort, formatRelativeDayLabel } from '@/core/dates';
 
 // getCountryForDate is PURE and TZ-independent (B-01 fix, S60): it never parses the
 // input with `new Date()` — it lexicographically compares the 'YYYY-MM-DD' string
@@ -148,5 +149,42 @@ describe('formatDate / formatDateLong (noon-anchor, no off-by-one)', () => {
       // formatDate uses { day: 'numeric' } so the bare day number appears unpadded.
       expect(result).toContain(String(expectedDay));
     }
+  });
+});
+
+// ── formatWeekdayShort / formatRelativeDayLabel (`core/dates/trip-dates.ts`) ──────────────────
+// Imported from `@/core/dates` rather than `../trip-data`: that module re-exports an explicit
+// list and these two are new. Same two rules as formatDate above — 'en-US' pinned and anchored at
+// LOCAL NOON — and the relative label is what stops the weather outlook labelling rows by their
+// position in a list (a cached forecast has no TTL, so row 0 is not necessarily today).
+describe('formatWeekdayShort / formatRelativeDayLabel', () => {
+  it('formatWeekdayShort reads the weekday off the DATE, at local noon, in en-US', () => {
+    expect(formatWeekdayShort('2026-12-09')).toBe('Wed');
+    expect(formatWeekdayShort('2026-12-12')).toBe('Sat');
+    // The noon anchor: at a negative UTC offset a date-only string parses as the PREVIOUS day.
+    expect(formatWeekdayShort('2026-12-19')).toBe('Sat');
+  });
+
+  it('labels Today / Tomorrow from the date, and everything else by weekday', () => {
+    expect(formatRelativeDayLabel('2026-12-12', '2026-12-12')).toBe('Today');
+    expect(formatRelativeDayLabel('2026-12-13', '2026-12-12')).toBe('Tomorrow');
+    expect(formatRelativeDayLabel('2026-12-14', '2026-12-12')).toBe('Mon');
+  });
+
+  it('a row BEFORE today is its weekday, never "Today" (the stale-cache case)', () => {
+    // The outlook cached three days ago: its first row must not still claim to be today.
+    expect(formatRelativeDayLabel('2026-12-09', '2026-12-12')).toBe('Wed');
+    expect(formatRelativeDayLabel('2026-12-11', '2026-12-12')).toBe('Fri');
+  });
+
+  it('crosses a DST boundary without drifting a day (US-East: Nov 1 2026)', () => {
+    expect(formatRelativeDayLabel('2026-11-01', '2026-10-31')).toBe('Tomorrow');
+    expect(formatRelativeDayLabel('2026-11-02', '2026-11-01')).toBe('Tomorrow');
+  });
+
+  it('is TOTAL: an unparsable date comes back verbatim, and an unusable "today" never yields "Today"', () => {
+    expect(formatWeekdayShort('nope')).toBe('nope');
+    expect(formatRelativeDayLabel('nope', '2026-12-12')).toBe('nope');
+    expect(formatRelativeDayLabel('2026-12-12', 'nope')).toBe('Sat');
   });
 });

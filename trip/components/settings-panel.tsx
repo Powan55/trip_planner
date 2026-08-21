@@ -45,7 +45,7 @@ import { useExpenses } from '@/hooks/use-expenses';
 import { useDocs } from '@/hooks/use-docs';
 import { useJournal } from '@/hooks/use-journal';
 import { usePhotos } from '@/hooks/use-photos';
-import { expensesToCsv } from '@/lib/expense-csv';
+import { expensesToCsvBlob } from '@/lib/expense-csv';
 import { exportExpenses, parseExpenseBackup } from '@/lib/expense-export';
 import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
 import {
@@ -1393,9 +1393,9 @@ function DataGroup() {
   // — CSV export of the logged expenses (read-only over `useExpenses`; no store change).
   // Mirrors BackupRestore's Blob/URL.createObjectURL download idiom exactly.
   const handleExportCsv = () => {
-    const csv = expensesToCsv(expenses);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    // BOM-prefixed (see `expensesToCsvBlob`) — without it Excel on Windows decodes the download
+    // with the system codepage and a non-ASCII note or name arrives as mojibake.
+    const url = URL.createObjectURL(expensesToCsvBlob(expenses));
     const a = document.createElement('a');
     a.href = url;
     a.download = 'nepal-japan-expenses.csv';

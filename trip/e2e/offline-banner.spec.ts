@@ -48,15 +48,20 @@ test.describe('S154 · offline banner (navigator.onLine)', () => {
     const banner = page.getByTestId('offline-banner');
     await expect(banner).toBeVisible();
 
-    // A11y: real live region, informational (not alert) semantics.
-    await expect(banner).toHaveAttribute('role', 'status');
-    await expect(banner).toHaveAttribute('aria-live', 'polite');
-    await expect(banner).toHaveAttribute('aria-label', 'You are offline');
+    // A11y: real live region, informational (not alert) semantics. These live on the WRAPPER
+    // now, not on the pill — the region is mounted always and empty while online, because a
+    // region inserted in the same commit as its text is not reliably announced.
+    const region = page.getByTestId('offline-banner-region');
+    await expect(region).toHaveAttribute('role', 'status');
+    await expect(region).toHaveAttribute('aria-live', 'polite');
+    await expect(region).toHaveAttribute('aria-label', 'You are offline');
     await expect(banner.locator('.sr-only')).toContainText('lost its network connection');
 
-    // 3) Restore the network — the banner clears itself, no dismiss needed.
+    // 3) Restore the network — the banner clears itself, no dismiss needed. The empty region
+    // stays, and drops its label with the pill: while online it claims nothing.
     await context.setOffline(false);
     await expect(page.getByTestId('offline-banner')).toHaveCount(0);
+    expect(await region.getAttribute('aria-label')).toBeNull();
   });
 
   test('renders on a second route too (mounted once at the root layout)', async ({

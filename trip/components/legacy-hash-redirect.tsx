@@ -46,6 +46,20 @@ const ROUTE_REDIRECTS: Record<string, string> = {
 
 const LOCAL_ANCHORS = new Set(['hero', 'dashboard', 'inspiration']);
 
+/**
+ * The route a legacy hash redirects to, or `undefined` for a local/unknown one.
+ *
+ * D-307's own-key idiom, not a bare index: `ROUTE_REDIRECTS['constructor']` (or `__proto__` /
+ * `toString` / `valueOf` / `hasOwnProperty`) returns a truthy NON-STRING off `Object.prototype`,
+ * so the truthiness guard in the effect passed and `target.indexOf('#')` threw — taking all of
+ * Home down to `app/error.tsx` for anyone who opened `/#constructor`. `hash` is raw URL input.
+ */
+export function legacyHashTarget(hash: string): string | undefined {
+  return Object.prototype.hasOwnProperty.call(ROUTE_REDIRECTS, hash)
+    ? ROUTE_REDIRECTS[hash]
+    : undefined;
+}
+
 export default function LegacyHashRedirect() {
   const router = useRouter();
 
@@ -54,7 +68,7 @@ export default function LegacyHashRedirect() {
     const hash = window.location.hash.replace(/^#/, '');
     if (!hash) return;
 
-    const target = ROUTE_REDIRECTS[hash];
+    const target = legacyHashTarget(hash);
     if (target) {
       router.replace(target);
       const hashIdx = target.indexOf('#');

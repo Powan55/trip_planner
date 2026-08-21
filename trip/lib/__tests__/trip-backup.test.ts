@@ -14,8 +14,37 @@
 //   6. Photo quota on import — a blob that fails to store becomes a placeholder; ok:true, photosSkipped>0.
 //   7. Compression self-check — a 20-photo round-trip through the REAL compress/decompress pipeline.
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+
+// The sync gate, OFF by default so every pre-existing case in this file behaves exactly as before
+// (dormant ⇒ the outbox never writes its slot). The restore-survives-the-first-snapshot case below
+// flips it on. Same controllable-gate idiom as `core-sync-outbox.test.ts`.
+const gate = vi.hoisted(() => ({
+  remoteOn: false,
+  traveler: null as { name: string } | null,
+}));
+vi.mock('@/lib/firebase-config', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('@/lib/firebase-config')>();
+  return {
+    ...orig,
+    isRemoteConfigured: () => gate.remoteOn,
+    isTripRemoteConfigured: () => gate.remoteOn,
+    getTripId: () => 'nepal-japan-2026',
+  };
+});
+vi.mock('@/lib/token-auth', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('@/lib/token-auth')>();
+  return { ...orig, getActiveTraveler: () => gate.traveler };
+});
+// The four per-domain remote writers, reached by a dynamic import inside each `pushChunk`. Rejecting
+// keeps the chunk dirty deterministically — the offline case, and the state under test.
+vi.mock('@/lib/expenses-remote', () => ({ pushExpenseChunk: () => Promise.reject(new Error('offline')) }));
+vi.mock('@/lib/budget-remote', () => ({ pushBudgetChunk: () => Promise.reject(new Error('offline')) }));
+vi.mock('@/lib/docs-remote', () => ({ pushDocsChunk: () => Promise.reject(new Error('offline')) }));
+vi.mock('@/lib/places-remote', () => ({ pushPlacesChunk: () => Promise.reject(new Error('offline')) }));
+
 import { exportTripBackup, importTripBackup } from '@/core/vault/backup';
+import { outboxDirty } from '@/core/sync/outbox';
 import { supportsCompression } from '@/core/vault/compression';
 import { makeInMemoryBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
 import {
@@ -136,6 +165,11 @@ beforeEach(() => {
   localStorage.clear();
   setActiveTripId(''); // clear the active-trip pointer → default pack
   localStorage.clear();
+});
+
+afterEach(() => {
+  gate.remoteOn = false;
+  gate.traveler = null;
 });
 
 describe('S273 — case 1: whole-trip round-trip survives a device wipe (the P2 guarantee)', () => {
@@ -460,5 +494,99 @@ describe('A-9 — myPlaces round-trips through backup → sign-out wipe → rest
     if (!res.ok) return;
     expect(res.restored).not.toContain('myPlaces');
     expect(loadMyPlaces()).toEqual(SEED_PLACES); // untouched, not cleared
+  });
+});
+
+// ── A-5 on the COMMIT: the legacy branch has no tripId to check, so it checks the DATES ──────────
+describe('a legacy itinerary-only file cannot be restored into a different trip', () => {
+  /** A custom trip with its own span — the config block shape `sanitizeTripConfig` accepts. */
+  const PERU = {
+    id: 'custom-peru',
+    name: 'Peru',
+    joinedAt: 1,
+    updatedAt: 1,
+    config: {
+      start: '2027-05-01',
+      end: '2027-05-10',
+      destinations: ['Lima'],
+      vibe: 'chill',
+      updatedAt: 1,
+    },
+  };
+  const activatePeru = () => {
+    localStorage.setItem(STORAGE_KEYS.knownTrips, JSON.stringify([PERU]));
+    setActiveTripId(PERU.id);
+  };
+
+  it('refuses a file whose days all fall outside the active trip\'s span, and commits nothing', async () => {
+    savePlans(SEED_PLANS); // default pack, Dec 2026
+    const legacyText = exportItinerary();
+
+    // The legacy envelope is `{schemaVersion, updatedAt, payload}` — it carries NO trip identity at
+    // all, so it used to fall into the legacy branch three lines BEFORE the tripId guard and replace
+    // this trip's whole itinerary. Under sync the injected commit is `restorePlans`, which expresses
+    // that as a tombstone-replace and propagates it to every other member of the trip.
+    activatePeru();
+    const commit = vi.fn();
+    const res = await importTripBackup(
+      new Blob([legacyText], { type: 'application/json' }),
+      makeInMemoryBlobStore(),
+      commit,
+    );
+
+    expect(res.ok).toBe(false);
+    if (!res.ok) expect(res.error).toMatch(/different trip/);
+    expect(commit).not.toHaveBeenCalled();
+  });
+
+  it('still accepts that trip\'s OWN itinerary-only export (the guard is not overbroad)', async () => {
+    activatePeru();
+    const ownPlans: DayPlan[] = [
+      { date: '2027-05-02', city: 'Lima', country: 'main', items: [{ id: 'p1', title: 'Ceviche', category: 'food' }] },
+    ];
+    savePlans(ownPlans);
+    const legacyText = exportItinerary();
+    savePlans([]); // change the live itinerary so a no-op could not masquerade as success
+
+    const commit = vi.fn();
+    const res = await importTripBackup(
+      new Blob([legacyText], { type: 'application/json' }),
+      makeInMemoryBlobStore(),
+      commit,
+    );
+
+    expect(res.ok).toBe(true);
+    expect(commit).toHaveBeenCalledWith(ownPlans);
+  });
+});
+
+// ── The restore must survive the first server snapshot, not just land on disk ────────────────────
+describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges instead of overwriting', () => {
+  it('expenses/budget/docs/my-places are all enqueued; the local-only domains are not', async () => {
+    gate.remoteOn = true;
+    gate.traveler = { name: 'Powan' };
+
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const file = await exportTripBackup(store);
+
+    // The device you are restoring ONTO has different (here: emptied) data — otherwise there is
+    // nothing to restore and no chunk changes.
+    expensesStore.set([]);
+    budgetStore.set(normalizeModel({}));
+    docsStore.set([]);
+    myPlacesStore.set([]);
+    expect(outboxDirty('expenses')).toEqual([]); // the raw sets above bypass commit()
+
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+    expect(res.ok).toBe(true);
+
+    // Without this the four writes below Phase B were bare gateway writes: nothing reached the
+    // outbox, so `subscribeRemoteExpenses`'s first snapshot took its "remote is authoritative"
+    // branch for every leg and overwrote the just-restored rows — while the UI said "Trip restored".
+    expect(outboxDirty('expenses')).toEqual(['nepal']);
+    expect(outboxDirty('budget')).toEqual(['model']);
+    expect(outboxDirty('docs')).toEqual(['checklist']);
+    expect(outboxDirty('places')).toEqual(['list']);
   });
 });

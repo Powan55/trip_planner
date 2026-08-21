@@ -16,6 +16,13 @@
 // second copy is the evidence. Here the CSS *is* the fact, and the only useful question is
 // "does anything in it break the floor" — a mirror could only prove the file agrees with itself.
 //
+// TWO PASSES, because that argument only holds for loops somebody hand-wrote. Tailwind emits
+// `animate-pulse` (2s) and `animate-spin` (1s) into ITS stylesheet from a class written in a
+// .tsx file, so pass 1 was structurally blind to five live sub-6s loops and said so by printing
+// two. Pass 2 greps the source for those utilities. It is a grep and not a read of the built CSS
+// on purpose: reading out/ would couple the audit to a prior `npm run build`, and this runs
+// before `npm ci`.
+//
 // Dependency-free and runs before `npm ci` in CI, same as the other two.
 //
 // KNOWN CEILING, named rather than hidden: this parses the `animation` SHORTHAND only. The
@@ -23,11 +30,12 @@
 // detected and FAILED rather than skipped, because a hole that silently passes is worse than a
 // check that tells you to write the shorthand. Same for a duration this cannot resolve.
 
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { dirname, resolve } from 'node:path';
+import { dirname, relative, resolve } from 'node:path';
 
-const CSS_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '../app/globals.css');
+const APP_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const CSS_PATH = resolve(APP_ROOT, 'app/globals.css');
 
 /** D-293 rule 2: anything repeating cycles >= 6s, so it reads as ambience and not as a blink. */
 const FLOOR_SECONDS = 6;
@@ -115,9 +123,52 @@ for (const { selector, body } of rules(rmBlock)) {
   for (const one of selector.split(',')) hardStopped.add(one.trim());
 }
 
-// ── 3. verdicts ─────────────────────────────────────────────────────────────────────────────
+// ── 3. pass 2: the loops TAILWIND generates, which never reach app/globals.css ──────────────
+// Durations are pinned from Tailwind's own theme (all four are `infinite`). Pinning is the cost
+// of not needing node_modules or a build; they have not moved since Tailwind 1.
+const UTILITY_LOOP_SECONDS = { pulse: 2, spin: 1, bounce: 1, ping: 1 };
+const SOURCE_ROOTS = ['app', 'components', 'core', 'hooks', 'lib'];
+
+function sourceFiles(dir) {
+  const out = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name === '__tests__' || entry.name === 'node_modules') continue;
+    const full = resolve(dir, entry.name);
+    if (entry.isDirectory()) out.push(...sourceFiles(full));
+    else if (/\.tsx?$/.test(entry.name)) out.push(full);
+  }
+  return out;
+}
+
+/** Comments blanked IN PLACE, so line numbers survive and a class named in prose is not a hit. */
+function stripComments(src) {
+  return src
+    .replace(/\/\*[\s\S]*?\*\//g, (block) => block.replace(/[^\n]/g, ' '))
+    .split('\n')
+    .map((line) => (/^\s*(\/\/|\*)/.test(line) ? '' : line));
+}
+
+const utilityLoops = [];
+let filesScanned = 0;
+for (const root of SOURCE_ROOTS) {
+  for (const file of sourceFiles(resolve(APP_ROOT, root))) {
+    filesScanned++;
+    stripComments(readFileSync(file, 'utf8')).forEach((line, i) => {
+      for (const m of line.matchAll(/(motion-safe:)?animate-(pulse|spin|bounce|ping)(?![-\w])/g)) {
+        utilityLoops.push({
+          where: `${relative(APP_ROOT, file).replace(/\\/g, '/')}:${i + 1}`,
+          selector: `.animate-${m[2]}`,
+          seconds: UTILITY_LOOP_SECONDS[m[2]],
+          guarded: Boolean(m[1]),
+        });
+      }
+    });
+  }
+}
+
+// ── 4. verdicts ─────────────────────────────────────────────────────────────────────────────
 const problems = [];
-console.log(`ambient-loop audit · ${FLOOR_SECONDS}s floor · app/globals.css\n`);
+console.log(`ambient-loop audit · ${FLOOR_SECONDS}s floor · app/globals.css + Tailwind utilities in source\n`);
 console.log('selector'.padEnd(24), 'cycle'.padEnd(8), 'rm-stop'.padEnd(8), 'verdict');
 for (const { selector, value, seconds } of loops) {
   const exempt = Object.hasOwn(STATE_INDICATORS, selector);
@@ -146,11 +197,38 @@ for (const selector of longhand) {
   problems.push(`${selector}: animation-iteration-count:infinite — write the shorthand so this can read the duration`);
 }
 
+// pass 2's verdicts. A utility loop has no selector of its own to name in the reduce block, so
+// its fork lives at the call site: `motion-safe:` (= the class only applies at
+// prefers-reduced-motion: no-preference), which is what components/trip-map.tsx already writes.
+console.log(`\nTailwind utility loops · ${filesScanned} source files scanned · guard is a motion-safe: prefix\n`);
+console.log('site'.padEnd(44), 'class'.padEnd(16), 'cycle'.padEnd(8), 'verdict');
+for (const { where, selector, seconds, guarded } of utilityLoops) {
+  let verdict;
+  if (seconds >= FLOOR_SECONDS) verdict = 'ambient, over the floor';
+  else if (guarded) verdict = 'guarded — no loop under reduced motion';
+  else if (Object.hasOwn(STATE_INDICATORS, selector)) verdict = 'EXEMPT (state indicator)';
+  else verdict = `*** FAIL *** under the ${FLOOR_SECONDS}s floor, no motion-safe: guard, not a listed state indicator`;
+  if (verdict.startsWith('***')) problems.push(`${where}: ${selector} — ${verdict.replace('*** FAIL *** ', '')}`);
+  console.log(where.padEnd(44), selector.padEnd(16), `${seconds}s`.padEnd(8), verdict);
+}
+
+// FAILS CLOSED, twice. An empty scan means the roots moved and every verdict above is vacuous;
+// and the universal reduce rule is the ONLY thing that stops a generated loop for a user who
+// has reduced motion on and hits a call site that predates its guard.
+if (filesScanned === 0) {
+  problems.push(`utility pass scanned 0 files under ${SOURCE_ROOTS.join('/')} — the roots moved and this pass proves nothing`);
+}
+if (!/animation-iteration-count\s*:\s*1\b/.test(rmBlock)) {
+  problems.push(
+    'app/globals.css: the reduced-motion block no longer forces `animation-iteration-count: 1`, which is what collapses a Tailwind utility loop (it has no selector of its own to name here)',
+  );
+}
+
 // FAILS CLOSED. An allowlist entry that matches nothing means either the rule was deleted (drop
 // the entry) or the parser stopped seeing it (fix the parser) — and in the second case every
 // assertion above would be vacuously true, which is the failure mode a green run hides.
 for (const selector of Object.keys(STATE_INDICATORS)) {
-  if (!loops.some((l) => l.selector === selector)) {
+  if (!loops.some((l) => l.selector === selector) && !utilityLoops.some((u) => u.selector === selector)) {
     problems.push(`${selector}: allowlisted as a state indicator but no infinite loop was found for it`);
   }
 }
@@ -162,6 +240,8 @@ if (problems.length) {
   console.log('\n' + problems.length + ' PROBLEM(S):');
   for (const p of problems) console.log('  · ' + p);
 } else {
-  console.log(`\n${loops.length} INFINITE LOOP(S), ALL EITHER OVER THE ${FLOOR_SECONDS}s FLOOR OR LISTED STATE INDICATORS, ALL HARD-STOPPED UNDER REDUCED MOTION`);
+  console.log(
+    `\n${loops.length} AUTHORED + ${utilityLoops.length} UTILITY INFINITE LOOP(S), ALL EITHER OVER THE ${FLOOR_SECONDS}s FLOOR, LISTED STATE INDICATORS OR motion-safe: GUARDED, ALL HARD-STOPPED UNDER REDUCED MOTION`,
+  );
 }
 process.exit(problems.length ? 1 : 0);

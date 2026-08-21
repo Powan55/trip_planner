@@ -208,7 +208,9 @@ test.describe('S84 · reduced motion — count-up does not animate (useCountUp, 
     await expect(page.getByTestId('countdown-weeks')).toHaveCount(0);
     await expect(page.getByTestId('countdown-days')).toHaveText('29');
     await expect(page.getByTestId('countdown-hours')).toHaveText('12');
-    await expect(page.getByTestId('countdown-total-days')).toHaveText('29');
+    // 30: the ring counts calendar days to departure, and the `?today=` clock is local noon,
+    // so it is one ahead of the truncated 24h `days` cell. See e2e/countdown.spec.ts.
+    await expect(page.getByTestId('countdown-total-days')).toHaveText('30');
 
     // Stronger no-animation proof: read the seconds cell twice ~700ms apart while
     // the clock is FROZEN. A count-up ramp (or a live tick) would change it; under

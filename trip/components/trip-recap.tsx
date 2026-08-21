@@ -157,7 +157,9 @@ export default function TripRecap() {
                 dayNumber={dayNumber}
                 items={getDayPlan(date).items}
                 entry={getEntry(date)}
-                spend={sumExpensesForDate(expenses, date)}
+                // The DAY's leg, which is also what the card formats with — an expense logged
+                // against the other leg is not silently re-priced into this one's currency.
+                spend={sumExpensesForDate(expenses, date, getCountryForDate(date))}
                 variants={reveal}
               />
             );

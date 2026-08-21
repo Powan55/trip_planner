@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 
 // S93 — Headless Core 1. These cases assert the framework-free `core/` boundary DIRECTLY
 // (the moved implementations), across the same fixtures the S82 E2E date/countdown pack
@@ -221,5 +221,62 @@ describe('S274 (D-224) — dayInTripFor offset branch + utcDayAtOffset (pure, TZ
   it('utcDayAtOffset is B-01-safe: UTC getters only, shifted epoch-ms (never new Date(string))', () => {
     expect(coreUtcDayAtOffset(new Date('2026-12-18T18:14:00Z'), 345)).toBe('2026-12-18'); // KTM 23:59
     expect(coreUtcDayAtOffset(new Date('2026-12-18T18:15:00Z'), 345)).toBe('2026-12-19'); // KTM 00:00 next day
+  });
+});
+
+
+// ── The `?today=` override is a DISPLAY clock only ────────────────────────────────────────────
+// `getNow()` deliberately resolves the simulation override so day numbers and countdowns can be
+// demoed against a trip months away. The SYNC layer must never see it: `pt` is the causal ordering
+// key (a stamp minted at the faked day outranks every peer edit until the real clock passes it, and
+// `hlcSendOrLocal` ratchets, so it is inherited by every later edit of that row on every device),
+// and the tombstone-GC horizon decides which tombstones get dropped from a MERGED doc that is then
+// written straight back to Firestore. `realClock` is the reader every sync path uses.
+//
+// Each case re-imports the module: `trip-now` resolves the override ONCE per load and caches it.
+describe('trip-now — realClock ignores the `?today=` override, and a non-calendar day is rejected', () => {
+  const TODAY_KEY = 'tripPlannerTodayOverride';
+
+  async function loadClock(override: string | null) {
+    window.sessionStorage.clear();
+    if (override !== null) window.sessionStorage.setItem(TODAY_KEY, override);
+    vi.resetModules();
+    return import('@/lib/trip-now');
+  }
+
+  afterEach(() => {
+    window.sessionStorage.clear();
+    vi.resetModules();
+  });
+
+  it('with an override active, clock.now() is the simulated instant and realClock.now() is the real one', async () => {
+    const { getNow, clock, realClock } = await loadClock('2026-12-09');
+    const simulated = new Date(2026, 11, 9, 12, 0, 0, 0).getTime(); // LOCAL noon of the faked day
+    expect(getNow().getTime()).toBe(simulated);
+    expect(clock.now().getTime()).toBe(simulated);
+    // Asserted against Date.now() rather than a fixed instant: a test whose meaning changes when
+    // December 2026 actually arrives is not a test.
+    expect(Math.abs(realClock.now().getTime() - Date.now())).toBeLessThan(1000);
+  });
+
+  it('with NO override the two clocks agree (the real clock is the only reading)', async () => {
+    const { clock, realClock } = await loadClock(null);
+    expect(Math.abs(clock.now().getTime() - realClock.now().getTime())).toBeLessThan(1000);
+  });
+
+  it('rejects a shape-valid but non-calendar day rather than rolling it over', async () => {
+    // DATE_RE only checks the SHAPE, and `new Date(y, mo-1, d)` rolls out-of-range parts silently:
+    // 2026-13-45 used to become 2027-02-14 and be accepted as the clock.
+    for (const bad of ['2026-13-45', '2026-02-30', '2026-00-10']) {
+      const { getNow } = await loadClock(bad);
+      expect(Math.abs(getNow().getTime() - Date.now())).toBeLessThan(1000);
+    }
+  });
+
+  it('still accepts a real edge day (leap day, month end)', async () => {
+    const leap = await loadClock('2028-02-29');
+    expect(leap.getNow().getTime()).toBe(new Date(2028, 1, 29, 12, 0, 0, 0).getTime());
+    const monthEnd = await loadClock('2026-12-31');
+    expect(monthEnd.getNow().getTime()).toBe(new Date(2026, 11, 31, 12, 0, 0, 0).getTime());
   });
 });

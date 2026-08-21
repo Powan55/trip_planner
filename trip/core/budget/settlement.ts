@@ -50,12 +50,30 @@ export interface LegSettlement {
   transfers: Transfer[];
 }
 
-// Sub-unit tolerance: NPR/JPY are whole-unit at trip scale, so anything under half a unit is noise
-// (an even division remainder). Balances within EPS of 0 are treated as settled.
-const EPS = 0.005;
+// Sub-unit tolerance: a rounded balance is either exactly 0 or at least one display unit (1 for
+// NPR/JPY, 0.01 for USD), so anything under half a cent is noise (an even division remainder).
+// Balances within EPS of 0 are treated as settled. EXPORTED because the "settled" chip in
+// `components/settle-up-summary.tsx` has to use THIS threshold: it used a hardcoded 0.5, written
+// for the whole-unit legs, which on a USD leg (every custom trip) called a 30-cent debt settled
+// while printing the transfer that clears it.
+export const EPS = 0.005;
 
 function uniq(ids: readonly string[]): string[] {
   return Array.from(new Set(ids));
+}
+
+/** Re-key `balances` into roster order — DISPLAY only (the chip row iterates the object). This is
+ * now the only thing `travelers` does; it used to break arithmetic ties inside `minimalTransfers`,
+ * where an identity-derived roster made the settlement itself device-dependent. A participant the
+ * roster doesn't list keeps its original position, after the ones it does. */
+function orderBy(balances: Record<string, number>, order: readonly string[]): Record<string, number> {
+  const rank = (id: string) => {
+    const i = order.indexOf(id);
+    return i === -1 ? order.length : i;
+  };
+  const out: Record<string, number> = {};
+  for (const id of Object.keys(balances).sort((a, b) => rank(a) - rank(b))) out[id] = balances[id];
+  return out;
 }
 
 /** Round every balance to its currency's display unit (0.01 for a 2-decimal currency like USD,
@@ -83,8 +101,9 @@ function roundBalances(balances: Record<string, number>, unit: number): Record<s
 /**
  * Settle every leg's split expenses into net balances + a minimal transfer set. Fast-path/no-split
  * expenses, tombstoned rows, and split rows with no recorded `paidBy` (D-333) all contribute
- * NOTHING. `travelers` is the roster used only for a stable output order — it carries no identity
- * and there is deliberately no "who am I" parameter, so the result is the same on every device.
+ * NOTHING. `travelers` is the roster used ONLY to order the balances for display; no arithmetic
+ * reads it, and there is deliberately no "who am I" parameter, so the balances and the transfers
+ * are the same on every device even though a custom trip's roster is "me"-first per device.
  * Returns one `LegSettlement` per leg with ≥1 attributable split — an empty array when nothing is
  * split (⇒ the UI hides the "Settle up" summary). PURE + TOTAL.
  */
@@ -126,8 +145,8 @@ export function settle(
     out.push({
       leg,
       currency,
-      balances: rounded,
-      transfers: minimalTransfers(rounded, travelers),
+      balances: orderBy(rounded, travelers),
+      transfers: minimalTransfers(rounded),
     });
   }
 
@@ -140,14 +159,14 @@ export function settle(
  * transfers. Not an LP optimum.
  * O(n log n) greedy; swap for an exact solver only if a many-person split ever ships.
  */
-function minimalTransfers(balances: Record<string, number>, order: readonly string[]): Transfer[] {
-  const rank = (id: string) => {
-    const i = order.indexOf(id);
-    return i === -1 ? order.length : i;
-  };
-  // Descending by magnitude, roster order as the deterministic tie-break.
+function minimalTransfers(balances: Record<string, number>): Transfer[] {
+  // Descending by magnitude, then the id itself (code-unit compare) as the deterministic
+  // tie-break. NOT the roster order: `rosterForActiveTrip` puts the signed-in traveller FIRST on
+  // a custom trip, so ranking ties by it made the emitted transfers a function of who is looking —
+  // byte-identical expenses told Ana "pay Dee" and Cal "pay Ana". The id is device-independent,
+  // which is what this function's caller promises.
   const byAmt = (a: { id: string; amt: number }, b: { id: string; amt: number }) =>
-    b.amt - a.amt || rank(a.id) - rank(b.id);
+    b.amt - a.amt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
   const creditors = Object.entries(balances)
     .filter(([, v]) => v > EPS)

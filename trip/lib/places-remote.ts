@@ -34,7 +34,7 @@ import { sanitizePlaces, type MyPlace } from '@/core/places/model';
 import { MY_PLACES_CHANGED_EVENT } from '@/hooks/use-my-places';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
-import { clock } from './trip-now';
+import { realClock } from './trip-now';
 
 /**
  * Map a raw Firestore places doc into its `MyPlace[]`.
@@ -45,9 +45,18 @@ import { clock } from './trip-now';
  * is dropped; inside `pushPlacesMerged` it rejects the transaction, so the `'list'` chunk stays
  * dirty and retries FOREVER — a poison row that silently wedges this device's outbox. Sanitising at
  * the read boundary is the same lenient-read discipline `model.ts` already applies to local bytes.
+ *
+ * `keepUnknownKeys` (#138 / D-374 — places was left out of that sweep). The merged result of this
+ * read is written straight back up by `pushPlacesMerged`, so the strict declared-field rebuild
+ * dropped a newer client's forward fields before they could reach the write. Retention here is
+ * NECESSARY BUT NOT SUFFICIENT: `mergePlaces` closes with its own `sanitizePlaces`, so both of this
+ * module's merge calls must pass the flag too or the keys are re-stripped one step later. The LOCAL
+ * entry points (`loadMyPlaces`/`saveMyPlaces`, backup) stay strict, per D-374/D-376 — and it is that
+ * strict local re-save that creates the equal-HLC/different-key-set collision D-376 resolves in
+ * favour of the richer row.
  */
 export function docToPlaceRows(data: Record<string, unknown>): MyPlace[] {
-  return Array.isArray(data.items) ? sanitizePlaces(data.items) : [];
+  return Array.isArray(data.items) ? sanitizePlaces(data.items, { keepUnknownKeys: true }) : [];
 }
 
 /**
@@ -56,9 +65,13 @@ export function docToPlaceRows(data: Record<string, unknown>): MyPlace[] {
  * imported on the OTHER phone is not clobbered (both survive) and a same-id collision resolves by
  * HLC. Exported for the wired-behavior unit test (fake Firestore).
  *
- * The rows written are the output of `sanitizePlaces` (inside `mergePlaces`), which constructs each
- * row from declared, defined fields only — so there is no `undefined` for Firestore to reject and
- * no separate strip pass is needed here.
+ * `keepUnknownKeys` on the merge is the OTHER half of the read-side retention, and without it the
+ * read-side flag was a no-op on this domain: `mergePlaces` closes with `sanitizePlaces`, so at the
+ * strict default the rebuild re-stripped the forward keys `docToPlaceRows` had just kept, on the
+ * way INTO this `tx.set` (#138 / D-374). `docs`/`expenses` never needed the equivalent — they write
+ * `mergeItems` output directly, with no sanitize tail. The rows still carry no `undefined` for
+ * Firestore to reject: declared fields are normalized or deleted either way, and the only undeclared
+ * keys present came off a Firestore snapshot, which cannot hold one.
  */
 export async function pushPlacesMerged(
   db: import('firebase/firestore').Firestore,
@@ -70,7 +83,7 @@ export async function pushPlacesMerged(
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref);
     const remoteRows: MyPlace[] = snap.exists() ? docToPlaceRows(snap.data() as Record<string, unknown>) : [];
-    const merged = mergePlaces(remoteRows, localRows, clock.now().getTime());
+    const merged = mergePlaces(remoteRows, localRows, realClock.now().getTime(), { keepUnknownKeys: true });
     tx.set(ref, { version: 1, items: merged });
   });
 }
@@ -151,7 +164,7 @@ export function subscribeRemotePlaces(onApplied?: (rows: MyPlace[]) => void): ()
             const local = loadMyPlaces();
             if (snap.exists()) {
               const remoteRows = docToPlaceRows(snap.data() as Record<string, unknown>);
-              persistAndDispatch(mergePlaces(local, remoteRows, clock.now().getTime()));
+              persistAndDispatch(mergePlaces(local, remoteRows, realClock.now().getTime(), { keepUnknownKeys: true }));
             } else if (first) {
               // Never synced → seed the doc from local. Best-effort; a failure stays local-only
               // (local is untouched, so nothing is lost).

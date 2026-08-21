@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useId, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import dynamic from 'next/dynamic';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { m, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { SectionHeading } from '@/components/section-heading';
@@ -74,6 +74,20 @@ const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
 });
 
 const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography', 'shopping', 'nature', 'cultural', 'transportation', 'hotel', 'free', 'nightlife'];
+
+/**
+ * `href` with only the `focus` query param removed, as a SAME-ORIGIN-RELATIVE url.
+ *
+ * Returned for `history.replaceState`, never for `router.replace`/`push`: the returned path
+ * carries the deployed basePath (it comes out of `window.location`), and the App Router prepends
+ * basePath itself — feeding one to the other is what doubled `/trip_planner/` and 404'd the
+ * planner. Every other param (`?today=`, …) survives, unlike a bare `location.pathname`.
+ */
+export function stripFocusParam(href: string): string {
+  const url = new URL(href);
+  url.searchParams.delete('focus');
+  return `${url.pathname}${url.search}${url.hash}`;
+}
 
 // Item Editor Modal
 function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, pickedPin, onRequestPin }: {
@@ -597,7 +611,6 @@ export default function CalendarPlanner() {
   // this one must react to an in-place navigation (already on /plan, palette pushes a
   // new `?focus=`) without a remount, which only the router-bound hook delivers.
   const searchParams = useSearchParams();
-  const router = useRouter();
 
   // The itinerary now lives in the shared reactive store instead of
   // component-local state. `plans`/`hydrated` and the mutators come from the one
@@ -924,12 +937,19 @@ export default function CalendarPlanner() {
   // focus id. The param is stripped via history-replace (no new history entry, mirrors
   // command-palette.tsx's own `history.replaceState` hash bookkeeping) so a manual
   // reload doesn't re-highlight, without breaking the back button.
+  //
+  // The strip MUST NOT go through `router.replace`: `window.location.pathname` already carries
+  // the basePath and the App Router prepends it again, so on the deployed `/trip_planner/` build
+  // this navigated to `/trip_planner/trip_planner/plan/` and 404'd (empty basePath locally, which
+  // is why dev and e2e never saw it). Same-document `history.replaceState` is the fix
+  // `travel-date-picker.tsx` already made for this class; Next syncs it into `useSearchParams`,
+  // and only `focus` is deleted so `?today=` and friends survive.
   useEffect(() => {
     const focusId = searchParams?.get('focus');
     if (!focusId) return;
     const day = plans.find((p) => (p.items ?? []).some((i: ItineraryItem) => i.id === focusId));
     if (day) focusItem(day.date, focusId);
-    router.replace(window.location.pathname);
+    window.history.replaceState(null, '', stripFocusParam(window.location.href));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
