@@ -4334,3 +4334,79 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 **One listener, bound on first subscribe, never removed.** A document-level `visibilitychange` handler for the life of the page is cheaper than add/remove around every subscriber, and `bindVisibility` is idempotent so repeated subscribes cost nothing.
 
 **Time values are unchanged.** Each tick re-reads the real clock through `getFlightTiming(journey)`, exactly as the per-card interval did; only the frequency moved. The visible countdown is byte-identical at every cadence because the text further out than a week has no seconds field to move.
+
+### D-372 · (issue #136, 2026-08-20) · Amends D-349 · The image handler checks the content type, not just `res.ok`
+
+**Decision.** The service worker's image path requires a response to look like an image — content type `image/*`, or absent — before it will either cache it or hand it back. Both the cache-put and the return are guarded; an unusable 200 now takes the same cache-consult path D-349 built for non-ok, and the original response is returned only on a genuine miss, so a real 404 still reads as a 404.
+
+**Why.** D-349 treated non-ok as the unusable shape, but a captive portal answers 200 with its login page. `res.ok` is true for that, and the response is same-origin `basic`, so the HTML was written into `trip-images-v1` and served from cache afterwards — the failure outlived the portal.
+
+**An absent content type is trusted rather than rejected.** Some hosts omit it, and rejecting on absence would send those images to a guaranteed miss. (An earlier draft of this record also justified it by opaque cross-origin responses exposing no headers; that is irrelevant here — cross-origin returns earlier and never reaches this handler.)
+
+**The install precache carries the same guard, but a deliberately softer one.** Install checked only `res.ok`, so a portal active during install wrote its login page into the precache *permanently* — and this diff's own fallback would then serve that HTML as the "cached image". `isExpectedPrecacheBody` rejects it, throwing exactly as `!res.ok` does, so the atomic-install guarantee is unchanged: activate never runs and the previous precache stays intact. Route entries are legitimately html; for every file entry, html *is* the portal by construction. **Only html is poison, and that rule is uniform — image entries are NOT held to the runtime's `image/*` test.**
+
+**The first version of this guard did hold them to it, and it bricked immediately.** The E2E static server had no `.avif` MIME entry, so the six hero rasters arrived as `application/octet-stream`, install threw, the worker went redundant and never controlled the page — taking five e2e tests down with it, each stalling 15s per navigation waiting for a controller that never came. The asymmetry with the runtime handler is intentional and is the whole point: a runtime miss degrades to a cache lookup, whereas an install rejection is all-or-nothing and takes offline down entirely, *silently*, from inside the worker where nothing surfaces it. This repo has no rollback from a bad deploy, so the install path buys safety by being **less** strict, not more. Measured: with every file served as `application/octet-stream` all 179 entries still install; with the old strict branch restored, 173 install and the controller never arrives. `serve-out.mjs` gained the `.avif` entry in the same change so the harness keeps mirroring what the live host actually serves (`image/avif`, verified against the deployed site), but the guard no longer depends on any host getting a content type right.
+
+**Known ceiling.** A non-redirecting portal that answers a *route* entry with a 200 login page in place is still indistinguishable by headers alone; `res.redirected` catches the common redirecting flavour. Separating those needs body sniffing, not built. `cacheFirst` (static assets, nav backfill) also still has the runtime version of this blind spot.
+
+### D-373 · (issue #147, 2026-08-20) · `theme.opacity` is a dense 0–100 scale, because Tailwind resolves opacity modifiers against it
+
+**Decision.** `tailwind.config.ts` extends `theme.opacity` to every integer 0–100, a strict superset of Tailwind's default 15-step scale. No call site was rewritten.
+
+**Why.** Tailwind 3 resolves a colour opacity modifier against `theme.opacity` and silently drops any candidate outside it: no rule, no build warning, and the element falls back to preflight's `#e5e7eb` — a light grey border on a dark surface. 74 sites across 24 files were dead this way. The arbitrary form `/[0.06]` always worked, which is why neighbouring classes in the same string rendered and the failure survived review.
+
+**The guard asserts emitted CSS, not the theme object**, via a real postcss run on the repo config — emission is the property that broke. Verified non-vacuous: it goes red with the config line removed.
+
+**`{lib,components}/__tests__/**` is now excluded from `content`.** `lib/` is a scanned class-name source, so class-name literals inside specs were injecting real rules into the shipped bundle; three had leaked already.
+
+**Not done here.** This does not make `border-white/15` a legal boundary for an interactive control. At ~1.5:1 that is decorative-tier, alongside `--border`, where the design system says an interactive boundary takes `--border-ui`. Roughly 68 controls are written that way and were painting an accidental grey until now; moving them is a token decision and wants its own pass.
+
+### D-374 · (issue #138, 2026-08-20) · Undeclared-key retention in the docs/expenses sanitizers is opt-in, and set only at the remote read
+
+**Decision.** `sanitizeExpense`/`sanitizeExpenses` and `sanitizeItem`/`sanitizeItems` take `SanitizeOptions { keepUnknownKeys?: boolean }`. Absent — the default — is the field-by-field allowlist rebuild they have always been. It is set at exactly two call sites, both remote reads: `chunkDocToRows` (`lib/expenses-remote.ts`) and `docToRows` (`lib/docs-remote.ts`). Every local entry point takes the default. Reject rules and declared-field coercion are identical in both modes; only undeclared keys differ.
+
+**Why the split rather than a blanket passthrough.** The two directions have opposite requirements and disjoint caller sets. On the remote read, D-365's sanitize runs on a row that is then merged and written straight back up, so an allowlist meant an older client silently erased a newer client's forward fields from the server, permanently, on every sync — the normal state for a lazily-updating PWA. On every local path that same rebuild is what makes D-159's zero-egress guarantee structural rather than a discipline: a rogue or legacy row carrying photo refs cannot survive a rebuild that never copies it. A blanket passthrough fixes the first and deletes the second.
+
+**Why not a by-name denylist.** Considered and rejected: to satisfy the existing egress proof it would have to drop `receipt`, a perfectly plausible future expense field. Dropping it by name re-creates this bug for exactly the class of key the issue is about. Dropping an unrecognised key and dropping a known-forbidden one are different rules, and only the first was asked for.
+
+**Retention at the read is necessary but NOT sufficient, and the first version of this record wrongly implied otherwise.** The local storage layer re-sanitizes strict on the way to disk, so `commit()` re-reads a *stripped* row carrying the **same HLC** and pushes that back. The equal-HLC tie then decided against the richer row every time — see D-376, which is what actually makes the retained key survive. Measured before D-376 landed: the forward key was erased on this device's next push of that leg, which any expense edit in the leg triggers. On the docs checklist retention alone was a complete no-op, because a fixed template puts every id on both sides and so every row takes the collision path.
+
+**Default-strict is load-bearing.** A new caller that does not know to ask gets the safe behaviour. Two disjointness assertions fail if the default ever flips.
+
+**The tests that first "proved" this were green without testing it.** Both used a remote row with no local counterpart while being titled "survive the read→merge→write round trip" — pass-through for a row that never collides, which is not the round trip. They are now named for what they check, and a real same-id/same-HLC collision test sits beside each.
+
+**Residual risk, named.** Retention on the remote read means a photo-bearing key placed into Firestore by some other writer would be preserved on write-back instead of scrubbed. Judged acceptable: those bytes are already remote, so nothing new leaves the device, and it is not a key this app can mint — everything entering the merge from the local side comes through the strict path. If that stops being true, the fix belongs at the schema layer D-159 lives at, not here.
+
+**Not done here.** `category` stays an enum check, so a forward category still drops the whole expense row. Widening it means widening `Expense['category']` off `ItineraryCategory`, which breaks `CATEGORY_COLORS[e.category]` and `setCategory(expense.category)` — a type-surface decision, not a sanitizer one.
+
+### D-375 · (issue #139, 2026-08-20) · `sourceType` is lenient on read; the draft discriminant stays a closed union
+
+**Decision.** `itineraryItemSchema.sourceType` is `z.string().optional()`, matching `category` directly above it. `SourceType` is **not** widened: it is the card-family discriminant the four `toItineraryDraft` branches are written against, and every caller passes a literal. `SOURCE_TYPES` and `isSourceType()` are exported as the runtime narrow to use for a value read off disk or off a snapshot. Unlike `BUDGET_CATEGORIES`/`isCategory`, which `sanitizeExpense` calls, `isSourceType` has **no production caller today** — nothing reads this field as a union. It is provided so the next consumer narrows instead of casting; if one never appears, delete it rather than leaving a guard that implies a check nobody performs.
+
+**Why.** It was the one non-lenient field in a deliberately lenient schema, so a fifth source family from a newer build dropped the whole row: loudly before #123, silently per-row after it, at both the on-disk and remote boundaries.
+
+**Why the union stays closed.** Widening it forces the exhaustive switch's `never` guard out, and the obvious way to make that compile is to delete the guard and let the switch fall through returning `undefined`. The persisted field and the draft discriminant are different things and now read as such. An unrecognised value throws by name, unchanged, and a test pins it; `sourceType` only drives an optional back-link label, so it degrades to "no recognised source".
+
+**Changes if:** a fifth card family is added (extend `SOURCE_TYPES` and the switch together), or `ItineraryItem['sourceType']` is widened to match the schema.
+
+### D-376 · (issue #138, 2026-08-21) · The equal-HLC tie-break prefers the strict key-set superset
+
+**Decision.** `resolvePair` (`core/sync/merge-items.ts`): on an exact HLC tie between two rows of the same deleted-ness, the row whose key set strictly contains the other's wins. `contentFingerprint` decides only when neither contains the other. The tombstone bias still returns first, so this only ever chooses between two live rows or two tombstones.
+
+**Why.** `contentFingerprint` was systematically biased against the richer row. It sorts the entries and stringifies, so inserting a key always makes the result diverge DOWNWARD — at the new key's own name, or at `,` (0x2C) versus the closing `]` (0x5D) when it sorts last. The stripped copy therefore won every equal-HLC collision, in both argument orders, for every key name tried. That is the mechanism that re-erased a peer's forward fields upstream and made D-374 a no-op on its own.
+
+**The tie is not protocol-impossible any more.** The old comment called the equal-HLC/different-content case unreachable and kept the fingerprint purely as a determinism guard. D-374 creates it for real: a row read from a peer keeps forward keys this build cannot name, while the copy re-read from this device's own strict-sanitized storage has been stripped of them — same id, same HLC, different key set.
+
+**Commutativity is preserved, and it is the invariant this file cares about.** Strict containment is antisymmetric, so at most one row can satisfy it and the winner is a function of the unordered pair, never of argument order. Equal key-set sizes short-circuit, so the branch cannot fire between rows with the same keys; when it declines, the pre-existing fingerprint path runs unchanged. Idempotence holds. Pinned by both-orders tests and a 500-trial randomized property test over colliding HLCs with random key sets, alongside the existing 500-trial `mergeItems` property test.
+
+**Known ceiling: not associative** for three or more mutually incomparable rows at one identical `pt:ct:actor`. That needs three devices minting the same HLC with three different key sets, which the actor field makes unreachable — the real collision is always a two-element chain (row, stripped copy). A key-*count* total order would be associative, but it would let a row with more keys beat one holding keys it lacks, which trades data loss for tidiness. Revisit only if the actor field ever stops being unique per device.
+
+### D-377 · (issue #135, 2026-08-21) · Visual snapshots compare at exact match; the 2% tolerance is gone
+
+**Decision.** `maxDiffPixelRatio: 0.02` is removed from `SHOT` (`e2e/visual.spec.ts`) and `TM_SHOT` (`e2e/tm-acceptance.spec.ts`). The per-pixel `threshold` default is untouched — it was never part of the measurement.
+
+**Why it was dead weight, precisely.** The 36 baselines carry a `-win32` suffix, so the only runner that can compare against them is one on the same OS as the run that shot them. On Linux CI, Playwright looks for `-linux`, finds nothing, and reports a *missing snapshot* — never a diff — which is why that job is advisory. The tolerance therefore only ever applied where the cross-OS antialiasing drift it existed to absorb cannot occur, while buying roughly 23k pixels of cover on a 1280×900 hero: enough to hide a recoloured button or a shifted line of type.
+
+**Measured, not assumed.** With the tolerance removed outright and no baseline rewritten: 24 + 12 green on one pass, 72 + 36 green at `--repeat-each=3`, and 24 green again after a rebuild — 144 strict assertions, zero differing pixels. `--update-snapshots` was never run.
+
+**Changes if:** a Linux baseline set lands and the visual job goes blocking. Measure the antialiasing drift on that runner and set a value from the measurement — do not restore 2% from memory.
