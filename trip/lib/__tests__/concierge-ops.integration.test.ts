@@ -262,10 +262,11 @@ describe('concierge write path (S329 integration)', () => {
   // instrument that let the defect ship green.
   it('SYNC ON: undo of a confirmed moveItem actually moves the item BACK (S389-A)', async () => {
     remote.on = true;
-    // #10 — sync-on now implies "not the default pack": the hook's send() refuses the default
-    // trip on a configured build (guard b), and the default pack no longer syncs at all. So this
+    // #10 — sync-on implies "not the default pack": the default pack does not sync at all. So this
     // scenario runs where it is actually reachable in production: a REGISTERED custom trip
-    // (registered via joinTrip, so guard a passes). The store branch under test is unchanged —
+    // (registered via joinTrip, so the not-on-your-account guard passes). (v6.0.2 removed the
+    // separate default-pack refusal this note used to call "guard b"; the setup below is
+    // unaffected — it was never the default pack.) The store branch under test is unchanged —
     // use-itinerary's fresh-id mint gates on isRemoteConfigured(), not on which trip is active.
     // validateOps' date fence is the module-level TRIP_DATES (loaded before the pointer switch),
     // so TARGET_DATE stays valid; the itinerary key is seeded in this trip's scoped namespace.

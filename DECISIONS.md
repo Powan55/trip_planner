@@ -2742,6 +2742,36 @@ not a design question: the shape is already settled above.
 
 ---
 
+## D-371 · Amends D-205/#10 in part (2026-08-20) · The built-in sample pack is gated on having a session, not on trip membership
+
+**1 — What is amended.** Issue #10 moved the concierge from token possession to Firestore
+membership, and added a matching client-side refusal for the built-in pack. That refusal is
+deleted. Membership was never an answerable question for this one pack: #10 also made it a
+local-only sample with no Firestore trip document, so a membership read can only ever answer no.
+The client half shipped in v6.0.0 and the server half (worker v1.9.0) never deployed, so what
+reached users was a refusal with nothing behind it, on the trip a first-time visitor lands on.
+
+**2 — What replaces it, when the worker half eventually ships.** A `SAMPLE_TRIP_ID` var routes that
+ONE id through a signed-in check (`accounts:lookup`) instead of a membership read. Every other trip
+id keeps the membership path unchanged. Unset or empty, the var is inert and every id takes the
+membership path, so the allowance is opt-in rather than a default.
+
+**Why this is not a new hole:** the deployed Firestore rules already allow any signed-in user to
+`create` a trip naming themselves owner, so the relay was already reachable by anyone willing to
+mint an anonymous session. The sample pack's digest is the built-in itinerary, it never syncs
+(`getTripId()` returns `''` for it), and no traveller identity is in it.
+
+**3 — The coupling, and it is load-bearing.** The allowance and the IP rate limiter (D-338) are one
+access decision. A signed-in check is a floor an anonymous session clears for free, so the limiter
+is what actually bounds abuse. Whatever deploys next must carry `[[ratelimits]]` and
+`[observability]`; shipping the allowance without the limiter is the failure mode, on free tiers
+with no rollback.
+
+**Changes if:** the sample pack gains a real Firestore document (then membership answers for it and
+the special case goes), or the rules stop allowing self-owned trip creation (then the "not a new
+hole" reasoning above needs re-deriving before this stands).
+
+
 ## D-281 · Amends D-204 in part (informed ruling, 2026-08-05) · Time order is the one ordering on every surface including the map; `orderByProximity` is deleted, and the day anchor survives as the day's base point, not as a sort key
 
 This is an informed amendment, not an oversight. The question said up front that ordering the

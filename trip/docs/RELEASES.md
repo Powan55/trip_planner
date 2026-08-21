@@ -2,13 +2,61 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v6.0.0`, deployed 2026-08-20. The newest live worker is `v1.8.1`, shipped 2026-08-17. Worker `v1.9.0` is built and deliberately unshipped: it requires a signed token that only `v5.14.0` sends, so it must not go out until that client is live **on every device**, which is a stronger condition than `v5.14.0` being deployed. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v6.0.0`, deployed 2026-08-20. The newest live worker is `v1.8.1`, shipped 2026-08-17. Worker `v1.9.0` is built and must now **never** deploy: `v1.10.0` supersedes it, and shipping `v1.9.0` alone would break the concierge on the built-in sample pack. Neither is deployable as it stands — read the worker note under `v6.0.2` before touching either. Read the heading before assuming a version is in production.
 
-**`v6.0.0` shipped on 2026-08-20.** Tag `v6.0.0` is `0ecb444`, that commit is `origin/main`'s head, and its deploy run succeeded — verified against the tag and the run, not against this paragraph. `v6.0.1` is recorded below and is not deployed. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
+**`v6.0.0` shipped on 2026-08-20.** Tag `v6.0.0` is `0ecb444`, that commit is `origin/main`'s head, and its deploy run (`32371000388`) succeeded — verified against the tag and the run, not against this paragraph. `v6.0.1` and `v6.0.2` are both recorded below and neither is deployed. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
 > **This paragraph was wrong for two days, which is why the sentence above says to check the tag.** It claimed `v5.14.4` was "recorded below and not yet deployed" and that `main` was at `v5.14.3`. Both were false: tag `v5.14.4` is commit `203cfc0`, that commit **is** `origin/main`'s head, `origin/main`'s `package.json` reads `5.14.4`, and its deploy run succeeded on 2026-08-14. The doc has now overstated what is live twice (`v5.14.0` was claimed about an hour early). The failure mode is always the same: this heading is edited when a release is *prepared* and nobody comes back to it when the release *ships*. Verify against `git tag` and the deploy run, never against this paragraph.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
+
+---
+
+## v6.0.2 (app) · 2026-08-20 · worker unchanged at v1.8.1
+
+The concierge answered every message on the default Nepal × Japan trip with "The concierge works
+on your own trips — open one of your trips to chat." That is the trip a browser lands on before
+anyone creates or joins one, so for a first-time visitor the assistant was dead on arrival. This
+release deletes that refusal.
+
+- The refusal was the CLIENT half of a server gate that never deployed. `#10` moved the Worker
+  from token possession to Firestore membership and added a matching client-side check, keyed on
+  `isRemoteConfigured()`; the Worker half is `v1.9.0`, which is still held (see the worker note at the end of this entry),
+  so `v6.0.0` shipped a refusal with nothing behind it. Probed live before changing anything:
+  `GET /resolve` with **no** `Authorization` header at all answers `400 unsupported url`, so the
+  deployed Worker never asks who is calling.
+- Nothing about the sample trip needed protecting. Its digest is the built-in pack, it has no
+  Firestore document, and it never syncs — `getTripId()` returns `''` for it by construction.
+- The other guard stays exactly as it was: a trip id the registry does not know is still refused
+  before a digest is built, because that digest would read whatever sits under that pointer's
+  storage namespace.
+- `GET /resolve` (Import a place → Look up) was never gated client-side and so was never broken by
+  this. It is untouched here.
+
+**Worker note — nothing here deploys the Worker, and right now nothing should.** Two things are
+true at once and they have to be read together.
+
+`v1.9.0`'s membership check asks Firestore whether the caller is a member of `trips/<id>`, and the
+sample pack has no such document by design — so for that one pack it can only answer no. Deploying
+`v1.9.0` alone therefore puts the defect above straight back, as a raw `403` instead of a sentence.
+`v1.10.0` is written and tested for exactly that: a `SAMPLE_TRIP_ID` var routes that one id through
+a signed-in check (`accounts:lookup`), leaving every other trip on the membership path unchanged.
+125 worker tests pass.
+
+But `v1.10.0` is **not deployable as it stands**, and this is the part to not skip. The worker
+source has forked into two trees. The one that is live at `v1.8.1` carries the `[[ratelimits]]`
+binding and `[observability]`; the one `v1.9.0`/`v1.10.0` were built in carries the membership
+gate and no limiter. `wrangler deploy` replaces the whole worker config, and the limiter fails open
+by design (D-338), so pushing `v1.10.0` from that tree would delete the rate limit without turning
+anything red. What would replace the limiter as the floor is a Firebase anonymous session, which
+any visitor mints for free and a script mints in bulk. Be precise about the direction here: against
+what is live, `v1.10.0` actually *narrows* auth, because live `v1.8.1` asks for no bearer at all.
+The loss is the limiter, and the limiter is the only thing bounding that abuse today — on free
+tiers, with no rollback.
+
+Reconcile the two worker lines first, so that whatever deploys next is a true superset of live
+`v1.8.1` — limiter included. Until that lands, deploy neither. **D-371** records the access
+decision and why the allowance and the limiter are one call, not two.
 
 ---
 

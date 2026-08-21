@@ -25,9 +25,9 @@ vi.mock('@/lib/concierge-config', () => ({
   isConciergeConfigured: () => Boolean(gate.url),
 }));
 
-// #10 — a controllable remote gate for send()'s default-pack guard (b). Default `false` mirrors
-// the real vitest environment (no firebase env), so every pre-#10 test runs the exact branch it
-// was written against; ONE test flips it on to pin the refusal.
+// A controllable remote gate. v6.0.2 removed send()'s last read of it, so nothing in the hook
+// branches on this any more — the mock stays for the transitive importers that do, and `false`
+// mirrors the real vitest environment (no firebase env).
 const remote = vi.hoisted(() => ({ on: false }));
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: {},
@@ -561,7 +561,7 @@ describe('S395 — the trip descriptor on the POST body', () => {
 
   it('#10: a KNOWN custom trip still sends (the registry entry is what admits it)', async () => {
     useCustomTrip('Iceland ring road'); // setTripConfig + rename register it in the registry
-    remote.on = true; // even on a configured build — guard (b) is default-pack-only
+    remote.on = true; // a configured build: a registered custom trip has always sent, and still does
 
     const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
     const h = renderConciergeChat(fetchImpl);
@@ -572,28 +572,22 @@ describe('S395 — the trip descriptor on the POST body', () => {
     h.unmount();
   });
 
-  it('#10: the DEFAULT trip with remote UNCONFIGURED still sends — pins the e2e/dormant degrade', async () => {
-    // remote.on is false (the beforeEach default): guard (b) keys on isRemoteConfigured(), so a
-    // dormant build (the whole e2e suite, any fork without firebase env) keeps today's behavior.
-    const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
-    const h = renderConciergeChat(fetchImpl);
-    await h.send('what is on tomorrow?');
-
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(h.status).toBe('idle');
-    h.unmount();
-  });
-
-  it('#10: the DEFAULT trip on a CONFIGURED build is refused — the sample is not a concierge trip', async () => {
-    remote.on = true; // the deployed-site shape
+  it('v6.0.2: the DEFAULT trip sends — the sample is a concierge trip again', async () => {
+    // v6.0.0 refused here whenever firebase was configured, which is every deployed build, so the
+    // concierge was dead on the trip a first-time visitor lands on. send() no longer reads that
+    // gate at all, which is why this sets it and asserts the SAME outcome the default `false`
+    // gives: the sample sends either way now, and that equivalence IS the fix.
+    remote.on = true; // the deployed-site shape; the hook is now blind to it
     const fetchImpl = vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
     const h = renderConciergeChat(fetchImpl);
     await h.send('plan my day');
 
-    expect(fetchImpl).not.toHaveBeenCalled();
-    expect(h.status).toBe('error');
-    expect(h.error).toBe('The concierge works on your own trips — open one of your trips to chat.');
-    expect(h.messages).toEqual([]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(h.status).toBe('idle');
+    expect(h.error).toBeNull();
+    // The sample sends NO `trip` descriptor, which is what selects the Worker's rich built-in
+    // persona — the one that actually describes this pack. Absent, never null.
+    expect(bodyOf(fetchImpl)).not.toHaveProperty('trip');
     h.unmount();
   });
 
