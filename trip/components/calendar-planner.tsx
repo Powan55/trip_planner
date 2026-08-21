@@ -9,8 +9,7 @@ import { toast } from 'sonner';
 import { SectionHeading } from '@/components/section-heading';
 import {
   Calendar, Plus, Trash2,
-  MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
-  Landmark, Plane, Hotel, Coffee, Music, X, Check, ChevronLeft, ChevronRight, ChevronDown,
+  MapPin, X, Check, ChevronLeft, ChevronRight, ChevronDown,
   ExternalLink, Map as MapIcon, MoreHorizontal,
 } from 'lucide-react';
 import { DndContext, closestCenter, DragOverlay } from '@dnd-kit/core';
@@ -26,7 +25,9 @@ import { bulkMoveWithUndo } from '@/lib/bulk-move-undo';
 import { getTodayInTrip } from '@/lib/trip-now';
 import { setSelectedDay } from '@/lib/selected-day';
 import DayStrip, { DayStripDateMeta } from '@/components/day-strip';
-import { SortableItem, DroppableDay, CATEGORY_ICON_MAP } from '@/components/calendar-sortable-item';
+import { SortableItem, DroppableDay } from '@/components/calendar-sortable-item';
+import { CATEGORY_ICON_MAP } from '@/components/category-icon';
+import { ALL_CATEGORIES } from '@/lib/itinerary-category';
 import { CalendarBulkToolbar } from '@/components/calendar-bulk-toolbar';
 import { CalendarDayPicker } from '@/components/calendar-day-picker';
 import { useCalendarDnd } from '@/hooks/use-calendar-dnd';
@@ -72,8 +73,6 @@ const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
     </div>
   ),
 });
-
-const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography', 'shopping', 'nature', 'cultural', 'transportation', 'hotel', 'free', 'nightlife'];
 
 /**
  * `href` with only the `focus` query param removed, as a SAME-ORIGIN-RELATIVE url.

@@ -16,6 +16,7 @@
 // nothing is logged here (no ops, no reply, no context).
 
 import type { DayPlan, ItineraryCategory, ItineraryItem } from '@/lib/trip-data';
+import { ALL_CATEGORIES } from '@/lib/itinerary-category';
 import {
   TRIP_DATES,
   formatDate,
@@ -51,33 +52,10 @@ export interface Op {
   durationMinutes?: number | null;
 }
 
-// The category 10-set. Duplicated as literals from `ItineraryCategory`
-// (lib/itinerary-category.ts, re-exported via lib/trip-data.ts) — the source of truth — because a
-// Set membership check is what validation needs.
-//
-// `as const satisfies readonly ItineraryCategory[]` below only catches an INVALID member of this
-// list; it is silent when a category is instead ADDED to `ItineraryCategory` and NOT to this list
-// — the direction this function (dropping ops for unknown categories) actually depends on. That
-// used to be "guarded" by a comment claiming a `satisfies` tie kept the two from drifting; it did
-// not, and is the rule this file now carries: a comment naming a mechanism is only as good
-// as a check that actually runs. The `Exclude` guard right after the array is that check.
-const CATEGORIES = [
-  'sightseeing',
-  'food',
-  'photography',
-  'shopping',
-  'nature',
-  'cultural',
-  'transportation',
-  'hotel',
-  'free',
-  'nightlife',
-] as const satisfies readonly ItineraryCategory[];
-// Fails to compile — naming the offending category in the error — if `ItineraryCategory` gains a
-// member absent from `CATEGORIES` (the direction the `satisfies` above misses).
-type _MissingFromCategories = Exclude<ItineraryCategory, (typeof CATEGORIES)[number]>;
-const _assertNoMissingCategories: _MissingFromCategories extends never ? true : _MissingFromCategories = true;
-const CATEGORY_SET: ReadonlySet<string> = new Set(CATEGORIES);
+// The category 10-set, as a Set because membership is what validation needs. This file used to
+// carry its own copy of the ten literals plus the `Exclude` guard that keeps a copy honest; both
+// now live next to the union in lib/itinerary-category.ts, so there is nothing here left to drift.
+const CATEGORY_SET: ReadonlySet<string> = new Set(ALL_CATEGORIES);
 
 // Content fields a patch/add can carry (everything except the addressing fields).
 const CONTENT_KEYS = ['title', 'category', 'notes', 'location', 'startMinutes', 'durationMinutes'] as const;

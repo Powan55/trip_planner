@@ -10,6 +10,7 @@ import {
   type ItineraryCategory,
   CATEGORY_COLORS,
 } from '@/lib/trip-data';
+import { ALL_CATEGORIES } from '@/lib/itinerary-category';
 import { placeLabelForDate } from '@/lib/leg-label';
 import { generateItemId } from '@/lib/item-id';
 import { getActiveTrip } from '@/core/trips';
@@ -34,11 +35,6 @@ import { isSafeHref } from '@/lib/safe-href';
  * `useItineraryContext().addItem`, `sourceId: 'myplace-'+id`, `sourceType: 'recommendation'` — the
  * vault enum is untouched, D-plan) only when the collapsed "Also add to plan" section has a day.
  */
-
-const ALL_CATEGORIES: ItineraryCategory[] = [
-  'sightseeing', 'food', 'photography', 'shopping', 'nature',
-  'cultural', 'transportation', 'hotel', 'free', 'nightlife',
-];
 
 // "Tue, Dec 12 · Kathmandu, Nepal" (mirrors the add-to-plan dialog's dateOptionLabel —:
 // both now go through the one shared place-label helper instead of mirroring a hardcoded pair).
