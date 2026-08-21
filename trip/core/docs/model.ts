@@ -47,6 +47,15 @@ export function isDocSection(v: unknown): v is DocSection {
   return typeof v === 'string' && (SECTIONS as readonly string[]).includes(v);
 }
 
+/** Read-boundary options. Absent ⇒ STRICT: a caller that does not ask gets the allowlist rebuild. */
+export interface SanitizeOptions {
+  /**
+   * Retain keys this build does not declare (#138). Set ONLY on the REMOTE read, where the
+   * sanitized row is merged and written straight back to Firestore. Never on a LOCAL path.
+   */
+  keepUnknownKeys?: boolean;
+}
+
 /**
  * The built-in checklist template (18 items — 10 critical documents, 8 day-zero readiness), all
  * unchecked. Realistic copy for a Dec 2026 Kathmandu → Japan trip (Nepal visa-on-arrival, Visit
@@ -94,20 +103,40 @@ export const UNIVERSAL_TEMPLATE: readonly DocItem[] = DEFAULT_TEMPLATE.filter(
  * optional `note` and the additive sync stamps (`rev`/`hlc`/`deleted`/`updatedAt`/`updatedBy`) are
  * preserved verbatim WHEN present with the right type, dropped otherwise — so a dormant slot round-
  * trips with no sync fields, and a synced slot keeps its merge stamps. TOTAL.
+ *
+ * UNDECLARED keys: DROPPED by default, kept only for `keepUnknownKeys` (#138). The default is the
+ * field-by-field rebuild this has always been, and every LOCAL caller takes it (`loadDocs`/
+ * `saveDocs`, `core/vault/backup.ts`). The flag is set at exactly ONE call site — `docToRows`
+ * (lib/docs-remote.ts), the REMOTE read — because that is where the loss lives: since D-365 the
+ * sanitized row is merged and written straight back up by `pushChecklistMerged`, so an allowlist
+ * there let an older client erase a newer client's fields from the server. Validation is identical
+ * either way; only undeclared keys differ. Default-strict, so a new caller gets the safe behaviour.
  */
-export function sanitizeItem(value: unknown): DocItem | null {
+export function sanitizeItem(value: unknown, opts: SanitizeOptions = {}): DocItem | null {
   if (value === null || typeof value !== 'object') return null;
   const v = value as Record<string, unknown>;
   if (typeof v.id !== 'string' || v.id.trim() === '') return null;
   if (typeof v.label !== 'string' || v.label.trim() === '') return null;
   if (!isDocSection(v.section)) return null;
-  const item: DocItem = { id: v.id, section: v.section, label: v.label, checked: v.checked === true };
+  const item: DocItem = {
+    ...(opts.keepUnknownKeys ? (value as DocItem) : ({} as Partial<DocItem>)),
+    id: v.id,
+    section: v.section,
+    label: v.label,
+    checked: v.checked === true,
+  };
   if (typeof v.note === 'string' && v.note.trim() !== '') item.note = v.note;
+  else delete item.note;
   if (typeof v.rev === 'number') item.rev = v.rev;
+  else delete item.rev;
   if (typeof v.hlc === 'string') item.hlc = v.hlc;
+  else delete item.hlc;
   if (v.deleted === true) item.deleted = true;
+  else delete item.deleted;
   if (typeof v.updatedAt === 'string') item.updatedAt = v.updatedAt;
+  else delete item.updatedAt;
   if (typeof v.updatedBy === 'string') item.updatedBy = v.updatedBy;
+  else delete item.updatedBy;
   return item;
 }
 
@@ -117,11 +146,15 @@ export function sanitizeItem(value: unknown): DocItem | null {
  * or sanitizes down to zero items — the "seed the template on first load / corrupt slot" path
  * TOTAL — never throws.
  */
-export function sanitizeItems(value: unknown, fallback: readonly DocItem[] = DEFAULT_TEMPLATE): DocItem[] {
+export function sanitizeItems(
+  value: unknown,
+  fallback: readonly DocItem[] = DEFAULT_TEMPLATE,
+  opts: SanitizeOptions = {},
+): DocItem[] {
   if (!Array.isArray(value)) return [...fallback];
   const byId = new Map<string, DocItem>();
   for (const raw of value) {
-    const item = sanitizeItem(raw);
+    const item = sanitizeItem(raw, opts);
     if (item !== null) byId.set(item.id, item);
   }
   if (byId.size === 0) return [...fallback];

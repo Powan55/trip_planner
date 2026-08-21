@@ -19,7 +19,19 @@ import type { FeaturedDestination } from '@/lib/travel-tips-data';
  * 'featured'` branches WITHOUT touching the recommendation branch or the map.
  */
 
-export type SourceType = 'recommendation' | 'photo' | 'map' | 'featured';
+/**
+ * The card families an add-to-plan control can be discriminated by. This stays a CLOSED union: it
+ * names the four adapter branches below, not whatever a persisted item's `sourceType` happens to
+ * hold. The vault read schema is deliberately lenient there (#139), so use `isSourceType` to narrow
+ * a value that came off disk or off a snapshot before handing it to `toItineraryDraft`.
+ */
+export const SOURCE_TYPES = ['recommendation', 'photo', 'map', 'featured'] as const;
+export type SourceType = (typeof SOURCE_TYPES)[number];
+
+/** Type guard: the value is one of the four card families this adapter can build a draft from. */
+export function isSourceType(value: unknown): value is SourceType {
+  return typeof value === 'string' && (SOURCE_TYPES as readonly string[]).includes(value);
+}
 
 /** The union of every source record an add-to-plan control can accept. */
 export type AddToPlanSource =
@@ -224,7 +236,10 @@ export function toItineraryDraft(source: unknown, sourceType: SourceType): Itine
       };
     }
     default: {
-      // Exhaustiveness guard — a new SourceType must extend the switch.
+      // Exhaustiveness guard — a new SourceType must extend the switch. `never` is compile-time
+      // only, so the throw is what an unrecognised value gets at runtime: since #139 the read
+      // schema accepts any string, and a caller that skipped `isSourceType` fails loudly here
+      // rather than getting `undefined` back from a silent fall-through.
       const _exhaustive: never = sourceType;
       throw new Error(`toItineraryDraft: unknown sourceType "${String(_exhaustive)}".`);
     }

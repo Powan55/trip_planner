@@ -5,8 +5,8 @@
  *
  * VALIDATION-TOLERANCE RULE:
  * on READ these schemas are deliberately *lenient* —
- * - `category` is validated as `z.string()` (NOT `z.enum`), because real deployed
- * data may contain a category a future/older build didn't know about;
+ * - `category` and `sourceType` are validated as `z.string()` (NOT `z.enum`), because real
+ * deployed data may contain a value a future/older build didn't know about;
  * - objects `.passthrough()` unknown keys, so unknown future fields survive a read.
  * The app already produces well-typed `ItineraryItem`s on WRITE (strict via TypeScript),
  * so the write path is naturally strict. A read that fails even this lenient schema is
@@ -36,7 +36,11 @@ export const itineraryItemSchema = z
     notes: z.string().optional(),
     location: z.string().optional(),
     sourceId: z.string().optional(),
-    sourceType: z.enum(['recommendation', 'photo', 'map', 'featured']).optional(),
+    // Permissive on read — NOT z.enum (#139). It was the one non-lenient field here, so a fifth
+    // sourceType from a newer build dropped the whole row at both the on-disk and remote
+    // boundaries. `isSourceType` (lib/itinerary-adapter.ts) is the runtime narrow to use if a
+    // consumer ever needs the union; nothing in production reads this field as one today.
+    sourceType: z.string().optional(),
     createdBy: z.string().optional(),
     updatedBy: z.string().optional(),
     updatedAt: z.string().optional(),
