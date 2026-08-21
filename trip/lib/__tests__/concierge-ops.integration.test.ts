@@ -264,7 +264,7 @@ describe('concierge write path (S329 integration)', () => {
     remote.on = true;
     // #10 — sync-on implies "not the default pack": the default pack does not sync at all. So this
     // scenario runs where it is actually reachable in production: a REGISTERED custom trip
-    // (registered via joinTrip, so the not-on-your-account guard passes). (v6.0.1 removed the
+    // (registered via joinTrip, so the not-on-your-account guard passes). (v6.0.2 removed the
     // separate default-pack refusal this note used to call "guard b"; the setup below is
     // unaffected — it was never the default pack.) The store branch under test is unchanged —
     // use-itinerary's fresh-id mint gates on isRemoteConfigured(), not on which trip is active.

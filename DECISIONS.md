@@ -2742,7 +2742,7 @@ not a design question: the shape is already settled above.
 
 ---
 
-## D-368 · Amends D-205/#10 in part (2026-08-20) · The built-in sample pack is gated on having a session, not on trip membership
+## D-371 · Amends D-205/#10 in part (2026-08-20) · The built-in sample pack is gated on having a session, not on trip membership
 
 **1 — What is amended.** Issue #10 moved the concierge from token possession to Firestore
 membership, and added a matching client-side refusal for the built-in pack. That refusal is
@@ -4304,3 +4304,33 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 **Held by** three cases in `lib/__tests__/countdown-sum-back.test.ts`, each verified to fail against the previous implementation with the exact strings above. An earlier version of the sweep targeted only 05:30 the day after a transition and passed on the broken code; the 24-hour reading needs a midnight-ish target and the negative fields need the target ON the transition day, so it now sweeps both shapes and the comment records what each arm catches.
 
 **Changes if:** the owner's Aug 20 reading is ever re-ruled, which reopens the now-anchored choice and with it the month-boundary tick · or a display rule other than "never 24 hours" is adopted, which removes the carry and restores unconditional sum-back.
+
+### D-368 · (issue #119, 2026-08-20) · `showUndoToast` gained an `onSettled` seam, because "free the blob" and "offer Undo" are incompatible without one
+
+**Decision.** `showUndoToast(message, onUndo, onSettled?)`. `onSettled` fires from sonner's `onAutoClose`/`onDismiss`, guarded by a local flag the Undo handler sets, so it runs exactly when the undo window closes WITHOUT the user taking it.
+
+**Why a seam rather than deleting the photo at delete time.** An expense's receipt has to still exist if Undo lands — `repointExpense` exists precisely to move that meta onto the restored row. Deleting the blob up front would make Undo restore an expense whose receipt is gone; not deleting it at all is the bug. The only correct moment is after the window closes un-taken, and the toast is the only thing that knows when that is.
+
+**Ceiling, marked in the code:** a reload or a navigation before the toast closes skips the cleanup, so the blob survives. That is strictly better than today (where it always survives) and the alternative is a durable pending-delete queue for a few kilobytes of image.
+
+**Journal `clearAll` takes the other branch** — its confirm already says the wipe cannot be undone, so its day-photos are freed straight away, at the Settings call site rather than inside `useJournal`. Cross-domain cleanup stays with the caller, the same way `budget-panel.tsx` already owns the receipt re-point.
+
+### D-369 · (issue #130, 2026-08-20) · one ref-counted writer for `body[data-dialog-open]`
+
+**Decision.** `hooks/use-dialog-open-flag.ts` owns the attribute. Five modals call `useDialogOpenFlag(open?)`; the module-scope count moves the attribute only on the 0↔1 transitions.
+
+**Why it was false before.** Each modal set the flag on mount and `delete`d it on unmount, with no counter — `add-to-itinerary-dialog.tsx` carried a comment claiming a ref-count guard that did not exist. `place-detail-sheet.tsx` renders a `<Sheet>` (flag set) and can nest an `<AddToItineraryDialog>` on top (flag set again); closing the nested dialog cleared the flag with the sheet still open.
+
+**No visible symptom today, and that is not a reason to leave it.** The only reader, `quick-add-fab.tsx`, sits at `z-40` under the dialogs' `z-50`, which its own comment already names as the primary guarantee. The invariant was still false, and the next consumer would not have the z-index luck.
+
+**Per-tab by construction**, like every other module-scope guard here. Two tabs is not a case: the attribute is per-document.
+
+### D-370 · (issue #118, 2026-08-20) · `lib/travel-tick.ts` is the app's shared tick, not `/travel`'s, and it stops while the tab is hidden
+
+**Decision.** `/flights`' four `FlightJourneyCard`s subscribe to `subscribeTravelTick` instead of each opening `setInterval(…, 1000)`, and hold `requestFastTick()` only while their countdown is inside a week — the one reading that carries seconds. The module's scope was never technical: nothing in it referenced `/travel`, only its header comment did.
+
+**The tick now pauses on `document.hidden`** and fires one catch-up tick on `visibilitychange` back to visible. That is a change to the shared module, so it applies to `/travel` as well: a backgrounded tab does no work, and every label is correct the instant it is looked at again rather than up to one period stale. Held by a case in `lib/__tests__/travel-tick.test.ts` that advances 120s hidden and asserts zero callbacks.
+
+**One listener, bound on first subscribe, never removed.** A document-level `visibilitychange` handler for the life of the page is cheaper than add/remove around every subscriber, and `bindVisibility` is idempotent so repeated subscribes cost nothing.
+
+**Time values are unchanged.** Each tick re-reads the real clock through `getFlightTiming(journey)`, exactly as the per-card interval did; only the frequency moved. The visible countdown is byte-identical at every cadence because the text further out than a week has no seconds field to move.

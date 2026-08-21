@@ -97,6 +97,20 @@ vi.mock('firebase/firestore', () => ({
     listeners.set(ref.path, next);
     return () => listeners.delete(ref.path);
   },
+  // #125: `pushTripList` reads and writes inside a transaction now, like every sibling push.
+  // Single-threaded fake, so the body runs once with a tx that reads/writes the same store —
+  // enough to pin the read-merge-write, not the retry (that is the real SDK's job).
+  runTransaction: async (_db: unknown, body: (tx: unknown) => Promise<void>) =>
+    body({
+      get: async (ref: { path: string }) => {
+        const data = fake.docs.get(ref.path);
+        return { exists: () => data !== undefined, data: () => data };
+      },
+      set: (ref: { path: string }, data: DocData) => {
+        writeLog.push({ path: ref.path, data });
+        fake.setDocData(ref.path, data);
+      },
+    }),
 }));
 
 import { pushTripList, subscribeTripList } from '@/lib/trips-remote';

@@ -18,7 +18,7 @@ import type { PhotoMeta } from '@/core/photos/model';
  * palette wiring here — that's an explicit follow-up rider).
  *
  * Editing reuses the REAL `journal-card.tsx` primitive, not a re-implementation: tapping a row's
- * Edit swaps that ONE row for a mounted `<JournalCard date={date} />` (the exact same component
+ * Edit swaps that ONE row for a mounted `<JournalCard date={date} isToday={false} />` (the exact same component
  * the in-trip Today panel uses, incl. its mood chips / highlight input / body textarea / Save /
  * Cancel / the "clear everything removes the entry" behavior). Only ONE `JournalCard` is
  * ever mounted at a time — `journal-card.tsx`'s header/editor ids (`journal-heading`,
@@ -26,11 +26,8 @@ import type { PhotoMeta } from '@/core/photos/model';
  * date, so mounting more than one at once would duplicate ids (an axe violation); this is why
  * every OTHER row stays a plain summary, never another `JournalCard` instance.
  *
- * KNOWN LIMITATION (flagged, not fixed — out of this change's fence, which scoped journal-card.tsx
- * changes to "entry link only"): while editing a PAST day from this list, the mounted
- * `JournalCard`'s heading still reads "Today's journal" (a hardcoded literal in that component,
- * unconditioned on the actual date) — cosmetically wrong for a non-today day, though every
- * testid/behavior/persistence path is correct. A generic `heading` prop would fix it; deferred.
+ * The mounted `JournalCard` takes `isToday={false}` so its heading and both aria-labels name the
+ * day being edited. It used to hardcode "Today's journal" for a past day (#128).
  *
  * READ-ONLY over nothing new: this component reads `useJournal()` (already the app's own
  * reactive journal store) and writes only through `JournalCard`'s existing `saveEntry`/

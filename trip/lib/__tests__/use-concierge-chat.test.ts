@@ -25,7 +25,7 @@ vi.mock('@/lib/concierge-config', () => ({
   isConciergeConfigured: () => Boolean(gate.url),
 }));
 
-// A controllable remote gate. v6.0.1 removed send()'s last read of it, so nothing in the hook
+// A controllable remote gate. v6.0.2 removed send()'s last read of it, so nothing in the hook
 // branches on this any more — the mock stays for the transitive importers that do, and `false`
 // mirrors the real vitest environment (no firebase env).
 const remote = vi.hoisted(() => ({ on: false }));
@@ -572,7 +572,7 @@ describe('S395 — the trip descriptor on the POST body', () => {
     h.unmount();
   });
 
-  it('v6.0.1: the DEFAULT trip sends — the sample is a concierge trip again', async () => {
+  it('v6.0.2: the DEFAULT trip sends — the sample is a concierge trip again', async () => {
     // v6.0.0 refused here whenever firebase was configured, which is every deployed build, so the
     // concierge was dead on the trip a first-time visitor lands on. send() no longer reads that
     // gate at all, which is why this sets it and asserts the SAME outcome the default `false`

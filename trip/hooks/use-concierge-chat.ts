@@ -338,12 +338,12 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       // drove the pointer to an arbitrary id without joining it) gets no digest and no POST,
       // because the digest would read whatever sits under that pointer's storage namespace.
       //
-      // v6.0.1 removed a second refusal that stood here — the default pack on a configured build.
+      // v6.0.2 removed a second refusal that stood here — the default pack on a configured build.
       // It was the client half of a membership gate (worker 1.9.0) that never deployed, so it
       // protected nothing and left the concierge dead on the trip a first-time visitor lands on.
       // Worker 1.9.0 must not ship without 1.10.0's sample-pack allowance or this comes back as a
       // 403: the sample has no Firestore trip doc, so membership can only answer no. See
-      // docs/RELEASES.md, v6.0.1.
+      // docs/RELEASES.md, v6.0.2.
       if (!isDefaultTrip() && !getKnownTrip(getActiveTripId())) {
         setStatus('error');
         setError("This trip isn't on your account, so the concierge can't help with it.");

@@ -116,8 +116,8 @@ export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | u
 // ──: the ACCOUNT's display name ─────────────────────────────────────────────────────
 //
 // SHAPE: ONE doc `trips/{userToken}/profile/identity` = `{ version: 1, name }` — its OWN document,
-// deliberately NOT a `name` field on `profile/tripList`. `pushTripList` above writes with a bare
-// `setDoc` (no `{merge:true}`): a full-document overwrite with two independent deleters — a client
+// deliberately NOT a `name` field on `profile/tripList`. `pushTripList` above writes the whole
+// document (`tx.set`, no `{merge:true}`): a full overwrite with two independent deleters — a client
 // on an older service-worker-cached bundle, and `subscribeTripList`'s own re-push/seed. Either one
 // deleting a `name` field there would make the reverts-to-"Traveler" defect come back
 // INTERMITTENTLY, which is strictly worse than the defect: no longer reproducible on demand.
@@ -407,25 +407,33 @@ function docToRemoved(data: Record<string, unknown>): RemovedTrip[] {
  * the remote doc, additive-union it with the local list, write the union back. Fire-and-forget —
  * never rejects to the caller (a failed push stays local-only via console.warn, no outbox). The JSON
  * round-trip strips `undefined`-valued optional fields (config/updatedAt/currency) Firestore rejects.
+ *
+ * Transactional, like every sibling push (`pushDayMerged`, `pushBudgetMerged`, `pushChecklistMerged`,
+ * `pushPlacesMerged`): the plain read-merge-setDoc this used to do let two devices forgetting two
+ * different trips both read the same doc and the second write clobber the first, so a forgotten trip
+ * could reappear or a new one vanish (#125). A concurrent peer write now forces a retry that
+ * re-merges instead.
  */
 export async function pushTripList(code: string): Promise<void> {
   if (!isRemoteConfigured() || !code) return;
   try {
     const { db, fs } = await getRemote();
-    const { doc, getDoc, setDoc } = fs;
+    const { doc, runTransaction } = fs;
     const ref = doc(db, 'trips', code, 'profile', 'tripList');
-    const snap = await getDoc(ref);
-    const data = snap.exists() ? (snap.data() as Record<string, unknown>) : {};
-    const { merged, removed } = mergeTripLists(
-      listKnownTrips(),
-      docToTrips(data),
-      listRemovedTrips(),
-      docToRemoved(data),
-    );
-    await setDoc(ref, {
-      version: 1,
-      trips: JSON.parse(JSON.stringify(merged)),
-      removed: JSON.parse(JSON.stringify(removed)),
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const data = snap.exists() ? (snap.data() as Record<string, unknown>) : {};
+      const { merged, removed } = mergeTripLists(
+        listKnownTrips(),
+        docToTrips(data),
+        listRemovedTrips(),
+        docToRemoved(data),
+      );
+      tx.set(ref, {
+        version: 1,
+        trips: JSON.parse(JSON.stringify(merged)),
+        removed: JSON.parse(JSON.stringify(removed)),
+      });
     });
   } catch (err) {
     console.warn('[trips-remote] trip list push failed, staying local-only:', err);

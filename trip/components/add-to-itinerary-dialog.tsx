@@ -26,6 +26,7 @@ import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { describeItemTime } from '@/lib/item-time-display';
 import TimePicker, { DurationField } from '@/components/time-picker';
 import { overlayPanelMotion } from '@/lib/motion';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 
 // Back-compat re-export: `buildMapsSearchUrl`/`buildMapsPlaceUrl` were hoisted to the pure,
 // React-free `@/lib/maps-link` module (so eager consumers like the calendar can use them without
@@ -444,18 +445,10 @@ export default function AddToItineraryDialog({
     return () => clearTimeout(timer);
   }, [isCustom]);
 
-  // body[data-dialog-open] flag (cross-lane seam):'s quick-add FAB hides while
-  // it is set, so the FAB never floats over an open dialog's scrim. Set it while this
-  // dialog is mounted-open and clear it on close/unmount, in the same portal/focus
-  // lifecycle. Guarded by a ref-count style check on the attribute so two dialogs that
-  // briefly overlap during an exit animation don't clear the flag prematurely.
-  useEffect(() => {
-    const body = document.body;
-    body.dataset.dialogOpen = '1';
-    return () => {
-      delete body.dataset.dialogOpen;
-    };
-  }, []);
+  // body[data-dialog-open] flag (cross-lane seam): the quick-add FAB hides while it is set, so the
+  // FAB never floats over an open dialog's scrim. The shared hook ref-counts it, so this dialog
+  // opening on top of a sheet — and closing again — leaves the sheet's own hold intact.
+  useDialogOpenFlag();
 
   // Esc closes at the document level so it fires wherever focus sits. onClose only
   // flips parent state; the parent returns focus once the exit animation completes.

@@ -103,7 +103,8 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initialUrl]);
 
-  // Single-flight guard so the same URL is never resolved twice.
+  // Single-flight guard so a URL that already resolved is never resolved twice. Cleared on
+  // failure so a failed lookup stays retryable.
   const lastResolvedRef = useRef<string | null>(null);
 
   const runResolve = async (candidate: string) => {
@@ -113,6 +114,9 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
     setStatus('resolving');
     const hints = await resolvePlaceLink(u);
     if (!hints) {
+      // `resolvePlaceLink` degrades to null on ANY failure, so keeping the guard set here
+      // permanently dead-ends "Look up" for that URL — release it so a retry can run (#127).
+      lastResolvedRef.current = null;
       setStatus('notfound');
       return;
     }
