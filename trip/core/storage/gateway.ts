@@ -32,12 +32,23 @@ export type Store = 'local' | 'session';
 
 /**
  * Resolve the backing web-storage object for a store, or `null` when it is
- * unavailable (SSR — no window). Kept internal; the primitives call it and degrade to
- * the SSR/no-op path on `null`.
+ * unavailable (SSR — no window; or the property access itself throwing). Kept internal; the
+ * primitives call it and degrade to the SSR/no-op path on `null`.
+ *
+ * The try/catch is NOT redundant with the per-operation ones below. Where site data is blocked for
+ * the origin (Chrome/Edge "on-device site data" off, Safari "Block All Cookies", a sandboxed
+ * iframe) the PROPERTY READ throws SecurityError — there is never an object to call `getItem` on,
+ * so a per-operation catch never runs. `core/dates/trip-dates.ts` resolves the active trip at
+ * MODULE SCOPE, so unguarded that throw lands during module evaluation on every route: the app
+ * fails to boot rather than degrading.
  */
 function backing(store: Store): Storage | null {
   if (typeof window === 'undefined') return null;
-  return store === 'session' ? window.sessionStorage : window.localStorage;
+  try {
+    return store === 'session' ? window.sessionStorage : window.localStorage;
+  } catch {
+    return null;
+  }
 }
 
 // ── The single key registry ────────────────────────

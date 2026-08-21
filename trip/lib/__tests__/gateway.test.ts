@@ -18,6 +18,9 @@ import {
   isQuotaError,
   notifyQuotaExceeded,
   weatherCache,
+  wipeAllTripData,
+  getActiveTripId,
+  DEFAULT_TRIP_ID,
 } from '@/core/storage/gateway';
 
 /**
@@ -216,6 +219,78 @@ describe('storage gateway (D-097)', () => {
       cyclic.self = cyclic;
       expect(() => writeJson('local', 'k', cyclic)).not.toThrow();
       expect(window.localStorage.getItem('k')).toBeNull(); // nothing written
+    });
+  });
+
+  // ── The storage OBJECT itself being unreachable (#153) ────────────────────
+  describe('#153 — a throwing window.localStorage property access degrades, never propagates', () => {
+    /**
+     * Blocked site data (Chrome/Edge with on-device site data off, Safari "Block All Cookies", a
+     * sandboxed iframe) throws SecurityError on the property READ. There is no Storage object, so
+     * the per-operation catches above never run — only the guard in `backing()` covers this. Runs
+     * `fn` with both stores stubbed that way, and restores them whatever `fn` does.
+     */
+    function withUnreachableStorage(fn: () => void): void {
+      const savedLocal = Object.getOwnPropertyDescriptor(window, 'localStorage');
+      const savedSession = Object.getOwnPropertyDescriptor(window, 'sessionStorage');
+      const blocked: PropertyDescriptor = {
+        configurable: true,
+        get() {
+          throw new DOMException('Access is denied for this document.', 'SecurityError');
+        },
+      };
+      Object.defineProperty(window, 'localStorage', blocked);
+      Object.defineProperty(window, 'sessionStorage', blocked);
+      try {
+        fn();
+      } finally {
+        if (savedLocal) Object.defineProperty(window, 'localStorage', savedLocal);
+        if (savedSession) Object.defineProperty(window, 'sessionStorage', savedSession);
+      }
+    }
+
+    it('reads fall back and writes stay inert on BOTH stores', () => {
+      withUnreachableStorage(() => {
+        expect(readString('local', STORAGE_KEYS.token)).toBeNull();
+        expect(readString('session', STORAGE_KEYS.todayOverride)).toBeNull();
+        expect(hasKey('local', STORAGE_KEYS.token)).toBe(false);
+        expect(readJson('local', 'j', { safe: true })).toEqual({ safe: true });
+        expect(() => {
+          writeString('local', STORAGE_KEYS.token, 'x');
+          writeJson('local', 'j', { a: 1 });
+          removeKey('session', STORAGE_KEYS.todayOverride);
+        }).not.toThrow();
+      });
+    });
+
+    it('domain accessors and the teardown sweep degrade too', () => {
+      withUnreachableStorage(() => {
+        expect(() => {
+          expect(identityStore.getName()).toBeNull();
+          expect(identityStore.getPriorNames()).toEqual([]);
+          expect(uiPrefs.getNightlifeVisible()).toBeNull();
+          expect(clockOverride.get()).toBeNull();
+          identityStore.clearIdentity();
+          clockOverride.set('2026-12-09');
+          wipeAllTripData();
+        }).not.toThrow();
+      });
+    });
+
+    it('getActiveTripId resolves the default pack — the module-scope boot path', () => {
+      // core/dates/trip-dates.ts resolves the active trip at MODULE SCOPE and every route imports
+      // it, so a throw on this path is a failed boot rather than a degraded read.
+      withUnreachableStorage(() => {
+        expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID);
+      });
+    });
+
+    it('restores the real stores afterwards (the stub cannot leak into later tests)', () => {
+      withUnreachableStorage(() => {
+        expect(readString('local', 'k')).toBeNull();
+      });
+      writeString('local', 'k', 'v');
+      expect(window.localStorage.getItem('k')).toBe('v');
     });
   });
 
