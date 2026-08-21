@@ -14,6 +14,8 @@ import { describe, it, expect } from 'vitest';
  */
 
 import { burnRate, expensesByDate } from '@/core/budget/burn-rate';
+import { getCountryForDate } from '@/core/dates';
+import { sumExpensesForDate } from '@/core/recap/model';
 import type { Expense } from '@/core/budget/expenses';
 
 /** Local-noon Date for a 'YYYY-MM-DD' — mirrors lib/trip-now.ts's override resolution. */
@@ -157,6 +159,23 @@ describe('expensesByDate — leg-local per-day buckets for the calendar overlay'
     ]);
     expect(byDate['2026-12-12']).toBe(2000);
     expect(byDate['2026-12-25']).toBe(18000);
+  });
+
+  it("a row whose OWN leg is not the day's leg contributes to no day, and matches the recap seam", () => {
+    // Dec 12 is a NEPAL day. The Japan row is the one the log dialog makes by default: `date` stays
+    // pinned to the day the dialog opened on while the leg chip is tapped over to Japan. Adding it
+    // in would print ¥50,000 under the day's `legCurrency` as "Rs 51,000".
+    const rows = [
+      exp({ id: 'j', date: '2026-12-12', leg: 'japan', amount: 50000 }),
+      exp({ id: 'n', date: '2026-12-12', leg: 'nepal', amount: 1000 }),
+    ];
+    expect(expensesByDate(rows)).toEqual({ '2026-12-12': 1000 }); // not 51000, and not 50000
+
+    // The drift guard: the calendar bucket IS the number both recap surfaces already compute for
+    // that day. Two aggregators, one contract — if either side is changed alone, this goes red.
+    expect(expensesByDate(rows)['2026-12-12']).toBe(
+      sumExpensesForDate(rows, '2026-12-12', getCountryForDate('2026-12-12')),
+    );
   });
 
   it('EXCLUDES undated expenses from the per-day map (they only count in the leg/total spend)', () => {

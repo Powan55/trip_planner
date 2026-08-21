@@ -342,6 +342,30 @@ describe('static assets: the _rsc cache-buster does not multiply cache entries',
     expect(fetches).toBe(1); // 2nd and 3rd were cache hits under the normalized key
   });
 
+  // A .txt payload drops its WHOLE search string, not just _rsc. Next mutates only the
+  // PATHNAME when it derives the payload URL, so `components/command-palette.tsx`'s
+  // router.push('/plan/?focus=<id>') is fetched as /plan/index.txt?focus=<id>&_rsc=<digest>.
+  // Deleting _rsc alone leaves ?focus=<id> in the key, which matches nothing: the
+  // precached entry is the bare /plan/index.txt, and it is the only one that exists.
+  // Offline that miss is Next's MPA fallback — a hard reload — so the precached payloads
+  // would be dead weight for exactly the deep links.
+  it('drops the whole search on a .txt payload, so a query-carrying link still hits the precached entry', async () => {
+    const { caches } = makeCaches({ [PRECACHE]: { '/plan/index.txt': 'PLAN_RSC_PAYLOAD' } });
+    let fetches = 0;
+    const handlers = instantiate(caches, async () => {
+      fetches++;
+      throw new TypeError('Failed to fetch'); // offline: only the cache can answer
+    });
+
+    const res = await runFetch(handlers, makeRequest('/plan/index.txt?focus=abc123&_rsc=aaa111'));
+
+    expect(res?.body).toBe('PLAN_RSC_PAYLOAD');
+    expect(fetches).toBe(0);
+  });
+
+  // The scoping is the other half of the contract: dropping every param is sound ONLY
+  // for a static export's .txt, whose bytes are prerendered per route and cannot vary by
+  // query. `/api/thing?page=2` keeps its page — a param there selects the bytes.
   it('leaves a URL without _rsc, and other query params, alone', async () => {
     const { caches, put } = makeCaches({ [PRECACHE]: {} });
     const handlers = instantiate(

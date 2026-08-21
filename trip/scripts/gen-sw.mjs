@@ -708,6 +708,15 @@ async function buildPrecacheList(allFiles) {
     // duplicate /404/ precache entry.
     if (rel === 'index.html' || rel === '404.html') set.add(rel);
     else if (rel.endsWith('/index.html') && rel !== '404/index.html') set.add(rel);
+    // Route RSC payloads. next/link fetches <route>/index.txt before it renders,
+    // and offline a failed fetch is a HARD navigation to that .txt URL (Next's MPA
+    // fallback) — so without these the app can leave Home offline but only by
+    // reloading, which drops client state and re-runs the whole shell. 19 files,
+    // +461,315 B raw / +69.3 KiB over the wire on a 1.48 MiB gzipped install; the
+    // steady-state device cost is ZERO, because the runtime cacheFirst already
+    // deposits these same 19 keys on the first online browse. Root route included:
+    // its payload is out/index.txt, which has no directory to end with.
+    else if (rel === 'index.txt' || rel.endsWith('/index.txt')) set.add(rel);
     else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
     // NOTE: font/** — the self-hosted MapLibre SDF glyph PBFs
@@ -1020,8 +1029,25 @@ async function cacheMatch(request, options) {
 // URL per source route and again for prefetch vs navigation. Keyed literally, each of
 // those becomes its own permanent entry in a precache that has no size cap and no
 // eviction. Collapse them to one entry per route.
+//
+// For a .txt payload the WHOLE search string goes, not just _rsc. Next mutates only
+// the PATHNAME when it derives the payload URL, so command-palette.tsx's
+// router.push('/plan/?focus=<id>') is fetched as /plan/index.txt?focus=<id>&_rsc=<digest>
+// — deleting _rsc alone leaves ?focus=<id> in the key and misses the precached
+// /plan/index.txt, which is the only entry that exists. travel-date-picker already had
+// to route AROUND this: TM-11 replaced its router.replace with history.replaceState
+// precisely because the ?date= payload fetch died offline.
+//
+// Scoped to .txt DELIBERATELY: this is only sound because a static export's payload
+// is prerendered per ROUTE and cannot vary by query. For any other asset a param can
+// select the bytes, so dropping the search globally would be wrong.
 function cacheKey(request) {
   const url = new URL(request.url);
+  if (url.pathname.endsWith('.txt')) {
+    if (!url.search) return request;
+    url.search = '';
+    return url.href;
+  }
   if (!url.searchParams.has('_rsc')) return request;
   url.searchParams.delete('_rsc');
   return url.href;

@@ -463,9 +463,10 @@ test.describe('S84 · precache manifest present (D-073 shell contract)', () => {
       return { precacheName, total: urls.length, urls };
     });
 
-    // The content-hashed precache cache must exist and be non-trivially populated
-    // (the build emitted 69 precache entries; assert a generous floor, not the
-    // exact count, so a future shell change doesn't brittle-fail this).
+    // The content-hashed precache cache must exist and be non-trivially populated.
+    // Deliberately a generous floor and not the exact count: the entry count moves
+    // with every shell change, so pinning it would brittle-fail this test and teach
+    // nothing. Read `buildPrecacheList` in scripts/gen-sw.mjs for what is on the list.
     expect(summary.precacheName).toMatch(/^trip-precache-[a-f0-9]+$/);
     expect(summary.total).toBeGreaterThan(20);
 

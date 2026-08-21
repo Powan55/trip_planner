@@ -4588,7 +4588,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Decision 5 — `normalizePath` strips a trailing `index.txt`/`.txt` before the trailing-slash rule.** Offline, the App Router's RSC fetch fails and Next falls back to a browser NAVIGATION to the `.txt` URL itself. Nothing precached matched it, so the nav handler answered with the app-root shell: tap "Plan" offline and Home rendered at `/plan/index.txt`, from which every further tap repeated it, so offline the UI could never leave Home. Only navigations reach `normalizePath` — the RSC fetch itself is not `mode:'navigate'` and takes the static branch.
 
-**Not done: the RSC payloads are still not precached.** Adding `out/<route>/index.txt` to `buildPrecacheList` is +461 KB raw across 19 files on an install that is atomic, fails from inside the worker, and has no rollback (D-372). That is an install-size decision and it is deliberately deferred, not missed. Decision 5 means an offline link tap now resolves to the correct route's shell; what remains without the payloads is that the navigation is a hard reload and the address bar still reads the `.txt` URL.
+**Not done: the RSC payloads are still not precached.** Adding `out/<route>/index.txt` to `buildPrecacheList` is +461 KB raw across 19 files on an install that is atomic and fails from inside the worker (D-372), onto a deployment that has no rollback. That is an install-size decision and it is deliberately deferred, not missed. Decision 5 means an offline link tap now resolves to the correct route's shell; what remains without the payloads is that the navigation is a hard reload and the address bar still reads the `.txt` URL.
 
 **Changes if:** the install budget is re-measured and 461 KB is judged affordable. Decisions 2 and 5 are the prerequisites for it and both are in.
 
@@ -4611,6 +4611,18 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 **Known ceiling, marked in `core/budget/burn-rate.ts`:** `expensesByDate` still keys on the date and drops `e.leg`, and the calendar overlay formats each bucket with the day's `legCurrency`. Same defect, same cause, not fixed here. Closing it means keying on the (date, leg) pair, which changes the shape every consumer reads — `components/calendar-planner.tsx` and `calendar-day-picker.tsx` — a wider diff than the recap seam, not a harder one. Recorded so it is not re-found from scratch.
 
 **Changes if:** the log dialog stops letting the leg diverge from the date. Both seams then become unnecessary — and that is an input-design decision, not a money one.
+
+### D-392 addendum (2026-08-21) · the calendar seam is closed too — `expensesByDate` filters to the day's own leg
+
+**Decision.** `expensesByDate` skips a row whose `e.leg` is not `getCountryForDate(e.date)`. The day's leg is derived INSIDE the function from the `e.date` it already holds, so there is no new argument, no return-shape change and no caller edit. The bucket is now identical in contract to `sumExpensesForDate(expenses, date, getCountryForDate(date))` — the call both recap surfaces already make — which is what makes the flat `Record<string, number>` safe for the calendar overlay to format with the day's `legCurrency`. The ceiling recorded in the entry above is closed; one surface, one contract: **a day line shows that day's own leg, in that day's own currency, and a cross-leg row contributes to no day.**
+
+**The pair-keyed shape was considered and rejected.** `Record<string, Partial<Record<Leg, number>>>` changes a shape two components (`components/calendar-planner.tsx`, `calendar-day-picker.tsx`) and two test files read, and it forces an answer to a question nobody has designed: how two currencies are rendered inside a 44px month-grid cell and its `aria-label`. Excluding the row is the same answer v6 already shipped at the recap seam, and it costs neither a shape nor a design.
+
+**Reachable by default, not by hunting.** Pre-trip every expense defaults to `date: '2026-12-09'`; tapping the Japan chip — which renders `¥`, so it is the obviously correct action for a flight or a JR pass booked in advance — produced exactly the summed-across-currencies state.
+
+**Residual ceiling, marked in the code:** a cross-leg row is EXCLUDED from every day view rather than shown under its own symbol. It is not lost — it still counts in the leg total, the trip total and settle-up, so the per-day sum can legitimately differ from the leg total by the undated amount and by the cross-leg rows.
+
+**Changes if:** a day surface ever has to *display* foreign-leg spend rather than merely not mis-price it. Then key on the pair — and design the two-currency rendering first.
 
 ### D-393 · (A11Y-3, 2026-08-21) · A live region has to be in the tree BEFORE the text it announces
 
@@ -4647,3 +4659,47 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 **The dormant byte-identity claim gets WIDER, not narrower.** "No firebase env" becomes "no firebase env, or the local-only sample pack", and the docstrings in all four hooks now say so. Nothing that was stamping stops stamping: a trip with a remote id behaves exactly as before, and the guarantee that a dormant slot is byte-identical to a local-only one now covers one more case rather than one fewer.
 
 **Changes if:** the sample pack is ever given a remote id, which would make the two gates equivalent again.
+
+### D-396 · (DATES-1, 2026-08-21) · Window MEMBERSHIP comes from the device calendar; the day NUMBER comes from the destination offset
+
+**Decision.** `getTodayInTrip()` (`lib/trip-now.ts`) asks the device calendar whether today is inside the trip window at all, and only then asks the destination offset which trip day it is — falling back to the device's own answer when the offset lands outside. Three lines in one function; `dayInTripFor` is unchanged and still takes the offset it always took.
+
+**Why deriving both halves at the destination offset was not a rounding error.** It made the app hold two definitions of "today", 10h45m apart on a New York device. Pre-departure, at 13:15 EST on Dec 8, the hero swapped its countdown for "Day 1 — Kathmandu" while the phone still read Dec 8 and the Flights card still said the outbound was ten hours away. The mirror case ended the trip early: at 10:00 EST on Jan 9 the destination day is already Jan 10, so this returned `null` and the hero flipped to its post-trip state while the traveller was still airborne on Day 32.
+
+**The irreversible half is the write path, and it is why the seam had to be decided rather than left open.** `resolveDate()` in `components/expense-log-host.tsx` falls back through `getSelectedDay()` — an in-memory var, `null` on a fresh load — to `TRIP_DATES[0]`. A last-day expense was therefore STORED as `2026-12-09` with a `'nepal'` leg preset: a 31-day mis-file on a synced domain, and afterwards indistinguishable from a real Day-1 expense. `components/quick-add-fab.tsx` defaults the same way.
+
+**The guard is deliberately NOT in `tripOffsetMinFor`,** which reads as the tidier place for it and is not. `lib/preflight.ts:316` is a third caller: it needs the trip's offset whether or not the device day is in the window, and a `null` there turns a correct "Phone is on home time" row into a false "Couldn't compare — this trip has no time zone set". No test covers that row, so it would have gone wrong quietly.
+
+**Deliberately untouched: `getNowAtTrip`, `computeCountdown`, `TRIP_START`, `getFlightTiming`, `elapsedInclusiveDays`.** The other candidate fix — move flight timing onto the destination offset so at least nothing contradicts itself — is REJECTED. `Journey.departDate` is authored in the DEPARTURE airport's zone, so the outbound is origin-local by construction and the card would announce "Departing today" some sixteen hours early. The two surfaces disagree because the underlying quantities genuinely differ, not because one of them is wrong.
+
+**Known ceiling: it assumes the traveller's phone stays on home time until arrival.** That is what `lib/preflight.ts` already calls the normal state, and the clock row exists to tell them when it is not. A traveller who sets the phone to destination time before boarding inverts the premise, and gets the pre-fix behaviour back.
+
+**A second copy of the same derivation is still live, and is left open on purpose.** `lib/preflight.ts:324` computes its own `onTrip` from the destination offset alone, so the preflight clock row still flips early. Closing it needs an answer to a question this entry does not settle: whether preflight's "on trip" means the same thing as the hero's. That row is about the phone's relationship to the trip, not about which day number to render, so the two may legitimately differ.
+
+**Changes if:** a real position fix backs the day math rather than a leg offset — membership could then be asked of where the traveller actually is, and the home-time assumption stops being load-bearing.
+
+### D-397 · Discharges D-390's `Changes if` · (PWA-1, 2026-08-21) · The 19 route RSC payloads are precached
+
+**Decision.** `buildPrecacheList` emits `out/index.txt` and every `out/<route>/index.txt`. Precache goes 179 → 198 entries. D-390's Decision 5 stays as the fallback for anything not on the list, and D-398 is a prerequisite rather than a refinement — without it the palette's one query-carrying navigation still misses.
+
+**The WIRE number is what decided it, not the raw one.** +461,315 B raw is the figure D-390 deferred on, and it is not the figure anyone pays. GitHub Pages serves these gzipped and only gzipped — it does not negotiate brotli — so measured against the live host the delta is **+69.3 KiB on an install already 1.48 MiB gzipped**. That is less than the ~87 KB gzip of map glyphs D-349 withheld from the same install for the same kind of reason, which is the nearest thing this repo has to a calibrated ceiling.
+
+**Steady-state device storage moves by ZERO.** D-390's Decision 2 made `cacheFirst` normalize `_rsc` away, so the first online browse already deposits these same 19 canonical keys into the same cache. Precaching changes WHEN they arrive, not how many exist or what they occupy. The trade is install-time bytes for a cold-offline guarantee, not bytes for bytes.
+
+**Nothing changes on the published site.** The 19 files are already built, already published and already served; this only adds them to a list the worker reads at install. The site sits at 4.86% of the 1 GB Pages cap either way.
+
+**What it buys.** Offline, `next/link` fetches `<route>/index.txt` before it renders, and a failed fetch is a HARD navigation to that `.txt` URL. D-390's Decision 5 made that land on the right shell, but it is still a document navigation: client state is dropped and the whole shell re-runs on every offline tap. With the payloads on disk the click is a SOFT navigation. `e2e/pwa-torn-update.spec.ts` asserts that with a `window` marker rather than with the title, because the shell-identity assertions pass under the hard fallback too — a soft nav keeps the JS context, a document navigation throws it away.
+
+**Changes if:** the shell grows enough that the install budget has to be re-measured, or Pages starts negotiating brotli — which moves the number this was decided on, in the cheaper direction.
+
+### D-398 · (PWA-1, 2026-08-21) · A `.txt` cache key drops its WHOLE search, not just `_rsc`
+
+**Decision.** `cacheKey(request)` clears the entire search string when the pathname ends in `.txt`. Every other request keeps the existing delete-`_rsc`-only rule.
+
+**It is not a tidy-up of D-397, it is what makes D-397 true.** Next derives the payload URL by mutating only the PATHNAME, so any existing query rides along: `components/command-palette.tsx:453` pushes `/plan/?focus=<id>`, and the router fetches `/plan/index.txt?focus=<id>&_rsc=<digest>`. Deleting `_rsc` alone leaves `?focus=<id>` in the key, which matches nothing — `/plan/index.txt` is the only entry that exists. Precaching without this reads as complete while still being broken for exactly one navigation, which is the shape of defect that survives a review.
+
+**One live call site, and it is worth being precise about that.** `travel-date-picker` is NOT a second one: TM-11 already replaced its `router.replace` with a same-document `history.replaceState`, precisely because the `?date=` payload fetch died offline, so it no longer produces a query-carrying payload fetch at all. The rule still earns its place — a bookmarked or shared `/travel/?date=…` cold load goes through it, and so does any future query-carrying navigation, which is the case nobody would think to add a test for.
+
+**Scoped to `.txt` DELIBERATELY.** It is sound only because a static export's payload is prerendered per ROUTE and cannot vary by query: the bytes behind `/plan/index.txt` are the same whatever the search says. For any other asset a param can select the bytes, so dropping the search globally would be wrong — and wrong silently, by serving the right URL's cached answer to the wrong request.
+
+**Changes if:** the export stops being static, so a route's payload can vary by query. The scoping premise goes with it, and this rule has to go at the same time.

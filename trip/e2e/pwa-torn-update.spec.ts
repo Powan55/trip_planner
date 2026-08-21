@@ -108,12 +108,18 @@ test.describe('S271 · Part A — offline, the surviving worker serves real per-
    * CLICKED a link offline, and that is the path real use takes: `next/link` fetches
    * the target's RSC payload from `<route>/index.txt`, and when that fetch fails Next
    * falls back to a BROWSER NAVIGATION to the `.txt` URL itself. Nothing precached
-   * matches it, so the nav handler answered with the app-root shell: tap "Plan"
-   * offline, the address bar reads `…/plan/index.txt`, and Home renders — from which
-   * every further tap does the same, so the UI can never leave Home. `page.goto` never
+   * matched it, so the nav handler answered with the app-root shell: tap "Plan"
+   * offline, the address bar read `…/plan/index.txt`, and Home rendered — from which
+   * every further tap did the same, so the UI could never leave Home. `page.goto` never
    * produces that URL, which is why a green suite said nothing about it.
+   *
+   * The 19 route payloads are precached now, so the correct outcome is a SOFT
+   * navigation — and "soft" is what this has to assert, because the shell-identity
+   * assertions below pass under the hard-navigation fallback too (the worker serves the
+   * right shell for the `.txt` URL either way). The window marker is the difference: a
+   * soft nav keeps the JS context, a document navigation throws it away.
    */
-  test('offline, CLICKING an in-app link lands on that route, not back on Home', async ({
+  test('offline, CLICKING an in-app link SOFT-navigates to that route, not back on Home', async ({
     page,
     context,
   }) => {
@@ -123,26 +129,36 @@ test.describe('S271 · Part A — offline, the surviving worker serves real per-
 
     await context.setOffline(true);
 
-    // COLD-offline load, deliberately: nothing was prefetched in this session, so the
-    // router's RSC fetch for /plan/ genuinely has to fail. Reusing the warm page would
-    // let an already-prefetched payload soft-navigate and prove nothing.
+    // COLD-offline load, deliberately: nothing was warmed by an ONLINE visit to /plan/,
+    // so the router's RSC fetch has nowhere to come from except the install-time
+    // precache. Reusing the warm page would let a runtime-cached payload answer and
+    // prove nothing about the install list.
     await page.goto('/', { waitUntil: 'load' });
     expect(await page.title()).toContain(HOME_TITLE_MARK);
 
+    await page.evaluate(() => {
+      (window as unknown as { __swNavMarker?: string }).__swNavMarker = 'same-document';
+    });
+
     await Promise.all([
-      page.waitForURL(/\/plan(\/|\.txt)/, { timeout: 20_000 }),
+      page.waitForURL(/\/plan\/$/, { timeout: 20_000 }),
       page.getByTestId('navbar-link-plan').click(),
     ]);
     await page.waitForLoadState('load');
 
-    expect(await page.title()).toBe(PLAN_TITLE);
+    await expect(page).toHaveTitle(PLAN_TITLE);
     expect(await page.title()).not.toContain(HOME_TITLE_MARK);
 
-    // The URL may still carry the RSC suffix. The hard navigation is Next's, and only
-    // precaching the 19 route payloads would keep the click a soft one — +461 KB on an
-    // ATOMIC install, which is an owner call, not a bug fix. Serving the right shell
-    // for that URL is the half that belongs to the worker.
-    expect(new URL(page.url()).pathname).toMatch(/\/plan\/(index\.txt)?$/);
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { __swNavMarker?: string }).__swNavMarker ?? null,
+      ),
+      'the marker did not survive the click: Next fell back to a document navigation, so the ' +
+        'precached RSC payload was not served',
+    ).toBe('same-document');
+
+    // …and the address bar reads the route, not the payload.
+    expect(new URL(page.url()).pathname).toMatch(/\/plan\/$/);
 
     await context.setOffline(false);
   });

@@ -198,13 +198,31 @@ export function tripOffsetMinFor(now: Date): number | null {
  * way keeps the clock I/O here and the deterministic math in core, with no observable
  * change on the override path: the `?today=` override declares the
  * destination day directly, so it stays device-local of local-noon — the
- * frozen `?today=` boundary matrix runs only through this unchanged branch. The REAL
- * clock (no override) now derives the day at the destination leg's fixed offset, so a
- * home-time phone shows the correct trip-day.
+ * frozen `?today=` boundary matrix runs only through this unchanged branch.
+ *
+ * WINDOW MEMBERSHIP COMES FROM THE DEVICE CALENDAR; THE DAY NUMBER COMES FROM THE
+ * DESTINATION OFFSET. Deriving both at the destination leg's offset made the app hold two
+ * definitions of "today" that are 10h45m apart on a home-time phone: `TRIP_START`,
+ * `getFlightTiming` and `elapsedInclusiveDays` all read the device calendar, so at 13:15 EST
+ * on Dec 8 the hero swapped its countdown for "Day 1" while the Flights card still said the
+ * outbound was ten hours away — and the write paths that default a new row's `date` from this
+ * function STORED that row on Dec 9. The mirror case ended the trip early: at 10:00 EST on
+ * Jan 9 the destination day is already Jan 10, so this returned `null` and the hero flipped to
+ * its post-trip state while the traveller was still on Day 32. The device day decides whether
+ * we are in the window at all; the offset then names which trip day it is, and falls back to
+ * the device answer when it lands outside.
+ *
+ * The guard is HERE and not in `tripOffsetMinFor`, which has a third caller:
+ * `lib/preflight.ts` needs the trip's offset whether or not the device day is in the window,
+ * and a `null` from it routes `evaluateClock` into "Couldn't compare — this trip has no time
+ * zone set" in place of a correct "Phone is on home time".
  */
 export function getTodayInTrip(): TripToday | null {
   const now = getNow(); // resolves the override once; sets module `overrideMs`
-  return dayInTripFor(now, overrideMs === null ? tripOffsetMinFor(now) : null);
+  const off = overrideMs === null ? tripOffsetMinFor(now) : null;
+  const dev = dayInTripFor(now, null);
+  if (dev === null) return null;
+  return dayInTripFor(now, off) ?? dev;
 }
 
 /**

@@ -68,7 +68,7 @@ Recorded so these surfaces are not re-hunted:
 | STORAGE-3 | Forgetting a trip deletes its photo index but leaves every blob in IndexedDB | S2 | confirmed | storage | fixed |
 | STORAGE-4 | One malformed day in a pre-v5 vault quarantines the whole trip | S2 | confirmed | storage | fixed |
 | DATES-6 | A custom trip's date span is unbounded: one wrong digit yields 65,744 dates and 4.3 MB of shells | S2 | likely | dates | fixed |
-| PWA-1 | Offline, tapping any in-app link lands on the Home shell at a `/<route>/index.txt` URL | S2 | confirmed | pwa | partial |
+| PWA-1 | Offline, tapping any in-app link lands on the Home shell at a `/<route>/index.txt` URL | S2 | confirmed | pwa | fixed |
 | PWA-2 | `activate` deletes every non-allowlisted cache on the whole origin | S2 | likely | pwa | fixed |
 | REACT-1 | `?focus=` cleanup double-prefixes basePath and navigates the user to a 404 | S2 | confirmed | react | fixed |
 | CONCIERGE-1 | `addItem` ops skip the content type check, so Confirm writes a row that vanishes | S2 | confirmed | concierge | fixed |
@@ -82,11 +82,11 @@ Recorded so these surfaces are not re-hunted:
 | CONTENT-7 | `sanitizeTripConfig` validates date *shape* only: no real-date check, no span bound | S2 | confirmed | content | fixed |
 | SYNC-5 | Four hooks gate tombstoning on the app-wide config, so the sample pack grows tombstones forever | S3 | confirmed | sync | fixed |
 | STORAGE-5 | `readJson` has no shape gate, so a slot holding JSON `null` throws out of the never-throw gateway | S3 | confirmed | storage | fixed |
-| DATES-1 | Two disagreeing "today" clocks: the trip day rolls at Nepal midnight, everything else at the device's | S3 | confirmed | dates | NOT fixed |
+| DATES-1 | Two disagreeing "today" clocks: the trip day rolls at Nepal midnight, everything else at the device's | S3 | confirmed | dates | fixed |
 | DATES-2 | `/travel`'s first paint reads its own sentinel as a clock: "Trip starts in 20797 days" | S3 | confirmed | dates | fixed |
 | DATES-4 | The 7-day outlook labels rows by array position, so a cached forecast calls an old day "Today" | S3 | confirmed | dates | fixed |
 | DATES-5 | Home's live cell reads "0 Days to go" for most of the day before departure | S3 | confirmed | dates | fixed |
-| MONEY-1 | Day/leg spend is bucketed by the date's leg, so a cross-leg expense is summed in the wrong currency | S3 | confirmed | money | partial |
+| MONEY-1 | Day/leg spend is bucketed by the date's leg, so a cross-leg expense is summed in the wrong currency | S3 | confirmed | money | fixed |
 | MONEY-2 | Settle-up transfers depend on who is signed in, so two travellers are told to pay different people | S3 | confirmed | money | fixed |
 | MONEY-3 | The "settled" chip uses a hardcoded half-unit threshold, so a USD leg contradicts itself | S3 | confirmed | money | fixed |
 | PWA-3 | RSC payloads are cached under per-navigation `?_rsc=` keys, growing the precache without bound | S3 | confirmed | pwa | fixed |
@@ -114,11 +114,11 @@ as merged sections; see [Duplicates and out-of-repo items](#duplicates-and-out-o
 
 ## What was fixed, and what was deliberately not
 
-The `status` column above is the state after the fix pass on this same list: **48 fixed, 2 partial,
-2 not fixed, 1 fix rejected**. The reasoning for each fix is in `DECISIONS.md`, D-378 through
-D-395 — the section headings name the finding ids, so a finding here maps to its entry by search.
+The `status` column above is the state after the fix pass on this same list: **51 fixed, 1 not
+fixed, 1 fix rejected**. The reasoning for each fix is in `DECISIONS.md`, D-378 through D-398 —
+the section headings name the finding ids, so a finding here maps to its entry by search.
 
-Three are open on purpose, and each is open for a different reason:
+Two are open, and each for a different reason:
 
 - **CONCIERGE-2 — NOT fixed, and not fixable here.** The membership gate exists only in a Worker
   version that was never deployed, so the live relay still verifies nothing and no client change can
@@ -130,34 +130,47 @@ Three are open on purpose, and each is open for a different reason:
   deliberately. See D-385, "not done here".
 - **SYNC-2 — the finding stands, the suggested fix is REJECTED.** See the amended Fix note in that
   section and D-380.
-- **DATES-1 — NOT fixed.** It needs the seam decision made first (treat the pre-departure window as
-  origin-local, or move `TRIP_START`/`getFlightTiming`/`elapsedInclusiveDays` onto the destination
-  offset). Both write paths that default a new row's `date` from `getTodayInTrip()` inherit whichever
-  answer wins, so guessing costs stored data. D-378 fixed the *sync* clock (SYNC-1/DATES-3) and
-  deliberately left the two DISPLAY clocks disagreeing; that is recorded as open in D-378 itself.
 
-Two are partial:
+Three have closed since the first pass, and are recorded here because the reasoning for holding them
+open is still worth having:
 
-- **PWA-1 — `partial`. The RSC payloads are still NOT precached.** Fix (a) landed: `normalizePath`
-  strips the `.txt` suffix, so an offline link tap resolves to the correct route's shell instead of
-  Home. Fix (b) — adding `out/<route>/index.txt` to `buildPrecacheList` — did not: +461 KB raw
-  across 19 files on an install that is atomic, fails from inside the worker, and has no rollback.
-  That is an install-size decision, deferred rather than missed. What remains is that the navigation
-  is still a hard reload and the address bar still reads the `.txt` URL. PWA-3 itself is `fixed` —
-  the unbounded cache growth it describes is closed by stripping `_rsc` from the cache key, which is
-  the prerequisite for (b) whenever (b) is taken. See D-390.
-- **MONEY-1 — `partial`.** The recap seam is fixed: `sumExpensesForDate` takes a `leg` and both
-  recap surfaces pass the day's leg. `expensesByDate` in `core/budget/burn-rate.ts` still buckets on
-  the date alone and the calendar overlay still formats each bucket with the day's `legCurrency`, so
-  a cross-leg expense is still mis-priced there. Same defect, same cause; keying on the (date, leg)
-  pair changes the shape `calendar-planner.tsx` and `calendar-day-picker.tsx` read. Left as a named
-  ceiling in the code and in D-392, not as an oversight.
+- **DATES-1 — `fixed`** (was `NOT fixed`; closed 2026-08-21). It was held open for the seam decision:
+  treat the pre-departure window as origin-local, or move
+  `TRIP_START`/`getFlightTiming`/`elapsedInclusiveDays` onto the destination offset. The first won, in
+  a narrower form than this section proposed — `getTodayInTrip()` takes window MEMBERSHIP from the
+  device calendar and the day NUMBER from the destination offset, rather than re-seeding
+  `tripOffsetMinFor`. The second was rejected outright: `Journey.departDate` is authored in the
+  departure airport's zone, so moving flight timing onto the destination offset would announce
+  "Departing today" some sixteen hours early. Both write paths that default a new row's `date` from
+  `getTodayInTrip()` inherit the fix. See D-396, which also records what is NOT covered.
+- **PWA-1 — `fixed`** (was `partial`; the payloads landed 2026-08-21). Fix (a) went first:
+  `normalizePath` strips the `.txt` suffix, so an offline link tap resolves to the correct route's
+  shell instead of Home — but as a hard reload, with the address bar still reading the `.txt` URL.
+  Fix (b) is in too: `buildPrecacheList` now emits all 19 `out/<route>/index.txt` payloads, so the
+  offline click is a soft navigation. What re-decided it was the wire number rather than the raw one
+  — +69.3 KiB gzipped as Pages actually serves it, not the +461 KB raw this section quotes — on an
+  install already 1.48 MiB, with a steady-state device cost of zero because the runtime `cacheFirst`
+  already deposits the same 19 keys on the first online browse. A second decision came with it: for a
+  `.txt` key the WHOLE search is dropped, not just `_rsc`, or the palette's `/plan/?focus=<id>`
+  navigation still misses the one entry that exists. See D-390, D-397 and D-398.
+- **MONEY-1 — `fixed`** (was `partial`; the calendar seam closed 2026-08-21). The recap seam went
+  first: `sumExpensesForDate` takes a `leg` and both recap surfaces pass the day's leg. The calendar
+  seam is now closed too — `expensesByDate` skips a row whose `e.leg` is not
+  `getCountryForDate(e.date)`, deriving the day's leg inside the function from the `e.date` it already
+  holds, so the bucket equals `sumExpensesForDate(expenses, date, getCountryForDate(date))` with no
+  argument, no shape change and no caller edit. The (date, leg) pair-keying this section proposed was
+  rejected: it changes the shape `calendar-planner.tsx` and `calendar-day-picker.tsx` read and forces
+  an undesigned answer to rendering two currencies in a 44px month-grid cell. Residual ceiling, named
+  in the code and in the D-392 addendum: a cross-leg row is excluded from every day view rather than
+  shown under its own symbol — it still counts in the leg total, the trip total and settle-up.
 
 Of the three entries in "Gaps in the checks", two are closed and one is not. **A11Y-5** is closed:
 `motion-loops.mjs` has a second pass over the source (D-394). **PWA-1**'s is closed: a spec in
-`e2e/pwa-torn-update.spec.ts` now cold-loads offline and CLICKS `navbar-link-plan`, asserting the
-`/plan/` title rather than Home's — the first offline navigation in the suite that is not a
-`page.goto`. **A11Y-4**'s is unchanged: `e2e/fixtures.ts` still suppresses the toast layer for every
+`e2e/pwa-torn-update.spec.ts` now cold-loads offline and CLICKS `navbar-link-plan` — the first
+offline navigation in the suite that is not a `page.goto`. What it asserts is a `window` marker set
+before the click, not the `/plan/` title: the title and the shell-identity checks pass under the
+hard-navigation fallback too, so only something that cannot survive a document navigation tells the
+two apart. **A11Y-4**'s is unchanged: `e2e/fixtures.ts` still suppresses the toast layer for every
 spec, so no axe scan runs against the state a first-time visitor is in, even though the toast itself
 is now keyboard-dismissable.
 
@@ -741,6 +754,14 @@ block from *any* source — checks date *shape* only. Recorded together.
   files) **and** delete the `_rsc` search param before the `caches.match`/`cacheFirst` lookup in the
   static-asset branch (see PWA-3) — without (b) the soft navigation still hard-reloads even though
   the payload is on disk.
+- **What was actually done.** Both halves, in two passes. (a) landed first (D-390, Decision 5) and
+  (b) followed once the install cost was re-measured over the wire instead of raw: +69.3 KiB gzipped
+  as Pages serves it, on a 1.48 MiB install, with no steady-state device cost because the runtime
+  cache already held the same 19 keys after any online browse (D-397). (b) needed one more rule than
+  this section names — the `_rsc` strip is not enough for a payload URL that carries a query, because
+  Next mutates only the pathname, so a `.txt` key drops its whole search (D-398). The root route's
+  payload is `out/index.txt`, which has no directory to end with, so the literal
+  `rel.endsWith('/index.txt')` above is one entry short.
 
 ## PWA-2 — `activate` deletes every non-allowlisted cache on the whole origin, not just this app's
 
@@ -1213,6 +1234,20 @@ block from *any* source — checks date *shape* only. Recorded together.
   leave the day math alone and move `TRIP_START`/`getFlightTiming`/`elapsedInclusiveDays` onto the same
   offset, so at least nothing contradicts itself. `lib/trip-now.ts` is the single place all of it can
   route through; `TRIP_START` is the constant that has to stop being device-local for (b).
+- **What was actually done.** (a), in a narrower form than proposed: the guard is in
+  `getTodayInTrip()` rather than in `tripOffsetMinFor`'s seed. Window MEMBERSHIP comes from the device
+  calendar and the day NUMBER from the destination offset, falling back to the device answer when the
+  offset lands outside the window. Re-seeding `tripOffsetMinFor` was rejected because
+  `lib/preflight.ts:316` is a third caller and a `null` from it turns a correct "Phone is on home
+  time" row into a false "Couldn't compare — this trip has no time zone set". (b) was rejected
+  outright: `Journey.departDate` is authored in the departure airport's zone, so moving flight timing
+  onto the destination offset would announce "Departing today" roughly sixteen hours early. Ruled on
+  in **`DECISIONS.md` D-396**.
+- **Still present, and named there as a second copy:** `lib/preflight.ts:324` derives its own `onTrip`
+  from `dayInTripFor(real, tripOffsetMin)` — the destination offset alone — so the preflight clock-row
+  symptom listed above (it flips from "Phone is on home time" to "Phone isn't on trip time" at 13:15
+  EST on Dec 8) is NOT covered by this fix. Whether preflight's "on trip" should mean the same thing
+  as the hero's is its own decision and has not been taken.
 
 ## DATES-2 — `/travel`'s first paint reads its own "not yet loaded" sentinel as a real clock and renders "Trip starts in 20797 days"
 
@@ -1311,10 +1346,13 @@ block from *any* source — checks date *shape* only. Recorded together.
 ## MONEY-1 — day/leg spend is bucketed by the DATE's leg, so a cross-leg expense is summed and labelled in the wrong currency
 
 - **Severity / confidence:** S3 · confirmed
-- **Where:** `core/budget/burn-rate.ts:177-199` (`expensesByDate`) and `core/recap/model.ts:101-111`
-  (`sumExpensesForDate`); consumers `components/calendar-planner.tsx:1401`,
-  `components/calendar-day-picker.tsx:78`, `components/trip-story-recap.tsx:106-119`,
-  `components/trip-recap.tsx:252`
+- **Where:** `core/budget/burn-rate.ts:163-215` (`expensesByDate`) and `core/recap/model.ts:116-132`
+  (`sumExpensesForDate`). `expensesByDate` has exactly ONE consumer,
+  `components/calendar-planner.tsx:748`, which formats it at `:1421` and passes it down as the
+  `spendByDate` prop read at `components/calendar-day-picker.tsx:76`; `sumExpensesForDate`'s consumers
+  are `components/trip-story-recap.tsx:110` and `components/trip-recap.tsx:162` — neither of those two
+  calls `expensesByDate` (they only name it in comments). Line refs re-resolved 2026-08-21; the
+  originals had drifted.
 - **What breaks:** both per-day aggregators key **only** on `e.date` and drop `e.leg`; every consumer
   then formats the bucket with `legCurrency(getCountryForDate(date))` /
   `legCurrency(currentPlan.country)`. An expense whose `leg` differs from the leg that owns its `date`

@@ -742,8 +742,11 @@ export default function CalendarPlanner() {
   // expense store (NOT the itinerary store): the calendar's CRUD/DnD/select all still operate on
   // `plans` from `useItineraryContext()`, entirely untouched. This adds a per-day leg-local spend
   // figure to the single-day header and a subtle "has spend" marker on month-grid cells. The pure
-  // `expensesByDate` buckets logged expenses by their 'YYYY-MM-DD' (undated ones are excluded from
-  // per-day, matching the burn-rate view). Nothing here writes; it only decorates existing cells.
+  // `expensesByDate` buckets logged expenses by their 'YYYY-MM-DD', excluding undated rows (matching
+  // the burn-rate view) AND rows whose `leg` is not the leg that owns that date — the day header and
+  // the grid cells format the bucket with the DAY's currency, so a cross-leg row would be mis-priced.
+  // It still counts in the leg total, the trip total and settle-up. Nothing here writes; it only
+  // decorates existing cells.
   const { expenses } = useExpenses();
   const spendByDate = useMemo(() => expensesByDate(expenses), [expenses]);
 
