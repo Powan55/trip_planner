@@ -530,6 +530,8 @@ The M9 dormant-safe property (D-038) is enforced concretely by code-splitting. F
 **Why:** this is the concrete mechanism that makes D-038 actually true rather than merely intended. A static top-level `import 'firebase/...'` anywhere (provider, hook, or any component) would pull the ~150 KB SDK onto the hot path and silently break dormant-safety.
 **Changes if:** never introduce a static or eager firebase import. Every future remote slice (S35 push, S36 identity UI) must keep firebase behind the dynamic-import-behind-`isRemoteConfigured()` pattern. Reaffirmed by D-054/D-057, M10: the new `components/token-gate.tsx` imports no firebase (it's pure `lib/token-auth.ts` + `lib/identity.ts`), and `lib/presence.ts` must follow this same dynamic-import-behind-`isRemoteConfigured()` pattern, so M10 does not regress dormant-safety.
 
+**Addendum (issue #159, 2026-08-21).** The three `import('firebase/*')` calls named above moved out of `itinerary-remote.ts` into `lib/firebase-remote.ts`, along with the rest of the connection/auth handle. `itinerary-remote.ts` re-exports it, so both layers of the gate and every existing call site are unchanged; the module graph gained one edge inside the lazy region and no static `firebase/*` import.
+
 ### D-048 · Superseded by D-049 · S34 read-path snapshot semantics are interim: full first-snapshot reconciliation/seeding is owned by S35
 
 ### D-049 · LOCKED · First-snapshot reconciliation handshake: trip-doc "ever-synced" marker + seed-by-key-presence (S35; supersedes D-048's interim rule)
@@ -3434,7 +3436,7 @@ Checked and **not** siblings: `travel-safety-kit.tsx:38` (key iterates a `const`
 
 `QUOTA_WARN_THRESHOLD` moved to `lib/preflight.ts` and `components/storage-persistence.tsx` now imports it, so the 90% toast and the 90% readiness row cannot drift apart.
 
-**Numbered 318 because 315, 316 and 317 are claimed by unmerged branches** — D-315 by `day-one-new-york-lax` (#6), D-316 by BOTH `overlap-guard-lax` (#18) and `design-tokens-lax` (#23), which is a genuine double-claim needing one of them renumbered before merge, and D-317 by `assistant-test-guard-lax` (#9).
+**Numbered 318 because 315, 316 and 317 are claimed by unmerged branches** — D-315 by `day-one-new-york-lax` (#6), D-316 by BOTH `overlap-guard-lax` (#18) and `design-tokens-lax` (#23), which was a genuine double-claim; the palette entry is D-400 now, and D-317 by `assistant-test-guard-lax` (#9).
 
 **Why:** the things worth confirming the night before are exactly the things that cannot be confirmed once you are airborne, so the check has to work with no network and has to be honest about what it does not know.
 
