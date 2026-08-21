@@ -7,6 +7,7 @@ import type { ShareItem } from '@/core/share/model';
 import { TRIP_DATES, formatDate } from '@/core/dates';
 import { isGooglePlaceUrl } from '@/core/places/model';
 import { haptic } from '@/lib/haptics';
+import { isHttpHref } from '@/lib/safe-href';
 import ImportPlaceSheet from '@/components/import-place-sheet';
 
 /**
@@ -29,10 +30,6 @@ import ImportPlaceSheet from '@/components/import-place-sheet';
 // Session-scoped (per document load) dedupe of already-received shares. Each OS share is a full
 // page load, so this resets naturally; it only guards a same-session re-mount / double effect.
 const sessionSeen = new Set<string>();
-
-function isHttpUrl(url: string): boolean {
-  return /^https?:\/\//i.test(url);
-}
 
 function dayLabel(day: string): string {
   const idx = TRIP_DATES.indexOf(day);
@@ -214,7 +211,7 @@ function ShareRow({
           {item.url && (
             <p className="mt-2 flex items-center gap-1.5 text-sm">
               <Link2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
-              {isHttpUrl(item.url) ? (
+              {isHttpHref(item.url) ? (
                 <a
                   data-testid={`share-item-link-${item.id}`}
                   href={item.url}

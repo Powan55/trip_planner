@@ -16,3 +16,15 @@ export const SAFE_HREF = /^(https?:\/\/|mailto:|\/|#)/i;
 export function isSafeHref(url: unknown): url is string {
   return typeof url === 'string' && SAFE_HREF.test(url);
 }
+
+const HTTP_HREF = /^https?:\/\//i;
+
+// The narrower rule, for a link that arrived as a share target (`components/share-inbox.tsx`).
+// Deliberately a strict subset of SAFE_HREF: a `mailto:`, site-relative or fragment-only href is
+// not a link anyone shared, so accepting one only buys a way to dress an in-app address or a mail
+// client up as the external page the row claims to be. Swapping this call site to `isSafeHref`
+// would be that widening.
+/** True iff `url` is a string carrying an `http(s):` scheme. TOTAL — anything else is `false`. */
+export function isHttpHref(url: unknown): url is string {
+  return typeof url === 'string' && HTTP_HREF.test(url);
+}
