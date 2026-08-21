@@ -16,6 +16,10 @@ const config: Config = {
     // trip-map.tsx carried the same cyan trio for its "Day Trip" badge. re-hued that badge,
     // which destroyed the coincidence and would have left the chip colourless.
     './lib/**/*.{js,ts,jsx,tsx,mdx}',
+    // NOT the pruning the note above forbids — the scan still covers all of `lib/`. This only
+    // keeps test files from injecting candidates into the shipped bundle: a spec asserting on
+    // `border-white/${i}` made Tailwind emit a bare `.border-white` rule nothing renders.
+    '!./{lib,components}/__tests__/**',
   ],
   theme: {
     extend: {
@@ -134,6 +138,11 @@ const config: Config = {
       },
       minHeight: { tap: 'var(--tap)' },
       minWidth: { tap: 'var(--tap)' },
+      // Tailwind 3 gates the colour opacity modifier on this scale, so an off-scale
+      // `border-white/15` emitted no rule at all and inherited preflight's #e5e7eb (#147).
+      // Dense 0-100 is a strict superset of the default scale — every default step keeps its
+      // exact value, and JIT still only emits the steps the content globs actually use.
+      opacity: Object.fromEntries(Array.from({ length: 101 }, (_, i) => [i, String(i / 100)])),
       colors: {
         // former raw `navy` scale, now semantic surface tokens driven by
         // CSS vars (globals.css --surface* → --navy-* channel single source).
