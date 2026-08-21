@@ -109,7 +109,7 @@ jobs:
         run: npm run build
 
   # firestore.rules is published by the release now (deploy.yml's `publish-rules`, issue #39 /
-  # D-314), so it can no longer ship unproven: this job runs scripts/rules-check.mjs against the
+  # D-399), so it can no longer ship unproven: this job runs scripts/rules-check.mjs against the
   # REAL Cloud Firestore rules engine in the local emulator, eleven phases including two negative
   # controls. It was left out of CI when it was written because it needs an emulator in the
   # runner; that cost is now smaller than shipping a ruleset nobody ran.
