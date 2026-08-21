@@ -34,7 +34,8 @@ import { SEED_RATES, type BudgetModel } from '@/core/budget/model';
  * mutators, and money math are all unchanged — they still call `commit(() => next)`).
  */
 
-export const BUDGET_CHANGED_EVENT = 'budget:changed';
+import { BUDGET_CHANGED_EVENT } from '@/core/storage/events';
+export { BUDGET_CHANGED_EVENT };
 
 export interface BudgetStore {
   model: BudgetModel;

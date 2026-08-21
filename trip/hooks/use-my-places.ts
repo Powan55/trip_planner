@@ -35,7 +35,8 @@ import { addPlace, removePlace, type MyPlace } from '@/core/places/model';
  * CustomEvent. The remote subscribe is opened once at the app root (itinerary-provider).
  */
 
-export const MY_PLACES_CHANGED_EVENT = 'myplaces:changed';
+import { MY_PLACES_CHANGED_EVENT } from '@/core/storage/events';
+export { MY_PLACES_CHANGED_EVENT };
 
 export interface NewPlaceInput {
   /** Caller-provided id — used verbatim when present (the import sheet mints it up-front so it can

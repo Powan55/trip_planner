@@ -27,7 +27,7 @@
 
 import { saveDocs, loadDocs } from '@/core/docs/storage';
 import { sanitizeItems, type DocItem } from '@/core/docs/model';
-import { DOCS_CHANGED_EVENT } from '@/hooks/use-docs';
+import { DOCS_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
 import { mergeItems } from '@/core/sync/merge-items';

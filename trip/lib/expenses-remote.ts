@@ -33,7 +33,7 @@
 import { saveExpenses, loadExpenses } from '@/core/budget/storage';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
 import { LEGS, type Leg } from '@/core/budget/model';
-import { EXPENSES_CHANGED_EVENT } from '@/hooks/use-expenses';
+import { EXPENSES_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
 import { mergeItems, gcTombstoneRows } from '@/core/sync/merge-items';

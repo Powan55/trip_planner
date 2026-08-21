@@ -14,7 +14,8 @@ import { toggleItem as toggleItemCore, packingProgress, type PackingItem } from 
  * only the packing-specific mutator (`toggleItem`) + the derived progress count.
  */
 
-export const PACKING_CHANGED_EVENT = 'packing:changed';
+import { PACKING_CHANGED_EVENT } from '@/core/storage/events';
+export { PACKING_CHANGED_EVENT };
 
 export interface PackingStore {
   items: PackingItem[];

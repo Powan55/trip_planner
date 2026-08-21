@@ -45,6 +45,45 @@ const eslintConfig = [
     files: ["**/__tests__/**"],
     rules: { "react/no-children-prop": "off" },
   },
+  {
+    // D-099 (LOCKED, reaffirmed by D-109): the arrows point inward. `core/` is the framework-free
+    // domain layer and must not reach back into the app layers at RUNTIME. `import type` is erased
+    // at build time and carries no dependency, so it stays allowed — that is the whole distinction
+    // this rule exists to draw, and without it the rule is prose every new slice has to remember.
+    files: ["core/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@/lib/*",
+                "@/lib/**",
+                "@/hooks/*",
+                "@/hooks/**",
+                "@/components/*",
+                "@/components/**",
+                "@/app/*",
+                "@/app/**",
+              ],
+              allowTypeImports: true,
+              message:
+                "core/ may not import lib/, hooks/, components/ or app/ at runtime (D-099). Use `import type`, or move the value into core/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The two known exceptions, both open. `backup.ts` is the whole-trip backup composition root —
+    // an application-layer job that belongs in lib/, and its move is held up by its importers.
+    // `outbox.ts` needs a "should I write?" gate that has no core-side home yet. Drop a path here
+    // the moment its file stops needing it; nothing else may be added without a decision.
+    files: ["core/vault/backup.ts", "core/sync/outbox.ts"],
+    rules: { "@typescript-eslint/no-restricted-imports": "off" },
+  },
 ];
 
 export default eslintConfig;

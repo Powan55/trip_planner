@@ -47,7 +47,8 @@ import {
  * through the CustomEvent. The remote subscribe is opened once at the app root (itinerary-provider).
  */
 
-export const EXPENSES_CHANGED_EVENT = 'expenses:changed';
+import { EXPENSES_CHANGED_EVENT } from '@/core/storage/events';
+export { EXPENSES_CHANGED_EVENT };
 
 export interface ExpenseStore {
   expenses: Expense[];

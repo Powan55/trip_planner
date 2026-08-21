@@ -38,7 +38,8 @@ import * as itinerary from '@/core/itinerary';
  * and for tests.
  */
 
-export const ITINERARY_CHANGED_EVENT = 'itinerary:changed';
+import { ITINERARY_CHANGED_EVENT } from '@/core/storage/events';
+export { ITINERARY_CHANGED_EVENT };
 
 export interface ItineraryStore {
   plans: DayPlan[];
@@ -335,7 +336,7 @@ export function useItinerary(): ItineraryStore {
   // as a MERGE, not an overwrite, so under sync it PROPAGATES + survives the next snapshot instead of
   // being unwound.
   // - DORMANT: a plain local overwrite — there is no sync to unwind, so this is
-  // byte-identical to `importItinerary`'s `savePlans(backup)` (one commit, no stamping, no push).
+  // byte-identical to the local path's `savePlans(backup)` (one commit, no stamping, no push).
   // - SYNC ON: a tombstone-replace in ONE commit (, the mechanic applied to a
   // whole restore):
   // (a) TOMBSTONE every currently-live item across every day (removeItem's sync stamp), so each
