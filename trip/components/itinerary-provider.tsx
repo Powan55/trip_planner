@@ -187,7 +187,12 @@ export function createSyncCodeTripListSync(): { activate: () => void; teardown: 
     void import('@/lib/trips-remote')
       .then(({ subscribeTripList }) => {
         if (token !== loadToken) return; // torn down / re-armed since this import began
-        unsubscribe = subscribeTripList(code);
+        // A merge that moves the active-trip pointer takes the SAME switch primitive as a local
+        // switch — pointer write, then a full reload — because the pack constants are frozen at
+        // module evaluation (core/trips/registry).
+        unsubscribe = subscribeTripList(code, (activeTripChanged) => {
+          if (activeTripChanged) window.location.reload();
+        });
       })
       .catch((err) => {
         console.warn('[itinerary-provider] sync-code subscribe unavailable:', err);
