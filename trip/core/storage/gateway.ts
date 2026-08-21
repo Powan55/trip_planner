@@ -829,7 +829,7 @@ export function hasKey(store: Store, key: string): boolean {
  * dereference it directly rather than passing it to a domain sanitizer (`weatherCache`,
  * `outbox.loadSlot`) then threw a TypeError OUT of the gateway, and `weatherCache`'s escapes into
  * Home's render. Gated on an object-shaped fallback so the `ABSENT` sentinel callers (a symbol —
- * `core/vault/backup.ts`'s export, which must tell an absent slot from a stored one) still get the
+ * `lib/trip-backup.ts`'s export, which must tell an absent slot from a stored one) still get the
  * raw parsed value.
  */
 export function readJson<T>(store: Store, key: string, fallback: T): T {

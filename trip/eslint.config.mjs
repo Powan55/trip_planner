@@ -77,12 +77,37 @@ const eslintConfig = [
     },
   },
   {
-    // The two known exceptions, both open. `backup.ts` is the whole-trip backup composition root —
-    // an application-layer job that belongs in lib/, and its move is held up by its importers.
-    // `outbox.ts` needs a "should I write?" gate that has no core-side home yet. Drop a path here
-    // the moment its file stops needing it; nothing else may be added without a decision.
-    files: ["core/vault/backup.ts", "core/sync/outbox.ts"],
-    rules: { "@typescript-eslint/no-restricted-imports": "off" },
+    // The one remaining exception, and it is narrow rather than blanket: `outbox.ts` needs the two
+    // app-wide "should I write?" gates, which have no core-side home yet. The rule stays ON here —
+    // only those two modules are negated out of the group — so a NEW lib/ import in this file still
+    // errors. Nothing may be added to the negation list without a decision.
+    files: ["core/sync/outbox.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@/lib/*",
+                "@/lib/**",
+                "!@/lib/firebase-config",
+                "!@/lib/token-auth",
+                "@/hooks/*",
+                "@/hooks/**",
+                "@/components/*",
+                "@/components/**",
+                "@/app/*",
+                "@/app/**",
+              ],
+              allowTypeImports: true,
+              message:
+                "core/ may not import lib/, hooks/, components/ or app/ at runtime (D-099). Use `import type`, or move the value into core/.",
+            },
+          ],
+        },
+      ],
+    },
   },
 ];
 

@@ -63,7 +63,7 @@ import { loadPhotos, savePhotos } from '@/core/photos/storage';
 import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
 import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
 import { exportItinerary, parseBackup } from '@/core/vault/export-import';
-import { savePlans } from '@/lib/itinerary-storage';
+import { savePlans } from '@/core/vault/storage';
 import type { DayPlan } from '@/lib/trip-data';
 
 /** Export filenames (moved here from `backup-restore.tsx` — Ruling 2 pure lift, so the ONE

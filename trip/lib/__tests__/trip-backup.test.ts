@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 //
-// Full-trip backup/restore unit suite (slice S273, D-227). Exercises `core/vault/backup.ts` against
+// Full-trip backup/restore unit suite (slice S273, D-227). Exercises `lib/trip-backup.ts` against
 // the REAL Vault-backed localStorage (`loadPlans`/`savePlans` + the real gateway domain keys) and an
 // in-memory `BlobStorePort` fake for photo bytes (jsdom has no IndexedDB; D-088 forbids a fake-idb dep).
 //
@@ -43,7 +43,7 @@ vi.mock('@/lib/budget-remote', () => ({ pushBudgetChunk: () => Promise.reject(ne
 vi.mock('@/lib/docs-remote', () => ({ pushDocsChunk: () => Promise.reject(new Error('offline')) }));
 vi.mock('@/lib/places-remote', () => ({ pushPlacesChunk: () => Promise.reject(new Error('offline')) }));
 
-import { exportTripBackup, importTripBackup } from '@/core/vault/backup';
+import { exportTripBackup, importTripBackup } from '@/lib/trip-backup';
 import { outboxDirty } from '@/core/sync/outbox';
 import { supportsCompression } from '@/core/vault/compression';
 import { makeInMemoryBlobStore, type BlobStorePort } from '@/core/photos/blob-store';

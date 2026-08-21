@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { downloadTripBackup, importTripBackup } from '@/core/vault/backup';
+import { downloadTripBackup, importTripBackup } from '@/lib/trip-backup';
 import { savePlans } from '@/lib/itinerary-storage';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
