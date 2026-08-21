@@ -58,12 +58,9 @@ function backing(store: Store): Storage | null {
  * literal `tripPlannerUserName` (across identity/token-auth) now collapses to a single
  * reference.
  *
- * NOTE: the itinerary keys (`nepal_japan_itinerary` + `…_corrupt`) are deliberately NOT
- * here — they stay owned by `lib/itinerary-storage.ts` / the Vault. The
- * `packing_checklist` slot (formerly key 6) was removed in along with the Home
+ * NOTE: the `packing_checklist` slot (formerly key 6) was removed along with the Home
  * packing checklist feature; the key numbering (7 onward) is kept as historical
- * documentation rather than renumbered. This registry is the SIX non-itinerary
- * persisted keys only.
+ * documentation rather than renumbered.
  */
 export const STORAGE_KEYS = {
   /** localStorage — plain display-name string (identity, key 3). */
@@ -470,6 +467,19 @@ export const STORAGE_KEYS = {
    * literal is declared moved.
    */
   currencyRateCache: 'nepal_japan_currency_rate_cache',
+  /**
+   * sessionStorage — presence flag `'1'` left by the token-only login door when the display name
+   * silently defaulted to the placeholder, consumed once by the provider after the reload to nudge
+   * the traveler to rename themselves (name-hint, key 39; #165). Mirrors `chunkReloadOnce`'s (key
+   * 13) one-shot-session-flag shape exactly: SESSION store so the nudge crosses the login reload
+   * and dies with the tab, presence-read, cleared on consumption so a later reload cannot re-fire
+   * it. APP-SCOPED (identity is the person, not the trip).
+   *
+   * The key STRING is unchanged (`name-hint`, same bytes, same store) — `token-gate.tsx` and
+   * `itinerary-provider.tsx` reached raw `sessionStorage` for this literal and were the last two
+   * app-code bypasses of the registry; only where the literal is declared moved.
+   */
+  nameHint: 'name-hint',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -1047,6 +1057,24 @@ export const chunkReloadGuard = {
   },
   markReloaded(): void {
     writeString('session', STORAGE_KEYS.chunkReloadOnce, '1');
+  },
+} as const;
+
+/**
+ * Name-hint slot (key 39, #165) — the one-shot post-login rename nudge. Mirrors
+ * `chunkReloadGuard`'s session-scoped flag shape, with the read fused to the clear: `consume()` is
+ * true at most ONCE per stored flag, so the caller cannot toast twice and cannot forget to clear
+ * before it toasts. Strict `=== '1'` read (any other stored value reads as absent), byte-identical
+ * to the raw `sessionStorage` calls this replaces. SSR-safe + never-throw (inherited).
+ */
+export const nameHintFlag = {
+  mark(): void {
+    writeString('session', STORAGE_KEYS.nameHint, '1');
+  },
+  consume(): boolean {
+    if (readString('session', STORAGE_KEYS.nameHint) !== '1') return false;
+    removeKey('session', STORAGE_KEYS.nameHint);
+    return true;
   },
 } as const;
 

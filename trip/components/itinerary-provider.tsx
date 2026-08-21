@@ -10,7 +10,13 @@ import {
   IDENTITY_CHANGED_EVENT,
   DEFAULT_TRAVELER_NAME,
 } from '@/lib/token-auth';
-import { getActiveTripId, DEFAULT_TRIP_ID, tripMetaSelfHealGuard, getSyncCode } from '@/core/storage/gateway';
+import {
+  getActiveTripId,
+  DEFAULT_TRIP_ID,
+  tripMetaSelfHealGuard,
+  getSyncCode,
+  nameHintFlag,
+} from '@/core/storage/gateway';
 import { getKnownTrip, renameKnownTrip, setTripConfig, SHARED_NAME } from '@/core/trips/registry';
 import { itineraryStoragePort, itineraryOutboxSync, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { expensesSyncPort, expensesOutboxSync, expensesStoragePort } from '@/lib/expenses-ports';
@@ -58,9 +64,7 @@ const ItineraryContext = createContext<ItineraryStore | null>(null);
  * whole provider tree. SSR-safe (no-op without `window`).
  */
 export function consumeNameHint(): void {
-  if (typeof window === 'undefined') return;
-  if (sessionStorage.getItem('name-hint') !== '1') return;
-  sessionStorage.removeItem('name-hint');
+  if (!nameHintFlag.consume()) return;
   toast("You're signed in as Traveler — rename yourself in Settings.", {
     action: {
       label: 'Settings',

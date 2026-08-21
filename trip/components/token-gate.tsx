@@ -5,7 +5,7 @@ import { m, AnimatePresence } from 'framer-motion';
 import { Plane, KeyRound, User, ArrowRight } from 'lucide-react';
 import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
-import { getSyncCode, setSyncCode } from '@/core/storage/gateway';
+import { getSyncCode, setSyncCode, nameHintFlag } from '@/core/storage/gateway';
 import { joinTrip } from '@/core/trips/registry';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
@@ -335,7 +335,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     // cross-reload flag. The provider consumes it after the reload and nudges the traveler to
     // rename themselves — otherwise they're never told their edits are attributed to "Traveler".
     // (`signIn` above has since written "Traveler" into the slot, so capture `stored` pre-sign-in.)
-    if (!stored) sessionStorage.setItem('name-hint', '1');
+    if (!stored) nameHintFlag.mark();
     finish();
   };
 
