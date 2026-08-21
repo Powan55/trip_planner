@@ -118,9 +118,13 @@ test.describe('S158b — Home sticky section nav', () => {
     await gotoHome(page);
     await expectNavVisible(page);
 
-    // Real anchors are natively focusable in their document order.
+    // Real anchors are natively focusable in their document order. Issue #92 put the
+    // journey bar between the hero and the dashboard, so Tab now passes through it — which
+    // is the assertion: the strip's tab order is the page's section order.
     await page.getByTestId('home-section-nav-hero').focus();
     await expect(page.getByTestId('home-section-nav-hero')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('home-section-nav-journey')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('home-section-nav-dashboard')).toBeFocused();
 

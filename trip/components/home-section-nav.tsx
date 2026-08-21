@@ -31,9 +31,17 @@ import { useEffect, useState } from 'react';
  */
 
 // the 32-day timeline moved off Home to /plan/, so its in-page anchor is gone.
+// DOM ORDER, always — the observer sets `aria-current` from whichever target occupies the
+// reading band, so a link out of page order would report the wrong section. `journey` and
+// `chapters` are issue #92's two new bands. `chapters` rides the same default-pack gate
+// `inspiration` already does: on a custom trip neither element is in the DOM, so both links
+// are inert jumps and the poll below just runs out its tries. That is the existing behaviour
+// of the `inspiration` entry, not something the new one introduces.
 const SECTIONS = [
   { id: 'hero', label: 'Overview' },
+  { id: 'journey', label: 'Journey' },
   { id: 'dashboard', label: 'Dashboard' },
+  { id: 'chapters', label: 'Chapters' },
   { id: 'inspiration', label: 'Inspiration' },
 ] as const;
 
