@@ -60,7 +60,9 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
   // older client, or synced in from the other member's device — carries whatever it carries, so
   // guarding only the two producers would leave every such row live. First SAFE one wins, no link
   // at all if neither is.
-  const link = [place.resolvedUrl, place.sourceUrl].find(isSafeHref);
+  const link = [place.resolvedUrl, place.sourceUrl].find(
+    (u): u is string => !!u && isSafeHref(u),
+  );
 
   const openDialog = () => {
     triggerRef.current = (document.activeElement as HTMLButtonElement) ?? null;

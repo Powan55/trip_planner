@@ -34,7 +34,7 @@ function cleanNum(v: unknown): number | undefined {
 // boundary is a script that runs on the app origin — trimmed-and-non-empty was never enough.
 function cleanUrl(v: unknown): string | undefined {
   const s = cleanStr(v);
-  return isSafeHref(s) ? s : undefined;
+  return s !== undefined && isSafeHref(s) ? s : undefined;
 }
 
 export interface ResolveOptions {
