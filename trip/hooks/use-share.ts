@@ -20,7 +20,8 @@ import {
  * core).
  */
 
-export const SHARE_CHANGED_EVENT = 'share:changed';
+import { SHARE_CHANGED_EVENT } from '@/core/storage/events';
+export { SHARE_CHANGED_EVENT };
 
 export interface NewShareInput {
   title?: string;

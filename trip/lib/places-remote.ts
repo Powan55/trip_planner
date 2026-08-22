@@ -31,7 +31,7 @@
 import { saveMyPlaces, loadMyPlaces } from '@/core/places/storage';
 import { mergePlaces } from '@/core/places/merge';
 import { sanitizePlaces, type MyPlace } from '@/core/places/model';
-import { MY_PLACES_CHANGED_EVENT } from '@/hooks/use-my-places';
+import { MY_PLACES_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
 import { clock } from './trip-now';

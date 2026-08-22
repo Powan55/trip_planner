@@ -24,7 +24,8 @@ import { keyFor, favoritesStore } from '@/core/storage/gateway';
  * mismatch.
  */
 
-export const FAVORITES_CHANGED_EVENT = 'favorites:changed';
+import { FAVORITES_CHANGED_EVENT } from '@/core/storage/events';
+export { FAVORITES_CHANGED_EVENT };
 
 /** Coerce any parsed-from-storage value into a valid `string[]` of ids: non-empty strings only, deduped, order preserved. Never throws. */
 function sanitizeIds(raw: unknown): string[] {

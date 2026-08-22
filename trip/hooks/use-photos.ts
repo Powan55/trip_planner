@@ -27,7 +27,8 @@ import {
  * blob bytes never leave IndexedDB. The photo↔owner link lives only in the meta rows here.
  */
 
-export const PHOTOS_CHANGED_EVENT = 'photos:changed';
+import { PHOTOS_CHANGED_EVENT } from '@/core/storage/events';
+export { PHOTOS_CHANGED_EVENT };
 
 /** Result of an attach: the minted id on success, or the user-visible reason it didn't store. */
 export type AddPhotoResult =

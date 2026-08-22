@@ -39,7 +39,7 @@
 
 import type { DayPlan, ItineraryItem } from './trip-data';
 import { savePlans, loadPlans, hasStoredPlans } from './itinerary-storage';
-import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
+import { ITINERARY_CHANGED_EVENT } from '@/core/storage/events';
 import { FIREBASE_CONFIG, isRemoteConfigured, isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
 import { sanitizeItineraryItems } from '@/core/itinerary/model';
