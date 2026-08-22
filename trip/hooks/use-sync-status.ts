@@ -52,8 +52,12 @@ export function useSyncStatus(): SyncStatus {
     };
     window.addEventListener(SYNC_OUTBOX_CHANGED_EVENT, reread);
     window.addEventListener('storage', onStorage);
+    // Re-render tick every 60s so relative-time text stays current even without sync events.
+    // Matches minute granularity of the "Synced Xm ago" label; mirrors use-presence.ts pattern.
+    const tickTimer = setInterval(reread, 60_000);
     return () => {
       mountedRef.current = false;
+      clearInterval(tickTimer);
       window.removeEventListener(SYNC_OUTBOX_CHANGED_EVENT, reread);
       window.removeEventListener('storage', onStorage);
     };
