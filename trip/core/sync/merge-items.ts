@@ -82,6 +82,15 @@ export function resolvePair<R extends SyncedRow>(a: R, b: R, policy: MergePolicy
   // 1. bias the tombstone (a delete is not spuriously resurrected by an equal-HLC live copy);
   // 2. else prefer a strict key-set SUPERSET — the stripped copy can never erase the richer one;
   // 3. else break by a stable content fingerprint (higher wins) — argument-order-independent.
+  //
+  // KNOWN CEILING (#152): step 2 is commutative and idempotent but NOT associative — three-plus
+  // rows sharing one exact HLC, mutually incomparable by key set, can resolve to different winners
+  // depending on fold order. Unreachable today: `actor` is unique per device, so an exact-HLC tie
+  // only ever appears as the two-row case this was written for (a peer's copy vs. this device's own
+  // strict-sanitized re-read); a three-way needs two devices minting the same actor. A key-COUNT
+  // total order would restore associativity but would let a row with more keys beat one holding
+  // keys it lacks — real data loss traded for tidiness, not worth it. Revisit only if `actor` stops
+  // being unique per device.
   if (aDel !== bDel) return aDel ? a : b;
   const richer = supersetRow(a, b);
   if (richer) return richer;

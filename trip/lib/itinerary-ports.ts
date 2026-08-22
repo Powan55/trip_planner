@@ -4,8 +4,8 @@
 // wires the store to these.
 //
 // StoragePort impl = the Vault-backed itinerary gateway: loadPlans / savePlans /
-// hasStoredPlans, called UNCHANGED. (key-presence three-
-// state, `[]`-survives, quarantine) live inside those functions.
+// hasStoredPlans, called UNCHANGED; their key-presence three-state, `[]`-survives, and
+// quarantine behavior live inside those functions.
 // SyncPort impl = pushPlans(prev, next), reached via a DYNAMIC import gated on
 // isRemoteConfigured() — firebase stays off the dormant
 // hot path. Best-effort + never-throws.
@@ -28,8 +28,7 @@ export const itineraryStoragePort: StoragePort<DayPlan[]> = {
 };
 
 /**
- * Production SyncPort for the itinerary — the per-day Firestore push + subscribe
- *, finalized at.
+ * Production SyncPort for the itinerary — the per-day Firestore push + subscribe.
  *
  * Preserves EXACTLY: firebase/itinerary-remote is NOT imported at module scope;
  * every remote op is behind an `isRemoteConfigured()` gate and a DYNAMIC
@@ -75,8 +74,7 @@ const itineraryChunkSync: ChunkSync<DayPlan[]> = {
   },
 };
 
-// Exported so the provider can flush this domain's outbox on app-start / online / visible
-//.
+// Exported so the provider can flush this domain's outbox on app-start / online / visible.
 export const itineraryOutboxSync = itineraryChunkSync;
 
 export const itinerarySyncPort: SyncPort<DayPlan[]> = {
@@ -87,7 +85,7 @@ export const itinerarySyncPort: SyncPort<DayPlan[]> = {
   // that). Never throws to the commit caller.
   push: withOutbox(itineraryChunkSync),
 
-  subscribe(onApplied) {
+  subscribe() {
     // Dormant gate: no config ⇒ no firebase import, a no-op unsubscribe.
     if (!isRemoteConfigured()) return () => {};
 
@@ -97,7 +95,7 @@ export const itinerarySyncPort: SyncPort<DayPlan[]> = {
     import('./itinerary-remote')
       .then(({ subscribeRemote }) => {
         if (cancelled) return; // torn down before the import resolved
-        realUnsub = subscribeRemote(onApplied);
+        realUnsub = subscribeRemote();
       })
       .catch((err) => {
         // Degrade to local-only; never crash.

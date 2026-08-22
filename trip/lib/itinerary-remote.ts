@@ -329,13 +329,9 @@ export async function pushDayChunk(current: DayPlan[], date: string): Promise<vo
  * false. All SDK/network work is wrapped so any failure degrades to local-only
  * via console.warn and never throws.
  *
- * @param onRemoteChange optional callback invoked (after the local write + dispatch)
- * with the assembled plans each time a remote snapshot is applied.
  * @returns an unsubscribe function (always safe to call, even on the dormant path).
  */
-export function subscribeRemote(
-  onRemoteChange?: (plans: DayPlan[]) => void,
-): () => void {
+export function subscribeRemote(): () => void {
   // Dormant gate: with no config — or on the local-only default pack (#10) — never touch firebase.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -383,15 +379,13 @@ export function subscribeRemote(
 
   // Persist + dispatch a resolved plan set to the local store (the shared write tail).
   // Writes through the EXISTING persistence and dispatches the EXISTING
-  // event DIRECTLY — NOT via commit() — so the snapshot path never re-pushes
-  // `onRemoteChange`/`onApplied` receives the resolved plans.
+  // event DIRECTLY — NOT via commit() — so the snapshot path never re-pushes.
   const persistAndDispatch = (plans: DayPlan[]) => {
     plans.sort((a, b) => a.date.localeCompare(b.date)); // stable local shape
     savePlans(plans);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(ITINERARY_CHANGED_EVENT));
     }
-    onRemoteChange?.(plans);
   };
 
   // AUTHORITATIVE apply.

@@ -380,8 +380,9 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       try {
         // ONE signal for the whole TURN, not just the fetch. It used to be constructed inline in
         // the `fetchImpl(...)` call, which left two unbounded awaits ahead of it: the lazy
-        // `import('./itinerary-remote')` and a `securetoken.googleapis.com` token refresh, neither
-        // of which has a timeout of its own. If either STALLS rather than rejecting, `send()` never
+        // `import('./itinerary-remote')` inside `workerAuthHeader()` (lib/worker-auth.ts) and a
+        // `securetoken.googleapis.com` token refresh, neither of which has a timeout of its own.
+        // If either STALLS rather than rejecting, `send()` never
         // settles, so `finally` never runs — status stuck on 'streaming', sendingRef stuck true,
         // `error` still null so no "Try again" row ever mounts, and only a reload recovers. That is
         // the exact state CHAT_TIMEOUT_MS exists to prevent, on the exact connection (captive

@@ -59,7 +59,7 @@ export interface StoragePort<T> {
  * `prev`→`next` per day; for each changed day it performs the
  * merge-aware write. No-op when not
  * configured. Never throws.
- * subscribe(onApplied) — remote→local read direction. Opens the long-lived Firestore
+ * subscribe() — remote→local read direction. Opens the long-lived Firestore
  * `onSnapshot`; on each snapshot it MERGES incoming remote days
  * against the current local view and applies via
  * `savePlans()`+dispatch DIRECTLY — NEVER via `commit()` — so the
@@ -90,10 +90,9 @@ export interface SyncPort<T> {
   push(prev: T, next: T): Promise<void>;
   /**
    * Open the remote→local subscription (merge + `savePlans()`+dispatch, never `commit()`).
-   * `onApplied` (optional) fires with the merged value after each applied snapshot.
    * Returns an unsubscribe fn; a no-op unsub when `isConfigured()` is false.
    */
-  subscribe(onApplied?: (mergedValue: T) => void): () => void;
+  subscribe(): () => void;
   /** The dormant/config gate surfaced through the port. */
   isConfigured(): boolean;
 }

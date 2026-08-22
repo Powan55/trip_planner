@@ -43,23 +43,10 @@ export function useCalendarDnd({ plans, getDayPlan, moveItem, reorderItems }: Ca
     setActiveId(event?.active?.id as string);
   };
 
-  const handleDragOver = (event: DragOverEvent) => {
-    const { active, over } = event ?? {};
-    if (!over || !active) return;
-    const overId = String(over.id ?? '');
-    const activeId = String(active.id ?? '');
-
-    // If dropping over a day container
-    if (overId.startsWith('day-')) {
-      const targetDate = overId.replace('day-', '');
-      const sourceDate = findDayForItem(activeId);
-      if (sourceDate && sourceDate !== targetDate) {
-        // Move item between days (remove from source, append to target) — the store
-        // moveItem reproduces the former two-updateDayPlan sequence atomically.
-        moveItem(activeId, sourceDate, targetDate);
-      }
-    }
-  };
+  // No-op today: one DroppableDay + one SortableContext (both at selectedDate) means overId can
+  // only ever be the active day, so there is no cross-day case for onDragOver to handle. See the
+  // UNREACHABLE note on handleDragEnd's cross-day branch below if a second day container ships.
+  const handleDragOver = (_event: DragOverEvent) => {};
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event ?? {};

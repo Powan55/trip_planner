@@ -109,7 +109,7 @@ export async function pushPlacesChunk(current: MyPlace[], chunk: string): Promis
  * self-degrading: no-op unsubscribe when dormant or on the default pack; any failure → local-only
  * via console.warn, never throws. Mirrors `subscribeRemoteDocs`.
  */
-export function subscribeRemotePlaces(onApplied?: (rows: MyPlace[]) => void): () => void {
+export function subscribeRemotePlaces(): () => void {
   // Trip-scoped gate: the default pack is a local-only sample and never opens this.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -137,7 +137,6 @@ export function subscribeRemotePlaces(onApplied?: (rows: MyPlace[]) => void): ()
   const persistAndDispatch = (rows: MyPlace[]) => {
     saveMyPlaces(rows);
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(MY_PLACES_CHANGED_EVENT));
-    onApplied?.(rows);
   };
 
   const attemptSetup = async () => {

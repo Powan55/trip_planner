@@ -110,7 +110,7 @@ export async function pushBudgetChunk(current: BudgetModel, chunk: string): Prom
  * lazy + self-degrading: no-op unsubscribe when dormant; any failure → local-only via console.warn,
  * never throws. Returns an unsubscribe fn. Mirrors `subscribeRemoteExpenses`.
  */
-export function subscribeRemoteBudget(onApplied?: (model: BudgetModel) => void): () => void {
+export function subscribeRemoteBudget(): () => void {
   // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -140,7 +140,6 @@ export function subscribeRemoteBudget(onApplied?: (model: BudgetModel) => void):
   const persistAndDispatch = (model: BudgetModel) => {
     saveBudget(model);
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(BUDGET_CHANGED_EVENT));
-    onApplied?.(model);
   };
 
   const attemptSetup = async () => {

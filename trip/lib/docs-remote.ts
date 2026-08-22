@@ -112,7 +112,7 @@ export async function pushDocsChunk(current: DocItem[], chunk: string): Promise<
  * Gated + lazy + self-degrading: no-op unsubscribe when dormant; any
  * failure → local-only via console.warn, never throws. Mirrors `subscribeRemoteBudget`.
  */
-export function subscribeRemoteDocs(onApplied?: (rows: DocItem[]) => void): () => void {
+export function subscribeRemoteDocs(): () => void {
   // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -140,7 +140,6 @@ export function subscribeRemoteDocs(onApplied?: (rows: DocItem[]) => void): () =
   const persistAndDispatch = (rows: DocItem[]) => {
     saveDocs(rows);
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(DOCS_CHANGED_EVENT));
-    onApplied?.(rows);
   };
 
   const attemptSetup = async () => {

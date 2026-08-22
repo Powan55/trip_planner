@@ -123,7 +123,7 @@ export async function pushExpenseChunk(current: Expense[], leg: string): Promise
  * lazy + self-degrading: no-op unsubscribe when dormant; any failure → local-only via console.warn,
  * never throws. Returns an unsubscribe fn.
  */
-export function subscribeRemoteExpenses(onApplied?: (rows: Expense[]) => void): () => void {
+export function subscribeRemoteExpenses(): () => void {
   // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -154,7 +154,6 @@ export function subscribeRemoteExpenses(onApplied?: (rows: Expense[]) => void): 
   const persistAndDispatch = (rows: Expense[]) => {
     saveExpenses(rows);
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EXPENSES_CHANGED_EVENT));
-    onApplied?.(rows);
   };
 
   // Resolve one snapshot into the new local row-set (per-leg), seeding any absent chunk up.

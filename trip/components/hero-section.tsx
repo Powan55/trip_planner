@@ -190,8 +190,7 @@ export default function HeroSection() {
   // "not arrived" → "arrived" edge (the countdown grid → Day-N panel swap, live, while
   // watching). The ref starts null and the effect skips until `mounted` (the first real clock
   // read), so a page loaded ALREADY mid-trip only seeds the baseline — it must not celebrate
-  // on every Home visit for the whole trip window — and later 1s ticks never re-fire
-  //.
+  // on every Home visit for the whole trip window — and later 1s ticks never re-fire.
   const hadArrivedRef = useRef<boolean | null>(null);
   const [celebrate, setCelebrate] = useState(false);
 

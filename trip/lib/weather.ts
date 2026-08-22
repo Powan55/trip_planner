@@ -31,8 +31,8 @@ const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
  * Ceiling on the Open-Meteo request. A stalled connection (a network that neither routes nor
  * rejects — CI has no route to api.open-meteo.com) otherwise leaves `fetchWeather` unsettled
  * forever and pins the card at `data-state="loading"`. 8s matches the background-fetch
- * precedent already in this repo: `lib/place-resolve.ts:47` (`timeoutMs = 8000`, applied at
- * `:60`) and `lib/trips-remote.ts:180`. Deliberately NOT the 45s chat ceiling — a human
+ * precedent already in this repo: `resolvePlaceLink`'s `timeoutMs` default in
+ * `lib/place-resolve.ts` (`= 8000`) and `lib/trips-remote.ts:180`. Deliberately NOT the 45s chat ceiling — a human
  * waiting on an LLM is a different class, as that constant's own comment says.
  */
 const WEATHER_TIMEOUT_MS = 8_000;
