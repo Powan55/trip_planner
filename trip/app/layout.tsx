@@ -12,6 +12,7 @@ import { OfflineBanner } from '@/components/offline-banner'
 import { SyncStatusBadge } from '@/components/sync-status-badge'
 import SeasonAccentEngine from '@/components/season-accent-engine'
 import { withBasePath } from '@/lib/utils'
+import { buildCsp, REFERRER_POLICY } from '@/lib/csp'
 // the app-wide chrome islands (Navbar, Footer, mobile tab bar,
 // quick-add FAB + host, expense-log host). Declared in a `'use client'` module
 // because Next 15 forbids `dynamic({ssr:false})` in this Server Component layout
@@ -112,6 +113,24 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning className="dark">
+      {/* Issue #180. An explicit <head>: the Metadata API cannot express an `http-equiv`
+          meta, and `output: 'export'` rules out real headers — see lib/csp.ts for why and
+          for what that costs (no `frame-ancestors`, no report-only).
+
+          KNOWN CEILING — this tag is NOT the first thing in the built <head>. React 19
+          hoists its own resources, so the export puts 35 tags ahead of it on the home route
+          (2 metas, 2 stylesheet links, 1 script preload and 30 `<script src>`; 33-37 across
+          the 21 pages), and a meta CSP governs only what is parsed after it. Measured on a
+          real build: EVERY one of them is same-origin `/_next/static/*` build output, which
+          this policy permits anyway, and every attacker-reachable node
+          (the whole <body>) is parsed after the tag. So the gap is currently inert. Making
+          it genuinely first needs a post-build rewrite of the exported HTML in out/ — the
+          shape scripts/gen-sw.mjs already uses — which is only worth adding if a real
+          header never becomes available. */}
+      <head>
+        <meta httpEquiv="Content-Security-Policy" content={buildCsp()} />
+        <meta name="referrer" content={REFERRER_POLICY} />
+      </head>
       <body className={`${geist.variable} ${instrumentSerif.variable} font-sans bg-surface`}>
         {/* WCAG 2.4.1 (B-1). ONE link at the root covers every route: all 19 pages
             render inside the `#main` wrapper below, so no page-level skip link is needed.
