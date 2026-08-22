@@ -98,7 +98,12 @@ export default function ExpenseDialog({
   // sanitizes on write. Leg/category preset from the edit target else the props.
   const [amount, setAmount] = useState<string>('');
   const [leg, setLeg] = useState<Leg>(presetLeg);
-  const [category, setCategory] = useState<ItineraryCategory>('food');
+  // `string`, not `ItineraryCategory` (#150): editing an expense whose category this build does
+  // not recognise must not throw assigning `expense.category` below. The chip grid only ever
+  // WRITES one of the 10 known values (`setCategory(cat)`, `cat: ItineraryCategory`), so a
+  // forward category just shows with no chip highlighted until the user picks a known one — the
+  // Save value is otherwise preserved verbatim, not coerced to a guess.
+  const [category, setCategory] = useState<string>('food');
   const [note, setNote] = useState<string>('');
   // Split — opt-in, default collapsed = the fast path. `paidBy` defaults to me; `members`
   // to everyone (an even split among the whole roster). Enabling with ≥1 member writes paidBy+split.

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Plus, Pencil, Trash2, ReceiptText, Users } from 'lucide-react';
-import { CATEGORY_COLORS } from '@/lib/trip-data';
+import { CATEGORY_COLORS, type ItineraryCategory } from '@/lib/trip-data';
 import { legCurrency, formatMoney } from '@/core/budget/model';
 import type { Expense } from '@/core/budget/expenses';
 
@@ -62,7 +62,10 @@ export default function ExpenseLog({
         <ul className="flex flex-col gap-2" data-testid="expense-list">
           {ordered.map((e) => {
             const cur = legCurrency(e.leg);
-            const colors = CATEGORY_COLORS[e.category];
+            // A forward/unrecognised category (#150) is retained on the row but has no color
+            // entry — fall back to 'free's, same fallback `calendar-sortable-item.tsx` already
+            // uses for the itinerary side of this exact category widening.
+            const colors = CATEGORY_COLORS[e.category as ItineraryCategory] ?? CATEGORY_COLORS.free;
             const splitCount = Array.isArray(e.split) ? e.split.length : 0;
             return (
               <li

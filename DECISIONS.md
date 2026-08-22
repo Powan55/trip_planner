@@ -4409,6 +4409,12 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Measured, not assumed.** With the tolerance removed outright and no baseline rewritten: 24 + 12 green on one pass, 72 + 36 green at `--repeat-each=3`, and 24 green again after a rebuild — 144 strict assertions, zero differing pixels. `--update-snapshots` was never run.
 
+### D-378 · (issue #160, 2026-08-21) · The five domain-sync effects collapse into one `useDomainSync` hook, gated through the port's own `isConfigured()`
+
+**Decision.** `hooks/use-domain-sync.ts` extracts the flush-then-subscribe wiring effect that `itinerary-provider.tsx` had copy-pasted five times (itinerary/expenses/budget/docs/places, ~260 lines total): `useDomainSync(outboxSync, storagePort, syncPort)`, called once per domain. Same shape as D-148's factory precedent (build exactly what the five call sites need, no `coreOps`-style generalization). Behavior is unchanged — flush on mount, `online`, and tab-return-visible; subscribe gated and reactive on `IDENTITY_CHANGED_EVENT` per D-240; D-149/D-150's `SyncPort`/outbox decorator are untouched, only their call site moved.
+
+**The places bug.** The old places effect gated on `isRemoteConfigured()` while its own comment said `isTripRemoteConfigured()` — drifted apart at some point. Places is per-trip (every write composes `trips/{getTripId()}/…`, retired to `''` on the default sample pack), and `placesSyncPort.isConfigured()`/`subscribe()` already gate on the stricter `isTripRemoteConfigured()` internally, so the outer mismatch never produced a bad write, just a redundant flush/subscribe call on the sample pack. Fixed at the root: the new hook's outer gate is `syncPort.isConfigured()` instead of a hardcoded `isRemoteConfigured()`, so each domain gates on exactly what its own port already declares — no per-domain special case needed, and the comment/code drift can't recur.
+
 **Changes if:** a Linux baseline set lands and the visual job goes blocking. Measure the antialiasing drift on that runner and set a value from the measurement — do not restore 2% from memory.
 
 ### D-264 · Addendum · (issue #177, 2026-08-22) · All three React-18 peer pins are gone
@@ -4418,3 +4424,15 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 **New exit condition is a bump to `@types/node@20.19.0`.** Measured both directions: `--legacy-peer-deps=false` fails on `@types/node` alone with no mention of the three named packages, and bumping only `@types/node` to `20.19.0` resolves clean (747 packages, no ERESOLVE).
 
 **No call-site changes needed for `sonner@2.0.8`.** The major version was absorbed with no removed v2 API (`loadingIcon`, `pauseWhenPageIsHidden`, `cn`, `important`) in use here. It did break `next-themes/dist/types`, a subpath 0.4.6 no longer exports. D-264's a11y condition was discharged: `a11y.spec.ts`, `a11y-full-audit.spec.ts`, `a11y-intrip.spec.ts` all clean under 2.0.8.
+
+### D-379 · (issue #179, 2026-08-21) · Amends D-362 · The visual job runs on `windows-latest`, matching the baselines, instead of staying `continue-on-error` on Linux forever
+
+**Decision.** `.github/workflows/ci.yml` gets a new `visual` job on `runs-on: windows-latest`, gated the same way as `e2e` (`needs: checks`, `if: github.event_name == 'pull_request'`). It builds, installs Chromium, and runs `npm run test:e2e -- --grep visual` with no `continue-on-error` — a real, blocking check. The old Linux `Visual regression (advisory)` step is deleted from `e2e` outright rather than left in place unused; `e2e`'s `Behavioural suite` step already excludes visual specs (`--grep-invert visual`) and needed no change.
+
+**D-362's finding still holds — this is the fix it names, not a reversal.** D-362 established that the CI visual job was structurally advisory because Playwright's snapshot path template appends `{platform}`, and a Linux runner looking for `-linux` against Windows-shot `-win32` baselines reports a missing snapshot, never a diff — no tolerance value could ever have closed that gap. That fact does not change. What changes is the runner: `windows-latest` is free for public-repo GitHub Actions, and on it the `-win32` suffix the baselines already carry is the one the run actually looks for, so the compare is real. Regenerating Linux baselines (D-362's other option) was rejected again here for the same reason it was rejected before: it commits 36 PNGs nobody locally renders and diverges from the Windows-local re-baselining workflow D-362 and D-377 both assume.
+
+**The `e2e` job keeps its exact name.** Both `dev`'s and `main`'s branch protection require the literal status-check context `E2E (behavioural · visual advisory)`; renaming it (e.g. to drop "visual advisory") would make that required check stop reporting until the owner updates branch protection to match, which is out of scope for a workflow-file change. The name is now a stale description of what runs inside that one job, not a claim about the visual job's rigor — the visual job is a separate context (`Visual regression (Windows baselines)`) with its own name.
+
+**Residual gap, stated plainly.** The new `visual` job is not in either branch's `required_status_checks.contexts` (verified via the GitHub API at the time of this decision). It runs and can go red on every pull request, but a red run does not by itself block a merge — only jobs listed in branch protection do. Adding it there is an owner action on repo settings, not a file in this repo.
+
+**Changes if:** the owner adds `Visual regression (Windows baselines)` to branch protection, at which point this job is the actual gate and not just a reporting job.
