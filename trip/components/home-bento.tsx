@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Compass, Wallet, CloudSun, Backpack, FileCheck2, Map as MapIcon, ArrowRight } from 'lucide-react';
+import { Compass, Wallet, CloudSun, Backpack, FileCheck2, Map as MapIcon, ArrowRight, Wifi, WifiOff } from 'lucide-react';
 import { getTodayInTrip, getNowUtcMsForPlace, type TripToday } from '@/lib/trip-now';
 import { offsetForCountry, formatDate } from '@/core/dates';
 import { nextUp } from '@/lib/whats-next';
@@ -13,6 +13,7 @@ import { useExpenses } from '@/hooks/use-expenses';
 import { usePacking } from '@/hooks/use-packing';
 import { useDocs } from '@/hooks/use-docs';
 import { useEnterTravelMode } from '@/hooks/use-travel-mode';
+import { useOnline } from '@/hooks/use-online';
 import { rollUp, formatMoney } from '@/core/budget/model';
 import { expensesToSpent } from '@/core/budget/expenses';
 import { getCachedForecastForDate, weatherTagForDay } from '@/lib/weather';
@@ -52,6 +53,10 @@ export default function HomeBento() {
   const { progress: packingProgress, hydrated: packingHydrated } = usePacking();
   const { completion: docsCompletion, hydrated: docsHydrated } = useDocs();
   const enterTravel = useEnterTravelMode();
+  // The one "where the trip stands" fact this band was missing (issue #92). The hook is the
+  // app's existing connectivity signal — the same one the app-wide offline banner reads — so
+  // the tile and the banner can never disagree about the state.
+  const online = useOnline();
 
   const roll = rollUp(model, expensesToSpent(expenses));
 
@@ -194,6 +199,28 @@ export default function HomeBento() {
             ) : (
               <EmptyLine>No checklist yet</EmptyLine>
             )}
+          </BentoTile>
+
+          {/* Connection. The state is written out in words, never carried by the icon or a
+              colour alone. No `aria-live` here on purpose: the app-wide offline banner
+              already announces the transition, and a second announcer would say it twice. */}
+          <BentoTile
+            testId="home-bento-connection"
+            icon={
+              online ? (
+                <Wifi className="w-4 h-4" aria-hidden="true" />
+              ) : (
+                <WifiOff className="w-4 h-4" aria-hidden="true" />
+              )
+            }
+            label="Connection"
+          >
+            <div>
+              <p className="text-sm font-semibold text-white">{online ? 'Online' : 'Offline'}</p>
+              <p className="text-xs text-ink-mid mt-0.5">
+                {online ? 'Everything saves on this device' : 'Your saved plans still open'}
+              </p>
+            </div>
           </BentoTile>
 
           {/* Mini map/photo link tile — a wide tile, decorative gradient art. It and the Travel

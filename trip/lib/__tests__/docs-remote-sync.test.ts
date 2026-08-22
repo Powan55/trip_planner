@@ -15,7 +15,7 @@
 //      same outboxSnapshot the badge hook uses.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { DocItem } from '@/core/docs/model';
+import { sanitizeItems, type DocItem } from '@/core/docs/model';
 import { mergeItems } from '@/core/sync/merge-items';
 
 vi.mock('@/lib/firebase-config', () => ({
@@ -95,7 +95,7 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
-import { pushChecklistMerged } from '@/lib/docs-remote';
+import { pushChecklistMerged, docToRows } from '@/lib/docs-remote';
 import { docsSyncPort } from '@/lib/docs-ports';
 import { outboxSnapshot } from '@/core/sync/outbox';
 import type { Firestore } from 'firebase/firestore';
@@ -153,6 +153,66 @@ describe('pushChecklistMerged — transactional read→merge→set converges two
     const written = fake.docs.get(DOC_PATH) as { items: DocItem[] };
     expect(written.items.map((e) => e.id).sort()).toEqual(['passport', 'visa']);
     expect(writeLog).toEqual([`tx-set:${DOC_PATH}`]);
+  });
+
+  it("the read boundary retains a remote-ONLY row's forward keys (no id collision) (#138)", async () => {
+    // `sanitizeItem` used to rebuild each row from a fixed field list, so any key a NEWER build
+    // wrote was dropped — and since the sanitized row is written straight back up here, an older
+    // client permanently erased the newer client's data from the server on its next sync.
+    // Scope of THIS test: the read boundary only. Remote 'visa' has no local counterpart here —
+    // which the real fixed template never allows, so the collision test below is the live path.
+    fake.setDocData(DOC_PATH, {
+      version: 1,
+      items: [
+        {
+          ...item('visa', { checked: true, hlc: '000000000002000:000000:friendB' }),
+          dueDate: '2026-11-01', // fields from a future build this one has no code for
+          attachments: ['scan-1'],
+          note: '   ', // …while a DECLARED field with a bad value is still dropped
+        },
+        { id: 'bogus', section: 'atlantis', label: 'Nope', checked: true }, // still invalid
+      ],
+    });
+    await pushChecklistMerged(fake as unknown as Firestore, fs, [
+      item('passport', { checked: true, hlc: '000000000003000:000000:me' }),
+    ]);
+
+    const written = fake.docs.get(DOC_PATH) as {
+      items: Array<DocItem & { dueDate?: string; attachments?: string[] }>;
+    };
+    expect(written.items.map((e) => e.id).sort()).toEqual(['passport', 'visa']); // 'bogus' rejected
+    const visa = written.items.find((e) => e.id === 'visa')!;
+    expect(visa.dueDate).toBe('2026-11-01');
+    expect(visa.attachments).toEqual(['scan-1']);
+    expect(visa).not.toHaveProperty('note');
+  });
+
+  it('a forward key survives the SAME-id, SAME-hlc collision — the ONLY path on a fixed template (#138)', async () => {
+    // `lib/docs-remote.ts` header: a fixed template means every id is present on BOTH sides, so
+    // every checklist row takes the collision branch and never the remote-only one. A snapshot
+    // lands the peer's rich row, `saveDocs` strips it, `commit()` re-reads and pushes it back at an
+    // unchanged hlc — and the fingerprint tie-break ranked the richer row lower, so the key was
+    // erased upstream on the next sync. Before the superset tie-break, docs' half of #138 was inert.
+    const HLC = '000000000002000:000000:friendB';
+    const fromPeer = { ...item('visa', { checked: true, hlc: HLC }), dueDate: '2026-11-01' };
+    fake.setDocData(DOC_PATH, { version: 1, items: [fromPeer] });
+    // Exactly what the local slot holds after saveDocs()/loadDocs() — no hand-editing.
+    const localRows = sanitizeItems([fromPeer], []);
+    expect(localRows[0]).not.toHaveProperty('dueDate'); // the strip really happened
+
+    await pushChecklistMerged(fake as unknown as Firestore, fs, localRows);
+
+    const written = fake.docs.get(DOC_PATH) as { items: Array<DocItem & { dueDate?: string }> };
+    expect(written.items.find((e) => e.id === 'visa')!.dueDate).toBe('2026-11-01');
+  });
+
+  it('the LOCAL entry point stays a strict allowlist — the two directions are disjoint (#138)', () => {
+    // Retention is opt-in and set ONLY at the remote read; `loadDocs`/`saveDocs`/backup take the
+    // default. If this ever flips to strip-nothing by default the containment is gone.
+    const rogue = { id: 'x', section: 'critical', label: 'Visa', checked: true, futureKey: 1 };
+    expect(sanitizeItems([rogue], [])[0]).not.toHaveProperty('futureKey'); // default = strict
+    expect(sanitizeItems([rogue], [], { keepUnknownKeys: true })[0]).toHaveProperty('futureKey');
+    expect(docToRows({ items: [rogue] })[0]).toHaveProperty('futureKey');
   });
 
   it('an empty remote list stays EMPTY — it never resurrects the seeded template (#126)', async () => {

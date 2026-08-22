@@ -48,7 +48,15 @@ export function docToRows(data: Record<string, unknown>): DocItem[] {
   // empty OR all-garbage array, and here that would resurrect the seeded template as if it were
   // remote state — re-seeding content the user deliberately cleared, and (on a custom trip) the
   // Nepal/Japan rows `UNIVERSAL_TEMPLATE` exists to keep out. An empty remote list means empty.
-  return Array.isArray(data.items) ? sanitizeItems(data.items, []) : [];
+  // `keepUnknownKeys` is set HERE and only here on this domain (#138). The merged result of this
+  // read is written straight back up by `pushChecklistMerged`, so the strict allowlist rebuild
+  // dropped a newer client's forward fields before they could reach the write.
+  // Retention alone does NOT finish the job, and on THIS domain it does nothing on its own: the
+  // fixed template means every id exists on both sides, so every row goes through the equal-HLC
+  // collision — `saveDocs` sanitizes STRICT on the way to disk, so the copy this device pushes is
+  // the stripped one at the SAME hlc. The superset tie-break in `resolvePair` (D-376) is what makes
+  // the retention survive. The LOCAL entry points (`loadDocs`/`saveDocs`, backup) stay strict.
+  return Array.isArray(data.items) ? sanitizeItems(data.items, [], { keepUnknownKeys: true }) : [];
 }
 
 /**

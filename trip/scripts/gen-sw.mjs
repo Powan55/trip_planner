@@ -870,12 +870,23 @@ self.addEventListener('install', (event) => {
       // on build N+1; we refuse to commit a half-populated shell rather than
       // silently cache a miss (the classic SW bug that permanently serves the
       // wrong shell). No opaque special-case: precache URLs are never opaque.
+      //
+      // res.ok is NOT enough (#136): a captive portal answers every request with
+      // its login page and a 200, which passes the atomicity guard above and gets
+      // committed to a DURABLE cache -- worse than the runtime case, since the
+      // poison then survives restarts and the image fallback below would hand
+      // that HTML back as the "cached image". isExpectedPrecacheBody rejects it.
       await Promise.all(
         PRECACHE_URLS.map(async (url) => {
           const res = await fetch(url, { cache: 'no-cache' });
           if (!res || !res.ok) {
             throw new Error(
               'precache fetch failed: ' + url + ' -> ' + (res ? res.status : 'no response')
+            );
+          }
+          if (!isExpectedPrecacheBody(url, res)) {
+            throw new Error(
+              'precache body rejected: ' + url + ' -> ' + (contentTypeOf(res) || 'no content type')
             );
           }
           await cache.put(url, res.clone());
@@ -927,6 +938,38 @@ function normalizePath(url) {
 function isImageRequest(request, url) {
   if (request.destination === 'image') return true;
   return /\\.(?:png|jpe?g|gif|webp|avif|svg|ico)$/i.test(url.pathname);
+}
+
+// Degrades to '' instead of throwing on a response with no usable \`headers\`: this is read
+// inside the ATOMIC install, where any exception rejects the install and drops offline.
+function contentTypeOf(res) {
+  return (res.headers?.get?.('Content-Type') || '').toLowerCase();
+}
+
+// A 200 is not proof the body is the image: a captive portal answers every request with
+// its login page (#136). An ABSENT content type is trusted rather than rejected — some
+// hosts omit it, and an opaque response exposes no headers at all.
+function isImageResponse(res) {
+  const type = contentTypeOf(res);
+  return type === '' || type.startsWith('image/');
+}
+
+// Does an INSTALL-time precache response plausibly carry the asset we asked for?
+// Only two shapes of precache entry exist (buildPrecacheList): route URLs -- a
+// directory url or /404.html -- which ARE html, and files (js, css, icons, the
+// webmanifest, the hero rasters). For a file, an html body is the portal, not our
+// asset; an html login page cached as a JS chunk breaks the shell exactly as one
+// cached as an image does. Images are held to that SAME html-only rule, NOT the
+// runtime's stricter image/* one: a runtime miss degrades to a cache lookup, but an
+// install rejection is atomic and kills offline outright, so this path buys safety by
+// being LESS strict -- a host that labels a hero application/octet-stream must not brick
+// the shell. Route entries stay unverifiable from headers alone (the portal's html and
+// ours are both text/html) -- res.redirected catches the redirecting portals, which is
+// the common flavour, and a same-origin build URL should never redirect anyway.
+function isExpectedPrecacheBody(url, res) {
+  if (res.redirected) return false;
+  if (url.endsWith('/') || url.endsWith('.html')) return true;
+  return !contentTypeOf(res).startsWith('text/html');
 }
 
 // LRU-ish cap on the runtime image cache: evict oldest (insertion order) on
@@ -1005,7 +1048,7 @@ self.addEventListener('fetch', (event) => {
         let res;
         try {
           res = await fetch(request);
-          if (res && res.ok && res.type === 'basic') {
+          if (res && res.ok && res.type === 'basic' && isImageResponse(res)) {
             const cache = await caches.open(IMAGES_CACHE);
             await cache.put(request, res.clone());
             trimImageCache();
@@ -1013,7 +1056,7 @@ self.addEventListener('fetch', (event) => {
         } catch (err) {
           // Hard offline: the fetch REJECTED. Falls through to the cache lookup below.
         }
-        if (res && res.ok) return res;
+        if (res && res.ok && isImageResponse(res)) return res;
         // A REJECTED fetch is not the only offline (issue #109). A captive portal
         // answers with a RESPONSE: a 511, a redirect to a portal, or an opaque
         // result whose status is 0. Those three RESOLVE, so
@@ -1021,6 +1064,9 @@ self.addEventListener('fetch', (event) => {
         // bytes sitting in the precache. Non-ok is therefore treated exactly like
         // offline: consult the cache first, and only hand back the real error
         // response when nothing is cached, so a genuine 404 still reads as a 404.
+        // A 200 carrying the portal's login page instead of the image takes that same
+        // path (#136): res.ok is true for it, so the content type is the only thing that
+        // separates a photo from an HTML sign-in form.
         //
         // Fall back to ANY cache, not IMAGES_CACHE — that is how the hero rasters'
         // offline guarantee is actually delivered: they live in the PRECACHE, so the

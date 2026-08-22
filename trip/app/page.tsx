@@ -92,6 +92,22 @@ const HomeStatRow = dynamic(() => import('@/components/home-stat-row'), {
   ssr: false,
   loading: () => <SectionSkeleton height={STAT_ROW_H} />,
 });
+/** Reserved height of the journey bar (issue #92). Same rule as its three neighbours: the
+ *  `loading:` slot and the `<LazyVisible minHeight>` at the call site read this one literal,
+ *  or the chunk-fetch gap resizes the box the placeholder reserved.
+ *
+ *  Measured on the built export, signed in, at both clock states: 583.1 at every width below
+ *  640 — the leg cards stack there, which is the tall case — then 457.8 at 640-1023 and 425.9
+ *  above. Height does not vary with viewport height.
+ *  640 keeps ~57px of headroom over that for a longer leg label or a third chip row, and
+ *  over-reserving is the safe direction the neighbours below already take: the box collapses
+ *  upward at the island's idle beat rather than the page jumping down onto content. A pack
+ *  with more than two legs stacks taller on mobile and would move this number. */
+const JOURNEY_H = '640px';
+const HomeJourneyBar = dynamic(() => import('@/components/home-journey-bar'), {
+  ssr: false,
+  loading: () => <SectionSkeleton height={JOURNEY_H} />,
+});
 // — the "at a glance" bento grid (read-only composition of existing hooks: next-up,
 // budget spent, cached weather, packing/docs %, map link, Travel Mode entry). Same
 // dynamic(ssr:false) + LazyVisible island pattern as every other below-fold Home section
@@ -105,10 +121,12 @@ const HomeStatRow = dynamic(() => import('@/components/home-stat-row'), {
  *  trip-dashboard, so it now carries a VISIBLE "At a glance" heading (plus the
  *  `h2[id$="-heading"]` underline) and `py-10 sm:py-14` where it had an `sr-only` title and
  *  `py-4 sm:py-6`. It also wraps rather than gridding, so its height is a step function of
- *  WIDTH. Measured on the running dev build, signed in, every tile mounted, at both clock
- *  states — pre-trip (6 tiles) and in-trip (7 tiles) agree at every width below:
- *      320 → 702    360 → 702    390 → 702    414 → 700
- *      640 → 755    768 → 645   1024 → 534   1280 → 424
+ *  WIDTH, and issue #92's Connection tile added one more narrow tile. Re-measured on the
+ *  BUILT export, signed in, every tile mounted, pre-trip / in-trip (the two states no longer
+ *  agree — in-trip carries the extra tile past a row boundary at 640 and at 1280):
+ *      320 → 727.3 / 816.5    360 → 727.3 / 816.5    390 → 727.3 / 816.5
+ *      414 → 725.3 / 814.5    640 → 763.5 / 874.0    768 → 653.0 / 653.0
+ *     1024 → 542.5 / 542.5   1280 → 432.0 / 542.5
  *  640 is the tall one, not mobile: the `sm:` bases take effect there and the 26rem wide
  *  basis fits fewer tiles per row than the width would otherwise allow.
  *
@@ -119,13 +137,29 @@ const HomeStatRow = dynamic(() => import('@/components/home-stat-row'), {
  *  STAT_ROW_H's treatment instead: one measured literal at the tallest layout that matters,
  *  over-reserving the shorter ones for the ~200ms before the island's idle beat fires, which
  *  is the safe direction (the box collapses upward rather than the page jumping down onto
- *  content). 756 covers every supported width, 320 included — the tile basis is sized so the
+ *  content). 880 covers every supported width, 320 included — the tile basis is sized so the
  *  narrow tiles still pair at 320 (see `BentoTile` in components/home-bento.tsx), which is
- *  what keeps the mobile end flat at ~702 instead of running away to 912. */
-const BENTO_H = '756px';
+ *  what keeps the mobile end flat at ~727 instead of running away to 912. The 866 this
+ *  replaces was derived rather than measured and came in 8px under the 640 in-trip case. */
+const BENTO_H = '880px';
 const HomeBento = dynamic(() => import('@/components/home-bento'), {
   ssr: false,
   loading: () => <SectionSkeleton height={BENTO_H} />,
+});
+/** Reserved height of the chapter bands (issue #92). Two `.photo-header` bands, whose height
+ *  is a `clamp(300px, 40svh, 380px)` in globals.css — so unlike the bento above, this section
+ *  runs WITH viewport height, and its ceiling is where that clamp tops out. Measured on the
+ *  built export at 390 wide: 912.9 at 844 tall, 954.5 at 896, and 997.8 once the viewport is
+ *  tall enough (>=950) to pin both bands at the 380 ceiling. The masthead + `py-10` account
+ *  for 236.8 of that at every width from 320 to 414 — the subtitle wraps to two lines there,
+ *  which the first estimate (110.5, one line) missed, and is why 960 came in ~38px short.
+ *  Mobile is the tall case: the two bands stack below 640px and sit side by side above it,
+ *  and the >=900px clamp (max 460) is a single row. 1000 covers the ceiling; every shorter
+ *  viewport over-reserves, which is the safe direction. */
+const CHAPTERS_H = '1000px';
+const HomeChapters = dynamic(() => import('@/components/home-chapters'), {
+  ssr: false,
+  loading: () => <SectionSkeleton height={CHAPTERS_H} />,
 });
 
 // deferred sections — each keeps a sized `loading:` skeleton so the chunk-fetch gap
@@ -153,6 +187,16 @@ function GatedTravelInspiration() {
   return (
     <DefaultTripOnly>
       <TravelInspiration />
+    </DefaultTripOnly>
+  );
+}
+
+// Same gate, same reason: the two chapter bands are N×J photography and copy, so a custom
+// trip gets the honest empty state rather than someone else's country.
+function GatedHomeChapters() {
+  return (
+    <DefaultTripOnly>
+      <HomeChapters />
     </DefaultTripOnly>
   );
 }
@@ -190,9 +234,15 @@ export default function HomePage() {
           the hero's flex-1 space and pushed the hero's own CTA down (D-311). */}
       <LazyVisible component={HomeStatRow} minHeight={STAT_ROW_H} />
       <LazyVisible component={HomeSectionNav} minHeight="56px" />
+      {/* The journey bar and the chapter bands are both SIBLINGS of the hero, never children
+          of it, for the same reason the stat band above is: inside the 100svh column they
+          would eat the hero's flex-1 and push its CTA down (D-311). Below it they cost the
+          fold budget nothing. */}
+      <LazyVisible component={HomeJourneyBar} minHeight={JOURNEY_H} />
       <TodayPanel />
       <TripRecap />
       <LazyVisible component={HomeBento} minHeight={BENTO_H} />
+      <LazyVisible component={GatedHomeChapters} minHeight={CHAPTERS_H} />
       <LazyVisible component={GatedTravelInspiration} minHeight="clamp(40rem, 130vh, 80rem)" />
       {/* Custom-trip-only "My places" (renders null on the default pack). minHeight 0 so the
           default pack reserves no visible box while the gate resolves. */}

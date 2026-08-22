@@ -10,24 +10,21 @@ import type { Page, Locator } from '@playwright/test';
  * `@playwright/test`, already installed). The app is dark-mode only (D-009), so
  * the matrix is sections × viewports with NO light/dark doubling.
  *
- * ┌──────────────────────────────────────────────────────────────────────────┐
- * │  CROSS-ENVIRONMENT BASELINE CAVEAT — READ BEFORE TRUSTING A CI FAILURE     │
- * │                                                                            │
- * │  These baseline PNGs (committed under `visual.spec.ts-snapshots/`) were    │
- * │  GENERATED IN THE DEV SANDBOX. `toHaveScreenshot` is pixel-sensitive to    │
- * │  the OS font renderer / GPU rasterizer, so the SAME build screenshotted on │
- * │  a different OS (e.g. a Linux CI runner) will differ by sub-pixel AA on    │
- * │  text — enough to trip a strict compare. Two guards make this survivable:  │
- * │    1. Every assertion sets a TOLERANT `maxDiffPixelRatio` (~0.01–0.02) to  │
- * │       absorb AA noise (set PER-ASSERTION — playwright.config.ts is NOT     │
- * │       touched by this slice; the global harness config stays as-is).      │
- * │    2. Linux CI CANNOT consume these files at all, and the reason is the    │
- * │       PLATFORM SUFFIX, not the tolerance: Playwright looks for -linux      │
- * │       and finds nothing, so it is a MISSING snapshot, never a diff.        │
- * │       ci.yml runs the visual job advisory (continue-on-error) for that     │
- * │       reason and carries the promotion path to a blocking Linux job.       │
- * │  This caveat is also flagged in the S86 notes.                             │
- * └──────────────────────────────────────────────────────────────────────────┘
+ * BASELINE PORTABILITY — READ BEFORE TRUSTING A CI FAILURE.
+ * These baseline PNGs (committed under `visual.spec.ts-snapshots/`) were generated on
+ * Windows and carry a `-win32` suffix. `toHaveScreenshot` is pixel-sensitive to the OS font
+ * renderer / GPU rasterizer, so the same build shot on a Linux CI runner would differ by
+ * sub-pixel AA on text — but Playwright never gets that far: it looks for a `-linux` file,
+ * finds none, and reports a MISSING snapshot, never a diff. ci.yml runs the visual job
+ * advisory (continue-on-error) for that reason and carries the promotion path to a blocking
+ * Linux job. This caveat is also flagged in the S86 notes.
+ *
+ * A comparison therefore only ever happens against same-OS baselines, which is why there is
+ * no `maxDiffPixelRatio` here (#135): the cross-OS AA drift a tolerance exists to absorb
+ * cannot occur on the path that actually compares, while 2% of a 1280x900 hero is ~23k
+ * pixels — room to hide a recoloured button or a shifted line of type. Any differing pixel
+ * fails. If a Linux baseline set lands and this job goes blocking, measure the drift on that
+ * runner rather than restoring 2% from memory.
  *
  * ── Determinism technique (why these screenshots are stable) ────────────────────
  *   1. FROZEN CLOCK. Every navigation carries `?today=2026-11-15` — a fixed
@@ -76,13 +73,9 @@ const VIEWPORTS = [
   { name: 'desktop', width: 1280, height: 900 },
 ] as const;
 
-// Tolerant per-assertion diff budget to absorb cross-OS sub-pixel AA on text.
-// (Set here, NOT in playwright.config.ts — the harness config is out of this
-// slice's fence.) 0.02 = up to 2% of pixels may differ; ample for AA drift, still
-// tight enough to catch a real layout/color regression.
+// No diff budget: every pixel must match (#135 — see the portability note above).
 const SHOT = {
   animations: 'disabled',
-  maxDiffPixelRatio: 0.02,
   // Screenshot only the targeted element's box; scale to CSS pixels so the
   // baseline is DPR-independent.
   scale: 'css',

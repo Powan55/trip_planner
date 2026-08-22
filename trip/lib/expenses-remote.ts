@@ -52,7 +52,16 @@ import { clock } from './trip-now';
  * local bytes.
  */
 export function chunkDocToRows(data: Record<string, unknown>): Expense[] {
-  return Array.isArray(data.items) ? sanitizeExpenses(data.items) : [];
+  // `keepUnknownKeys` is set HERE and only here on this domain (#138). The merged result of this
+  // read is written straight back up by `pushChunkMerged`, so the strict allowlist rebuild dropped
+  // a newer client's forward fields before they could reach the write.
+  // Retention alone does NOT finish the job: `saveExpenses` sanitizes STRICT on the way to disk, so
+  // the row this device later re-reads and pushes is the STRIPPED one at the SAME hlc. What keeps
+  // the forward keys is the equal-HLC superset tie-break in `resolvePair` (D-376) — without it the
+  // strip wins that collision and erases them again on the next push.
+  // The LOCAL entry points (`loadExpenses`/`saveExpenses`, backup, import) stay strict, which is
+  // what keeps D-159's zero-egress guarantee structural — a photo ref can only originate locally.
+  return Array.isArray(data.items) ? sanitizeExpenses(data.items, { keepUnknownKeys: true }) : [];
 }
 
 /**

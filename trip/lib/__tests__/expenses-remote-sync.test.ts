@@ -16,7 +16,7 @@
 // changed chunk) cited. Two-client live convergence stays live-QA-deferred.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type { Expense } from '@/core/budget/expenses';
+import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
 
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
@@ -92,7 +92,7 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
-import { pushChunkMerged, pushExpenseChunk } from '@/lib/expenses-remote';
+import { pushChunkMerged, pushExpenseChunk, chunkDocToRows } from '@/lib/expenses-remote';
 import { expensesSyncPort } from '@/lib/expenses-ports';
 import type { Firestore } from 'firebase/firestore';
 import * as fs from 'firebase/firestore';
@@ -146,6 +146,74 @@ describe('pushChunkMerged — transactional read→merge→set does NOT clobber 
     const written = fake.docs.get(`trips/${TRIP_ID}/expenses/nepal`) as { items: Expense[] };
     expect(written.items.map((e) => e.id).sort()).toEqual(['A', 'B']);
     expect(writeLog).toEqual([`tx-set:trips/${TRIP_ID}/expenses/nepal`]);
+  });
+
+  it("the read boundary retains a remote-ONLY row's forward keys (no id collision) (#138)", async () => {
+    // `sanitizeExpense` used to rebuild each row from a fixed field list, so any key a NEWER build
+    // wrote was dropped — and since the sanitized row is written straight back up here, an older
+    // client permanently erased the newer client's data from the server on its next sync.
+    // Scope of THIS test: the read boundary only. Remote 'B' has no local counterpart, so it is
+    // carried through the merge untouched. The collision case is the test below.
+    fake.setDocData(`trips/${TRIP_ID}/expenses/nepal`, {
+      leg: 'nepal',
+      items: [
+        {
+          ...exp('B', { hlc: '000000000002000:000000:friend' }),
+          currency: 'NPR', // fields from a future build this one has no code for
+          tags: ['receipt'],
+          date: 'nope', // …while a DECLARED field with a bad value is still dropped
+          note: '   ',
+          rev: 'not-a-number',
+        },
+        { id: 'C', leg: 'nepal', category: 'teleportation', amount: 1, createdAt: 't' }, // still invalid
+      ],
+    });
+    await pushChunkMerged(fake as unknown as Firestore, fs, 'nepal', [exp('A', { hlc: '000000000003000:000000:me' })]);
+
+    const written = fake.docs.get(`trips/${TRIP_ID}/expenses/nepal`) as {
+      items: Array<Expense & { currency?: string; tags?: string[] }>;
+    };
+    expect(written.items.map((e) => e.id).sort()).toEqual(['A', 'B']); // 'C' rejected, as before
+    const b = written.items.find((e) => e.id === 'B')!;
+    expect(b.currency).toBe('NPR');
+    expect(b.tags).toEqual(['receipt']);
+    // Validation is unchanged: the bad declared fields are gone from what went back up.
+    expect(b).not.toHaveProperty('date');
+    expect(b).not.toHaveProperty('note');
+    expect(b).not.toHaveProperty('rev');
+  });
+
+  it('a forward key survives the SAME-id, SAME-hlc collision the round trip actually creates (#138)', async () => {
+    // The real path, and the one retention alone did not fix. A snapshot lands the peer's rich row;
+    // `saveExpenses` sanitizes STRICT on the way to disk; `commit()` re-reads that stripped row and
+    // pushes it — same id, same hlc. `mergeItems` used to break that tie on `contentFingerprint`,
+    // which ranks the row with MORE keys lower, so the strip won and the key was erased upstream.
+    const HLC = '000000000002000:000000:friend';
+    const fromPeer = { ...exp('A', { hlc: HLC }), currency: 'NPR', tags: ['receipt'] };
+    fake.setDocData(`trips/${TRIP_ID}/expenses/nepal`, { leg: 'nepal', items: [fromPeer] });
+    // Exactly what the local slot holds after saveExpenses()/loadExpenses() — no hand-editing.
+    const localRows = sanitizeExpenses([fromPeer]);
+    expect(localRows[0]).not.toHaveProperty('currency'); // the strip really happened
+
+    await pushChunkMerged(fake as unknown as Firestore, fs, 'nepal', localRows);
+
+    const written = fake.docs.get(`trips/${TRIP_ID}/expenses/nepal`) as {
+      items: Array<Expense & { currency?: string; tags?: string[] }>;
+    };
+    const a = written.items.find((e) => e.id === 'A')!;
+    expect(a.currency).toBe('NPR');
+    expect(a.tags).toEqual(['receipt']);
+  });
+
+  it('the LOCAL entry point stays a strict allowlist — the two directions are disjoint (D-159)', async () => {
+    // The whole design of #138's fix: retention is opt-in and set ONLY at the remote read. If this
+    // ever flips to strip-nothing by default, a rogue/legacy local row carrying a photo ref reaches
+    // `pushChunkMerged`'s merge and gets written to Firestore, which D-159 forbids permanently.
+    const rogue = { id: 'L1', leg: 'nepal', category: 'food', amount: 10, createdAt: 't', photoIds: ['ph-x'] };
+    expect(sanitizeExpenses([rogue])[0]).not.toHaveProperty('photoIds'); // default = strict
+    expect(sanitizeExpenses([rogue], { keepUnknownKeys: true })[0]).toHaveProperty('photoIds');
+    // …and the remote read is the one caller that opts in.
+    expect(chunkDocToRows({ items: [rogue] })[0]).toHaveProperty('photoIds');
   });
 
   it('an emptied leg writes items:[] (D-018/D-091 parity — not a skip)', async () => {

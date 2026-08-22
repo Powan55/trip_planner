@@ -90,6 +90,17 @@ function isCategory(value: unknown): value is ItineraryCategory {
   return typeof value === 'string' && (BUDGET_CATEGORIES as readonly string[]).includes(value);
 }
 
+/** Read-boundary options. Absent ⇒ STRICT: a caller that does not ask gets the allowlist rebuild. */
+export interface SanitizeOptions {
+  /**
+   * Retain keys this build does not declare (#138). Set ONLY on the REMOTE read, where the
+   * sanitized row is merged and written straight back to Firestore. Never on a LOCAL path — the
+   * rebuild is what makes D-159's zero-egress guarantee structural rather than a discipline.
+   */
+  keepUnknownKeys?: boolean;
+}
+
+
 /**
  * Coerce any parsed-from-storage / caller-supplied value into a valid `Expense`, or `null` when it
  * is too malformed to salvage — that is now exactly a missing/invalid `id` or `category`, the two
@@ -119,8 +130,25 @@ function isCategory(value: unknown): value is ItineraryCategory {
  *
  * A bad amount degrades to 0 (via `safeAmount`); `date` / `note` drop when not usable;
  * `createdAt` falls back to `''` (kept sortable-last, never a throw). TOTAL.
+ *
+ * ── UNDECLARED keys: DROPPED by default, kept only for `keepUnknownKeys` (#138) ────────────
+ * The default is the field-by-field rebuild this has always been — an allowlist, and D-159's
+ * zero-egress guarantee is structural precisely because of it (a rogue or legacy row carrying a
+ * `photoIds`/`photo`/`receipt` cannot survive a rebuild that never copies it). Every LOCAL caller
+ * takes this default: `loadExpenses`/`saveExpenses`, `core/vault/backup.ts`, `lib/expense-export.ts`.
+ *
+ * `keepUnknownKeys` is set at exactly ONE call site — `chunkDocToRows` (lib/expenses-remote.ts),
+ * the REMOTE read. That is where #138's data loss lives: the sanitized row is merged and written
+ * straight back up by `pushChunkMerged`, so an allowlist there let an older client erase a newer
+ * client's fields from the server, permanently, on every sync. Under the flag the row is built by
+ * spreading the source and then normalizing each DECLARED field on top, so validation is identical
+ * either way (an invalid declared field is still coerced or dropped, an unsalvageable row is still
+ * `null`) — only undeclared keys differ. Matches `itineraryItemSchema`'s `.passthrough()`.
+ *
+ * Default-strict is the load-bearing part: a new caller that does not know to ask gets the safe
+ * behaviour, and the two directions stay disjoint.
  */
-export function sanitizeExpense(value: unknown): Expense | null {
+export function sanitizeExpense(value: unknown, opts: SanitizeOptions = {}): Expense | null {
   if (value === null || typeof value !== 'object') return null;
   const v = value as Partial<Record<keyof Expense, unknown>>;
 
@@ -132,6 +160,7 @@ export function sanitizeExpense(value: unknown): Expense | null {
   if (!isCategory(v.category)) return null;
 
   const expense: Expense = {
+    ...(opts.keepUnknownKeys ? (value as Expense) : ({} as Partial<Expense>)),
     id,
     leg,
     category: v.category,
@@ -140,45 +169,51 @@ export function sanitizeExpense(value: unknown): Expense | null {
   };
 
   // `date` must look like 'YYYY-MM-DD'; anything else is dropped (optional field).
-  if (typeof v.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.date)) {
-    expense.date = v.date;
-  }
+  if (typeof v.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.date)) expense.date = v.date;
+  else delete expense.date;
   // `note` is a trimmed non-empty string or dropped.
-  if (typeof v.note === 'string' && v.note.trim().length > 0) {
-    expense.note = v.note.trim();
-  }
+  if (typeof v.note === 'string' && v.note.trim().length > 0) expense.note = v.note.trim();
+  else delete expense.note;
 
-  // ── Split passthrough — additive; absent on a fast-path expense ⇒ byte-identical ──
+  // ── Split — additive; absent on a fast-path expense ⇒ byte-identical ──
   // A non-empty string `paidBy`; a `split` reduced to its valid non-empty-string members (an empty
   // result drops the field, so `[]` never persists ⇒ a no-member split is just the fast path).
   if (typeof v.paidBy === 'string' && v.paidBy.length > 0) expense.paidBy = v.paidBy;
-  if (Array.isArray(v.split)) {
-    const members = v.split.filter((m): m is string => typeof m === 'string' && m.length > 0);
-    if (members.length > 0) expense.split = members;
-  }
+  else delete expense.paidBy;
+  const members = Array.isArray(v.split)
+    ? v.split.filter((m): m is string => typeof m === 'string' && m.length > 0)
+    : [];
+  if (members.length > 0) expense.split = members;
+  else delete expense.split;
 
-  // ── Sync v2 passthrough ──────────────────────────────
-  // Pass the additive sync/attribution fields through UNCHANGED when present. Dropping `hlc`
-  // here would break merge ordering and violate stamped-bytes expectation. A dormant
-  // expense has none of these ⇒ nothing is added ⇒ byte-identical.
+  // ── Sync v2 ──────────────────────────────
+  // Keep the additive sync/attribution fields UNCHANGED when present and well-typed. Dropping
+  // `hlc` here would break merge ordering and violate stamped-bytes expectation. A
+  // dormant expense has none of these ⇒ nothing is added ⇒ byte-identical.
   if (typeof v.rev === 'number' && Number.isFinite(v.rev)) expense.rev = v.rev;
+  else delete expense.rev;
   if (typeof v.hlc === 'string') expense.hlc = v.hlc;
+  else delete expense.hlc;
   if (typeof v.deleted === 'boolean') expense.deleted = v.deleted;
+  else delete expense.deleted;
   if (typeof v.createdBy === 'string' && v.createdBy.length > 0) expense.createdBy = v.createdBy;
+  else delete expense.createdBy;
   if (typeof v.updatedBy === 'string' && v.updatedBy.length > 0) expense.updatedBy = v.updatedBy;
+  else delete expense.updatedBy;
 
   return expense;
 }
 
 /**
  * Normalize an unknown (a parsed storage slot) into a valid `Expense[]`: drop anything that is
- * not an array, and drop each entry that `sanitizeExpense` cannot salvage. TOTAL — never throws.
+ * not an array, and drop each entry that `sanitizeExpense` cannot salvage. `opts` is threaded
+ * through unchanged; absent ⇒ strict (see `sanitizeExpense`). TOTAL — never throws.
  */
-export function sanitizeExpenses(value: unknown): Expense[] {
+export function sanitizeExpenses(value: unknown, opts: SanitizeOptions = {}): Expense[] {
   if (!Array.isArray(value)) return [];
   const out: Expense[] = [];
   for (const entry of value) {
-    const e = sanitizeExpense(entry);
+    const e = sanitizeExpense(entry, opts);
     if (e !== null) out.push(e);
   }
   return out;
