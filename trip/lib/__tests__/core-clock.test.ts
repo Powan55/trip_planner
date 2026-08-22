@@ -229,7 +229,7 @@ describe('S274 (D-224) — dayInTripFor offset branch + utcDayAtOffset (pure, TZ
 // home-time (America/New_York) phone. Both were wrong when the whole derivation ran at the
 // destination leg's offset, and neither is reachable from a `?today=` spec: an active override
 // passes `null` for the offset, so the frozen boundary matrix only ever runs the device branch.
-// See `docs/bug-hunt-2026-08.md` (DATES-1) and D-378's "Not done here".
+// See `docs/bug-hunt-2026-08.md` (DATES-1) and D-402's "Not done here".
 //
 // Each case re-imports the module — `trip-now` resolves the override ONCE per load and caches
 // it — with the system clock faked first, so the fresh module reads the faked instant.

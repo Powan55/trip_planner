@@ -115,7 +115,7 @@ as merged sections; see [Duplicates and out-of-repo items](#duplicates-and-out-o
 ## What was fixed, and what was deliberately not
 
 The `status` column above is the state after the fix pass on this same list: **51 fixed, 1 not
-fixed, 1 fix rejected**. The reasoning for each fix is in `DECISIONS.md`, D-378 through D-398 —
+fixed, 1 fix rejected**. The reasoning for each fix is in `DECISIONS.md`, D-402 through D-422 —
 the section headings name the finding ids, so a finding here maps to its entry by search.
 
 Two are open, and each for a different reason:
@@ -127,9 +127,9 @@ Two are open, and each for a different reason:
   in-code comment in `hooks/use-concierge-chat.ts` still asserts the Worker verifies membership —
   that assertion is wrong and is left flagged here rather than quietly reworded, because rewording
   it is the only part of this that could be done in this repo and it deserves to be decided
-  deliberately. See D-385, "not done here".
+  deliberately. See D-409, "not done here".
 - **SYNC-2 — the finding stands, the suggested fix is REJECTED.** See the amended Fix note in that
-  section and D-380.
+  section and D-404.
 
 Three have closed since the first pass, and are recorded here because the reasoning for holding them
 open is still worth having:
@@ -142,7 +142,7 @@ open is still worth having:
   `tripOffsetMinFor`. The second was rejected outright: `Journey.departDate` is authored in the
   departure airport's zone, so moving flight timing onto the destination offset would announce
   "Departing today" some sixteen hours early. Both write paths that default a new row's `date` from
-  `getTodayInTrip()` inherit the fix. See D-396, which also records what is NOT covered.
+  `getTodayInTrip()` inherit the fix. See D-420, which also records what is NOT covered.
 - **PWA-1 — `fixed`** (was `partial`; the payloads landed 2026-08-21). Fix (a) went first:
   `normalizePath` strips the `.txt` suffix, so an offline link tap resolves to the correct route's
   shell instead of Home — but as a hard reload, with the address bar still reading the `.txt` URL.
@@ -152,7 +152,7 @@ open is still worth having:
   install already 1.48 MiB, with a steady-state device cost of zero because the runtime `cacheFirst`
   already deposits the same 19 keys on the first online browse. A second decision came with it: for a
   `.txt` key the WHOLE search is dropped, not just `_rsc`, or the palette's `/plan/?focus=<id>`
-  navigation still misses the one entry that exists. See D-390, D-397 and D-398.
+  navigation still misses the one entry that exists. See D-414, D-421 and D-422.
 - **MONEY-1 — `fixed`** (was `partial`; the calendar seam closed 2026-08-21). The recap seam went
   first: `sumExpensesForDate` takes a `leg` and both recap surfaces pass the day's leg. The calendar
   seam is now closed too — `expensesByDate` skips a row whose `e.leg` is not
@@ -161,11 +161,11 @@ open is still worth having:
   argument, no shape change and no caller edit. The (date, leg) pair-keying this section proposed was
   rejected: it changes the shape `calendar-planner.tsx` and `calendar-day-picker.tsx` read and forces
   an undesigned answer to rendering two currencies in a 44px month-grid cell. Residual ceiling, named
-  in the code and in the D-392 addendum: a cross-leg row is excluded from every day view rather than
+  in the code and in the D-416 addendum: a cross-leg row is excluded from every day view rather than
   shown under its own symbol — it still counts in the leg total, the trip total and settle-up.
 
 Of the three entries in "Gaps in the checks", two are closed and one is not. **A11Y-5** is closed:
-`motion-loops.mjs` has a second pass over the source (D-394). **PWA-1**'s is closed: a spec in
+`motion-loops.mjs` has a second pass over the source (D-418). **PWA-1**'s is closed: a spec in
 `e2e/pwa-torn-update.spec.ts` now cold-loads offline and CLICKS `navbar-link-plan` — the first
 offline navigation in the suite that is not a `page.goto`. What it asserts is a `window` marker set
 before the click, not the `/plan/` title: the title and the shell-identity checks pass under the
@@ -488,7 +488,7 @@ Found independently by the sync and dates areas. Two halves of one root cause; r
   stored row and **the user's edit is reverted by the next snapshot** — silently, on all five
   domains, from a one-line change. The invariant is pinned by the R5 monotonicity case in
   `lib/__tests__/core-sync-hlc.test.ts`, which drives `last.pt` a thousand years ahead. Ruled on in
-  **`DECISIONS.md` D-380**, which also records that this move has now been proposed twice — both
+  **`DECISIONS.md` D-404**, which also records that this move has now been proposed twice — both
   times from a correct reading of docstrings that described the clamp as a live defence of the merge
   path.
 - **What was actually done.** The finding itself stands and is real: a documented guard with no
@@ -754,12 +754,12 @@ block from *any* source — checks date *shape* only. Recorded together.
   files) **and** delete the `_rsc` search param before the `caches.match`/`cacheFirst` lookup in the
   static-asset branch (see PWA-3) — without (b) the soft navigation still hard-reloads even though
   the payload is on disk.
-- **What was actually done.** Both halves, in two passes. (a) landed first (D-390, Decision 5) and
+- **What was actually done.** Both halves, in two passes. (a) landed first (D-414, Decision 5) and
   (b) followed once the install cost was re-measured over the wire instead of raw: +69.3 KiB gzipped
   as Pages serves it, on a 1.48 MiB install, with no steady-state device cost because the runtime
-  cache already held the same 19 keys after any online browse (D-397). (b) needed one more rule than
+  cache already held the same 19 keys after any online browse (D-421). (b) needed one more rule than
   this section names — the `_rsc` strip is not enough for a payload URL that carries a query, because
-  Next mutates only the pathname, so a `.txt` key drops its whole search (D-398). The root route's
+  Next mutates only the pathname, so a `.txt` key drops its whole search (D-422). The root route's
   payload is `out/index.txt`, which has no directory to end with, so the literal
   `rel.endsWith('/index.txt')` above is one entry short.
 
@@ -1242,7 +1242,7 @@ block from *any* source — checks date *shape* only. Recorded together.
   time" row into a false "Couldn't compare — this trip has no time zone set". (b) was rejected
   outright: `Journey.departDate` is authored in the departure airport's zone, so moving flight timing
   onto the destination offset would announce "Departing today" roughly sixteen hours early. Ruled on
-  in **`DECISIONS.md` D-396**.
+  in **`DECISIONS.md` D-420**.
 - **Still present, and named there as a second copy:** `lib/preflight.ts:324` derives its own `onTrip`
   from `dayInTripFor(real, tripOffsetMin)` — the destination offset alone — so the preflight clock-row
   symptom listed above (it flips from "Phone is on home time" to "Phone isn't on trip time" at 13:15
