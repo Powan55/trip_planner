@@ -4409,4 +4409,10 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Measured, not assumed.** With the tolerance removed outright and no baseline rewritten: 24 + 12 green on one pass, 72 + 36 green at `--repeat-each=3`, and 24 green again after a rebuild — 144 strict assertions, zero differing pixels. `--update-snapshots` was never run.
 
+### D-378 · (issue #160, 2026-08-21) · The five domain-sync effects collapse into one `useDomainSync` hook, gated through the port's own `isConfigured()`
+
+**Decision.** `hooks/use-domain-sync.ts` extracts the flush-then-subscribe wiring effect that `itinerary-provider.tsx` had copy-pasted five times (itinerary/expenses/budget/docs/places, ~260 lines total): `useDomainSync(outboxSync, storagePort, syncPort)`, called once per domain. Same shape as D-148's factory precedent (build exactly what the five call sites need, no `coreOps`-style generalization). Behavior is unchanged — flush on mount, `online`, and tab-return-visible; subscribe gated and reactive on `IDENTITY_CHANGED_EVENT` per D-240; D-149/D-150's `SyncPort`/outbox decorator are untouched, only their call site moved.
+
+**The places bug.** The old places effect gated on `isRemoteConfigured()` while its own comment said `isTripRemoteConfigured()` — drifted apart at some point. Places is per-trip (every write composes `trips/{getTripId()}/…`, retired to `''` on the default sample pack), and `placesSyncPort.isConfigured()`/`subscribe()` already gate on the stricter `isTripRemoteConfigured()` internally, so the outer mismatch never produced a bad write, just a redundant flush/subscribe call on the sample pack. Fixed at the root: the new hook's outer gate is `syncPort.isConfigured()` instead of a hardcoded `isRemoteConfigured()`, so each domain gates on exactly what its own port already declares — no per-domain special case needed, and the comment/code drift can't recur.
+
 **Changes if:** a Linux baseline set lands and the visual job goes blocking. Measure the antialiasing drift on that runner and set a value from the measurement — do not restore 2% from memory.
