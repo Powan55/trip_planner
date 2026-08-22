@@ -216,8 +216,8 @@ npm ci --legacy-peer-deps
 npm run dev
 ```
 
-`--legacy-peer-deps` is required, not optional: `cmdk`, `next-themes` and
-`sonner` pin React 18 peers against this app's React 19.
+`--legacy-peer-deps` is required, not optional: `@types/node` is pinned at
+20.6.2 and `vite@8` (via `vitest`) wants `^20.19.0 || >=22.12.0`.
 
 Tests:
 

@@ -4417,7 +4417,15 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** a Linux baseline set lands and the visual job goes blocking. Measure the antialiasing drift on that runner and set a value from the measurement — do not restore 2% from memory.
 
-### D-378 · (issue #179, 2026-08-21) · Amends D-362 · The visual job runs on `windows-latest`, matching the baselines, instead of staying `continue-on-error` on Linux forever
+### D-264 · Addendum · (issue #177, 2026-08-22) · All three React-18 peer pins are gone
+
+**Exit condition is met.** All three React-18 peer pins are gone — `cmdk 1.0.0→1.1.1`, `next-themes 0.3.0→0.4.6`, `sonner 1.5.0→2.0.8`. The `.npmrc` stays: a fourth, unrelated conflict was underneath it. `@types/node` is pinned at `20.6.2`; `vite@8` (via `@vitejs/plugin-react`/`vitest`) declares `peerOptional @types/node "^20.19.0 || >=22.12.0"`, fatal because the package is present.
+
+**New exit condition is a bump to `@types/node@20.19.0`.** Measured both directions: `--legacy-peer-deps=false` fails on `@types/node` alone with no mention of the three named packages, and bumping only `@types/node` to `20.19.0` resolves clean (747 packages, no ERESOLVE).
+
+**No call-site changes needed for `sonner@2.0.8`.** The major version was absorbed with no removed v2 API (`loadingIcon`, `pauseWhenPageIsHidden`, `cn`, `important`) in use here. It did break `next-themes/dist/types`, a subpath 0.4.6 no longer exports. D-264's a11y condition was discharged: `a11y.spec.ts`, `a11y-full-audit.spec.ts`, `a11y-intrip.spec.ts` all clean under 2.0.8.
+
+### D-379 · (issue #179, 2026-08-21) · Amends D-362 · The visual job runs on `windows-latest`, matching the baselines, instead of staying `continue-on-error` on Linux forever
 
 **Decision.** `.github/workflows/ci.yml` gets a new `visual` job on `runs-on: windows-latest`, gated the same way as `e2e` (`needs: checks`, `if: github.event_name == 'pull_request'`). It builds, installs Chromium, and runs `npm run test:e2e -- --grep visual` with no `continue-on-error` — a real, blocking check. The old Linux `Visual regression (advisory)` step is deleted from `e2e` outright rather than left in place unused; `e2e`'s `Behavioural suite` step already excludes visual specs (`--grep-invert visual`) and needed no change.
 
