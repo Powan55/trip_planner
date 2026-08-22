@@ -70,8 +70,8 @@ npm run dev
 
 Then open http://localhost:3000.
 
-> The `--legacy-peer-deps` flag is required, not optional: `cmdk`, `next-themes` and `sonner`
-> still pin React 18 peers against this app's React 19.
+> The `--legacy-peer-deps` flag is required, not optional: `@types/node` is pinned at 20.6.2
+> and `vite@8` (via `vitest`) wants `^20.19.0 || >=22.12.0`.
 > The service worker only registers in production builds, so offline support is not active
 > under `next dev`.
 

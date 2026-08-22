@@ -27,9 +27,6 @@ import {
 } from '@/lib/concierge-ops';
 import { describeClash } from '@/lib/sort-items-by-time';
 import { showUndoToast } from '@/lib/undo-toast';
-// Model output is UNTRUSTED input: only these href schemes become a real <a>; anything else
-// (`javascript:`, `data:`) renders as the literal `[text](url)` source text instead. The list moved
-// to `lib/safe-href.ts` unchanged, because the place-link boundary needs the same one.
 import { isSafeHref } from '@/lib/safe-href';
 
 /**

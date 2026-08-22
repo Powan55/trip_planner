@@ -1986,11 +1986,10 @@ body:has(form:focus-within) .door-kb {
 }
 
 /* ── Sonner toaster — lift above the mobile bottom tab bar ────
-   sonner 1.5.0's own `@media (max-width: 600px)` block HARD-SETS
-   `[data-sonner-toaster][data-y-position=bottom] { bottom: 20px }`, ignoring both
-   the `offset` prop and its `--mobile-offset` var for the bottom edge
-   (`--mobile-offset` is applied to left/right only — verified in dist/index.mjs).
-   So on phones a bottom toast overlapped the fixed tab bar (~45px at 390×844).
+   sonner's own `@media (max-width: 600px)` block sets
+   `[data-sonner-toaster][data-y-position=bottom] { bottom: var(--mobile-offset-bottom) }`,
+   which defaults to 16px and ignores the `offset` prop (that one drives `--offset-bottom`,
+   desktop only). So on phones a bottom toast overlapped the fixed tab bar (~45px at 390×844).
    This dependency-free override re-anchors the mobile bottom position above the
    bar, mirroring the FAB / layout padding idiom (`--tab-bar-h` is published by
    bottom-tab-bar.tsx, 64px fallback; safe-area inset + 8px breathing room).

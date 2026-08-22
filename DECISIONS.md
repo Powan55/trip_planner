@@ -4728,7 +4728,15 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **The one exception, and why it is not a move.** `core/sync/outbox.ts` needs two runtime predicates to answer “should I write?” — `isTripRemoteConfigured` and `getActiveTraveler`. That is a question about the runtime environment, not domain logic, and it has no core-side home today. Threading them through the `ChunkSync` recipe would add a parameter to every caller for no behavioural gain, on the sync path that carries the HLC and the merge algebra. So the rule is re-declared for that one file permitting exactly those two modules by negated glob: a *new* violation there still fails. It is not switched off.
 **Changes if:** `outbox.ts` needs a third `lib/` import — that is the signal it wants a core-side home, not another negation. Also open: `ItineraryCategory` and `ALL_CATEGORIES` live in `lib/`, so `core/content/schema.ts` and `core/budget/model.ts` still carry their own copies of the vocabulary and cannot reach the shared one under this rule. Moving the type into `core/` and making `lib/itinerary-category.ts` a re-export delegate — the shape used for `itinerary-storage` above — collapses the last two copies.
 
-### D-378 · (issue #179, 2026-08-21) · Amends D-362 · The visual job runs on `windows-latest`, matching the baselines, instead of staying `continue-on-error` on Linux forever
+### D-264 · Addendum · (issue #177, 2026-08-22) · All three React-18 peer pins are gone
+
+**Exit condition is met.** All three React-18 peer pins are gone — `cmdk 1.0.0→1.1.1`, `next-themes 0.3.0→0.4.6`, `sonner 1.5.0→2.0.8`. The `.npmrc` stays: a fourth, unrelated conflict was underneath it. `@types/node` is pinned at `20.6.2`; `vite@8` (via `@vitejs/plugin-react`/`vitest`) declares `peerOptional @types/node "^20.19.0 || >=22.12.0"`, fatal because the package is present.
+
+**New exit condition is a bump to `@types/node@20.19.0`.** Measured both directions: `--legacy-peer-deps=false` fails on `@types/node` alone with no mention of the three named packages, and bumping only `@types/node` to `20.19.0` resolves clean (747 packages, no ERESOLVE).
+
+**No call-site changes needed for `sonner@2.0.8`.** The major version was absorbed with no removed v2 API (`loadingIcon`, `pauseWhenPageIsHidden`, `cn`, `important`) in use here. It did break `next-themes/dist/types`, a subpath 0.4.6 no longer exports. D-264's a11y condition was discharged: `a11y.spec.ts`, `a11y-full-audit.spec.ts`, `a11y-intrip.spec.ts` all clean under 2.0.8.
+
+### D-379 · (issue #179, 2026-08-21) · Amends D-362 · The visual job runs on `windows-latest`, matching the baselines, instead of staying `continue-on-error` on Linux forever
 
 **Decision.** `.github/workflows/ci.yml` gets a new `visual` job on `runs-on: windows-latest`, gated the same way as `e2e` (`needs: checks`, `if: github.event_name == 'pull_request'`). It builds, installs Chromium, and runs `npm run test:e2e -- --grep visual` with no `continue-on-error` — a real, blocking check. The old Linux `Visual regression (advisory)` step is deleted from `e2e` outright rather than left in place unused; `e2e`'s `Behavioural suite` step already excludes visual specs (`--grep-invert visual`) and needed no change.
 

@@ -91,8 +91,8 @@ jobs:
           cache: npm
           cache-dependency-path: trip/package-lock.json
 
-      # --legacy-peer-deps is required, not optional: cmdk, next-themes and
-      # sonner all pin React 18 peers against this app's React 19.
+      # --legacy-peer-deps is required, not optional: @types/node is pinned at
+      # 20.6.2 and vite@8 (via vitest) wants ^20.19.0 || >=22.12.0.
       - name: Install
         run: npm ci --legacy-peer-deps
 
@@ -209,7 +209,7 @@ jobs:
   # out: the visual specs now run for real in the `visual` job below, on a runner
   # whose OS matches the committed baselines. Renaming this job would make the
   # required check never report again until branch protection is updated to match
-  # (owner-only, out of scope here) — see D-378.
+  # (owner-only, out of scope here) — see D-379.
   e2e:
     name: E2E (behavioural · visual advisory)
     needs: checks
@@ -262,7 +262,7 @@ jobs:
             trip/test-results
           retention-days: 14
 
-  # D-378 (amends D-362). The 36 committed baselines are Windows-canonical, so this
+  # D-379 (amends D-362). The 36 committed baselines are Windows-canonical, so this
   # job runs on windows-latest instead of matching the rest of CI — that is the whole
   # fix: same OS as the baselines means the platform-suffixed snapshot path Playwright
   # looks for actually exists, so this is a real compare, not a guaranteed miss.
