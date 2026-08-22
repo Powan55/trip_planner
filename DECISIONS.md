@@ -4410,3 +4410,11 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 **Measured, not assumed.** With the tolerance removed outright and no baseline rewritten: 24 + 12 green on one pass, 72 + 36 green at `--repeat-each=3`, and 24 green again after a rebuild — 144 strict assertions, zero differing pixels. `--update-snapshots` was never run.
 
 **Changes if:** a Linux baseline set lands and the visual job goes blocking. Measure the antialiasing drift on that runner and set a value from the measurement — do not restore 2% from memory.
+
+### D-264 · Addendum · (issue #177, 2026-08-22) · All three React-18 peer pins are gone
+
+**Exit condition is met.** All three React-18 peer pins are gone — `cmdk 1.0.0→1.1.1`, `next-themes 0.3.0→0.4.6`, `sonner 1.5.0→2.0.8`. The `.npmrc` stays: a fourth, unrelated conflict was underneath it. `@types/node` is pinned at `20.6.2`; `vite@8` (via `@vitejs/plugin-react`/`vitest`) declares `peerOptional @types/node "^20.19.0 || >=22.12.0"`, fatal because the package is present.
+
+**New exit condition is a bump to `@types/node@20.19.0`.** Measured both directions: `--legacy-peer-deps=false` fails on `@types/node` alone with no mention of the three named packages, and bumping only `@types/node` to `20.19.0` resolves clean (747 packages, no ERESOLVE).
+
+**No call-site changes needed for `sonner@2.0.8`.** The major version was absorbed with no removed v2 API (`loadingIcon`, `pauseWhenPageIsHidden`, `cn`, `important`) in use here. It did break `next-themes/dist/types`, a subpath 0.4.6 no longer exports. D-264's a11y condition was discharged: `a11y.spec.ts`, `a11y-full-audit.spec.ts`, `a11y-intrip.spec.ts` all clean under 2.0.8.
