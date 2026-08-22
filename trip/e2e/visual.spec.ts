@@ -98,6 +98,16 @@ function countdownMask(page: Page): Locator[] {
     page.getByTestId('countdown-minutes'),
     page.getByTestId('countdown-seconds'),
     page.getByTestId('countdown-total-days'),
+    // The ring itself (components/countdown-ring.tsx), not just the digit centered in
+    // it: its own docstring says "the ring value itself still updates live every
+    // second", same as the digits, but the frozen `?today=` fraction lands at (or
+    // extremely near) a full circle pre-trip, and `strokeLinecap="round"` at that
+    // fraction renders its seam with a sub-pixel anti-aliasing wobble that is NOT
+    // deterministic frame to frame on an identical build (confirmed: reran twice with
+    // zero code changes, got 3 then 4 differing pixels at the same spot, under the #135
+    // zero-tolerance diff). Masking the whole ring removes that noise instead of hiding
+    // a real one — the digit-only mask already established the same exemption.
+    page.getByTestId('countdown-ring'),
   ];
 }
 

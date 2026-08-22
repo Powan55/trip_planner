@@ -158,8 +158,33 @@ test.describe('the trip window is the DEVICE calendar, at both ends', () => {
     // in this window was being STORED as 2026-12-09, which is what makes it worth a spec.
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await seedDefaultIdentity(page);
-    await page.clock.install({ time: new Date('2026-12-08T18:15:00Z') });
+    // `clock.install({ time })` only seeds the START time — Date keeps ticking at the
+    // real wall-clock rate after that (Playwright's own docs: use `pauseAt` for a
+    // deterministic read). The target instant here lands EXACTLY on a whole-minute
+    // boundary (TRIP_START − now = 10:45:00.000), so any measurable page-load/hydration
+    // delay flips `countdown-minutes` from 45 to 44 before the first assertion — this
+    // was failing on every run, not flaking occasionally. Installing 30s before the
+    // intended instant and then `pauseAt`-ing to it once the page has loaded (the
+    // documented pattern) lets timers fire normally during load and then freezes the
+    // clock at the exact instant the assertions below require.
+    //
+    // `pauseAt` has to wait for the hero island to actually be mounted first — calling
+    // it right after `waitUntil:'load'` froze the fake clock (and therefore every
+    // setTimeout-driven chunk-load scheduling) before the client-only hero island's
+    // dynamic import had resolved, so nothing below the app shell ever mounted at all
+    // (not a countdown/day mismatch — the hero and everything after it stayed absent
+    // for the rest of the test). Waiting for ANY of the hero's three mutually-exclusive
+    // states to attach first guarantees hydration has already reached the hero before
+    // the clock — and its timers — are frozen.
+    await page.clock.install({ time: new Date('2026-12-08T18:14:30Z') });
     await page.goto('/', { waitUntil: 'load' });
+    await page
+      .locator(
+        '[data-testid="countdown-hours"], [data-testid="hero-travel-mode"], [data-testid="hero-post-trip"]',
+      )
+      .first()
+      .waitFor({ state: 'attached', timeout: 15000 });
+    await page.clock.pauseAt(new Date('2026-12-08T18:15:00Z'));
 
     await expect(page.getByTestId('hero-travel-mode')).toHaveCount(0);
     await expect(page.getByTestId('hero-day-number')).toHaveCount(0);
