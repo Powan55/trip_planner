@@ -86,7 +86,10 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     const raw = JSON.stringify({
       schemaVersion: 1,
       updatedAt: 'x',
-      payload: [E1, { id: 'bad', leg: 'nepal', category: 'not-a-category', amount: 1, createdAt: '' }],
+      // A missing id is the one thing left with no safe default (#150 widened category off the
+      // enum, so an unrecognized category no longer counts as malformed here — see the dedicated
+      // test below).
+      payload: [E1, { leg: 'nepal', category: 'food', amount: 1, createdAt: '' }],
     });
     const result = parseExpenseBackup(raw);
     expect(result.ok).toBe(true);
@@ -110,6 +113,22 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     if (result.ok) {
       expect(result.expenses.map((e) => e.id)).toEqual(['e1', 'm1']);
       expect(result.expenses[1].leg).toBe('main');
+    }
+  });
+
+  it('a row whose CATEGORY is unrecognized is IMPORTED, not dropped (#150)', () => {
+    // A backup taken on a newer build that shipped a category this build doesn't know. Used to
+    // hard-reject the whole row (`isCategory` in `sanitizeExpense`); now retained verbatim.
+    const raw = JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: 'x',
+      payload: [E1, { id: 'f1', leg: 'nepal', category: 'ferry', amount: 1, createdAt: '' }],
+    });
+    const result = parseExpenseBackup(raw);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.expenses.map((e) => e.id)).toEqual(['e1', 'f1']);
+      expect(result.expenses[1].category).toBe('ferry');
     }
   });
 
