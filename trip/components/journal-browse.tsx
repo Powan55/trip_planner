@@ -106,7 +106,7 @@ export default function JournalBrowse() {
           {datesDesc.map((date) => (
             <li key={date}>
               {editingDate === date ? (
-                <JournalCard date={date} />
+                <JournalCard date={date} isToday={false} />
               ) : (
                 <JournalRow
                   date={date}
@@ -253,7 +253,7 @@ function JournalPhotoThumb({ meta }: { meta: PhotoMeta }) {
         // eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and disables optimization anyway.
         <img src={url} alt={meta.altText} className="h-full w-full object-cover" />
       ) : (
-        <div className="h-full w-full animate-pulse bg-white/[0.04]" aria-hidden="true" />
+        <div className="h-full w-full motion-safe:animate-pulse bg-white/[0.04]" aria-hidden="true" />
       )}
 
       {meta.caption && !missing && (

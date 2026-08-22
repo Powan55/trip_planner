@@ -101,6 +101,17 @@ export const itineraryMigrations: Migration[] = [
 export const CURRENT_ITINERARY_VERSION = 5;
 
 /**
+ * A row the whole-array `map` steps above can be applied to without throwing: a non-null object
+ * whose `items` is absent/null (`?? []` handles it) or an array. Anything else — a `null` element,
+ * a bare string, `items: 5` — makes the step throw, which quarantines the WHOLE vault.
+ */
+function isMigratableDay(day: unknown): boolean {
+  if (day === null || typeof day !== 'object') return false;
+  const items = (day as { items?: unknown }).items;
+  return items === undefined || items === null || Array.isArray(items);
+}
+
+/**
  * Run the ordered migration chain from `fromVersion` up to `CURRENT_ITINERARY_VERSION`.
  *
  * - Picks each step whose `from` equals the running version, applies it, advances.
@@ -127,6 +138,13 @@ export function runItineraryMigrations(
         `[trip-vault] no migration step from schemaVersion ${version} (target ${targetVersion})`,
       );
     }
+    // #123 partial-beats-nothing, applied to the CHAIN: the steps are whole-array `map`s that throw
+    // on an unusable row, and they run BEFORE the per-row-degrading Zod read — so a pre-v5 vault
+    // with one malformed day quarantined the entire trip while the same bytes at v5 lost only that
+    // day. Dropping those rows here (not per-step) is what makes every current and future step
+    // inherit the rule; the survivors are still re-validated by `parseItineraryPayload`, which
+    // reports the drop through its existing "dropped N malformed row(s)" warn.
+    if (Array.isArray(current)) current = current.filter(isMigratableDay);
     current = step.migrate(current);
     version = step.to;
   }

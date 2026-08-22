@@ -615,14 +615,19 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
     popup.setLngLat([marker.lng, marker.lat]).setDOMContent(holder).addTo(map);
     setPopupNode(holder);
     setPopupMarker(marker);
-    if (!prefersReducedMotion()) {
-      // seat the marker BELOW the container centre so the popup (anchored
-      // above the marker) opens fully inside the map-shell — clear of the shell's
-      // own `overflow-hidden` clip AND of the fixed navbar band. A5's 17px body grew
-      // the popup enough that a centred marker pushed its top controls (the favourite
-      // heart) above the shell/under the navbar, where they were click-intercepted.
-      map.easeTo({ center: [marker.lng, marker.lat], offset: POPUP_VIEW_OFFSET, duration: 400 });
-    }
+    // seat the marker BELOW the container centre so the popup (anchored
+    // above the marker) opens fully inside the map-shell — clear of the shell's
+    // own `overflow-hidden` clip AND of the fixed navbar band. A5's 17px body grew
+    // the popup enough that a centred marker pushed its top controls (the favourite
+    // heart) above the shell/under the navbar, where they were click-intercepted.
+    // The offset is a LAYOUT correction, so reduced motion picks the DURATION, not
+    // whether the move happens — same shape as `focusMarker` below. Gating the whole
+    // call left reduced-motion users with a clipped close button and heart.
+    map.easeTo({
+      center: [marker.lng, marker.lat],
+      offset: POPUP_VIEW_OFFSET,
+      duration: prefersReducedMotion() ? 0 : 400,
+    });
   }, []);
 
   // search-within-map: fly the camera to `marker` then open its popup.

@@ -166,7 +166,10 @@ export function weatherTagForDay(day: ForecastDay | null): WeatherTag | null {
 export function formatWeatherAsOf(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleString(undefined, {
+  // 'en-US' EXPLICITLY, like `core/dates/trip-dates.ts`'s formatters and `day-strip.tsx`: with
+  // `undefined` this label followed the device language, so a phone set to Japanese rendered
+  // "8/21 10:05" next to the card's English copy and its hand-rolled "6:42 AM" golden-hour times.
+  return d.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     hour: 'numeric',

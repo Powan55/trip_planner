@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Download, Check, AlertTriangle } from 'lucide-react';
 import { signOut } from '@/lib/token-auth';
-import { downloadTripBackup } from '@/core/vault/backup';
+import { downloadTripBackup } from '@/lib/trip-backup';
 import { defaultBlobStore } from '@/core/photos/blob-store';
 import {
   AlertDialog,

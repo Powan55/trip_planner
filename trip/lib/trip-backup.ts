@@ -19,9 +19,12 @@
  * quarantined (via the itinerary corrupt slot) and rejected. A recognized full backup whose
  * `tripId` does not match the currently ACTIVE trip is refused outright (A-5) — export trip A,
  * switch to trip B, restore, and without this check every domain of B silently becomes A's. A
+ * legacy itinerary-only file carries no trip id, so the same rule is applied to its DATES. A
  * malformed single domain is DROPPED (its current on-disk data left untouched), never aborting
  * the whole restore.
- * Phase B — commit each successfully-parsed domain via its existing accessor. Photo blobs are
+ * Phase B — commit each successfully-parsed domain via its existing accessor, and for the four
+ * SYNCED domains through the outbox-decorated push as well, so a restore is not unwound by the
+ * next server snapshot (`enqueueRestored`). Photo blobs are
  * written FIRST (id-preserving `putWithId`, so meta↔blob links survive) then the meta index; a
  * blob that fails to store leaves its meta as a placeholder and increments `photosSkipped`.
  * The caller reloads afterwards to re-hydrate every store.
@@ -42,6 +45,12 @@ import {
   type TripScopedSlot,
 } from '@/core/storage/gateway';
 import { myPlacesStore } from '@/core/storage/my-places-store';
+import { getActiveTrip } from '@/core/trips';
+import type { StoragePort, SyncPort } from '@/core/ports';
+import { expensesSyncPort, expensesStoragePort } from '@/lib/expenses-ports';
+import { budgetSyncPort, budgetStoragePort } from '@/lib/budget-ports';
+import { docsSyncPort, docsStoragePort } from '@/lib/docs-ports';
+import { placesSyncPort, myPlacesStoragePort } from '@/lib/places-ports';
 import { sanitizeEntries } from '@/core/journal/model';
 import { sanitizeExpenses } from '@/core/budget/expenses';
 import { normalizeModel } from '@/core/budget/model';
@@ -54,7 +63,7 @@ import { loadPhotos, savePhotos } from '@/core/photos/storage';
 import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
 import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
 import { exportItinerary, parseBackup } from '@/core/vault/export-import';
-import { savePlans } from '@/lib/itinerary-storage';
+import { savePlans } from '@/core/vault/storage';
 import type { DayPlan } from '@/lib/trip-data';
 
 /** Export filenames (moved here from `backup-restore.tsx` — Ruling 2 pure lift, so the ONE
@@ -111,7 +120,34 @@ type DomainSpec = {
   read: () => unknown;
   write: (cleaned: unknown) => void;
   validate: (parsed: unknown) => unknown | null;
+  /** SYNCED domains only — see `enqueueRestored`. Reads the pre-restore local state, so it MUST be
+   * called before `write`. Absent ⇒ the domain is genuinely local-only and a bare write is enough. */
+  enqueueRestore?: (cleaned: unknown) => void;
 };
+
+/**
+ * Make a restored domain's value survive the next server snapshot, instead of being silently
+ * unwound by it.
+ *
+ * The bare `spec.write` below is a gateway write: it never reaches `commit()`, so nothing is
+ * enqueued in the sync outbox. On the reload that follows a restore, the first remote snapshot
+ * takes its "remote is authoritative" branch for every chunk that is present remotely and NOT
+ * dirty — which was all of them — and overwrote the just-restored rows while the UI reported
+ * success. Only the itinerary escaped that, via the `CommitItinerary` dual path.
+ *
+ * So route the restored value through the domain's EXISTING outbox-decorated push (`withOutbox`,
+ * the same seam every ordinary edit uses): the write-ahead enqueue is synchronous, so the dirty
+ * chunks are on disk before the reload, and the first snapshot takes the MERGE branch for them.
+ * Self-gating — dormant/guest builds no-op, exactly as before.
+ *
+ * KNOWN CEILING: merge, not tombstone-replace. A row the backup DROPPED (present remotely, absent
+ * in the file) survives the merge, where the itinerary's `restorePlans` would tombstone it. Fixing
+ * that needs a restore-shaped commit on each of the four domains (only expenses has one today);
+ * upgrade path is to inject those the way `commitItinerary` is injected.
+ */
+function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => void {
+  return (cleaned) => void port.push(storage.load(), cleaned as T);
+}
 
 // Declared with `satisfies` rather than a `: Record<string, DomainSpec>` annotation so `keyof typeof
 // DOMAINS` below stays the literal key union instead of widening to `string` — the annotation would
@@ -126,11 +162,13 @@ const DOMAINS = {
     read: () => expensesStore.get<unknown>(ABSENT),
     write: (v) => expensesStore.set(v),
     validate: (v) => (Array.isArray(v) ? sanitizeExpenses(v) : null),
+    enqueueRestore: enqueueRestored(expensesSyncPort, expensesStoragePort),
   },
   budget: {
     read: () => budgetStore.get<unknown>(ABSENT),
     write: (v) => budgetStore.set(v),
     validate: (v) => (isPlainObject(v) ? normalizeModel(v) : null),
+    enqueueRestore: enqueueRestored(budgetSyncPort, budgetStoragePort),
   },
   docsChecklist: {
     read: () => docsStore.get<unknown>(ABSENT),
@@ -138,6 +176,7 @@ const DOMAINS = {
     // fallback=[] so an imported empty/garbage array does NOT inject the built-in template here;
     // the docs store re-seeds its template on the next read if the slot ends up empty.
     validate: (v) => (Array.isArray(v) ? sanitizeDocs(v, []) : null),
+    enqueueRestore: enqueueRestored(docsSyncPort, docsStoragePort),
   },
   packing: {
     read: () => packingStore.get<unknown>(ABSENT),
@@ -172,6 +211,7 @@ const DOMAINS = {
     read: () => myPlacesStore.get<unknown>(ABSENT),
     write: (v) => myPlacesStore.set(v),
     validate: (v) => (Array.isArray(v) ? sanitizePlaces(v) : null),
+    enqueueRestore: enqueueRestored(placesSyncPort, myPlacesStoragePort),
   },
 } satisfies Record<string, DomainSpec>;
 
@@ -335,6 +375,21 @@ export async function importTripBackup(
   if (!isTripBackup(parsed)) {
     const pr = parseBackup(text);
     if (!pr.ok) return { ok: false, error: pr.error };
+    // A-5 on the COMMIT, not on the envelope field. The legacy itinerary-only envelope
+    // (`{schemaVersion, updatedAt, payload}`) carries no trip identity at all, so it used to sail
+    // past the `env.tripId` check three lines below and replace whatever trip happened to be
+    // active — and under sync `commitItinerary` is `restorePlans`, which propagates that
+    // replacement to every other member. The only identity such a file carries is its DATES, so
+    // that is what gets checked: at least one day has to fall inside the active trip's span. A
+    // legitimate same-trip restore costs nothing (every day is in span, by construction); an empty
+    // payload is refused too, since committing it is the whole-trip wipe D-098 exists to prevent.
+    const trip = getActiveTrip();
+    if (!pr.plans.some((d) => d.date >= trip.start && d.date <= trip.end)) {
+      return {
+        ok: false,
+        error: 'This backup is from a different trip. Switch to that trip, then restore it there.',
+      };
+    }
     commitItinerary(pr.plans);
     return { ok: true, restored: ['itinerary'], photosSkipped: 0 };
   }
@@ -403,6 +458,8 @@ export async function importTripBackup(
   // literal keys — the cast is safe because `slot` only ever came FROM `Object.entries(DOMAINS)`.
   const domainsBySlot = DOMAINS as Record<string, DomainSpec>;
   for (const [slot, cleaned] of domainWrites) {
+    // Enqueue BEFORE the write: it reads the pre-restore local state as the push's `prev`.
+    domainsBySlot[slot].enqueueRestore?.(cleaned);
     domainsBySlot[slot].write(cleaned);
     restored.push(slot);
   }

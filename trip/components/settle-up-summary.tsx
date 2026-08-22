@@ -2,7 +2,7 @@
 
 import { ArrowRight, Users } from 'lucide-react';
 import { formatMoney } from '@/core/budget/model';
-import type { LegSettlement } from '@/core/budget/settlement';
+import { EPS, type LegSettlement } from '@/core/budget/settlement';
 import { rosterAccent } from '@/lib/token-auth';
 import { legLabel } from '@/lib/leg-label';
 
@@ -43,7 +43,10 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
               {/* Per-person net */}
               <ul className="flex flex-wrap gap-2" data-testid={`settle-up-balances-${s.leg}`}>
                 {balances.map(([id, net]) => {
-                  const settled = Math.abs(net) < 0.5;
+                  // `settle()`'s own tolerance, not a hardcoded half unit: a 0.5 threshold is a
+                  // whole-unit assumption (NPR/JPY) and called every USD balance under 50 cents
+                  // "settled" while the transfer list below printed the payment still owed.
+                  const settled = Math.abs(net) < EPS;
                   return (
                     <li
                       key={id}

@@ -11,7 +11,13 @@ import {
   IDENTITY_CHANGED_EVENT,
   DEFAULT_TRAVELER_NAME,
 } from '@/lib/token-auth';
-import { getActiveTripId, DEFAULT_TRIP_ID, tripMetaSelfHealGuard, getSyncCode } from '@/core/storage/gateway';
+import {
+  getActiveTripId,
+  DEFAULT_TRIP_ID,
+  tripMetaSelfHealGuard,
+  getSyncCode,
+  nameHintFlag,
+} from '@/core/storage/gateway';
 import { getKnownTrip, renameKnownTrip, setTripConfig, SHARED_NAME } from '@/core/trips/registry';
 import { itineraryStoragePort, itineraryOutboxSync, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { expensesSyncPort, expensesOutboxSync, expensesStoragePort } from '@/lib/expenses-ports';
@@ -58,9 +64,7 @@ const ItineraryContext = createContext<ItineraryStore | null>(null);
  * whole provider tree. SSR-safe (no-op without `window`).
  */
 export function consumeNameHint(): void {
-  if (typeof window === 'undefined') return;
-  if (sessionStorage.getItem('name-hint') !== '1') return;
-  sessionStorage.removeItem('name-hint');
+  if (!nameHintFlag.consume()) return;
   toast("You're signed in as Traveler — rename yourself in Settings.", {
     action: {
       label: 'Settings',
@@ -187,7 +191,12 @@ export function createSyncCodeTripListSync(): { activate: () => void; teardown: 
     void import('@/lib/trips-remote')
       .then(({ subscribeTripList }) => {
         if (token !== loadToken) return; // torn down / re-armed since this import began
-        unsubscribe = subscribeTripList(code);
+        // A merge that moves the active-trip pointer takes the SAME switch primitive as a local
+        // switch — pointer write, then a full reload — because the pack constants are frozen at
+        // module evaluation (core/trips/registry).
+        unsubscribe = subscribeTripList(code, (activeTripChanged) => {
+          if (activeTripChanged) window.location.reload();
+        });
       })
       .catch((err) => {
         console.warn('[itinerary-provider] sync-code subscribe unavailable:', err);

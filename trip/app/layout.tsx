@@ -50,6 +50,12 @@ export const metadata = {
   icons: {
     icon: withBasePath('/favicon.svg'),
     shortcut: withBasePath('/favicon.svg'),
+    // `apple` is basePath-critical, not decoration: with no <link rel="apple-touch-icon">
+    // in the HTML, iOS "Add to Home Screen" falls back to <origin>/apple-touch-icon.png —
+    // powan55.github.io/apple-touch-icon.png, outside /trip_planner — which 404s, so the
+    // home-screen icon becomes a screenshot. gen-icons.mjs emits the file and gen-sw.mjs
+    // already precaches it; nothing referenced it.
+    apple: withBasePath('/icons/apple-touch-icon.png'),
   },
   // manifest is emitted at build time by scripts/gen-sw.mjs
   // (single basePath prefix source), so withBasePath here matches its start_url.

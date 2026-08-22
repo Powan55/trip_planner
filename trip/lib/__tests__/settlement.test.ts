@@ -7,9 +7,15 @@ import { describe, it, expect } from 'vitest';
  * Also pins that `paidBy`/`split` survive the S142 `mergeItems` row merge (no new sync code).
  */
 
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
+import { act } from 'react-dom/test-utils';
 import { settle, type LegSettlement } from '@/core/budget/settlement';
 import { sanitizeExpense, type Expense } from '@/core/budget/expenses';
 import { mergeItems } from '@/core/sync/merge-items';
+import SettleUpSummary from '@/components/settle-up-summary';
+
+(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
 const ROSTER = ['Powan', 'Sushil', 'Uttam'];
 
@@ -223,5 +229,98 @@ describe('paidBy/split — sanitize passthrough + mergeItems row merge (S142, no
     // Higher HLC wins (remote) and its split fields ride the merge with no extra sync handling.
     expect(winner.paidBy).toBe('Sushil');
     expect(winner.split).toEqual(['Sushil', 'Uttam']);
+  });
+});
+
+// ── The tie-break is the id, never the roster ─────────────────────────────────────────────────
+// D-333 removed the identity ARGUMENT but an identity-derived value kept flowing in through
+// `travelers`: `rosterForActiveTrip` puts the signed-in traveller first on a custom trip
+// (`lib/token-auth.ts`), and `minimalTransfers` ranked equal-magnitude ties by that order. So the
+// "A → B" instructions the Settle up card prints differed per device for byte-identical rows,
+// which is exactly what `settle()`'s own header promises cannot happen. The D-333 test above
+// passes a FIXED roster and varies only the identity, so it never saw this.
+describe('settle — roster ORDER cannot change the answer (identity-free tie-break)', () => {
+  // Two creditors at +100 and two debtors at −100: the tie the greedy solver has to break.
+  const rows = [
+    exp({ paidBy: 'Ana', split: ['Ana', 'Bo'], amount: 200 }),
+    exp({ paidBy: 'Dee', split: ['Dee', 'Cal'], amount: 200 }),
+  ];
+
+  it('the same expenses settle identically on every device, whoever is listed first', () => {
+    const onAnasPhone = settle(rows, ['Ana', 'Bo', 'Dee', 'Cal']); // Ana signed in ⇒ "me" first
+    const onCalsPhone = settle(rows, ['Cal', 'Ana', 'Bo', 'Dee']); // Cal signed in, same rows
+    expect(onCalsPhone).toEqual(onAnasPhone);
+    // NON-VACUOUS: the tie is real, and each side is actually told to pay someone.
+    expect(onAnasPhone[0].transfers).toEqual([
+      { from: 'Bo', to: 'Ana', amount: 100 },
+      { from: 'Cal', to: 'Dee', amount: 100 },
+    ]);
+  });
+
+  it('an empty roster settles the same as any roster (nothing arithmetic reads it)', () => {
+    expect(settle(rows)).toEqual(settle(rows, ['Cal', 'Ana', 'Bo', 'Dee']));
+  });
+});
+
+// ── The "settled" chip and the transfer list under it must agree ──────────────────────────────
+// The chip used `Math.abs(net) < 0.5`, a whole-unit threshold written for NPR/JPY, while
+// `settle()` rounds a USD leg to CENTS and emits a transfer for anything over EPS. Every custom
+// trip is a USD leg (`core/trips/custom.ts`), so on those trips the card called a sub-50-cent
+// debt "settled" and printed the payment that clears it, in the same box. Rendered rather than
+// asserted on a copy of the predicate: the defect was only ever visible on screen.
+describe('SettleUpSummary — a USD balance under half a unit is NOT settled', () => {
+  const settlements: LegSettlement[] = [
+    {
+      leg: 'nepal', // leg id only labels the block; the currency is what this test is about
+      currency: 'USD',
+      balances: { Ana: -0.3, Bo: 0.3 },
+      transfers: [{ from: 'Ana', to: 'Bo', amount: 0.3 }],
+    },
+  ];
+
+  function render(): { container: HTMLElement; unmount(): void } {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() => root.render(createElement(SettleUpSummary, { settlements })));
+    return {
+      container,
+      unmount() {
+        act(() => root.unmount());
+        container.remove();
+      },
+    };
+  }
+
+  it('prints what each side owes, not "settled", while a transfer is listed', () => {
+    const r = render();
+    const debtor = r.container.querySelector('[data-testid="settle-up-balance-nepal-Ana"]');
+    const creditor = r.container.querySelector('[data-testid="settle-up-balance-nepal-Bo"]');
+    expect(debtor?.textContent).toContain('owes $0.3');
+    expect(creditor?.textContent).toContain('is owed $0.3');
+    expect(r.container.textContent).not.toContain('settled');
+    // The transfer is still there — this is the line the chip used to contradict.
+    expect(
+      r.container.querySelector('[data-testid="settle-up-transfer-nepal-Ana-Bo"]')?.textContent,
+    ).toContain('$0.3');
+    r.unmount();
+  });
+
+  it('an exactly-zero balance still reads "settled"', () => {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root = createRoot(container);
+    act(() =>
+      root.render(
+        createElement(SettleUpSummary, {
+          settlements: [{ leg: 'nepal', currency: 'USD', balances: { Ana: 0 }, transfers: [] }],
+        }),
+      ),
+    );
+    expect(
+      container.querySelector('[data-testid="settle-up-balance-nepal-Ana"]')?.textContent,
+    ).toContain('settled');
+    act(() => root.unmount());
+    container.remove();
   });
 });

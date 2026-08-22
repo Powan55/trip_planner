@@ -204,6 +204,34 @@ describe('sumExpensesForDate (S153 — the recap↔budget spend line)', () => {
     sumExpensesForDate(expenses, '2026-12-09');
     expect(JSON.stringify(expenses)).toBe(snapshot);
   });
+
+  // A day is one leg; an EXPENSE is not. The log dialog keeps `date` pinned to the day it was
+  // opened on while the leg chip is a one-tap override, so "paid for Japan while still in Nepal"
+  // is a legal row. Summing the date alone handed that ¥50,000 to a Nepal day, where both recap
+  // surfaces format the figure with the DAY's currency — "Rs 50,000" — and with rows from both
+  // legs on one date it added NPR to JPY.
+  it('sums only the requested LEG, so the figure and the currency it is printed in agree', () => {
+    const expenses = [
+      expense({ id: 'n', date: '2026-12-10', leg: 'nepal', amount: 2000 }),
+      expense({ id: 'j', date: '2026-12-10', leg: 'japan', amount: 50000 }), // same day, other leg
+    ];
+    expect(sumExpensesForDate(expenses, '2026-12-10', 'nepal')).toBe(2000);
+    expect(sumExpensesForDate(expenses, '2026-12-10', 'japan')).toBe(50000);
+    // Without a leg it is still the whole day — the pre-existing, cross-currency shape.
+    expect(sumExpensesForDate(expenses, '2026-12-10')).toBe(52000);
+  });
+
+  it('EXCLUDES a retained unknown-leg row, exactly like expensesToSpent / expensesByDate', () => {
+    // `sanitizeExpense` keeps a row whose leg the active pack does not know (dropping it deleted
+    // real data), so every aggregate has to filter it or the recap and the budget disagree about
+    // which rows count — `burn-rate.ts` states that invariant and this function had no guard.
+    const expenses = [
+      expense({ id: 'ok', date: '2026-12-10', leg: 'nepal', amount: 1000 }),
+      expense({ id: 'foreign', date: '2026-12-10', leg: 'main' as Expense['leg'], amount: 9999 }),
+    ];
+    expect(sumExpensesForDate(expenses, '2026-12-10')).toBe(1000);
+    expect(sumExpensesForDate(expenses, '2026-12-10', 'main')).toBe(0);
+  });
 });
 
 describe('isPostTrip (S156 — the post-trip mode derivation)', () => {

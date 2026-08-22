@@ -19,6 +19,11 @@ import type { Page } from '@playwright/test';
  * The frozen S82 `?today=` boundary matrix (`e2e/countdown.spec.ts`) is run SEPARATELY,
  * unchanged, as the regression guard for the untouched override branch (D-224: "ZERO risk to
  * the frozen S82 matrix — that net runs only through the untouched override branch").
+ *
+ * Amended: the offset names WHICH trip day it is, but the DEVICE calendar decides whether we
+ * are inside the trip window at all — see the third describe below for the two ends, where
+ * deriving both from the offset put the hero a day ahead of the phone, the countdown and the
+ * flights card.
  */
 
 const DEFAULT_TOKEN = 'Powan';
@@ -131,6 +136,82 @@ test.describe('S274 (D-224) — boundary sharpness at Kathmandu midnight (18:15 
     await page.reload({ waitUntil: 'load' });
     await expect(page.getByTestId('hero-day-number')).toHaveText('11');
     await expect(page.getByTestId('hero-travel-mode')).toContainText('Osaka');
+  });
+});
+
+test.describe('the trip window is the DEVICE calendar, at both ends', () => {
+  test.use({ timezoneId: 'America/New_York' });
+
+  // The offset branch above answers "which trip day is it" correctly and used to answer
+  // "are we on the trip at all" as well — at the destination offset, 10h45m ahead of the
+  // phone. Nothing else in the app agreed: `TRIP_START`, `getFlightTiming` and
+  // `elapsedInclusiveDays` all read the device calendar. Neither instant below is reachable
+  // from a `?today=` spec — an active override passes `null` for the offset, so the frozen
+  // boundary matrix in `e2e/countdown.spec.ts` runs the device branch only.
+
+  test('18:15Z Dec 8 (13:15 EST, the night before) -> countdown, NOT Day 1 (Kathmandu is already on Dec 9)', async ({
+    page,
+  }) => {
+    // 18:15Z is Kathmandu midnight, which is what used to flip the hero. The phone reads
+    // 13:15 EST on Dec 8 and TRIP_START (Dec 9 00:00 LOCAL = 05:00Z) is 10h45m away, so the
+    // countdown grid is what belongs here — the traveller has not left yet. An expense logged
+    // in this window was being STORED as 2026-12-09, which is what makes it worth a spec.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await seedDefaultIdentity(page);
+    // `clock.install({ time })` only seeds the START time — Date keeps ticking at the
+    // real wall-clock rate after that (Playwright's own docs: use `pauseAt` for a
+    // deterministic read). The target instant here lands EXACTLY on a whole-minute
+    // boundary (TRIP_START − now = 10:45:00.000), so any measurable page-load/hydration
+    // delay flips `countdown-minutes` from 45 to 44 before the first assertion — this
+    // was failing on every run, not flaking occasionally. Installing 30s before the
+    // intended instant and then `pauseAt`-ing to it once the page has loaded (the
+    // documented pattern) lets timers fire normally during load and then freezes the
+    // clock at the exact instant the assertions below require.
+    //
+    // `pauseAt` has to wait for the hero island to actually be mounted first — calling
+    // it right after `waitUntil:'load'` froze the fake clock (and therefore every
+    // setTimeout-driven chunk-load scheduling) before the client-only hero island's
+    // dynamic import had resolved, so nothing below the app shell ever mounted at all
+    // (not a countdown/day mismatch — the hero and everything after it stayed absent
+    // for the rest of the test). Waiting for ANY of the hero's three mutually-exclusive
+    // states to attach first guarantees hydration has already reached the hero before
+    // the clock — and its timers — are frozen.
+    await page.clock.install({ time: new Date('2026-12-08T18:14:30Z') });
+    await page.goto('/', { waitUntil: 'load' });
+    await page
+      .locator(
+        '[data-testid="countdown-hours"], [data-testid="hero-travel-mode"], [data-testid="hero-post-trip"]',
+      )
+      .first()
+      .waitFor({ state: 'attached', timeout: 15000 });
+    await page.clock.pauseAt(new Date('2026-12-08T18:15:00Z'));
+
+    await expect(page.getByTestId('hero-travel-mode')).toHaveCount(0);
+    await expect(page.getByTestId('hero-day-number')).toHaveCount(0);
+    await expect(page.getByTestId('hero-post-trip')).toHaveCount(0);
+
+    // Reduced motion is pinned above, so the count-up reports the final value immediately
+    // (D-056b) — these are exact, not settling.
+    await expect(page.getByTestId('countdown-hours')).toHaveText('10');
+    await expect(page.getByTestId('countdown-minutes')).toHaveText('45');
+  });
+
+  test('15:00Z Jan 9 (10:00 EST on the last day) -> still Day 32, not the post-trip panel', async ({
+    page,
+  }) => {
+    // The mirror case. Tokyo has already rolled to Jan 10, which is outside TRIP_DATES, so
+    // deriving membership at the destination offset ended the trip while the traveller was
+    // still on it — `getTodayInTrip()` went null and the hero flipped to "Trip complete" on
+    // the morning of day 32. The device day is Jan 9, so the trip is still on.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await seedDefaultIdentity(page);
+    await page.clock.install({ time: new Date('2027-01-09T15:00:00Z') });
+    await page.goto('/', { waitUntil: 'load' });
+
+    await expect(page.getByTestId('hero-travel-mode')).toBeVisible();
+    await expect(page.getByTestId('hero-day-number')).toHaveText('32');
+    await expect(page.getByTestId('hero-travel-mode')).toContainText('Tokyo');
+    await expect(page.getByTestId('hero-post-trip')).toHaveCount(0);
   });
 });
 

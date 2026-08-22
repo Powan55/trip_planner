@@ -233,18 +233,18 @@ number, country dot, item-count badge) are `aria-hidden` and were not tagged.
 Whole-trip export/import panel (S92, D-098). S322 (A4) moved it off `/plan` into the Settings
 "Data management" group (`components/settings-panel.tsx`, section 31), a native `<details>` group
 that must be expanded (`settings-group-data-toggle`) before these controls are reachable. Distinct
-`backup-*` surface prefix. The panel drives the pure `core/vault/export-import.ts`
-(`exportItinerary` / `importItinerary`), which reuses the Vault schema and migration runner
-(D-095/D-096).
+`backup-*` surface prefix. The panel drives `lib/trip-backup.ts`
+(`downloadTripBackup` / `importTripBackup`), which composes every domain's port and reuses the
+Vault schema and migration runner (D-095/D-096).
 
 | testid | element | notes |
 |---|---|---|
 | `backup-restore` | the `<section>` root | Always present once the island mounts (its visibility is the E2E "panel is up" signal). |
-| `backup-export-button` | the "Export trip" `<button>` | Triggers a client-side Blob download of `nepal-japan-trip.json` (the v3 Vault envelope). On success `backup-status` shows. |
+| `backup-export-button` | the "Export trip" `<button>` | Triggers a client-side Blob download of `nepal-japan-trip-backup.json.gz` (`.json` where `CompressionStream` is absent). On success `backup-status` shows. |
 | `backup-import-trigger` | the "Choose backup file" `<button>` | A styled proxy that opens the hidden file input (`.click()`); the input itself carries the id below. |
 | `backup-import-input` | the real `<input type="file">` | Visually `sr-only` but keyboard-reachable + `aria-label`led. E2E drives it directly via `setInputFiles`. Reading a file opens the confirm dialog; it does not import yet. |
 | `backup-confirm-dialog` | the confirm overlay `<div role="dialog" aria-modal>` | Only mounted while an import is pending (a file was read). Carries the explicit **shared-trip** replace warning (D-098 flag). |
-| `backup-confirm-import` | the "Replace trip" `<button>` | Confirms → runs `importItinerary`. On success `backup-status`; on any failure `backup-error` (and the live trip is untouched, D-098). |
+| `backup-confirm-import` | the "Replace trip" `<button>` | Confirms → runs `importTripBackup`. On success `backup-status`; on any failure `backup-error` (and the live trip is untouched, D-098). |
 | `backup-confirm-cancel` | the "Cancel" `<button>` | Dismisses the dialog and discards the pending file; nothing is written. |
 | `backup-status` | the success `<p aria-live="polite">` | Rendered only in the success state (export done, or import applied). Mutually exclusive with `backup-error`. |
 | `backup-error` | the error `<p role="alert">` | Rendered only in the error state (a rejected import, or an export/read failure). The message is safe and user-facing, and the current trip is never destroyed. |

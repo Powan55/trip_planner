@@ -105,6 +105,25 @@ describe('v3→v4 migration step', () => {
     expect(runItineraryMigrations(noItems, 3)).toEqual(noItems);
   });
 
+  it('#123 in the CHAIN: one unusable row is dropped, not fatal — a pre-v5 vault keeps its good days', () => {
+    // The steps are whole-array `map`s, so `null.items` threw, `runItineraryMigrations` threw, and
+    // loadItinerary quarantined the WHOLE vault back to the fallback — while the same bytes stamped
+    // v5 (no migrations to run) lost only the bad row. `items: 5` is the same trap one level down.
+    const good: DayPlan = { date: '2026-12-10', city: 'Kathmandu', country: 'nepal', items: [] };
+    const dirty = [null, good, { date: '2026-12-11', city: 'K', country: 'nepal', items: 5 }];
+
+    expect(() => runItineraryMigrations(dirty, 3)).not.toThrow();
+    expect(runItineraryMigrations(dirty, 3)).toEqual([good]);
+
+    // End to end through the read path: v3 on disk ⇒ 1 day, no quarantine (NOT the 1-day FALLBACK).
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ schemaVersion: 3, updatedAt: 'x', payload: dirty }),
+    );
+    expect(loadItinerary(cfg)).toEqual([good]);
+    expect(localStorage.getItem(QUARANTINE_KEY)).toBeNull();
+  });
+
   it('respects an already-present field (does not clobber an item that already has rev/hlc/deleted)', () => {
     const already: DayPlan[] = [
       {

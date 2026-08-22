@@ -26,15 +26,23 @@ on:
   pull_request:
     branches: [dev, main]
   push:
-    branches: [lax, uttam, dev]
+    # Every branch but main, so a feature branch gets the fast half before it
+    # opens a pull request. main is excluded because deploy.yml calls this
+    # workflow on the push to main; listing it would run the same checks twice.
+    branches-ignore: [main]
   workflow_call:
 
 # Must not share a group with deploy.yml (which uses "pages"), or a CI run
 # would queue behind a deploy. Now that deploy.yml calls this workflow, a
 # shared group would also mean a deploy waiting on itself.
+#
+# Inside deploy.yml's workflow_call github.ref is the CALLER's, so every deploy
+# lands in ci-refs/heads/main and the second one would cancel the checks job of a
+# release still in flight. Deploy runs are already serialised by deploy.yml's own
+# "pages" group, so not cancelling here queues nothing.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -109,7 +117,7 @@ jobs:
         run: npm run build
 
   # firestore.rules is published by the release now (deploy.yml's `publish-rules`, issue #39 /
-  # D-314), so it can no longer ship unproven: this job runs scripts/rules-check.mjs against the
+  # D-399), so it can no longer ship unproven: this job runs scripts/rules-check.mjs against the
   # REAL Cloud Firestore rules engine in the local emulator, eleven phases including two negative
   # controls. It was left out of CI when it was written because it needs an emulator in the
   # runner; that cost is now smaller than shipping a ruleset nobody ran.

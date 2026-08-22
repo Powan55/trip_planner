@@ -71,7 +71,10 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Guides', href: '/guides/', icon: BookMarked, defaultTripOnly: true }, // — fronts Nepal/Japan
   { label: 'Flights', href: '/flights/', icon: Plane, primary: false, defaultTripOnly: true },
   { label: 'Journal', href: '/journal/', icon: BookOpen, primary: false, customPrimary: true },
-  { label: 'Safety', href: '/safety/', icon: ShieldCheck, primary: false },
+  // defaultTripOnly: the kit is Nepal Police 100 / Japan 110 / the Kathmandu embassy
+  // switchboards and a Nepali/Japanese phrasebook — safety-critical content that is not this
+  // trip's on a custom trip. `app/safety/page.tsx` carries the matching DefaultTripOnly wrapper.
+  { label: 'Safety', href: '/safety/', icon: ShieldCheck, primary: false, defaultTripOnly: true },
   { label: 'Recap', href: '/recap/', icon: Scroll, primary: false },
   { label: 'Packing', href: '/packing/', icon: Backpack, primary: false }, // →: no longer customPrimary
   { label: 'Documents', href: '/checklist/', icon: FileCheck2, primary: false }, // — was palette-only

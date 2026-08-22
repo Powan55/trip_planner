@@ -7,9 +7,10 @@
  * already-computed home totals IN. Every function is TOTAL (a bad / NaN / negative / missing input
  * degrades to a safe number, never a throw), so the burn-rate view can never render `NaN` and a
  * corrupt expense slot can never crash the overlay. `import type` from `./expenses` (the `Expense`
- * shape) drags no runtime in; the runtime `import` of `TRIP_DATES`/`TRIP_START`/`TRIP_END` from
- * `@/core/dates` is a core→core dependency (the SAME date backbone the itinerary + clock use), so
- * the trip window stays configured in ONE place rather than hard-coded here.
+ * shape) drags no runtime in; the runtime `import` of `TRIP_DATES`/`TRIP_START`/`TRIP_END`/
+ * `getCountryForDate` from `@/core/dates` is a core→core dependency (the SAME date backbone the
+ * itinerary + clock use), so the trip window AND the date→leg boundary stay configured in ONE place
+ * rather than hard-coded here.
  *
  * ── What this consumes ─────────────────────────────────
  * `rollUp(model, spent)` already returns `totalBudgetHome` / `totalSpentHome` in the home
@@ -18,9 +19,9 @@
  * instant and derives the TIME dimension: how far into the trip we are, the daily average vs the
  * daily budget, the projected end-of-trip total at the current pace, and an under/on/over indicator.
  * `expensesByDate(expenses)` buckets raw `Expense[]` into leg-local per-day sums for the
- * calendar cost overlay (undated expenses are excluded from the per-day map but still count in the
- * leg/total spend that `rollUp` reports — the two views agree on the total, differ only on "which
- * day").
+ * calendar cost overlay (undated expenses — and rows whose own leg is not the day's leg — are
+ * excluded from the per-day map but still count in the leg/total spend that `rollUp` reports, so the
+ * two views agree on the total and differ only on "which day").
  *
  * ── daysElapsed derivation (a recorded judgment call) ───────────────────────────────────────
  * `daysElapsed` is an INCLUSIVE calendar-day count from the trip's first day up to and including the
@@ -35,7 +36,7 @@
  */
 
 import type { Expense } from '@/core/budget/expenses';
-import { TRIP_DATES, TRIP_START, TRIP_END } from '@/core/dates';
+import { TRIP_DATES, TRIP_START, TRIP_END, getCountryForDate } from '@/core/dates';
 import { isLeg, safeAmount } from '@/core/budget/model';
 
 /** The trip length in inclusive days — derived from the single date backbone, currently 32. */
@@ -163,14 +164,27 @@ export function burnRate(budgetHome: unknown, spentHome: unknown, now: Date): Bu
  * Per-day spend buckets: sum each DATED expense's leg-local amount by its `'YYYY-MM-DD'` date.
  * PURE + TOTAL.
  *
- * Amounts are already leg-local and a single calendar day is one leg, so a day's bucket is a
- * plain sum in that day's currency — no conversion (the calendar overlay formats it with the day's
- * `legCurrency`). Undated expenses are EXCLUDED (they have no day to attribute to) — they still count
- * in the leg/total spend that `rollUp` reports, so the burn-rate total and the sum of the per-day
- * buckets can legitimately differ by the undated amount. A row whose leg the active pack does not
- * recognise is EXCLUDED too (see the guard below). A malformed / 0 / negative amount contributes
- * nothing; a bad date string is ignored. Returns a plain object keyed by the ISO date (empty when no
- * dated expense exists).
+ * The contract: a day's bucket holds ONLY the rows whose own `leg` is that day's leg
+ * (`getCountryForDate(e.date)`), so it is identical to
+ * `sumExpensesForDate(expenses, date, getCountryForDate(date))` — the call both recap surfaces
+ * already make. A day belongs to one leg but an EXPENSE does not: the log dialog lets the leg chip
+ * be switched while `date` stays pinned to the day it opened on ("paid for Japan while still in
+ * Nepal"), so `e.leg` and the day's leg are independent inputs. Filtering to the day's leg is what
+ * makes the flat `Record<string, number>` safe for the calendar overlay to format with the day's
+ * `legCurrency`: the number and the symbol can no longer disagree, and NPR can no longer be added
+ * to JPY under one date key.
+ *
+ * KNOWN CEILING: a cross-leg row is EXCLUDED from the day, not shown under its own symbol. Upgrade
+ * path if a day view ever has to DISPLAY foreign-leg spend: key on the (date, leg) pair.
+ *
+ * Amounts are already leg-local and a bucket is now one leg by construction, so a day's bucket is a
+ * plain sum in that day's currency — no conversion. Undated expenses are EXCLUDED (they have no day
+ * to attribute to) and so are cross-leg rows — both still count in the leg/total spend that `rollUp`
+ * reports, so the burn-rate total and the sum of the per-day buckets can legitimately differ by the
+ * undated amount AND by the cross-leg rows. A row whose leg the active pack does not recognise is
+ * EXCLUDED too (see the guard below). A malformed / 0 / negative amount contributes nothing; a bad
+ * date string is ignored. Returns a plain object keyed by the ISO date (empty when no dated expense
+ * exists).
  */
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -188,6 +202,10 @@ export function expensesByDate(expenses: readonly Expense[] | null | undefined):
     if (!isLeg(e.leg)) continue;
     const date = e.date;
     if (typeof date !== 'string' || !DATE_RE.test(date)) continue; // undated / bad date → excluded
+    // The row's OWN leg has to be the day's leg. `getCountryForDate` is TOTAL (it clamps an
+    // out-of-window date to the first/last leg and never parses the string as a Date), so this
+    // cannot throw and cannot slip a day at a negative UTC offset.
+    if (e.leg !== getCountryForDate(date)) continue;
     const amount = safeAmount(e.amount);
     if (amount <= 0) continue; // a 0/negative/bad amount contributes nothing
     byDate[date] = (byDate[date] ?? 0) + amount;

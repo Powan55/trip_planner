@@ -32,12 +32,23 @@ export type Store = 'local' | 'session';
 
 /**
  * Resolve the backing web-storage object for a store, or `null` when it is
- * unavailable (SSR — no window). Kept internal; the primitives call it and degrade to
- * the SSR/no-op path on `null`.
+ * unavailable (SSR — no window; or the property access itself throwing). Kept internal; the
+ * primitives call it and degrade to the SSR/no-op path on `null`.
+ *
+ * The try/catch is NOT redundant with the per-operation ones below. Where site data is blocked for
+ * the origin (Chrome/Edge "on-device site data" off, Safari "Block All Cookies", a sandboxed
+ * iframe) the PROPERTY READ throws SecurityError — there is never an object to call `getItem` on,
+ * so a per-operation catch never runs. `core/dates/trip-dates.ts` resolves the active trip at
+ * MODULE SCOPE, so unguarded that throw lands during module evaluation on every route: the app
+ * fails to boot rather than degrading.
  */
 function backing(store: Store): Storage | null {
   if (typeof window === 'undefined') return null;
-  return store === 'session' ? window.sessionStorage : window.localStorage;
+  try {
+    return store === 'session' ? window.sessionStorage : window.localStorage;
+  } catch {
+    return null;
+  }
 }
 
 // ── The single key registry ────────────────────────
@@ -47,12 +58,9 @@ function backing(store: Store): Storage | null {
  * literal `tripPlannerUserName` (across identity/token-auth) now collapses to a single
  * reference.
  *
- * NOTE: the itinerary keys (`nepal_japan_itinerary` + `…_corrupt`) are deliberately NOT
- * here — they stay owned by `lib/itinerary-storage.ts` / the Vault. The
- * `packing_checklist` slot (formerly key 6) was removed in along with the Home
+ * NOTE: the `packing_checklist` slot (formerly key 6) was removed along with the Home
  * packing checklist feature; the key numbering (7 onward) is kept as historical
- * documentation rather than renumbered. This registry is the SIX non-itinerary
- * persisted keys only.
+ * documentation rather than renumbered.
  */
 export const STORAGE_KEYS = {
   /** localStorage — plain display-name string (identity, key 3). */
@@ -459,6 +467,19 @@ export const STORAGE_KEYS = {
    * literal is declared moved.
    */
   currencyRateCache: 'nepal_japan_currency_rate_cache',
+  /**
+   * sessionStorage — presence flag `'1'` left by the token-only login door when the display name
+   * silently defaulted to the placeholder, consumed once by the provider after the reload to nudge
+   * the traveler to rename themselves (name-hint, key 39; #165). Mirrors `chunkReloadOnce`'s (key
+   * 13) one-shot-session-flag shape exactly: SESSION store so the nudge crosses the login reload
+   * and dies with the tab, presence-read, cleared on consumption so a later reload cannot re-fire
+   * it. APP-SCOPED (identity is the person, not the trip).
+   *
+   * The key STRING is unchanged (`name-hint`, same bytes, same store) — `token-gate.tsx` and
+   * `itinerary-provider.tsx` reached raw `sessionStorage` for this literal and were the last two
+   * app-code bypasses of the registry; only where the literal is declared moved.
+   */
+  nameHint: 'name-hint',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -608,7 +629,15 @@ export const TRIP_SCOPED_SLOTS: readonly TripScopedSlot[] = ALL_TRIP_SCOPED_SLOT
  * is untouched. TOTAL, never-throws.
  */
 export function keyFor(slot: TripScopedSlot): string {
-  const id = getActiveTripId();
+  return keyForTrip(getActiveTripId(), slot);
+}
+
+/**
+ * `keyFor` for an EXPLICIT trip id rather than the active one — same grandfather rule. Needed by
+ * the paths that touch a trip they are not standing in (forgetting a trip reads its photo index
+ * before wiping it). TOTAL, never-throws.
+ */
+export function keyForTrip(id: string, slot: TripScopedSlot): string {
   return id === DEFAULT_TRIP_ID ? STORAGE_KEYS[slot] : `trip:${id}:${slot}`;
 }
 
@@ -789,18 +818,33 @@ export function hasKey(store: Store, key: string): boolean {
 }
 
 /**
- * Read + `JSON.parse` a slot, returning `fallback` on absent / SSR / parse error.
- * Used by the checklist accessor (the only JSON-shaped non-itinerary slot). NOT used for
- * the nightlife pref — that is `String(boolean)`, not JSON (see `uiPrefs`).
+ * Read + `JSON.parse` a slot, returning `fallback` on absent / SSR / parse error / a parsed value
+ * that cannot be the caller's shape. Used by the checklist accessor (the only JSON-shaped
+ * non-itinerary slot). NOT used for the nightlife pref — that is `String(boolean)`, not JSON
+ * (see `uiPrefs`).
+ *
+ * The shape gate is what keeps the never-throw contract at the top of this file true. A slot
+ * holding a JSON SCALAR (`null`, `5`, `"x"` — devtools, another script on the origin, a corrupt
+ * profile) parses fine, so it used to be handed back typed as the caller's `T`; the accessors that
+ * dereference it directly rather than passing it to a domain sanitizer (`weatherCache`,
+ * `outbox.loadSlot`) then threw a TypeError OUT of the gateway, and `weatherCache`'s escapes into
+ * Home's render. Gated on an object-shaped fallback so the `ABSENT` sentinel callers (a symbol —
+ * `lib/trip-backup.ts`'s export, which must tell an absent slot from a stored one) still get the
+ * raw parsed value.
  */
 export function readJson<T>(store: Store, key: string, fallback: T): T {
   const raw = readString(store, key);
   if (raw === null) return fallback;
+  let parsed: unknown;
   try {
-    return JSON.parse(raw) as T;
+    parsed = JSON.parse(raw);
   } catch {
     return fallback;
   }
+  if (typeof fallback === 'object' && fallback !== null && (parsed === null || typeof parsed !== 'object')) {
+    return fallback;
+  }
+  return parsed as T;
 }
 
 /** `JSON.stringify` + write a slot. No-op / never-throw exactly like `writeString`. */
@@ -1013,6 +1057,24 @@ export const chunkReloadGuard = {
   },
   markReloaded(): void {
     writeString('session', STORAGE_KEYS.chunkReloadOnce, '1');
+  },
+} as const;
+
+/**
+ * Name-hint slot (key 39, #165) — the one-shot post-login rename nudge. Mirrors
+ * `chunkReloadGuard`'s session-scoped flag shape, with the read fused to the clear: `consume()` is
+ * true at most ONCE per stored flag, so the caller cannot toast twice and cannot forget to clear
+ * before it toasts. Strict `=== '1'` read (any other stored value reads as absent), byte-identical
+ * to the raw `sessionStorage` calls this replaces. SSR-safe + never-throw (inherited).
+ */
+export const nameHintFlag = {
+  mark(): void {
+    writeString('session', STORAGE_KEYS.nameHint, '1');
+  },
+  consume(): boolean {
+    if (readString('session', STORAGE_KEYS.nameHint) !== '1') return false;
+    removeKey('session', STORAGE_KEYS.nameHint);
+    return true;
   },
 } as const;
 

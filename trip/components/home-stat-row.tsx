@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { TRIP_START } from '@/lib/trip-data';
 import { computeCountdown } from '@/lib/countdown';
 import { getNow, getNowAtTrip, getTodayInTrip } from '@/lib/trip-now';
-import { tripShape } from '@/lib/home-stats';
+import { tripShape, daysToGo } from '@/lib/home-stats';
 import { deriveWrapped } from '@/core/recap/wrapped';
 import { visitedTally } from '@/lib/visited-footprint';
 import { useItineraryContext } from '@/components/itinerary-provider';
@@ -19,7 +19,9 @@ import HomeMilestone from '@/components/home-milestone';
  * implementation in the repo (D-313 governs its calendar-month arithmetic and its
  * `totalDays`); this file passes it a clock and formats the result. There is deliberately
  * no second piece of date maths in this component, and adding one would be the exact defect
- * D-313 was ruled on.
+ * D-313 was ruled on. The one exception is the pre-trip "Days to go" count, which is
+ * `daysToGo()` from `lib/home-stats.ts` — the ONE derivation of that number, shared with the
+ * hero's ring and `/travel` (A-23), and the reason those surfaces no longer disagree by a day.
  *
  * WHY IT IS A BAND UNDER THE HERO AND NOT A ROW INSIDE IT. The hero's height is a budget
  * (D-311): `e2e/countdown.spec.ts` asserts the "Open Planner" CTA still clears a 740px fold
@@ -74,18 +76,26 @@ interface StatCell {
 /**
  * The live cell's value and caption for a given clock reading. Pure so the three states
  * (pre-trip / on the trip / home again) are readable in one place and testable without a
- * clock. `totalDays` and `dayNumber` are both taken from existing producers.
+ * clock. `dayNumber` is taken from an existing producer.
+ *
+ * "Days to go" is a CALENDAR-day count, not `computeCountdown().totalDays`. A-23 (and
+ * `lib/travel-date.ts`, which fixed the identical reading one file over) : `totalDays` is a
+ * truncated whole-day count, so it drops to 0 as soon as fewer than 24h remain and this cell read
+ * "0 Days to go" from midnight on Dec 8 onward while `/travel` on the same device read "1". This
+ * does NOT reopen D-313 — `computeCountdown` is untouched and still owns the countdown breakdown
+ * above; `totalDays` is correct for what it claims, it just is not "how many sleeps". The count
+ * itself lives in `daysToGo()`, which the hero's ring and `/travel` call too — there is one
+ * derivation, so there is nothing left to drift against.
  */
-function liveCell(now: Date, days: number): StatCell {
+export function liveCell(now: Date, days: number): StatCell {
   const today = getTodayInTrip();
   if (today) {
     return { testId: 'home-stat-live', value: String(today.dayNumber), caption: 'Day on trip' };
   }
-  const countdown = computeCountdown(TRIP_START, now);
-  if (countdown.isPast) {
+  if (computeCountdown(TRIP_START, now).isPast) {
     return { testId: 'home-stat-live', value: String(days), caption: 'Days travelled' };
   }
-  return { testId: 'home-stat-live', value: String(countdown.totalDays), caption: 'Days to go' };
+  return { testId: 'home-stat-live', value: String(daysToGo(now)), caption: 'Days to go' };
 }
 
 export default function HomeStatRow() {

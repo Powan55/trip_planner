@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { expensesToCsv } from '@/lib/expense-csv';
+import { expensesToCsv, expensesToCsvBlob } from '@/lib/expense-csv';
 import type { Expense } from '@/core/budget/expenses';
 
 /**
@@ -178,5 +178,31 @@ describe('expensesToCsv — formula injection', () => {
   it('a trigger char that is not leading is left alone', () => {
     expect(noteField('Bus 2+2 fare')).toBe('Bus 2+2 fare');
     expect(noteField('a@b')).toBe('a@b');
+  });
+});
+
+// The download path, not the serializer. Excel on Windows ignores the Blob's charset when a .csv
+// is opened from disk and decodes with the system codepage, so a Japanese note or an accented
+// traveller name arrives as mojibake unless the bytes start with a BOM. The BOM belongs to the
+// download only — `expensesToCsv` stays clean text for every other consumer.
+describe('expensesToCsvBlob — UTF-8 BOM on the downloaded file', () => {
+  const rows = [exp({ date: '2026-12-10', note: '一蘭のラーメン', paidBy: 'Ana' })];
+
+  it('the Blob is BOM-prefixed and is otherwise byte-identical to the serializer output', async () => {
+    // Asserted on the BYTES: `Blob.text()` runs a UTF-8 decode, which strips a leading BOM by
+    // spec, so it cannot see the thing Excel is reading.
+    const bytes = new Uint8Array(await expensesToCsvBlob(rows).arrayBuffer());
+    expect([bytes[0], bytes[1], bytes[2]]).toEqual([0xef, 0xbb, 0xbf]);
+    const body = new TextDecoder('utf-8').decode(bytes.slice(3));
+    expect(body).toBe(expensesToCsv(rows));
+    expect(body).toContain('一蘭のラーメン');
+  });
+
+  it('the pure serializer does NOT carry the BOM', () => {
+    expect(expensesToCsv(rows).charCodeAt(0)).not.toBe(0xfeff);
+  });
+
+  it('is served as UTF-8 text/csv', () => {
+    expect(expensesToCsvBlob(rows).type).toBe('text/csv;charset=utf-8;');
   });
 });

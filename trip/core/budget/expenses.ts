@@ -160,7 +160,7 @@ export interface SanitizeOptions {
  * The default is the field-by-field rebuild this has always been — an allowlist, and D-159's
  * zero-egress guarantee is structural precisely because of it (a rogue or legacy row carrying a
  * `photoIds`/`photo`/`receipt` cannot survive a rebuild that never copies it). Every LOCAL caller
- * takes this default: `loadExpenses`/`saveExpenses`, `core/vault/backup.ts`, `lib/expense-export.ts`.
+ * takes this default: `loadExpenses`/`saveExpenses`, `lib/trip-backup.ts`, `lib/expense-export.ts`.
  *
  * `keepUnknownKeys` is set at exactly ONE call site — `chunkDocToRows` (lib/expenses-remote.ts),
  * the REMOTE read. That is where #138's data loss lives: the sanitized row is merged and written

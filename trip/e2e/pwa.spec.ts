@@ -463,9 +463,10 @@ test.describe('S84 · precache manifest present (D-073 shell contract)', () => {
       return { precacheName, total: urls.length, urls };
     });
 
-    // The content-hashed precache cache must exist and be non-trivially populated
-    // (the build emitted 69 precache entries; assert a generous floor, not the
-    // exact count, so a future shell change doesn't brittle-fail this).
+    // The content-hashed precache cache must exist and be non-trivially populated.
+    // Deliberately a generous floor and not the exact count: the entry count moves
+    // with every shell change, so pinning it would brittle-fail this test and teach
+    // nothing. Read `buildPrecacheList` in scripts/gen-sw.mjs for what is on the list.
     expect(summary.precacheName).toMatch(/^trip-precache-[a-f0-9]+$/);
     expect(summary.total).toBeGreaterThan(20);
 
@@ -599,10 +600,24 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
    * The image cache is wiped first for the same reason as the test below: it would otherwise
    * answer from `trip-images-v1` and never reach the branch under test.
    */
-  test('a captive-portal 200 for an image still resolves the hero from cache (#136)', async ({
+  test('a captive-portal 200 for an image never even reaches the hero (D-414 Decision 3 precache-first, #136)', async ({
     page,
     context,
   }) => {
+    // D-414 Decision 3 (2026-08-21) reordered the image handler to consult the
+    // PRECACHE before `trip-images-v1`, specifically so a hero raster (D-335 — one
+    // of the six AVIFs always shipped in the precache) is served from cache on the
+    // FIRST paint instead of only after a captive-portal/offline fallback. That
+    // reorder has a side effect this test used to miss: a request for a precached
+    // hero image is answered by `cacheMatch(request, {cacheName: PRECACHE})` and
+    // returns BEFORE the handler ever calls `fetch()` — so the #136 body-guard
+    // (`isExpectedPrecacheBody`) is provably never reached for the hero, and a
+    // captive portal can no longer poison it even in principle. This test now
+    // asserts that STRONGER guarantee (zero network requests for the hero) rather
+    // than the pre-D-414 guarantee (network attempted, garbage rejected, cache
+    // consulted as a fallback) — the old assertion (`portalHits > 0`) can never be
+    // true again for this URL as long as D-414 stands, and asserting it was
+    // pinning the SW to a strictly worse implementation.
     await page.goto('/', { waitUntil: 'load' });
     await waitForActivatedSW(page);
     await expect
@@ -627,6 +642,10 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
     ).toEqual([]);
 
     // The gateway: every image request resolves 200 with a login page instead of bytes.
+    // Still wired up as a trap — if the precache-first fast path ever regresses
+    // (a filename rename that drops the hero out of HERO_PRECACHE, say), this
+    // fires and the assertion below catches it instead of the test going quietly
+    // green on a request that was never made.
     let portalHits = 0;
     await context.route(/\.(avif|webp|jpe?g|png)(\?.*)?$/i, async (route) => {
       portalHits += 1;
@@ -644,7 +663,7 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
     const heroImg = page.locator('.hero-photo-wrap picture img');
     await expect(
       heroImg,
-      'captive portal: the hero photograph layer is absent — OptimizedImage errored and hero-section fell to its SVG art',
+      'the hero photograph layer is absent — OptimizedImage errored and hero-section fell to its SVG art',
     ).toBeVisible();
 
     await expect
@@ -654,22 +673,22 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
             el.complete && el.naturalWidth > 0 ? el.currentSrc : '',
           ),
         {
-          message:
-            'captive portal: the hero raster never decoded — the handler returned the login page instead of consulting the cache (#136)',
+          message: 'the hero raster never decoded from the precache',
         },
       )
       .toMatch(/\/images\/hero\/hero-japan(-\d+w)?\.avif$/);
 
     await expect(
       page.locator('path[fill="url(#rangeFar)"]'),
-      'captive portal: hero-section painted its SVG fallback mountains, so a hero raster failed to load',
+      'hero-section painted its SVG fallback mountains, so a hero raster failed to load',
     ).toHaveCount(0);
 
-    // If this is 0 the portal was never actually simulated and everything above is vacuous.
+    // D-414 Decision 3: the precache answers before `fetch()` is ever called, so
+    // the simulated captive portal is never actually consulted for the hero raster.
     expect(
       portalHits,
-      'no image request was intercepted — the captive portal was never simulated, so this test proved nothing',
-    ).toBeGreaterThan(0);
+      'a network request was made for the hero image — the precache-first fast path (D-414 Decision 3) regressed',
+    ).toBe(0);
   });
 
   /**

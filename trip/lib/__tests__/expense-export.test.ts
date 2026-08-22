@@ -9,6 +9,7 @@ import {
   EXPENSE_QUARANTINE_KEY,
 } from '@/lib/expense-export';
 import type { Expense } from '@/core/budget/expenses';
+import { exportItinerary } from '@/core/vault/export-import';
 import { setActiveTripId, keyFor, STORAGE_KEYS } from '@/core/storage/gateway';
 
 const E1: Expense = {
@@ -75,14 +76,29 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     expect(localStorage.getItem(EXPENSE_QUARANTINE_KEY)).toBe('{not json');
   });
 
-  it('rejects a recognized-but-foreign shape (e.g. an itinerary export) and quarantines it', () => {
+  it('rejects an envelope whose payload is not an array at all, and quarantines it', () => {
     const foreign = JSON.stringify({ schemaVersion: 4, updatedAt: 'x', payload: 'not-an-array' });
     const result = parseExpenseBackup(foreign);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toMatch(/not a recognized expenses export/);
   });
 
-  it('drops individually-malformed rows (lenient trust boundary) rather than rejecting the whole file', () => {
+  it('rejects a REAL itinerary export — same envelope shape, not one salvageable expense row', () => {
+    // The test above used to stand in for this with `payload: 'not-an-array'`, which the itinerary
+    // export never is: it is `{schemaVersion:5, updatedAt, payload:[DayPlan,…]}` — numeric version,
+    // ARRAY payload — so it passed the envelope gate, sanitized to [], and the caller's
+    // tombstone-replace restore then deleted every logged expense on every device and said
+    // "Expenses imported". Built from the real exporter, not hand-rolled, so it cannot drift.
+    const itineraryFile = exportItinerary();
+    expect(Array.isArray(JSON.parse(itineraryFile).payload)).toBe(true);
+
+    const result = parseExpenseBackup(itineraryFile);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/missing or has malformed data/);
+    expect(localStorage.getItem(EXPENSE_QUARANTINE_KEY)).toBe(itineraryFile);
+  });
+
+  it('rejects the whole file when ANY row is unsalvageable (D-098: strict on import)', () => {
     const raw = JSON.stringify({
       schemaVersion: 1,
       updatedAt: 'x',
@@ -92,11 +108,10 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
       payload: [E1, { leg: 'nepal', category: 'food', amount: 1, createdAt: '' }],
     });
     const result = parseExpenseBackup(raw);
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.expenses).toHaveLength(1);
-      expect(result.expenses[0].id).toBe('e1');
-    }
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toMatch(/missing or has malformed data/);
+    // Never-destroy: the raw bytes are recoverable from the quarantine slot.
+    expect(localStorage.getItem(EXPENSE_QUARANTINE_KEY)).toBe(raw);
   });
 
   it('a row whose LEG is unknown to the active pack is IMPORTED, not dropped', () => {

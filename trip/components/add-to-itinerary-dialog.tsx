@@ -5,14 +5,15 @@ import { createPortal } from 'react-dom';
 import { m } from 'framer-motion';
 import { toast } from 'sonner';
 import {
-  MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
-  Landmark, Plane, Hotel, Coffee, Music, X, Check, Trash2, Plus,
+  MapPin, X, Check, Trash2, Plus,
   ExternalLink,
 } from 'lucide-react';
 import {
   TRIP_DATES, formatDate, getCountryForDate,
   ItineraryItem, ItineraryCategory, CATEGORY_COLORS,
 } from '@/lib/trip-data';
+import { ALL_CATEGORIES } from '@/lib/itinerary-category';
+import { CATEGORY_ICON_MAP } from '@/components/category-icon';
 import { placeLabelForDate } from '@/lib/leg-label';
 import { generateItemId } from '@/lib/item-id';
 import { useItineraryContext } from '@/components/itinerary-provider';
@@ -71,21 +72,6 @@ export { buildMapsSearchUrl, buildMapsPlaceUrl };
  * static-export prerender (`output: 'export'`); the dialog only mounts on a user click,
  * post-hydration, so this is always satisfied in practice.
  */
-
-const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
-  sightseeing: <MapPin className="w-3.5 h-3.5" />,
-  food: <UtensilsCrossed className="w-3.5 h-3.5" />,
-  photography: <Camera className="w-3.5 h-3.5" />,
-  shopping: <ShoppingBag className="w-3.5 h-3.5" />,
-  nature: <Trees className="w-3.5 h-3.5" />,
-  cultural: <Landmark className="w-3.5 h-3.5" />,
-  transportation: <Plane className="w-3.5 h-3.5" />,
-  hotel: <Hotel className="w-3.5 h-3.5" />,
-  free: <Coffee className="w-3.5 h-3.5" />,
-  nightlife: <Music className="w-3.5 h-3.5" />,
-};
-
-const ALL_CATEGORIES: ItineraryCategory[] = ['sightseeing', 'food', 'photography', 'shopping', 'nature', 'cultural', 'transportation', 'hotel', 'free', 'nightlife'];
 
 // Build the date-select option label: "Tue, Dec 12 · Kathmandu, Nepal".: the city
 // was hardcoded to Kathmandu/Tokyo and the country to a nepal/japan ternary — both now come from

@@ -166,6 +166,15 @@ export function buildTripDescriptor(): TripDescriptor | null {
  *
  * Hard-capped at `DIGEST_CAP` chars (truncate + '…') — a token-budget guard for the Worker call.
  */
+// The digest is a LINE-oriented format ("date city: item; item") assembled by interpolation, and
+// item titles / day cities reach storage from paths no `<input>` constrains: a restored backup
+// (`parseItineraryPayloadStrict`'s per-item rule is a bare `z.string()`) and a Firestore snapshot
+// written by the other member's device. A stored title carrying `\n` therefore forged its own row,
+// indistinguishable to the model from a real one — enough to steer the reply into a phishing link
+// that `renderInline` turns into a real anchor. Strip the two delimiters where the line is built:
+// one place, and every digest consumer routes through it.
+const oneLine = (s: string): string => s.replace(/[\r\n;]+/g, ' ');
+
 export function buildTripDigest(): string {
   const lines: string[] = [
     // the header states the ISO format + the exact valid range explicitly. The human-readable
@@ -230,10 +239,10 @@ export function buildTripDigest(): string {
         // D-138 canonical STORAGE format and stays that, in the `time` field, untouched.
         const minutes = effectiveStartMinutes(i);
         const time = minutes === undefined ? '' : `${formatTimeAmPm(minutes)} `;
-        return `${time}${i.category} ${i.title} #${i.id}`;
+        return `${time}${i.category} ${oneLine(i.title)} #${i.id}`;
       })
       .join('; ');
-    lines.push(`${date} ${city}: ${entries}`);
+    lines.push(`${date} ${oneLine(city)}: ${entries}`);
   }
 
   const digest = lines.join('\n');
@@ -369,13 +378,34 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
       };
 
       try {
+        // ONE signal for the whole TURN, not just the fetch. It used to be constructed inline in
+        // the `fetchImpl(...)` call, which left two unbounded awaits ahead of it: the lazy
+        // `import('./itinerary-remote')` and a `securetoken.googleapis.com` token refresh, neither
+        // of which has a timeout of its own. If either STALLS rather than rejecting, `send()` never
+        // settles, so `finally` never runs — status stuck on 'streaming', sendingRef stuck true,
+        // `error` still null so no "Try again" row ever mounts, and only a reload recovers. That is
+        // the exact state CHAT_TIMEOUT_MS exists to prevent, on the exact connection (captive
+        // portal, dead cell handoff) this file's other comments already treat as the normal case.
+        const signal = AbortSignal.timeout(CHAT_TIMEOUT_MS);
         const context = buildTripDigest();
         const trip = buildTripDescriptor();
-        // #10 — the Worker verifies MEMBERSHIP from a Firebase ID token now, not possession of the
-        // trip id. Attached only when there is a session to attach: with no firebase configured
-        // (the dormant build and every browser test) this spreads to nothing and the request is
-        // byte-identical to the one that shipped before. See lib/worker-auth.ts.
-        const auth = await workerAuthHeader();
+        // #10 — a Firebase ID token when there is a session to attach, nothing when there is not:
+        // with no firebase configured (the dormant build and every browser test) this spreads to
+        // nothing and the request is byte-identical to the one that shipped before. The membership
+        // check it pairs with was built for Worker 1.9.0 and is not deployed, so nothing verifies
+        // the token today and none of this is a security boundary. See lib/worker-auth.ts.
+        //
+        // Raced against the turn's own ceiling, resolving to NO header if it wins. Degrading to an
+        // unauthenticated request on a token we couldn't get in time is already `workerAuthHeader`'s
+        // documented behaviour (its catch does exactly this), so an empty header is the correct
+        // fallback — and the fetch below then rejects on the same already-aborted signal, landing in
+        // the catch with the timeout copy rather than hanging.
+        const auth = await Promise.race([
+          workerAuthHeader(),
+          new Promise<Record<string, string>>((resolveHeader) => {
+            signal.addEventListener('abort', () => resolveHeader({}), { once: true });
+          }),
+        ]);
         const res = await fetchImpl(CONCIERGE_URL, {
           method: 'POST',
           headers: { 'content-type': 'application/json', 'X-Trip-Token': getActiveTripId(), ...auth },
@@ -390,7 +420,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
           }),
           // The POST stays at the BARE origin with no path suffix — the Worker accepts `POST /`
           // specifically because of this. Do not "tidy" it into `${CONCIERGE_URL}/chat`.
-          signal: AbortSignal.timeout(CHAT_TIMEOUT_MS),
+          signal,
         });
 
         // Issue #13 — the body is not read at all. It used to be parsed and its `error` string
@@ -410,10 +440,36 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
           ops?: unknown;
           model?: unknown;
         };
-        const reply = typeof data.reply === 'string' ? data.reply : '';
+        // A 2xx whose body is not the envelope is a FAILED turn, and used to render as a successful
+        // one: the parse failure was swallowed, `reply` defaulted to '', status went 'idle' and
+        // `error` stayed null — so the panel showed a blank grey bubble with no error row and no
+        // "Try again", and shipped that empty turn as history on every later turn. The canonical
+        // producer is a captive portal or an interposing proxy answering 200 with HTML. "Did the
+        // body parse into an envelope" is a different question from "was the request successful",
+        // and this is the line that stops them being conflated. Deliberately changes the contract
+        // the old `'a malformed body … degrades to an empty reply'` test pinned.
+        if (typeof data.reply !== 'string') {
+          fail(statusMessage(0)); // the default branch: "having trouble right now. Try again…"
+          return;
+        }
+        const reply = data.reply;
         // Surface ops RAW (unvalidated) on the assistant turn — the component validates against the
         // LIVE itinerary at chip-render time (see the ChatTurn.ops comment). Keep only a plain array.
-        const ops: Op[] = Array.isArray(data.ops) ? (data.ops as Op[]) : [];
+        //
+        // DEDUPED ON ARRIVAL, by the same `JSON.stringify` the chip's `opKey` is built from
+        // (components/concierge-chat.tsx). A model repeating itself within one reply is an ordinary
+        // failure mode, and two byte-identical ops produced ONE key: both chips rendered under the
+        // same React key, Confirm on either resolved both, only one `applyOp` ran, and the second
+        // proposal vanished with no chip, no undo entry and no "didn't match" line. Two identical
+        // ops are one proposal — dropping the duplicate here is what makes that true everywhere,
+        // rather than making the key positional and asking the user to confirm the same thing twice.
+        const seen = new Set<string>();
+        const ops: Op[] = (Array.isArray(data.ops) ? (data.ops as Op[]) : []).filter((op) => {
+          const key = JSON.stringify(op);
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
         // absent / non-string / blank all collapse to `undefined` HERE — the one place that
         // decides "is this a real model id" — so `concierge-chat.tsx` renders on plain truthiness
         // with no second guard to keep in sync (: a mechanism in one place, not a claim

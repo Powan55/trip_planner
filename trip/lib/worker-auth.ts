@@ -1,19 +1,19 @@
-// The `Authorization` header the deployed Worker now requires (issue #10) — one line of policy,
-// in one place, for the two callers that talk to it (`hooks/use-concierge-chat.ts` and
-// `lib/place-resolve.ts`).
+// The `Authorization` header the client sends to the Worker (issue #10) — one line of policy, in
+// one place, for the two callers that talk to it (`hooks/use-concierge-chat.ts` and
+// `lib/place-resolve.ts`). A Firebase ID token when there is a session, and none when there isn't.
 //
-// WHY IT EXISTS: the Worker moved from token POSSESSION to rules-verified MEMBERSHIP. It used to
-// treat "you sent me a trip id" as authorization, which is exactly as strong as the id being
-// unguessable and no stronger. It now takes a Firebase ID token, and verifies the caller by
-// GETting the trip document from the Firestore REST API AS THAT USER — so the same rules that
-// guard the client guard the Worker, and there is no second copy of the access model to keep in
-// step. Fail closed is the Worker's half of that; this is the client's half.
+// WHY IT EXISTS: the client half of a membership check that was never deployed. Worker 1.9.0 was
+// to stop treating "you sent me a trip id" as authorization and verify the caller by GETting the
+// trip document from the Firestore REST API AS THAT USER. 1.9.0 is not what is live: the running
+// Worker verifies nothing, and `/resolve` with no bearer answers `400 unsupported url` — it fails
+// on the url, not on the missing caller.
+//
+// NOT A BOUNDARY: nothing on the client is access control, and adding more client-side gating
+// cannot make it into any — the check has to land on the Worker first.
 //
 // ONLY WHEN A TOKEN EXISTS. On a build with no firebase configured — the default state of this
 // repo, and every browser test run — there is no session, no header is attached, and the request
-// is byte-identical to the one that shipped before. That is what lets the client ship first: the
-// Worker's requirement can only be turned on after the client that satisfies it is live, and in
-// the meantime an unauthenticated dormant build behaves exactly as it always did.
+// is byte-identical to the one that shipped before.
 //
 // DORMANT-SAFE: `itinerary-remote` (and firebase behind it) is reached only through the dynamic
 // import below, after the gate — so the dormant bundle pulls neither.

@@ -74,3 +74,16 @@ export function expensesToCsv(expenses: readonly Expense[]): string {
   }
   return rows.join('\r\n') + '\r\n';
 }
+
+/**
+ * The same CSV as a downloadable Blob, prefixed with a UTF-8 BOM.
+ *
+ * Excel on Windows ignores a Blob's `charset` when the file is opened from disk and decodes with
+ * the system ANSI codepage, so a note like `一蘭のラーメン` or an accented traveller name arrives as
+ * mojibake. The BOM is the only thing that makes it read UTF-8. It lives HERE and not in
+ * `expensesToCsv` so the serializer's output stays clean text (RFC-4180 is a transport encoding
+ * and says nothing about a byte-order mark; a parser that isn't Excel would see it as data).
+ */
+export function expensesToCsvBlob(expenses: readonly Expense[]): Blob {
+  return new Blob(['\uFEFF', expensesToCsv(expenses)], { type: 'text/csv;charset=utf-8;' });
+}

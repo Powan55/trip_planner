@@ -211,6 +211,12 @@ describe('validateOps (D-234)', () => {
       ['addItem off-trip date', { type: 'addItem', date: OFF_TRIP, title: 'x', category: 'food' }, 'date-not-in-trip'],
       ['addItem blank title', { type: 'addItem', date: D0, title: '  ', category: 'food' }, 'no-title'],
       ['addItem unknown category', { type: 'addItem', date: D0, title: 'x', category: 'brunch' }, 'bad-category'],
+      // …and the two fields addItem used to skip entirely. The per-field content typing lived
+      // inside the updateItem loop, so these validated, rendered an ordinary chip, and on Confirm
+      // wrote a row `sanitizeItineraryItem` dropped on the next read — the undo toast said
+      // `Added “Ramen”` and nothing was added. The updateItem mirror rows are two lines below.
+      ['addItem with a non-string notes', { type: 'addItem', date: D0, title: 'Ramen', category: 'food', notes: { a: 1 } }, 'unreadable'],
+      ['addItem with a non-string location', { type: 'addItem', date: D0, title: 'Ramen', category: 'food', location: 5 }, 'unreadable'],
       ['updateItem with no itemId', { type: 'updateItem', date: D0, title: 'x' }, 'no-such-item'],
       ['updateItem on a ghost id', { type: 'updateItem', itemId: 'ghost', title: 'x' }, 'no-such-item'],
       ['updateItem on a TOMBSTONE', { type: 'updateItem', itemId: 'dead-1', title: 'x' }, 'no-such-item'],

@@ -80,6 +80,16 @@ const myPlaceSchema = z
   })
   .passthrough();
 
+/** Read-boundary options. Absent ⇒ STRICT: a caller that does not ask gets the allowlist rebuild. */
+export interface SanitizeOptions {
+  /**
+   * Retain keys this build does not declare (#138 / D-374). Set ONLY on the REMOTE read, where the
+   * sanitized row is merged and written straight back to Firestore. Never on a LOCAL path — the
+   * rebuild is what keeps the zero-egress guarantee structural rather than a discipline.
+   */
+  keepUnknownKeys?: boolean;
+}
+
 /** A non-empty trimmed string, or `undefined`. Keeps blank/whitespace content out of storage. */
 function cleanStr(v: unknown): string | undefined {
   if (typeof v !== 'string') return undefined;
@@ -97,8 +107,17 @@ function cleanNum(v: unknown): number | undefined {
  * `MyPlace`, or `null` when too malformed to salvage (no id, no name, no legId, or no addedAt).
  * An unparsable coord/url/note is DROPPED (the place survives) rather than rejecting the whole
  * place. TOTAL — never throws.
+ *
+ * ── UNDECLARED keys: DROPPED by default, kept only for `keepUnknownKeys` (#138 / D-374) ────────
+ * The default is the declared-field rebuild this has always been, and `.passthrough()` on the
+ * schema buys nothing downstream because of it. That is correct on every LOCAL path
+ * (`loadMyPlaces`/`saveMyPlaces`, backup). It is NOT correct at the REMOTE read: `docToPlaceRows`'
+ * output is merged and written straight back up by `pushPlacesMerged`, so the strict rebuild let an
+ * older client erase a newer one's fields from the server on every sync. Under the flag the row is
+ * built by spreading the source and normalizing each DECLARED field on top, so validation is
+ * identical either way — only undeclared keys differ.
  */
-export function sanitizePlace(value: unknown): MyPlace | null {
+export function sanitizePlace(value: unknown, opts: SanitizeOptions = {}): MyPlace | null {
   const parsed = myPlaceSchema.safeParse(value);
   if (!parsed.success) return null;
   const v = parsed.data;
@@ -108,17 +127,28 @@ export function sanitizePlace(value: unknown): MyPlace | null {
   const addedAt = v.addedAt.trim();
   if (id === '' || name === '' || legId === '' || addedAt === '') return null;
 
-  const place: MyPlace = { id, name, legId, addedAt };
+  const place: MyPlace = {
+    ...(opts.keepUnknownKeys ? (value as MyPlace) : ({} as Partial<MyPlace>)),
+    id,
+    name,
+    legId,
+    addedAt,
+  };
   const sourceUrl = cleanStr(v.sourceUrl);
   const resolvedUrl = cleanStr(v.resolvedUrl);
   const note = cleanStr(v.note);
   const lat = cleanNum(v.lat);
   const lng = cleanNum(v.lng);
   if (sourceUrl !== undefined) place.sourceUrl = sourceUrl;
+  else delete place.sourceUrl;
   if (resolvedUrl !== undefined) place.resolvedUrl = resolvedUrl;
+  else delete place.resolvedUrl;
   if (note !== undefined) place.note = note;
+  else delete place.note;
   if (lat !== undefined) place.lat = lat;
+  else delete place.lat;
   if (lng !== undefined) place.lng = lng;
+  else delete place.lng;
   // Sync stamps: declared so they SURVIVE the narrowing (unknown keys are dropped here despite
   // `.passthrough()` on the schema — an undeclared stamp would be stripped on every save and the
   // merge would lose its order key). `deleted:false` is normalized to absent: "no flag" is the
@@ -126,8 +156,11 @@ export function sanitizePlace(value: unknown): MyPlace | null {
   const rev = cleanNum(v.rev);
   const hlc = cleanStr(v.hlc);
   if (rev !== undefined) place.rev = rev;
+  else delete place.rev;
   if (hlc !== undefined) place.hlc = hlc;
+  else delete place.hlc;
   if (v.deleted === true) place.deleted = true;
+  else delete place.deleted;
   return place;
 }
 
@@ -150,13 +183,14 @@ function capPlaces(rows: MyPlace[]): MyPlace[] {
  * Normalize an unknown (a parsed storage slot) into a valid `MyPlace[]`, deduped by id (FIRST write
  * wins — the array is newest-first, so the first occurrence is the most recent), preserving order,
  * and capped to the newest `PLACES_CAP`. Returns `[]` for a non-array / all-corrupt input (the empty
- * collection is the honest first-load state). TOTAL — never throws.
+ * collection is the honest first-load state). `opts` is threaded through unchanged; absent ⇒ strict
+ * (see `sanitizePlace`). TOTAL — never throws.
  */
-export function sanitizePlaces(value: unknown): MyPlace[] {
+export function sanitizePlaces(value: unknown, opts: SanitizeOptions = {}): MyPlace[] {
   if (!Array.isArray(value)) return [];
   const byId = new Map<string, MyPlace>();
   for (const raw of value) {
-    const place = sanitizePlace(raw);
+    const place = sanitizePlace(raw, opts);
     if (place !== null && !byId.has(place.id)) byId.set(place.id, place);
   }
   return capPlaces(Array.from(byId.values()));

@@ -9,7 +9,7 @@ import {
   subscribeAuthorFilter,
 } from '@/lib/author-filter';
 import { getPriorUserNames, getUserName } from '@/lib/identity';
-import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
+import { ITINERARY_CHANGED_EVENT } from '@/core/storage/events';
 import { IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
 
 /**

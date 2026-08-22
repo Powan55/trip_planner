@@ -50,6 +50,7 @@ import {
   type TripMeta,
   type RemovedTrip,
 } from '@/core/trips/registry';
+import { getActiveTripId } from '@/core/storage/gateway';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { getRemote, isPermissionDenied } from './itinerary-remote';
 
@@ -450,10 +451,16 @@ export async function pushTripList(code: string): Promise<void> {
  * writers (the door's create path, trips-hub's list pushes, `finishAccount`). Gated + lazy +
  * self-degrading: no-op unsub when dormant; any failure → local-only via console.warn, never
  * throws. Best-effort, so — unlike the domain subscribes — it carries NO online-reconnect retry
- * (a dropped stream re-subscribes on the next reload). `onMerge` fires after a present-snapshot
- * merge (for the caller to react/telemeter).
+ * (a dropped stream re-subscribes on the next reload). `onMerge(activeTripChanged)` fires after a
+ * present-snapshot merge; `activeTripChanged` is true ONLY when the merge actually MOVED the
+ * active-trip pointer (an incoming tombstone for the active trip — `importRemoteTrips`), which
+ * obliges the caller to reload the same way a local trip switch does. It must stay false on an
+ * ordinary merge: reloading on every sync would be worse than the drift it fixes.
  */
-export function subscribeTripList(code: string, onMerge?: () => void): () => void {
+export function subscribeTripList(
+  code: string,
+  onMerge?: (activeTripChanged: boolean) => void,
+): () => void {
   if (!isRemoteConfigured() || !code) return () => {};
 
   let cancelled = false;
@@ -478,9 +485,10 @@ export function subscribeTripList(code: string, onMerge?: () => void): () => voi
             firstSnapshotHandled = true;
             if (snap.exists()) {
               const data = snap.data() as Record<string, unknown>;
+              const activeBefore = getActiveTripId();
               const { localHadExtras } = importRemoteTrips(docToTrips(data), docToRemoved(data));
               if (localHadExtras) void pushTripList(code); // push our extras/removals up (best-effort)
-              onMerge?.();
+              onMerge?.(getActiveTripId() !== activeBefore);
             }
             // ABSENT ⇒ do nothing (#10). The old absent-first-snapshot seed branch is deleted —
             // see the docblock. An account with no tripList doc gets one from its next deliberate

@@ -10,13 +10,20 @@ import { useOnline } from '@/hooks/use-online';
  * A calm, transient pill announcing when the browser has lost network
  * connectivity — mounted once at the root layout (`app/layout.tsx`) so it is
  * visible on every route. Keyed on `useOnline()` (navigator.onLine +
- * online/offline events); renders NOTHING while online, including on the
+ * online/offline events); shows NOTHING while online, including on the
  * server and first client paint (the hook defaults to `true`) — no
  * SSR/hydration mismatch. No dismiss control: it is a live status, not a
  * notification, and clears itself the instant the browser reconnects.
  *
- * Structural mirror of `components/presence-bar.tsx`: a `fixed` live-region
- * pill that renders `null` when inactive, `role="status"` + `aria-live="polite"`
+ * The `role="status"` wrapper is mounted ALWAYS and is empty while online — a
+ * live region announces a mutation of a region already in the accessibility
+ * tree, so a region inserted in the same commit as its text is not reliably
+ * announced by NVDA/JAWS/VoiceOver. Same always-mounted-wrapper idiom as
+ * `settings-panel.tsx` / `backup-restore.tsx`. It has no box of its own (an
+ * empty block with no children), so it costs no layout.
+ *
+ * Structural mirror of `components/presence-bar.tsx`: a `fixed` pill inside a
+ * live region, `role="status"` + `aria-live="polite"`
  * + `aria-label`, a `glass-card` surface, an `sr-only` full-sentence summary,
  * and one declarative `m.*` reveal — the app-wide `<MotionConfig
  * reducedMotion="user">` (in `components/theme-provider.tsx`) auto-neutralizes
@@ -37,28 +44,34 @@ import { useOnline } from '@/hooks/use-online';
 export function OfflineBanner() {
   const online = useOnline();
 
-  if (online) return null;
-
   return (
-    <m.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
+    <div
       role="status"
       aria-live="polite"
-      aria-label="You are offline"
-      data-testid="offline-banner"
-      className="fixed top-20 left-1/2 z-40 -translate-x-1/2 max-w-[calc(100vw-2rem)]"
+      // The wrapper is mounted always now, so a static label would claim the device is
+      // offline the whole time it is online. Same form as `sync-status-badge.tsx`.
+      aria-label={online ? undefined : 'You are offline'}
+      data-testid="offline-banner-region"
     >
-      <div className="flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] text-ink-mid">
-        <WifiOff className="h-3 w-3 shrink-0" aria-hidden="true" />
-        <span>Offline — showing cached content</span>
-        <span className="sr-only">
-          Your device has lost its network connection. The app keeps working from cached
-          data, and this message will disappear automatically once you&apos;re back online.
-        </span>
-      </div>
-    </m.div>
+      {online ? null : (
+        <m.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          data-testid="offline-banner"
+          className="fixed top-20 left-1/2 z-40 -translate-x-1/2 max-w-[calc(100vw-2rem)]"
+        >
+          <div className="flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] text-ink-mid">
+            <WifiOff className="h-3 w-3 shrink-0" aria-hidden="true" />
+            <span>Offline — showing cached content</span>
+            <span className="sr-only">
+              Your device has lost its network connection. The app keeps working from cached
+              data, and this message will disappear automatically once you&apos;re back online.
+            </span>
+          </div>
+        </m.div>
+      )}
+    </div>
   );
 }
 

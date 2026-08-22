@@ -106,7 +106,7 @@ export const UNIVERSAL_TEMPLATE: readonly DocItem[] = DEFAULT_TEMPLATE.filter(
  *
  * UNDECLARED keys: DROPPED by default, kept only for `keepUnknownKeys` (#138). The default is the
  * field-by-field rebuild this has always been, and every LOCAL caller takes it (`loadDocs`/
- * `saveDocs`, `core/vault/backup.ts`). The flag is set at exactly ONE call site — `docToRows`
+ * `saveDocs`, `lib/trip-backup.ts`). The flag is set at exactly ONE call site — `docToRows`
  * (lib/docs-remote.ts), the REMOTE read — because that is where the loss lives: since D-365 the
  * sanitized row is merged and written straight back up by `pushChecklistMerged`, so an allowlist
  * there let an older client erase a newer client's fields from the server. Validation is identical

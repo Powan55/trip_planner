@@ -23,7 +23,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
-import type { MyPlace } from '@/core/places/model';
+import { sanitizePlaces, type MyPlace } from '@/core/places/model';
 import { mergePlaces } from '@/core/places/merge';
 
 const CAP_TOKEN = 'cap-token-17';
@@ -105,7 +105,7 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
-import { pushPlacesMerged } from '@/lib/places-remote';
+import { pushPlacesMerged, docToPlaceRows } from '@/lib/places-remote';
 import { placesSyncPort } from '@/lib/places-ports';
 import { outboxSnapshot } from '@/core/sync/outbox';
 import { setActiveTripId, STORAGE_KEYS } from '@/core/storage/gateway';
@@ -222,6 +222,56 @@ describe('pushPlacesMerged — the transactional read→merge→set on trips/{id
     const written = fake.docs.get(DOC_PATH) as { items: MyPlace[] };
     expect(written.items.map((p) => p.id).sort()).toEqual(['boudhanath', 'fushimi']);
     expect(writeLog).toEqual([`tx-set:${DOC_PATH}`]);
+  });
+
+  it('docToPlaceRows RETAINS an undeclared key from a newer build; the local sanitizer still strips it (#138 / D-374)', () => {
+    // The read boundary is the one place a `MyPlace` written by a future build is seen before it is
+    // merged and written straight back up. `sanitizePlace`'s declared-field rebuild dropped that
+    // build's keys here, so an older client erased them from `places/list` for everyone.
+    const forward = { ...place('fushimi'), vibeTag: 'sunset' };
+    const remote = docToPlaceRows({ items: [forward] }) as unknown as Record<string, unknown>[];
+    expect(remote[0].vibeTag).toBe('sunset');
+    expect(remote[0].id).toBe('fushimi'); // declared fields validated exactly as before
+
+    // Default-strict is the load-bearing half (D-374): every LOCAL caller takes it, which is what
+    // keeps the zero-egress guarantee structural rather than a discipline.
+    const local = sanitizePlaces([forward]) as unknown as Record<string, unknown>[];
+    expect(local[0]).not.toHaveProperty('vibeTag');
+    expect(local[0].id).toBe('fushimi');
+  });
+
+  it('a peer forward key SURVIVES the read→merge→write-back round trip; the transient updatedAt seed does not', async () => {
+    // The real round trip, not a pass-through (D-374 records that mistake). The remote row and this
+    // device's copy share an id AND an hlc and differ only in the forward key — exactly the state
+    // retention creates: the peer's row keeps `vibeTag`, while this device re-read its own
+    // strict-sanitized storage, which stripped it. `mergePlaces` closed with a STRICT
+    // `sanitizePlaces`, so the key `docToPlaceRows` had just retained was re-stripped one step
+    // later, on the way into `tx.set` — an older client still erased a newer client's fields from
+    // `places/list` on every push, which is the whole defect #138 fixed for expenses and docs.
+    fake.setDocData(DOC_PATH, {
+      version: 1,
+      items: [
+        { ...place('fushimi'), vibeTag: 'sunset' },
+        // Unstamped (pre-#17) row: `mergePlaces` seeds `updatedAt` from `addedAt` to give it an
+        // order key. That seed is TRANSIENT, and the strict rebuild used to be what removed it — so
+        // retention without `stripSeed` would persist it and mint a second source of truth for the
+        // order key (`rowHlc` seeds from `updatedAt` whenever `hlc` is absent).
+        { id: 'legacy', name: 'legacy', legId: 'main', addedAt: '2026-07-01T10:00:00.000Z' },
+      ],
+    });
+    // Built through the LOCAL (strict) sanitizer — what this device actually holds on disk.
+    const localRows = sanitizePlaces([{ ...place('fushimi'), vibeTag: 'sunset' }]);
+    expect(localRows[0]).not.toHaveProperty('vibeTag'); // the asymmetry the merge has to resolve
+
+    await pushPlacesMerged(fake as unknown as Firestore, fs, localRows);
+
+    const written = (fake.docs.get(DOC_PATH) as { items: Record<string, unknown>[] }).items;
+    expect(written.map((p) => p.id).sort()).toEqual(['fushimi', 'legacy']);
+    const back = Object.fromEntries(written.map((p) => [p.id as string, p]));
+    // Asserted on the bytes in the doc, not on the read boundary's output: this is the value the
+    // next client pulls down, and it is where the strict tail used to erase the key.
+    expect(back.fushimi.vibeTag).toBe('sunset');
+    expect(back.legacy).not.toHaveProperty('updatedAt');
   });
 
   it('a same-id collision converges by HLC, and matches what the pure merge predicts', async () => {

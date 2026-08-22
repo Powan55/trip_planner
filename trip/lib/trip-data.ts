@@ -8,7 +8,7 @@
 // One implementation in core, the same public surface here.
 //
 // The itinerary DOMAIN types + category maps below (`ItineraryItem`, `DayPlan`,
-// `CATEGORY_COLORS`, `CATEGORY_ICONS`, …) intentionally STAY here — they are not date
+// `CATEGORY_COLORS`, …) intentionally STAY here — they are not date
 // backbone and belong to the itinerary change, not `core/dates`.
 export {
   TRIP_START,
@@ -145,17 +145,4 @@ export const CATEGORY_COLORS: Record<ItineraryCategory, { bg: string; text: stri
   hotel: { bg: 'bg-indigo-500/20', text: 'text-indigo-300', border: 'border-indigo-500/30' },
   free: { bg: 'bg-gray-500/20', text: 'text-gray-300', border: 'border-gray-500/30' },
   nightlife: { bg: 'bg-fuchsia-500/20', text: 'text-fuchsia-300', border: 'border-fuchsia-500/30' },
-};
-
-export const CATEGORY_ICONS: Record<ItineraryCategory, string> = {
-  sightseeing: 'MapPin',
-  food: 'UtensilsCrossed',
-  photography: 'Camera',
-  shopping: 'ShoppingBag',
-  nature: 'Trees',
-  cultural: 'Landmark',
-  transportation: 'Plane',
-  hotel: 'Hotel',
-  free: 'Coffee',
-  nightlife: 'Music',
 };

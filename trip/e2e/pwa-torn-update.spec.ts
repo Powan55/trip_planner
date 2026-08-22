@@ -101,6 +101,67 @@ test.describe('S271 · Part A — offline, the surviving worker serves real per-
 
     await context.setOffline(false);
   });
+
+  /**
+   * Every other offline assertion in this suite — here, in `pwa.spec.ts`, in
+   * `sw-shell-scope.spec.ts` — reaches its route with `page.goto`. Nothing ever
+   * CLICKED a link offline, and that is the path real use takes: `next/link` fetches
+   * the target's RSC payload from `<route>/index.txt`, and when that fetch fails Next
+   * falls back to a BROWSER NAVIGATION to the `.txt` URL itself. Nothing precached
+   * matched it, so the nav handler answered with the app-root shell: tap "Plan"
+   * offline, the address bar read `…/plan/index.txt`, and Home rendered — from which
+   * every further tap did the same, so the UI could never leave Home. `page.goto` never
+   * produces that URL, which is why a green suite said nothing about it.
+   *
+   * The 19 route payloads are precached now, so the correct outcome is a SOFT
+   * navigation — and "soft" is what this has to assert, because the shell-identity
+   * assertions below pass under the hard-navigation fallback too (the worker serves the
+   * right shell for the `.txt` URL either way). The window marker is the difference: a
+   * soft nav keeps the JS context, a document navigation throws it away.
+   */
+  test('offline, CLICKING an in-app link SOFT-navigates to that route, not back on Home', async ({
+    page,
+    context,
+  }) => {
+    await page.goto('/', { waitUntil: 'load' });
+    await waitForControllingSW(page);
+    await expect.poll(() => precacheCount(page)).toBeGreaterThan(20);
+
+    await context.setOffline(true);
+
+    // COLD-offline load, deliberately: nothing was warmed by an ONLINE visit to /plan/,
+    // so the router's RSC fetch has nowhere to come from except the install-time
+    // precache. Reusing the warm page would let a runtime-cached payload answer and
+    // prove nothing about the install list.
+    await page.goto('/', { waitUntil: 'load' });
+    expect(await page.title()).toContain(HOME_TITLE_MARK);
+
+    await page.evaluate(() => {
+      (window as unknown as { __swNavMarker?: string }).__swNavMarker = 'same-document';
+    });
+
+    await Promise.all([
+      page.waitForURL(/\/plan\/$/, { timeout: 20_000 }),
+      page.getByTestId('navbar-link-plan').click(),
+    ]);
+    await page.waitForLoadState('load');
+
+    await expect(page).toHaveTitle(PLAN_TITLE);
+    expect(await page.title()).not.toContain(HOME_TITLE_MARK);
+
+    expect(
+      await page.evaluate(
+        () => (window as unknown as { __swNavMarker?: string }).__swNavMarker ?? null,
+      ),
+      'the marker did not survive the click: Next fell back to a document navigation, so the ' +
+        'precached RSC payload was not served',
+    ).toBe('same-document');
+
+    // …and the address bar reads the route, not the payload.
+    expect(new URL(page.url()).pathname).toMatch(/\/plan\/$/);
+
+    await context.setOffline(false);
+  });
 });
 
 test.describe('S271 · Part B — the shipped install handler is ATOMIC (rejects on any non-OK precache fetch)', () => {

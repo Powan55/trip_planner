@@ -4,11 +4,9 @@ import { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { m } from 'framer-motion';
 import { toast } from 'sonner';
-import {
-  MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
-  Landmark, Plane, Hotel, Coffee, Music, X, Check, Users,
-} from 'lucide-react';
+import { X, Check, Users } from 'lucide-react';
 import { CATEGORY_COLORS, type ItineraryCategory } from '@/lib/trip-data';
+import { CATEGORY_ICON_MAP } from '@/components/category-icon';
 import {
   legCurrency, currencySymbol, formatMoney,
   BUDGET_CATEGORIES, LEGS, type Leg,
@@ -41,19 +39,6 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
  * EDIT MODE: pass an `expense` and the fields preset from it; Save calls `updateExpense`. Delete
  * lives in the budget panel's list (not here) — this dialog is add/edit only.
  */
-
-const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
-  sightseeing: <MapPin className="w-3.5 h-3.5" />,
-  food: <UtensilsCrossed className="w-3.5 h-3.5" />,
-  photography: <Camera className="w-3.5 h-3.5" />,
-  shopping: <ShoppingBag className="w-3.5 h-3.5" />,
-  nature: <Trees className="w-3.5 h-3.5" />,
-  cultural: <Landmark className="w-3.5 h-3.5" />,
-  transportation: <Plane className="w-3.5 h-3.5" />,
-  hotel: <Hotel className="w-3.5 h-3.5" />,
-  free: <Coffee className="w-3.5 h-3.5" />,
-  nightlife: <Music className="w-3.5 h-3.5" />,
-};
 
 export interface ExpenseDialogProps {
   open: boolean;

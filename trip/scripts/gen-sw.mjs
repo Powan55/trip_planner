@@ -708,6 +708,15 @@ async function buildPrecacheList(allFiles) {
     // duplicate /404/ precache entry.
     if (rel === 'index.html' || rel === '404.html') set.add(rel);
     else if (rel.endsWith('/index.html') && rel !== '404/index.html') set.add(rel);
+    // Route RSC payloads. next/link fetches <route>/index.txt before it renders,
+    // and offline a failed fetch is a HARD navigation to that .txt URL (Next's MPA
+    // fallback) — so without these the app can leave Home offline but only by
+    // reloading, which drops client state and re-runs the whole shell. 19 files,
+    // +461,315 B raw / +69.3 KiB over the wire on a 1.48 MiB gzipped install; the
+    // steady-state device cost is ZERO, because the runtime cacheFirst already
+    // deposits these same 19 keys on the first online browse. Root route included:
+    // its payload is out/index.txt, which has no directory to end with.
+    else if (rel === 'index.txt' || rel.endsWith('/index.txt')) set.add(rel);
     else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
     // NOTE: font/** — the self-hosted MapLibre SDF glyph PBFs
@@ -900,17 +909,26 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     (async () => {
-      // ALLOWLIST cleanup: delete ANY cache key not in the current set —
-      // the active precache PLUS the two runtime caches. This drops the previous
-      // build's trip-precache-* (atomic activation) AND garbage-collects renamed
-      // runtime caches (e.g. a bumped trip-images-v1 -> v2, or a retired
-      // frankfurter cache) that the old prefix-only filter would have leaked
-      // forever. FRANKFURTER_CACHE is declared lower in this file; it is only
+      // ALLOWLIST cleanup, scoped to OUR caches: delete any cache key of ours
+      // that is not in the current set — the active precache PLUS the two runtime
+      // caches. This drops the previous build's trip-precache-* (atomic activation)
+      // AND garbage-collects renamed runtime caches (e.g. a bumped trip-images-v1 ->
+      // v2, or a retired frankfurter cache) that a prefix-only filter would have
+      // leaked forever. FRANKFURTER_CACHE is declared lower in this file; it is only
       // read here at activate time (well after module eval), so no TDZ issue.
+      //
+      // The OWNERSHIP predicate is load-bearing and is not a duplicate of the
+      // allowlist: caches.keys() is scoped to the ORIGIN, not to this worker's
+      // scope, and the live app is a GitHub Pages PROJECT page — powan55.github.io
+      // is shared with every other Pages project on the account. Without the
+      // prefix, accepting an update here wipes a sibling app's Cache Storage, and
+      // that sibling only repopulates on ITS own next version bump.
       const allowlist = new Set([PRECACHE, IMAGES_CACHE, FRANKFURTER_CACHE]);
       const keys = await caches.keys();
       await Promise.all(
-        keys.filter((k) => !allowlist.has(k)).map((k) => caches.delete(k))
+        keys
+          .filter((k) => k.startsWith('trip-') && !allowlist.has(k))
+          .map((k) => caches.delete(k))
       );
       await self.clients.claim();
     })()
@@ -929,6 +947,15 @@ self.addEventListener('message', (event) => {
 // both hit the cached /plan/ entry.
 function normalizePath(url) {
   let pathname = url.pathname;
+  // Strip the RSC payload suffix FIRST. Next fetches a route's payload from
+  // <route>/index.txt (trailingSlash:true; <route>.txt otherwise) and, when that
+  // fetch fails — i.e. offline — falls back to a BROWSER NAVIGATION to the .txt URL
+  // itself. Nothing precached matches it, so the nav handler used to answer with the
+  // app-root shell: tap "Plan" offline and Home renders at /plan/index.txt, from
+  // which every further tap repeats it. Only navigations reach here; the RSC fetch
+  // itself is not mode:'navigate' and takes the static branch.
+  if (pathname.endsWith('/index.txt')) pathname = pathname.slice(0, -'index.txt'.length);
+  else if (pathname.endsWith('.txt')) pathname = pathname.slice(0, -'.txt'.length);
   if (!pathname.endsWith('/') && !pathname.includes('.')) {
     pathname = pathname + '/';
   }
@@ -984,13 +1011,56 @@ async function trimImageCache() {
   }
 }
 
+// caches.match() can REJECT — a corrupted store, an eviction racing the read, iOS
+// storage reclamation. Every lookup in this file wants "nothing cached" out of that,
+// never a throw: an exception inside respondWith rejects the response and the browser
+// paints its network-error page for a route the precache is holding. Guarding the one
+// shared helper is what keeps every branch degrading instead of failing.
+async function cacheMatch(request, options) {
+  try {
+    return await caches.match(request, options);
+  } catch (err) {
+    return undefined;
+  }
+}
+
+// Next appends a cache-busting _rsc=<digest> to every RSC request, and the digest is
+// computed from the CURRENT router state tree — so one target route yields a different
+// URL per source route and again for prefetch vs navigation. Keyed literally, each of
+// those becomes its own permanent entry in a precache that has no size cap and no
+// eviction. Collapse them to one entry per route.
+//
+// For a .txt payload the WHOLE search string goes, not just _rsc. Next mutates only
+// the PATHNAME when it derives the payload URL, so command-palette.tsx's
+// router.push('/plan/?focus=<id>') is fetched as /plan/index.txt?focus=<id>&_rsc=<digest>
+// — deleting _rsc alone leaves ?focus=<id> in the key and misses the precached
+// /plan/index.txt, which is the only entry that exists. travel-date-picker already had
+// to route AROUND this: TM-11 replaced its router.replace with history.replaceState
+// precisely because the ?date= payload fetch died offline.
+//
+// Scoped to .txt DELIBERATELY: this is only sound because a static export's payload
+// is prerendered per ROUTE and cannot vary by query. For any other asset a param can
+// select the bytes, so dropping the search globally would be wrong.
+function cacheKey(request) {
+  const url = new URL(request.url);
+  if (url.pathname.endsWith('.txt')) {
+    if (!url.search) return request;
+    url.search = '';
+    return url.href;
+  }
+  if (!url.searchParams.has('_rsc')) return request;
+  url.searchParams.delete('_rsc');
+  return url.href;
+}
+
 async function cacheFirst(request, cacheName) {
-  const cached = await caches.match(request);
+  const key = cacheKey(request);
+  const cached = await cacheMatch(key);
   if (cached) return cached;
   const res = await fetch(request);
   if (res && res.ok && res.type === 'basic') {
     const cache = await caches.open(cacheName);
-    cache.put(request, res.clone());
+    cache.put(key, res.clone());
   }
   return res;
 }
@@ -1043,7 +1113,19 @@ self.addEventListener('fetch', (event) => {
   if (isImageRequest(request, url)) {
     event.respondWith(
       (async () => {
-        const cached = await caches.match(request, { cacheName: IMAGES_CACHE });
+        // PRECACHE FIRST, runtime cache second. The precache name is content-hashed
+        // and rolls with every deploy; IMAGES_CACHE is 'trip-images-v1' forever and is
+        // allowlisted through every activate, while /images/** filenames are NOT
+        // content-hashed. Consulting the durable runtime copy first meant a re-encoded
+        // image stayed stale on a returning client for good — with the fresh bytes
+        // sitting unread in the new precache — and meant the precached hero rasters
+        // (D-335, 30% of the gzipped install) were never served from cache on a first
+        // online paint, because anything not already in IMAGES_CACHE went to the
+        // network. Checking the precache first fixes both, and keeps the precached
+        // heroes from also burning one of the 80 FIFO slots.
+        const fresh = await cacheMatch(request, { cacheName: PRECACHE });
+        if (fresh) return fresh;
+        const cached = await cacheMatch(request, { cacheName: IMAGES_CACHE });
         if (cached) return cached;
         let res;
         try {
@@ -1068,15 +1150,15 @@ self.addEventListener('fetch', (event) => {
         // path (#136): res.ok is true for it, so the content type is the only thing that
         // separates a photo from an HTML sign-in form.
         //
-        // Fall back to ANY cache, not IMAGES_CACHE — that is how the hero rasters'
-        // offline guarantee is actually delivered: they live in the PRECACHE, so the
-        // cacheName-scoped lookup above misses them by design and this is the line
-        // that finds them (D-335).
+        // Fall back to ANY cache, not IMAGES_CACHE — the hero rasters' offline
+        // guarantee lives in the PRECACHE (D-335), which the two cacheName-scoped
+        // lookups at the top of this handler now cover directly; this stays as the
+        // unscoped backstop for a cache populated after they ran.
         //
         // The \`await\` is load-bearing and was once missing: \`caches.match()\` returns
         // a Promise, which is always truthy, so \`||\` could never reach the fallback
         // and a genuine miss resolved to \`undefined\` instead of a network error.
-        return (await caches.match(request)) || res || Response.error();
+        return (await cacheMatch(request)) || res || Response.error();
       })()
     );
     return;
@@ -1088,7 +1170,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         const normalized = normalizePath(url);
-        const cached = await caches.match(normalized);
+        const cached = await cacheMatch(normalized);
         if (cached) return cached;
         try {
           const res = await fetch(request);
@@ -1101,13 +1183,13 @@ self.addEventListener('fetch', (event) => {
           // delays the navigation response.
           if (res && res.ok && res.type === 'basic') {
             const copy = res.clone(); // clone NOW, before the browser locks the body
-            caches.open(PRECACHE).then((cache) => cache.put(normalized, copy));
+            caches.open(PRECACHE).then((cache) => cache.put(normalized, copy)).catch(() => {});
           }
           return res;
         } catch (err) {
-          const shell = await caches.match(NAV_FALLBACK);
+          const shell = await cacheMatch(NAV_FALLBACK);
           if (shell) return shell;
-          const fallback = await caches.match(${JSON.stringify(withBase('/404.html'))});
+          const fallback = await cacheMatch(${JSON.stringify(withBase('/404.html'))});
           return fallback || Response.error();
         }
       })()
@@ -1115,11 +1197,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Same-origin static assets: cache-first.
+  // Same-origin static assets: cache-first. The lookup lives inside cacheFirst —
+  // an identical caches.match(request) sat here too, outside the try, so a rejecting
+  // Cache Storage took down an asset the precache was holding, and the unnormalized
+  // key missed every _rsc request that cacheFirst then had to look up again.
   event.respondWith(
     (async () => {
-      const cached = await caches.match(request);
-      if (cached) return cached;
       try {
         return await cacheFirst(request, PRECACHE);
       } catch (err) {

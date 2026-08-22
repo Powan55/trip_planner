@@ -38,7 +38,7 @@ import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
 import { mergeItems, gcTombstoneRows } from '@/core/sync/merge-items';
 import { outboxDirty } from '@/core/sync/outbox';
-import { clock } from './trip-now';
+import { realClock } from './trip-now';
 
 /**
  * Map a raw Firestore expense chunk-doc into its `Expense[]` (defensive: tolerate a partial doc).
@@ -92,7 +92,7 @@ export async function pushChunkMerged(
     const remoteRows: Expense[] = snap.exists() ? chunkDocToRows(snap.data() as Record<string, unknown>) : [];
     // GC BOUNDARY ①: prune past-horizon, unreferenced tombstone rows
     // from the MERGED leg before writing — the `pushDayMerged` gc analog over `gcTombstoneRows`.
-    const merged = gcTombstoneRows(mergeItems(remoteRows, localRows), clock.now().getTime());
+    const merged = gcTombstoneRows(mergeItems(remoteRows, localRows), realClock.now().getTime());
     tx.set(ref, { leg, items: sanitizeRowsForWrite(merged) });
   });
 }
@@ -184,7 +184,7 @@ export function subscribeRemoteExpenses(onApplied?: (rows: Expense[]) => void): 
         // Steady-state (or a dirty leg on first snapshot): item-level merge so an unpushed local
         // edit and a peer's edits both survive. GC BOUNDARY ②: prune
         // past-horizon, unreferenced tombstone rows from the MERGED leg before persist.
-        result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), clock.now().getTime()));
+        result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), realClock.now().getTime()));
       }
     }
     persistAndDispatch(result);

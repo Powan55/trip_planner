@@ -49,10 +49,19 @@ function quarantine(raw: string): void {
 }
 
 /**
- * Validate a whole-expenses-store JSON string WITHOUT writing. Fails safe: a parse error or an
- * unrecognized envelope shape rejects (and quarantines the raw text); any other payload is run
- * through `sanitizeExpenses` — the SAME lenient/total boundary the storage read path uses — so a
- * malformed individual row is dropped rather than rejecting the whole file.
+ * Validate a whole-expenses-store JSON string WITHOUT writing. Fails safe: a parse error, an
+ * unrecognized envelope shape, or a payload row `sanitizeExpenses` could not salvage rejects the
+ * whole file (and quarantines the raw text).
+ *
+ * ALL-OR-NOTHING, and that is D-098 (`core/vault/schema.ts#parseItineraryPayloadStrict`) expressed
+ * on the expense path — the two boundaries have identical failure economics. On disk there is no
+ * second copy, so `sanitizeExpenses` stays lenient there and drops the bad row. On IMPORT the user
+ * holds both the file and their live expenses, and the caller applies the result as a tombstone-
+ * REPLACE (`useExpenses().restoreExpenses`) that propagates to every device. A lenient gate here
+ * meant any `{schemaVersion:number, payload:[…]}` file passed — including the itinerary export,
+ * which sits in the same Downloads folder and is offered by the same file picker: none of its rows
+ * is an `Expense`, so it parsed to `[]`, wiped every logged expense everywhere, and reported
+ * success. Rejecting costs one failed import with the bytes quarantined.
  */
 export function parseExpenseBackup(rawText: string): ExpenseParseResult {
   let parsed: unknown;
@@ -76,6 +85,14 @@ export function parseExpenseBackup(rawText: string): ExpenseParseResult {
     };
   }
 
-  const expenses = sanitizeExpenses((parsed as { payload: unknown }).payload);
+  const payload = (parsed as { payload: unknown[] }).payload;
+  const expenses = sanitizeExpenses(payload);
+  if (expenses.length !== payload.length) {
+    quarantine(rawText);
+    return {
+      ok: false,
+      error: 'That expenses file is missing or has malformed data. No changes were made to your expenses.',
+    };
+  }
   return { ok: true, expenses };
 }

@@ -69,7 +69,13 @@ vi.mock('@/lib/trips-remote', () => ({
 import TripsHub from '@/components/trips-hub';
 import { runTripMetaSelfHeal } from '@/components/itinerary-provider';
 import { setActiveTripId, tripMetaSelfHealGuard, DEFAULT_TRIP_ID } from '@/core/storage/gateway';
-import { joinTrip, getKnownTrip, SHARED_NAME } from '@/core/trips/registry';
+import {
+  joinTrip,
+  getKnownTrip,
+  listKnownTrips,
+  SHARED_NAME,
+  TRIP_DAYS_MAX,
+} from '@/core/trips/registry';
 import { signIn } from '@/lib/token-auth';
 
 function render(el: ReactElement) {
@@ -146,16 +152,28 @@ afterEach(() => {
   }
 });
 
-/** Mount the hub, wait for its post-mount storage read, and submit the create form with `name`. */
-async function submitCreate(name: string) {
+const field = (view: { container: HTMLElement }, id: string) =>
+  view.container.querySelector<HTMLInputElement>(`[data-testid="trips-hub-create-${id}"]`)!;
+
+/**
+ * Mount the hub, wait for its post-mount storage read, and submit the create form.
+ * Destinations are REQUIRED (they become the leg's `fallbackCity` and land in the LIFETIME
+ * visited-cities record), so every submit fills them unless a test overrides them.
+ */
+async function submitCreate(
+  name: string,
+  extra: { destinations?: string; start?: string; end?: string } = {},
+) {
+  const { destinations = 'Kochi, Munnar', start, end } = extra;
   const view = render(createElement(TripsHub));
   await flush(); // mount effect: listKnownTrips() → canManage true → the create form paints
-  const input = view.container.querySelector<HTMLInputElement>(
-    '[data-testid="trips-hub-create-name"]',
-  )!;
+  const input = field(view, 'name');
   expect(input).not.toBeNull();
   await act(async () => {
     typeInto(input, name);
+    typeInto(field(view, 'destinations'), destinations);
+    if (start !== undefined) typeInto(field(view, 'start'), start);
+    if (end !== undefined) typeInto(field(view, 'end'), end);
   });
   const form = input.closest('form')!;
   await act(async () => {
@@ -334,5 +352,85 @@ describe('S375 half 2 — the self-heal guard marks only a FOUND doc', () => {
     runTripMetaSelfHeal();
     await flush();
     expect(fetchTripMetaMock).not.toHaveBeenCalled();
+  });
+});
+
+// ── create-form validation ───────────────────────────────────────────────────────────────────────
+//
+// Two defects that both end in a permanent, out-of-trip record:
+//   - a blank Destinations field fell back to the trip NAME, which became `destinations[0]` → the
+//     leg's `fallbackCity` → the day's city → `tripPlannerLifetimeVisits`, a LIFETIME-scoped key
+//     outside `wipeAllTripData()` (D-314). "Mum's 60th" was filed forever as a city visited.
+//   - nothing capped `end - start`, so a one-digit year typo minted tens of thousands of trip days,
+//     megabytes of day shells, and ONE FIRESTORE DOCUMENT PER DAY on a free tier.
+// Both are refused at the point of authorship AND at `sanitizeTripConfig` (custom-trip-config.test).
+describe('create form — destinations required, span capped', () => {
+  it('refuses a blank Destinations field instead of filing the trip NAME as a city', async () => {
+    const loc = stubLocation();
+    const view = await submitCreate("Mum's 60th", { destinations: '  ,  ' });
+    await flush();
+
+    expect(pushTripMetaMock).not.toHaveBeenCalled();
+    expect(loc.assign).not.toHaveBeenCalled();
+    const err = view.container.querySelector('[data-testid="trips-hub-create-date-error"]');
+    expect(err?.textContent).toMatch(/destination/i);
+    // The whole point: no trip exists, so nothing can stamp the name into the lifetime record.
+    expect(listKnownTrips().filter((t) => t.id !== DEFAULT_TRIP_ID)).toEqual([]);
+
+    view.unmount();
+  });
+
+  it(`refuses a span over ${TRIP_DAYS_MAX} days (the mistyped-year trip)`, async () => {
+    const loc = stubLocation();
+    const view = await submitCreate('Kerala 2027', {
+      start: '2027-01-05',
+      end: '2207-01-05', // one digit off — 65,744 days pre-fix
+    });
+    await flush();
+
+    expect(pushTripMetaMock).not.toHaveBeenCalled();
+    expect(loc.assign).not.toHaveBeenCalled();
+    const err = view.container.querySelector('[data-testid="trips-hub-create-date-error"]');
+    expect(err?.textContent).toContain(String(TRIP_DAYS_MAX));
+    expect(listKnownTrips().filter((t) => t.id !== DEFAULT_TRIP_ID)).toEqual([]);
+
+    view.unmount();
+  });
+
+  it('the End date input carries the cap natively, so the picker cannot offer a worse year', async () => {
+    const view = render(createElement(TripsHub));
+    await flush();
+    await act(async () => {
+      typeInto(field(view, 'start'), '2027-01-05');
+    });
+    const end = field(view, 'end');
+    expect(end.min).toBe('2027-01-05');
+    expect(end.max).toBe('2029-01-03'); // 2027-01-05 + (730 - 1) days
+    expect(field(view, 'destinations').required).toBe(true);
+
+    view.unmount();
+  });
+
+  it('a normal trip still creates (the guards refuse only the two bad shapes)', async () => {
+    const loc = stubLocation();
+    const view = await submitCreate('Kerala 2027', {
+      destinations: 'Kochi, Munnar',
+      start: '2027-03-01',
+      end: '2027-03-05',
+    });
+    await flush();
+
+    expect(pushTripMetaMock).toHaveBeenCalledTimes(1);
+    expect(pushTripMetaMock.mock.calls[0][1]).toMatchObject({
+      name: 'Kerala 2027',
+      config: { start: '2027-03-01', end: '2027-03-05', destinations: ['Kochi', 'Munnar'] },
+    });
+    await act(async () => {
+      metaPush.resolve();
+    });
+    await flush();
+    expect(loc.assign).toHaveBeenCalledTimes(1);
+
+    view.unmount();
   });
 });

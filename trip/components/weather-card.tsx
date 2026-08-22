@@ -8,6 +8,8 @@ import {
   type WeatherNow,
   type WeatherResult,
 } from '@/lib/weather';
+import { formatRelativeDayLabel } from '@/core/dates';
+import { getNowAtTrip } from '@/lib/trip-now';
 
 /**
  * — 2: the weather + golden-hour card for the CURRENT trip city.
@@ -44,28 +46,16 @@ function formatClock(iso: string): string {
   return `${h}:${min} ${ampm}`;
 }
 
-/** Label a forecast row's date: "Today" / "Tomorrow" / a short weekday name. Display-only —
- * parses the "YYYY-MM-DD" local calendar date (no clock read), mirrors `formatClock`. */
-function formatDayLabel(date: string, index: number): string {
-  if (index === 0) return 'Today';
-  if (index === 1) return 'Tomorrow';
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(date);
-  if (!m) return date;
-  const dt = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
-  if (Number.isNaN(dt.getTime())) return date;
-  return dt.toLocaleDateString(undefined, { weekday: 'short' });
-}
-
 /** One row of the 7-day outlook: day label, condition, hi/lo, and that day's golden-hour times
  * (photography-ahead — the app's photography theme, extended past just today). */
-function ForecastRow({ day, index }: { day: ForecastDay; index: number }) {
+function ForecastRow({ day, todayISO }: { day: ForecastDay; todayISO: string }) {
   return (
     <li
       data-testid="weather-forecast-day"
       className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/5 py-2 text-xs first:border-t-0 first:pt-1"
     >
       <span className="w-16 flex-shrink-0 font-medium text-ink-hi">
-        {formatDayLabel(day.date, index)}
+        {formatRelativeDayLabel(day.date, todayISO)}
       </span>
       <span className="min-w-[6rem] flex-1 text-ink-mid">{day.condition}</span>
       <span
@@ -97,6 +87,10 @@ function ForecastRow({ day, index }: { day: ForecastDay; index: number }) {
  * as the current conditions, so it carries the same freshness.
  */
 function ForecastOutlook({ days, stale }: { days: ForecastDay[]; stale: boolean }) {
+  // The destination-local day, the same "today" every other trip-day surface reads. Rows are
+  // labelled against THIS, not against their position: a cached outlook survives days of being
+  // offline, and row 0 of a three-day-old window is not today.
+  const todayISO = getNowAtTrip().date;
   return (
     <details data-testid="weather-forecast" className="group mt-4">
       <summary className="flex min-h-[44px] cursor-pointer list-none items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-xs font-medium text-ink-mid outline-none transition-colors duration-200 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
@@ -110,8 +104,8 @@ function ForecastOutlook({ days, stale }: { days: ForecastDay[]; stale: boolean 
         />
       </summary>
       <ol className="mt-2">
-        {days.map((day, i) => (
-          <ForecastRow key={day.date} day={day} index={i} />
+        {days.map((day) => (
+          <ForecastRow key={day.date} day={day} todayISO={todayISO} />
         ))}
       </ol>
     </details>

@@ -8,7 +8,7 @@ import { createReactiveStore } from '@/hooks/create-reactive-store';
 import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
-import { clock } from '@/lib/trip-now';
+import { realClock } from '@/lib/trip-now';
 import { firstSyncStamp, nextSyncStamp } from '@/core/sync/stamp';
 import { addPlace, removePlace, type MyPlace } from '@/core/places/model';
 
@@ -115,7 +115,7 @@ export function useMyPlaces(): MyPlacesStore {
         commit((current) => addPlace(current, place));
         return;
       }
-      const now = clock.now().getTime();
+      const now = realClock.now().getTime();
       const name = actor();
       commit((current) => {
         // Advance from ANY prior row with this id — including a TOMBSTONE. That is what makes
@@ -140,7 +140,7 @@ export function useMyPlaces(): MyPlacesStore {
         commit((current) => removePlace(current, id));
         return;
       }
-      const now = clock.now().getTime();
+      const now = realClock.now().getTime();
       const name = actor();
       // TOMBSTONE, not a physical filter: a removed row must stay removed after the next remote
       // snapshot. `deleted:true` + an advanced hlc is the itinerary's `stampSyncDeleted` discipline
