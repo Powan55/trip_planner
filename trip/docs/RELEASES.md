@@ -23,8 +23,8 @@ release deletes that refusal.
   from token possession to Firestore membership and added a matching client-side check, keyed on
   `isRemoteConfigured()`; the Worker half is `v1.9.0`, which is still held (see the worker note at the end of this entry),
   so `v6.0.0` shipped a refusal with nothing behind it. Probed live before changing anything:
-  `GET /resolve` with **no** `Authorization` header at all answers `400 unsupported url`, so the
-  deployed Worker never asks who is calling.
+  `GET /resolve` requires an `X-Trip-Token` header; without it, the endpoint answers `401 missing trip token`.
+  The endpoint is gated on trip-token possession, not on the `v1.9.0` membership check that never deployed.
 - Nothing about the sample trip needed protecting. Its digest is the built-in pack, it has no
   Firestore document, and it never syncs — `getTripId()` returns `''` for it by construction.
 - The other guard stays exactly as it was: a trip id the registry does not know is still refused
