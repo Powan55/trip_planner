@@ -148,12 +148,14 @@ describe('pushChunkMerged — transactional read→merge→set does NOT clobber 
     expect(writeLog).toEqual([`tx-set:trips/${TRIP_ID}/expenses/nepal`]);
   });
 
-  it("the read boundary retains a remote-ONLY row's forward keys (no id collision) (#138)", async () => {
+  it("the read boundary retains a remote-ONLY row's forward keys AND a forward category (no id collision) (#138, #150)", async () => {
     // `sanitizeExpense` used to rebuild each row from a fixed field list, so any key a NEWER build
     // wrote was dropped — and since the sanitized row is written straight back up here, an older
-    // client permanently erased the newer client's data from the server on its next sync.
-    // Scope of THIS test: the read boundary only. Remote 'B' has no local counterpart, so it is
-    // carried through the merge untouched. The collision case is the test below.
+    // client permanently erased the newer client's data from the server on its next sync. It also
+    // hard-rejected a `category` this build doesn't recognise, dropping the WHOLE row (#150) —
+    // exactly this read boundary is where a peer on a newer build hits that every sync.
+    // Scope of THIS test: the read boundary only. Remote 'B'/'D' have no local counterpart, so they
+    // are carried through the merge untouched. The collision case is the test below.
     fake.setDocData(`trips/${TRIP_ID}/expenses/nepal`, {
       leg: 'nepal',
       items: [
@@ -165,7 +167,8 @@ describe('pushChunkMerged — transactional read→merge→set does NOT clobber 
           note: '   ',
           rev: 'not-a-number',
         },
-        { id: 'C', leg: 'nepal', category: 'teleportation', amount: 1, createdAt: 't' }, // still invalid
+        { id: 'D', leg: 'nepal', category: 'teleportation', amount: 1, createdAt: 't' }, // forward category, retained (#150)
+        { leg: 'nepal', category: 'food', amount: 1, createdAt: 't' }, // no id — still unsalvageable
       ],
     });
     await pushChunkMerged(fake as unknown as Firestore, fs, 'nepal', [exp('A', { hlc: '000000000003000:000000:me' })]);
@@ -173,7 +176,7 @@ describe('pushChunkMerged — transactional read→merge→set does NOT clobber 
     const written = fake.docs.get(`trips/${TRIP_ID}/expenses/nepal`) as {
       items: Array<Expense & { currency?: string; tags?: string[] }>;
     };
-    expect(written.items.map((e) => e.id).sort()).toEqual(['A', 'B']); // 'C' rejected, as before
+    expect(written.items.map((e) => e.id).sort()).toEqual(['A', 'B', 'D']); // no-id row rejected, as before
     const b = written.items.find((e) => e.id === 'B')!;
     expect(b.currency).toBe('NPR');
     expect(b.tags).toEqual(['receipt']);
@@ -181,6 +184,8 @@ describe('pushChunkMerged — transactional read→merge→set does NOT clobber 
     expect(b).not.toHaveProperty('date');
     expect(b).not.toHaveProperty('note');
     expect(b).not.toHaveProperty('rev');
+    // 'D's forward category survived the read→merge→write round trip intact (#150).
+    expect(written.items.find((e) => e.id === 'D')!.category).toBe('teleportation');
   });
 
   it('a forward key survives the SAME-id, SAME-hlc collision the round trip actually creates (#138)', async () => {

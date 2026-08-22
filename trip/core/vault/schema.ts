@@ -80,6 +80,13 @@ export const itineraryItemSchema = z
     // on read; declaring it makes the accepted surface explicit + typed. ISO date string; the
     // ">= startDay & in-trip-range" check lives once, in the ItemEditor UI (matching lat/lng).
     endDate: z.string().optional(),
+    // Per-item place-offset override ( — additive OPTIONAL, per lenient-read rule, mirrors the
+    // `lat`/`lng`/`endDate` entry above). NO migration and NO version bump: an item with `tzOffsetMin`
+    // absent is trivially offset-by-day, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION
+    // STAYS 5 — the `schemaVersion` assertions remain `toBe(5)`. `.passthrough()` already tolerated it
+    // on read; declaring it makes the accepted surface explicit + typed. Minutes east of UTC; plain
+    // `z.number().optional()` (no range clamp) matching the startMinutes/lat/lng precedent.
+    tzOffsetMin: z.number().optional(),
   })
   .passthrough(); // tolerate unknown future fields on read
 

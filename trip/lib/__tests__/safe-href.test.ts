@@ -8,7 +8,7 @@
 // `javascript:` and `data:` are asserted even though no version of either predicate has ever
 // accepted them. They are the cases that a future widening breaks silently: the export is static
 // GitHub Pages with no CSP, so one of those in an `<a href>` runs on the app origin with the
-// Firebase session and every trip key in localStorage in reach (D-383).
+// Firebase session and every trip key in localStorage in reach (D-407).
 
 import { describe, it, expect } from 'vitest';
 import { isHttpHref, isSafeHref } from '@/lib/safe-href';

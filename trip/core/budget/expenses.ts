@@ -42,8 +42,14 @@ export interface Expense {
    * know it — see that function for why, and where such a row is excluded instead.
    */
   leg: Leg;
-  /** One of the 10 canonical ItineraryCategory values. */
-  category: ItineraryCategory;
+  /**
+   * One of the 10 canonical `ItineraryCategory` values in the common case, but RETAINED VERBATIM
+   * when it is not (#150) — a forward category from a newer build is not corruption, the same
+   * reasoning `leg` already gets below. Consumers that index a category-keyed map (e.g.
+   * `CATEGORY_COLORS`) must fall back for a value outside the known 10; `isCategory` (below)
+   * is the guard, but it now gates AGGREGATION only, not sanitize-time retention.
+   */
+  category: string;
   /** Amount in the LEG's local currency (NPR / JPY). Sanitized non-negative finite. */
   amount: number;
   /** Optional 'YYYY-MM-DD' the expense is attributed to (the logged/selected day). */
@@ -85,7 +91,11 @@ export interface Expense {
   updatedBy?: string;
 }
 
-/** Type guard: the value is one of the 10 canonical categories. */
+/**
+ * Type guard: the value is one of the 10 canonical categories. Used ONLY by the aggregator
+ * (`expensesToSpent`) to keep a foreign category out of a `BUDGET_CATEGORIES`-shaped total —
+ * `sanitizeExpense` no longer calls this to reject a row (#150).
+ */
 function isCategory(value: unknown): value is ItineraryCategory {
   return typeof value === 'string' && (BUDGET_CATEGORIES as readonly string[]).includes(value);
 }
@@ -103,10 +113,12 @@ export interface SanitizeOptions {
 
 /**
  * Coerce any parsed-from-storage / caller-supplied value into a valid `Expense`, or `null` when it
- * is too malformed to salvage — that is now exactly a missing/invalid `id` or `category`, the two
- * fields with no safe default.
+ * is too malformed to salvage — that is now exactly a missing/non-string `id`, `leg`, or
+ * `category`. Unlike `leg`/`category`, `id` has no verbatim-retention path: an id is how a row is
+ * addressed (update/delete/dedupe), so a missing one is not a value to keep, it is the row having
+ * no identity.
  *
- * ── `leg` is RETAINED VERBATIM, not validated against `LEGS` ──────────────────────────────
+ * ── `leg` and `category` are RETAINED VERBATIM, not validated against a known set ─────────────
  * Any non-empty string is kept as-is. This used to be `if (!isLeg(v.leg)) return null`, and that
  * was a data-loss bug, not a guard: `LEGS` is resolved ONCE at module load from whatever pack the
  * active-trip pointer names, while the storage slot OUTLIVES that resolution. A joiner who logs
@@ -121,12 +133,25 @@ export interface SanitizeOptions {
  * `isLeg`, and `settle` excludes it structurally by iterating `LEGS`. So a foreign-leg row survives
  * to be re-homed later without ever inflating a total, a per-day bucket, or a settlement balance.
  *
+ * `category` gets the identical treatment for the identical reason (#150, deferred out of #138):
+ * `BUDGET_CATEGORIES` is a fixed 10-value list this build ships with, but a peer running a newer
+ * build can log a category this build has never heard of — most concretely over remote sync, where
+ * `chunkDocToRows` (`lib/expenses-remote.ts`) runs this same sanitizer on every snapshot and the
+ * merged result is written straight back up (see `keepUnknownKeys` below). Hard-rejecting dropped
+ * the WHOLE row, amount included, not just the category label. `expensesToSpent` keeps its own
+ * `isCategory` gate (below) so a foreign category is excluded from the per-category rollup — same
+ * "INERT, not fatal" shape as an unknown leg, and unlike leg it costs nothing structural: category
+ * is a display/rollup grouping only, never a currency or identity key. Unlike the leg case, category
+ * has no remote-partition caveat below — `chunkDocToRows` partitions by LEG only, so a foreign
+ * category inside a recognised leg round-trips through remote sync same as any other field.
+ *
  * ── The retention is LOCAL, and that boundary is exact ────────────────────────────────────
  * It holds for `loadExpenses` / `saveExpenses`, and therefore for a whole-trip restore and an
  * expenses-only import. It does NOT survive remote sync: `subscribeRemoteExpenses`' `applySnapshot`
  * rebuilds the entire local slot by partitioning on its own hardcoded leg list
  * (`lib/expenses-remote.ts:35`) and persists that result, so on a remote-synced trip a foreign-leg
- * row is absent from the rebuilt list and erased from the slot on the first snapshot.
+ * row is absent from the rebuilt list and erased from the slot on the first snapshot. (This applies
+ * to `leg` only — see the `category` paragraph above.)
  *
  * A bad amount degrades to 0 (via `safeAmount`); `date` / `note` drop when not usable;
  * `createdAt` falls back to `''` (kept sortable-last, never a throw). TOTAL.
@@ -142,8 +167,9 @@ export interface SanitizeOptions {
  * straight back up by `pushChunkMerged`, so an allowlist there let an older client erase a newer
  * client's fields from the server, permanently, on every sync. Under the flag the row is built by
  * spreading the source and then normalizing each DECLARED field on top, so validation is identical
- * either way (an invalid declared field is still coerced or dropped, an unsalvageable row is still
- * `null`) — only undeclared keys differ. Matches `itineraryItemSchema`'s `.passthrough()`.
+ * either way (a malformed declared field still gets the SAME per-field rule — retained verbatim for
+ * `leg`/`category`, coerced for `amount`/`date`/`note`, unsalvageable only for `id` — regardless of
+ * `keepUnknownKeys`) — only undeclared keys differ. Matches `itineraryItemSchema`'s `.passthrough()`.
  *
  * Default-strict is the load-bearing part: a new caller that does not know to ask gets the safe
  * behaviour, and the two directions stay disjoint.
@@ -157,13 +183,15 @@ export function sanitizeExpense(value: unknown, opts: SanitizeOptions = {}): Exp
   // `Leg` is already `string` (model.ts), so keeping an unrecognised id needs no cast.
   const leg = typeof v.leg === 'string' && v.leg.length > 0 ? v.leg : null;
   if (leg === null) return null;
-  if (!isCategory(v.category)) return null;
+  // Retained verbatim, same rule as `leg` — a forward category is not corruption (#150).
+  const category = typeof v.category === 'string' && v.category.length > 0 ? v.category : null;
+  if (category === null) return null;
 
   const expense: Expense = {
     ...(opts.keepUnknownKeys ? (value as Expense) : ({} as Partial<Expense>)),
     id,
     leg,
-    category: v.category,
+    category,
     amount: safeAmount(v.amount),
     createdAt: typeof v.createdAt === 'string' ? v.createdAt : '',
   };
@@ -278,9 +306,10 @@ const noStamp: ExpenseStamper = (e) => e;
  * Append a sanitized new expense to the list. The caller injects `id` + `createdAt` (so the core
  * stays deterministic) and an optional `stamp`. Newest-first is
  * NOT imposed here — the list keeps insertion order; the UI sorts by `createdAt`. Returns a NEW
- * array (never mutates). TOTAL: an unsalvageable input (invalid category / missing id) is dropped,
- * returning the list unchanged. An unrecognised LEG is not unsalvageable — it is accepted and kept
- * verbatim (`sanitizeExpense`).
+ * array (never mutates). TOTAL: an unsalvageable input (missing or non-string id, or
+ * non-string/empty category) is dropped, returning the list unchanged. An unrecognised leg
+ * or an unrecognised-but-valid-string category are not unsalvageable — they are accepted and kept
+ * verbatim (`sanitizeExpense`, #150).
  */
 export function addExpense(
   expenses: readonly Expense[],

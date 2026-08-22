@@ -4417,9 +4417,15 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Measured, not assumed.** With the tolerance removed outright and no baseline rewritten: 24 + 12 green on one pass, 72 + 36 green at `--repeat-each=3`, and 24 green again after a rebuild — 144 strict assertions, zero differing pixels. `--update-snapshots` was never run.
 
+### D-378 · (issue #160, 2026-08-21) · The five domain-sync effects collapse into one `useDomainSync` hook, gated through the port's own `isConfigured()`
+
+**Decision.** `hooks/use-domain-sync.ts` extracts the flush-then-subscribe wiring effect that `itinerary-provider.tsx` had copy-pasted five times (itinerary/expenses/budget/docs/places, ~260 lines total): `useDomainSync(outboxSync, storagePort, syncPort)`, called once per domain. Same shape as D-148's factory precedent (build exactly what the five call sites need, no `coreOps`-style generalization). Behavior is unchanged — flush on mount, `online`, and tab-return-visible; subscribe gated and reactive on `IDENTITY_CHANGED_EVENT` per D-240; D-149/D-150's `SyncPort`/outbox decorator are untouched, only their call site moved.
+
+**The places bug.** The old places effect gated on `isRemoteConfigured()` while its own comment said `isTripRemoteConfigured()` — drifted apart at some point. Places is per-trip (every write composes `trips/{getTripId()}/…`, retired to `''` on the default sample pack), and `placesSyncPort.isConfigured()`/`subscribe()` already gate on the stricter `isTripRemoteConfigured()` internally, so the outer mismatch never produced a bad write, just a redundant flush/subscribe call on the sample pack. Fixed at the root: the new hook's outer gate is `syncPort.isConfigured()` instead of a hardcoded `isRemoteConfigured()`, so each domain gates on exactly what its own port already declares — no per-domain special case needed, and the comment/code drift can't recur.
+
 **Changes if:** a Linux baseline set lands and the visual job goes blocking. Measure the antialiasing drift on that runner and set a value from the measurement — do not restore 2% from memory.
 
-### D-378 · (SYNC-1 / DATES-3, 2026-08-21) · Two clock ports: `clock` is what the user reads, `realClock` is what sync stamps
+### D-402 · (SYNC-1 / DATES-3, 2026-08-21) · Two clock ports: `clock` is what the user reads, `realClock` is what sync stamps
 
 **Decision.** `lib/trip-now.ts` exports a second `ClockPort`, `realClock`, whose `now()` is `new Date()` and which never resolves the `?today=` override. Every HLC stamp site and every tombstone-GC horizon takes `realClock`; every countdown, day number and label takes `clock`/`getNow` exactly as before. That is the five domain hooks (`use-itinerary`, `use-expenses`, `use-docs`, `use-budget`, `use-my-places`) plus the GC/stamp sites in `lib/itinerary-remote.ts`, `lib/expenses-remote.ts` and `lib/places-remote.ts`.
 
@@ -4436,7 +4442,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the override stops shipping in production builds — the second port would then be unnecessary, but not wrong.
 
-### D-379 · Amends D-374 · (SYNC-4, 2026-08-21) · Forward-key retention has call sites in three domains now, and places needs BOTH halves
+### D-403 · Amends D-374 · (SYNC-4, 2026-08-21) · Forward-key retention has call sites in three domains now, and places needs BOTH halves
 
 **Decision.** `sanitizePlace`/`sanitizePlaces` take the same `SanitizeOptions { keepUnknownKeys?: boolean }` the expenses and docs sanitizers took in D-374, and `mergePlaces` threads it to its closing sanitize. `lib/places-remote.ts` sets it at `docToPlaceRows` AND at both `mergePlaces` calls.
 
@@ -4450,7 +4456,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** a fifth synced domain grows a sanitizer tail. The rule is then "wherever the merge closes with a narrowing boundary, both halves", not "at the remote read".
 
-### D-380 · Addendum to D-228 / D-309 · (SYNC-2, 2026-08-21) · The skew clamp cannot move into `hlcSendOrLocal`, and the docstrings that implied it could were the defect
+### D-404 · Addendum to D-228 / D-309 · (SYNC-2, 2026-08-21) · The skew clamp cannot move into `hlcSendOrLocal`, and the docstrings that implied it could were the defect
 
 **Decision.** `MAX_SKEW_MS` and `hlcReceive` stay where they are and stay unwired. `hlcSendOrLocal` does NOT clamp `last`. Both docstrings now say plainly that they have no production caller and that the "far-future peer is capped" sentence describes `hlcReceive`, not the shipped merge path.
 
@@ -4460,11 +4466,11 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Written down because it has now been proposed twice**, both times from a correct reading of the file: the docstrings described a 24h clamp as a live defence of the merge, so a reader looking for where it runs concludes it must belong in the one function every stamp routes through. It does not. The state-based design never grew a receive step — absorption happens implicitly, because `nextSyncStamp(prev, …)` passes the merged winner's own `hlc` as `last` — so there is no remote stamp for the clamp to be applied to at the moment it would mean something.
 
-**D-309's ceiling stands, unchanged:** a concurrent offline edit from a correct-clock device can still lose to one whose clock is hours wrong, and that is the accepted trusted-device residual. D-378 removes the app's own way of manufacturing that state.
+**D-309's ceiling stands, unchanged:** a concurrent offline edit from a correct-clock device can still lose to one whose clock is hours wrong, and that is the accepted trusted-device residual. D-402 removes the app's own way of manufacturing that state.
 
 **Changes if:** a device-wide running-clock primitive lands — D-228's original reason for keeping both. `hlcReceive` then gets a caller and the clamp applies to a REMOTE stamp, which is the value it was written for.
 
-### D-381 · Amends D-313 (LOCKED) · (DATES-5, 2026-08-21) · The hero ring counts CALENDAR days, from one derivation
+### D-405 · Amends D-313 (LOCKED) · (DATES-5, 2026-08-21) · The hero ring counts CALENDAR days, from one derivation
 
 **Decision.** `daysToGo(now)` in `lib/home-stats.ts` — `differenceInCalendarDays(TRIP_START, now)` — is the single producer of "days to go". The hero ring's digit and its fill fraction both read it, `home-stat-row.tsx`'s live cell reads it, and `lib/travel-date.ts`'s `daysUntilStart` reads it (A-23 had already fixed the identical reading there, in isolation, one file over).
 
@@ -4478,7 +4484,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the ring's caption stops saying "days to go". The number follows the label, not the other way round.
 
-### D-382 · (CONTENT-7 / DATES-6, 2026-08-21) · `TRIP_DAYS_MAX = 730` is the one span cap, enforced at `sanitizeTripConfig`
+### D-406 · (CONTENT-7 / DATES-6, 2026-08-21) · `TRIP_DAYS_MAX = 730` is the one span cap, enforced at `sanitizeTripConfig`
 
 **Decision.** `TRIP_DAYS_MAX = 730` inclusive days, exported from `core/trips/registry.ts` and enforced inside `sanitizeTripConfig`. A config whose span exceeds it is REJECTED, not clamped. The create form imports the same constant and mirrors it natively — `min`/`max` on both date inputs — so the picker cannot offer a year that would breach it, and re-checks it in the submit handler because Enter-in-a-field bypasses a disabled button.
 
@@ -4488,11 +4494,11 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Reject rather than clamp, and the ceiling that buys.** Clamping would silently rewrite dates the user typed, and worse, would rewrite a PEER's config on read and push the altered version back. Refusing keeps the rule one-directional and keeps the bad bytes visible. The cost is named rather than hidden: a trip created before this cap with a longer span now fails the validator, so the registry entry survives with no config and the app falls back to the placeholder instead of rendering a 73k-day trip. Nothing is deleted; editing the dates restores it.
 
-**The other half of the same defect: `ISO_DATE` validated shape, not existence.** `2026-13-45` passed the regex, and `new Date` rolls it to 2027-02-14 — or, with the `T00:00:00` suffix the date backbone uses, becomes an Invalid Date and yields an EMPTY `TRIP_DATES`, which is the state the fifteen unguarded `TRIP_DATES[0]` readers crash on. `isoDayMs` re-reads the constructed UTC date and returns `NaN` unless year, month and day all round-trip. Same idiom as the `?today=` check in D-378, for the same reason: digits in the right places is not a day.
+**The other half of the same defect: `ISO_DATE` validated shape, not existence.** `2026-13-45` passed the regex, and `new Date` rolls it to 2027-02-14 — or, with the `T00:00:00` suffix the date backbone uses, becomes an Invalid Date and yields an EMPTY `TRIP_DATES`, which is the state the fifteen unguarded `TRIP_DATES[0]` readers crash on. `isoDayMs` re-reads the constructed UTC date and returns `NaN` unless year, month and day all round-trip. Same idiom as the `?today=` check in D-402, for the same reason: digits in the right places is not a day.
 
 **Changes if:** a trip legitimately needs to run longer than two years. Raise the constant — do not move the check, and do not add a second one at a call site.
 
-### D-383 · (CONCIERGE-3, 2026-08-21) · The href scheme allow-list is a shared security boundary, in one file
+### D-407 · (CONCIERGE-3, 2026-08-21) · The href scheme allow-list is a shared security boundary, in one file
 
 **Decision.** `lib/safe-href.ts` exports `SAFE_HREF` and `isSafeHref`. The pattern is byte-identical to the one `components/concierge-chat.tsx` shipped inline; nothing was widened. It is applied at the two producing boundaries — `lib/place-resolve.ts` (`finalUrl` off the Worker's `/resolve`) and `components/import-place-sheet.tsx` (whatever was typed into the URL field, which Save was never gated on) — and at the render site, `components/my-places-section.tsx`, which links to the first of `resolvedUrl`/`sourceUrl` that passes and renders no link at all if neither does.
 
@@ -4508,7 +4514,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Addendum (issue #171, 2026-08-21) · two predicates, one file.** `lib/safe-href.ts` now exports `isHttpHref` alongside `isSafeHref`. `isSafeHref` is unchanged and still governs place links; `isHttpHref` accepts `http(s):` only and governs the share-target row, which had been carrying its own inline copy of that rule. **Do not “unify” the share row onto `isSafeHref`.** That widens it: `SAFE_HREF`'s site-relative `/` alternative also matches a protocol-relative `//host/path`, so a value arriving from a `?url=` parameter would render a `target="_blank"` anchor to any origin. The subset relation is pinned in `lib/__tests__/safe-href.test.ts`.
 
-### D-384 · (PWA-7, 2026-08-21) · Reachability is corroborated from real traffic, and a suspected outage EXPIRES
+### D-408 · (PWA-7, 2026-08-21) · Reachability is corroborated from real traffic, and a suspected outage EXPIRES
 
 **Decision.** `hooks/use-online.ts` reports online only when `navigator.onLine` is true AND reachability has not been contradicted. `navigator.onLine` stays the fast NEGATIVE — it is reliable when false — and the positive is corroborated from the outcome of requests the app already makes, via a one-time wrapper around `window.fetch` that observes and re-throws and never alters a result. No probe, no polling, no new dependency.
 
@@ -4524,7 +4530,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** a same-origin endpoint the worker never caches appears, which would give a second evidence source and let the cross-origin restriction relax.
 
-### D-385 · (CONCIERGE-6 / CONCIERGE-4 / CONCIERGE-7, 2026-08-21) · Two concierge contracts reversed on purpose, and identical ops are one proposal
+### D-409 · (CONCIERGE-6 / CONCIERGE-4 / CONCIERGE-7, 2026-08-21) · Two concierge contracts reversed on purpose, and identical ops are one proposal
 
 **Decision 1 — a 2xx whose body is not the `{reply, ops}` envelope is an ERROR turn, not an empty successful one.** `typeof data.reply !== 'string'` now calls `fail(statusMessage(0))` and returns. It used to swallow the parse failure, default `reply` to `''`, set status `idle` and leave `error` null — a blank grey bubble with no error row, no "Try again", and that empty turn shipped as history on every later turn. The canonical producer is a captive portal or an interposing proxy answering 200 with HTML. "Did the body parse into an envelope" and "was the request successful" are different questions, and this is the line that stops them being conflated.
 
@@ -4538,7 +4544,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the envelope grows a streaming shape, which would make "reply is a string" the wrong test rather than a stricter one.
 
-### D-386 · (CONTENT-3 / CONTENT-6, 2026-08-21) · Destinations are required at creation, and the active-trip pointer follows a tombstone from any device
+### D-410 · (CONTENT-3 / CONTENT-6, 2026-08-21) · Destinations are required at creation, and the active-trip pointer follows a tombstone from any device
 
 **Decision 1 — a custom trip cannot be created without at least one destination.** The field is `required`, the submit button is disabled without it, and the guard runs before `crypto.randomUUID()` so nothing is minted on the refusal path. The previous default was the trip NAME.
 
@@ -4550,7 +4556,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the self-heal in `listKnownTrips` is removed — the pointer move would then be unnecessary, and harmless.
 
-### D-387 · Extends D-307 · (CONTENT-5 / CONTENT-8, 2026-08-21) · The last two unguarded object indexes
+### D-411 · Extends D-307 · (CONTENT-5 / CONTENT-8, 2026-08-21) · The last two unguarded object indexes
 
 **Decision.** `vibeFor` (`core/trips/custom.ts`) and the legacy hash lookup (`components/legacy-hash-redirect.tsx`, extracted as `legacyHashTarget`) read their maps through `Object.prototype.hasOwnProperty.call(...)` rather than a bare index. Same one-line idiom D-307 established; these were the fifth and sixth surviving sites, and this sweep found no others.
 
@@ -4560,7 +4566,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** either map becomes a `Map`, which has no prototype chain to fall through — the guard would then be redundant rather than wrong.
 
-### D-388 · (STORAGE-2 / STORAGE-1 / CONTENT-4, 2026-08-21) · A restore is not finished until it is enqueued, and an expense import is all-or-nothing
+### D-412 · (STORAGE-2 / STORAGE-1 / CONTENT-4, 2026-08-21) · A restore is not finished until it is enqueued, and an expense import is all-or-nothing
 
 **Decision 1 — the four synced domains are enqueued through their own outbox-decorated push before the bare write.** `enqueueRestored(port, storage)` in `core/vault/backup.ts` routes the restored value through `withOutbox` — the same seam every ordinary edit uses — for expenses, budget, docsChecklist and myPlaces. It reads the pre-restore local state as the push's `prev`, so it MUST run before `spec.write`, and the spec carries that ordering in its type.
 
@@ -4574,7 +4580,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the legacy envelope is retired — decision 3 goes with it, and decisions 1 and 2 do not.
 
-### D-389 · (STORAGE-5 / STORAGE-4, 2026-08-21) · Two boundaries that promised TOTAL and were not
+### D-413 · (STORAGE-5 / STORAGE-4, 2026-08-21) · Two boundaries that promised TOTAL and were not
 
 **Decision 1 — `readJson` gates on SHAPE, not just on parseability.** A slot holding a JSON scalar (`null`, `5`, `"x"` — devtools, another script on the origin, a corrupt profile) parses fine and used to be handed straight back typed as the caller's `T`. Accessors that dereference it directly rather than passing it to a domain sanitizer (`weatherCache`, `outbox.loadSlot`) then threw a TypeError OUT of the gateway, and `weatherCache`'s escaped into Home's render. The gate fires only when the caller's `fallback` is object-shaped, so the `ABSENT`-sentinel callers — `core/vault/backup.ts`'s export, which must distinguish an absent slot from a stored one — still receive the raw parsed value.
 
@@ -4586,7 +4592,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** a migration step ever needs to SEE a malformed row in order to repair it — then the filter moves inside the steps that do not.
 
-### D-390 · (PWA-2 / PWA-3 / PWA-4 / PWA-5 / PWA-1, 2026-08-21) · The worker owns only `trip-*` caches, normalizes its keys, and consults the precache first
+### D-414 · (PWA-2 / PWA-3 / PWA-4 / PWA-5 / PWA-1, 2026-08-21) · The worker owns only `trip-*` caches, normalizes its keys, and consults the precache first
 
 **Decision 1 — `activate` deletes only caches whose name starts with `trip-`.** The ownership prefix is not a duplicate of the allowlist: `caches.keys()` is scoped to the ORIGIN, not to the worker's scope, and the live app is a GitHub Pages PROJECT page sharing `powan55.github.io` with every other project on the account. Without the prefix, accepting an update here wiped a sibling app's Cache Storage — and that sibling only repopulates on ITS own next version bump.
 
@@ -4602,7 +4608,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the install budget is re-measured and 461 KB is judged affordable. Decisions 2 and 5 are the prerequisites for it and both are in.
 
-### D-391 · (MONEY-2 / MONEY-3, 2026-08-21) · The settlement is device-independent, and there is exactly one tolerance
+### D-415 · (MONEY-2 / MONEY-3, 2026-08-21) · The settlement is device-independent, and there is exactly one tolerance
 
 **Decision.** `minimalTransfers` no longer takes the roster. Arithmetic ties in the greedy match break on the participant id itself (code-unit compare). `travelers` survives only as `orderBy`, a DISPLAY re-key of the balances object, and nothing arithmetic reads it.
 
@@ -4612,7 +4618,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** a currency with more than two decimal places ships — that moves the floor, not the rule.
 
-### D-392 · (MONEY-1, 2026-08-21) · An expense's leg is not its day's leg — fixed at the recap seam, named as a ceiling at the calendar one
+### D-416 · (MONEY-1, 2026-08-21) · An expense's leg is not its day's leg — fixed at the recap seam, named as a ceiling at the calendar one
 
 **Decision.** `sumExpensesForDate(expenses, date, leg?)` takes the leg, and both recap surfaces pass the DAY's leg — the same leg they format the result with. A row whose leg the ACTIVE pack does not recognise contributes nothing, matching `expensesToSpent` and `expensesByDate`, so all three aggregates agree about which rows count.
 
@@ -4622,7 +4628,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the log dialog stops letting the leg diverge from the date. Both seams then become unnecessary — and that is an input-design decision, not a money one.
 
-### D-392 addendum (2026-08-21) · the calendar seam is closed too — `expensesByDate` filters to the day's own leg
+### D-416 addendum (2026-08-21) · the calendar seam is closed too — `expensesByDate` filters to the day's own leg
 
 **Decision.** `expensesByDate` skips a row whose `e.leg` is not `getCountryForDate(e.date)`. The day's leg is derived INSIDE the function from the `e.date` it already holds, so there is no new argument, no return-shape change and no caller edit. The bucket is now identical in contract to `sumExpensesForDate(expenses, date, getCountryForDate(date))` — the call both recap surfaces already make — which is what makes the flat `Record<string, number>` safe for the calendar overlay to format with the day's `legCurrency`. The ceiling recorded in the entry above is closed; one surface, one contract: **a day line shows that day's own leg, in that day's own currency, and a cross-leg row contributes to no day.**
 
@@ -4634,7 +4640,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** a day surface ever has to *display* foreign-leg spend rather than merely not mis-price it. Then key on the pair — and design the two-currency rendering first.
 
-### D-393 · (A11Y-3, 2026-08-21) · A live region has to be in the tree BEFORE the text it announces
+### D-417 · (A11Y-3, 2026-08-21) · A live region has to be in the tree BEFORE the text it announces
 
 **Decision.** The polite status regions mount their `role="status"` / `aria-live="polite"` wrapper ALWAYS and put the conditional content inside it: `offline-banner.tsx`, `sync-status-badge.tsx`, `presence-bar.tsx` and `photo-attach.tsx`, joining `settings-panel.tsx` and `backup-restore.tsx`, which already did. `aria-label` is set only when there is something to say, so an always-mounted region does not claim the device is offline for the whole time it is online.
 
@@ -4646,7 +4652,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** a screen reader ships that announces a freshly-inserted region reliably. That is not a bet worth taking on a status surface.
 
-### D-394 · (A11Y-5, 2026-08-21) · The ambient-loop audit reads the SOURCE for Tailwind's utility loops, and fails closed
+### D-418 · (A11Y-5, 2026-08-21) · The ambient-loop audit reads the SOURCE for Tailwind's utility loops, and fails closed
 
 **Decision.** `scripts/motion-loops.mjs` runs a second pass over `app`, `components`, `core`, `hooks` and `lib`, matching `animate-pulse|spin|bounce|ping` and judging each SITE against the same 6s floor, with a `motion-safe:` prefix as the per-site guard. Five live sub-6s loops were structurally invisible to pass 1 and now carry the prefix: `ui/button.tsx`, `photo-attach.tsx`, `journal-browse.tsx`, `trip-story-recap.tsx` and `import-place-sheet.tsx`.
 
@@ -4660,7 +4666,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** Tailwind's default durations change. The pinned table is what to re-read, and the self-test should grow a row that notices.
 
-### D-395 · (SYNC-5, 2026-08-21) · The sync/tombstone gate is TRIP-scoped, not app-scoped
+### D-419 · (SYNC-5, 2026-08-21) · The sync/tombstone gate is TRIP-scoped, not app-scoped
 
 **Decision.** `use-itinerary`, `use-expenses`, `use-docs` and `use-budget` gate on `isTripRemoteConfigured()` instead of `isRemoteConfigured()`, matching `use-my-places`, which already did.
 
@@ -4670,7 +4676,7 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the sample pack is ever given a remote id, which would make the two gates equivalent again.
 
-### D-396 · (DATES-1, 2026-08-21) · Window MEMBERSHIP comes from the device calendar; the day NUMBER comes from the destination offset
+### D-420 · (DATES-1, 2026-08-21) · Window MEMBERSHIP comes from the device calendar; the day NUMBER comes from the destination offset
 
 **Decision.** `getTodayInTrip()` (`lib/trip-now.ts`) asks the device calendar whether today is inside the trip window at all, and only then asks the destination offset which trip day it is — falling back to the device's own answer when the offset lands outside. Three lines in one function; `dayInTripFor` is unchanged and still takes the offset it always took.
 
@@ -4688,25 +4694,25 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** a real position fix backs the day math rather than a leg offset — membership could then be asked of where the traveller actually is, and the home-time assumption stops being load-bearing.
 
-### D-397 · Discharges D-390's `Changes if` · (PWA-1, 2026-08-21) · The 19 route RSC payloads are precached
+### D-421 · Discharges D-414's `Changes if` · (PWA-1, 2026-08-21) · The 19 route RSC payloads are precached
 
-**Decision.** `buildPrecacheList` emits `out/index.txt` and every `out/<route>/index.txt`. Precache goes 179 → 198 entries. D-390's Decision 5 stays as the fallback for anything not on the list, and D-398 is a prerequisite rather than a refinement — without it the palette's one query-carrying navigation still misses.
+**Decision.** `buildPrecacheList` emits `out/index.txt` and every `out/<route>/index.txt`. Precache goes 179 → 198 entries. D-414's Decision 5 stays as the fallback for anything not on the list, and D-422 is a prerequisite rather than a refinement — without it the palette's one query-carrying navigation still misses.
 
-**The WIRE number is what decided it, not the raw one.** +461,315 B raw is the figure D-390 deferred on, and it is not the figure anyone pays. GitHub Pages serves these gzipped and only gzipped — it does not negotiate brotli — so measured against the live host the delta is **+69.3 KiB on an install already 1.48 MiB gzipped**. That is less than the ~87 KB gzip of map glyphs D-349 withheld from the same install for the same kind of reason, which is the nearest thing this repo has to a calibrated ceiling.
+**The WIRE number is what decided it, not the raw one.** +461,315 B raw is the figure D-414 deferred on, and it is not the figure anyone pays. GitHub Pages serves these gzipped and only gzipped — it does not negotiate brotli — so measured against the live host the delta is **+69.3 KiB on an install already 1.48 MiB gzipped**. That is less than the ~87 KB gzip of map glyphs D-349 withheld from the same install for the same kind of reason, which is the nearest thing this repo has to a calibrated ceiling.
 
-**Steady-state device storage moves by ZERO.** D-390's Decision 2 made `cacheFirst` normalize `_rsc` away, so the first online browse already deposits these same 19 canonical keys into the same cache. Precaching changes WHEN they arrive, not how many exist or what they occupy. The trade is install-time bytes for a cold-offline guarantee, not bytes for bytes.
+**Steady-state device storage moves by ZERO.** D-414's Decision 2 made `cacheFirst` normalize `_rsc` away, so the first online browse already deposits these same 19 canonical keys into the same cache. Precaching changes WHEN they arrive, not how many exist or what they occupy. The trade is install-time bytes for a cold-offline guarantee, not bytes for bytes.
 
 **Nothing changes on the published site.** The 19 files are already built, already published and already served; this only adds them to a list the worker reads at install. The site sits at 4.86% of the 1 GB Pages cap either way.
 
-**What it buys.** Offline, `next/link` fetches `<route>/index.txt` before it renders, and a failed fetch is a HARD navigation to that `.txt` URL. D-390's Decision 5 made that land on the right shell, but it is still a document navigation: client state is dropped and the whole shell re-runs on every offline tap. With the payloads on disk the click is a SOFT navigation. `e2e/pwa-torn-update.spec.ts` asserts that with a `window` marker rather than with the title, because the shell-identity assertions pass under the hard fallback too — a soft nav keeps the JS context, a document navigation throws it away.
+**What it buys.** Offline, `next/link` fetches `<route>/index.txt` before it renders, and a failed fetch is a HARD navigation to that `.txt` URL. D-414's Decision 5 made that land on the right shell, but it is still a document navigation: client state is dropped and the whole shell re-runs on every offline tap. With the payloads on disk the click is a SOFT navigation. `e2e/pwa-torn-update.spec.ts` asserts that with a `window` marker rather than with the title, because the shell-identity assertions pass under the hard fallback too — a soft nav keeps the JS context, a document navigation throws it away.
 
 **Changes if:** the shell grows enough that the install budget has to be re-measured, or Pages starts negotiating brotli — which moves the number this was decided on, in the cheaper direction.
 
-### D-398 · (PWA-1, 2026-08-21) · A `.txt` cache key drops its WHOLE search, not just `_rsc`
+### D-422 · (PWA-1, 2026-08-21) · A `.txt` cache key drops its WHOLE search, not just `_rsc`
 
 **Decision.** `cacheKey(request)` clears the entire search string when the pathname ends in `.txt`. Every other request keeps the existing delete-`_rsc`-only rule.
 
-**It is not a tidy-up of D-397, it is what makes D-397 true.** Next derives the payload URL by mutating only the PATHNAME, so any existing query rides along: `components/command-palette.tsx:453` pushes `/plan/?focus=<id>`, and the router fetches `/plan/index.txt?focus=<id>&_rsc=<digest>`. Deleting `_rsc` alone leaves `?focus=<id>` in the key, which matches nothing — `/plan/index.txt` is the only entry that exists. Precaching without this reads as complete while still being broken for exactly one navigation, which is the shape of defect that survives a review.
+**It is not a tidy-up of D-421, it is what makes D-421 true.** Next derives the payload URL by mutating only the PATHNAME, so any existing query rides along: `components/command-palette.tsx:453` pushes `/plan/?focus=<id>`, and the router fetches `/plan/index.txt?focus=<id>&_rsc=<digest>`. Deleting `_rsc` alone leaves `?focus=<id>` in the key, which matches nothing — `/plan/index.txt` is the only entry that exists. Precaching without this reads as complete while still being broken for exactly one navigation, which is the shape of defect that survives a review.
 
 **One live call site, and it is worth being precise about that.** `travel-date-picker` is NOT a second one: TM-11 already replaced its `router.replace` with a same-document `history.replaceState`, precisely because the `?date=` payload fetch died offline, so it no longer produces a query-carrying payload fetch at all. The rule still earns its place — a bookmarked or shared `/travel/?date=…` cold load goes through it, and so does any future query-carrying navigation, which is the case nobody would think to add a test for.
 
@@ -4714,10 +4720,22 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the export stops being static, so a route's payload can vary by query. The scoping premise goes with it, and this rule has to go at the same time.
 
-### D-401 · Amends D-099 · (issue #158, 2026-08-21) · The inward-arrow rule is enforced by ESLint, with one named exception
+### D-423 · Amends D-099 · (issue #158, 2026-08-21) · The inward-arrow rule is enforced by ESLint, with one named exception
 **Decision.** `eslint.config.mjs` gains a `no-restricted-imports` block over `core/**/*.ts` forbidding runtime imports from `@/lib`, `@/hooks`, `@/components` and `@/app`, with `allowTypeImports: true`. That flag is the point: type-only imports are erased at build and carry no dependency, so the 15 `core → @/lib/trip-data` type edges stay legal while any runtime edge fails the build. D-099 was prose each new slice had to remember; it is a check now.
 
 Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constants moved from the React hook modules into `core/storage/events.ts` and are re-exported from the hooks, which also killed six `lib → hooks → lib` import cycles. The itinerary `StoragePort` moved to `core/vault/storage.ts`, and `lib/itinerary-storage.ts` became a re-export facade over it, matching its four siblings. `core/vault/backup.ts` moved to `lib/trip-backup.ts` — it is the whole-trip backup composition root, an application-layer job, so in `lib/` its imports are `lib → lib`.
 
 **The one exception, and why it is not a move.** `core/sync/outbox.ts` needs two runtime predicates to answer “should I write?” — `isTripRemoteConfigured` and `getActiveTraveler`. That is a question about the runtime environment, not domain logic, and it has no core-side home today. Threading them through the `ChunkSync` recipe would add a parameter to every caller for no behavioural gain, on the sync path that carries the HLC and the merge algebra. So the rule is re-declared for that one file permitting exactly those two modules by negated glob: a *new* violation there still fails. It is not switched off.
 **Changes if:** `outbox.ts` needs a third `lib/` import — that is the signal it wants a core-side home, not another negation. Also open: `ItineraryCategory` and `ALL_CATEGORIES` live in `lib/`, so `core/content/schema.ts` and `core/budget/model.ts` still carry their own copies of the vocabulary and cannot reach the shared one under this rule. Moving the type into `core/` and making `lib/itinerary-category.ts` a re-export delegate — the shape used for `itinerary-storage` above — collapses the last two copies.
+
+### D-378 · (issue #179, 2026-08-21) · Amends D-362 · The visual job runs on `windows-latest`, matching the baselines, instead of staying `continue-on-error` on Linux forever
+
+**Decision.** `.github/workflows/ci.yml` gets a new `visual` job on `runs-on: windows-latest`, gated the same way as `e2e` (`needs: checks`, `if: github.event_name == 'pull_request'`). It builds, installs Chromium, and runs `npm run test:e2e -- --grep visual` with no `continue-on-error` — a real, blocking check. The old Linux `Visual regression (advisory)` step is deleted from `e2e` outright rather than left in place unused; `e2e`'s `Behavioural suite` step already excludes visual specs (`--grep-invert visual`) and needed no change.
+
+**D-362's finding still holds — this is the fix it names, not a reversal.** D-362 established that the CI visual job was structurally advisory because Playwright's snapshot path template appends `{platform}`, and a Linux runner looking for `-linux` against Windows-shot `-win32` baselines reports a missing snapshot, never a diff — no tolerance value could ever have closed that gap. That fact does not change. What changes is the runner: `windows-latest` is free for public-repo GitHub Actions, and on it the `-win32` suffix the baselines already carry is the one the run actually looks for, so the compare is real. Regenerating Linux baselines (D-362's other option) was rejected again here for the same reason it was rejected before: it commits 36 PNGs nobody locally renders and diverges from the Windows-local re-baselining workflow D-362 and D-377 both assume.
+
+**The `e2e` job keeps its exact name.** Both `dev`'s and `main`'s branch protection require the literal status-check context `E2E (behavioural · visual advisory)`; renaming it (e.g. to drop "visual advisory") would make that required check stop reporting until the owner updates branch protection to match, which is out of scope for a workflow-file change. The name is now a stale description of what runs inside that one job, not a claim about the visual job's rigor — the visual job is a separate context (`Visual regression (Windows baselines)`) with its own name.
+
+**Residual gap, stated plainly.** The new `visual` job is not in either branch's `required_status_checks.contexts` (verified via the GitHub API at the time of this decision). It runs and can go red on every pull request, but a red run does not by itself block a merge — only jobs listed in branch protection do. Adding it there is an owner action on repo settings, not a file in this repo.
+
+**Changes if:** the owner adds `Visual regression (Windows baselines)` to branch protection, at which point this job is the actual gate and not just a reporting job.
