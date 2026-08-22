@@ -76,9 +76,9 @@ export const CURRENCIES: readonly CurrencyCode[] = ['USD', 'NPR', 'JPY'] as cons
 
 /**
  * The 10 canonical itinerary categories — reused for per-category budgets, and the set
- * `isCategory` (core/budget/expenses.ts) checks USER DATA against before `sanitizeExpense` trusts
- * it — a category that fails that check silently drops the WHOLE expense, on the read,
- * write, restore-from-backup AND import paths.
+ * `isCategory` (core/budget/expenses.ts) uses to exclude foreign categories from per-category
+ * rollups. Unrecognized categories are retained as valid strings (#150); only a non-string or
+ * empty category is unsalvageable and causes the expense to be rejected.
  *
  * NO `: readonly ItineraryCategory[]` annotation here, and that absence is load-bearing, not an
  * omission: adding one back WIDENS this array's type to the full `ItineraryCategory`

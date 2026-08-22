@@ -129,10 +129,15 @@ describe('addExpense / updateExpense / removeExpense — pure transforms (inject
     expect(list[1]).toMatchObject({ id: 'z', leg: 'main', category: 'food', amount: 100 });
   });
 
-  it('addExpense still drops a wholly-malformed input (bad category / missing id) — list unchanged', () => {
-    const badCategory = { leg: 'nepal', category: 'bogus', amount: 100 } as unknown as NewExpenseInput;
-    expect(addExpense([exp()], badCategory, 'z', 'w')).toHaveLength(1);
-    // An empty injected id is unsalvageable too (id has no safe default).
+  it('addExpense ACCEPTS an unknown category (kept verbatim) — a forward category is not malformed (#150)', () => {
+    const forward = { leg: 'nepal', category: 'ferry', amount: 100 } as unknown as NewExpenseInput;
+    const list = addExpense([exp()], forward, 'z', 'w');
+    expect(list).toHaveLength(2);
+    expect(list[1]).toMatchObject({ id: 'z', leg: 'nepal', category: 'ferry', amount: 100 });
+  });
+
+  it('addExpense still drops a wholly-malformed input (missing id) — list unchanged', () => {
+    // An empty injected id is unsalvageable — id has no safe default.
     expect(addExpense([exp()], { leg: 'nepal', category: 'food', amount: 100 }, '', 'w')).toHaveLength(1);
   });
 
@@ -175,14 +180,19 @@ describe('sanitizers — TOTAL (a corrupt slot never crashes the store)', () => 
     expect(e).not.toHaveProperty('note');
   });
 
-  it('sanitizeExpense returns null when id / category cannot be salvaged (leg is NOT one of them)', () => {
+  it('sanitizeExpense returns null when id cannot be salvaged (leg/category are NOT — #150)', () => {
     expect(sanitizeExpense(null)).toBeNull();
     expect(sanitizeExpense({ leg: 'nepal', category: 'food' })).toBeNull(); // no id
-    expect(sanitizeExpense({ id: 'x', leg: 'nepal', category: 'bogus' })).toBeNull();
     // A leg still has to BE something — an absent / empty / non-string leg is unsalvageable.
     expect(sanitizeExpense({ id: 'x', category: 'food' })).toBeNull();
     expect(sanitizeExpense({ id: 'x', leg: '', category: 'food' })).toBeNull();
     expect(sanitizeExpense({ id: 'x', leg: 7, category: 'food' })).toBeNull();
+    // A category still has to BE something too, same rule — but a forward/unrecognised STRING
+    // value is retained verbatim, not unsalvageable (#150, was a hard reject before this fix).
+    expect(sanitizeExpense({ id: 'x', leg: 'nepal', category: 'bogus' })).not.toBeNull();
+    expect(sanitizeExpense({ id: 'x', leg: 'nepal' })).toBeNull(); // no category at all
+    expect(sanitizeExpense({ id: 'x', leg: 'nepal', category: '' })).toBeNull();
+    expect(sanitizeExpense({ id: 'x', leg: 'nepal', category: 7 })).toBeNull();
   });
 
   it('sanitizeExpenses drops non-array input and unsalvageable entries', () => {
@@ -243,5 +253,32 @@ describe('an UNKNOWN leg is retained by the sanitizers and excluded from the agg
     const roll = rollUp(budget({ legBudgets: { nepal: 5000, japan: 0 } }), spent);
     expect(roll.legs.find((l) => l.leg === 'nepal')!.spentLocal).toBe(1000);
     expect(roll.legs.map((l) => l.leg)).toEqual(['nepal', 'japan']); // no 'main' line appears
+  });
+});
+
+describe('a FORWARD category (#150) is retained by the sanitizers and excluded from the aggregates', () => {
+  it("sanitizeExpense KEEPS an unrecognised category verbatim, every other field intact", () => {
+    const e = sanitizeExpense({
+      id: 'f1',
+      leg: 'nepal',
+      category: 'ferry', // hypothetical value a newer build introduced
+      amount: 450,
+      createdAt: '2026-12-11T09:00:00.000Z',
+    });
+    expect(e).toEqual({
+      id: 'f1',
+      leg: 'nepal',
+      category: 'ferry',
+      amount: 450,
+      createdAt: '2026-12-11T09:00:00.000Z',
+    });
+  });
+
+  it('expensesToSpent still EXCLUDES the retained unknown-category row from every total', () => {
+    const spent = expensesToSpent([
+      exp({ id: 'n', leg: 'nepal', category: 'food', amount: 1000 }),
+      exp({ id: 'f', leg: 'nepal', category: 'ferry', amount: 450 }), // retained on disk, not counted
+    ]);
+    expect(spent).toEqual({ byLeg: { nepal: 1000 }, byCategory: { nepal: { food: 1000 } } });
   });
 });
