@@ -196,6 +196,12 @@ jobs:
           HEAD_REF: ${{ github.head_ref }}
         run: node scripts/release-gate.mjs
 
+  # Name kept exactly as-is (both dev's and main's branch protection require this
+  # literal context string). It reads "visual advisory" only because that half moved
+  # out: the visual specs now run for real in the `visual` job below, on a runner
+  # whose OS matches the committed baselines. Renaming this job would make the
+  # required check never report again until branch protection is updated to match
+  # (owner-only, out of scope here) — see D-378.
   e2e:
     name: E2E (behavioural · visual advisory)
     needs: checks
@@ -228,36 +234,80 @@ jobs:
 
       # PLAYWRIGHT_SHOOT stays unset, which keeps landing-shots.spec.ts out of
       # the run. That spec is an asset generator: it rewrites committed PNGs.
+      #
+      # visual specs are excluded here on purpose, not merely skipped: this runner
+      # is Linux and the committed baselines are Windows-only (`-win32`), so a visual
+      # spec here can never do anything but report a missing snapshot. See the
+      # `visual` job below, which runs the same specs on windows-latest instead.
       - name: Behavioural suite
         env:
           CI: '1'
         run: npm run test:e2e -- --grep-invert visual
 
-      # Advisory, not blocking. The committed baselines were taken on Windows,
-      # so on a Linux runner they do not exist under the expected platform
-      # suffix and the comparison cannot pass. The report is still uploaded.
-      # To make this blocking: regenerate baselines on a runner with
-      # --update-snapshots, commit them, then drop continue-on-error.
-      - name: Visual regression (advisory)
-        id: visual
-        continue-on-error: true
+      - name: Upload the Playwright report
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            trip/playwright-report
+            trip/test-results
+          retention-days: 14
+
+  # D-378 (amends D-362). The 36 committed baselines are Windows-canonical, so this
+  # job runs on windows-latest instead of matching the rest of CI — that is the whole
+  # fix: same OS as the baselines means the platform-suffixed snapshot path Playwright
+  # looks for actually exists, so this is a real compare, not a guaranteed miss.
+  # No continue-on-error: unlike the old Linux step, this one can genuinely pass or
+  # fail, so it should do exactly that.
+  #
+  # Same `if`/`needs` shape as `e2e` above, and for the same reason (D-302 clause 5):
+  # inside workflow_call (the deploy path) github.event_name is the caller's "push",
+  # so this stays off the deploy path too — that path is already covered by `e2e`'s
+  # own note on why the browser suite deliberately stays on the pull request.
+  visual:
+    name: Visual regression (Windows baselines)
+    needs: checks
+    if: github.event_name == 'pull_request'
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: trip
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: trip/package-lock.json
+
+      - name: Install
+        run: npm ci --legacy-peer-deps
+
+      - name: Build the static export
+        env:
+          NEXT_PUBLIC_CONCIERGE_URL: https://concierge.test
+        run: npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      # Both visual sources match --grep visual: e2e/visual.spec.ts (its own describe
+      # is titled "visual"), and the "TM visual · per-state hero baselines" describe
+      # inside e2e/tm-acceptance.spec.ts, which testMatch in playwright.config.ts
+      # scopes to the iphone-15-pro/iphone-15-pro-max projects. No --project filter
+      # here, so all three projects run and the grep narrows each to its visual specs.
+      - name: Visual regression
         env:
           CI: '1'
         run: npm run test:e2e -- --grep visual
 
-      - name: Note the visual result in the summary
-        if: steps.visual.outcome == 'failure'
-        run: |
-          echo "### Visual regression differed (advisory)" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "The committed baselines are Windows-generated, so they do not match on a Linux runner." >> "$GITHUB_STEP_SUMMARY"
-          echo "This step cannot fail the build. Download the artifact below to see the diff." >> "$GITHUB_STEP_SUMMARY"
-
       - name: Upload the Playwright report
-        if: always() && (failure() || steps.visual.outcome == 'failure')
+        if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: playwright-report-${{ github.run_id }}
+          name: playwright-report-windows-visual-${{ github.run_id }}
           path: |
             trip/playwright-report
             trip/test-results
