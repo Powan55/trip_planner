@@ -1058,7 +1058,7 @@ async function cacheFirst(request, cacheName) {
   const cached = await cacheMatch(key);
   if (cached) return cached;
   const res = await fetch(request);
-  if (res && res.ok && res.type === 'basic') {
+  if (res && res.ok && res.type === 'basic' && isExpectedPrecacheBody(request.url, res)) {
     const cache = await caches.open(cacheName);
     cache.put(key, res.clone());
   }
