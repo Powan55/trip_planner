@@ -40,7 +40,8 @@ import {
  * CustomEvent. The remote subscribe is opened once at the app root (itinerary-provider).
  */
 
-export const DOCS_CHANGED_EVENT = 'docs:changed';
+import { DOCS_CHANGED_EVENT } from '@/core/storage/events';
+export { DOCS_CHANGED_EVENT };
 
 export interface DocsStore {
   items: DocItem[];

@@ -38,7 +38,8 @@ import * as itinerary from '@/core/itinerary';
  * and for tests.
  */
 
-export const ITINERARY_CHANGED_EVENT = 'itinerary:changed';
+import { ITINERARY_CHANGED_EVENT } from '@/core/storage/events';
+export { ITINERARY_CHANGED_EVENT };
 
 export interface ItineraryStore {
   plans: DayPlan[];

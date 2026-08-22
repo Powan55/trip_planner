@@ -25,7 +25,7 @@
 import type { DayPlan } from '@/lib/trip-data';
 import { loadPlans, savePlans } from '@/lib/itinerary-storage';
 import { keyFor } from '@/core/storage/gateway';
-import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
+import { ITINERARY_CHANGED_EVENT } from '@/core/storage/events';
 import { makeEnvelope } from './envelope';
 import { parseItineraryPayloadStrict } from './schema';
 import { CURRENT_ITINERARY_VERSION, runItineraryMigrations } from './migrations';
