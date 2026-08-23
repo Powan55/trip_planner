@@ -174,24 +174,30 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
-      # Deliberately green, not red. Arming this is an OWNER decision (D-399), because the
-      # v5.14.0 client has been writing member rosters into Firestore under the OLD permissive
-      # rules since 2026-08-10: publishing the members-gated ruleset before those live rosters
-      # are inspected can permanently lock out a traveller whose device has not opened the app
-      # since — after the publish, only an existing member can add anyone.
+      # VISIBLE, NOT BLOCKING (issue #183). continue-on-error + a real `exit 1` is the standard
+      # GitHub Actions idiom for this: GitHub renders a continue-on-error step that failed with a
+      # distinct warning icon in the run summary and checks list, so this no longer reads as a
+      # plain green pass — but the STEP failing does not fail the JOB, so `deploy: needs:
+      # publish-rules` (D-399) still runs unchanged. Same idiom already used below, in `deploy`'s
+      # "Publish GitHub Release" step.
       #
-      # The ceiling, stated so nobody is surprised by it: a warning nobody reads is a gate
-      # nobody has. Until the secret exists this job proves only that the workflow runs.
+      # Arming the real publish is still an OWNER decision, unchanged by this fix: the v5.14.0
+      # client has been writing member rosters into Firestore under the OLD permissive rules
+      # since 2026-08-10, and publishing the members-gated ruleset before those live rosters are
+      # inspected can permanently lock out a traveller whose device has not opened the app since
+      # — after the publish, only an existing member can add anyone.
       - name: No credential — rules NOT published
         if: env.FIREBASE_SERVICE_ACCOUNT == ''
+        continue-on-error: true
         run: |
-          echo "::warning::FIREBASE_SERVICE_ACCOUNT is not set, so firestore.rules was NOT published. The live ruleset is whatever was last deployed by hand."
+          echo "::error::FIREBASE_SERVICE_ACCOUNT is not set, so firestore.rules was NOT published. The live ruleset is whatever was last deployed by hand."
           {
             echo "### Firestore rules were not published"
             echo ""
             echo "\`FIREBASE_SERVICE_ACCOUNT\` is unset, so this release did not touch the live ruleset."
             echo "The live rules are whatever was last deployed by hand, which may be older than the \`firestore.rules\` in this tree."
           } >> "$GITHUB_STEP_SUMMARY"
+          exit 1
 
       - name: Publish firestore.rules
         if: env.FIREBASE_SERVICE_ACCOUNT != ''
