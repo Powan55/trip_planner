@@ -169,4 +169,20 @@ describe('"days to go" has one derivation and every surface reads it', () => {
       .sort();
     expect(hits).toEqual(['lib/home-stats.ts']);
   });
+
+  // ── Issue #92 — the ring digit no longer carries a second "Days to go" caption ────────────
+  // The ring and the stat row's live cell were always going to print the SAME NUMBER (the
+  // block above pins that, on purpose — D-313). The defect was that they also printed the
+  // SAME CAPTION, so Home showed "Days to go" as a labelled figure twice on one screen. The
+  // fix removed the ring's inner caption rather than its digit (the stat row cell cannot be
+  // removed — issue #90's grid-track math needs the column count to divide the cell count,
+  // and e2e/countdown.spec.ts asserts trip-lifecycle state against that cell). Source-level,
+  // same idiom as the block above: what's pinned is that the caption string is gone, not a
+  // rendered snapshot.
+  it('the hero no longer labels the ring digit "days to go" — that caption is the stat row\'s alone', () => {
+    // stripComments: the fix is explained IN a comment right next to the code, and that
+    // comment names the deleted phrase — checking the raw source would fail on its own docs.
+    expect(stripComments(HERO).toLowerCase()).not.toContain('days to go');
+    expect(HERO).toContain('countdown-total-days');
+  });
 });

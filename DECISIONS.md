@@ -4484,6 +4484,12 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the ring's caption stops saying "days to go". The number follows the label, not the other way round.
 
+### D-405 · Addendum · (issue #92, 2026-08-22) · The trigger fired: the ring's caption is gone, not reworded
+
+**Exit condition met.** `hero-section.tsx`'s ring no longer carries a "days to go" caption — the `<span>` under the digit was deleted outright. Cause: Home printed the same LABELLED figure twice on one screen, `home-stat-row.tsx`'s live cell being the other "Days to go" (issue #92's `32`/`114` duplicate-figure defect). The stat-row cell could not be removed instead — its column count must divide six cells evenly (issue #90) and `e2e/countdown.spec.ts` asserts trip-lifecycle state against it — so the caption came off the ring, per this entry's own rule.
+
+**What did not change.** The digit itself, its value, and everything D-405's main entry decided: still `daysToGo(now)`, still `countdown-total-days`, still fed from the one clock read that also drives `computeCountdown`. The ring and the stat row still print the identical number by design — that was never the defect, only the double caption was. `lib/__tests__/home-stats.test.ts` gained a source-level check that the caption stays gone.
+
 ### D-406 · (CONTENT-7 / DATES-6, 2026-08-21) · `TRIP_DAYS_MAX = 730` is the one span cap, enforced at `sanitizeTripConfig`
 
 **Decision.** `TRIP_DAYS_MAX = 730` inclusive days, exported from `core/trips/registry.ts` and enforced inside `sanitizeTripConfig`. A config whose span exceeds it is REJECTED, not clamped. The create form imports the same constant and mirrors it natively — `min`/`max` on both date inputs — so the picker cannot offer a year that would breach it, and re-checks it in the submit handler because Enter-in-a-field bypasses a disabled button.
