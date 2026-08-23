@@ -23,7 +23,7 @@ export function isConciergeConfigured(): boolean {
  *
  * The precondition was **met, not bypassed**: on **2026-08-09** the owner deployed
  * `trip-planner-concierge` **v1.8.0** (Version ID `157ed2e0-2cfb-4044-af3e-ea80bc1b4ce6`) to
- * https://trip-planner-concierge.official-shadowverse.workers.dev with its predeploy gate green
+ * https://trip-planner-concierge.<account>.workers.dev with its predeploy gate green
  * (typecheck + 104/104 worker tests), so the live system prompt is trip-aware and the constant was
  * flipped to `true`. Pinned by `lib/__tests__/travel-concierge-gating.test.ts`, which also records
  * the deploy — re-closing this means rolling the Worker back, and updating both together.

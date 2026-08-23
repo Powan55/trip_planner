@@ -97,8 +97,8 @@ export function createReactiveStore<T>(config: ReactiveStoreConfig<T>): () => Re
       };
       const onCustom = () => reread();
       const onStorage = (e: StorageEvent) => {
-        // Resolve the match set at event time so a pack-dependent key (function form,
-        //) reflects the ACTIVE pack, not a value frozen at module load.
+        // Resolve the match set at event time so a pack-dependent key (function-form
+        // `storageKeys`) reflects the ACTIVE pack, not a value frozen at module load.
         const keys = typeof storageKeys === 'function' ? storageKeys() : storageKeys;
         if (e.key === null || keys.includes(e.key)) reread();
       };

@@ -1,6 +1,6 @@
 /**
- * `core/content/registry.ts` — `contentRef` → `TripContent` resolution (v5
- *;). Framework-free: plain TS, no React/Next/`window`. Static-import registry
+ * `core/content/registry.ts` — `contentRef` → `TripContent` resolution.
+ * Framework-free: plain TS, no React/Next/`window`. Static-import registry
  * — one pack today; code-splitting a hypothetical second pack is a future concern, not now.
  *
  * `TripContent.legs` is keyed by `TripLeg.contentKey` ('nepal' | 'japan' for the default pack —
@@ -16,8 +16,7 @@
  *
  * Import arrow: this file imports the `Recommendation` TYPE ONLY from `lib/nepal-data.ts`
  * (erased at compile time — no runtime cycle) because `lib/nepal-data.ts` re-exports this
- * file's VALUES. `core/content` still imports nothing from `core/dates` / `core/trips`
- *.
+ * file's VALUES. `core/content` still imports nothing from `core/dates` / `core/trips`.
  */
 import type { Recommendation } from '@/lib/nepal-data';
 

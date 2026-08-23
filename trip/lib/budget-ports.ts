@@ -34,8 +34,7 @@ const budgetChunkSync: ChunkSync<BudgetModel> = {
   },
 };
 
-// Exported so the provider can flush this domain's outbox on app-start / online / visible
-//.
+// Exported so the provider can flush this domain's outbox on app-start / online / visible.
 export const budgetOutboxSync = budgetChunkSync;
 
 export const budgetSyncPort: SyncPort<BudgetModel> = {
@@ -45,7 +44,7 @@ export const budgetSyncPort: SyncPort<BudgetModel> = {
   // still pulls NO firebase onto the hot path. Never throws to the commit caller.
   push: withOutbox(budgetChunkSync),
 
-  subscribe(onApplied) {
+  subscribe() {
     // Dormant gate: no config ⇒ no firebase import, a no-op unsubscribe.
     if (!isRemoteConfigured()) return () => {};
 
@@ -55,7 +54,7 @@ export const budgetSyncPort: SyncPort<BudgetModel> = {
     import('./budget-remote')
       .then(({ subscribeRemoteBudget }) => {
         if (cancelled) return; // torn down before the import resolved
-        realUnsub = subscribeRemoteBudget(onApplied);
+        realUnsub = subscribeRemoteBudget();
       })
       .catch((err) => {
         console.warn('[budget] remote subscribe unavailable:', err);

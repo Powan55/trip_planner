@@ -40,8 +40,7 @@ const docsChunkSync: ChunkSync<DocItem[]> = {
   },
 };
 
-// Exported so the provider can flush this domain's outbox on app-start / online / visible
-//.
+// Exported so the provider can flush this domain's outbox on app-start / online / visible.
 export const docsOutboxSync = docsChunkSync;
 
 export const docsSyncPort: SyncPort<DocItem[]> = {
@@ -50,7 +49,7 @@ export const docsSyncPort: SyncPort<DocItem[]> = {
   // configured AND identified traveler (dormant/guest never write the slot). Never throws.
   push: withOutbox(docsChunkSync),
 
-  subscribe(onApplied) {
+  subscribe() {
     // Dormant gate: no config ⇒ no firebase import, a no-op unsubscribe.
     if (!isRemoteConfigured()) return () => {};
 
@@ -60,7 +59,7 @@ export const docsSyncPort: SyncPort<DocItem[]> = {
     import('./docs-remote')
       .then(({ subscribeRemoteDocs }) => {
         if (cancelled) return; // torn down before the import resolved
-        realUnsub = subscribeRemoteDocs(onApplied);
+        realUnsub = subscribeRemoteDocs();
       })
       .catch((err) => {
         console.warn('[docs] remote subscribe unavailable:', err);
