@@ -6,9 +6,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build && node scripts/gen-sw.mjs",
-    "analyze": "next build && node scripts/gen-sw.mjs",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack && node scripts/flatten-segment-payloads.mjs && node scripts/gen-sw.mjs",
+    "analyze": "next build --webpack && node scripts/flatten-segment-payloads.mjs && node scripts/gen-sw.mjs",
     "start": "next start",
     "lint": "eslint .",
     "gen:images": "node scripts/gen-images.mjs",
@@ -58,7 +58,7 @@
     "framer-motion": "12.42.2",
     "lucide-react": "0.446.0",
     "maplibre-gl": "5.24.0",
-    "next": "15.5.23",
+    "next": "16.3.2",
     "next-themes": "0.4.6",
     "react": "19.2.7",
     "react-dom": "19.2.7",

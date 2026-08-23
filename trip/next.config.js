@@ -38,24 +38,31 @@ const nextConfig = {
   // Next 15 promoted this out of `experimental` to the top level (a bare
   // `experimental.outputFileTracingRoot` now warns and no-ops). Same effect.
   outputFileTracingRoot: path.join(__dirname, '../'),
-  // STAYS TRUE. Lint gates on the workflow, not the build (issue #32). ci.yml's `checks` job
-  // runs `npm run lint` (`eslint .`), and since #46 deploy.yml reaches that same job through
-  // workflow_call — so lint gates the feature-branch push, the pull request, AND a direct push
-  // to main, and `build: needs: [checks]` means a red lint publishes nothing. There is no path
-  // that ships without it.
-  //
-  // Flipping this to false does not add a gate, it adds a NARROWER duplicate: Next's build-lint
-  // only walks app/pages/components/lib/src unless `eslint.dirs` is also set, while flat config
-  // + `eslint .` covers all 573 source files including core/, hooks/, scripts/ and __tests__/.
-  // So the naive flip costs every build a second eslint pass that sees LESS than the one already
-  // running, and re-opens the blind spot #32 was filed about. If you flip it, set eslint.dirs too.
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // OFF, and not as a preference. Left on, next@16's `next dev` writes a pair of
+  // tool-instruction markdown files into `trip/` on every start and re-creates them if you
+  // delete them. One of the two is not gitignored, so it lands in the next `git add -A`; the
+  // other silently plants a generated two-line stub at a path this repo already keeps a
+  // hand-written, deliberately unpublished file at. Verified: with this false, a `next dev`
+  // start writes neither.
+  agentRules: false,
+  // The `eslint` key is gone in Next 16 — `next build` no longer lints at all, and leaving
+  // the key in warns "Unrecognized key(s)". Lint still gates where it always really did
+  // (issue #32): ci.yml's `checks` job runs `npm run lint` (`eslint .` over all source,
+  // including core/, hooks/, scripts/ and __tests__/), deploy.yml reaches that same job via
+  // workflow_call (#46), and `build: needs: [checks]` means a red lint publishes nothing.
   typescript: {
     ignoreBuildErrors: false,
   },
   images: { unoptimized: true },
+  // KNOWN CEILING: the presence of this key is why package.json runs `next build --webpack`
+  // and `next dev --webpack`. Next 16 defaults to Turbopack and hard-errors on a project that
+  // has a `webpack` config and no `turbopack` config, so a flag either way is mandatory — and
+  // `--turbopack` IGNORES the function below rather than translating it, which would change
+  // the chunk filenames scripts/gen-sw.mjs derives its precache from. And measured, on a real
+  // build: Turbopack does NOT emit `.next/react-loadable-manifest.json` at all — gen-sw reads
+  // it to find the ssr:false islands and throws without it, so `--turbopack` fails the build
+  // loudly rather than silently shipping a short precache. Moving off webpack means replacing
+  // that manifest read first, not just dropping the flag.
   webpack: (config, { isServer }) => {
     if (!isServer) {
       config.output.filename = 'static/chunks/[name]-[contenthash:8].js';
