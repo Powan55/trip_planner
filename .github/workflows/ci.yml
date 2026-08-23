@@ -101,8 +101,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
-      # next.config.js sets eslint.ignoreDuringBuilds, so the build below never
-      # runs eslint. This step is the only thing that does.
+      # next@16 dropped build-time linting entirely (`next build` no longer runs
+      # eslint, and the `eslint` config key is gone), so this step is the only
+      # thing that lints. It still gates the build: `build: needs: [checks]`.
       - name: Lint
         run: npm run lint
 

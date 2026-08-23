@@ -282,6 +282,15 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
       'deliberately precaches only 404.html as the nav fallback (see buildPrecacheList). ' +
       'It has no app chrome contract to assert.',
   },
+  '/_not-found/': {
+    skip:
+      'not a route: next@16 exports the App Router not-found boundary as a THIRD copy of the ' +
+      'same document — md5 of out/_not-found/index.html, out/404.html and out/404/index.html ' +
+      'are identical on the built artifact. Nothing links to it and the deployed 404 path is ' +
+      'still 404.html, so it carries no app chrome contract that /404/ does not already decline. ' +
+      'Its HTML is excluded from the precache alongside 404/index.html (NOT_FOUND_DUPLICATES in ' +
+      'scripts/gen-sw.mjs), so it is not offline-navigable and asserting on it would fail.',
+  },
   '/checklist/': {
     anchor: '[data-testid="docs-checklist"]',
     what: 'the DocsChecklist island (app/checklist/sections.tsx -> @/components/docs-checklist)',

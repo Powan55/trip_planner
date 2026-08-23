@@ -691,6 +691,12 @@ async function assertMapIslandsWrapped(mapSites) {
 // phones, which select native.
 const HERO_PRECACHE = /^images\/hero\/[^/]+\.avif$/;
 
+// Route dirs holding a byte-identical copy of 404.html. Verified by md5 on a real
+// build: out/404.html, out/404/index.html and out/_not-found/index.html are the same
+// bytes. Only 404.html is precached (the nav handler serves it as NAV_FALLBACK); the
+// other two would each add another copy of the same page to every install.
+const NOT_FOUND_DUPLICATES = new Set(['404/index.html', '_not-found/index.html']);
+
 async function buildPrecacheList(allFiles) {
   const set = new Set();
   const eager = await eagerStaticAssets(allFiles.filter((r) => r.endsWith('.html')));
@@ -701,20 +707,24 @@ async function buildPrecacheList(allFiles) {
 
   for (const rel of allFiles) {
     // Route HTML: top-level index.html + every nested <route>/index.html, plus
-    // the export's 404.html fallback. EXCLUDE 404/index.html: Next emits BOTH
-    // 404.html (the canonical fallback the nav handler serves — see
-    // NAV_FALLBACK/404 logic) and a redundant 404/index.html route dir;
-    // precaching the fallback alone matches historical behavior and avoids a
-    // duplicate /404/ precache entry.
+    // the export's 404.html fallback. EXCLUDE the other copies of that same
+    // document: the export emits THREE byte-identical files — 404.html (the
+    // canonical fallback the nav handler serves, see NAV_FALLBACK/404 logic),
+    // a redundant 404/index.html route dir, and since next@16 a third at
+    // _not-found/index.html (the App Router not-found boundary, exported as a
+    // route). Nothing links to either dir and the deployed 404 path is 404.html,
+    // so precaching the fallback alone avoids shipping the same ~4.3 KiB gzipped
+    // page two extra times on every install.
     if (rel === 'index.html' || rel === '404.html') set.add(rel);
-    else if (rel.endsWith('/index.html') && rel !== '404/index.html') set.add(rel);
+    else if (rel.endsWith('/index.html') && !NOT_FOUND_DUPLICATES.has(rel)) set.add(rel);
     // Route RSC payloads. next/link fetches <route>/index.txt before it renders,
     // and offline a failed fetch is a HARD navigation to that .txt URL (Next's MPA
     // fallback) — so without these the app can leave Home offline but only by
-    // reloading, which drops client state and re-runs the whole shell. 19 files,
-    // +461,315 B raw / +69.3 KiB over the wire on a 1.48 MiB gzipped install; the
-    // steady-state device cost is ZERO, because the runtime cacheFirst already
-    // deposits these same 19 keys on the first online browse. Root route included:
+    // reloading, which drops client state and re-runs the whole shell. 20 files,
+    // +522,025 B raw / +79.0 KiB over the wire on a 1.48 MiB gzipped install; the
+    // steady-state device cost is ZERO except _not-found/index.txt: precached but
+    // unreachable (no link ever points to /_not-found/), so runtime cache never
+    // deposits it. Root route included:
     // its payload is out/index.txt, which has no directory to end with.
     else if (rel === 'index.txt' || rel.endsWith('/index.txt')) set.add(rel);
     else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);

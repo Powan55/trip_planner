@@ -117,8 +117,12 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // data-scroll-behavior: app/globals.css sets `scroll-behavior: smooth` on <html> for
+  // in-page anchors. Next 16 stopped neutralising that during route transitions unless this
+  // attribute is present, which would make every navigation smooth-scroll to top instead of
+  // jumping. Opting back in keeps 15's behaviour.
   return (
-    <html lang="en" suppressHydrationWarning className="dark">
+    <html lang="en" suppressHydrationWarning className="dark" data-scroll-behavior="smooth">
       {/* Issue #180. An explicit <head>: the Metadata API cannot express an `http-equiv`
           meta, and `output: 'export'` rules out real headers — see lib/csp.ts for why and
           for what that costs (no `frame-ancestors`, no report-only).
