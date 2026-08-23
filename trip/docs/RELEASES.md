@@ -2,13 +2,43 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v6.0.0`, deployed 2026-08-20. The newest live worker is `v1.8.1`, shipped 2026-08-17. Worker `v1.9.0` is built and must now **never** deploy: `v1.10.0` supersedes it, and shipping `v1.9.0` alone would break the concierge on the built-in sample pack. Neither is deployable as it stands — read the worker note under `v6.0.2` before touching either. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v6.0.0`, deployed 2026-08-20. The newest live worker is `v1.10.0`, deployed 2026-08-23: the Firestore membership gate and the rate limiter are both live together now, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate with no rate limiter, and shipping it alone would break the concierge on the built-in sample pack. Read the heading before assuming a version is in production.
 
 **`v6.0.0` shipped on 2026-08-20.** Tag `v6.0.0` is `0ecb444`, that commit is `origin/main`'s head, and its deploy run (`32371000388`) succeeded — verified against the tag and the run, not against this paragraph. `v6.0.1` and `v6.0.2` are both recorded below and neither is deployed. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
 > **This paragraph was wrong for two days, which is why the sentence above says to check the tag.** It claimed `v5.14.4` was "recorded below and not yet deployed" and that `main` was at `v5.14.3`. Both were false: tag `v5.14.4` is commit `203cfc0`, that commit **is** `origin/main`'s head, `origin/main`'s `package.json` reads `5.14.4`, and its deploy run succeeded on 2026-08-14. The doc has now overstated what is live twice (`v5.14.0` was claimed about an hour early). The failure mode is always the same: this heading is edited when a release is *prepared* and nobody comes back to it when the release *ships*. Verify against `git tag` and the deploy run, never against this paragraph.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
+
+---
+
+## v6.0.3 (app) · 2026-08-23 · worker at v1.10.0
+
+Two fixes, neither changes the app's own runtime behavior for a user.
+
+- **The hero ring's total-days digit carried its own "days to go" caption** (#92) — the exact
+  figure `home-stat-row.tsx`'s live cell already captions "Days to go", so Home printed the same
+  labelled number twice on one screen. The caption comes off the ring, not the digit: the number,
+  its testid (`countdown-total-days`), and its `daysToGo()` derivation are all unchanged, and the
+  ring and the stat row still print the identical value by design (D-313's "one derivation" still
+  holds — only the double caption was the defect). The stat-row cell couldn't go instead: its
+  column count is issue #90's grid math, and `e2e/countdown.spec.ts` asserts trip-lifecycle state
+  against it. This is the exact trigger D-405 named for itself ("the ring's caption stops saying
+  'days to go'"), so D-405 gets an addendum recording that it fired rather than a new decision.
+  `lib/__tests__/home-stats.test.ts` gained a source-level check that the caption stays gone.
+- **The `publish-rules` job's missing-credential path read as a plain green pass** (#183) — the
+  same colour as a real publish, on a public Actions checks list where nobody reads past the
+  checkmark. The no-credential step now sets `continue-on-error: true` and ends in `exit 1` (was
+  an implicit success), the same idiom the `deploy` job's "Publish GitHub Release" step already
+  uses, so GitHub renders the step with a distinct warning icon in the run summary and checks list
+  instead of blending in. The job's own conclusion is untouched — `deploy: needs: publish-rules`
+  still runs and Pages still ships either way. This fixes visibility of the skip, not the skip
+  itself; arming the real `firestore.rules` publish is still the separate owner call D-399 already
+  named. D-399 gets an addendum for this.
+
+Worker: `v1.10.0` deployed today, superseding `v1.8.1` as live. That deploy is a separate service
+on its own version line and shipped independently of this release — see the `v1.10.0 (worker)`
+entry below.
 
 ---
 
@@ -33,8 +63,10 @@ release deletes that refusal.
 - `GET /resolve` (Import a place → Look up) was never gated client-side and so was never broken by
   this. It is untouched here.
 
-**Worker note — nothing here deploys the Worker, and right now nothing should.** Two things are
-true at once and they have to be read together.
+**Worker note — nothing here deploys the Worker, and right now nothing should.** *(Resolved
+2026-08-23, see the `v1.10.0 (worker)` entry below — the reconciliation this section calls for
+is done and deployed. Left as written below because it is the record of what was true when
+this entry was prepared.)* Two things are true at once and they have to be read together.
 
 `v1.9.0`'s membership check asks Firestore whether the caller is a member of `trips/<id>`, and the
 sample pack has no such document by design — so for that one pack it can only answer no. Deploying
@@ -57,6 +89,40 @@ tiers, with no rollback.
 Reconcile the two worker lines first, so that whatever deploys next is a true superset of live
 `v1.8.1` — limiter included. Until that lands, deploy neither. **D-371** records the access
 decision and why the allowance and the limiter are one call, not two.
+
+---
+
+## v1.10.0 (worker) — 2026-08-23 · **LIVE**
+
+The Firestore membership gate (`v1.9.0`, issue #10) is live now, merged with the rate limiter
+that shipped in `v1.8.1` — the two worker lines this file has been calling unreconciled since
+`v6.0.2` are one tree again. Two deploys happened today, not one, and the first broke the
+concierge for every first-time visitor within minutes; the incident is part of the record, not
+edited out.
+
+- **First attempt, `a67d5df`.** Merged the membership gate onto the rate-limited tree and deployed
+  as version id `f262bd6a-088e-4319-b844-be1bf93bbc20`. The default sample trip
+  (`nepal-japan-2026`) has no Firestore document — nothing to check membership against — so the
+  gate answered no for it unconditionally. Every visitor who had not yet created or joined a trip
+  got a `403` instead of a concierge. Rolled back within minutes via `wrangler rollback` to
+  version id `5031e0fb-7b1d-41f3-aac8-341703463233`, the pre-gate `v1.8.1` state, to restore service.
+- **Second attempt, `16c89e8`, package bumped to `1.10.0`.** Added a `SAMPLE_TRIP_ID` env var
+  carve-out: when the trip token equals that one literal id, a plain Firebase signed-in check
+  (`accounts:lookup`) runs in place of the Firestore membership check, since there is no document
+  to check membership against for that pack. Every other trip is unaffected and still goes through
+  the real membership check. 135/135 tests pass.
+- **The rate limiter and `[observability]` were never touched.** Diffed byte-for-byte across both
+  deploys against the live `v1.8.1` config — `[[ratelimits]] namespace_id = "1001"` and the 60
+  req/60 s limit survived the incident and the fix intact.
+
+**Shipped:** version id `f4ac94f1-a67a-4449-b621-ace5af60ba79`, deployed 2026-08-23. It replaces
+version id `f262bd6a-088e-4319-b844-be1bf93bbc20` (the broken first attempt above), which itself
+had replaced version id `5031e0fb-7b1d-41f3-aac8-341703463233` (the `v1.8.1` rollback target).
+Live-probed after deploy with real headers: a garbage/missing bearer on the sample trip now
+returns `401 sign in to use the concierge` (previously `403 this trip isn't on your account`
+before this fix, and the broken window in between returned the wrong `403`/nothing); any other
+trip with an invalid bearer still correctly returns `403 this trip isn't on your account`,
+proving the real membership gate is unaffected by the carve-out.
 
 ---
 
