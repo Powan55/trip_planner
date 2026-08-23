@@ -184,7 +184,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
                 onDuplicate(target);
                 setDupOpen(false);
               }}
-              className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-surface border border-[color:var(--border-ui)] text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <option value="" disabled>Copy to day…</option>
               {TRIP_DATES.map((d) => (

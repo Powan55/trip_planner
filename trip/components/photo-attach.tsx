@@ -153,7 +153,7 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder={altPlaceholder}
               data-testid="photo-alt-input"
-              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full min-h-[44px] rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div>
@@ -168,7 +168,7 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder="A note to remember it by…"
               data-testid="photo-caption-input"
-              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full min-h-[44px] rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div className="flex items-center justify-end gap-2">

@@ -74,7 +74,7 @@ export default function HomeTripStrip() {
               onClick={() => switchTo(t.id)}
               aria-label={`Switch to trip ${t.name}`}
               data-testid={`home-trip-chip-${i}`}
-              className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-white/15 px-3.5 text-sm font-medium text-ink-mid transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-[color:var(--border-ui)] px-3.5 text-sm font-medium text-ink-mid transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <span className="max-w-[12rem] truncate">{t.name}</span>
             </button>
@@ -83,7 +83,7 @@ export default function HomeTripStrip() {
         <Link
           href="/trips/"
           data-testid="home-trip-new"
-          className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-white/15 px-3.5 text-sm font-medium text-ink-mid transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-ui)] px-3.5 text-sm font-medium text-ink-mid transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           New

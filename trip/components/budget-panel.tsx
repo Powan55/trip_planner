@@ -564,7 +564,7 @@ function LegBudgetCard({
             step="any"
             placeholder="0"
             {...legDraft}
-            className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-9' : 'pl-7'
             }`}
           />
@@ -673,7 +673,7 @@ function CategoryBudgetInput({
             placeholder="0"
             aria-label={`${category} budget for the ${leg} leg, in ${cur}`}
             {...draft}
-            className={`w-full rounded-lg border border-white/15 bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-8' : 'pl-6'
             }`}
           />

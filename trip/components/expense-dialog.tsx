@@ -314,7 +314,7 @@ export default function ExpenseDialog({
                   }}
                   placeholder="0"
                   autoComplete="off"
-                  className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-ink-lo focus:outline-none focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
+                  className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-ink-lo focus:outline-none focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
                 />
               </div>
             </div>
@@ -346,7 +346,7 @@ export default function ExpenseDialog({
                       className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none ${
                         active
                           ? 'border-ring bg-primary/10 text-primary'
-                          : 'border-white/15 text-ink-mid hover:bg-white/5'
+                          : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
                       }`}
                     >
                       <span aria-hidden="true">{currencySymbol(legCurrency(l))}</span>
@@ -432,7 +432,7 @@ export default function ExpenseDialog({
                             onClick={() => setPaidBy(name)}
                             data-testid={`expense-payer-${name}`}
                             className={`inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                              active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-ink-mid hover:bg-white/5'
+                              active ? 'border-ring bg-primary/10 text-primary' : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
                             }`}
                           >
                             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />
@@ -457,7 +457,7 @@ export default function ExpenseDialog({
                             onClick={() => toggleMember(name)}
                             data-testid={`expense-split-member-${name}`}
                             className={`inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                              active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-ink-mid hover:bg-white/5'
+                              active ? 'border-ring bg-primary/10 text-primary' : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
                             }`}
                           >
                             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />

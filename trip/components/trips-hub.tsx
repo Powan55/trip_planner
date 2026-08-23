@@ -420,7 +420,7 @@ export default function TripsHub() {
                         maxLength={40}
                         autoFocus
                         autoComplete="off"
-                        className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                        className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                       />
                       <button
                         type="submit"
@@ -471,7 +471,7 @@ export default function TripsHub() {
                           }}
                           data-testid={`trips-hub-rename-${i}`}
                           aria-label={`Rename ${t.name}`}
-                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-white/15 text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[color:var(--border-ui)] text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                         >
                           <Pencil className="h-4 w-4" aria-hidden="true" />
                         </button>
@@ -483,7 +483,7 @@ export default function TripsHub() {
                             onClick={() => copyToken(t.id)}
                             data-testid={`trips-hub-copy-token-${i}`}
                             aria-label={`Copy the Trip Token for ${t.name}`}
-                            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                           >
                             {copiedTokenId === t.id ? (
                               <Check className="h-4 w-4" aria-hidden="true" />
@@ -497,7 +497,7 @@ export default function TripsHub() {
                             onClick={() => copyLink(t.id)}
                             data-testid={`trips-hub-copy-${i}`}
                             aria-label={`Copy share link for ${t.name}`}
-                            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                           >
                             {copiedId === t.id ? (
                               <Check className="h-4 w-4" aria-hidden="true" />
@@ -514,7 +514,7 @@ export default function TripsHub() {
                           onClick={() => setForgetId(t.id)}
                           data-testid={`trips-hub-forget-${i}`}
                           aria-label={`Forget ${t.name}`}
-                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-white/15 text-ink-mid transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[color:var(--border-ui)] text-ink-mid transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
                         >
                           <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </button>
@@ -623,7 +623,7 @@ export default function TripsHub() {
                 maxLength={40}
                 required
                 autoComplete="off"
-                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
             </div>
 
@@ -642,7 +642,7 @@ export default function TripsHub() {
                     setCreateStart(e.target.value);
                     setCreateError(null);
                   }}
-                  className="min-w-0 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="min-w-0 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -662,7 +662,7 @@ export default function TripsHub() {
                     setCreateEnd(e.target.value);
                     setCreateError(null);
                   }}
-                  className="min-w-0 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="min-w-0 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 />
               </div>
             </div>
@@ -687,7 +687,7 @@ export default function TripsHub() {
                 placeholder="e.g. Kochi, Munnar, Alleppey"
                 required
                 autoComplete="off"
-                className="min-w-0 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-w-0 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
             </div>
 
@@ -706,7 +706,7 @@ export default function TripsHub() {
                     className={`inline-flex min-h-[44px] items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                       (createVibe ? createVibe === key : key === Object.keys(VIBES)[0])
                         ? 'border-ring/60 bg-primary/10 text-primary'
-                        : 'border-white/15 text-white hover:bg-white/5'
+                        : 'border-[color:var(--border-ui)] text-white hover:bg-white/5'
                     }`}
                   >
                     {vibe.label}
@@ -750,7 +750,7 @@ export default function TripsHub() {
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
-              className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             />
             <div className="flex flex-col gap-2 sm:flex-row">
               <label htmlFor="trips-hub-join-name" className="sr-only">
@@ -764,13 +764,13 @@ export default function TripsHub() {
                 placeholder="Shared trip"
                 maxLength={40}
                 autoComplete="off"
-                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
               <button
                 type="submit"
                 disabled={!joinKey.trim()}
                 data-testid="trips-hub-join"
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Add trip
               </button>

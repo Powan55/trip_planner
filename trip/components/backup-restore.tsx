@@ -267,7 +267,7 @@ export default function BackupRestore() {
                   onClick={cancelImport}
                   disabled={importing}
                   data-testid="backup-confirm-cancel"
-                  className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50"
+                  className="rounded-lg border border-[color:var(--border-ui)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50"
                 >
                   Cancel
                 </button>
