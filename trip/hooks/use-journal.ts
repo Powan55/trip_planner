@@ -26,7 +26,8 @@ import {
  * boundary and hands it to the pure `upsertEntry`, so the core stays deterministic + clock-free.
  */
 
-export const JOURNAL_CHANGED_EVENT = 'journal:changed';
+import { JOURNAL_CHANGED_EVENT } from '@/core/storage/events';
+export { JOURNAL_CHANGED_EVENT };
 
 export interface JournalStore {
   entries: JournalEntry[];

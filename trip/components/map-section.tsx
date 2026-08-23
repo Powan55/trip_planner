@@ -38,6 +38,7 @@ import TripMap, {
   type AssignDayOption,
 } from '@/components/trip-map';
 import { useItineraryContext } from '@/components/itinerary-provider';
+import { isDefaultTrip } from '@/core/trips';
 import { cityCoord } from '@/lib/city-coords';
 import { legLabel } from '@/lib/leg-label';
 import { visitedCountryFootprints } from '@/lib/visited-footprint';
@@ -122,16 +123,33 @@ interface SearchHit {
   date?: string;
 }
 
-const CURATED_HITS: SearchHit[] = MAP_MARKERS.map((mk) => ({
-  id: mk.id,
-  name: mk.name,
-  marker: mk,
-  source: `${mk.area} · ${mk.country}`,
-  haystack: `${mk.name} ${mk.area} ${mk.country}`.toLowerCase(),
-}));
+const curatedHitsOf = (markers: MapMarker[]): SearchHit[] =>
+  markers.map((mk) => ({
+    id: mk.id,
+    name: mk.name,
+    marker: mk,
+    source: `${mk.area} · ${mk.country}`,
+    haystack: `${mk.name} ${mk.area} ${mk.country}`.toLowerCase(),
+  }));
 
-/** Dedupe guard: a trip city that IS a curated place (e.g. "Hakone") must not list twice. */
-const CURATED_NAMES = new Set(MAP_MARKERS.map((mk) => mk.name.toLowerCase()));
+/**
+ * The curated pack for the ACTIVE trip: the 27 authored Kathmandu-Valley/Japan places on the
+ * default trip, nothing on a custom one.
+ *
+ * `MAP_MARKERS` is default-pack CONTENT, but `/map/` consumed it as if it were app chrome — and
+ * Map is a PRIMARY tab on a custom trip (`primaryItemsForActiveTrip()`), so someone planning Peru
+ * opened their Map tab onto Kathmandu and Tokyo, with the camera fitted to Nepal→Japan. Every
+ * other N×J surface is gated (`DefaultTripOnly` on /nepal, /japan, /guides, /flights;
+ * `defaultTripOnly` in lib/nav-items.ts); this one was missed. Gating the set HERE, where it
+ * enters the component, empties the search hits, the saved count and the filter chips with it,
+ * and leaves the itinerary overlay — the only trip-real pins — driving the camera.
+ *
+ * `mounted &&` is the same post-mount storage-read gate `command-palette.tsx` uses for exactly
+ * this decision: the trip pointer is localStorage, so it must not be read before mount.
+ */
+function curatedFor(mounted: boolean): MapMarker[] {
+  return mounted && !isDefaultTrip() ? [] : MAP_MARKERS;
+}
 
 export default function MapSection() {
   const { plans, addItem, findPlacements } = useItineraryContext();
@@ -268,19 +286,30 @@ export default function MapSection() {
   const inlineSlotRef = useRef<HTMLDivElement | null>(null);
   const fullscreenSlotRef = useRef<HTMLDivElement | null>(null);
 
+  // The curated pack, gated on the active trip — see `curatedFor`. Empty on a custom trip, which
+  // is what empties every derived count/chip/search hit below.
+  const curated = useMemo(() => curatedFor(mounted), [mounted]);
+  const curatedHits = useMemo(() => curatedHitsOf(curated), [curated]);
+  /** Dedupe guard: a trip city that IS a curated place (e.g. "Hakone") must not list twice.
+   *  Derived from `curated`, so with no curated pack a trip city by that name is NOT suppressed. */
+  const curatedNames = useMemo(
+    () => new Set(curated.map((mk) => mk.name.toLowerCase())),
+    [curated],
+  );
+
   // Saved-favorited count across ALL curated markers (not just the active category —
   // mirrors the guide chip's `savedCount`, which cuts across category filters).
   const savedCount = useMemo(
-    () => MAP_MARKERS.filter((mk) => favorites.includes(mk.id)).length,
-    [favorites],
+    () => curated.filter((mk) => favorites.includes(mk.id)).length,
+    [curated, favorites],
   );
 
   const visibleMarkers = useMemo(() => {
     let list =
-      filter === 'All' ? MAP_MARKERS : MAP_MARKERS.filter((mk) => mk.category === filter);
+      filter === 'All' ? curated : curated.filter((mk) => mk.category === filter);
     if (savedOnly) list = list.filter((mk) => favorites.includes(mk.id));
     return list;
-  }, [filter, savedOnly, favorites]);
+  }, [curated, filter, savedOnly, favorites]);
 
   // Issue #31 — the visited wash. Read ONCE per mount, deliberately: #30's autocount writes the
   // visit record on boot, before this island's chunk has loaded, and nothing else on `/map` can
@@ -373,7 +402,7 @@ export default function MapSection() {
     const hits: SearchHit[] = [];
     for (const day of plans) {
       const key = (day.city ?? '').toLowerCase();
-      if (!key || seen.has(key) || CURATED_NAMES.has(key)) continue;
+      if (!key || seen.has(key) || curatedNames.has(key)) continue;
       const coord = cityCoord(day.city);
       if (!coord) continue;
       seen.add(key);
@@ -401,7 +430,7 @@ export default function MapSection() {
       });
     }
     return hits;
-  }, [plans]);
+  }, [plans, curatedNames]);
 
   // — the user's own planned stops, straight off the SAME placement ladder the overlay
   // draws: a runtime projection, never persisted, nothing written back to the
@@ -446,8 +475,8 @@ export default function MapSection() {
   const searchResults = useMemo<SearchHit[]>(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
-    return [...CURATED_HITS, ...cityHits, ...stopHits].filter((h) => h.haystack.includes(q));
-  }, [searchQuery, cityHits, stopHits]);
+    return [...curatedHits, ...cityHits, ...stopHits].filter((h) => h.haystack.includes(q));
+  }, [searchQuery, curatedHits, cityHits, stopHits]);
 
   useEffect(() => {
     if (searchOpen) searchInputRef.current?.focus();
@@ -682,10 +711,19 @@ export default function MapSection() {
           id="map-heading"
           className="mb-8"
           title={<>Interactive <span className="text-display-emphasis">Map</span></>}
-          subtitle="A real, pannable map of every place across the Kathmandu Valley and Japan. Filter by category, tap a pin for details, or flip on your itinerary to see the plan take shape day by day."
+          subtitle={
+            curated.length > 0
+              ? 'A real, pannable map of every place across the Kathmandu Valley and Japan. Filter by category, tap a pin for details, or flip on your itinerary to see the plan take shape day by day.'
+              : 'A real, pannable map of your trip. Search for anywhere in the world, or flip on your itinerary to see the plan take shape day by day.'
+          }
         />
 
-        {/* Category filter chips. */}
+        {/* Category filter chips — the categories belong to the curated pack, so with no curated
+            pack there is nothing for them to filter and the whole row goes, wrapper included:
+            an empty flex row still spent its `mb-4` on a custom trip. The "Saved" chip inside
+            is safe under the same guard — `savedCount` is derived from `curated`, so it is
+            already 0 whenever this is. */}
+        {curated.length > 0 && (
         <div className="flex flex-wrap justify-center gap-2 mb-4">
           {filters.map((value) => {
             const isActive = filter === value;
@@ -734,6 +772,7 @@ export default function MapSection() {
             </button>
           )}
         </div>
+        )}
 
         {/* Overlay + search + fullscreen controls. */}
         <div className="flex flex-wrap justify-center items-center gap-2 mb-5">

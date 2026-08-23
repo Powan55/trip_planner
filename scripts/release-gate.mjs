@@ -61,6 +61,8 @@ const higher = (a, b) => (a[0] !== b[0] ? a[0] > b[0] : a[1] !== b[1] ? a[1] > b
 const NO_TAGS =
   `No v*.*.* tags are visible, so this gate cannot tell whether ${version} is an upgrade. ` +
   'Check out with `fetch-depth: 0` and `fetch-tags: true` (see this file\'s header).';
+
+let newestTag = null; // Newest deploy tag version (e.g., "6.0.0"); used by assertion 2.
 try {
   const tags = execFileSync('git', ['tag', '-l', 'v*'], { encoding: 'utf-8' })
     .split('\n')
@@ -73,6 +75,7 @@ try {
   } else if (!mine) {
     fail(`trip/package.json version "${version}" is not a plain N.N.N, so it cannot be ordered.`);
   } else if (higher(mine, newest)) {
+    newestTag = newest.join('.');
     pass(`${version} is above the newest deploy tag v${newest.join('.')}.`);
   } else {
     fail(`Version ${version} is not above the newest deploy tag v${newest.join('.')}. ` +
@@ -109,6 +112,13 @@ try {
 //    CEILING: every heading line also names WORKER versions (`v1.8.0`, `v1.9.0`), so a
 //    whole-token scan of a heading is only correct because it is fed the APP version out of
 //    trip/package.json. Feed it a worker version and it will match the wrong line.
+//
+//    PREAMBLE MATCH: The preamble (lines 1–20) must name the NEWEST DEPLOYED version in the
+//    pattern `The newest live app is \`v<version>\``. This catches a stale preamble that
+//    has not been updated since the last deploy. The pending version in trip/package.json is
+//    not yet deployed, so the preamble must compare against the actual newest tag, not the
+//    pending version — otherwise every release prep would fail until someone wrote a false
+//    "this is live" claim into the docs before the version shipped.
 const releases = readFileSync('trip/docs/RELEASES.md', 'utf-8');
 const HOLD_MARKER = /NOT DEPLOYED|NOT SHIPPED|⛔/;
 const tagToken = new RegExp(`(^|[^0-9A-Za-z.-])${tag.replace(/\./g, '\\.')}([^0-9A-Za-z.-]|$)`);
@@ -118,12 +128,19 @@ const heading = releases
   .map((line) => ({ line, clean: line.replace(/\*\*/g, '') }))
   .find(({ clean }) => tagToken.test(clean));
 
+// Extract preamble version for assertion 2.
+const preamble = releases.split('\n').slice(0, 20).join('\n');
+const preambleVersionMatch = /The newest live app is `v([0-9.]+)`/.exec(preamble);
+const preambleVersion = preambleVersionMatch ? preambleVersionMatch[1] : null;
+
 if (!heading) {
   fail(`trip/docs/RELEASES.md has no "## ${tag}" heading. Every deploy says what it changed.`);
 } else if (HOLD_MARKER.test(heading.clean)) {
   fail(`trip/docs/RELEASES.md marks ${tag} as held, so it must not ship: ${heading.line.trim()}`);
+} else if (newestTag && preambleVersion !== newestTag) {
+  fail(`trip/docs/RELEASES.md preamble says the newest live app is v${preambleVersion || 'unknown'}, but the newest deploy tag is v${newestTag}. Update the preamble to: The newest live app is \`v${newestTag}\`.`);
 } else {
-  pass(`trip/docs/RELEASES.md documents ${tag} with no hold marker.`);
+  pass(`trip/docs/RELEASES.md documents ${tag} with no hold marker, and preamble is current.`);
 }
 
 // 3. Came through `dev`. Set only on the pull-request path; absent on a push, where there

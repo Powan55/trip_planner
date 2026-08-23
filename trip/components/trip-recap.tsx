@@ -6,6 +6,7 @@ import { BookOpen, Check, Clock, History, Sparkles, Wallet } from 'lucide-react'
 import { formatDateLong, CATEGORY_COLORS, type ItineraryItem } from '@/lib/trip-data';
 import { getCityForDate, getCountryForDate } from '@/core/dates';
 import { getNowAtTrip } from '@/lib/trip-now';
+import { describeItemTime } from '@/lib/item-time-display';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useJournal } from '@/hooks/use-journal';
 import { type Mood, type JournalEntry } from '@/core/journal/model';
@@ -157,7 +158,9 @@ export default function TripRecap() {
                 dayNumber={dayNumber}
                 items={getDayPlan(date).items}
                 entry={getEntry(date)}
-                spend={sumExpensesForDate(expenses, date)}
+                // The DAY's leg, which is also what the card formats with — an expense logged
+                // against the other leg is not silently re-priced into this one's currency.
+                spend={sumExpensesForDate(expenses, date, getCountryForDate(date))}
                 variants={reveal}
               />
             );
@@ -239,7 +242,7 @@ function RecapCard({
           aria-label={`Plan for Day ${dayNumber}, ${getCityForDate(date)}`}
         >
           {items.map((item) => (
-            <RecapItem key={item.id} item={item} />
+            <RecapItem key={item.id} item={item} date={date} />
           ))}
         </ul>
       )}
@@ -260,9 +263,10 @@ function RecapCard({
 }
 
 /** One read-only plan row: a done/not-done tick + title + time/category. No toggle — display only. */
-function RecapItem({ item }: { item: ItineraryItem }) {
+export function RecapItem({ item, date }: { item: ItineraryItem; date: string }) {
   const done = item.done === true;
   const cat = CATEGORY_COLORS[item.category];
+  const timeInfo = describeItemTime(item, date);
 
   return (
     <li
@@ -285,12 +289,15 @@ function RecapItem({ item }: { item: ItineraryItem }) {
         <span className={`block truncate text-sm font-medium ${done ? 'text-ink-lo line-through' : 'text-ink-hi'}`}>
           {item.title}
         </span>
-        {(item.time || cat) && (
+        {(timeInfo || cat) && (
           <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-ink-mid">
-            {item.time && (
+            {timeInfo && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" aria-hidden="true" />
-                {item.time}
+                {timeInfo.label}
+                {timeInfo.badge && (
+                  <span className="text-[10px] uppercase tracking-wide text-ink-mid">{timeInfo.badge}</span>
+                )}
               </span>
             )}
             {cat && (

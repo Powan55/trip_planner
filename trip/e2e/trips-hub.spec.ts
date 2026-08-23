@@ -71,15 +71,25 @@ test.describe('S239 — /trips/ hub', () => {
     await expect(page).toHaveTitle(/^Trips ·/);
   });
 
-  test('Create with a required name mints a UUID pack, registers the name, and lands Home', async ({
+  test('Create with a required name AND destinations mints a UUID pack, registers the name, and lands Home', async ({
     page,
   }) => {
     await goto(page);
     const createBtn = page.getByTestId('trips-hub-create');
     await expect(createBtn).toBeVisible({ timeout: 15_000 });
-    await expect(createBtn).toBeDisabled(); // name is REQUIRED — empty form cannot submit
+    await expect(createBtn).toBeDisabled(); // empty form cannot submit
 
     await page.getByTestId('trips-hub-create-name').fill('Kerala 2027');
+    // Destinations is required TOO, and a name alone is not enough: destinations[0] becomes the
+    // leg's `fallbackCity`, which `getCityForDate` returns for every day of the trip and
+    // `runVisitAutocount` writes into the LIFETIME visited-cities record — outside the trip
+    // namespace and outside `wipeAllTripData()` (D-314). Blank, that recorded the trip's NAME as a
+    // city the user had visited, permanently. This assertion is the guard on that; without it the
+    // field could go optional again under a green suite.
+    await expect(createBtn).toBeDisabled();
+
+    await page.getByTestId('trips-hub-create-destinations').fill('Kochi, Munnar');
+    await expect(createBtn).toBeEnabled();
     await createBtn.click();
 
     // D-172: full navigation to the HOME dashboard with the new pack active.

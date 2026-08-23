@@ -30,13 +30,16 @@ import type { DayPlan } from '@/lib/trip-data';
 
 // A controllable config gate: the hook reads isRemoteConfigured() through this mock. Flip
 // `remoteOn` per-suite to exercise the sync-on vs dormant branches on the REAL hook.
-const state = vi.hoisted(() => ({ remoteOn: false }));
+const state = vi.hoisted(() => ({ remoteOn: false, tripRemoteOn: null as boolean | null }));
 vi.mock('@/lib/firebase-config', () => ({
   FIREBASE_CONFIG: { apiKey: 'k', projectId: 'p', appId: 'a' },
   isRemoteConfigured: () => state.remoteOn,
-  // #10: mirrors isRemoteConfigured — every mocked getTripId here is non-empty, so the two gates agree.
-  isTripRemoteConfigured: () => state.remoteOn,
-  getTripId: () => 'nepal-japan-2026',
+  // #10: the TRIP-scoped gate. It MIRRORS isRemoteConfigured by default (the mocked getTripId is
+  // non-empty, so the two agree). `tripRemoteOn` splits them for the one configuration where they
+  // genuinely differ on the live build: the DEFAULT sample pack, whose remote id was retired, so
+  // the app is configured but `getTripId()` is ''.
+  isTripRemoteConfigured: () => state.tripRemoteOn ?? state.remoteOn,
+  getTripId: () => (state.tripRemoteOn === false ? '' : 'nepal-japan-2026'),
 }));
 // Never let the sync fan-out touch firebase in this unit suite: stub the SyncPort to no-ops.
 // (The push/subscribe wiring is covered by itinerary-remote-sync.test.ts against a fake
@@ -143,6 +146,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.restoreAllMocks();
+  state.tripRemoteOn = null;
 });
 
 describe('SYNC ON — rev/hlc stamping + tombstone removeItem + exposed-plans filter', () => {
@@ -246,6 +250,32 @@ describe('DORMANT — no stamping, physical remove, byte-for-byte today (D-038)'
     expect(dayItems(rawOnDisk(), TEST_DATE)).toEqual([]);
     await h.rerenderFresh();
     expect(dayItems(h.current.plans, TEST_DATE)).toEqual([]);
+    h.unmount();
+  });
+});
+
+describe('DEFAULT sample pack — app configured but the TRIP gate is false: local-only, no tombstones (#10)', () => {
+  beforeEach(() => {
+    state.remoteOn = true; // firebase env present, as on the live build
+    state.tripRemoteOn = false; // ...but getTripId() is '' — the sample pack has no remote path
+  });
+
+  it('removeItem PHYSICALLY removes and nothing is stamped — the sample never syncs, so a tombstone here is uncollectable', async () => {
+    // The only two tombstone-GC boundaries live inside pushDayMerged/applyRemoteMerged, both behind
+    // isTripRemoteConfigured(). On the app-wide gate the sample pack wrote tombstones that nothing
+    // could ever collect, and the itinerary slot grew with every delete, forever.
+    const h = renderItinerary();
+    await h.run((s) => {
+      s.addItem(TEST_DATE, { id: 'a', title: 'A', category: 'food' });
+      s.addItem(TEST_DATE, { id: 'b', title: 'B', category: 'food' });
+    });
+    const added = dayItems(rawOnDisk(), TEST_DATE).find((i) => i.id === 'a')!;
+    expect(added).toEqual({ id: 'a', title: 'A', category: 'food' }); // no rev/hlc
+
+    await h.run((s) => s.removeItem(TEST_DATE, 'a'));
+    const rawDay = dayItems(rawOnDisk(), TEST_DATE);
+    expect(rawDay.map((i) => i.id)).toEqual(['b']); // truly gone, not deleted:true
+    expect(rawDay.some((i) => 'deleted' in i)).toBe(false);
     h.unmount();
   });
 });

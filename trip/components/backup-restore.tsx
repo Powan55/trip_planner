@@ -3,7 +3,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Download, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
-import { downloadTripBackup, importTripBackup } from '@/core/vault/backup';
+import { downloadTripBackup, importTripBackup } from '@/lib/trip-backup';
 import { savePlans } from '@/lib/itinerary-storage';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
@@ -63,8 +63,10 @@ export default function BackupRestore() {
   // Whether this build is syncing for a signed-in traveler. Under sync the itinerary is
   // restored via `restorePlans` (tombstone-replace MERGE — propagates + survives the next snapshot);
   // dormant/guest it is the plain local `savePlans` overwrite. Computed post-mount (getActiveTraveler
-  // reads localStorage → client-only) to avoid a hydration mismatch. Drives ONLY which itinerary
-  // commit path importTripBackup uses — every other domain is local-only regardless.
+  // reads localStorage → client-only) to avoid a hydration mismatch. Drives ONLY which ITINERARY
+  // commit path importTripBackup uses. Expenses/budget/docs/my-places are synced too (they are NOT
+  // local-only, whatever this comment used to claim); importTripBackup enqueues those itself through
+  // each domain's own outbox-decorated push, which self-gates on the same two conditions.
   const [synced, setSynced] = useState(false);
   useEffect(() => {
     setSynced(isRemoteConfigured() && !!getActiveTraveler());
@@ -265,7 +267,7 @@ export default function BackupRestore() {
                   onClick={cancelImport}
                   disabled={importing}
                   data-testid="backup-confirm-cancel"
-                  className="rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50"
+                  className="rounded-lg border border-[color:var(--border-ui)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50"
                 >
                   Cancel
                 </button>

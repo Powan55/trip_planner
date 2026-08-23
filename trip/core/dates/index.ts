@@ -17,6 +17,8 @@ export {
   getCountryForDate,
   formatDate,
   formatDateLong,
+  formatWeekdayShort,
+  formatRelativeDayLabel,
 } from './trip-dates';
 export { TRIP_CITIES, getCityForDate, deriveTripCities } from './trip-cities';
 export { dayInTripFor, utcDayAtOffset, type TripToday } from './day-in-trip';

@@ -52,7 +52,7 @@ export const placesSyncPort: SyncPort<MyPlace[]> = {
   // guest never write the slot). Never throws.
   push: withOutbox(placesChunkSync),
 
-  subscribe(onApplied) {
+  subscribe() {
     // Dormant / default-pack gate: no remote trip ⇒ no firebase import, a no-op unsubscribe.
     if (!isTripRemoteConfigured()) return () => {};
 
@@ -62,7 +62,7 @@ export const placesSyncPort: SyncPort<MyPlace[]> = {
     import('./places-remote')
       .then(({ subscribeRemotePlaces }) => {
         if (cancelled) return; // torn down before the import resolved
-        realUnsub = subscribeRemotePlaces(onApplied);
+        realUnsub = subscribeRemotePlaces();
       })
       .catch((err) => {
         console.warn('[places] remote subscribe unavailable:', err);

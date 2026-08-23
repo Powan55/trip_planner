@@ -33,12 +33,12 @@
 import { saveExpenses, loadExpenses } from '@/core/budget/storage';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
 import { LEGS, type Leg } from '@/core/budget/model';
-import { EXPENSES_CHANGED_EVENT } from '@/hooks/use-expenses';
+import { EXPENSES_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
 import { mergeItems, gcTombstoneRows } from '@/core/sync/merge-items';
 import { outboxDirty } from '@/core/sync/outbox';
-import { clock } from './trip-now';
+import { realClock } from './trip-now';
 
 /**
  * Map a raw Firestore expense chunk-doc into its `Expense[]` (defensive: tolerate a partial doc).
@@ -52,7 +52,16 @@ import { clock } from './trip-now';
  * local bytes.
  */
 export function chunkDocToRows(data: Record<string, unknown>): Expense[] {
-  return Array.isArray(data.items) ? sanitizeExpenses(data.items) : [];
+  // `keepUnknownKeys` is set HERE and only here on this domain (#138). The merged result of this
+  // read is written straight back up by `pushChunkMerged`, so the strict allowlist rebuild dropped
+  // a newer client's forward fields before they could reach the write.
+  // Retention alone does NOT finish the job: `saveExpenses` sanitizes STRICT on the way to disk, so
+  // the row this device later re-reads and pushes is the STRIPPED one at the SAME hlc. What keeps
+  // the forward keys is the equal-HLC superset tie-break in `resolvePair` (D-376) — without it the
+  // strip wins that collision and erases them again on the next push.
+  // The LOCAL entry points (`loadExpenses`/`saveExpenses`, backup, import) stay strict, which is
+  // what keeps D-159's zero-egress guarantee structural — a photo ref can only originate locally.
+  return Array.isArray(data.items) ? sanitizeExpenses(data.items, { keepUnknownKeys: true }) : [];
 }
 
 /**
@@ -83,7 +92,7 @@ export async function pushChunkMerged(
     const remoteRows: Expense[] = snap.exists() ? chunkDocToRows(snap.data() as Record<string, unknown>) : [];
     // GC BOUNDARY ①: prune past-horizon, unreferenced tombstone rows
     // from the MERGED leg before writing — the `pushDayMerged` gc analog over `gcTombstoneRows`.
-    const merged = gcTombstoneRows(mergeItems(remoteRows, localRows), clock.now().getTime());
+    const merged = gcTombstoneRows(mergeItems(remoteRows, localRows), realClock.now().getTime());
     tx.set(ref, { leg, items: sanitizeRowsForWrite(merged) });
   });
 }
@@ -114,7 +123,7 @@ export async function pushExpenseChunk(current: Expense[], leg: string): Promise
  * lazy + self-degrading: no-op unsubscribe when dormant; any failure → local-only via console.warn,
  * never throws. Returns an unsubscribe fn.
  */
-export function subscribeRemoteExpenses(onApplied?: (rows: Expense[]) => void): () => void {
+export function subscribeRemoteExpenses(): () => void {
   // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -145,7 +154,6 @@ export function subscribeRemoteExpenses(onApplied?: (rows: Expense[]) => void): 
   const persistAndDispatch = (rows: Expense[]) => {
     saveExpenses(rows);
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(EXPENSES_CHANGED_EVENT));
-    onApplied?.(rows);
   };
 
   // Resolve one snapshot into the new local row-set (per-leg), seeding any absent chunk up.
@@ -175,7 +183,7 @@ export function subscribeRemoteExpenses(onApplied?: (rows: Expense[]) => void): 
         // Steady-state (or a dirty leg on first snapshot): item-level merge so an unpushed local
         // edit and a peer's edits both survive. GC BOUNDARY ②: prune
         // past-horizon, unreferenced tombstone rows from the MERGED leg before persist.
-        result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), clock.now().getTime()));
+        result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), realClock.now().getTime()));
       }
     }
     persistAndDispatch(result);

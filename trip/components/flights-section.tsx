@@ -8,10 +8,11 @@ import { FlightJourneyCard } from '@/components/flight-journey-card';
 import { FADE_FLOOR } from '@/lib/motion';
 
 // --- Static class records: never interpolate Tailwind class names. ---
+// /15 is not a Tailwind opacity step and emitted no rule; these chips had no fill. /20 is.
 // Status chip styling, keyed by booking status (stays only; journeys use the phase strip).
 const STATUS_CHIP: Record<'booked' | 'to-book', string> = {
-  'booked': 'bg-green-500/15 text-green-300 border border-green-500/30',
-  'to-book': 'bg-amber-500/15 text-amber-200 border border-amber-500/30 border-dashed',
+  'booked': 'bg-green-500/20 text-green-300 border border-green-500/30',
+  'to-book': 'bg-amber-500/20 text-amber-200 border border-amber-500/30 border-dashed',
 };
 
 function StatusChip({ status }: { status: 'booked' | 'to-book' }) {
@@ -34,7 +35,7 @@ function StayCard({ stay }: { stay: Stay }) {
     >
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-500/15 text-indigo-300 shrink-0">
+          <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-300 shrink-0">
             <Hotel className="w-5 h-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">

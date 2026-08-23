@@ -50,6 +50,7 @@ import {
   type TripMeta,
   type RemovedTrip,
 } from '@/core/trips/registry';
+import { getActiveTripId } from '@/core/storage/gateway';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { getRemote, isPermissionDenied } from './itinerary-remote';
 
@@ -116,8 +117,8 @@ export async function fetchTripMeta(tripId: string): Promise<TripMetaPayload | u
 // ──: the ACCOUNT's display name ─────────────────────────────────────────────────────
 //
 // SHAPE: ONE doc `trips/{userToken}/profile/identity` = `{ version: 1, name }` — its OWN document,
-// deliberately NOT a `name` field on `profile/tripList`. `pushTripList` above writes with a bare
-// `setDoc` (no `{merge:true}`): a full-document overwrite with two independent deleters — a client
+// deliberately NOT a `name` field on `profile/tripList`. `pushTripList` above writes the whole
+// document (`tx.set`, no `{merge:true}`): a full overwrite with two independent deleters — a client
 // on an older service-worker-cached bundle, and `subscribeTripList`'s own re-push/seed. Either one
 // deleting a `name` field there would make the reverts-to-"Traveler" defect come back
 // INTERMITTENTLY, which is strictly worse than the defect: no longer reproducible on demand.
@@ -407,25 +408,33 @@ function docToRemoved(data: Record<string, unknown>): RemovedTrip[] {
  * the remote doc, additive-union it with the local list, write the union back. Fire-and-forget —
  * never rejects to the caller (a failed push stays local-only via console.warn, no outbox). The JSON
  * round-trip strips `undefined`-valued optional fields (config/updatedAt/currency) Firestore rejects.
+ *
+ * Transactional, like every sibling push (`pushDayMerged`, `pushBudgetMerged`, `pushChecklistMerged`,
+ * `pushPlacesMerged`): the plain read-merge-setDoc this used to do let two devices forgetting two
+ * different trips both read the same doc and the second write clobber the first, so a forgotten trip
+ * could reappear or a new one vanish (#125). A concurrent peer write now forces a retry that
+ * re-merges instead.
  */
 export async function pushTripList(code: string): Promise<void> {
   if (!isRemoteConfigured() || !code) return;
   try {
     const { db, fs } = await getRemote();
-    const { doc, getDoc, setDoc } = fs;
+    const { doc, runTransaction } = fs;
     const ref = doc(db, 'trips', code, 'profile', 'tripList');
-    const snap = await getDoc(ref);
-    const data = snap.exists() ? (snap.data() as Record<string, unknown>) : {};
-    const { merged, removed } = mergeTripLists(
-      listKnownTrips(),
-      docToTrips(data),
-      listRemovedTrips(),
-      docToRemoved(data),
-    );
-    await setDoc(ref, {
-      version: 1,
-      trips: JSON.parse(JSON.stringify(merged)),
-      removed: JSON.parse(JSON.stringify(removed)),
+    await runTransaction(db, async (tx) => {
+      const snap = await tx.get(ref);
+      const data = snap.exists() ? (snap.data() as Record<string, unknown>) : {};
+      const { merged, removed } = mergeTripLists(
+        listKnownTrips(),
+        docToTrips(data),
+        listRemovedTrips(),
+        docToRemoved(data),
+      );
+      tx.set(ref, {
+        version: 1,
+        trips: JSON.parse(JSON.stringify(merged)),
+        removed: JSON.parse(JSON.stringify(removed)),
+      });
     });
   } catch (err) {
     console.warn('[trips-remote] trip list push failed, staying local-only:', err);
@@ -442,10 +451,16 @@ export async function pushTripList(code: string): Promise<void> {
  * writers (the door's create path, trips-hub's list pushes, `finishAccount`). Gated + lazy +
  * self-degrading: no-op unsub when dormant; any failure → local-only via console.warn, never
  * throws. Best-effort, so — unlike the domain subscribes — it carries NO online-reconnect retry
- * (a dropped stream re-subscribes on the next reload). `onMerge` fires after a present-snapshot
- * merge (for the caller to react/telemeter).
+ * (a dropped stream re-subscribes on the next reload). `onMerge(activeTripChanged)` fires after a
+ * present-snapshot merge; `activeTripChanged` is true ONLY when the merge actually MOVED the
+ * active-trip pointer (an incoming tombstone for the active trip — `importRemoteTrips`), which
+ * obliges the caller to reload the same way a local trip switch does. It must stay false on an
+ * ordinary merge: reloading on every sync would be worse than the drift it fixes.
  */
-export function subscribeTripList(code: string, onMerge?: () => void): () => void {
+export function subscribeTripList(
+  code: string,
+  onMerge?: (activeTripChanged: boolean) => void,
+): () => void {
   if (!isRemoteConfigured() || !code) return () => {};
 
   let cancelled = false;
@@ -470,9 +485,10 @@ export function subscribeTripList(code: string, onMerge?: () => void): () => voi
             firstSnapshotHandled = true;
             if (snap.exists()) {
               const data = snap.data() as Record<string, unknown>;
+              const activeBefore = getActiveTripId();
               const { localHadExtras } = importRemoteTrips(docToTrips(data), docToRemoved(data));
               if (localHadExtras) void pushTripList(code); // push our extras/removals up (best-effort)
-              onMerge?.();
+              onMerge?.(getActiveTripId() !== activeBefore);
             }
             // ABSENT ⇒ do nothing (#10). The old absent-first-snapshot seed branch is deleted —
             // see the docblock. An account with no tripList doc gets one from its next deliberate

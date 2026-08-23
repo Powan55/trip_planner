@@ -16,6 +16,7 @@
 // nothing is logged here (no ops, no reply, no context).
 
 import type { DayPlan, ItineraryCategory, ItineraryItem } from '@/lib/trip-data';
+import { ALL_CATEGORIES } from '@/lib/itinerary-category';
 import {
   TRIP_DATES,
   formatDate,
@@ -51,33 +52,10 @@ export interface Op {
   durationMinutes?: number | null;
 }
 
-// The category 10-set. Duplicated as literals from `ItineraryCategory`
-// (lib/itinerary-category.ts, re-exported via lib/trip-data.ts) — the source of truth — because a
-// Set membership check is what validation needs.
-//
-// `as const satisfies readonly ItineraryCategory[]` below only catches an INVALID member of this
-// list; it is silent when a category is instead ADDED to `ItineraryCategory` and NOT to this list
-// — the direction this function (dropping ops for unknown categories) actually depends on. That
-// used to be "guarded" by a comment claiming a `satisfies` tie kept the two from drifting; it did
-// not, and is the rule this file now carries: a comment naming a mechanism is only as good
-// as a check that actually runs. The `Exclude` guard right after the array is that check.
-const CATEGORIES = [
-  'sightseeing',
-  'food',
-  'photography',
-  'shopping',
-  'nature',
-  'cultural',
-  'transportation',
-  'hotel',
-  'free',
-  'nightlife',
-] as const satisfies readonly ItineraryCategory[];
-// Fails to compile — naming the offending category in the error — if `ItineraryCategory` gains a
-// member absent from `CATEGORIES` (the direction the `satisfies` above misses).
-type _MissingFromCategories = Exclude<ItineraryCategory, (typeof CATEGORIES)[number]>;
-const _assertNoMissingCategories: _MissingFromCategories extends never ? true : _MissingFromCategories = true;
-const CATEGORY_SET: ReadonlySet<string> = new Set(CATEGORIES);
+// The category 10-set, as a Set because membership is what validation needs. This file used to
+// carry its own copy of the ten literals plus the `Exclude` guard that keeps a copy honest; both
+// now live next to the union in lib/itinerary-category.ts, so there is nothing here left to drift.
+const CATEGORY_SET: ReadonlySet<string> = new Set(ALL_CATEGORIES);
 
 // Content fields a patch/add can carry (everything except the addressing fields).
 const CONTENT_KEYS = ['title', 'category', 'notes', 'location', 'startMinutes', 'durationMinutes'] as const;
@@ -126,6 +104,23 @@ export type DropCode =
   | 'already-there'; // moveItem whose toDate IS the item's resolved day
 
 /**
+ * The type of every content field PRESENT on the op, as a `DropCode` or `undefined`. Shared by
+ * BOTH verbs that build a `contentPatch` — it used to live inside the `updateItem` loop, so
+ * `addItem` never ran it (see the call site). Rule 8's patch-count accounting stays in
+ * `updateItem`, which is the only verb it means anything for.
+ * startMinutes/durationMinutes are range-checked before the switch, for every verb.
+ */
+function contentTypeError(o: Record<string, unknown>): DropCode | undefined {
+  for (const k of CONTENT_KEYS) {
+    if (o[k] == null) continue;
+    if (k === 'title' && !isNonEmptyString(o[k])) return 'no-title';
+    if (k === 'category' && !isCategory(o[k])) return 'bad-category'; // Rule 5
+    if ((k === 'notes' || k === 'location') && typeof o[k] !== 'string') return 'unreadable';
+  }
+  return undefined;
+}
+
+/**
  * WHY one raw op fails against the LIVE itinerary, or `undefined` when it is valid.
  *
  * This holds the real rule logic and `isValidOp` is its boolean wrapper, so the reason shown to a
@@ -158,23 +153,21 @@ export function dropReason(raw: unknown, plans: DayPlan[]): DropCode | undefined
       if (!isTripDate(o.date)) return 'date-not-in-trip';
       if (!isNonEmptyString(o.title)) return 'no-title';
       if (!isCategory(o.category)) return 'bad-category';
-      return undefined;
+      // …and the SAME per-field typing updateItem applies. Without it an `addItem` carrying
+      // `notes: {…}` or `location: 5` validated, rendered an ordinary chip, and on Confirm wrote
+      // the value verbatim into the new item — which `itineraryItemSchema` (both fields
+      // `z.string().optional()`) then dropped on the very next read, in the same tick. The toast
+      // said `Added “Ramen”` and nothing was added, anywhere.
+      return contentTypeError(o);
 
     case 'updateItem': {
       // Rule 3 (itemId + ≥1 patch) + Rule 6 (target resolves by id) + Rule 8 (≥1 non-null patch).
       // No Rule 4 date check: the target's date comes from the ITINERARY, not from the op.
       if (!isNonEmptyString(o.itemId)) return 'no-such-item';
-      // Any present patch field must be well-typed; collect whether ≥1 valid patch exists (Rule 8).
-      let patchCount = 0;
-      for (const k of CONTENT_KEYS) {
-        if (o[k] == null) continue;
-        if (k === 'title' && !isNonEmptyString(o[k])) return 'no-title';
-        if (k === 'category' && !isCategory(o[k])) return 'bad-category'; // Rule 5
-        if ((k === 'notes' || k === 'location') && typeof o[k] !== 'string') return 'unreadable';
-        // startMinutes/durationMinutes already range-checked above.
-        patchCount += 1;
-      }
-      if (patchCount === 0) return 'nothing-to-change'; // Rule 8
+      const badField = contentTypeError(o);
+      if (badField) return badField;
+      // Rule 8 — ≥1 present patch field (all of them well-typed by the line above).
+      if (!CONTENT_KEYS.some((k) => o[k] != null)) return 'nothing-to-change';
       return resolveLive(plans, o.itemId) === undefined ? 'no-such-item' : undefined; // Rule 6
     }
 

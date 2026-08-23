@@ -62,9 +62,17 @@ export const VIBES: Record<string, Vibe> = {
 /** The fallback vibe when a config carries an unknown key (TOTAL — never returns undefined). */
 export const DEFAULT_VIBE = 'city';
 
-/** Resolve a vibe preset by key, falling back to the default. TOTAL. */
+/**
+ * Resolve a vibe preset by key, falling back to the default. TOTAL.
+ *
+ * D-307: `key` is stored/imported data (`TripConfigBlock.vibe`, which `sanitizeTripConfig` accepts
+ * as any non-empty string), so the bare index is read through an own-key check. `VIBES['constructor']`
+ * is the `Object` function — non-nullish, so `??` never fires — and the hero then dereferences
+ * `.gradient` on it and takes the whole Home route to the error boundary.
+ */
 export function vibeFor(key: string | undefined): Vibe {
-  return VIBES[key ?? ''] ?? VIBES[DEFAULT_VIBE];
+  const k = key ?? '';
+  return (Object.prototype.hasOwnProperty.call(VIBES, k) ? VIBES[k] : undefined) ?? VIBES[DEFAULT_VIBE];
 }
 
 /**

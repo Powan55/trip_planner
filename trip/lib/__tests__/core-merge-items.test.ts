@@ -188,3 +188,71 @@ describe('resolvePair — the extracted per-id resolver is exported + generic', 
     expect(resolvePair(b, a, { deleteWins: 'hlc' }).label).toBe('b');
   });
 });
+
+describe('resolvePair — equal-HLC tie: the row with the strictly richer key set wins (#138, D-376)', () => {
+  const POLICY: MergePolicy = { deleteWins: 'hlc' };
+  const HLC = H(100, 0, 'shared');
+  // A peer's row carrying a key this build cannot name, and the copy this device re-read from its
+  // own strict-sanitized storage — same id, same hlc, one key apart. That is the real collision:
+  // `saveExpenses`/`saveDocs` strip the key on the way to disk, `commit()` re-reads the stripped
+  // row, and the push merges it against the peer's richer copy at an unchanged hlc.
+  const rich = { ...row('A', HLC), currency: 'NPR' } as Row & { currency?: string };
+  const stripped = row('A', HLC) as Row & { currency?: string };
+
+  it('the richer row wins in BOTH argument orders (push order and apply order)', () => {
+    expect(resolvePair(rich, stripped, POLICY).currency).toBe('NPR');
+    expect(resolvePair(stripped, rich, POLICY).currency).toBe('NPR');
+    expect(mergeItems([stripped], [rich])[0].currency).toBe('NPR');
+    expect(mergeItems([rich], [stripped])[0].currency).toBe('NPR');
+  });
+
+  it('holds wherever the new key SORTS — the fingerprint order diverges differently either side', () => {
+    // A key sorting BEFORE the shared ones diverges at its own name; one sorting after diverges at
+    // ',' (0x2C) vs the closing ']' (0x5D). Both used to rank the richer row LOWER.
+    for (const key of ['aaFirst', 'zzLast']) {
+      const more = { ...row('A', HLC), [key]: 1 } as Row;
+      const less = row('A', HLC);
+      expect(resolvePair(more, less, POLICY)).toHaveProperty(key);
+      expect(resolvePair(less, more, POLICY)).toHaveProperty(key);
+    }
+  });
+
+  it('NON-VACUOUS: the plain fingerprint order would pick the STRIPPED row', () => {
+    // Pin the property the fix exists for. If this ever flips, the superset branch is dead code and
+    // the tie-break above proves nothing.
+    const fp = (r: object) => JSON.stringify(Object.entries(r).sort(([x], [y]) => (x < y ? -1 : 1)));
+    expect(fp(rich) < fp(stripped)).toBe(true);
+  });
+
+  it('neither a superset (each holds a key the other lacks) → the fingerprint order, still commutative', () => {
+    const a = { ...row('A', HLC), fromA: 1 } as Row;
+    const b = { ...row('A', HLC), fromB: 1 } as Row;
+    expect(resolvePair(a, b, POLICY)).toEqual(resolvePair(b, a, POLICY));
+  });
+
+  it('the tombstone bias still returns FIRST — a richer live row does not resurrect a delete', () => {
+    const ghost = row('A', HLC, { deleted: true });
+    const richLive = { ...row('A', HLC, { deleted: false }), currency: 'NPR' } as Row;
+    expect(resolvePair(richLive, ghost, POLICY).deleted).toBe(true);
+    expect(resolvePair(ghost, richLive, POLICY).deleted).toBe(true);
+  });
+
+  it('COMMUTATIVE over 500 randomized key-set collisions at colliding HLCs', () => {
+    const r = rng(4471);
+    const extras = ['aaFirst', 'currency', 'tags', 'zzLast'];
+    const randRow = (id: string): Row => {
+      const base = row(id, H(Math.floor(r() * 2), 0, 'shared'), { deleted: r() < 0.25, label: 'same' });
+      for (const k of extras) if (r() < 0.5) (base as unknown as Record<string, unknown>)[k] = 1;
+      return base;
+    };
+    let failures = 0;
+    for (let trial = 0; trial < 500; trial++) {
+      const a = randRow('A');
+      const b = randRow('A');
+      const ab = resolvePair(a, b, POLICY);
+      const ba = resolvePair(b, a, POLICY);
+      if (JSON.stringify(Object.entries(ab).sort()) !== JSON.stringify(Object.entries(ba).sort())) failures++;
+    }
+    expect(failures).toBe(0);
+  });
+});

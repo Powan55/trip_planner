@@ -84,7 +84,7 @@ describe('TravelConcierge mount gating (S343)', () => {
   //
   // ✅ THE PRECONDITION WAS MET, NOT BYPASSED. On **2026-08-09** the owner deployed
   // `trip-planner-concierge` **v1.8.0**, Version ID **157ed2e0-2cfb-4044-af3e-ea80bc1b4ce6**, to
-  // https://trip-planner-concierge.official-shadowverse.workers.dev with its predeploy gate green
+  // https://trip-planner-concierge.<account>.workers.dev with its predeploy gate green
   // (typecheck + 104/104 worker tests). The live prompt is trip-aware, so the constant was flipped
   // to `true` and this test was inverted with it.
   //

@@ -5,8 +5,8 @@
  *
  * VALIDATION-TOLERANCE RULE:
  * on READ these schemas are deliberately *lenient* —
- * - `category` is validated as `z.string()` (NOT `z.enum`), because real deployed
- * data may contain a category a future/older build didn't know about;
+ * - `category` and `sourceType` are validated as `z.string()` (NOT `z.enum`), because real
+ * deployed data may contain a value a future/older build didn't know about;
  * - objects `.passthrough()` unknown keys, so unknown future fields survive a read.
  * The app already produces well-typed `ItineraryItem`s on WRITE (strict via TypeScript),
  * so the write path is naturally strict. A read that fails even this lenient schema is
@@ -36,7 +36,11 @@ export const itineraryItemSchema = z
     notes: z.string().optional(),
     location: z.string().optional(),
     sourceId: z.string().optional(),
-    sourceType: z.enum(['recommendation', 'photo', 'map', 'featured']).optional(),
+    // Permissive on read — NOT z.enum (#139). It was the one non-lenient field here, so a fifth
+    // sourceType from a newer build dropped the whole row at both the on-disk and remote
+    // boundaries. `isSourceType` (lib/itinerary-adapter.ts) is the runtime narrow to use if a
+    // consumer ever needs the union; nothing in production reads this field as one today.
+    sourceType: z.string().optional(),
     createdBy: z.string().optional(),
     updatedBy: z.string().optional(),
     updatedAt: z.string().optional(),
@@ -76,6 +80,13 @@ export const itineraryItemSchema = z
     // on read; declaring it makes the accepted surface explicit + typed. ISO date string; the
     // ">= startDay & in-trip-range" check lives once, in the ItemEditor UI (matching lat/lng).
     endDate: z.string().optional(),
+    // Per-item place-offset override ( — additive OPTIONAL, per lenient-read rule, mirrors the
+    // `lat`/`lng`/`endDate` entry above). NO migration and NO version bump: an item with `tzOffsetMin`
+    // absent is trivially offset-by-day, so no on-disk backfill is required. CURRENT_ITINERARY_VERSION
+    // STAYS 5 — the `schemaVersion` assertions remain `toBe(5)`. `.passthrough()` already tolerated it
+    // on read; declaring it makes the accepted surface explicit + typed. Minutes east of UTC; plain
+    // `z.number().optional()` (no range clamp) matching the startMinutes/lat/lng precedent.
+    tzOffsetMin: z.number().optional(),
   })
   .passthrough(); // tolerate unknown future fields on read
 

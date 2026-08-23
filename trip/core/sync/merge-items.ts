@@ -74,19 +74,55 @@ export function resolvePair<R extends SyncedRow>(a: R, b: R, policy: MergePolicy
   const cmp = compareHlc(rowHlc(a), rowHlc(b));
   if (cmp > 0) return a;
   if (cmp < 0) return b;
-  // Exact HLC tie (same pt/ct/actor). In the REAL protocol this only happens on a genuine ECHO
-  // (a===b by value). For ROBUSTNESS we still make the (protocol-impossible) equal-HLC/
-  // different-content case deterministic so the merge is UNCONDITIONALLY commutative:
+  // Exact HLC tie (same pt/ct/actor). The protocol reaches it on a genuine ECHO (a===b by value)
+  // and on one REAL asymmetry: a row read from a peer keeps forward keys this build cannot name
+  // (#138), while the copy this device re-reads from its own strict-sanitized storage has been
+  // stripped of them — same id, same hlc, different key set. Deterministic and UNCONDITIONALLY
+  // commutative:
   // 1. bias the tombstone (a delete is not spuriously resurrected by an equal-HLC live copy);
-  // 2. else break by a stable content fingerprint (higher wins) — argument-order-independent.
+  // 2. else prefer a strict key-set SUPERSET — the stripped copy can never erase the richer one;
+  // 3. else break by a stable content fingerprint (higher wins) — argument-order-independent.
+  //
+  // KNOWN CEILING (#152): step 2 is commutative and idempotent but NOT associative — three-plus
+  // rows sharing one exact HLC, mutually incomparable by key set, can resolve to different winners
+  // depending on fold order. Unreachable today: `actor` is unique per device, so an exact-HLC tie
+  // only ever appears as the two-row case this was written for (a peer's copy vs. this device's own
+  // strict-sanitized re-read); a three-way needs two devices minting the same actor. A key-COUNT
+  // total order would restore associativity but would let a row with more keys beat one holding
+  // keys it lacks — real data loss traded for tidiness, not worth it. Revisit only if `actor` stops
+  // being unique per device.
   if (aDel !== bDel) return aDel ? a : b;
+  const richer = supersetRow(a, b);
+  if (richer) return richer;
   return contentFingerprint(a) >= contentFingerprint(b) ? a : b;
 }
 
 /**
- * A stable, canonical string fingerprint of a row for the protocol-impossible equal-HLC/
- * different-content tie-break above. Keys are sorted so the fingerprint is argument-order-
- * independent. Used ONLY as a last-resort determinism guard — never in the normal HLC path.
+ * The row whose key set STRICTLY CONTAINS the other's, or `null` when neither does (equal key
+ * sets, or each holding a key the other lacks).
+ *
+ * Needed because `contentFingerprint` cannot express "same row, fewer keys": inserting a key
+ * always makes the sorted-entries JSON diverge DOWNWARD — at the new key's own name, or at `,`
+ * (0x2C) vs the closing `]` (0x5D) when it sorts last — so the RICHER row always compared lower
+ * and the stripped copy won every equal-HLC tie, erasing a peer's forward fields on the next push.
+ *
+ * Commutative by construction: strict containment is antisymmetric, so at most one of the two
+ * rows can satisfy it and the answer depends on the unordered pair, never on argument order.
+ */
+function supersetRow<R extends SyncedRow>(a: R, b: R): R | null {
+  const na = Object.keys(a).length;
+  const nb = Object.keys(b).length;
+  if (na === nb) return null; // equal size ⇒ containment can only be equality, not strict
+  const [more, fewer] = na > nb ? [a, b] : [b, a];
+  const moreKeys = new Set(Object.keys(more));
+  return Object.keys(fewer).every((k) => moreKeys.has(k)) ? more : null;
+}
+
+/**
+ * A stable, canonical string fingerprint of a row for the equal-HLC/different-content tie-break
+ * above, once neither row is a strict superset of the other. Keys are sorted so the fingerprint is
+ * argument-order-independent. Used ONLY as a last-resort determinism guard — never in the normal
+ * HLC path.
  */
 function contentFingerprint(row: SyncedRow): string {
   const entries = Object.entries(row as unknown as Record<string, unknown>).sort(([x], [y]) =>

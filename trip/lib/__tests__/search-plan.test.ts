@@ -68,6 +68,13 @@ describe('searchPlanItems — pure client-side matcher (S147, D-018 read-only)',
     expect(results.map((r) => r.item.id)).toEqual(['title-hit', 'notes-hit', 'category-hit']);
   });
 
+  it('#121: a tombstoned item is not searchable (the palette reads an unfiltered snapshot)', () => {
+    const live = mkItem('live', { title: 'Ramen shop' });
+    const tombstoned = mkItem('gone', { title: 'Ramen alley crawl', deleted: true });
+    const plans = [mkPlan('2026-12-09', [live, tombstoned])];
+    expect(searchPlanItems(plans, 'ramen').map((r) => r.item.id)).toEqual(['live']);
+  });
+
   it('does not mutate the input plans/items', () => {
     const item = mkItem('a', { title: 'Boudhanath Stupa' });
     const plans = [mkPlan('2026-12-09', [item])];

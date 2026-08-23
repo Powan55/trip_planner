@@ -49,18 +49,20 @@ describe('expense storage (gateway key 11, D-097)', () => {
     expect(JSON.parse(raw as string)).toEqual(list);
   });
 
-  it('saveExpenses SANITIZES on write — an UNSALVAGEABLE entry never reaches disk (an unknown leg is not one)', () => {
+  it('saveExpenses SANITIZES on write — an UNSALVAGEABLE entry never reaches disk (an unknown leg/category is not one)', () => {
     saveExpenses([
       { id: 'ok', leg: 'nepal', category: 'food', amount: 1000, createdAt: 't' },
       { id: 'foreign', leg: 'atlantis', category: 'food', amount: 1 } as unknown as Expense, // RETAINED
       { leg: 'japan', category: 'hotel', amount: 5000, createdAt: 't' } as unknown as Expense, // no id, dropped
-      { id: 'badcat', leg: 'nepal', category: 'bogus', amount: 1 } as unknown as Expense, // bad category, dropped
+      { id: 'fwdcat', leg: 'nepal', category: 'bogus', amount: 1 } as unknown as Expense, // RETAINED (#150)
     ]);
     const back = loadExpenses();
-    // 'foreign' survives: sanitize-on-write is what made a leg mismatch a PERMANENT deletion rather
-    // than a hidden row, so the leg check moved out of the sanitizer and into the aggregates.
-    expect(back.map((e) => e.id)).toEqual(['ok', 'foreign']);
+    // 'foreign'/'fwdcat' survive: sanitize-on-write is what made a leg/category mismatch a
+    // PERMANENT deletion rather than a hidden row, so both checks moved out of the sanitizer and
+    // into the aggregates.
+    expect(back.map((e) => e.id)).toEqual(['ok', 'foreign', 'fwdcat']);
     expect(back.find((e) => e.id === 'foreign')!.leg).toBe('atlantis');
+    expect(back.find((e) => e.id === 'fwdcat')!.category).toBe('bogus');
   });
 
   it("a row whose leg is unknown to the active pack ('main') round-trips save → load", () => {

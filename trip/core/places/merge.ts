@@ -15,7 +15,7 @@
  *    does not have (it has `addedAt`). Without `seedFromAddedAt` below, EVERY unstamped row
  *    resolves to `{pt:0,ct:0,actor:''}` and a same-id collision falls through to the last-resort
  *    JSON content fingerprint: deterministic, but semantically meaningless. The seed is applied
- *    TRANSIENTLY (`updatedAt` is never persisted — `sanitizePlaces` strips it on the way out)
+ *    TRANSIENTLY (`updatedAt` is never persisted — `stripSeed` removes it on the way out)
  *    because it is derived from `addedAt` deterministically on every merge, so storing it would
  *    add bytes and a second source of truth for nothing.
  * 2. ORDER. `mergeItems` returns live rows HLC-ASCENDING (oldest first). `MyPlace[]` is a
@@ -31,10 +31,25 @@
  */
 
 import { gcTombstoneRows, mergeItems } from '@/core/sync/merge-items';
-import { sanitizePlaces, type MyPlace } from './model';
+import { sanitizePlaces, type MyPlace, type SanitizeOptions } from './model';
 
 /** A place carrying the transient legacy-HLC seed. `updatedAt` never reaches storage or the wire. */
 type SeededPlace = MyPlace & { updatedAt?: string };
+
+/**
+ * Drop the transient `updatedAt` seed. Under `keepUnknownKeys` the sanitizer spreads the source row
+ * instead of rebuilding it field-by-field, so the strict rebuild is no longer what removes the seed
+ * and it would otherwise reach storage and Firestore — a second, persisted source of truth for the
+ * order key (`rowHlc` seeds from `updatedAt` whenever `hlc` is absent). Dropped UNCONDITIONALLY,
+ * which is exactly what the strict path did with this key: `updatedAt` is not a declared `MyPlace`
+ * field, so retaining a peer's copy of it would create the same second source of truth.
+ */
+function stripSeed(row: SeededPlace): MyPlace {
+  if (row.updatedAt === undefined) return row;
+  const rest = { ...row };
+  delete rest.updatedAt;
+  return rest;
+}
 
 /**
  * Give every un-stamped row a MEANINGFUL total-order key. A row written before issue #17 (or on a
@@ -59,16 +74,24 @@ function newestFirst(a: MyPlace, b: MyPlace): number {
  * them out of the exposed value) and capped.
  *
  * @param nowPt injected ms-since-epoch, the anchor for the 30-day tombstone GC horizon.
+ * @param opts threaded to the closing `sanitizePlaces`; absent ⇒ STRICT, the declared-field
+ * rebuild every LOCAL caller must keep (D-376). `lib/places-remote.ts` passes
+ * `{ keepUnknownKeys: true }` at both of its call sites, because the result of THIS merge is what
+ * `pushPlacesMerged` writes straight back to Firestore — at the strict default the rebuild here
+ * re-stripped the forward keys `docToPlaceRows` had just retained, so an older client still erased
+ * a newer one's fields from the server on every push (#138 / D-374, which left places out).
  */
 export function mergePlaces(
   local: readonly MyPlace[],
   remote: readonly MyPlace[],
   nowPt: number,
+  opts: SanitizeOptions = {},
 ): MyPlace[] {
   const merged = gcTombstoneRows(mergeItems(seedFromAddedAt(local), seedFromAddedAt(remote)), nowPt);
   const live = merged.filter((p) => p.deleted !== true).sort(newestFirst);
   const dead = merged.filter((p) => p.deleted === true).sort(newestFirst);
-  // `sanitizePlaces` is the one narrowing boundary: it drops the transient `updatedAt` seed,
-  // re-parses anything a peer build wrote, and applies the live/tombstone caps.
-  return sanitizePlaces([...live, ...dead]);
+  // `sanitizePlaces` is the one narrowing boundary: it re-parses anything a peer build wrote and
+  // applies the live/tombstone caps. The transient seed is removed by `stripSeed` FIRST, because
+  // under retention the sanitizer no longer rebuilds the row and so no longer drops it.
+  return sanitizePlaces([...live, ...dead].map(stripSeed), opts);
 }

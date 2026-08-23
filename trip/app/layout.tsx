@@ -12,6 +12,7 @@ import { OfflineBanner } from '@/components/offline-banner'
 import { SyncStatusBadge } from '@/components/sync-status-badge'
 import SeasonAccentEngine from '@/components/season-accent-engine'
 import { withBasePath } from '@/lib/utils'
+import { buildCsp, REFERRER_POLICY } from '@/lib/csp'
 // the app-wide chrome islands (Navbar, Footer, mobile tab bar,
 // quick-add FAB + host, expense-log host). Declared in a `'use client'` module
 // because Next 15 forbids `dynamic({ssr:false})` in this Server Component layout
@@ -50,6 +51,12 @@ export const metadata = {
   icons: {
     icon: withBasePath('/favicon.svg'),
     shortcut: withBasePath('/favicon.svg'),
+    // `apple` is basePath-critical, not decoration: with no <link rel="apple-touch-icon">
+    // in the HTML, iOS "Add to Home Screen" falls back to <origin>/apple-touch-icon.png —
+    // powan55.github.io/apple-touch-icon.png, outside /trip_planner — which 404s, so the
+    // home-screen icon becomes a screenshot. gen-icons.mjs emits the file and gen-sw.mjs
+    // already precaches it; nothing referenced it.
+    apple: withBasePath('/icons/apple-touch-icon.png'),
   },
   // manifest is emitted at build time by scripts/gen-sw.mjs
   // (single basePath prefix source), so withBasePath here matches its start_url.
@@ -110,15 +117,37 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // data-scroll-behavior: app/globals.css sets `scroll-behavior: smooth` on <html> for
+  // in-page anchors. Next 16 stopped neutralising that during route transitions unless this
+  // attribute is present, which would make every navigation smooth-scroll to top instead of
+  // jumping. Opting back in keeps 15's behaviour.
   return (
-    <html lang="en" suppressHydrationWarning className="dark">
+    <html lang="en" suppressHydrationWarning className="dark" data-scroll-behavior="smooth">
+      {/* Issue #180. An explicit <head>: the Metadata API cannot express an `http-equiv`
+          meta, and `output: 'export'` rules out real headers — see lib/csp.ts for why and
+          for what that costs (no `frame-ancestors`, no report-only).
+
+          KNOWN CEILING — this tag is NOT the first thing in the built <head>. React 19
+          hoists its own resources, so the export puts 35 tags ahead of it on the home route
+          (2 metas, 2 stylesheet links, 1 script preload and 30 `<script src>`; 33-37 across
+          the 21 pages), and a meta CSP governs only what is parsed after it. Measured on a
+          real build: EVERY one of them is same-origin `/_next/static/*` build output, which
+          this policy permits anyway, and every attacker-reachable node
+          (the whole <body>) is parsed after the tag. So the gap is currently inert. Making
+          it genuinely first needs a post-build rewrite of the exported HTML in out/ — the
+          shape scripts/gen-sw.mjs already uses — which is only worth adding if a real
+          header never becomes available. */}
+      <head>
+        <meta httpEquiv="Content-Security-Policy" content={buildCsp()} />
+        <meta name="referrer" content={REFERRER_POLICY} />
+      </head>
       <body className={`${geist.variable} ${instrumentSerif.variable} font-sans bg-surface`}>
         {/* WCAG 2.4.1 (B-1). ONE link at the root covers every route: all 19 pages
             render inside the `#main` wrapper below, so no page-level skip link is needed.
             Invisible until focused, then a real chip above the navbar (z-50). */}
         <a
           href="#main"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:border focus:border-white/15 focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-ring"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:border focus:border-[color:var(--border-ui)] focus:bg-surface focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white focus:outline-none focus:ring-2 focus:ring-ring"
         >
           Skip to content
         </a>

@@ -121,7 +121,7 @@ export default function BudgetPanel() {
   const { expenses, removeExpense, restoreExpense } = useExpenses();
   // the sync-on expense Undo re-adds a FRESH-ID copy, so any receipt photo pointed at the
   // old id must follow. `repointExpense` is a no-op when the id is unchanged (dormant restore).
-  const { repointExpense } = usePhotos();
+  const { repointExpense, photosFor, removePhoto } = usePhotos();
   const spent = useMemo(() => expensesToSpent(expenses), [expenses]);
   const roll = useMemo(() => rollUp(model, spent), [model, spent]);
   const home = model.homeCurrency;
@@ -141,6 +141,9 @@ export default function BudgetPanel() {
   // restore path. Keeping the removed object captured in the closure is what makes the restore
   // byte-identical rather than a fresh-id re-log.
   const handleDeleteExpense = (expense: Expense) => {
+    // Captured BEFORE the delete: the receipt has to outlive the undo window (Undo re-points it),
+    // so it is freed only once that window closes un-taken (#119).
+    const receipts = photosFor({ kind: 'expense', expenseId: expense.id });
     removeExpense(expense.id);
     showUndoToast(
       `Deleted ${formatMoney(expense.amount, legCurrency(expense.leg))} ${expense.category}`,
@@ -149,6 +152,12 @@ export default function BudgetPanel() {
         // any receipt meta to it so a synced Undo doesn't strand the photo. No-op if unchanged.
         const newId = restoreExpense(expense);
         repointExpense(expense.id, newId);
+      },
+      () => {
+        void (async () => {
+          // Sequential: each removePhoto commits over the store's current value.
+          for (const photo of receipts) await removePhoto(photo.id);
+        })();
       },
     );
   };
@@ -555,7 +564,7 @@ function LegBudgetCard({
             step="any"
             placeholder="0"
             {...legDraft}
-            className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-9' : 'pl-7'
             }`}
           />
@@ -664,7 +673,7 @@ function CategoryBudgetInput({
             placeholder="0"
             aria-label={`${category} budget for the ${leg} leg, in ${cur}`}
             {...draft}
-            className={`w-full rounded-lg border border-white/15 bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-8' : 'pl-6'
             }`}
           />

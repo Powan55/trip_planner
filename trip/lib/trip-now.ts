@@ -55,10 +55,21 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 let resolved = false;
 let overrideMs: number | null = null;
 
-/** Build the LOCAL-noon Date for a validated `YYYY-MM-DD` string. */
-function localNoon(dateStr: string): Date {
+/**
+ * The LOCAL-noon epoch-ms for a `YYYY-MM-DD` override string, or `null` when the string is not a
+ * real calendar day.
+ *
+ * `DATE_RE` only validates the SHAPE, and `new Date(y, mo-1, d)` rolls out-of-range parts over
+ * silently: `2026-13-45` became 2027-02-14 and was accepted as the clock. The round-trip check
+ * is the rejection — an unparseable override falls through to the persisted one, then the real
+ * clock, rather than becoming a plausible-looking wrong day.
+ */
+function overrideMsFor(dateStr: string | null): number | null {
+  if (!dateStr || !DATE_RE.test(dateStr)) return null;
   const [y, mo, d] = dateStr.split('-').map(Number);
-  return new Date(y, mo - 1, d, 12, 0, 0, 0);
+  const at = new Date(y, mo - 1, d, 12, 0, 0, 0);
+  const roundTrips = at.getFullYear() === y && at.getMonth() === mo - 1 && at.getDate() === d;
+  return roundTrips ? at.getTime() : null;
 }
 
 /**
@@ -85,22 +96,17 @@ function resolveOverrideOnce(): void {
     return;
   }
 
-  if (param && DATE_RE.test(param)) {
+  const fromUrl = overrideMsFor(param);
+  if (param && fromUrl !== null) {
     // Valid URL override wins and is persisted for subsequent navigations this session.
     clockOverride.set(param);
-    overrideMs = localNoon(param).getTime();
+    overrideMs = fromUrl;
     return;
   }
 
   // No usable URL param: fall back to a persisted override if one exists. `clockOverride`
   // never throws (privacy mode / quota degrade to `null` inside the gateway) → real clock.
-  const stored = clockOverride.get();
-  if (stored && DATE_RE.test(stored)) {
-    overrideMs = localNoon(stored).getTime();
-    return;
-  }
-
-  overrideMs = null;
+  overrideMs = overrideMsFor(clockOverride.get());
 }
 
 /**
@@ -121,6 +127,27 @@ export function getNow(): Date {
  */
 export const clock: ClockPort = {
   now: getNow,
+};
+
+/**
+ * The REAL clock, override or no override — the SYNC-path reader, and the only correct one there.
+ *
+ * `clock` above is a DISPLAY clock: `?today=` exists so day numbers and countdowns can be demoed
+ * against a trip that is months away. Sync needs PHYSICAL time for two jobs where a faked instant
+ * is not a simulation but corruption written to the shared trip:
+ * - the HLC `pt` every edit is stamped with. A stamp minted at the faked day outranks every peer's
+ *   real edit to that row until the real clock passes it (and `hlcSendOrLocal` ratchets, so it is
+ *   inherited by every later edit of that row on every device);
+ * - the tombstone-GC horizon (`gcTombstones`/`gcTombstoneRows`), which drops every tombstone older
+ *   than `nowPt − 30d` from a MERGED doc that is then written straight back to Firestore — so a
+ *   peer still holding the row live re-adds it and the delete silently undoes for everyone.
+ *
+ * `lib/preflight.ts` reads `new Date()` by hand for the same reason (its clock row would otherwise
+ * report the faked clock as correct). Use THIS at every sync stamp / GC site; use `clock`/`getNow`
+ * for anything the user is looking at.
+ */
+export const realClock: ClockPort = {
+  now: () => new Date(),
 };
 
 /**
@@ -171,13 +198,31 @@ export function tripOffsetMinFor(now: Date): number | null {
  * way keeps the clock I/O here and the deterministic math in core, with no observable
  * change on the override path: the `?today=` override declares the
  * destination day directly, so it stays device-local of local-noon — the
- * frozen `?today=` boundary matrix runs only through this unchanged branch. The REAL
- * clock (no override) now derives the day at the destination leg's fixed offset, so a
- * home-time phone shows the correct trip-day.
+ * frozen `?today=` boundary matrix runs only through this unchanged branch.
+ *
+ * WINDOW MEMBERSHIP COMES FROM THE DEVICE CALENDAR; THE DAY NUMBER COMES FROM THE
+ * DESTINATION OFFSET. Deriving both at the destination leg's offset made the app hold two
+ * definitions of "today" that are 10h45m apart on a home-time phone: `TRIP_START`,
+ * `getFlightTiming` and `elapsedInclusiveDays` all read the device calendar, so at 13:15 EST
+ * on Dec 8 the hero swapped its countdown for "Day 1" while the Flights card still said the
+ * outbound was ten hours away — and the write paths that default a new row's `date` from this
+ * function STORED that row on Dec 9. The mirror case ended the trip early: at 10:00 EST on
+ * Jan 9 the destination day is already Jan 10, so this returned `null` and the hero flipped to
+ * its post-trip state while the traveller was still on Day 32. The device day decides whether
+ * we are in the window at all; the offset then names which trip day it is, and falls back to
+ * the device answer when it lands outside.
+ *
+ * The guard is HERE and not in `tripOffsetMinFor`, which has a third caller:
+ * `lib/preflight.ts` needs the trip's offset whether or not the device day is in the window,
+ * and a `null` from it routes `evaluateClock` into "Couldn't compare — this trip has no time
+ * zone set" in place of a correct "Phone is on home time".
  */
 export function getTodayInTrip(): TripToday | null {
   const now = getNow(); // resolves the override once; sets module `overrideMs`
-  return dayInTripFor(now, overrideMs === null ? tripOffsetMinFor(now) : null);
+  const off = overrideMs === null ? tripOffsetMinFor(now) : null;
+  const dev = dayInTripFor(now, null);
+  if (dev === null) return null;
+  return dayInTripFor(now, off) ?? dev;
 }
 
 /**

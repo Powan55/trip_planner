@@ -5,8 +5,8 @@ import { DayPlan, ItineraryItem } from '@/lib/trip-data';
 import { keyFor } from '@/core/storage/gateway';
 import { getUserName } from '@/lib/identity';
 import { getActiveTraveler } from '@/lib/token-auth';
-import { isRemoteConfigured } from '@/lib/firebase-config';
-import { clock } from '@/lib/trip-now';
+import { isTripRemoteConfigured } from '@/lib/firebase-config';
+import { realClock } from '@/lib/trip-now';
 import { stampCreated, stampUpdated, stampDone } from '@/lib/attribution';
 import { stampSyncCreated, stampSyncUpdated, stampSyncDeleted } from '@/core/sync/stamp';
 import { itineraryStoragePort, itinerarySyncPort } from '@/lib/itinerary-ports';
@@ -38,7 +38,8 @@ import * as itinerary from '@/core/itinerary';
  * and for tests.
  */
 
-export const ITINERARY_CHANGED_EVENT = 'itinerary:changed';
+import { ITINERARY_CHANGED_EVENT } from '@/core/storage/events';
+export { ITINERARY_CHANGED_EVENT };
 
 export interface ItineraryStore {
   plans: DayPlan[];
@@ -91,8 +92,11 @@ export interface ItineraryStore {
 // localStorage bytes. Doing that unconditionally would break the dormant portfolio build's
 // byte-identity and risk the delete-all-stays-empty guarantee (a tombstone
 // must not leave `plans` non-empty). So the ENTIRE Sync-v2 behavior is GATED on
-// `isRemoteConfigured()`:
-// - DORMANT (no firebase env): `syncEnabled()` is false. `removeItem` physically removes
+// `isTripRemoteConfigured()` — the TRIP-scoped gate, not the app-wide one. The default sample
+// pack has no remote id (#10: `getTripId()` is ''), so nothing it writes can ever be pushed and
+// nothing ever collects its tombstones: the two GC boundaries both sit behind the same gate. On
+// the app-wide gate the sample accumulated tombstones forever and undo re-minted item ids.
+// - DORMANT (no firebase env, or the local-only sample pack): `syncEnabled()` is false. `removeItem` physically removes
 // exactly as today, and NO rev/hlc is stamped. The dormant build is byte-for-byte
 // unchanged; the persistence pack + hold verbatim.
 // - CONFIGURED (sync on): the tombstone + rev/hlc path activates, and the exposed `plans`
@@ -104,7 +108,7 @@ export interface ItineraryStore {
 // stable, synchronous, dormant-safe id sufficient for the HLC tie-break (distinct across the
 // three clients). Recorded as a judgment call.
 function syncEnabled(): boolean {
-  return isRemoteConfigured();
+  return isTripRemoteConfigured();
 }
 
 function syncActor(): string {
@@ -173,7 +177,7 @@ export function useItinerary(): ItineraryStore {
         itinerary.addItem(current, date, item, (i) => {
           const attributed = stampCreated(i, getUserName);
           return syncEnabled()
-            ? stampSyncCreated(attributed, clock.now().getTime(), syncActor())
+            ? stampSyncCreated(attributed, realClock.now().getTime(), syncActor())
             : attributed;
         }),
       );
@@ -196,7 +200,7 @@ export function useItinerary(): ItineraryStore {
           // prev→next compare inside core.updateItem.
           const attributed = stampDone(stampUpdated(i, getUserName), patch, getUserName);
           return syncEnabled()
-            ? stampSyncUpdated(attributed, clock.now().getTime(), syncActor())
+            ? stampSyncUpdated(attributed, realClock.now().getTime(), syncActor())
             : attributed;
         }),
       );
@@ -219,7 +223,7 @@ export function useItinerary(): ItineraryStore {
       }
       commit((current) =>
         itinerary.updateItem(current, date, itemId, {}, (i) =>
-          stampSyncDeleted(stampUpdated(i, getUserName), clock.now().getTime(), syncActor()),
+          stampSyncDeleted(stampUpdated(i, getUserName), realClock.now().getTime(), syncActor()),
         ),
       );
     },
@@ -264,7 +268,7 @@ export function useItinerary(): ItineraryStore {
         return liveIds.reduce(
           (acc, id) =>
             itinerary.updateItem(acc, date, id, {}, (i) =>
-              stampSyncDeleted(stampUpdated(i, getUserName), clock.now().getTime(), syncActor()),
+              stampSyncDeleted(stampUpdated(i, getUserName), realClock.now().getTime(), syncActor()),
             ),
           current,
         );
@@ -294,7 +298,7 @@ export function useItinerary(): ItineraryStore {
         for (const it of day.items) {
           if (it.deleted === true) continue;
           next = itinerary.updateItem(next, day.date, it.id, {}, (i) =>
-            stampSyncDeleted(stampUpdated(i, getUserName), clock.now().getTime(), actor),
+            stampSyncDeleted(stampUpdated(i, getUserName), realClock.now().getTime(), actor),
           );
         }
       }
@@ -317,7 +321,7 @@ export function useItinerary(): ItineraryStore {
             itinerary.addItem(acc, date, sync ? freshCopyOf(item) : item, (i) => {
               const attributed = stampCreated(i, getUserName);
               return sync
-                ? stampSyncCreated(attributed, clock.now().getTime(), syncActor())
+                ? stampSyncCreated(attributed, realClock.now().getTime(), syncActor())
                 : attributed;
             }),
           current,
@@ -332,7 +336,7 @@ export function useItinerary(): ItineraryStore {
   // as a MERGE, not an overwrite, so under sync it PROPAGATES + survives the next snapshot instead of
   // being unwound.
   // - DORMANT: a plain local overwrite — there is no sync to unwind, so this is
-  // byte-identical to `importItinerary`'s `savePlans(backup)` (one commit, no stamping, no push).
+  // byte-identical to the local path's `savePlans(backup)` (one commit, no stamping, no push).
   // - SYNC ON: a tombstone-replace in ONE commit (, the mechanic applied to a
   // whole restore):
   // (a) TOMBSTONE every currently-live item across every day (removeItem's sync stamp), so each
@@ -359,7 +363,7 @@ export function useItinerary(): ItineraryStore {
           for (const it of day.items) {
             if (it.deleted === true) continue;
             next = itinerary.updateItem(next, day.date, it.id, {}, (i) =>
-              stampSyncDeleted(stampUpdated(i, getUserName), clock.now().getTime(), actor),
+              stampSyncDeleted(stampUpdated(i, getUserName), realClock.now().getTime(), actor),
             );
           }
         }
@@ -369,7 +373,7 @@ export function useItinerary(): ItineraryStore {
           for (const it of day.items) {
             if (it.deleted === true) continue;
             next = itinerary.addItem(next, day.date, freshCopyOf(it), (i) =>
-              stampSyncCreated(stampCreated(i, getUserName), clock.now().getTime(), actor),
+              stampSyncCreated(stampCreated(i, getUserName), realClock.now().getTime(), actor),
             );
           }
         }
@@ -423,7 +427,7 @@ export function useItinerary(): ItineraryStore {
 
         // (a) Tombstone the source copy — IDENTICAL to removeItem's sync path.
         const tombstoned = itinerary.updateItem(current, fromDate, itemId, {}, (i) =>
-          stampSyncDeleted(stampUpdated(i, getUserName), clock.now().getTime(), syncActor()),
+          stampSyncDeleted(stampUpdated(i, getUserName), realClock.now().getTime(), syncActor()),
         );
 
         // (b) Add a FRESH-ID copy to the target — IDENTICAL to addItem's sync path. Carry the
@@ -432,7 +436,7 @@ export function useItinerary(): ItineraryStore {
         const freshCopy = freshCopyOf(original);
         landedId = freshCopy.id;
         return itinerary.addItem(tombstoned, toDate, freshCopy, (i) =>
-          stampSyncCreated(stampCreated(i, getUserName), clock.now().getTime(), syncActor()),
+          stampSyncCreated(stampCreated(i, getUserName), realClock.now().getTime(), syncActor()),
         );
       });
       return landedId;
@@ -460,7 +464,7 @@ export function useItinerary(): ItineraryStore {
         targets.reduce(
           (acc, { date, itemId }) =>
             itinerary.updateItem(acc, date, itemId, {}, (i) =>
-              stampSyncDeleted(stampUpdated(i, getUserName), clock.now().getTime(), syncActor()),
+              stampSyncDeleted(stampUpdated(i, getUserName), realClock.now().getTime(), syncActor()),
             ),
           current,
         ),
@@ -508,12 +512,12 @@ export function useItinerary(): ItineraryStore {
           const original = (source?.items ?? []).find((i) => i.id === itemId);
           if (!original) return acc; // nothing to move (guard, matches core moveItem)
           const tombstoned = itinerary.updateItem(acc, fromDate, itemId, {}, (i) =>
-            stampSyncDeleted(stampUpdated(i, getUserName), clock.now().getTime(), syncActor()),
+            stampSyncDeleted(stampUpdated(i, getUserName), realClock.now().getTime(), syncActor()),
           );
           const freshCopy = freshCopyOf(original);
           landed.push(freshCopy.id);
           return itinerary.addItem(tombstoned, toDate, freshCopy, (i) =>
-            stampSyncCreated(stampCreated(i, getUserName), clock.now().getTime(), syncActor()),
+            stampSyncCreated(stampCreated(i, getUserName), realClock.now().getTime(), syncActor()),
           );
         }, current),
       );
@@ -573,7 +577,7 @@ export function useItinerary(): ItineraryStore {
               ...(i.updatedBy === from ? { updatedBy: to } : {}),
               ...(i.doneBy === from ? { doneBy: to } : {}),
             };
-            return sync ? stampSyncUpdated(renamed, clock.now().getTime(), actor) : renamed;
+            return sync ? stampSyncUpdated(renamed, realClock.now().getTime(), actor) : renamed;
           });
         }
       }
@@ -595,7 +599,7 @@ export function useItinerary(): ItineraryStore {
         itinerary.copyDay(current, srcDate, dstDate, freshCopyOf, (i) => {
           const attributed = stampCreated(i, getUserName);
           return sync
-            ? stampSyncCreated(attributed, clock.now().getTime(), syncActor())
+            ? stampSyncCreated(attributed, realClock.now().getTime(), syncActor())
             : attributed;
         }),
       );

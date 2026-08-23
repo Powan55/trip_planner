@@ -196,17 +196,24 @@ node scripts/release-gate.mjs
 
 ## Where to look
 
-| Document | For |
+| Where | For |
 |---|---|
 | `DECISIONS.md` | Every constraint that still binds, and why. **Read the relevant entry before changing an architectural decision** — most of them have a reason that is not obvious from the code. |
-| `trip/docs/design-spec-v2.md` | Colours, type, spacing, motion. Read before touching UI. |
-| `trip/docs/data-core-blueprint.md` | The data model and the storage-key registry. |
+| `trip/app/globals.css` and `trip/tailwind.config.ts` | Colours, type, spacing, motion. The live token contract. Read before touching UI. |
+| `trip/docs/design-spec-v2.md` | *(historical)* The v2 design language and the reasoning behind it. Its token values are three supersessions out of date and it says so at the top. |
+| `trip/core/storage/gateway.ts` | The storage-key registry: every persisted key, its on-disk name and its shape. |
+| `trip/docs/data-core-blueprint.md` | *(historical)* The vault, gateway and port design as it was drafted. Treat every number in it as a snapshot, not the current one. |
 | `trip/docs/time-model-blueprint.md` | Dates, timezones, the trip clock. The easiest place to be subtly wrong. |
 | `trip/docs/test-ids.md` | The `data-testid` contract the E2E specs are written against. Needed to write or fix any spec. |
 | `trip/docs/sync-everywhere-blueprint.md` | Cross-device sync via Firestore. |
 | `trip/docs/photo-storage-blueprint.md` | Photos and IndexedDB. |
 | `trip/docs/ci-flake-policy.md` | Read before blaming a red run on flake. |
 | `trip/docs/RELEASES.md` | What shipped, when. |
+
+The blueprints record a design at the moment it was built, so where one disagrees with the
+code the code wins. One known drift: section 3.3 of `trip/docs/sync-everywhere-blueprint.md`
+still declares four sync domains, and `trip/core/sync/outbox.ts` has five — `places` was added
+after the blueprint was written.
 
 ## Running it locally
 
@@ -216,8 +223,8 @@ npm ci --legacy-peer-deps
 npm run dev
 ```
 
-`--legacy-peer-deps` is required, not optional: `cmdk`, `next-themes` and
-`sonner` pin React 18 peers against this app's React 19.
+`--legacy-peer-deps` is required, not optional: `@types/node` is pinned at
+20.6.2 and `vite@8` (via `vitest`) wants `^20.19.0 || >=22.12.0`.
 
 Tests:
 
@@ -225,6 +232,10 @@ Tests:
 npm test                                  # unit, fast
 npm run build && npm run test:e2e         # browser suite; the build must come first
 ```
+
+Unit tests live in `trip/lib/__tests__/` whatever they cover — `core/` and `hooks/` have no
+`__tests__` of their own, and only a handful of component tests sit in
+`trip/components/__tests__/`. A missing `core/__tests__/` is not missing coverage.
 
 The Playwright config serves the static export from `out/` rather than the dev
 server, because that is the artifact that actually deploys. It does not build for

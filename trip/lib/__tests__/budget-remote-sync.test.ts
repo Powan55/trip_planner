@@ -160,6 +160,37 @@ describe('pushBudgetMerged — read→merge→set does NOT clobber a concurrent 
   });
 });
 
+describe('budgetDocToFields — a poison field entry does not wedge the outbox forever', () => {
+  it('an entry with no hlc (or a non-string one) is dropped at the read; the transaction still commits', async () => {
+    // `fields` is UNTRUSTED bytes: the trip id IS the capability, so an older/other client can put
+    // anything here. `mergeBudget` calls `parse(entry.hlc)` unguarded, so one entry like this threw
+    // a TypeError INSIDE runTransaction — rejecting the push, leaving the 'model' chunk dirty, and
+    // re-attempting on every `online`, every visibilitychange and every mount, forever.
+    fake.setDocData(DOC_PATH, {
+      version: 1,
+      fields: {
+        'rates.NPR': { v: 999 }, // no hlc at all
+        'rates.JPY': { v: 888, hlc: 12345 }, // hlc is a number
+        'legBudgets.japan': null, // not an object
+        'legBudgets.nepal': { v: 31000, hlc: hlc(2000, 'B') }, // the one good entry
+      },
+    });
+    const localModel = model({ homeCurrency: 'NPR', sync: { fieldHlc: { homeCurrency: hlc(3000, 'me') } } });
+
+    await expect(pushBudgetMerged(fake as unknown as Firestore, fs, localModel)).resolves.not.toThrow();
+
+    const written = fake.docs.get(DOC_PATH) as { fields: BudgetFields };
+    expect(writeLog).toContain(`tx-set:${DOC_PATH}`);
+    expect(written.fields.homeCurrency.v).toBe('NPR'); // ours survived
+    expect(written.fields['legBudgets.nepal'].v).toBe(31000); // the good peer entry survived
+    // The poison entries never reach the merge, so each path keeps this device's own value rather
+    // than the junk (they are LOCAL leaves too, so the path itself is expected to be present).
+    expect(written.fields['rates.NPR'].v).toBe(138); // not 999
+    expect(written.fields['rates.JPY'].v).toBe(155); // not 888
+    expect(written.fields['legBudgets.japan'].v).toBe(0); // not the null entry
+  });
+});
+
 describe('SyncPort.push (outbox-decorated) — ONE merged write to the singleton per value change', () => {
   it('editing a field issues exactly one tx-set on budget/model, carrying the stamped HLC', async () => {
     const prev = model({ sync: { fieldHlc: {} } });

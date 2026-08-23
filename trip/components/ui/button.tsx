@@ -63,7 +63,10 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         aria-busy={loading || undefined}
         {...props}
       >
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+        {/* `motion-safe:` — a 1s infinite spin is under D-293 rule 2's floor, so it carries
+            its own reduced-motion fork rather than leaning on the globals.css collapse.
+            `aria-busy` above is what actually reports the state (rule 9). */}
+        {loading && <Loader2 className="h-4 w-4 motion-safe:animate-spin" />}
         <Slottable>{loading && asChild ? null : children}</Slottable>
       </Comp>
     )

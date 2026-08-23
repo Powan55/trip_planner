@@ -13,6 +13,7 @@ import {
 } from '@/core/vault/migrations';
 import { makeEnvelope } from '@/core/vault/envelope';
 import { parseItineraryPayload } from '@/core/vault/schema';
+import { isSourceType, toItineraryDraft, type SourceType } from '@/lib/itinerary-adapter';
 import type { DayPlan } from '../trip-data';
 
 /**
@@ -173,6 +174,55 @@ describe('Trip Vault — lenient Zod schema', () => {
     ];
     const parsed = parseItineraryPayload(mixed);
     expect(parsed!.map((d) => d.date)).toEqual(['2026-12-10', '2026-12-12']);
+  });
+
+  // #139 — `sourceType` was the ONE non-lenient field in this deliberately lenient schema, so a
+  // fifth source family from a newer build dropped the whole row (silently, since #123 made the
+  // drop per-item) at both the on-disk and remote read boundaries.
+  it('keeps an item with an UNRECOGNISED sourceType (sourceType is z.string(), not z.enum)', () => {
+    const raw = [
+      {
+        date: '2026-12-10',
+        city: 'Kathmandu',
+        country: 'nepal',
+        items: [
+          { id: 'v1', title: 'Screening', category: 'cultural', sourceId: 'vid-1', sourceType: 'video' },
+          { id: 'm1', title: 'Ramen', category: 'food', sourceType: 'map' },
+        ],
+      },
+    ];
+    const parsed = parseItineraryPayload(raw);
+    expect(parsed).not.toBeNull();
+    expect(parsed![0].items.map((i) => i.id)).toEqual(['v1', 'm1']);
+    expect((parsed![0].items[0] as { sourceType?: string }).sourceType).toBe('video');
+  });
+
+  it('an unrecognised sourceType survives a save → load round trip (it syncs, not drops)', () => {
+    const plans = [
+      {
+        date: '2026-12-10',
+        city: 'Kathmandu',
+        country: 'nepal',
+        items: [{ id: 'v1', title: 'Screening', category: 'cultural', sourceType: 'video' }],
+      },
+    ] as unknown as DayPlan[];
+    saveItinerary(plans, cfg);
+    expect(loadItinerary(cfg)).toEqual(plans);
+    expect(localStorage.getItem(QUARANTINE_KEY)).toBeNull();
+  });
+
+  it('the adapter switch still has a DEFINED behaviour for a value the union does not cover', () => {
+    expect(isSourceType('map')).toBe(true);
+    expect(isSourceType('video')).toBe(false);
+    expect(isSourceType(undefined)).toBe(false);
+    // Not a silent fall-through returning `undefined` — an unnarrowed value throws by name.
+    expect(() => toItineraryDraft({} as unknown, 'video' as unknown as SourceType)).toThrow(
+      /unknown sourceType "video"/,
+    );
+    // …and the guard is the way a caller avoids it.
+    expect(toItineraryDraft({ id: 'r1', name: 'Boudha' } as unknown, 'recommendation').sourceType).toBe(
+      'recommendation',
+    );
   });
 
   it('returns null ONLY for a non-array payload — the caller still has a real quarantine trigger', () => {

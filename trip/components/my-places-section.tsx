@@ -11,6 +11,7 @@ import { useMyPlaces } from '@/hooks/use-my-places';
 import type { MyPlace } from '@/core/places/model';
 import type { ItineraryDraft } from '@/lib/itinerary-adapter';
 import { showUndoToast } from '@/lib/undo-toast';
+import { isSafeHref } from '@/lib/safe-href';
 
 /**
  * MyPlacesSection — the user-owned "My places" card grid, its OWN section (NOT merged into the
@@ -20,7 +21,8 @@ import { showUndoToast } from '@/lib/undo-toast';
  * no places (and pre-hydration), so it never shows an empty box on a fresh visit.
  *
  * Card art is a CSS vibe-gradient + icon.
- * A card links out to `resolvedUrl ?? sourceUrl`, shows the standard "Added" badge via
+ * A card links out to the first of `resolvedUrl`/`sourceUrl` that passes the href scheme
+ * allow-list (`lib/safe-href.ts`), shows the standard "Added" badge via
  * `findPlacements('myplace-'+id)`, opens the shared add-to-plan dialog with a myplace draft, and
  * deletes with the shared undo toast (`lib/undo-toast`).
  */
@@ -54,7 +56,13 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
 
   const sourceId = `myplace-${place.id}`;
   const placements = findPlacements(sourceId);
-  const link = place.resolvedUrl ?? place.sourceUrl;
+  // The LAST boundary, and the one that has to hold: a row already in storage — written by an
+  // older client, or synced in from the other member's device — carries whatever it carries, so
+  // guarding only the two producers would leave every such row live. First SAFE one wins, no link
+  // at all if neither is.
+  const link = [place.resolvedUrl, place.sourceUrl].find(
+    (u): u is string => !!u && isSafeHref(u),
+  );
 
   const openDialog = () => {
     triggerRef.current = (document.activeElement as HTMLButtonElement) ?? null;

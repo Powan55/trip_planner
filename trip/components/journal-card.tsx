@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { BookOpen, Pencil, Sparkles } from 'lucide-react';
 import { useJournal } from '@/hooks/use-journal';
+import { formatDateLong } from '@/lib/trip-data';
 import PhotoAttach from '@/components/photo-attach';
 import { MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
 
@@ -36,9 +37,14 @@ const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
   rough: { glyph: '😮‍💨', label: 'Rough' },
 };
 
-export default function JournalCard({ date }: { date: string }) {
+export default function JournalCard({ date, isToday = true }: { date: string; isToday?: boolean }) {
   const { getEntry, saveEntry, hydrated } = useJournal();
   const entry = getEntry(date);
+  // `journal-browse.tsx` mounts this same card to edit a PAST day, where every "today" literal was
+  // wrong — including the heading and both aria-labels, so it reached the accessible name and not
+  // just the pixels (#128). Default keeps the Today-panel caller's copy byte-identical.
+  const dayLabel = isToday ? "Today's journal" : `${formatDateLong(date)} — journal`;
+  const editLabel = isToday ? "Edit today's journal entry" : `Edit the journal entry for ${formatDateLong(date)}`;
 
   // Editor open/closed + its draft fields. Closed by default; opens on Edit / the empty prompt.
   const [editing, setEditing] = useState(false);
@@ -143,7 +149,7 @@ export default function JournalCard({ date }: { date: string }) {
           className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
         >
           <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
-          Today&apos;s journal
+          {dayLabel}
         </h3>
         <div className="flex items-center gap-1.5">
           {/* the only way to reach the /journal browse view besides a direct URL — nav/tab/
@@ -161,7 +167,7 @@ export default function JournalCard({ date }: { date: string }) {
               type="button"
               onClick={openEditor}
               data-testid="journal-edit"
-              aria-label="Edit today's journal entry"
+              aria-label={editLabel}
               className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
@@ -191,11 +197,11 @@ export default function JournalCard({ date }: { date: string }) {
           type="button"
           onClick={openEditor}
           data-testid="journal-write-prompt"
-          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-white/15 bg-white/[0.02] p-3 text-left text-sm text-ink-mid outline-none transition-colors duration-200 hover:border-ring/40 hover:bg-white/[0.05] hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-[color:var(--border-ui)] bg-white/[0.02] p-3 text-left text-sm text-ink-mid outline-none transition-colors duration-200 hover:border-ring/40 hover:bg-white/[0.05] hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Pencil className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
           <span>
-            Write about today
+            {isToday ? 'Write about today' : `Write about ${formatDateLong(date)}`}
             {hydrated ? '' : '…'}
           </span>
         </button>
@@ -295,7 +301,7 @@ function JournalEditor({
                 className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                   active
                     ? 'border-ring bg-primary/10 text-primary'
-                    : 'border-white/15 bg-white/[0.03] text-ink-mid hover:border-white/30 hover:text-white'
+                    : 'border-[color:var(--border-ui)] bg-white/[0.03] text-ink-mid hover:border-white/30 hover:text-white'
                 }`}
               >
                 <span aria-hidden="true">{meta.glyph}</span>
@@ -320,7 +326,7 @@ function JournalEditor({
           maxLength={120}
           placeholder="The one thing worth remembering…"
           data-testid="journal-highlight-input"
-          className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full min-h-[44px] rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
@@ -336,7 +342,7 @@ function JournalEditor({
           rows={4}
           placeholder="What happened today? How did it feel?"
           data-testid="journal-text-input"
-          className="w-full resize-y rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full resize-y rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 

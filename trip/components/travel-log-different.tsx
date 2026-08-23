@@ -7,6 +7,7 @@ import { getUserName } from '@/lib/identity';
 import { stampDone } from '@/lib/attribution';
 import { generateItemId } from '@/lib/item-id';
 import type { ItineraryCategory, ItineraryItem } from '@/lib/trip-data';
+import { ALL_CATEGORIES } from '@/lib/itinerary-category';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import QuickAddInput from '@/components/quick-add-input';
 
@@ -35,20 +36,9 @@ import QuickAddInput from '@/components/quick-add-input';
  * visible focus rings. No motion — reveal is a plain conditional render (reduced-motion-safe).
  */
 
-// Explicit ordered category list (mirrors the `ItineraryCategory` union in trip-data). A native
-// `<select>` keeps the whole form to ≤2 fields with no new dependency and full keyboard support.
-const CATEGORY_OPTIONS: ItineraryCategory[] = [
-  'sightseeing',
-  'food',
-  'photography',
-  'shopping',
-  'nature',
-  'cultural',
-  'transportation',
-  'hotel',
-  'free',
-  'nightlife',
-];
+// The category `<select>` renders `ALL_CATEGORIES` (lib/itinerary-category.ts) in its declared
+// order. A native `<select>` keeps the whole form to ≤2 fields with no new dependency and full
+// keyboard support.
 
 export default function TravelLogDifferent({ date }: { date: string }) {
   const { addItem } = useItineraryContext();
@@ -79,7 +69,7 @@ export default function TravelLogDifferent({ date }: { date: string }) {
           type="button"
           onClick={() => setOpen(true)}
           data-testid="travel-log-different-trigger"
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[color:var(--border-ui)] bg-white/[0.03] px-4 py-3 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Log something different
@@ -109,7 +99,7 @@ export default function TravelLogDifferent({ date }: { date: string }) {
               data-testid="travel-log-different-category"
               className="min-h-[44px] shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm capitalize text-white outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring sm:w-40"
             >
-              {CATEGORY_OPTIONS.map((c) => (
+              {ALL_CATEGORIES.map((c) => (
                 <option key={c} value={c} className="bg-surface capitalize text-white">
                   {c}
                 </option>

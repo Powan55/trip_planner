@@ -99,7 +99,13 @@ test.describe('S158a — expense CSV export', () => {
     expect(path).toBeTruthy();
     const fs = await import('node:fs/promises');
     const raw = await fs.readFile(path as string, 'utf-8');
-    const lines = raw.split('\r\n').filter((l) => l.length > 0);
+    // `expensesToCsvBlob` (lib/expense-csv.ts) prefixes a UTF-8 BOM so Excel on Windows
+    // decodes the download as UTF-8 instead of the system codepage — Node's 'utf-8'
+    // decoder does not strip it, so it is the first character of `raw`. Assert it is
+    // there (it's the whole point of the fix) rather than let it silently corrupt
+    // line 0's comparison below.
+    expect(raw.charCodeAt(0)).toBe(0xfeff);
+    const lines = raw.slice(1).split('\r\n').filter((l) => l.length > 0);
 
     expect(lines[0]).toBe('Date,Leg,Category,Currency,Amount,Note,Paid By,Split With');
     // Comma inside the note → quoted, no interior quotes to double.
@@ -118,9 +124,13 @@ test.describe('S158b — Home sticky section nav', () => {
     await gotoHome(page);
     await expectNavVisible(page);
 
-    // Real anchors are natively focusable in their document order.
+    // Real anchors are natively focusable in their document order. Issue #92 put the
+    // journey bar between the hero and the dashboard, so Tab now passes through it — which
+    // is the assertion: the strip's tab order is the page's section order.
     await page.getByTestId('home-section-nav-hero').focus();
     await expect(page.getByTestId('home-section-nav-hero')).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(page.getByTestId('home-section-nav-journey')).toBeFocused();
     await page.keyboard.press('Tab');
     await expect(page.getByTestId('home-section-nav-dashboard')).toBeFocused();
 

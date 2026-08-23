@@ -27,10 +27,7 @@ import {
 } from '@/lib/concierge-ops';
 import { describeClash } from '@/lib/sort-items-by-time';
 import { showUndoToast } from '@/lib/undo-toast';
-
-// Model output is UNTRUSTED input: only these href schemes become a real <a>; anything else
-// (`javascript:`, `data:`) renders as the literal `[text](url)` source text instead.
-const SAFE_HREF = /^(https?:\/\/|mailto:|\/|#)/i;
+import { isSafeHref } from '@/lib/safe-href';
 
 /**
  * One alternation, tried left to right, so precedence falls out of the order:
@@ -68,7 +65,7 @@ function renderInline(text: string, keyPrefix: number): ReactNode[] {
       );
     } else if (linkText !== undefined) {
       out.push(
-        SAFE_HREF.test(href) ? (
+        isSafeHref(href) ? (
           <a
             key={key}
             href={href}
@@ -553,7 +550,7 @@ export function ConciergeChat() {
                                   data-testid="concierge-op-dismiss"
                                   onClick={() => resolve(key)}
                                   aria-label={`Dismiss: ${label}`}
-                                  className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg border border-white/15 bg-white/5 text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                                  className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg border border-[color:var(--border-ui)] bg-white/5 text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                                 >
                                   <X className="h-4 w-4" aria-hidden="true" />
                                 </button>

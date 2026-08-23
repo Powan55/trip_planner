@@ -5,7 +5,7 @@ import { m, AnimatePresence } from 'framer-motion';
 import { Plane, KeyRound, User, ArrowRight } from 'lucide-react';
 import { signIn, DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
-import { getSyncCode, setSyncCode } from '@/core/storage/gateway';
+import { getSyncCode, setSyncCode, nameHintFlag } from '@/core/storage/gateway';
 import { joinTrip } from '@/core/trips/registry';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
@@ -14,6 +14,7 @@ import { computeCountdown, type Countdown } from '@/lib/countdown';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import LandingPage from '@/components/landing-page';
 import OptimizedImage from '@/components/optimized-image';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 
 /**
  * The front door — the app's WALL, shown iff
@@ -184,14 +185,9 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
    */
   const seedRef = useRef<Promise<unknown> | null>(null);
 
-  // body[data-dialog-open] seam flag while open (Lane-M FAB hides on it). Same effect as the
+  // body[data-dialog-open] seam flag while open (Lane-M FAB hides on it). Same hook as the
   // other four modals; the wall has no `open` prop because mounting IS open (B-6).
-  useEffect(() => {
-    document.body.dataset.dialogOpen = '1';
-    return () => {
-      delete document.body.dataset.dialogOpen;
-    };
-  }, []);
+  useDialogOpenFlag();
 
   // Storage + URL are client-only facts; read once after mount (this island never SSRs its values).
   useEffect(() => {
@@ -339,7 +335,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     // cross-reload flag. The provider consumes it after the reload and nudges the traveler to
     // rename themselves — otherwise they're never told their edits are attributed to "Traveler".
     // (`signIn` above has since written "Traveler" into the slot, so capture `stored` pre-sign-in.)
-    if (!stored) sessionStorage.setItem('name-hint', '1');
+    if (!stored) nameHintFlag.mark();
     finish();
   };
 
@@ -778,8 +774,8 @@ function CompactCountdown() {
   // The aria-label must read the same numbers the grid shows. `cd.totalDays` is a flat day
   // count that no longer reconciles with the calendar-accurate months/weeks/days breakdown
   // (D-313) and has no on-screen text anywhere in this component (unlike hero-section.tsx's
-  // ring, which has its own separate, correctly self-labeled "days to go" caption) -- so a
-  // screen reader must be built from the same `units` array the grid renders, not totalDays.
+  // ring, which prints its own digit next to this one) -- so a screen reader must be built
+  // from the same `units` array the grid renders, not totalDays.
   const unitsLabel = units.map((u) => `${u.value} ${u.label}`).join(', ');
 
   return (

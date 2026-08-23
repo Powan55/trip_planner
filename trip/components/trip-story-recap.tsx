@@ -103,14 +103,15 @@ export default function TripStoryRecap() {
     const items = getDayPlan(date).items;
     const summary = summarizePlan(items);
     const entry = getEntry(date);
-    const spend = sumExpensesForDate(expenses, date);
+    // Both the day line and the leg total read the DAY's leg — and so does the currency each is
+    // formatted with. Summing the date alone mixed a cross-leg row into the wrong currency here
+    // AND into `spendByLeg`, which then contradicted `wrapped-story`'s own per-leg totals.
+    const leg = getCountryForDate(date);
+    const spend = sumExpensesForDate(expenses, date, leg);
     totalDone += summary.done;
     totalPlanned += summary.planned;
     if (entry) journaledDays += 1;
-    if (spend > 0) {
-      const leg = getCountryForDate(date);
-      if (isLeg(leg)) spendByLeg[leg] += spend;
-    }
+    if (spend > 0 && isLeg(leg)) spendByLeg[leg] += spend;
     const photos = photosFor({ kind: 'journal', date });
     return { date, items, summary, entry, spend, photos };
   });
@@ -415,7 +416,7 @@ function StoryPhotoThumb({ meta }: { meta: PhotoMeta }) {
         // eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and disables optimization anyway.
         <img src={url} alt={meta.altText} className="h-full w-full object-cover" />
       ) : (
-        <div className="h-full w-full animate-pulse bg-white/[0.04]" aria-hidden="true" />
+        <div className="h-full w-full motion-safe:animate-pulse bg-white/[0.04]" aria-hidden="true" />
       )}
 
       {meta.caption && !missing && (

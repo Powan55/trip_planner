@@ -259,9 +259,10 @@
        have put a placeholder and a completed item on the same tier as a live readout.
 
        WHY A NUMERIC SWEEP GOES RED — measured on this branch, not assumed. Tailwind's
-       default opacity scale has no 15/35/45/55/65/85/95 step and this config does not
-       extend it, so `text-white/85` and `text-white/55` EMIT NO CSS AT ALL. What paints
-       them WAS either inheritance (/85 -> the body's `text-foreground`, i.e. pure
+       default opacity scale has no 15/35/45/55/65/85/95 step, and until #147 extended
+       this config to a dense 0-100 scale, `text-white/85` and `text-white/55` EMITTED
+       NO CSS AT ALL. What painted them WAS either inheritance (/85 -> the body's
+       `text-foreground`, i.e. pure
        white already) or the @layer utilities floor that then sat further down, whose
        `~=` attribute selector matched the class token whether or not Tailwind generated
        a utility (/55 -> 0.62). So the ramp's rendered value was NOT its written value,
@@ -1985,11 +1986,10 @@ body:has(form:focus-within) .door-kb {
 }
 
 /* ── Sonner toaster — lift above the mobile bottom tab bar ────
-   sonner 1.5.0's own `@media (max-width: 600px)` block HARD-SETS
-   `[data-sonner-toaster][data-y-position=bottom] { bottom: 20px }`, ignoring both
-   the `offset` prop and its `--mobile-offset` var for the bottom edge
-   (`--mobile-offset` is applied to left/right only — verified in dist/index.mjs).
-   So on phones a bottom toast overlapped the fixed tab bar (~45px at 390×844).
+   sonner's own `@media (max-width: 600px)` block sets
+   `[data-sonner-toaster][data-y-position=bottom] { bottom: var(--mobile-offset-bottom) }`,
+   which defaults to 16px and ignores the `offset` prop (that one drives `--offset-bottom`,
+   desktop only). So on phones a bottom toast overlapped the fixed tab bar (~45px at 390×844).
    This dependency-free override re-anchors the mobile bottom position above the
    bar, mirroring the FAB / layout padding idiom (`--tab-bar-h` is published by
    bottom-tab-bar.tsx, 64px fallback; safe-area inset + 8px breathing room).
@@ -2064,12 +2064,16 @@ body:has(form:focus-within) .door-kb {
    section below the hero — also under this sticky nav once it's docked (~3.5rem: 44px min-height
    link + 2×6px vertical padding). `scroll-margin-top` fixes the landing position for BOTH the
    native browser hash-jump this nav's anchors rely on AND any other in-page anchor targeting the
-   same ids (the legacy `/#hash` redirect, the command palette). Scoped to exactly the four ids
-   this nav targets — no other route's anchors are affected. */
+   same ids (the legacy `/#hash` redirect, the command palette). Scoped to exactly the ids
+   this nav targets — no other route's anchors are affected. `#journey` and `#chapters` are
+   issue #92's two new bands; they take the same 7.5rem as every other below-hero target,
+   and leaving them out is what would land them under the docked strip. */
 #hero {
   scroll-margin-top: 4rem;
 }
+#journey,
 #dashboard,
+#chapters,
 #inspiration {
   scroll-margin-top: 7.5rem;
 }

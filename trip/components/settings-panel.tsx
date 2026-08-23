@@ -44,7 +44,8 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import { useExpenses } from '@/hooks/use-expenses';
 import { useDocs } from '@/hooks/use-docs';
 import { useJournal } from '@/hooks/use-journal';
-import { expensesToCsv } from '@/lib/expense-csv';
+import { usePhotos } from '@/hooks/use-photos';
+import { expensesToCsvBlob } from '@/lib/expense-csv';
 import { exportExpenses, parseExpenseBackup } from '@/lib/expense-export';
 import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
 import {
@@ -290,7 +291,7 @@ function IdentityGroup({ name }: { name: string | null }) {
           <button
             type="button"
             data-testid={name ? 'settings-sign-out' : 'settings-sign-in'}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
             {name ? 'Sign out' : 'Sign in'}
@@ -375,7 +376,7 @@ function RenameIdentity({ current }: { current: string }) {
         type="submit"
         disabled={!dirty}
         data-testid="settings-identity-rename-save"
-        className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Save
       </button>
@@ -476,7 +477,7 @@ function LinkGoogleIdentity() {
           disabled={busy || linked === null}
           aria-busy={busy}
           data-testid="settings-identity-google-link"
-          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
         >
           {busy ? 'Opening Google…' : 'Link a Google account'}
         </button>
@@ -630,7 +631,7 @@ function TripAccessGroup() {
             onClick={copyUid}
             disabled={!uid}
             data-testid="settings-access-uid-copy"
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
           >
             {copied ? (
               <Check className="h-4 w-4" aria-hidden="true" />
@@ -689,7 +690,7 @@ function TripAccessGroup() {
                         disabled={busy}
                         data-testid="settings-access-remove"
                         aria-label={`Remove device ${memberUid.slice(0, 8)}`}
-                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-white/15 text-ink-mid transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[color:var(--border-ui)] text-ink-mid transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
                       >
                         <X className="h-4 w-4" aria-hidden="true" />
                       </button>
@@ -712,14 +713,14 @@ function TripAccessGroup() {
                 autoCapitalize="off"
                 spellCheck={false}
                 data-testid="settings-access-add-input"
-                className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
               <button
                 type="submit"
                 disabled={!addValue.trim() || busy}
                 aria-busy={busy}
                 data-testid="settings-access-add-submit"
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <UserPlus className="h-4 w-4" aria-hidden="true" />
                 Add device
@@ -887,7 +888,7 @@ function ClaimOldName({ current }: { current: string }) {
           type="submit"
           disabled={matches === 0}
           data-testid="settings-claim-name-submit"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {matches === 1 ? 'Claim 1 entry' : `Claim ${matches} entries`}
         </button>
@@ -1049,7 +1050,7 @@ function TripGroup() {
               onClick={() => tripKey && copy(tripKey, 'key')}
               disabled={!tripKey}
               data-testid="settings-trip-key-copy"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
             >
               {copied === 'key' ? (
                 <Check className="h-4 w-4" aria-hidden="true" />
@@ -1063,7 +1064,7 @@ function TripGroup() {
               onClick={() => shareLink && copy(shareLink, 'link')}
               disabled={!shareLink}
               data-testid="settings-trip-link-copy"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
             >
               {copied === 'link' ? (
                 <Check className="h-4 w-4" aria-hidden="true" />
@@ -1104,13 +1105,13 @@ function TripGroup() {
             autoCapitalize="off"
             spellCheck={false}
             data-testid="settings-trip-join-input"
-            className="min-w-0 flex-1 rounded-lg border border-white/15 bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           />
           <button
             type="submit"
             disabled={!joinValue.trim()}
             data-testid="settings-trip-join-submit"
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
           >
             Add trip
           </button>
@@ -1216,7 +1217,7 @@ function SyncGroup() {
               onClick={copy}
               disabled={code === null || !revealed}
               data-testid="settings-sync-copy"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
             >
               {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
               {copied ? 'Copied' : 'Copy'}
@@ -1247,10 +1248,11 @@ function CurrencyGroup() {
   };
 
   const setRate = (currency: 'NPR' | 'JPY', value: string) => {
-    // Keep the raw typed number; the pure math seed-defaults a 0/blank at read time, so a mid-edit
-    // blank never breaks the totals. '' parses to 0, which `ratePerUsd` treats as "fall back to seed".
+    // 0 is the "blank / mid-edit / use the seed" sentinel that `ratePerUsd` already falls back on,
+    // so anything that isn't a positive number collapses to it here. A negative rate used to
+    // persist and redisplay while every conversion silently used the seed instead (#120).
     const n = value === '' ? 0 : Number(value);
-    const rate = Number.isFinite(n) ? n : 0;
+    const rate = Number.isFinite(n) && n > 0 ? n : 0;
     commit((cur) => ({ ...cur, rates: { ...cur.rates, [currency]: rate } }));
   };
 
@@ -1284,7 +1286,7 @@ function CurrencyGroup() {
                 className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                   active
                     ? 'border-ring bg-primary/10 text-primary'
-                    : 'border-white/15 text-ink-mid hover:bg-white/5'
+                    : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
                 }`}
               >
                 <span aria-hidden="true">{currencySymbol(cur)}</span>
@@ -1322,7 +1324,7 @@ function CurrencyGroup() {
           type="button"
           onClick={resetRates}
           data-testid="budget-rate-reset"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[color:var(--border-ui)] px-3 py-1.5 text-xs font-semibold text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
           Reset to defaults
@@ -1364,7 +1366,7 @@ function RateField({
         step="any"
         placeholder={String(seed)}
         {...draft}
-        className="w-full rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       />
     </div>
   );
@@ -1376,13 +1378,24 @@ function DataGroup() {
   const { expenses, clearAll: clearExpenses, restoreExpenses } = useExpenses();
   const { reset: resetBudget } = useBudget();
   const { clearAll: clearJournal } = useJournal();
+  const { photos, removePhoto } = usePhotos();
+
+  // "Day photos" render inside the journal entry, so clearing the journal has to free them too —
+  // otherwise the blobs stay on the device with nothing left in the UI pointing at them (#119).
+  const handleClearJournal = () => {
+    const dayPhotos = photos.filter((p) => p.owner.kind === 'journal');
+    clearJournal();
+    void (async () => {
+      for (const photo of dayPhotos) await removePhoto(photo.id);
+    })();
+  };
 
   // — CSV export of the logged expenses (read-only over `useExpenses`; no store change).
   // Mirrors BackupRestore's Blob/URL.createObjectURL download idiom exactly.
   const handleExportCsv = () => {
-    const csv = expensesToCsv(expenses);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
+    // BOM-prefixed (see `expensesToCsvBlob`) — without it Excel on Windows decodes the download
+    // with the system codepage and a non-ASCII note or name arrives as mojibake.
+    const url = URL.createObjectURL(expensesToCsvBlob(expenses));
     const a = document.createElement('a');
     a.href = url;
     a.download = 'nepal-japan-expenses.csv';
@@ -1409,7 +1422,7 @@ function DataGroup() {
           onClick={handleExportCsv}
           disabled={expenses.length === 0}
           data-testid="settings-export-expenses-csv"
-          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           Export expenses (CSV)
@@ -1462,7 +1475,7 @@ function DataGroup() {
             title="Clear the journal?"
             body="This removes every journal entry. The journal is private to this device and is never shared, so this only affects this browser. This cannot be undone."
             confirmLabel="Clear journal"
-            onConfirm={clearJournal}
+            onConfirm={handleClearJournal}
           />
         </ul>
       </div>
@@ -1550,7 +1563,7 @@ function ExpensesBackupRestore({
           type="button"
           onClick={handleExport}
           data-testid="settings-export-expenses-json"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           Export expenses (JSON)

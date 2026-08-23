@@ -190,7 +190,7 @@ describe('StoragePersistence — near-quota warning', () => {
     r.unmount();
   });
 
-  it('DOES toast when usage/quota is at/above the 0.9 threshold, with an action pointing at /plan', async () => {
+  it('DOES toast when usage/quota is at/above the 0.9 threshold, with an action pointing at /settings/', async () => {
     vi.resetModules();
     const { StoragePersistence: Fresh } = await import('@/components/storage-persistence');
     stubStorageManager({ usage: 95, quota: 100, supportsPersist: false }); // 0.95 ratio
@@ -198,10 +198,15 @@ describe('StoragePersistence — near-quota warning', () => {
     await r.settle();
     const call = h.toastCalls.find((c) => c.message.includes('storage is nearly full'));
     expect(call).toBeDefined();
+    // The copy names the destination the action goes to. BackupRestore lives in Settings -> Data;
+    // it was named "the Plan page" here (and pushed to /plan) long after it moved off /plan.
+    expect(String(call!.options?.description)).toContain('Settings');
+    expect(String(call!.options?.description)).not.toContain('Plan page');
     const action = call!.options?.action as { label: string; onClick: () => void } | undefined;
     expect(action).toBeDefined();
     action!.onClick();
-    expect(h.pushCalls).toContain('/plan');
+    expect(h.pushCalls).toContain('/settings/');
+    expect(h.pushCalls).not.toContain('/plan');
     r.unmount();
   });
 
@@ -285,7 +290,7 @@ describe('StoragePersistence — install-to-Home hint', () => {
 // (different flag), so it needs the same `vi.resetModules()` + fresh dynamic import isolation
 // the near-quota suite uses.
 describe('StoragePersistence — reactive write-failure toast (S279)', () => {
-  it('shows ONE toast, with a /plan action, when trip:quota-exceeded fires', async () => {
+  it('shows ONE toast, with a /settings/ action, when trip:quota-exceeded fires', async () => {
     vi.resetModules();
     const { StoragePersistence: Fresh } = await import('@/components/storage-persistence');
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
@@ -295,10 +300,12 @@ describe('StoragePersistence — reactive write-failure toast (S279)', () => {
     await r.settle();
     const call = h.toastCalls.find((c) => c.message.includes("Couldn't save"));
     expect(call).toBeDefined();
+    expect(String(call!.options?.description)).toContain('Settings');
     const action = call!.options?.action as { label: string; onClick: () => void } | undefined;
     expect(action).toBeDefined();
     action!.onClick();
-    expect(h.pushCalls).toContain('/plan');
+    expect(h.pushCalls).toContain('/settings/');
+    expect(h.pushCalls).not.toContain('/plan');
     r.unmount();
   });
 

@@ -89,7 +89,7 @@ function useInView({ rootMargin, skip }: { rootMargin: string; skip: boolean }) 
 interface LazyVisibleProps {
   /**
    * The section to mount, as a COMPONENT REFERENCE (e.g. a module-scope
-   * `dynamic(() => import('@/components/trip-dashboard'), {ssr:false})`). Passed as a
+   * `dynamic(() => import('@/components/home-bento'), {ssr:false})`). Passed as a
    * reference — NOT as JSX — so the element is only created once the trigger fires and
    * the section stays out of the initial render tree (and out of First Load JS).
    * Rendered prop-less here; any props on the underlying component must be optional.

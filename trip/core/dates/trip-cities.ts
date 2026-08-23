@@ -75,8 +75,7 @@ export const TRIP_CITIES: Record<string, string> = deriveTripCities(TRIP_ITINERA
  * the default Dec 9 – Jan 9 window no longer wrongly shows Kathmandu/Osaka/Tokyo.
  *
  * DEFAULT path is byte-identical to pre-: map hit → authoritative city; UNMAPPED date
- * (defensive — never happens for an in-trip default date) → the active leg's `fallbackCity`
- *.
+ * (defensive — never happens for an in-trip default date) → the active leg's `fallbackCity`.
  */
 export function getCityForDate(dateStr: string): string {
   if (activeIsDefault) {

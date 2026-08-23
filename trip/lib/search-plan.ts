@@ -22,6 +22,12 @@ export function searchPlanItems(plans: DayPlan[], query: string): PlanSearchResu
   const ranked: Array<{ result: PlanSearchResult; rank: number }> = [];
   for (const plan of plans) {
     for (const item of plan.items ?? []) {
+      // Tombstones are retained for up to 30 days so a delete can propagate and win, and the
+      // command palette reads a raw `loadPlans()` snapshot from outside the provider — so the
+      // provider's own `visiblePlans` filter never runs on it. Without this a deleted item stayed
+      // searchable for a month and selecting it routed to a `?focus=` id nothing could match
+      // (#121). `/plan` passes already-filtered plans, where this is a no-op.
+      if (item.deleted === true) continue;
       const rank = matchRank(item, q);
       if (rank !== null) ranked.push({ result: { item, date: plan.date }, rank });
     }

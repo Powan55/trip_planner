@@ -1,5 +1,17 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+// `removeKnownTrip` deletes the forgotten trip's photo bytes through the app's ONE blob-store
+// singleton; jsdom has no IndexedDB (D-088 forbids a fake-idb dep), so swap in the in-memory fake
+// that already ships in that module.
+vi.mock('@/core/photos/blob-store', async (importOriginal) => {
+  const orig = await importOriginal<typeof import('@/core/photos/blob-store')>();
+  return { ...orig, defaultBlobStore: orig.makeInMemoryBlobStore() };
+});
+// Static import so the mock factory runs (registry.ts only imports it dynamically, inside the
+// forget path) — this binding IS the fake the production code will reach for.
+import { defaultBlobStore } from '@/core/photos/blob-store';
+
 import {
   STORAGE_KEYS,
   DEFAULT_TRIP_ID,
@@ -179,6 +191,29 @@ describe('trip registry (S238)', () => {
       window.localStorage.setItem(STORAGE_KEYS.budget, 'default-pack-data');
       removeKnownTrip(DEFAULT_TRIP_ID);
       expect(window.localStorage.getItem(STORAGE_KEYS.budget)).toBe('default-pack-data');
+    });
+
+    it('the forgotten trip\'s photo BLOBS go with its meta index; another trip\'s blobs stay', async () => {
+      // wipeTripData only sweeps localStorage, so forgetting a trip deleted the photo meta — the
+      // only index naming that trip's blob ids — and left the bytes in the app-scoped IndexedDB
+      // forever: unreachable from every UI, never GC'd, still counting against the origin quota
+      // until captures start failing with reason:'quota'.
+      await defaultBlobStore.putWithId('ph-gone-1', new Blob(['a']));
+      await defaultBlobStore.putWithId('ph-gone-2', new Blob(['b']));
+      await defaultBlobStore.putWithId('ph-kept-1', new Blob(['c']));
+      window.localStorage.setItem(
+        'trip:gone:photos',
+        JSON.stringify([
+          { id: 'ph-gone-1', owner: { kind: 'journal', date: '2026-12-10' }, altText: 'a', createdAt: '2026-12-10T00:00:00.000Z' },
+          { id: 'ph-gone-2', owner: { kind: 'journal', date: '2026-12-10' }, altText: 'b', createdAt: '2026-12-10T00:00:00.000Z' },
+        ]),
+      );
+
+      joinTrip('gone', 'Going away');
+      joinTrip(DEFAULT_TRIP_ID); // forget it from another trip, as the hub does
+      removeKnownTrip('gone');
+
+      await vi.waitFor(async () => expect(await defaultBlobStore.list()).toEqual(['ph-kept-1']));
     });
   });
 

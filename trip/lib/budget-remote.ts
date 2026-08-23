@@ -24,16 +24,39 @@
 
 import { saveBudget, loadBudget } from '@/core/budget/storage';
 import type { BudgetModel } from '@/core/budget/model';
-import { BUDGET_CHANGED_EVENT } from '@/hooks/use-budget';
+import { BUDGET_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './itinerary-remote';
 import { mergeBudget, type BudgetFields } from '@/core/sync/merge-budget';
 import { modelToFields, fieldsToModel } from '@/core/budget/flatten';
 
-/** Map a raw Firestore budget doc into its `BudgetFields` (defensive: tolerate a partial doc). */
+/**
+ * Map a raw Firestore budget doc into its `BudgetFields`.
+ *
+ * Per-ENTRY validation rather than a bare cast, because the cast was a LIE about untrusted bytes:
+ * `mergeBudget` calls `parse(entry.hlc)` unguarded, so one entry with a missing or non-string `hlc`
+ * throws a TypeError. Inside `pushBudgetMerged` that rejects the transaction, so the `'model'`
+ * chunk stays dirty and retries FOREVER — a poison field that silently wedges this device's outbox;
+ * in `subscribeRemoteBudget` it is swallowed to a warn and budget sync goes quietly dead. Every
+ * sibling remote read already guards (`chunkDocToRows`, `docToRows`, `docToPlaceRows`,
+ * `docToDayPlan`); budget is the one field-map-shaped domain that never got it. `fieldsToModel`
+ * spells out the same rule but runs AFTER the merge, so it never sees the value.
+ *
+ * Unknown PATHS survive (a leaf a newer build added is passed through and written back, so #138's
+ * erasure does not apply here); an entry that is not a well-formed `{v, hlc}` is dropped.
+ */
 export function budgetDocToFields(data: Record<string, unknown>): BudgetFields {
   const f = data?.fields;
-  return f && typeof f === 'object' ? (f as BudgetFields) : {};
+  if (!f || typeof f !== 'object') return {};
+  const out: BudgetFields = {};
+  for (const [path, raw] of Object.entries(f as Record<string, unknown>)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const { v, hlc } = raw as { v?: unknown; hlc?: unknown };
+    if (typeof hlc !== 'string') continue;
+    if (v !== null && typeof v !== 'number' && typeof v !== 'string') continue;
+    out[path] = { v, hlc };
+  }
+  return out;
 }
 
 /** Strip `undefined` before writing (Firestore rejects it) + defensive deep-clone. */
@@ -87,7 +110,7 @@ export async function pushBudgetChunk(current: BudgetModel, chunk: string): Prom
  * lazy + self-degrading: no-op unsubscribe when dormant; any failure → local-only via console.warn,
  * never throws. Returns an unsubscribe fn. Mirrors `subscribeRemoteExpenses`.
  */
-export function subscribeRemoteBudget(onApplied?: (model: BudgetModel) => void): () => void {
+export function subscribeRemoteBudget(): () => void {
   // #10: trip-scoped gate — the default pack is a local-only sample and never opens this.
   if (!isTripRemoteConfigured()) return () => {};
 
@@ -117,7 +140,6 @@ export function subscribeRemoteBudget(onApplied?: (model: BudgetModel) => void):
   const persistAndDispatch = (model: BudgetModel) => {
     saveBudget(model);
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(BUDGET_CHANGED_EVENT));
-    onApplied?.(model);
   };
 
   const attemptSetup = async () => {

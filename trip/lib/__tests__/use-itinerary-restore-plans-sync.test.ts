@@ -17,7 +17,7 @@
 //     win — older-hlc live loses).
 //   - NON-VACUOUS: the fresh-id/fresh-stamp is load-bearing — a same-id-same-hlc "restore" (the WRONG
 //     design) is re-killed by the tombstone bias, while the real fresh-id copy survives.
-// DORMANT: restorePlans is a plain local overwrite (byte-identical to importItinerary's savePlans).
+// DORMANT: restorePlans is a plain local overwrite (byte-identical to the local path's savePlans).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createElement } from 'react';

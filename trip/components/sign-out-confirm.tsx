@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Download, Check, AlertTriangle } from 'lucide-react';
 import { signOut } from '@/lib/token-auth';
-import { downloadTripBackup } from '@/core/vault/backup';
+import { downloadTripBackup } from '@/lib/trip-backup';
 import { defaultBlobStore } from '@/core/photos/blob-store';
 import {
   AlertDialog,
@@ -99,7 +99,7 @@ export default function SignOutConfirm({
           type="button"
           onClick={handleBackup}
           data-testid={`${testId}-backup`}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-white/15 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           {backup === 'done' ? (
             <Check className="h-4 w-4" aria-hidden="true" />

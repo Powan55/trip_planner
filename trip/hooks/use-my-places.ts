@@ -8,7 +8,7 @@ import { createReactiveStore } from '@/hooks/create-reactive-store';
 import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
-import { clock } from '@/lib/trip-now';
+import { realClock } from '@/lib/trip-now';
 import { firstSyncStamp, nextSyncStamp } from '@/core/sync/stamp';
 import { addPlace, removePlace, type MyPlace } from '@/core/places/model';
 
@@ -35,7 +35,8 @@ import { addPlace, removePlace, type MyPlace } from '@/core/places/model';
  * CustomEvent. The remote subscribe is opened once at the app root (itinerary-provider).
  */
 
-export const MY_PLACES_CHANGED_EVENT = 'myplaces:changed';
+import { MY_PLACES_CHANGED_EVENT } from '@/core/storage/events';
+export { MY_PLACES_CHANGED_EVENT };
 
 export interface NewPlaceInput {
   /** Caller-provided id — used verbatim when present (the import sheet mints it up-front so it can
@@ -114,7 +115,7 @@ export function useMyPlaces(): MyPlacesStore {
         commit((current) => addPlace(current, place));
         return;
       }
-      const now = clock.now().getTime();
+      const now = realClock.now().getTime();
       const name = actor();
       commit((current) => {
         // Advance from ANY prior row with this id — including a TOMBSTONE. That is what makes
@@ -139,7 +140,7 @@ export function useMyPlaces(): MyPlacesStore {
         commit((current) => removePlace(current, id));
         return;
       }
-      const now = clock.now().getTime();
+      const now = realClock.now().getTime();
       const name = actor();
       // TOMBSTONE, not a physical filter: a removed row must stay removed after the next remote
       // snapshot. `deleted:true` + an advanced hlc is the itinerary's `stampSyncDeleted` discipline

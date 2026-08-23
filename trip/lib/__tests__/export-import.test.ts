@@ -1,13 +1,12 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { exportItinerary, importItinerary } from '@/core/vault/export-import';
+import { exportItinerary, parseBackup } from '@/core/vault/export-import';
 import {
   loadPlans,
   savePlans,
   ITINERARY_STORAGE_KEY,
   ITINERARY_QUARANTINE_KEY,
 } from '@/lib/itinerary-storage';
-import { ITINERARY_CHANGED_EVENT } from '@/hooks/use-itinerary';
 import { makeEnvelope } from '@/core/vault/envelope';
 import { CURRENT_ITINERARY_VERSION } from '@/core/vault/migrations';
 import type { DayPlan } from '@/lib/trip-data';
@@ -17,7 +16,12 @@ import type { DayPlan } from '@/lib/trip-data';
  *
  * Exercises `core/vault/export-import.ts` against the REAL Vault-backed storage
  * (`loadPlans`/`savePlans` on the real `nepal_japan_itinerary` key), so these tests
- * prove the actual write path, quarantine, and same-tab event — not a mock.
+ * prove the actual write path and quarantine — not a mock.
+ *
+ * The restore under test is the pair production actually runs (#169): `parseBackup()` for the
+ * trust boundary, then the caller's own commit — `savePlans` locally, `restorePlans` under sync
+ * (covered separately in `use-itinerary-restore-plans-sync.test.ts`). `parseBackup` NEVER writes,
+ * so a rejected file leaves the main key untouched by construction.
  *
  * The four required cases:
  *   1. export → import ROUND-TRIP identity (lossless, the reuse-the-schema guarantee).
@@ -86,23 +90,10 @@ describe('S92 export → import round-trip identity', () => {
     savePlans([]);
     expect(loadPlans()).toEqual([]);
 
-    const result = importItinerary(exported);
-    expect(result.ok).toBe(true);
+    const result = parseBackup(exported);
+    if (!result.ok) throw new Error(result.error);
+    savePlans(result.plans);
     expect(loadPlans()).toEqual(REAL_PLANS);
-  });
-
-  it('a successful import dispatches ITINERARY_CHANGED_EVENT so the live UI refreshes (D-026)', () => {
-    savePlans(REAL_PLANS);
-    const exported = exportItinerary();
-    savePlans([]);
-
-    const onChange = vi.fn();
-    window.addEventListener(ITINERARY_CHANGED_EVENT, onChange);
-    const result = importItinerary(exported);
-    window.removeEventListener(ITINERARY_CHANGED_EVENT, onChange);
-
-    expect(result.ok).toBe(true);
-    expect(onChange).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -113,7 +104,7 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
     expect(before).not.toBeNull();
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const result = importItinerary('{ this is not valid json');
+    const result = parseBackup('{ this is not valid json');
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toBeTruthy();
@@ -134,7 +125,7 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
       [{ date: '2026-12-10', city: 'K', country: 'nepal', items: [{ title: 'no id' }] }] as never,
       'x',
     );
-    const result = importItinerary(JSON.stringify(badEnvelope));
+    const result = parseBackup(JSON.stringify(badEnvelope));
 
     expect(result.ok).toBe(false);
     expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before);
@@ -156,7 +147,7 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
       updatedAt: 'x',
       payload: [{ nope: true }, 1, null],
     });
-    const result = importItinerary(raw);
+    const result = parseBackup(raw);
 
     expect(result.ok).toBe(false);
     expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before);
@@ -176,7 +167,7 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
       [REAL_PLANS[0], { ...REAL_PLANS[1], date: 12 }] as never,
       'x',
     );
-    const result = importItinerary(JSON.stringify(mangled));
+    const result = parseBackup(JSON.stringify(mangled));
 
     expect(result.ok).toBe(false);
     expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before);
@@ -191,7 +182,7 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
     // Envelope shape is recognized, but the payload can no longer be read as days at all —
     // the one remaining reject-and-quarantine trigger.
     const badEnvelope = { schemaVersion: 5, updatedAt: 'x', payload: 'not-a-list' };
-    const result = importItinerary(JSON.stringify(badEnvelope));
+    const result = parseBackup(JSON.stringify(badEnvelope));
 
     expect(result.ok).toBe(false);
     expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before);
@@ -203,7 +194,7 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
     const before = localStorage.getItem(ITINERARY_STORAGE_KEY);
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
-    const result = importItinerary(JSON.stringify({ foo: 'bar' }));
+    const result = parseBackup(JSON.stringify({ foo: 'bar' }));
 
     expect(result.ok).toBe(false);
     expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before);
@@ -215,7 +206,7 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
     vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const badRaw = '{ not json at all';
-    const result = importItinerary(badRaw);
+    const result = parseBackup(badRaw);
 
     expect(result.ok).toBe(false);
     expect(localStorage.getItem(ITINERARY_QUARANTINE_KEY)).toBe(badRaw); // preserved
@@ -230,9 +221,10 @@ describe('S92 migration on import — a v2-era export upgrades to v3 (D-095/D-09
     // sync fields — a LOSSLESS superset (every original field preserved). Assert the version
     // via the constant and the lossless-superset property (matchObject), not byte-identity.
     const v2Json = JSON.stringify(REAL_PLANS);
-    const result = importItinerary(v2Json);
+    const result = parseBackup(v2Json);
+    if (!result.ok) throw new Error(result.error);
+    savePlans(result.plans);
 
-    expect(result.ok).toBe(true);
     const onDisk = JSON.parse(localStorage.getItem(ITINERARY_STORAGE_KEY)!);
     expect(onDisk.schemaVersion).toBe(CURRENT_ITINERARY_VERSION);
     // Lossless: every original field on every item is preserved (defaults added, nothing lost).
@@ -248,9 +240,10 @@ describe('S124 migration on import — a v4-era export upgrades through migratio
   it('a v4 envelope (items with `time`, no `startMinutes`) imports → gains startMinutes losslessly', () => {
     // A file produced by a v4 build: no startMinutes on any item.
     const v4Envelope = makeEnvelope(4, REAL_PLANS, '2026-07-05T00:00:00.000Z');
-    const result = importItinerary(JSON.stringify(v4Envelope));
+    const result = parseBackup(JSON.stringify(v4Envelope));
+    if (!result.ok) throw new Error(result.error);
+    savePlans(result.plans);
 
-    expect(result.ok).toBe(true);
     const onDisk = JSON.parse(localStorage.getItem(ITINERARY_STORAGE_KEY)!);
     expect(onDisk.schemaVersion).toBe(CURRENT_ITINERARY_VERSION); // now 5
     const loaded = loadPlans();
@@ -273,8 +266,9 @@ describe('S92 empty-itinerary round-trip (delete-everything is portable)', () =>
     savePlans(REAL_PLANS);
     expect(loadPlans()).toEqual(REAL_PLANS);
 
-    const result = importItinerary(exported);
-    expect(result.ok).toBe(true);
+    const result = parseBackup(exported);
+    if (!result.ok) throw new Error(result.error);
+    savePlans(result.plans);
     expect(loadPlans()).toEqual([]); // empty survived the round-trip
     // Key present (not absent) → hasStored semantics hold; [] is a durable state.
     expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).not.toBeNull();

@@ -282,6 +282,15 @@ const ROUTE_BODY_ANCHOR: Record<string, RouteBodyAnchor> = {
       'deliberately precaches only 404.html as the nav fallback (see buildPrecacheList). ' +
       'It has no app chrome contract to assert.',
   },
+  '/_not-found/': {
+    skip:
+      'not a route: next@16 exports the App Router not-found boundary as a THIRD copy of the ' +
+      'same document — md5 of out/_not-found/index.html, out/404.html and out/404/index.html ' +
+      'are identical on the built artifact. Nothing links to it and the deployed 404 path is ' +
+      'still 404.html, so it carries no app chrome contract that /404/ does not already decline. ' +
+      'Its HTML is excluded from the precache alongside 404/index.html (NOT_FOUND_DUPLICATES in ' +
+      'scripts/gen-sw.mjs), so it is not offline-navigable and asserting on it would fail.',
+  },
   '/checklist/': {
     anchor: '[data-testid="docs-checklist"]',
     what: 'the DocsChecklist island (app/checklist/sections.tsx -> @/components/docs-checklist)',
@@ -463,9 +472,10 @@ test.describe('S84 · precache manifest present (D-073 shell contract)', () => {
       return { precacheName, total: urls.length, urls };
     });
 
-    // The content-hashed precache cache must exist and be non-trivially populated
-    // (the build emitted 69 precache entries; assert a generous floor, not the
-    // exact count, so a future shell change doesn't brittle-fail this).
+    // The content-hashed precache cache must exist and be non-trivially populated.
+    // Deliberately a generous floor and not the exact count: the entry count moves
+    // with every shell change, so pinning it would brittle-fail this test and teach
+    // nothing. Read `buildPrecacheList` in scripts/gen-sw.mjs for what is on the list.
     expect(summary.precacheName).toMatch(/^trip-precache-[a-f0-9]+$/);
     expect(summary.total).toBeGreaterThan(20);
 
@@ -580,6 +590,114 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
 
     // Restore the network for context teardown hygiene.
     await context.setOffline(false);
+  });
+
+  /**
+   * #136 (originally filed as #109) — the captive-portal shape: the network is UP, and
+   * that is the problem.
+   *
+   * The test below covers a clean disconnect, the case that already worked: fetch REJECTS,
+   * the catch runs, the cache answers. A hotel/airport gateway does the opposite — it
+   * RESOLVES the fetch with a 200 login page, so `res.ok` is true and the handler used to
+   * hand that HTML to the image decoder while the precached AVIF sat one cache lookup away.
+   *
+   * WHY THE ROUTE COUNT IS ASSERTED. Playwright only intercepts the service worker's own
+   * fetches under some configurations; if it silently did not, every image would load from
+   * the network and this test would pass having exercised nothing. `portalHits` is what
+   * makes a vacuous pass impossible.
+   *
+   * The image cache is wiped first for the same reason as the test below: it would otherwise
+   * answer from `trip-images-v1` and never reach the branch under test.
+   */
+  test('a captive-portal 200 for an image never even reaches the hero (D-414 Decision 3 precache-first, #136)', async ({
+    page,
+    context,
+  }) => {
+    // D-414 Decision 3 (2026-08-21) reordered the image handler to consult the
+    // PRECACHE before `trip-images-v1`, specifically so a hero raster (D-335 — one
+    // of the six AVIFs always shipped in the precache) is served from cache on the
+    // FIRST paint instead of only after a captive-portal/offline fallback. That
+    // reorder has a side effect this test used to miss: a request for a precached
+    // hero image is answered by `cacheMatch(request, {cacheName: PRECACHE})` and
+    // returns BEFORE the handler ever calls `fetch()` — so the #136 body-guard
+    // (`isExpectedPrecacheBody`) is provably never reached for the hero, and a
+    // captive portal can no longer poison it even in principle. This test now
+    // asserts that STRONGER guarantee (zero network requests for the hero) rather
+    // than the pre-D-414 guarantee (network attempted, garbage rejected, cache
+    // consulted as a fallback) — the old assertion (`portalHits > 0`) can never be
+    // true again for this URL as long as D-414 stands, and asserting it was
+    // pinning the SW to a strictly worse implementation.
+    await page.goto('/', { waitUntil: 'load' });
+    await waitForActivatedSW(page);
+    await expect
+      .poll(async () =>
+        safeEval(page, async () => {
+          const names = await caches.keys();
+          const precacheName = names.find((n) => n.startsWith('trip-precache-'));
+          if (!precacheName) return 0;
+          const cache = await caches.open(precacheName);
+          return (await cache.keys()).length;
+        }),
+      )
+      .toBeGreaterThan(20);
+
+    const remaining = await safeEval(page, async () => {
+      await caches.delete('trip-images-v1');
+      return (await caches.keys()).filter((n) => n.includes('images'));
+    });
+    expect(
+      remaining,
+      'trip-images-v1 survived the delete (renamed?) — the hero could be served from it and this test would prove nothing',
+    ).toEqual([]);
+
+    // The gateway: every image request resolves 200 with a login page instead of bytes.
+    // Still wired up as a trap — if the precache-first fast path ever regresses
+    // (a filename rename that drops the hero out of HERO_PRECACHE, say), this
+    // fires and the assertion below catches it instead of the test going quietly
+    // green on a request that was never made.
+    let portalHits = 0;
+    await context.route(/\.(avif|webp|jpe?g|png)(\?.*)?$/i, async (route) => {
+      portalHits += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/html; charset=utf-8',
+        body: '<!doctype html><html><body>Sign in to continue using this Wi-Fi network</body></html>',
+      });
+    });
+
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto('/?today=2026-12-19', { waitUntil: 'load' });
+    await expect(page.getByTestId('hero-travel-mode')).toContainText('Osaka');
+
+    const heroImg = page.locator('.hero-photo-wrap picture img');
+    await expect(
+      heroImg,
+      'the hero photograph layer is absent — OptimizedImage errored and hero-section fell to its SVG art',
+    ).toBeVisible();
+
+    await expect
+      .poll(
+        async () =>
+          heroImg.evaluate((el: HTMLImageElement) =>
+            el.complete && el.naturalWidth > 0 ? el.currentSrc : '',
+          ),
+        {
+          message: 'the hero raster never decoded from the precache',
+        },
+      )
+      .toMatch(/\/images\/hero\/hero-japan(-\d+w)?\.avif$/);
+
+    await expect(
+      page.locator('path[fill="url(#rangeFar)"]'),
+      'hero-section painted its SVG fallback mountains, so a hero raster failed to load',
+    ).toHaveCount(0);
+
+    // D-414 Decision 3: the precache answers before `fetch()` is ever called, so
+    // the simulated captive portal is never actually consulted for the hero raster.
+    expect(
+      portalHits,
+      'a network request was made for the hero image — the precache-first fast path (D-414 Decision 3) regressed',
+    ).toBe(0);
   });
 
   /**

@@ -231,6 +231,9 @@ function subsequenceScore(target: string, q: string): number {
   return 0.3 + contiguity * 0.2; // 0.3..0.5, always below keyword/label tiers
 }
 
+// How long typing has to settle before the converter goes to the network.
+const CONVERSION_DEBOUNCE_MS = 400;
+
 // Trims a converted amount to a readable 2-decimal-max display (no new dependency —
 // Intl.NumberFormat is a native platform feature).
 function formatConvertedAmount(n: number): string {
@@ -300,18 +303,39 @@ export default function CommandPalette() {
   const parsedConversion = React.useMemo(() => parseConversionQuery(query), [query]);
   const [conversionResult, setConversionResult] = React.useState<ConversionResult | null>(null);
 
+  // One live lookup per currency PAIR per session, and only once typing settles. `parsedConversion`
+  // is a fresh object on every keystroke that still parses, so this effect used to fire a brand-new
+  // Frankfurter fetch per character (#117). Rate is fetched for ONE unit and scaled here, so
+  // changing only the amount never costs a request. Mirrors lib/world-search.ts's resultCache
+  // gate for the same class of free third-party API. Failures are not cached, so they stay
+  // retryable.
+  const rateCache = React.useRef(new Map<string, ConversionResult>());
+
   React.useEffect(() => {
     if (!parsedConversion) {
       setConversionResult(null);
       return;
     }
+    const { amount, from, to } = parsedConversion;
+    const scale = (unit: ConversionResult): ConversionResult =>
+      unit.status === 'ok' ? { ...unit, converted: unit.converted * amount } : unit;
+
+    const cached = rateCache.current.get(`${from}|${to}`);
+    if (cached) {
+      setConversionResult(scale(cached));
+      return;
+    }
     setConversionResult(null); // show "Converting…" while this query's lookup is in flight
     let ignore = false;
-    convertCurrency(parsedConversion).then((result) => {
-      if (!ignore) setConversionResult(result);
-    });
+    const timer = setTimeout(() => {
+      convertCurrency({ amount: 1, from, to }).then((unit) => {
+        if (unit.status === 'ok') rateCache.current.set(`${from}|${to}`, unit);
+        if (!ignore) setConversionResult(scale(unit));
+      });
+    }, CONVERSION_DEBOUNCE_MS);
     return () => {
       ignore = true;
+      clearTimeout(timer);
     };
   }, [parsedConversion]);
 

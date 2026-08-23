@@ -3,6 +3,7 @@
 import { m } from 'framer-motion';
 import { Check, RefreshCw } from 'lucide-react';
 import { useSyncStatus } from '@/hooks/use-sync-status';
+import { useOnline } from '@/hooks/use-online';
 import { formatRelativeTime } from '@/lib/relative-time';
 
 /**
@@ -12,8 +13,10 @@ import { formatRelativeTime } from '@/lib/relative-time';
  * Firestore or are still queued locally.
  *
  * Structural mirror of `components/offline-banner.tsx` / `components/presence-bar.tsx`: a
- * `fixed` live-region pill that renders `null` when there is nothing to show, `role="status"` +
- * `aria-live="polite"` + `aria-label`, a `glass-card` surface, an `sr-only` full-sentence
+ * `fixed` pill inside an ALWAYS-mounted `role="status"` + `aria-live="polite"` wrapper (a
+ * live region only announces a mutation of a region already in the tree, so the wrapper
+ * cannot be born with its text; it is empty and boxless while there is nothing to show),
+ * `aria-label`, a `glass-card` surface, an `sr-only` full-sentence
  * summary, and one declarative `m.*` reveal — the app-wide `<MotionConfig reducedMotion="user">`
  * (`components/theme-provider.tsx`) auto-neutralizes that reveal under prefers-reduced-motion, so
  * no manual guard is needed here.
@@ -31,10 +34,14 @@ import { formatRelativeTime } from '@/lib/relative-time';
  */
 export function SyncStatusBadge() {
   const { pending, lastAckAt } = useSyncStatus();
+  // OfflineBanner owns top-center at the same `top-20`, and at 360-414px its centred pill
+  // overlaps this right-anchored one — which is exactly when both are showing (offline with
+  // unsynced edits). Drop a row while it is up (#129).
+  const online = useOnline();
 
   // Dormant/guest (both read as pending:0 + lastAckAt:null) OR a real build that has simply never
   // synced anything yet — either way, nothing to show.
-  if (pending === 0 && lastAckAt === null) return null;
+  const show = pending !== 0 || lastAckAt !== null;
 
   const isPending = pending > 0;
   const relative = lastAckAt ? formatRelativeTime(lastAckAt) : null;
@@ -44,27 +51,28 @@ export function SyncStatusBadge() {
     : `All changes are synced to the shared trip${relative ? `, last confirmed ${relative}` : ''}.`;
 
   return (
-    <m.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      role="status"
-      aria-live="polite"
-      aria-label={label}
-      data-testid="sync-status-badge"
-      data-state={isPending ? 'pending' : 'synced'}
-      className="fixed top-20 right-4 z-40 max-w-[calc(100vw-2rem)]"
-    >
-      <div className="flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] text-ink-mid">
-        {isPending ? (
-          <RefreshCw className="h-3 w-3 shrink-0" aria-hidden="true" />
-        ) : (
-          <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
-        )}
-        <span data-testid="sync-status-text">{label}</span>
-        <span className="sr-only">{summary}</span>
-      </div>
-    </m.div>
+    <div role="status" aria-live="polite" aria-label={show ? label : undefined}>
+      {show && (
+        <m.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, ease: 'easeOut' }}
+          data-testid="sync-status-badge"
+          data-state={isPending ? 'pending' : 'synced'}
+          className={`fixed ${online ? 'top-20' : 'top-32'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
+        >
+          <div className="flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] text-ink-mid">
+            {isPending ? (
+              <RefreshCw className="h-3 w-3 shrink-0" aria-hidden="true" />
+            ) : (
+              <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
+            )}
+            <span data-testid="sync-status-text">{label}</span>
+            <span className="sr-only">{summary}</span>
+          </div>
+        </m.div>
+      )}
+    </div>
   );
 }
 

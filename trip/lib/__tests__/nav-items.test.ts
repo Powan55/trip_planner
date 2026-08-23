@@ -131,7 +131,7 @@ describe('navItemsForActiveTrip / primaryItemsForActiveTrip (S252)', () => {
     expect(primaryItemsForActiveTrip()).toEqual(PRIMARY_NAV_ITEMS);
   });
 
-  it('on a custom trip, navItemsForActiveTrip drops the defaultTripOnly Guides/Flights and nothing else', () => {
+  it('on a custom trip, navItemsForActiveTrip drops the defaultTripOnly Guides/Flights/Safety and nothing else', () => {
     mockIsDefault = false;
     const labels = navItemsForActiveTrip().map((i) => i.label);
     expect(labels).toEqual([
@@ -139,7 +139,6 @@ describe('navItemsForActiveTrip / primaryItemsForActiveTrip (S252)', () => {
       'Plan',
       'Map',
       'Journal',
-      'Safety',
       'Recap',
       'Packing',
       'Documents',
@@ -149,6 +148,19 @@ describe('navItemsForActiveTrip / primaryItemsForActiveTrip (S252)', () => {
       'Passport',
       'Settings',
     ]);
+  });
+
+  // CONTENT-2 — /safety/ serves Nepal Police 100 / Japan 110 / Kathmandu embassy switchboards and
+  // a Nepali/Japanese phrasebook, presented as the ACTIVE trip's safety kit. It was the one N*J
+  // content surface the custom-trip sweep missed, so a custom trip's More page still offered it
+  // and it rendered another country's emergency numbers un-gated. The nav flag is half the fix;
+  // `app/safety/page.tsx` carries the matching DefaultTripOnly wrapper for a typed URL.
+  it('Safety is defaultTripOnly, so a custom trip never lists it', () => {
+    expect(NAV_ITEMS.find((i) => i.href === '/safety/')?.defaultTripOnly).toBe(true);
+    mockIsDefault = false;
+    expect(navItemsForActiveTrip().some((i) => i.href === '/safety/')).toBe(false);
+    mockIsDefault = true;
+    expect(navItemsForActiveTrip().some((i) => i.href === '/safety/')).toBe(true);
   });
 
   it('on a custom trip, primaryItemsForActiveTrip is exactly 4: Today/Plan/Map/Journal (D-231)', () => {

@@ -45,6 +45,70 @@ const eslintConfig = [
     files: ["**/__tests__/**"],
     rules: { "react/no-children-prop": "off" },
   },
+  {
+    // D-099 (LOCKED, reaffirmed by D-109): the arrows point inward. `core/` is the framework-free
+    // domain layer and must not reach back into the app layers at RUNTIME. `import type` is erased
+    // at build time and carries no dependency, so it stays allowed — that is the whole distinction
+    // this rule exists to draw, and without it the rule is prose every new slice has to remember.
+    files: ["core/**/*.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@/lib/*",
+                "@/lib/**",
+                "@/hooks/*",
+                "@/hooks/**",
+                "@/components/*",
+                "@/components/**",
+                "@/app/*",
+                "@/app/**",
+              ],
+              allowTypeImports: true,
+              message:
+                "core/ may not import lib/, hooks/, components/ or app/ at runtime (D-099). Use `import type`, or move the value into core/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    // The one remaining exception, and it is narrow rather than blanket: `outbox.ts` needs the two
+    // app-wide "should I write?" gates, which have no core-side home yet. The rule stays ON here —
+    // only those two modules are negated out of the group — so a NEW lib/ import in this file still
+    // errors. Nothing may be added to the negation list without a decision.
+    files: ["core/sync/outbox.ts"],
+    rules: {
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "@/lib/*",
+                "@/lib/**",
+                "!@/lib/firebase-config",
+                "!@/lib/token-auth",
+                "@/hooks/*",
+                "@/hooks/**",
+                "@/components/*",
+                "@/components/**",
+                "@/app/*",
+                "@/app/**",
+              ],
+              allowTypeImports: true,
+              message:
+                "core/ may not import lib/, hooks/, components/ or app/ at runtime (D-099). Use `import type`, or move the value into core/.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ];
 
 export default eslintConfig;

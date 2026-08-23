@@ -4,11 +4,9 @@ import { useState, useEffect, useRef, useId } from 'react';
 import { createPortal } from 'react-dom';
 import { m } from 'framer-motion';
 import { toast } from 'sonner';
-import {
-  MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
-  Landmark, Plane, Hotel, Coffee, Music, X, Check, Users,
-} from 'lucide-react';
+import { X, Check, Users } from 'lucide-react';
 import { CATEGORY_COLORS, type ItineraryCategory } from '@/lib/trip-data';
+import { CATEGORY_ICON_MAP } from '@/components/category-icon';
 import {
   legCurrency, currencySymbol, formatMoney,
   BUDGET_CATEGORIES, LEGS, type Leg,
@@ -20,6 +18,7 @@ import { overlayPanelMotion } from '@/lib/motion';
 import type { Expense } from '@/core/budget/expenses';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { rosterForActiveTrip, rosterAccent } from '@/lib/token-auth';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 
 /**
  * Fast expense-log dialog. A NEW, lightweight modal, deliberately
@@ -40,19 +39,6 @@ import { rosterForActiveTrip, rosterAccent } from '@/lib/token-auth';
  * EDIT MODE: pass an `expense` and the fields preset from it; Save calls `updateExpense`. Delete
  * lives in the budget panel's list (not here) — this dialog is add/edit only.
  */
-
-const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
-  sightseeing: <MapPin className="w-3.5 h-3.5" />,
-  food: <UtensilsCrossed className="w-3.5 h-3.5" />,
-  photography: <Camera className="w-3.5 h-3.5" />,
-  shopping: <ShoppingBag className="w-3.5 h-3.5" />,
-  nature: <Trees className="w-3.5 h-3.5" />,
-  cultural: <Landmark className="w-3.5 h-3.5" />,
-  transportation: <Plane className="w-3.5 h-3.5" />,
-  hotel: <Hotel className="w-3.5 h-3.5" />,
-  free: <Coffee className="w-3.5 h-3.5" />,
-  nightlife: <Music className="w-3.5 h-3.5" />,
-};
 
 export interface ExpenseDialogProps {
   open: boolean;
@@ -97,7 +83,12 @@ export default function ExpenseDialog({
   // sanitizes on write. Leg/category preset from the edit target else the props.
   const [amount, setAmount] = useState<string>('');
   const [leg, setLeg] = useState<Leg>(presetLeg);
-  const [category, setCategory] = useState<ItineraryCategory>('food');
+  // `string`, not `ItineraryCategory` (#150): editing an expense whose category this build does
+  // not recognise must not throw assigning `expense.category` below. The chip grid only ever
+  // WRITES one of the 10 known values (`setCategory(cat)`, `cat: ItineraryCategory`), so a
+  // forward category just shows with no chip highlighted until the user picks a known one — the
+  // Save value is otherwise preserved verbatim, not coerced to a guess.
+  const [category, setCategory] = useState<string>('food');
   const [note, setNote] = useState<string>('');
   // Split — opt-in, default collapsed = the fast path. `paidBy` defaults to me; `members`
   // to everyone (an even split among the whole roster). Enabling with ≥1 member writes paidBy+split.
@@ -202,14 +193,8 @@ export default function ExpenseDialog({
   }, []);
 
   // body[data-dialog-open] flag (cross-lane seam): the itinerary FAB hides while it is set, so the
-  // FAB never floats over this dialog's scrim. Set while mounted-open, cleared on close/unmount.
-  useEffect(() => {
-    const body = document.body;
-    body.dataset.dialogOpen = '1';
-    return () => {
-      delete body.dataset.dialogOpen;
-    };
-  }, []);
+  // FAB never floats over this dialog's scrim. Ref-counted by the shared hook.
+  useDialogOpenFlag();
 
   // Esc closes at the document level so it fires wherever focus sits.
   useEffect(() => {
@@ -329,7 +314,7 @@ export default function ExpenseDialog({
                   }}
                   placeholder="0"
                   autoComplete="off"
-                  className={`w-full rounded-lg border border-white/15 bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-ink-lo focus:outline-none focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
+                  className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-2.5 pr-3 text-base text-white placeholder:text-ink-lo focus:outline-none focus-visible:border-ring/60 focus-visible:ring-2 focus-visible:ring-ring/40 ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
                 />
               </div>
             </div>
@@ -361,7 +346,7 @@ export default function ExpenseDialog({
                       className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none ${
                         active
                           ? 'border-ring bg-primary/10 text-primary'
-                          : 'border-white/15 text-ink-mid hover:bg-white/5'
+                          : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
                       }`}
                     >
                       <span aria-hidden="true">{currencySymbol(legCurrency(l))}</span>
@@ -447,7 +432,7 @@ export default function ExpenseDialog({
                             onClick={() => setPaidBy(name)}
                             data-testid={`expense-payer-${name}`}
                             className={`inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                              active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-ink-mid hover:bg-white/5'
+                              active ? 'border-ring bg-primary/10 text-primary' : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
                             }`}
                           >
                             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />
@@ -472,7 +457,7 @@ export default function ExpenseDialog({
                             onClick={() => toggleMember(name)}
                             data-testid={`expense-split-member-${name}`}
                             className={`inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                              active ? 'border-ring bg-primary/10 text-primary' : 'border-white/15 text-ink-mid hover:bg-white/5'
+                              active ? 'border-ring bg-primary/10 text-primary' : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
                             }`}
                           >
                             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />

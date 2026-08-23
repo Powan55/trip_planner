@@ -137,16 +137,20 @@ test.describe('Pre-trip countdown + total-days math (D-016 computeCountdown, fro
     await expect(page.getByTestId('countdown-hours')).toHaveText('12');
     await expect(page.getByTestId('countdown-minutes')).toHaveText('00');
     await expect(page.getByTestId('countdown-seconds')).toHaveText('00');
-    await expect(page.getByTestId('countdown-total-days')).toHaveText('29');
+    // 30, not the 29 in the days cell above: the ring counts CALENDAR days to departure
+    // (`daysToGo`, lib/home-stats.ts), and `?today=` freezes the clock at local NOON, so a
+    // truncated 24h count borrows half of Nov 9 into the 12h residue and the calendar does
+    // not. The two numbers answer different questions and the ring is labelled with its own.
+    await expect(page.getByTestId('countdown-total-days')).toHaveText('30');
 
     // Stat row: the PRE-TRIP lifecycle state (what the deleted dashboard called
     // "Upcoming") is the live cell's caption, duration = the full 32-day trip, and the
-    // live figure mirrors the countdown's totalDays (29) — `liveCell()` reads it from
-    // the same `computeCountdown(TRIP_START, now).totalDays` the hero's ring does.
+    // live figure is the SAME number the ring shows, from the same `daysToGo` call — the
+    // two used to disagree by one for the whole pre-trip window.
     await scrollLiveStatIntoView(page);
     await expect(liveStat(page).caption).toHaveText('Days to go');
     await expect(page.getByTestId('home-stat-days')).toContainText('32');
-    await expect(liveStat(page).value).toHaveText('29');
+    await expect(liveStat(page).value).toHaveText('30');
   });
 });
 
@@ -343,7 +347,7 @@ test.describe('?today=off restores the real clock', () => {
     const totalDays = Number(totalDaysText);
     expect(Number.isFinite(totalDays)).toBe(true);
     expect(totalDays).toBeGreaterThan(0);
-    expect(totalDays).not.toBe(29); // `?today=2026-11-09` above
+    expect(totalDays).not.toBe(30); // `?today=2026-11-09` above
 
     // Back to the pre-trip lifecycle state on the REAL clock, and the live cell's figure
     // must be the same large countdown the ring just reported — a stale override would

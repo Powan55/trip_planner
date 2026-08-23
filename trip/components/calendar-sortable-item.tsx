@@ -1,40 +1,27 @@
 'use client';
 
 // pure-move extraction from calendar-planner.tsx: the drag-and-drop LIST subcomponents
-// (the sortable row + its droppable day column) plus the local category-icon map they render.
+// (the sortable row + its droppable day column).
 // Zero behavior change — this is the same code, same props, same markup/testids, lifted out to
-// shrink calendar-planner.tsx. The category-icon map is kept as a file-local copy to match the
-// repo's existing idiom (add-to-itinerary-dialog and expense-dialog each hold
-// their own copy — there is no shared module), so this file has no import back into the parent.
+// shrink calendar-planner.tsx. The category-icon map it renders was a file-local copy here; it
+// now lives in the dependency-free `components/category-icon.tsx` so the two dialogs that used to
+// carry their own copies can share it without pulling @dnd-kit in through this file.
 
 import { useState, useRef, useId } from 'react';
 import {
   Trash2, Edit3, GripVertical, Copy,
-  MapPin, UtensilsCrossed, Camera, ShoppingBag, Trees,
-  Landmark, Plane, Hotel, Coffee, Music, AlertTriangle,
+  MapPin, AlertTriangle,
 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { useDroppable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import {
   TRIP_DATES, formatDate,
-  ItineraryItem, ItineraryCategory, CATEGORY_COLORS,
+  ItineraryItem, CATEGORY_COLORS,
 } from '@/lib/trip-data';
+import { CATEGORY_ICON_MAP } from '@/components/category-icon';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { describeItemTime } from '@/lib/item-time-display';
-
-export const CATEGORY_ICON_MAP: Record<ItineraryCategory, React.ReactNode> = {
-  sightseeing: <MapPin className="w-3.5 h-3.5" />,
-  food: <UtensilsCrossed className="w-3.5 h-3.5" />,
-  photography: <Camera className="w-3.5 h-3.5" />,
-  shopping: <ShoppingBag className="w-3.5 h-3.5" />,
-  nature: <Trees className="w-3.5 h-3.5" />,
-  cultural: <Landmark className="w-3.5 h-3.5" />,
-  transportation: <Plane className="w-3.5 h-3.5" />,
-  hotel: <Hotel className="w-3.5 h-3.5" />,
-  free: <Coffee className="w-3.5 h-3.5" />,
-  nightlife: <Music className="w-3.5 h-3.5" />,
-};
 
 // Cross-friend attribution line: a small, muted
 // "by {updatedBy} · {relative time}" under each item. Renders NOTHING when the item
@@ -197,7 +184,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
                 onDuplicate(target);
                 setDupOpen(false);
               }}
-              className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-surface border border-[color:var(--border-ui)] text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <option value="" disabled>Copy to day…</option>
               {TRIP_DATES.map((d) => (

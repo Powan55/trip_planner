@@ -13,6 +13,7 @@
 import { CONCIERGE_URL } from '@/lib/concierge-config';
 import { getActiveTripId } from '@/core/storage/gateway';
 import { workerAuthHeader } from '@/lib/worker-auth';
+import { isSafeHref } from '@/lib/safe-href';
 
 /** Best-effort resolution hints. Every field optional — the sheet pre-fills whatever it gets. */
 export interface PlaceResolveHints {
@@ -27,6 +28,13 @@ function cleanStr(v: unknown): string | undefined {
 }
 function cleanNum(v: unknown): number | undefined {
   return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+}
+// `cleanStr` plus the href scheme allow-list. `finalUrl` is stored on the MyPlace and rendered as a
+// live `<a href>` (`components/my-places-section.tsx`), so a non-http value from this network
+// boundary is a script that runs on the app origin — trimmed-and-non-empty was never enough.
+function cleanUrl(v: unknown): string | undefined {
+  const s = cleanStr(v);
+  return s !== undefined && isSafeHref(s) ? s : undefined;
 }
 
 export interface ResolveOptions {
@@ -50,7 +58,7 @@ export async function resolvePlaceLink(
   if (!origin || !url) return null;
   const base = origin.replace(/\/+$/, '');
   try {
-    // #10 — same Worker, same new requirement: a Firebase ID token when there is a session, and
+    // #10 — same Worker, same header: a Firebase ID token when there is a session, and
     // nothing at all when there isn't (see lib/worker-auth.ts). Inside the try, so a failure here
     // degrades to `null` like every other one rather than throwing out of a total function.
     const auth = await workerAuthHeader();
@@ -63,7 +71,7 @@ export async function resolvePlaceLink(
     const data = (await res.json()) as Record<string, unknown>;
     if (!data || data.ok !== true) return null;
     return {
-      finalUrl: cleanStr(data.finalUrl),
+      finalUrl: cleanUrl(data.finalUrl),
       name: cleanStr(data.name),
       lat: cleanNum(data.lat),
       lng: cleanNum(data.lng),

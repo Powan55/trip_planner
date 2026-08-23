@@ -5,6 +5,10 @@ import { Camera, ImageOff, Trash2, X, Check } from 'lucide-react';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
 import type { PhotoMeta, PhotoOwner } from '@/core/photos/model';
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
+  AlertDialogTitle, AlertDialogDescription, AlertDialogAction, AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 
 /**
  * PhotoAttach — the ONE reusable capture/render surface for BOTH journal
@@ -48,6 +52,10 @@ export default function PhotoAttach({
   const [caption, setCaption] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Delete confirm gate (#116). The blob is gone from IndexedDB the moment `removePhoto` runs and
+  // there is no capture-and-restore path for the bytes, so this is the confirm arm of the
+  // house pattern, not the undo arm.
+  const [pendingDelete, setPendingDelete] = useState<PhotoMeta | null>(null);
 
   // Focus the alt field when the prompt opens (first-field-on-open, mirrors the journal editor).
   useEffect(() => {
@@ -145,7 +153,7 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder={altPlaceholder}
               data-testid="photo-alt-input"
-              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full min-h-[44px] rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div>
@@ -160,7 +168,7 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder="A note to remember it by…"
               data-testid="photo-caption-input"
-              className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full min-h-[44px] rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div className="flex items-center justify-end gap-2">
@@ -187,17 +195,23 @@ export default function PhotoAttach({
         </div>
       )}
 
-      {error && (
-        <p data-testid="photo-error" role="status" aria-live="polite" className="mb-3 text-xs text-destructive">
-          {error}
-        </p>
-      )}
+      {/* The region is mounted always and is empty (and boxless — the margin is on the <p>)
+          until there is something to say: a live region announces a MUTATION of a region
+          already in the tree, so one inserted together with its text is not reliably
+          announced. Same idiom as settings-panel.tsx / backup-restore.tsx. */}
+      <div role="status" aria-live="polite">
+        {error && (
+          <p data-testid="photo-error" className="mb-3 text-xs text-destructive">
+            {error}
+          </p>
+        )}
+      </div>
 
       {/* Thumbnails. Empty (and no pending prompt) → a quiet hint; blobs resolve per-mount. */}
       {photos.length > 0 ? (
         <ul data-testid="photo-grid" className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((meta) => (
-            <PhotoThumb key={meta.id} meta={meta} onDelete={() => removePhoto(meta.id)} />
+            <PhotoThumb key={meta.id} meta={meta} onDelete={() => setPendingDelete(meta)} />
           ))}
         </ul>
       ) : (
@@ -207,6 +221,31 @@ export default function PhotoAttach({
           </p>
         )
       )}
+
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent className="glass-card-dark border-white/10 text-white" data-testid="photo-delete-confirm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this photo?</AlertDialogTitle>
+            <AlertDialogDescription className="text-ink-mid">
+              {pendingDelete?.caption ?? pendingDelete?.altText} — this deletes it from this device
+              for good. It is not backed up anywhere and there is no undo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="photo-delete-cancel">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="photo-delete-action"
+              onClick={() => {
+                if (pendingDelete) void removePhoto(pendingDelete.id);
+                setPendingDelete(null);
+              }}
+              className="bg-rose-500 text-white hover:bg-rose-400"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }
@@ -243,7 +282,7 @@ function PhotoThumb({ meta, onDelete }: { meta: PhotoMeta; onDelete: () => void 
           className="h-full w-full object-cover"
         />
       ) : (
-        <div className="h-full w-full animate-pulse bg-white/[0.04]" aria-hidden="true" />
+        <div className="h-full w-full motion-safe:animate-pulse bg-white/[0.04]" aria-hidden="true" />
       )}
 
       {(meta.caption || meta.altText) && !missing && (

@@ -6,9 +6,10 @@ import {
   getKnownTrip,
   joinTrip,
   upsertKnownTrip,
+  TRIP_DAYS_MAX,
   type TripConfigBlock,
 } from '@/core/trips/registry';
-import { customTripConfig, buildDayShells, VIBES, vibeFor } from '@/core/trips/custom';
+import { customTripConfig, buildDayShells, VIBES, vibeFor, DEFAULT_VIBE } from '@/core/trips/custom';
 import { getTripConfig, isDefaultTrip, TRIP_PACKS, DEFAULT_TRIP_ID } from '@/core/trips';
 import { NEPAL_JAPAN_2026 } from '@/core/trips/packs/nepal-japan-2026';
 import { setActiveTripId } from '@/core/storage/gateway';
@@ -60,6 +61,71 @@ describe('sanitizeTripConfig — validate + drop malformed (Plan D1)', () => {
     expect(sanitizeTripConfig({ ...GOOD, destinations: [''] })).toBeUndefined();
     expect(sanitizeTripConfig({ ...GOOD, vibe: '   ' })).toBeUndefined();
   });
+
+  // The regex checks SHAPE, not that the digits denote a real day. `2026-13-45` passed it, then
+  // `new Date('2026-13-45T00:00:00')` was Invalid Date, so `TRIP_DATES`' loop never ran and the
+  // array was `[]` — the exact state ~15 unguarded `TRIP_DATES[0]` readers crash on
+  // (`core/trips/custom.ts`'s PLACEHOLDER_DATE comment names it "a fresh crash of the class SB-6
+  // fixed"). Reachable from a peer's trip-meta doc, the synced list, or edited storage.
+  it('rejects an ISO-SHAPED date that is not a real day (2026-13-45 → empty TRIP_DATES)', () => {
+    expect(sanitizeTripConfig({ ...GOOD, start: '2026-13-45', end: '2026-13-46' })).toBeUndefined();
+    expect(sanitizeTripConfig({ ...GOOD, start: '2027-02-30', end: '2027-03-05' })).toBeUndefined();
+    expect(sanitizeTripConfig({ ...GOOD, end: '2027-04-31' })).toBeUndefined(); // April has 30 days
+    expect(sanitizeTripConfig({ ...GOOD, start: '2027-02-29', end: '2027-03-05' })).toBeUndefined(); // 2027 is not a leap year
+    // …and a real leap day still passes — the check is "is this a day", not "does it look odd".
+    expect(sanitizeTripConfig({ ...GOOD, start: '2028-02-29', end: '2028-03-05' })).toMatchObject({
+      start: '2028-02-29',
+    });
+  });
+
+  // One wrong digit in the year yielded 65,744 trip dates, ~4.3 MB of day shells, and ONE
+  // FIRESTORE DOCUMENT PER DAY on a free tier. The cap is inclusive and shared with the create form.
+  it(`rejects a span over TRIP_DAYS_MAX (${TRIP_DAYS_MAX}) days, accepts exactly that many`, () => {
+    expect(sanitizeTripConfig({ ...GOOD, start: '2027-01-05', end: '2207-01-05' })).toBeUndefined();
+    // 2027-01-01 + (TRIP_DAYS_MAX - 1) days is the last accepted end date; one more is refused.
+    const atCap = new Date(Date.UTC(2027, 0, 1) + (TRIP_DAYS_MAX - 1) * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    const overCap = new Date(Date.UTC(2027, 0, 1) + TRIP_DAYS_MAX * 86_400_000)
+      .toISOString()
+      .slice(0, 10);
+    expect(sanitizeTripConfig({ ...GOOD, start: '2027-01-01', end: atCap })).toMatchObject({
+      start: '2027-01-01',
+      end: atCap,
+    });
+    expect(sanitizeTripConfig({ ...GOOD, start: '2027-01-01', end: overCap })).toBeUndefined();
+  });
+
+  it('a single-day span is still fine (start === end)', () => {
+    expect(sanitizeTripConfig({ ...GOOD, start: '2027-03-01', end: '2027-03-01' })).toMatchObject({
+      start: '2027-03-01',
+      end: '2027-03-01',
+    });
+  });
+});
+
+// The two halves of the same defect, joined: a config the validator now refuses is DROPPED (the
+// entry is kept — Plan D1), so the trip resolves to the one-day placeholder instead of a trip whose
+// day list is empty (crash) or 65,744 long (4.3 MB + one Firestore doc per day).
+describe('a rejected span/date never reaches the day-shell builder', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  for (const [why, block] of [
+    ['not a real day', { ...GOOD, start: '2026-13-45', end: '2026-13-46' }],
+    ['span over the cap', { ...GOOD, start: '2027-01-05', end: '2207-01-05' }],
+  ] as const) {
+    it(`${why}: the config is dropped, the entry survives, TRIP_DATES-equivalent stays length 1`, () => {
+      upsertKnownTrip('bad-cfg', 'Bad Config');
+      setTripConfig('bad-cfg', block as TripConfigBlock);
+      expect(getKnownTrip('bad-cfg')).toBeDefined(); // entry kept
+      expect(getKnownTrip('bad-cfg')?.config).toBeUndefined(); // config dropped
+      const shells = buildDayShells(getTripConfig('bad-cfg'));
+      expect(shells).toHaveLength(1); // the placeholder — never 0, never 65,744
+    });
+  }
 });
 
 describe('customTripConfig — single-leg synthesis (Plan D2)', () => {
@@ -140,6 +206,21 @@ describe('VIBES — CSS-only presets', () => {
     expect(vibeFor('does-not-exist')).toBe(VIBES.city);
     expect(vibeFor(undefined)).toBe(VIBES.city);
   });
+
+  // D-307: `VIBES['constructor']` is the `Object` FUNCTION — non-nullish, so `??` never fired and
+  // the bare index handed a function back typed as `Vibe`. Home's hero then did
+  // `customVibe!.gradient.join(', ')` on it and took the whole route to the error boundary.
+  // `sanitizeTripConfig` accepts any non-empty `vibe`, so a peer's trip-meta doc can carry this.
+  for (const poison of ['constructor', '__proto__', 'toString', 'valueOf', 'hasOwnProperty']) {
+    it(`vibeFor('${poison}') returns a real Vibe, never a function (D-307)`, () => {
+      const v = vibeFor(poison);
+      expect(typeof v).toBe('object');
+      expect(v).toBe(VIBES[DEFAULT_VIBE]);
+      // The exact dereference hero-section.tsx does on it.
+      expect(() => v.gradient.join(', ')).not.toThrow();
+      expect(Array.isArray(v.gradient)).toBe(true);
+    });
+  }
 });
 
 describe('getTripConfig — pack → custom → default fallthrough (Plan D2)', () => {

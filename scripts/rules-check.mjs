@@ -36,7 +36,7 @@
  * lives at the root next to firestore.rules and stays INERT: it is not in any vitest include glob
  * and not in the app's tsc project, so it can never turn the app's own build or gate red.
  *
- * IT IS IN CI NOW (issue #39 / D-314). The `rules-check` job in .github/workflows/ci.yml installs
+ * IT IS IN CI NOW (issue #39 / D-399). The `rules-check` job in .github/workflows/ci.yml installs
  * firebase-tools and runs the command above in the runner, on every pull request, on pushes to
  * `lax`, `uttam` and `dev` (ci.yml's push trigger lists exactly those — a push to a feature
  * branch runs nothing), and again on the push to `main` that deploys — because the release now
