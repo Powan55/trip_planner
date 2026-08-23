@@ -4774,3 +4774,9 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **`eslint-config-next` deliberately stays at 15.5.20.** Not a compatibility block — it lints fine against next 16, and its 16.3.2 release does NOT conflict with the app's runtime `zod@3.23.8` (16.3.2 depends on zod v4, which npm nests under `eslint-config-next/node_modules`; the app's own resolution is untouched). The bump is deferred purely because 16.x turns on new lint rules, and taking that diff belongs in its own slice where the findings can be read on their own.
 
 **Changes if:** a specific incompatibility forces a pin back to Next 15 — name the package and the failure here when it happens. The likely candidates are the three deps already carrying React 18 peers (the `--legacy-peer-deps` set) or `maplibre-gl`, none of which broke on 16.3.2 at the time of writing.
+
+### D-399 · Addendum · (issue #183, 2026-08-23) · The missing-credential path is now visibly flagged, not just quietly skipped
+
+**What changed.** The `No credential — rules NOT published` step in `publish-rules` now sets `continue-on-error: true` and ends with `exit 1` (upgraded from an implicit exit 0). GitHub renders a `continue-on-error` step that fails with a distinct warning icon in the run summary and checks list, so the skip path is no longer a plain green checkmark indistinguishable from a real publish. The step's own `::warning::` annotation is upgraded to `::error::` to match.
+
+**What did NOT change.** `publish-rules`'s JOB conclusion is still success when the secret is absent — `continue-on-error` absorbs the step failure before it reaches the job — so `deploy: needs: publish-rules` still runs and the Pages deploy still ships exactly as it does today. The `Publish firestore.rules` step (the credential-present path) is untouched. D-399's INERT-until-armed contract stands: this fixes visibility of the skip, not the skip itself.
