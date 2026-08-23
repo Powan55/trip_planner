@@ -677,22 +677,32 @@ export default function HeroSection() {
                 );
               })}
             </div>
-            {/* — radial progress ring wrapping the "days to go" digit. Digit and fill both
+            {/* — radial progress ring wrapping the total-days digit. Digit and fill both
                 read `daysLeft`, so the ring cannot disagree with itself or with the stat row
                 below — see lib/countdown-ring.ts for the fill formula and lib/home-stats.ts
                 for the count. The grid above is `computeCountdown` and still does not
-                reconcile with this number: D-313 ruled on that and it is unchanged. */}
+                reconcile with this number: D-313 ruled on that and it is unchanged.
+
+                ISSUE #92: the digit used to carry its own "days to go" caption directly under
+                it, which is `home-stat-row.tsx`'s live cell's exact caption for the exact same
+                `daysToGo()` value — the same stat, captioned identically, twice on one screen.
+                The caption is deleted here rather than reworded, because the ring keeps its
+                own distinct framing one line down ("until adventure begins") and a second
+                label would only restate it. The digit itself still shows (it is the hero's
+                live numeral, and the stat row cell cannot be removed — that cell's grid-track
+                math is issue #90's, and `e2e/countdown.spec.ts` asserts trip-lifecycle state
+                against it),
+                so the two surfaces still print the same NUMBER by design (D-313's "one
+                derivation" — they must never disagree); what they no longer do is print the
+                same LABELLED figure. */}
             <div className="hidden min-[420px]:flex flex-col items-center gap-1.5">
               <CountdownRing
                 fraction={ringFraction(daysLeft, timeLeft.isPast)}
                 reducedMotion={!!prefersReducedMotion}
               >
-                <div className="flex flex-col items-center">
-                  <span data-testid="countdown-total-days" className="text-xl sm:text-2xl text-foreground font-extrabold tabular-nums leading-none">
-                    <CountUpNumber live={daysLeft} active={mounted} format={identity} />
-                  </span>
-                  <span className="text-[9px] uppercase tracking-widest text-ink-mid mt-1">days to go</span>
-                </div>
+                <span data-testid="countdown-total-days" className="text-xl sm:text-2xl text-foreground font-extrabold tabular-nums leading-none">
+                  <CountUpNumber live={daysLeft} active={mounted} format={identity} />
+                </span>
               </CountdownRing>
               <p className="text-sm text-ink-mid">until adventure begins</p>
             </div>

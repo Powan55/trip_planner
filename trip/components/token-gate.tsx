@@ -774,8 +774,8 @@ function CompactCountdown() {
   // The aria-label must read the same numbers the grid shows. `cd.totalDays` is a flat day
   // count that no longer reconciles with the calendar-accurate months/weeks/days breakdown
   // (D-313) and has no on-screen text anywhere in this component (unlike hero-section.tsx's
-  // ring, which has its own separate, correctly self-labeled "days to go" caption) -- so a
-  // screen reader must be built from the same `units` array the grid renders, not totalDays.
+  // ring, which prints its own digit next to this one) -- so a screen reader must be built
+  // from the same `units` array the grid renders, not totalDays.
   const unitsLabel = units.map((u) => `${u.value} ${u.label}`).join(', ');
 
   return (
