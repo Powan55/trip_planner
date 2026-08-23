@@ -577,7 +577,7 @@ export default function RecommendationSection({
                 type="button"
                 onClick={() => setFiltersOpen(false)}
                 data-testid="guide-filters-apply"
-                className={`flex-1 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 text-sm font-semibold hover:bg-white/15 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${accentColor}`}
+                className={`flex-1 px-4 py-2.5 rounded-xl bg-white/10 border border-[color:var(--border-ui)] text-sm font-semibold hover:bg-white/15 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${accentColor}`}
               >
                 Show {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
               </button>

@@ -197,7 +197,7 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
           type="button"
           onClick={openEditor}
           data-testid="journal-write-prompt"
-          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-white/15 bg-white/[0.02] p-3 text-left text-sm text-ink-mid outline-none transition-colors duration-200 hover:border-ring/40 hover:bg-white/[0.05] hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-[color:var(--border-ui)] bg-white/[0.02] p-3 text-left text-sm text-ink-mid outline-none transition-colors duration-200 hover:border-ring/40 hover:bg-white/[0.05] hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           <Pencil className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
           <span>
@@ -301,7 +301,7 @@ function JournalEditor({
                 className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
                   active
                     ? 'border-ring bg-primary/10 text-primary'
-                    : 'border-white/15 bg-white/[0.03] text-ink-mid hover:border-white/30 hover:text-white'
+                    : 'border-[color:var(--border-ui)] bg-white/[0.03] text-ink-mid hover:border-white/30 hover:text-white'
                 }`}
               >
                 <span aria-hidden="true">{meta.glyph}</span>
@@ -326,7 +326,7 @@ function JournalEditor({
           maxLength={120}
           placeholder="The one thing worth remembering…"
           data-testid="journal-highlight-input"
-          className="w-full min-h-[44px] rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full min-h-[44px] rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
@@ -342,7 +342,7 @@ function JournalEditor({
           rows={4}
           placeholder="What happened today? How did it feel?"
           data-testid="journal-text-input"
-          className="w-full resize-y rounded-lg border border-white/15 bg-surface/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full resize-y rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 

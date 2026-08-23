@@ -69,7 +69,7 @@ export default function TravelLogDifferent({ date }: { date: string }) {
           type="button"
           onClick={() => setOpen(true)}
           data-testid="travel-log-different-trigger"
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-3 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[color:var(--border-ui)] bg-white/[0.03] px-4 py-3 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Log something different

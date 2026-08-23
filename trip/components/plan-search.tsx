@@ -84,7 +84,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
             setActiveIndex(0);
           }}
           onKeyDown={onKeyDown}
-          className="w-full pl-9 pr-9 py-2.5 rounded-lg bg-surface border border-white/15 text-white text-sm placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="w-full pl-9 pr-9 py-2.5 rounded-lg bg-surface border border-[color:var(--border-ui)] text-white text-sm placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         />
         {query && (
           <button
@@ -105,7 +105,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
           role="listbox"
           aria-label="Plan search results"
           data-testid="plan-search-results"
-          className="absolute z-20 mt-1.5 w-full max-h-72 overflow-y-auto rounded-lg bg-surface border border-white/15 shadow-xl py-1"
+          className="absolute z-20 mt-1.5 w-full max-h-72 overflow-y-auto rounded-lg bg-surface border border-[color:var(--border-ui)] shadow-xl py-1"
         >
           {results.length === 0 ? (
             <li role="presentation" className="px-3 py-2.5 text-sm text-ink-mid" data-testid="plan-search-empty">

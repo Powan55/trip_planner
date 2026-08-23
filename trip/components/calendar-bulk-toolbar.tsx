@@ -50,7 +50,7 @@ export function CalendarBulkToolbar({ selectedCount, selectedDate, onBulkMove, o
         disabled={selectedCount === 0}
         data-testid="calendar-bulk-move-select"
         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onBulkMove(e.target.value)}
-        className="px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40"
+        className="px-2 py-1.5 rounded-lg bg-surface border border-[color:var(--border-ui)] text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40"
       >
         <option value="" disabled>Move to day…</option>
         {TRIP_DATES.filter((d) => d !== selectedDate).map((d) => (
@@ -63,7 +63,7 @@ export function CalendarBulkToolbar({ selectedCount, selectedDate, onBulkMove, o
         value=""
         data-testid="calendar-bulk-copy-select"
         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onCopyDay(e.target.value)}
-        className="px-2 py-1.5 rounded-lg bg-surface border border-white/15 text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="px-2 py-1.5 rounded-lg bg-surface border border-[color:var(--border-ui)] text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <option value="" disabled>Copy day to…</option>
         {TRIP_DATES.filter((d) => d !== selectedDate).map((d) => (

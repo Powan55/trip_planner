@@ -483,7 +483,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
                 ref={pinButtonRef}
                 onClick={() => onRequestPin?.()}
                 data-testid="calendar-editor-pin-drop"
-                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-white/15 px-3 text-xs font-medium text-ink-mid transition-colors hover:bg-white/10 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border border-[color:var(--border-ui)] px-3 text-xs font-medium text-ink-mid transition-colors hover:bg-white/10 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <MapPin className="w-3.5 h-3.5" aria-hidden="true" />
                 {pin ? 'Move pin' : 'Drop a pin'}
