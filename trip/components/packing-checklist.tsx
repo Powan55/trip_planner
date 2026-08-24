@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Backpack, Mountain, Compass, Globe2 } from 'lucide-react';
+import { Mountain, Compass, Globe2 } from 'lucide-react';
 import { usePacking } from '@/hooks/use-packing';
 import type { PackingCategory, PackingItem } from '@/core/packing/model';
 import { haptic } from '@/lib/haptics';
@@ -15,7 +15,8 @@ import CelebrationBurst from '@/components/celebration-burst';
  * state by design — the template is the value of the feature; only `checked`
  * persists per item, seeded on first load.
  *
- * A11y: a section `h2`, one `h3` per category group, real `<input
+ * A11y: a section `h2` (sr-only — `app/packing/page.tsx`'s masthead carries the visible
+ * title), one `h3` per category group, real `<input
  * type="checkbox">`/`<label>` pairs (native semantics, no ARIA re-implementation), ≥44px targets,
  * visible focus rings, static markup with no motion-only affordance (reduced-motion-safe by
  * construction). The progress indicator is a plain text node (not color-only).
@@ -69,14 +70,14 @@ export default function PackingChecklist() {
     <section aria-labelledby="packing-heading" data-testid="packing-checklist" className="relative mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
       <CelebrationBurst active={celebrate} testId="packing-celebration" celebrationId="packing-complete" />
       <header className="mb-6">
-        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
-          <Backpack className="h-3.5 w-3.5" aria-hidden="true" />
-          Two legs, one bag
-        </p>
-        <h2 id="packing-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
-          Packing <span className="text-display-emphasis">checklist</span>
+        {/* #218: the eyebrow and title used to be printed here a second time, ~40px under the
+            page masthead that already carries both. The heading stays as the section's
+            accessible name (`aria-labelledby` above) and the h2 the group h3s nest under —
+            sr-only, the same shape as the pre-hydration branch. */}
+        <h2 id="packing-heading" className="sr-only">
+          Packing checklist
         </h2>
-        <p data-testid="packing-progress" className="mt-3 text-sm font-medium text-ink-mid">
+        <p data-testid="packing-progress" className="text-sm font-medium text-ink-mid">
           {progress.checked}/{progress.total} packed
         </p>
         <div

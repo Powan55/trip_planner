@@ -3,9 +3,9 @@
 // which the island captures, persists (gateway key 23), and strips. The page then renders the
 // triage inbox — assign each shared link to a trip day or delete it. The island is lazy + ssr:false
 //, mirroring
-// app/packing/sections.tsx. Reached via a direct URL / the OS Share sheet / the command palette's
-// "Shared Links" entry — deliberately NOT wired into `lib/nav-items.ts` / the navbar / tab bar in
-// this change.
+// app/packing/sections.tsx. Reached as a companion in `lib/nav-items.ts` (the `/more/` page + the
+// desktop "More" menu), the command palette's "Shared Links" entry, the OS Share sheet, or a
+// direct URL.
 import PageHeader from '@/components/page-header';
 import { ShareInbox } from './sections';
 

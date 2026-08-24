@@ -23,7 +23,8 @@ import ImportPlaceSheet from '@/components/import-place-sheet';
  * (`rel="noopener noreferrer" target="_blank"`), a bounded Dec 9 … Jan 9 day-assign `<select>`
  * (reuses `core/dates` `TRIP_DATES`), and a delete. An empty inbox shows a designed empty state.
  *
- * A11y: a section `h2`, semantic `<ul>`/`<li>` rows, real `<label>`/`<select>`
+ * A11y: a section `h2` (sr-only — `app/share/page.tsx`'s masthead carries the visible title),
+ * semantic `<ul>`/`<li>` rows, real `<label>`/`<select>`
  * pairs, ≥44px targets, visible focus rings, static markup (reduced-motion-safe by construction).
  */
 
@@ -112,8 +113,13 @@ export default function ShareInbox() {
           <Inbox className="h-3.5 w-3.5" aria-hidden="true" />
           Triage inbox
         </p>
-        <h2 id="share-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
-          Shared <span className="text-display-emphasis">links</span>
+        {/* #218: the title used to be printed here a second time, ~40px under the page
+            masthead that already carries it. The heading stays as the section's accessible
+            name (`aria-labelledby` above) and the h2 the cards' h3s nest under — sr-only, the
+            same shape as the pre-hydration branch. The "Triage inbox" eyebrow is NOT a
+            duplicate: the masthead's reads "Shared to your trip". */}
+        <h2 id="share-heading" className="sr-only">
+          Shared links inbox
         </h2>
         <p className="mt-3 text-sm text-ink-mid">
           {items.length === 0

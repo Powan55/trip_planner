@@ -7,6 +7,7 @@ import {
   NPT_OFFSET_MIN,
   JST_OFFSET_MIN,
   offsetForCountry,
+  declaredOffsetForCountry,
   effectiveOffsetMin,
   parseTimeString,
   effectiveStartMinutes,
@@ -113,6 +114,14 @@ describe('offset constants + offsetForCountry', () => {
     expect(offsetForCountry('nepal')).toBe(345);
     expect(offsetForCountry('japan')).toBe(540);
   });
+  // #243 — with real geography the declared and the math resolver agree exactly, so the default
+  // pack cannot notice the split. (Runs before the A-8 block below, which points the module-load
+  // capture at a custom pack.)
+  it('declaredOffsetForCountry matches it on the default pack, unknown id included', () => {
+    expect(declaredOffsetForCountry('nepal')).toBe(345);
+    expect(declaredOffsetForCountry('japan')).toBe(540);
+    expect(declaredOffsetForCountry('atlantis')).toBe(NPT_OFFSET_MIN);
+  });
 });
 
 // A-8 — a custom trip's single leg carries the "unknown geography" placeholder
@@ -142,6 +151,29 @@ describe('offsetForCountry — custom-trip fallback when no leg has real geograp
 
     expect(freshOffsetForCountry('main')).toBe(-new Date().getTimezoneOffset());
     expect(freshOffsetForCountry('main')).not.toBe(0);
+  });
+
+  // #243 — the same pack, the other question. Instant math needs an anchor and takes the device
+  // offset above; an ASSERTION (the zone badge) must never, so it reads the leg's DECLARED value.
+  // That is the placeholder 0, which has no `ZONE_ABBREV_BY_OFFSET` entry ⇒ no badge.
+  it('declaredOffsetForCountry returns the leg placeholder 0 — no device substitution', async () => {
+    localStorage.clear();
+    sessionStorage.clear();
+    setActiveTripId('custom-notz');
+    setTripConfig('custom-notz', NO_TZ);
+
+    vi.resetModules();
+    const {
+      declaredOffsetForCountry: freshDeclared,
+      offsetForCountry: freshOffsetForCountry,
+      zoneAbbrevForOffset: freshZoneAbbrev,
+    } = await import('@/core/dates/item-time');
+
+    expect(freshDeclared('main')).toBe(0);
+    expect(freshZoneAbbrev(freshDeclared('main'))).toBeNull();
+    // The two resolvers now differ on this pack, which is the whole point — the badge must not
+    // inherit the anchor the instant math needs. (TZ is pinned to America/New_York, never UTC+0.)
+    expect(freshDeclared('main')).not.toBe(freshOffsetForCountry('main'));
   });
 });
 

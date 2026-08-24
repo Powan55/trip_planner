@@ -283,7 +283,7 @@ function TimeColumn<T extends string | number>({
         role="listbox"
         aria-labelledby={`${listId}-label`}
         tabIndex={-1}
-        className="max-h-44 overflow-y-auto scrollbar-hide rounded-lg bg-white/5 border border-white/10 p-1 space-y-1"
+        className="max-h-44 overflow-y-auto overscroll-contain scrollbar-hide rounded-lg bg-white/5 border border-white/10 p-1 space-y-1"
       >
         {options.map((opt, idx) => {
           const selected = opt === value;
