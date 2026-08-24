@@ -7,6 +7,7 @@
 // DefaultTripOnly wrapper below covers the typed-URL path.
 import PageHeader from '@/components/page-header';
 import DefaultTripOnly from '@/components/default-trip-only';
+import PrintButton from '@/components/print-button';
 import { SafetyKit } from './sections';
 
 export const metadata = {
@@ -26,6 +27,16 @@ export default function SafetyPage() {
           presented as the ACTIVE trip's safety kit — so a custom trip gets the same honest empty
           state /nepal, /japan, /guides and /flights already give, not another country's 999. */}
       <DefaultTripOnly>
+        {/* #223 — this route needs NO print-only twin. Unlike /plan (whose planner shows one day
+            at a time), the kit is static, semantic, already-validated content: three sections, a
+            real <h2> each, tables with <th scope>, and `lang="ne"`/`lang="ja"` on every native
+            script cell. The @media print block in app/globals.css turns it into ink on paper as
+            it stands, so what is added here is the way to ASK for it — a phone has no print
+            shortcut. Inside DefaultTripOnly on purpose: on a custom trip there is no kit below,
+            so there must be no button offering to print one. */}
+        <div className="mx-auto flex w-full max-w-4xl justify-end px-4 pb-4 sm:px-6 print:hidden">
+          <PrintButton label="Print safety sheet" />
+        </div>
         <SafetyKit />
       </DefaultTripOnly>
     </main>

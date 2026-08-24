@@ -179,6 +179,23 @@ describe('parseOpenMeteo (pure)', () => {
     expect(w!.goldenEvening).toEqual({ start: '2026-12-12T16:18', end: '2026-12-12T17:08' });
     expect(w!.stale).toBe(false);
     expect(w!.fetchedAt).toBe('2026-12-12T09:00:00.000Z');
+    // #246: this fixture predates the field, so it parses fine and reports no apparent
+    // temperature — the body is NOT rejected for missing it.
+    expect(w!.feelsLikeC).toBeNull();
+  });
+
+  it('#246: maps current.apparent_temperature when present, rounded, 0 preserved', () => {
+    const windy = {
+      ...KATHMANDU_FIXTURE,
+      current: { ...KATHMANDU_FIXTURE.current, temperature_2m: 4.0, apparent_temperature: -1.6 },
+    };
+    expect(parseOpenMeteo(windy, 'Kathmandu', 'x')!.feelsLikeC).toBe(-2); // rounded from -1.6
+    const freezing = {
+      ...KATHMANDU_FIXTURE,
+      current: { ...KATHMANDU_FIXTURE.current, apparent_temperature: 0 },
+    };
+    // 0 is a real reading on a winter trip — a falsiness guard would have dropped it to null.
+    expect(parseOpenMeteo(freezing, 'Kathmandu', 'x')!.feelsLikeC).toBe(0);
   });
 
   it('returns null on a malformed body (missing current / daily fields)', () => {
@@ -294,7 +311,10 @@ describe('fetchWeather (total; write-through + offline fallback)', () => {
     expect(url.startsWith('https://api.open-meteo.com/v1/forecast?')).toBe(true);
     expect(url).toContain('latitude=27.7172');
     expect(url).toContain('longitude=85.324');
-    expect(url).toContain('current=temperature_2m%2Cweather_code');
+    expect(url).toContain('current=temperature_2m%2Capparent_temperature%2Cweather_code');
+    // #246: apparent temperature is a CURRENT variable, not a daily one — the daily list is
+    // unchanged, so the card gains one number rather than a second pair of min/max.
+    expect(url).not.toContain('apparent_temperature_max');
     expect(url).toContain('timezone=auto');
     expect(url).not.toMatch(/api[_-]?key|apikey|appid|token=/i); // KEYLESS — no secret
     // #54A — the request carries an abort signal, so a STALLED connection (one that neither

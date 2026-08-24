@@ -16,7 +16,10 @@ import PlanHero from '@/components/plan-hero';
 // keep the initial shell light. (A4): Backup & Restore moved OFF /plan into Settings
 // (components/settings-panel.tsx Data group — where it was already mounted), so /plan stays
 // calendar-first; it is no longer imported/rendered here.
-import { CalendarPlanner, PlanActivity, BudgetPanel } from './sections';
+// (#223): PrintItinerary rides the same ./sections client module. On screen it is a single
+// "Print itinerary" button; at `print` it becomes the whole 32-day sheet and everything else on
+// this route steps aside — see the `print:hidden` wrappers below.
+import { CalendarPlanner, PlanActivity, BudgetPanel, PrintItinerary } from './sections';
 
 export const metadata = {
   title: 'Plan · Nepal × Japan Journey',
@@ -28,8 +31,15 @@ export default function PlanPage() {
     <main className="min-h-screen bg-surface">
       {/* PlanHero supplies the page's <h1> ( pages shipped
           without one — a11y win). Section components keep their own <h2>s. */}
-      <PlanHero />
-      <CalendarPlanner />
+      {/* #223 — the three `print:hidden` wrappers are BARE blocks: the Tailwind print variant
+          emits nothing outside `@media print`, so on screen these are unstyled <div>s with no
+          width, padding or grid of their own. That matters here specifically because of the
+          no-outer-rail note above — a wrapper that constrained width would squeeze the planner's
+          day-detail column at 1280 (e2e/plan-map-split.spec.ts). This one cannot: it declares no
+          screen CSS at all. */}
+      <div className="print:hidden"><PlanHero /></div>
+      <PrintItinerary />
+      <div className="print:hidden"><CalendarPlanner /></div>
       {/* The wrapper is load-bearing: ActivityFeed has no horizontal padding of its own (the
           timeline section used to supply it), so at 320px it would run edge-to-edge. A wrapper
           AROUND LazyVisible is fine — the island recipe forbids JSX children passed INTO it,
@@ -42,8 +52,8 @@ export default function PlanPage() {
           matters, move the padding onto a `className`-applying reference component and pass THAT
           to LazyVisible (the `GatedTravelInspiration` precedent in app/page.tsx), so it renders
           only when the feed does. */}
-      <div className="px-4 pb-16 sm:px-6"><PlanActivity /></div>
-      <BudgetPanel />
+      <div className="px-4 pb-16 sm:px-6 print:hidden"><PlanActivity /></div>
+      <div className="print:hidden"><BudgetPanel /></div>
     </main>
   );
 }

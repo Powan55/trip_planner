@@ -13,6 +13,7 @@ import {
   effectiveStartMinutes,
   formatTimeAmPm,
   placeWallClockToUtcMs,
+  formatHomeClock,
 } from '@/core/dates';
 import { TRIP_ITINERARY } from '@/core/content/itinerary';
 import type { ItineraryItem } from '@/lib/trip-data';
@@ -249,3 +250,41 @@ describe('placeWallClockToUtcMs — B-01-safe field arithmetic (matrix item 11)'
 // the helper's ONLY caller tree-wide — six assertions keeping a one-line wrapper alive after
 // S377 inlined it. The strictness they pinned (an item exactly AT "now" is still upcoming) is
 // covered where the behaviour actually lives now: `lib/__tests__/whats-next.test.ts`.
+
+// ── #220 — the home clock ────────────────────────────────────────────────────────────────────
+// Substring assertions, not equality: the exact spacing/order of an `Intl` output is the
+// runtime's ICU data, not ours (the same reason `lib/__tests__/trip-data.test.ts` asserts by
+// substring). What is load-bearing is the HOUR, and that it tracks DST.
+describe('formatHomeClock — US Eastern via Intl, DST resolved per instant', () => {
+  it('winter instant reads EST (UTC-5)', () => {
+    const s = formatHomeClock(new Date('2026-12-12T12:00:00Z'))!;
+    expect(s).toContain('7:00'); // 12:00Z − 5h
+    expect(s).toContain('AM');
+    expect(s).toContain('Sat');
+  });
+
+  it('summer instant reads EDT (UTC-4) — the case a fixed -300 offset gets wrong', () => {
+    // ZONE_ABBREV_BY_OFFSET's -300/EST row is documented December-and-January-only. A home clock
+    // is read year-round, months before departure, so it cannot be built on that offset.
+    expect(formatHomeClock(new Date('2026-08-24T12:00:00Z'))).toContain('8:00'); // 12:00Z − 4h
+  });
+
+  it('carries the weekday, because home is routinely still yesterday', () => {
+    // Sunday 08:15 in Kathmandu (UTC+5:45) is Saturday evening at home — the whole point of
+    // showing this before dialling.
+    const s = formatHomeClock(new Date('2026-12-13T02:30:00Z'))!;
+    expect(s).toContain('Sat');
+    expect(s).toContain('9:30');
+    expect(s).toContain('PM');
+  });
+
+  it('is total — an Intl build with no zone data yields null, never a wrong time', () => {
+    vi.stubGlobal('Intl', {
+      DateTimeFormat: () => {
+        throw new RangeError('Invalid time zone specified: America/New_York');
+      },
+    });
+    expect(formatHomeClock(new Date('2026-12-12T12:00:00Z'))).toBeNull();
+    vi.unstubAllGlobals();
+  });
+});

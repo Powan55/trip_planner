@@ -39,3 +39,22 @@ export const BudgetPanel = dynamic(() => import('@/components/budget-panel'), {
   ssr: false,
   loading: () => <SectionSkeleton height="28rem" count={2} />,
 });
+
+// Issue #223 — the paper fallback. `ssr: false` for the same reason as the planner above: it
+// reads the itinerary store, i.e. localStorage, so a server render would emit the seed pack and
+// hydration would fight it. No `loading:` skeleton — a print-only surface has no box to reserve.
+//
+// DELIBERATELY NOT THROUGH LazyVisible, and the reason is a trade, not an oversight. Deferring it
+// would keep its chunk out of /plan's initial preload manifest — measured cost of NOT deferring:
+// this is the only thing on /plan that reaches lib/booking-data.ts (11.6 KB of source, no imports
+// of its own, ~2 KB gzipped), and nothing else in the route's graph pulls it. Two reasons the
+// bytes lose anyway:
+//   1. The sheet has to EXIST the moment somebody reaches for print. Behind LazyVisible there is a
+//      window — however short — where /plan's own surfaces are already `print:hidden` and the
+//      sheet has not mounted, i.e. Ctrl+P prints a blank page. A backup that races a chunk load is
+//      the wrong shape for the one feature whose whole job is being there when nothing else is.
+//   2. It renders the on-screen print BUTTON too. With `minHeight="0px"` (the `PlanActivity`
+//      recipe) the placeholder reserves nothing, so a late mount would push the planner down by a
+//      44px control — a layout shift on screen, paid for a surface that only exists on paper.
+// Nothing in CI measures route bundle size; the ~2 KB above comes from reading the module graph.
+export const PrintItinerary = dynamic(() => import('@/components/print-itinerary'), { ssr: false });

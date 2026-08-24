@@ -1,0 +1,43 @@
+version: 2
+
+# Two things here are easy to get wrong and silent when you do.
+#
+# `directory: /trip` — the only package.json in this repo is trip/package.json.
+# The default `/` would watch nothing and report nothing, which looks identical
+# to "no updates available".
+#
+# `target-branch: dev` — every change lands on dev first, and main deploys on
+# merge. Note the trade this makes: with target-branch set, this config no
+# longer applies to Dependabot *security* updates, which always target the
+# default branch. Security updates are off at the repo level today, so nothing
+# is currently routed at main; if they are ever switched on, they will open
+# against main and want a version bump and a release note before they can go in.
+
+updates:
+  - package-ecosystem: npm
+    directory: /trip
+    target-branch: dev
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      # One PR a month for the routine drift. Majors stay ungrouped so each one
+      # gets read on its own.
+      npm-minor-and-patch:
+        patterns: ['*']
+        update-types: [minor, patch]
+
+  # Every `uses:` is pinned to a commit SHA. Dependabot rewrites the SHA and the
+  # trailing `# vX.Y.Z` comment, so the pin keeps its meaning and stops being a
+  # slow freeze onto old action releases. Worth knowing: SHA-pinned actions never
+  # produce Dependabot alerts, so this scheduled bump is the only thing watching
+  # them at all.
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        patterns: ['*']

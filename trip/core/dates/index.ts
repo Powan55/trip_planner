@@ -29,6 +29,8 @@ export {
   declaredOffsetForCountry,
   zoneAbbrevForOffset,
   type ZoneAbbrev,
+  HOME_TIME_ZONE,
+  formatHomeClock,
   effectiveOffsetMin,
   parseTimeString,
   parseDurationText,
