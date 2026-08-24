@@ -4908,3 +4908,79 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **Known ceiling.** Per-tab and per-page-load; two tabs each learn a refusal independently, and membership granted mid-session needs a reload. The read side is also unclassified — the snapshot stream's error callback warns and retries without checking for a denial — which is a sibling gap, not this one.
 
 **Changes if:** the read path is classified too, or a recovery flow lands that can clear a refusal without a reload.
+
+### D-434 · (issue #221, 2026-08-24) · Journal search lives on `/journal`, not in the command palette
+
+**Decision.** A substring filter over `useJournal().entries` in `components/journal-browse.tsx`, exported as `matchesJournalQuery`. No index, no dependency, no second read path.
+
+**The issue proposed a palette group and that was rejected on a fact, not a preference: the command palette has no mobile trigger.** Its only two openers are the Cmd/Ctrl+K binding, which needs a physical keyboard, and the More-menu Search row in the desktop navigation — `navbar.tsx` records that the mobile hamburger was removed, and neither the bottom tab bar nor `/more/` carries a Search row. The journal is written and re-read on a phone mid-trip, so a palette-only search would have shipped unreachable for its whole audience. Filed separately as issue #281, because it makes plan search, the currency converter and section jumps desktop-only too.
+
+**Active-trip scoping is structural, not a filter.** `useJournal()` reads through the gateway's trip-namespaced key, so the filter's output is a subset of the active trip's entries by construction — the same guarantee the palette's own plan group relies on.
+
+**Mood is deliberately not matched.** It is a chip facet; "good" is too common a word in a body for it to be a useful substring.
+
+**If a mobile palette trigger ever lands, `matchesJournalQuery` is the extraction point. Do not duplicate the matcher.**
+
+### D-435 · (issue #220, 2026-08-24) · `HOME_TIME_ZONE` is an assumption, and it is an IANA id on purpose
+
+**Decision.** A home clock renders on the Travel Mode essentials card, gated to the default trip. The zone is one exported constant in `core/dates/item-time.ts`.
+
+**The app stores no home location.** There is a home *currency* in the budget model and nothing else. The zone is derived from the default pack's flight-home destination and is written down as an assumption rather than smuggled into a component. A custom trip renders no clock at all rather than showing a stranger someone else's home time.
+
+**It is an IANA zone id, not the `-300` offset, and that is the load-bearing detail.** The offset table's US Eastern row is documented as December and January only; the zone is `-240` for most of the year. A home clock gets read months before departure, so a fixed offset would show the wrong hour nearly all the time. `Intl` resolves the offset per instant, including across the DST boundary inside the reading window.
+
+**It reads the real clock, never the trip's.** The `?today=` override moves the trip's day; it does not move the wall time at home.
+
+**Changes if:** a pack can declare a home, at which point this moves onto the pack and the default-trip gate comes off.
+
+### D-436 · (issue #236, 2026-08-24) · A removal the itinerary will undo is announced as temporary, not prevented
+
+**Decision.** `/profile` marks a row the active trip names, carries the caveat in the remove button's accessible name, and announces that the place will be counted again. The button stays and `removeVisit` is unchanged.
+
+**Why not hide or disable the control.** The write is real — the row goes, the count drops, disk changes. Only its permanence was over-claimed. Hiding remove for a trip-claimed place would encode "the itinerary wins" into the UI, and `core/places/visited.ts` records that decision as deliberately open. A disabled control with no explanation is also worse for a screen reader than a labelled live one.
+
+**The claimed set is the whole trip, not the arrived-so-far prefix.** The prefix version is clock-dependent and would still lie about a future city — remove it in August, and it silently returns the day the trip reaches it. Using every trip place makes the sentence true in both cases and needs no clock.
+
+**This does not settle the ceiling at `removeVisit`.** Which record wins, the itinerary or the person, is still open. Note the related asymmetry filed as issue #279: the removal drops the city's GPS confirmation permanently while the city itself returns.
+
+### D-437 · (issue #234, 2026-08-24) · Dependabot watches `trip/`, targets `dev`, and may move the SHA pins
+
+**Decision.** `.github/dependabot.yml` with the npm and github-actions ecosystems, monthly, grouped, majors ungrouped.
+
+**Two settings are silent when wrong.** `directory: /trip`, because that is where the only manifest lives and the default `/` would watch nothing while looking identical to "no updates available". `target-branch: dev`, because everything lands there first — with the consequence that this config does **not** apply to Dependabot security updates, which always target the default branch.
+
+**`.npmrc` is honoured, which is the thing that decides whether this config is useful at all.** Dependabot fetches a committed `.npmrc` from the configured directory, preserves it apart from interpolated and timeout lines, and writes it beside the lockfile before resolving. So `legacy-peer-deps=true` is in force and the `@types/node` peer conflict never fires. This matters because Dependabot deliberately does not retry with that flag on a peer-dependency failure — without the committed file, every PR it opened would fail to resolve.
+
+**The actions ecosystem is enabled despite every `uses:` being SHA-pinned.** Pinned actions never generate advisories, by design, so a scheduled bump is the only coverage they have; pinning without one is a slow freeze onto old releases. Dependabot rewrites both the SHA and the bare version comment, so the pin keeps its meaning.
+
+**No `npm audit` step in CI.** It would go red on two transitive low-severity advisories for a dev-only issue and block merges, which is the wrong trade.
+
+**This does not close the advisory gap.** Dependabot alerts are disabled at the repository level — a settings toggle, not a file. Filed as issue #277.
+
+### D-438 · (issue #223, 2026-08-24) · A print stylesheet is not a light theme, and does not reopen D-009
+
+**Decision.** One `@media print` block appended to `app/globals.css`, plus Tailwind `print:` variants. Two routes earn a designed paper layout: `/safety` restyled in place, and `/plan` rendering a separate print-only 32-day sheet. `/flights` gets none — its bookings fold into the plan sheet.
+
+**Why this does not reopen dark-only.** Print is a separate media context the browser selects when the output device is paper. It adds no toggle, no theme class, no user-facing choice, and cannot match at screen. Ink is subtractive: on paper white is the absence of toner, so the night canvas is not merely expensive to print, it is unreadable once printed.
+
+**The safety property, and how it is checked.** The block is appended, and everything before it is byte-identical to the prior revision, with exactly one `@media` in the added text. That is verifiable mechanically rather than by reading, and it is what guarantees no screen rule moved.
+
+**Why `/plan` gets a twin rather than a restyle.** The planner shows one day at a time, so restyling it for paper prints a month grid and a single day — not an itinerary.
+
+**Why `/flights` gets nothing.** A traveller carries one sheet, not three, and proof of onward travel is only proof when it is attached to the itinerary. The flight cards are a live-status and deep-link surface whose value is entirely on screen.
+
+**Ink tiers are `#000` / `#333` / `#555` on white — 21.00, 12.63 and 7.46 to one.** The floor lands within 0.04 of the screen ramp's own floor, so the three-tier contrast decisions hold on paper as written rather than by luck. Still three tiers, no fourth.
+
+**Two things only rendering finds, both handled.** The gradient heading classes set `-webkit-text-fill-color: transparent`, so stripping the gradient and setting a colour leaves those headings invisible. And framer-motion parks unrevealed elements at an inline `opacity: 0`, which a print job renders regardless of what anyone scrolled to — an author `!important` is the only thing that reaches them.
+
+**Known ceiling: no page numbers.** The `@page` margin-box counters that would provide them are a paged-media feature no browser ships. Numbered day headings carry the ordering instead.
+
+### D-439 · (issues #252 and #253, 2026-08-24) · A time-windowed checklist claim is anchored in the label, not in a new field
+
+**Decision.** The Nepal visa row names the earliest useful date in its own label, and the power-bank row states the carry-on rules in its own label.
+
+**Why not a due-date field on the row type.** `DocItem` extends the synced row type, so a new field drags the merge and rules surface along with it — for a value that never varies, because the trip dates are fixed. A literal in the copy is the smaller and more honest change. `PackingItem` has no notes field at all, so the label is the only place the rules can go.
+
+**Why these read as they do.** The visa receipt is valid fifteen days, so ticking the row in September is a false green on the one item that gates entry; the anchor is chosen to sit inside the window under either inclusive or exclusive day-counting. The power-bank row states only the firm carrier-wide rules and deliberately omits the lower ceiling one carrier flags for January 2027 — encoding a maybe into a packing label is how a wrong label ships in December.
+
+**These rest on external facts that can move.** They are worth re-verifying before departure, and the claims are kept short specifically so that re-check is cheap.
