@@ -160,6 +160,23 @@ docs: correct the storage-key table
 Lower case after the colon, no trailing full stop. Explain the *why* in the body
 if it is not obvious from the diff.
 
+## Closing issues
+
+Use a closing keyword in the **pull request** body — `Closes #212`, or
+`Closes: #212, #213 and #214` for a batch. A bare `#212` links the issue but does
+not close it, which is deliberate: a pull request body routinely cites an issue as
+context rather than as work done, and a bare-number rule would close the ones you
+only mentioned.
+
+GitHub's own linking only fires on the default branch, which is `main`, so it never
+fires for the pull requests you actually open. `.github/workflows/close-on-dev.yml`
+does it instead, on merge into `dev`.
+
+Closed there means merged, **not** shipped — nothing is live until `dev` merges to
+`main` and the deploy runs. The workflow says so in a comment on every issue it
+closes, because with no rollback available a closed issue must never be mistaken
+for one that is in production.
+
 ## Versions and deploys
 
 Every deploy must carry a version nobody has shipped before, and every deploy must

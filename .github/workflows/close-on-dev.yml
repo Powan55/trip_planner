@@ -1,0 +1,83 @@
+# Closes the issues a merged pull request references, when it lands on `dev`.
+#
+# WHY THIS EXISTS AT ALL: GitHub's own "Closes #N" only fires for the DEFAULT branch, which is
+# `main`. Every pull request here targets `dev` first, so the built-in behaviour never fired and
+# issues stayed open until somebody swept them by hand after a release.
+#
+# `main` stays the default branch deliberately — it is the released, deployed state, and the
+# repository's front door should show that rather than integration work in progress.
+#
+# WHAT IT DOES NOT MEAN: landing on `dev` is not shipping. Nothing is live until `dev` merges to
+# `main` and the deploy runs, so every issue closed here gets a comment saying exactly that. There
+# is no rollback from a bad deploy, so "closed" must never be read as "in production".
+name: Close issues on dev merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [dev]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  close:
+    name: Close referenced issues
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close every issue the pull request references
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Title and body go through the environment, never interpolated into the script body.
+          # A pull request title is attacker-controlled text; `${{ }}` inside `run:` would splice
+          # it straight into the shell.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # A CLOSING KEYWORD IS REQUIRED, exactly as GitHub's own linking does it. Matching bare
+          # `#N` looked simpler and is wrong: a pull request body routinely cites an issue as
+          # context rather than as work done. Tested against a real 16-issue body, bare matching
+          # also picked up an unrelated owner-action security issue that was merely referenced,
+          # and would have closed it.
+          #
+          # A keyword may be followed by a run of references, so `Closes: #1, #2 and #3` counts
+          # for all three — batched pull requests here list many.
+          refs=$(printf '%s\n%s\n' "$PR_TITLE" "$PR_BODY" \
+                 | grep -oiE '(clos(e|es|ed)|fix(es|ed)?|resolv(e|es|ed))[[:space:]]*:?[[:space:]]*(#[0-9]+([[:space:],]+(and[[:space:]]+)?#[0-9]+)*)' \
+                 | grep -oE '#[0-9]+' \
+                 | tr -d '#' \
+                 | sort -un \
+                 | grep -vx "$PR_NUMBER" || true)
+
+          if [ -z "$refs" ]; then
+            echo "No issue references found in #$PR_NUMBER."
+            exit 0
+          fi
+
+          closed=0
+          for n in $refs; do
+            # A reference may be another pull request, or an issue somebody already closed.
+            # Ask what it is rather than assuming, and skip anything that is not an open issue —
+            # closing a pull request by accident here would be worse than doing nothing.
+            kind=$(gh api "repos/$REPO/issues/$n" --jq 'if .pull_request then "pr" else .state end' 2>/dev/null || echo "missing")
+            case "$kind" in
+              open)
+                gh issue comment "$n" --repo "$REPO" \
+                  --body "Merged to \`dev\` in #$PR_NUMBER. Not live yet — that happens when \`dev\` merges to \`main\` and the deploy runs."
+                gh issue close "$n" --repo "$REPO" --reason completed
+                echo "closed #$n"
+                closed=$((closed + 1))
+                ;;
+              pr)      echo "skip #$n (pull request)" ;;
+              missing) echo "skip #$n (not found)" ;;
+              *)       echo "skip #$n (already $kind)" ;;
+            esac
+          done
+
+          echo "Closed $closed issue(s) referenced by #$PR_NUMBER." >> "$GITHUB_STEP_SUMMARY"
