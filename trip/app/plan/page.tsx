@@ -38,8 +38,8 @@ export default function PlanPage() {
           day-detail column at 1280 (e2e/plan-map-split.spec.ts). This one cannot: it declares no
           screen CSS at all. */}
       <div className="print:hidden"><PlanHero /></div>
-      <PrintItinerary />
       <div className="print:hidden"><CalendarPlanner /></div>
+      <PrintItinerary />
       {/* The wrapper is load-bearing: ActivityFeed has no horizontal padding of its own (the
           timeline section used to supply it), so at 320px it would run edge-to-edge. A wrapper
           AROUND LazyVisible is fine — the island recipe forbids JSX children passed INTO it,
