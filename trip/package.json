@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack && node scripts/flatten-segment-payloads.mjs && node scripts/gen-sw.mjs",
+    "build:e2e": "node -e \"process.env.NEXT_PUBLIC_CONCIERGE_URL='https://concierge.test';require('child_process').execSync('npm run build',{stdio:'inherit'})\"",
     "analyze": "next build --webpack && node scripts/flatten-segment-payloads.mjs && node scripts/gen-sw.mjs",
     "start": "next start",
     "lint": "eslint .",

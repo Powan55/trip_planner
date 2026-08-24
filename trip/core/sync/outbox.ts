@@ -15,7 +15,10 @@
 // EXACTLY-ONCE: at-least-once transport × idempotent merged writes. A dirty
 // chunk is retried until one `pushChunk` RESOLVES (the record persists across reloads); the ack
 // then ends retries; duplicate flushes produce value-identical docs because the merge algebra IS
-// the dedup (no tokens, no sequence numbers).
+// the dedup (no tokens, no sequence numbers). #267 adds the one other way retries end: a chunk the
+// RULES REFUSED is not retried again this page load — see the `denied` block below. It is not
+// acked and not dropped, so it stays queued and stays protected; it just stops being attempted,
+// and `outboxBlocked()` makes it visible instead of leaving it silently "pending".
 //
 // THE DECORATOR SEAM: `withOutbox` wraps a domain's push into a `SyncPort['push']`, so the
 // reactive-store factory's `commit()` tail is untouched. The
@@ -33,6 +36,7 @@
 
 import type { StoragePort, SyncPort } from '@/core/ports';
 import { keyFor, readJson, writeJson, removeKey } from '@/core/storage/gateway';
+import { isPermissionDenied } from '@/core/sync/denied';
 import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 
@@ -146,6 +150,65 @@ export function outboxSnapshot(): { dirty: OutboxSlot['dirty']; lastAckAt: strin
   return { dirty: slot.dirty, lastAckAt: slot.lastAckAt ?? null };
 }
 
+// ── #267: A REFUSED WRITE IS NOT A FAILED ONE. ───────────────────────────────────────────────
+// The `catch` below swallows a rejection so the chunk retries, which is right for a transport
+// failure and wrong for a rules refusal. A `permission-denied` answers identically on every
+// retry — this device is not in the trip's `members` map, or the write is over `firestore.rules`'
+// shape bound — so the chunk is re-pushed on every flush trigger (tab focus, `online`, every
+// mount) for the rest of the session, while the badge reads "pending" with nothing that can ever
+// clear it. `firestore.rules` names that outcome in those words.
+//
+// A refused chunk is recorded here and SKIPPED until the page reloads. Deliberately NOT acked and
+// deliberately NOT persisted:
+//   · not acked — the chunk MUST stay dirty. The dirty set is also what protects an unpushed local
+//     edit from the first-snapshot authoritative apply (D-150's merge exception), so acking a
+//     refused chunk would DISCARD on reload the very edit that could not be pushed. It stays
+//     queued; it just stops being re-attempted.
+//   · not persisted — membership can be granted later, from another device. `lib/presence.ts`
+//     draws the same line for the same refusal ("re-arms on the next page load"), and a flag on
+//     disk would need an expiry protocol to avoid blocking a chunk that is now allowed.
+//
+// Keyed by the TRIP-scoped slot key, not by domain+chunk alone: `budget`/`model` and
+// `docs`/`checklist` are singleton chunk ids shared by every trip, so a bare key would carry one
+// trip's refusal into another across a switch that did not reload.
+const denied = new Set<string>();
+
+function deniedKey(domain: SyncDomain, chunk: string): string {
+  return JSON.stringify([keyFor('syncOutbox'), domain, chunk]);
+}
+
+/** Record a refusal and say so ONCE per chunk, then let the badge re-read via the same change
+ * event every slot write already dispatches. */
+function markDenied(domain: SyncDomain, chunk: string): void {
+  const key = deniedKey(domain, chunk);
+  if (denied.has(key)) return;
+  denied.add(key);
+  console.warn(
+    `[outbox] ${domain}/${chunk} was refused by the rules — not retrying it this page load`,
+  );
+  notifyChanged();
+}
+
+/**
+ * #267 — how many CURRENTLY-DIRTY chunks the rules refused this page load. Session state rather
+ * than slot state, which is why it is its own read instead of a field on `outboxSnapshot()`.
+ *
+ * Intersected with the live dirty map on purpose: a trip switch or a `wipeTripData` clears the
+ * slot but not this in-memory set, and a count for chunks that no longer exist would be a badge
+ * that cannot be cleared. Same `enabled()` gate as every other entry point; never throws.
+ */
+export function outboxBlocked(): number {
+  if (!enabled() || denied.size === 0) return 0;
+  const { dirty } = loadSlot();
+  let n = 0;
+  for (const domain of Object.keys(dirty) as SyncDomain[]) {
+    for (const chunk of dirty[domain] ?? []) {
+      if (denied.has(deniedKey(domain, chunk))) n += 1;
+    }
+  }
+  return n;
+}
+
 /** Write-ahead: union the chunks into the domain's dirty set (synchronous localStorage write,
  * BEFORE any network). Re-enqueueing an already-dirty chunk is a set no-op. Preserves whatever
  * `lastAckAt` was already on disk — enqueuing new dirty work doesn't erase the last-synced
@@ -197,6 +260,14 @@ interface ChunkRun {
 const running = new Map<string, ChunkRun>();
 
 function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T): Promise<void> {
+  // #267: refused this page load ⇒ do not attempt it again. The guard sits HERE and not in
+  // `flushOutbox` because this is the one choke point BOTH the commit path and the flush path
+  // route through — one check covers every caller, present and future. The write-ahead enqueue has
+  // already run by now, so the chunk stays dirty and stays protected against the first-snapshot
+  // apply; it just stops burning a refused write on every flush trigger.
+  // `denied.size` first so the ordinary path — nothing refused, ever, on most devices — does not
+  // pay `deniedKey`'s gateway read on every single push.
+  if (denied.size > 0 && denied.has(deniedKey(cs.domain, chunk))) return Promise.resolve();
   const key = `${cs.domain}\u0000${chunk}`; // NUL: chunk keys are dates / leg ids, never contain it
   const live = running.get(key);
   if (live) {
@@ -215,9 +286,17 @@ function pushChunkOnce<T>(cs: ChunkSync<T>, chunk: string, current: T): Promise<
         run.superseded = false;
         try {
           await cs.pushChunk(chunk, run.latest as T); // ② attempt
-        } catch {
+        } catch (err) {
           // ④ rejection swallowed — the write-ahead record persists, so the chunk retries on the
           // next flush trigger (and across a reload). NEVER rethrow to the commit caller.
+          //
+          // #267: but CLASSIFY it first. A rules refusal is not a transient failure, and retrying
+          // it is not resilience — it is an unkillable write loop behind a badge that says
+          // "pending" forever. Recording it keeps the never-throw contract exactly as it was: this
+          // still swallows and still returns, it just stops pretending the next attempt is worth
+          // making. `markDenied` is total (a Set add, a warn, a same-tab event) so it cannot turn
+          // this catch into a throw.
+          if (isPermissionDenied(err)) markDenied(cs.domain, chunk);
           return;
         }
         // ③ ack-on-resolve, but ONLY for the attempt that carried the newest state. Both the

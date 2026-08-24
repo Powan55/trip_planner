@@ -115,6 +115,19 @@ jobs:
           # A non-resolving origin (the reserved .test TLD) so the concierge
           # chat component mounts and is covered, without calling anything real.
           NEXT_PUBLIC_CONCIERGE_URL: https://concierge.test
+          # Derived from the same expression deploy.yml uses, so this build cannot
+          # drift from the shipped one (#268). Until now nothing in CI set it, every
+          # check ran against next.config.js's empty-string default, and the basePath
+          # configuration was first exercised by the job that publishes it. This build
+          # is where scripts/gen-sw.mjs produces its precache manifest, so a prefix bug
+          # in there now fails here instead of on the live site.
+          #
+          # DELIBERATELY NOT SET on the `e2e` and `visual` jobs below — that omission is
+          # not an oversight. Both serve out/ through scripts/serve-out.mjs, which maps
+          # "/" to out/index.html and knows nothing about a prefix, so under a basePath
+          # build every asset and every navigation would 404. Mounting serve-out.mjs at
+          # the prefix is its own change; do not add the variable there without it.
+          NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
         run: npm run build
 
   # firestore.rules is published by the release now (deploy.yml's `publish-rules`, issue #39 /

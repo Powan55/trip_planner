@@ -12,10 +12,9 @@
 // This Server Component owns the sheet, the <h1> and the empty-state copy so they are all in the
 // prerendered HTML; the device-dependent half is the ssr:false island in ./sections.
 //
-// Reached by direct URL only for now — deliberately NOT wired into `lib/nav-items.ts` / the navbar
-// / tab bar / command palette, the same deferral /journal, /safety and /recap shipped under (those
-// files are pinned by `lib/__tests__/nav-items.test.ts` down to the exact label list, and the entry
-// point this page really wants is issue #4's profile screen, which is being built in parallel).
+// Reached as a companion in `lib/nav-items.ts` (the `/more/` page + the desktop "More" menu), the
+// command palette, or a direct URL. That catalog is pinned by `lib/__tests__/nav-items.test.ts`
+// down to the exact label list, so moving this entry fails there.
 import { Reveal } from '@/components/reveal';
 import { PassportStamps } from './sections';
 

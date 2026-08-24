@@ -4754,7 +4754,9 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 
 **Changes if:** the owner adds `Visual regression (Windows baselines)` to branch protection, at which point this job is the actual gate and not just a reporting job.
 
-### D-379 · (issue #180, 2026-08-22) · The CSP is a `<meta>` tag, not a header, and that shape sets its own ceilings
+### D-381 · (issue #180, 2026-08-22) · The CSP is a `<meta>` tag, not a header, and that shape sets its own ceilings
+
+**Renumbered from D-379 by issue #219.** Two unrelated decisions were both headed `D-379`: the `windows-latest` visual job (issue #179, above) and this one. The visual-job entry keeps the id because it is the one with inbound citations — `.github/workflows/ci.yml:226` and `:279` both name D-379 and both mean that decision. This entry had none, so it moved. D-380 was already taken, so this took the next free id; D-382 through D-398 remain unused. The file's next new id is D-424.
 
 **Decision.** `lib/csp.ts` builds the policy string at build time; `app/layout.tsx` emits it as `<meta http-equiv="Content-Security-Policy">` plus a `<meta name="referrer">`. Both directives and rationale live at the point of use in `lib/csp.ts` and `layout.tsx` — this entry is the why plus the tripwires, not a restatement.
 
@@ -4780,3 +4782,129 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **What changed.** The `No credential — rules NOT published` step in `publish-rules` now sets `continue-on-error: true` and ends with `exit 1` (upgraded from an implicit exit 0). GitHub renders a `continue-on-error` step that fails with a distinct warning icon in the run summary and checks list, so the skip path is no longer a plain green checkmark indistinguishable from a real publish. The step's own `::warning::` annotation is upgraded to `::error::` to match.
 
 **What did NOT change.** `publish-rules`'s JOB conclusion is still success when the secret is absent — `continue-on-error` absorbs the step failure before it reaches the job — so `deploy: needs: publish-rules` still runs and the Pages deploy still ships exactly as it does today. The `Publish firestore.rules` step (the credential-present path) is untouched. D-399's INERT-until-armed contract stands: this fixes visibility of the skip, not the skip itself.
+
+### D-424 · (issue #264, 2026-08-24) · The vitest `include` enumerates source roots, and that enumeration is load-bearing
+
+**Decision.** `vitest.config.ts` collects `{app,components,core,hooks,lib}/**/*.test.{ts,tsx}`. Two axes widened at once: any depth under those roots, and no requirement that a test sit in a `__tests__/` directory. A test may now live beside the module it covers.
+
+**Why it needed fixing at all.** The previous glob reached `{lib,components}/__tests__/` only, so a test written under `core/` or `hooks/` — the natural home for domain logic — was collected by nothing and passed CI by being absent. That is the same failure the D-099-era comment on this line already named when issue #32 widened the *extension* axis; #32 fixed one axis and left the other. Issue #173 filed the resulting layout and was closed by a commit that touched only `rule.md`, so the mechanism survived untouched and the count grew from 191 to 198.
+
+**Do not "simplify" this to `**/*.test.{ts,tsx}` from the project root.** The roots are enumerated specifically to keep `e2e/` out of vitest's reach. Playwright's specs are all `.spec.ts` today, but Playwright's default `testMatch` also covers `*.test.ts`, so the first `e2e/foo.test.ts` would be collected by both runners and vitest would fail on the Playwright imports. Measured on the glob change in isolation: 203 files collected before and after, zero lost, no `e2e/` file swept in. The suite reports 204 once this batch's new spec lands.
+
+**Known ceiling.** `scripts/` is deliberately outside the list — it is build tooling, and its tests live in `lib/__tests__/` today. A test placed at `scripts/**/__tests__/` is still collected by nothing. Narrower instance of the same fault, left open rather than widened without a reason to.
+
+**Changes if:** a test lands under `scripts/`, or Playwright's `testMatch` is narrowed to `.spec.ts` explicitly — the second would make a root-level glob safe and this enumeration unnecessary.
+
+### D-425 · (issue #248, 2026-08-24) · The installed app does not lock orientation
+
+**Decision.** `scripts/gen-sw.mjs` emits `orientation: 'any'` in the generated web app manifest, replacing `portrait-primary`.
+
+**Why.** WCAG 2.1 SC 1.3.4 requires that content not restrict its view and operation to a single display orientation unless that orientation is essential. Nothing here is essential in that sense — no viewfinder, no signature pad, no instrument. The map and the calendar are the two surfaces that gain most from landscape, and the people this locked out are anyone whose device is mounted or who cannot comfortably rotate it.
+
+**Why the existing coverage could not have caught it.** axe does not read the web app manifest. The recorded twelve-route scan at all impact levels says nothing about this file, and no test asserted on the value — verified before changing it.
+
+**Stated rather than omitted.** `any` is the spec default, so the key could be dropped entirely. It is written out so that `portrait-primary` does not drift back in as an apparently-deliberate addition.
+
+**Changes if:** a surface ships that genuinely cannot function in landscape, in which case lock that surface, not the whole app.
+
+### D-426 · (issue #266, 2026-08-24) · The Firebase web config is a required build input, not an optional one
+
+**Decision.** `deploy.yml` halts the release when any of the six `NEXT_PUBLIC_FIREBASE_*` values is empty or whitespace-only. This reverses the previous explicit stance, recorded in that file's own comment, that an absent value simply built a localStorage-only site with no failure.
+
+**Why the old stance expired.** It was written while sync was genuinely optional. Trip join, share and the two-device check are now load-bearing, so a rotated or renamed secret ships an app with cross-device sync silently off — build green, version gate green, nothing red anywhere in the run. Same failure shape as issue #41, which is why it gets the same treatment as the concierge guard directly above it.
+
+**Six by choice, not by necessity.** `lib/firebase-config.ts:47` gates `isRemoteConfigured()` on three of the six — apiKey, projectId, appId. The other three do not affect that predicate and two are inert today. All six are still required here on purpose: they come from one console page, so a partial set is a mistake however it arose, and a missing `authDomain` is the worse shape — the gate still reports configured while auth breaks.
+
+**Hard `exit 1`, not the visible-but-not-blocking idiom used by `publish-rules`.** That idiom exists because arming the rules publish is a deferred owner decision with a documented downside. No analogous reason exists to want a deploy that ships with sync off, and fail-closed is free here: a blocked deploy leaves the working live site untouched, which matters more than usual given there is no rollback. Also structural — `continue-on-error` is a step-level key and that step ends with `npm run build`, so marking it non-blocking would swallow a real build failure too.
+
+**Names only, never values.** The guard reports a count on success and names the empty variables on failure. They do inline into the public bundle and are not really secrets, but a workflow log is still the wrong place to widen that.
+
+**Changes if:** the app stops treating cross-device sync as load-bearing, or the three inert values are removed from the build entirely.
+
+### D-427 · (issue #268, 2026-08-24) · `NEXT_PUBLIC_BASE_PATH` is set on the `checks` build only, and the omission elsewhere is deliberate
+
+**Decision.** `ci.yml`'s `checks` job builds with the same `basePath` expression `deploy.yml` derives, so the shipped configuration is exercised before the job that publishes it. The `e2e` and `visual` jobs deliberately do not set it.
+
+**Why.** Until this change nothing in CI set the variable, so every automated check ran against `next.config.js`'s empty-string default while production shipped with a prefix. `scripts/gen-sw.mjs` prefixes every precache URL from it — 198 entries on the verifying build — and that prefixed manifest was never produced anywhere except the publishing job. The class has shipped twice before: a query-parameter cleanup that double-prefixed and navigated users to a 404, visible only on the deployed site, and a `next/image` assumption that only a real basePath build disproved.
+
+**Why the browser jobs are excluded.** `scripts/serve-out.mjs` maps `/` to `out/index.html` and knows nothing about a prefix, so under a basePath build every asset and every navigation would 404. Mounting that server at the prefix is its own change. Do not add the variable to those jobs without it.
+
+**Residual, stated so it is not mistaken for done.** `deploy.yml` also sets `NEXT_PUBLIC_SITE_URL`, which `checks` still does not. Its only consumer falls back cleanly, so nothing breaks; the "CI's build environment is a strict subset of the deploy environment" framing is now less true rather than false.
+
+**Changes if:** `serve-out.mjs` learns a prefix mount, at which point the browser jobs should take the variable too.
+
+### D-428 · (issue #243, 2026-08-24) · Two offset resolvers, and which one a caller takes is a correctness question
+
+**Decision.** `core/dates/item-time.ts` exports both `declaredOffsetForCountry` — the pack's own value for a leg — and `offsetForCountry`, which is that value when the pack has real geography and the device's own offset otherwise. Callers doing UTC-instant maths take the second. Callers that **assert** a zone take the first.
+
+**Why the split.** One function was answering two different questions. "What UTC instant is this wall-clock?" must return something even when the pack declares no geography, and the device offset is the honest anchor — `lib/trip-now.ts` independently makes the same choice. "Which zone may we print?" must be allowed to return nothing. Feeding the first answer into the second is the defect: a custom trip sets `utcOffsetMin: 0` on its single leg, so a device at UTC−5 in December badged every item `EST`, including on a Paris trip.
+
+**This restores a guarantee that was already written down.** `lib/item-time-display.ts` states that an offset with no table entry — naming a custom pack's own leg offset explicitly — stays unbadged. "Silence, never a guess." The badge never reached the table because the substitution happened one function earlier. The code now matches the comment the author thought they had written.
+
+**Rejected: making `offsetForCountry` return the leg's zero.** It has fifteen consumer files doing instant maths; a US-Eastern traveller's Tonight card and now/next progress would shift five hours. Much larger blast radius for a display defect.
+
+**Changes if:** issue #250 resolves real coordinates for custom trips, at which point `declaredOffsetForCountry` is where the resolved value belongs and the badge lights up with no further change — but only for offsets already in the hardcoded table, so the existing ceiling on that table binds harder then, not less.
+
+### D-429 · (issues #242 and #241, 2026-08-24) · The dialog scroll-lock is released while the item editor is hidden, and the tab-bar contract has two forms
+
+**Decision, part one.** `calendar-planner.tsx`'s `ItemEditor` now takes the ref-counted dialog-open flag, but as `useDialogOpenFlag(!hidden)` rather than the bare call its three mount-scoped siblings use.
+
+**Why not the bare call.** During pin-pick the editor stays mounted but goes `invisible pointer-events-none`, and the interaction surface for that whole state is the map pane — non-modal by design, page meant to scroll behind it, and on large viewports a sticky aside the user may have to scroll into view. Locking there would trap desktop pin-drop, and `e2e/pin-drop.spec.ts` scrolls the canvas into view in exactly that state.
+
+**Decision, part two.** The `--tab-bar-h` contract is consumed two different ways and the choice is not arbitrary. Floating chips — the presence bar, the quick-add button, the arrival toast — take it as a `bottom` offset. Full-width bottom-anchored **panels** take it as `padding-bottom` with the large-viewport reset, leaving box geometry untouched.
+
+**Why that distinction matters here.** The mobile map sheet on `/plan` has two height states. Lifting `bottom` moves the top edge up in both, and at the expanded state on a short phone the sheet header — the collapse and close controls — goes off the top of the screen. Padding shrinks only the canvas, which is the thing that has to move: the tile attribution control is docked to the canvas, and that attribution is a licence condition rather than decoration.
+
+**Changes if:** the tab bar's height stops being published as a custom property, or a panel appears whose top edge genuinely should move with the bar.
+
+### D-430 · (issue #244, 2026-08-24) · The first-run tour is trip-aware, not gated
+
+**Decision.** The tour's Plan blurb derives its day count and destinations from the active trip config. It is not wrapped in the default-trip gate.
+
+**Why not gated.** All five stops exist on a custom trip — the destinations are primaries or a panel on `/plan`, none is default-trip-only. Gating would either render a "this belongs to another trip" notice inside a welcome modal, or delete onboarding entirely for the traveller whose app is emptiest. The leak was one string literal, not the feature.
+
+**Why the trip config and not `TRIP_DATES`.** That constant is captured at module load while the label is read at call time, so the two could pair a stale count with a fresh destination. Both halves now come from one object.
+
+**The placeholder case is guarded.** A trip joined by token with no config yet is a one-day span whose only destination is the trip's own name, so the clause drops entirely rather than claiming "1 days in Shared trip".
+
+**Related fix in the same file.** The nav lookup asked for a label that no longer exists — the entry was relabelled Today — and its `?? '/'` fallback returned Today's real href, so a broken lookup was correct by luck and nothing caught it. The fallback is now `''`: still total, because this module sits in the app-wide chunk where a module-load throw sends every route to the error boundary, but no longer able to be accidentally right.
+
+**Changes if:** a tour stop is added that genuinely does not exist on a custom trip, which would make gating that stop correct — gate the stop, not the tour.
+
+### D-431 · Addendum to D-034 · (issue #213, 2026-08-24) · The `ToBookPlaceholder` type is gone; the `to-book` status is not
+
+**What was removed.** `JAPAN_TODO` (a permanently empty exported array), the `ToBookPlaceholder` interface, and `toBookPlaceholderSchema`. The only consumers were two unit assertions confirming an empty array was empty, and the panel that once rendered it is already asserted gone by `e2e/flights-page.spec.ts`.
+
+**What survives, and why the distinction matters.** `BookingStatus` and its `'to-book'` member are independent of the deleted type. They type `Journey.status` and `Stay.status`, feed the journey and stay schemas, and drive a live rendering branch in `flights-section.tsx`. Deleting them would have broken the flights page. The two are easy to confuse because D-034's text names them in one breath.
+
+**D-034 is amended only in that respect.** Its sentence that `status: 'to-book'` and `ToBookPlaceholder` are "the only sanctioned way to show unbooked logistics" now over-states: the status half stands unchanged and remains the sanctioned way; the placeholder record type no longer exists. The rule that unbooked logistics are never faked with invented numbers or hotels is untouched.
+
+### D-432 · Amends D-423 · (issue #214, 2026-08-24) · Static firebase imports are lint-enforced, and a same-rule block must splice rather than stack
+
+**Decision.** `eslint.config.mjs` forbids static `import` of `firebase/*` and `@firebase/*` outside tests, so the SDK can only be reached through a dynamic import.
+
+**The enforcement mechanism works for a non-obvious reason.** `no-restricted-imports` registers listeners for import and export *declarations* only — it has no `ImportExpression` and no `CallExpression` listener. The permitted shape and the forbidden shape are therefore different AST node types, so `await import('firebase/app')` and inline `import('firebase/firestore').Type` are invisible to the rule by construction. **No allowlist or negation block is needed** for the modules that legitimately reach Firebase. `allowTypeImports` stays on, matching D-423, and the genuinely risky variant — value-syntax import used only as a type, whose elision depends on compiler settings — is still caught.
+
+**The constraint worth remembering is about flat config, not about firebase.** ESLint flat config **replaces** a rule's options when a later block sets the same rule name on an overlapping path; it does not merge. A new block adding this restriction over `core/**` would have silently switched off D-423's entire inward-arrow boundary for every core file, with a green build and no failing test — precisely the failure mode this issue exists to prevent. The firebase pattern is therefore spliced into the existing blocks' `patterns` arrays. **Any future restriction on a path already covered must splice too.**
+
+**Not covered, stated plainly.** `require('firebase/app')` is out of this rule's reach and is caught by the no-require rule instead. `e2e/` and `scripts/` are out of scope, being non-first-load. A disable comment still bypasses, as with any lint rule. Separately, the `lib/*-ports.ts` headers assert that the `*-remote` **module** is not imported at module scope — a local-module restriction, not an SDK one, and still unenforced.
+
+### D-433 · Amends D-423 · (issue #267, 2026-08-24) · A rules refusal is classified and stops being retried, and the classifier took a core-side home
+
+**Decision, part one.** `isPermissionDenied` now declares in `core/sync/denied.ts`, and `lib/firebase-remote.ts` re-exports it. There is still exactly one copy, and `presence.ts`, `trips-remote.ts` and the `export *` chain are unchanged.
+
+**This discharges D-423's own trigger clause literally.** That clause reads: `outbox.ts` needing a third `lib/` import is the signal it wants a core-side home rather than another negation. It also names the re-export delegate shape, which is what was used.
+
+**Rejected: threading the predicate through the `ChunkSync` port.** The value would be identical in all five domain implementations, and the five `*-ports.ts` files are on the static graph — static-importing `lib/firebase-remote.ts` into them would have put it on the dormant first-load path for the first time, breaking a promise repeated verbatim in all five headers.
+
+**Decision, part two.** A chunk whose push is refused for permission reasons is recorded in a session-scoped set and stops being attempted for that page load. It surfaces as a third sync-badge state and a matching pre-flight row.
+
+**It is never acked and never persisted.** Not acked, because the dirty record is also the first-snapshot merge exception — acking a refused chunk would let the next reload apply remote authoritatively over the very edit that could not be pushed. Not persisted, because membership can be granted later from another device; `presence.ts` sets the same per-page-load precedent, and a disk flag would need an expiry protocol. The set is keyed by the trip-scoped slot key, so singleton chunk ids cannot carry one trip's refusal into another.
+
+**Rejected: reusing the existing access-pending toast.** A toast is transient and the badge is the durable surface that was lying — dismiss the toast and it still reads "3 pending" indefinitely. The wording is also wrong for a write-shape refusal.
+
+**This makes the failure legible, not recoverable.** Recovery is still that a member adds the device, and that path was not built here. It matters most as a precondition for arming the Firestore rules publish: without it, stranding a traveller by publishing before inspecting the live rosters produces nothing anyone would find.
+
+**Known ceiling.** Per-tab and per-page-load; two tabs each learn a refusal independently, and membership granted mid-session needs a reload. The read side is also unclassified — the snapshot stream's error callback warns and retries without checking for a denial — which is a sibling gap, not this one.
+
+**Changes if:** the read path is classified too, or a recovery flow lands that can clear a refusal without a reload.

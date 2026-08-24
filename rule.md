@@ -230,16 +230,25 @@ Tests:
 
 ```
 npm test                                  # unit, fast
-npm run build && npm run test:e2e         # browser suite; the build must come first
+npm run build:e2e && npm run test:e2e     # browser suite; the build must come first
 ```
 
-Unit tests live in `trip/lib/__tests__/` whatever they cover — `core/` and `hooks/` have no
-`__tests__` of their own, and only a handful of component tests sit in
-`trip/components/__tests__/`. A missing `core/__tests__/` is not missing coverage.
+`build:e2e`, not `build`. It is `build` with `NEXT_PUBLIC_CONCIERGE_URL` set to the same
+non-resolving origin CI uses, and without it five specs skip themselves locally while
+running for real in CI — the worst kind of green. It is written as a `node -e` wrapper
+rather than an inline `VAR=value` prefix because npm runs scripts through `cmd.exe` on
+Windows, where that prefix is a syntax error (same constraint `analyze` works around).
+
+Unit tests today live in `trip/lib/__tests__/` whatever they cover, with a handful of
+component tests in `trip/components/__tests__/`. That is history, not a rule: until #264 the
+vitest `include` glob only reached those two directories, so a test written anywhere else ran
+nowhere and passed CI by being absent. The glob now covers `app`, `components`, `core`, `hooks`
+and `lib` at any depth, so a new test belongs next to what it covers. `scripts/` is still
+outside it — put tests for build tooling in `lib/__tests__/`, as the existing ones are.
 
 The Playwright config serves the static export from `out/` rather than the dev
 server, because that is the artifact that actually deploys. It does not build for
-you, so `npm run build` first or every spec fails at startup.
+you, so `npm run build:e2e` first or every spec fails at startup.
 
 ## The app itself
 

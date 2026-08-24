@@ -72,7 +72,7 @@ function renderSyncStatus(): HookHandle {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root: Root = createRoot(container);
-  const ref: { current: SyncStatus } = { current: { pending: 0, lastAckAt: null } };
+  const ref: { current: SyncStatus } = { current: { pending: 0, blocked: 0, lastAckAt: null } };
 
   function Probe() {
     ref.current = useSyncStatus();
@@ -107,7 +107,7 @@ describe('useSyncStatus (S229)', () => {
 
   it('starts at the SSR-safe default {pending:0, lastAckAt:null} and confirms it on mount when nothing is dirty', () => {
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, lastAckAt: null });
+    expect(h.current).toEqual({ pending: 0, blocked: 0, lastAckAt: null });
     h.unmount();
   });
 
@@ -174,7 +174,7 @@ describe('useSyncStatus (S229)', () => {
 
     gate.remoteOn = false;
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, lastAckAt: null });
+    expect(h.current).toEqual({ pending: 0, blocked: 0, lastAckAt: null });
     h.unmount();
   });
 
@@ -185,7 +185,7 @@ describe('useSyncStatus (S229)', () => {
     );
     gate.traveler = null;
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, lastAckAt: null });
+    expect(h.current).toEqual({ pending: 0, blocked: 0, lastAckAt: null });
     h.unmount();
   });
 

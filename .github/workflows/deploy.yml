@@ -86,9 +86,11 @@ jobs:
         env:
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
           NEXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
-          # Public Firebase web config for optional cross-friend sync. NEXT_PUBLIC_* values
-          # inline at build time, so the workflow must reference them here; absent the secrets
-          # the expressions resolve empty and the site builds localStorage-only (no failure).
+          # Public Firebase web config for cross-device sync. NEXT_PUBLIC_* values inline at
+          # build time, so the workflow must reference them here. NO LONGER OPTIONAL (#266):
+          # an absent secret resolves to the empty string, so what used to happen is that the
+          # site built localStorage-only and shipped green. The guard below halts instead.
+          # Presence is echoed as a count, never a value.
           NEXT_PUBLIC_FIREBASE_API_KEY: ${{ secrets.NEXT_PUBLIC_FIREBASE_API_KEY }}
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ secrets.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN }}
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ${{ secrets.NEXT_PUBLIC_FIREBASE_PROJECT_ID }}
@@ -124,6 +126,32 @@ jobs:
               ;;
           esac
           echo "concierge-url present: yes"
+          # Same failure shape as the concierge guard above, so the same treatment (#266).
+          # Absent one of these the build still succeeds, the version gate still passes and
+          # the site still ships — but isRemoteConfigured() (lib/firebase-config.ts) is false,
+          # cross-device sync is off, and trip join, share and the two-device check are dead
+          # with nothing red anywhere in the run. That was tolerable while sync was optional.
+          # Whitespace-stripped for the reason the concierge test gives: a spaces-only secret
+          # is truthy in the bundle, so the app would consider itself configured and fail later
+          # and further away. Only three of the six gate isRemoteConfigured(), but all six are
+          # required here on purpose — they come from one Firebase console page, so a partial
+          # set is a mistake however it happened, and authDomain going missing is the worse
+          # failure: the gate still says yes while auth breaks.
+          # NAMES ONLY, NEVER VALUES. These do inline into the public bundle, which is why they
+          # are not really secrets, but a workflow log is still the wrong place to widen that.
+          MISSING=""
+          for NAME in NEXT_PUBLIC_FIREBASE_API_KEY NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN \
+                      NEXT_PUBLIC_FIREBASE_PROJECT_ID NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET \
+                      NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID NEXT_PUBLIC_FIREBASE_APP_ID; do
+            if [ -z "${!NAME//[[:space:]]/}" ]; then
+              MISSING="$MISSING $NAME"
+            fi
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::Firebase web config is incomplete, so this build would ship with cross-device sync silently off (trip join, share and the two-device check all dead). Empty or unset:$MISSING. Set them under Settings -> Secrets and variables -> Actions -> Secrets, then re-run."
+            exit 1
+          fi
+          echo "firebase-config present: 6/6"
           npm run build
       - uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

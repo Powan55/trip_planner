@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 
 // S125 — the ONE display rule (D-137/D-138) exercised in isolation
 // from any component. Reuses S124's core helpers only; adds no new parsing/math.
@@ -6,6 +6,8 @@ import { describe, it, expect } from 'vitest';
 import { describeItemTime } from '@/lib/item-time-display';
 import { TRIP_ITINERARY } from '@/core/content/itinerary';
 import type { ItineraryItem } from '@/lib/trip-data';
+import { setActiveTripId } from '@/core/storage/gateway';
+import { setTripConfig, type TripConfigBlock } from '@/core/trips/registry';
 
 function mk(fields: Partial<ItineraryItem>): ItineraryItem {
   return { id: 'x', title: 'X', category: 'sightseeing', ...fields };
@@ -145,6 +147,93 @@ describe('describeItemTime — S393: an item in another zone is badged with its 
     expect(describeItemTime(mk({ startMinutes: 855, tzOffsetMin: 60 }), JAPAN_DAY)).toEqual({
       label: '2:15 PM',
       badge: null,
+    });
+  });
+});
+
+/**
+ * #243 — a CUSTOM trip badged every item with the DEVICE's zone.
+ *
+ * The guarantee in `lib/item-time-display.ts` says a day offset with no table entry, naming a
+ * custom pack's own leg offset, stays unbadged. It was not delivered: the badge's base offset came
+ * from `offsetForCountry`, which substitutes `-new Date().getTimezoneOffset()` for a pack where
+ * every leg carries the placeholder `utcOffsetMin: 0` (core/trips/custom.ts). So the leg's 0 never
+ * reached the table and the device's own offset did — a Paris trip planned from a US-Eastern phone
+ * in December badged every item `EST`. The badge now bases on `declaredOffsetForCountry`.
+ *
+ * The device offset is STUBBED to -300 rather than inherited from the suite's `TZ`
+ * (`America/New_York`, per vitest.config.ts). `offsetForCountry` reads the offset at CALL time
+ * against the real clock, so an inherited zone gives -300 only between November and March: run in
+ * August it is -240, which has no table entry either and the pre-fix code would have gone green.
+ * That is the same "silently a no-op on CI" failure the TZ pin in vitest.config.ts exists to close.
+ *
+ * Module-load capture: `core/dates` reads the active pack once per module graph (D-172 — a trip
+ * switch is a pointer write plus a full reload), so the pointer/config are set FIRST and the
+ * subject is then dynamically imported after `vi.resetModules()`, as trip-cities-scoped.test.ts
+ * and leg-label.test.ts do. The default-pack blocks above are the control and use the static
+ * import — they must stay NPT/JST/EST/IST/CST, unchanged by this fix.
+ */
+describe('#243 describeItemTime — a custom trip never borrows the device zone', () => {
+  const PARIS: TripConfigBlock = {
+    start: '2027-03-01',
+    end: '2027-03-05',
+    destinations: ['Paris'],
+    vibe: 'city',
+    currency: 'EUR',
+    updatedAt: 1000,
+  };
+  const PARIS_DAY = '2027-03-02';
+
+  async function loadUnderCustomTrip() {
+    localStorage.clear();
+    sessionStorage.clear();
+    setActiveTripId('custom-paris');
+    setTripConfig('custom-paris', PARIS);
+
+    vi.resetModules();
+    const { describeItemTime: fresh } = await import('@/lib/item-time-display');
+    // A device on US Eastern standard time — the exact reported configuration. Stubbed AFTER the
+    // import on purpose: `offsetForCountry` reads it at CALL time, so the module graph still loads
+    // against the real clock and nothing else is perturbed.
+    vi.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(300);
+    return fresh;
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it('an ordinary item on a custom trip renders its time UNBADGED, not "EST"', async () => {
+    const describe243 = await loadUnderCustomTrip();
+    // Whole-object per this file's rule — 'EST' (the defect), 'NPT' and `undefined` all go red.
+    expect(describe243(mk({ startMinutes: 855 }), PARIS_DAY)).toEqual({
+      label: '2:15 PM',
+      badge: null,
+    });
+  });
+
+  it('the label itself is untouched — silence is only about the badge', async () => {
+    const describe243 = await loadUnderCustomTrip();
+    expect(describe243(mk({ startMinutes: 345 }), PARIS_DAY)).toEqual({
+      label: '5:45 AM',
+      badge: null,
+    });
+    expect(describe243(mk({ time: '2pm-ish' }), PARIS_DAY)).toEqual({
+      label: '2pm-ish',
+      badge: null,
+    });
+    expect(describe243(mk({}), PARIS_DAY)).toBeNull();
+  });
+
+  it('a per-item tzOffsetMin is a real declaration and still badges on a custom trip', async () => {
+    // The control against over-suppressing (blanket "no badge on a custom trip"). -300 here is the
+    // ITEM's own asserted offset, not the device's, so S393 still applies and it must say EST.
+    const describe243 = await loadUnderCustomTrip();
+    expect(describe243(mk({ startMinutes: 935, tzOffsetMin: -300 }), PARIS_DAY)).toEqual({
+      label: '3:35 PM',
+      badge: 'EST',
     });
   });
 });

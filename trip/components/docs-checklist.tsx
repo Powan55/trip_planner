@@ -21,7 +21,8 @@ import CelebrationBurst from '@/components/celebration-burst';
  * mapping and the role rule that produced it are recorded beside the token declarations in
  * app/globals.css; apply that, do not re-derive it here.
  *
- * A11y: a section `h2`, one `h3` per section group, real `<input type="checkbox">`/
+ * A11y: a section `h2` (sr-only — `app/checklist/page.tsx`'s masthead carries the visible title),
+ * one `h3` per section group, real `<input type="checkbox">`/
  * `<label>` pairs (native semantics), a real `<input type="text">` note with its own label, ≥44px
  * targets, visible focus rings, static markup with no motion-only affordance (reduced-motion-safe).
  * Progress is a plain text node (not color-only) + an aria-valued progressbar.
@@ -142,14 +143,14 @@ export default function DocsChecklist() {
     <section aria-labelledby="docs-heading" data-testid="docs-checklist" className="relative mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
       <CelebrationBurst active={celebrate} testId="docs-celebration" celebrationId="docs-complete" />
       <header className="mb-6">
-        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
-          <FileCheck2 className="h-3.5 w-3.5" aria-hidden="true" />
-          Before you fly
-        </p>
-        <h2 id="docs-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
-          Documents &amp; <span className="text-display-emphasis">readiness</span>
+        {/* #218: the eyebrow and title used to be printed here a second time, ~40px under the
+            page masthead that already carries both. The heading stays as the section's
+            accessible name (`aria-labelledby` above) and the h2 the group h3s nest under —
+            sr-only, the same shape as the pre-hydration branch. */}
+        <h2 id="docs-heading" className="sr-only">
+          Documents and readiness checklist
         </h2>
-        <p data-testid="docs-progress" className="mt-3 text-sm font-medium text-ink-mid">
+        <p data-testid="docs-progress" className="text-sm font-medium text-ink-mid">
           {completion.done}/{completion.total} ready
         </p>
         <div

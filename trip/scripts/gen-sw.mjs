@@ -780,7 +780,10 @@ async function buildManifest() {
     start_url: withBase('/'),
     scope: withBase('/'),
     display: 'standalone',
-    orientation: 'portrait-primary',
+    // WCAG 2.1 SC 1.3.4 (#248): nothing here is orientation-essential — no viewfinder, no
+    // signature pad — so the installed app must not refuse landscape. Stated rather than
+    // omitted; `any` IS the spec default, but naming it stops `portrait-primary` drifting back.
+    orientation: 'any',
     background_color: THEME_COLOR,
     theme_color: THEME_COLOR,
     icons: [

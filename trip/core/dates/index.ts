@@ -26,6 +26,7 @@ export {
   NPT_OFFSET_MIN,
   JST_OFFSET_MIN,
   offsetForCountry,
+  declaredOffsetForCountry,
   zoneAbbrevForOffset,
   type ZoneAbbrev,
   effectiveOffsetMin,

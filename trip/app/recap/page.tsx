@@ -5,9 +5,8 @@
 // (`components/trip-story-recap.tsx`). Localstorage-only — the island is lazy +
 // ssr:false, mirroring app/journal/. Next 15: the ssr:false dynamic import
 // lives in./sections (a client module); this Server Component page exports metadata.
-// Reached via a direct URL only this change — deliberately NOT wired into `lib/nav-items.ts` /
-// the navbar / tab bar / command palette (those files are fenced — a follow-up rider, same
-// deferral as `/journal` and `/safety`).
+// Reached as a companion in `lib/nav-items.ts` (the `/more/` page + the desktop "More" menu), the
+// command palette, or a direct URL.
 import PageHeader from '@/components/page-header';
 import { TripStoryRecap, WrappedStory } from './sections';
 
