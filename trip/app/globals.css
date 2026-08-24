@@ -2251,6 +2251,16 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     overflow: visible !important;
   }
 
+  /* — sr-only is the one thing that must KEEP its clip. `clip: rect(0,0,0,0)` is a paint
+     clip, not a layout one, so unclipping it prints nothing extra — but the text still
+     LAYS OUT at full width. Measured on /checklist: scrollWidth 1905px against a 794px
+     A4 page, entirely from one visually-hidden string, which makes the print dialog
+     shrink-to-fit the whole document and makes a headless page.pdf clip it. The phrasebook
+     scroller the rule above exists for is unaffected by this carve-out. */
+  .sr-only {
+    overflow: hidden !important;
+  }
+
   /* — the three text tiers survive as INK tiers, because a page set in one weight of
      black is as hard to scan as a screen would be. The universal rule above is
      specificity 0, so a plain class selector wins the !important tie without anything

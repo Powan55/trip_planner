@@ -42,7 +42,7 @@ import { allTripPlaces } from '@/lib/visit-autocount';
  * next time the trip is counted. That is the KNOWN CEILING at `core/places/visited.ts`'s
  * `removeVisit`, and this panel does not try to beat it: a suppression list is a decision about
  * which record wins, the itinerary or the person, and that decision is deliberately still open.
- * What it does is stop CLAIMING otherwise — a trip-claimed row is marked "From your trip", the
+ * What it does is stop CLAIMING otherwise — a trip-claimed row is marked "In your trip", the
  * remove button's accessible name carries the caveat, and the live region says "for now" instead of
  * asserting a permanent change. The button itself stays: the removal genuinely happens, and taking
  * the control away would settle the open question in the itinerary's favour.
@@ -394,7 +394,7 @@ function PlaceGroup({
                 {name}
                 {claimed && (
                   <span className="text-[0.65rem] uppercase tracking-wide text-ink-mid">
-                    From your trip
+                    In your trip
                   </span>
                 )}
                 {/* 44px, the house tap-target floor — a delete is the one control nobody should hit

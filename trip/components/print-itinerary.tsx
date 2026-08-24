@@ -2,7 +2,7 @@
 
 import { useItineraryContext } from '@/components/itinerary-provider';
 import PrintButton from '@/components/print-button';
-import { isDefaultTrip } from '@/core/trips';
+import { getActiveTrip, isDefaultTrip } from '@/core/trips';
 import { JOURNEYS, BOOKED_STAYS } from '@/lib/booking-data';
 import { describeItemTime } from '@/lib/item-time-display';
 import { dayPlaceLabel } from '@/lib/leg-label';
@@ -45,7 +45,10 @@ export default function PrintItinerary() {
 
       <section className="print-sheet hidden print:block" data-testid="print-itinerary">
         <header className="print-head">
-          <h2>Nepal × Japan — day by day</h2>
+          {/* The pack's own label. Every other value on this sheet is active-pack derived, so a
+              hardcoded title printed a custom trip's real dates and days under someone else's
+              trip name — the same leak class the bookings block below is gated against. */}
+          <h2>{getActiveTrip().label} — day by day</h2>
           <p className="print-meta">
             {TRIP_DATE_LABEL} · {days.length} days
           </p>

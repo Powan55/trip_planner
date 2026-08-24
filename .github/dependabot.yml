@@ -39,5 +39,8 @@ updates:
       interval: monthly
     open-pull-requests-limit: 2
     groups:
-      actions:
+      # Majors ungrouped here too, matching the npm block above: a major action bump
+      # can change behaviour and should be read on its own rather than buried in a batch.
+      actions-minor-and-patch:
         patterns: ['*']
+        update-types: [minor, patch]

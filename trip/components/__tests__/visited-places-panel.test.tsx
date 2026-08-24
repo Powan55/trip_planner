@@ -155,7 +155,10 @@ describe('issue #4 · /profile — typing in the places you have already been', 
     const claimed = () =>
       container.querySelector('[data-testid="visited-city-list"] li[data-trip-claimed]');
     expect(claimed()).not.toBeNull();
-    expect(claimed()?.textContent).toContain('From your trip');
+    // "In your trip", not "From your trip": the badge marks that the itinerary names this
+    // place, which is not a claim about where the row came from. The user may well have typed
+    // it themselves years ago and the trip happens to go there too.
+    expect(claimed()?.textContent).toContain('In your trip');
     // The caveat is in the button's own accessible name, for a screen reader moving button to button.
     expect(at('visited-city-remove-Kathmandu').textContent).toContain('will count it again');
 

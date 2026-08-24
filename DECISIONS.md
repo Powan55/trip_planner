@@ -4984,3 +4984,17 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **Why these read as they do.** The visa receipt is valid fifteen days, so ticking the row in September is a false green on the one item that gates entry; the anchor is chosen to sit inside the window under either inclusive or exclusive day-counting. The power-bank row states only the firm carrier-wide rules and deliberately omits the lower ceiling one carrier flags for January 2027 — encoding a maybe into a packing label is how a wrong label ships in December.
 
 **These rest on external facts that can move.** They are worth re-verifying before departure, and the claims are kept short specifically so that re-check is cheap.
+
+### D-438 · Addendum · (issue #223, 2026-08-24) · The sr-only carve-out, and the honest version of the eager-mount trade
+
+**`.sr-only` keeps its clip, and the universal `overflow: visible` must never take it away.** That rule is the pagination fix — a clipped box cannot flow onto page two — but `.sr-only`'s `clip: rect(0,0,0,0)` is a **paint** clip, not a layout one. Unclipping it prints nothing extra, and the text still lays out at full width. Measured on `/checklist`: `scrollWidth` 1905px against a 794px A4 page, entirely from one visually-hidden string. The consequence is not a visible break — it is the print dialog silently shrinking the whole document to fit, and a headless `page.pdf` clipping it. Both failures are the kind nobody notices until they are holding the paper.
+
+**That carve-out is pinned by `e2e/print.spec.ts`,** which asserts `documentElement.scrollWidth <= clientWidth` in print media on `/plan`, `/checklist` and `/safety`. Verified to bite: with the carve-out removed, `/checklist` fails and the other two still pass.
+
+**The print sheet's title comes from the active pack, not a literal.** Every other value on the sheet is pack-derived, so a hardcoded title printed a custom trip's real dates and days under the default trip's name — the same leak class the bookings block on the same sheet is already gated against.
+
+**The eager-mount reasoning first recorded here was wrong twice, and the correction is worth more than the original.** Measured from a real build, the island is its own chunk at 14,045 B raw / 5,047 B gzipped, and it does **not** appear in `/plan`'s HTML — First Load JS is unchanged either way, so deferring it would save nothing on load. The two reasons originally given for mounting eagerly do not survive either: `dynamic(ssr:false)` also mounts after hydration, so both the print-races-the-chunk-load window and the layout-shift argument apply equally to that form. The window is shortened by mounting eagerly, not closed.
+
+**The real cost runs the other way, and it is the number to weigh if this is revisited.** On screen the hidden sheet is 1,218 of `/plan`'s 2,119 DOM nodes. It consumes the itinerary context, so every itinerary edit re-renders 32 days and reconciles those hidden nodes. That is the price of the sheet always being there, and it is paid on every edit in the planner rather than in kilobytes on load.
+
+**Worth naming as a general lesson:** the original comment was long, confident, and two of its three claims were wrong. Length read as authority. A shorter comment with a measured number in it would have been harder to get wrong and easier to check.
