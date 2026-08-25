@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { keyFor } from '@/core/storage/gateway';
 import { outboxBlocked, outboxSnapshot, SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
+import { isReadDenied } from '@/core/sync/read-denied';
 
 /**
  * Reactive read over the offline-push outbox — the data behind
@@ -32,17 +33,25 @@ export interface SyncStatus {
    * double count. Session state, so it resets on reload (membership granted meanwhile is retried).
    */
   blocked: number;
+  /**
+   * #271 — a permission-denied `onSnapshot` READ stream (as opposed to `blocked`'s denied WRITE
+   * chunks). No count is possible here (a denied read has no chunk to key against), so this is a
+   * bare flag the badge ORs into its `isBlocked` alongside `blocked > 0`. Session state, same as
+   * `blocked` — clears on the next successful snapshot or a reload.
+   */
+  readBlocked: boolean;
   lastAckAt: string | null;
 }
 
-const SSR_DEFAULT: SyncStatus = { pending: 0, blocked: 0, lastAckAt: null };
+const SSR_DEFAULT: SyncStatus = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null };
 
 function readStatus(): SyncStatus {
   const { dirty, lastAckAt } = outboxSnapshot();
   const pending = Object.values(dirty).flat().length;
-  // Read off the same `SYNC_OUTBOX_CHANGED_EVENT` tick as everything else — `markDenied` dispatches
-  // it, so a refusal re-renders the badge without a reload, exactly like an enqueue or an ack.
-  return { pending, blocked: outboxBlocked(), lastAckAt };
+  // Read off the same `SYNC_OUTBOX_CHANGED_EVENT` tick as everything else — `markDenied` (and
+  // #271's `setReadDenied`) dispatch it, so a refusal re-renders the badge without a reload,
+  // exactly like an enqueue or an ack.
+  return { pending, blocked: outboxBlocked(), readBlocked: isReadDenied(), lastAckAt };
 }
 
 export function useSyncStatus(): SyncStatus {

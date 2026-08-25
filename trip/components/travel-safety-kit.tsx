@@ -1,13 +1,13 @@
-import { EMERGENCY_CONTACTS, SAFETY_PHRASES, DOCUMENT_CHECKLIST } from '@/core/content/safety';
-import type { EmergencyContact, Phrase, ChecklistItem } from '@/core/content/safety';
+import { EMERGENCY_CONTACTS, HAZARD_NOTES, SAFETY_PHRASES, DOCUMENT_CHECKLIST } from '@/core/content/safety';
+import type { EmergencyContact, HazardNote, Phrase, ChecklistItem } from '@/core/content/safety';
 
 /**
  * TravelSafetyKit — the offline travel-safety reference rendered on `/safety`:
- * emergency & embassy contacts, a Nepali/Japanese phrasebook, and a document
+ * emergency & embassy contacts, hazard/alert notes, a Nepali/Japanese phrasebook, and a document
  * checklist. Pure presentational — no state, no fetch, no persistence. Static
  * markup only (no motion-only affordance), so it is reduced-motion-safe by construction.
  *
- * A11y: each of the three sections is its own `<section>` with a real
+ * A11y: each section is its own `<section>` with a real
  * `h2`, grouped content gets an `h3`; `tel:` links carry an explicit `aria-label` (accessible
  * name) distinct from their visible digit string; every interactive
  * `tel:` link is ≥44px tall; tables get a scroll wrapper so they never force page-level
@@ -16,6 +16,7 @@ import type { EmergencyContact, Phrase, ChecklistItem } from '@/core/content/saf
  */
 export default function TravelSafetyKit() {
   const contactsByCountry = groupBy(EMERGENCY_CONTACTS, (c) => c.country);
+  const hazardsByCountry = groupBy(HAZARD_NOTES, (n) => n.country);
   const phrasesByCategory = groupBy(SAFETY_PHRASES, (p) => p.category);
   const checklistByGroup = groupBy(DOCUMENT_CHECKLIST, (i) => i.group);
 
@@ -45,7 +46,30 @@ export default function TravelSafetyKit() {
         </div>
       </section>
 
-      {/* ── 2. Phrasebook ────────────────────────────────────────────────────────────────── */}
+      {/* ── 2. Hazard & alert notes ──────────────────────────────────────────────────────── */}
+      <section aria-labelledby="safety-hazards-heading" className="mb-14">
+        <h2 id="safety-hazards-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
+          Hazards &amp; Local Alerts
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm text-ink-mid">
+          Two things worth knowing before you need them — this is background, not a live feed.
+        </p>
+
+        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+          {(['Japan', 'Nepal'] as const).map((country) => (
+            <div key={country} className="glass-subtle rounded-2xl p-5">
+              <h3 className="font-display text-lg font-bold text-white">{country}</h3>
+              <ul className="mt-3 flex flex-col gap-3">
+                {(hazardsByCountry[country] ?? []).map((note) => (
+                  <HazardRow key={note.id} note={note} />
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── 3. Phrasebook ────────────────────────────────────────────────────────────────── */}
       <section aria-labelledby="safety-phrasebook-heading" className="mb-14">
         <h2 id="safety-phrasebook-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Phrasebook
@@ -97,7 +121,7 @@ export default function TravelSafetyKit() {
         </div>
       </section>
 
-      {/* ── 3. Document checklist ────────────────────────────────────────────────────────── */}
+      {/* ── 4. Document checklist ────────────────────────────────────────────────────────── */}
       <section aria-labelledby="safety-checklist-heading">
         <h2 id="safety-checklist-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Document Checklist
@@ -137,6 +161,15 @@ function ContactRow({ contact }: { contact: EmergencyContact }) {
       {!contact.verified && contact.note && (
         <p className="text-xs text-amber-300/90">Unverified this session: {contact.note}</p>
       )}
+    </li>
+  );
+}
+
+function HazardRow({ note }: { note: HazardNote }) {
+  return (
+    <li data-testid={`safety-hazard-${note.id}`} className="flex flex-col gap-1">
+      <span className="text-sm font-semibold text-ink-hi">{note.title}</span>
+      <span className="text-xs text-ink-mid">{note.body}</span>
     </li>
   );
 }

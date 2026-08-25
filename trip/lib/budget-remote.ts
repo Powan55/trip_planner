@@ -26,7 +26,7 @@ import { saveBudget, loadBudget } from '@/core/budget/storage';
 import type { BudgetModel } from '@/core/budget/model';
 import { BUDGET_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
-import { getRemote, type FirestoreMod } from './itinerary-remote';
+import { getRemote, type FirestoreMod } from './firebase-remote';
 import { mergeBudget, type BudgetFields } from '@/core/sync/merge-budget';
 import { modelToFields, fieldsToModel } from '@/core/budget/flatten';
 

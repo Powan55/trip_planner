@@ -35,7 +35,7 @@ import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
 import { LEGS, type Leg } from '@/core/budget/model';
 import { EXPENSES_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
-import { getRemote, type FirestoreMod } from './itinerary-remote';
+import { getRemote, type FirestoreMod } from './firebase-remote';
 import { mergeItems, gcTombstoneRows } from '@/core/sync/merge-items';
 import { outboxDirty } from '@/core/sync/outbox';
 import { realClock } from './trip-now';

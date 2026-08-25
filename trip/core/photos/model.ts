@@ -13,10 +13,12 @@
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Who a photo belongs to. Journal photos are DAY-keyed (not entry-keyed) so recap is a
- * pure `owner.date` filter; expense photos are keyed by the `Expense.id` on THIS device. */
+ * pure `owner.date` filter; expense photos are keyed by the `Expense.id`; docs photos (passport/visa/
+ * boarding-pass scans, #258) are keyed by the `DocItem.id` — all on THIS device only. */
 export type PhotoOwner =
   | { kind: 'journal'; date: string }
-  | { kind: 'expense'; expenseId: string };
+  | { kind: 'expense'; expenseId: string }
+  | { kind: 'docs'; itemId: string };
 
 /** A single stored photo's metadata (the blob itself lives in IndexedDB, keyed by `id`). */
 export interface PhotoMeta {
@@ -42,6 +44,7 @@ export function isPhotoOwner(v: unknown): v is PhotoOwner {
   const o = v as Record<string, unknown>;
   if (o.kind === 'journal') return typeof o.date === 'string' && DATE_RE.test(o.date);
   if (o.kind === 'expense') return typeof o.expenseId === 'string' && o.expenseId.length > 0;
+  if (o.kind === 'docs') return typeof o.itemId === 'string' && o.itemId.length > 0;
   return false;
 }
 
@@ -99,6 +102,7 @@ export function sanitizePhotos(value: unknown): PhotoMeta[] {
 export function sameOwner(a: PhotoOwner, b: PhotoOwner): boolean {
   if (a.kind === 'journal' && b.kind === 'journal') return a.date === b.date;
   if (a.kind === 'expense' && b.kind === 'expense') return a.expenseId === b.expenseId;
+  if (a.kind === 'docs' && b.kind === 'docs') return a.itemId === b.itemId;
   return false;
 }
 

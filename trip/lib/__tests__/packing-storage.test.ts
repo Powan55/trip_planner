@@ -9,6 +9,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
  * safety inherited from the gateway. Mirrors journal-storage.test.ts.
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { STORAGE_KEYS, packingStore, setActiveTripId } from '@/core/storage/gateway';
 import { loadPacking, savePacking } from '@/core/packing/storage';
 import { DEFAULT_TEMPLATE, type PackingItem } from '@/core/packing/model';
@@ -137,5 +139,22 @@ describe('loadPacking — trip-aware fallback (D-355, A-15/#102)', () => {
     window.localStorage.setItem(KEY, '{not json');
     const loaded = loadPacking();
     expect(loaded.every((i) => i.category === 'universal')).toBe(true);
+  });
+});
+
+describe('packing stays a device-local slot (#227 — no sync, no outbox, no remote module)', () => {
+  it('model/storage/hook source has zero references to core/sync or any *-remote module', () => {
+    const files = [
+      join(__dirname, '../../core/packing/model.ts'),
+      join(__dirname, '../../core/packing/storage.ts'),
+      join(__dirname, '../../hooks/use-packing.ts'),
+    ];
+    for (const f of files) {
+      const src = readFileSync(f, 'utf8');
+      expect(src).not.toMatch(/core\/sync/);
+      expect(src).not.toMatch(/-remote/);
+      expect(src).not.toMatch(/firestore/i);
+      expect(src).not.toMatch(/outbox/i);
+    }
   });
 });

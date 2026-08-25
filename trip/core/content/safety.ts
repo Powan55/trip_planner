@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 /**
  * SAFETY-CRITICAL static content — an offline travel-safety reference for the
- * Nepal + Japan legs: emergency/embassy numbers, a Nepali/Japanese phrasebook (native script
+ * Nepal + Japan legs: emergency/embassy numbers, hazard/alert notes (earthquake response,
+ * aftershocks, general strikes — #255), a Nepali/Japanese phrasebook (native script
  * plus romanization, #2), and a document checklist. Framework-free: plain TS + zod.
  *
  * DELIBERATELY SELF-CONTAINED: this file does NOT import from
@@ -136,6 +137,39 @@ const rawEmergencyContacts: EmergencyContact[] = [
 ];
 
 export const EMERGENCY_CONTACTS = z.array(emergencyContactSchema).parse(rawEmergencyContacts);
+
+// ── Hazard & alert notes (#255) ─────────────────────────────────────────────────────────────
+// Deliberately static, not a live feed: this page's whole point is working offline in an
+// emergency, so these are the two things worth knowing before a signal drops, not a disaster
+// manual.
+
+export const hazardNoteSchema = z
+  .object({
+    id: z.string().min(1),
+    country: z.enum(['Nepal', 'Japan']),
+    title: z.string().min(1),
+    body: z.string().min(1),
+  })
+  .strict();
+
+export type HazardNote = z.infer<typeof hazardNoteSchema>;
+
+const rawHazardNotes: HazardNote[] = [
+  {
+    id: 'jp-earthquake-alert',
+    country: 'Japan',
+    title: 'Earthquake Early Warning',
+    body: 'A jarring alarm tone on phones, TVs, and public speakers means an earthquake alert — it plays in Japanese only, with no translation. When it sounds: drop, take cover under sturdy furniture, and hold on until the shaking stops.',
+  },
+  {
+    id: 'np-aftershock-strike',
+    country: 'Nepal',
+    title: 'Aftershocks & Bandh (General Strikes)',
+    body: "After any quake, move to open ground away from walls and buildings, and learn your accommodation's assembly point on arrival. Separately, a bandh (general strike) can halt road transport with little warning — ask your accommodation the evening before a travel day; a tourist-shuttle exemption typically applies.",
+  },
+];
+
+export const HAZARD_NOTES = z.array(hazardNoteSchema).parse(rawHazardNotes);
 
 // ── Phrasebook (Nepali + Japanese: native script AND romanization) ─────────────────────────
 //
@@ -272,13 +306,17 @@ const rawChecklist: ChecklistItem[] = [
     id: 'nepal-visa',
     group: 'Before you go',
     label: 'Nepal visa arranged',
-    detail: 'Visa-on-arrival at Tribhuvan Intl (KTM) or a pre-arranged e-visa — bring passport photos and the entry fee in cash.',
+    // Kept in sync with core/docs/model.ts's DEFAULT_TEMPLATE row of the same id (#280,
+    // #252's date anchor): the online pre-application receipt is valid 15 days, so an early
+    // submission is a false green on the row that gates entry.
+    detail: 'Visa-on-arrival at Tribhuvan Intl (KTM), or the online pre-application from 26 Nov 2026 (receipt valid 15 days) — bring passport photos and the entry fee in cash.',
   },
   {
     id: 'japan-entry',
     group: 'Before you go',
     label: 'Japan entry requirements confirmed',
-    detail: 'Check visa/visa-waiver eligibility for your nationality and complete Visit Japan Web pre-registration.',
+    // Kept in sync with core/docs/model.ts's DEFAULT_TEMPLATE row of the same id (#280).
+    detail: 'Check visa/visa-waiver eligibility for your nationality, complete Visit Japan Web pre-registration, and save the QR code offline before you land.',
   },
   {
     id: 'travel-insurance',

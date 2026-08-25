@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Camera, ImageOff, Trash2, X, Check } from 'lucide-react';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
@@ -11,8 +11,9 @@ import {
 } from '@/components/ui/alert-dialog';
 
 /**
- * PhotoAttach — the ONE reusable capture/render surface for BOTH journal
- * day-photos (owner `{kind:'journal',date}`) and expense receipts (owner `{kind:'expense',expenseId}`).
+ * PhotoAttach — the ONE reusable capture/render surface for journal
+ * day-photos (owner `{kind:'journal',date}`), expense receipts (owner `{kind:'expense',expenseId}`),
+ * and docs-checklist attachments (owner `{kind:'docs',itemId}`, #258 — passport/visa/boarding-pass scans).
  * Renders the owner's photos as thumbnails (resolved from `BlobStorePort.get` → object URL, revoked on
  * unmount), an "Add photo" control (downscale → store, with a REQUIRED alt-text + optional caption
  * prompt), a graceful placeholder for an evicted/absent blob (alt/caption survive), and inline
@@ -29,10 +30,13 @@ export default function PhotoAttach({
   owner,
   heading = 'Photos',
   altPlaceholder = 'Describe this photo',
+  helperText,
 }: {
   owner: PhotoOwner;
   heading?: string;
   altPlaceholder?: string;
+  /** Optional note rendered under the heading (e.g. the docs-row on-device-only + sensitivity copy). */
+  helperText?: ReactNode;
 }) {
   const { photosFor, addPhoto, removePhoto, hydrated } = usePhotos();
   const photos = photosFor(owner);
@@ -136,6 +140,12 @@ export default function PhotoAttach({
           className="sr-only"
         />
       </div>
+
+      {helperText && (
+        <p data-testid="photo-helper-text" className="mb-3 text-xs text-ink-mid">
+          {helperText}
+        </p>
+      )}
 
       {/* Alt-text (required) + caption (optional) prompt, shown after a file is picked. */}
       {pending && (

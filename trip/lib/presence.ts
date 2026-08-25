@@ -26,7 +26,7 @@
 // Budget: ~1 write / HEARTBEAT_MS / traveler. At 180s × 3 travelers ≈ 1,440 writes/day ≈
 // ~7% of Spark's ~20k writes/day. One onSnapshot on <=3 docs is negligible reads.
 //
-// REUSES the existing firebase init: it awaits itinerary-remote.ts's `getRemote()`, which owns
+// REUSES the existing firebase init: it awaits firebase-remote.ts's `getRemote()`, which owns
 // the one app + the one anonymous session. There is no second initialization path here.
 //
 // CONFIG single-source: the config + on/off gate are read ONLY from
@@ -34,7 +34,7 @@
 
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getActiveTraveler } from './token-auth';
-import { getRemote, isPermissionDenied, type RemoteHandle } from './itinerary-remote';
+import { getRemote, isPermissionDenied, type RemoteHandle } from './firebase-remote';
 import { deviceStore } from '@/core/storage/gateway';
 
 // ---------------------------------------------------------------------------

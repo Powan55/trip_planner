@@ -13,6 +13,8 @@ import {
   sanitizeItem,
   sanitizeItems,
   toggleItem,
+  addItem,
+  removeItem,
   packingProgress,
   DEFAULT_TEMPLATE,
   type PackingItem,
@@ -125,6 +127,57 @@ describe('toggleItem', () => {
     const items = sanitizeItems(undefined).slice(0, 2);
     const next = toggleItem(items, 'does-not-exist');
     expect(next).toEqual(items);
+  });
+});
+
+describe('addItem (#227)', () => {
+  it('appends a new item categorized universal, unchecked, with the caller-injected id', () => {
+    const items = sanitizeItems(undefined);
+    const next = addItem(items, 'Travel pillow', 'custom-1');
+    expect(next).not.toBe(items);
+    expect(next).toHaveLength(items.length + 1);
+    expect(next[next.length - 1]).toEqual({ id: 'custom-1', label: 'Travel pillow', category: 'universal', checked: false });
+    expect(items).toHaveLength(28); // original untouched (pure)
+  });
+
+  it('trims the label', () => {
+    const next = addItem([], '  Umbrella  ', 'custom-2');
+    expect(next[0].label).toBe('Umbrella');
+  });
+
+  it('a blank/whitespace-only label is a no-op (still a new array)', () => {
+    const items = sanitizeItems(undefined).slice(0, 1);
+    expect(addItem(items, '', 'custom-3')).toEqual(items);
+    expect(addItem(items, '   ', 'custom-4')).toEqual(items);
+  });
+
+  it('a missing/blank id is a no-op', () => {
+    const items = sanitizeItems(undefined).slice(0, 1);
+    expect(addItem(items, 'Something', '')).toEqual(items);
+  });
+});
+
+describe('removeItem (#227)', () => {
+  it('removes a FIXED-TEMPLATE item by id', () => {
+    const items = sanitizeItems(undefined);
+    const targetId = items[0].id;
+    const next = removeItem(items, targetId);
+    expect(next).toHaveLength(items.length - 1);
+    expect(next.find((i) => i.id === targetId)).toBeUndefined();
+  });
+
+  it('removes a CUSTOM item by id', () => {
+    const items = addItem(sanitizeItems(undefined), 'Neck pillow', 'custom-5');
+    const next = removeItem(items, 'custom-5');
+    expect(next).toHaveLength(items.length - 1);
+    expect(next.find((i) => i.id === 'custom-5')).toBeUndefined();
+  });
+
+  it('a non-matching id is a no-op (values unchanged, still a new array)', () => {
+    const items = sanitizeItems(undefined).slice(0, 2);
+    const next = removeItem(items, 'does-not-exist');
+    expect(next).toEqual(items);
+    expect(next).not.toBe(items);
   });
 });
 

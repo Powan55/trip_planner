@@ -2,14 +2,25 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { differenceInCalendarDays } from 'date-fns';
 import { Cloud, Wallet, ShieldAlert, Plane, ChevronDown, Home } from 'lucide-react';
 import { getCountryForDate, getCityForDate, formatHomeClock } from '@/core/dates';
 import { isDefaultTrip } from '@/core/trips';
 import { legCurrency } from '@/core/budget/model';
 import { EMERGENCY_CONTACTS } from '@/core/content/safety';
-import { fetchWeather, weatherCodeToLabel, formatWeatherAsOf, type WeatherResult } from '@/lib/weather';
+import {
+  fetchWeather,
+  fetchAirQuality,
+  weatherCodeToLabel,
+  formatWeatherAsOf,
+  fogRiskLabel,
+  usAqiLabel,
+  type WeatherResult,
+  type AirQualityResult,
+} from '@/lib/weather';
 import { getActiveTripCityCoord } from '@/core/trips/registry';
 import { fetchCurrencyRate, type CurrencyRateResult } from '@/lib/currency-rate';
+import { getNow } from '@/lib/trip-now';
 import {
   OUTBOUND_JOURNEY,
   RETURN_TO_JAPAN_JOURNEY,
@@ -58,6 +69,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
   const home = model.homeCurrency;
 
   const [weather, setWeather] = useState<WeatherResult | null>(null);
+  const [airQuality, setAirQuality] = useState<AirQualityResult | null>(null);
   const [rate, setRate] = useState<CurrencyRateResult | null>(null);
 
   useEffect(() => {
@@ -65,6 +77,18 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
     // #250: prefer this trip's own resolved coordinate over the static default-pack table.
     fetchWeather(city, fetch, getActiveTripCityCoord(city)).then((r) => {
       if (!cancelled) setWeather(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [city]);
+
+  // #251 — a separate fetch to a separate host (air-quality-api.open-meteo.com); it doesn't
+  // ride along on the forecast response the way the 7-day outlook does.
+  useEffect(() => {
+    let cancelled = false;
+    fetchAirQuality(city, fetch, getActiveTripCityCoord(city)).then((r) => {
+      if (!cancelled) setAirQuality(r);
     });
     return () => {
       cancelled = true;
@@ -153,7 +177,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
         )}
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <WeatherPanel city={city} weather={weather} />
+          <WeatherPanel city={city} weather={weather} airQuality={airQuality} />
           {currency !== home && <CurrencyPanel currency={currency} rate={rate} />}
           {showHomeClock && homeClock !== null && <HomeClockPanel time={homeClock} />}
         </div>
@@ -172,7 +196,15 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
   );
 }
 
-function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult | null }) {
+function WeatherPanel({
+  city,
+  weather,
+  airQuality,
+}: {
+  city: string;
+  weather: WeatherResult | null;
+  airQuality: AirQualityResult | null;
+}) {
   return (
     <div
       data-testid="travel-essentials-weather"
@@ -199,6 +231,17 @@ function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult 
               Feels like {weather.data.feelsLikeC}&deg;C
             </span>
           )}
+          {/* #278 — a qualitative fog-risk signal, never a raw metre figure and never an
+              aviation call (no "safe to fly" / "expect delays"). Absent when the response (or
+              an old cache entry) didn't carry a visibility reading. */}
+          {weather.data.visibilityM !== null && (
+            <span
+              className="mt-0.5 block text-xs text-ink-mid"
+              data-testid="travel-essentials-weather-fog-risk"
+            >
+              {fogRiskLabel(weather.data.visibilityM).label}
+            </span>
+          )}
           {weather.data.stale && (
             <span className="ml-1.5 text-xs text-ink-mid" data-testid="travel-essentials-weather-stale">
               (cached — as of {formatWeatherAsOf(weather.data.fetchedAt)})
@@ -211,12 +254,46 @@ function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult 
           Weather unavailable right now.
         </p>
       )}
+      {/* #251 — air quality, its own fetch/cache so it degrades independently of the
+          weather panel above. `usAqi` is the clearer at-a-glance signal (well-known 6-band
+          scale); pm2.5 stands in on its own if a body ever carries one field but not the other. */}
+      {airQuality?.status === 'ok' && (
+        <p
+          className="mt-1.5 text-xs text-ink-mid"
+          data-testid="travel-essentials-air-quality"
+        >
+          Air quality:{' '}
+          {airQuality.data.usAqi !== null
+            ? `${usAqiLabel(airQuality.data.usAqi)} (AQI ${airQuality.data.usAqi})`
+            : airQuality.data.pm25 !== null
+              ? `PM2.5 ${airQuality.data.pm25} µg/m³`
+              : 'reading unavailable'}
+          {airQuality.data.stale && ' (cached)'}
+        </p>
+      )}
+      {airQuality?.status === 'unavailable' && (
+        <p className="mt-1.5 text-xs text-ink-mid" data-testid="travel-essentials-air-quality-unavailable">
+          Air quality unavailable right now.
+        </p>
+      )}
     </div>
   );
 }
 
 /**
- * #220 — what time it is at home, so "is it a reasonable hour to call" stops being two offset
+ * Whole calendar days between a `YYYY-MM-DD` `asOf` date and now (a bare date string
+ * doesn't tell anyone whether a rate is 3 days or 3 months stale). `T00:00:00` parses `asOf` as
+ * LOCAL midnight, matching `TRIP_START`'s convention (`core/dates/trip-dates.ts`), not the
+ * UTC midnight a bare date-only ISO string parses to. Clamped at 0 so clock skew (asOf briefly
+ * "in the future") never prints a negative age.
+ */
+function daysOld(asOf: string): string {
+  const days = Math.max(0, differenceInCalendarDays(getNow(), new Date(`${asOf}T00:00:00`)));
+  return `${days} day${days === 1 ? '' : 's'} old`;
+}
+
+/**
+ * What time it is at home, so "is it a reasonable hour to call" stops being two offset
  * conversions done in your head with a change of country in between.
  *
  * No `aria-live`: this re-renders every 20s and an announced clock would talk over everything
@@ -268,12 +345,21 @@ function CurrencyPanel({ currency, rate }: { currency: string; rate: CurrencyRat
           <span className="mt-0.5 block text-xs text-ink-mid" data-testid="travel-essentials-currency-asof">
             {rate.data.source === 'reference' ? (
               <span data-testid="travel-essentials-currency-reference">
-                reference rate, as of {rate.data.asOf} — not a live quote
+                reference rate, as of {rate.data.asOf} — not a live quote (
+                <span data-testid="travel-essentials-currency-age">{daysOld(rate.data.asOf)}</span>)
               </span>
             ) : (
               <>
                 as of {rate.data.asOf}
-                {rate.data.stale ? ' (cached)' : ''}
+                {rate.data.stale ? (
+                  <>
+                    {' '}
+                    (cached,{' '}
+                    <span data-testid="travel-essentials-currency-age">{daysOld(rate.data.asOf)}</span>)
+                  </>
+                ) : (
+                  ''
+                )}
               </>
             )}
           </span>

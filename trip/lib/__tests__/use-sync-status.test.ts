@@ -33,6 +33,7 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 
 import { useSyncStatus, type SyncStatus } from '@/hooks/use-sync-status';
 import { withOutbox, flushOutbox, type ChunkSync } from '@/core/sync/outbox';
+import { setReadDenied } from '@/core/sync/read-denied';
 import { STORAGE_KEYS } from '@/core/storage/gateway';
 import type { StoragePort } from '@/core/ports';
 
@@ -72,7 +73,9 @@ function renderSyncStatus(): HookHandle {
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root: Root = createRoot(container);
-  const ref: { current: SyncStatus } = { current: { pending: 0, blocked: 0, lastAckAt: null } };
+  const ref: { current: SyncStatus } = {
+    current: { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null },
+  };
 
   function Probe() {
     ref.current = useSyncStatus();
@@ -103,11 +106,12 @@ describe('useSyncStatus (S229)', () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    setReadDenied('itinerary', false); // #271: module-singleton flag — reset between tests
   });
 
   it('starts at the SSR-safe default {pending:0, lastAckAt:null} and confirms it on mount when nothing is dirty', () => {
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, blocked: 0, lastAckAt: null });
+    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null });
     h.unmount();
   });
 
@@ -168,13 +172,32 @@ describe('useSyncStatus (S229)', () => {
     h.unmount();
   });
 
+  // #271 — a permission-denied READ has no chunk to key against (unlike a denied write), so it
+  // is surfaced as a bare `readBlocked` flag rather than added to `blocked`'s count.
+  it('readBlocked flips live via setReadDenied, on the same change event as the outbox (#271)', async () => {
+    const h = renderSyncStatus();
+    expect(h.current.readBlocked).toBe(false);
+
+    act(() => {
+      setReadDenied('itinerary', true);
+    });
+    expect(h.current.readBlocked).toBe(true);
+    expect(h.current.blocked).toBe(0); // NOT counted as a blocked write chunk
+
+    act(() => {
+      setReadDenied('itinerary', false); // e.g. membership granted, next snapshot succeeded
+    });
+    expect(h.current.readBlocked).toBe(false);
+    h.unmount();
+  });
+
   it('DORMANT: reads {pending:0, lastAckAt:null} even with real dirty+acked bytes on disk (D-038)', async () => {
     const failing = new Set<string>();
     await withOutbox(makeHarness(failing))({}, { d1: 1 }); // acks, writes real bytes
 
     gate.remoteOn = false;
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, blocked: 0, lastAckAt: null });
+    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null });
     h.unmount();
   });
 
@@ -185,7 +208,7 @@ describe('useSyncStatus (S229)', () => {
     );
     gate.traveler = null;
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, blocked: 0, lastAckAt: null });
+    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null });
     h.unmount();
   });
 
