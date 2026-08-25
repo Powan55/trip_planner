@@ -2,16 +2,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import {
   fetchWeather,
+  fetchAirQuality,
   parseOpenMeteo,
+  parseAirQuality,
   parseForecast,
   goldenHour,
   weatherCodeToLabel,
+  fogRiskLabel,
+  usAqiLabel,
   isKnownWeatherCity,
   getCachedForecastForDate,
   weatherTagForDay,
   formatWeatherAsOf,
   OPEN_METEO_ATTRIBUTION,
   type WeatherNow,
+  type AirQualityNow,
   type ForecastDay,
 } from '@/lib/weather';
 import { weatherCache, STORAGE_KEYS } from '@/core/storage/gateway';
@@ -118,6 +123,35 @@ describe('weatherCodeToLabel (pure)', () => {
   });
 });
 
+describe('fogRiskLabel (pure, #278)', () => {
+  it('buckets into low/moderate/severe and never mentions aviation ("fly"/"delay")', () => {
+    expect(fogRiskLabel(12000).level).toBe('low');
+    expect(fogRiskLabel(3000).level).toBe('moderate');
+    expect(fogRiskLabel(500).level).toBe('severe');
+    for (const m of [12000, 3000, 500]) {
+      expect(fogRiskLabel(m).label.toLowerCase()).not.toMatch(/fly|flight|delay|safe to/);
+    }
+  });
+
+  it('boundaries: exactly 1000m is moderate, exactly 5000m is low', () => {
+    expect(fogRiskLabel(999).level).toBe('severe');
+    expect(fogRiskLabel(1000).level).toBe('moderate');
+    expect(fogRiskLabel(4999).level).toBe('moderate');
+    expect(fogRiskLabel(5000).level).toBe('low');
+  });
+});
+
+describe('usAqiLabel (pure, #251)', () => {
+  it('maps the standard EPA AQI bands', () => {
+    expect(usAqiLabel(20)).toBe('Good');
+    expect(usAqiLabel(75)).toBe('Moderate');
+    expect(usAqiLabel(120)).toBe('Unhealthy for sensitive groups');
+    expect(usAqiLabel(175)).toBe('Unhealthy');
+    expect(usAqiLabel(250)).toBe('Very unhealthy');
+    expect(usAqiLabel(400)).toBe('Hazardous');
+  });
+});
+
 describe('formatWeatherAsOf (pure, S276/P6 — stale weather age label)', () => {
   it('renders a short human date+time for a valid ISO timestamp', () => {
     const out = formatWeatherAsOf('2026-07-20T14:05:00.000Z');
@@ -198,6 +232,24 @@ describe('parseOpenMeteo (pure)', () => {
     expect(parseOpenMeteo(freezing, 'Kathmandu', 'x')!.feelsLikeC).toBe(0);
   });
 
+  it('#278: maps current.visibility (metres) when present, rounded, 0 preserved', () => {
+    const foggy = {
+      ...KATHMANDU_FIXTURE,
+      current: { ...KATHMANDU_FIXTURE.current, visibility: 8400.6 },
+    };
+    expect(parseOpenMeteo(foggy, 'Kathmandu', 'x')!.visibilityM).toBe(8401);
+    const whiteout = {
+      ...KATHMANDU_FIXTURE,
+      current: { ...KATHMANDU_FIXTURE.current, visibility: 0 },
+    };
+    // 0 m is a real dense-fog reading — a falsiness guard would have dropped it to null.
+    expect(parseOpenMeteo(whiteout, 'Kathmandu', 'x')!.visibilityM).toBe(0);
+  });
+
+  it('#278: a body without visibility (old fixture) still parses, visibilityM null', () => {
+    expect(parseOpenMeteo(KATHMANDU_FIXTURE, 'Kathmandu', 'x')!.visibilityM).toBeNull();
+  });
+
   it('returns null on a malformed body (missing current / daily fields)', () => {
     expect(parseOpenMeteo({}, 'Kathmandu', 'x')).toBeNull();
     expect(parseOpenMeteo({ current: {} }, 'Kathmandu', 'x')).toBeNull();
@@ -268,6 +320,28 @@ describe('parseForecast (pure, S150)', () => {
   });
 });
 
+describe('parseAirQuality (pure, #251)', () => {
+  it('maps a captured air-quality body into an AirQualityNow', () => {
+    const aq = parseAirQuality({ current: { us_aqi: 42, pm2_5: 11.3 } }, 'Kathmandu', 'x');
+    expect(aq).not.toBeNull();
+    expect(aq!.city).toBe('Kathmandu');
+    expect(aq!.usAqi).toBe(42);
+    expect(aq!.pm25).toBe(11.3);
+    expect(aq!.stale).toBe(false);
+    expect(aq!.fetchedAt).toBe('x');
+  });
+
+  it('one field present, the other absent — still parses (independently optional)', () => {
+    expect(parseAirQuality({ current: { us_aqi: 30 } }, 'Kathmandu', 'x')!.pm25).toBeNull();
+    expect(parseAirQuality({ current: { pm2_5: 8 } }, 'Kathmandu', 'x')!.usAqi).toBeNull();
+  });
+
+  it('returns null on a malformed body (no current, or neither field present)', () => {
+    expect(parseAirQuality({}, 'Kathmandu', 'x')).toBeNull();
+    expect(parseAirQuality({ current: {} }, 'Kathmandu', 'x')).toBeNull();
+  });
+});
+
 describe('weatherCache gateway accessor (D-078 round-trip)', () => {
   beforeEach(() => {
     localStorage.clear();
@@ -311,7 +385,9 @@ describe('fetchWeather (total; write-through + offline fallback)', () => {
     expect(url.startsWith('https://api.open-meteo.com/v1/forecast?')).toBe(true);
     expect(url).toContain('latitude=27.7172');
     expect(url).toContain('longitude=85.324');
-    expect(url).toContain('current=temperature_2m%2Capparent_temperature%2Cweather_code');
+    expect(url).toContain(
+      'current=temperature_2m%2Capparent_temperature%2Cvisibility%2Cweather_code',
+    );
     // #246: apparent temperature is a CURRENT variable, not a daily one — the daily list is
     // unchanged, so the card gains one number rather than a second pair of min/max.
     expect(url).not.toContain('apparent_temperature_max');
@@ -346,6 +422,36 @@ describe('fetchWeather (total; write-through + offline fallback)', () => {
     if (result.status === 'ok') {
       expect(result.data.stale).toBe(true); // served from cache
       expect(result.data.tempC).toBe(12); // same last-good value
+    }
+  });
+
+  it('#278: an old cache entry written before visibility existed still reads fine offline (visibilityM null)', async () => {
+    // Seed the cache directly with a legacy-shaped entry (no `visibilityM` key at all — as a
+    // real pre-this-change localStorage value would be), not via a fetch.
+    const legacy = {
+      city: 'Kathmandu',
+      tempC: 12,
+      feelsLikeC: null,
+      weatherCode: 1,
+      condition: 'Mainly clear',
+      highC: 19,
+      lowC: 3,
+      sunrise: '2026-12-12T06:42',
+      sunset: '2026-12-12T17:08',
+      goldenMorning: { start: '2026-12-12T06:42', end: '2026-12-12T07:32' },
+      goldenEvening: { start: '2026-12-12T16:18', end: '2026-12-12T17:08' },
+      stale: false,
+      fetchedAt: 'x',
+      forecast: null,
+    } as unknown as WeatherNow; // deliberately missing visibilityM
+    (weatherCache.set as (city: string, value: WeatherNow) => void)('Kathmandu', legacy);
+
+    const downFetch = vi.fn().mockRejectedValue(new Error('offline'));
+    const result = await fetchWeather('Kathmandu', downFetch as unknown as typeof fetch);
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.data.stale).toBe(true);
+      expect(result.data.visibilityM).toBeNull(); // normalised, not `undefined`
     }
   });
 
@@ -435,6 +541,105 @@ describe('fetchWeather forecast attachment (S150 — zero extra fetch)', () => {
       expect(result.data.stale).toBe(true);
       expect(result.data.forecast).toHaveLength(7); // outlook survives the offline fallback too
     }
+  });
+});
+
+describe('fetchAirQuality (total; write-through + offline fallback, #251)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('success: fetches the SEPARATE air-quality host, write-throughs under a DISTINCT cache key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ current: { us_aqi: 55, pm2_5: 15 } }));
+    const result = await fetchAirQuality('Kathmandu', fetchMock as unknown as typeof fetch);
+
+    expect(result.status).toBe('ok');
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url.startsWith('https://air-quality-api.open-meteo.com/v1/air-quality?')).toBe(true);
+    expect(url).toContain('current=us_aqi%2Cpm2_5');
+    expect(url).not.toMatch(/api[_-]?key|apikey|appid|token=/i); // KEYLESS — no secret
+    expect(fetchMock.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
+
+    if (result.status === 'ok') {
+      expect(result.data.usAqi).toBe(55);
+      expect(result.data.stale).toBe(false);
+    }
+
+    // Cached under its own compound key — distinct from BOTH the current-conditions key and the
+    // forecast key (weatherCache never mixes the two shapes together).
+    expect(weatherCache.get<AirQualityNow>('Kathmandu:aqi')!.usAqi).toBe(55);
+    expect(weatherCache.get<WeatherNow>('Kathmandu')).toBeNull(); // fetchWeather was never called
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.weatherCache) as string);
+    expect(Object.keys(raw)).toEqual(['Kathmandu:aqi']);
+  });
+
+  it('does not collide with the forecast cache when both are populated for the same city', async () => {
+    await fetchWeather(
+      'Kathmandu',
+      vi.fn().mockResolvedValue(jsonResponse(KATHMANDU_WEEK_FIXTURE)) as unknown as typeof fetch,
+    );
+    await fetchAirQuality(
+      'Kathmandu',
+      vi.fn().mockResolvedValue(jsonResponse({ current: { us_aqi: 20, pm2_5: 5 } })) as unknown as typeof fetch,
+    );
+
+    expect(weatherCache.get<WeatherNow>('Kathmandu')!.tempC).toBe(12);
+    expect(weatherCache.get<ForecastDay[]>('Kathmandu:forecast')).toHaveLength(7);
+    expect(weatherCache.get<AirQualityNow>('Kathmandu:aqi')!.usAqi).toBe(20);
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.weatherCache) as string);
+    expect(Object.keys(raw).sort()).toEqual(['Kathmandu', 'Kathmandu:aqi', 'Kathmandu:forecast']);
+  });
+
+  it('offline (fetch rejects): returns the CACHED last-good reading tagged stale:true', async () => {
+    await fetchAirQuality(
+      'Kathmandu',
+      vi.fn().mockResolvedValue(jsonResponse({ current: { us_aqi: 55, pm2_5: 15 } })) as unknown as typeof fetch,
+    );
+    const result = await fetchAirQuality('Kathmandu', vi.fn().mockRejectedValue(new Error('offline')) as unknown as typeof fetch);
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.data.stale).toBe(true);
+      expect(result.data.usAqi).toBe(55);
+    }
+  });
+
+  it('no cache + failed fetch → the typed unavailable state (never throws)', async () => {
+    const result = await fetchAirQuality('Tokyo', vi.fn().mockRejectedValue(new Error('offline')) as unknown as typeof fetch);
+    expect(result).toEqual({ status: 'unavailable', city: 'Tokyo' });
+  });
+
+  it('unknown city (no coords) → unavailable without any fetch', async () => {
+    const fetchMock = vi.fn();
+    const result = await fetchAirQuality('Atlantis', fetchMock as unknown as typeof fetch);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ status: 'unavailable', city: 'Atlantis' });
+  });
+
+  it('never throws even when json() itself throws (malformed body → cache/unavailable)', async () => {
+    const brokenJson = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => {
+        throw new Error('bad json');
+      },
+    });
+    await expect(
+      fetchAirQuality('Tokyo', brokenJson as unknown as typeof fetch),
+    ).resolves.toEqual({ status: 'unavailable', city: 'Tokyo' });
+  });
+
+  it('non-200 response: falls back to cache (treated as a failure)', async () => {
+    await fetchAirQuality(
+      'Kathmandu',
+      vi.fn().mockResolvedValue(jsonResponse({ current: { us_aqi: 55, pm2_5: 15 } })) as unknown as typeof fetch,
+    );
+    const result = await fetchAirQuality(
+      'Kathmandu',
+      vi.fn().mockResolvedValue(jsonResponse({}, false, 503)) as unknown as typeof fetch,
+    );
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') expect(result.data.stale).toBe(true);
   });
 });
 

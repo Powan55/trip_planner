@@ -44,6 +44,7 @@ describe('CSP policy', () => {
   it.each([
     ['https://*.basemaps.cartocdn.com', 'CARTO raster tiles'],
     ['https://api.open-meteo.com', 'weather'],
+    ['https://air-quality-api.open-meteo.com', 'air quality'],
     ['https://api.frankfurter.dev', 'FX rates'],
     ['https://nominatim.openstreetmap.org', 'place search'],
     ['https://firestore.googleapis.com', 'Firestore sync'],
