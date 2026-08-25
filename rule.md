@@ -51,13 +51,16 @@ git switch lax && git merge dev
 
 ## What CI runs
 
-Four jobs, in `.github/workflows/ci.yml`.
+Five jobs, in `.github/workflows/ci.yml`: Checks, Firestore rules, E2E, Visual
+regression and Release gate.
 
 **Checks** (about 5 minutes) runs on every push to `lax`, `uttam` and `dev`, on
 every pull request into `dev` or `main`, and again on the push to `main` that
 deploys:
 
 - repository hygiene (see below)
+- `node scripts/contrast-tokens.mjs` (design-token contrast against the pinned palette)
+- `node scripts/motion-loops.mjs` (ambient-loop floor: no sub-6s loop outside the allowlist, and every loop needs a reduced-motion stop)
 - `npx tsc --noEmit`
 - `npm run lint`
 - `npm test` (Vitest)
@@ -70,12 +73,15 @@ engine in a local emulator. No credentials: the emulator is aimed at a fake
 project id, so it cannot touch the live one.
 
 **E2E** (about 13 minutes) runs on pull requests only, after Checks passes:
+`npm run build`, then the behavioural Playwright suite against the built
+static export, grep-excluding the visual specs. It must pass.
 
-- `npm run build`, then Playwright against the built static export
-- the behavioural suite, which must pass
-- the visual-regression suite, which is **advisory**. The committed screenshot
-  baselines were generated on Windows and cannot match on the Linux runner, so
-  this step reports but never fails the build. The diff is uploaded as an artifact.
+**Visual regression** is its own job, also gated on Checks and pull-requests
+only, and it is **not advisory**: it runs on `windows-latest` because the
+committed screenshot baselines are Windows-canonical (`-win32`), which makes
+this a real pixel compare instead of a guaranteed miss on a Linux runner, and
+it carries no `continue-on-error` — a genuine diff fails the pull request. The
+report and any diff are uploaded as an artifact on failure.
 
 **Release gate** (seconds) runs on a pull request into `main` only, and again on the
 push to `main` that deploys. It needs no dependencies, so it answers before anything
@@ -150,15 +156,21 @@ its case, or deleting a rule, fails the self-test.
 
 ## Commits
 
-`<area>: <what it does, in the imperative>`
+`<area>: <what it does, in the imperative>` is the aim, but it is not enforced
+and `git log` shows it holding for only about half of real commits — a bare
+imperative subject with no area prefix is just as common:
 
 ```
 map: keep the day filter when a pin is reopened
 docs: correct the storage-key table
+fix what review found in the print work
 ```
 
-Lower case after the colon, no trailing full stop. Explain the *why* in the body
-if it is not obvious from the diff.
+Lower case after the colon (when there is one), no trailing full stop. If the
+commit closes or relates to an issue, the number goes in trailing parentheses,
+not inline in the sentence: `fix: don't treat install-hint swipe-away as
+permanent dismissal (#249)`. Explain the *why* in the body if it is not
+obvious from the diff.
 
 ## Closing issues
 
