@@ -87,11 +87,16 @@ test.describe('#223 the print stylesheet', () => {
   test('the screen layout is untouched — the block cannot match at screen', async ({ page }) => {
     await gotoPrint(page, '/plan/');
     await page.emulateMedia({ media: 'screen' });
+    // Same rule as the print half above: a missing test id must fail loudly rather than skip
+    // itself into a green run. `toBeHidden()` PASSES for an element that does not exist, and the
+    // `if (await navbar.count())` guard that used to be here skipped the navbar assertion
+    // outright — renaming BOTH ids in the app left this test green.
+    const sheet = page.locator('[data-testid="print-itinerary"]');
+    const navbar = page.locator('[data-testid="navbar"]');
+    expect(await sheet.count(), 'the print-itinerary test id went missing').toBeGreaterThan(0);
+    expect(await navbar.count(), 'the navbar test id went missing').toBeGreaterThan(0);
     // The sheet is print-only; at screen it must be gone and the chrome must be back.
-    await expect(page.locator('[data-testid="print-itinerary"]')).toBeHidden();
-    const navbar = page.locator('[data-testid="navbar"]').first();
-    if (await navbar.count()) {
-      await expect(navbar).not.toHaveCSS('display', 'none');
-    }
+    await expect(sheet.first()).toBeHidden();
+    await expect(navbar.first()).not.toHaveCSS('display', 'none');
   });
 });

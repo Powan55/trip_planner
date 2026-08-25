@@ -24,6 +24,19 @@ function nominatimRow(name: string, displayName: string, lat: string, lon: strin
   return [{ place_id: 1, lat, lon, name, display_name: displayName }];
 }
 
+/** A realistic multi-row body — Nominatim ranks by relevance and the FIRST row is the match. */
+function nominatimRows(
+  ...rows: Array<[name: string, displayName: string, lat: string, lon: string]>
+) {
+  return rows.map(([name, display_name, lat, lon], i) => ({
+    place_id: i + 1,
+    lat,
+    lon,
+    name,
+    display_name,
+  }));
+}
+
 function jsonResponse(body: unknown, ok = true, status = 200): Response {
   return { ok, status, json: async () => body } as unknown as Response;
 }
@@ -44,16 +57,41 @@ describe('resolveAndCacheCityCoords (#250)', () => {
     resetWorldSearchState();
   });
 
-  it('geocodes a destination and caches the coordinate on the TRIP RECORD, not city-coords.ts', async () => {
+  it('geocodes a destination and caches the TOP result on the TRIP RECORD, not city-coords.ts', async () => {
     setTripConfig('custom-1', BASE);
+    // TWO rows, not one: Nominatim ranks by relevance, so the FIRST row is the answer. A
+    // one-row fixture cannot tell `places[0]` apart from any other index.
     const { fetchImpl } = stubFetch(() =>
-      jsonResponse(nominatimRow('Ubud', 'Ubud, Bali, Indonesia', '-8.5069', '115.2625')),
+      jsonResponse(
+        nominatimRows(
+          ['Ubud', 'Ubud, Bali, Indonesia', '-8.5069', '115.2625'],
+          ['Ubud', 'Ubud, Gianyar Regency, Indonesia', '-8.4200', '115.1800'],
+        ),
+      ),
     );
 
     await resolveAndCacheCityCoords('custom-1', ['Ubud'], { fetchImpl, minIntervalMs: 0 });
 
     const stored = getKnownTrip('custom-1')?.config;
     expect(stored?.cityCoords).toEqual({ Ubud: { latitude: -8.5069, longitude: 115.2625 } });
+  });
+
+  it('merges onto the config as it is AFTER the await, not the snapshot taken before it', async () => {
+    setTripConfig('custom-1', BASE);
+    // The concurrency guard the re-read at city-geocode.ts:55 exists for: an edit that lands
+    // WHILE the throttled request is in flight must survive the coordinate write.
+    const { fetchImpl } = stubFetch(() => {
+      setTripConfig('custom-1', { ...BASE, vibe: 'city', destinations: ['Ubud', 'Kuta'] });
+      return jsonResponse(nominatimRow('Ubud', 'Ubud, Bali, Indonesia', '-8.5069', '115.2625'));
+    });
+
+    await resolveAndCacheCityCoords('custom-1', ['Ubud'], { fetchImpl, minIntervalMs: 0 });
+
+    const stored = getKnownTrip('custom-1')?.config;
+    expect(stored?.cityCoords).toEqual({ Ubud: { latitude: -8.5069, longitude: 115.2625 } });
+    // Reusing the pre-await snapshot would silently revert both of these.
+    expect(stored?.vibe).toBe('city');
+    expect(stored?.destinations).toEqual(['Ubud', 'Kuta']);
   });
 
   it('skips a destination already resolved (no second request)', async () => {
