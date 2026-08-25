@@ -36,6 +36,7 @@ vi.mock('@/lib/token-auth', async (importOriginal) => {
 
 import SyncStatusBadge from '@/components/sync-status-badge';
 import { setReadDenied } from '@/core/sync/read-denied';
+import { STORAGE_KEYS } from '@/core/storage/gateway';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -91,5 +92,32 @@ describe('#271 — SyncStatusBadge reflects a permission-denied read, not just a
       setReadDenied('itinerary', false);
     });
     expect(c.querySelector('[data-testid="sync-status-badge"]')).toBeNull();
+  });
+
+  // The precedence itself. Blocked and pending are not mutually exclusive — a device with queued
+  // edits can also be refused its read — and nothing else in this file sets both, so the order of
+  // the `isBlocked ? … : isPending ? …` ternary was unasserted. Reversed, a blocked device reads
+  // "pending" forever, which is the exact symptom #267 exists to fix.
+  it('blocked WINS over pending when a device is both', async () => {
+    // One dirty outbox chunk — "1 pending" on its own.
+    localStorage.setItem(
+      STORAGE_KEYS.syncOutbox,
+      JSON.stringify({ version: 1, dirty: { itinerary: ['2026-12-09'] } }),
+    );
+    const c = await mount();
+    const state = () =>
+      c.querySelector('[data-testid="sync-status-badge"]')?.getAttribute('data-state');
+    const text = () => c.querySelector('[data-testid="sync-status-text"]')?.textContent;
+    // Control: the fixture really does produce pending > 0, so the flip below is load-bearing.
+    expect(state()).toBe('pending');
+    expect(text()).toBe('1 pending');
+
+    // Now deny the read as well, live. Both are true; "pending" would promise the queue drains on
+    // its own, and it never will.
+    await act(async () => {
+      setReadDenied('itinerary', true);
+    });
+    expect(state()).toBe('blocked');
+    expect(text()).toBe('Not syncing');
   });
 });

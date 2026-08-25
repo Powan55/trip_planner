@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 
 // S124 — the ONE core time module (matrix item 11; D-137/D-139/D-140).
 // Pure math, framework-free — lands GREEN before the migration consumes `parseTimeString`.
@@ -141,6 +141,8 @@ describe('offsetForCountry — custom-trip fallback when no leg has real geograp
     updatedAt: 1000,
   };
 
+  afterEach(() => vi.restoreAllMocks());
+
   it('falls back to the device offset, not 0, when every leg is the placeholder', async () => {
     localStorage.clear();
     sessionStorage.clear();
@@ -149,8 +151,16 @@ describe('offsetForCountry — custom-trip fallback when no leg has real geograp
 
     vi.resetModules();
     const { offsetForCountry: freshOffsetForCountry } = await import('@/core/dates/item-time');
+    // A FIXED device offset, stubbed after the import (`offsetForCountry` reads the clock at CALL
+    // time) — the same technique item-time-display.test.ts:198 uses. Asserting against a live
+    // `new Date().getTimezoneOffset()` would just restate what production computes and would pass
+    // for any hardcoded value that happened to match the runner's clock.
+    vi.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(300); // US Eastern standard
+    expect(freshOffsetForCountry('main')).toBe(-300);
 
-    expect(freshOffsetForCountry('main')).toBe(-new Date().getTimezoneOffset());
+    // And it tracks the device rather than being frozen at one value.
+    vi.spyOn(Date.prototype, 'getTimezoneOffset').mockReturnValue(-330); // Kathmandu
+    expect(freshOffsetForCountry('main')).toBe(330);
     expect(freshOffsetForCountry('main')).not.toBe(0);
   });
 

@@ -5053,6 +5053,23 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 
 **Changes if:** budget gets a real per-field restore design — that is its own decision, unrelated to this one.
 
+### D-447 · (issue #333, 2026-08-25) · An absence claim needs an explicit count assertion, and a persistence test must read back through production code
+
+**Decision.** Two test rules, both learned by finding tests that stayed green while the code under them was broken.
+
+**One: `toBeHidden()` and `if (await locator.count())` both pass for an element that does not exist.** So a test asserting something is hidden, or guarding an assertion on presence, survives that element being deleted outright. Any such claim needs `expect(await locator.count()).toBeGreaterThan(0)` first. Proven: renaming both target test ids in the app and rebuilding left the offending test green.
+
+The same file already carried this rule in a comment on an earlier test, and the last test in it did the opposite anyway. Knowing the trap is not enough — the count assertion has to be written.
+
+**Two: a persistence test that reads storage directly proves nothing.** The one named "the localStorage reload proof" unmounted, remounted, and then asserted with a direct `localStorage.getItem`. No production code ran between the write and the check, and deleting the remount entirely left it green. A reload test has to read back through the component or hook that does the rehydrating.
+
+**Both were found by mutation, and that is the standard worth keeping.** Twenty-four production mutations were run across the tests that landed in one day: nineteen were caught, five were not. Passing proves a test compiles and does not throw; only breaking the code under it proves the test would notice. Every fix here was accepted on the same evidence — apply the mutation, see red, restore, see green.
+
+**Three related shapes to distrust**, all found in the same pass: an assertion on a value the test itself constructed (a fixture that hand-picks ids which cannot collide, then asserts they do not collide); an assertion that re-runs the implementation to compute its own expected value (comparing against `-new Date().getTimezoneOffset()` when that is exactly what the function does — it binds to the runner's clock, and what it accepts changes silently at every DST boundary); and a branch whose precedence is never exercised because no test sets both inputs at once.
+
+**Not every guard of this shape is wrong.** A `count()` check preceding a settle — waiting for an animation on an element that may legitimately be absent — is correct, because there is nothing to settle when it is missing. The distinction is whether the absence is the thing being claimed or merely tolerated.
+
+**Changes if:** a linting rule can catch the bare `toBeHidden()` case mechanically, at which point the convention stops depending on review.
 ### D-445 · Supersedes D-441 · (issue #329, 2026-08-25) · The booking-override layer is removed; `'to-book'` is a type member with no instances, not a feature key
 
 **Decision.** The local booking-override layer is deleted — editor, hook, core module, gateway key, backup domain and its tests. `BookingStatus`'s `'to-book'` member and the status chip stay; they are independently typed and removing them is a separate call.

@@ -130,22 +130,30 @@ describe('SYNC ON — restoreMyPlaces is a tombstone-replace merge (issue #239)'
     expect(merged.find((p) => p.name === 'Added after backup')?.deleted).toBe(true);
   });
 
-  it('backup WINS: its rows become live (fresh ids), prior live rows tombstoned', async () => {
+  it('backup WINS: its rows become live under FRESH ids, prior live rows tombstoned', async () => {
     const h = renderMyPlaces();
     await h.run((s) => s.addPlace({ name: 'A', legId: 'nepal' }));
     await h.run((s) => s.addPlace({ name: 'B', legId: 'japan' }));
-    const priorIds = h.current.places.map((p) => p.id);
-    expect(priorIds).toHaveLength(2);
 
-    const backup: MyPlace[] = [backupRow('x', 'X'), backupRow('y', 'Y')];
+    // A REAL backup: taken off disk, so its ids ARE the ids step (a) of the restore is about to
+    // tombstone. Hand-written ids that could never collide only rule out what the fixture already
+    // ruled out — the contract is that a restored row gets a fresh id even when the id it came in
+    // under is now a tombstone (hooks/use-my-places.ts, restoreMyPlaces step (b)).
+    const backup: MyPlace[] = JSON.parse(JSON.stringify(rawOnDisk()));
+    const backupIds = backup.map((p) => p.id);
+    expect(backupIds).toHaveLength(2);
+
     await h.run((s) => s.restoreMyPlaces(backup));
 
-    expect(h.current.places.map((p) => p.name).sort()).toEqual(['X', 'Y']);
-    expect(h.current.places.every((p) => !priorIds.includes(p.id))).toBe(true);
+    expect(h.current.places.map((p) => p.name).sort()).toEqual(['A', 'B']);
+    expect(h.current.places.every((p) => !backupIds.includes(p.id))).toBe(true);
     expect(h.current.places.every((p) => p.rev === 1 && typeof p.hlc === 'string')).toBe(true);
 
+    // The tombstones SURVIVE the re-add. Re-adding under the same id would replace each tombstone
+    // in place (`addPlace` de-dupes on id), so the delete would never propagate and a peer still
+    // holding the old row live could resurrect it.
     const raw = rawOnDisk();
-    for (const id of priorIds) {
+    for (const id of backupIds) {
       expect(raw.find((p) => p.id === id)?.deleted).toBe(true);
     }
     h.unmount();
