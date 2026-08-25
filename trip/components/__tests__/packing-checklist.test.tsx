@@ -114,6 +114,54 @@ describe('PackingChecklist (#227) — remove an item', () => {
     expect(rawOnDisk().find((i) => i.id === fixedId)).toBeUndefined();
   });
 
+  it('removing EVERY row leaves a PERSISTED empty list, not the template written back (#328)', async () => {
+    await mount();
+
+    // Tap every trash button, one at a time, re-querying because the DOM shrinks under us.
+    let guard = 40;
+    for (;;) {
+      const next = container.querySelector<HTMLButtonElement>('[data-testid^="packing-remove-"]');
+      if (next === null) break;
+      if (guard-- <= 0) throw new Error('the row list never emptied');
+      await act(async () => next.click());
+    }
+
+    expect(container.querySelectorAll('[data-testid^="packing-item-"]')).toHaveLength(0);
+    expect(at('packing-progress')!.textContent).toBe('0/0 packed');
+    expect(window.localStorage.getItem(KEY)).toBe('[]');
+    expect(rawOnDisk()).toEqual([]);
+
+    // The empty state is real content, not a blank panel, and offers the way back.
+    expect(at('packing-empty')).not.toBeNull();
+    expect(at('packing-restore-template')).not.toBeNull();
+
+    // REMOUNT (the reload proof): still empty, still no template on disk.
+    act(() => root.unmount());
+    container.remove();
+    await mount();
+    expect(container.querySelectorAll('[data-testid^="packing-item-"]')).toHaveLength(0);
+    expect(at('packing-empty')).not.toBeNull();
+    expect(window.localStorage.getItem(KEY)).toBe('[]');
+  });
+
+  it('the empty state restores the built-in checklist, and THAT survives a remount', async () => {
+    window.localStorage.setItem(KEY, '[]');
+    await mount();
+    expect(at('packing-empty')).not.toBeNull();
+
+    await act(async () => at<HTMLButtonElement>('packing-restore-template')!.click());
+
+    expect(at('packing-empty')).toBeNull();
+    expect(rawOnDisk()).toHaveLength(28);
+    expect(at('packing-progress')!.textContent).toBe('0/28 packed');
+
+    act(() => root.unmount());
+    container.remove();
+    await mount();
+    expect(rawOnDisk()).toHaveLength(28);
+    expect(at('packing-item-universal-passport-copies')).not.toBeNull();
+  });
+
   it('removes a CUSTOM item from the DOM and from disk', async () => {
     await mount();
     await act(async () => setValue(at<HTMLInputElement>('packing-add-input')!, 'Ear plugs'));

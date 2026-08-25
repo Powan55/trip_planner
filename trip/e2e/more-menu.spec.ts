@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, settleAnimations } from './fixtures';
 import type { Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -106,6 +106,12 @@ test.describe('S256 · desktop "More" disclosure', () => {
   test('axe: the open More menu has zero serious/critical/moderate violations', async ({ page }) => {
     await page.getByTestId('navbar-more-toggle').click();
     await expect(page.getByTestId('navbar-more-menu')).toBeVisible();
+    // #338: the panel fades/translates in (framer-motion, ~0.3s); toBeVisible()
+    // resolves the instant it mounts, at opacity as low as ~0.4 measured, and this
+    // component's text fails color-contrast below ~opacity 0.6. Without this wait
+    // axe can read a mid-fade frame — same race settleAnimations exists for
+    // elsewhere (see its doc in ./fixtures), just missing here.
+    await settleAnimations(page);
 
     const results = await new AxeBuilder({ page })
       .include('[data-testid="navbar"]')

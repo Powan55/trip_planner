@@ -7,6 +7,7 @@ import {
   foldPlaceName,
   getVisited,
   hasVisitedCity,
+  isTripClaimedCity,
   removeVisit,
   tidyPlaceName,
   PLACE_NAME_MAX,
@@ -96,22 +97,21 @@ export default function VisitedPlacesPanel() {
     return ISO_COUNTRIES.filter((name) => !taken.has(foldPlaceName(name)));
   }, [visited]);
 
-  /** Every place the ITINERARY itself claims, folded through the store's own rule so "claimed"
+  /** Every country the ITINERARY itself claims, folded through the store's own rule so "claimed"
    *  means here exactly what "already added" means to `addVisit`. The WHOLE trip rather than the
-   *  arrived prefix `runVisitAutocount` counts today: a city whose day is still ahead is re-credited
-   *  too, when its day comes, so "this will be counted again" is true of it as well. */
-  const tripClaimed = useMemo(() => {
+   *  arrived prefix `runVisitAutocount` counts today: a country whose day is still ahead is
+   *  re-credited too, when its day comes, so "this will be counted again" is true of it as well.
+   *  Cities use `isTripClaimedCity` instead (issue #332) — this set covers countries only, which
+   *  that function does not answer. */
+  const tripClaimedCountries = useMemo(() => {
     const places = allTripPlaces();
-    return {
-      city: new Set(places.map((p) => foldPlaceName(p.city))),
-      // A single-leg custom trip labels no country (`countryLabelForDate` returns ''); a blank
-      // claims nothing.
-      country: new Set(places.map((p) => foldPlaceName(p.country)).filter(Boolean)),
-    };
+    // A single-leg custom trip labels no country (`countryLabelForDate` returns ''); a blank
+    // claims nothing.
+    return new Set(places.map((p) => foldPlaceName(p.country)).filter(Boolean));
   }, []);
 
   const claimedByTrip = (kind: 'city' | 'country', name: string) =>
-    tripClaimed[kind].has(foldPlaceName(name));
+    kind === 'city' ? isTripClaimedCity(name) : tripClaimedCountries.has(foldPlaceName(name));
 
   const submitCountry = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
