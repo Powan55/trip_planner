@@ -596,3 +596,39 @@ describe('#267 — a rules refusal is permanent, a transport failure is not', ()
     await expect(push({ d1: 1 }, { d1: 2 })).resolves.toBeUndefined(); // and again once denied
   });
 });
+
+// ── #237 — the dirty-set read-modify-write across tabs ───────────────────────────────────────
+// HONEST SCOPE: enqueue/ack each do their load→mutate→save in one synchronous call with no
+// await inside it, so there is no point to pause execution at — a single-process Vitest run
+// cannot preempt mid-function the way two real tabs (separate OS threads) could. This test
+// therefore proves the weaker, testable half only: two SEQUENTIAL tab-like operations (separate
+// module instances via vi.resetModules(), sharing the same jsdom localStorage) that each touch a
+// DIFFERENT chunk compose correctly — neither's write-back drops the other's. That was already
+// true before the #237 fix (sequential calls never raced in the first place); it does NOT
+// exercise, and cannot prove, the genuine interleaved case the issue describes. See the
+// `enqueue`/`ack` comments in core/sync/outbox.ts for what the fix narrows and what it leaves open.
+describe('#237 — sequential tab-shaped operations on different chunks do not clobber each other', () => {
+  it("tab B's enqueue of a new chunk preserves tab A's earlier ack of a different chunk (and an untouched third chunk survives both)", async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.syncOutbox,
+      JSON.stringify({ version: 1, dirty: { itinerary: ['d1', 'd2'] } }),
+    );
+
+    // "Tab A": acks d1 (its push for d1 resolves); d2 is not part of this tab's diff at all.
+    const tabA = makeHarness();
+    await withOutbox(tabA.cs)({}, { d1: 1 });
+    expect(outboxDirty('itinerary')).toEqual(['d2']); // d1 acked, d2 (untouched by tab A) survives
+
+    // "Tab B": a fresh module instance (separate in-memory state, same shared localStorage)
+    // enqueues a brand-new chunk d3, which fails to push and stays dirty.
+    vi.resetModules();
+    ({ withOutbox, flushOutbox, outboxDirty, outboxSnapshot, outboxBlocked, SYNC_OUTBOX_CHANGED_EVENT } =
+      await import('@/core/sync/outbox'));
+    const tabB = makeHarness();
+    tabB.failing.add('d3');
+    await withOutbox(tabB.cs)({}, { d3: 1 });
+
+    // Neither tab's record was dropped: d2 (tab A's era) and d3 (tab B's new write) both survive.
+    expect(outboxDirty('itinerary').sort()).toEqual(['d2', 'd3']);
+  });
+});
