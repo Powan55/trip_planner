@@ -481,6 +481,20 @@ export const STORAGE_KEYS = {
    */
   nameHint: 'name-hint',
   /**
+   * localStorage — JSON `Record<id, BookingOverride>`, the local-only booking-override store
+   * (booking-overrides, key 40; issue #228). `lib/booking-data.ts` stays read-only presentation
+   * data (D-034) — a `Journey`/`Stay` flagged `status: 'to-book'` there can only become a real
+   * booking by editing that module and redeploying. This slot is the additive fix: an override
+   * keyed by the SAME id space (`Journey.id` / `Stay.id`), edited from `/flights` and merged onto
+   * the static data AT RENDER TIME. TRIP-SCOPED (mirrors `favorites`/`myPlaces` exactly) — a
+   * booking belongs to the trip it was made for. Local-only, no sync (mirrors `favoritesStore`).
+   * Value shape + the merge/sanitize logic are owned by `core/bookings/override.ts` (the gateway
+   * is byte-transport only). The accessor does NOT live in this file, for the same bundle reason
+   * as `myPlacesStore` (see the NOTE below `installHintStore`) — only the `/flights` route
+   * consumes it. ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   */
+  bookingOverrides: 'nepal_japan_booking_overrides',
+  /**
    * localStorage — boolean-as-string (`String(next)`) `/map` screen-wake-lock toggle
    * (map-wake-lock, key 41; issue #247). Mirrors `travelLegibility` (key 33)/`nightlifeVisible`
    * (key 7)'s exact `uiPrefs` shape — lenient `=== 'true'` read, `String(boolean)` write, NOT
@@ -595,7 +609,8 @@ export type TripScopedSlot =
   | 'dayAnchors'
   | 'shareInbox'
   | 'myPlaces'
-  | 'expensesCorrupt';
+  | 'expensesCorrupt'
+  | 'bookingOverrides';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -622,6 +637,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'shareInbox',
   'myPlaces',
   'expensesCorrupt',
+  'bookingOverrides',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -1378,6 +1394,12 @@ export const installHintStore = {
     writeString('local', STORAGE_KEYS.installHintDismissed, '1');
   },
 } as const;
+
+// NOTE: the booking-overrides accessor for key 40 (`bookingOverridesStore`) does NOT live here —
+// it is in `core/bookings/override.ts`, alongside the `BookingOverride` shape and the pure
+// Journey/Stay merge helpers, for the same bundle reason as `myPlacesStore` below: only the
+// `/flights` route (a `dynamic({ssr:false})` island) consumes it. The KEY literal
+// (`STORAGE_KEYS.bookingOverrides`) + the `TripScopedSlot` union entry stay here.
 
 // NOTE: the my-places accessor for key 31 (`myPlacesStore`) does NOT live here — it is in
 // `core/storage/my-places-store.ts`, for the SAME bundle reason as the Travel Mode accessors below:

@@ -101,8 +101,10 @@ test.describe('S161 story-mode photos — a captured day shows them, an uncaptur
     await expect(thumb).toHaveAttribute('data-missing', 'false');
     const img = thumb.locator('img');
     await expect(img).toHaveAttribute('alt', 'Prayer flags over Boudhanath stupa');
-    // Read-only: no delete/edit control on the story surface (that lives only on the journal card).
-    await expect(thumb.locator('button')).toHaveCount(0);
+    // Read-only: no delete/edit control on the story surface (that lives only on the journal
+    // card) — the one button here opens the read-only lightbox (#225), not a mutation.
+    await expect(thumb.locator('button')).toHaveCount(1);
+    await expect(thumb.getByTestId(`story-photo-open-${photoId}`)).toBeVisible();
 
     // ── A day with NO captured photo: the story renders cleanly, no empty strip ───────────────────
     await expect(page.getByTestId(`story-day-${NO_PHOTO_DAY}`)).toBeVisible();

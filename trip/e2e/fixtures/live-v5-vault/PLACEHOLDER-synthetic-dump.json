@@ -12,7 +12,7 @@
     "nepal_japan_sync_outbox": "{}",
     "nepal_japan_photos": "[]",
     "nepal_japan_first_run_tour_seen": "1",
-    "nepal_japan_itinerary": "{\"schemaVersion\":3,\"updatedAt\":\"2026-01-01T00:00:00.000Z\",\"payload\":[]}"
+    "nepal_japan_itinerary": "{\"schemaVersion\":5,\"updatedAt\":\"2026-01-01T00:00:00.000Z\",\"payload\":[]}"
   },
   "sessionStorage": {
     "tripPlannerTodayOverride": "2026-12-10"

@@ -145,8 +145,10 @@ test.describe('S208 /journal browse — photo ride-along', () => {
     const img = thumb.locator('img');
     await expect(img).toHaveAttribute('alt', 'Prayer flags over Boudhanath stupa');
     // Read-only: no delete/edit control inside the strip itself (that lives only on the journal
-    // card's own PhotoAttach, reached via the row's Edit control, not inside the strip).
-    await expect(thumb.locator('button')).toHaveCount(0);
+    // card's own PhotoAttach, reached via the row's Edit control, not inside the strip) — the one
+    // button here opens the read-only lightbox (#225), not a mutation.
+    await expect(thumb.locator('button')).toHaveCount(1);
+    await expect(thumb.getByTestId(`journal-browse-photo-open-${photoId}`)).toBeVisible();
 
     // ── The uncaptured day renders cleanly — no empty strip ────────────────────────────────────────
     await expect(page.getByTestId('journal-browse-row-2026-12-15')).toBeVisible();

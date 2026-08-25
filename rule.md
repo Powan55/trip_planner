@@ -223,6 +223,21 @@ You can run the same check yourself, from the repository root:
 node scripts/release-gate.mjs
 ```
 
+### Recovering from a bad deploy
+
+There is no rollback. The site is a static export on Pages, so there is no
+artifact to revert to, and reverting the merge commit on `main` does not undo
+a bad deploy by itself — the version check above refuses anything not
+strictly above the newest tag, so the gate refuses the downgrade and Pages
+keeps serving the bad bytes. Recovery is always forward, a new
+higher-numbered release, never a restore.
+
+1. Revert the bad change on `dev`.
+2. Bump the patch version in `trip/package.json`.
+3. Add an entry at the top of `trip/docs/RELEASES.md` for the new version.
+4. Open the pull request from `dev` into `main`, same as any other release.
+5. Wait for CI and the deploy to finish — about twenty minutes end to end.
+
 ## Where to look
 
 | Where | For |

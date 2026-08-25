@@ -18,6 +18,7 @@ import {
   type WeatherResult,
   type AirQualityResult,
 } from '@/lib/weather';
+import { getActiveTripCityCoord } from '@/core/trips/registry';
 import { fetchCurrencyRate, type CurrencyRateResult } from '@/lib/currency-rate';
 import { getNow } from '@/lib/trip-now';
 import {
@@ -73,7 +74,8 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchWeather(city).then((r) => {
+    // #250: prefer this trip's own resolved coordinate over the static default-pack table.
+    fetchWeather(city, fetch, getActiveTripCityCoord(city)).then((r) => {
       if (!cancelled) setWeather(r);
     });
     return () => {
@@ -85,7 +87,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
   // ride along on the forecast response the way the 7-day outlook does.
   useEffect(() => {
     let cancelled = false;
-    fetchAirQuality(city).then((r) => {
+    fetchAirQuality(city, fetch, getActiveTripCityCoord(city)).then((r) => {
       if (!cancelled) setAirQuality(r);
     });
     return () => {
