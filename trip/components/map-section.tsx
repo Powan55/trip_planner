@@ -16,6 +16,7 @@ import {
   CalendarPlus,
   MapPin,
   Globe,
+  Sun,
 } from 'lucide-react';
 import {
   MAP_MARKERS,
@@ -49,7 +50,8 @@ import { TRIP_DATES, formatDate } from '@/lib/trip-data';
 import { generateItemId } from '@/lib/item-id';
 import { toItineraryDraft } from '@/lib/itinerary-adapter';
 import { haversineKm, MAP_PIN_DND_TYPE, type LatLng } from '@/lib/day-anchor';
-import { dayAnchorStore } from '@/core/storage/gateway';
+import { dayAnchorStore, mapWakeLockPrefs } from '@/core/storage/gateway';
+import { useWakeLock } from '@/lib/use-wake-lock';
 import {
   searchWorldPlaces,
   dropTripDuplicates,
@@ -167,6 +169,23 @@ export default function MapSection() {
   const { favorites, hydrated: favoritesReady } = useFavorites();
   const [savedOnly, setSavedOnly] = useState(false);
   const online = useOnline();
+
+  // Issue #247 — keep-screen-awake, OFF by default and ONLY held while explicitly toggled
+  // on: unlike Travel Mode's Essentials card and the safety phrase card (both bounded,
+  // actively-in-hand reads), `/map` is a route someone can leave open in a pocket for a
+  // long stretch, so an always-on lock here would drain battery on a trip already rationing
+  // it. Persisted the same boolean-as-string way as `legibilityPrefs`/`nightlifeVisible`.
+  const [wakeLockOn, setWakeLockOn] = useState(false);
+  useEffect(() => {
+    const saved = mapWakeLockPrefs.get();
+    if (saved !== null) setWakeLockOn(saved);
+  }, []);
+  const wakeLock = useWakeLock(wakeLockOn);
+  const toggleWakeLock = () => {
+    const next = !wakeLockOn;
+    setWakeLockOn(next);
+    mapWakeLockPrefs.set(next);
+  };
 
   // ──: map-linked day planning ───────────────────────────────────────────
   // `anchors`: date → the marker id that day is "anchored" to. LOCAL-ONLY presentation
@@ -964,7 +983,34 @@ export default function MapSection() {
               </span>
             )}
           </button>
+
+          {/* Issue #247 — explicit, OFF-by-default screen-wake-lock toggle. Deliberately NOT
+              always-on like the Travel Mode/safety-card locks: this route can sit open
+              unattended, so the lock is only held while a traveler has actively asked for it. */}
+          <button
+            type="button"
+            onClick={toggleWakeLock}
+            aria-pressed={wakeLockOn}
+            data-testid="map-wake-lock-toggle"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+              wakeLockOn
+                ? 'bg-primary/20 text-primary border-primary/40'
+                : 'text-ink-mid border-white/10 hover:bg-white/5 hover:text-ink-hi'
+            }`}
+          >
+            <Sun className="w-3.5 h-3.5" aria-hidden="true" />
+            Keep screen on
+          </button>
         </div>
+
+        {wakeLock.supported && wakeLock.held && (
+          <p
+            data-testid="map-wake-lock-hint"
+            className="max-w-md mx-auto mb-4 -mt-2 text-center text-[11px] text-ink-mid"
+          >
+            Screen stays awake while this is on — turn it off to save battery.
+          </p>
+        )}
 
         {/* schematic-line caveat — an honest passive note, only while the
             itinerary overlay is on (the drawn line is a schematic day-order

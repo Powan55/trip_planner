@@ -1,11 +1,17 @@
+'use client';
+
 import { EMERGENCY_CONTACTS, HAZARD_NOTES, SAFETY_PHRASES, DOCUMENT_CHECKLIST } from '@/core/content/safety';
 import type { EmergencyContact, HazardNote, Phrase, ChecklistItem } from '@/core/content/safety';
+import { useWakeLock } from '@/lib/use-wake-lock';
 
 /**
  * TravelSafetyKit — the offline travel-safety reference rendered on `/safety`:
  * emergency & embassy contacts, hazard/alert notes, a Nepali/Japanese phrasebook, and a document
- * checklist. Pure presentational — no state, no fetch, no persistence. Static
- * markup only (no motion-only affordance), so it is reduced-motion-safe by construction.
+ * checklist. Mostly static markup (no motion-only affordance, so it is reduced-motion-safe by
+ * construction) — its ONE piece of state is the Screen Wake Lock (issue #247), held for as long
+ * as this component is mounted: reading a phrase off the phone to someone else is the same
+ * bounded, deliberate hold-up-the-phone interaction as Travel Mode's Essentials card
+ * (`components/travel-essentials-card.tsx`), the wake lock's other always-on call site.
  *
  * A11y: each section is its own `<section>` with a real
  * `h2`, grouped content gets an `h3`; `tel:` links carry an explicit `aria-label` (accessible
@@ -15,6 +21,10 @@ import type { EmergencyContact, HazardNote, Phrase, ChecklistItem } from '@/core
  * each carrying `lang="ne"` / `lang="ja"` — see `ScriptCell` below.
  */
 export default function TravelSafetyKit() {
+  // Always-on while this page is mounted, same as TravelEssentialsCard — feature-detected,
+  // visibility-aware, releases on unmount, never throws (see lib/use-wake-lock.ts).
+  useWakeLock(true);
+
   const contactsByCountry = groupBy(EMERGENCY_CONTACTS, (c) => c.country);
   const hazardsByCountry = groupBy(HAZARD_NOTES, (n) => n.country);
   const phrasesByCategory = groupBy(SAFETY_PHRASES, (p) => p.category);

@@ -480,6 +480,20 @@ export const STORAGE_KEYS = {
    * app-code bypasses of the registry; only where the literal is declared moved.
    */
   nameHint: 'name-hint',
+  /**
+   * localStorage — boolean-as-string (`String(next)`) `/map` screen-wake-lock toggle
+   * (map-wake-lock, key 41; issue #247). Mirrors `travelLegibility` (key 33)/`nightlifeVisible`
+   * (key 7)'s exact `uiPrefs` shape — lenient `=== 'true'` read, `String(boolean)` write, NOT
+   * JSON. Deliberately OFF by default (absent ⇒ `null` ⇒ caller treats as off): unlike Travel
+   * Mode's Essentials card and the safety phrase card, `/map` is a route someone can leave open
+   * in a pocket, so an always-on lock here would drain battery for no active on-screen reading.
+   * APP-SCOPED, not trip data — a device preference, not part of any trip pack or the itinerary
+   * Vault. ADDITIVE: a brand-new key, no back-compat surface change and NO migration. NOTE:
+   * two parallel slices each grabbed "next free key" independently off the same base and both
+   * landed on 40 (issue #228's `bookingOverrides`) — this one was renumbered to 41 at merge time
+   * since #228 merged first. Check for a fresher collision before reusing either number again.
+   */
+  mapWakeLockEnabled: 'nepal_japan_map_wake_lock_enabled',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -1226,6 +1240,24 @@ export const legibilityPrefs = {
   },
   set(value: boolean): void {
     writeString('local', STORAGE_KEYS.travelLegibility, String(value));
+  },
+} as const;
+
+/**
+ * `/map` screen-wake-lock toggle slot (issue #247). Mirrors `legibilityPrefs`/`uiPrefs` exactly:
+ * `String(boolean)`, NOT JSON, lenient `=== 'true'` parse. `get()` returns `null` when the key is
+ * ABSENT so the caller starts from an explicit OFF default — deliberately, unlike the always-on
+ * Travel Mode/safety-card wake locks, since `/map` can be left open unattended. `set(value)`
+ * writes `String(value)`. SSR-safe + never-throw (inherited from `readString`/`writeString`).
+ */
+export const mapWakeLockPrefs = {
+  get(): boolean | null {
+    const raw = readString('local', STORAGE_KEYS.mapWakeLockEnabled);
+    if (raw === null) return null;
+    return raw === 'true';
+  },
+  set(value: boolean): void {
+    writeString('local', STORAGE_KEYS.mapWakeLockEnabled, String(value));
   },
 } as const;
 

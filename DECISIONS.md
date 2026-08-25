@@ -5008,3 +5008,13 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **What did not change.** Packing stays a device-local, non-synced domain — no outbox chunk, no merge rules, no Firestore rules shape. That was D-201's other named condition for a *future* decision ("packing sync is a whole new synced domain... a separate decision"), and this slice deliberately did not touch it.
 
 **Changes if:** packing sync is ever wanted — that is still the separate, larger decision D-201 flagged, unaffected by this one.
+
+### D-443 · (issue #247, 2026-08-25) · Wake lock policy: always-on for a bounded interaction, opt-in toggle for a route that can sit open
+
+**Decision.** `lib/use-wake-lock.ts` now has three call sites. Travel Mode and the safety phrase card (`travel-safety-kit.tsx`) both hold the lock unconditionally (`useWakeLock(true)`) — each is a bounded, deliberate hold-up-the-phone interaction with a natural end. `/map` (`map-section.tsx`) instead gets an explicit user toggle, persisted via a new gateway key (`mapWakeLockEnabled`, mirroring the existing boolean-persisted-toggle shape used elsewhere), defaulting off.
+
+**Why the map route is different.** Travel Mode and the phrase card are interactions someone is actively holding the phone through; `/map` is a route someone can leave open in a pocket. An always-on lock there would drain battery on a trip that is already rationing it for a benefit nobody asked for in that moment.
+
+**The general rule for the next consumer.** A wake lock on a bounded, actively-attended interaction can be unconditional. A wake lock on a route that could plausibly sit open and unattended needs an explicit, persisted, off-by-default toggle. This is the test to apply before wiring `useWakeLock` into a fourth surface.
+
+**Changes if:** a bounded-interaction surface turns out to have a realistic "left open in a pocket" failure mode too — then it should move to the toggle pattern, not stay unconditional.
