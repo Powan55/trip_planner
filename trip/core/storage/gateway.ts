@@ -480,6 +480,14 @@ export const STORAGE_KEYS = {
    * app-code bypasses of the registry; only where the literal is declared moved.
    */
   nameHint: 'name-hint',
+  /**
+   * localStorage — plain string, the trip LEG the "back up your trip" nudge has already fired
+   * for (backup-prompt, key 40; issue #222). Absent ⇒ never nudged. APP-SCOPED (mirrors
+   * `installHintDismissed`/`firstRunTour` — a backup reminder is a device fact, not itinerary
+   * data) and plain-string like `uiPrefs`, not JSON. ADDITIVE: a brand-new key, no back-compat
+   * surface change.
+   */
+  backupPromptLeg: 'nepal_japan_backup_prompt_leg',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -1344,6 +1352,27 @@ export const installHintStore = {
   },
   markDismissed(): void {
     writeString('local', STORAGE_KEYS.installHintDismissed, '1');
+  },
+} as const;
+
+/**
+ * Backup-nudge slot (key 40; issue #222) — the trip leg the "back up your trip" toast has
+ * already fired for, so a leg change nudges once rather than on every render/reload within the
+ * same leg. Plain string like `uiPrefs`/`installHintStore`, not JSON. `getPromptedLeg()` returns
+ * the stored leg id or `null` if never prompted; `setPromptedLeg(leg)` overwrites it. SSR-safe +
+ * never-throw (inherited from `readString`/`writeString`).
+ *
+ * KNOWN CEILING: a single last-value, not a per-leg seen-set, so a leg that repeats (A→B→A)
+ * re-nudges on its second entry. This trip's legs only ever move forward chronologically, so
+ * that's deliberate — upgrade to a comma-joined set (mirrors `motionEntranceSeen`) if a pack ever
+ * legitimately revisits a leg.
+ */
+export const backupPromptStore = {
+  getPromptedLeg(): string | null {
+    return readString('local', STORAGE_KEYS.backupPromptLeg);
+  },
+  setPromptedLeg(leg: string): void {
+    writeString('local', STORAGE_KEYS.backupPromptLeg, leg);
   },
 } as const;
 
