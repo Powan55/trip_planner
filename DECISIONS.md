@@ -5052,3 +5052,21 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **The general rule going forward.** Three restore shapes now exist for three real domain shapes: fresh-id tombstone-replace (expenses, myPlaces, itinerary — open id space), same-id upsert-by-stamp (docsChecklist — fixed id space, no add/remove), and not-yet-solved (budget — field-level LWW, no per-row shape at all, tracked separately). Before wiring a new domain's restore, name which of the three its storage shape actually matches — don't default to copying expenses' shape because it was first.
 
 **Changes if:** budget gets a real per-field restore design — that is its own decision, unrelated to this one.
+
+### D-446 · Amends D-201 · (issue #328, 2026-08-25) · Packing: an absent slot is not an empty one
+
+**Decision.** The built-in template seeds a packing slot that was **never written**. A slot holding `[]` is a traveller who deleted every row, and it stays empty across reloads. `loadPacking` separates the two on raw key presence via the gateway's `hasKey`, never on list length. `savePacking` sanitizes with an empty fallback, so a write persists what the caller passed and nothing else.
+
+**What was wrong.** `sanitizeItems` ends "if nothing survived, return the fallback", and `savePacking` called it without one — so the default full template applied. Emptying the list wrote all 28 rows back to disk while the UI showed an empty list. Add one item afterwards and 29 appeared, because the next commit re-reads storage.
+
+**On a custom trip it was a content leak, not just a data bug.** `loadPacking` filtered the seed to universal items — that is the custom-trip fix — and `savePacking` did not. So emptying a custom trip's list injected the Nepal and Japan leg template into that trip's slot.
+
+**This amends D-201's "no empty state".** That held while `toggleItem` was the only mutator, which made an empty list unreachable. Adding a remove control ended it, and the seeding rule was never revisited. The adapter's own claim that absent, corrupt and empty all resolve to the template is likewise no longer true, and both were corrected in place.
+
+**Three states now, not two.** Absent seeds, trip-filtered, and SSR lands here because `hasKey` is false with no window. Present and non-empty sanitizes as before, so corrupt and non-array input still reseed exactly as they did. Present and `[]` stays empty. Both guards pull weight: the length check alone would work only because the seed happens never to be empty, which is an implicit invariant; `hasKey` states it.
+
+**Empty sticks, but not bare.** A trash button whose effect silently reverses is worse than no trash button, and the UI and disk disagreeing is what produced the 29-item state. But emptying would otherwise be a dead end — the template is content the user cannot retype — so the empty state carries an explicit restore affordance that re-seeds through the same trip-filtered path a first load uses. That is the one thing here beyond the strict data fix.
+
+**Sibling, filed separately as issue #335:** `saveDocs` has the identical shape, and the docs snapshot-apply path calls it directly rather than through the store's commit. Not reachable by hand — the docs checklist has no remove control — but the two domains sitting on opposite sides of the same rule is how this gets reintroduced.
+
+**Changes if:** a domain gains a seed that can legitimately be empty, at which point the `hasKey` guard is the only thing still distinguishing the two states and the length check should come out.
