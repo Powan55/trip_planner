@@ -70,7 +70,13 @@ export default function TravelSafetyKit() {
                 aria-label={`${category} phrases`}
                 className="mt-2 overflow-x-auto rounded-xl border border-white/10 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <table className="w-full min-w-[480px] border-collapse text-left text-sm">
+                {/* #223 — `print:min-w-0` releases the 480px floor on paper. The floor exists so
+                    the three columns stay side by side on a phone and the wrapper above scrolls;
+                    a sheet has no scroll to offer, so on anything narrower than A4 the table
+                    would simply run off the right edge and lose the Japanese column. The print
+                    block's `overflow: visible` unclips the wrapper; this is what lets the table
+                    reflow into the width it is actually given. */}
+                <table className="w-full min-w-[480px] border-collapse text-left text-sm print:min-w-0">
                   <caption className="sr-only">{category} phrases — English, Nepali in Devanagari with romanization, Japanese in kana/kanji with romanization</caption>
                   <thead>
                     <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-ink-mid">

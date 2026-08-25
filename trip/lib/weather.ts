@@ -71,6 +71,16 @@ export interface WeatherNow {
   city: string;
   /** Current temperature in °C (rounded). */
   tempC: number;
+  /**
+   * What the current temperature FEELS like in °C (rounded) — Open-Meteo's
+   * `current.apparent_temperature`, which folds in wind, humidity and radiation. What a
+   * traveller dresses for on a winter morning is this number, not `tempC`.
+   *
+   * `null` when the response didn't carry it (and on a cache entry written before the field
+   * was requested). NEVER a required field: a body without it still parses, so the
+   * cache-through / never-throws contract is unchanged and every stored value stays readable.
+   */
+  feelsLikeC: number | null;
   /** Open-Meteo WMO weather code + its human label + a matching emoji/icon key. */
   weatherCode: number;
   condition: string;
@@ -232,7 +242,7 @@ function addLocalMinutes(iso: string, minutes: number): string {
 
 /** The subset of the Open-Meteo `/v1/forecast` body we consume (all else ignored). */
 interface OpenMeteoResponse {
-  current?: { temperature_2m?: number; weather_code?: number };
+  current?: { temperature_2m?: number; apparent_temperature?: number; weather_code?: number };
   daily?: {
     /** Open-Meteo always includes the daily calendar dates alongside the requested fields. */
     time?: string[];
@@ -277,6 +287,12 @@ export function parseOpenMeteo(
   return {
     city,
     tempC: Math.round(current.temperature_2m),
+    // Optional on purpose — see `WeatherNow.feelsLikeC`. Guarded on the TYPE, not on falsiness:
+    // an apparent temperature of 0°C is a legitimate reading on this trip, and `!x` would drop it.
+    feelsLikeC:
+      typeof current.apparent_temperature === 'number'
+        ? Math.round(current.apparent_temperature)
+        : null,
     weatherCode: current.weather_code,
     condition: weatherCodeToLabel(current.weather_code),
     highC: Math.round(high),
@@ -359,7 +375,12 @@ function buildUrl(coords: { latitude: number; longitude: number }): string {
   const params = new URLSearchParams({
     latitude: String(coords.latitude),
     longitude: String(coords.longitude),
-    current: 'temperature_2m,weather_code',
+    // `apparent_temperature` is a CURRENT-conditions variable on this endpoint (verified against
+    // a live response: `current_units.apparent_temperature: "°C"`), so it is one more token on
+    // the request already being made — same host, same round trip, no CSP change
+    // (`lib/csp.ts` already allowlists api.open-meteo.com). Current only: a daily apparent
+    // min/max would double the numbers on the card without adding a decision.
+    current: 'temperature_2m,apparent_temperature,weather_code',
     daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code',
     timezone: 'auto',
     // explicit (Open-Meteo already defaults to 7) so the 7-day outlook is guaranteed
@@ -382,7 +403,10 @@ function readCache(city: string): WeatherNow | null {
   const cached = weatherCache.get<WeatherNow>(city);
   if (!cached) return null;
   const forecast = weatherCache.get<ForecastDay[]>(forecastCacheKey(city));
-  return { ...cached, stale: true, forecast: forecast ?? null };
+  // `feelsLikeC ?? null` normalises a value cached BEFORE the field was requested: it is
+  // `undefined` on disk there, and the type says `number | null`. The offline path is exactly
+  // when an old entry gets read, so normalise on the way out rather than trusting the shape.
+  return { ...cached, feelsLikeC: cached.feelsLikeC ?? null, stale: true, forecast: forecast ?? null };
 }
 
 /**

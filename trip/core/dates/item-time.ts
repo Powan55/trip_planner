@@ -91,6 +91,48 @@ export function zoneAbbrevForOffset(offsetMin: number): ZoneAbbrev | null {
 }
 
 /**
+ * The traveller's HOME zone, as an IANA id (#220).
+ *
+ * 🔴 THIS IS ASSUMED, NOT STORED. Nothing in the app records a home time zone: `TripLeg` carries
+ * `utcOffsetMin` for trip legs only, `BudgetModel` has a home CURRENCY and no home place, and
+ * `lib/preflight.ts` infers "home" from the DEVICE's own offset — which stops being home the
+ * moment the phone lands and picks up the local zone, i.e. exactly when a home clock is worth
+ * showing. The single real home fact any pack carries is the DEFAULT pack's flight-home
+ * destination, `FLIGHT_HOME_JOURNEY`'s `toSummary: 'Syracuse (SYR)'` in `lib/booking-data.ts` —
+ * which is also where the -300/EST row above comes from. A custom pack has no equivalent, so
+ * callers MUST gate on `isDefaultTrip()` and render nothing rather than show a stranger
+ * Syracuse's clock. Move this to the pack the day a pack can declare a home.
+ *
+ * An IANA id and deliberately NOT the -300 offset above: that entry is documented as
+ * December/January only, and US Eastern is -240 for most of the year, so a fixed offset renders
+ * the wrong hour whenever the clock is read outside the trip window (which is most of the time
+ * before departure). `Intl` resolves the DST rule per instant, for free, with no table to extend.
+ */
+export const HOME_TIME_ZONE = 'America/New_York';
+
+/**
+ * "Sat 9:30 PM" at `HOME_TIME_ZONE` for a real instant — the "is this a decent hour to call
+ * home" read. The weekday is part of the answer, not decoration: home is 10h45m behind Nepal and
+ * 14h behind Japan, so it is routinely still yesterday there.
+ *
+ * TOTAL: an `Intl` build with no zone data throws `RangeError` on the `timeZone` option, and this
+ * renders inside a card, so a throw would take the surrounding block down. Returns `null` — no
+ * clock — rather than a wrong one.
+ */
+export function formatHomeClock(now: Date): string | null {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: HOME_TIME_ZONE,
+      weekday: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(now);
+  } catch {
+    return null;
+  }
+}
+
+/**
  * The offset (minutes east of UTC) to use for ONE item's UTC-instant math: the item's
  * own `tzOffsetMin` override when present — the rare item whose wall-clock time is physically
  * in a different place than the day's country (e.g. a Guangzhou layover logged on a Japan

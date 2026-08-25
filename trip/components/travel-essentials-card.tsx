@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Cloud, Wallet, ShieldAlert, Plane, ChevronDown } from 'lucide-react';
-import { getCountryForDate, getCityForDate } from '@/core/dates';
+import { Cloud, Wallet, ShieldAlert, Plane, ChevronDown, Home } from 'lucide-react';
+import { getCountryForDate, getCityForDate, formatHomeClock } from '@/core/dates';
 import { isDefaultTrip } from '@/core/trips';
 import { legCurrency } from '@/core/budget/model';
 import { EMERGENCY_CONTACTS } from '@/core/content/safety';
@@ -18,6 +18,7 @@ import {
 } from '@/lib/booking-data';
 import { buildFlightTrackerUrl, buildRome2RioUrl, buildGoogleFlightsUrl } from '@/lib/flight-deep-links';
 import { useWakeLock } from '@/lib/use-wake-lock';
+import { useTravelTick } from '@/lib/travel-tick';
 import { useOnline } from '@/hooks/use-online';
 import { useBudget } from '@/hooks/use-budget';
 import { cn } from '@/lib/utils';
@@ -85,6 +86,16 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
   // on-screen; released automatically on unmount (navigation away) or tab hide.
   const wakeLock = useWakeLock(true);
 
+  // #220 — the home clock. Reads the REAL clock, never `getNow()`: `?today=` moves the trip's
+  // day, not the wall time in Syracuse, and a demo day would render a home time that is simply
+  // wrong. Recomputed on the shared `/travel` tick (base 20s) rather than a fifth interval of its
+  // own, and set in an effect so the server never renders an hour the client then contradicts.
+  const tickN = useTravelTick();
+  const [homeClock, setHomeClock] = useState<string | null>(null);
+  useEffect(() => {
+    setHomeClock(formatHomeClock(new Date()));
+  }, [tickN]);
+
   // A-12: real emergency contacts and confirmed-flight journeys are DEFAULT-PACK content —
   // a custom trip has neither, and showing Japan/Nepal's numbers to a traveler who isn't
   // there is a safety defect, not a labeling one. Gate both to the default trip.
@@ -99,6 +110,12 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
     : [];
 
   const journeys = showRealSafety ? (TRAVEL_DAY_JOURNEYS[date] ?? []) : [];
+
+  // Same predicate as the safety gate, different reason, so it gets its own name: HOME_TIME_ZONE
+  // is an assumption derived from the DEFAULT pack's flight-home destination (see its doc in
+  // `core/dates/item-time.ts`). A custom trip's traveller does not live in Syracuse, and a
+  // confidently wrong home clock is worse than none.
+  const showHomeClock = isDefaultTrip();
 
   // Essentials collapses to ONE row (a native <details>, closed by default) so the day's
   // checklist is the primary surface. Content stays mounted while collapsed — the weather/currency
@@ -136,6 +153,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <WeatherPanel city={city} weather={weather} />
           {currency !== home && <CurrencyPanel currency={currency} rate={rate} />}
+          {showHomeClock && homeClock !== null && <HomeClockPanel time={homeClock} />}
         </div>
 
         <SafetyPanel country={safetyCountry} contacts={contacts} />
@@ -171,6 +189,14 @@ function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult 
         <p className="mt-2 text-sm text-ink-hi">
           <span className="text-lg font-semibold text-white">{weather.data.tempC}&deg;C</span>{' '}
           {weatherCodeToLabel(weather.data.weatherCode)}
+          {weather.data.feelsLikeC !== null && (
+            <span
+              className="mt-0.5 block text-xs text-ink-mid"
+              data-testid="travel-essentials-weather-feels-like"
+            >
+              Feels like {weather.data.feelsLikeC}&deg;C
+            </span>
+          )}
           {weather.data.stale && (
             <span className="ml-1.5 text-xs text-ink-mid" data-testid="travel-essentials-weather-stale">
               (cached — as of {formatWeatherAsOf(weather.data.fetchedAt)})
@@ -183,6 +209,35 @@ function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult 
           Weather unavailable right now.
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * #220 — what time it is at home, so "is it a reasonable hour to call" stops being two offset
+ * conversions done in your head with a change of country in between.
+ *
+ * No `aria-live`: this re-renders every 20s and an announced clock would talk over everything
+ * else on the screen. A screen-reader user reads it on demand, like the rest of the panel.
+ *
+ * A `<span>` and NOT a `<time>`: a `<time>` with no `datetime` attribute must have valid
+ * datetime-string CONTENT, and "Sat 9:30 PM" is not one. The element buys no assistive-tech
+ * behaviour here, so the valid markup is the plain one.
+ */
+function HomeClockPanel({ time }: { time: string }) {
+  return (
+    <div
+      data-testid="travel-essentials-home-clock"
+      className="rounded-xl border border-white/10 bg-white/[0.03] p-4"
+    >
+      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
+        <Home className="h-3.5 w-3.5" aria-hidden="true" />
+        Home time
+      </p>
+      <p className="mt-2 text-sm text-ink-hi">
+        <span className="text-lg font-semibold text-white">{time}</span>
+        <span className="mt-0.5 block text-xs text-ink-mid">Syracuse, NY (US Eastern)</span>
+      </p>
     </div>
   );
 }
