@@ -1722,7 +1722,7 @@ export default function CalendarPlanner() {
                 aria-expanded={mapExpanded}
                 aria-label={mapExpanded ? 'Collapse map' : 'Expand map'}
                 data-testid="plan-map-sheet-expand"
-                className="p-1.5 rounded-lg hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <ChevronDown className={`w-4 h-4 transition-transform ${mapExpanded ? '' : 'rotate-180'}`} />
               </button>
@@ -1731,7 +1731,7 @@ export default function CalendarPlanner() {
                 onClick={() => setShowMap(false)}
                 aria-label="Hide map"
                 data-testid="plan-map-sheet-close"
-                className="p-1.5 rounded-lg hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-4 h-4" />
               </button>
