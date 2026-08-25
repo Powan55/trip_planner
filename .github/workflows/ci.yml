@@ -264,7 +264,7 @@ jobs:
       - name: Behavioural suite
         env:
           CI: '1'
-        run: npm run test:e2e -- --grep-invert visual
+        run: npm run test:e2e -- --grep-invert @visual
 
       - name: Upload the Playwright report
         if: failure()
@@ -323,7 +323,7 @@ jobs:
       - name: Visual regression
         env:
           CI: '1'
-        run: npm run test:e2e -- --grep visual
+        run: npm run test:e2e -- --grep @visual
 
       - name: Upload the Playwright report
         if: failure()
