@@ -13,8 +13,9 @@ import CelebrationBurst from '@/components/celebration-burst';
  * (`core/packing/model.ts`'s `DEFAULT_TEMPLATE`, 28 items) grouped Nepal / Japan / Universal,
  * each a checkbox toggle persisted via the gateway (`hooks/use-packing.ts`, key 21), plus
  * traveler-added custom items (#227) — a text input appends a new `universal`-category item, and
- * every row (template or custom) gets a remove button. No empty state by design — the template is
- * still the value of the feature; `checked` plus any custom items persist, seeded on first load.
+ * every row (template or custom) gets a remove button. The template seeds a slot that was never
+ * written; after that the traveler owns the list, so removing the last row leaves a real, PERSISTED
+ * empty state (#328) with a restore button as the way back — it does not silently re-seed.
  *
  * A11y: a section `h2` (sr-only — `app/packing/page.tsx`'s masthead carries the visible
  * title), one `h3` per category group, real `<input
@@ -32,7 +33,7 @@ const CATEGORY_META: Record<PackingCategory, { label: string; icon: typeof Mount
 const CATEGORY_ORDER: PackingCategory[] = ['nepal', 'japan', 'universal'];
 
 export default function PackingChecklist() {
-  const { items, hydrated, progress, toggleItem, addItem, removeItem } = usePacking();
+  const { items, hydrated, progress, toggleItem, addItem, removeItem, restoreTemplate } = usePacking();
   const [draft, setDraft] = useState('');
 
   const handleAddSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -90,19 +91,23 @@ export default function PackingChecklist() {
         <p data-testid="packing-progress" className="text-sm font-medium text-ink-mid">
           {progress.checked}/{progress.total} packed
         </p>
-        <div
-          role="progressbar"
-          aria-valuenow={progress.checked}
-          aria-valuemin={0}
-          aria-valuemax={progress.total}
-          aria-label={`${progress.checked} of ${progress.total} items packed`}
-          className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
-        >
+        {/* An emptied list (#328) leaves total at 0, and a progressbar whose max equals its min is
+            a degenerate one to announce — drop the bar and let the text node carry the state. */}
+        {progress.total > 0 && (
           <div
-            className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none"
-            style={{ width: progress.total > 0 ? `${(progress.checked / progress.total) * 100}%` : '0%' }}
-          />
-        </div>
+            role="progressbar"
+            aria-valuenow={progress.checked}
+            aria-valuemin={0}
+            aria-valuemax={progress.total}
+            aria-label={`${progress.checked} of ${progress.total} items packed`}
+            className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+          >
+            <div
+              className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none"
+              style={{ width: `${(progress.checked / progress.total) * 100}%` }}
+            />
+          </div>
+        )}
       </header>
 
       <form onSubmit={handleAddSubmit} data-testid="packing-add-form" className="mb-6 flex gap-2">
@@ -130,6 +135,23 @@ export default function PackingChecklist() {
           <Plus className="h-4 w-4" aria-hidden="true" />
         </button>
       </form>
+
+      {items.length === 0 && (
+        <div data-testid="packing-empty" className="glass-subtle rounded-2xl p-6 text-center">
+          <p className="text-sm text-ink-mid">Your packing list is empty. Add an item above, or start over from the built-in checklist.</p>
+          <button
+            type="button"
+            onClick={() => {
+              restoreTemplate();
+              haptic();
+            }}
+            data-testid="packing-restore-template"
+            className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] px-4 text-sm font-medium text-ink-hi transition-colors hover:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Restore the default checklist
+          </button>
+        </div>
+      )}
 
       <div className="flex flex-col gap-8">
         {CATEGORY_ORDER.map((category) => {
