@@ -27,8 +27,9 @@ import AxeBuilder from '@axe-core/playwright';
  *     s157 subtree scan): trip-join handshake, add-to-itinerary, expense log. Plus the /recap
  *     Wrapped story surface (inline section, not a modal) in its populated state.
  *
- * Hard contract = serious/critical = 0 (matches the newer route packs). moderate/minor are
- * logged as advisory. NO axe `.exclude()` is used anywhere in this file EXCEPT the single
+ * Hard contract = serious/critical/moderate = 0 (issue #215 — widened to match a11y.spec.ts's
+ * S157 bar; a loosened run came back 17/17 clean). minor stays advisory. NO axe `.exclude()`
+ * is used anywhere in this file EXCEPT the single
  * opaque MapLibre WebGL canvas that every existing pack already excludes (it has no semantic
  * subtree and is labelled at its host) — no NEW exclusion is introduced (house rule: an
  * exclude is a STOP-and-report; none was needed).
@@ -60,25 +61,30 @@ function scanFor(page: Page) {
   return new AxeBuilder({ page }).exclude('canvas.maplibregl-canvas');
 }
 
-/** Shared serious/critical assertion + advisory logging (identical strength to a11y.spec.ts). */
+/**
+ * Shared serious/critical/moderate assertion + advisory logging (matches a11y.spec.ts's
+ * S157 bar). Issue #215: this pack started at serious/critical-only while a11y.spec.ts had
+ * already widened to moderate — a full loosened run came back 100% clean (17/17, only a
+ * `minor` aria-allowed-role finding logged as advisory), so the two packs are level again.
+ */
 async function expectAxeClean(page: Page, label: string, testInfo: TestInfo) {
   await settleAnimations(page);
   const results = await scanFor(page).analyze();
   const blocking = results.violations.filter(
-    (v) => v.impact === 'serious' || v.impact === 'critical',
+    (v) => v.impact === 'serious' || v.impact === 'critical' || v.impact === 'moderate',
   );
   const advisory = results.violations.filter(
-    (v) => v.impact !== 'serious' && v.impact !== 'critical',
+    (v) => v.impact !== 'serious' && v.impact !== 'critical' && v.impact !== 'moderate',
   );
   for (const v of results.violations) {
     const line = `[${v.impact ?? 'n/a'}] ${v.id}: ${v.help} (${v.nodes.length} node${v.nodes.length === 1 ? '' : 's'})`;
     testInfo.annotations.push({ type: `axe:${v.impact ?? 'unknown'}`, description: line });
     console.log(`  axe ${label} ${line}`);
   }
-  console.log(`axe SUMMARY ${label}: serious/critical=${blocking.length}, moderate/minor=${advisory.length}`);
+  console.log(`axe SUMMARY ${label}: serious/critical/moderate=${blocking.length}, minor=${advisory.length}`);
   expect(
     blocking,
-    `serious/critical a11y violations on ${label}: ${blocking
+    `serious/critical/moderate a11y violations on ${label}: ${blocking
       .map((v) => `${v.id} [${v.impact}] × ${v.nodes.length}`)
       .join('; ')}`,
   ).toEqual([]);
