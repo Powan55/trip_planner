@@ -691,6 +691,16 @@ async function assertMapIslandsWrapped(mapSites) {
 // phones, which select native.
 const HERO_PRECACHE = /^images\/hero\/[^/]+\.avif$/;
 
+// next@16 asks for SEGMENT payloads, never <route>/index.txt: __next._tree.txt,
+// __next._index.txt and __next.<segment>.__PAGE__.txt — the flattened names
+// scripts/flatten-segment-payloads.mjs writes. Measured over a real browse
+// (Home -> Plan -> Guides): those three shapes are requested for every route and
+// index.txt for none, so without them every in-viewport Link prefetch misses the
+// precache and fails offline (net::ERR_FAILED through the worker), issue #325.
+// __next._full.txt is excluded: 524,100 B raw for a shape the census never asked
+// for — the router only reaches it when the segment cache misses.
+const SEGMENT_PAYLOAD = /(^|\/)__next\.(?!_full\.txt$)[^/]*\.txt$/;
+
 // Route dirs holding a byte-identical copy of 404.html. Verified by md5 on a real
 // build: out/404.html, out/404/index.html and out/_not-found/index.html are the same
 // bytes. Only 404.html is precached (the nav handler serves it as NAV_FALLBACK); the
@@ -717,16 +727,19 @@ async function buildPrecacheList(allFiles) {
     // page two extra times on every install.
     if (rel === 'index.html' || rel === '404.html') set.add(rel);
     else if (rel.endsWith('/index.html') && !NOT_FOUND_DUPLICATES.has(rel)) set.add(rel);
-    // Route RSC payloads. next/link fetches <route>/index.txt before it renders,
-    // and offline a failed fetch is a HARD navigation to that .txt URL (Next's MPA
-    // fallback) — so without these the app can leave Home offline but only by
-    // reloading, which drops client state and re-runs the whole shell. 20 files,
-    // +522,025 B raw / +79.0 KiB over the wire on a 1.48 MiB gzipped install; the
-    // steady-state device cost is ZERO except _not-found/index.txt: precached but
-    // unreachable (no link ever points to /_not-found/), so runtime cache never
-    // deposits it. Root route included:
-    // its payload is out/index.txt, which has no directory to end with.
+    // Whole-route RSC payloads. NOTE next 16 does NOT request these — it asks for the
+    // segment payloads matched on the next line, and the sentence that used to sit here
+    // ("next/link fetches <route>/index.txt before it renders") was Next 15's behaviour
+    // and is how this rule came to miss 99 of the 119 payload files the build emits.
+    // Kept anyway: the Next 16 client runtime still CONTAINS the whole-route path
+    // (`pathname.endsWith("/") ? pathname += "index.txt" : pathname += ".txt"`), and a
+    // census over a real browse never saw it fire — but never-observed is weaker than
+    // cannot-fire, and this is the offline shell. 20 files. The steady-state device cost
+    // is ZERO except _not-found/index.txt, which is precached but unreachable (nothing
+    // links to /_not-found/), so the runtime cache never deposits it. Root route
+    // included: its payload is out/index.txt, which has no directory to end with.
     else if (rel === 'index.txt' || rel.endsWith('/index.txt')) set.add(rel);
+    else if (SEGMENT_PAYLOAD.test(rel)) set.add(rel);
     else if (rel.startsWith('_next/static/') && eager.has(rel)) set.add(rel);
     else if (rel.startsWith('icons/')) set.add(rel);
     // NOTE: font/** — the self-hosted MapLibre SDF glyph PBFs

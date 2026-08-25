@@ -657,7 +657,14 @@ test.describe('S84 · offline cold navigation (SW cache-first nav handler)', () 
     // green on a request that was never made.
     let portalHits = 0;
     await context.route(/\.(avif|webp|jpe?g|png)(\?.*)?$/i, async (route) => {
-      portalHits += 1;
+      // Count HERO requests only. The portal still answers EVERY image (that is what
+      // makes it a portal), but D-414 Decision 3 only promises that the PRECACHED hero
+      // never reaches the network. /images/{nepal,japan,photography,map}/** are
+      // deliberately runtime-cache-only and trip-images-v1 was just deleted above, so a
+      // lazy gallery image that scrolls in is a guaranteed hit that says nothing about
+      // the hero. Counting those is what made this fail intermittently (#325: 8 hits on
+      // CI while the hero itself was served from the precache, naturalWidth 1280).
+      if (route.request().url().includes('/images/hero/')) portalHits += 1;
       await route.fulfill({
         status: 200,
         contentType: 'text/html; charset=utf-8',
