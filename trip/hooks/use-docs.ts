@@ -10,6 +10,7 @@ import { getActiveTraveler } from '@/lib/token-auth';
 import { getUserName } from '@/lib/identity';
 import { realClock } from '@/lib/trip-now';
 import { nextSyncStamp } from '@/core/sync/stamp';
+import { mergeItems } from '@/core/sync/merge-items';
 import {
   toggleItem as toggleItemCore,
   setNote as setNoteCore,
@@ -50,6 +51,18 @@ export interface DocsStore {
   completion: DocsCompletion;
   toggleItem(id: string): void;
   setNote(id: string, note: string): void;
+  /**
+   * Restore the checklist from a validated backup (issue #295 — a same-id UPSERT, not a
+   * tombstone-replace: docsChecklist's 18 ids are a FIXED template with no add/remove path, so
+   * there is no extra row to tombstone and no id to mint fresh). For each id, the row with the
+   * WINNING stamp applies — `mergeItems(current, backup)`, the exact same row-merge algebra
+   * `pushChecklistMerged`/`subscribeRemoteDocs` already use remotely, run once locally so the
+   * live store reflects the winner immediately rather than waiting on the next round trip. A row
+   * edited AFTER the backup was taken is NOT reverted by the older backup row; a backup row that
+   * is genuinely newer than the current live row DOES win. DORMANT: a plain local overwrite (no
+   * stamps exist to compare, byte-identical to the old behavior).
+   */
+  restoreDocsChecklist(backup: DocItem[]): void;
   /**
    * — reclaim the attribution stamps left under a name the traveler used to go by (the docs
    * half of the itinerary's owner-initiated `claimAuthorship`,/Q3). `updatedBy` is the ONLY
@@ -137,9 +150,24 @@ export function useDocs(): DocsStore {
     [commit, items],
   );
 
+  const restoreDocsChecklist = useCallback(
+    (backup: DocItem[]) => {
+      // DORMANT: a plain local overwrite — no sync to unwind, byte-identical to the old behavior.
+      // SYNC ON: same-id upsert via the shared merge algebra — whichever side's stamp is newer
+      // wins per id; a fixed 18-id template means every id is present on both sides already, so
+      // there is nothing to tombstone and no id to mint.
+      if (!syncEnabled()) {
+        commit(() => backup);
+        return;
+      }
+      commit((current) => mergeItems(current, backup));
+    },
+    [commit],
+  );
+
   const completion = useMemo(() => docsCompletion(items), [items]);
 
-  return { items, hydrated, completion, toggleItem, setNote, claimAuthorship };
+  return { items, hydrated, completion, toggleItem, setNote, claimAuthorship, restoreDocsChecklist };
 }
 
 // Re-exported so tests/callers can compare byte-transport values directly.

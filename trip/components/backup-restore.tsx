@@ -9,6 +9,7 @@ import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useMyPlaces } from '@/hooks/use-my-places';
+import { useDocs } from '@/hooks/use-docs';
 
 /**
  * Backup & Restore panel — mounted on `/plan`.
@@ -49,6 +50,7 @@ type Status =
 export default function BackupRestore() {
   const { restorePlans } = useItineraryContext();
   const { restoreMyPlaces } = useMyPlaces();
+  const { restoreDocsChecklist } = useDocs();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   // The picked file, held while the confirm dialog is open (so Confirm can import it and Cancel can
@@ -65,10 +67,11 @@ export default function BackupRestore() {
   // Whether this build is syncing for a signed-in traveler. Under sync the itinerary is
   // restored via `restorePlans` (tombstone-replace MERGE — propagates + survives the next snapshot);
   // dormant/guest it is the plain local `savePlans` overwrite. Computed post-mount (getActiveTraveler
-  // reads localStorage → client-only) to avoid a hydration mismatch. Drives which ITINERARY and
-  // myPlaces commit path importTripBackup uses (myPlaces: `restoreMyPlaces`, the same
-  // tombstone-replace shape, issue #239 — see `lib/trip-backup.ts`'s `CommitMyPlaces`). Expenses/
-  // budget/docs are synced too; importTripBackup still enqueues those through each domain's own
+  // reads localStorage → client-only) to avoid a hydration mismatch. Drives which ITINERARY,
+  // myPlaces and docsChecklist commit path importTripBackup uses (myPlaces: `restoreMyPlaces`,
+  // tombstone-replace, issue #239; docsChecklist: `restoreDocsChecklist`, a same-id upsert since its
+  // 18 ids are fixed, issue #295 — see `lib/trip-backup.ts`'s `CommitMyPlaces`/`CommitDocsChecklist`).
+  // Expenses/budget are synced too; importTripBackup still enqueues those through each domain's own
   // outbox-decorated push (a merge, not a replace — the residual gap `trip-backup.ts` documents).
   const [synced, setSynced] = useState(false);
   useEffect(() => {
@@ -109,6 +112,7 @@ export default function BackupRestore() {
       undefined,
       synced ? restorePlans : savePlans,
       synced ? restoreMyPlaces : undefined,
+      synced ? restoreDocsChecklist : undefined,
     );
     setImporting(false);
     setPendingImport(null);
