@@ -6,10 +6,14 @@
  * React, no window, no storage. Every function is TOTAL (a bad/missing/corrupt input degrades to
  * a safe value, never a throw).
  *
- * FIXED TEMPLATE, no empty state: unlike the journal/expenses/favorites domains
- * (which start empty), this domain seeds a fixed built-in template on first load — the checklist
- * items themselves never change shape or count, only their `checked` flag persists. There is no
- * add/remove; `toggleItem` is the only mutator.
+ * FIXED TEMPLATE + user-added items, no empty state: unlike the journal/expenses/favorites
+ * domains (which start empty), this domain seeds a fixed built-in template on first load.
+ * `toggleItem` is the only mutator for that seeded content. `addItem`/`removeItem` (#227, amending
+ * D-201) let the traveler append their own items and remove ANY item, template or custom — still
+ * one flat `PackingItem[]` in the same gateway slot, no new domain, no sync. A custom item is
+ * bucketed into the existing `universal` category rather than a new 4th category value — D-201's
+ * closed 3-value union and its `isPackingCategory`/`CATEGORY_META`/`CATEGORY_ORDER` consumers are
+ * untouched, the smaller diff for what is, functionally, just more universal-leg gear.
  */
 
 export type PackingCategory = 'nepal' | 'japan' | 'universal';
@@ -106,6 +110,26 @@ export function sanitizeItems(value: unknown, fallback: readonly PackingItem[] =
 export function toggleItem(items: readonly PackingItem[], id: string): PackingItem[] {
   const list = Array.isArray(items) ? items : [];
   return list.map((item) => (item.id === id ? { ...item, checked: !item.checked } : item));
+}
+
+/**
+ * Append a new custom item (#227), category always `universal` (see the module doc for why there
+ * is no 4th category). The caller injects `id` (this core stays id-agnostic, mirroring
+ * `addExpense`'s `id`/`createdAt` injection). A blank/whitespace-only label or a missing id is a
+ * no-op — returns a NEW array regardless. TOTAL.
+ */
+export function addItem(items: readonly PackingItem[], label: string, id: string): PackingItem[] {
+  const list = Array.isArray(items) ? items : [];
+  const trimmed = typeof label === 'string' ? label.trim() : '';
+  if (trimmed === '' || typeof id !== 'string' || id.trim() === '') return [...list];
+  return [...list, { id, label: trimmed, category: 'universal', checked: false }];
+}
+
+/** Remove an item — fixed-template or custom — by id. Returns a NEW array; a non-matching id is a
+ * no-op. TOTAL. */
+export function removeItem(items: readonly PackingItem[], id: string): PackingItem[] {
+  const list = Array.isArray(items) ? items : [];
+  return list.filter((item) => item.id !== id);
 }
 
 /** `{ checked, total }` packed count across `items` (e.g. for a "12/28 packed" indicator). Pure. */
