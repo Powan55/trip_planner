@@ -320,10 +320,13 @@ jobs:
       # inside e2e/tm-acceptance.spec.ts, which testMatch in playwright.config.ts
       # scopes to the iphone-15-pro/iphone-15-pro-max projects. No --project filter
       # here, so all three projects run and the grep narrows each to its visual specs.
+      # Quoted: this step runs under pwsh (windows-latest's default shell), where an
+      # unquoted @name is splat syntax -- PowerShell tries to expand a variable named
+      # $visual and the step fails before Playwright ever sees the argument.
       - name: Visual regression
         env:
           CI: '1'
-        run: npm run test:e2e -- --grep @visual
+        run: npm run test:e2e -- --grep '@visual'
 
       - name: Upload the Playwright report
         if: failure()
