@@ -140,7 +140,10 @@ export const clock: ClockPort = {
  *   inherited by every later edit of that row on every device);
  * - the tombstone-GC horizon (`gcTombstones`/`gcTombstoneRows`), which drops every tombstone older
  *   than `nowPt − 30d` from a MERGED doc that is then written straight back to Firestore — so a
- *   peer still holding the row live re-adds it and the delete silently undoes for everyone.
+ *   peer still holding the row live re-adds it and the delete silently undoes for everyone. This is
+ *   `realClock` reading a genuinely wrong device clock, not the `?today=` override (that never
+ *   reaches this port) — `gcTombstoneRows` caps `nowPt` to the doc's own newest `hlc.pt` (#238) so a
+ *   fast device clock alone, with no correspondingly-bad row in the doc, can no longer do this.
  *
  * `lib/preflight.ts` reads `new Date()` by hand for the same reason (its clock row would otherwise
  * report the faked clock as correct). Use THIS at every sync stamp / GC site; use `clock`/`getNow`
