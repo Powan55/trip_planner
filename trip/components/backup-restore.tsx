@@ -8,6 +8,7 @@ import { savePlans } from '@/lib/itinerary-storage';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { useItineraryContext } from '@/components/itinerary-provider';
+import { useMyPlaces } from '@/hooks/use-my-places';
 
 /**
  * Backup & Restore panel — mounted on `/plan`.
@@ -47,6 +48,7 @@ type Status =
 
 export default function BackupRestore() {
   const { restorePlans } = useItineraryContext();
+  const { restoreMyPlaces } = useMyPlaces();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   // The picked file, held while the confirm dialog is open (so Confirm can import it and Cancel can
@@ -63,10 +65,11 @@ export default function BackupRestore() {
   // Whether this build is syncing for a signed-in traveler. Under sync the itinerary is
   // restored via `restorePlans` (tombstone-replace MERGE — propagates + survives the next snapshot);
   // dormant/guest it is the plain local `savePlans` overwrite. Computed post-mount (getActiveTraveler
-  // reads localStorage → client-only) to avoid a hydration mismatch. Drives ONLY which ITINERARY
-  // commit path importTripBackup uses. Expenses/budget/docs/my-places are synced too (they are NOT
-  // local-only, whatever this comment used to claim); importTripBackup enqueues those itself through
-  // each domain's own outbox-decorated push, which self-gates on the same two conditions.
+  // reads localStorage → client-only) to avoid a hydration mismatch. Drives which ITINERARY and
+  // myPlaces commit path importTripBackup uses (myPlaces: `restoreMyPlaces`, the same
+  // tombstone-replace shape, issue #239 — see `lib/trip-backup.ts`'s `CommitMyPlaces`). Expenses/
+  // budget/docs are synced too; importTripBackup still enqueues those through each domain's own
+  // outbox-decorated push (a merge, not a replace — the residual gap `trip-backup.ts` documents).
   const [synced, setSynced] = useState(false);
   useEffect(() => {
     setSynced(isRemoteConfigured() && !!getActiveTraveler());
@@ -105,6 +108,7 @@ export default function BackupRestore() {
       pendingImport.file,
       undefined,
       synced ? restorePlans : savePlans,
+      synced ? restoreMyPlaces : undefined,
     );
     setImporting(false);
     setPendingImport(null);

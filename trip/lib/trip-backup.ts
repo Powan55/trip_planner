@@ -57,7 +57,7 @@ import { normalizeModel } from '@/core/budget/model';
 import { sanitizeItems as sanitizeDocs } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
 import { sanitizeItems as sanitizeShare } from '@/core/share/model';
-import { sanitizePlaces } from '@/core/places/model';
+import { sanitizePlaces, type MyPlace } from '@/core/places/model';
 import { sanitizePhotos, type PhotoMeta } from '@/core/photos/model';
 import { loadPhotos, savePhotos } from '@/core/photos/storage';
 import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
@@ -80,6 +80,15 @@ const EXPORT_FILENAME_GZ = 'nepal-japan-trip-backup.json.gz';
  * snapshot instead of being unwound. Same `(plans) => void` shape either way.
  */
 export type CommitItinerary = (plans: DayPlan[]) => void;
+
+/**
+ * How the myPlaces domain is committed on import — the SAME dual-path idea as `CommitItinerary`,
+ * one domain narrower (issue #239). Absent ⇒ the generic bare write + `enqueueRestored` merge below
+ * (unchanged default); the UI injects the store's `restoreMyPlaces` (tombstone-replace, mirroring
+ * `restorePlans`/`restoreExpenses`) when a synced traveler is signed in, so a row added to myPlaces
+ * after the backup was taken is tombstoned by the restore instead of surviving the next merge.
+ */
+export type CommitMyPlaces = (places: MyPlace[]) => void;
 
 /** The container's magic string — how import tells a full backup from a legacy itinerary-only export. */
 export const BACKUP_FORMAT = 'nepal-japan-trip-backup';
@@ -142,8 +151,12 @@ type DomainSpec = {
  *
  * KNOWN CEILING: merge, not tombstone-replace. A row the backup DROPPED (present remotely, absent
  * in the file) survives the merge, where the itinerary's `restorePlans` would tombstone it. Fixing
- * that needs a restore-shaped commit on each of the four domains (only expenses has one today);
- * upgrade path is to inject those the way `commitItinerary` is injected.
+ * that needs a restore-shaped commit on each domain whose rows are arbitrary-id add/remove (issue
+ * #239) — expenses (`restoreExpenses`) and myPlaces (`restoreMyPlaces`, injected via
+ * `CommitMyPlaces` below) have one; budget's field-level LWW model and docsChecklist's fixed,
+ * meaningful-id template (no add/remove path — see `core/docs/model.ts`) are NOT the same shape as
+ * expenses/myPlaces/itinerary and need their own restore design, not a copy of this one. Upgrade
+ * path for a domain that DOES fit: inject its restore fn the way `commitItinerary` is injected.
  */
 function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => void {
   return (cleaned) => void port.push(storage.load(), cleaned as T);
@@ -353,6 +366,7 @@ export async function importTripBackup(
   file: Blob,
   blobStore: BlobStorePort = defaultBlobStore,
   commitItinerary: CommitItinerary = savePlans,
+  commitMyPlaces?: CommitMyPlaces,
 ): Promise<ImportBackupResult> {
   let text: string;
   try {
@@ -458,6 +472,15 @@ export async function importTripBackup(
   // literal keys — the cast is safe because `slot` only ever came FROM `Object.entries(DOMAINS)`.
   const domainsBySlot = DOMAINS as Record<string, DomainSpec>;
   for (const [slot, cleaned] of domainWrites) {
+    // myPlaces' injected dual path (issue #239): when the caller supplies `commitMyPlaces` (the
+    // UI passes the store's `restoreMyPlaces` under sync), route through it INSTEAD of the bare
+    // write + generic merge enqueue — same idea as `commitItinerary`, one domain narrower. Absent
+    // ⇒ unchanged default behavior below.
+    if (slot === 'myPlaces' && commitMyPlaces) {
+      commitMyPlaces(cleaned as MyPlace[]);
+      restored.push(slot);
+      continue;
+    }
     // Enqueue BEFORE the write: it reads the pre-restore local state as the push's `prev`.
     domainsBySlot[slot].enqueueRestore?.(cleaned);
     domainsBySlot[slot].write(cleaned);
