@@ -9,11 +9,9 @@ import { crossedIntoComplete } from '@/lib/celebration';
 import CelebrationBurst from '@/components/celebration-burst';
 import PhotoAttach from '@/components/photo-attach';
 
-/** #258: docs-row photo copy — device-local only (this row's checked/note DOES sync, the photo never
- * does, so it is invisible on a traveler's other device), storage phrased generically (this app has no
- * real quota number to quote). Kept generic across all 18 rows (not just the document-y ones — same
- * component instance, one string, no per-row branching) per tech-lead review on #287. Deliberately
- * NOT the same copy as the journal/expense attach (no helperText there today). */
+// Device-local only: this row's checked/note state syncs, the photo never does, so it's
+// invisible on another device. Storage stays generic since there's no real quota to quote.
+// Same string on every row rather than branching per item; not shared with journal/expense.
 const DOCS_PHOTO_HELPER =
   "Only visible on this device — this checklist syncs, the photo doesn't. Storage is limited by your " +
   "device's available storage, and photos are kept unencrypted on this device, so avoid attaching " +
