@@ -27,6 +27,19 @@ const NO_STATIC_FIREBASE = {
     "firebase may only be reached through a dynamic `await import('firebase/...')` behind the configured gate. A static import lands the SDK in the first-load bundle. Use `import type` for types.",
 };
 
+// Companion to NO_STATIC_FIREBASE, same reasoning (#272): each `lib/*-remote.ts` is only ever
+// meant to be reached via a dynamic `import('@/lib/*-remote')` behind isRemoteConfigured() /
+// isTripRemoteConfigured(), so firebase-touching code stays off the first-load path. The
+// `*-remote.ts` files themselves import each other (e.g. `./firebase-remote`) via RELATIVE
+// specifiers, which this alias-only glob deliberately does not match — that internal composition
+// already sits behind the dynamic-import boundary and isn't the violation this rule targets.
+const NO_STATIC_REMOTE = {
+  group: ["@/lib/*-remote"],
+  allowTypeImports: true,
+  message:
+    "*-remote modules may only be reached through a dynamic `await import('@/lib/*-remote')` behind the isRemoteConfigured()/isTripRemoteConfigured() gate. A static import lands firebase-touching code in the first-load bundle. Use `import type` for types.",
+};
+
 const eslintConfig = [
   {
     // Generated output, deps, and Playwright artifacts are not source.
@@ -156,7 +169,10 @@ const eslintConfig = [
     files: ["app/**", "components/**", "hooks/**", "lib/**"],
     ignores: ["**/__tests__/**"],
     rules: {
-      "@typescript-eslint/no-restricted-imports": ["error", { patterns: [NO_STATIC_FIREBASE] }],
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        { patterns: [NO_STATIC_FIREBASE, NO_STATIC_REMOTE] },
+      ],
     },
   },
 ];

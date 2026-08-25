@@ -196,6 +196,18 @@ export default function TripsHub() {
       .catch((err) => console.warn('[trips-hub] trip doc create unavailable:', err));
 
   /**
+   * #250 — one-shot, user-initiated geocode of this trip's destinations (via Nominatim's existing
+   * throttled wrapper), so weather works for a city outside `lib/city-coords.ts`'s hand-maintained
+   * table. Dynamically imported: `lib/city-geocode.ts` pulls in the Nominatim fetch client,
+   * which must not join the eager route bundle. Best-effort, never rejects — same shape as
+   * `pushMetaFor`/`createTripDocFor` above, so it composes into the same `settleWithin` budget.
+   */
+  const resolveCityCoordsFor = (id: string, destinations: string[]): Promise<void> =>
+    import('@/lib/city-geocode')
+      .then(({ resolveAndCacheCityCoords }) => resolveAndCacheCityCoords(id, destinations))
+      .catch((err) => console.warn('[trips-hub] city coordinate resolve unavailable:', err));
+
+  /**
    * Best-effort mirror of the updated known-trips list to the owner's User Token doc ( Sync
    * Code, promoted by — same key 28, same remote path) after any
    * list-changing action, so the change reaches their other devices. No-op when no code is set.
@@ -330,6 +342,7 @@ export default function TripsHub() {
         createTripDocFor(id).then(() =>
           Promise.allSettled([pushMetaFor(id, name, config), pushSyncList()]),
         ),
+        resolveCityCoordsFor(id, destinations),
       ],
       CREATE_PUSH_BUDGET_MS,
     );

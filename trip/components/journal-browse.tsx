@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { BookOpen, Camera, ImageOff, Pencil, Search, Sparkles, X } from 'lucide-react';
 import { useJournal } from '@/hooks/use-journal';
 import type { Mood, JournalEntry } from '@/core/journal/model';
@@ -8,6 +8,7 @@ import { formatDateLong } from '@/lib/trip-data';
 import JournalCard from '@/components/journal-card';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
+import PhotoLightbox from '@/components/photo-lightbox';
 import type { PhotoMeta } from '@/core/photos/model';
 
 /**
@@ -282,6 +283,11 @@ function JournalRow({
  * photo-less day.
  */
 export function JournalPhotoStrip({ date, photos }: { date: string; photos: PhotoMeta[] }) {
+  // Lightbox (#225): still read-only for add/edit/delete — the one interactive control this strip
+  // gains is "view full-size", via the shared PhotoLightbox/Sheet.
+  const [lightboxPhoto, setLightboxPhoto] = useState<PhotoMeta | null>(null);
+  const lightboxTriggerRef = useRef<HTMLElement | null>(null);
+
   if (photos.length === 0) return null;
 
   return (
@@ -298,19 +304,34 @@ export function JournalPhotoStrip({ date, photos }: { date: string; photos: Phot
         aria-label={`Photos from ${formatDateLong(date)}`}
       >
         {photos.map((meta) => (
-          <JournalPhotoThumb key={meta.id} meta={meta} />
+          <JournalPhotoThumb
+            key={meta.id}
+            meta={meta}
+            onOpen={() => {
+              lightboxTriggerRef.current = (document.activeElement as HTMLElement) ?? null;
+              setLightboxPhoto(meta);
+            }}
+          />
         ))}
       </ul>
+
+      <PhotoLightbox
+        open={lightboxPhoto !== null}
+        photo={lightboxPhoto}
+        onClose={() => setLightboxPhoto(null)}
+        onExitComplete={() => lightboxTriggerRef.current?.focus?.()}
+      />
     </div>
   );
 }
 
 /**
- * One read-only thumbnail: resolves the blob -> object URL (`usePhotoObjectUrl`, the
- * idiom, revoked on unmount/id-change), or degrades to the placeholder tile (alt/caption survive)
- * when the blob was evicted/absent. No delete/edit control — this surface is read-only.
+ * One thumbnail: resolves the blob -> object URL (`usePhotoObjectUrl`, the idiom, revoked on
+ * unmount/id-change), or degrades to the placeholder tile (alt/caption survive) when the blob was
+ * evicted/absent. Still no add/delete/edit control (read-only surface) — `onOpen` only opens the
+ * full-size lightbox (#225).
  */
-function JournalPhotoThumb({ meta }: { meta: PhotoMeta }) {
+function JournalPhotoThumb({ meta, onOpen }: { meta: PhotoMeta; onOpen: () => void }) {
   const { url, missing } = usePhotoObjectUrl(meta.id);
 
   return (
@@ -328,8 +349,16 @@ function JournalPhotoThumb({ meta }: { meta: PhotoMeta }) {
           <span className="sr-only">Photo no longer on this device</span>
         </div>
       ) : url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and disables optimization anyway.
-        <img src={url} alt={meta.altText} className="h-full w-full object-cover" />
+        <button
+          type="button"
+          onClick={onOpen}
+          data-testid={`journal-browse-photo-open-${meta.id}`}
+          aria-label={`View photo: ${meta.altText}`}
+          className="block h-full w-full outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and disables optimization anyway. */}
+          <img src={url} alt={meta.altText} className="h-full w-full object-cover" />
+        </button>
       ) : (
         <div className="h-full w-full motion-safe:animate-pulse bg-white/[0.04]" aria-hidden="true" />
       )}

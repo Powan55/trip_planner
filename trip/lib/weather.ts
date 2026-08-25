@@ -23,7 +23,7 @@ import { weatherCache } from '@/core/storage/gateway';
 // /: the city table moved to its own pure module so the MAP can reuse it
 // (placement ladder rung 5) without pulling this Open-Meteo fetch client into /map's bundle.
 // Same data, same object — there is exactly ONE city table and a second copy is forbidden.
-import { CITY_COORDS, cityCoord } from '@/lib/city-coords';
+import { CITY_COORDS, cityCoord, type CityCoord } from '@/lib/city-coords';
 
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
 
@@ -556,12 +556,19 @@ export function getCachedForecastForDate(city: string, date: string): ForecastDa
  *
  * `fetchImpl` is injectable so unit tests can drive the fetch deterministically; production
  * passes the global `fetch`.
+ *
+ * `coordsOverride` (#250) — the ACTIVE TRIP'S OWN resolved coordinate for this city
+ * (`core/trips/registry.ts`'s `getActiveTripCityCoord`), when the caller has one. Takes priority
+ * over `lib/city-coords.ts`'s shared table, so a custom trip's geocoded city is used instead of
+ * (or in addition to) that hand-maintained default-pack list. This module stays trip-agnostic —
+ * it never imports `core/trips` itself — callers resolve the override and pass it in.
  */
 export async function fetchWeather(
   city: string,
   fetchImpl: typeof fetch = fetch,
+  coordsOverride?: CityCoord,
 ): Promise<WeatherResult> {
-  const coords = cityCoord(city);
+  const coords = coordsOverride ?? cityCoord(city);
   if (!coords) {
     // No coordinates for this city — nothing to query. Fall back to any cache, else unavailable.
     const cached = readCache(city);
@@ -600,8 +607,9 @@ export async function fetchWeather(
 export async function fetchAirQuality(
   city: string,
   fetchImpl: typeof fetch = fetch,
+  coordsOverride?: CityCoord,
 ): Promise<AirQualityResult> {
-  const coords = cityCoord(city);
+  const coords = coordsOverride ?? cityCoord(city);
   if (!coords) {
     const cached = readAqiCache(city);
     return cached ? { status: 'ok', data: cached } : { status: 'unavailable', city };

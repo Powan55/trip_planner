@@ -212,24 +212,37 @@ export function outboxBlocked(): number {
 /** Write-ahead: union the chunks into the domain's dirty set (synchronous localStorage write,
  * BEFORE any network). Re-enqueueing an already-dirty chunk is a set no-op. Preserves whatever
  * `lastAckAt` was already on disk — enqueuing new dirty work doesn't erase the last-synced
- * signal, it just adds to what's still pending. */
+ * signal, it just adds to what's still pending.
+ *
+ * #237: the read below is deliberately the LAST thing this function does before `saveSlot` —
+ * it must load fresh, right here, and the merge must happen against THAT value, never against
+ * a slot handed in or read earlier. That keeps the base object (every OTHER domain's dirty
+ * array, which this call writes back unchanged) as current as this synchronous call can make
+ * it, so a concurrent tab's enqueue/ack for a DIFFERENT chunk landed before this read is
+ * preserved rather than clobbered. It narrows, not closes: two tabs are separate OS threads,
+ * so a write from tab B landing in the gap between this read and `saveSlot`'s actual write can
+ * still be lost. Closing that needs a real cross-tab lock (Web Locks API), which is out of
+ * scope here. */
 function enqueue(domain: SyncDomain, chunks: string[]): void {
   if (chunks.length === 0) return;
-  const slot = loadSlot();
-  const set = new Set(slot.dirty[domain] ?? []);
+  const fresh = loadSlot();
+  const set = new Set(fresh.dirty[domain] ?? []);
   for (const c of chunks) set.add(c);
-  slot.dirty[domain] = [...set];
-  saveSlot(slot.dirty, slot.lastAckAt);
+  fresh.dirty[domain] = [...set];
+  saveSlot(fresh.dirty, fresh.lastAckAt);
 }
 
 /** Ack: remove one confirmed chunk from the domain's dirty set, and stamp the single app-wide
- * `lastAckAt` to now — every real ack is progress worth surfacing, regardless of domain. */
+ * `lastAckAt` to now — every real ack is progress worth surfacing, regardless of domain.
+ *
+ * #237: same fresh-read-immediately-before-write-back shape as `enqueue`, and the same
+ * narrows-but-does-not-close caveat — see its comment. */
 function ack(domain: SyncDomain, chunk: string): void {
-  const slot = loadSlot();
-  const arr = slot.dirty[domain];
+  const fresh = loadSlot();
+  const arr = fresh.dirty[domain];
   if (!arr) return;
-  slot.dirty[domain] = arr.filter((c) => c !== chunk);
-  saveSlot(slot.dirty, new Date().toISOString());
+  fresh.dirty[domain] = arr.filter((c) => c !== chunk);
+  saveSlot(fresh.dirty, new Date().toISOString());
 }
 
 // ── #124: at most ONE push in flight per (domain, chunk). ────────────────────────────────────
