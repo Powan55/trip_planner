@@ -16,6 +16,7 @@ import { cityCoord } from '@/lib/city-coords';
 import { sortItemsByTime } from '@/lib/sort-items-by-time';
 import { offsetForCountry, TRIP_DATES } from '@/core/dates';
 import { legLabel } from '@/lib/leg-label';
+import { haversineKm } from '@/lib/day-anchor';
 
 // Planned items match a curated marker by (a) sourceId when present (card-created
 // items,), else (b) a name match against the marker vocabulary so the rich
@@ -100,6 +101,22 @@ export type Placement =
 
 /** A placement that actually has a coordinate — i.e. anything that can be a map pin. */
 export type PlacedPlacement = Extract<Placement, { kind: 'exact' | 'approximate' }>;
+
+/**
+ * PURE. Straight-line ("as the crow flies") km between two consecutive stops in a day's
+ * rendered order — issue #224. This is a different number from the per-stop anchor-distance
+ * label already on `/map`: that one measures each stop from the day's fixed anchor pin, so a
+ * backtrack (Asakusa → Shibuya → Asakusa) reads as two small, unremarkable numbers. Segment
+ * distance measures stop-to-stop, so the return trip shows up.
+ *
+ * Free-tier constraint (no routing API): this is haversine, nothing more — never a walking-time
+ * or route-distance estimate. Returns `null`, never `NaN` or a fabricated `0`, when either
+ * placement has no coordinate (`kind: 'none'`) — same convention the anchor-distance label uses.
+ */
+export function segmentKm(prev: Placement, curr: Placement): number | null {
+  if (prev.kind === 'none' || curr.kind === 'none') return null;
+  return haversineKm({ lat: prev.lat, lng: prev.lng }, { lat: curr.lat, lng: curr.lng });
+}
 
 export interface DayStop {
   /**
