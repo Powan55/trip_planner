@@ -274,6 +274,20 @@ describe('StoragePersistence — install-to-Home hint', () => {
     r.unmount();
   });
 
+  it('does NOT persist dismissal when the toast is swiped away (onDismiss), only when the action is clicked (#249)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    stubStandalone(false);
+    const r = render(createElement(StoragePersistence));
+    await r.settle();
+    const call = h.toastCalls.find((c) => c.message.includes('Install this app'));
+    expect(call).toBeDefined();
+    // sonner fires `onDismiss` on a user swipe-away; there is no `onDismiss` prop wired here on
+    // purpose (a swipe must not be permanent consent), so it's undefined rather than a no-op fn.
+    expect(call!.options?.onDismiss).toBeUndefined();
+    expect(installHintStore.hasBeenDismissed()).toBe(false);
+    r.unmount();
+  });
+
   it('uses iOS Share -> Add to Home Screen wording on an iOS user agent', async () => {
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
     stubStandalone(false, true);
