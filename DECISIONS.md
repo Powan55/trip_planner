@@ -5018,6 +5018,17 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **The general rule for the next consumer.** A wake lock on a bounded, actively-attended interaction can be unconditional. A wake lock on a route that could plausibly sit open and unattended needs an explicit, persisted, off-by-default toggle. This is the test to apply before wiring `useWakeLock` into a fourth surface.
 
 **Changes if:** a bounded-interaction surface turns out to have a realistic "left open in a pocket" failure mode too — then it should move to the toggle pattern, not stay unconditional.
+### D-442 · (issue #238, 2026-08-25) · Tombstone GC horizon is anchored on data, not just the device clock
+
+**Decision.** `gcTombstoneRows` (`core/sync/merge-items.ts`) is the one predicate all three GC call sites route through (itinerary's `gcTombstones`, expenses' `gcTombstoneRows`, and `core/places/merge.ts`'s `mergePlaces`). Its cutoff was `deviceClock - horizonMs`; it is now `min(deviceClock, newestLiveRowStamp) - horizonMs`, where the anchor is the newest `hlc.pt` among the *live* rows in the set being GC'd (tombstones excluded from the anchor), falling back to the device clock when there is no live row at all.
+
+**Why live rows only.** An anchor drawn from tombstones lets two ancient tombstones shield each other — each reads as "recent" relative to the other regardless of how wrong the clock is — and a single lone tombstone becomes its own anchor and can never be collected. A live row is written by a real device acting now, so it is an independent check the clock can't self-referentially satisfy.
+
+**Why.** A device clock genuinely ~30 days fast pruned every tombstone in a document and pushed the pruned result; an offline peer holding the pre-delete row then re-added it, undoing the delete for the whole group. `lib/trip-now.ts` had already closed the *simulated*-clock vector; this closes the real-wrong-clock one, without a trusted-clock redesign — the horizon logic itself is unchanged, only its clock source.
+
+**Residual, not closed.** A device with both a bad clock and a fresh live edit in the *same push* still poisons its own anchor — `hlcSendOrLocal` never clamps physical time (D-228). That self-poisoning case is out of scope; what this closes is GC reading a clock decoupled from anything in the document at all, which was the reported mechanism.
+
+**Changes if:** the self-poisoning residual above becomes a real observed failure — that needs clamping physical time at the HLC layer (D-228), a separate and larger decision.
 ### D-441 · (issue #228, 2026-08-25) · A booking made mid-trip is shown via a local override layer, not a `booking-data.ts` edit
 
 **Decision.** `core/bookings/override.ts` adds a local-only, trip-scoped `BookingOverrideMap` (gateway key 40, `nepal_japan_booking_overrides`) keyed by the same id space `lib/booking-data.ts` already exports (`Journey.id` / `Stay.id`). `/flights` (`components/booking-override-editor.tsx`) is the only editor: a small inline form (carrier/hotel name, confirmation number, two verbatim labels, a note) that appears beside any entry whose static status is `'to-book'`. `components/flights-section.tsx` merges an override onto the matching `Journey`/`Stay` at render time via `applyJourneyOverride`/`applyStayOverride`, which return a new object (or the identical input reference when there is no override) — `booking-data.ts` is never imported for anything but its `Journey`/`Stay` types, never edited, and its exported consts are proven unmutated by the merge.
