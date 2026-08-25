@@ -7,11 +7,16 @@ blocked by a known *environmental* flake, while never weakening or deleting a
 real spec. That gate is the `e2e` job in `.github/workflows/ci.yml`, which runs
 on pull requests into `dev` and `main` and whose behavioural step carries no
 `continue-on-error`, so a failure fails the run. `.github/workflows/deploy.yml`
-is the release path and runs no test suite at all. Its jobs are `version-gate`,
-`markers` (the repository-hygiene marker check), `build` and `deploy`, so "no
-green, no deploy" is enforced at the pull request, not at the push to `main`.
-This policy governs how CI treats a test that fails intermittently for
-non-product reasons.
+is the release path; its jobs are `version-gate`, `checks`, `build`,
+`publish-rules` and `deploy` — there is no separate `markers` job. `checks`
+calls `ci.yml` as a reusable workflow, so the deploy path runs that file's full
+sweep too (marker scan, contrast-tokens, ambient-loop, typecheck, lint, unit
+tests, build, and the Firestore rules emulator check), not "no test suite at
+all". What the deploy path does not run is `ci.yml`'s pull-request-only jobs —
+`e2e`, `visual` and `release-gate` (the last has its own copy in
+`deploy.yml`) — so "no green, no deploy" for the *browser* suite is enforced
+at the pull request, not at the push to `main`. This policy governs how CI
+treats a test that fails intermittently for non-product reasons.
 
 > Guiding rule: a flake is quarantined, never silenced. We keep the assertion
 > exactly as strong as it is and change only *how the runner reacts* to a
@@ -209,20 +214,23 @@ provide. The only sanctioned levers are retries (section 2) and non-blocking
 
 ---
 
-## 4. Visual regression is separately non-blocking (related, not this flake)
+## 4. Visual regression is its own job, and D-379 made it blocking (related, not this flake)
 
-Distinct from D-093: the visual pack (`e2e/visual.spec.ts`, grep `visual`) runs as
-a separate `continue-on-error: true` step inside `ci.yml`'s `e2e` job (`deploy.yml`
-runs no Playwright step at all), and the reason is mechanical, not cosmetic: the
-committed baselines are named `-win32`, and Playwright's default snapshot path puts
-the platform in the filename, so on a Linux runner the expected `-linux` baseline
-does not exist and the comparison cannot pass at all. `visual.spec.ts`'s header
-documents the same cross-OS caveat from the font-antialiasing angle. Either way it
-is expected cross-environment drift, not a regression. This is a
-non-blocking-by-configuration case, not a quarantined-flake case: the fix is to
-commit `-linux` baselines on the runner (`--grep visual --update-snapshots`) and
-then drop `continue-on-error`, not to retry. Listed here so the two "non-blocking"
-mechanisms are not conflated.
+Distinct from D-093, and stale as of D-379 (issue #179): the visual pack
+(`e2e/visual.spec.ts` plus the visual specs in `tm-acceptance.spec.ts`, both
+matched by grep `visual`) used to run as a `continue-on-error: true` step
+inside `ci.yml`'s `e2e` job, on the same Linux runner as everything else. The
+committed baselines are named `-win32`, and Playwright's default snapshot path
+puts the platform in the filename, so on Linux the expected `-linux` baseline
+never existed and the step could only report a missing snapshot, never a real
+diff — that is why it was advisory. D-379 fixed the actual gap instead of
+tolerating it: `visual` is now a separate job on `windows-latest`, matching the
+`-win32` baselines, so the compare is real and the job carries no
+`continue-on-error` — a genuine diff fails the pull request. `deploy.yml` still
+runs no Playwright step at all, so this job, like `e2e`, stays pull-request-only.
+Listed here so it is not conflated with an actual quarantined flake: this was
+never a flake, it was a structurally-unwinnable compare, and it is fixed at the
+source rather than retried.
 
 ---
 
@@ -234,5 +242,5 @@ mechanisms are not conflated.
 | **`networkidle` nav flake**, all app-navigating specs, swept in S167 (FU-26) | `page.goto/reload … waiting until "networkidle"` timeout under load (SW precache never idles) | deterministic: `waitUntil:'domcontentloaded'` + a real readiness wait before the first assertion (drop-only where a settle already ran; added wait for `a11y-intrip`) | Done. Zero live `networkidle` nav calls remain in `e2e/` |
 | **E2E build must be dormant (FU-25)** | live `onSnapshot` keeps the network non-idle + injects non-determinism | `ci.yml`'s `e2e` job omits `NEXT_PUBLIC_FIREBASE_*` by design (unlike `deploy.yml`'s `build` job); measure on `out/` with no `.env.local` | Guarantee: never add Firebase secrets to `ci.yml`'s `e2e` job (section 1a) |
 | **Any spec flaking beyond 2 retries** (confirmed environmental) | fails all attempts across runs, but env-signature not a regression | tag `@flaky`, split to non-blocking job (`continue-on-error`) | de-flake root cause, remove tag |
-| **Visual drift** (`visual.spec.ts`) | pixel diff on text AA across OS | `continue-on-error: true` (non-blocking) | commit `-linux` baselines, drop `continue-on-error` |
+| **Visual drift** (`visual.spec.ts`) | pixel diff against the `-win32` baselines | own job on `windows-latest`, blocking (no `continue-on-error`, since D-379) | done — see section 4 |
 | **A real regression** | assertion genuinely wrong / product broke | the gate stays red; no retry or quarantine applies | fix the product or the spec |
