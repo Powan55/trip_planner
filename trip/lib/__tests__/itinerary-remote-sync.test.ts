@@ -58,6 +58,7 @@ type DocData = Record<string, unknown>;
 class FakeFirestore {
   docs = new Map<string, DocData>(); // path -> data
   snapshotListeners: Array<(snap: FakeQuerySnapshot) => void> = [];
+  errorListeners: Array<(err: unknown) => void> = [];
   // A-20 test hook only: when set, getDocFromServer awaits this before resolving — lets a test
   // hold the first-snapshot trip-doc marker read open so it can unsubscribe mid-flight.
   markerReadDelay: Promise<void> | null = null;
@@ -79,6 +80,10 @@ class FakeFirestore {
   emitServerSnapshot() {
     const snap = this.daysSnapshot(false, false);
     for (const cb of this.snapshotListeners) cb(snap);
+  }
+  // #271: drive the onSnapshot error callback (rules refusal / network / quota).
+  emitError(err: unknown) {
+    for (const cb of this.errorListeners) cb(err);
   }
 }
 
@@ -125,12 +130,17 @@ vi.mock('firebase/firestore', () => {
     onSnapshot: (
       _q: unknown,
       onNext: (snap: FakeQuerySnapshot) => void,
-      _onError?: (e: unknown) => void,
+      onError?: (e: unknown) => void,
     ) => {
       fake.snapshotListeners.push(onNext);
+      if (onError) fake.errorListeners.push(onError);
       return () => {
         const i = fake.snapshotListeners.indexOf(onNext);
         if (i >= 0) fake.snapshotListeners.splice(i, 1);
+        if (onError) {
+          const j = fake.errorListeners.indexOf(onError);
+          if (j >= 0) fake.errorListeners.splice(j, 1);
+        }
       };
     },
     getDoc: async (ref: { path: string }) => {
@@ -185,6 +195,7 @@ import {
 import { loadPlans, savePlans, ITINERARY_STORAGE_KEY } from '@/lib/itinerary-storage';
 import { mergeDay } from '@/core/sync/merge-day';
 import { serialize } from '@/core/sync/hlc';
+import { isReadDenied, setReadDenied } from '@/core/sync/read-denied';
 import type { Firestore } from 'firebase/firestore';
 import * as fs from 'firebase/firestore';
 
@@ -203,12 +214,14 @@ beforeEach(() => {
   localStorage.clear();
   fake.docs.clear();
   fake.snapshotListeners = [];
+  fake.errorListeners = [];
   fake.markerReadDelay = null;
   writeLog.length = 0;
 });
 
 afterEach(() => {
   vi.restoreAllMocks();
+  setReadDenied('itinerary', false); // #271: module-singleton flag — reset between tests
 });
 
 describe('docToDayPlan stays behavior-frozen; default-on-read is a SEPARATE step (D-107)', () => {
@@ -322,6 +335,52 @@ describe('SNAPSHOT-MERGE applies remote against local WITHOUT pushing (echo-supp
     expect(c).toBeDefined();
     expect(c.rev).toBe(1); // defaulted on read
     expect(c.deleted).toBe(false);
+    unsub();
+  });
+});
+
+describe('#271 — a permission-denied READ stream is classified, not endlessly retried', () => {
+  it('sets isReadDenied() and does NOT arm the `online` retry listener', async () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+
+    const unsub = subscribeRemote();
+    await flush(); // listener attaches
+
+    expect(isReadDenied()).toBe(false);
+    fake.emitError({ code: 'permission-denied', message: 'Missing or insufficient permissions.' });
+
+    expect(isReadDenied()).toBe(true);
+    // The forever-loop this bug reports: arming `online` retries a refusal that answers
+    // identically every time. Assert the retry was never armed for this refusal.
+    expect(addSpy.mock.calls.some(([type]) => type === 'online')).toBe(false);
+    unsub();
+  });
+
+  it('a non-denial stream error (network/quota) still arms the `online` retry, unaffected', async () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+
+    const unsub = subscribeRemote();
+    await flush();
+
+    fake.emitError({ code: 'unavailable', message: 'network blip' });
+
+    expect(isReadDenied()).toBe(false);
+    expect(addSpy.mock.calls.some(([type]) => type === 'online')).toBe(true);
+    unsub();
+  });
+
+  it('a later successful snapshot clears the flag (membership granted mid-session)', async () => {
+    const unsub = subscribeRemote();
+    await flush();
+
+    fake.emitError({ code: 'permission-denied' });
+    expect(isReadDenied()).toBe(true);
+
+    fake.setDocData(`trips/${TRIP_ID}`, { schemaVersion: 1 });
+    fake.emitServerSnapshot();
+    await flush();
+
+    expect(isReadDenied()).toBe(false);
     unsub();
   });
 });

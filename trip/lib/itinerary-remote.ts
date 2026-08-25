@@ -46,6 +46,8 @@ import { sanitizeItineraryItems } from '@/core/itinerary/model';
 import { mergeDay, mergeDays, gcTombstones } from '@/core/sync/merge-day';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
 import { outboxDirty } from '@/core/sync/outbox';
+import { isPermissionDenied } from '@/core/sync/denied';
+import { setReadDenied } from '@/core/sync/read-denied';
 import { realClock } from './trip-now';
 import { getRemote, type FirestoreMod } from './firebase-remote';
 
@@ -468,6 +470,11 @@ export function subscribeRemote(): () => void {
       firestoreUnsub = onSnapshot(
         daysCol,
         (snapshot) => {
+          // #271: any snapshot event reaching here proves this device's read is no longer
+          // denied — clear whatever the error path below set (membership granted mid-session,
+          // no reload needed). Unconditional and cheap (a Set check that only writes on a flip).
+          setReadDenied('itinerary', false);
+
           // Skip the echo of the client's OWN optimistic write: when we push a
           // day, Firestore fires a local snapshot with hasPendingWrites=true before the
           // server round-trip. Applying it is redundant (local already has it) and could
@@ -530,6 +537,15 @@ export function subscribeRemote(): () => void {
           console.warn('[itinerary-remote] snapshot stream error:', err);
           established = false;
           firestoreUnsub = null;
+          // #271: a permission-denied read answers IDENTICALLY on every retry — this device
+          // isn't in the trip's `members` map — so arming the `online` retry here is exactly the
+          // forever-loop the bug reports, not resilience. Record it and stop; the snapshot
+          // handler above clears the flag itself if a later reconnect (membership granted,
+          // reload) ever re-establishes a working listener.
+          if (isPermissionDenied(err)) {
+            setReadDenied('itinerary', true);
+            return;
+          }
           if (!cancelled) armOnlineRetry();
         },
       );
