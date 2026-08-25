@@ -135,7 +135,9 @@ export function StoragePersistence() {
             toast.dismiss(id);
           },
         },
-        onDismiss: () => installHintStore.markDismissed(),
+        // Swipe-away only — the explicit "Got it" button above is the sole once-ever-dismissal
+        // path. onDismiss also fires on a swipe gesture, which must NOT be treated as consent
+        // (#249): a swipe just closes this toast; the hint can still show on a later visit.
       });
     }
 
