@@ -51,8 +51,6 @@ import { setReadDenied } from '@/core/sync/read-denied';
 import { realClock } from './trip-now';
 import { getRemote, type FirestoreMod } from './firebase-remote';
 
-export * from './firebase-remote';
-
 /**
  * Map a raw Firestore day-doc into a DayPlan. Defensive: tolerate partial/legacy docs
  * so a malformed remote doc degrades gracefully (it just yields a thin-but-valid
