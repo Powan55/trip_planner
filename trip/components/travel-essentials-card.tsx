@@ -8,7 +8,16 @@ import { getCountryForDate, getCityForDate, formatHomeClock } from '@/core/dates
 import { isDefaultTrip } from '@/core/trips';
 import { legCurrency } from '@/core/budget/model';
 import { EMERGENCY_CONTACTS } from '@/core/content/safety';
-import { fetchWeather, weatherCodeToLabel, formatWeatherAsOf, type WeatherResult } from '@/lib/weather';
+import {
+  fetchWeather,
+  fetchAirQuality,
+  weatherCodeToLabel,
+  formatWeatherAsOf,
+  fogRiskLabel,
+  usAqiLabel,
+  type WeatherResult,
+  type AirQualityResult,
+} from '@/lib/weather';
 import { fetchCurrencyRate, type CurrencyRateResult } from '@/lib/currency-rate';
 import { getNow } from '@/lib/trip-now';
 import {
@@ -59,12 +68,25 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
   const home = model.homeCurrency;
 
   const [weather, setWeather] = useState<WeatherResult | null>(null);
+  const [airQuality, setAirQuality] = useState<AirQualityResult | null>(null);
   const [rate, setRate] = useState<CurrencyRateResult | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     fetchWeather(city).then((r) => {
       if (!cancelled) setWeather(r);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [city]);
+
+  // #251 — a separate fetch to a separate host (air-quality-api.open-meteo.com); it doesn't
+  // ride along on the forecast response the way the 7-day outlook does.
+  useEffect(() => {
+    let cancelled = false;
+    fetchAirQuality(city).then((r) => {
+      if (!cancelled) setAirQuality(r);
     });
     return () => {
       cancelled = true;
@@ -153,7 +175,7 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
         )}
 
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <WeatherPanel city={city} weather={weather} />
+          <WeatherPanel city={city} weather={weather} airQuality={airQuality} />
           {currency !== home && <CurrencyPanel currency={currency} rate={rate} />}
           {showHomeClock && homeClock !== null && <HomeClockPanel time={homeClock} />}
         </div>
@@ -172,7 +194,15 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
   );
 }
 
-function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult | null }) {
+function WeatherPanel({
+  city,
+  weather,
+  airQuality,
+}: {
+  city: string;
+  weather: WeatherResult | null;
+  airQuality: AirQualityResult | null;
+}) {
   return (
     <div
       data-testid="travel-essentials-weather"
@@ -199,6 +229,17 @@ function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult 
               Feels like {weather.data.feelsLikeC}&deg;C
             </span>
           )}
+          {/* #278 — a qualitative fog-risk signal, never a raw metre figure and never an
+              aviation call (no "safe to fly" / "expect delays"). Absent when the response (or
+              an old cache entry) didn't carry a visibility reading. */}
+          {weather.data.visibilityM !== null && (
+            <span
+              className="mt-0.5 block text-xs text-ink-mid"
+              data-testid="travel-essentials-weather-fog-risk"
+            >
+              {fogRiskLabel(weather.data.visibilityM).label}
+            </span>
+          )}
           {weather.data.stale && (
             <span className="ml-1.5 text-xs text-ink-mid" data-testid="travel-essentials-weather-stale">
               (cached — as of {formatWeatherAsOf(weather.data.fetchedAt)})
@@ -209,6 +250,28 @@ function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult 
       {weather?.status === 'unavailable' && (
         <p className="mt-2 text-sm text-ink-mid" data-testid="travel-essentials-weather-unavailable">
           Weather unavailable right now.
+        </p>
+      )}
+      {/* #251 — air quality, its own fetch/cache so it degrades independently of the
+          weather panel above. `usAqi` is the clearer at-a-glance signal (well-known 6-band
+          scale); pm2.5 stands in on its own if a body ever carries one field but not the other. */}
+      {airQuality?.status === 'ok' && (
+        <p
+          className="mt-1.5 text-xs text-ink-mid"
+          data-testid="travel-essentials-air-quality"
+        >
+          Air quality:{' '}
+          {airQuality.data.usAqi !== null
+            ? `${usAqiLabel(airQuality.data.usAqi)} (AQI ${airQuality.data.usAqi})`
+            : airQuality.data.pm25 !== null
+              ? `PM2.5 ${airQuality.data.pm25} µg/m³`
+              : 'reading unavailable'}
+          {airQuality.data.stale && ' (cached)'}
+        </p>
+      )}
+      {airQuality?.status === 'unavailable' && (
+        <p className="mt-1.5 text-xs text-ink-mid" data-testid="travel-essentials-air-quality-unavailable">
+          Air quality unavailable right now.
         </p>
       )}
     </div>

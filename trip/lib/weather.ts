@@ -27,6 +27,11 @@ import { CITY_COORDS, cityCoord } from '@/lib/city-coords';
 
 const OPEN_METEO_URL = 'https://api.open-meteo.com/v1/forecast';
 
+/** Air quality lives on a DIFFERENT Open-Meteo host than the forecast — same operator, same
+ * keyless/no-account/no-key shape, but a genuinely different origin (`lib/csp.ts` carries its
+ * own `connect-src` entry for it). */
+const OPEN_METEO_AQ_URL = 'https://air-quality-api.open-meteo.com/v1/air-quality';
+
 /**
  * Ceiling on the Open-Meteo request. A stalled connection (a network that neither routes nor
  * rejects — CI has no route to api.open-meteo.com) otherwise leaves `fetchWeather` unsettled
@@ -81,6 +86,13 @@ export interface WeatherNow {
    * cache-through / never-throws contract is unchanged and every stored value stays readable.
    */
   feelsLikeC: number | null;
+  /**
+   * Ground visibility in metres — Open-Meteo's `current.visibility`. Same optional-field
+   * contract as `feelsLikeC`: `null` when the response (or a pre-this-change cache entry)
+   * didn't carry it, guarded on TYPE not falsiness (0 m is a real whiteout-fog reading).
+   * The UI never shows this raw number — see `fogRiskLabel` for the qualitative bucketing.
+   */
+  visibilityM: number | null;
   /** Open-Meteo WMO weather code + its human label + a matching emoji/icon key. */
   weatherCode: number;
   condition: string;
@@ -110,6 +122,22 @@ export type WeatherResult =
   | { status: 'ok'; data: WeatherNow }
   | { status: 'unavailable'; city: string };
 
+/** The parsed, UI-ready air-quality snapshot for one city (#251) — a separate fetch, from a
+ * separate host, cached under its own key; not merged into `WeatherNow`. */
+export interface AirQualityNow {
+  city: string;
+  /** US EPA AQI (0-500+), Open-Meteo `current.us_aqi`. `null` when absent. */
+  usAqi: number | null;
+  /** PM2.5 in µg/m³, Open-Meteo `current.pm2_5`. `null` when absent. */
+  pm25: number | null;
+  stale: boolean;
+  fetchedAt: string;
+}
+
+export type AirQualityResult =
+  | { status: 'ok'; data: AirQualityNow }
+  | { status: 'unavailable'; city: string };
+
 // ── Pure helpers ────────────────────────────────────────────────────────────────
 
 /**
@@ -130,6 +158,33 @@ export function weatherCodeToLabel(code: number): string {
   if (code === 85 || code === 86) return 'Snow showers';
   if (code >= 95 && code <= 99) return 'Thunderstorm';
   return 'Unknown';
+}
+
+export type FogRiskLevel = 'low' | 'moderate' | 'severe';
+
+/**
+ * Bucket a raw visibility reading (metres) into a qualitative fog-risk signal (PURE, #278).
+ * Deliberately NOT an aviation call — no "safe to fly" / "expect delays" wording, just how far
+ * you can see. Breakpoints follow the standard meteorological bands (fog < 1 km, haze/mist
+ * < 5 km, clear beyond that).
+ */
+export function fogRiskLabel(visibilityM: number): { level: FogRiskLevel; label: string } {
+  if (visibilityM < 1000) return { level: 'severe', label: 'Severe fog — under 1 km visibility' };
+  if (visibilityM < 5000) return { level: 'moderate', label: 'Some haze — under 5 km visibility' };
+  return { level: 'low', label: 'Low fog risk — clear visibility' };
+}
+
+/**
+ * Map a US EPA AQI value to its standard category name (PURE, #251) — the well-known
+ * 6-band scale (airnow.gov), not a bespoke bucketing.
+ */
+export function usAqiLabel(aqi: number): string {
+  if (aqi <= 50) return 'Good';
+  if (aqi <= 100) return 'Moderate';
+  if (aqi <= 150) return 'Unhealthy for sensitive groups';
+  if (aqi <= 200) return 'Unhealthy';
+  if (aqi <= 300) return 'Very unhealthy';
+  return 'Hazardous';
 }
 
 /** A short, quiet contextual weather tag for an itinerary day card. */
@@ -242,7 +297,13 @@ function addLocalMinutes(iso: string, minutes: number): string {
 
 /** The subset of the Open-Meteo `/v1/forecast` body we consume (all else ignored). */
 interface OpenMeteoResponse {
-  current?: { temperature_2m?: number; apparent_temperature?: number; weather_code?: number };
+  current?: {
+    temperature_2m?: number;
+    apparent_temperature?: number;
+    /** Metres — verified live as a `current`-block field on this same forecast host (#278). */
+    visibility?: number;
+    weather_code?: number;
+  };
   daily?: {
     /** Open-Meteo always includes the daily calendar dates alongside the requested fields. */
     time?: string[];
@@ -293,6 +354,9 @@ export function parseOpenMeteo(
       typeof current.apparent_temperature === 'number'
         ? Math.round(current.apparent_temperature)
         : null,
+    // Optional, same pattern as `feelsLikeC` — a cache entry written before this field existed
+    // must still parse. Guarded on TYPE not falsiness: 0 m visibility is a real reading.
+    visibilityM: typeof current.visibility === 'number' ? Math.round(current.visibility) : null,
     weatherCode: current.weather_code,
     condition: weatherCodeToLabel(current.weather_code),
     highC: Math.round(high),
@@ -365,6 +429,33 @@ export function parseForecast(json: OpenMeteoResponse): ForecastDay[] | null {
   return days;
 }
 
+/** The subset of the `air-quality-api.open-meteo.com` `/v1/air-quality` body we consume. */
+interface OpenMeteoAqiResponse {
+  current?: { us_aqi?: number; pm2_5?: number };
+}
+
+/**
+ * Parse a raw air-quality body into an `AirQualityNow` (PURE, #251). Returns `null` when
+ * neither reading is present so the caller falls back to cache rather than store an empty
+ * snapshot. Each field is independently optional — a body with only one of the two still parses.
+ */
+export function parseAirQuality(
+  json: OpenMeteoAqiResponse,
+  city: string,
+  fetchedAt: string,
+): AirQualityNow | null {
+  const current = json.current;
+  if (!current) return null;
+  if (typeof current.us_aqi !== 'number' && typeof current.pm2_5 !== 'number') return null;
+  return {
+    city,
+    usAqi: typeof current.us_aqi === 'number' ? Math.round(current.us_aqi) : null,
+    pm25: typeof current.pm2_5 === 'number' ? Math.round(current.pm2_5 * 10) / 10 : null,
+    stale: false,
+    fetchedAt,
+  };
+}
+
 // ── The client (impure: fetch + gateway I/O, but TOTAL — never throws) ───────────────────
 
 /**
@@ -380,7 +471,9 @@ function buildUrl(coords: { latitude: number; longitude: number }): string {
     // the request already being made — same host, same round trip, no CSP change
     // (`lib/csp.ts` already allowlists api.open-meteo.com). Current only: a daily apparent
     // min/max would double the numbers on the card without adding a decision.
-    current: 'temperature_2m,apparent_temperature,weather_code',
+    // `visibility` (#278) is likewise verified live as a `current` field on this SAME host —
+    // one more token, no new round trip, no CSP change.
+    current: 'temperature_2m,apparent_temperature,visibility,weather_code',
     daily: 'sunrise,sunset,temperature_2m_max,temperature_2m_min,weather_code',
     timezone: 'auto',
     // explicit (Open-Meteo already defaults to 7) so the 7-day outlook is guaranteed
@@ -388,6 +481,17 @@ function buildUrl(coords: { latitude: number; longitude: number }): string {
     forecast_days: '7',
   });
   return `${OPEN_METEO_URL}?${params.toString()}`;
+}
+
+/** Build the air-quality request URL (#251) — its own host, its own params. */
+function buildAqiUrl(coords: { latitude: number; longitude: number }): string {
+  const params = new URLSearchParams({
+    latitude: String(coords.latitude),
+    longitude: String(coords.longitude),
+    current: 'us_aqi,pm2_5',
+    timezone: 'auto',
+  });
+  return `${OPEN_METEO_AQ_URL}?${params.toString()}`;
 }
 
 /** The compound cache key the 7-day outlook is stored under — reuses `weatherCache`'s
@@ -406,7 +510,28 @@ function readCache(city: string): WeatherNow | null {
   // `feelsLikeC ?? null` normalises a value cached BEFORE the field was requested: it is
   // `undefined` on disk there, and the type says `number | null`. The offline path is exactly
   // when an old entry gets read, so normalise on the way out rather than trusting the shape.
-  return { ...cached, feelsLikeC: cached.feelsLikeC ?? null, stale: true, forecast: forecast ?? null };
+  return {
+    ...cached,
+    feelsLikeC: cached.feelsLikeC ?? null,
+    visibilityM: cached.visibilityM ?? null,
+    stale: true,
+    forecast: forecast ?? null,
+  };
+}
+
+/** The compound cache key the air-quality reading is stored under (#251) — same pattern as
+ * `forecastCacheKey`, a distinct string on the SAME `weatherCache` map so the storage gateway
+ * itself is untouched and the forecast/current-conditions entries are unaffected. */
+function aqiCacheKey(city: string): string {
+  return `${city}:aqi`;
+}
+
+/** Read the cached last-good air-quality reading for a city (through the gateway), tagged
+ * `stale: true`. */
+function readAqiCache(city: string): AirQualityNow | null {
+  const cached = weatherCache.get<AirQualityNow>(aqiCacheKey(city));
+  if (!cached) return null;
+  return { ...cached, stale: true };
 }
 
 /**
@@ -462,6 +587,36 @@ export async function fetchWeather(
   } catch {
     // Any failure → cached last-good (stale), else the quiet unavailable state. Never throws.
     const cached = readCache(city);
+    return cached ? { status: 'ok', data: cached } : { status: 'unavailable', city };
+  }
+}
+
+/**
+ * Load the current air-quality reading for a city (#251). Same total/never-throws/cache-through
+ * contract as `fetchWeather`, but a SEPARATE fetch to a SEPARATE host (`air-quality-api.
+ * open-meteo.com`) — the reading is not part of the forecast body, so it can't ride along on
+ * that request the way the 7-day outlook does.
+ */
+export async function fetchAirQuality(
+  city: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AirQualityResult> {
+  const coords = cityCoord(city);
+  if (!coords) {
+    const cached = readAqiCache(city);
+    return cached ? { status: 'ok', data: cached } : { status: 'unavailable', city };
+  }
+
+  try {
+    const res = await fetchImpl(buildAqiUrl(coords), { signal: AbortSignal.timeout(WEATHER_TIMEOUT_MS) });
+    if (!res.ok) throw new Error(`Open-Meteo air-quality HTTP ${res.status}`);
+    const json = (await res.json()) as OpenMeteoAqiResponse;
+    const parsed = parseAirQuality(json, city, new Date().toISOString());
+    if (!parsed) throw new Error('Open-Meteo air-quality body missing required fields');
+    weatherCache.set<AirQualityNow>(aqiCacheKey(city), parsed);
+    return { status: 'ok', data: parsed };
+  } catch {
+    const cached = readAqiCache(city);
     return cached ? { status: 'ok', data: cached } : { status: 'unavailable', city };
   }
 }

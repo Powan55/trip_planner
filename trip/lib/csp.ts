@@ -37,6 +37,9 @@ function conciergeOrigin(): string {
  *   so this is the directive that governs them — NOT `img-src`. Verified by removing the
  *   origin from here: all 46 tile requests were blocked and the basemap went blank.
  * - `https://api.open-meteo.com` — forecasts (lib/weather.ts `OPEN_METEO_URL`).
+ * - `https://air-quality-api.open-meteo.com` — air quality (lib/weather.ts
+ *   `OPEN_METEO_AQ_URL`). Same operator, same keyless/no-account free tier as the forecast
+ *   host above, but a genuinely different origin — it does not fall under that entry.
  * - `https://api.frankfurter.dev` — FX rates (lib/currency-rate.ts `FRANKFURTER_URL`).
  * - `https://nominatim.openstreetmap.org` — place search (lib/world-search.ts).
  * - `https://firestore.googleapis.com` — Firestore. Its WebChannel transport is HTTPS
@@ -56,6 +59,7 @@ const CONNECT_SRC = [
   "'self'",
   'https://*.basemaps.cartocdn.com',
   'https://api.open-meteo.com',
+  'https://air-quality-api.open-meteo.com',
   'https://api.frankfurter.dev',
   'https://nominatim.openstreetmap.org',
   'https://firestore.googleapis.com',
