@@ -5,9 +5,6 @@ import { m, useReducedMotion } from 'framer-motion';
 import { Hotel, Clock, Star, MapPin } from 'lucide-react';
 import { JOURNEYS, BOOKED_STAYS, type Stay } from '@/lib/booking-data';
 import { FlightJourneyCard } from '@/components/flight-journey-card';
-import { BookingOverrideEditor } from '@/components/booking-override-editor';
-import { useBookingOverrides } from '@/hooks/use-booking-overrides';
-import { applyJourneyOverride, applyStayOverride } from '@/core/bookings/override';
 import { FADE_FLOOR } from '@/lib/motion';
 
 // --- Static class records: never interpolate Tailwind class names. ---
@@ -95,11 +92,6 @@ export default function FlightsSection() {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Issue #228 — local-only overrides for any `to-book` entry, merged onto the read-only
-  // `lib/booking-data.ts` consts AT RENDER TIME (below). `overrides` starts `{}` pre-hydration,
-  // matching a no-override render exactly (booking-data.ts itself is never touched).
-  const { overrides, setOverride, clearOverride } = useBookingOverrides();
-
   return (
     <section id="flights" aria-labelledby="flights-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
@@ -131,17 +123,7 @@ export default function FlightsSection() {
                 → labelled chips → layover verdict rows → deep-link rail). */}
             <div className="grid lg:grid-cols-2 gap-5 mb-5">
               {JOURNEYS.map((journey, i) => (
-                <div key={journey.id} className="flex flex-col min-w-0">
-                  <FlightJourneyCard journey={applyJourneyOverride(journey, overrides[journey.id])} index={i} />
-                  <BookingOverrideEditor
-                    id={journey.id}
-                    kind="flight"
-                    isToBook={journey.status === 'to-book'}
-                    override={overrides[journey.id]}
-                    onSave={setOverride}
-                    onClear={clearOverride}
-                  />
-                </div>
+                <FlightJourneyCard key={journey.id} journey={journey} index={i} />
               ))}
             </div>
 
@@ -151,17 +133,7 @@ export default function FlightsSection() {
               <h3 className="sr-only">Accommodation</h3>
               <div className="grid sm:grid-cols-2 gap-5">
                 {BOOKED_STAYS.map((stay) => (
-                  <div key={stay.id} className="flex flex-col min-w-0">
-                    <StayCard stay={applyStayOverride(stay, overrides[stay.id])} />
-                    <BookingOverrideEditor
-                      id={stay.id}
-                      kind="stay"
-                      isToBook={stay.status === 'to-book'}
-                      override={overrides[stay.id]}
-                      onSave={setOverride}
-                      onClear={clearOverride}
-                    />
-                  </div>
+                  <StayCard key={stay.id} stay={stay} />
                 ))}
               </div>
             </div>

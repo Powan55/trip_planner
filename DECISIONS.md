@@ -5052,3 +5052,25 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **The general rule going forward.** Three restore shapes now exist for three real domain shapes: fresh-id tombstone-replace (expenses, myPlaces, itinerary — open id space), same-id upsert-by-stamp (docsChecklist — fixed id space, no add/remove), and not-yet-solved (budget — field-level LWW, no per-row shape at all, tracked separately). Before wiring a new domain's restore, name which of the three its storage shape actually matches — don't default to copying expenses' shape because it was first.
 
 **Changes if:** budget gets a real per-field restore design — that is its own decision, unrelated to this one.
+
+### D-445 · Supersedes D-441 · (issue #329, 2026-08-25) · The booking-override layer is removed; `'to-book'` is a type member with no instances, not a feature key
+
+**Decision.** The local booking-override layer is deleted — editor, hook, core module, gateway key, backup domain and its tests. `BookingStatus`'s `'to-book'` member and the status chip stay; they are independently typed and removing them is a separate call.
+
+**Why, and the fact that decides it.** D-441 gated the feature on `Journey.status === 'to-book'`. **No `Journey` or `Stay` has ever carried that status, in any revision of `lib/booking-data.ts`.** Checked across every revision of the module: the sole match in each is the header comment, not a record. On `dev` the count is eight `'booked'` and zero `'to-book'` outside that comment. The gate was `false` for all eight records from the day it was written, so the editor has never rendered.
+
+**The unbooked surface was never the same shape.** `JAPAN_TODO` was `ToBookPlaceholder[]` — `{id, kind, label, note}`, with no `status` field — rendered by its own card in a separate panel. It could not have satisfied the gate either. Its deletion in #213 is a coincidence, not the cause, and restoring it would fix nothing.
+
+**The root cause is a comment, not a collision.** `booking-data.ts`'s header asserted that `status: 'to-book'` was "the ONLY sanctioned way to show unbooked logistics" — an aspirational contract written in the first commit and never once exercised. Three passes trusted that sentence without grepping the eight records: the slice that built the feature, D-431's addendum claiming the status "drives a live rendering branch" (it does not — the chip is typed for both values and has only ever rendered the booked one), and the issue that first diagnosed the bug. The header and the matching row in `docs/trip-content.md` are corrected in the same change, because that prose is what the next person would read.
+
+**Why not author a `to-book` record.** The booking data is deliberately fictional scrubbed sample content, so there is no real reservation to be honest about. A `to-book` journey would render identically to a booked one — `FlightJourneyCard` does not read `status`, and the placeholder card went with `JAPAN_TODO` — so it could only ever work for a stay, leaving the flights half unreachable. Flipping a stay would contradict its own check-in and check-out facts and the `/flights` masthead copy that a prior fix made honest, which an e2e assertion pins.
+
+**Why not re-key it onto every booking.** Overriding a *confirmed* booking is a different feature from graduating a placeholder. It needs per-leg targeting — the apply function overlays the first leg only, and the outbound has three — and a user-typed flight number silently kills the live-status rail, whose carrier map is deliberately bounded to this pack's four fictional airlines. That is a new slice with a new decision against D-034's never-faked rule, not a four-line unguard.
+
+**Migration cost is zero, and provably so.** `origin/main` at v6.0.3 contains none of these files, so no shipped build has ever written the storage key and it cannot exist on any device. An absent backup domain is omitted from the envelope without a version bump.
+
+**One consequence worth recording.** `print-itinerary.tsx` claims in a comment that it reads the same static booking data `/flights` does, with no second source. That became false when the override layer landed and is true again by deletion — the paper sheet and the Travel Mode flight row read the static data raw, so any future override feature must bring all three read paths into scope from the start.
+
+**Changes if:** a custom trip ever gets a `/flights` surface — it is default-trip-gated today — at which point a mid-trip booking is a real requirement and deserves a real design, keyed on the leg rather than the journey, with the deep-link carrier map and the print and Travel Mode read paths in scope from the beginning.
+
+**Standing lesson:** a brief that asserts the state of shipped data must cite the grep. This one cost a feature, a decision entry, and a wrong diagnosis before anyone checked eight records.

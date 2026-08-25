@@ -18,7 +18,6 @@
  * and it already lives framework-free in `core/sync/outbox.ts` with no cycle to fix.
  */
 
-export const BOOKING_OVERRIDES_CHANGED_EVENT = 'booking-overrides:changed';
 export const BUDGET_CHANGED_EVENT = 'budget:changed';
 export const DOCS_CHANGED_EVENT = 'docs:changed';
 export const EXPENSES_CHANGED_EVENT = 'expenses:changed';
