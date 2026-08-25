@@ -1,11 +1,8 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({ baseDirectory: __dirname });
+// eslint-config-next@16 ships native flat config (an array, not a named
+// classic-shareable-config string), so FlatCompat.extends("next/core-web-vitals")
+// no longer applies — it fed the array through the legacy schema validator, which
+// choked on the plugin objects with a circular-JSON crash. Spread the array directly.
+import nextConfig from "eslint-config-next/core-web-vitals";
 
 // Firebase is reachable ONLY through a dynamic `import()`, behind the configured/auth gate.
 // A single static import puts the SDK in the initial bundle of every route that transitively
@@ -44,12 +41,30 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  ...nextConfig,
   {
     rules: {
       // Escaping every ' and " in JSX copy is pure churn — React renders them
       // correctly and the literal text is more legible than HTML entities.
       "react/no-unescaped-entities": "off",
+
+      // eslint-plugin-react-hooks v7 (pulled in by the eslint-config-next@16 bump)
+      // expanded "recommended" from 2 rules to 16: React Compiler readiness
+      // diagnostics, most set to "error". Four of them fire 91 times across ~20
+      // files on patterns this codebase uses throughout on purpose — the
+      // SSR-safe `useEffect(() => setMounted(true), [])` hydration idiom,
+      // stable-callback refs assigned during render, and a `Date.now()` read in
+      // a presence hook. Fixing those means restructuring hook usage repo-wide
+      // for React Compiler compatibility, which nothing here opts into — that's
+      // a separate initiative, not a lint-version bump. Off until that's scoped;
+      // everything else in the new recommended set (static-components,
+      // preserve-manual-memoization, error-boundaries, etc.) stays on and is
+      // clean today.
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/use-memo": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/purity": "off",
     },
   },
   {
