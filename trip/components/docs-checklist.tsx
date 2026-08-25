@@ -7,6 +7,15 @@ import type { DocSection, DocItem } from '@/core/docs/model';
 import { haptic } from '@/lib/haptics';
 import { crossedIntoComplete } from '@/lib/celebration';
 import CelebrationBurst from '@/components/celebration-burst';
+import PhotoAttach from '@/components/photo-attach';
+
+// Device-local only: this row's checked/note state syncs, the photo never does, so it's
+// invisible on another device. Storage stays generic since there's no real quota to quote.
+// Same string on every row rather than branching per item; not shared with journal/expense.
+const DOCS_PHOTO_HELPER =
+  "Only visible on this device — this checklist syncs, the photo doesn't. Storage is limited by your " +
+  "device's available storage, and photos are kept unencrypted on this device, so avoid attaching " +
+  'anything sensitive.';
 
 /**
  * DocsChecklist — the `/checklist` route's checklist: a fixed built-in template
@@ -14,7 +23,10 @@ import CelebrationBurst from '@/components/celebration-burst';
  * Day-zero readiness), each a checkbox toggle + an optional per-item note, persisted via the gateway
  * (`hooks/use-docs.ts`, key 25) AND synced across travelers. No empty state by design
  * — the template is the value of the feature; only `checked`/`note` (and, under
- * sync, the stamps) persist.
+ * sync, the stamps) persist on the `DocItem` row itself. Each row also gets an OPTIONAL photo
+ * (#258 — passport page, visa stamp, boarding pass…) via the shared `PhotoAttach` surface, owner
+ * `{kind:'docs',itemId}`; that photo is a separate device-local `PhotoMeta` row (key 16, IndexedDB
+ * bytes) and never touches the synced `DocItem`, so it does NOT follow the row to another device.
  *
  * TEXT COLOUR: this is issue #27's FIRST swept route — every text node here resolves to one of the
  * three tiers (`text-ink-hi` / `-mid` / `-lo`), never to a `text-white/NN` alpha. The alpha->tier
@@ -94,6 +106,15 @@ function DocRow({
           onBlur={commitNote}
           placeholder="Add a note — expiry, policy #, reference…"
           className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-ink-hi placeholder:text-ink-lo outline-none transition-colors focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/60"
+        />
+        {/* #258: an optional device-local photo per row (passport page, visa stamp, boarding pass …),
+            alongside the text note above. Reuses the journal/expense capture surface with a third
+            owner kind — see DOCS_PHOTO_HELPER for why the copy differs from those two call sites. */}
+        <PhotoAttach
+          owner={{ kind: 'docs', itemId: item.id }}
+          heading="Photo"
+          altPlaceholder="Describe this document photo"
+          helperText={DOCS_PHOTO_HELPER}
         />
       </div>
     </li>

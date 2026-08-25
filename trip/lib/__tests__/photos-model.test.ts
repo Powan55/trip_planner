@@ -25,11 +25,13 @@ const meta = (over: Partial<PhotoMeta> = {}): PhotoMeta => ({
 });
 
 describe('isPhotoOwner', () => {
-  it('accepts a valid journal (date) and expense (id) owner; rejects the rest', () => {
+  it('accepts a valid journal (date), expense (id) and docs (itemId) owner; rejects the rest', () => {
     expect(isPhotoOwner({ kind: 'journal', date: '2026-12-14' })).toBe(true);
     expect(isPhotoOwner({ kind: 'expense', expenseId: 'exp-1' })).toBe(true);
+    expect(isPhotoOwner({ kind: 'docs', itemId: 'passport-validity' })).toBe(true);
     expect(isPhotoOwner({ kind: 'journal', date: 'nope' })).toBe(false);
     expect(isPhotoOwner({ kind: 'expense', expenseId: '' })).toBe(false);
+    expect(isPhotoOwner({ kind: 'docs', itemId: '' })).toBe(false);
     expect(isPhotoOwner(null)).toBe(false);
   });
 });
@@ -76,9 +78,12 @@ describe('owner filter + add/remove', () => {
     const a = meta({ id: 'ph-a', owner: { kind: 'journal', date: '2026-12-14' } });
     const b = meta({ id: 'ph-b', owner: { kind: 'journal', date: '2026-12-15' } });
     const c = meta({ id: 'ph-c', owner: { kind: 'expense', expenseId: 'exp-1' } });
-    const all = [a, b, c];
+    const d = meta({ id: 'ph-d', owner: { kind: 'docs', itemId: 'passport-validity' } });
+    const all = [a, b, c, d];
     expect(photosForOwner(all, { kind: 'journal', date: '2026-12-14' })).toEqual([a]);
     expect(photosForOwner(all, { kind: 'expense', expenseId: 'exp-1' })).toEqual([c]);
+    expect(photosForOwner(all, { kind: 'docs', itemId: 'passport-validity' })).toEqual([d]);
+    expect(photosForOwner(all, { kind: 'docs', itemId: 'nepal-visa' })).toEqual([]);
   });
 
   it('addPhotoMeta appends; removePhotoMeta drops by id (both immutable)', () => {
