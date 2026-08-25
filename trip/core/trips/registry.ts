@@ -22,6 +22,10 @@ import {
   keyForTrip,
   readJson,
 } from '@/core/storage/gateway';
+// Type only — `lib/city-coords.ts` is a leaf module (no imports of its own), so this does not
+// pull the map/weather bundles in. #250: a custom trip's resolved city coordinates live HERE, on
+// the trip's own record, never written into that shared table.
+import type { CityCoord } from '@/lib/city-coords';
 
 /**
  * Per-trip user config for a CUSTOM (non-default-pack) trip. Lives INSIDE the
@@ -34,6 +38,15 @@ export type TripConfigBlock = {
   destinations: string[];
   vibe: string;
   currency?: string;
+  /**
+   * #250 — one-shot geocoded coordinates for this trip's OWN destinations, keyed by the exact
+   * destination string. Populated lazily by `lib/city-geocode.ts` (Nominatim, via
+   * `lib/world-search.ts`'s existing throttled wrapper) after trip creation, never on the
+   * weather-fetch path. ADDITIVE + OPTIONAL — absent on every config that predates this field,
+   * and on any destination not yet resolved. This is the trip's own cache, not a second copy of
+   * `lib/city-coords.ts`'s shared table.
+   */
+  cityCoords?: Record<string, CityCoord>;
   updatedAt: number;
 };
 
@@ -119,7 +132,28 @@ export function sanitizeTripConfig(raw: unknown): TripConfigBlock | undefined {
     updatedAt: typeof c.updatedAt === 'number' && Number.isFinite(c.updatedAt) ? c.updatedAt : 0,
   };
   if (typeof c.currency === 'string' && c.currency.trim().length > 0) out.currency = c.currency.trim();
+  const cityCoords = sanitizeCityCoords(c.cityCoords);
+  if (cityCoords) out.cityCoords = cityCoords;
   return out;
+}
+
+/** Validate a raw `cityCoords` map: drop any entry whose key is empty or whose coordinate isn't a
+ *  finite, in-range lat/lng. `undefined` when nothing survives, so an empty/malformed map never
+ *  adds a bare `{}` to the sanitized block. TOTAL, never throws. */
+function sanitizeCityCoords(raw: unknown): Record<string, CityCoord> | undefined {
+  if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  const out: Record<string, CityCoord> = {};
+  for (const [city, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!city.trim() || v === null || typeof v !== 'object') continue;
+    const { latitude, longitude } = v as Record<string, unknown>;
+    if (
+      typeof latitude === 'number' && Number.isFinite(latitude) && latitude >= -90 && latitude <= 90 &&
+      typeof longitude === 'number' && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180
+    ) {
+      out[city] = { latitude, longitude };
+    }
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
 }
 
 /** Default-pack display name (until renamed). */
@@ -266,6 +300,17 @@ export function listKnownTrips(): TripMeta[] {
 /** A single stored trip by id (pure read, no self-heal side effect). Undefined when unknown. */
 export function getKnownTrip(id: string): TripMeta | undefined {
   return readStored().find((t) => t.id === id);
+}
+
+/**
+ * #250 — the ACTIVE trip's own resolved coordinate for a city, or `undefined` when this trip has
+ * none stored yet (a config-less/default trip, or a destination never geocoded). Callers
+ * (`lib/weather.ts` via its `coordsOverride` param) fall back to `lib/city-coords.ts`'s static
+ * table on `undefined` — this is the trip-specific override, never a second table of its own.
+ */
+export function getActiveTripCityCoord(city: string): CityCoord | undefined {
+  const coords = getKnownTrip(getActiveTripId())?.config?.cityCoords;
+  return coords && Object.prototype.hasOwnProperty.call(coords, city) ? coords[city] : undefined;
 }
 
 /**

@@ -478,6 +478,36 @@ describe('fetchWeather (total; write-through + offline fallback)', () => {
     expect(result).toEqual({ status: 'unavailable', city: 'Atlantis' });
   });
 
+  // #250: a custom trip's resolved coordinate (`coordsOverride`, from
+  // `core/trips/registry.ts`'s `getActiveTripCityCoord`) takes priority over the static
+  // `lib/city-coords.ts` table, even for a city that already HAS a table entry.
+  it('coordsOverride wins over the static table for a KNOWN city', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(KATHMANDU_FIXTURE));
+    await fetchWeather('Kathmandu', fetchMock as unknown as typeof fetch, {
+      latitude: 1.23,
+      longitude: 4.56,
+    });
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('latitude=1.23');
+    expect(url).toContain('longitude=4.56');
+    expect(url).not.toContain('latitude=27.7172'); // the table's Kathmandu row, NOT used
+  });
+
+  // The whole point of #250: a city outside the 14-row table is still queryable once its trip has
+  // resolved a coordinate for it — no more permanent, silent "unavailable".
+  it('coordsOverride resolves weather for a city with NO static table entry at all', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse(KATHMANDU_FIXTURE));
+    const result = await fetchWeather('Atlantis', fetchMock as unknown as typeof fetch, {
+      latitude: 12.3,
+      longitude: 45.6,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('ok');
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('latitude=12.3');
+    expect(url).toContain('longitude=45.6');
+  });
+
   it('never throws even when json() itself throws (malformed body → cache/unavailable)', async () => {
     const brokenJson = vi.fn().mockResolvedValue({
       ok: true,
@@ -614,6 +644,23 @@ describe('fetchAirQuality (total; write-through + offline fallback, #251)', () =
     const result = await fetchAirQuality('Atlantis', fetchMock as unknown as typeof fetch);
     expect(fetchMock).not.toHaveBeenCalled();
     expect(result).toEqual({ status: 'unavailable', city: 'Atlantis' });
+  });
+
+  // #250 integration: a custom trip's resolved coordinate must reach air quality too, not just
+  // the forecast -- otherwise a city outside the static table gets weather but not AQI.
+  it('coordsOverride resolves air quality for a city with NO static table entry at all', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      jsonResponse({ current: { time: '2026-01-01T00:00', us_aqi: 42, pm2_5: 10 } }),
+    );
+    const result = await fetchAirQuality('Atlantis', fetchMock as unknown as typeof fetch, {
+      latitude: 12.3,
+      longitude: 45.6,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(result.status).toBe('ok');
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain('latitude=12.3');
+    expect(url).toContain('longitude=45.6');
   });
 
   it('never throws even when json() itself throws (malformed body → cache/unavailable)', async () => {
