@@ -59,6 +59,10 @@ export default defineConfig({
     // Widening costs nothing: the extra matrix is empty today. Roots are enumerated rather
     // than globbed from `.` so `e2e/` stays Playwright's alone — its specs would otherwise
     // match on the `*.test.ts` half.
+    //
+    // D-424: `scripts/` is deliberately not a root here. Tests for scripts/-owned build
+    // tooling belong in lib/__tests__/ (see sw-handlers.test.ts, hero-image.test.ts,
+    // map-style-glyphs.test.ts) — a test placed under scripts/ is collected by nothing.
     include: ['{app,components,core,hooks,lib}/**/*.test.{ts,tsx}'],
   },
 });
