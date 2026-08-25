@@ -2,7 +2,7 @@
 
 import { useCallback } from 'react';
 import { keyFor } from '@/core/storage/gateway';
-import { loadPacking, savePacking, packingStoragePort } from '@/core/packing/storage';
+import { loadPacking, savePacking, packingSeed, packingStoragePort } from '@/core/packing/storage';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
 import {
   toggleItem as toggleItemCore,
@@ -38,6 +38,9 @@ export interface PackingStore {
   toggleItem(id: string): void;
   addItem(label: string): void;
   removeItem(id: string): void;
+  /** Re-seed this trip's built-in template, replacing whatever is in the slot. The way back from
+   * an emptied list (#328) — `packingSeed` is trip-aware, so a custom trip re-seeds universal-only. */
+  restoreTemplate(): void;
 }
 
 // The shared hydrate/listen/commit skeleton, instantiated once for the packing domain.
@@ -71,7 +74,11 @@ export function usePacking(): PackingStore {
     [commit],
   );
 
-  return { items, hydrated, progress: packingProgress(items), toggleItem, addItem, removeItem };
+  const restoreTemplate = useCallback(() => {
+    commit(() => [...packingSeed()]);
+  }, [commit]);
+
+  return { items, hydrated, progress: packingProgress(items), toggleItem, addItem, removeItem, restoreTemplate };
 }
 
 // Re-exported so tests/callers can compare byte-transport values directly without importing the

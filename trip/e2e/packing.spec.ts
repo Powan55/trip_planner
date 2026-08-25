@@ -102,3 +102,59 @@ test.describe('S206 packing checklist — check -> reload -> persists (the hard 
     await expect(page.getByTestId('packing-item-nepal-sunscreen')).not.toBeChecked();
   });
 });
+
+/**
+ * #328 — emptying the list used to write the full 28-row template (both legs) straight back to
+ * disk while the UI showed an empty list. Seeded with two universal rows so "empty it" is two
+ * taps; the seed is guarded on key-ABSENCE so the reload below reads what the app actually
+ * persisted rather than re-seeding over it.
+ */
+const PACKING_KEY = 'nepal_japan_packing';
+
+async function seedTwoItems(page: Page) {
+  await page.addInitScript((key: string) => {
+    if (window.localStorage.getItem(key) !== null) return; // FIRST load only — a reload must read real state
+    window.localStorage.setItem(
+      key,
+      JSON.stringify([
+        { id: 'universal-passport-copies', label: 'Passport + printed/digital copies', category: 'universal', checked: false },
+        { id: 'universal-toiletries', label: 'Toiletries kit', category: 'universal', checked: false },
+      ]),
+    );
+  }, PACKING_KEY);
+}
+
+test.describe('S206 packing checklist — an emptied list stays empty across a reload (#328)', () => {
+  test('removing every row persists [] — the template is never written back', async ({ page }) => {
+    await seedTwoItems(page);
+    await gotoAsTraveler(page, '/packing/');
+    await expect(page.getByTestId('packing-progress')).toHaveText('0/2 packed');
+
+    await page.getByTestId('packing-remove-universal-passport-copies').click();
+    await page.getByTestId('packing-remove-universal-toiletries').click();
+
+    await expect(page.getByTestId('packing-empty')).toBeVisible();
+    await expect(page.locator('[data-testid^="packing-item-"]')).toHaveCount(0);
+    expect(await page.evaluate((k) => window.localStorage.getItem(k), PACKING_KEY)).toBe('[]');
+
+    await page.reload({ waitUntil: 'load' });
+    await expect(page.getByTestId('packing-empty')).toBeVisible();
+    await expect(page.locator('[data-testid^="packing-item-"]')).toHaveCount(0);
+    expect(await page.evaluate((k) => window.localStorage.getItem(k), PACKING_KEY)).toBe('[]');
+  });
+
+  test('the empty state restores the built-in checklist and that survives a reload', async ({ page }) => {
+    await seedTwoItems(page);
+    await gotoAsTraveler(page, '/packing/');
+    await page.getByTestId('packing-remove-universal-passport-copies').click();
+    await page.getByTestId('packing-remove-universal-toiletries').click();
+    await expect(page.getByTestId('packing-empty')).toBeVisible();
+
+    await page.getByTestId('packing-restore-template').click();
+    await expect(page.getByTestId('packing-progress')).toHaveText('0/28 packed');
+
+    await page.reload({ waitUntil: 'load' });
+    await expect(page.getByTestId('packing-progress')).toHaveText('0/28 packed');
+    await expect(page.getByTestId('packing-item-nepal-trekking-boots')).toBeVisible();
+  });
+});
