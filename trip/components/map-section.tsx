@@ -28,6 +28,7 @@ import {
   placementStops,
   stopsForDay,
   tripDayNumber,
+  segmentKm,
   MARKER_BY_ID,
   type DayStop,
   type PlacementRow,
@@ -1218,12 +1219,33 @@ export default function MapSection() {
                               : null;
                           const position = `stop ${idx + 1} of ${selectedDayRows.length}, Day ${dayNo}`;
 
+                          // Issue #224 — distance from the PREVIOUS stop (not the anchor), so a
+                          // backtrack (Asakusa → Shibuya → Asakusa) shows up: the anchor-distance
+                          // label above reads both Asakusa rows as "near the anchor" alike. Omitted
+                          // (not 0, not NaN) when either end has no coordinate, same as the anchor
+                          // label's own `p.kind === 'none'` handling.
+                          const segFromPrevKm =
+                            idx > 0 ? segmentKm(selectedDayRows[idx - 1].placement, p) : null;
+                          const segNode = segFromPrevKm !== null && (
+                            <div
+                              data-testid={`map-day-order-seg-${row.item.id}`}
+                              className="flex items-center gap-1.5 pl-1 pb-1 text-[10px] text-ink-lo"
+                            >
+                              <span aria-hidden="true">↕</span>
+                              {segFromPrevKm < 1
+                                ? `${Math.round(segFromPrevKm * 1000)} m`
+                                : `${segFromPrevKm.toFixed(1)} km`}{' '}
+                              as the crow flies from previous stop
+                            </div>
+                          );
+
                           // no position at all (custom trips only — the default
                           // pack's cities are all in the one city table). Never dropped: the
                           // row stays and offers the fix instead of a fly-to that would lie.
                           if (p.kind === 'none') {
                             return (
                               <li key={row.item.id}>
+                                {segNode}
                                 <div
                                   data-testid={`map-day-order-stop-${row.item.id}`}
                                   data-placement="none"
@@ -1253,6 +1275,7 @@ export default function MapSection() {
                           const approx = p.kind === 'approximate';
                           return (
                             <li key={row.item.id}>
+                              {segNode}
                               {/* (INTAKE-05): a real <button>, not a click handler on the
                                   <li> — native Enter/Space, native focus, 44px tap target. The
                                   fly/zoom/popup engine is TripMap's existing focusMarker (which
