@@ -10,7 +10,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
  * Mirrors packing-storage.test.ts.
  */
 
-import { STORAGE_KEYS, docsStore, setActiveTripId } from '@/core/storage/gateway';
+import { STORAGE_KEYS, docsStore, setActiveTripId, keyFor } from '@/core/storage/gateway';
 import { loadDocs, saveDocs } from '@/core/docs/storage';
 import { DEFAULT_TEMPLATE, UNIVERSAL_TEMPLATE, type DocItem } from '@/core/docs/model';
 
@@ -81,5 +81,39 @@ describe('loadDocs — trip-aware fallback (D-355, A-15/#102)', () => {
     setActiveTripId('custom-1');
     window.localStorage.setItem(KEY, '{not json');
     expect(loadDocs()).toEqual(UNIVERSAL_TEMPLATE);
+  });
+});
+
+describe('#335 — an EMPTY list is a real value, not an absent one (mirrors packing #328)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it('saveDocs([]) writes an empty array — NOT the built-in template', () => {
+    saveDocs([]);
+    expect(JSON.parse(window.localStorage.getItem(KEY) as string)).toEqual([]);
+  });
+
+  it('loadDocs after emptying returns [] and a reload keeps it empty (the seed is for ABSENT only)', () => {
+    saveDocs([]);
+    expect(loadDocs()).toEqual([]);
+    expect(loadDocs()).toEqual([]);
+  });
+
+  it('the ABSENT slot still seeds the template — removing the key re-seeds, emptying it does not', () => {
+    saveDocs([]);
+    expect(loadDocs()).toEqual([]);
+    window.localStorage.removeItem(KEY);
+    expect(loadDocs()).toEqual(DEFAULT_TEMPLATE);
+  });
+
+  it('CUSTOM TRIP: an empty slot stays empty, never falls back to UNIVERSAL_TEMPLATE', () => {
+    setActiveTripId('custom-1');
+    const customKey = keyFor('docsChecklist');
+    saveDocs([]);
+    expect(JSON.parse(window.localStorage.getItem(customKey) as string)).toEqual([]);
+    expect(loadDocs()).toEqual([]);
+    expect(window.localStorage.getItem(KEY)).toBeNull();
   });
 });

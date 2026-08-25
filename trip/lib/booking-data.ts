@@ -9,8 +9,11 @@
 // `Date` object, no parsing, no timezone math, no recompute anywhere in this module
 // or its presenter. The booking is the source of truth for its own arithmetic — the
 // outbound crosses the date line (totalDuration '1d 15m'), and "correcting" it would
-// be a bug. `status: 'to-book'` on a Journey/Stay is the ONLY sanctioned way to
-// show unbooked logistics; they are never faked with invented numbers/hotels.
+// be a bug. `'to-book'` exists as a `BookingStatus` member but NO record uses it,
+// and none ever has. Adding one needs a rendering treatment that no longer exists
+// for a journey: `FlightJourneyCard` does not read `status`, and the placeholder
+// card was removed with `JAPAN_TODO` (#213). Bookings are never faked with
+// invented numbers/hotels.
 
 export type BookingStatus = 'booked' | 'to-book';
 export type CabinClass = 'Economy' | 'Premium Economy' | 'Business' | 'First';
