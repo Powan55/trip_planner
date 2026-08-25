@@ -34,7 +34,10 @@ import { useViewTransition } from '@/hooks/use-view-transition';
  */
 
 // Group definitions keyed by href. Labels/icons come from the catalog.
-const GROUPS: { title: string; hrefs: string[] }[] = [
+// Exported so a test can assert every companion NAV_ITEM lands in exactly one group
+// (see lib/__tests__/nav-items-more-coverage.test.ts) — this file is the only mobile
+// path to a companion route, so a miss here is silent (#211).
+export const GROUPS: { title: string; hrefs: string[] }[] = [
   { title: 'Plan & prep', hrefs: ['/flights/', '/packing/', '/checklist/', '/safety/', '/share/'] },
   { title: 'Memories', hrefs: ['/journal/', '/recap/', '/passport/'] },
   { title: 'Account', hrefs: ['/trips/', '/profile/', '/settings/'] },
