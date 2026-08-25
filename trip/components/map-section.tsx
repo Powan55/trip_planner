@@ -738,7 +738,7 @@ export default function MapSection() {
                 onClick={() => handleFilter(value)}
                 aria-pressed={isActive}
                 data-testid={`map-filter-${value.toLowerCase().replace(/\s+/g, '-')}`}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+                className={`flex items-center gap-1.5 min-h-tap px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                   isActive
                     ? value === 'All'
                       ? 'bg-white/10 text-white border-white/20'
@@ -761,7 +761,7 @@ export default function MapSection() {
               onClick={() => setSavedOnly((v) => !v)}
               aria-pressed={savedOnly}
               data-testid="map-filter-saved"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+              className={`flex items-center gap-1.5 min-h-tap px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                 savedOnly
                   ? 'bg-primary/20 text-primary border-primary/40'
                   : 'text-ink-mid border-transparent hover:bg-white/5 hover:text-ink-hi'
@@ -872,7 +872,7 @@ export default function MapSection() {
                                 type="button"
                                 onClick={() => selectSearchResult(hit)}
                                 data-testid={`map-search-result-${hit.id}`}
-                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                className="w-full text-left min-h-tap flex flex-col justify-center px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                               >
                                 <span className="block font-medium">{hit.name}</span>
                                 {/* says WHAT this result is — a curated place ("Boudha,
@@ -917,7 +917,7 @@ export default function MapSection() {
                                     type="button"
                                     onClick={() => selectWorldPlace(place)}
                                     data-testid={`map-search-result-${place.id}`}
-                                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                    className="w-full text-left min-h-tap flex flex-col justify-center px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                                   >
                                     <span className="block font-medium">{place.name}</span>
                                     {/* Nominatim's own `display_name`, verbatim — the full
