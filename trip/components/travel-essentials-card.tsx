@@ -8,6 +8,7 @@ import { isDefaultTrip } from '@/core/trips';
 import { legCurrency } from '@/core/budget/model';
 import { EMERGENCY_CONTACTS } from '@/core/content/safety';
 import { fetchWeather, weatherCodeToLabel, formatWeatherAsOf, type WeatherResult } from '@/lib/weather';
+import { getActiveTripCityCoord } from '@/core/trips/registry';
 import { fetchCurrencyRate, type CurrencyRateResult } from '@/lib/currency-rate';
 import {
   OUTBOUND_JOURNEY,
@@ -61,7 +62,8 @@ export default function TravelEssentialsCard({ date }: { date: string }) {
 
   useEffect(() => {
     let cancelled = false;
-    fetchWeather(city).then((r) => {
+    // #250: prefer this trip's own resolved coordinate over the static default-pack table.
+    fetchWeather(city, fetch, getActiveTripCityCoord(city)).then((r) => {
       if (!cancelled) setWeather(r);
     });
     return () => {

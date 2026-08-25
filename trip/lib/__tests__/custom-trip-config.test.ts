@@ -4,6 +4,7 @@ import {
   sanitizeTripConfig,
   setTripConfig,
   getKnownTrip,
+  getActiveTripCityCoord,
   joinTrip,
   upsertKnownTrip,
   TRIP_DAYS_MAX,
@@ -101,6 +102,72 @@ describe('sanitizeTripConfig — validate + drop malformed (Plan D1)', () => {
       start: '2027-03-01',
       end: '2027-03-01',
     });
+  });
+});
+
+// #250 — a custom trip's city has no coordinates in `lib/city-coords.ts`'s 14-row table, so it
+// gets a permanent, silent "weather unavailable". `cityCoords` is the one-shot geocode cache that
+// lives on the trip's OWN record instead — additive, so a re-sanitize pass (every one of the four
+// config sources funnels through this gate) must never strip it back out.
+describe('sanitizeTripConfig — cityCoords (#250)', () => {
+  const WITH_COORDS: TripConfigBlock = {
+    ...GOOD,
+    cityCoords: { Bali: { latitude: -8.34, longitude: 115.09 } },
+  };
+
+  it('accepts a well-formed cityCoords map and keeps it', () => {
+    expect(sanitizeTripConfig(WITH_COORDS)).toEqual(WITH_COORDS);
+  });
+
+  it('survives a RE-SANITIZE pass unchanged (the trust-boundary invariant every source relies on)', () => {
+    const once = sanitizeTripConfig(WITH_COORDS);
+    const twice = sanitizeTripConfig(once);
+    expect(twice).toEqual(WITH_COORDS);
+  });
+
+  it('drops an out-of-range or non-numeric coordinate but keeps the rest of the config', () => {
+    const bad = sanitizeTripConfig({
+      ...GOOD,
+      cityCoords: {
+        Bali: { latitude: 999, longitude: 115.09 }, // out of range
+        Lombok: { latitude: 'nope', longitude: 116 }, // not a number
+      },
+    });
+    expect(bad).toBeDefined();
+    expect(bad!.cityCoords).toBeUndefined(); // nothing survived → no bare {}
+  });
+
+  it('a malformed cityCoords shape (array/string) is dropped, the rest of the config survives', () => {
+    expect(sanitizeTripConfig({ ...GOOD, cityCoords: ['not', 'a', 'map'] })!.cityCoords).toBeUndefined();
+    expect(sanitizeTripConfig({ ...GOOD, cityCoords: 'nope' })!.cityCoords).toBeUndefined();
+  });
+
+  it('absent cityCoords stays absent — old configs serialize with no new field', () => {
+    expect(sanitizeTripConfig(GOOD)!.cityCoords).toBeUndefined();
+  });
+});
+
+describe('getActiveTripCityCoord (#250)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it('returns the active trip\'s resolved coordinate for a known destination', () => {
+    setTripConfig('bali-trip', {
+      ...GOOD,
+      cityCoords: { Bali: { latitude: -8.34, longitude: 115.09 } },
+    });
+    setActiveTripId('bali-trip');
+    expect(getActiveTripCityCoord('Bali')).toEqual({ latitude: -8.34, longitude: 115.09 });
+  });
+
+  it('returns undefined for a city the active trip has not resolved yet, or with no config at all', () => {
+    setTripConfig('bali-trip', GOOD); // no cityCoords
+    setActiveTripId('bali-trip');
+    expect(getActiveTripCityCoord('Bali')).toBeUndefined();
+    setActiveTripId('never-joined');
+    expect(getActiveTripCityCoord('Bali')).toBeUndefined();
   });
 });
 
