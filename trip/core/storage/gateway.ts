@@ -502,12 +502,20 @@ export const STORAGE_KEYS = {
    * Mode's Essentials card and the safety phrase card, `/map` is a route someone can leave open
    * in a pocket, so an always-on lock here would drain battery for no active on-screen reading.
    * APP-SCOPED, not trip data — a device preference, not part of any trip pack or the itinerary
-   * Vault. ADDITIVE: a brand-new key, no back-compat surface change and NO migration. NOTE:
-   * two parallel slices each grabbed "next free key" independently off the same base and both
-   * landed on 40 (issue #228's `bookingOverrides`) — this one was renumbered to 41 at merge time
-   * since #228 merged first. Check for a fresher collision before reusing either number again.
+   * Vault. ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
    */
   mapWakeLockEnabled: 'nepal_japan_map_wake_lock_enabled',
+  /**
+   * localStorage — plain string, the trip LEG the "back up your trip" nudge has already fired
+   * for (backup-prompt, key 42; issue #222). Absent ⇒ never nudged. APP-SCOPED (mirrors
+   * `installHintDismissed`/`firstRunTour` — a backup reminder is a device fact, not itinerary
+   * data) and plain-string like `uiPrefs`, not JSON. ADDITIVE: a brand-new key, no back-compat
+   * surface change. NOTE: three parallel slices each grabbed "next free key" independently off
+   * the same base and all landed on 40 (#228's `bookingOverrides`, #247's `mapWakeLockEnabled`
+   * renumbered to 41) — this one was renumbered to 42 at merge time, being the last of the three
+   * to land. Check for a fresher collision before reusing any of these numbers again.
+   */
+  backupPromptLeg: 'nepal_japan_backup_prompt_leg',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -1400,6 +1408,27 @@ export const installHintStore = {
 // Journey/Stay merge helpers, for the same bundle reason as `myPlacesStore` below: only the
 // `/flights` route (a `dynamic({ssr:false})` island) consumes it. The KEY literal
 // (`STORAGE_KEYS.bookingOverrides`) + the `TripScopedSlot` union entry stay here.
+
+/**
+ * Backup-nudge slot (key 42; issue #222) — the trip leg the "back up your trip" toast has
+ * already fired for, so a leg change nudges once rather than on every render/reload within the
+ * same leg. Plain string like `uiPrefs`/`installHintStore`, not JSON. `getPromptedLeg()` returns
+ * the stored leg id or `null` if never prompted; `setPromptedLeg(leg)` overwrites it. SSR-safe +
+ * never-throw (inherited from `readString`/`writeString`).
+ *
+ * KNOWN CEILING: a single last-value, not a per-leg seen-set, so a leg that repeats (A→B→A)
+ * re-nudges on its second entry. This trip's legs only ever move forward chronologically, so
+ * that's deliberate — upgrade to a comma-joined set (mirrors `motionEntranceSeen`) if a pack ever
+ * legitimately revisits a leg.
+ */
+export const backupPromptStore = {
+  getPromptedLeg(): string | null {
+    return readString('local', STORAGE_KEYS.backupPromptLeg);
+  },
+  setPromptedLeg(leg: string): void {
+    writeString('local', STORAGE_KEYS.backupPromptLeg, leg);
+  },
+} as const;
 
 // NOTE: the my-places accessor for key 31 (`myPlacesStore`) does NOT live here — it is in
 // `core/storage/my-places-store.ts`, for the SAME bundle reason as the Travel Mode accessors below:

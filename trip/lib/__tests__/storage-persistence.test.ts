@@ -13,7 +13,7 @@
 //   - the install hint renders only when NOT standalone and NOT previously dismissed, and dismissing
 //     it (action click) persists via the gateway so a later mount does not show it again.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
@@ -22,6 +22,10 @@ const h = vi.hoisted(() => ({
   toastCalls: [] as Array<{ message: string; options?: Record<string, unknown> }>,
   dismissCalls: [] as unknown[],
   pushCalls: [] as string[],
+  // Backs the `@/lib/trip-now` mock below — the "leg" section #5's polling reads on every
+  // interval tick. `null` = outside the trip window (the default, matching every pre-existing
+  // test in this file, which never sets it and must see no backup-nudge interference).
+  currentLeg: null as string | null,
 }));
 
 vi.mock('sonner', () => {
@@ -47,8 +51,17 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
+// S222 — a minimal stand-in for the real clock/leg resolver, so the leg-change tests below drive
+// `country` directly instead of faking trip dates end to end.
+vi.mock('@/lib/trip-now', () => ({
+  getTodayInTrip: () =>
+    h.currentLeg === null
+      ? null
+      : { date: '2026-12-10', dayNumber: 2, city: 'Test City', country: h.currentLeg },
+}));
+
 import { StoragePersistence } from '@/components/storage-persistence';
-import { installHintStore, STORAGE_KEYS } from '@/core/storage/gateway';
+import { installHintStore, backupPromptStore, STORAGE_KEYS } from '@/core/storage/gateway';
 
 function render(el: ReactElement) {
   const container = document.createElement('div');
@@ -127,6 +140,7 @@ beforeEach(() => {
   h.toastCalls.length = 0;
   h.dismissCalls.length = 0;
   h.pushCalls.length = 0;
+  h.currentLeg = null;
   vi.restoreAllMocks();
   stubStandalone(false);
 });
@@ -358,5 +372,100 @@ describe('StoragePersistence — reactive write-failure toast (S279)', () => {
       window.dispatchEvent(new CustomEvent('trip:quota-exceeded'));
     }).not.toThrow();
     expect(h.toastCalls.length).toBe(0);
+  });
+});
+
+// #222 — the backup-export nudge fired on an OBSERVED trip-leg change. `render()` already flushes
+// the mount effect synchronously (see the install-hint suite above, which asserts on a toast fired
+// during that same synchronous mount pass with no `settle()`), so `checkLegChange`'s FIRST,
+// seed-only call has already run by the time `render()` returns; every test below only needs to
+// advance the poll interval to observe a later change.
+describe('StoragePersistence — backup nudge on leg change (#222)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('fires once when the observed leg changes mid-session, naming the new leg', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.currentLeg = 'nepal';
+    const r = render(createElement(StoragePersistence));
+    expect(h.toastCalls.some((c) => c.message.includes('Now in'))).toBe(false); // seed only, no nudge
+
+    h.currentLeg = 'japan';
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    const calls = h.toastCalls.filter((c) => c.message.includes('Now in'));
+    expect(calls.length).toBe(1);
+    expect(calls[0].message).toContain('Japan');
+    expect(backupPromptStore.getPromptedLeg()).toBe('japan');
+    r.unmount();
+  });
+
+  it('does NOT fire again while the leg stays the same across further ticks', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.currentLeg = 'nepal';
+    const r = render(createElement(StoragePersistence));
+    h.currentLeg = 'japan';
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.filter((c) => c.message.includes('Now in')).length).toBe(1);
+
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.filter((c) => c.message.includes('Now in')).length).toBe(1); // unchanged
+    r.unmount();
+  });
+
+  it('does NOT fire on a fresh mount already inside a leg (no observed change, e.g. a same-leg reload)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.currentLeg = 'japan';
+    const r = render(createElement(StoragePersistence));
+    act(() => {
+      vi.advanceTimersByTime(120_000);
+    });
+    expect(h.toastCalls.some((c) => c.message.includes('Now in'))).toBe(false);
+    r.unmount();
+  });
+
+  it('does NOT re-fire when the gateway already marks this leg as prompted (persists across reload)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    backupPromptStore.setPromptedLeg('japan'); // simulates an earlier session/reload having already nudged
+    h.currentLeg = 'nepal';
+    const r = render(createElement(StoragePersistence));
+    h.currentLeg = 'japan';
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.some((c) => c.message.includes('Now in'))).toBe(false);
+    r.unmount();
+  });
+
+  it('never calls fetch — this is a local reminder, never an upload — through the whole flow', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    h.currentLeg = 'nepal';
+    const r = render(createElement(StoragePersistence));
+    h.currentLeg = 'japan';
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    const call = h.toastCalls.find((c) => c.message.includes('Now in'));
+    expect(call).toBeDefined();
+    const action = call!.options?.action as { onClick: () => void } | undefined;
+    action?.onClick(); // clicking the action must only navigate, never touch the network
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(h.pushCalls).toContain('/settings/');
+    vi.unstubAllGlobals();
+    r.unmount();
   });
 });

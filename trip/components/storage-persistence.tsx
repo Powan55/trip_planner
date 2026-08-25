@@ -2,7 +2,7 @@
 
 // components/storage-persistence.tsx
 //
-// Three independent, low-noise storage-reliability surfaces, each gated purely on
+// Five independent, low-noise storage-reliability surfaces, each gated purely on
 // FEATURE-detection (no NODE_ENV gate, unlike the SW registrar — storage APIs are safe to run
 // in `next dev` too; the registrar's production-only gate exists for a different reason, its
 // own stale-hash-in-dev footgun, which doesn't apply here):
@@ -27,14 +27,25 @@
 // storage is actually full. This is the REACTIVE complement to #2's PROACTIVE `estimate()`
 // warning — #2 warns near the quota BEFORE a write fails; this fires AFTER one already has.
 // At most one toast per page session (same module-level-flag discipline as #2).
+// 5. BACKUP NUDGE ON LEG CHANGE (issue #222): a dismissable sonner toast suggesting a manual
+// backup export, fired once per trip leg the traveller moves into (Nepal → Japan). There is no
+// discrete "leg changed" event anywhere in the app, so this polls `getTodayInTrip()?.country`
+// on an interval and compares it against the previously-seen leg in a ref — same edge-detection
+// shape as hero-section.tsx's arrival-celebration `hadArrivedRef` (a `undefined` baseline seeds
+// quietly on first read, so a page that loads mid-leg never nudges; only an OBSERVED change
+// while mounted does). The gateway's `backupPromptStore` (key 40) makes the "already nudged for
+// this leg" dedup survive a reload, not just this mount. Reminder only — no upload, no auto
+// export; the toast action just routes to Settings → Data, same as the quota toasts above.
 //
 // Follows components/service-worker-registrar.tsx's island shape: 'use client', run-once
 // useEffect, renders null, uses sonner's `toast`.
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { installHintStore } from '@/core/storage/gateway';
+import { installHintStore, backupPromptStore } from '@/core/storage/gateway';
+import { getTodayInTrip } from '@/lib/trip-now';
+import { legLabel } from '@/lib/leg-label';
 // 0.9 (90% of the StorageManager quota) is a heuristic threshold, not measured against any real
 // device's actual eviction point — it exists to leave headroom for one more journal/expense/photo
 // write before the browser starts throwing or evicting. #20 MOVED it to `lib/preflight.ts`, whose
@@ -55,6 +66,10 @@ let quotaWarnedThisLoad = false;
 // keystrokes each triggering a save) shows at most ONE toast per session, not one per failure.
 let quotaExceededToastedThisLoad = false;
 
+// Poll cadence for the leg-change backup nudge (#5 below). A leg changes at most once a day, so
+// this is a plain low-frequency poll rather than hero-section's 1s countdown tick.
+const LEG_CHECK_INTERVAL_MS = 60_000;
+
 function isStandalone(): boolean {
   if (typeof window === 'undefined') return false;
   const displayModeStandalone =
@@ -72,6 +87,9 @@ function isIOS(): boolean {
 
 export function StoragePersistence() {
   const router = useRouter();
+  // `undefined` = not yet seeded this mount (so a page loading mid-leg never nudges); `null` =
+  // seeded, but currently outside the trip window. Mirrors hero-section.tsx's `hadArrivedRef`.
+  const seenLegRef = useRef<string | null | undefined>(undefined);
 
   useEffect(() => {
     // ── 1. Persist on first user interaction ─────────────────────────────
@@ -156,8 +174,29 @@ export function StoragePersistence() {
     };
     window.addEventListener('trip:quota-exceeded', onQuotaExceeded);
 
+    // ── 5. Backup nudge on leg change (once per leg, #222) ──
+    const checkLegChange = () => {
+      const leg = getTodayInTrip()?.country ?? null;
+      const prevLeg = seenLegRef.current;
+      seenLegRef.current = leg;
+      if (prevLeg === undefined || leg === null || leg === prevLeg) return; // seed-only / off-trip / unchanged
+      if (backupPromptStore.getPromptedLeg() === leg) return; // already nudged for this leg (incl. across a reload)
+      backupPromptStore.setPromptedLeg(leg);
+      toast(`Now in ${legLabel(leg)}`, {
+        description: 'Back up your trip so far — photos, journal, and plans live only on this device.',
+        duration: 10000,
+        action: {
+          label: 'Back up now',
+          onClick: () => router.push('/settings/'),
+        },
+      });
+    };
+    checkLegChange();
+    const legTimer = setInterval(checkLegChange, LEG_CHECK_INTERVAL_MS);
+
     return () => {
       window.removeEventListener('trip:quota-exceeded', onQuotaExceeded);
+      clearInterval(legTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
