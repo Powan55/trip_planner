@@ -246,8 +246,13 @@ export function removeVisit(visit: { city?: string; country?: string }): Visited
  * of its per-day cities, day-trip granularity included (`TRIP_CITIES`). Custom trip: any leg's
  * `fallbackCity` — legs partition the trip's whole date span contiguously (`TripLeg`'s own
  * contract), so "every leg's fallbackCity" and "every date's city" are the same set.
+ *
+ * Exported (issue #332) so `visited-places-panel.tsx`'s "In your trip" badge shares this
+ * predicate instead of recomputing it through `lib/visit-autocount.ts`'s per-date resolution —
+ * the two agreed by construction (same contiguous-legs argument above) but were two call sites to
+ * keep in sync by hand.
  */
-function isTripClaimedCity(city: string): boolean {
+export function isTripClaimedCity(city: string): boolean {
   const key = fold(city);
   if (!key) return false;
   if (isDefaultTrip()) {
