@@ -493,9 +493,12 @@ export const STORAGE_KEYS = {
   mapWakeLockEnabled: 'nepal_japan_map_wake_lock_enabled',
   /**
    * localStorage — plain string, the trip LEG the "back up your trip" nudge has already fired
-   * for (backup-prompt, key 42; issue #222). Absent ⇒ never nudged. APP-SCOPED (mirrors
-   * `installHintDismissed`/`firstRunTour` — a backup reminder is a device fact, not itinerary
-   * data) and plain-string like `uiPrefs`, not JSON. ADDITIVE: a brand-new key, no back-compat
+   * for (backup-prompt, key 42; issue #222). Absent ⇒ never nudged. TRIP-SCOPED (added to the
+   * `TripScopedSlot` union, resolved via `keyFor('backupPromptLeg')`, #330) — the stored value is
+   * a LEG ID, which is only meaningful relative to the trip it came from. It was originally
+   * APP-SCOPED like `installHintDismissed`/`firstRunTour`, which meant the first custom trip to
+   * store its single leg ('main') silently suppressed the nudge for every OTHER custom trip on
+   * the device. Plain-string like `uiPrefs`, not JSON. ADDITIVE: a brand-new key, no back-compat
    * surface change. NOTE: three parallel slices each grabbed "next free key" independently off
    * the same base and all landed on 40 (#228's `bookingOverrides`, #247's `mapWakeLockEnabled`
    * renumbered to 41) — this one was renumbered to 42 at merge time, being the last of the three
@@ -603,7 +606,8 @@ export type TripScopedSlot =
   | 'dayAnchors'
   | 'shareInbox'
   | 'myPlaces'
-  | 'expensesCorrupt';
+  | 'expensesCorrupt'
+  | 'backupPromptLeg';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -630,6 +634,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'shareInbox',
   'myPlaces',
   'expensesCorrupt',
+  'backupPromptLeg',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -1390,9 +1395,10 @@ export const installHintStore = {
 /**
  * Backup-nudge slot (key 42; issue #222) — the trip leg the "back up your trip" toast has
  * already fired for, so a leg change nudges once rather than on every render/reload within the
- * same leg. Plain string like `uiPrefs`/`installHintStore`, not JSON. `getPromptedLeg()` returns
- * the stored leg id or `null` if never prompted; `setPromptedLeg(leg)` overwrites it. SSR-safe +
- * never-throw (inherited from `readString`/`writeString`).
+ * same leg. TRIP-SCOPED via `keyFor` (#330) — see `STORAGE_KEYS.backupPromptLeg` above for why.
+ * Plain string like `uiPrefs`/`installHintStore`, not JSON. `getPromptedLeg()` returns the stored
+ * leg id or `null` if never prompted; `setPromptedLeg(leg)` overwrites it. SSR-safe + never-throw
+ * (inherited from `readString`/`writeString`).
  *
  * KNOWN CEILING: a single last-value, not a per-leg seen-set, so a leg that repeats (A→B→A)
  * re-nudges on its second entry. This trip's legs only ever move forward chronologically, so
@@ -1401,10 +1407,10 @@ export const installHintStore = {
  */
 export const backupPromptStore = {
   getPromptedLeg(): string | null {
-    return readString('local', STORAGE_KEYS.backupPromptLeg);
+    return readString('local', keyFor('backupPromptLeg'));
   },
   setPromptedLeg(leg: string): void {
-    writeString('local', STORAGE_KEYS.backupPromptLeg, leg);
+    writeString('local', keyFor('backupPromptLeg'), leg);
   },
 } as const;
 
