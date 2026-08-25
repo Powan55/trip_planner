@@ -5008,3 +5008,15 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **What did not change.** Packing stays a device-local, non-synced domain — no outbox chunk, no merge rules, no Firestore rules shape. That was D-201's other named condition for a *future* decision ("packing sync is a whole new synced domain... a separate decision"), and this slice deliberately did not touch it.
 
 **Changes if:** packing sync is ever wanted — that is still the separate, larger decision D-201 flagged, unaffected by this one.
+
+### D-442 · (issue #238, 2026-08-25) · Tombstone GC horizon is anchored on data, not just the device clock
+
+**Decision.** `gcTombstoneRows` (`core/sync/merge-items.ts`) is the one predicate all three GC call sites route through (itinerary's `gcTombstones`, expenses' `gcTombstoneRows`, and `core/places/merge.ts`'s `mergePlaces`). Its cutoff was `deviceClock - horizonMs`; it is now `min(deviceClock, newestLiveRowStamp) - horizonMs`, where the anchor is the newest `hlc.pt` among the *live* rows in the set being GC'd (tombstones excluded from the anchor), falling back to the device clock when there is no live row at all.
+
+**Why live rows only.** An anchor drawn from tombstones lets two ancient tombstones shield each other — each reads as "recent" relative to the other regardless of how wrong the clock is — and a single lone tombstone becomes its own anchor and can never be collected. A live row is written by a real device acting now, so it is an independent check the clock can't self-referentially satisfy.
+
+**Why.** A device clock genuinely ~30 days fast pruned every tombstone in a document and pushed the pruned result; an offline peer holding the pre-delete row then re-added it, undoing the delete for the whole group. `lib/trip-now.ts` had already closed the *simulated*-clock vector; this closes the real-wrong-clock one, without a trusted-clock redesign — the horizon logic itself is unchanged, only its clock source.
+
+**Residual, not closed.** A device with both a bad clock and a fresh live edit in the *same push* still poisons its own anchor — `hlcSendOrLocal` never clamps physical time (D-228). That self-poisoning case is out of scope; what this closes is GC reading a clock decoupled from anything in the document at all, which was the reported mechanism.
+
+**Changes if:** the self-poisoning residual above becomes a real observed failure — that needs clamping physical time at the HLC layer (D-228), a separate and larger decision.

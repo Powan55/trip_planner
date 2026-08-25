@@ -87,6 +87,25 @@ describe('gcTombstoneRows — the id-keyed GC analog for expenses (S145, D-153):
   it('empty/absent input is a safe no-op', () => {
     expect(gcTombstoneRows([], now)).toEqual([]);
   });
+
+  it('#238: a fast device clock (nowPt run far ahead) does NOT prune a tombstone the document\'s own newest stamp still calls recent', () => {
+    const fastNowPt = now + DEFAULT_GC_HORIZON_MS * 2; // device clock reads ~60 days ahead of reality
+    const recentPt = now - 1000; // 1s before the document's own newest real stamp
+    const rows = [
+      row('LIVE', H(now, 0, 'a')), // the document's own newest stamp
+      row('RECENTGHOST', H(recentPt, 0, 'a'), { deleted: true }),
+    ];
+    // Naive `nowPt - horizon` would blow the cutoff open to `now + horizon` and drop RECENTGHOST.
+    // Capped to the document's own newest stamp (`now`), the tombstone is still within the horizon.
+    expect(gcTombstoneRows(rows, fastNowPt).map((r) => r.id).sort()).toEqual(['LIVE', 'RECENTGHOST']);
+  });
+
+  it('#238: a fast device clock still GCs a tombstone genuinely older than the horizon relative to the document\'s own newest stamp', () => {
+    const fastNowPt = now + DEFAULT_GC_HORIZON_MS * 2;
+    const oldPt = now - DEFAULT_GC_HORIZON_MS - 1;
+    const rows = [row('LIVE', H(now, 0, 'a')), row('OLDGHOST', H(oldPt, 0, 'a'), { deleted: true })];
+    expect(gcTombstoneRows(rows, fastNowPt).map((r) => r.id)).toEqual(['LIVE']);
+  });
 });
 
 describe('mergeItems — concurrent edit: same id, higher HLC wins (deterministic, arg-order-free)', () => {

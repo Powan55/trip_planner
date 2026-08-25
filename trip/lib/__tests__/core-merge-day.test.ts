@@ -303,6 +303,17 @@ describe('mergeDay — case 10: GC drops only old, unreferenced tombstones; neve
     const gced = gcTombstones(d, now);
     expect(gced.items).toHaveLength(2);
   });
+
+  it('#238: a fast device clock does not prune a tombstone the day\'s own newest stamp still calls recent', () => {
+    const fastNowPt = now + DEFAULT_GC_HORIZON_MS * 2; // device clock reads ~60 days ahead
+    const recentPt = now - 1000;
+    const d = day([
+      item('LIVE', H(now, 0, 'uid')), // the day's own newest stamp
+      item('RECENTGHOST', H(recentPt, 0, 'uid'), { deleted: true }),
+    ]);
+    const gced = gcTombstones(d, fastNowPt);
+    expect(gced.items.map((i) => i.id).sort()).toEqual(['LIVE', 'RECENTGHOST']);
+  });
 });
 
 describe('mergeDay — case 11: ordering is deterministic and stable', () => {
