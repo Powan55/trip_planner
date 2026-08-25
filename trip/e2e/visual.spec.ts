@@ -144,7 +144,7 @@ async function gotoSettled(page: Page, path: string) {
 // One describe per viewport so each gets its OWN reduced-motion context (a context
 // option) with the identity init script re-applied.
 for (const vp of VIEWPORTS) {
-  test.describe(`visual · ${vp.name} (${vp.width}px)`, () => {
+  test.describe(`visual · ${vp.name} (${vp.width}px)`, { tag: '@visual' }, () => {
     // Per-viewport reduced-motion context. We cannot set reducedMotion on the
     // fixtures' shared page (it is a context option), so build a dedicated context
     // and re-seed the identity (mirror of fixtures.ts) on it.

@@ -66,6 +66,13 @@ vi.mock('@/lib/trips-remote', () => ({
   subscribeTripList: () => () => {},
 }));
 
+// #250: create() also kicks off a one-shot city geocode (dynamically imported, same shape as the
+// trips-remote pushes above). Mocked to a no-op so this suite — about the meta-push race, not
+// geocoding — never issues a real Nominatim request.
+vi.mock('@/lib/city-geocode', () => ({
+  resolveAndCacheCityCoords: () => Promise.resolve(),
+}));
+
 import TripsHub from '@/components/trips-hub';
 import { runTripMetaSelfHeal } from '@/components/itinerary-provider';
 import { setActiveTripId, tripMetaSelfHealGuard, DEFAULT_TRIP_ID } from '@/core/storage/gateway';

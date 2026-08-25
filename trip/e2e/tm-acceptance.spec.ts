@@ -608,7 +608,7 @@ test.describe('TM-11 · fully offline incl. reload', () => {
 // tile (weather/currency live in the separate essentials card below), so no masking is needed.
 const TM_SHOT = { animations: 'disabled', scale: 'css' } as const;
 
-test.describe('TM visual · per-state hero baselines (device-real)', () => {
+test.describe('TM visual · per-state hero baselines (device-real)', { tag: '@visual' }, () => {
   /** Frozen-clock + reduced-motion nav that settles past the D-073 first-load SW reload and fonts. */
   async function gotoHeroShot(page: Page, query: string) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
