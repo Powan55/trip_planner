@@ -55,7 +55,7 @@ import { placesSyncPort, myPlacesStoragePort } from '@/lib/places-ports';
 import { sanitizeEntries } from '@/core/journal/model';
 import { sanitizeExpenses } from '@/core/budget/expenses';
 import { normalizeModel } from '@/core/budget/model';
-import { sanitizeItems as sanitizeDocs } from '@/core/docs/model';
+import { sanitizeItems as sanitizeDocs, type DocItem } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
 import { sanitizeItems as sanitizeShare } from '@/core/share/model';
 import { sanitizePlaces, type MyPlace } from '@/core/places/model';
@@ -90,6 +90,18 @@ export type CommitItinerary = (plans: DayPlan[]) => void;
  * after the backup was taken is tombstoned by the restore instead of surviving the next merge.
  */
 export type CommitMyPlaces = (places: MyPlace[]) => void;
+
+/**
+ * How the docsChecklist domain is committed on import — issue #295, the deliberately-deferred
+ * remainder of #239. NOT the same shape as `CommitMyPlaces`/`CommitItinerary`: docsChecklist's 18
+ * ids are a FIXED template with no add/remove path, so there is nothing to tombstone and no id to
+ * mint fresh — a same-id UPSERT is the whole restore. Absent ⇒ the generic bare write + merge
+ * enqueue below (unchanged default); the UI injects the store's `restoreDocsChecklist`
+ * (`mergeItems(current, backup)`, the same row-merge algebra `pushChecklistMerged` already uses
+ * remotely) when a synced traveler is signed in, so a row edited after the backup was taken keeps
+ * its win instead of being blindly clobbered by the restore's bare write.
+ */
+export type CommitDocsChecklist = (items: DocItem[]) => void;
 
 /** The container's magic string — how import tells a full backup from a legacy itinerary-only export. */
 export const BACKUP_FORMAT = 'nepal-japan-trip-backup';
@@ -150,14 +162,18 @@ type DomainSpec = {
  * chunks are on disk before the reload, and the first snapshot takes the MERGE branch for them.
  * Self-gating — dormant/guest builds no-op, exactly as before.
  *
- * KNOWN CEILING: merge, not tombstone-replace. A row the backup DROPPED (present remotely, absent
- * in the file) survives the merge, where the itinerary's `restorePlans` would tombstone it. Fixing
- * that needs a restore-shaped commit on each domain whose rows are arbitrary-id add/remove (issue
- * #239) — expenses (`restoreExpenses`) and myPlaces (`restoreMyPlaces`, injected via
- * `CommitMyPlaces` below) have one; budget's field-level LWW model and docsChecklist's fixed,
- * meaningful-id template (no add/remove path — see `core/docs/model.ts`) are NOT the same shape as
- * expenses/myPlaces/itinerary and need their own restore design, not a copy of this one. Upgrade
- * path for a domain that DOES fit: inject its restore fn the way `commitItinerary` is injected.
+ * KNOWN CEILING: merge, not tombstone-replace, for whichever domain has no restore-shaped commit
+ * injected. A row the backup DROPPED (present remotely, absent in the file) survives the merge,
+ * where the itinerary's `restorePlans` would tombstone it. Fixing that needs a restore-shaped
+ * commit on each domain — expenses (`restoreExpenses`), myPlaces (`restoreMyPlaces`, injected via
+ * `CommitMyPlaces`) and docsChecklist (`restoreDocsChecklist`, injected via `CommitDocsChecklist`,
+ * issue #295) all have one now. docsChecklist's is NOT a tombstone-replace: its 18 ids are a FIXED
+ * template with no add/remove path, so the restore-shaped commit there is a same-id UPSERT
+ * (`mergeItems(current, backup)` — whichever side's stamp is newer wins per id) rather than a
+ * tombstone + fresh-id re-add. budget's field-level LWW model remains the one domain still on the
+ * generic merge path; it needs its own restore design, not a copy of either shape here. Upgrade
+ * path for a domain that DOES fit one of the two existing shapes: inject its restore fn the way
+ * `commitItinerary`/`commitMyPlaces`/`commitDocsChecklist` are injected.
  */
 function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => void {
   return (cleaned) => void port.push(storage.load(), cleaned as T);
@@ -375,6 +391,7 @@ export async function importTripBackup(
   blobStore: BlobStorePort = defaultBlobStore,
   commitItinerary: CommitItinerary = savePlans,
   commitMyPlaces?: CommitMyPlaces,
+  commitDocsChecklist?: CommitDocsChecklist,
 ): Promise<ImportBackupResult> {
   let text: string;
   try {
@@ -486,6 +503,14 @@ export async function importTripBackup(
     // ⇒ unchanged default behavior below.
     if (slot === 'myPlaces' && commitMyPlaces) {
       commitMyPlaces(cleaned as MyPlace[]);
+      restored.push(slot);
+      continue;
+    }
+    // docsChecklist's injected dual path (issue #295): a same-id UPSERT via `mergeItems`, not a
+    // tombstone-replace — the fixed 18-id template has no add/remove path. Same idea as the
+    // myPlaces branch above, one domain narrower.
+    if (slot === 'docsChecklist' && commitDocsChecklist) {
+      commitDocsChecklist(cleaned as DocItem[]);
       restored.push(slot);
       continue;
     }
