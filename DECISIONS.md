@@ -3209,6 +3209,8 @@ Deleting the trigger closes the class rather than the six instances, and because
 
 **Changes if:** custom trips gain multiple legs or user-chosen currencies, at which point those binary ternaries stop being cosmetic and need a real per-leg lookup — the same treatment `legCurrency`/`offsetForCountry` already got.
 
+**Addendum · (issue #294, 2026-08-25) · The `remote-auth.test.ts` isolation claim above was checked and did not reproduce.** Read the full file: all mutable shared state lives in two `vi.hoisted()` objects, `beforeEach` resets every field on both, every test calls `vi.resetModules()` before importing the module under test, and Vitest's `forks` pool defaults to `isolate: true` — a fresh module registry per test file regardless of which worker runs it. No order-dependence and no cross-file mock collision found. The load-flakiness half of this entry stands (fixed separately by tuning `vitest.config.ts`'s `testTimeout`/`maxWorkers`), but the specific "not isolation-safe" claim about this one file is not reproducible as written — treat it as resolved or as never having been precisely diagnosed, not as a live defect to keep chasing.
+
 ---
 
 ### D-307 · Amended by D-339 · (issue #14 follow-up, 2026-08-11) · A map keyed by stored or imported data is read through an own-key check, at the read site — never by constructing the map prototype-less

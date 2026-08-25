@@ -60,5 +60,13 @@ export default defineConfig({
     // than globbed from `.` so `e2e/` stays Playwright's alone — its specs would otherwise
     // match on the `*.test.ts` half.
     include: ['{app,components,core,hooks,lib}/**/*.test.{ts,tsx}'],
+    // Issue #294: default 5000ms + unconstrained fork count starve each other under full
+    // parallel load (CPU contention across ~200 files), timing out otherwise-passing tests
+    // (concierge-ops.integration, release-gate, visit-autocount, remote-auth, visited-footprint
+    // among them) that are clean in isolation. Stays on the default `forks` pool — per-file
+    // isolation there is unaffected by worker count, so this only caps how much CPU contends
+    // at once, it doesn't touch test correctness.
+    testTimeout: 20000,
+    maxWorkers: '50%',
   },
 });
