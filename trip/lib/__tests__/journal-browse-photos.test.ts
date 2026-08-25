@@ -12,6 +12,10 @@
 //   - a day WITHOUT photos renders no strip at all (no empty box, no broken layout);
 //   - an EVICTED blob (`get`->null) renders the placeholder (no `<img>`, `data-missing="true"`),
 //     never a broken img or a crash.
+//
+// Issue #225 added a view-only lightbox trigger (still no delete/add): clicking a thumbnail opens
+// the shared `PhotoLightbox` with the right image, Escape closes it, and focus returns to the
+// thumbnail button that opened it.
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createElement, type ReactElement } from 'react';
@@ -29,6 +33,38 @@ vi.mock('@/core/photos/blob-store', async (importOriginal) => {
       async get(id: string) {
         return h.map.get(id) ?? null;
       },
+    },
+  };
+});
+
+// The strip now mounts a `PhotoLightbox` (#225), which is a `Sheet` (portal + framer-motion).
+// Mirrors `import-place-sheet.test.ts` / `time-picker-tab-trap.test.tsx`'s passthrough mock.
+vi.mock('framer-motion', async () => {
+  const React = await import('react');
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const strip = (p: any) => {
+    const { initial, animate, exit, whileHover, whileInView, whileTap, viewport, transition, layout, onExitComplete, ...rest } = p;
+    return rest;
+  };
+  return {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    m: { div: (props: any) => React.createElement('div', strip(props)) },
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    AnimatePresence: ({ children, onExitComplete }: any) => {
+      // Real AnimatePresence defers unmount to fire onExitComplete after the exit animation; the
+      // mocked m.div plays none, so call it synchronously on the render where children go away —
+      // exactly once per open->closed transition.
+      const wasOpen = React.useRef(false);
+      const isOpen = !(children == null || children === false);
+      React.useEffect(() => {
+        if (isOpen) {
+          wasOpen.current = true;
+        } else if (wasOpen.current) {
+          wasOpen.current = false;
+          onExitComplete?.();
+        }
+      });
+      return children;
     },
   };
 });
@@ -107,8 +143,48 @@ describe('JournalPhotoStrip — a day WITH photos renders the strip + correct al
     expect(item2!.textContent).toContain('so busy');
 
     // Read-only surface: no delete/add control inside the strip (that lives only on the in-trip
-    // Today panel's PhotoAttach capture UI, untouched by this slice).
-    expect(r.container.querySelectorAll('[data-testid^="journal-browse-photos-"] button')).toHaveLength(0);
+    // Today panel's PhotoAttach capture UI, untouched by this slice) — the one button per thumb
+    // is the #225 lightbox trigger, a view-only affordance.
+    const buttons = r.container.querySelectorAll('[data-testid^="journal-browse-photos-"] button');
+    expect(buttons).toHaveLength(2);
+    expect(r.container.querySelector('[data-testid="journal-browse-photo-open-ph-1"]')).not.toBeNull();
+    expect(r.container.querySelector('[data-testid="journal-browse-photo-open-ph-2"]')).not.toBeNull();
+
+    r.unmount();
+  });
+});
+
+describe('JournalPhotoStrip — lightbox (#225): view-only, opens the right photo, closes on Escape, returns focus', () => {
+  it('clicking a thumbnail opens the lightbox with the right image; Escape closes it and returns focus to the thumbnail', async () => {
+    h.map.set('ph-1', new Blob(['x'], { type: 'image/jpeg' }));
+    const photos = [meta('ph-1', { altText: 'Boudhanath at dawn', caption: 'golden hour' })];
+    const r = render(createElement(JournalPhotoStrip, { date: '2026-12-10', photos }));
+    await r.settle();
+
+    const trigger = r.container.querySelector<HTMLButtonElement>(
+      '[data-testid="journal-browse-photo-open-ph-1"]',
+    )!;
+    expect(trigger).not.toBeNull();
+    act(() => trigger.focus());
+    expect(document.activeElement).toBe(trigger);
+
+    // Open: click the thumbnail.
+    act(() => trigger.dispatchEvent(new MouseEvent('click', { bubbles: true })));
+    await r.settle(); // flush the lightbox's own usePhotoObjectUrl resolve
+
+    const image = document.body.querySelector<HTMLImageElement>('[data-testid="photo-lightbox-image"]');
+    expect(image).not.toBeNull();
+    expect(image!.getAttribute('alt')).toBe('Boudhanath at dawn');
+    expect(document.body.querySelector('[data-testid="photo-lightbox"]')?.textContent).toContain('golden hour');
+
+    // Close: Escape (the Sheet primitive's document-level handler).
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+
+    expect(document.body.querySelector('[data-testid="photo-lightbox-image"]')).toBeNull();
+    // Parent-owned focus-return: fires on the Sheet's exit-complete.
+    expect(document.activeElement).toBe(trigger);
 
     r.unmount();
   });
