@@ -152,3 +152,60 @@ describe('usePacking (S206)', () => {
     h.unmount();
   });
 });
+
+describe('usePacking — addItem/removeItem (#227)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.restoreAllMocks();
+  });
+
+  it('addItem appends a custom item, persists it, and updates progress total', async () => {
+    const h = renderPacking();
+    await h.run(() => {});
+    await h.run((store) => store.addItem('Travel pillow'));
+    expect(h.current.items).toHaveLength(29);
+    const added = h.current.items[h.current.items.length - 1];
+    expect(added).toMatchObject({ label: 'Travel pillow', category: 'universal', checked: false });
+    expect(h.current.progress).toEqual({ checked: 0, total: 29 });
+
+    const stored = JSON.parse(window.localStorage.getItem(KEY) as string);
+    expect(stored.find((i: { id: string }) => i.id === added.id)).toMatchObject({ label: 'Travel pillow' });
+    h.unmount();
+  });
+
+  it('a custom item SURVIVES a reload (unmount + remount)', async () => {
+    const h = renderPacking();
+    await h.run(() => {});
+    await h.run((store) => store.addItem('Neck pillow'));
+    const addedId = h.current.items[h.current.items.length - 1].id;
+    await h.rerenderFresh();
+    expect(h.current.items.find((i) => i.id === addedId)).toMatchObject({ label: 'Neck pillow' });
+    expect(h.current.items).toHaveLength(29);
+    h.unmount();
+  });
+
+  it('removeItem removes a CUSTOM item and persists the removal', async () => {
+    const h = renderPacking();
+    await h.run(() => {});
+    await h.run((store) => store.addItem('Ear plugs'));
+    const addedId = h.current.items[h.current.items.length - 1].id;
+    await h.run((store) => store.removeItem(addedId));
+    expect(h.current.items.find((i) => i.id === addedId)).toBeUndefined();
+    expect(h.current.items).toHaveLength(28);
+    const stored = JSON.parse(window.localStorage.getItem(KEY) as string);
+    expect(stored.find((i: { id: string }) => i.id === addedId)).toBeUndefined();
+    h.unmount();
+  });
+
+  it('removeItem removes a FIXED-TEMPLATE item and it stays gone across a reload', async () => {
+    const h = renderPacking();
+    await h.run(() => {});
+    const id = h.current.items[0].id;
+    await h.run((store) => store.removeItem(id));
+    expect(h.current.items).toHaveLength(27);
+    await h.rerenderFresh();
+    expect(h.current.items.find((i) => i.id === id)).toBeUndefined();
+    expect(h.current.items).toHaveLength(27);
+    h.unmount();
+  });
+});

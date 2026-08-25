@@ -4998,3 +4998,13 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **The real cost runs the other way, and it is the number to weigh if this is revisited.** On screen the hidden sheet is 1,218 of `/plan`'s 2,119 DOM nodes. It consumes the itinerary context, so every itinerary edit re-renders 32 days and reconciles those hidden nodes. That is the price of the sheet always being there, and it is paid on every edit in the planner rather than in kilobytes on load.
 
 **Worth naming as a general lesson:** the original comment was long, confident, and two of its three claims were wrong. Length read as authority. A shorter comment with a measured number in it would have been harder to get wrong and easier to check.
+
+### D-440 · (issue #227, 2026-08-25) · Packing gets local add/remove/custom items — D-201's named trigger fired, no schema change
+
+**Decision.** `core/packing/model.ts` gains `addItem`/`removeItem`, total pure functions mirroring the existing `addExpense`/`removeExpense` id-injection shape. A custom item is minted with a `custom-<ts>-<rand>` id (prefixed so it can never collide with the fixed template's `nepal-`/`japan-`/`universal-` ids) and stored in the existing gateway key 21 slot alongside the template — no new key, no schema change. Custom items are bucketed into the existing `universal` category rather than adding a fourth `PackingCategory` value; `isPackingCategory`/`CATEGORY_META`/`CATEGORY_ORDER` are untouched.
+
+**Why.** D-201 named its own trigger for revisiting the fixed-template decision: "user-added custom packing items being wanted." That trigger fired via #227. Bucketing into `universal` rather than minting a category was the smaller diff, needed no category-picker UI, and composes correctly with the existing custom-trip fallback in `core/packing/storage.ts` (which already filters the template to `universal`-only for a non-default trip).
+
+**What did not change.** Packing stays a device-local, non-synced domain — no outbox chunk, no merge rules, no Firestore rules shape. That was D-201's other named condition for a *future* decision ("packing sync is a whole new synced domain... a separate decision"), and this slice deliberately did not touch it.
+
+**Changes if:** packing sync is ever wanted — that is still the separate, larger decision D-201 flagged, unaffected by this one.
