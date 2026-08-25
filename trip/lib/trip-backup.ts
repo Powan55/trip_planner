@@ -271,7 +271,10 @@ type _ExhaustiveBackupDomains = [TripScopedSlot] extends
     | 'weatherCache'
     | 'syncOutbox'
     | 'itineraryCorrupt'
-    | 'expensesCorrupt',
+    | 'expensesCorrupt'
+    // #330 — a device fact (which leg the backup nudge already fired for), not user content;
+    // same bucket as weatherCache/syncOutbox above.
+    | 'backupPromptLeg',
   ]
   ? true
   : never;

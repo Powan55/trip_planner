@@ -33,9 +33,13 @@
 // on an interval and compares it against the previously-seen leg in a ref — same edge-detection
 // shape as hero-section.tsx's arrival-celebration `hadArrivedRef` (a `undefined` baseline seeds
 // quietly on first read, so a page that loads mid-leg never nudges; only an OBSERVED change
-// while mounted does). The gateway's `backupPromptStore` (key 40) makes the "already nudged for
-// this leg" dedup survive a reload, not just this mount. Reminder only — no upload, no auto
-// export; the toast action just routes to Settings → Data, same as the quota toasts above.
+// while mounted does). A custom trip has exactly one leg ('main'), so it never "changes" and this
+// branch alone can never fire there (#330) — the day number advancing is the stand-in signal for
+// that case, deduped by PRESENCE (fire once for the whole trip) rather than equality, since every
+// day is a new value. The gateway's `backupPromptStore` (key 42; TRIP-SCOPED via `keyFor`, #330 —
+// a stored leg id is only meaningful relative to the trip it came from) makes the "already nudged"
+// dedup survive a reload, not just this mount. Reminder only — no upload, no auto export; the
+// toast action just routes to Settings → Data, same as the quota toasts above.
 //
 // Follows components/service-worker-registrar.tsx's island shape: 'use client', run-once
 // useEffect, renders null, uses sonner's `toast`.
@@ -46,6 +50,7 @@ import { toast } from 'sonner';
 import { installHintStore, backupPromptStore } from '@/core/storage/gateway';
 import { getTodayInTrip } from '@/lib/trip-now';
 import { legLabel } from '@/lib/leg-label';
+import { getActiveTrip } from '@/core/trips';
 // 0.9 (90% of the StorageManager quota) is a heuristic threshold, not measured against any real
 // device's actual eviction point — it exists to leave headroom for one more journal/expense/photo
 // write before the browser starts throwing or evicting. #20 MOVED it to `lib/preflight.ts`, whose
@@ -90,6 +95,9 @@ export function StoragePersistence() {
   // `undefined` = not yet seeded this mount (so a page loading mid-leg never nudges); `null` =
   // seeded, but currently outside the trip window. Mirrors hero-section.tsx's `hadArrivedRef`.
   const seenLegRef = useRef<string | null | undefined>(undefined);
+  // Same seed/observed-change shape, tracking the day number instead — the single-leg (custom
+  // trip) change-detection fallback (#330, see below).
+  const seenDayRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
     // ── 1. Persist on first user interaction ─────────────────────────────
@@ -175,14 +183,9 @@ export function StoragePersistence() {
     window.addEventListener('trip:quota-exceeded', onQuotaExceeded);
 
     // ── 5. Backup nudge on leg change (once per leg, #222) ──
-    const checkLegChange = () => {
-      const leg = getTodayInTrip()?.country ?? null;
-      const prevLeg = seenLegRef.current;
-      seenLegRef.current = leg;
-      if (prevLeg === undefined || leg === null || leg === prevLeg) return; // seed-only / off-trip / unchanged
-      if (backupPromptStore.getPromptedLeg() === leg) return; // already nudged for this leg (incl. across a reload)
-      backupPromptStore.setPromptedLeg(leg);
-      toast(`Now in ${legLabel(leg)}`, {
+    const fireBackupNudge = (promptedValue: string, message: string) => {
+      backupPromptStore.setPromptedLeg(promptedValue);
+      toast(message, {
         description: 'Back up your trip so far — photos, journal, and plans live only on this device.',
         duration: 10000,
         action: {
@@ -190,6 +193,32 @@ export function StoragePersistence() {
           onClick: () => router.push('/settings/'),
         },
       });
+    };
+    const checkLegChange = () => {
+      const today = getTodayInTrip();
+      const leg = today?.country ?? null;
+      const prevLeg = seenLegRef.current;
+      seenLegRef.current = leg;
+      if (leg === null) return; // off-trip
+
+      // A custom trip has exactly one leg ('main'), so it never changes and the leg-compare
+      // below can never fire for it (#330) — the day number advancing while mounted is the
+      // "something worth backing up" stand-in there. Dedup is a PRESENCE check (fire once for
+      // the whole trip, not once per day) rather than an equality check, since every day is a
+      // new value.
+      if (getActiveTrip().legs.length === 1) {
+        const day = today!.dayNumber;
+        const prevDay = seenDayRef.current;
+        seenDayRef.current = day;
+        if (prevDay === undefined || day === prevDay) return; // seed-only / unchanged
+        if (backupPromptStore.getPromptedLeg() !== null) return; // already nudged once for this trip
+        fireBackupNudge(leg, `Day ${day} of your trip`);
+        return;
+      }
+
+      if (prevLeg === undefined || leg === prevLeg) return; // seed-only / unchanged
+      if (backupPromptStore.getPromptedLeg() === leg) return; // already nudged for this leg (incl. across a reload)
+      fireBackupNudge(leg, `Now in ${legLabel(leg)}`);
     };
     checkLegChange();
     const legTimer = setInterval(checkLegChange, LEG_CHECK_INTERVAL_MS);

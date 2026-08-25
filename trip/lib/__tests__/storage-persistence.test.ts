@@ -26,6 +26,12 @@ const h = vi.hoisted(() => ({
   // interval tick. `null` = outside the trip window (the default, matching every pre-existing
   // test in this file, which never sets it and must see no backup-nudge interference).
   currentLeg: null as string | null,
+  // Backs `getTodayInTrip()`'s `dayNumber` — the single-leg (#330) fallback signal.
+  currentDayNumber: 2,
+  // Backs the `@/core/trips` mock below — `legs.length`, which is how the component tells a
+  // multi-leg pack (leg-compare) from a single-leg custom trip (day-compare, #330). 2 matches the
+  // default pack every pre-existing test in this file assumes.
+  legsCount: 2,
 }));
 
 vi.mock('sonner', () => {
@@ -57,8 +63,23 @@ vi.mock('@/lib/trip-now', () => ({
   getTodayInTrip: () =>
     h.currentLeg === null
       ? null
-      : { date: '2026-12-10', dayNumber: 2, city: 'Test City', country: h.currentLeg },
+      : { date: '2026-12-10', dayNumber: h.currentDayNumber, city: 'Test City', country: h.currentLeg },
 }));
+
+// #330 — real `getActiveTrip()`, `legs` trimmed to 1 for the single-leg (custom trip) tests below
+// (still real `TripLeg` objects, just fewer of them — no need to fabricate the shape). Other
+// exports (`isDefaultTrip`, etc.) pass through untouched: several modules imported transitively
+// (e.g. `lib/leg-label.ts`) call them at module load.
+vi.mock('@/core/trips', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/core/trips')>();
+  return {
+    ...actual,
+    getActiveTrip: () => {
+      const trip = actual.getActiveTrip();
+      return h.legsCount === 1 ? { ...trip, legs: trip.legs.slice(0, 1) } : trip;
+    },
+  };
+});
 
 import { StoragePersistence } from '@/components/storage-persistence';
 import { installHintStore, backupPromptStore, STORAGE_KEYS } from '@/core/storage/gateway';
@@ -141,6 +162,8 @@ beforeEach(() => {
   h.dismissCalls.length = 0;
   h.pushCalls.length = 0;
   h.currentLeg = null;
+  h.currentDayNumber = 2;
+  h.legsCount = 2;
   vi.restoreAllMocks();
   stubStandalone(false);
 });
@@ -466,6 +489,85 @@ describe('StoragePersistence — backup nudge on leg change (#222)', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
     expect(h.pushCalls).toContain('/settings/');
     vi.unstubAllGlobals();
+    r.unmount();
+  });
+});
+
+// #330 — a custom trip has exactly ONE leg ('main'), so the leg-compare above can never fire for
+// it; the day number advancing is the stand-in "something worth backing up" signal there instead.
+describe('StoragePersistence — backup nudge on a single-leg (custom) trip (#330)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('fires once when the day number advances mid-session, even though the leg never changes', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.legsCount = 1;
+    h.currentLeg = 'main';
+    h.currentDayNumber = 1;
+    const r = render(createElement(StoragePersistence));
+    expect(h.toastCalls.some((c) => c.message.includes('Day'))).toBe(false); // seed only, no nudge
+
+    h.currentDayNumber = 2;
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    const calls = h.toastCalls.filter((c) => c.message.includes('Day'));
+    expect(calls.length).toBe(1);
+    expect(calls[0].message).toContain('2');
+    expect(backupPromptStore.getPromptedLeg()).toBe('main');
+    r.unmount();
+  });
+
+  it('does NOT fire again on a later day change — presence dedupe, not once-per-day (no daily nag)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.legsCount = 1;
+    h.currentLeg = 'main';
+    h.currentDayNumber = 1;
+    const r = render(createElement(StoragePersistence));
+    h.currentDayNumber = 2;
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.filter((c) => c.message.includes('Day')).length).toBe(1);
+
+    h.currentDayNumber = 3;
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.filter((c) => c.message.includes('Day')).length).toBe(1); // unchanged
+    r.unmount();
+  });
+
+  it('does NOT fire on a fresh mount already mid-trip (no observed change, e.g. a same-day reload)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.legsCount = 1;
+    h.currentLeg = 'main';
+    h.currentDayNumber = 5;
+    const r = render(createElement(StoragePersistence));
+    act(() => {
+      vi.advanceTimersByTime(120_000);
+    });
+    expect(h.toastCalls.some((c) => c.message.includes('Day'))).toBe(false);
+    r.unmount();
+  });
+
+  it('does NOT re-fire when the gateway already marks this trip as prompted (persists across reload)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.legsCount = 1;
+    backupPromptStore.setPromptedLeg('main'); // simulates an earlier session/reload having already nudged
+    h.currentLeg = 'main';
+    h.currentDayNumber = 1;
+    const r = render(createElement(StoragePersistence));
+    h.currentDayNumber = 2;
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.some((c) => c.message.includes('Day'))).toBe(false);
     r.unmount();
   });
 });
