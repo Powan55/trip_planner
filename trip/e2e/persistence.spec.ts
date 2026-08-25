@@ -42,9 +42,8 @@ import type { Page } from '@playwright/test';
  * service worker. In this harness, opening the `ItemEditor` too early (before the
  * page's `networkidle` settles) can catch a brief remount window where the
  * in-progress interaction lands on an instance that gets replaced, closing the
- * dialog out from under the test. Separately, `ItemEditor` (unlike the two portaled
- * dialogs elsewhere in the app) renders INLINE rather than via `createPortal`, and
- * when the day-grid selection has scrolled the page down far enough for the
+ * dialog out from under the test. Separately, when the day-grid selection has
+ * scrolled the page down far enough for the
  * (non-`Footer`-owned) `<footer>` to be in the viewport, Playwright's own
  * actionability check correctly reports the footer's DOM node as the topmost
  * element at the Save button's screen point — a real, reproducible stacking
@@ -59,8 +58,11 @@ import type { Page } from '@playwright/test';
  * synchronous value-set) — `.fill()` was reproducibly implicated in the same
  * dialog-closes-early symptom in isolation; and (c) scrolling the footer out of the
  * viewport (`mouse.wheel` up) immediately before any click inside the editor panel.
- * Flagged as a genuine fast-follow candidate (portal the
- * `ItemEditor` like the other two dialogs) rather than silently masking it.
+ * `ItemEditor` now renders via `createPortal` (calendar-planner.tsx) — the
+ * fast-follow this note used to flag — and #242 (merged) added a body scroll lock
+ * (`body[data-dialog-open]`, globals.css) that keeps the page from scrolling behind
+ * it while open, covering the in-editor instance of (c). See `typeEditorTitle`
+ * below, which no longer needs the wheel workaround for that reason.
  *
  * ── FU-15 (S114): the D-093 CRUD-then-reload flake, de-flaked at the source ────
  * D-093 originally showed as `calendar-item-* resolved to 0 elements` right after a
@@ -122,14 +124,14 @@ async function reloadSettled(page: Page) {
 }
 
 /**
- * Type into the calendar editor's Title field and scroll the footer out of the
- * viewport before any further click inside the panel — see the harness note above
- * for why both steps are load-bearing, not stylistic.
+ * Type into the calendar editor's Title field with real per-keystroke input — see
+ * the harness note above for why `pressSequentially` (not `.fill()`) is load-bearing.
+ * No footer-scroll workaround needed here: the editor is portalled and #242's body
+ * scroll lock keeps the footer out of the way while it's open.
  */
 async function typeEditorTitle(page: Page, title: string) {
   const input = page.getByTestId('calendar-editor-title-input');
   await input.pressSequentially(title, { delay: 10 });
-  await page.mouse.wheel(0, -5000);
 }
 
 /** Seed a small, fully-controlled itinerary (bypassing the 32-day sample) and reload. */
