@@ -192,13 +192,15 @@ describe('removeVisit — someone will mistype, and the record is for life', () 
 });
 
 describe('removeVisit — a deleted city leaves no shadow record behind (D-320, key 34)', () => {
-  it('takes the removed city\'s GPS confirmation with it, and keeps checkedOn', () => {
+  it('a genuinely off-itinerary city (never re-added by the trip) takes its confirmation with it', () => {
+    // Pokhara is not on the default pack's itinerary (core/content/itinerary.ts) — a manual entry
+    // that will not be re-credited, so its confirmation is a real orphan if left behind.
     markVisitCheck('2026-12-12');
-    confirmVisit({ city: 'Kathmandu', country: 'Nepal' }, '2026-12-12T09:00:00.000Z');
+    confirmVisit({ city: 'Pokhara', country: 'Nepal' }, '2026-12-12T09:00:00.000Z');
     confirmVisit({ city: 'Tokyo', country: 'Japan' }, '2026-12-20T09:00:00.000Z');
-    expect(getVisitConfirmations().confirmed.map((c) => c.city)).toEqual(['Kathmandu', 'Tokyo']);
+    expect(getVisitConfirmations().confirmed.map((c) => c.city)).toEqual(['Pokhara', 'Tokyo']);
 
-    removeVisit({ city: 'Kathmandu' });
+    removeVisit({ city: 'Pokhara' });
 
     const after = getVisitConfirmations();
     expect(after.confirmed.map((c) => c.city)).toEqual(['Tokyo']);
@@ -208,16 +210,53 @@ describe('removeVisit — a deleted city leaves no shadow record behind (D-320, 
   });
 
   it('removing a COUNTRY does not touch confirmations — the country there is a day label', () => {
-    confirmVisit({ city: 'Tokyo', country: 'Japan' }, '2026-12-20T09:00:00.000Z');
-    removeVisit({ country: 'Japan' });
+    confirmVisit({ city: 'Pokhara', country: 'Nepal' }, '2026-12-20T09:00:00.000Z');
+    removeVisit({ country: 'Nepal' });
     expect(getVisited().countries).toEqual([]);
-    expect(getVisitConfirmations().confirmed.map((c) => c.city)).toEqual(['Tokyo']);
+    expect(getVisitConfirmations().confirmed.map((c) => c.city)).toEqual(['Pokhara']);
   });
 
   it('leaves key 34 untouched when nothing matched', () => {
-    confirmVisit({ city: 'Tokyo', country: 'Japan' }, '2026-12-20T09:00:00.000Z');
+    confirmVisit({ city: 'Pokhara', country: 'Nepal' }, '2026-12-20T09:00:00.000Z');
     const before = window.localStorage.getItem(STORAGE_KEYS.visitConfirmations);
     removeVisit({ city: 'Lisbon' });
     expect(window.localStorage.getItem(STORAGE_KEYS.visitConfirmations)).toBe(before);
+  });
+});
+
+describe('removeVisit — issue #279: a TRIP-CLAIMED city keeps its confirmation', () => {
+  // Kathmandu and Tokyo are on the default pack's itinerary (core/content/itinerary.ts), so
+  // `lib/visit-autocount.ts` re-credits the city itself on the next load. The confirmation must
+  // survive that round-trip because nothing about it was actually verified wrong.
+  it('does not forget the confirmation for a city the active trip still passes through', () => {
+    confirmVisit({ city: 'Kathmandu', country: 'Nepal' }, '2026-12-12T09:00:00.000Z');
+    confirmVisit({ city: 'Pokhara', country: 'Nepal' }, '2026-12-13T09:00:00.000Z');
+
+    removeVisit({ city: 'Kathmandu' });
+
+    expect(getVisited().cities).not.toContain('Kathmandu');
+    // The confirmation survives even though the city itself was just dropped from the set.
+    expect(getVisitConfirmations().confirmed.map((c) => c.city)).toEqual(['Kathmandu', 'Pokhara']);
+  });
+
+  it('confirmation stays intact across a simulated re-credit (the itinerary adding the city back)', () => {
+    confirmVisit({ city: 'Tokyo', country: 'Japan' }, '2026-12-20T09:00:00.000Z');
+    removeVisit({ city: 'Tokyo' });
+    expect(getVisited().cities).toEqual([]);
+
+    // Stand-in for lib/visit-autocount.ts's `tripPlacesThrough(...).forEach(addVisit)` on next load
+    // — it only ever ADDS the city, never touches the confirmation record.
+    addVisit({ city: 'Tokyo', country: 'Japan' });
+
+    expect(getVisited().cities).toEqual(['Tokyo']);
+    expect(getVisitConfirmations().confirmed).toEqual([
+      { city: 'Tokyo', country: 'Japan', at: '2026-12-20T09:00:00.000Z' },
+    ]);
+  });
+
+  it('matches under the same fold rule as the removal itself', () => {
+    confirmVisit({ city: 'Kathmandu', country: 'Nepal' }, '2026-12-12T09:00:00.000Z');
+    removeVisit({ city: '  KATHMANDU  ' });
+    expect(getVisitConfirmations().confirmed.map((c) => c.city)).toEqual(['Kathmandu']);
   });
 });
