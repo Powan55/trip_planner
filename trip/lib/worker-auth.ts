@@ -27,7 +27,7 @@ import { isRemoteConfigured } from './firebase-config';
 export async function workerAuthHeader(): Promise<Record<string, string>> {
   if (!isRemoteConfigured()) return {};
   try {
-    const { getAuthIdToken } = await import('./itinerary-remote');
+    const { getAuthIdToken } = await import('./firebase-remote');
     const token = await getAuthIdToken();
     return token ? { authorization: `Bearer ${token}` } : {};
   } catch {

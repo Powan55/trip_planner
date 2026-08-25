@@ -52,7 +52,7 @@ import {
 } from '@/core/trips/registry';
 import { getActiveTripId } from '@/core/storage/gateway';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
-import { getRemote, isPermissionDenied } from './itinerary-remote';
+import { getRemote, isPermissionDenied } from './firebase-remote';
 
 export type TripMetaPayload = { name: string; config?: TripConfigBlock };
 

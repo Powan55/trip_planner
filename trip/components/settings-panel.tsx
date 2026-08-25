@@ -408,7 +408,7 @@ function LinkGoogleIdentity() {
 
   useEffect(() => {
     let cancelled = false;
-    void import('@/lib/itinerary-remote')
+    void import('@/lib/firebase-remote')
       .then(({ isGoogleLinked }) => isGoogleLinked())
       .then((is) => {
         if (!cancelled) setLinked(is);
@@ -429,7 +429,7 @@ function LinkGoogleIdentity() {
     try {
       // The module is already in the bundler's cache (the effect above awaited it), so this
       // resolves in a microtask and the tap's activation still covers the popup.
-      const { linkGoogleAccount } = await import('@/lib/itinerary-remote');
+      const { linkGoogleAccount } = await import('@/lib/firebase-remote');
       const result = await linkGoogleAccount();
       if (result === 'linked') {
         setLinked(true);
@@ -542,7 +542,7 @@ function TripAccessGroup() {
   useEffect(() => {
     let cancelled = false;
     setTripKey(getTripId());
-    void import('@/lib/itinerary-remote')
+    void import('@/lib/firebase-remote')
       .then(({ getRemote }) => getRemote())
       .then((handle) => {
         if (!cancelled) setUid(handle.uid);

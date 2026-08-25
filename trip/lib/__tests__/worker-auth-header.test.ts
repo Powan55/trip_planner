@@ -24,7 +24,7 @@ vi.mock('@/lib/firebase-config', () => ({
   getTripId: () => 'trip-abc',
 }));
 
-vi.mock('@/lib/itinerary-remote', () => ({
+vi.mock('@/lib/firebase-remote', () => ({
   getAuthIdToken: async () => {
     seam.calls += 1;
     if (seam.throws) throw new Error('seam exploded');
