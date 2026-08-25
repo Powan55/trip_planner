@@ -1268,6 +1268,24 @@ export const legibilityPrefs = {
 } as const;
 
 /**
+ * `/map` screen-wake-lock toggle slot (issue #247). Mirrors `legibilityPrefs`/`uiPrefs` exactly:
+ * `String(boolean)`, NOT JSON, lenient `=== 'true'` parse. `get()` returns `null` when the key is
+ * ABSENT so the caller starts from an explicit OFF default — deliberately, unlike the always-on
+ * Travel Mode/safety-card wake locks, since `/map` can be left open unattended. `set(value)`
+ * writes `String(value)`. SSR-safe + never-throw (inherited from `readString`/`writeString`).
+ */
+export const mapWakeLockPrefs = {
+  get(): boolean | null {
+    const raw = readString('local', STORAGE_KEYS.mapWakeLockEnabled);
+    if (raw === null) return null;
+    return raw === 'true';
+  },
+  set(value: boolean): void {
+    writeString('local', STORAGE_KEYS.mapWakeLockEnabled, String(value));
+  },
+} as const;
+
+/**
  * Packing checklist slot — the `PackingItem[]` JSON list. localStorage backend
  *; additive, no migration, NOT part of the itinerary Vault. Mirrors `favoritesStore`/
  * `photosStore` exactly.
