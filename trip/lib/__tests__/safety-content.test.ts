@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import {
   emergencyContactSchema,
+  hazardNoteSchema,
   phraseSchema,
   checklistItemSchema,
   EMERGENCY_CONTACTS,
+  HAZARD_NOTES,
   SAFETY_PHRASES,
   DOCUMENT_CHECKLIST,
 } from '@/core/content/safety';
@@ -59,6 +61,29 @@ describe('safety content — valid data parses', () => {
       'Numbers',
       'Politeness',
     ]);
+  });
+
+  // #255 — one Japan earthquake note, one Nepal aftershock/bandh note.
+  it('HAZARD_NOTES: one note per country, both parse', () => {
+    expect(HAZARD_NOTES.length).toBe(2);
+    expect(HAZARD_NOTES.some((n) => n.country === 'Japan')).toBe(true);
+    expect(HAZARD_NOTES.some((n) => n.country === 'Nepal')).toBe(true);
+    for (const n of HAZARD_NOTES) {
+      expect(hazardNoteSchema.safeParse(n).success).toBe(true);
+    }
+    const ids = HAZARD_NOTES.map((n) => n.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  // #280 — the more prominent (airport-read) safety.ts row must not say LESS than the
+  // checklist row of the same id in core/docs/model.ts; assert the date anchor/QR detail
+  // actually made it into this copy rather than drifting back to the shorter original.
+  it('DOCUMENT_CHECKLIST: nepal-visa and japan-entry carry the same key facts as core/docs/model.ts (#280)', () => {
+    const nepalVisa = DOCUMENT_CHECKLIST.find((i) => i.id === 'nepal-visa');
+    const japanEntry = DOCUMENT_CHECKLIST.find((i) => i.id === 'japan-entry');
+    expect(nepalVisa?.detail).toMatch(/26 Nov 2026/);
+    expect(nepalVisa?.detail).toMatch(/15 days/);
+    expect(japanEntry?.detail).toMatch(/QR/);
   });
 
   it('DOCUMENT_CHECKLIST: every item parses and belongs to a known group', () => {
@@ -123,6 +148,25 @@ describe('safety content — the validator HAS TEETH (broken fixture is rejected
       extraTypoField: 'oops',
     };
     const r = emergencyContactSchema.safeParse(bad);
+    expect(r.success).toBe(false);
+    if (!r.success) {
+      expect(
+        r.error.issues.some(
+          (i) => i.code === 'unrecognized_keys' && i.keys.includes('extraTypoField'),
+        ),
+      ).toBe(true);
+    }
+  });
+
+  it('rejects a hazard note with an unrecognized key (typo guard, .strict())', () => {
+    const bad = {
+      id: 'bad-hazard',
+      country: 'Japan',
+      title: 'Test',
+      body: 'Test body',
+      extraTypoField: 'oops',
+    };
+    const r = hazardNoteSchema.safeParse(bad);
     expect(r.success).toBe(false);
     if (!r.success) {
       expect(
