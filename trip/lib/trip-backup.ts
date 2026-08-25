@@ -5,8 +5,8 @@
  * (`export-import.ts` is untouched). THIS module is the wider "back up my WHOLE trip" that
  * "changes if the scope widens" clause names: one gzip file carrying every LOCAL user domain of the
  * ACTIVE trip — journal, photos (meta + blob bytes), expenses, budget, docs, packing, favorites,
- * day-anchors, share-inbox, my-places — plus the itinerary nested as its own existing versioned
- * Vault envelope.
+ * day-anchors, share-inbox, my-places, booking-overrides — plus the itinerary nested as its own
+ * existing versioned Vault envelope.
  *
  * PRIVACY: photos are device-local, zero-egress. They are included here ONLY in a file the
  * user explicitly downloads to their own device — never a network egress — and the UI copy
@@ -45,6 +45,7 @@ import {
   type TripScopedSlot,
 } from '@/core/storage/gateway';
 import { myPlacesStore } from '@/core/storage/my-places-store';
+import { bookingOverridesStore, sanitizeBookingOverrides } from '@/core/bookings/override';
 import { getActiveTrip } from '@/core/trips';
 import type { StoragePort, SyncPort } from '@/core/ports';
 import { expensesSyncPort, expensesStoragePort } from '@/lib/expenses-ports';
@@ -119,7 +120,7 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * The nine generic (non-itinerary, non-photo) domains. Each entry knows how to READ its raw value for
+ * The ten generic (non-itinerary, non-photo) domains. Each entry knows how to READ its raw value for
  * export, WRITE a cleaned value on import, and VALIDATE an imported value — returning `null` to DROP a
  * malformed domain (never-destroy: a drop leaves the live on-disk data untouched). The validate gate is
  * a TOP-LEVEL shape check (array vs object) followed by the domain's own existing sanitizer; the shape
@@ -225,6 +226,13 @@ const DOMAINS = {
     write: (v) => myPlacesStore.set(v),
     validate: (v) => (Array.isArray(v) ? sanitizePlaces(v) : null),
     enqueueRestore: enqueueRestored(placesSyncPort, myPlacesStoragePort),
+  },
+  // issue #228 — the local-only booking-override map. Same generic-object shape as `dayAnchors`
+  // (no sync port: local-only, D-034's boundary keeps this off any remote path).
+  bookingOverrides: {
+    read: () => bookingOverridesStore.get<unknown>(ABSENT),
+    write: (v) => bookingOverridesStore.set(v),
+    validate: (v) => (isPlainObject(v) ? sanitizeBookingOverrides(v) : null),
   },
 } satisfies Record<string, DomainSpec>;
 
