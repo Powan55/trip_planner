@@ -95,7 +95,9 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
     const panel = panelRef.current;
     if (!panel) return;
     const focusable = Array.from(
-      panel.querySelectorAll<HTMLElement>('button:not([disabled])'),
+      panel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
     ).filter((el) => el.tabIndex !== -1);
     if (focusable.length === 0) return;
     const first = focusable[0];
