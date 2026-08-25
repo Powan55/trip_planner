@@ -1,7 +1,7 @@
 // PACKING CHECKLIST: a country-specific packing checklist (Nepal-leg / Japan-leg /
 // universal items, `core/packing/model.ts`; universal items only on a custom trip, see
 // `core/packing/storage.ts`), persisted via the gateway (key 21) so check-off
-// state survives reload. NOT the same thing as the-candidate critical-docs checklist
+// state survives reload. NOT the same thing as the critical-docs checklist on /checklist
 // (passport/visa/insurance) — this is packing ITEMS (clothing/gear/toiletries). The island is
 // lazy + ssr:false, mirroring app/journal/sections.tsx; Next 15: the ssr:false
 // dynamic import lives in./sections (a client module); this Server Component page exports
