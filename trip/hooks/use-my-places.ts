@@ -62,6 +62,15 @@ export interface MyPlacesStore {
   addPlace(input: NewPlaceInput): void;
   /** Remove a place by id (a tombstone under sync, a physical drop when local-only). */
   removePlace(id: string): void;
+  /**
+   * Restore the WHOLE places store from a validated backup (issue #239 — tombstone-replace,
+   * mirroring the itinerary's `restorePlans` / expenses' `restoreExpenses`). DORMANT: a plain
+   * local overwrite (no sync to unwind). SYNC ON: tombstone every currently-live row THEN re-add
+   * every live backup row as a FRESH-ID copy — all in ONE commit, so the restore PROPAGATES +
+   * survives the next snapshot instead of being merged back with rows added after the backup, and
+   * a restored row can never lose to its own tombstone on an HLC tie.
+   */
+  restoreMyPlaces(backup: MyPlace[]): void;
 }
 
 // The shared hydrate/listen/commit skeleton, instantiated once for the my-places domain WITH its
@@ -153,7 +162,38 @@ export function useMyPlaces(): MyPlacesStore {
     [commit],
   );
 
-  return { places, hydrated, addPlace: add, removePlace: remove };
+  const restoreMyPlaces = useCallback(
+    (backup: MyPlace[]) => {
+      // DORMANT: a plain local overwrite — there is no sync to unwind, byte-identical to a
+      // savePlans-style replace. SYNC ON: tombstone-replace in ONE commit (mirrors restorePlans /
+      // restoreExpenses).
+      if (!syncEnabled()) {
+        commit(() => backup);
+        return;
+      }
+      const name = actor();
+      commit((current) => {
+        // (a) Tombstone every currently-live row (the SAME stamp `remove` applies) — so a row added
+        // after the backup was taken does not survive as a live row (issue #239).
+        let next = current.map((p) => {
+          if (p.deleted === true) return p;
+          return { ...p, deleted: true, ...nextSyncStamp(p, realClock.now().getTime(), name) };
+        });
+        // (b) Add a fresh-id copy of every LIVE backup row (strip id/rev/hlc/deleted, mint a new id
+        // + fresh stamp) — can never lose to an existing tombstone on an HLC tie.
+        for (const p of backup) {
+          if (p.deleted === true) continue;
+          const { id: _id, rev: _rev, hlc: _hlc, deleted: _del, ...content } = p;
+          void _id; void _rev; void _hlc; void _del;
+          next = addPlace(next, { ...content, id: newId(), ...firstSyncStamp(realClock.now().getTime(), name) });
+        }
+        return next;
+      });
+    },
+    [commit],
+  );
+
+  return { places, hydrated, addPlace: add, removePlace: remove, restoreMyPlaces };
 }
 
 // Re-exported so tests/callers can compare byte-transport values directly.

@@ -560,6 +560,40 @@ describe('a legacy itinerary-only file cannot be restored into a different trip'
   });
 });
 
+describe('#239 — myPlaces commit uses the injected restore-shaped path when supplied', () => {
+  it('routes the myPlaces commit through the supplied function instead of the generic bare write', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const file = await exportTripBackup(store);
+
+    localStorage.clear();
+    const restoreSpy = vi.fn();
+    const res = await importTripBackup(file, makeInMemoryBlobStore(), savePlans, restoreSpy);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).toContain('myPlaces');
+    expect(restoreSpy).toHaveBeenCalledTimes(1);
+    expect(restoreSpy).toHaveBeenCalledWith(SEED_PLACES);
+    // The commit was delegated — the bare gateway write was skipped, so the slot stays untouched.
+    expect(myPlacesStore.get<unknown>(null)).toBeNull();
+  });
+
+  it('falls back to the generic bare write + merge enqueue when no commitMyPlaces is supplied (unchanged default)', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const file = await exportTripBackup(store);
+
+    localStorage.clear();
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).toContain('myPlaces');
+    expect(loadMyPlaces()).toEqual(SEED_PLACES);
+  });
+});
+
 // ── The restore must survive the first server snapshot, not just land on disk ────────────────────
 describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges instead of overwriting', () => {
   it('expenses/budget/docs/my-places are all enqueued; the local-only domains are not', async () => {
