@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { differenceInCalendarDays } from 'date-fns';
 import { Cloud, Wallet, ShieldAlert, Plane, ChevronDown, Home } from 'lucide-react';
 import { getCountryForDate, getCityForDate, formatHomeClock } from '@/core/dates';
 import { isDefaultTrip } from '@/core/trips';
@@ -9,6 +10,7 @@ import { legCurrency } from '@/core/budget/model';
 import { EMERGENCY_CONTACTS } from '@/core/content/safety';
 import { fetchWeather, weatherCodeToLabel, formatWeatherAsOf, type WeatherResult } from '@/lib/weather';
 import { fetchCurrencyRate, type CurrencyRateResult } from '@/lib/currency-rate';
+import { getNow } from '@/lib/trip-now';
 import {
   OUTBOUND_JOURNEY,
   RETURN_TO_JAPAN_JOURNEY,
@@ -214,7 +216,19 @@ function WeatherPanel({ city, weather }: { city: string; weather: WeatherResult 
 }
 
 /**
- * #220 — what time it is at home, so "is it a reasonable hour to call" stops being two offset
+ * Whole calendar days between a `YYYY-MM-DD` `asOf` date and now (a bare date string
+ * doesn't tell anyone whether a rate is 3 days or 3 months stale). `T00:00:00` parses `asOf` as
+ * LOCAL midnight, matching `TRIP_START`'s convention (`core/dates/trip-dates.ts`), not the
+ * UTC midnight a bare date-only ISO string parses to. Clamped at 0 so clock skew (asOf briefly
+ * "in the future") never prints a negative age.
+ */
+function daysOld(asOf: string): string {
+  const days = Math.max(0, differenceInCalendarDays(getNow(), new Date(`${asOf}T00:00:00`)));
+  return `${days} day${days === 1 ? '' : 's'} old`;
+}
+
+/**
+ * What time it is at home, so "is it a reasonable hour to call" stops being two offset
  * conversions done in your head with a change of country in between.
  *
  * No `aria-live`: this re-renders every 20s and an announced clock would talk over everything
@@ -266,12 +280,21 @@ function CurrencyPanel({ currency, rate }: { currency: string; rate: CurrencyRat
           <span className="mt-0.5 block text-xs text-ink-mid" data-testid="travel-essentials-currency-asof">
             {rate.data.source === 'reference' ? (
               <span data-testid="travel-essentials-currency-reference">
-                reference rate, as of {rate.data.asOf} — not a live quote
+                reference rate, as of {rate.data.asOf} — not a live quote (
+                <span data-testid="travel-essentials-currency-age">{daysOld(rate.data.asOf)}</span>)
               </span>
             ) : (
               <>
                 as of {rate.data.asOf}
-                {rate.data.stale ? ' (cached)' : ''}
+                {rate.data.stale ? (
+                  <>
+                    {' '}
+                    (cached,{' '}
+                    <span data-testid="travel-essentials-currency-age">{daysOld(rate.data.asOf)}</span>)
+                  </>
+                ) : (
+                  ''
+                )}
               </>
             )}
           </span>
