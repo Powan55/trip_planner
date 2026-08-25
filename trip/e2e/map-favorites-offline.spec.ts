@@ -241,6 +241,29 @@ test.describe('FU-34 · offline connectivity hint', () => {
     const errors = trackErrors(page);
     await gotoMap(page);
 
+    // Ride out SW install/activate/claim (mirrors e2e/offline-banner.spec.ts's `goto` and
+    // e2e/favorites.spec.ts's `goto` — every other spec in the pack that flips REAL
+    // connectivity via context.setOffline waits on this same signal first). Without it,
+    // `context.setOffline(true)` below can land while the initial map load still has an
+    // in-flight cache-miss fetch outstanding (e.g. a self-hosted glyph PBF — same-origin,
+    // deliberately NOT precached per V6-14, so it's a real network round trip on first
+    // load). A request killed mid-flight by the offline toggle surfaces as a bare
+    // `Failed to load resource: net::ERR_FAILED`, which KNOWN_TILE_FETCH_NOISE does not
+    // match (it only covers cartocdn/AJAXError/ERR_INTERNET_DISCONNECTED) and which then
+    // trips the no-console-errors assertion below — a CI-runner-timing race (#325), not a
+    // product defect. The SW's atomic install (~200 precache entries on this build) takes
+    // measurably longer than one small same-origin asset fetch, so waiting for it to finish
+    // reliably drains the window before the network gets cut.
+    await page
+      .waitForFunction(
+        () => !('serviceWorker' in navigator) || navigator.serviceWorker.controller !== null,
+        null,
+        { timeout: 15_000 },
+      )
+      .catch(() => {
+        /* no SW / already stable — proceed */
+      });
+
     await expect(page.getByTestId('map-offline-hint')).toHaveCount(0);
 
     await context.setOffline(true);
