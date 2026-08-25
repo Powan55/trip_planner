@@ -27,6 +27,7 @@ import TravelHeroCard from '@/components/travel-hero-card';
 import TravelAgendaCard from '@/components/travel-agenda-card';
 import TravelSyncLine from '@/components/travel-sync-line';
 import TravelLogDifferent from '@/components/travel-log-different';
+import TravelExpenseQuickAdd from '@/components/travel-expense-quickadd';
 
 // the Essentials block (weather/currency/safety/flight deep-links) is its OWN lazy
 // island — a nested dynamic(ssr:false) import (fine inside a Client Component, unlike inside a
@@ -224,6 +225,11 @@ export default function TravelDatePicker() {
           optional category) that lands an item on the viewed day ALREADY checked `done` (
           "✓ Completed · <name>" footer). INLINE inside the TM root — no modal/portal. */}
       <TravelLogDifferent date={selectedDate} />
+
+      {/* #260 — inline expense quick-add: logging a spend no longer means leaving Travel Mode
+          and scrolling to the calendar's budget panel. INLINE inside the TM root — no
+          modal/portal, same TM-9 contract as TravelLogDifferent just above. */}
+      <TravelExpenseQuickAdd date={selectedDate} />
 
       {/* secondary affordances — demoted below the checklist so they never compete with it for
           primary attention. Tonight only shows once it's actually evening (its own check); a

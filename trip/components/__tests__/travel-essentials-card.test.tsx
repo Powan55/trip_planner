@@ -92,3 +92,25 @@ describe('TravelEssentialsCard — safety-content gate (A-12)', () => {
     r.unmount();
   });
 });
+
+// #220 — the home clock rides the SAME default-pack gate, for the same reason: HOME_TIME_ZONE is
+// an assumption derived from the default pack's flight-home destination (Syracuse), and a custom
+// trip's traveller has no reason to live there.
+describe('TravelEssentialsCard — home clock (#220)', () => {
+  it('default trip: renders the home clock', () => {
+    state.isDefault = true;
+    const r = render('2026-12-10');
+    const clock = r.container.querySelector('[data-testid="travel-essentials-home-clock"]');
+    expect(clock).not.toBeNull();
+    // A real time, not a placeholder.
+    expect(clock!.textContent ?? '').toMatch(/\d{1,2}:\d{2}/);
+    r.unmount();
+  });
+
+  it('non-default (custom) trip: renders no home clock at all', () => {
+    state.isDefault = false;
+    const r = render('2026-12-10');
+    expect(r.container.querySelector('[data-testid="travel-essentials-home-clock"]')).toBeNull();
+    r.unmount();
+  });
+});

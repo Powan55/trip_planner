@@ -14,6 +14,7 @@ import {
   type VisitedPlaces,
 } from '@/core/places/visited';
 import { ISO_COUNTRIES } from '@/lib/iso-countries';
+import { allTripPlaces } from '@/lib/visit-autocount';
 
 /**
  * VisitedPlacesPanel — the `/profile` route's body: the countries and cities you had already been
@@ -35,6 +36,16 @@ import { ISO_COUNTRIES } from '@/lib/iso-countries';
  * REMOVAL IS A FIRST-CLASS PATH, for the reason free text guarantees: someone will typo. Every row
  * carries its own remove button, focus returns to that section's add control afterwards (a removed
  * row cannot keep the focus it had), and the removal is announced like every other outcome.
+ *
+ * A REMOVAL THE ITINERARY WILL UNDO SAYS SO (issue #236). `lib/visit-autocount.ts` re-credits every
+ * place the active trip names, so removing one of those is real but temporary — it comes back the
+ * next time the trip is counted. That is the KNOWN CEILING at `core/places/visited.ts`'s
+ * `removeVisit`, and this panel does not try to beat it: a suppression list is a decision about
+ * which record wins, the itinerary or the person, and that decision is deliberately still open.
+ * What it does is stop CLAIMING otherwise — a trip-claimed row is marked "In your trip", the
+ * remove button's accessible name carries the caveat, and the live region says "for now" instead of
+ * asserting a permanent change. The button itself stays: the removal genuinely happens, and taking
+ * the control away would settle the open question in the itinerary's favour.
  *
  * A11Y — this is a form, so these are acceptance criteria and not polish (D-021 lineage):
  * • Every control has a real `<label>`; the section headings label their own `<ul>`.
@@ -85,6 +96,23 @@ export default function VisitedPlacesPanel() {
     return ISO_COUNTRIES.filter((name) => !taken.has(foldPlaceName(name)));
   }, [visited]);
 
+  /** Every place the ITINERARY itself claims, folded through the store's own rule so "claimed"
+   *  means here exactly what "already added" means to `addVisit`. The WHOLE trip rather than the
+   *  arrived prefix `runVisitAutocount` counts today: a city whose day is still ahead is re-credited
+   *  too, when its day comes, so "this will be counted again" is true of it as well. */
+  const tripClaimed = useMemo(() => {
+    const places = allTripPlaces();
+    return {
+      city: new Set(places.map((p) => foldPlaceName(p.city))),
+      // A single-leg custom trip labels no country (`countryLabelForDate` returns ''); a blank
+      // claims nothing.
+      country: new Set(places.map((p) => foldPlaceName(p.country)).filter(Boolean)),
+    };
+  }, []);
+
+  const claimedByTrip = (kind: 'city' | 'country', name: string) =>
+    tripClaimed[kind].has(foldPlaceName(name));
+
   const submitCountry = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const tidy = tidyPlaceName(countryDraft);
@@ -115,9 +143,16 @@ export default function VisitedPlacesPanel() {
   };
 
   const remove = (visit: { city?: string; country?: string }) => {
+    const kind = visit.city ? 'city' : 'country';
     const name = visit.city ?? visit.country ?? '';
     setVisited(removeVisit(visit));
-    announce(`Removed ${name}.`);
+    // Both sentences are true of what just happened: the write really did run, and for a place the
+    // trip names it really will be undone. The old unconditional one was true of only half of them.
+    announce(
+      claimedByTrip(kind, name)
+        ? `Removed ${name} for now — your trip goes there, so it will be counted again.`
+        : `Removed ${name}.`,
+    );
     // The button that had focus has just been unmounted; park it on the matching add control
     // rather than letting it fall to <body>.
     if (visit.city) cityInputRef.current?.focus();
@@ -169,6 +204,7 @@ export default function VisitedPlacesPanel() {
           headingId="visited-countries-heading"
           items={visited.countries}
           removeTestId={(name) => `visited-country-remove-${name}`}
+          isClaimed={(name) => claimedByTrip('country', name)}
           onRemove={(name) => remove({ country: name })}
         >
           <form
@@ -223,6 +259,7 @@ export default function VisitedPlacesPanel() {
           headingId="visited-cities-heading"
           items={visited.cities}
           removeTestId={(name) => `visited-city-remove-${name}`}
+          isClaimed={(name) => claimedByTrip('city', name)}
           onRemove={(name) => remove({ city: name })}
         >
           <form
@@ -298,6 +335,7 @@ function PlaceGroup({
   headingId,
   items,
   removeTestId,
+  isClaimed,
   onRemove,
   children,
 }: {
@@ -312,6 +350,8 @@ function PlaceGroup({
   headingId: string;
   items: readonly string[];
   removeTestId: (name: string) => string;
+  /** Does the active trip name this place? A claimed row's removal is undone by the next count. */
+  isClaimed: (name: string) => boolean;
   onRemove: (name: string) => void;
   children: React.ReactNode;
 }) {
@@ -342,25 +382,40 @@ function PlaceGroup({
           data-testid={listTestId}
           className="mt-4 flex flex-wrap gap-2"
         >
-          {items.map((name) => (
-            <li
-              key={name}
-              className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] py-0.5 pl-3 pr-0.5 text-sm text-ink-hi"
-            >
-              {name}
-              {/* 44px, the house tap-target floor — a delete is the one control nobody should hit
-                  by accident or miss by a pixel. */}
-              <button
-                type="button"
-                data-testid={removeTestId(name)}
-                onClick={() => onRemove(name)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink-mid transition-colors hover:bg-white/10 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          {items.map((name) => {
+            // Marked, not disabled (issue #236): the remove still works, it just does not last.
+            const claimed = isClaimed(name);
+            return (
+              <li
+                key={name}
+                data-trip-claimed={claimed ? 'true' : undefined}
+                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] py-0.5 pl-3 pr-0.5 text-sm text-ink-hi"
               >
-                <X className="h-4 w-4" aria-hidden="true" />
-                <span className="sr-only">Remove {name}</span>
-              </button>
-            </li>
-          ))}
+                {name}
+                {claimed && (
+                  <span className="text-[0.65rem] uppercase tracking-wide text-ink-mid">
+                    In your trip
+                  </span>
+                )}
+                {/* 44px, the house tap-target floor — a delete is the one control nobody should hit
+                    by accident or miss by a pixel. */}
+                <button
+                  type="button"
+                  data-testid={removeTestId(name)}
+                  onClick={() => onRemove(name)}
+                  className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink-mid transition-colors hover:bg-white/10 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                  {/* The caveat rides in the NAME, not a description: someone moving button to
+                      button hears only the name, and "Remove" alone would be the same claim the
+                      old announcement made. */}
+                  <span className="sr-only">
+                    {claimed ? `Remove ${name} — your trip will count it again` : `Remove ${name}`}
+                  </span>
+                </button>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

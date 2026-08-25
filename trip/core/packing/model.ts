@@ -44,7 +44,11 @@ export const DEFAULT_TEMPLATE: readonly PackingItem[] = [
   { id: 'universal-sunglasses', label: 'Sunglasses', category: 'universal', checked: false },
   { id: 'universal-daypack', label: 'Daypack / small backpack', category: 'universal', checked: false },
   { id: 'universal-toiletries', label: 'Toiletries kit', category: 'universal', checked: false },
-  { id: 'universal-power-bank', label: 'Portable battery pack', category: 'universal', checked: false },
+  // The rules live in the label because PackingItem has no notes field (#253). The lower ceiling
+  // one carrier flags for Jan 2027 is deliberately left out until it is more than a maybe. The
+  // in-flight clause is hedged on purpose: the watt-hour limits are carrier-wide, the use-in-flight
+  // ban is carrier-by-carrier and this row states only what is firm.
+  { id: 'universal-power-bank', label: 'Portable battery pack — carry-on only, never checked; under 100 Wh (100-160 Wh needs airline approval, 2 max); many airlines now ban using or charging it in flight', category: 'universal', checked: false },
   // ── Nepal leg ─────────────────────────────────────────────────────────────
   { id: 'nepal-trekking-boots', label: 'Trekking boots', category: 'nepal', checked: false },
   { id: 'nepal-base-layers', label: 'Warm base layers', category: 'nepal', checked: false },

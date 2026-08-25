@@ -48,6 +48,7 @@ export const ETIQUETTE_TIPS: EtiquetteTip[] = [
   { title: 'Walk Clockwise', country: 'Nepal', description: 'Always walk clockwise around Buddhist stupas and prayer wheels. Spin prayer wheels with your right hand.', icon: 'RotateCw' },
   { title: 'Quiet on Trains', country: 'Japan', description: 'Keep voices low on public transport. Set phones to silent mode. Avoid phone calls on trains.', icon: 'VolumeX' },
   { title: 'No Tipping', country: 'Japan', description: 'Tipping is not practiced and can be considered rude. Service is included in the price.', icon: 'Ban' },
+  { title: 'Tax Refunds at the Airport', country: 'Japan', description: 'From 1 November 2026 shops no longer discount the tax at the till: you pay the tax-inclusive price at the register and claim the consumption tax back at the departure airport. Keep the goods and the receipts with you, not in checked bags.', icon: 'Receipt' },
   { title: 'Chopstick Etiquette', country: 'Japan', description: 'Never stick chopsticks upright in rice (funeral ritual). Don\'t pass food chopstick-to-chopstick.', icon: 'Utensils' },
   { title: 'Cash is King', country: 'Both', description: 'Nepal is heavily cash-based. Japan also uses more cash than expected. Carry local currency at all times.', icon: 'Banknote' },
   { title: 'Bowing', country: 'Japan', description: 'A slight bow shows respect in greetings. Deeper bows show more respect. Follow the local\'s lead.', icon: 'HeartHandshake' },

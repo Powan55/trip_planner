@@ -46,6 +46,7 @@ import { useDocs } from '@/hooks/use-docs';
 import { useJournal } from '@/hooks/use-journal';
 import { usePhotos } from '@/hooks/use-photos';
 import { expensesToCsvBlob } from '@/lib/expense-csv';
+import { itineraryToIcsBlob } from '@/lib/itinerary-ics';
 import { exportExpenses, parseExpenseBackup } from '@/lib/expense-export';
 import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
 import {
@@ -1374,7 +1375,7 @@ function RateField({
 
 /** Data-management group: Export/Import (reused BackupRestore) + per-domain clears behind confirms. */
 function DataGroup() {
-  const { clearAll: clearItinerary } = useItineraryContext();
+  const { clearAll: clearItinerary, plans } = useItineraryContext();
   const { expenses, clearAll: clearExpenses, restoreExpenses } = useExpenses();
   const { reset: resetBudget } = useBudget();
   const { clearAll: clearJournal } = useJournal();
@@ -1405,10 +1406,46 @@ function DataGroup() {
     URL.revokeObjectURL(url);
   };
 
+  const hasItineraryItems = plans.some((day) => day.items.some((item) => !item.deleted));
+
+  // #259 — calendar export (.ics) so itinerary items can reach a phone's lock screen / alarms.
+  // Same Blob/URL.createObjectURL/<a download> idiom as the CSV/JSON exports above.
+  const handleExportIcs = () => {
+    const url = URL.createObjectURL(itineraryToIcsBlob(plans));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'nepal-japan-itinerary.ics';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="flex flex-col gap-6">
       {/* Export / Import — the reused panel, discoverable from settings. */}
       <BackupRestore />
+
+      {/* Calendar export — one .ics file with every planned item as a VEVENT, importable into
+          a phone's calendar app for lock-screen/alarm reminders (#259). Disabled when there is
+          nothing to export. */}
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+        <h3 className="text-sm font-semibold text-white">Export to calendar</h3>
+        <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+          Download your itinerary as a calendar file (.ics) you can import into your phone&rsquo;s
+          calendar app for reminders.
+        </p>
+        <button
+          type="button"
+          onClick={handleExportIcs}
+          disabled={!hasItineraryItems}
+          data-testid="settings-export-itinerary-ics"
+          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+        >
+          <Download className="h-4 w-4" aria-hidden="true" />
+          Export itinerary (.ics)
+        </button>
+      </div>
 
       {/* Expense CSV export — a spreadsheet-ready sibling to the whole-trip JSON export
           above. Disabled when there is nothing to export (empty-safe: no zero-row file). */}
