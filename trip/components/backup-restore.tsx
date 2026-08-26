@@ -18,7 +18,8 @@ import { useDocs } from '@/hooks/use-docs';
  * - EXPORT: downloads the active trip as a single `nepal-japan-trip-backup.json.gz` file via a
  * client-side Blob URL. It carries EVERYTHING local: itinerary, journal,
  * PHOTOS (meta + bytes), expenses, budget, checklists, favorites, map anchors, share inbox.
- * - IMPORT: a file <input> → an explicit CONFIRM dialog (this REPLACES the active trip) →
+ * - IMPORT: a file <input> → an explicit CONFIRM dialog (replaces itinerary/journal/photos;
+ * merges expenses/budget/documents-checklist when synced — issue #346) →
  * `importTripBackup(file)` → on success the page reloads to re-hydrate every store.
  * A rejected/garbage file never touches live data, and a single malformed domain is dropped,
  * not fatal.
@@ -262,11 +263,19 @@ export default function BackupRestore() {
               </div>
               <p className="text-sm text-ink-mid">
                 Importing <span className="font-medium text-white">{pendingImport.name}</span> will
-                replace your current trip — <strong className="text-white">itinerary, journal, photos</strong>,
-                expenses, budget and checklists — with the contents of that file.
+                replace your <strong className="text-white">itinerary, journal and photos</strong> with
+                the contents of that file.{' '}
+                {synced ? (
+                  <>
+                    Expenses, budget and the documents checklist are merged instead — anything you&apos;ve
+                    changed on this trip since the backup was made is kept.
+                  </>
+                ) : (
+                  <>Expenses, budget and checklists are replaced too.</>
+                )}
               </p>
               <p className="mt-2 text-sm text-ink-mid">
-                This replaces the trip <strong className="text-white">on this device</strong> and cannot
+                This changes the trip <strong className="text-white">on this device</strong> and cannot
                 be undone. The page will reload once it&apos;s restored.
               </p>
               <div className="mt-6 flex justify-end gap-3">
