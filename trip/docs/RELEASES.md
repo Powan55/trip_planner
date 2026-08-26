@@ -47,7 +47,9 @@ No CI build set `basePath`, so the shipped configuration was first exercised by 
 publishes it (#268, D-427). A test written under `core/` or `hooks/` was collected by nothing and
 passed by being absent (#264, D-424). Issues now close on the merge into `dev` rather than
 waiting for a release (#276). Dependabot watches the tree (#234, D-437), and static `firebase/*`
-imports are lint-enforced off the first-load path (#214, D-432).
+imports are lint-enforced off the first-load path (#214, D-432). The service worker's precache
+rule still matched Next 15's `<route>/index.txt`; Next 16 requests segment payload files instead,
+so offline `Link` prefetches were silently failing until the rule caught up (#325, #327, D-421).
 
 **One behaviour change worth knowing before the next deploy.** The six `NEXT_PUBLIC_FIREBASE_*`
 values are now required: an empty one halts the build instead of shipping a site with

@@ -4716,6 +4716,14 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the shell grows enough that the install budget has to be re-measured, or Pages starts negotiating brotli — which moves the number this was decided on, in the cheaper direction.
 
+### D-421 · Addendum · (issue #325 / PR #327, 2026-08-25) · Next 16 requests segment payloads, not `<route>/index.txt`
+
+**The "What it buys" premise was Next-15-only, and stayed wrong until it broke.** `next/link` prefetch under Next 16 fetches `__next._tree.txt`, `__next._index.txt` and `__next.<segment>.__PAGE__.txt` — the flattened segment-payload names `flatten-segment-payloads.mjs` writes — never `<route>/index.txt`. `buildPrecacheList`’s rule only matched the whole-route file, so 99 of the 119 payload files the build emits were excluded from the precache, and every in-viewport `Link` prefetch failed offline through the worker (`net::ERR_FAILED`), issue #325.
+
+**Fix.** `gen-sw.mjs` gained a `SEGMENT_PAYLOAD` matcher (`/(^|\/)__next\.(?!_full\.txt$)[^/]*\.txt$/`) that precaches the three segment shapes; `__next._full.txt` stays excluded on purpose — 524,100 B raw for a shape the router only reaches on a segment-cache miss, never observed over a real browse. Precache 201 → 261 entries, +90 KiB gzipped. The whole-route `index.txt` rule this entry’s Decision added is KEPT, not replaced: the Next 16 client runtime still contains that fallback path, so the offline shell still holds it, but it is no longer the mechanism `next/link` prefetch actually uses — that correction is what this addendum records.
+
+**Changes if:** a future Next major renames the segment-payload shape again — same fix, same place, and the code comment beside `SEGMENT_PAYLOAD` is where to start.
+
 ### D-422 · (PWA-1, 2026-08-21) · A `.txt` cache key drops its WHOLE search, not just `_rsc`
 
 **Decision.** `cacheKey(request)` clears the entire search string when the pathname ends in `.txt`. Every other request keeps the existing delete-`_rsc`-only rule.
