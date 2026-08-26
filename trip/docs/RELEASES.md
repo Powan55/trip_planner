@@ -12,6 +12,60 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v6.1.0 (app) · 2026-08-25 · worker stays at v1.10.0
+
+Fifty merged pull requests, the whole of the backlog sweep that emptied the board. Minor rather
+than patch because five things a traveller can see are new. Nothing here touches the worker.
+
+**New surfaces.** Journal search — a substring filter over the entries already in memory, on
+`/journal` rather than in the command palette, because the palette had no mobile trigger at the
+time (#221, D-434). A print stylesheet, so the itinerary and the emergency sheet exist on paper
+when the phone does not: `/safety` restyled in place, `/plan` printing a separate 32-day sheet,
+and `/flights` folding into it rather than getting its own (#223, D-438). Calendar export to
+`.ics`, which is the only free-tier route to a reminder that survives the app being closed
+(#259). Offline photo attachments on the documents checklist, so the passport data page has a
+home that works at a counter with no signal (#258). A home clock on Travel Mode, resolved through
+an IANA zone id rather than a fixed offset so it is right outside December and January too (#220,
+D-435). Plus a photo lightbox (#307), inline expense capture inside Travel Mode (#285), local
+add and remove on the packing list (#301), and straight-line distance between a day's stops
+(#292).
+
+**Data safety.** The outbox could not tell a permission denial from a network blip, so a chunk
+refused for membership or write shape retried forever with the badge stuck on pending and no
+signal on either device (#267, D-433). The read path had the same gap (#296). Restore now
+replaces rather than merges on the domains that were quietly keeping post-backup rows (#290,
+#324), the tombstone GC horizon no longer trusts the device clock alone (#310), and a removed
+visit keeps its GPS confirmation when the itinerary is going to re-add the place anyway (#322).
+
+**Content that was wrong for a custom trip.** The first-run tour told every trip it had 32 days
+in Nepal and Japan (#244), `/packing` and `/recap` described the default trip's legs (#240,
+#293), and every item time was badged with the device's own zone (#243, D-428).
+
+**Release and CI.** The `RELEASES.md` preamble named v6.0.0 as live while v6.0.3 was tagged,
+which was failing the gate's own preamble assertion and would have blocked this release (#261).
+No CI build set `basePath`, so the shipped configuration was first exercised by the job that
+publishes it (#268, D-427). A test written under `core/` or `hooks/` was collected by nothing and
+passed by being absent (#264, D-424). Issues now close on the merge into `dev` rather than
+waiting for a release (#276). Dependabot watches the tree (#234, D-437), and static `firebase/*`
+imports are lint-enforced off the first-load path (#214, D-432). The service worker's precache
+rule still matched Next 15's `<route>/index.txt`; Next 16 requests segment payload files instead,
+so offline `Link` prefetches were silently failing until the rule caught up (#325, #327, D-421).
+
+**One behaviour change worth knowing before the next deploy.** The six `NEXT_PUBLIC_FIREBASE_*`
+values are now required: an empty one halts the build instead of shipping a site with
+cross-device sync silently off (#266, D-426). All six secrets exist, so this cannot block a
+release on arrival — but a rotated or renamed secret now stops a deploy rather than passing green.
+
+**Still open, and not fixed here.** `firestore.rules` has never been published — the credential
+does not exist, so the live ruleset is whatever was last pasted by hand (#263). Dependabot alerts
+are disabled at the repository level (#277). The visual-regression job is still not a required
+check (#262). All three are repository settings rather than code.
+
+Decisions D-424 through D-439 record the reasoning, with an addendum on D-438. D-379's duplicate
+was renumbered to D-381 (#219).
+
+---
+
 ## v6.0.3 (app) · 2026-08-23 · **LIVE** · worker at v1.10.0
 
 Two fixes, neither changes the app's own runtime behavior for a user.
