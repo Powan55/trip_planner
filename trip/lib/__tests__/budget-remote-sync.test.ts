@@ -46,6 +46,7 @@ const fake = new FakeFirestore();
 const writeLog: string[] = [];
 type SnapCb = (snap: unknown) => void;
 let lastOnNext: SnapCb | null = null;
+let lastOnError: ((err: unknown) => void) | null = null;
 
 function pathOf(segments: string[]): string {
   return segments.join('/');
@@ -93,15 +94,17 @@ vi.mock('firebase/firestore', () => ({
     };
     await update(tx);
   },
-  onSnapshot: (_ref: unknown, onNext: SnapCb) => {
+  onSnapshot: (_ref: unknown, onNext: SnapCb, onError?: (err: unknown) => void) => {
     lastOnNext = onNext;
+    lastOnError = onError ?? null;
     return () => {};
   },
 }));
 
-import { pushBudgetMerged } from '@/lib/budget-remote';
+import { pushBudgetMerged, subscribeRemoteBudget } from '@/lib/budget-remote';
 import { budgetSyncPort } from '@/lib/budget-ports';
 import { loadBudget } from '@/core/budget/storage';
+import { isReadDenied, setReadDenied } from '@/core/sync/read-denied';
 import type { Firestore } from 'firebase/firestore';
 import * as fs from 'firebase/firestore';
 
@@ -140,9 +143,11 @@ beforeEach(() => {
   fake.docs.clear();
   writeLog.length = 0;
   lastOnNext = null;
+  lastOnError = null;
 });
 afterEach(() => {
   vi.restoreAllMocks();
+  setReadDenied('budget', false); // #345: module-singleton flag — reset between tests
 });
 
 describe('pushBudgetMerged — read→merge→set does NOT clobber a concurrent peer FIELD (both survive)', () => {
@@ -237,6 +242,35 @@ describe('subscribe — first-snapshot DOC PRESENCE', () => {
     await tick();
 
     expect(loadBudget().legBudgets.japan).toBe(31000); // the peer's edit is now local
+    unsub();
+  });
+});
+
+describe('#345 — a permission-denied READ stream is classified, not endlessly retried', () => {
+  it('sets isReadDenied() and does NOT arm the `online` retry listener', async () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+
+    const unsub = subscribeRemoteBudget();
+    await tick(); // listener attaches
+
+    expect(isReadDenied()).toBe(false);
+    lastOnError?.({ code: 'permission-denied', message: 'Missing or insufficient permissions.' });
+
+    expect(isReadDenied()).toBe(true);
+    expect(addSpy.mock.calls.some(([type]) => type === 'online')).toBe(false);
+    unsub();
+  });
+
+  it('a non-denial stream error (network/quota) still arms the `online` retry, unaffected', async () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+
+    const unsub = subscribeRemoteBudget();
+    await tick();
+
+    lastOnError?.({ code: 'unavailable', message: 'network blip' });
+
+    expect(isReadDenied()).toBe(false);
+    expect(addSpy.mock.calls.some(([type]) => type === 'online')).toBe(true);
     unsub();
   });
 });

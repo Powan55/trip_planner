@@ -31,6 +31,8 @@ import { DOCS_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './firebase-remote';
 import { mergeItems } from '@/core/sync/merge-items';
+import { isPermissionDenied } from '@/core/sync/denied';
+import { setReadDenied } from '@/core/sync/read-denied';
 
 /**
  * Map a raw Firestore checklist doc into its `DocItem[]` (defensive: tolerate a partial doc).
@@ -154,6 +156,11 @@ export function subscribeRemoteDocs(): () => void {
       firestoreUnsub = onSnapshot(
         ref,
         (snap) => {
+          // #345: any snapshot event reaching here proves this device's read is no longer
+          // denied — clear whatever the error path below set (membership granted mid-session,
+          // no reload needed). Mirrors itinerary-remote.ts's #271 handling.
+          setReadDenied('docs', false);
+
           // Skip the echo of our OWN optimistic write (the authoritative server snapshot follows).
           if (snap.metadata.hasPendingWrites) return;
           // Defer until the first SERVER snapshot (a cache-sourced first event would wrongly look
@@ -182,6 +189,13 @@ export function subscribeRemoteDocs(): () => void {
           console.warn('[docs-remote] snapshot stream error:', err);
           established = false;
           firestoreUnsub = null;
+          // #345: a permission-denied read answers IDENTICALLY on every retry — arming the
+          // `online` retry here is the forever-loop, not resilience. Record it and stop; the
+          // snapshot handler above clears the flag itself on a later working reconnect.
+          if (isPermissionDenied(err)) {
+            setReadDenied('docs', true);
+            return;
+          }
           if (!cancelled) armOnlineRetry();
         },
       );
