@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { Download, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { downloadTripBackup, importTripBackup } from '@/lib/trip-backup';
 import { savePlans } from '@/lib/itinerary-storage';
-import { isRemoteConfigured } from '@/lib/firebase-config';
+import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useMyPlaces } from '@/hooks/use-my-places';
@@ -76,7 +76,7 @@ export default function BackupRestore() {
   // outbox-decorated push (a merge, not a replace — the residual gap `trip-backup.ts` documents).
   const [synced, setSynced] = useState(false);
   useEffect(() => {
-    setSynced(isRemoteConfigured() && !!getActiveTraveler());
+    setSynced(isTripRemoteConfigured() && !!getActiveTraveler());
   }, []);
 
   const handleExport = async () => {
