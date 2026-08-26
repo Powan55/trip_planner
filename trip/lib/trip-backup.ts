@@ -59,7 +59,7 @@ import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
 import { sanitizeItems as sanitizeShare } from '@/core/share/model';
 import { sanitizePlaces, type MyPlace } from '@/core/places/model';
 import { sanitizePhotos, type PhotoMeta } from '@/core/photos/model';
-import { loadPhotos, savePhotos } from '@/core/photos/storage';
+import { loadPhotos, savePhotos, deletePhotoBlobs } from '@/core/photos/storage';
 import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
 import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
 import { exportItinerary, parseBackup } from '@/core/vault/export-import';
@@ -484,7 +484,13 @@ export async function importTripBackup(
   photosSkipped += metas.filter((m) => env.photos?.blobs?.[m.id] === undefined).length;
 
   if (env.photos && 'meta' in env.photos) {
+    // #344: the meta rollback is a tombstone-replace (restore wins), so any LIVE meta id absent
+    // from the restored set is being dropped here — without this, its blob orphans forever in the
+    // app-scoped IndexedDB store (nothing else names it back to a trip to GC it later).
+    const keptIds = new Set(metas.map((m) => m.id));
+    const orphaned = loadPhotos().filter((m) => !keptIds.has(m.id));
     savePhotos(metas);
+    if (orphaned.length > 0) await deletePhotoBlobs(orphaned, blobStore);
     if (metas.length > 0) restored.push('photos');
   }
 
