@@ -9,7 +9,9 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
  * safety inherited from the gateway. Mirrors journal-storage.test.ts.
  */
 
-import { STORAGE_KEYS, packingStore, setActiveTripId } from '@/core/storage/gateway';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { STORAGE_KEYS, packingStore, setActiveTripId, keyFor } from '@/core/storage/gateway';
 import { loadPacking, savePacking } from '@/core/packing/storage';
 import { DEFAULT_TEMPLATE, type PackingItem } from '@/core/packing/model';
 
@@ -137,5 +139,103 @@ describe('loadPacking — trip-aware fallback (D-355, A-15/#102)', () => {
     window.localStorage.setItem(KEY, '{not json');
     const loaded = loadPacking();
     expect(loaded.every((i) => i.category === 'universal')).toBe(true);
+  });
+});
+
+describe('#328 — an EMPTY list is a real value, not an absent one', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
+  it('savePacking([]) writes an empty array — NOT the 28-row template', () => {
+    savePacking([]);
+    expect(JSON.parse(window.localStorage.getItem(KEY) as string)).toEqual([]);
+  });
+
+  it('loadPacking after emptying returns [] and a reload keeps it empty (the seed is for ABSENT only)', () => {
+    savePacking([]);
+    expect(loadPacking()).toEqual([]);
+    // "Reload" — every read goes back to disk, so a second call must not re-seed either.
+    expect(loadPacking()).toEqual([]);
+    expect(loadPacking()).toHaveLength(0);
+  });
+
+  it('emptying one item at a time never writes back a row the caller dropped', () => {
+    let items = loadPacking();
+    expect(items).toHaveLength(28);
+    while (items.length > 0) {
+      items = items.slice(1);
+      savePacking(items);
+      expect(loadPacking()).toHaveLength(items.length);
+    }
+    expect(JSON.parse(window.localStorage.getItem(KEY) as string)).toEqual([]);
+  });
+
+  it('an emptied list can still be added to — the next save is 1 item, not 29', () => {
+    savePacking([]);
+    savePacking([{ id: 'custom-1', label: 'Ear plugs', category: 'universal', checked: false }]);
+    const back = loadPacking();
+    expect(back).toHaveLength(1);
+    expect(back[0].id).toBe('custom-1');
+  });
+
+  it('the ABSENT slot still seeds the template — removing the key re-seeds, emptying it does not', () => {
+    savePacking([]);
+    expect(loadPacking()).toEqual([]);
+    window.localStorage.removeItem(KEY);
+    expect(loadPacking()).toEqual(DEFAULT_TEMPLATE);
+  });
+
+  it('CUSTOM TRIP: emptying the list one row at a time never lets a nepal/japan row reach disk', () => {
+    setActiveTripId('custom-1');
+    const customKey = keyFor('packing');
+    expect(customKey).toBe('trip:custom-1:packing');
+
+    let items = loadPacking();
+    expect(items.every((i) => i.category === 'universal')).toBe(true);
+
+    // Delete every row, checking the on-disk bytes after EACH write — the leak was a single
+    // save writing all 28 template rows the moment the list hit zero.
+    while (items.length > 0) {
+      items = items.slice(1);
+      savePacking(items);
+      const blob = window.localStorage.getItem(customKey) ?? '';
+      expect(blob).not.toContain('"nepal-');
+      expect(blob).not.toContain('"japan-');
+      expect(JSON.parse(blob)).toHaveLength(items.length);
+    }
+
+    expect(JSON.parse(window.localStorage.getItem(customKey) as string)).toEqual([]);
+    expect(loadPacking()).toEqual([]);
+    // the default trip's slot was never touched either.
+    expect(window.localStorage.getItem(KEY)).toBeNull();
+  });
+
+  it('CUSTOM TRIP: a re-seed after the key is removed is universal-only, never the full template', () => {
+    setActiveTripId('custom-1');
+    savePacking([]);
+    expect(loadPacking()).toEqual([]);
+
+    window.localStorage.removeItem(keyFor('packing'));
+    const reseeded = loadPacking();
+    expect(reseeded).toEqual(DEFAULT_TEMPLATE.filter((i) => i.category === 'universal'));
+  });
+});
+
+describe('packing stays a device-local slot (#227 — no sync, no outbox, no remote module)', () => {
+  it('model/storage/hook source has zero references to core/sync or any *-remote module', () => {
+    const files = [
+      join(__dirname, '../../core/packing/model.ts'),
+      join(__dirname, '../../core/packing/storage.ts'),
+      join(__dirname, '../../hooks/use-packing.ts'),
+    ];
+    for (const f of files) {
+      const src = readFileSync(f, 'utf8');
+      expect(src).not.toMatch(/core\/sync/);
+      expect(src).not.toMatch(/-remote/);
+      expect(src).not.toMatch(/firestore/i);
+      expect(src).not.toMatch(/outbox/i);
+    }
   });
 });

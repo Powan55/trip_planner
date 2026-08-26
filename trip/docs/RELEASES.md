@@ -2,9 +2,9 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v6.0.0`, deployed 2026-08-20. The newest live worker is `v1.10.0`, deployed 2026-08-23: the Firestore membership gate and the rate limiter are both live together now, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v6.0.3`, deployed 2026-08-23. The newest live worker is `v1.10.0`, deployed 2026-08-23: the Firestore membership gate and the rate limiter are both live together now, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
 
-**`v6.0.0` shipped on 2026-08-20.** Tag `v6.0.0` is `0ecb444`, that commit is `origin/main`'s head, and its deploy run (`32371000388`) succeeded — verified against the tag and the run, not against this paragraph. `v6.0.1` and `v6.0.2` are both recorded below and neither is deployed. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
+**`v6.0.3` shipped on 2026-08-23.** Tag `v6.0.3` is `e562a7b`, that commit is `origin/main`'s head, and its deploy run (`32625557281`) succeeded — verified against the tag and the run, not against this paragraph. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
 > **This paragraph was wrong for two days, which is why the sentence above says to check the tag.** It claimed `v5.14.4` was "recorded below and not yet deployed" and that `main` was at `v5.14.3`. Both were false: tag `v5.14.4` is commit `203cfc0`, that commit **is** `origin/main`'s head, `origin/main`'s `package.json` reads `5.14.4`, and its deploy run succeeded on 2026-08-14. The doc has now overstated what is live twice (`v5.14.0` was claimed about an hour early). The failure mode is always the same: this heading is edited when a release is *prepared* and nobody comes back to it when the release *ships*. Verify against `git tag` and the deploy run, never against this paragraph.
 
@@ -12,7 +12,61 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
-## v6.0.3 (app) · 2026-08-23 · worker at v1.10.0
+## v6.1.0 (app) · 2026-08-25 · worker stays at v1.10.0
+
+Fifty merged pull requests, the whole of the backlog sweep that emptied the board. Minor rather
+than patch because five things a traveller can see are new. Nothing here touches the worker.
+
+**New surfaces.** Journal search — a substring filter over the entries already in memory, on
+`/journal` rather than in the command palette, because the palette had no mobile trigger at the
+time (#221, D-434). A print stylesheet, so the itinerary and the emergency sheet exist on paper
+when the phone does not: `/safety` restyled in place, `/plan` printing a separate 32-day sheet,
+and `/flights` folding into it rather than getting its own (#223, D-438). Calendar export to
+`.ics`, which is the only free-tier route to a reminder that survives the app being closed
+(#259). Offline photo attachments on the documents checklist, so the passport data page has a
+home that works at a counter with no signal (#258). A home clock on Travel Mode, resolved through
+an IANA zone id rather than a fixed offset so it is right outside December and January too (#220,
+D-435). Plus a photo lightbox (#307), inline expense capture inside Travel Mode (#285), local
+add and remove on the packing list (#301), and straight-line distance between a day's stops
+(#292).
+
+**Data safety.** The outbox could not tell a permission denial from a network blip, so a chunk
+refused for membership or write shape retried forever with the badge stuck on pending and no
+signal on either device (#267, D-433). The read path had the same gap (#296). Restore now
+replaces rather than merges on the domains that were quietly keeping post-backup rows (#290,
+#324), the tombstone GC horizon no longer trusts the device clock alone (#310), and a removed
+visit keeps its GPS confirmation when the itinerary is going to re-add the place anyway (#322).
+
+**Content that was wrong for a custom trip.** The first-run tour told every trip it had 32 days
+in Nepal and Japan (#244), `/packing` and `/recap` described the default trip's legs (#240,
+#293), and every item time was badged with the device's own zone (#243, D-428).
+
+**Release and CI.** The `RELEASES.md` preamble named v6.0.0 as live while v6.0.3 was tagged,
+which was failing the gate's own preamble assertion and would have blocked this release (#261).
+No CI build set `basePath`, so the shipped configuration was first exercised by the job that
+publishes it (#268, D-427). A test written under `core/` or `hooks/` was collected by nothing and
+passed by being absent (#264, D-424). Issues now close on the merge into `dev` rather than
+waiting for a release (#276). Dependabot watches the tree (#234, D-437), and static `firebase/*`
+imports are lint-enforced off the first-load path (#214, D-432). The service worker's precache
+rule still matched Next 15's `<route>/index.txt`; Next 16 requests segment payload files instead,
+so offline `Link` prefetches were silently failing until the rule caught up (#325, #327, D-421).
+
+**One behaviour change worth knowing before the next deploy.** The six `NEXT_PUBLIC_FIREBASE_*`
+values are now required: an empty one halts the build instead of shipping a site with
+cross-device sync silently off (#266, D-426). All six secrets exist, so this cannot block a
+release on arrival — but a rotated or renamed secret now stops a deploy rather than passing green.
+
+**Still open, and not fixed here.** `firestore.rules` has never been published — the credential
+does not exist, so the live ruleset is whatever was last pasted by hand (#263). Dependabot alerts
+are disabled at the repository level (#277). The visual-regression job is still not a required
+check (#262). All three are repository settings rather than code.
+
+Decisions D-424 through D-439 record the reasoning, with an addendum on D-438. D-379's duplicate
+was renumbered to D-381 (#219).
+
+---
+
+## v6.0.3 (app) · 2026-08-23 · **LIVE** · worker at v1.10.0
 
 Two fixes, neither changes the app's own runtime behavior for a user.
 

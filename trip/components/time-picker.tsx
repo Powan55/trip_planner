@@ -95,7 +95,9 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
     const panel = panelRef.current;
     if (!panel) return;
     const focusable = Array.from(
-      panel.querySelectorAll<HTMLElement>('button:not([disabled])'),
+      panel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
     ).filter((el) => el.tabIndex !== -1);
     if (focusable.length === 0) return;
     const first = focusable[0];
@@ -283,7 +285,7 @@ function TimeColumn<T extends string | number>({
         role="listbox"
         aria-labelledby={`${listId}-label`}
         tabIndex={-1}
-        className="max-h-44 overflow-y-auto scrollbar-hide rounded-lg bg-white/5 border border-white/10 p-1 space-y-1"
+        className="max-h-44 overflow-y-auto overscroll-contain scrollbar-hide rounded-lg bg-white/5 border border-white/10 p-1 space-y-1"
       >
         {options.map((opt, idx) => {
           const selected = opt === value;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildItineraryStops, matchMarker, stopMarkerFor } from '@/lib/itinerary-map';
+import { buildItineraryStops, matchMarker, stopMarkerFor, segmentKm, type Placement } from '@/lib/itinerary-map';
 import { MAP_MARKERS } from '@/lib/map-data';
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
@@ -185,5 +185,39 @@ describe('S137 — buildItineraryStops includes pinned custom items as real stop
     expect(stops).toHaveLength(1);
     expect(stops[0].marker.id).toBe('jp-fushimi');
     expect(stops[0].marker.lat).toBe(34.9671); // curated coords, untouched
+  });
+});
+
+describe('issue #224 — segmentKm: stop-to-stop distance reveals a backtrack', () => {
+  const marker = MAP_MARKERS[0];
+  const exact = (lat: number, lng: number): Placement => ({
+    kind: 'exact',
+    lat,
+    lng,
+    marker,
+    via: 'pin',
+  });
+  const none: Placement = { kind: 'none' };
+
+  it('two consecutive stops with coordinates get a positive distance', () => {
+    // Asakusa → Shibuya, Tokyo — a few km apart, definitely not 0/NaN.
+    const asakusa = exact(35.7148, 139.7967);
+    const shibuya = exact(35.6595, 139.7005);
+    const km = segmentKm(asakusa, shibuya);
+    expect(km).not.toBeNull();
+    expect(km).toBeGreaterThan(5);
+    expect(km).toBeLessThan(15);
+  });
+
+  it('the same point twice (a backtrack) is ~0, not skipped', () => {
+    const a = exact(35.7148, 139.7967);
+    expect(segmentKm(a, exact(35.7148, 139.7967))).toBeCloseTo(0, 3);
+  });
+
+  it('a stop missing coordinates omits the segment — null, never NaN', () => {
+    const placed = exact(35.7148, 139.7967);
+    expect(segmentKm(none, placed)).toBeNull();
+    expect(segmentKm(placed, none)).toBeNull();
+    expect(segmentKm(none, none)).toBeNull();
   });
 });

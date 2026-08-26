@@ -82,6 +82,16 @@ describe('CRUX 1 — a delete STAYS deleted (the resurrection test)', () => {
     expect(mergePlaces(ancient, [], NOW)).toEqual([]);
     expect(mergePlaces(tombstoned, [], NOW)).toHaveLength(1);
   });
+
+  it('#238: a fast device clock (nowPt run far ahead) does not GC a tombstone the list\'s own newest stamp still calls recent', () => {
+    const fastNowPt = NOW + 60 * DAY; // this device's clock reads ~60 days ahead of reality
+    const anchor = [place('fushimi', { hlc: hlcAt(NOW - 1 * DAY, 'phoneB') })]; // the list's own newest stamp
+    const recentGhost = [place('gone', { deleted: true, rev: 2, hlc: hlcAt(NOW - 2 * DAY, 'phoneA') })];
+    // Naive `fastNowPt - 30d` blows the cutoff open to `NOW + 30d` and drops `gone` anyway;
+    // capped to the list's own newest stamp (`NOW - 1d`), it is still within the 30-day horizon.
+    const merged = mergePlaces(anchor, recentGhost, fastNowPt);
+    expect(ids(merged).sort()).toEqual(['fushimi', 'gone']);
+  });
 });
 
 describe('CRUX 2 — an un-stamped row is ordered by its real import instant, not the pt=0 epoch', () => {

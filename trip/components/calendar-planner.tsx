@@ -31,6 +31,7 @@ import { ALL_CATEGORIES } from '@/lib/itinerary-category';
 import { CalendarBulkToolbar } from '@/components/calendar-bulk-toolbar';
 import { CalendarDayPicker } from '@/components/calendar-day-picker';
 import { useCalendarDnd } from '@/hooks/use-calendar-dnd';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { freshCopyOf } from '@/hooks/use-itinerary';
 import QuickAddInput from '@/components/quick-add-input';
@@ -181,6 +182,13 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
   // server and to keep tsc/SSR honest.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Locks page scroll behind the modal (`body[data-dialog-open]`, globals.css), the half of
+  // the modal contract this editor never opted into. Ref-counted, so the nested time picker
+  // opening and closing can't clear it. Released while `hidden`: the pin picker hands the
+  // screen to the map pane, a non-modal surface the page is meant to scroll behind — and on
+  // `lg+` the map is a sticky aside the user may still have to scroll into view.
+  useDialogOpenFlag(!hidden);
 
   // present as a slide-up bottom-sheet on `<lg` (the place-detail-sheet idiom) and
   // as the existing centered panel on `lg+`. The layout is Tailwind-responsive (classes
@@ -396,7 +404,7 @@ function ItemEditor({ item, startDate, dayItems, onSave, onClose, hidden, picked
         animate={isDesktop ? { scale: 1, opacity: 1 } : { y: 0, opacity: 1 }}
         exit={isDesktop ? { scale: 0.9, opacity: 0 } : { y: 40, opacity: 0 }}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full lg:max-w-md glass-card-dark rounded-t-2xl lg:rounded-2xl p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-hide"
+        className="w-full lg:max-w-md glass-card-dark rounded-t-2xl lg:rounded-2xl p-5 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto overscroll-contain scrollbar-hide"
       >
         <div className="flex items-center justify-between mb-5">
           <h3 id={titleId} className="font-display text-lg font-bold text-white">{item ? 'Edit Item' : 'Add Item'}</h3>
@@ -1689,12 +1697,18 @@ export default function CalendarPlanner() {
       {/* mobile map bottom-sheet peek (`<lg`). Reuses the rounded-t-2xl glass sheet
           idiom: a non-modal peek fixed to the bottom that the
           page scrolls behind, expandable to near-full height. Rendered only when the map is
-          on AND we're on a phone — so exactly one PlanDayMap instance exists (see mapEl). */}
+          on AND we're on a phone — so exactly one PlanDayMap instance exists (see mapEl).
+          Tab-bar clearance is PADDING, not a `bottom` offset: the box stays flush to
+          `bottom-0`, so both height states keep the top edge they had and the expanded 85vh
+          can't be pushed off the top of a short viewport. Only the canvas shrinks, which is
+          what has to move — maplibre docks the tile attribution bottom-right of it, and
+          that's a licence condition. `md:pb-0` because the tab bar is `md:hidden` while this
+          sheet renders up to `lg`. */}
       {showMap && !isDesktop && (
         <div
           data-testid="plan-map-sheet"
           data-expanded={mapExpanded ? 'true' : 'false'}
-          className={`lg:hidden fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl glass-card-dark border-t border-white/10 shadow-2xl transition-[height] duration-300 motion-reduce:transition-none ${mapExpanded ? 'h-[85vh]' : 'h-[42vh]'}`}
+          className={`lg:hidden fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl glass-card-dark border-t border-white/10 pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))] shadow-2xl transition-[height] duration-300 motion-reduce:transition-none md:pb-0 ${mapExpanded ? 'h-[85vh]' : 'h-[42vh]'}`}
         >
           <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 shrink-0">
             <span className="flex items-center gap-1.5 text-xs font-medium text-ink-hi">
@@ -1708,7 +1722,7 @@ export default function CalendarPlanner() {
                 aria-expanded={mapExpanded}
                 aria-label={mapExpanded ? 'Collapse map' : 'Expand map'}
                 data-testid="plan-map-sheet-expand"
-                className="p-1.5 rounded-lg hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <ChevronDown className={`w-4 h-4 transition-transform ${mapExpanded ? '' : 'rotate-180'}`} />
               </button>
@@ -1717,7 +1731,7 @@ export default function CalendarPlanner() {
                 onClick={() => setShowMap(false)}
                 aria-label="Hide map"
                 data-testid="plan-map-sheet-close"
-                className="p-1.5 rounded-lg hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-lg hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-4 h-4" />
               </button>

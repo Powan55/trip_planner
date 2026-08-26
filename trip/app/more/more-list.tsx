@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type MouseEvent as ReactMouseEvent, useCallback } from 'react';
 import Link from 'next/link';
-import { LogOut } from 'lucide-react';
+import { LogOut, Search } from 'lucide-react';
 import { navItemsForActiveTrip, primaryItemsForActiveTrip, type NavItem } from '@/lib/nav-items';
 import SignOutConfirm from '@/components/sign-out-confirm';
 import { useViewTransition } from '@/hooks/use-view-transition';
@@ -26,10 +26,18 @@ import { useViewTransition } from '@/hooks/use-view-transition';
  * Sign-out mirrors the navbar's `TravelerChip`: a `<button>` wrapped in the shared
  * `<SignOutConfirm>` ( — sign-out is now a confirm-gated full local teardown, not a bare
  * `onClick`). Desktop keeps sign-out in the TravelerChip.
+ *
+ * Search mirrors navbar.tsx's "More" dropdown Search row (#281): a plain `<button>`,
+ * not catalog-driven (the palette isn't a route), dispatching the same `palette:open`
+ * window CustomEvent that `components/command-palette.tsx` listens for. Rendered
+ * unconditionally (no mount gate) since it carries no trip-dependent data.
  */
 
 // Group definitions keyed by href. Labels/icons come from the catalog.
-const GROUPS: { title: string; hrefs: string[] }[] = [
+// Exported so a test can assert every companion NAV_ITEM lands in exactly one group
+// (see lib/__tests__/nav-items-more-coverage.test.ts) — this file is the only mobile
+// path to a companion route, so a miss here is silent (#211).
+export const GROUPS: { title: string; hrefs: string[] }[] = [
   { title: 'Plan & prep', hrefs: ['/flights/', '/packing/', '/checklist/', '/safety/', '/share/'] },
   { title: 'Memories', hrefs: ['/journal/', '/recap/', '/passport/'] },
   { title: 'Account', hrefs: ['/trips/', '/profile/', '/settings/'] },
@@ -63,6 +71,27 @@ export default function MoreList() {
 
   return (
     <div className="mx-auto max-w-[680px] px-4 pb-24 sm:px-6">
+      <section aria-labelledby="more-group-search" className="mb-8">
+        <h2
+          id="more-group-search"
+          className="mb-2 px-1 text-eyebrow uppercase tracking-wide text-ink-lo"
+        >
+          Search
+        </h2>
+        <ul className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] divide-y divide-white/[0.06]">
+          <li>
+            <button
+              type="button"
+              data-testid="more-search"
+              onClick={() => window.dispatchEvent(new CustomEvent('palette:open'))}
+              className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-sm text-ink-hi outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
+            >
+              <Search className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+              <span className="flex-1">Search</span>
+            </button>
+          </li>
+        </ul>
+      </section>
       {!mounted ? (
         <div aria-busy="true" className="h-40" />
       ) : (

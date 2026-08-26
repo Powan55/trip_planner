@@ -14,6 +14,7 @@ import {
   favoritesStore,
   tourStore,
   legibilityPrefs,
+  mapWakeLockPrefs,
   installHintStore,
   isQuotaError,
   notifyQuotaExceeded,
@@ -632,6 +633,36 @@ describe('storage gateway (D-097)', () => {
       });
       expect(() => legibilityPrefs.get()).not.toThrow();
       expect(legibilityPrefs.get()).toBeNull();
+    });
+  });
+
+  // ── mapWakeLockPrefs (key 41, #247) — /map screen-wake-lock toggle, mirrors
+  //    legibilityPrefs/uiPrefs exactly: String(boolean), NOT JSON, absent = off ──────
+  describe('mapWakeLockPrefs (key 41, #247) — /map wake-lock toggle, mirrors legibilityPrefs exactly', () => {
+    it('the on-disk key string is exactly nepal_japan_map_wake_lock_enabled (additive, no migration)', () => {
+      expect(STORAGE_KEYS.mapWakeLockEnabled).toBe('nepal_japan_map_wake_lock_enabled');
+      expect(STORAGE_KEYS.mapWakeLockEnabled).not.toBe(STORAGE_KEYS.travelLegibility);
+    });
+
+    it('get() returns null when the key is ABSENT — the toggle starts OFF, never on by default', () => {
+      expect(mapWakeLockPrefs.get()).toBeNull();
+    });
+
+    it('round-trips both bools via String(boolean), not JSON', () => {
+      mapWakeLockPrefs.set(true);
+      expect(window.localStorage.getItem('nepal_japan_map_wake_lock_enabled')).toBe('true');
+      expect(mapWakeLockPrefs.get()).toBe(true);
+      mapWakeLockPrefs.set(false);
+      expect(window.localStorage.getItem('nepal_japan_map_wake_lock_enabled')).toBe('false');
+      expect(mapWakeLockPrefs.get()).toBe(false);
+    });
+
+    it('never throws when storage is disabled/throwing', () => {
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+        throw new Error('disabled');
+      });
+      expect(() => mapWakeLockPrefs.get()).not.toThrow();
+      expect(mapWakeLockPrefs.get()).toBeNull();
     });
   });
 

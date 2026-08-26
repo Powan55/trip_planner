@@ -35,9 +35,11 @@ import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
 import { LEGS, type Leg } from '@/core/budget/model';
 import { EXPENSES_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
-import { getRemote, type FirestoreMod } from './itinerary-remote';
+import { getRemote, type FirestoreMod } from './firebase-remote';
 import { mergeItems, gcTombstoneRows } from '@/core/sync/merge-items';
 import { outboxDirty } from '@/core/sync/outbox';
+import { isPermissionDenied } from '@/core/sync/denied';
+import { setReadDenied } from '@/core/sync/read-denied';
 import { realClock } from './trip-now';
 
 /**
@@ -201,6 +203,11 @@ export function subscribeRemoteExpenses(): () => void {
       firestoreUnsub = onSnapshot(
         expensesCol,
         (snapshot) => {
+          // #345: any snapshot event reaching here proves this device's read is no longer
+          // denied — clear whatever the error path below set (membership granted mid-session,
+          // no reload needed). Mirrors itinerary-remote.ts's #271 handling.
+          setReadDenied('expenses', false);
+
           // Skip the echo of our OWN optimistic write (the authoritative server snapshot follows).
           if (snapshot.metadata.hasPendingWrites) return;
           // Defer reconciliation until the first SERVER snapshot (a cache-sourced empty first
@@ -232,6 +239,13 @@ export function subscribeRemoteExpenses(): () => void {
           console.warn('[expenses-remote] snapshot stream error:', err);
           established = false;
           firestoreUnsub = null;
+          // #345: a permission-denied read answers IDENTICALLY on every retry — arming the
+          // `online` retry here is the forever-loop, not resilience. Record it and stop; the
+          // snapshot handler above clears the flag itself on a later working reconnect.
+          if (isPermissionDenied(err)) {
+            setReadDenied('expenses', true);
+            return;
+          }
           if (!cancelled) armOnlineRetry();
         },
       );

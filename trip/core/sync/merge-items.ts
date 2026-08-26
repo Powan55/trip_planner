@@ -192,19 +192,35 @@ export const DEFAULT_GC_HORIZON_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
  *
  * Drop a row iff BOTH:
  * - it is a tombstone (`deleted === true`), AND
- * - its `hlc.pt` is older than `nowPt - horizonMs`, AND
+ * - its `hlc.pt` is older than `cutoff = min(nowPt, dataNow) - horizonMs`, AND
  * - no LIVE row shares its `id` (nothing references/supersedes it).
  * Structurally unable to drop a live row (the first guard returns it untouched) or a recent
  * tombstone (still inside the horizon). Conservative + convergent: every client GCs the same row
  * at the same logical point; cross-client `nowPt` skew only delays a drop, never loses data.
+ *
+ * `dataNow` — the newest `hlc.pt` among the LIVE rows in `rows` — CAPS the injected `nowPt` (#238).
+ * A device whose real clock has run far ahead of its own data would otherwise blow the horizon open
+ * on ITS OWN read of `Date.now()`, alone, with no row anywhere near the cutoff, and prune every
+ * tombstone in the set on the next push. Capping to the data's own newest LIVE stamp means the
+ * horizon can only advance as far as some row's OWN timestamp already vouches for; a correct-clock
+ * device's data is never ahead of `nowPt`, so `min` is a no-op there. Deliberately LIVE rows only,
+ * never tombstones: anchoring on another tombstone would let two co-existing ancient, unrelated
+ * ghosts shield EACH OTHER forever (each is "recent" relative to the other), even under a perfectly
+ * correct clock. No live row at all → nothing in the set can vouch for "recent" independently of the
+ * clock → falls back to `nowPt` unchanged (today's behavior). Still a heuristic, not a trusted-clock
+ * redesign: a LIVE row minted just now BY the fast device itself (`hlcSendOrLocal` does not clamp
+ * physical time, D-228) raises `dataNow` right along with it — this closes the ambient-clock-with-
+ * no-bad-data case, not a device that mints a bad stamp into the very set being GC'd.
  */
 export function gcTombstoneRows<R extends SyncedRow>(
   rows: readonly R[],
   nowPt: number,
   horizonMs: number = DEFAULT_GC_HORIZON_MS,
 ): R[] {
-  const liveIds = new Set((rows ?? []).filter((r) => r.deleted !== true).map((r) => r.id));
-  const cutoff = nowPt - horizonMs;
+  const liveRows = (rows ?? []).filter((r) => r.deleted !== true);
+  const liveIds = new Set(liveRows.map((r) => r.id));
+  const dataNow = liveRows.length > 0 ? Math.max(...liveRows.map((r) => rowHlc(r).pt)) : nowPt;
+  const cutoff = Math.min(nowPt, dataNow) - horizonMs;
   return (rows ?? []).filter((r) => {
     if (r.deleted !== true) return true; // never drop a live row
     const tooOld = rowHlc(r).pt < cutoff;

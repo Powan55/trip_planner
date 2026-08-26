@@ -9,8 +9,11 @@
 // `Date` object, no parsing, no timezone math, no recompute anywhere in this module
 // or its presenter. The booking is the source of truth for its own arithmetic — the
 // outbound crosses the date line (totalDuration '1d 15m'), and "correcting" it would
-// be a bug. `status: 'to-book'` / ToBookPlaceholder is the ONLY sanctioned way to
-// show unbooked Japan logistics; they are never faked with invented numbers/hotels.
+// be a bug. `'to-book'` exists as a `BookingStatus` member but NO record uses it,
+// and none ever has. Adding one needs a rendering treatment that no longer exists
+// for a journey: `FlightJourneyCard` does not read `status`, and the placeholder
+// card was removed with `JAPAN_TODO` (#213). Bookings are never faked with
+// invented numbers/hotels.
 
 export type BookingStatus = 'booked' | 'to-book';
 export type CabinClass = 'Economy' | 'Premium Economy' | 'Business' | 'First';
@@ -72,13 +75,6 @@ export interface Stay {
   checkIn?: string;           // optional human label; omit if not a fixed booking fact
   checkOut?: string;
   note?: string;              // short human-readable extra line (e.g. '5 nights · 3 adults · 3 rooms'); omit if nothing extra to show
-}
-
-export interface ToBookPlaceholder {
-  id: string;                 // 'japan-hotels', 'flight-home'
-  kind: 'stay' | 'flight';
-  label: string;              // 'Japan accommodation', 'Flight home'
-  note: string;               // 'Not booked yet — Dec 19 to Jan 9'
 }
 
 export const OUTBOUND_JOURNEY: Journey = {
@@ -201,8 +197,6 @@ export const TOKYO_STAY: Stay = {
   checkOut: '10:00am Sat Jan 9',
   note: '13 nights · 3 adults · 3 rooms',
 };
-
-export const JAPAN_TODO: ToBookPlaceholder[] = [];
 
 // Convenience ordered list for the section to map over.
 export const JOURNEYS: Journey[] = [OUTBOUND_JOURNEY, RETURN_TO_JAPAN_JOURNEY, TOKYO_TO_OSAKA_JOURNEY, FLIGHT_HOME_JOURNEY];

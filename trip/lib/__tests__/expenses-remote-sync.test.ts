@@ -36,8 +36,13 @@ type DocData = Record<string, unknown>;
 
 class FakeFirestore {
   docs = new Map<string, DocData>();
+  errorListeners: Array<(err: unknown) => void> = [];
   setDocData(path: string, data: DocData) {
     this.docs.set(path, JSON.parse(JSON.stringify(data)));
+  }
+  // #345: drive the onSnapshot error callback (rules refusal / network / quota).
+  emitError(err: unknown) {
+    for (const cb of this.errorListeners) cb(err);
   }
 }
 const fake = new FakeFirestore();
@@ -71,6 +76,19 @@ vi.mock('firebase/firestore', () => ({
   persistentLocalCache: () => ({}),
   collection: (_db: unknown, ...segs: string[]) => ({ __type: 'collection', path: pathOf(segs) }),
   doc: (_db: unknown, ...segs: string[]) => ({ __type: 'doc', path: pathOf(segs) }),
+  onSnapshot: (
+    _q: unknown,
+    _onNext: (snap: unknown) => void,
+    onError?: (e: unknown) => void,
+  ) => {
+    if (onError) fake.errorListeners.push(onError);
+    return () => {
+      if (onError) {
+        const i = fake.errorListeners.indexOf(onError);
+        if (i >= 0) fake.errorListeners.splice(i, 1);
+      }
+    };
+  },
   runTransaction: async (
     _db: unknown,
     update: (tx: {
@@ -92,8 +110,9 @@ vi.mock('firebase/firestore', () => ({
   },
 }));
 
-import { pushChunkMerged, pushExpenseChunk, chunkDocToRows } from '@/lib/expenses-remote';
+import { pushChunkMerged, pushExpenseChunk, chunkDocToRows, subscribeRemoteExpenses } from '@/lib/expenses-remote';
 import { expensesSyncPort } from '@/lib/expenses-ports';
+import { isReadDenied, setReadDenied } from '@/core/sync/read-denied';
 import type { Firestore } from 'firebase/firestore';
 import * as fs from 'firebase/firestore';
 
@@ -109,10 +128,12 @@ async function flush(): Promise<void> {
 beforeEach(() => {
   localStorage.clear();
   fake.docs.clear();
+  fake.errorListeners = [];
   writeLog.length = 0;
 });
 afterEach(() => {
   vi.restoreAllMocks();
+  setReadDenied('expenses', false); // #345: module-singleton flag — reset between tests
 });
 
 describe('pushChunkMerged — transactional read→merge→set does NOT clobber a concurrent peer row', () => {
@@ -257,5 +278,34 @@ describe('SyncPort.push (outbox-decorated) — ONE merged write per CHANGED leg 
     await expensesSyncPort.push(same, same);
     await flush();
     expect(writeLog).toEqual([]);
+  });
+});
+
+describe('#345 — a permission-denied READ stream is classified, not endlessly retried', () => {
+  it('sets isReadDenied() and does NOT arm the `online` retry listener', async () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+
+    const unsub = subscribeRemoteExpenses();
+    await flush(); // listener attaches
+
+    expect(isReadDenied()).toBe(false);
+    fake.emitError({ code: 'permission-denied', message: 'Missing or insufficient permissions.' });
+
+    expect(isReadDenied()).toBe(true);
+    expect(addSpy.mock.calls.some(([type]) => type === 'online')).toBe(false);
+    unsub();
+  });
+
+  it('a non-denial stream error (network/quota) still arms the `online` retry, unaffected', async () => {
+    const addSpy = vi.spyOn(window, 'addEventListener');
+
+    const unsub = subscribeRemoteExpenses();
+    await flush();
+
+    fake.emitError({ code: 'unavailable', message: 'network blip' });
+
+    expect(isReadDenied()).toBe(false);
+    expect(addSpy.mock.calls.some(([type]) => type === 'online')).toBe(true);
+    unsub();
   });
 });

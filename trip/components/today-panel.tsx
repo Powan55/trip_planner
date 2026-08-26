@@ -18,6 +18,7 @@ import WeatherCard from '@/components/weather-card';
 import JournalCard from '@/components/journal-card';
 import TripAgenda from '@/components/trip-agenda';
 import { fetchWeather, type WeatherResult } from '@/lib/weather';
+import { getActiveTripCityCoord } from '@/core/trips/registry';
 import { describeItemTime } from '@/lib/item-time-display';
 import { FADE_FLOOR } from '@/lib/motion';
 
@@ -84,7 +85,8 @@ export default function TodayPanel() {
     }
     let cancelled = false;
     setWeatherLoading(true);
-    fetchWeather(city).then((result) => {
+    // #250: prefer this trip's own resolved coordinate over the static default-pack table.
+    fetchWeather(city, fetch, getActiveTripCityCoord(city)).then((result) => {
       if (cancelled) return;
       setWeather(result);
       setWeatherLoading(false);

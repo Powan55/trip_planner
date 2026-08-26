@@ -235,6 +235,17 @@ function WeatherBody({ data }: { data: WeatherNow }) {
             <p data-testid="weather-condition" className="mt-1 text-sm text-ink-mid">
               {data.condition}
             </p>
+            {/* What to dress for. Absent (not "—") when the response carried no apparent
+                temperature, so the row never asserts a number it doesn't have. */}
+            {data.feelsLikeC !== null && (
+              <p
+                data-testid="weather-feels-like"
+                className="mt-0.5 text-xs text-ink-mid"
+                aria-label={`Feels like ${data.feelsLikeC} degrees Celsius`}
+              >
+                Feels like {data.feelsLikeC}&deg;
+              </p>
+            )}
           </div>
         </div>
         <p className="text-right text-xs text-ink-mid" data-testid="weather-hilo">

@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Camera, ImageOff, Trash2, X, Check } from 'lucide-react';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
+import PhotoLightbox from '@/components/photo-lightbox';
 import type { PhotoMeta, PhotoOwner } from '@/core/photos/model';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogFooter,
@@ -11,8 +12,9 @@ import {
 } from '@/components/ui/alert-dialog';
 
 /**
- * PhotoAttach — the ONE reusable capture/render surface for BOTH journal
- * day-photos (owner `{kind:'journal',date}`) and expense receipts (owner `{kind:'expense',expenseId}`).
+ * PhotoAttach — the ONE reusable capture/render surface for journal
+ * day-photos (owner `{kind:'journal',date}`), expense receipts (owner `{kind:'expense',expenseId}`),
+ * and docs-checklist attachments (owner `{kind:'docs',itemId}`, #258 — passport/visa/boarding-pass scans).
  * Renders the owner's photos as thumbnails (resolved from `BlobStorePort.get` → object URL, revoked on
  * unmount), an "Add photo" control (downscale → store, with a REQUIRED alt-text + optional caption
  * prompt), a graceful placeholder for an evicted/absent blob (alt/caption survive), and inline
@@ -29,10 +31,13 @@ export default function PhotoAttach({
   owner,
   heading = 'Photos',
   altPlaceholder = 'Describe this photo',
+  helperText,
 }: {
   owner: PhotoOwner;
   heading?: string;
   altPlaceholder?: string;
+  /** Optional note rendered under the heading (e.g. the docs-row on-device-only + sensitivity copy). */
+  helperText?: ReactNode;
 }) {
   const { photosFor, addPhoto, removePhoto, hydrated } = usePhotos();
   const photos = photosFor(owner);
@@ -56,6 +61,10 @@ export default function PhotoAttach({
   // there is no capture-and-restore path for the bytes, so this is the confirm arm of the
   // house pattern, not the undo arm.
   const [pendingDelete, setPendingDelete] = useState<PhotoMeta | null>(null);
+  // Lightbox (#225): the thumbnail a photo is currently opened from + its trigger element, so
+  // closing can return focus there (the shared Sheet primitive's parent-owned focus-return idiom).
+  const [lightboxPhoto, setLightboxPhoto] = useState<PhotoMeta | null>(null);
+  const lightboxTriggerRef = useRef<HTMLElement | null>(null);
 
   // Focus the alt field when the prompt opens (first-field-on-open, mirrors the journal editor).
   useEffect(() => {
@@ -137,6 +146,12 @@ export default function PhotoAttach({
         />
       </div>
 
+      {helperText && (
+        <p data-testid="photo-helper-text" className="mb-3 text-xs text-ink-mid">
+          {helperText}
+        </p>
+      )}
+
       {/* Alt-text (required) + caption (optional) prompt, shown after a file is picked. */}
       {pending && (
         <div data-testid="photo-prompt" className="mb-3 space-y-3 rounded-lg border border-white/15 bg-surface/60 p-3">
@@ -211,7 +226,15 @@ export default function PhotoAttach({
       {photos.length > 0 ? (
         <ul data-testid="photo-grid" className="grid grid-cols-3 gap-2 sm:grid-cols-4">
           {photos.map((meta) => (
-            <PhotoThumb key={meta.id} meta={meta} onDelete={() => setPendingDelete(meta)} />
+            <PhotoThumb
+              key={meta.id}
+              meta={meta}
+              onDelete={() => setPendingDelete(meta)}
+              onOpen={() => {
+                lightboxTriggerRef.current = (document.activeElement as HTMLElement) ?? null;
+                setLightboxPhoto(meta);
+              }}
+            />
           ))}
         </ul>
       ) : (
@@ -246,6 +269,13 @@ export default function PhotoAttach({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <PhotoLightbox
+        open={lightboxPhoto !== null}
+        photo={lightboxPhoto}
+        onClose={() => setLightboxPhoto(null)}
+        onExitComplete={() => lightboxTriggerRef.current?.focus?.()}
+      />
     </section>
   );
 }
@@ -256,7 +286,15 @@ export default function PhotoAttach({
  * the words survive even when the pixels don't. The `<img alt>` is always the stored
  * alt text (a11y, never empty by construction — `addPhoto` requires it).
  */
-function PhotoThumb({ meta, onDelete }: { meta: PhotoMeta; onDelete: () => void }) {
+function PhotoThumb({
+  meta,
+  onDelete,
+  onOpen,
+}: {
+  meta: PhotoMeta;
+  onDelete: () => void;
+  onOpen: () => void;
+}) {
   const { url, missing } = usePhotoObjectUrl(meta.id);
 
   return (
@@ -274,13 +312,23 @@ function PhotoThumb({ meta, onDelete }: { meta: PhotoMeta; onDelete: () => void 
           <span className="sr-only">Photo no longer on this device</span>
         </div>
       ) : url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and disables optimization anyway.
-        <img
-          src={url}
-          alt={meta.altText}
-          data-testid={`photo-img-${meta.id}`}
-          className="h-full w-full object-cover"
-        />
+        // Opens the lightbox (#225). The delete button below is a SIBLING absolutely positioned
+        // over this tile, not a wrapper around the image, so no stopPropagation is needed here.
+        <button
+          type="button"
+          onClick={onOpen}
+          data-testid={`photo-open-${meta.id}`}
+          aria-label={`View photo: ${meta.altText}`}
+          className="block h-full w-full outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and disables optimization anyway. */}
+          <img
+            src={url}
+            alt={meta.altText}
+            data-testid={`photo-img-${meta.id}`}
+            className="h-full w-full object-cover"
+          />
+        </button>
       ) : (
         <div className="h-full w-full motion-safe:animate-pulse bg-white/[0.04]" aria-hidden="true" />
       )}

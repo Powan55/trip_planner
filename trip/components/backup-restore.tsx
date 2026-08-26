@@ -5,9 +5,11 @@ import { createPortal } from 'react-dom';
 import { Download, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { downloadTripBackup, importTripBackup } from '@/lib/trip-backup';
 import { savePlans } from '@/lib/itinerary-storage';
-import { isRemoteConfigured } from '@/lib/firebase-config';
+import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler } from '@/lib/token-auth';
 import { useItineraryContext } from '@/components/itinerary-provider';
+import { useMyPlaces } from '@/hooks/use-my-places';
+import { useDocs } from '@/hooks/use-docs';
 
 /**
  * Backup & Restore panel — mounted on `/plan`.
@@ -16,7 +18,8 @@ import { useItineraryContext } from '@/components/itinerary-provider';
  * - EXPORT: downloads the active trip as a single `nepal-japan-trip-backup.json.gz` file via a
  * client-side Blob URL. It carries EVERYTHING local: itinerary, journal,
  * PHOTOS (meta + bytes), expenses, budget, checklists, favorites, map anchors, share inbox.
- * - IMPORT: a file <input> → an explicit CONFIRM dialog (this REPLACES the active trip) →
+ * - IMPORT: a file <input> → an explicit CONFIRM dialog (replaces itinerary/journal/photos;
+ * merges expenses/budget/documents-checklist when synced — issue #346) →
  * `importTripBackup(file)` → on success the page reloads to re-hydrate every store.
  * A rejected/garbage file never touches live data, and a single malformed domain is dropped,
  * not fatal.
@@ -47,6 +50,8 @@ type Status =
 
 export default function BackupRestore() {
   const { restorePlans } = useItineraryContext();
+  const { restoreMyPlaces } = useMyPlaces();
+  const { restoreDocsChecklist } = useDocs();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   // The picked file, held while the confirm dialog is open (so Confirm can import it and Cancel can
@@ -63,13 +68,15 @@ export default function BackupRestore() {
   // Whether this build is syncing for a signed-in traveler. Under sync the itinerary is
   // restored via `restorePlans` (tombstone-replace MERGE — propagates + survives the next snapshot);
   // dormant/guest it is the plain local `savePlans` overwrite. Computed post-mount (getActiveTraveler
-  // reads localStorage → client-only) to avoid a hydration mismatch. Drives ONLY which ITINERARY
-  // commit path importTripBackup uses. Expenses/budget/docs/my-places are synced too (they are NOT
-  // local-only, whatever this comment used to claim); importTripBackup enqueues those itself through
-  // each domain's own outbox-decorated push, which self-gates on the same two conditions.
+  // reads localStorage → client-only) to avoid a hydration mismatch. Drives which ITINERARY,
+  // myPlaces and docsChecklist commit path importTripBackup uses (myPlaces: `restoreMyPlaces`,
+  // tombstone-replace, issue #239; docsChecklist: `restoreDocsChecklist`, a same-id upsert since its
+  // 18 ids are fixed, issue #295 — see `lib/trip-backup.ts`'s `CommitMyPlaces`/`CommitDocsChecklist`).
+  // Expenses/budget are synced too; importTripBackup still enqueues those through each domain's own
+  // outbox-decorated push (a merge, not a replace — the residual gap `trip-backup.ts` documents).
   const [synced, setSynced] = useState(false);
   useEffect(() => {
-    setSynced(isRemoteConfigured() && !!getActiveTraveler());
+    setSynced(isTripRemoteConfigured() && !!getActiveTraveler());
   }, []);
 
   const handleExport = async () => {
@@ -105,6 +112,8 @@ export default function BackupRestore() {
       pendingImport.file,
       undefined,
       synced ? restorePlans : savePlans,
+      synced ? restoreMyPlaces : undefined,
+      synced ? restoreDocsChecklist : undefined,
     );
     setImporting(false);
     setPendingImport(null);
@@ -254,11 +263,19 @@ export default function BackupRestore() {
               </div>
               <p className="text-sm text-ink-mid">
                 Importing <span className="font-medium text-white">{pendingImport.name}</span> will
-                replace your current trip — <strong className="text-white">itinerary, journal, photos</strong>,
-                expenses, budget and checklists — with the contents of that file.
+                replace your <strong className="text-white">itinerary, journal and photos</strong> with
+                the contents of that file.{' '}
+                {synced ? (
+                  <>
+                    Expenses, budget and the documents checklist are merged instead — anything you&apos;ve
+                    changed on this trip since the backup was made is kept.
+                  </>
+                ) : (
+                  <>Expenses, budget and checklists are replaced too.</>
+                )}
               </p>
               <p className="mt-2 text-sm text-ink-mid">
-                This replaces the trip <strong className="text-white">on this device</strong> and cannot
+                This changes the trip <strong className="text-white">on this device</strong> and cannot
                 be undone. The page will reload once it&apos;s restored.
               </p>
               <div className="mt-6 flex justify-end gap-3">

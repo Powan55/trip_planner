@@ -32,7 +32,7 @@ import type { SyncStatus } from '@/hooks/use-sync-status';
 
 const h = vi.hoisted(() => ({
   presence: [] as ActivePresence[],
-  sync: { pending: 0, lastAckAt: null } as SyncStatus,
+  sync: { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null } as SyncStatus,
 }));
 
 vi.mock('@/hooks/use-presence', () => ({ usePresence: () => h.presence }));
@@ -70,7 +70,7 @@ function setOnLine(value: boolean) {
 describe('status live regions are mounted before they have anything to announce', () => {
   beforeEach(() => {
     h.presence = [];
-    h.sync = { pending: 0, lastAckAt: null };
+    h.sync = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null };
     setOnLine(true);
   });
   afterEach(() => setOnLine(true));
@@ -109,13 +109,31 @@ describe('status live regions are mounted before they have anything to announce'
     expect(before?.children.length).toBe(0);
     expect(r.container.querySelector('[data-testid="sync-status-badge"]')).toBeNull();
 
-    h.sync = { pending: 1, lastAckAt: null };
+    h.sync = { pending: 1, blocked: 0, readBlocked: false, lastAckAt: null };
     r.rerender(createElement(SyncStatusBadge));
 
     expect(r.container.querySelector('[data-testid="sync-status-text"]')?.textContent).toBe(
       '1 pending',
     );
     expect(r.region()).toBe(before);
+
+    r.unmount();
+  });
+
+  it('SyncStatusBadge stops saying "pending" once the rules REFUSE the change (#267)', () => {
+    // `blocked` is a subset of `pending`, so this is the same one queued change — but "1 pending"
+    // promises it uploads on its own, and a refusal never does. Still ONE region, still a mutation.
+    h.sync = { pending: 1, blocked: 1, readBlocked: false, lastAckAt: null };
+    const r = render(createElement(SyncStatusBadge));
+
+    const badge = r.container.querySelector('[data-testid="sync-status-badge"]');
+    expect(badge?.getAttribute('data-state')).toBe('blocked');
+    expect(r.container.querySelector('[data-testid="sync-status-text"]')?.textContent).toBe(
+      '1 not syncing',
+    );
+    expect(r.region()?.getAttribute('aria-label')).toBe('1 not syncing');
+    // The actionable sentence is the sr-only one, not the pill: say what to do about it.
+    expect(r.container.querySelector('.sr-only')?.textContent).toContain('Trip access');
 
     r.unmount();
   });

@@ -30,13 +30,30 @@ export const JST_OFFSET_MIN = offsetForLeg('japan');
 // offset, the same convention lib/trip-now.ts's tripOffsetMinFor already uses for this case.
 const hasRealGeography = activeTrip.legs.some((l) => l.utcOffsetMin !== 0);
 
-/** The day's place offset from its leg. Looks the leg up
- * by id in the active pack; an unknown id defaults to
- * NPT. For the default pack, `'nepal'` → 345 and `'japan'` → 540 exactly as before. */
-export function offsetForCountry(c: string): number {
-  if (!hasRealGeography) return -new Date().getTimezoneOffset();
+/**
+ * The offset the PACK ITSELF declares for a leg — no device substitution, ever. Looks the leg up
+ * by id in the active pack; an unknown id defaults to NPT. For the default pack this is
+ * `'nepal'` → 345 / `'japan'` → 540; for a custom pack it is the placeholder 0.
+ *
+ * This is the offset an ASSERTION may be built on (`zoneAbbrevForOffset`, and through it the
+ * item-time badge), as opposed to the one instant math anchors on. #243: the two questions are
+ * genuinely different. "What UTC instant is this wall-clock?" has to answer something for a pack
+ * with no geography, and the device offset is the honest anchor there — that is what
+ * `offsetForCountry` and `lib/trip-now.ts`'s `tripOffsetMinFor` both do. "Which zone may we PRINT
+ * on this time?" must answer NOTHING in that case, and feeding the device answer to the first
+ * question into the second is what badged a Paris trip `EST`.
+ */
+export function declaredOffsetForCountry(c: string): number {
   const leg = activeTrip.legs.find((l) => l.id === c);
   return leg ? leg.utcOffsetMin : NPT_OFFSET_MIN;
+}
+
+/** The day's place offset from its leg, for UTC-instant math. The declared leg offset when the
+ * pack has real geography, else the device's own (see `hasRealGeography` above).
+ * For the default pack, `'nepal'` → 345 and `'japan'` → 540 exactly as before. */
+export function offsetForCountry(c: string): number {
+  if (!hasRealGeography) return -new Date().getTimezoneOffset();
+  return declaredOffsetForCountry(c);
 }
 
 /**
@@ -71,6 +88,48 @@ const ZONE_ABBREV_BY_OFFSET: Record<number, ZoneAbbrev> = {
  */
 export function zoneAbbrevForOffset(offsetMin: number): ZoneAbbrev | null {
   return ZONE_ABBREV_BY_OFFSET[offsetMin] ?? null;
+}
+
+/**
+ * The traveller's HOME zone, as an IANA id (#220).
+ *
+ * 🔴 THIS IS ASSUMED, NOT STORED. Nothing in the app records a home time zone: `TripLeg` carries
+ * `utcOffsetMin` for trip legs only, `BudgetModel` has a home CURRENCY and no home place, and
+ * `lib/preflight.ts` infers "home" from the DEVICE's own offset — which stops being home the
+ * moment the phone lands and picks up the local zone, i.e. exactly when a home clock is worth
+ * showing. The single real home fact any pack carries is the DEFAULT pack's flight-home
+ * destination, `FLIGHT_HOME_JOURNEY`'s `toSummary: 'Syracuse (SYR)'` in `lib/booking-data.ts` —
+ * which is also where the -300/EST row above comes from. A custom pack has no equivalent, so
+ * callers MUST gate on `isDefaultTrip()` and render nothing rather than show a stranger
+ * Syracuse's clock. Move this to the pack the day a pack can declare a home.
+ *
+ * An IANA id and deliberately NOT the -300 offset above: that entry is documented as
+ * December/January only, and US Eastern is -240 for most of the year, so a fixed offset renders
+ * the wrong hour whenever the clock is read outside the trip window (which is most of the time
+ * before departure). `Intl` resolves the DST rule per instant, for free, with no table to extend.
+ */
+export const HOME_TIME_ZONE = 'America/New_York';
+
+/**
+ * "Sat 9:30 PM" at `HOME_TIME_ZONE` for a real instant — the "is this a decent hour to call
+ * home" read. The weekday is part of the answer, not decoration: home is 10h45m behind Nepal and
+ * 14h behind Japan, so it is routinely still yesterday there.
+ *
+ * TOTAL: an `Intl` build with no zone data throws `RangeError` on the `timeZone` option, and this
+ * renders inside a card, so a throw would take the surrounding block down. Returns `null` — no
+ * clock — rather than a wrong one.
+ */
+export function formatHomeClock(now: Date): string | null {
+  try {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: HOME_TIME_ZONE,
+      weekday: 'short',
+      hour: 'numeric',
+      minute: '2-digit',
+    }).format(now);
+  } catch {
+    return null;
+  }
 }
 
 /**

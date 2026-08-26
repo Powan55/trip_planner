@@ -297,4 +297,23 @@ describe('#20 · trip data (outbox, per D-193 — not Firestore hasPendingWrites
     expect(check.detail).toContain('saved on this device');
     expect(check.detail).not.toContain('confirmed');
   });
+
+  it('#267 · a REFUSED change is not "waiting to upload" — it never will be', () => {
+    // Same one queued change (blocked ⊆ pending), but the pending row's promise that it uploads
+    // "on their own next time you're online" is false for a rules refusal, so the refusal wins.
+    const check = evaluateSync({ pending: 1, blocked: 1, lastAckAt: null });
+    expect(check.state).toBe('attention');
+    expect(check.headline).toBe('1 change the shared trip refused');
+    expect(check.detail).not.toContain('will upload on their own next time');
+    expect(check.detail).toContain('Trip access'); // says what to do about it
+    expect(evaluateSync({ pending: 3, blocked: 2, lastAckAt: null }).headline).toBe(
+      '2 changes the shared trip refused',
+    );
+  });
+
+  it('#267 · blocked:0 is byte-identical to the pre-#267 behaviour, and the field is optional', () => {
+    expect(evaluateSync({ pending: 3, blocked: 0, lastAckAt: null })).toEqual(
+      evaluateSync({ pending: 3, lastAckAt: null }),
+    );
+  });
 });

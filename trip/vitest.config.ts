@@ -50,12 +50,27 @@ export default defineConfig({
     // convention) — everything else about the run (jsdom, the @ alias, oxc's automatic JSX
     // runtime) is unchanged.
     //
-    // Issue #32: BOTH extensions in BOTH roots, deliberately, though today every file happens
-    // to sit on the diagonal (156 .test.ts in lib, 2 .test.tsx in components). The old pair of
-    // globs pinned each root to one extension, so the first `lib/__tests__/*.test.tsx` or
-    // `components/__tests__/*.test.ts` anyone added would have been collected by nothing and
-    // simply never run — passing CI by being absent, which is the failure mode a test suite
-    // can least afford. Widening costs nothing: the extra half of the matrix is empty today.
-    include: ['{lib,components}/__tests__/**/*.test.{ts,tsx}'],
+    // Issue #32, widened again by #264: every source root, any depth, BOTH extensions,
+    // though today all 203 files sit on the diagonal (198 .test.ts in lib/__tests__, 5
+    // .test.tsx in components/__tests__). Each narrower glob pinned the suite to one axis,
+    // so the first `lib/__tests__/*.test.tsx`, then the first `core/**/__tests__/*.test.ts`
+    // or a test beside the module it covers, would have been collected by nothing and never
+    // run — passing CI by being absent, the failure mode a test suite can least afford.
+    // Widening costs nothing: the extra matrix is empty today. Roots are enumerated rather
+    // than globbed from `.` so `e2e/` stays Playwright's alone — its specs would otherwise
+    // match on the `*.test.ts` half.
+    //
+    // D-424: `scripts/` is deliberately not a root here. Tests for scripts/-owned build
+    // tooling belong in lib/__tests__/ (see sw-handlers.test.ts, hero-image.test.ts,
+    // map-style-glyphs.test.ts) — a test placed under scripts/ is collected by nothing.
+    include: ['{app,components,core,hooks,lib}/**/*.test.{ts,tsx}'],
+    // Issue #294: default 5000ms + unconstrained fork count starve each other under full
+    // parallel load (CPU contention across ~200 files), timing out otherwise-passing tests
+    // (concierge-ops.integration, release-gate, visit-autocount, remote-auth, visited-footprint
+    // among them) that are clean in isolation. Stays on the default `forks` pool — per-file
+    // isolation there is unaffected by worker count, so this only caps how much CPU contends
+    // at once, it doesn't touch test correctness.
+    testTimeout: 20000,
+    maxWorkers: '50%',
   },
 });

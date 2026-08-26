@@ -1,3 +1,12 @@
+> **Stale: written against v5.14.0, the app has since shipped v6.0.3.** This file still calls
+> itself the authority on the final wave's scope, but the live app moved past it: `package.json`
+> is at `6.0.3` on `next 16.3.2` / `react 19.2.7`, not the `v5.14.0` cited in row S419 below. Several
+> rows in section 2 describe work as open that has since landed — check `DECISIONS.md` and
+> `docs/RELEASES.md` before treating any row here as current status. S409's instruction to set an
+> `eslint` key in `next.config.js` is also dead: Next 16 removed the key outright and warns if it is
+> present, which `next.config.js` itself now documents. Read this file for the historical record of
+> what the final wave intended, not as a live task list.
+
 # V-FINAL DEVPLAN — the last version of this app
 
 _Scope document for the final major version, written 2026-08-09 from eight research reports (S398–S405).

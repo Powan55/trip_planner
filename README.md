@@ -51,7 +51,7 @@ devices when the build is wired to Firebase.
 
 ## Tech stack
 
-- [Next.js 15](https://nextjs.org/) (App Router, static export)
+- [Next.js 16](https://nextjs.org/) (App Router, static export)
 - [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
 - [Tailwind CSS](https://tailwindcss.com/) with [shadcn/ui](https://ui.shadcn.com/) (Radix UI)
 - [Framer Motion](https://www.framer.com/motion/) for animation

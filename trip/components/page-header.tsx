@@ -19,8 +19,10 @@
  * obeys it too), and it is an inline style because a colour resolved at runtime cannot be
  * a Tailwind class. No caller overrides it yet; the seam is the deliverable.
  *
- * SERVER COMPONENT. No hooks, no state, no `'use client'` — all eight callers are Server
- * Components that export `metadata`, and this must not move that boundary.
+ * SERVER COMPONENT. No hooks, no state, no `'use client'` — the callers are Server Components
+ * that export `metadata`, and this must not move that boundary. `/packing` is the one exception
+ * and it does not move it either: `packing-header.tsx` is a client wrapper that only picks which
+ * strings to pass, the way `plan-hero.tsx` wraps PageHero.
  */
 
 interface PageHeaderProps {

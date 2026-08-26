@@ -1,13 +1,19 @@
-import { EMERGENCY_CONTACTS, SAFETY_PHRASES, DOCUMENT_CHECKLIST } from '@/core/content/safety';
-import type { EmergencyContact, Phrase, ChecklistItem } from '@/core/content/safety';
+'use client';
+
+import { EMERGENCY_CONTACTS, HAZARD_NOTES, SAFETY_PHRASES, DOCUMENT_CHECKLIST } from '@/core/content/safety';
+import type { EmergencyContact, HazardNote, Phrase, ChecklistItem } from '@/core/content/safety';
+import { useWakeLock } from '@/lib/use-wake-lock';
 
 /**
  * TravelSafetyKit — the offline travel-safety reference rendered on `/safety`:
- * emergency & embassy contacts, a Nepali/Japanese phrasebook, and a document
- * checklist. Pure presentational — no state, no fetch, no persistence. Static
- * markup only (no motion-only affordance), so it is reduced-motion-safe by construction.
+ * emergency & embassy contacts, hazard/alert notes, a Nepali/Japanese phrasebook, and a document
+ * checklist. Mostly static markup (no motion-only affordance, so it is reduced-motion-safe by
+ * construction) — its ONE piece of state is the Screen Wake Lock (issue #247), held for as long
+ * as this component is mounted: reading a phrase off the phone to someone else is the same
+ * bounded, deliberate hold-up-the-phone interaction as Travel Mode's Essentials card
+ * (`components/travel-essentials-card.tsx`), the wake lock's other always-on call site.
  *
- * A11y: each of the three sections is its own `<section>` with a real
+ * A11y: each section is its own `<section>` with a real
  * `h2`, grouped content gets an `h3`; `tel:` links carry an explicit `aria-label` (accessible
  * name) distinct from their visible digit string; every interactive
  * `tel:` link is ≥44px tall; tables get a scroll wrapper so they never force page-level
@@ -15,7 +21,12 @@ import type { EmergencyContact, Phrase, ChecklistItem } from '@/core/content/saf
  * each carrying `lang="ne"` / `lang="ja"` — see `ScriptCell` below.
  */
 export default function TravelSafetyKit() {
+  // Always-on while this page is mounted, same as TravelEssentialsCard — feature-detected,
+  // visibility-aware, releases on unmount, never throws (see lib/use-wake-lock.ts).
+  useWakeLock(true);
+
   const contactsByCountry = groupBy(EMERGENCY_CONTACTS, (c) => c.country);
+  const hazardsByCountry = groupBy(HAZARD_NOTES, (n) => n.country);
   const phrasesByCategory = groupBy(SAFETY_PHRASES, (p) => p.category);
   const checklistByGroup = groupBy(DOCUMENT_CHECKLIST, (i) => i.group);
 
@@ -45,7 +56,30 @@ export default function TravelSafetyKit() {
         </div>
       </section>
 
-      {/* ── 2. Phrasebook ────────────────────────────────────────────────────────────────── */}
+      {/* ── 2. Hazard & alert notes ──────────────────────────────────────────────────────── */}
+      <section aria-labelledby="safety-hazards-heading" className="mb-14">
+        <h2 id="safety-hazards-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
+          Hazards &amp; Local Alerts
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm text-ink-mid">
+          Two things worth knowing before you need them — this is background, not a live feed.
+        </p>
+
+        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+          {(['Japan', 'Nepal'] as const).map((country) => (
+            <div key={country} className="glass-subtle rounded-2xl p-5">
+              <h3 className="font-display text-lg font-bold text-white">{country}</h3>
+              <ul className="mt-3 flex flex-col gap-3">
+                {(hazardsByCountry[country] ?? []).map((note) => (
+                  <HazardRow key={note.id} note={note} />
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── 3. Phrasebook ────────────────────────────────────────────────────────────────── */}
       <section aria-labelledby="safety-phrasebook-heading" className="mb-14">
         <h2 id="safety-phrasebook-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Phrasebook
@@ -70,7 +104,13 @@ export default function TravelSafetyKit() {
                 aria-label={`${category} phrases`}
                 className="mt-2 overflow-x-auto rounded-xl border border-white/10 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <table className="w-full min-w-[480px] border-collapse text-left text-sm">
+                {/* #223 — `print:min-w-0` releases the 480px floor on paper. The floor exists so
+                    the three columns stay side by side on a phone and the wrapper above scrolls;
+                    a sheet has no scroll to offer, so on anything narrower than A4 the table
+                    would simply run off the right edge and lose the Japanese column. The print
+                    block's `overflow: visible` unclips the wrapper; this is what lets the table
+                    reflow into the width it is actually given. */}
+                <table className="w-full min-w-[480px] border-collapse text-left text-sm print:min-w-0">
                   <caption className="sr-only">{category} phrases — English, Nepali in Devanagari with romanization, Japanese in kana/kanji with romanization</caption>
                   <thead>
                     <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-ink-mid">
@@ -91,7 +131,7 @@ export default function TravelSafetyKit() {
         </div>
       </section>
 
-      {/* ── 3. Document checklist ────────────────────────────────────────────────────────── */}
+      {/* ── 4. Document checklist ────────────────────────────────────────────────────────── */}
       <section aria-labelledby="safety-checklist-heading">
         <h2 id="safety-checklist-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
           Document Checklist
@@ -131,6 +171,15 @@ function ContactRow({ contact }: { contact: EmergencyContact }) {
       {!contact.verified && contact.note && (
         <p className="text-xs text-amber-300/90">Unverified this session: {contact.note}</p>
       )}
+    </li>
+  );
+}
+
+function HazardRow({ note }: { note: HazardNote }) {
+  return (
+    <li data-testid={`safety-hazard-${note.id}`} className="flex flex-col gap-1">
+      <span className="text-sm font-semibold text-ink-hi">{note.title}</span>
+      <span className="text-xs text-ink-mid">{note.body}</span>
     </li>
   );
 }

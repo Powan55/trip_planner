@@ -3209,6 +3209,8 @@ Deleting the trigger closes the class rather than the six instances, and because
 
 **Changes if:** custom trips gain multiple legs or user-chosen currencies, at which point those binary ternaries stop being cosmetic and need a real per-leg lookup — the same treatment `legCurrency`/`offsetForCountry` already got.
 
+**Addendum · (issue #294, 2026-08-25) · The `remote-auth.test.ts` isolation claim above was checked and did not reproduce.** Read the full file: all mutable shared state lives in two `vi.hoisted()` objects, `beforeEach` resets every field on both, every test calls `vi.resetModules()` before importing the module under test, and Vitest's `forks` pool defaults to `isolate: true` — a fresh module registry per test file regardless of which worker runs it. No order-dependence and no cross-file mock collision found. The load-flakiness half of this entry stands (fixed separately by tuning `vitest.config.ts`'s `testTimeout`/`maxWorkers`), but the specific "not isolation-safe" claim about this one file is not reproducible as written — treat it as resolved or as never having been precisely diagnosed, not as a live defect to keep chasing.
+
 ---
 
 ### D-307 · Amended by D-339 · (issue #14 follow-up, 2026-08-11) · A map keyed by stored or imported data is read through an own-key check, at the read site — never by constructing the map prototype-less
@@ -4714,6 +4716,14 @@ D-313's text says its `while` guard "must never be removed", and the loop it nam
 
 **Changes if:** the shell grows enough that the install budget has to be re-measured, or Pages starts negotiating brotli — which moves the number this was decided on, in the cheaper direction.
 
+### D-421 · Addendum · (issue #325 / PR #327, 2026-08-25) · Next 16 requests segment payloads, not `<route>/index.txt`
+
+**The "What it buys" premise was Next-15-only, and stayed wrong until it broke.** `next/link` prefetch under Next 16 fetches `__next._tree.txt`, `__next._index.txt` and `__next.<segment>.__PAGE__.txt` — the flattened segment-payload names `flatten-segment-payloads.mjs` writes — never `<route>/index.txt`. `buildPrecacheList`’s rule only matched the whole-route file, so 99 of the 119 payload files the build emits were excluded from the precache, and every in-viewport `Link` prefetch failed offline through the worker (`net::ERR_FAILED`), issue #325.
+
+**Fix.** `gen-sw.mjs` gained a `SEGMENT_PAYLOAD` matcher (`/(^|\/)__next\.(?!_full\.txt$)[^/]*\.txt$/`) that precaches the three segment shapes; `__next._full.txt` stays excluded on purpose — 524,100 B raw for a shape the router only reaches on a segment-cache miss, never observed over a real browse. Precache 201 → 261 entries, +90 KiB gzipped. The whole-route `index.txt` rule this entry’s Decision added is KEPT, not replaced: the Next 16 client runtime still contains that fallback path, so the offline shell still holds it, but it is no longer the mechanism `next/link` prefetch actually uses — that correction is what this addendum records.
+
+**Changes if:** a future Next major renames the segment-payload shape again — same fix, same place, and the code comment beside `SEGMENT_PAYLOAD` is where to start.
+
 ### D-422 · (PWA-1, 2026-08-21) · A `.txt` cache key drops its WHOLE search, not just `_rsc`
 
 **Decision.** `cacheKey(request)` clears the entire search string when the pathname ends in `.txt`. Every other request keeps the existing delete-`_rsc`-only rule.
@@ -4754,7 +4764,9 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 
 **Changes if:** the owner adds `Visual regression (Windows baselines)` to branch protection, at which point this job is the actual gate and not just a reporting job.
 
-### D-379 · (issue #180, 2026-08-22) · The CSP is a `<meta>` tag, not a header, and that shape sets its own ceilings
+### D-381 · (issue #180, 2026-08-22) · The CSP is a `<meta>` tag, not a header, and that shape sets its own ceilings
+
+**Renumbered from D-379 by issue #219.** Two unrelated decisions were both headed `D-379`: the `windows-latest` visual job (issue #179, above) and this one. The visual-job entry keeps the id because it is the one with inbound citations — `.github/workflows/ci.yml:226` and `:279` both name D-379 and both mean that decision. This entry had none, so it moved. D-380 was already taken, so this took the next free id; D-382 through D-398 remain unused. The file's next new id is D-424.
 
 **Decision.** `lib/csp.ts` builds the policy string at build time; `app/layout.tsx` emits it as `<meta http-equiv="Content-Security-Policy">` plus a `<meta name="referrer">`. Both directives and rationale live at the point of use in `lib/csp.ts` and `layout.tsx` — this entry is the why plus the tripwires, not a restatement.
 
@@ -4780,3 +4792,327 @@ Three moves cleared the standing violations. The nine `*_CHANGED_EVENT` constant
 **What changed.** The `No credential — rules NOT published` step in `publish-rules` now sets `continue-on-error: true` and ends with `exit 1` (upgraded from an implicit exit 0). GitHub renders a `continue-on-error` step that fails with a distinct warning icon in the run summary and checks list, so the skip path is no longer a plain green checkmark indistinguishable from a real publish. The step's own `::warning::` annotation is upgraded to `::error::` to match.
 
 **What did NOT change.** `publish-rules`'s JOB conclusion is still success when the secret is absent — `continue-on-error` absorbs the step failure before it reaches the job — so `deploy: needs: publish-rules` still runs and the Pages deploy still ships exactly as it does today. The `Publish firestore.rules` step (the credential-present path) is untouched. D-399's INERT-until-armed contract stands: this fixes visibility of the skip, not the skip itself.
+
+### D-424 · (issue #264, 2026-08-24) · The vitest `include` enumerates source roots, and that enumeration is load-bearing
+
+**Decision.** `vitest.config.ts` collects `{app,components,core,hooks,lib}/**/*.test.{ts,tsx}`. Two axes widened at once: any depth under those roots, and no requirement that a test sit in a `__tests__/` directory. A test may now live beside the module it covers.
+
+**Why it needed fixing at all.** The previous glob reached `{lib,components}/__tests__/` only, so a test written under `core/` or `hooks/` — the natural home for domain logic — was collected by nothing and passed CI by being absent. That is the same failure the D-099-era comment on this line already named when issue #32 widened the *extension* axis; #32 fixed one axis and left the other. Issue #173 filed the resulting layout and was closed by a commit that touched only `rule.md`, so the mechanism survived untouched and the count grew from 191 to 198.
+
+**Do not "simplify" this to `**/*.test.{ts,tsx}` from the project root.** The roots are enumerated specifically to keep `e2e/` out of vitest's reach. Playwright's specs are all `.spec.ts` today, but Playwright's default `testMatch` also covers `*.test.ts`, so the first `e2e/foo.test.ts` would be collected by both runners and vitest would fail on the Playwright imports. Measured on the glob change in isolation: 203 files collected before and after, zero lost, no `e2e/` file swept in. The suite reports 204 once this batch's new spec lands.
+
+**Known ceiling.** `scripts/` is deliberately outside the list — it is build tooling, and its tests live in `lib/__tests__/` today. A test placed at `scripts/**/__tests__/` is still collected by nothing. Narrower instance of the same fault, left open rather than widened without a reason to.
+
+**Changes if:** a test lands under `scripts/`, or Playwright's `testMatch` is narrowed to `.spec.ts` explicitly — the second would make a root-level glob safe and this enumeration unnecessary.
+
+### D-425 · (issue #248, 2026-08-24) · The installed app does not lock orientation
+
+**Decision.** `scripts/gen-sw.mjs` emits `orientation: 'any'` in the generated web app manifest, replacing `portrait-primary`.
+
+**Why.** WCAG 2.1 SC 1.3.4 requires that content not restrict its view and operation to a single display orientation unless that orientation is essential. Nothing here is essential in that sense — no viewfinder, no signature pad, no instrument. The map and the calendar are the two surfaces that gain most from landscape, and the people this locked out are anyone whose device is mounted or who cannot comfortably rotate it.
+
+**Why the existing coverage could not have caught it.** axe does not read the web app manifest. The recorded twelve-route scan at all impact levels says nothing about this file, and no test asserted on the value — verified before changing it.
+
+**Stated rather than omitted.** `any` is the spec default, so the key could be dropped entirely. It is written out so that `portrait-primary` does not drift back in as an apparently-deliberate addition.
+
+**Changes if:** a surface ships that genuinely cannot function in landscape, in which case lock that surface, not the whole app.
+
+### D-426 · (issue #266, 2026-08-24) · The Firebase web config is a required build input, not an optional one
+
+**Decision.** `deploy.yml` halts the release when any of the six `NEXT_PUBLIC_FIREBASE_*` values is empty or whitespace-only. This reverses the previous explicit stance, recorded in that file's own comment, that an absent value simply built a localStorage-only site with no failure.
+
+**Why the old stance expired.** It was written while sync was genuinely optional. Trip join, share and the two-device check are now load-bearing, so a rotated or renamed secret ships an app with cross-device sync silently off — build green, version gate green, nothing red anywhere in the run. Same failure shape as issue #41, which is why it gets the same treatment as the concierge guard directly above it.
+
+**Six by choice, not by necessity.** `lib/firebase-config.ts:47` gates `isRemoteConfigured()` on three of the six — apiKey, projectId, appId. The other three do not affect that predicate and two are inert today. All six are still required here on purpose: they come from one console page, so a partial set is a mistake however it arose, and a missing `authDomain` is the worse shape — the gate still reports configured while auth breaks.
+
+**Hard `exit 1`, not the visible-but-not-blocking idiom used by `publish-rules`.** That idiom exists because arming the rules publish is a deferred owner decision with a documented downside. No analogous reason exists to want a deploy that ships with sync off, and fail-closed is free here: a blocked deploy leaves the working live site untouched, which matters more than usual given there is no rollback. Also structural — `continue-on-error` is a step-level key and that step ends with `npm run build`, so marking it non-blocking would swallow a real build failure too.
+
+**Names only, never values.** The guard reports a count on success and names the empty variables on failure. They do inline into the public bundle and are not really secrets, but a workflow log is still the wrong place to widen that.
+
+**Changes if:** the app stops treating cross-device sync as load-bearing, or the three inert values are removed from the build entirely.
+
+### D-427 · (issue #268, 2026-08-24) · `NEXT_PUBLIC_BASE_PATH` is set on the `checks` build only, and the omission elsewhere is deliberate
+
+**Decision.** `ci.yml`'s `checks` job builds with the same `basePath` expression `deploy.yml` derives, so the shipped configuration is exercised before the job that publishes it. The `e2e` and `visual` jobs deliberately do not set it.
+
+**Why.** Until this change nothing in CI set the variable, so every automated check ran against `next.config.js`'s empty-string default while production shipped with a prefix. `scripts/gen-sw.mjs` prefixes every precache URL from it — 198 entries on the verifying build — and that prefixed manifest was never produced anywhere except the publishing job. The class has shipped twice before: a query-parameter cleanup that double-prefixed and navigated users to a 404, visible only on the deployed site, and a `next/image` assumption that only a real basePath build disproved.
+
+**Why the browser jobs are excluded.** `scripts/serve-out.mjs` maps `/` to `out/index.html` and knows nothing about a prefix, so under a basePath build every asset and every navigation would 404. Mounting that server at the prefix is its own change. Do not add the variable to those jobs without it.
+
+**Residual, stated so it is not mistaken for done.** `deploy.yml` also sets `NEXT_PUBLIC_SITE_URL`, which `checks` still does not. Its only consumer falls back cleanly, so nothing breaks; the "CI's build environment is a strict subset of the deploy environment" framing is now less true rather than false.
+
+**Changes if:** `serve-out.mjs` learns a prefix mount, at which point the browser jobs should take the variable too.
+
+### D-428 · (issue #243, 2026-08-24) · Two offset resolvers, and which one a caller takes is a correctness question
+
+**Decision.** `core/dates/item-time.ts` exports both `declaredOffsetForCountry` — the pack's own value for a leg — and `offsetForCountry`, which is that value when the pack has real geography and the device's own offset otherwise. Callers doing UTC-instant maths take the second. Callers that **assert** a zone take the first.
+
+**Why the split.** One function was answering two different questions. "What UTC instant is this wall-clock?" must return something even when the pack declares no geography, and the device offset is the honest anchor — `lib/trip-now.ts` independently makes the same choice. "Which zone may we print?" must be allowed to return nothing. Feeding the first answer into the second is the defect: a custom trip sets `utcOffsetMin: 0` on its single leg, so a device at UTC−5 in December badged every item `EST`, including on a Paris trip.
+
+**This restores a guarantee that was already written down.** `lib/item-time-display.ts` states that an offset with no table entry — naming a custom pack's own leg offset explicitly — stays unbadged. "Silence, never a guess." The badge never reached the table because the substitution happened one function earlier. The code now matches the comment the author thought they had written.
+
+**Rejected: making `offsetForCountry` return the leg's zero.** It has fifteen consumer files doing instant maths; a US-Eastern traveller's Tonight card and now/next progress would shift five hours. Much larger blast radius for a display defect.
+
+**Changes if:** issue #250 resolves real coordinates for custom trips, at which point `declaredOffsetForCountry` is where the resolved value belongs and the badge lights up with no further change — but only for offsets already in the hardcoded table, so the existing ceiling on that table binds harder then, not less.
+
+### D-429 · (issues #242 and #241, 2026-08-24) · The dialog scroll-lock is released while the item editor is hidden, and the tab-bar contract has two forms
+
+**Decision, part one.** `calendar-planner.tsx`'s `ItemEditor` now takes the ref-counted dialog-open flag, but as `useDialogOpenFlag(!hidden)` rather than the bare call its three mount-scoped siblings use.
+
+**Why not the bare call.** During pin-pick the editor stays mounted but goes `invisible pointer-events-none`, and the interaction surface for that whole state is the map pane — non-modal by design, page meant to scroll behind it, and on large viewports a sticky aside the user may have to scroll into view. Locking there would trap desktop pin-drop, and `e2e/pin-drop.spec.ts` scrolls the canvas into view in exactly that state.
+
+**Decision, part two.** The `--tab-bar-h` contract is consumed two different ways and the choice is not arbitrary. Floating chips — the presence bar, the quick-add button, the arrival toast — take it as a `bottom` offset. Full-width bottom-anchored **panels** take it as `padding-bottom` with the large-viewport reset, leaving box geometry untouched.
+
+**Why that distinction matters here.** The mobile map sheet on `/plan` has two height states. Lifting `bottom` moves the top edge up in both, and at the expanded state on a short phone the sheet header — the collapse and close controls — goes off the top of the screen. Padding shrinks only the canvas, which is the thing that has to move: the tile attribution control is docked to the canvas, and that attribution is a licence condition rather than decoration.
+
+**Changes if:** the tab bar's height stops being published as a custom property, or a panel appears whose top edge genuinely should move with the bar.
+
+### D-430 · (issue #244, 2026-08-24) · The first-run tour is trip-aware, not gated
+
+**Decision.** The tour's Plan blurb derives its day count and destinations from the active trip config. It is not wrapped in the default-trip gate.
+
+**Why not gated.** All five stops exist on a custom trip — the destinations are primaries or a panel on `/plan`, none is default-trip-only. Gating would either render a "this belongs to another trip" notice inside a welcome modal, or delete onboarding entirely for the traveller whose app is emptiest. The leak was one string literal, not the feature.
+
+**Why the trip config and not `TRIP_DATES`.** That constant is captured at module load while the label is read at call time, so the two could pair a stale count with a fresh destination. Both halves now come from one object.
+
+**The placeholder case is guarded.** A trip joined by token with no config yet is a one-day span whose only destination is the trip's own name, so the clause drops entirely rather than claiming "1 days in Shared trip".
+
+**Related fix in the same file.** The nav lookup asked for a label that no longer exists — the entry was relabelled Today — and its `?? '/'` fallback returned Today's real href, so a broken lookup was correct by luck and nothing caught it. The fallback is now `''`: still total, because this module sits in the app-wide chunk where a module-load throw sends every route to the error boundary, but no longer able to be accidentally right.
+
+**Changes if:** a tour stop is added that genuinely does not exist on a custom trip, which would make gating that stop correct — gate the stop, not the tour.
+
+### D-431 · Addendum to D-034 · (issue #213, 2026-08-24) · The `ToBookPlaceholder` type is gone; the `to-book` status is not
+
+**What was removed.** `JAPAN_TODO` (a permanently empty exported array), the `ToBookPlaceholder` interface, and `toBookPlaceholderSchema`. The only consumers were two unit assertions confirming an empty array was empty, and the panel that once rendered it is already asserted gone by `e2e/flights-page.spec.ts`.
+
+**What survives, and why the distinction matters.** `BookingStatus` and its `'to-book'` member are independent of the deleted type. They type `Journey.status` and `Stay.status`, feed the journey and stay schemas, and drive a live rendering branch in `flights-section.tsx`. Deleting them would have broken the flights page. The two are easy to confuse because D-034's text names them in one breath.
+
+**D-034 is amended only in that respect.** Its sentence that `status: 'to-book'` and `ToBookPlaceholder` are "the only sanctioned way to show unbooked logistics" now over-states: the status half stands unchanged and remains the sanctioned way; the placeholder record type no longer exists. The rule that unbooked logistics are never faked with invented numbers or hotels is untouched.
+
+### D-432 · Amends D-423 · (issue #214, 2026-08-24) · Static firebase imports are lint-enforced, and a same-rule block must splice rather than stack
+
+**Decision.** `eslint.config.mjs` forbids static `import` of `firebase/*` and `@firebase/*` outside tests, so the SDK can only be reached through a dynamic import.
+
+**The enforcement mechanism works for a non-obvious reason.** `no-restricted-imports` registers listeners for import and export *declarations* only — it has no `ImportExpression` and no `CallExpression` listener. The permitted shape and the forbidden shape are therefore different AST node types, so `await import('firebase/app')` and inline `import('firebase/firestore').Type` are invisible to the rule by construction. **No allowlist or negation block is needed** for the modules that legitimately reach Firebase. `allowTypeImports` stays on, matching D-423, and the genuinely risky variant — value-syntax import used only as a type, whose elision depends on compiler settings — is still caught.
+
+**The constraint worth remembering is about flat config, not about firebase.** ESLint flat config **replaces** a rule's options when a later block sets the same rule name on an overlapping path; it does not merge. A new block adding this restriction over `core/**` would have silently switched off D-423's entire inward-arrow boundary for every core file, with a green build and no failing test — precisely the failure mode this issue exists to prevent. The firebase pattern is therefore spliced into the existing blocks' `patterns` arrays. **Any future restriction on a path already covered must splice too.**
+
+**Not covered, stated plainly.** `require('firebase/app')` is out of this rule's reach and is caught by the no-require rule instead. `e2e/` and `scripts/` are out of scope, being non-first-load. A disable comment still bypasses, as with any lint rule. Separately, the `lib/*-ports.ts` headers assert that the `*-remote` **module** is not imported at module scope — a local-module restriction, not an SDK one, and still unenforced.
+
+### D-433 · Amends D-423 · (issue #267, 2026-08-24) · A rules refusal is classified and stops being retried, and the classifier took a core-side home
+
+**Decision, part one.** `isPermissionDenied` now declares in `core/sync/denied.ts`, and `lib/firebase-remote.ts` re-exports it. There is still exactly one copy, and `presence.ts`, `trips-remote.ts` and the `export *` chain are unchanged.
+
+**This discharges D-423's own trigger clause literally.** That clause reads: `outbox.ts` needing a third `lib/` import is the signal it wants a core-side home rather than another negation. It also names the re-export delegate shape, which is what was used.
+
+**Rejected: threading the predicate through the `ChunkSync` port.** The value would be identical in all five domain implementations, and the five `*-ports.ts` files are on the static graph — static-importing `lib/firebase-remote.ts` into them would have put it on the dormant first-load path for the first time, breaking a promise repeated verbatim in all five headers.
+
+**Decision, part two.** A chunk whose push is refused for permission reasons is recorded in a session-scoped set and stops being attempted for that page load. It surfaces as a third sync-badge state and a matching pre-flight row.
+
+**It is never acked and never persisted.** Not acked, because the dirty record is also the first-snapshot merge exception — acking a refused chunk would let the next reload apply remote authoritatively over the very edit that could not be pushed. Not persisted, because membership can be granted later from another device; `presence.ts` sets the same per-page-load precedent, and a disk flag would need an expiry protocol. The set is keyed by the trip-scoped slot key, so singleton chunk ids cannot carry one trip's refusal into another.
+
+**Rejected: reusing the existing access-pending toast.** A toast is transient and the badge is the durable surface that was lying — dismiss the toast and it still reads "3 pending" indefinitely. The wording is also wrong for a write-shape refusal.
+
+**This makes the failure legible, not recoverable.** Recovery is still that a member adds the device, and that path was not built here. It matters most as a precondition for arming the Firestore rules publish: without it, stranding a traveller by publishing before inspecting the live rosters produces nothing anyone would find.
+
+**Known ceiling.** Per-tab and per-page-load; two tabs each learn a refusal independently, and membership granted mid-session needs a reload. The read side is also unclassified — the snapshot stream's error callback warns and retries without checking for a denial — which is a sibling gap, not this one.
+
+**Changes if:** the read path is classified too, or a recovery flow lands that can clear a refusal without a reload.
+
+### D-434 · (issue #221, 2026-08-24) · Journal search lives on `/journal`, not in the command palette
+
+**Decision.** A substring filter over `useJournal().entries` in `components/journal-browse.tsx`, exported as `matchesJournalQuery`. No index, no dependency, no second read path.
+
+**The issue proposed a palette group and that was rejected on a fact, not a preference: the command palette has no mobile trigger.** Its only two openers are the Cmd/Ctrl+K binding, which needs a physical keyboard, and the More-menu Search row in the desktop navigation — `navbar.tsx` records that the mobile hamburger was removed, and neither the bottom tab bar nor `/more/` carries a Search row. The journal is written and re-read on a phone mid-trip, so a palette-only search would have shipped unreachable for its whole audience. Filed separately as issue #281, because it makes plan search, the currency converter and section jumps desktop-only too.
+
+**Active-trip scoping is structural, not a filter.** `useJournal()` reads through the gateway's trip-namespaced key, so the filter's output is a subset of the active trip's entries by construction — the same guarantee the palette's own plan group relies on.
+
+**Mood is deliberately not matched.** It is a chip facet; "good" is too common a word in a body for it to be a useful substring.
+
+**If a mobile palette trigger ever lands, `matchesJournalQuery` is the extraction point. Do not duplicate the matcher.**
+
+### D-435 · (issue #220, 2026-08-24) · `HOME_TIME_ZONE` is an assumption, and it is an IANA id on purpose
+
+**Decision.** A home clock renders on the Travel Mode essentials card, gated to the default trip. The zone is one exported constant in `core/dates/item-time.ts`.
+
+**The app stores no home location.** There is a home *currency* in the budget model and nothing else. The zone is derived from the default pack's flight-home destination and is written down as an assumption rather than smuggled into a component. A custom trip renders no clock at all rather than showing a stranger someone else's home time.
+
+**It is an IANA zone id, not the `-300` offset, and that is the load-bearing detail.** The offset table's US Eastern row is documented as December and January only; the zone is `-240` for most of the year. A home clock gets read months before departure, so a fixed offset would show the wrong hour nearly all the time. `Intl` resolves the offset per instant, including across the DST boundary inside the reading window.
+
+**It reads the real clock, never the trip's.** The `?today=` override moves the trip's day; it does not move the wall time at home.
+
+**Changes if:** a pack can declare a home, at which point this moves onto the pack and the default-trip gate comes off.
+
+### D-436 · (issue #236, 2026-08-24) · A removal the itinerary will undo is announced as temporary, not prevented
+
+**Decision.** `/profile` marks a row the active trip names, carries the caveat in the remove button's accessible name, and announces that the place will be counted again. The button stays and `removeVisit` is unchanged.
+
+**Why not hide or disable the control.** The write is real — the row goes, the count drops, disk changes. Only its permanence was over-claimed. Hiding remove for a trip-claimed place would encode "the itinerary wins" into the UI, and `core/places/visited.ts` records that decision as deliberately open. A disabled control with no explanation is also worse for a screen reader than a labelled live one.
+
+**The claimed set is the whole trip, not the arrived-so-far prefix.** The prefix version is clock-dependent and would still lie about a future city — remove it in August, and it silently returns the day the trip reaches it. Using every trip place makes the sentence true in both cases and needs no clock.
+
+**This does not settle the ceiling at `removeVisit`.** Which record wins, the itinerary or the person, is still open. Note the related asymmetry filed as issue #279: the removal drops the city's GPS confirmation permanently while the city itself returns.
+
+### D-437 · (issue #234, 2026-08-24) · Dependabot watches `trip/`, targets `dev`, and may move the SHA pins
+
+**Decision.** `.github/dependabot.yml` with the npm and github-actions ecosystems, monthly, grouped, majors ungrouped.
+
+**Two settings are silent when wrong.** `directory: /trip`, because that is where the only manifest lives and the default `/` would watch nothing while looking identical to "no updates available". `target-branch: dev`, because everything lands there first — with the consequence that this config does **not** apply to Dependabot security updates, which always target the default branch.
+
+**`.npmrc` is honoured, which is the thing that decides whether this config is useful at all.** Dependabot fetches a committed `.npmrc` from the configured directory, preserves it apart from interpolated and timeout lines, and writes it beside the lockfile before resolving. So `legacy-peer-deps=true` is in force and the `@types/node` peer conflict never fires. This matters because Dependabot deliberately does not retry with that flag on a peer-dependency failure — without the committed file, every PR it opened would fail to resolve.
+
+**The actions ecosystem is enabled despite every `uses:` being SHA-pinned.** Pinned actions never generate advisories, by design, so a scheduled bump is the only coverage they have; pinning without one is a slow freeze onto old releases. Dependabot rewrites both the SHA and the bare version comment, so the pin keeps its meaning.
+
+**No `npm audit` step in CI.** It would go red on two transitive low-severity advisories for a dev-only issue and block merges, which is the wrong trade.
+
+**This does not close the advisory gap.** Dependabot alerts are disabled at the repository level — a settings toggle, not a file. Filed as issue #277.
+
+### D-438 · (issue #223, 2026-08-24) · A print stylesheet is not a light theme, and does not reopen D-009
+
+**Decision.** One `@media print` block appended to `app/globals.css`, plus Tailwind `print:` variants. Two routes earn a designed paper layout: `/safety` restyled in place, and `/plan` rendering a separate print-only 32-day sheet. `/flights` gets none — its bookings fold into the plan sheet.
+
+**Why this does not reopen dark-only.** Print is a separate media context the browser selects when the output device is paper. It adds no toggle, no theme class, no user-facing choice, and cannot match at screen. Ink is subtractive: on paper white is the absence of toner, so the night canvas is not merely expensive to print, it is unreadable once printed.
+
+**The safety property, and how it is checked.** The block is appended, and everything before it is byte-identical to the prior revision, with exactly one `@media` in the added text. That is verifiable mechanically rather than by reading, and it is what guarantees no screen rule moved.
+
+**Why `/plan` gets a twin rather than a restyle.** The planner shows one day at a time, so restyling it for paper prints a month grid and a single day — not an itinerary.
+
+**Why `/flights` gets nothing.** A traveller carries one sheet, not three, and proof of onward travel is only proof when it is attached to the itinerary. The flight cards are a live-status and deep-link surface whose value is entirely on screen.
+
+**Ink tiers are `#000` / `#333` / `#555` on white — 21.00, 12.63 and 7.46 to one.** The floor lands within 0.04 of the screen ramp's own floor, so the three-tier contrast decisions hold on paper as written rather than by luck. Still three tiers, no fourth.
+
+**Two things only rendering finds, both handled.** The gradient heading classes set `-webkit-text-fill-color: transparent`, so stripping the gradient and setting a colour leaves those headings invisible. And framer-motion parks unrevealed elements at an inline `opacity: 0`, which a print job renders regardless of what anyone scrolled to — an author `!important` is the only thing that reaches them.
+
+**Known ceiling: no page numbers.** The `@page` margin-box counters that would provide them are a paged-media feature no browser ships. Numbered day headings carry the ordering instead.
+
+### D-439 · (issues #252 and #253, 2026-08-24) · A time-windowed checklist claim is anchored in the label, not in a new field
+
+**Decision.** The Nepal visa row names the earliest useful date in its own label, and the power-bank row states the carry-on rules in its own label.
+
+**Why not a due-date field on the row type.** `DocItem` extends the synced row type, so a new field drags the merge and rules surface along with it — for a value that never varies, because the trip dates are fixed. A literal in the copy is the smaller and more honest change. `PackingItem` has no notes field at all, so the label is the only place the rules can go.
+
+**Why these read as they do.** The visa receipt is valid fifteen days, so ticking the row in September is a false green on the one item that gates entry; the anchor is chosen to sit inside the window under either inclusive or exclusive day-counting. The power-bank row states only the firm carrier-wide rules and deliberately omits the lower ceiling one carrier flags for January 2027 — encoding a maybe into a packing label is how a wrong label ships in December.
+
+**These rest on external facts that can move.** They are worth re-verifying before departure, and the claims are kept short specifically so that re-check is cheap.
+
+### D-438 · Addendum · (issue #223, 2026-08-24) · The sr-only carve-out, and the honest version of the eager-mount trade
+
+**`.sr-only` keeps its clip, and the universal `overflow: visible` must never take it away.** That rule is the pagination fix — a clipped box cannot flow onto page two — but `.sr-only`'s `clip: rect(0,0,0,0)` is a **paint** clip, not a layout one. Unclipping it prints nothing extra, and the text still lays out at full width. Measured on `/checklist`: `scrollWidth` 1905px against a 794px A4 page, entirely from one visually-hidden string. The consequence is not a visible break — it is the print dialog silently shrinking the whole document to fit, and a headless `page.pdf` clipping it. Both failures are the kind nobody notices until they are holding the paper.
+
+**That carve-out is pinned by `e2e/print.spec.ts`,** which asserts `documentElement.scrollWidth <= clientWidth` in print media on `/plan`, `/checklist` and `/safety`. Verified to bite: with the carve-out removed, `/checklist` fails and the other two still pass.
+
+**The print sheet's title comes from the active pack, not a literal.** Every other value on the sheet is pack-derived, so a hardcoded title printed a custom trip's real dates and days under the default trip's name — the same leak class the bookings block on the same sheet is already gated against.
+
+**The eager-mount reasoning first recorded here was wrong twice, and the correction is worth more than the original.** Measured from a real build, the island is its own chunk at 14,045 B raw / 5,047 B gzipped, and it does **not** appear in `/plan`'s HTML — First Load JS is unchanged either way, so deferring it would save nothing on load. The two reasons originally given for mounting eagerly do not survive either: `dynamic(ssr:false)` also mounts after hydration, so both the print-races-the-chunk-load window and the layout-shift argument apply equally to that form. The window is shortened by mounting eagerly, not closed.
+
+**The real cost runs the other way, and it is the number to weigh if this is revisited.** On screen the hidden sheet is 1,218 of `/plan`'s 2,119 DOM nodes. It consumes the itinerary context, so every itinerary edit re-renders 32 days and reconciles those hidden nodes. That is the price of the sheet always being there, and it is paid on every edit in the planner rather than in kilobytes on load.
+
+**Worth naming as a general lesson:** the original comment was long, confident, and two of its three claims were wrong. Length read as authority. A shorter comment with a measured number in it would have been harder to get wrong and easier to check.
+
+### D-440 · (issue #227, 2026-08-25) · Packing gets local add/remove/custom items — D-201's named trigger fired, no schema change
+
+**Decision.** `core/packing/model.ts` gains `addItem`/`removeItem`, total pure functions mirroring the existing `addExpense`/`removeExpense` id-injection shape. A custom item is minted with a `custom-<ts>-<rand>` id (prefixed so it can never collide with the fixed template's `nepal-`/`japan-`/`universal-` ids) and stored in the existing gateway key 21 slot alongside the template — no new key, no schema change. Custom items are bucketed into the existing `universal` category rather than adding a fourth `PackingCategory` value; `isPackingCategory`/`CATEGORY_META`/`CATEGORY_ORDER` are untouched.
+
+**Why.** D-201 named its own trigger for revisiting the fixed-template decision: "user-added custom packing items being wanted." That trigger fired via #227. Bucketing into `universal` rather than minting a category was the smaller diff, needed no category-picker UI, and composes correctly with the existing custom-trip fallback in `core/packing/storage.ts` (which already filters the template to `universal`-only for a non-default trip).
+
+**What did not change.** Packing stays a device-local, non-synced domain — no outbox chunk, no merge rules, no Firestore rules shape. That was D-201's other named condition for a *future* decision ("packing sync is a whole new synced domain... a separate decision"), and this slice deliberately did not touch it.
+
+**Changes if:** packing sync is ever wanted — that is still the separate, larger decision D-201 flagged, unaffected by this one.
+
+### D-443 · (issue #247, 2026-08-25) · Wake lock policy: always-on for a bounded interaction, opt-in toggle for a route that can sit open
+
+**Decision.** `lib/use-wake-lock.ts` now has three call sites. Travel Mode and the safety phrase card (`travel-safety-kit.tsx`) both hold the lock unconditionally (`useWakeLock(true)`) — each is a bounded, deliberate hold-up-the-phone interaction with a natural end. `/map` (`map-section.tsx`) instead gets an explicit user toggle, persisted via a new gateway key (`mapWakeLockEnabled`, mirroring the existing boolean-persisted-toggle shape used elsewhere), defaulting off.
+
+**Why the map route is different.** Travel Mode and the phrase card are interactions someone is actively holding the phone through; `/map` is a route someone can leave open in a pocket. An always-on lock there would drain battery on a trip that is already rationing it for a benefit nobody asked for in that moment.
+
+**The general rule for the next consumer.** A wake lock on a bounded, actively-attended interaction can be unconditional. A wake lock on a route that could plausibly sit open and unattended needs an explicit, persisted, off-by-default toggle. This is the test to apply before wiring `useWakeLock` into a fourth surface.
+
+**Changes if:** a bounded-interaction surface turns out to have a realistic "left open in a pocket" failure mode too — then it should move to the toggle pattern, not stay unconditional.
+### D-442 · (issue #238, 2026-08-25) · Tombstone GC horizon is anchored on data, not just the device clock
+
+**Decision.** `gcTombstoneRows` (`core/sync/merge-items.ts`) is the one predicate all three GC call sites route through (itinerary's `gcTombstones`, expenses' `gcTombstoneRows`, and `core/places/merge.ts`'s `mergePlaces`). Its cutoff was `deviceClock - horizonMs`; it is now `min(deviceClock, newestLiveRowStamp) - horizonMs`, where the anchor is the newest `hlc.pt` among the *live* rows in the set being GC'd (tombstones excluded from the anchor), falling back to the device clock when there is no live row at all.
+
+**Why live rows only.** An anchor drawn from tombstones lets two ancient tombstones shield each other — each reads as "recent" relative to the other regardless of how wrong the clock is — and a single lone tombstone becomes its own anchor and can never be collected. A live row is written by a real device acting now, so it is an independent check the clock can't self-referentially satisfy.
+
+**Why.** A device clock genuinely ~30 days fast pruned every tombstone in a document and pushed the pruned result; an offline peer holding the pre-delete row then re-added it, undoing the delete for the whole group. `lib/trip-now.ts` had already closed the *simulated*-clock vector; this closes the real-wrong-clock one, without a trusted-clock redesign — the horizon logic itself is unchanged, only its clock source.
+
+**Residual, not closed.** A device with both a bad clock and a fresh live edit in the *same push* still poisons its own anchor — `hlcSendOrLocal` never clamps physical time (D-228). That self-poisoning case is out of scope; what this closes is GC reading a clock decoupled from anything in the document at all, which was the reported mechanism.
+
+**Changes if:** the self-poisoning residual above becomes a real observed failure — that needs clamping physical time at the HLC layer (D-228), a separate and larger decision.
+### D-441 · (issue #228, 2026-08-25) · A booking made mid-trip is shown via a local override layer, not a `booking-data.ts` edit
+
+**Decision.** `core/bookings/override.ts` adds a local-only, trip-scoped `BookingOverrideMap` (gateway key 40, `nepal_japan_booking_overrides`) keyed by the same id space `lib/booking-data.ts` already exports (`Journey.id` / `Stay.id`). `/flights` (`components/booking-override-editor.tsx`) is the only editor: a small inline form (carrier/hotel name, confirmation number, two verbatim labels, a note) that appears beside any entry whose static status is `'to-book'`. `components/flights-section.tsx` merges an override onto the matching `Journey`/`Stay` at render time via `applyJourneyOverride`/`applyStayOverride`, which return a new object (or the identical input reference when there is no override) — `booking-data.ts` is never imported for anything but its `Journey`/`Stay` types, never edited, and its exported consts are proven unmutated by the merge.
+
+**Why this doesn't violate D-034.** D-034 locks `booking-data.ts` as read-only presentation data with a single writer: a human editing the module and redeploying. That module is untouched by this slice. The override is a separate, additive layer that only ever touches the display copy handed to `FlightJourneyCard`/`StayCard`; clear the override and `/flights` reverts to rendering `booking-data.ts` exactly as authored. Nothing here makes the module writable.
+
+**Scope.** Local-only, no sync (mirrors `favoritesStore`) — an override made on one device is not visible to another traveler's, unlike a real booking. It overlays only the fields the small form collects; it does not reconstruct a multi-leg itinerary or new layovers, and it does not populate `flight-journey-card.tsx`'s existing "Confirmation" chip (that chip's `undefined` is D-034's own "never fabricated" contract on the static data — the override's confirmation number shows in a separate summary panel instead). It rides the existing whole-trip backup/restore (`lib/trip-backup.ts`) as a plain local-only domain, matching `dayAnchors`.
+
+**Changes if:** a booking needs to be visible to every traveler on the trip, not just the device that entered it — that is real sync, a materially bigger decision, and is not what this slice does.
+
+### D-444 · (issues #239, #295, 2026-08-25) · docsChecklist restore is a same-id upsert — a third named restore shape
+
+**Decision.** `hooks/use-docs.ts` gains `restoreDocsChecklist(backup)`. Dormant is a plain `commit(() => backup)` overwrite (byte-identical, unchanged). Under sync it's `commit(current => mergeItems(current, backup))` — the same `mergeItems`/`resolvePair` HLC comparator every synced domain already shares, applied per fixed id: whichever side's stamp is newer wins. Wired into `lib/trip-backup.ts` as a 5th optional `CommitDocsChecklist` param on `importTripBackup`, mirroring the `commitMyPlaces` injection shape, and into `components/backup-restore.tsx` gated on `synced`.
+
+**Why a third shape, not a repeat of expenses/myPlaces.** Those two restore by tombstoning every live row absent from the backup and re-adding the backup's rows under fresh ids — correct for domains that add/remove freely. `core/docs/model.ts`'s `DocItem` is a fixed, meaningful-id template (`passport-validity`, `nepal-visa`, …) with no add/remove path and no tombstone mechanism at all; minting a fresh id on restore would disconnect a row from the id `toggleItem`/`setNote`/`docsCompletion` look it up by. Same-id upsert-by-stamp is the correct shape for a domain whose id space is closed and permanent, not a compromise.
+
+**What was actually broken before this.** Restore routed through the generic `enqueueRestored` path — a blind overwrite of local disk with the backup's raw rows, no stamp comparison at all. A live edit made after the backup was taken got silently reverted by a restore, the exact "restore merges instead of replacing" defect class #239 named, just manifesting as the opposite direction (over-writing forward edits) rather than under-writing them.
+
+**The general rule going forward.** Three restore shapes now exist for three real domain shapes: fresh-id tombstone-replace (expenses, myPlaces, itinerary — open id space), same-id upsert-by-stamp (docsChecklist — fixed id space, no add/remove), and not-yet-solved (budget — field-level LWW, no per-row shape at all, tracked separately). Before wiring a new domain's restore, name which of the three its storage shape actually matches — don't default to copying expenses' shape because it was first.
+
+**Changes if:** budget gets a real per-field restore design — that is its own decision, unrelated to this one.
+
+### D-447 · (issue #333, 2026-08-25) · An absence claim needs an explicit count assertion, and a persistence test must read back through production code
+
+**Decision.** Two test rules, both learned by finding tests that stayed green while the code under them was broken.
+
+**One: `toBeHidden()` and `if (await locator.count())` both pass for an element that does not exist.** So a test asserting something is hidden, or guarding an assertion on presence, survives that element being deleted outright. Any such claim needs `expect(await locator.count()).toBeGreaterThan(0)` first. Proven: renaming both target test ids in the app and rebuilding left the offending test green.
+
+The same file already carried this rule in a comment on an earlier test, and the last test in it did the opposite anyway. Knowing the trap is not enough — the count assertion has to be written.
+
+**Two: a persistence test that reads storage directly proves nothing.** The one named "the localStorage reload proof" unmounted, remounted, and then asserted with a direct `localStorage.getItem`. No production code ran between the write and the check, and deleting the remount entirely left it green. A reload test has to read back through the component or hook that does the rehydrating.
+
+**Both were found by mutation, and that is the standard worth keeping.** Twenty-four production mutations were run across the tests that landed in one day: nineteen were caught, five were not. Passing proves a test compiles and does not throw; only breaking the code under it proves the test would notice. Every fix here was accepted on the same evidence — apply the mutation, see red, restore, see green.
+
+**Three related shapes to distrust**, all found in the same pass: an assertion on a value the test itself constructed (a fixture that hand-picks ids which cannot collide, then asserts they do not collide); an assertion that re-runs the implementation to compute its own expected value (comparing against `-new Date().getTimezoneOffset()` when that is exactly what the function does — it binds to the runner's clock, and what it accepts changes silently at every DST boundary); and a branch whose precedence is never exercised because no test sets both inputs at once.
+
+**Not every guard of this shape is wrong.** A `count()` check preceding a settle — waiting for an animation on an element that may legitimately be absent — is correct, because there is nothing to settle when it is missing. The distinction is whether the absence is the thing being claimed or merely tolerated.
+
+**Changes if:** a linting rule can catch the bare `toBeHidden()` case mechanically, at which point the convention stops depending on review.
+### D-445 · Supersedes D-441 · (issue #329, 2026-08-25) · The booking-override layer is removed; `'to-book'` is a type member with no instances, not a feature key
+
+**Decision.** The local booking-override layer is deleted — editor, hook, core module, gateway key, backup domain and its tests. `BookingStatus`'s `'to-book'` member and the status chip stay; they are independently typed and removing them is a separate call.
+
+**Why, and the fact that decides it.** D-441 gated the feature on `Journey.status === 'to-book'`. **No `Journey` or `Stay` has ever carried that status, in any revision of `lib/booking-data.ts`.** Checked across every revision of the module: the sole match in each is the header comment, not a record. On `dev` the count is eight `'booked'` and zero `'to-book'` outside that comment. The gate was `false` for all eight records from the day it was written, so the editor has never rendered.
+
+**The unbooked surface was never the same shape.** `JAPAN_TODO` was `ToBookPlaceholder[]` — `{id, kind, label, note}`, with no `status` field — rendered by its own card in a separate panel. It could not have satisfied the gate either. Its deletion in #213 is a coincidence, not the cause, and restoring it would fix nothing.
+
+**The root cause is a comment, not a collision.** `booking-data.ts`'s header asserted that `status: 'to-book'` was "the ONLY sanctioned way to show unbooked logistics" — an aspirational contract written in the first commit and never once exercised. Three passes trusted that sentence without grepping the eight records: the slice that built the feature, D-431's addendum claiming the status "drives a live rendering branch" (it does not — the chip is typed for both values and has only ever rendered the booked one), and the issue that first diagnosed the bug. The header and the matching row in `docs/trip-content.md` are corrected in the same change, because that prose is what the next person would read.
+
+**Why not author a `to-book` record.** The booking data is deliberately fictional scrubbed sample content, so there is no real reservation to be honest about. A `to-book` journey would render identically to a booked one — `FlightJourneyCard` does not read `status`, and the placeholder card went with `JAPAN_TODO` — so it could only ever work for a stay, leaving the flights half unreachable. Flipping a stay would contradict its own check-in and check-out facts and the `/flights` masthead copy that a prior fix made honest, which an e2e assertion pins.
+
+**Why not re-key it onto every booking.** Overriding a *confirmed* booking is a different feature from graduating a placeholder. It needs per-leg targeting — the apply function overlays the first leg only, and the outbound has three — and a user-typed flight number silently kills the live-status rail, whose carrier map is deliberately bounded to this pack's four fictional airlines. That is a new slice with a new decision against D-034's never-faked rule, not a four-line unguard.
+
+**Migration cost is zero, and provably so.** `origin/main` at v6.0.3 contains none of these files, so no shipped build has ever written the storage key and it cannot exist on any device. An absent backup domain is omitted from the envelope without a version bump.
+
+**One consequence worth recording.** `print-itinerary.tsx` claims in a comment that it reads the same static booking data `/flights` does, with no second source. That became false when the override layer landed and is true again by deletion — the paper sheet and the Travel Mode flight row read the static data raw, so any future override feature must bring all three read paths into scope from the start.
+
+**Changes if:** a custom trip ever gets a `/flights` surface — it is default-trip-gated today — at which point a mid-trip booking is a real requirement and deserves a real design, keyed on the leg rather than the journey, with the deep-link carrier map and the print and Travel Mode read paths in scope from the beginning.
+
+**Standing lesson:** a brief that asserts the state of shipped data must cite the grep. This one cost a feature, a decision entry, and a wrong diagnosis before anyone checked eight records.
+### D-446 · Amends D-201 · (issue #328, 2026-08-25) · Packing: an absent slot is not an empty one
+
+**Decision.** The built-in template seeds a packing slot that was **never written**. A slot holding `[]` is a traveller who deleted every row, and it stays empty across reloads. `loadPacking` separates the two on raw key presence via the gateway's `hasKey`, never on list length. `savePacking` sanitizes with an empty fallback, so a write persists what the caller passed and nothing else.
+
+**What was wrong.** `sanitizeItems` ends "if nothing survived, return the fallback", and `savePacking` called it without one — so the default full template applied. Emptying the list wrote all 28 rows back to disk while the UI showed an empty list. Add one item afterwards and 29 appeared, because the next commit re-reads storage.
+
+**On a custom trip it was a content leak, not just a data bug.** `loadPacking` filtered the seed to universal items — that is the custom-trip fix — and `savePacking` did not. So emptying a custom trip's list injected the Nepal and Japan leg template into that trip's slot.
+
+**This amends D-201's "no empty state".** That held while `toggleItem` was the only mutator, which made an empty list unreachable. Adding a remove control ended it, and the seeding rule was never revisited. The adapter's own claim that absent, corrupt and empty all resolve to the template is likewise no longer true, and both were corrected in place.
+
+**Three states now, not two.** Absent seeds, trip-filtered, and SSR lands here because `hasKey` is false with no window. Present and non-empty sanitizes as before, so corrupt and non-array input still reseed exactly as they did. Present and `[]` stays empty. Both guards pull weight: the length check alone would work only because the seed happens never to be empty, which is an implicit invariant; `hasKey` states it.
+
+**Empty sticks, but not bare.** A trash button whose effect silently reverses is worse than no trash button, and the UI and disk disagreeing is what produced the 29-item state. But emptying would otherwise be a dead end — the template is content the user cannot retype — so the empty state carries an explicit restore affordance that re-seeds through the same trip-filtered path a first load uses. That is the one thing here beyond the strict data fix.
+
+**Sibling, filed separately as issue #335:** `saveDocs` has the identical shape, and the docs snapshot-apply path calls it directly rather than through the store's commit. Not reachable by hand — the docs checklist has no remove control — but the two domains sitting on opposite sides of the same rule is how this gets reintroduced.
+
+**Changes if:** a domain gains a seed that can legitimately be empty, at which point the `hasKey` guard is the only thing still distinguishing the two states and the length check should come out.

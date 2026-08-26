@@ -120,7 +120,7 @@ vi.mock('firebase/auth', () => ({
 /** A fresh module registry per test — `getRemote` caches its handle at module scope. */
 async function freshRemote() {
   vi.resetModules();
-  return import('@/lib/itinerary-remote');
+  return import('@/lib/firebase-remote');
 }
 
 beforeEach(() => {

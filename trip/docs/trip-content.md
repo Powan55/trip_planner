@@ -23,7 +23,7 @@ runbook. `TRIP_CITIES` is **derived** from the itinerary, so you never edit it b
 | photo spots                             | `lib/photography-data.ts`                   | `validate:content`                   |
 | featured / foods / etiquette / weather  | `lib/travel-tips-data.ts`                   | `validate:content`                   |
 | Home inspiration gallery                | `lib/inspiration-data.ts`                   | `validate:content` (+ bundled-image check) |
-| flights / stays / to-book               | `lib/booking-data.ts` (verbatim strings, see D-034) | `validate:content`          |
+| flights / stays (all booked)            | `lib/booking-data.ts` (verbatim strings, see D-034) | `validate:content`          |
 | emergency numbers / **phrasebook** / document checklist | `core/content/safety.ts`    | its own eager `.parse()` at import + `lib/__tests__/safety-content.test.ts` |
 
 `TRIP_CITIES` in `core/dates/trip-cities.ts` is **derived** from `core/content/itinerary.ts`

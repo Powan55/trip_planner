@@ -25,7 +25,6 @@ import {
   inspirationHighlightSchema,
   journeySchema,
   staySchema,
-  toBookPlaceholderSchema,
 } from '@/core/content/schema';
 import { TRIP_ITINERARY } from '@/core/content/itinerary';
 import { NEPAL_ATTRACTIONS, NEPAL_FOOD, NEPAL_CATEGORIES } from '@/lib/nepal-data';
@@ -34,7 +33,7 @@ import { NIGHTLIFE_VENUES } from '@/lib/nightlife-data';
 import { PHOTO_SPOTS, PHOTO_CATEGORIES } from '@/lib/photography-data';
 import { FEATURED_DESTINATIONS, LOCAL_FOODS, ETIQUETTE_TIPS } from '@/lib/travel-tips-data';
 import { INSPIRATION_HIGHLIGHTS } from '@/lib/inspiration-data';
-import { JOURNEYS, BOOKED_STAYS, JAPAN_TODO } from '@/lib/booking-data';
+import { JOURNEYS, BOOKED_STAYS } from '@/lib/booking-data';
 import { TRIP_DATES, getCountryForDate } from '@/core/dates';
 import { isKnownWeatherCity } from '@/lib/weather';
 import imageManifest from '@/lib/image-manifest.json';
@@ -123,10 +122,9 @@ describe('validate:content — every content domain parses its STRICT schema', (
     eachValid(inspirationHighlightSchema, INSPIRATION_HIGHLIGHTS, 'INSPIRATION_HIGHLIGHTS');
   });
 
-  it('bookings — journeys / stays / to-book (D-034: structure only)', () => {
+  it('bookings — journeys / stays (D-034: structure only)', () => {
     eachValid(journeySchema, JOURNEYS, 'JOURNEYS');
     eachValid(staySchema, BOOKED_STAYS, 'BOOKED_STAYS');
-    eachValid(toBookPlaceholderSchema, JAPAN_TODO, 'JAPAN_TODO');
   });
 });
 
@@ -157,7 +155,6 @@ describe('validate:content — cross-content invariants', () => {
     expect(findDuplicates(PHOTO_SPOTS.map((r) => r.id))).toEqual([]);
     expect(findDuplicates(JOURNEYS.map((r) => r.id))).toEqual([]);
     expect(findDuplicates(BOOKED_STAYS.map((r) => r.id))).toEqual([]);
-    expect(findDuplicates(JAPAN_TODO.map((r) => r.id))).toEqual([]);
     expect(findDuplicates(INSPIRATION_HIGHLIGHTS.map((r) => r.id))).toEqual([]);
   });
 

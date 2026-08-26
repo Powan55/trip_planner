@@ -336,10 +336,25 @@ export function readClockChecks(): PreflightCheck[] {
  * true in every one of those cases — but it never claims a server confirmed anything.
  */
 export function evaluateSync(
-  status: { pending: number; lastAckAt: string | null },
+  status: { pending: number; blocked?: number; lastAckAt: string | null },
   now: Date = new Date()
 ): PreflightCheck {
   const base = { id: 'sync', label: 'Trip data' };
+  // #267 — checked BEFORE `pending`, of which it is a subset. The pending row promises these
+  // "will upload on their own next time you're online", and for a change the rules REFUSED that
+  // sentence is false: no amount of connectivity lands it. This module's whole rule is that
+  // anything unknown or stuck has to say so, so a refusal gets its own row rather than hiding
+  // inside a count that reads as merely offline. Optional so existing callers are unaffected.
+  const blocked = status.blocked ?? 0;
+  if (blocked > 0) {
+    return {
+      ...base,
+      state: 'attention',
+      headline: `${blocked} change${blocked === 1 ? '' : 's'} the shared trip refused`,
+      detail:
+        "They're saved on this device and nothing is lost, but they will not upload on their own. If you were just added to this trip, reload the page; otherwise ask a member to add this device in Settings, under Trip access.",
+    };
+  }
   if (status.pending > 0) {
     const n = status.pending;
     return {

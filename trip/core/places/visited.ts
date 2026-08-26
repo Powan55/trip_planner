@@ -49,6 +49,8 @@
  */
 
 import { readJson, writeJson, STORAGE_KEYS } from '@/core/storage/gateway';
+import { getActiveTrip, isDefaultTrip } from '@/core/trips';
+import { TRIP_CITIES } from '@/core/dates/trip-cities';
 
 /** The lifetime set: unique cities and unique countries, each in first-visit order. */
 export interface VisitedPlaces {
@@ -231,8 +233,32 @@ export function removeVisit(visit: { city?: string; country?: string }): Visited
     countries: drop(current.countries, visit.country),
   };
   writeJson('local', STORAGE_KEYS.lifetimeVisits, next);
-  if (typeof visit.city === 'string') forgetConfirmation(visit.city);
+  // Issue #279: a city the ACTIVE TRIP still claims is about to be re-credited by
+  // `lib/visit-autocount.ts` on the next load (see the KNOWN CEILING above) — nothing about it was
+  // actually verified wrong, so its GPS confirmation must survive that round-trip. Only a genuinely
+  // off-itinerary (manually-added) city, which will NOT come back, still forgets its confirmation.
+  if (typeof visit.city === 'string' && !isTripClaimedCity(visit.city)) forgetConfirmation(visit.city);
   return next;
+}
+
+/**
+ * True when the ACTIVE TRIP's itinerary names `city` on some day (issue #279). Default pack: any
+ * of its per-day cities, day-trip granularity included (`TRIP_CITIES`). Custom trip: any leg's
+ * `fallbackCity` — legs partition the trip's whole date span contiguously (`TripLeg`'s own
+ * contract), so "every leg's fallbackCity" and "every date's city" are the same set.
+ *
+ * Exported (issue #332) so `visited-places-panel.tsx`'s "In your trip" badge shares this
+ * predicate instead of recomputing it through `lib/visit-autocount.ts`'s per-date resolution —
+ * the two agreed by construction (same contiguous-legs argument above) but were two call sites to
+ * keep in sync by hand.
+ */
+export function isTripClaimedCity(city: string): boolean {
+  const key = fold(city);
+  if (!key) return false;
+  if (isDefaultTrip()) {
+    return Object.values(TRIP_CITIES).some((entry) => fold(entry) === key);
+  }
+  return getActiveTrip().legs.some((leg) => fold(leg.fallbackCity) === key);
 }
 
 /**

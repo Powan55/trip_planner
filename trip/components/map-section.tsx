@@ -16,6 +16,7 @@ import {
   CalendarPlus,
   MapPin,
   Globe,
+  Sun,
 } from 'lucide-react';
 import {
   MAP_MARKERS,
@@ -28,6 +29,7 @@ import {
   placementStops,
   stopsForDay,
   tripDayNumber,
+  segmentKm,
   MARKER_BY_ID,
   type DayStop,
   type PlacementRow,
@@ -48,7 +50,8 @@ import { TRIP_DATES, formatDate } from '@/lib/trip-data';
 import { generateItemId } from '@/lib/item-id';
 import { toItineraryDraft } from '@/lib/itinerary-adapter';
 import { haversineKm, MAP_PIN_DND_TYPE, type LatLng } from '@/lib/day-anchor';
-import { dayAnchorStore } from '@/core/storage/gateway';
+import { dayAnchorStore, mapWakeLockPrefs } from '@/core/storage/gateway';
+import { useWakeLock } from '@/lib/use-wake-lock';
 import {
   searchWorldPlaces,
   dropTripDuplicates,
@@ -166,6 +169,23 @@ export default function MapSection() {
   const { favorites, hydrated: favoritesReady } = useFavorites();
   const [savedOnly, setSavedOnly] = useState(false);
   const online = useOnline();
+
+  // Issue #247 — keep-screen-awake, OFF by default and ONLY held while explicitly toggled
+  // on: unlike Travel Mode's Essentials card and the safety phrase card (both bounded,
+  // actively-in-hand reads), `/map` is a route someone can leave open in a pocket for a
+  // long stretch, so an always-on lock here would drain battery on a trip already rationing
+  // it. Persisted the same boolean-as-string way as `legibilityPrefs`/`nightlifeVisible`.
+  const [wakeLockOn, setWakeLockOn] = useState(false);
+  useEffect(() => {
+    const saved = mapWakeLockPrefs.get();
+    if (saved !== null) setWakeLockOn(saved);
+  }, []);
+  const wakeLock = useWakeLock(wakeLockOn);
+  const toggleWakeLock = () => {
+    const next = !wakeLockOn;
+    setWakeLockOn(next);
+    mapWakeLockPrefs.set(next);
+  };
 
   // ──: map-linked day planning ───────────────────────────────────────────
   // `anchors`: date → the marker id that day is "anchored" to. LOCAL-ONLY presentation
@@ -737,7 +757,7 @@ export default function MapSection() {
                 onClick={() => handleFilter(value)}
                 aria-pressed={isActive}
                 data-testid={`map-filter-${value.toLowerCase().replace(/\s+/g, '-')}`}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+                className={`flex items-center gap-1.5 min-h-tap px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                   isActive
                     ? value === 'All'
                       ? 'bg-white/10 text-white border-white/20'
@@ -760,7 +780,7 @@ export default function MapSection() {
               onClick={() => setSavedOnly((v) => !v)}
               aria-pressed={savedOnly}
               data-testid="map-filter-saved"
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+              className={`flex items-center gap-1.5 min-h-tap px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                 savedOnly
                   ? 'bg-primary/20 text-primary border-primary/40'
                   : 'text-ink-mid border-transparent hover:bg-white/5 hover:text-ink-hi'
@@ -871,7 +891,7 @@ export default function MapSection() {
                                 type="button"
                                 onClick={() => selectSearchResult(hit)}
                                 data-testid={`map-search-result-${hit.id}`}
-                                className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                className="w-full text-left min-h-tap flex flex-col justify-center px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                               >
                                 <span className="block font-medium">{hit.name}</span>
                                 {/* says WHAT this result is — a curated place ("Boudha,
@@ -916,7 +936,7 @@ export default function MapSection() {
                                     type="button"
                                     onClick={() => selectWorldPlace(place)}
                                     data-testid={`map-search-result-${place.id}`}
-                                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                    className="w-full text-left min-h-tap flex flex-col justify-center px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                                   >
                                     <span className="block font-medium">{place.name}</span>
                                     {/* Nominatim's own `display_name`, verbatim — the full
@@ -963,7 +983,34 @@ export default function MapSection() {
               </span>
             )}
           </button>
+
+          {/* Issue #247 — explicit, OFF-by-default screen-wake-lock toggle. Deliberately NOT
+              always-on like the Travel Mode/safety-card locks: this route can sit open
+              unattended, so the lock is only held while a traveler has actively asked for it. */}
+          <button
+            type="button"
+            onClick={toggleWakeLock}
+            aria-pressed={wakeLockOn}
+            data-testid="map-wake-lock-toggle"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+              wakeLockOn
+                ? 'bg-primary/20 text-primary border-primary/40'
+                : 'text-ink-mid border-white/10 hover:bg-white/5 hover:text-ink-hi'
+            }`}
+          >
+            <Sun className="w-3.5 h-3.5" aria-hidden="true" />
+            Keep screen on
+          </button>
         </div>
+
+        {wakeLock.supported && wakeLock.held && (
+          <p
+            data-testid="map-wake-lock-hint"
+            className="max-w-md mx-auto mb-4 -mt-2 text-center text-[11px] text-ink-mid"
+          >
+            Screen stays awake while this is on — turn it off to save battery.
+          </p>
+        )}
 
         {/* schematic-line caveat — an honest passive note, only while the
             itinerary overlay is on (the drawn line is a schematic day-order
@@ -1218,12 +1265,33 @@ export default function MapSection() {
                               : null;
                           const position = `stop ${idx + 1} of ${selectedDayRows.length}, Day ${dayNo}`;
 
+                          // Issue #224 — distance from the PREVIOUS stop (not the anchor), so a
+                          // backtrack (Asakusa → Shibuya → Asakusa) shows up: the anchor-distance
+                          // label above reads both Asakusa rows as "near the anchor" alike. Omitted
+                          // (not 0, not NaN) when either end has no coordinate, same as the anchor
+                          // label's own `p.kind === 'none'` handling.
+                          const segFromPrevKm =
+                            idx > 0 ? segmentKm(selectedDayRows[idx - 1].placement, p) : null;
+                          const segNode = segFromPrevKm !== null && (
+                            <div
+                              data-testid={`map-day-order-seg-${row.item.id}`}
+                              className="flex items-center gap-1.5 pl-1 pb-1 text-[10px] text-ink-lo"
+                            >
+                              <span aria-hidden="true">↕</span>
+                              {segFromPrevKm < 1
+                                ? `${Math.round(segFromPrevKm * 1000)} m`
+                                : `${segFromPrevKm.toFixed(1)} km`}{' '}
+                              as the crow flies from previous stop
+                            </div>
+                          );
+
                           // no position at all (custom trips only — the default
                           // pack's cities are all in the one city table). Never dropped: the
                           // row stays and offers the fix instead of a fly-to that would lie.
                           if (p.kind === 'none') {
                             return (
                               <li key={row.item.id}>
+                                {segNode}
                                 <div
                                   data-testid={`map-day-order-stop-${row.item.id}`}
                                   data-placement="none"
@@ -1253,6 +1321,7 @@ export default function MapSection() {
                           const approx = p.kind === 'approximate';
                           return (
                             <li key={row.item.id}>
+                              {segNode}
                               {/* (INTAKE-05): a real <button>, not a click handler on the
                                   <li> — native Enter/Space, native focus, 44px tap target. The
                                   fly/zoom/popup engine is TripMap's existing focusMarker (which

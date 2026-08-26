@@ -353,6 +353,36 @@ describe('S273 — case 6: photo quota on import → placeholders, ok:true', () 
   });
 });
 
+describe('#344 — restoring a photo-meta subset deletes the dropped blobs (no orphan leak)', () => {
+  it('deletes blobs for live meta ids absent from the restored set, keeps the rest', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store, 2); // ph-seed-0, ph-seed-1 both live on this device
+
+    // A full backup whose photo meta is a STRICT SUBSET of the live index (only ph-seed-0) — the
+    // meta rollback (savePhotos) is correct/intended (tombstone-replace), but the dropped id's
+    // blob must not be left behind in the shared IndexedDB store.
+    const env = {
+      format: 'nepal-japan-trip-backup',
+      version: 1,
+      exportedAt: '2026-07-10T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      domains: {},
+      photos: { meta: [photoMeta('ph-seed-0')], blobs: {} },
+    };
+    const file = new Blob([JSON.stringify(env)], { type: 'application/json' });
+
+    // Same store on both sides — mirrors production, where meta (localStorage) and blobs
+    // (IndexedDB) share one device; restore must clean up the app-scoped blob store, not a fresh one.
+    const res = await importTripBackup(file, store);
+
+    expect(res.ok).toBe(true);
+    expect(await store.get('ph-seed-1')).toBeNull(); // dropped id's blob is gone, not orphaned
+    expect(await store.get('ph-seed-0')).not.toBeNull(); // kept id's blob survives (not a wholesale clear)
+    const metas = JSON.parse(localStorage.getItem(STORAGE_KEYS.photos)!) as PhotoMeta[];
+    expect(metas.map((m) => m.id)).toEqual(['ph-seed-0']);
+  });
+});
+
 describe('S273 — case 7: compression self-check (20-photo round-trip through the real pipeline)', () => {
   it('every photo byte survives export→import through the real compress/decompress path', async () => {
     const seedStore = makeInMemoryBlobStore();
@@ -557,6 +587,74 @@ describe('a legacy itinerary-only file cannot be restored into a different trip'
 
     expect(res.ok).toBe(true);
     expect(commit).toHaveBeenCalledWith(ownPlans);
+  });
+});
+
+describe('#239 — myPlaces commit uses the injected restore-shaped path when supplied', () => {
+  it('routes the myPlaces commit through the supplied function instead of the generic bare write', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const file = await exportTripBackup(store);
+
+    localStorage.clear();
+    const restoreSpy = vi.fn();
+    const res = await importTripBackup(file, makeInMemoryBlobStore(), savePlans, restoreSpy);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).toContain('myPlaces');
+    expect(restoreSpy).toHaveBeenCalledTimes(1);
+    expect(restoreSpy).toHaveBeenCalledWith(SEED_PLACES);
+    // The commit was delegated — the bare gateway write was skipped, so the slot stays untouched.
+    expect(myPlacesStore.get<unknown>(null)).toBeNull();
+  });
+
+  it('falls back to the generic bare write + merge enqueue when no commitMyPlaces is supplied (unchanged default)', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const file = await exportTripBackup(store);
+
+    localStorage.clear();
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).toContain('myPlaces');
+    expect(loadMyPlaces()).toEqual(SEED_PLACES);
+  });
+});
+
+describe('#295 — docsChecklist commit uses the injected restore-shaped path when supplied', () => {
+  it('routes the docsChecklist commit through the supplied function instead of the generic bare write', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const file = await exportTripBackup(store);
+
+    localStorage.clear();
+    const restoreSpy = vi.fn();
+    const res = await importTripBackup(file, makeInMemoryBlobStore(), savePlans, undefined, restoreSpy);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).toContain('docsChecklist');
+    expect(restoreSpy).toHaveBeenCalledTimes(1);
+    expect(restoreSpy).toHaveBeenCalledWith(SEED_DOCS);
+    // The commit was delegated — the bare gateway write was skipped, so the slot stays untouched.
+    expect(docsStore.get<unknown>(null)).toBeNull();
+  });
+
+  it('falls back to the generic bare write + merge enqueue when no commitDocsChecklist is supplied (unchanged default)', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const file = await exportTripBackup(store);
+
+    localStorage.clear();
+    const res = await importTripBackup(file, makeInMemoryBlobStore());
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).toContain('docsChecklist');
+    expect(docsStore.get<unknown>(null)).toEqual(SEED_DOCS);
   });
 });
 

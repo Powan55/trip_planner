@@ -77,6 +77,37 @@ async function renderWakeLock(active: boolean) {
   };
 }
 
+async function renderWakeLockToggle() {
+  const container = document.createElement('div');
+  document.body.appendChild(container);
+  const root: Root = createRoot(container);
+  let held = false;
+
+  function Probe({ active }: { active: boolean }) {
+    held = useWakeLock(active).held;
+    return null;
+  }
+
+  await act(async () => {
+    root.render(createElement(Probe, { active: false }));
+  });
+
+  return {
+    get held() {
+      return held;
+    },
+    setActive: async (next: boolean) => {
+      await act(async () => {
+        root.render(createElement(Probe, { active: next }));
+      });
+    },
+    unmount: () => {
+      act(() => root.unmount());
+      container.remove();
+    },
+  };
+}
+
 describe('useWakeLock (S270 regression)', () => {
   let fake: ReturnType<typeof makeFakeWakeLock>;
 
@@ -110,6 +141,25 @@ describe('useWakeLock (S270 regression)', () => {
 
     expect(fake.request).toHaveBeenCalledTimes(2);
     expect(h.held).toBe(true);
+
+    h.unmount();
+  });
+
+  // Issue #247 — the /map wake-lock toggle passes its OFF-by-default `wakeLockOn` state
+  // straight through as `active`, so this is the same guarantee that toggle relies on:
+  // nothing is requested while inactive, and a lock is acquired/released only in direct
+  // response to `active` flipping — never on mount, never by default.
+  it('never requests a lock while inactive; acquires only after active flips true, releases when it flips back', async () => {
+    const h = await renderWakeLockToggle();
+    expect(fake.request).not.toHaveBeenCalled();
+    expect(h.held).toBe(false);
+
+    await h.setActive(true);
+    expect(fake.request).toHaveBeenCalledTimes(1);
+    expect(h.held).toBe(true);
+
+    await h.setActive(false);
+    expect(h.held).toBe(false);
 
     h.unmount();
   });

@@ -13,7 +13,7 @@
 //   - the install hint renders only when NOT standalone and NOT previously dismissed, and dismissing
 //     it (action click) persists via the gateway so a later mount does not show it again.
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createElement, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
@@ -22,6 +22,16 @@ const h = vi.hoisted(() => ({
   toastCalls: [] as Array<{ message: string; options?: Record<string, unknown> }>,
   dismissCalls: [] as unknown[],
   pushCalls: [] as string[],
+  // Backs the `@/lib/trip-now` mock below — the "leg" section #5's polling reads on every
+  // interval tick. `null` = outside the trip window (the default, matching every pre-existing
+  // test in this file, which never sets it and must see no backup-nudge interference).
+  currentLeg: null as string | null,
+  // Backs `getTodayInTrip()`'s `dayNumber` — the single-leg (#330) fallback signal.
+  currentDayNumber: 2,
+  // Backs the `@/core/trips` mock below — `legs.length`, which is how the component tells a
+  // multi-leg pack (leg-compare) from a single-leg custom trip (day-compare, #330). 2 matches the
+  // default pack every pre-existing test in this file assumes.
+  legsCount: 2,
 }));
 
 vi.mock('sonner', () => {
@@ -47,8 +57,32 @@ vi.mock('next/navigation', () => ({
   }),
 }));
 
+// S222 — a minimal stand-in for the real clock/leg resolver, so the leg-change tests below drive
+// `country` directly instead of faking trip dates end to end.
+vi.mock('@/lib/trip-now', () => ({
+  getTodayInTrip: () =>
+    h.currentLeg === null
+      ? null
+      : { date: '2026-12-10', dayNumber: h.currentDayNumber, city: 'Test City', country: h.currentLeg },
+}));
+
+// #330 — real `getActiveTrip()`, `legs` trimmed to 1 for the single-leg (custom trip) tests below
+// (still real `TripLeg` objects, just fewer of them — no need to fabricate the shape). Other
+// exports (`isDefaultTrip`, etc.) pass through untouched: several modules imported transitively
+// (e.g. `lib/leg-label.ts`) call them at module load.
+vi.mock('@/core/trips', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/core/trips')>();
+  return {
+    ...actual,
+    getActiveTrip: () => {
+      const trip = actual.getActiveTrip();
+      return h.legsCount === 1 ? { ...trip, legs: trip.legs.slice(0, 1) } : trip;
+    },
+  };
+});
+
 import { StoragePersistence } from '@/components/storage-persistence';
-import { installHintStore, STORAGE_KEYS } from '@/core/storage/gateway';
+import { installHintStore, backupPromptStore, STORAGE_KEYS } from '@/core/storage/gateway';
 
 function render(el: ReactElement) {
   const container = document.createElement('div');
@@ -127,6 +161,9 @@ beforeEach(() => {
   h.toastCalls.length = 0;
   h.dismissCalls.length = 0;
   h.pushCalls.length = 0;
+  h.currentLeg = null;
+  h.currentDayNumber = 2;
+  h.legsCount = 2;
   vi.restoreAllMocks();
   stubStandalone(false);
 });
@@ -274,6 +311,20 @@ describe('StoragePersistence — install-to-Home hint', () => {
     r.unmount();
   });
 
+  it('does NOT persist dismissal when the toast is swiped away (onDismiss), only when the action is clicked (#249)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    stubStandalone(false);
+    const r = render(createElement(StoragePersistence));
+    await r.settle();
+    const call = h.toastCalls.find((c) => c.message.includes('Install this app'));
+    expect(call).toBeDefined();
+    // sonner fires `onDismiss` on a user swipe-away; there is no `onDismiss` prop wired here on
+    // purpose (a swipe must not be permanent consent), so it's undefined rather than a no-op fn.
+    expect(call!.options?.onDismiss).toBeUndefined();
+    expect(installHintStore.hasBeenDismissed()).toBe(false);
+    r.unmount();
+  });
+
   it('uses iOS Share -> Add to Home Screen wording on an iOS user agent', async () => {
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
     stubStandalone(false, true);
@@ -344,5 +395,179 @@ describe('StoragePersistence — reactive write-failure toast (S279)', () => {
       window.dispatchEvent(new CustomEvent('trip:quota-exceeded'));
     }).not.toThrow();
     expect(h.toastCalls.length).toBe(0);
+  });
+});
+
+// #222 — the backup-export nudge fired on an OBSERVED trip-leg change. `render()` already flushes
+// the mount effect synchronously (see the install-hint suite above, which asserts on a toast fired
+// during that same synchronous mount pass with no `settle()`), so `checkLegChange`'s FIRST,
+// seed-only call has already run by the time `render()` returns; every test below only needs to
+// advance the poll interval to observe a later change.
+describe('StoragePersistence — backup nudge on leg change (#222)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('fires once when the observed leg changes mid-session, naming the new leg', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.currentLeg = 'nepal';
+    const r = render(createElement(StoragePersistence));
+    expect(h.toastCalls.some((c) => c.message.includes('Now in'))).toBe(false); // seed only, no nudge
+
+    h.currentLeg = 'japan';
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    const calls = h.toastCalls.filter((c) => c.message.includes('Now in'));
+    expect(calls.length).toBe(1);
+    expect(calls[0].message).toContain('Japan');
+    expect(backupPromptStore.getPromptedLeg()).toBe('japan');
+    r.unmount();
+  });
+
+  it('does NOT fire again while the leg stays the same across further ticks', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.currentLeg = 'nepal';
+    const r = render(createElement(StoragePersistence));
+    h.currentLeg = 'japan';
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.filter((c) => c.message.includes('Now in')).length).toBe(1);
+
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.filter((c) => c.message.includes('Now in')).length).toBe(1); // unchanged
+    r.unmount();
+  });
+
+  it('does NOT fire on a fresh mount already inside a leg (no observed change, e.g. a same-leg reload)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.currentLeg = 'japan';
+    const r = render(createElement(StoragePersistence));
+    act(() => {
+      vi.advanceTimersByTime(120_000);
+    });
+    expect(h.toastCalls.some((c) => c.message.includes('Now in'))).toBe(false);
+    r.unmount();
+  });
+
+  it('does NOT re-fire when the gateway already marks this leg as prompted (persists across reload)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    backupPromptStore.setPromptedLeg('japan'); // simulates an earlier session/reload having already nudged
+    h.currentLeg = 'nepal';
+    const r = render(createElement(StoragePersistence));
+    h.currentLeg = 'japan';
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.some((c) => c.message.includes('Now in'))).toBe(false);
+    r.unmount();
+  });
+
+  it('never calls fetch — this is a local reminder, never an upload — through the whole flow', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+    h.currentLeg = 'nepal';
+    const r = render(createElement(StoragePersistence));
+    h.currentLeg = 'japan';
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    const call = h.toastCalls.find((c) => c.message.includes('Now in'));
+    expect(call).toBeDefined();
+    const action = call!.options?.action as { onClick: () => void } | undefined;
+    action?.onClick(); // clicking the action must only navigate, never touch the network
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(h.pushCalls).toContain('/settings/');
+    vi.unstubAllGlobals();
+    r.unmount();
+  });
+});
+
+// #330 — a custom trip has exactly ONE leg ('main'), so the leg-compare above can never fire for
+// it; the day number advancing is the stand-in "something worth backing up" signal there instead.
+describe('StoragePersistence — backup nudge on a single-leg (custom) trip (#330)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('fires once when the day number advances mid-session, even though the leg never changes', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.legsCount = 1;
+    h.currentLeg = 'main';
+    h.currentDayNumber = 1;
+    const r = render(createElement(StoragePersistence));
+    expect(h.toastCalls.some((c) => c.message.includes('Day'))).toBe(false); // seed only, no nudge
+
+    h.currentDayNumber = 2;
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    const calls = h.toastCalls.filter((c) => c.message.includes('Day'));
+    expect(calls.length).toBe(1);
+    expect(calls[0].message).toContain('2');
+    expect(backupPromptStore.getPromptedLeg()).toBe('main');
+    r.unmount();
+  });
+
+  it('does NOT fire again on a later day change — presence dedupe, not once-per-day (no daily nag)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.legsCount = 1;
+    h.currentLeg = 'main';
+    h.currentDayNumber = 1;
+    const r = render(createElement(StoragePersistence));
+    h.currentDayNumber = 2;
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.filter((c) => c.message.includes('Day')).length).toBe(1);
+
+    h.currentDayNumber = 3;
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.filter((c) => c.message.includes('Day')).length).toBe(1); // unchanged
+    r.unmount();
+  });
+
+  it('does NOT fire on a fresh mount already mid-trip (no observed change, e.g. a same-day reload)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.legsCount = 1;
+    h.currentLeg = 'main';
+    h.currentDayNumber = 5;
+    const r = render(createElement(StoragePersistence));
+    act(() => {
+      vi.advanceTimersByTime(120_000);
+    });
+    expect(h.toastCalls.some((c) => c.message.includes('Day'))).toBe(false);
+    r.unmount();
+  });
+
+  it('does NOT re-fire when the gateway already marks this trip as prompted (persists across reload)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    vi.useFakeTimers();
+    h.legsCount = 1;
+    backupPromptStore.setPromptedLeg('main'); // simulates an earlier session/reload having already nudged
+    h.currentLeg = 'main';
+    h.currentDayNumber = 1;
+    const r = render(createElement(StoragePersistence));
+    h.currentDayNumber = 2;
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(h.toastCalls.some((c) => c.message.includes('Day'))).toBe(false);
+    r.unmount();
   });
 });

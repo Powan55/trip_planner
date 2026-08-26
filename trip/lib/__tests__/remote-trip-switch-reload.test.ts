@@ -37,7 +37,7 @@ const listeners = new Map<string, SnapListener>();
 
 // Only the three `fs` members the trip-list path touches (doc / onSnapshot / runTransaction) —
 // mocking `getRemote` itself keeps the whole firebase SDK out of this file.
-vi.mock('@/lib/itinerary-remote', () => ({
+vi.mock('@/lib/firebase-remote', () => ({
   getRemote: async () => ({
     db: {},
     uid: 'device-uid-fake',

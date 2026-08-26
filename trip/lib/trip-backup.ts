@@ -5,8 +5,8 @@
  * (`export-import.ts` is untouched). THIS module is the wider "back up my WHOLE trip" that
  * "changes if the scope widens" clause names: one gzip file carrying every LOCAL user domain of the
  * ACTIVE trip — journal, photos (meta + blob bytes), expenses, budget, docs, packing, favorites,
- * day-anchors, share-inbox, my-places — plus the itinerary nested as its own existing versioned
- * Vault envelope.
+ * day-anchors, share-inbox, my-places — plus the itinerary nested as its own
+ * existing versioned Vault envelope.
  *
  * PRIVACY: photos are device-local, zero-egress. They are included here ONLY in a file the
  * user explicitly downloads to their own device — never a network egress — and the UI copy
@@ -54,12 +54,12 @@ import { placesSyncPort, myPlacesStoragePort } from '@/lib/places-ports';
 import { sanitizeEntries } from '@/core/journal/model';
 import { sanitizeExpenses } from '@/core/budget/expenses';
 import { normalizeModel } from '@/core/budget/model';
-import { sanitizeItems as sanitizeDocs } from '@/core/docs/model';
+import { sanitizeItems as sanitizeDocs, type DocItem } from '@/core/docs/model';
 import { sanitizeItems as sanitizePacking } from '@/core/packing/model';
 import { sanitizeItems as sanitizeShare } from '@/core/share/model';
-import { sanitizePlaces } from '@/core/places/model';
+import { sanitizePlaces, type MyPlace } from '@/core/places/model';
 import { sanitizePhotos, type PhotoMeta } from '@/core/photos/model';
-import { loadPhotos, savePhotos } from '@/core/photos/storage';
+import { loadPhotos, savePhotos, deletePhotoBlobs } from '@/core/photos/storage';
 import { defaultBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
 import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
 import { exportItinerary, parseBackup } from '@/core/vault/export-import';
@@ -80,6 +80,27 @@ const EXPORT_FILENAME_GZ = 'nepal-japan-trip-backup.json.gz';
  * snapshot instead of being unwound. Same `(plans) => void` shape either way.
  */
 export type CommitItinerary = (plans: DayPlan[]) => void;
+
+/**
+ * How the myPlaces domain is committed on import — the SAME dual-path idea as `CommitItinerary`,
+ * one domain narrower (issue #239). Absent ⇒ the generic bare write + `enqueueRestored` merge below
+ * (unchanged default); the UI injects the store's `restoreMyPlaces` (tombstone-replace, mirroring
+ * `restorePlans`/`restoreExpenses`) when a synced traveler is signed in, so a row added to myPlaces
+ * after the backup was taken is tombstoned by the restore instead of surviving the next merge.
+ */
+export type CommitMyPlaces = (places: MyPlace[]) => void;
+
+/**
+ * How the docsChecklist domain is committed on import — issue #295, the deliberately-deferred
+ * remainder of #239. NOT the same shape as `CommitMyPlaces`/`CommitItinerary`: docsChecklist's 18
+ * ids are a FIXED template with no add/remove path, so there is nothing to tombstone and no id to
+ * mint fresh — a same-id UPSERT is the whole restore. Absent ⇒ the generic bare write + merge
+ * enqueue below (unchanged default); the UI injects the store's `restoreDocsChecklist`
+ * (`mergeItems(current, backup)`, the same row-merge algebra `pushChecklistMerged` already uses
+ * remotely) when a synced traveler is signed in, so a row edited after the backup was taken keeps
+ * its win instead of being blindly clobbered by the restore's bare write.
+ */
+export type CommitDocsChecklist = (items: DocItem[]) => void;
 
 /** The container's magic string — how import tells a full backup from a legacy itinerary-only export. */
 export const BACKUP_FORMAT = 'nepal-japan-trip-backup';
@@ -140,10 +161,18 @@ type DomainSpec = {
  * chunks are on disk before the reload, and the first snapshot takes the MERGE branch for them.
  * Self-gating — dormant/guest builds no-op, exactly as before.
  *
- * KNOWN CEILING: merge, not tombstone-replace. A row the backup DROPPED (present remotely, absent
- * in the file) survives the merge, where the itinerary's `restorePlans` would tombstone it. Fixing
- * that needs a restore-shaped commit on each of the four domains (only expenses has one today);
- * upgrade path is to inject those the way `commitItinerary` is injected.
+ * KNOWN CEILING: merge, not tombstone-replace, for whichever domain has no restore-shaped commit
+ * injected. A row the backup DROPPED (present remotely, absent in the file) survives the merge,
+ * where the itinerary's `restorePlans` would tombstone it. Fixing that needs a restore-shaped
+ * commit on each domain — expenses (`restoreExpenses`), myPlaces (`restoreMyPlaces`, injected via
+ * `CommitMyPlaces`) and docsChecklist (`restoreDocsChecklist`, injected via `CommitDocsChecklist`,
+ * issue #295) all have one now. docsChecklist's is NOT a tombstone-replace: its 18 ids are a FIXED
+ * template with no add/remove path, so the restore-shaped commit there is a same-id UPSERT
+ * (`mergeItems(current, backup)` — whichever side's stamp is newer wins per id) rather than a
+ * tombstone + fresh-id re-add. budget's field-level LWW model remains the one domain still on the
+ * generic merge path; it needs its own restore design, not a copy of either shape here. Upgrade
+ * path for a domain that DOES fit one of the two existing shapes: inject its restore fn the way
+ * `commitItinerary`/`commitMyPlaces`/`commitDocsChecklist` are injected.
  */
 function enqueueRestored<T>(port: SyncPort<T>, storage: StoragePort<T>): (cleaned: unknown) => void {
   return (cleaned) => void port.push(storage.load(), cleaned as T);
@@ -234,7 +263,10 @@ type _ExhaustiveBackupDomains = [TripScopedSlot] extends
     | 'weatherCache'
     | 'syncOutbox'
     | 'itineraryCorrupt'
-    | 'expensesCorrupt',
+    | 'expensesCorrupt'
+    // #330 — a device fact (which leg the backup nudge already fired for), not user content;
+    // same bucket as weatherCache/syncOutbox above.
+    | 'backupPromptLeg',
   ]
   ? true
   : never;
@@ -353,6 +385,8 @@ export async function importTripBackup(
   file: Blob,
   blobStore: BlobStorePort = defaultBlobStore,
   commitItinerary: CommitItinerary = savePlans,
+  commitMyPlaces?: CommitMyPlaces,
+  commitDocsChecklist?: CommitDocsChecklist,
 ): Promise<ImportBackupResult> {
   let text: string;
   try {
@@ -450,7 +484,13 @@ export async function importTripBackup(
   photosSkipped += metas.filter((m) => env.photos?.blobs?.[m.id] === undefined).length;
 
   if (env.photos && 'meta' in env.photos) {
+    // #344: the meta rollback is a tombstone-replace (restore wins), so any LIVE meta id absent
+    // from the restored set is being dropped here — without this, its blob orphans forever in the
+    // app-scoped IndexedDB store (nothing else names it back to a trip to GC it later).
+    const keptIds = new Set(metas.map((m) => m.id));
+    const orphaned = loadPhotos().filter((m) => !keptIds.has(m.id));
     savePhotos(metas);
+    if (orphaned.length > 0) await deletePhotoBlobs(orphaned, blobStore);
     if (metas.length > 0) restored.push('photos');
   }
 
@@ -458,6 +498,23 @@ export async function importTripBackup(
   // literal keys — the cast is safe because `slot` only ever came FROM `Object.entries(DOMAINS)`.
   const domainsBySlot = DOMAINS as Record<string, DomainSpec>;
   for (const [slot, cleaned] of domainWrites) {
+    // myPlaces' injected dual path (issue #239): when the caller supplies `commitMyPlaces` (the
+    // UI passes the store's `restoreMyPlaces` under sync), route through it INSTEAD of the bare
+    // write + generic merge enqueue — same idea as `commitItinerary`, one domain narrower. Absent
+    // ⇒ unchanged default behavior below.
+    if (slot === 'myPlaces' && commitMyPlaces) {
+      commitMyPlaces(cleaned as MyPlace[]);
+      restored.push(slot);
+      continue;
+    }
+    // docsChecklist's injected dual path (issue #295): a same-id UPSERT via `mergeItems`, not a
+    // tombstone-replace — the fixed 18-id template has no add/remove path. Same idea as the
+    // myPlaces branch above, one domain narrower.
+    if (slot === 'docsChecklist' && commitDocsChecklist) {
+      commitDocsChecklist(cleaned as DocItem[]);
+      restored.push(slot);
+      continue;
+    }
     // Enqueue BEFORE the write: it reads the pre-restore local state as the push's `prev`.
     domainsBySlot[slot].enqueueRestore?.(cleaned);
     domainsBySlot[slot].write(cleaned);

@@ -267,12 +267,3 @@ export const staySchema = z
     note: z.string().min(1).optional(),
   })
   .strict();
-
-export const toBookPlaceholderSchema = z
-  .object({
-    id: z.string().min(1),
-    kind: z.enum(['stay', 'flight']),
-    label: z.string().min(1),
-    note: z.string().min(1),
-  })
-  .strict();

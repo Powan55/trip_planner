@@ -1,13 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import { BookOpen, Camera, ImageOff, Pencil, Sparkles } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { BookOpen, Camera, ImageOff, Pencil, Search, Sparkles, X } from 'lucide-react';
 import { useJournal } from '@/hooks/use-journal';
 import type { Mood, JournalEntry } from '@/core/journal/model';
 import { formatDateLong } from '@/lib/trip-data';
 import JournalCard from '@/components/journal-card';
 import { usePhotos } from '@/hooks/use-photos';
 import { usePhotoObjectUrl } from '@/hooks/use-photo-object-url';
+import PhotoLightbox from '@/components/photo-lightbox';
 import type { PhotoMeta } from '@/core/photos/model';
 
 /**
@@ -44,6 +45,14 @@ import type { PhotoMeta } from '@/core/photos/model';
  * has >=1 photo, mirroring the existing "only show what exists" gate already used for mood/
  * highlight. No add/delete control here — that stays on the in-trip Today panel's capture UI
  *; this view is read-only for photos exactly as it already is for text/mood.
+ *
+ * SEARCH (#221): a month of entries is not browsable by scrolling, and the question is nearly
+ * always "which day was that". The filter is a plain substring match over `entries` — data this
+ * component already holds in memory — so there is no index, no dependency and no second read
+ * path. It lives HERE rather than in the command palette because the palette has no mobile
+ * trigger at all (the hamburger was removed; the bottom tab bar and `/more/` carry no Search
+ * row), and the journal is written and re-read on a phone mid-trip. Photos are reachable through
+ * their day's text/date only — blobs are never searched.
  */
 
 const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
@@ -53,10 +62,28 @@ const MOOD_META: Record<Mood, { glyph: string; label: string }> = {
   rough: { glyph: '😮‍💨', label: 'Rough' },
 };
 
+/**
+ * Does one entry match an already-trimmed, already-lowercased query? Matches the body, the
+ * highlight, and BOTH date forms — the raw `YYYY-MM-DD` and the rendered `formatDateLong` string,
+ * so "december 10" finds the same day the row heading shows. An empty query matches everything.
+ * Mood is deliberately not searched: "good" is far too common a word in a body to be a useful
+ * facet, and a mood filter is a chip, not a substring match.
+ */
+export function matchesJournalQuery(entry: JournalEntry, q: string): boolean {
+  if (!q) return true;
+  return (
+    entry.date.includes(q) ||
+    formatDateLong(entry.date).toLowerCase().includes(q) ||
+    (entry.highlight ?? '').toLowerCase().includes(q) ||
+    entry.text.toLowerCase().includes(q)
+  );
+}
+
 export default function JournalBrowse() {
   const { entries, hydrated } = useJournal();
   const { photosFor, hydrated: photosHydrated } = usePhotos();
   const [editingDate, setEditingDate] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   // Before hydration, render a stable "loading" shell — never a flash of the empty state.
   if (!hydrated || !photosHydrated) {
@@ -73,8 +100,11 @@ export default function JournalBrowse() {
   // Newest-first by date ('YYYY-MM-DD' — lexicographic compare IS chronological, the same
   // invariant `elapsedTripDates`/`getCityForDate` rely on). The active editor's date is always
   // included even if a clear-to-empty save just removed it from `entries` mid-edit, so the open
-  // editor never unmounts out from under the traveler.
-  const dates = new Set(entries.map((e) => e.date));
+  // editor never unmounts out from under the traveler — and, for the same reason, an open editor
+  // survives a filter that its own day does not match.
+  const q = query.trim().toLowerCase();
+  const matched = entries.filter((e) => matchesJournalQuery(e, q));
+  const dates = new Set(matched.map((e) => e.date));
   if (editingDate) dates.add(editingDate);
   const datesDesc = [...dates].sort((a, b) => (a < b ? 1 : a > b ? -1 : 0));
 
@@ -94,14 +124,51 @@ export default function JournalBrowse() {
         </h2>
       </header>
 
-      {datesDesc.length === 0 ? (
-        <div data-testid="journal-browse-empty" className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center">
-          <p className="text-sm text-ink-mid">No journal entries yet.</p>
-          <p className="mt-1 text-xs text-ink-lo">
-            Write about a trip day from the Today panel — it will show up here.
+      {/* The filter is pointless — and a confusing empty control — when nothing is written yet. */}
+      {entries.length > 0 && (
+        <div className="mb-6">
+          <label htmlFor="journal-search-input" className="sr-only">
+            Search journal entries
+          </label>
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-lo" aria-hidden="true" />
+            <input
+              id="journal-search-input"
+              // `text`, not `search`: the UA clear button `type="search"` adds does not follow the
+              // dark palette, and the 44px button below already does the job (map-section.tsx).
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search entries by word, place or date…"
+              data-testid="journal-browse-search"
+              className="min-h-[44px] w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-9 pr-12 text-sm text-white placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                aria-label="Clear search"
+                data-testid="journal-browse-search-clear"
+                className="absolute right-1 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-ink-mid outline-none transition-colors duration-200 hover:bg-white/10 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          {/* Kept MOUNTED with empty content when there is no query: a live region that appears
+              at the same moment as its first text is routinely not announced at all. */}
+          <p
+            role="status"
+            aria-live="polite"
+            data-testid="journal-browse-search-status"
+            className="mt-2 min-h-[1.25rem] text-xs text-ink-mid"
+          >
+            {q ? `${matched.length} of ${entries.length} entries match` : ''}
           </p>
         </div>
-      ) : (
+      )}
+
+      {datesDesc.length > 0 ? (
         <ul data-testid="journal-browse-list" className="space-y-4">
           {datesDesc.map((date) => (
             <li key={date}>
@@ -118,6 +185,18 @@ export default function JournalBrowse() {
             </li>
           ))}
         </ul>
+      ) : entries.length === 0 ? (
+        <div data-testid="journal-browse-empty" className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center">
+          <p className="text-sm text-ink-mid">No journal entries yet.</p>
+          <p className="mt-1 text-xs text-ink-lo">
+            Write about a trip day from the Today panel — it will show up here.
+          </p>
+        </div>
+      ) : (
+        <div data-testid="journal-browse-no-match" className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center">
+          <p className="text-sm text-ink-mid">No entries match that search.</p>
+          <p className="mt-1 text-xs text-ink-lo">Try a shorter word, a place name, or a date like December 10.</p>
+        </div>
       )}
     </section>
   );
@@ -204,6 +283,11 @@ function JournalRow({
  * photo-less day.
  */
 export function JournalPhotoStrip({ date, photos }: { date: string; photos: PhotoMeta[] }) {
+  // Lightbox (#225): still read-only for add/edit/delete — the one interactive control this strip
+  // gains is "view full-size", via the shared PhotoLightbox/Sheet.
+  const [lightboxPhoto, setLightboxPhoto] = useState<PhotoMeta | null>(null);
+  const lightboxTriggerRef = useRef<HTMLElement | null>(null);
+
   if (photos.length === 0) return null;
 
   return (
@@ -220,19 +304,34 @@ export function JournalPhotoStrip({ date, photos }: { date: string; photos: Phot
         aria-label={`Photos from ${formatDateLong(date)}`}
       >
         {photos.map((meta) => (
-          <JournalPhotoThumb key={meta.id} meta={meta} />
+          <JournalPhotoThumb
+            key={meta.id}
+            meta={meta}
+            onOpen={() => {
+              lightboxTriggerRef.current = (document.activeElement as HTMLElement) ?? null;
+              setLightboxPhoto(meta);
+            }}
+          />
         ))}
       </ul>
+
+      <PhotoLightbox
+        open={lightboxPhoto !== null}
+        photo={lightboxPhoto}
+        onClose={() => setLightboxPhoto(null)}
+        onExitComplete={() => lightboxTriggerRef.current?.focus?.()}
+      />
     </div>
   );
 }
 
 /**
- * One read-only thumbnail: resolves the blob -> object URL (`usePhotoObjectUrl`, the
- * idiom, revoked on unmount/id-change), or degrades to the placeholder tile (alt/caption survive)
- * when the blob was evicted/absent. No delete/edit control — this surface is read-only.
+ * One thumbnail: resolves the blob -> object URL (`usePhotoObjectUrl`, the idiom, revoked on
+ * unmount/id-change), or degrades to the placeholder tile (alt/caption survive) when the blob was
+ * evicted/absent. Still no add/delete/edit control (read-only surface) — `onOpen` only opens the
+ * full-size lightbox (#225).
  */
-function JournalPhotoThumb({ meta }: { meta: PhotoMeta }) {
+function JournalPhotoThumb({ meta, onOpen }: { meta: PhotoMeta; onOpen: () => void }) {
   const { url, missing } = usePhotoObjectUrl(meta.id);
 
   return (
@@ -250,8 +349,16 @@ function JournalPhotoThumb({ meta }: { meta: PhotoMeta }) {
           <span className="sr-only">Photo no longer on this device</span>
         </div>
       ) : url ? (
-        // eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and disables optimization anyway.
-        <img src={url} alt={meta.altText} className="h-full w-full object-cover" />
+        <button
+          type="button"
+          onClick={onOpen}
+          data-testid={`journal-browse-photo-open-${meta.id}`}
+          aria-label={`View photo: ${meta.altText}`}
+          className="block h-full w-full outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element -- local object URL of a device-only blob; next/image can't optimize a runtime Blob and disables optimization anyway. */}
+          <img src={url} alt={meta.altText} className="h-full w-full object-cover" />
+        </button>
       ) : (
         <div className="h-full w-full motion-safe:animate-pulse bg-white/[0.04]" aria-hidden="true" />
       )}

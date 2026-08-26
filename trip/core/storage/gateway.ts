@@ -480,6 +480,31 @@ export const STORAGE_KEYS = {
    * app-code bypasses of the registry; only where the literal is declared moved.
    */
   nameHint: 'name-hint',
+  /**
+   * localStorage — boolean-as-string (`String(next)`) `/map` screen-wake-lock toggle
+   * (map-wake-lock, key 41; issue #247). Mirrors `travelLegibility` (key 33)/`nightlifeVisible`
+   * (key 7)'s exact `uiPrefs` shape — lenient `=== 'true'` read, `String(boolean)` write, NOT
+   * JSON. Deliberately OFF by default (absent ⇒ `null` ⇒ caller treats as off): unlike Travel
+   * Mode's Essentials card and the safety phrase card, `/map` is a route someone can leave open
+   * in a pocket, so an always-on lock here would drain battery for no active on-screen reading.
+   * APP-SCOPED, not trip data — a device preference, not part of any trip pack or the itinerary
+   * Vault. ADDITIVE: a brand-new key, no back-compat surface change and NO migration.
+   */
+  mapWakeLockEnabled: 'nepal_japan_map_wake_lock_enabled',
+  /**
+   * localStorage — plain string, the trip LEG the "back up your trip" nudge has already fired
+   * for (backup-prompt, key 42; issue #222). Absent ⇒ never nudged. TRIP-SCOPED (added to the
+   * `TripScopedSlot` union, resolved via `keyFor('backupPromptLeg')`, #330) — the stored value is
+   * a LEG ID, which is only meaningful relative to the trip it came from. It was originally
+   * APP-SCOPED like `installHintDismissed`/`firstRunTour`, which meant the first custom trip to
+   * store its single leg ('main') silently suppressed the nudge for every OTHER custom trip on
+   * the device. Plain-string like `uiPrefs`, not JSON. ADDITIVE: a brand-new key, no back-compat
+   * surface change. NOTE: three parallel slices each grabbed "next free key" independently off
+   * the same base and all landed on 40 (#228's `bookingOverrides`, #247's `mapWakeLockEnabled`
+   * renumbered to 41) — this one was renumbered to 42 at merge time, being the last of the three
+   * to land. Check for a fresher collision before reusing any of these numbers again.
+   */
+  backupPromptLeg: 'nepal_japan_backup_prompt_leg',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -581,7 +606,8 @@ export type TripScopedSlot =
   | 'dayAnchors'
   | 'shareInbox'
   | 'myPlaces'
-  | 'expensesCorrupt';
+  | 'expensesCorrupt'
+  | 'backupPromptLeg';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -608,6 +634,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'shareInbox',
   'myPlaces',
   'expensesCorrupt',
+  'backupPromptLeg',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -1230,6 +1257,24 @@ export const legibilityPrefs = {
 } as const;
 
 /**
+ * `/map` screen-wake-lock toggle slot (issue #247). Mirrors `legibilityPrefs`/`uiPrefs` exactly:
+ * `String(boolean)`, NOT JSON, lenient `=== 'true'` parse. `get()` returns `null` when the key is
+ * ABSENT so the caller starts from an explicit OFF default — deliberately, unlike the always-on
+ * Travel Mode/safety-card wake locks, since `/map` can be left open unattended. `set(value)`
+ * writes `String(value)`. SSR-safe + never-throw (inherited from `readString`/`writeString`).
+ */
+export const mapWakeLockPrefs = {
+  get(): boolean | null {
+    const raw = readString('local', STORAGE_KEYS.mapWakeLockEnabled);
+    if (raw === null) return null;
+    return raw === 'true';
+  },
+  set(value: boolean): void {
+    writeString('local', STORAGE_KEYS.mapWakeLockEnabled, String(value));
+  },
+} as const;
+
+/**
  * Packing checklist slot — the `PackingItem[]` JSON list. localStorage backend
  *; additive, no migration, NOT part of the itinerary Vault. Mirrors `favoritesStore`/
  * `photosStore` exactly.
@@ -1344,6 +1389,28 @@ export const installHintStore = {
   },
   markDismissed(): void {
     writeString('local', STORAGE_KEYS.installHintDismissed, '1');
+  },
+} as const;
+
+/**
+ * Backup-nudge slot (key 42; issue #222) — the trip leg the "back up your trip" toast has
+ * already fired for, so a leg change nudges once rather than on every render/reload within the
+ * same leg. TRIP-SCOPED via `keyFor` (#330) — see `STORAGE_KEYS.backupPromptLeg` above for why.
+ * Plain string like `uiPrefs`/`installHintStore`, not JSON. `getPromptedLeg()` returns the stored
+ * leg id or `null` if never prompted; `setPromptedLeg(leg)` overwrites it. SSR-safe + never-throw
+ * (inherited from `readString`/`writeString`).
+ *
+ * KNOWN CEILING: a single last-value, not a per-leg seen-set, so a leg that repeats (A→B→A)
+ * re-nudges on its second entry. This trip's legs only ever move forward chronologically, so
+ * that's deliberate — upgrade to a comma-joined set (mirrors `motionEntranceSeen`) if a pack ever
+ * legitimately revisits a leg.
+ */
+export const backupPromptStore = {
+  getPromptedLeg(): string | null {
+    return readString('local', keyFor('backupPromptLeg'));
+  },
+  setPromptedLeg(leg: string): void {
+    writeString('local', keyFor('backupPromptLeg'), leg);
   },
 } as const;
 

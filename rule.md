@@ -51,13 +51,16 @@ git switch lax && git merge dev
 
 ## What CI runs
 
-Four jobs, in `.github/workflows/ci.yml`.
+Five jobs, in `.github/workflows/ci.yml`: Checks, Firestore rules, E2E, Visual
+regression and Release gate.
 
 **Checks** (about 5 minutes) runs on every push to `lax`, `uttam` and `dev`, on
 every pull request into `dev` or `main`, and again on the push to `main` that
 deploys:
 
 - repository hygiene (see below)
+- `node scripts/contrast-tokens.mjs` (design-token contrast against the pinned palette)
+- `node scripts/motion-loops.mjs` (ambient-loop floor: no sub-6s loop outside the allowlist, and every loop needs a reduced-motion stop)
 - `npx tsc --noEmit`
 - `npm run lint`
 - `npm test` (Vitest)
@@ -70,12 +73,15 @@ engine in a local emulator. No credentials: the emulator is aimed at a fake
 project id, so it cannot touch the live one.
 
 **E2E** (about 13 minutes) runs on pull requests only, after Checks passes:
+`npm run build`, then the behavioural Playwright suite against the built
+static export, grep-excluding the visual specs. It must pass.
 
-- `npm run build`, then Playwright against the built static export
-- the behavioural suite, which must pass
-- the visual-regression suite, which is **advisory**. The committed screenshot
-  baselines were generated on Windows and cannot match on the Linux runner, so
-  this step reports but never fails the build. The diff is uploaded as an artifact.
+**Visual regression** is its own job, also gated on Checks and pull-requests
+only, and it is **not advisory**: it runs on `windows-latest` because the
+committed screenshot baselines are Windows-canonical (`-win32`), which makes
+this a real pixel compare instead of a guaranteed miss on a Linux runner, and
+it carries no `continue-on-error` — a genuine diff fails the pull request. The
+report and any diff are uploaded as an artifact on failure.
 
 **Release gate** (seconds) runs on a pull request into `main` only, and again on the
 push to `main` that deploys. It needs no dependencies, so it answers before anything
@@ -150,15 +156,38 @@ its case, or deleting a rule, fails the self-test.
 
 ## Commits
 
-`<area>: <what it does, in the imperative>`
+`<area>: <what it does, in the imperative>` is the aim, but it is not enforced
+and `git log` shows it holding for only about half of real commits — a bare
+imperative subject with no area prefix is just as common:
 
 ```
 map: keep the day filter when a pin is reopened
 docs: correct the storage-key table
+fix what review found in the print work
 ```
 
-Lower case after the colon, no trailing full stop. Explain the *why* in the body
-if it is not obvious from the diff.
+Lower case after the colon (when there is one), no trailing full stop. If the
+commit closes or relates to an issue, the number goes in trailing parentheses,
+not inline in the sentence: `fix: don't treat install-hint swipe-away as
+permanent dismissal (#249)`. Explain the *why* in the body if it is not
+obvious from the diff.
+
+## Closing issues
+
+Use a closing keyword in the **pull request** body — `Closes #212`, or
+`Closes: #212, #213 and #214` for a batch. A bare `#212` links the issue but does
+not close it, which is deliberate: a pull request body routinely cites an issue as
+context rather than as work done, and a bare-number rule would close the ones you
+only mentioned.
+
+GitHub's own linking only fires on the default branch, which is `main`, so it never
+fires for the pull requests you actually open. `.github/workflows/close-on-dev.yml`
+does it instead, on merge into `dev`.
+
+Closed there means merged, **not** shipped — nothing is live until `dev` merges to
+`main` and the deploy runs. The workflow says so in a comment on every issue it
+closes, because with no rollback available a closed issue must never be mistaken
+for one that is in production.
 
 ## Versions and deploys
 
@@ -193,6 +222,21 @@ You can run the same check yourself, from the repository root:
 ```
 node scripts/release-gate.mjs
 ```
+
+### Recovering from a bad deploy
+
+There is no rollback. The site is a static export on Pages, so there is no
+artifact to revert to, and reverting the merge commit on `main` does not undo
+a bad deploy by itself — the version check above refuses anything not
+strictly above the newest tag, so the gate refuses the downgrade and Pages
+keeps serving the bad bytes. Recovery is always forward, a new
+higher-numbered release, never a restore.
+
+1. Revert the bad change on `dev`.
+2. Bump the patch version in `trip/package.json`.
+3. Add an entry at the top of `trip/docs/RELEASES.md` for the new version.
+4. Open the pull request from `dev` into `main`, same as any other release.
+5. Wait for CI and the deploy to finish — about twenty minutes end to end.
 
 ## Where to look
 
@@ -230,16 +274,25 @@ Tests:
 
 ```
 npm test                                  # unit, fast
-npm run build && npm run test:e2e         # browser suite; the build must come first
+npm run build:e2e && npm run test:e2e     # browser suite; the build must come first
 ```
 
-Unit tests live in `trip/lib/__tests__/` whatever they cover — `core/` and `hooks/` have no
-`__tests__` of their own, and only a handful of component tests sit in
-`trip/components/__tests__/`. A missing `core/__tests__/` is not missing coverage.
+`build:e2e`, not `build`. It is `build` with `NEXT_PUBLIC_CONCIERGE_URL` set to the same
+non-resolving origin CI uses, and without it five specs skip themselves locally while
+running for real in CI — the worst kind of green. It is written as a `node -e` wrapper
+rather than an inline `VAR=value` prefix because npm runs scripts through `cmd.exe` on
+Windows, where that prefix is a syntax error (same constraint `analyze` works around).
+
+Unit tests today live in `trip/lib/__tests__/` whatever they cover, with a handful of
+component tests in `trip/components/__tests__/`. That is history, not a rule: until #264 the
+vitest `include` glob only reached those two directories, so a test written anywhere else ran
+nowhere and passed CI by being absent. The glob now covers `app`, `components`, `core`, `hooks`
+and `lib` at any depth, so a new test belongs next to what it covers. `scripts/` is still
+outside it — put tests for build tooling in `lib/__tests__/`, as the existing ones are.
 
 The Playwright config serves the static export from `out/` rather than the dev
 server, because that is the artifact that actually deploys. It does not build for
-you, so `npm run build` first or every spec fails at startup.
+you, so `npm run build:e2e` first or every spec fails at startup.
 
 ## The app itself
 

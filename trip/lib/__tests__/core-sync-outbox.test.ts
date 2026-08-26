@@ -44,6 +44,7 @@ let withOutbox: OutboxModule['withOutbox'];
 let flushOutbox: OutboxModule['flushOutbox'];
 let outboxDirty: OutboxModule['outboxDirty'];
 let outboxSnapshot: OutboxModule['outboxSnapshot'];
+let outboxBlocked: OutboxModule['outboxBlocked'];
 let SYNC_OUTBOX_CHANGED_EVENT: OutboxModule['SYNC_OUTBOX_CHANGED_EVENT'];
 
 // ── A tiny controllable domain. T = Record<chunk, version>. `chunkDiff` = keys whose version
@@ -65,12 +66,15 @@ function makeStorage(initial: State): StoragePort<State> & { value: State } {
 interface Harness {
   cs: ChunkSync<State>;
   attempts: Array<{ chunk: string; version: number | undefined }>;
-  failing: Set<string>; // chunks whose pushChunk currently REJECTS
+  failing: Set<string>; // chunks whose pushChunk currently REJECTS (transport-shaped)
+  /** #267 — chunks whose pushChunk rejects the way the RULES do: `code: 'permission-denied'`. */
+  refusing: Set<string>;
 }
 
 function makeHarness(): Harness {
   const attempts: Harness['attempts'] = [];
   const failing = new Set<string>();
+  const refusing = new Set<string>();
   const cs: ChunkSync<State> = {
     domain: 'itinerary',
     chunkDiff(prev, next) {
@@ -79,10 +83,17 @@ function makeHarness(): Harness {
     },
     async pushChunk(chunk, current) {
       attempts.push({ chunk, version: current[chunk] });
+      if (refusing.has(chunk)) {
+        // The exact shape Firestore rejects a rules refusal with — a plain Error carrying `code`,
+        // which is what `isPermissionDenied` reads and nothing else.
+        throw Object.assign(new Error('Missing or insufficient permissions.'), {
+          code: 'permission-denied',
+        });
+      }
       if (failing.has(chunk)) throw new Error(`push failed for ${chunk}`);
     },
   };
-  return { cs, attempts, failing };
+  return { cs, attempts, failing, refusing };
 }
 
 function rawSlot(): unknown {
@@ -92,8 +103,14 @@ function rawSlot(): unknown {
 
 beforeEach(async () => {
   vi.resetModules();
-  ({ withOutbox, flushOutbox, outboxDirty, outboxSnapshot, SYNC_OUTBOX_CHANGED_EVENT } =
-    await import('@/core/sync/outbox'));
+  ({
+    withOutbox,
+    flushOutbox,
+    outboxDirty,
+    outboxSnapshot,
+    outboxBlocked,
+    SYNC_OUTBOX_CHANGED_EVENT,
+  } = await import('@/core/sync/outbox'));
   localStorage.clear();
   gate.remoteOn = true;
   gate.traveler = { name: 'Powan' };
@@ -425,5 +442,193 @@ describe('S229 — lastAckAt + outboxSnapshot() + the same-tab change event', ()
     expect(seen).toEqual(['changed', 'changed']);
 
     window.removeEventListener(SYNC_OUTBOX_CHANGED_EVENT, onEvt);
+  });
+});
+
+// ── #267 — a REFUSED write is classified before it is swallowed ──────────────────────────────
+// The bug: `permission-denied` (not in the trip's `members` map, or over firestore.rules' write-
+// shape bound) was indistinguishable from a network error, so the chunk was re-pushed on every
+// flush trigger for the rest of the session behind a badge stuck on "pending".
+describe('#267 — a rules refusal is permanent, a transport failure is not', () => {
+  const warnings: string[] = [];
+  beforeEach(() => {
+    warnings.length = 0;
+    vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+      warnings.push(String(args[0]));
+    });
+  });
+
+  it('a REFUSED chunk is attempted exactly once, no matter how many flushes fire', async () => {
+    const h = makeHarness();
+    h.refusing.add('d1');
+    const storage = makeStorage({ d1: 1 });
+    const push = withOutbox(h.cs);
+
+    await push({}, { d1: 1 }); // attempt 1 — refused
+    await flushOutbox(h.cs, storage); // online
+    await flushOutbox(h.cs, storage); // tab visible
+    await flushOutbox(h.cs, storage); // app start
+
+    expect(h.attempts.map((a) => a.chunk)).toEqual(['d1']); // ← the whole bug, in one assertion
+  });
+
+  it('a TRANSPORT failure still retries on every flush — the classification is what differs', async () => {
+    const h = makeHarness();
+    h.failing.add('d1');
+    const storage = makeStorage({ d1: 1 });
+    const push = withOutbox(h.cs);
+
+    await push({}, { d1: 1 });
+    await flushOutbox(h.cs, storage);
+    await flushOutbox(h.cs, storage);
+
+    expect(h.attempts.map((a) => a.chunk)).toEqual(['d1', 'd1', 'd1']);
+    expect(outboxBlocked()).toBe(0); // never classified as permanent
+  });
+
+  it('a refused chunk stays DIRTY and is never acked — the local edit keeps its first-snapshot protection', async () => {
+    const h = makeHarness();
+    h.refusing.add('d1');
+    const push = withOutbox(h.cs);
+
+    await push({}, { d1: 1 });
+
+    // Dropping it from `dirty` would be the tempting "stop retrying" fix and it would be data
+    // loss: `outboxDirty()` is what makes subscribeRemote MERGE this date instead of applying
+    // remote authoritatively over it (D-150).
+    expect(outboxDirty('itinerary')).toEqual(['d1']);
+    expect(outboxSnapshot().lastAckAt).toBeNull();
+  });
+
+  it('becomes VISIBLE: outboxBlocked() counts it, and the same-tab change event fires so the badge re-reads', async () => {
+    const seen: string[] = [];
+    const onEvt = () => seen.push('changed');
+    window.addEventListener(SYNC_OUTBOX_CHANGED_EVENT, onEvt);
+
+    const h = makeHarness();
+    h.refusing.add('d1');
+    const push = withOutbox(h.cs);
+
+    expect(outboxBlocked()).toBe(0);
+    await push({}, { d1: 1 });
+
+    expect(outboxBlocked()).toBe(1);
+    expect(seen).toEqual(['changed', 'changed']); // ① the enqueue write, ② the refusal
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain('itinerary/d1');
+
+    window.removeEventListener(SYNC_OUTBOX_CHANGED_EVENT, onEvt);
+  });
+
+  it('warns ONCE per chunk, not once per attempt', async () => {
+    const h = makeHarness();
+    h.refusing.add('d1');
+    h.refusing.add('d2');
+    const storage = makeStorage({ d1: 1, d2: 1 });
+    const push = withOutbox(h.cs);
+
+    await push({}, { d1: 1, d2: 1 });
+    await flushOutbox(h.cs, storage);
+    await flushOutbox(h.cs, storage);
+
+    expect(warnings).toHaveLength(2); // one per refused chunk, not one per attempt
+    expect(outboxBlocked()).toBe(2);
+  });
+
+  it('the refusal is per-CHUNK — a healthy sibling in the same domain still pushes and still acks', async () => {
+    const h = makeHarness();
+    h.refusing.add('d1');
+    const push = withOutbox(h.cs);
+
+    await push({}, { d1: 1, d2: 1 });
+
+    expect(outboxDirty('itinerary')).toEqual(['d1']); // d2 acked, d1 refused and still queued
+    expect(outboxBlocked()).toBe(1);
+    expect(outboxSnapshot().lastAckAt).toEqual(expect.any(String)); // d2's ack still landed
+  });
+
+  it('outboxBlocked() is GATED like every other entry point, and intersects the LIVE dirty map', async () => {
+    const h = makeHarness();
+    h.refusing.add('d1');
+    await withOutbox(h.cs)({}, { d1: 1 });
+    expect(outboxBlocked()).toBe(1);
+
+    gate.traveler = null; // guest (D-055)
+    expect(outboxBlocked()).toBe(0);
+    gate.traveler = { name: 'Powan' };
+
+    gate.remoteOn = false; // dormant (D-038)
+    expect(outboxBlocked()).toBe(0);
+    gate.remoteOn = true;
+
+    // The refusal set is in-memory and survives a slot wipe (a trip switch that did not reload);
+    // the count must not, or the badge reports a chunk that no longer exists and can never clear.
+    localStorage.removeItem(STORAGE_KEYS.syncOutbox);
+    expect(outboxBlocked()).toBe(0);
+  });
+
+  it('resets on RELOAD — a fresh module (a new page load) retries, so membership granted meanwhile lands', async () => {
+    const h = makeHarness();
+    h.refusing.add('d1');
+    const storage = makeStorage({ d1: 1 });
+    await withOutbox(h.cs)({}, { d1: 1 });
+    expect(h.attempts).toHaveLength(1);
+
+    // Reload: the slot persists (still dirty), the in-memory refusal set does not.
+    vi.resetModules();
+    ({ withOutbox, flushOutbox, outboxDirty, outboxSnapshot, outboxBlocked, SYNC_OUTBOX_CHANGED_EVENT } =
+      await import('@/core/sync/outbox'));
+    expect(outboxDirty('itinerary')).toEqual(['d1']);
+    expect(outboxBlocked()).toBe(0);
+
+    h.refusing.delete('d1'); // this device was added to the trip while the tab was closed
+    await flushOutbox(h.cs, storage);
+
+    expect(h.attempts).toHaveLength(2);
+    expect(outboxDirty('itinerary')).toEqual([]); // acked at last
+  });
+
+  it('never throws at the commit caller — the swallow contract is unchanged by the classification', async () => {
+    const h = makeHarness();
+    h.refusing.add('d1');
+    const push = withOutbox(h.cs);
+    await expect(push({}, { d1: 1 })).resolves.toBeUndefined();
+    await expect(push({ d1: 1 }, { d1: 2 })).resolves.toBeUndefined(); // and again once denied
+  });
+});
+
+// ── #237 — the dirty-set read-modify-write across tabs ───────────────────────────────────────
+// HONEST SCOPE: enqueue/ack each do their load→mutate→save in one synchronous call with no
+// await inside it, so there is no point to pause execution at — a single-process Vitest run
+// cannot preempt mid-function the way two real tabs (separate OS threads) could. This test
+// therefore proves the weaker, testable half only: two SEQUENTIAL tab-like operations (separate
+// module instances via vi.resetModules(), sharing the same jsdom localStorage) that each touch a
+// DIFFERENT chunk compose correctly — neither's write-back drops the other's. That was already
+// true before the #237 fix (sequential calls never raced in the first place); it does NOT
+// exercise, and cannot prove, the genuine interleaved case the issue describes. See the
+// `enqueue`/`ack` comments in core/sync/outbox.ts for what the fix narrows and what it leaves open.
+describe('#237 — sequential tab-shaped operations on different chunks do not clobber each other', () => {
+  it("tab B's enqueue of a new chunk preserves tab A's earlier ack of a different chunk (and an untouched third chunk survives both)", async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.syncOutbox,
+      JSON.stringify({ version: 1, dirty: { itinerary: ['d1', 'd2'] } }),
+    );
+
+    // "Tab A": acks d1 (its push for d1 resolves); d2 is not part of this tab's diff at all.
+    const tabA = makeHarness();
+    await withOutbox(tabA.cs)({}, { d1: 1 });
+    expect(outboxDirty('itinerary')).toEqual(['d2']); // d1 acked, d2 (untouched by tab A) survives
+
+    // "Tab B": a fresh module instance (separate in-memory state, same shared localStorage)
+    // enqueues a brand-new chunk d3, which fails to push and stays dirty.
+    vi.resetModules();
+    ({ withOutbox, flushOutbox, outboxDirty, outboxSnapshot, outboxBlocked, SYNC_OUTBOX_CHANGED_EVENT } =
+      await import('@/core/sync/outbox'));
+    const tabB = makeHarness();
+    tabB.failing.add('d3');
+    await withOutbox(tabB.cs)({}, { d3: 1 });
+
+    // Neither tab's record was dropped: d2 (tab A's era) and d3 (tab B's new write) both survive.
+    expect(outboxDirty('itinerary').sort()).toEqual(['d2', 'd3']);
   });
 });

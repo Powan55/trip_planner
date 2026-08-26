@@ -138,9 +138,55 @@ describe('issue #4 · /profile — typing in the places you have already been', 
     expect(stored().cities).toEqual(['Pokhara']);
     expect(at('visited-city-remove-Kathmandu')).toBeNull();
     expect(at('visited-city-list').textContent).toContain('Pokhara');
+    // Kathmandu is a trip city, so the sentence continues "…for now — …" (issue #236, below). The
+    // substring is deliberate: what this case is about is that a removal is announced at all.
     expect(at('visited-status').textContent).toContain('Removed Kathmandu');
     // The button that had focus has just been unmounted; it must not fall to <body>.
     expect(document.activeElement).toBe(at('visited-city-input'));
+  });
+
+  // Issue #236 — `lib/visit-autocount.ts` re-credits every place the active trip names, so a
+  // removal there is real but temporary. Kathmandu is a default-pack trip city and Pokhara is not,
+  // which is what makes the pair below a contrast rather than two spellings of the same case.
+  it('marks a place the trip itself counts, and announces its removal as temporary', async () => {
+    await mount();
+    await addCity('Kathmandu');
+
+    const claimed = () =>
+      container.querySelector('[data-testid="visited-city-list"] li[data-trip-claimed]');
+    expect(claimed()).not.toBeNull();
+    // "In your trip", not "From your trip": the badge marks that the itinerary names this
+    // place, which is not a claim about where the row came from. The user may well have typed
+    // it themselves years ago and the trip happens to go there too.
+    expect(claimed()?.textContent).toContain('In your trip');
+    // The caveat is in the button's own accessible name, for a screen reader moving button to button.
+    expect(at('visited-city-remove-Kathmandu').textContent).toContain('will count it again');
+
+    await act(async () => {
+      at('visited-city-remove-Kathmandu').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    // The removal is not cosmetic — it really reaches disk. What changed is only what is CLAIMED.
+    expect(stored().cities).toEqual([]);
+    expect(at('visited-status').textContent).toContain('Removed Kathmandu for now');
+    expect(at('visited-status').textContent).toContain('counted again');
+    expect(document.activeElement).toBe(at('visited-city-input'));
+  });
+
+  it('leaves a place the trip does not name unmarked, and announces it flatly', async () => {
+    await mount();
+    await addCity('Pokhara');
+    expect(
+      container.querySelector('[data-testid="visited-city-list"] li[data-trip-claimed]'),
+    ).toBeNull();
+    expect(at('visited-city-remove-Pokhara').textContent).toContain('Remove Pokhara');
+    expect(at('visited-city-remove-Pokhara').textContent).not.toContain('count it again');
+
+    await act(async () => {
+      at('visited-city-remove-Pokhara').dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    expect(at('visited-status').textContent).toContain('Removed Pokhara.');
+    expect(at('visited-status').textContent).not.toContain('for now');
   });
 
   it('the empty state comes back when the last entry is removed', async () => {

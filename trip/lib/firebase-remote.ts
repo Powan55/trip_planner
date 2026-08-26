@@ -202,16 +202,8 @@ export async function isGoogleLinked(): Promise<boolean> {
 /**
  * Did this error come from the security rules refusing the operation? (issue #10)
  *
- * THE ONE COPY of that test. Firestore stamps `code: 'permission-denied'` on the rejection of a
- * denied read/write and on a denied snapshot stream error alike, and the three callers that must
- * treat a denial differently from a transport failure — membership enrolment (dispatch, don't
- * throw), the presence heartbeat (stop the loop, don't retry forever) and the door's identity
- * probe — all route through here rather than each spelling the string out.
- *
- * Deliberately narrow: only the code, never the message. A message match would fire on an
- * unrelated error that merely mentions permissions, and the consequence of a false positive here
- * is a heartbeat that stops or a toast the user cannot act on.
+ * Still THE ONE COPY and still reachable under this name — the declaration moved to
+ * `core/sync/denied.ts` so `core/sync/outbox.ts` can classify a refused push (#267) without a
+ * third `lib/` import (D-423). Callers here are unchanged; see that file for the reasoning.
  */
-export function isPermissionDenied(err: unknown): boolean {
-  return (err as { code?: unknown } | null)?.code === 'permission-denied';
-}
+export { isPermissionDenied } from '@/core/sync/denied';

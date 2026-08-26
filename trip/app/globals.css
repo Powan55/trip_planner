@@ -2179,3 +2179,313 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     -webkit-backdrop-filter: none;
   }
 }
+/* ── Print — the paper fallback (issue #223) ──────────────────────────────────
+   THIS IS NOT A LIGHT THEME AND IT DOES NOT REOPEN D-009. Dark-mode-only governs the
+   SCREEN theme: there is still no toggle, no `light` class, no user-facing choice, and
+   `forcedTheme="dark"` in app/layout.tsx is untouched. `print` is a separate CSS media
+   type the browser selects on its own when the output device is a sheet of paper — the
+   same way the OS selects the `prefers-reduced-transparency` block above. Ink is
+   subtractive: on paper white is the ABSENCE of toner, so the night canvas is not merely
+   expensive to print, it is unreadable once printed. Nothing in this block can match at
+   `screen`, so the screen theme is unreachable from here and the visual baselines never
+   see it. DO NOT ADD A SCREEN-MEDIA RULE INSIDE THIS BLOCK — that unreachability is the
+   entire safety argument for it.
+
+   WHY IT EXISTS. The phone is the trip's single point of failure. What has to survive a
+   dead battery, a theft, or a border officer asking for proof of onward travel is the
+   day-by-day itinerary — with the flight and hotel bookings that answer that question —
+   and the emergency sheet. So /plan and /safety get a designed paper layout; every other
+   route inherits the reset below, which is already the difference between a legible page
+   and a dark slab that empties a cartridge. */
+@media print {
+  /* — page geometry. 14mm clears the unprintable margin on consumer inkjets and lasers
+     alike. The 11pt root re-anchors the app's rem scale: html is 106.25% (17px) because
+     a phone is read at arm's length outdoors, and that same scale on paper is a
+     large-print edition. At 11pt the app's `text-sm` lands at 9.6pt and `text-xs` at
+     8.3pt, which is small-print but not fine-print. */
+  @page {
+    margin: 14mm;
+  }
+
+  html {
+    font-size: 11pt;
+  }
+
+  /* — strip the night canvas. `background: transparent` rather than a white repaint is
+     deliberate: browsers drop backgrounds in print unless the reader opts into
+     "background graphics", so a white repaint would be honoured inconsistently while
+     REMOVING paint is honoured always — and it is the cheapest possible page.
+
+     `opacity` and `transform` are not tidiness. framer-motion parks a not-yet-revealed
+     element at `opacity: 0` / `translateY(20px)` as an INLINE style, and a print job
+     renders the whole document including the parts nobody scrolled to — the four
+     flight-journey cards are literally `initial={{ opacity: 0 }}`, so without this they
+     print blank. An author `!important` outranks a non-important inline declaration,
+     which is the only reason a stylesheet can reach them at all.
+
+     `-webkit-text-fill-color` is not belt-and-braces either: `.text-gradient-sakura` and
+     `.text-gradient-himalaya` clip a gradient to the glyphs and set the fill transparent,
+     so `color` alone would leave those headings INVISIBLE once the gradient is stripped.
+
+     `overflow: visible` is the pagination fix — a clipped box cannot flow onto page 2, so
+     a long list inside one would be guillotined at the fold instead of paginated. It also
+     unclips the phrasebook's horizontal scroller for free. */
+  *,
+  *::before,
+  *::after {
+    background: transparent !important;
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
+    border-color: #b3b3b3 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    mix-blend-mode: normal !important;
+    opacity: 1 !important;
+    transform: none !important;
+    animation: none !important;
+    transition: none !important;
+    overflow: visible !important;
+  }
+
+  /* — sr-only is the one thing that must KEEP its clip. `clip: rect(0,0,0,0)` is a paint
+     clip, not a layout one, so unclipping it prints nothing extra — but the text still
+     LAYS OUT at full width. Measured on /checklist: scrollWidth 1905px against a 794px
+     A4 page, entirely from one visually-hidden string, which makes the print dialog
+     shrink-to-fit the whole document and makes a headless page.pdf clip it. The phrasebook
+     scroller the rule above exists for is unaffected by this carve-out. */
+  .sr-only {
+    overflow: hidden !important;
+  }
+
+  /* — the three text tiers survive as INK tiers, because a page set in one weight of
+     black is as hard to scan as a screen would be. The universal rule above is
+     specificity 0, so a plain class selector wins the !important tie without anything
+     louder. Measured on white by the same WCAG relative-luminance math
+     scripts/contrast-tokens.mjs uses: #000 21.00:1, #333 12.63:1, #555 7.46:1. The floor
+     tier lands within 0.04 of the screen ramp's own floor (--text-lo, 7.50:1 on the page
+     field), so the D-100 / D-246 contrast floor holds on paper as written rather than by
+     luck — and there is still no fourth tier. */
+  .text-ink-mid,
+  .text-muted-foreground {
+    color: #333 !important;
+    -webkit-text-fill-color: #333 !important;
+  }
+
+  .text-ink-lo {
+    color: #555 !important;
+    -webkit-text-fill-color: #555 !important;
+  }
+
+  /* — chrome off. Every app-wide overlay in this repo is positioned with Tailwind's
+     `fixed` utility (navbar, bottom tab bar, quick-add FAB, presence bar, offline banner,
+     sync badge, dialogs, the first-run tour), so one class selector retires the lot — a
+     fixed element in a print job otherwise stamps itself over page 1 and nothing else.
+     The navbar and the tab bar are ALSO listed by test id so a class refactor cannot
+     quietly bring them back.
+
+     `#main > footer` is the app footer specifically: trip-story-recap.tsx and
+     wrapped-story.tsx render CONTENT <footer>s that must still print, and a bare
+     `footer` selector would take those with it. `.photo-header__media` is the decorative
+     photo band on every Tier-2 masthead (it also carries the sign-in wall's `.door-wall`,
+     so one selector covers both). */
+  .fixed,
+  [data-testid='navbar'],
+  [data-testid='tab-bar'],
+  [data-testid='scroll-progress'],
+  [data-sonner-toaster],
+  [role='dialog'],
+  [data-radix-popper-content-wrapper],
+  .home-nav,
+  #main > footer,
+  .photo-header__media,
+  .hero-photo-wrap,
+  .hero-scrim,
+  .maplibregl-map,
+  canvas {
+    display: none !important;
+  }
+
+  .sticky {
+    position: static !important;
+  }
+
+  /* — `truncate` is `overflow:hidden` + `text-overflow:ellipsis` + `nowrap`, and the
+     universal `overflow: visible` above takes away the clip while leaving the nowrap —
+     which would run a long string off the right edge of the sheet instead of ellipsing
+     it. Paper has no hover and no horizontal scroll, so the answer is to WRAP: on a page
+     there is no reason to abbreviate anything. */
+  .truncate {
+    white-space: normal !important;
+  }
+
+  /* — unwind screen-only spacing that would otherwise print as blank paper: the tab-bar
+     clearance under #main, the fixed-navbar clearance on every page masthead, and the
+     photographic header's viewport-height band (whose image layer is already gone). */
+  #main {
+    padding-bottom: 0 !important;
+  }
+
+  main > header {
+    padding-top: 0 !important;
+  }
+
+  .photo-header,
+  .min-h-screen {
+    min-height: 0 !important;
+  }
+
+  /* — pagination. Chrome and Firefox implement `break-*` on block boxes and IGNORE an
+     `avoid` they cannot honour, so these keep the small units whole and degrade to an
+     ordinary split on anything taller than a page rather than overflowing it.
+     `display: table-header-group` is what repeats the phrasebook's
+     English / Nepali / Japanese header row on every page the table spills onto.
+
+     KNOWN CEILING: no page numbers. `@page` margin boxes with `counter(page)` are a
+     paged-media feature no browser ships, and the alternatives (a `position: fixed`
+     running header, a JS paginator) either print once on page 1 or add a dependency to an
+     offline-first app. The numbered day headings carry the ordering instead. */
+  h1,
+  h2,
+  h3,
+  h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  li,
+  tr {
+    break-inside: avoid;
+  }
+
+  p {
+    orphans: 3;
+    widows: 3;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* — the phrasebook's native script. `lang="ne"` / `lang="ja"` are already load-bearing
+     on those cells (components/travel-safety-kit.tsx: they are what makes a screen reader
+     switch voice and the browser pick the right OS fallback face). They double as the one
+     honest hook for "the script must survive the trip to paper": the whole point of the
+     column is that you hand it to somebody who does not read English, so it gets a size
+     of its own rather than the app's `text-base` shrunk to 11pt. Nothing else in the app
+     carries either attribute. */
+  [lang='ne'],
+  [lang='ja'] {
+    font-size: 13pt !important;
+    line-height: 1.45 !important;
+  }
+
+  /* ── the /plan paper sheet (components/print-itinerary.tsx) ──────────────────
+     `hidden print:block` on the section, so none of this is reachable outside a print
+     job and none of it competes with the planner on screen. */
+  .print-sheet {
+    font-size: 10pt;
+    line-height: 1.4;
+  }
+
+  .print-sheet h2 {
+    font-size: 16pt;
+    margin: 0 0 1mm;
+  }
+
+  .print-sheet h3 {
+    font-size: 11pt;
+    margin: 0 0 1.5mm;
+  }
+
+  .print-sheet ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .print-head {
+    border-bottom: 1pt solid #000 !important;
+    padding-bottom: 2mm;
+    margin-bottom: 4mm;
+  }
+
+  .print-block {
+    margin-bottom: 6mm;
+  }
+
+  .print-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9pt;
+  }
+
+  .print-table th,
+  .print-table td {
+    text-align: left;
+    vertical-align: top;
+    padding: 1mm 3mm 1mm 0;
+    border-bottom: 0.5pt solid #b3b3b3 !important;
+  }
+
+  /* One day is one block that never splits across the fold — a day torn in half is the
+     single most useless thing a printed itinerary can do. A LEG CHANGE starts a fresh
+     sheet, so the Nepal days and the Japan days come off the printer as two documents:
+     one for the pocket and one for the hotel safe. */
+  .print-day {
+    break-inside: avoid;
+    margin-bottom: 4mm;
+  }
+
+  .print-day[data-leg-start] {
+    break-before: page;
+  }
+
+  .print-day-head {
+    display: flex;
+    gap: 3mm;
+    align-items: baseline;
+    border-bottom: 0.5pt solid #b3b3b3 !important;
+    padding-bottom: 0.8mm;
+  }
+
+  .print-day-n {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .print-item {
+    display: flex;
+    gap: 4mm;
+    break-inside: avoid;
+    padding: 0.8mm 0;
+  }
+
+  .print-time {
+    flex: 0 0 24mm;
+    font-variant-numeric: tabular-nums;
+    color: #333 !important;
+    -webkit-text-fill-color: #333 !important;
+  }
+
+  .print-what {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .print-meta,
+  .print-sub,
+  .print-empty {
+    font-size: 9pt;
+    color: #555 !important;
+    -webkit-text-fill-color: #555 !important;
+  }
+
+  .print-sub,
+  .print-empty {
+    display: block;
+  }
+}
