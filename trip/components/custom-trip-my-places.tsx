@@ -21,9 +21,15 @@ export default function CustomTripMyPlaces() {
   const [isCustom, setIsCustom] = useState<boolean | null>(null);
   useEffect(() => {
     let alive = true;
-    import('@/core/storage/gateway').then((g) => {
-      if (alive) setIsCustom(g.getActiveTripId() !== g.DEFAULT_TRIP_ID);
-    });
+    import('@/core/storage/gateway')
+      .then((g) => {
+        if (alive) setIsCustom(g.getActiveTripId() !== g.DEFAULT_TRIP_ID);
+      })
+      // A cold-offline chunk miss resolves to the default pack, where this section renders
+      // nothing anyway. Without the catch it is an unhandled rejection instead.
+      .catch(() => {
+        if (alive) setIsCustom(false);
+      });
     return () => {
       alive = false;
     };

@@ -134,7 +134,7 @@ function PlanDensity({ meta, selectedDate }: { meta: DayStripDateMeta[]; selecte
           return (
             <span
               key={m.date}
-              className={`b${m.date === selectedDate ? ' outline outline-2 outline-offset-[-2px] outline-[color:var(--accent)]' : ''}`}
+              className={`b${m.date === selectedDate ? ' outline outline-2 outline-offset-[-2px] outline-[color:hsl(var(--accent))]' : ''}`}
               data-leg={m.country}
               data-empty={empty ? '' : undefined}
               data-thin={!empty && m.count <= thinAt ? '' : undefined}
@@ -1581,7 +1581,7 @@ export default function CalendarPlanner() {
                   type="button"
                   onClick={handleAddItem}
                   data-testid="calendar-add-item"
-                  className="chip chip--hollow shrink-0 min-h-tap px-3 transition-colors hover:border-[color:var(--accent)] hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="chip chip--hollow shrink-0 min-h-tap px-3 transition-colors hover:border-[color:hsl(var(--accent))] hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <Plus className="w-3.5 h-3.5" aria-hidden="true" />
                   Details

@@ -24,6 +24,7 @@ export default function RecapHeader() {
           ? 'A day-by-day narrative of your trip — what was planned, what actually happened, what you wrote, and what you spent. Unlocks once the trip wraps.'
           : 'A day-by-day narrative of Nepal and Japan — what was planned, what actually happened, what you wrote, and what you spent. Unlocks once the trip wraps.'
       }
+      className="max-w-3xl"
     />
   );
 }

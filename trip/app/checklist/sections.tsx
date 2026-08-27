@@ -9,7 +9,7 @@ import MapIslandBoundary from '@/components/map-island-boundary';
 
 export const DocsChecklist = dynamic(() => import('@/components/docs-checklist'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="40rem" count={2} />,
+  loading: () => <SectionSkeleton height="40rem" count={2} contentClassName="max-w-3xl" />,
 });
 
 // #20 — the machine-checked complement to the day-zero list above it. Same island shape: every
@@ -17,7 +17,7 @@ export const DocsChecklist = dynamic(() => import('@/components/docs-checklist')
 // has no meaningful server render either.
 const PreflightChecksIsland = dynamic(() => import('@/components/preflight-checks'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="18rem" count={1} />,
+  loading: () => <SectionSkeleton height="18rem" count={1} contentClassName="max-w-3xl" />,
 });
 
 // This is NOT a map island, and the boundary is still right. `gen-sw.mjs` identifies maplibre by

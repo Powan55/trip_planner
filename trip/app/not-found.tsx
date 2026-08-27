@@ -1,11 +1,13 @@
 // Next's built-in 404 ships its own document with `body{color:#000;background:#fff}`
 // inlined — a white page on a dark-only app. Under `output:'export'` this file is also
 // what GitHub Pages serves as 404.html for every unknown path, so it is the entire
-// mistyped-URL experience. Modelled on `app/error.tsx`: same glass-card panel inside
+// mistyped-URL experience. Modelled on `app/error.tsx`: same printed panel inside
 // normal app chrome, no motion (nothing to neutralize under reduced-motion).
 //
 // A Server Component on purpose — unlike error.tsx there is no `reset` callback, and
-// Button/lucide icons are hook-free, so this costs no client JS.
+// Button/lucide icons are hook-free, so this costs no client JS. It also touches no
+// network, which is the requirement and not a side effect: 404 is the page most likely
+// to be reached offline, off a stale bookmark against a precached shell.
 
 import { Home as HomeIcon, Compass } from 'lucide-react';
 import { Button } from '@/components/ui/button';

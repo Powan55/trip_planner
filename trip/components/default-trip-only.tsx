@@ -1,11 +1,9 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-// Inlined from lib/utils' withBasePath — importing that barrel eagerly drags
-// clsx/tailwind-merge into the four gated routes' First Load (same bundle
-// discipline as the lazy gateway import below). NEXT_PUBLIC_* is build-inlined.
-const withBasePath = (path: string) =>
-  `${process.env.NEXT_PUBLIC_BASE_PATH || ''}${path}`;
+// Not '@/lib/utils' — that barrel eagerly drags clsx/tailwind-merge into the four
+// gated routes' First Load (same bundle discipline as the lazy gateway import below).
+import { withBasePath } from '@/lib/base-path';
 
 /**
  * DefaultTripOnly — gates an N×J-specific section island (Nepal, Japan,
@@ -67,7 +65,7 @@ export default function DefaultTripOnly({ children }: { children: ReactNode }) {
           type="button"
           onClick={switchToDefault}
           data-testid="default-trip-only-switch"
-          className="pr inline-flex min-h-tap items-center rounded-r1 border border-[color:var(--accent)] px-4 text-[color:var(--accent)] outline-none transition-colors hover:bg-[rgb(62_216_255_/_0.10)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="pr inline-flex min-h-tap items-center rounded-r1 border border-[color:hsl(var(--accent))] px-4 text-[color:hsl(var(--accent))] outline-none transition-colors hover:bg-[rgb(62_216_255_/_0.10)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Switch to the Nepal × Japan trip
         </button>

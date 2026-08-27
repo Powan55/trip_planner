@@ -86,7 +86,7 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
                 data-testid={`calendar-day-${date}`}
                 className={`num min-w-0 aspect-square rounded-r1 flex flex-col items-center justify-center text-t-body transition-colors relative outline-none border-hair focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${isToday ? 'animate-today-pulse ' : ''}${
                   isSelected
-                    ? 'bg-[rgb(62_216_255_/_0.10)] text-ink-hi border-[color:var(--accent)] shadow-[inset_0_-3px_0_var(--accent)]'
+                    ? 'bg-[rgb(62_216_255_/_0.10)] text-ink-hi border-[color:hsl(var(--accent))] shadow-[inset_0_-3px_0_hsl(var(--accent))]'
                     : hasItems
                       ? country === 'nepal'
                         ? 'bg-himalaya-500/10 text-himalaya-400 border-himalaya-500/60 hover:bg-himalaya-500/20'

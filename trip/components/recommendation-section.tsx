@@ -194,7 +194,7 @@ function RecommendationCard({
             data-testid={`guide-favorite-${item.id}`}
             className={`relative z-10 mt-3 shrink-0 grid place-items-center h-tap w-tap rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               favorited
-                ? 'border-[color:var(--accent)] text-[color:hsl(var(--accent))] bg-[rgb(62_216_255/0.10)]'
+                ? 'border-[color:hsl(var(--accent))] text-[color:hsl(var(--accent))] bg-[rgb(62_216_255/0.10)]'
                 : 'border-[color:hsl(var(--border))] text-ink-lo hover:border-[color:var(--border-ui)] hover:text-ink-hi'
             }`}
           >

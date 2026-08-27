@@ -211,7 +211,7 @@ export default function TravelDatePicker() {
             type="button"
             onClick={() => goTo(null)}
             data-testid="travel-preview-back"
-            className="chip min-h-tap shrink-0 border-[color:var(--accent)] px-3 text-[color:var(--accent)] outline-none transition-colors duration-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="chip min-h-tap shrink-0 border-[color:hsl(var(--accent))] px-3 text-[color:hsl(var(--accent))] outline-none transition-colors duration-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Back to today
           </button>

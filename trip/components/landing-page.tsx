@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, type CSSProperties, type ReactNode } from 'react';
-import { CalendarRange, Coins, PlaneTakeoff } from 'lucide-react';
 import OptimizedImage from '@/components/optimized-image';
 import { entranceFor } from '@/lib/motion';
 
@@ -29,7 +28,8 @@ import { entranceFor } from '@/lib/motion';
  * spell them out — a doc comment that trips the guard trains reviewers to ignore the guard.
  * It is also why no date on this page is finer than a MONTH: `e2e/login.spec.ts` asserts the wall
  * carries no "Dec 9" in any of the three shapes the app renders one, so the chapters below name
- * cities and never days.
+ * cities and never days. Every FIGURE on the fact strip is a static literal for the same reason,
+ * and each one is checkable against the app rather than invented.
  *
  * 🔴 COLOUR: semantic tokens ONLY (the three ink tiers, the six accents, the two country
  * gradients, `--on-accent`, `border-border`, `ring-ring`). No status-gold class and no raw hex
@@ -37,37 +37,44 @@ import { entranceFor } from '@/lib/motion';
  * structurally invisible to every palette sweep whose worklist predates it — that is exactly how
  * `sign-out-confirm.tsx:102` shipped a gold focus ring no sweep could reach.
  *
- * ── ISSUE #25, THE REDESIGN, AND WHAT IT DID NOT TOUCH ─────────────────────────────────────
+ * ── THE LAYOUT IS THE PRODUCT, NOT A TEMPLATE ──────────────────────────────────────────────
  *
- * The structure was sound and was RESTYLED, not rebuilt. What was wrong with it was that every
- * surface on it was the same near-black rectangle with a 1.24:1 hairline, the only colour was one
- * cyan CTA, and the ~84 MB of genuine photography already in the repo was not on it at all.
+ * The page it replaced was a generic marketing wireframe: eyebrow, three equal feature cards,
+ * two numbered chapters, three screenshots, three numbered steps, a closing block. Strip the
+ * paint off that and nothing left on the page says which product it is selling.
  *
- * The cover and the two chapters REUSE `.photo-header` from globals.css — the recipe issue #3
- * built for the Tier-2 page headers — element for element: the same media stack, the same duotone
- * pair, the same two-ramp scrim, the same 92px-padding/68px-stop contract that makes "every text
- * pixel lands at floor alpha >= .62" a number instead of a layout hope. Deliberately NOT a third
- * scrim system: the composites that recipe produces (`npHdrMin` / `jpHdrMin` in
- * scripts/contrast-tokens.mjs) are already measured, so every pairing this page adds is measured
- * against them there rather than asserted here. The only CSS this page adds is `.door-cover`
- * (taller, and rounded at the top because the "viewport edge" here is a rounded dialog panel) and
- * `.door-kb` (the one loop).
+ * What is here instead is the INSTRUMENT the app already draws, pointed at itself:
+ *   · the fact strip is `.cells` — the same four-up instrument cells /flights and the budget
+ *     panel use — carrying the four figures that decide whether this app is for you.
+ *   · "what's on board" is `.sys`, the systems annunciator, one row per thing the app holds,
+ *     each stating its condition IN WORDS with the struck mark only repeating what the row
+ *     already says. Nine ruled rows, not three cards, because the product is nine things.
+ *   · the two chapters keep the photographic band and gain the plate's ruled `.capline`.
+ *   · the screenshots are a contact sheet: numbered figures under one ruled caption line.
+ *   · the "how it works" steps are gone. What a stranger actually does not understand is how a
+ *     trip reaches another person, so that section is the two-token model instead — which is
+ *     the same thing `trip-join-handshake.tsx` and `user-token-show-once.tsx` have to make
+ *     legible at the moment it matters.
  *
  * WHAT WAS FROZEN, and each has teeth:
  * - Log in is the primary CTA and it is FIRST IN THE DOM. `token-gate.tsx`'s focus effect takes
  *   `panel.querySelector('button:not([disabled])')` — the first enabled button — so DOM ORDER is
  *   what moves focus. `e2e/login.spec.ts` and `lib/__tests__/s345-front-door.test.ts` both assert
  *   `document.activeElement`. Nothing above those two buttons may be a <button>: the eyebrow, the
- *   <h1> and the lead are all non-focusable, and the cover carries NO nav bar of its own (the
- *   design spec's cover nav puts a "Log in" ghost button above the fold, which would take entry
- *   focus off the primary CTA — it is the one part of the spec's cover that is not built).
- * - The <h1> copy is unchanged, and that is not laziness. Both specs pin the exact string; the
- *   spec's own headline is the prototype's, and the prototype is not the live contract.
+ *   <h1> and the lead are all non-focusable, and the cover carries NO nav bar of its own.
+ * - The <h1> copy is unchanged, and that is not laziness. Both specs pin the exact string.
  * - Plain <div>s, NOT <header>/<footer>. Those map to the banner/contentinfo LANDMARKS, and axe
  *   caught the duplicate contentinfo at both breakpoints back when the app's own chrome was still
  *   mounted behind the wall. Landmarks inside a modal dialog buy nothing anyway.
- * - The three screenshot slots keep their testids, their phone aspect ratio and their distinct
- *   alt/caption pair (see the SHOTS comment). They are restyled and not remeasured.
+ * - The three screenshot slots keep their testids and their phone aspect ratio, and keep the
+ *   distinct alt/caption pair (see the SHOTS comment). They are restyled and not remeasured.
+ * - The cover, the two chapters and the closing block keep every pairing
+ *   `scripts/contrast-tokens.mjs` measures under "THE FRONT DOOR": the volt eyebrow and join
+ *   link, the --text-hi headline, the --text-mid lead, the --border-ui ghost CTA edge, the
+ *   marigold/pink chapter numerals at the large-text bar, and the mint block with its INVERTED
+ *   button. Restyling around a measured pairing is free; moving one is not, so none moved.
+ *   --text-lo is banned outright over photography and appears on this page only on the page
+ *   field, below a plate or in a caption line.
  *
  * MOTION. Tier 1, so this surface may have ONE ambient loop and a first-view-per-session entrance
  * (D-293 R1/R7). Both are asked for rather than assumed: `.door-kb` is the single loop (globals.css
@@ -83,54 +90,57 @@ import { entranceFor } from '@/lib/motion';
  */
 
 /**
- * The three colour blocks — the loudest device on the page, and the main answer to "bland".
- * Each fill is a country/celebration gradient token and every text node on them is `--on-accent`,
- * never white: white on marigold measures 1.59:1 and this is the rule that stops it. Every stop of
- * every gradient here is measured against the ink in scripts/contrast-tokens.mjs, and it is the
- * STOPS that are measured rather than an average, because a gradient under a glyph is whichever
- * stop happens to fall there.
- *
- * The lucide icons stay (they are already a dependency and already imported); what changed is that
- * they no longer paint `text-primary` — marigold on a marigold gradient — but the ink, like every
- * other mark on the block.
+ * The fact strip — the four figures a stranger actually decides on, in the instrument cells the
+ * app uses for every other reading. Static literals (the zero-live-trip-data rule above), and each
+ * is checkable: 32 days is the same figure `first-run-tour.tsx` and `map-section.tsx` print, the
+ * two legs are the two the app ships, there is no invite mechanism at all, and the stack has no
+ * paid service and no keyed map provider in it.
  */
-const FEATURES = [
-  {
-    icon: CalendarRange,
-    fill: 'var(--grad-nepal)',
-    title: 'Plan each day',
-    body: "Drag things into the order you'll actually do them.",
-  },
-  {
-    icon: Coins,
-    fill: 'var(--grad-japan)',
-    title: 'Split the money',
-    body: 'Log what you paid in yen or rupees; see who owes who.',
-  },
-  {
-    icon: PlaneTakeoff,
-    fill: 'var(--grad-celebrate)',
-    // 🔴 — READ BEFORE "SIMPLIFYING" THIS SENTENCE. It has been wrong twice in both
-    // directions, so the exact scope is written down:
-    // · The plan is fully offline (localStorage + the SW precache).
-    // · The map ENGINE now ships with the install too, so the
-    // "open the map online once" clause this replaced is obsolete.
-    // · The TILES are NOT offline and are not going to be. They come from
-    // basemaps.cartocdn.com — cross-origin, which the SW passes through uncached by
-    // design, and bulk-caching a free keyless CDN abuses it. So offline you get the
-    // navy canvas, your marker circles and the day route line, with no street imagery.
-    // Hence "pins and route" (true) and "the map background needs signal" (true). Do NOT
-    // shorten this to "the map works offline" — that is the claim a user disproves at
-    // 35,000 feet.
-    title: 'Works on the plane',
-    body: 'Your plan and the map are saved on your phone. Offline you still get your pins and your route — only the map background needs signal.',
-  },
+const FACTS = [
+  { label: 'Days', value: '32', foot: 'Dec 2026 — Jan 2027' },
+  { label: 'Countries', value: '02', foot: 'Nepal, then Japan' },
+  { label: 'Invites to send', value: '00', foot: 'One Trip Token instead' },
+  { label: 'Price', value: '0', foot: 'No card, no API key' },
 ] as const;
 
 /**
- * The two chapters — the country split band, restyled from a 14 % tint into two photographic
- * bands. It keeps the `landing-split-band` testid because it is the same section doing the same
- * job, and `e2e/login.spec.ts` asserts it is visible.
+ * The annunciator. One row per thing the app actually holds, its condition written out, and a
+ * right-hand reading where a real one exists. Every row is STRUCK because every row is built —
+ * this is not a roadmap and nothing here is a promise.
+ *
+ * 🔴 — READ BEFORE "SIMPLIFYING" THE OFFLINE ROW. Its scope has been wrong twice, in both
+ * directions, so it is written down:
+ * · The plan is fully offline (localStorage + the SW precache).
+ * · The map ENGINE ships with the install too, so the "open the map online once" clause this
+ *   replaced is obsolete.
+ * · The TILES are NOT offline and are not going to be. They come from a cross-origin CDN, which
+ *   the SW passes through uncached by design, and bulk-caching a free keyless CDN abuses it. So
+ *   offline you get the canvas, your marker circles and the day route line, with no street
+ *   imagery. Hence "pins and route" (true) and "the map background needs signal" (true). Do NOT
+ *   shorten this to "the map works offline" — that is the claim a user disproves at 35,000 feet.
+ */
+const ONBOARD = [
+  { name: 'Itinerary', cond: 'Every day, in the order you will do it', n: '32', unit: 'days' },
+  { name: 'Map', cond: 'Your stops, pinned and joined in order', n: null, unit: 'no API key' },
+  { name: 'Guides', cond: 'Where to go, eat, shoot and go out late', n: '4', unit: 'kinds' },
+  { name: 'Money', cond: 'Yen and rupees in, who-owes-who out', n: '3', unit: 'currencies' },
+  { name: 'Checklists', cond: 'Packing and documents, before you fly', n: '2', unit: 'lists' },
+  { name: 'Journal', cond: 'The day in your words, photographs attached', n: null, unit: 'on device' },
+  { name: 'Recap', cond: 'The whole trip, read back to you', n: null, unit: 'at the end' },
+  {
+    name: 'Offline',
+    // The one row that may not be shortened further — see the scope note above.
+    cond: 'Plan and pins on your phone. Only the map background needs signal',
+    n: null,
+    unit: 'no signal',
+  },
+  { name: 'Install', cond: 'Home screen, opening straight into today', n: null, unit: 'home screen' },
+] as const;
+
+/**
+ * The two chapters — full-bleed photographic bands over `.photo-header`, with the plate's ruled
+ * caption line beneath each. It keeps the `landing-split-band` testid because it is the same
+ * section doing the same job, and `e2e/login.spec.ts` asserts it is visible.
  *
  * `accent` is the chapter numeral's colour and it is LARGE display text, so its bar is 1.4.3's
  * 3:1 rather than 4.5:1 — measured at that bar over each grade's worst-case pixel. The titles and
@@ -155,6 +165,7 @@ const CHAPTERS = [
     eyebrow: 'Leg one',
     title: 'Nepal',
     body: 'Kathmandu valley mornings, momo stops, and the long drive out to the foothills.',
+    when: 'Dec 2026',
   },
   {
     no: '02',
@@ -170,13 +181,29 @@ const CHAPTERS = [
     eyebrow: 'Leg two',
     title: 'Japan',
     body: 'New Year in the cities, early trains, and a fortnight of cold, bright light.',
+    when: 'Dec 2026 — Jan 2027',
   },
 ] as const;
 
-const STEPS = [
-  { title: 'Make an account', body: '10 seconds, no email.' },
-  { title: 'Add your days and places', body: 'One day at a time, or all at once.' },
-  { title: 'Share one link with your friends', body: 'They see the same plan you do.' },
+/**
+ * The two credentials, side by side, because this is the one thing about the product a stranger
+ * has no prior model for and the one place the two are most easily confused (D-239: they are
+ * never mixed). `trip-join-handshake.tsx` states the same distinction at the moment a Trip Token
+ * is used, and `user-token-show-once.tsx` states it at the moment a key is minted.
+ */
+const TOKENS = [
+  {
+    name: 'Your key',
+    chip: 'chip--struck',
+    what: 'One per person',
+    rule: 'Logs you in · never share it',
+  },
+  {
+    name: 'Trip Token',
+    chip: '',
+    what: 'One per trip',
+    rule: 'Opens one trip · this is the one you send',
+  },
 ] as const;
 
 /**
@@ -209,38 +236,48 @@ const STEPS = [
 const SHOTS = [
   {
     id: 'landing-shot-1',
+    fig: '01',
     src: '/images/landing/shot-1-day-planner.png',
     caption: 'The day planner, showing a morning in Kathmandu.',
     alt: 'A phone screen: the day planner for Day 1 in Kathmandu, with a quick-add field at the top and the day’s timed stops below it, grouped under Morning and Afternoon, each on its own coloured card.',
   },
   {
     id: 'landing-shot-2',
+    fig: '02',
     src: '/images/landing/shot-2-expenses.png',
     caption: 'The shared expense list, splitting a dinner in Tokyo.',
     alt: 'A phone screen: the Expenses tab listing costs in yen, each row carrying a category tag, a note of what it was for, who logged it, and a “split 3” marker where the bill was shared.',
   },
   {
     id: 'landing-shot-3',
+    fig: '03',
     src: '/images/landing/shot-3-map.png',
     caption: 'The trip map, showing one day’s stops in the order you planned them.',
     alt: 'A phone screen: the trip map over Kathmandu with Day 1 selected, its stops numbered along a dashed route, and coloured pins for places to see, eat and stay.',
   },
 ] as const;
 
-const CTA_BASE =
-  'inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface';
-
 /**
- * Section headings. One place, so the three of them cannot drift apart.
- *
- * 🔴 NO `font-display` HERE, and it is a correction rather than an omission. `display-lg` is a
- * SANS display step and pins weight 800; Instrument Serif ships weight 400 and nothing else, so
- * `font-display text-display-lg` asks the browser to SYNTHESISE a bold — the live defect
- * tailwind.config.ts warns about beside these keys. The serif face is used on this page in exactly
- * the two places its own steps exist for (`editorial-xl` on the <h1>, `editorial-lg` on the chapter
- * numerals), both of which pin weight 400. Everything else is Geist, which really has an 800.
+ * The closing block's INVERTED button, which is the one control on this page that is not the
+ * shared `.btn` recipe: the ink becomes the fill and the chrome accent becomes the label, so it
+ * has no lip and no gradient to inherit. Geometry is the recipe's (tap floor, r-1, the machine
+ * label), and the ring keeps its OFFSET — the offset colour is --surface, so the indicator is a
+ * volt ring on a dark gap: 11.56:1 ring-to-gap, and the gap is 11.17:1 against the mint fill.
+ * "Tidying" the offset to match the block would paint volt straight onto mint at 1.03:1, an
+ * invisible focus ring on the page's loudest button. The bad pairing is kept as a guard in
+ * scripts/contrast-tokens.mjs.
  */
-const SECTION_H2 = 'text-display-lg text-ink-hi';
+const CTA_INVERTED =
+  'inline-flex min-h-tap items-center justify-center gap-2 rounded-r1 px-6 font-machine text-t-label font-semibold uppercase tracking-[0.14em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface';
+
+/** A raster that never decoded renders the SHAPE it was going to fill, hollow, and says so. */
+function ShotFallback() {
+  return (
+    <span className="empty-frame absolute inset-0 flex items-end p-gut">
+      <span className="pr pr--lo">Screen did not load</span>
+    </span>
+  );
+}
 
 export default function LandingPage({
   titleId,
@@ -291,7 +328,7 @@ export default function LandingPage({
   const reveal = entrance === 'animate' ? 'animate-reveal-up' : '';
 
   return (
-    <div data-testid="landing-page" className="flex flex-col gap-12 sm:gap-16">
+    <div data-testid="landing-page" className="flex flex-col">
       {/* ── A · The cover ────────────────────────────────────────────────────────────────
           Full-bleed to the wall panel's border box, which is what the negative margins are:
           the panel carries p-6 / sm:p-8, so -mx-6 -mt-6 / sm:-mx-8 -mt-8 puts the photograph
@@ -343,9 +380,9 @@ export default function LandingPage({
         </div>
 
         <div className="photo-header__body">
-          <div className={`mx-auto flex w-full max-w-[1200px] flex-col items-start gap-4 px-gutter ${reveal}`}>
+          <div className={`mx-auto flex w-full max-w-[1200px] flex-col items-start gap-4 px-gut ${reveal}`}>
             {notice}
-            <p className="text-eyebrow uppercase text-primary">Dec 2026 &mdash; Jan 2027</p>
+            <p className="pr pr--l text-primary">Dec 2026 &mdash; Jan 2027</p>
             {/* Instrument Serif at the editorial display step. WEIGHT 400 IS NOT AN OMISSION:
                 the family ships 400 only, and pairing `font-display` with a bold utility gets a
                 browser-synthesised bold. The step pins the weight so nobody has to remember. */}
@@ -355,7 +392,7 @@ export default function LandingPage({
             >
               Every day of the trip, in one place.
             </h1>
-            <p id={descId} className="max-w-[46ch] text-base leading-relaxed text-ink-mid">
+            <p id={descId} className="max-w-[46ch] text-t-lead leading-relaxed text-ink-mid">
               {/*-D: was "Twenty-two days" — the trip is Dec 9 → Jan 9, i.e. 32 days, which is what
                   `first-run-tour.tsx` and `map-section.tsx` already say. NOT derived from the trip-date
                   source on purpose: the ZERO-LIVE-TRIP-DATA rule above (and the grep guard that pins it)
@@ -366,8 +403,8 @@ export default function LandingPage({
 
             {/* (INTAKE-03) — LOG IN IS THE PRIMARY PATH, and it is FIRST IN THE DOM.
                 Both facts are load-bearing and neither is cosmetic:
-                  · `bg-primary` vs the outline is the decided visual demotion ("log in becomes
-                    the primary CTA, Create an account demotes to secondary").
+                  · the filled `.btn` vs the `.btn--2` outline is the decided visual demotion
+                    ("log in becomes the primary CTA, Create an account demotes to secondary").
                   · DOM ORDER is what actually moves FOCUS. The wall's focus effect
                     (`token-gate.tsx`) takes `panel.querySelector('button:not([disabled])')` — the
                     FIRST enabled button in the panel — so a keyboard/screen-reader visitor entered on
@@ -375,29 +412,28 @@ export default function LandingPage({
                     elements (not just their classes) is the fix; `e2e/login.spec.ts` and
                     `lib/__tests__/s345-front-door.test.ts` both assert `document.activeElement`, so a
                     future edit that reorders these back fails rather than silently regressing.
-                    #25 inherits the constraint whole: the `bg-primary` fill moved onto the log-in button
-                    and the outline onto create, in place, with the elements where they were.
                 Signup is NOT removed: it is still one click here, still the closing CTA below, and
                 still the always-rendered toggle inside the auth card. */}
-            <div className="mt-2 flex flex-col gap-3 self-stretch sm:flex-row sm:items-center">
+            <div className="mt-2 flex w-full flex-col gap-3 sm:flex-row sm:items-center">
               <button
                 type="button"
                 onClick={onLogin}
                 data-testid="landing-cta-login"
-                className={`${CTA_BASE} bg-primary text-primary-foreground hover:bg-primary/90`}
+                className="btn px-6"
               >
                 I have a key &mdash; log in
               </button>
-              {/* The secondary's edge is --border-ui, not --border. --border is DECORATIVE (1.99:1
-                  on the page field) and this edge is the only thing saying "control" — over a
-                  photograph it is also the only thing separating the button from the picture, so it
-                  takes the interactive boundary token and is measured against the graded worst-case
-                  pixel at 1.4.11's 3:1. */}
+              {/* The secondary's edge is --border-ui, not --border — that is `.btn--2`'s own
+                  border, and it is why the outline shape is legal over a photograph. --border is
+                  DECORATIVE (1.99:1 on the page field) and this edge is the only thing saying
+                  "control": over the cover it is also the only thing separating the button from
+                  the picture, so it is measured against the graded worst-case pixel at 1.4.11's
+                  3:1. */}
               <button
                 type="button"
                 onClick={onCreate}
                 data-testid="landing-cta-create"
-                className={`${CTA_BASE} border border-[color:var(--border-ui)] text-ink-hi hover:bg-muted/40`}
+                className="btn btn--2 px-6"
               >
                 Create an account
               </button>
@@ -414,20 +450,22 @@ export default function LandingPage({
                 Do NOT drop the note and keep the routing: on its own the routing looks like the CTA
                 ignoring what it just promised.
                 The note is ink-MID and not the floor tier: it sits over the photograph, where the
-                floor tier is banned outright (the rule issue #26 added, measured, and guarded). */}
+                floor tier is banned outright (the rule issue #26 added, measured, and guarded).
+                Hover goes to --text-hi rather than to a dimmer volt: `text-primary` resolves through
+                a bare `var()`, so an opacity modifier on it emits no rule at all. */}
             <div className="flex flex-col items-start gap-1">
               <button
                 type="button"
                 onClick={onJoin}
                 data-testid="landing-cta-join"
                 aria-describedby="landing-join-note"
-                className="inline-flex min-h-[44px] items-center rounded-lg px-1 text-sm font-semibold text-primary underline underline-offset-4 transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                className="inline-flex min-h-tap items-center rounded-r1 px-1 font-machine text-t-label font-semibold uppercase tracking-[0.11em] text-primary underline underline-offset-4 transition-colors hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               >
                 Someone shared a trip with me
               </button>
               <p
                 id="landing-join-note"
-                className="max-w-md px-1 text-sm leading-relaxed text-ink-mid"
+                className="max-w-md px-1 text-t-sm leading-relaxed text-ink-mid"
               >
                 Make an account first &mdash; then add their Trip Token on your Trips page.
               </p>
@@ -436,87 +474,120 @@ export default function LandingPage({
         </div>
       </div>
 
-      {/* ── B · What you get. The three colour blocks. ────────────────────────────────── */}
-      <section aria-labelledby="landing-features-heading" className="flex flex-col gap-5">
-        <h2 id="landing-features-heading" className="sr-only">
-          What the planner does
-        </h2>
-        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {FEATURES.map(({ icon: Icon, fill, title, body }) => (
-            <li
-              key={title}
-              className="flex min-h-[148px] flex-col rounded-2xl p-6 sm:min-h-[206px]"
-              style={{ background: fill, color: 'var(--on-accent)' }}
-            >
-              <Icon className="h-6 w-6" aria-hidden="true" />
-              <h3 className="mt-4 text-display-md">{title}</h3>
-              <p className="mt-2 max-w-[34ch] text-sm leading-relaxed">{body}</p>
+      {/* ── B · The fact strip. Four readings, in the app's own instrument cells, ruled straight
+          onto the bottom edge of the cover. ── */}
+      <dl className="cells cells--4 -mx-6 sm:-mx-8" data-testid="landing-facts">
+        {FACTS.map(({ label, value, foot }) => (
+          <div key={label} className="cell">
+            <dt className="l">{label}</dt>
+            <dd className="v">{value}</dd>
+            <dd className="f">{foot}</dd>
+          </div>
+        ))}
+      </dl>
+
+      {/* ── C · What's on board. The systems annunciator, not a feature grid. Every row states
+          its condition in words, which is what makes the mark redundant by design rather than
+          the only cue. ── */}
+      <section
+        aria-labelledby="landing-features-heading"
+        data-testid="landing-onboard"
+        className="-mx-6 mt-12 sm:-mx-8"
+      >
+        <div className="sec mx-auto max-w-[1200px] px-gut">
+          <h2 id="landing-features-heading">What&rsquo;s on board</h2>
+          <span className="sub">{ONBOARD.length} tools &middot; one trip</span>
+        </div>
+        <ul className="sys sm:grid sm:grid-cols-2">
+          {ONBOARD.map(({ name, cond, n, unit }) => (
+            <li key={name} className="r" data-s="struck" aria-label={`${name}. ${cond}. ${n ? `${n} ` : ''}${unit}.`}>
+              <span aria-hidden="true" className="mk mk--struck" />
+              <span className="min-w-0">
+                <span className="nm block">{name}</span>
+                <span className="cond block break-words">{cond}</span>
+              </span>
+              <span className="val">
+                {n && <b>{n}</b>}
+                <i>{unit}</i>
+              </span>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* ── C · The two chapters. The ONE place country hue is allowed. ────────────────
+      {/* ── D · The two chapters. The ONE place country hue is allowed. ────────────────
           Full-bleed to the panel edge and radius 0 — these two do touch what passes for the
           viewport edge here, so there is nothing to round. A 1px gap over the border fill is
           what draws the divider between them at sm and up: the "border" is the background
           showing through, so there is no edge that can drift from the surface it sits on. ── */}
-      <section aria-labelledby="landing-legs-heading" className="flex flex-col gap-5">
-        <h2 id="landing-legs-heading" className={SECTION_H2}>
-          Two countries, one trip
-        </h2>
+      <section aria-labelledby="landing-legs-heading" className="-mx-6 mt-12 sm:-mx-8">
+        <div className="sec mx-auto max-w-[1200px] px-gut">
+          <h2 id="landing-legs-heading">Two countries, one trip</h2>
+          <span className="sub">Two plates</span>
+        </div>
         <div
           data-testid="landing-split-band"
-          className="-mx-6 grid grid-cols-1 gap-px bg-border sm:-mx-8 sm:grid-cols-2"
+          className="grid grid-cols-1 gap-px bg-border sm:grid-cols-2"
         >
-          {CHAPTERS.map(({ no, country, accent, src, focus, eyebrow, title, body }) => (
-            <div
-              key={no}
-              className="photo-header"
-              data-country={country}
-              style={{ ['--photo-focus']: focus } as CSSProperties}
-            >
-              <div className="photo-header__media" aria-hidden="true">
-                {/* Half the capped panel above 640px — see the cover's note on why this is a px
-                    figure and not a vw one. No `priority`: these are below the fold. */}
-                <OptimizedImage src={src} alt="" fill sizes="(min-width: 640px) 544px, 100vw" />
-                <span className="photo-header__duo-lo" />
-                <span className="photo-header__duo-hi" />
-                <span className="photo-header__scrim" />
-              </div>
-              <div className="photo-header__body">
-                <div className={`px-gutter ${reveal}`}>
-                  <p className="text-eyebrow uppercase text-ink-mid">{eyebrow}</p>
-                  {/* The numeral is the chapter's identity mark and it is large display text, so
-                      its bar is 3:1 — measured there, over the worst-case pixel each grade can
-                      produce, in scripts/contrast-tokens.mjs. It is not a heading and carries no
-                      meaning the title beside it does not, so it is hidden from assistive tech
-                      rather than read out as a stray number. */}
-                  <p
-                    aria-hidden="true"
-                    className="mt-1 font-display text-editorial-lg leading-none"
-                    style={{ color: accent }}
-                  >
-                    {no}
-                  </p>
-                  <h3 className="text-display-lg text-ink-hi">{title}</h3>
-                  <p className="mt-2 max-w-[42ch] text-sm leading-relaxed text-ink-mid">{body}</p>
+          {CHAPTERS.map(({ no, country, accent, src, focus, eyebrow, title, body, when }) => (
+            <div key={no} className="bg-surface">
+              <div
+                className="photo-header"
+                data-country={country}
+                style={{ ['--photo-focus']: focus } as CSSProperties}
+              >
+                <div className="photo-header__media" aria-hidden="true">
+                  {/* Half the capped panel above 640px — see the cover's note on why this is a px
+                      figure and not a vw one. No `priority`: these are below the fold. */}
+                  <OptimizedImage src={src} alt="" fill sizes="(min-width: 640px) 544px, 100vw" />
+                  <span className="photo-header__duo-lo" />
+                  <span className="photo-header__duo-hi" />
+                  <span className="photo-header__scrim" />
                 </div>
+                <div className="photo-header__body">
+                  <div className={`px-gut ${reveal}`}>
+                    <p className="pr">{eyebrow}</p>
+                    {/* The numeral is the chapter's identity mark and it is large display text, so
+                        its bar is 3:1 — measured there, over the worst-case pixel each grade can
+                        produce, in scripts/contrast-tokens.mjs. It is not a heading and carries no
+                        meaning the title beside it does not, so it is hidden from assistive tech
+                        rather than read out as a stray number. */}
+                    <p
+                      aria-hidden="true"
+                      className="mt-1 font-display text-editorial-lg leading-none"
+                      style={{ color: accent }}
+                    >
+                      {no}
+                    </p>
+                    <h3 className="text-display-lg text-ink-hi">{title}</h3>
+                    <p className="mt-2 max-w-[42ch] text-t-sm leading-relaxed text-ink-mid">
+                      {body}
+                    </p>
+                  </div>
+                </div>
+              </div>
+              {/* The caption is a ruled line BENEATH the plate, never over it — so it sits on the
+                  page field, where the floor tier is legal again. */}
+              <div className="capline">
+                <span className="pr">Plate {no}</span>
+                <span className="pr pr--lo">{title}</span>
+                <span className="pr pr--lo">{when}</span>
               </div>
             </div>
           ))}
         </div>
       </section>
 
-      {/* ── D · Screenshot slots ──────────────────────────────────────── */}
-      <section aria-labelledby="landing-shots-heading" className="flex flex-col gap-5">
-        <h2 id="landing-shots-heading" className={SECTION_H2}>
-          What it looks like
-        </h2>
-        <ul className="grid grid-cols-1 gap-5 sm:grid-cols-3">
-          {SHOTS.map(({ id, src, caption, alt }) => (
+      {/* ── E · The contact sheet ──────────────────────────────────── */}
+      <section aria-labelledby="landing-shots-heading" className="-mx-6 mt-12 sm:-mx-8">
+        <div className="sec mx-auto max-w-[1200px] px-gut">
+          <h2 id="landing-shots-heading">What it looks like</h2>
+          <span className="sub">{SHOTS.length} figures</span>
+        </div>
+        <ul className="mx-auto grid max-w-[1200px] grid-cols-1 gap-5 px-gut sm:grid-cols-3">
+          {SHOTS.map(({ id, fig, src, caption, alt }) => (
             <li key={id}>
-              <figure data-testid={id} className="flex flex-col gap-2">
+              <figure data-testid={id}>
                 {/* The `${id}-slot` testid stays on the BOX, not the <img> — `e2e/login.spec.ts`
                     measures this element's boundingBox and asserts height > width. Keeping
                     `aspect-[390/844]` here (rather than relying on the image's intrinsic size)
@@ -524,81 +595,94 @@ export default function LandingPage({
                     measuring the reserved layout and CLS stays at zero.
                     `aria-hidden` is GONE: it was right for an empty placeholder and wrong for a
                     real image with meaningful alt text, which assistive tech must reach.
-                    gradient stays on the BOX, so a raster that fails to load degrades to
-                    exactly the old placeholder — OptimizedImage drops the <img> on error
-                    and the box's own fill shows through. No broken-image icon, no empty hole. */}
+                    A raster that never decodes falls back to the hollow frame at FULL SIZE with
+                    its condition in words — OptimizedImage drops the <img> on error. No broken
+                    image icon, no empty hole, and no silent grey box either. */}
                 <div
                   data-testid={`${id}-slot`}
-                  className="relative aspect-[390/844] w-full overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-muted/50 to-muted/10"
+                  className="relative aspect-[390/844] w-full overflow-hidden rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low"
                 >
-                  <OptimizedImage src={src} alt={alt} fill className="h-full w-full object-cover" />
+                  <OptimizedImage
+                    src={src}
+                    alt={alt}
+                    fill
+                    className="h-full w-full object-cover"
+                    fallback={<ShotFallback />}
+                  />
                 </div>
-                <figcaption className="text-xs leading-relaxed text-ink-mid">{caption}</figcaption>
+                <figcaption className="capline items-baseline px-0">
+                  <span className="pr">Fig {fig}</span>
+                  <span className="text-t-sm leading-relaxed text-ink-mid">{caption}</span>
+                </figcaption>
               </figure>
             </li>
           ))}
         </ul>
       </section>
 
-      {/* ── E · How it works ─────────────────────────────────────────────────────────── */}
-      <section aria-labelledby="landing-steps-heading" className="flex flex-col gap-5">
-        <h2 id="landing-steps-heading" className={SECTION_H2}>
-          How it works
-        </h2>
-        <ol className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          {STEPS.map(({ title, body }, i) => (
-            <li key={title} className="glass-subtle rounded-2xl p-5">
-              <span
-                aria-hidden="true"
-                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-border font-display text-lg text-primary"
-              >
-                {i + 1}
-              </span>
-              <h3 className="mt-3 text-base font-semibold text-ink-hi">{title}</h3>
-              <p className="mt-1.5 text-sm leading-relaxed text-ink-mid">{body}</p>
+      {/* ── F · How a trip reaches another person ─────────────────────────────────────── */}
+      <section
+        aria-labelledby="landing-token-heading"
+        data-testid="landing-tokens"
+        className="-mx-6 mt-12 sm:-mx-8"
+      >
+        <div className="sec mx-auto max-w-[1200px] px-gut">
+          <h2 id="landing-token-heading">Trips move as a token</h2>
+          <span className="sub">No member list</span>
+        </div>
+        <div className="mx-auto max-w-[1200px] px-gut">
+          <p className="max-w-[64ch] text-t-body leading-relaxed text-ink-mid">
+            There is nobody to invite and no list to be added to. A trip has one string attached to
+            it, and whoever holds that string opens the same plan you are looking at &mdash; so you
+            send it the way you already talk to each other. Two keys, two jobs, and they are never
+            the same key.
+          </p>
+        </div>
+        <ul className="list mt-4">
+          {TOKENS.map(({ name, chip, what, rule }) => (
+            <li key={name} className="r" style={{ ['--cols']: '7.5rem 1fr' } as CSSProperties}>
+              <span className={`chip ${chip}`}>{name}</span>
+              <div className="min-w-0">
+                <h3>{what}</h3>
+                <span className="mt">{rule}</span>
+              </div>
             </li>
           ))}
-        </ol>
+        </ul>
       </section>
 
-      {/* ── F · The closing CTA ──────────────────────────────────────────────────────────
-          A mint block at the loudest container radius, and one of only two --r-xl containers in
-          the product. Everything on it is --on-accent, and the button INVERTS: the ink becomes
-          the fill and the CHROME ACCENT becomes the label, which is the one place on this page a
-          saturated accent is used as text on a dark fill rather than as a fill under the ink.
-          Both directions are measured. The label is `var(--volt)` and not `text-primary` only
-          because it sits on an inline style beside its own background; it is the same role, so
-          D-334 moved it with the rest of the chrome (11.15:1 on the ink). ── */}
+      {/* ── G · The closing CTA ──────────────────────────────────────────────────────────
+          A flat mint plate, full-bleed to the panel edge. Everything on it is --on-accent,
+          never white, and the button INVERTS — see CTA_INVERTED for the focus-ring geometry
+          that pairing depends on. ── */}
       <div
-        className="flex flex-col items-center gap-4 rounded-3xl px-6 py-9 text-center"
+        className="-mx-6 mt-12 flex flex-col items-center gap-4 px-gut py-10 text-center sm:-mx-8"
         style={{ background: 'var(--mint)', color: 'var(--on-accent)' }}
       >
+        <span className="font-machine text-t-micro font-semibold uppercase tracking-[0.14em]">
+          No subscription &middot; no API key
+        </span>
         <p className="text-display-xl">Start the countdown.</p>
-        <p className="max-w-[38ch] text-sm leading-relaxed">
+        <p className="max-w-[38ch] text-t-body leading-relaxed">
           No email, no password. Just a key you keep.
         </p>
         <button
           type="button"
           onClick={onCreate}
           data-testid="landing-cta-create-footer"
-          // CTA_BASE unchanged, ring OFFSET included, and that is deliberate rather than
-          // inherited. The offset colour is --surface, so the focus indicator is a volt ring
-          // on a dark gap: 11.56:1 ring-to-gap, and the gap is 11.17:1 against the mint fill.
-          // "Tidying" the offset to match the block would paint volt straight onto mint —
-          // 1.03:1, an invisible focus ring on the page's loudest button, and D-334 made that
-          // WORSE rather than better. Measured in scripts/contrast-tokens.mjs, where the bad
-          // pairing is kept as a guard.
-          className={CTA_BASE}
+          className={CTA_INVERTED}
           style={{ background: 'var(--on-accent)', color: 'var(--volt)' }}
         >
           Create an account
         </button>
       </div>
 
-      {/* ── G · The sign-off. A plain <div>, NOT <footer> — see the landmark note at the top.
+      {/* ── H · The sign-off. A plain <div>, NOT <footer> — see the landmark note at the top.
           No date finer than a month, for the reason recorded there. ── */}
-      <div className="text-center text-eyebrow uppercase text-ink-lo">
-        Nepal &times; Japan &middot; Dec 2026 &mdash; Jan 2027
+      <div className="mt-10 text-center">
+        <span className="pr pr--lo">
+          Nepal &times; Japan &middot; Dec 2026 &mdash; Jan 2027
+        </span>
       </div>
     </div>
   );

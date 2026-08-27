@@ -82,7 +82,7 @@ export default function TripStoryRecap() {
   if (!hydrated) {
     return (
       <div data-testid="trip-story-recap">
-        <SectionSkeleton height="60vh" count={4} />
+        <SectionSkeleton height="60vh" count={4} contentClassName="max-w-3xl" />
       </div>
     );
   }

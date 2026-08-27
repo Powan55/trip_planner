@@ -43,6 +43,8 @@
  * decoration. A truncated decoration is fine; a lying reservation is not.
  */
 
+import { cn } from '@/lib/utils';
+
 interface SectionSkeletonProps {
   /**
    * Total reserved height. Accepts any CSS length (e.g. '60vh', '480px',
@@ -56,6 +58,15 @@ interface SectionSkeletonProps {
   count?: number;
   /** Extra classes on the outer wrapper (spacing overrides at mount). */
   className?: string;
+  /**
+   * Extra classes on the reserved CONTENT column — the `mx-auto max-w-*` box, not the
+   * outer wrapper, because that column is what carries the width (the gutter padding sits
+   * on the wrapper, outside the clamp, so the clamp is the true edge). Merged with `cn`,
+   * so a caller's `max-w-*` replaces the 1200px default instead of stacking with it. Pass
+   * the width of the island this reserves space for: a wider placeholder snaps sideways on
+   * mount, which is the same lie the `height` bound above exists to prevent.
+   */
+  contentClassName?: string;
   /** Optional label for the shimmer bars' aria — unused visually; kept aria-hidden. */
   label?: string;
 }
@@ -64,6 +75,7 @@ export default function SectionSkeleton({
   height = 'clamp(20rem, 60vh, 34rem)',
   count = 3,
   className = '',
+  contentClassName,
   label = 'Loading section',
 }: SectionSkeletonProps) {
   // Clamp to a sane range so a bad prop can't render 0 or a runaway list.
@@ -86,7 +98,7 @@ export default function SectionSkeleton({
       style={{ height, maxHeight: height }}
     >
       <div className="px-gutter py-section">
-        <div className="mx-auto flex max-w-[1200px] flex-col gap-4">
+        <div className={cn('mx-auto flex max-w-[1200px] flex-col gap-4', contentClassName)}>
           {/* The panel's own printed head: the word, plus the count of rows being
               reserved. No <h2> — the whole tree is aria-hidden, so a heading here would
               be a phantom in the outline and exposed to nobody. */}

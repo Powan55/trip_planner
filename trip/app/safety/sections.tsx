@@ -9,5 +9,5 @@ import SectionSkeleton from '@/components/section-skeleton';
 
 export const SafetyKit = dynamic(() => import('@/components/travel-safety-kit'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="60rem" count={6} />,
+  loading: () => <SectionSkeleton height="60rem" count={6} contentClassName="max-w-4xl" />,
 });

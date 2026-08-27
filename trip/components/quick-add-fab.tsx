@@ -97,7 +97,7 @@ export default function QuickAddFab() {
       // NO scale(), either direction. A press collapses the 3px lip and translates down by
       // the same 3px, so the control moves rather than swelling — and the focus ring goes
       // OUTWARD, because a ring drawn inside this accent fill measures 1.00:1, i.e. no ring.
-      className="md:hidden fixed right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-r1 bg-[color:var(--accent)] text-[color:var(--on-accent)] border-b-[3px] border-b-[color:var(--lip-volt)] outline-none transition-all [transition-duration:var(--duration-press)] hover:brightness-110 active:translate-y-[3px] active:border-b-0 active:mb-[3px] focus-visible:ring-2 focus-visible:ring-[color:var(--text-hi)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+      className="md:hidden fixed right-4 z-40 inline-flex h-14 w-14 items-center justify-center rounded-r1 bg-[color:hsl(var(--accent))] text-[color:var(--on-accent)] border-b-[3px] border-b-[color:var(--lip-volt)] outline-none transition-all [transition-duration:var(--duration-press)] hover:brightness-110 active:translate-y-[3px] active:border-b-0 active:mb-[3px] focus-visible:ring-2 focus-visible:ring-[color:var(--text-hi)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
       // Float one gap above the tab bar; both offsets scale with the device safe-area.
       style={{ bottom: 'calc(var(--tab-bar-h, 64px) + env(safe-area-inset-bottom) + 1rem)' }}
     >

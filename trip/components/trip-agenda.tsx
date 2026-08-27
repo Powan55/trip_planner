@@ -182,7 +182,7 @@ function AgendaRow({
             done
               ? 'chip chip--struck'
               : isNow
-                ? 'chip border-[color:var(--accent)] text-[color:var(--accent)]'
+                ? 'chip border-[color:hsl(var(--accent))] text-[color:hsl(var(--accent))]'
                 : 'hollow-tag'
           }
         >

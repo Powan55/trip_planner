@@ -192,7 +192,7 @@ function NowNextStrip({ state, date }: { state: TravelHeroState; date: string })
             {headline.location ? ` · ${headline.location}` : ''}
           </span>
         </div>
-        <span className={`chip${isNow ? ' border-[color:var(--accent)] text-[color:var(--accent)]' : ''}`}>
+        <span className={`chip${isNow ? ' border-[color:hsl(var(--accent))] text-[color:hsl(var(--accent))]' : ''}`}>
           {isNow ? 'Now' : 'Next'}
         </span>
       </div>

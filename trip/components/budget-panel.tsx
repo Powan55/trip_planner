@@ -665,7 +665,7 @@ function LegBudgetCard({
             step="any"
             placeholder="0"
             {...legDraft}
-            className={`num w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] py-2 pr-3 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-[color:var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`num w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] py-2 pr-3 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-[color:hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-9' : 'pl-7'
             }`}
           />
@@ -773,7 +773,7 @@ function CategoryBudgetInput({
             placeholder="0"
             aria-label={`${category} budget for the ${leg} leg, in ${cur}`}
             {...draft}
-            className={`num w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] py-1.5 pr-2.5 text-t-sm text-ink-hi placeholder:text-ink-lo focus-visible:border-[color:var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`num w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] py-1.5 pr-2.5 text-t-sm text-ink-hi placeholder:text-ink-lo focus-visible:border-[color:hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-8' : 'pl-6'
             }`}
           />

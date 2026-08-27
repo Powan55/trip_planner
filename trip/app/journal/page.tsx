@@ -25,6 +25,7 @@ export default function JournalPage() {
         title="Journal"
         eyebrow="Every day, in your words"
         subtitle="Browse and edit every trip-day entry you've written — private, on this device only."
+        bandClassName="max-w-3xl"
       />
       <JournalBrowse />
     </main>

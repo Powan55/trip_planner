@@ -25,6 +25,8 @@
  * strings to pass, the way `plan-hero.tsx` wraps PageHero.
  */
 
+import { cn } from '@/lib/utils';
+
 interface PageHeaderProps {
   eyebrow: string;
   title: string;
@@ -39,6 +41,13 @@ interface PageHeaderProps {
    * a prop-signature change breaks them silently.
    */
   reveal?: boolean;
+  /**
+   * Extra classes on the masthead PANEL — the bordered box, not the outer <header>, because
+   * the panel is what carries the width. Merged with `cn`, so a caller's `max-w-*` replaces
+   * the 1200px default instead of stacking with it; each route passes the width of the body
+   * below it so the two edges line up.
+   */
+  className?: string;
 }
 
 export default function PageHeader({
@@ -47,6 +56,7 @@ export default function PageHeader({
   description,
   titleId,
   accent = 'hsl(var(--accent-scroll))',
+  className,
 }: PageHeaderProps) {
   return (
     <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
@@ -54,7 +64,12 @@ export default function PageHeader({
           `reveal` is kept in the props because eight route files pass it and this bundle
           does not change a public signature; it now selects nothing, which is the honest
           state until those callers are swept. */}
-      <div className="relative mx-auto max-w-[1200px] overflow-hidden border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] rounded-r1 px-6 py-8 sm:px-10 sm:py-12">
+      <div
+        className={cn(
+          'relative mx-auto max-w-[1200px] overflow-hidden border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] rounded-r1 px-6 py-8 sm:px-10 sm:py-12',
+          className,
+        )}
+      >
         <span
           aria-hidden="true"
           className="pointer-events-none absolute inset-0"

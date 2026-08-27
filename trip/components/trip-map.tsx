@@ -241,7 +241,7 @@ function MarkerPopupContent({
             data-testid={`map-popup-favorite-${marker.id}`}
             className={`ml-auto shrink-0 grid h-8 w-8 place-items-center rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               favorited
-                ? 'border-[color:var(--accent)] text-[color:hsl(var(--accent))] bg-[rgb(62_216_255/0.10)]'
+                ? 'border-[color:hsl(var(--accent))] text-[color:hsl(var(--accent))] bg-[rgb(62_216_255/0.10)]'
                 : 'border-[color:hsl(var(--border))] text-ink-lo hover:border-[color:var(--border-ui)] hover:text-ink-hi'
             }`}
           >
@@ -313,7 +313,7 @@ function MarkerPopupContent({
               onClick={() => assignDate && onAssignDay?.(marker, assignDate)}
               data-testid={`map-popup-assign-confirm-${marker.id}`}
               aria-label={`Anchor a day around ${marker.name}`}
-              className="chip chip--struck shrink-0 min-h-tap px-2.5 transition-colors hover:border-[color:var(--accent)] hover:text-[color:hsl(var(--accent))] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="chip chip--struck shrink-0 min-h-tap px-2.5 transition-colors hover:border-[color:hsl(var(--accent))] hover:text-[color:hsl(var(--accent))] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               Anchor
             </button>

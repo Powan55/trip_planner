@@ -1,23 +1,19 @@
 'use client';
 
-// — the concierge, in Travel Mode. The component itself is unchanged and un-forked: this is
-// the SECOND mount of the exact same `<ConciergeChat />` (its own Sheet trigger, its own
-// `useItinerary()` on the shared `itinerary:changed` bus), and only one of the two ever exists at
-// a time — `navbar.tsx` (the other mount) returns null under `/travel` (`lib/travel-route.ts`),
-// which is the only reason the concierge was missing here at all.
+// The concierge, in Travel Mode. Un-forked: this is the SECOND mount of the exact same
+// `<ConciergeChat />`, and only one of the two ever exists at a time — `navbar.tsx` (the other
+// mount) returns null under `/travel` (`lib/travel-route.ts`). All of the panel's own styling,
+// state grammar and gating live in that one component; this file only decides whether it mounts.
 //
-// Gating is deliberately identical to the navbar's: `isConciergeAllowedForActiveTrip()` (the
-// DEPLOYED Worker's persona is a hardcoded Nepal × Japan one, so a custom trip must not get
-// it). moved that rule into `lib/concierge-config.ts` so both mounts read ONE copy of it and
-// the owner lifts it in exactly one place after deploying the trip-aware Worker. Everything else —
-// `isConciergeConfigured()` (dormant unless `NEXT_PUBLIC_CONCIERGE_URL` is inlined) and the
-// active-traveler check — stays INSIDE ConciergeChat, which renders null when they fail, so
-// there is exactly one copy of those rules.
+// Gating is deliberately identical to the navbar's: `isConciergeAllowedForActiveTrip()`, because
+// the deployed Worker is hardcoded to the Nepal × Japan trip and a custom trip must not get it.
+// The rule lives in `lib/concierge-config.ts` so both mounts read ONE copy of it.
+// `isConciergeConfigured()` and the active-traveler check stay INSIDE ConciergeChat, which renders
+// null when they fail.
 //
-// Mounted into `/travel`'s reserved `.tm-thumb-zone` band: the
-// designed slot for a TM primary action, thumb-reachable at 390×844 and clear of both the agenda
-// controls and the day map. The band is `:empty`-collapsed, so in a dormant build (where this
-// renders nothing) it stays `display:none` and the layout is byte-identical to pre-.
+// Mounted into `/travel`'s reserved `.tm-thumb-zone` band — thumb-reachable at 390×844 and clear
+// of both the agenda controls and the day map. The band is `:empty`-collapsed, so in a dormant
+// build (where this renders nothing) it stays `display:none` and the layout is unchanged.
 
 import { useMemo } from 'react';
 import dynamic from 'next/dynamic';

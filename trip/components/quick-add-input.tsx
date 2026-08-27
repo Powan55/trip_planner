@@ -70,7 +70,7 @@ export default function QuickAddInput({
         data-testid={`${testId}-submit`}
         // Disabled recedes by TIER, never by opacity: dimming multiplies the alpha of the
         // glyph inside it and drops the control straight through the contrast floor.
-        className="shrink-0 inline-flex h-tap w-tap items-center justify-center rounded-r1 border-b-[3px] border-b-[color:var(--lip-volt)] bg-[color:var(--accent)] text-[color:var(--on-accent)] outline-none transition-all [transition-duration:var(--duration-press)] hover:brightness-110 active:translate-y-[3px] active:border-b-0 active:mb-[3px] disabled:cursor-not-allowed disabled:border-b-0 disabled:bg-[rgb(var(--surface-overlay))] disabled:text-[color:var(--text-lo)] focus-visible:ring-2 focus-visible:ring-[color:var(--text-hi)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+        className="shrink-0 inline-flex h-tap w-tap items-center justify-center rounded-r1 border-b-[3px] border-b-[color:var(--lip-volt)] bg-[color:hsl(var(--accent))] text-[color:var(--on-accent)] outline-none transition-all [transition-duration:var(--duration-press)] hover:brightness-110 active:translate-y-[3px] active:border-b-0 active:mb-[3px] disabled:cursor-not-allowed disabled:border-b-0 disabled:bg-[rgb(var(--surface-overlay))] disabled:text-[color:var(--text-lo)] focus-visible:ring-2 focus-visible:ring-[color:var(--text-hi)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
       >
         <Plus className="w-4 h-4" aria-hidden="true" />
       </button>

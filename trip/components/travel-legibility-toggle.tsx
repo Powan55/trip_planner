@@ -62,7 +62,7 @@ export default function TravelLegibilityToggle() {
       data-testid="travel-legibility-toggle"
       className={`pr inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-r1 border-hair px-2 outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         high
-          ? 'border-solid border-[color:var(--accent)] text-[color:var(--accent)]'
+          ? 'border-solid border-[color:hsl(var(--accent))] text-[color:hsl(var(--accent))]'
           : 'border-dashed border-[color:var(--text-lo)] text-ink-lo hover:bg-white/5 hover:text-ink-mid'
       }`}
     >

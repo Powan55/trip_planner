@@ -1,8 +1,18 @@
 import type { Config } from 'tailwindcss';
 
+// `!chip` in `if (!chip)` is a class candidate to the scanner, and every recipe name
+// that doubles as a variable name (btn, chip, pr, mk, empty, alt, v, b, f, s, t) was
+// shipping a dead !important twin of the whole recipe. Drop the bang only where the
+// character before it cannot end a class — a quote, a space after an identifier, or a
+// variant colon (`motion-reduce:[&_img]:!transform-none`) all keep theirs.
+const stripJsNegation = (src: string) =>
+  src.replace(/(=>|\breturn|[(\[{,;=&|?!])(\s*)!+(?=[A-Za-z])/g, '$1$2');
+
 const config: Config = {
   darkMode: ['class'],
-  content: [
+  content: {
+    transform: { DEFAULT: stripJsNegation },
+    files: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
@@ -20,7 +30,8 @@ const config: Config = {
     // keeps test files from injecting candidates into the shipped bundle: a spec asserting on
     // `border-white/${i}` made Tailwind emit a bare `.border-white` rule nothing renders.
     '!./{lib,components}/__tests__/**',
-  ],
+    ],
+  },
   theme: {
     extend: {
       fontFamily: {

@@ -117,7 +117,12 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-r1 px-2 py-1.5 text-t-body outline-none data-[disabled=true]:pointer-events-none data-[selected='true']:bg-accent data-[selected=true]:text-accent-foreground data-[disabled=true]:opacity-50",
+      // Selected is a 10% accent WASH, not a full accent fill, and the ink moves with it.
+      // The pair has to hold on whatever ground a consumer supplies: `text-accent-foreground`
+      // (--on-accent) is only legible on a saturated fill and measures 1.13:1 on a wash, and
+      // there is no single ink that clears AA on both. Measured through the grain multiplier:
+      // ink-hi is 12.83 on this wash over --popover and 16.61 over --surface-low.
+      'relative flex cursor-default select-none items-center rounded-r1 px-2 py-1.5 text-t-body outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-accent/10 data-[selected=true]:text-ink-hi data-[disabled=true]:opacity-50',
       className
     )}
     {...props}

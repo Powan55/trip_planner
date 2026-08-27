@@ -8,5 +8,5 @@ import SectionSkeleton from '@/components/section-skeleton';
 
 export const Settings = dynamic(() => import('@/components/settings-panel'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="40rem" count={3} />,
+  loading: () => <SectionSkeleton height="40rem" count={3} contentClassName="max-w-5xl" />,
 });

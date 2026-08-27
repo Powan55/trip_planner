@@ -32,6 +32,7 @@ export default function PackingHeader() {
           ? 'The universal essentials — check them off as you pack. Saved on this device only.'
           : 'Nepal-leg, Japan-leg, and universal items — check them off as you pack. Saved on this device only.'
       }
+      className="max-w-3xl"
     />
   );
 }

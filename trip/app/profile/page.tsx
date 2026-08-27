@@ -37,6 +37,7 @@ export default function ProfilePage() {
         title="Profile"
         description="Add the countries and cities you had already been to before this trip, so your totals count a lifetime of travel and not just this one journey. Everything here is kept on this device and survives clearing a trip or signing out."
         reveal={false}
+        className="max-w-3xl"
       />
       <VisitedPlaces />
     </main>

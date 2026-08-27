@@ -24,7 +24,7 @@ import { usePresence } from '@/hooks/use-presence';
  * names contained.
  *
  * A11y: a labeled live region (`role="status"` + `aria-live="polite"`) so a
- * screen reader announces who joins — the region is the always-mounted, boxless `<aside>`
+ * screen reader announces who joins — the region is the always-mounted, boxless wrapper
  * and only the pill inside it is conditional, because a region inserted in the same commit
  * as its content is not reliably announced. With a visually-hidden summary sentence; the dots are
  * `aria-hidden` decoration. The only motion is one declarative `m` reveal, which the
@@ -36,14 +36,14 @@ export default function PresenceBar() {
   const active = usePresence();
 
   // No active others / dormant / guest ⇒ show nothing (portfolio + guest unchanged). The
-  // <aside> live region itself stays mounted and empty: a region only announces a mutation
+  // live region itself stays mounted and empty: a region only announces a mutation
   // of a region ALREADY in the tree, so one inserted together with its roster is not
   // reliably announced. Empty it has no children and therefore no box.
   const names = active.map((p) => p.name).join(', ');
   const verb = active.length === 1 ? 'is' : 'are';
 
   return (
-    <aside role="status" aria-live="polite" aria-label="Travelers active now">
+    <div role="status" aria-live="polite" aria-label="Travelers active now">
       {active.length === 0 ? null : (
         <m.div
           initial={{ opacity: 0, y: 8 }}
@@ -89,6 +89,6 @@ export default function PresenceBar() {
           </div>
         </m.div>
       )}
-    </aside>
+    </div>
   );
 }

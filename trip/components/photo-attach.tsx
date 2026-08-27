@@ -24,8 +24,8 @@ import {
  * `BlobStorePort` (IndexedDB) — no network, no sync, no export path.
  *
  * A11y: labelled file input + alt/caption fields, `alt` on every `<img>`, ≥44px
- * targets, visible gold focus rings, an `aria-live` error region. CSS-only transitions → reduced-motion
- * safe by construction.
+ * targets, the app-wide accent focus ring, an `aria-live` error region. CSS-only transitions →
+ * reduced-motion safe by construction.
  */
 export default function PhotoAttach({
   owner,
@@ -120,7 +120,7 @@ export default function PhotoAttach({
   return (
     <section data-testid="photo-attach" aria-label={heading} className="mt-4">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h4 className="flex items-center gap-2 text-t-micro font-semibold uppercase tracking-widest text-muted-foreground">
+        <h4 className="pr flex items-center gap-2">
           <Camera className="h-3.5 w-3.5" aria-hidden="true" />
           {heading}
         </h4>
@@ -129,7 +129,7 @@ export default function PhotoAttach({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           data-testid="photo-add-button"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-hi outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="chip min-h-tap shrink-0 gap-1.5 px-3 outline-none transition-colors hover:bg-white/5 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Camera className="h-4 w-4" aria-hidden="true" />
           Add photo
@@ -147,17 +147,17 @@ export default function PhotoAttach({
       </div>
 
       {helperText && (
-        <p data-testid="photo-helper-text" className="mb-3 text-xs text-ink-mid">
+        <p data-testid="photo-helper-text" className="mb-3 text-t-sm text-ink-mid">
           {helperText}
         </p>
       )}
 
       {/* Alt-text (required) + caption (optional) prompt, shown after a file is picked. */}
       {pending && (
-        <div data-testid="photo-prompt" className="mb-3 space-y-3 rounded-lg border border-white/15 bg-surface/60 p-3">
+        <div data-testid="photo-prompt" className="mb-3 space-y-3 rounded-r1 border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-raised))] p-3">
           <div>
-            <label htmlFor={altId} className="mb-1.5 block text-xs font-medium text-ink-mid">
-              Describe this photo <span className="text-foreground">(required)</span>
+            <label htmlFor={altId} className="pr pr--lo mb-1 block">
+              Describe this photo <span className="text-ink-hi">(required)</span>
             </label>
             <input
               ref={altInputRef}
@@ -168,12 +168,12 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder={altPlaceholder}
               data-testid="photo-alt-input"
-              className="w-full min-h-[44px] rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] px-3 py-2 text-t-body text-ink-hi placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-[color:hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div>
-            <label htmlFor={captionId} className="mb-1.5 block text-xs font-medium text-ink-mid">
-              Caption <span className="text-ink-lo">(optional)</span>
+            <label htmlFor={captionId} className="pr pr--lo mb-1 block">
+              Caption (optional)
             </label>
             <input
               id={captionId}
@@ -183,7 +183,7 @@ export default function PhotoAttach({
               maxLength={200}
               placeholder="A note to remember it by…"
               data-testid="photo-caption-input"
-              className="w-full min-h-[44px] rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] px-3 py-2 text-t-body text-ink-hi placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-[color:hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
           <div className="flex items-center justify-end gap-2">
@@ -191,7 +191,7 @@ export default function PhotoAttach({
               type="button"
               onClick={cancelPending}
               data-testid="photo-cancel"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="chip min-h-tap gap-1.5 px-3 outline-none transition-colors hover:bg-white/5 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="h-4 w-4" aria-hidden="true" />
               Cancel
@@ -201,7 +201,7 @@ export default function PhotoAttach({
               onClick={savePending}
               disabled={!alt.trim() || saving}
               data-testid="photo-save"
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground outline-none transition-colors duration-200 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+              className="btn px-4 focus-visible:outline-none"
             >
               <Check className="h-4 w-4" aria-hidden="true" />
               {saving ? 'Saving…' : 'Save photo'}
@@ -216,7 +216,7 @@ export default function PhotoAttach({
           announced. Same idiom as settings-panel.tsx / backup-restore.tsx. */}
       <div role="status" aria-live="polite">
         {error && (
-          <p data-testid="photo-error" className="mb-3 text-xs text-destructive">
+          <p data-testid="photo-error" className="err mb-3 text-t-body">
             {error}
           </p>
         )}
@@ -258,10 +258,10 @@ export default function PhotoAttach({
       )}
 
       <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
-        <AlertDialogContent className="glass-card-dark border-white/10 text-white" data-testid="photo-delete-confirm">
+        <AlertDialogContent className="bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] rounded-r2 text-ink-hi" data-testid="photo-delete-confirm">
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this photo?</AlertDialogTitle>
-            <AlertDialogDescription className="text-ink-mid">
+            <AlertDialogDescription className="text-t-body text-ink-mid">
               {pendingDelete?.caption ?? pendingDelete?.altText} — this deletes it from this device
               for good. It is not backed up anywhere and there is no undo.
             </AlertDialogDescription>
@@ -310,7 +310,7 @@ function PhotoThumb({
   const { url, missing } = usePhotoObjectUrl(meta.id);
 
   return (
-    <li data-testid={`photo-thumb-${meta.id}`} className="relative aspect-square overflow-hidden rounded-r1 border border-hair border-[hsl(var(--border))] bg-[rgb(var(--surface-low))]">
+    <li data-testid={`photo-thumb-${meta.id}`} className="relative aspect-square overflow-hidden rounded-r1 border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))]">
       {missing ? (
         <div
           data-testid={`photo-placeholder-${meta.id}`}
@@ -358,13 +358,15 @@ function PhotoThumb({
 
       {/* Permanently visible, NOT hover/focus-revealed. A touch device fires neither,
           so the hover-only version left no way to remove a photo on this feature's primary
-          device. It sits on a bg-black/50 chip over the caption's from-black/70 gradient. */}
+          device. It sits on a bg-black/70 chip over the caption's from-black/70 gradient — 70%
+          and not 50% because the worst-case pixel under it is a white one, where 50% measures
+          3.54:1 against the glyph and 70% measures 8.45:1. */}
       <button
         type="button"
         onClick={onDelete}
         data-testid={`photo-delete-${meta.id}`}
         aria-label={`Remove photo: ${meta.altText}`}
-        className="absolute right-1 top-1 inline-flex h-tap w-tap items-center justify-center rounded-md bg-black/50 text-white outline-none hover:bg-red-500/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="absolute right-1 top-1 inline-flex h-tap w-tap items-center justify-center rounded-r1 bg-black/70 text-ink-hi outline-none transition-colors hover:bg-[color:hsl(var(--destructive))] hover:text-[color:var(--on-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
       </button>

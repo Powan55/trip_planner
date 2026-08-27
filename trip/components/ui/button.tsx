@@ -39,7 +39,7 @@ const buttonVariants = cva(
         ghost:
           "text-[color:var(--text-mid)] hover:bg-white/5 hover:text-[color:var(--text-hi)] disabled:text-[color:var(--text-lo)] disabled:cursor-not-allowed",
         link:
-          "text-[color:var(--accent)] normal-case tracking-normal font-sans text-t-body underline-offset-4 hover:underline focus-visible:underline focus-visible:ring-0 focus-visible:ring-offset-0 disabled:text-[color:var(--text-lo)]",
+          "text-[color:hsl(var(--accent))] normal-case tracking-normal font-sans text-t-body underline-offset-4 hover:underline focus-visible:underline focus-visible:ring-0 focus-visible:ring-offset-0 disabled:text-[color:var(--text-lo)]",
       },
       // Every size now sits on `--tap` (44px) rather than a fixed sub-floor height.
       // Measured at this app's 17px root, the old scale was default 42.5 · xs 29.75 ·

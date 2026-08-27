@@ -121,7 +121,7 @@ export function primaryItemsForActiveTrip(): NavItem[] {
 }
 
 // Trailing-slash-agnostic pathname compare ('' and '/' both mean Home).
-function normalizePath(p: string | null): string {
+export function normalizePath(p: string | null): string {
   const stripped = (p ?? '/').replace(/\/+$/, '');
   return stripped === '' ? '/' : stripped;
 }

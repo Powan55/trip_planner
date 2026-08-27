@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Clock, X, Check } from 'lucide-react';
 import { formatTimeAmPm } from '@/core/dates';
+import { overlayPanelMotion } from '@/lib/motion';
 import {
   DEFAULT_TIME_MINUTES,
   combineMinutes,
@@ -126,10 +127,10 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
         aria-haspopup="dialog"
         aria-expanded={open}
         data-testid={testId ?? 'time-picker-trigger'}
-        className="w-full min-h-[44px] flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:outline-none"
+        className="w-full min-h-tap flex items-center gap-2 px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <Clock className="w-4 h-4 text-ink-lo shrink-0" aria-hidden="true" />
-        <span className={value !== undefined ? 'text-white' : 'text-ink-lo'}>{label}</span>
+        <span className={value !== undefined ? 'num text-ink-hi' : 'text-ink-lo'}>{label}</span>
       </button>
 
       {mounted &&
@@ -151,19 +152,19 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
                   data-testid="time-picker-panel"
                   onKeyDown={handleKeyDown}
                   onClick={(e: React.MouseEvent) => e.stopPropagation()}
-                  initial={{ scale: 0.95, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.95, opacity: 0 }}
-                  className="w-full max-w-xs glass-card-dark rounded-2xl p-4 shadow-2xl"
+                  // D-292: a dialog is Tier 3 whatever route opened it, and the scale it used to
+                  // carry is what that tier revokes — the gated calm entrance is in `lib/motion.ts`.
+                  {...overlayPanelMotion()}
+                  className="w-full max-w-xs bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] rounded-r2 p-4"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 id={titleId} className="text-sm font-semibold text-white">Set time</h4>
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <h4 id={titleId} className="pr pr--l text-ink-hi">Set time</h4>
                     <button
                       type="button"
                       onClick={() => setOpen(false)}
                       aria-label="Close time picker"
                       data-testid="time-picker-close"
-                      className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="shrink-0 inline-flex items-center justify-center min-h-tap min-w-tap rounded-r1 text-ink-mid hover:bg-white/5 hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <X className="w-4 h-4" />
                     </button>
@@ -204,7 +205,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
                       type="button"
                       onClick={clear}
                       data-testid="time-picker-clear"
-                      className="flex-1 min-h-[44px] px-3 py-2 rounded-lg text-xs font-medium text-ink-hi bg-white/5 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="btn btn--2 flex-1 px-3 focus-visible:outline-none"
                     >
                       Clear time
                     </button>
@@ -212,7 +213,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
                       type="button"
                       onClick={() => setOpen(false)}
                       data-testid="time-picker-done"
-                      className="flex-1 min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+                      className="btn flex-1 px-3 focus-visible:outline-none"
                     >
                       <Check className="w-3.5 h-3.5" aria-hidden="true" />
                       Done
@@ -278,14 +279,14 @@ function TimeColumn<T extends string | number>({
 
   return (
     <div className="flex flex-col min-w-0">
-      <span id={`${listId}-label`} className="text-t-micro uppercase tracking-wide text-ink-mid mb-1 text-center">
+      <span id={`${listId}-label`} className="pr pr--lo mb-1 block text-center">
         {label}
       </span>
       <div
         role="listbox"
         aria-labelledby={`${listId}-label`}
         tabIndex={-1}
-        className="max-h-44 overflow-y-auto overscroll-contain scrollbar-hide rounded-lg bg-white/5 border border-white/10 p-1 space-y-1"
+        className="max-h-44 overflow-y-auto overscroll-contain scrollbar-hide rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:hsl(var(--border))] p-1 space-y-1"
       >
         {options.map((opt, idx) => {
           const selected = opt === value;
@@ -303,8 +304,10 @@ function TimeColumn<T extends string | number>({
               tabIndex={selected ? 0 : -1}
               onClick={() => onSelect(opt)}
               onKeyDown={(e) => onKeyDown(e, idx)}
-              className={`w-full min-h-[44px] flex items-center justify-center rounded-md text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                selected ? 'bg-primary text-primary-foreground' : 'text-ink-mid hover:bg-white/10'
+              className={`num w-full min-h-tap flex items-center justify-center rounded-r1 border-hair text-t-body transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                selected
+                  ? 'bg-[rgb(62_216_255_/_0.10)] text-ink-hi border-[color:hsl(var(--accent))] shadow-[inset_0_-3px_0_hsl(var(--accent))]'
+                  : 'text-ink-mid border-transparent hover:bg-white/5 hover:text-ink-hi'
               }`}
             >
               {format(opt)}
@@ -353,7 +356,7 @@ export function DurationField({
         onChange(Number.isFinite(n) && n > 0 ? n : undefined);
       }}
       data-testid={testId ?? 'duration-field-input'}
-      className="w-full min-h-[44px] px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+      className="num w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       placeholder="e.g., 120"
     />
   );

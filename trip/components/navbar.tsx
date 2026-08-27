@@ -285,7 +285,7 @@ export default function Navbar() {
                               aria-current={isActive ? 'page' : undefined}
                               className={`flex w-full min-h-tap items-center gap-2.5 px-3 py-2 text-t-body transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                                 isActive
-                                  ? 'bg-[rgb(62_216_255_/_0.10)] text-[color:var(--text-hi)] shadow-[inset_3px_0_0_var(--accent)]'
+                                  ? 'bg-[rgb(62_216_255_/_0.10)] text-[color:var(--text-hi)] shadow-[inset_3px_0_0_hsl(var(--accent))]'
                                   : 'text-[color:var(--text-mid)] hover:bg-white/5 hover:text-[color:var(--text-hi)]'
                               }`}
                             >
@@ -349,7 +349,7 @@ export default function Navbar() {
                 onClick={() => enterTravel(navigate)}
                 data-testid="navbar-travel-mode"
                 aria-label="Enter Travel Mode"
-                className="inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-r1 border border-[color:var(--accent)] px-2.5 font-machine text-t-micro font-semibold uppercase tracking-[0.11em] text-[color:var(--accent)] outline-none transition-colors hover:bg-[rgb(62_216_255_/_0.10)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-3.5"
+                className="inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-r1 border border-[color:hsl(var(--accent))] px-2.5 font-machine text-t-micro font-semibold uppercase tracking-[0.11em] text-[color:hsl(var(--accent))] outline-none transition-colors hover:bg-[rgb(62_216_255_/_0.10)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-3.5"
               >
                 <Compass className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Travel Mode</span>

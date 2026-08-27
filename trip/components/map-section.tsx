@@ -1183,9 +1183,9 @@ export default function MapSection() {
                     data-mark={planned === 0 ? 'hollow' : 'struck'}
                     className={`flex flex-col items-start gap-0.5 min-w-[92px] min-h-tap px-3 py-2 rounded-r1 border-hair text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                       isDropTarget
-                        ? 'border-[color:var(--accent)] bg-[rgb(62_216_255/0.10)]'
+                        ? 'border-[color:hsl(var(--accent))] bg-[rgb(62_216_255/0.10)]'
                         : isSelected
-                          ? 'border-[color:var(--accent)] bg-[rgb(62_216_255/0.10)] shadow-[inset_3px_0_0_var(--accent)]'
+                          ? 'border-[color:hsl(var(--accent))] bg-[rgb(62_216_255/0.10)] shadow-[inset_3px_0_0_hsl(var(--accent))]'
                           : planned === 0
                             ? 'border-dashed border-[color:var(--text-lo)] bg-transparent'
                             : 'border-[color:hsl(var(--border))] bg-surface-low hover:border-[color:var(--border-ui)]'

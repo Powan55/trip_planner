@@ -23,7 +23,7 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 /**
  * Fast expense-log dialog. A NEW, lightweight modal, deliberately
  * separate from the itinerary add dialog (`add-to-itinerary-dialog.tsx`), reached via the
- * `expense:open` event + `ExpenseLogHost` — the itinerary quick-add FAB is left single-purpose
+ * `expense:open` event + `ExpenseLogHost` — the itinerary quick-add FAB is left single-purpose.
  * It writes expenses THROUGH the reactive store (`useExpenses`), so the budget
  * panel's spent/remaining updates live via the shared CustomEvent.
  *

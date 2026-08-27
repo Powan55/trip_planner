@@ -173,7 +173,7 @@ export default function WrappedStory() {
   if (!hydrated) {
     return (
       <div data-testid="wrapped-story">
-        <SectionSkeleton height="50vh" count={3} />
+        <SectionSkeleton height="50vh" count={3} contentClassName="max-w-3xl" />
       </div>
     );
   }

@@ -8,6 +8,7 @@ import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { tourStore } from '@/core/storage/gateway';
 import { NAV_ITEMS, type NavItem } from '@/lib/nav-items';
 import { getActiveTrip } from '@/core/trips';
+import { overlayPanelMotion } from '@/lib/motion';
 
 /**
  * First-run guided tour — a one-time, ≤5-step coach-mark stepper introducing the
@@ -54,7 +55,7 @@ import { getActiveTrip } from '@/core/trips';
  *
  * REDUCED MOTION: `m.*` only, governed by the app-wide `<MotionConfig
  * reducedMotion="user">` (`theme-provider.tsx`) already wrapping this tree — no new
- * MotionConfig needed. The ONE motion instance is the panel mount/unmount fade+scale;
+ * MotionConfig needed. The ONE motion instance is the panel mount/unmount fade+rise;
  * step-to-step content swaps are a plain (non-animated) state update, so there is nothing
  * else in this component for reduced motion to have to neutralize.
  */
@@ -292,12 +293,12 @@ function TourPanel({
         aria-labelledby={titleId}
         aria-describedby={descId}
         onKeyDown={handleKeyDown}
-        initial={{ scale: 0.94, opacity: 0, y: 12 }}
-        animate={{ scale: 1, opacity: 1, y: 0 }}
-        exit={{ scale: 0.96, opacity: 0, y: -8 }}
-        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        // D-292: a dialog is Tier 3 whatever route opened it, and the scale-from-0.94 this used
+        // to carry is exactly what that tier revokes — the gated calm entrance is in
+        // `lib/motion.ts`, shared with every other modal in the app.
+        {...overlayPanelMotion()}
         data-testid="tour-dialog"
-        className="relative w-full max-w-md glass-card-dark rounded-3xl p-6 sm:p-8 shadow-2xl"
+        className="relative w-full max-w-md bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] rounded-r2 p-6 sm:p-8"
       >
         <button
           type="button"
@@ -305,45 +306,52 @@ function TourPanel({
           onClick={onSkip}
           aria-label="Skip tour"
           data-testid="tour-skip"
-          className="absolute right-3 top-3 inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="absolute right-3 top-3 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 text-ink-mid outline-none transition-colors hover:bg-white/5 hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <X className="h-5 w-5" aria-hidden="true" />
         </button>
 
         <div className="flex items-center gap-3 pr-10">
           <span
-            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-muted/40 text-foreground"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-r1 border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-raised))] text-ink-hi"
             aria-hidden="true"
           >
             <Icon className="h-6 w-6" />
           </span>
           <div className="min-w-0">
             <p
-              className="text-t-micro uppercase tracking-[0.22em] text-ink-mid font-medium"
+              className="pr"
               aria-live="polite"
               data-testid="tour-progress"
             >
               Step {step + 1} of {total}
             </p>
-            <h2 id={titleId} className="font-display text-xl font-bold leading-tight text-white">
+            {/* text-display-md, NOT `font-display font-bold`: Instrument Serif ships weight 400
+                only, so that pairing asked the browser to synthesise a bold. The sans display
+                step carries a real 800. */}
+            <h2 id={titleId} className="text-display-md leading-tight text-ink-hi">
               {stop.label}
             </h2>
           </div>
         </div>
 
-        <p id={descId} className="mt-4 text-sm leading-relaxed text-ink-mid" data-testid="tour-desc">
+        <p id={descId} className="mt-4 text-t-lead leading-relaxed text-ink-mid" data-testid="tour-desc">
           {stop.blurb}
         </p>
 
-        {/* Progress dots — decorative only, the "Step N of M" text above is the accessible source. */}
+        {/* Progress marks — decorative only, the "Step N of M" text above is the accessible
+            source. On the one mark the app draws everywhere: struck is a step you have passed,
+            hollow is one you have not. */}
         <div className="mt-5 flex items-center gap-1.5" aria-hidden="true">
           {Array.from({ length: total }).map((_, i) => (
             <span
               key={i}
               className={
                 i === step
-                  ? 'h-1.5 w-5 rounded-full bg-primary'
-                  : 'h-1.5 w-1.5 rounded-full bg-white/20'
+                  ? 'mk mk--struck h-1.5 w-5 rounded-full'
+                  : i < step
+                    ? 'mk mk--struck h-2 w-2'
+                    : 'mk mk--hollow h-2 w-2'
               }
             />
           ))}
@@ -355,7 +363,7 @@ function TourPanel({
             onClick={onBack}
             disabled={step === 0}
             data-testid="tour-back"
-            className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl px-3 text-sm font-medium text-ink-mid outline-none transition-colors hover:text-white disabled:opacity-30 disabled:pointer-events-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="btn btn--2 gap-1.5 px-3 focus-visible:outline-none"
           >
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             Back
@@ -365,7 +373,7 @@ function TourPanel({
             type="button"
             onClick={onNext}
             data-testid="tour-next"
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-primary px-5 py-2.5 font-semibold text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+            className="btn px-5 focus-visible:outline-none"
           >
             {isLast ? (
               <>

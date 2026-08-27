@@ -23,15 +23,16 @@ import type { Expense } from '@/core/budget/expenses';
  * window.dispatchEvent(new CustomEvent('expense:open')) // add, auto leg
  * window.dispatchEvent(new CustomEvent('expense:open', { detail: { expense } })) // edit
  *
- * This is a PARALLEL trigger to the itinerary quick-add FAB (its OWN event + host + dialog) — the
- * itinerary FAB is left single-purpose per /. The dialog owns the full modal contract
- *; focus-return is parent-owned here
- * per: we capture `document.activeElement` when the event fires (the "Log expense" / "Edit"
- * button) and refocus it once the exit animation completes.
+ * This is a PARALLEL trigger to the itinerary quick-add FAB, which keeps its own event, host and
+ * dialog and stays single-purpose. `ExpenseDialog` owns the whole modal contract (Esc, Tab-trap,
+ * first-field autofocus, pinned footer, portal, the `body[data-dialog-open]` seam flag); only
+ * focus-return is parent-owned, and it is owned here: we capture `document.activeElement` when the
+ * event fires (the "Log expense" / "Edit" button) and refocus it once the exit animation completes.
  *
  * LEG PRESET (usually right with zero taps): `getTodayInTrip()?.country` when we're mid-trip, else
  * the leg of the calendar's selected day (`getCountryForDate(getSelectedDay())`), else the first
- * trip day's leg. `getCountryForDate` returns 'nepal' | 'japan' === Leg, so no mapping is needed.
+ * trip day's leg. `getCountryForDate` returns the ACTIVE trip's leg id, which is what `Leg` is, so
+ * no mapping is needed and a single-leg custom trip presets to its own leg.
  * In edit mode the leg/date come from the expense, so the preset is ignored.
  */
 
@@ -60,9 +61,9 @@ function resolveDate(): string {
 }
 
 export default function ExpenseLogHost() {
-  // Travel Mode zero-chrome-leakage (TM-9) — this invisible expense-dialog host
-  // is suppressed under `/travel`. Nothing in dispatches `expense:open` there;
-  // a later TM change that wants the global expense-log lifts this guard deliberately.
+  // Travel Mode zero-chrome-leakage (TM-9) — this invisible expense-dialog host is suppressed
+  // under `/travel`. Nothing under `/travel` dispatches `expense:open`; a later change that wants
+  // the global expense-log there lifts this guard deliberately.
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [presetLeg, setPresetLeg] = useState<Leg>('nepal');
@@ -99,6 +100,7 @@ export default function ExpenseLogHost() {
     <AnimatePresence
       onExitComplete={() => {
         triggerRef.current?.focus?.();
+        triggerRef.current = null;
       }}
     >
       {open && (

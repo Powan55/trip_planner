@@ -22,6 +22,7 @@ export default function SafetyPage() {
         eyebrow="In case you need it"
         title="Travel Safety Kit"
         description="Emergency and embassy numbers, a Nepali/Japanese phrasebook, and a document checklist — works offline once loaded."
+        className="max-w-4xl"
       />
       {/* The kit is N×J content (emergency numbers per country + a Nepali/Japanese phrasebook),
           presented as the ACTIVE trip's safety kit — so a custom trip gets the same honest empty

@@ -6,14 +6,13 @@ import { isDefaultTrip } from '@/core/trips';
 
 /**
  * PlanHero — wraps `PageHero variant="plan"` with a trip-aware subtitle (A-15/#102).
- * Mount-gated exactly like `hero-section.tsx`'s `custom` flag: SSR/first paint always renders the
- * default-pack copy (byte-identical to the old inline call), so a client-only `isDefaultTrip()`
- * read never causes a hydration mismatch.
+ * Mount-gated with the same two lines as `packing-header.tsx` and `recap-header.tsx`: SSR / first
+ * paint renders the default-pack copy, so a client-only `isDefaultTrip()` read never causes a
+ * hydration mismatch. All three route mastheads read identically on purpose.
  */
 export default function PlanHero() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  const custom = mounted && !isDefaultTrip();
+  const [custom, setCustom] = useState(false);
+  useEffect(() => setCustom(!isDefaultTrip()), []);
 
   return (
     <PageHero

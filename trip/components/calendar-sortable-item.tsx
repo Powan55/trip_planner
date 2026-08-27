@@ -234,7 +234,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
 export function DroppableDay({ dateStr, children }: { dateStr: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${dateStr}` });
   return (
-    <div ref={setNodeRef} className={`min-h-[3.5rem] transition-colors ${isOver ? 'bg-[rgb(62_216_255_/_0.10)] shadow-[inset_0_0_0_1px_var(--accent)]' : ''}`}>
+    <div ref={setNodeRef} className={`min-h-[3.5rem] transition-colors ${isOver ? 'bg-[rgb(62_216_255_/_0.10)] shadow-[inset_0_0_0_1px_hsl(var(--accent))]' : ''}`}>
       {children}
     </div>
   );

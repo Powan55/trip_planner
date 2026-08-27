@@ -125,7 +125,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
                   data-testid={`plan-search-result-${result.item.id}`}
                   onMouseEnter={() => setActiveIndex(i)}
                   onClick={() => choose(result)}
-                  className={`w-full min-h-tap text-left px-3 py-2 text-t-body flex items-center justify-between gap-2 outline-none border-b-hair border-[color:hsl(var(--border))] ${i === activeIndex ? 'bg-[rgb(62_216_255_/_0.10)] text-ink-hi shadow-[inset_3px_0_0_var(--accent)]' : 'text-ink-hi hover:bg-white/5'}`}
+                  className={`w-full min-h-tap text-left px-3 py-2 text-t-body flex items-center justify-between gap-2 outline-none border-b-hair border-[color:hsl(var(--border))] ${i === activeIndex ? 'bg-[rgb(62_216_255_/_0.10)] text-ink-hi shadow-[inset_3px_0_0_hsl(var(--accent))]' : 'text-ink-hi hover:bg-white/5'}`}
                 >
                   <span className="truncate">{result.item.title}</span>
                   <span className="shrink-0 font-machine text-t-micro tracking-[0.09em] uppercase text-ink-mid">{formatDate(result.date)}</span>
