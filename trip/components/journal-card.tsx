@@ -26,7 +26,7 @@ import { MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
  * A11y: real `<label>`s, visible focus rings (`focus-visible:ring-ring`,
  * matching the panel), ≥44px targets, `aria-pressed` on mood chips, an `aria-live` region on the read
  * view. Static markup + CSS-only transitions → reduced-motion-safe by construction (the parent panel
- * owns the already-gated reveal). Design: the panel's glass-card / navy / gold-accent language.
+ * owns the already-gated reveal). Design: the ruled machine-type language of the instrument.
  */
 
 // The mood glyph + label used in the read view + the chip selector (kept in MOODS order).
@@ -141,12 +141,12 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
     <section
       aria-labelledby="journal-heading"
       data-testid="journal-card"
-      className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+      className="mt-6 border-hair border-border bg-surface-low p-4 sm:p-5"
     >
       <header className="mb-3 flex items-center justify-between gap-3">
         <h3
           id="journal-heading"
-          className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground"
+          className="pr flex items-center gap-2"
         >
           <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
           {dayLabel}
@@ -157,7 +157,7 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
           <Link
             href="/journal/"
             data-testid="journal-view-all"
-            className="inline-flex min-h-[44px] items-center rounded-lg px-2.5 py-2 text-xs font-medium text-ink-mid underline-offset-4 outline-none transition-colors duration-200 hover:text-white hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="pr min-h-tap inline-flex items-center px-2.5 underline-offset-4 outline-none transition-colors duration-200 hover:text-ink-hi hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             View all entries
           </Link>
@@ -168,7 +168,7 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
               onClick={openEditor}
               data-testid="journal-edit"
               aria-label={editLabel}
-              className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="chip min-h-tap gap-1.5 px-3 outline-none transition-colors duration-200 hover:bg-white/5 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
               Edit
@@ -197,9 +197,9 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
           type="button"
           onClick={openEditor}
           data-testid="journal-write-prompt"
-          className="flex w-full min-h-[44px] items-center gap-3 rounded-lg border border-dashed border-[color:var(--border-ui)] bg-white/[0.02] p-3 text-left text-sm text-ink-mid outline-none transition-colors duration-200 hover:border-ring/40 hover:bg-white/[0.05] hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="empty-frame flex min-h-[5.5rem] w-full items-center gap-3 p-gut text-left text-t-body text-ink-mid outline-none transition-colors duration-200 hover:bg-white/5 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Pencil className="h-4 w-4 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+          <Pencil className="h-4 w-4 flex-shrink-0 text-ink-lo" aria-hidden="true" />
           <span>
             {isToday ? 'Write about today' : `Write about ${formatDateLong(date)}`}
             {hydrated ? '' : '…'}
@@ -225,7 +225,7 @@ function JournalReadView({ entry }: { entry: JournalEntry }) {
           {mood && (
             <span
               data-testid="journal-mood-display"
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground"
+              className="chip"
             >
               <span aria-hidden="true">{mood.glyph}</span>
               {mood.label}
@@ -238,16 +238,16 @@ function JournalReadView({ entry }: { entry: JournalEntry }) {
             // left the child's break-words inert and overflowed the page at 360px.
             <span
               data-testid="journal-highlight-display"
-              className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-ink-hi"
+              className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-t-body font-semibold text-ink-hi"
             >
-              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-ink-lo" aria-hidden="true" />
               <span className="break-words min-w-0">{entry.highlight}</span>
             </span>
           )}
         </div>
       )}
       {entry.text && (
-        <p data-testid="journal-body" className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-hi">
+        <p data-testid="journal-body" className="whitespace-pre-wrap break-words text-t-body leading-relaxed text-ink-hi">
           {entry.text}
         </p>
       )}
@@ -283,7 +283,7 @@ function JournalEditor({
       {/* Mood chips — single-select radiogroup-style, but each is a togglable button (tap again to
           clear), so `aria-pressed` (not radio semantics) is the right affordance. */}
       <div>
-        <p id="journal-mood-label" className="mb-2 text-xs font-medium text-ink-mid">
+        <p id="journal-mood-label" className="pr mb-2">
           How was today?
         </p>
         <div className="flex flex-wrap gap-2" role="group" aria-labelledby="journal-mood-label">
@@ -298,10 +298,8 @@ function JournalEditor({
                 aria-pressed={active}
                 aria-label={`Mood: ${meta.label}`}
                 data-testid={`journal-mood-${m}`}
-                className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-full border px-3 py-2 text-sm font-medium outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-                  active
-                    ? 'border-ring bg-primary/10 text-primary'
-                    : 'border-[color:var(--border-ui)] bg-white/[0.03] text-ink-mid hover:border-white/30 hover:text-white'
+                className={`chip min-h-tap gap-1.5 px-3 outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  active ? 'chip--struck' : 'hover:bg-white/5 hover:text-ink-hi'
                 }`}
               >
                 <span aria-hidden="true">{meta.glyph}</span>
@@ -314,7 +312,7 @@ function JournalEditor({
 
       {/* Highlight of the day — a short single-line input. */}
       <div>
-        <label htmlFor="journal-highlight-input" className="mb-1.5 block text-xs font-medium text-ink-mid">
+        <label htmlFor="journal-highlight-input" className="pr mb-1.5 block">
           Highlight of the day <span className="text-ink-lo">(optional)</span>
         </label>
         <input
@@ -326,13 +324,13 @@ function JournalEditor({
           maxLength={120}
           placeholder="The one thing worth remembering…"
           data-testid="journal-highlight-input"
-          className="w-full min-h-[44px] rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface px-3 py-2 text-t-body text-ink-hi placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
       {/* The free-text body. */}
       <div>
-        <label htmlFor="journal-text-input" className="mb-1.5 block text-xs font-medium text-ink-mid">
+        <label htmlFor="journal-text-input" className="pr mb-1.5 block">
           Notes
         </label>
         <textarea
@@ -342,7 +340,7 @@ function JournalEditor({
           rows={4}
           placeholder="What happened today? How did it feel?"
           data-testid="journal-text-input"
-          className="w-full resize-y rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm leading-relaxed text-white placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full resize-y rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface px-3 py-2 text-t-body leading-relaxed text-ink-hi placeholder:text-ink-lo outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         />
       </div>
 
@@ -351,7 +349,7 @@ function JournalEditor({
           type="button"
           onClick={onCancel}
           data-testid="journal-cancel"
-          className="inline-flex min-h-[44px] items-center rounded-lg px-4 py-2 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="btn btn--2 px-4"
         >
           Cancel
         </button>
@@ -359,7 +357,7 @@ function JournalEditor({
           type="button"
           onClick={onSave}
           data-testid="journal-save"
-          className="inline-flex min-h-[44px] items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground outline-none transition-colors duration-200 hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="btn px-4"
         >
           Save
         </button>

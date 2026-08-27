@@ -1,8 +1,6 @@
 'use client';
 
-import { m, useReducedMotion } from 'framer-motion';
 import { MapPin } from 'lucide-react';
-import { SectionHeading } from '@/components/section-heading';
 import OptimizedImage from '@/components/optimized-image';
 import { INSPIRATION_HIGHLIGHTS, type InspirationHighlight } from '@/lib/inspiration-data';
 
@@ -31,105 +29,84 @@ import { INSPIRATION_HIGHLIGHTS, type InspirationHighlight } from '@/lib/inspira
  * - each card is an <article> with its own <h3>; the grid is plain document order, so
  *   keyboard and screen-reader traversal need no widget behaviour (there is none).
  * - every photo carries authored, descriptive alt text (never the headline again).
- * - hover lift and the image zoom are suppressed under `prefers-reduced-motion` (the
- *   `useReducedMotion` guard plus the `motion-reduce:` transform reset on the frame).
- * - the raster failing to load falls back to the card's country gradient, so a broken
- *   image never leaves a hole.
+ * - there is no entrance, no hover lift and no image zoom, so there is nothing for
+ *   `prefers-reduced-motion` to switch off and no forked initial state to get wrong.
+ * - the raster failing to load falls back to the plate's own hollow frame at full size,
+ *   so a broken image never leaves a hole.
  *
  * Tailwind classes stay static whole-string literals (a concatenated
  * `bg-${x}` is invisible to the compiler and silently ships colourless).
  */
 
-function HighlightCard({ highlight }: { highlight: InspirationHighlight }) {
+function HighlightCard({ highlight, plate }: { highlight: InspirationHighlight; plate: number }) {
   const isNepal = highlight.country === 'Nepal';
-  const reduce = useReducedMotion();
 
-  // `initial` FORKS on reduced motion, and that is not decoration. The app-wide
-  // `<MotionConfig reducedMotion="user">` neutralises the `y` TRANSFORM but does NOT hold
-  // opacity at 1, and `whileInView` never fires for a card still below the fold — so an
-  // un-forked entrance rests at its initial opacity indefinitely for exactly the users who
-  // asked for less motion. `components/reveal.tsx` measured that and documents it; same rule.
-  //
-  // There is deliberately no `focus-within:` twin of the hover treatment: nothing inside a
-  // card is focusable (it is a picture and three lines of text, not a control), so a focus
-  // ring here would advertise an interaction that does not exist.
+  // NO ENTRANCE, NO LIFT, NO ZOOM, and that removes a defect rather than only a flourish.
+  // The card used to fork `initial` on reduced motion because `whileInView` never fires for
+  // a card still below the fold, so an un-forked entrance rested at its initial opacity
+  // indefinitely for exactly the users who asked for less motion. Content is present when
+  // you arrive, so there is no fork left to get wrong and nothing for reduced motion to
+  // neutralise. Nothing inside a card is focusable either — it is a photograph and three
+  // lines of text, not a control — so there is still no hover/focus affordance to owe.
   return (
-    <m.article
-      initial={reduce ? { opacity: 1 } : { opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      whileHover={reduce ? undefined : { y: -6 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-      className={`group relative flex flex-col overflow-hidden rounded-2xl transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] ${
-        isNepal ? 'glass-nepal' : 'glass-japan'
-      }`}
-    >
-      <div className="relative aspect-[4/3] overflow-hidden bg-surface-raised motion-reduce:[&_img]:!transform-none">
-        <OptimizedImage
-          src={highlight.image}
-          alt={highlight.alt}
-          fill
-          sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
-          fallback={
-            <div
-              aria-hidden="true"
-              className={`absolute inset-0 ${
-                isNepal
-                  ? 'bg-gradient-to-br from-himalaya-400/30 to-himalaya-600/10'
-                  : 'bg-gradient-to-br from-sakura-300/30 to-sakura-500/10'
-              }`}
-            />
-          }
-        />
-        {/* Scrim so the card body reads as one surface with the photo above it. */}
-        <div
-          aria-hidden="true"
-          className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-surface/80 to-transparent"
-        />
-      </div>
-
-      <div className="flex flex-1 flex-col p-5">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-[11px] font-medium uppercase tracking-wider text-ink-lo">
-            {highlight.when}
-          </p>
-          <span
-            className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] ${
-              isNepal
-                ? 'bg-himalaya-400/10 text-himalaya-400'
-                : 'bg-sakura-400/10 text-sakura-400'
-            }`}
-          >
+    <article className="plate">
+      {/* The plate frame is portrait at every width here — the gallery keeps each plate to a
+          317-465px grid cell, and the recipe's landscape option leaves a caption row too
+          short for the chip + title + blurb below it. A ONE-UP portrait plate grows with the
+          viewport (851px tall at 639, taller than the phone holding it), so the cap stops
+          that; from 640 up the cap is also what turns the wider cells landscape. `min-w-full`
+          is load-bearing — a max-height on an aspect-ratio box transfers back through the ratio
+          and shrinks the WIDTH too (611 -> 300 at 639), pulling the photo off the plate. */}
+      <div className="frame max-h-[400px] min-w-full">
+        <div className="fig">
+          <OptimizedImage
+            src={highlight.image}
+            alt={highlight.alt}
+            fill
+            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover"
+            fallback={
+              // The plate's own empty frame: the shape stays at full size rather than
+              // leaving a hole where a photograph failed.
+              <div aria-hidden="true" className="empty-frame absolute inset-0" />
+            }
+          />
+        </div>
+        <div className="ramp" aria-hidden="true" />
+        <div className="lay">
+          <span className={`chip self-start ${isNepal ? 'chip--np' : 'chip--jp'}`}>
             <MapPin className="h-2.5 w-2.5" aria-hidden="true" />
             {highlight.country}
           </span>
+          <h3 className="mt-1.5 text-t-lead font-semibold leading-snug text-ink-hi">
+            {highlight.title}
+          </h3>
+          <p className="mt-1 text-t-sm leading-relaxed text-ink-mid">{highlight.blurb}</p>
         </div>
-        <h3 className="mt-2 font-display font-bold text-white">{highlight.title}</h3>
-        <p className="mt-2 text-xs leading-relaxed text-ink-mid">{highlight.blurb}</p>
       </div>
-    </m.article>
+      <div className="capline">
+        <span className="pr tabular-nums">Plate {String(plate).padStart(2, '0')}</span>
+        <span className="pr pr--lo">{highlight.country}</span>
+        <span className="pr pr--lo">{highlight.when}</span>
+      </div>
+    </article>
   );
 }
 
 export default function TravelInspiration() {
   return (
-    <section id="inspiration" aria-labelledby="inspiration-heading" className="px-4 py-20 sm:px-6">
+    <section id="inspiration" aria-labelledby="inspiration-heading" className="py-20">
       <div className="mx-auto max-w-[1200px]">
-        <SectionHeading
-          id="inspiration-heading"
-          className="mb-12"
-          title={
-            <>
-              Travel <span className="text-display-emphasis">Inspiration</span>
-            </>
-          }
-          subtitle="Thirty-two days across two countries — the moments worth the flight."
-        />
+        <div className="sec px-gut">
+          <h2 id="inspiration-heading">Travel inspiration</h2>
+          <span className="sub">
+            {INSPIRATION_HIGHLIGHTS.length} plates · two countries
+          </span>
+        </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {INSPIRATION_HIGHLIGHTS.map((highlight) => (
-            <HighlightCard key={highlight.id} highlight={highlight} />
+        <div className="grid gap-4 px-gut sm:grid-cols-2 lg:grid-cols-3">
+          {INSPIRATION_HIGHLIGHTS.map((highlight, i) => (
+            <HighlightCard key={highlight.id} highlight={highlight} plate={i + 1} />
           ))}
         </div>
       </div>

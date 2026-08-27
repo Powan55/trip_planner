@@ -52,6 +52,17 @@ const config: Config = {
         // the concierge's code face. System fonts ONLY — zero download, no new webfont — kept
         // distinct from `mono` above (which deliberately ALIASES the sans var for tabular numerals).
         code: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+        // THE MACHINE FACE — IBM Plex Mono at ONE weight, 600, which is what every printed
+        // label, key, condition and numeral in the instrument is set in. It resolves through
+        // --font-machine (globals.css) so the webfont wiring is one line in one file rather
+        // than a key here and a loader there. Distinct from `mono` and from `code` on
+        // purpose: `mono` is Geist + tnum and `code` is the system stack, and both have live
+        // consumers that must not silently change face.
+        //
+        // NEVER REQUEST 600's absence — there is no 400 loaded, so `font-normal` on a
+        // `font-machine` element renders the 600 file and the lighter intent is invisible.
+        // Adding 400 back costs ~28 KB across latin + latin-ext and needs a reason.
+        machine: ['var(--font-machine)'],
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
@@ -72,6 +83,13 @@ const config: Config = {
         // the larger radii for panels/heroes — no longer aliases of -lg.
         '2xl': 'var(--radius-xl)',
         '3xl': 'var(--radius-2xl)',
+        // The instrument radii. An instrument is square, so the scale tops out at 6px and
+        // this is a separate ramp rather than a re-value of the keys above — moving `2xl`
+        // from 28px to 4px would flatten 76 `rounded-2xl` elements in one config line.
+        // Still px, never rem: geometry does not scale with the reading size.
+        r1: 'var(--r-1)',
+        r2: 'var(--r-2)',
+        r3: 'var(--r-3)',
       },
       boxShadow: {
         // elevation tiers + scroll-accent glow (driven by CSS vars).
@@ -122,6 +140,34 @@ const config: Config = {
         // next author reaching for a weight that does not exist.
         'editorial-xl': ['clamp(3rem, 12.5vw, 7rem)', { lineHeight: '0.94', letterSpacing: '-0.02em', fontWeight: '400' }],
         'editorial-lg': ['clamp(2.4rem, 9vw, 4.6rem)', { lineHeight: '0.96', letterSpacing: '-0.02em', fontWeight: '400' }],
+        // ---- THE INSTRUMENT SCALE ----
+        // The px in each comment is the RENDERED size at this app's 17px root, and every
+        // value is a rem precisely so the outdoor root bump (112.5% under
+        // html[data-tm-legibility='high']) moves it. `text-[Npx]` is illegal in this system
+        // for exactly that reason — a literal px opts out of the bump by definition.
+        //
+        // ADDITIVE KEYS ONLY, and that is not tidiness. Tailwind's own `sm`/`base`/`lg`
+        // steps have 400+ live class sites between them; re-pointing one to a step of this
+        // scale would repaint the whole app from a config line. These ten are new names, so
+        // nothing moves until a component asks for one.
+        //
+        // The values resolve through the vars in globals.css so the scale has ONE home; a
+        // recipe class body and a `text-t-body` utility can never disagree.
+        //
+        // Tracking is NOT baked in here. Uppercase mono wants .08-.14em depending on the
+        // role and the same step serves several roles, so the recipe classes carry it and a
+        // one-off site takes a `tracking-*` utility. Baking a single value in would make the
+        // step lie on every site that is not caps.
+        't-micro': ['var(--t-micro)', { lineHeight: '1.25' }],   /* 11.69px — the floor */
+        't-label': ['var(--t-label)', { lineHeight: '1.25' }],   /* 12.75px */
+        't-sm': ['var(--t-sm)', { lineHeight: '1.35' }],         /* 13.81px */
+        't-body': ['var(--t-body)', { lineHeight: '1.45' }],     /* 15.94px */
+        't-lead': ['var(--t-lead)', { lineHeight: '1.5' }],      /* 18.06px */
+        'n-sm': ['var(--n-sm)', { lineHeight: '1.1' }],          /* 21.25px */
+        'n-md': ['var(--n-md)', { lineHeight: '1.05' }],         /* 29.75px */
+        'n-lg': ['var(--n-lg)', { lineHeight: '1' }],            /* 44.63px */
+        'n-xl': ['var(--n-xl)', { lineHeight: '0.9' }],          /* 72.25px */
+        'n-2xl': ['var(--n-2xl)', { lineHeight: '0.82', letterSpacing: '-0.055em' }], /* 106.25px */
       },
       spacing: {
         // v2 8pt rhythm — additive semantic keys only (Tailwind's 4pt base covers
@@ -135,9 +181,16 @@ const config: Config = {
            targets whose box is content-sized. These three are the ONLY way to reach --tap
            from a class name — it had zero consumers while 136 sites wrote `min-h-[44px]`. */
         tap: 'var(--tap)',
+        /* the page gutter (14px, 20px at 900px). A token rather than a literal because the
+           rules ARE the layout in this direction and the gutter is what they align to. */
+        gut: 'var(--gut)',
       },
       minHeight: { tap: 'var(--tap)' },
       minWidth: { tap: 'var(--tap)' },
+      /* the hairline WIDTH — 1px, 1.5px outdoors. A hardcoded `border` silently stops being
+         a hairline under html[data-tm-legibility='high'], which is the one mode that asked
+         for a heavier one, so `border-hair` is the way to draw a rule here. */
+      borderWidth: { hair: 'var(--hair)' },
       // Tailwind 3 gates the colour opacity modifier on this scale, so an off-scale
       // `border-white/15` emitted no rule at all and inherited preflight's #e5e7eb (#147).
       // Dense 0-100 is a strict superset of the default scale — every default step keeps its
@@ -240,6 +293,16 @@ const config: Config = {
         ink: { hi: 'var(--text-hi)', mid: 'var(--text-mid)', lo: 'var(--text-lo)' },
         // single scroll-driven accent.
         'accent-scroll': 'hsl(var(--accent-scroll))',
+        // THE LEG CHANNEL. One custom property, set on the shell from `data-leg`, so all 19
+        // routes become country-aware instead of 4 being repainted — for zero bytes. It is
+        // CONTENT wayfinding and may never become interactive chrome: the map-category hue
+        // gate reads only the four accent tokens, and the separation holds by construction
+        // exactly as long as --now stays out of them.
+        //
+        // Plain `var()` and NOT `rgb(var(--now) / <alpha-value>)`, for the same reason the
+        // ink tiers are: --now resolves to a hex, so Tailwind cannot attach an opacity
+        // modifier to it and `text-now/50` emits nothing rather than a wrong colour.
+        now: 'var(--now)',
         background: 'hsl(var(--background))',
         foreground: 'hsl(var(--foreground))',
         card: {

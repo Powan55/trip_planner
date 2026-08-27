@@ -32,7 +32,7 @@ function AttributionLine({ item }: { item: ItineraryItem }) {
   if (!item.updatedBy) return null;
   const rel = formatRelativeTime(item.updatedAt);
   return (
-    <p className="text-[11px] text-ink-mid mt-1 truncate">
+    <p className="mt truncate">
       by {item.updatedBy}
       {rel ? ` · ${rel}` : ''}
     </p>
@@ -110,8 +110,19 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
   // `flex-wrap` + the body's 10rem basis is what pays for the 44px targets below: on a narrow
   // phone the action cluster drops to its own line instead of squeezing the title to ~90px.
   // At >=640px everything still fits on one line, so desktop layout is unchanged.
+  // FILLED means committed, UNFILLED means not yet: an item with a real start time is STRUCK,
+  // an untimed one is HOLLOW and drops a tier. The phase grouping already prints "Anytime" over
+  // the untimed run, so the mark is redundant rather than the sole cue.
   return (
-    <div ref={setNodeRef} style={style} data-testid={`calendar-item-${item.id}`} data-highlighted={highlighted ? 'true' : undefined} className={`flex flex-wrap items-start gap-2 p-3 rounded-xl ${colors.bg} border ${selected ? 'border-ring ring-1 ring-ring/50' : highlighted ? 'border-ring/70 ring-2 ring-ring/70' : colors.border} group hover:scale-[1.01] transition-transform`}>
+    <div
+      ref={setNodeRef}
+      style={style}
+      data-testid={`calendar-item-${item.id}`}
+      data-highlighted={highlighted ? 'true' : undefined}
+      data-mark={timeInfo ? undefined : 'hollow'}
+      aria-current={selected || highlighted ? 'true' : undefined}
+      className="r group !flex flex-wrap items-start !gap-2"
+    >
       {selectMode ? (
         /* The BOX stays 17px — a bigger checkbox glyph is not the fix. The label around it
            carries the 44px target (the `docs-checklist.tsx` idiom), and `items-start pt-1`
@@ -141,15 +152,15 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
         onPointerCancel={onSwipeEnd}
       >
         <div className="flex items-center gap-2 mb-1">
-          <span className={colors.text}>{CATEGORY_ICON_MAP[item.category]}</span>
-          <span className="text-sm font-medium text-white truncate">{item.title}</span>
+          <span className={colors.text} aria-hidden="true">{CATEGORY_ICON_MAP[item.category]}</span>
+          <span className={`truncate text-t-body ${timeInfo ? 'font-semibold text-ink-hi' : 'font-medium text-ink-lo'}`}>{item.title}</span>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs text-ink-mid" data-testid={`calendar-item-time-${item.id}`}>
+        <div className="flex flex-wrap items-center gap-2 font-machine text-t-sm text-ink-mid" data-testid={`calendar-item-time-${item.id}`}>
           {timeInfo && (
-            <span>
+            <span className="num text-ink-hi">
               {timeInfo.label}
               {timeInfo.badge && (
-                <span className="ml-1 text-[10px] uppercase tracking-wide text-ink-mid" data-testid={`calendar-item-time-badge-${item.id}`}>
+                <span className="pr pr--lo ml-1" data-testid={`calendar-item-time-badge-${item.id}`}>
                   {timeInfo.badge}
                 </span>
               )}
@@ -162,14 +173,14 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
               title="Overlaps another timed item"
               aria-label="Overlaps another timed item"
               data-testid={`calendar-item-clash-${item.id}`}
-              className="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-amber-300 bg-amber-500/15 border border-amber-500/30 rounded-full px-1.5 py-0.5"
+              className="chip border-amber-500/60 text-amber-300"
             >
               <AlertTriangle className="w-3 h-3" aria-hidden="true" />
               Overlap
             </span>
           )}
         </div>
-        {item.notes && <p className="text-xs text-ink-mid mt-1 line-clamp-1">{item.notes}</p>}
+        {item.notes && <p className="mt-1 line-clamp-1 text-t-sm text-ink-mid">{item.notes}</p>}
         <AttributionLine item={item} />
         {dupOpen && (
           <div className="mt-2 flex items-center gap-2" data-testid={`calendar-item-duplicate-picker-${item.id}`}>
@@ -184,7 +195,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
                 onDuplicate(target);
                 setDupOpen(false);
               }}
-              className="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-surface border border-[color:var(--border-ui)] text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="flex-1 min-w-0 min-h-tap px-2 rounded-r1 bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] font-machine text-t-micro uppercase tracking-[0.11em] text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <option value="" disabled>Copy to day…</option>
               {TRIP_DATES.map((d) => (
@@ -213,7 +224,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
       <div className="ml-auto flex shrink-0 gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100 transition-opacity">
         <button onClick={() => setDupOpen((v) => !v)} aria-label={`Duplicate ${item.title}`} aria-expanded={dupOpen} data-testid={`calendar-item-duplicate-${item.id}`} className="inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Copy className="w-3.5 h-3.5" /></button>
         <button onClick={onEdit} aria-label={`Edit ${item.title}`} data-testid={`calendar-item-edit-${item.id}`} className="inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-white/10 text-ink-mid hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Edit3 className="w-3.5 h-3.5" /></button>
-        <button onClick={onDelete} aria-label={`Delete ${item.title}`} data-testid={`calendar-item-delete-${item.id}`} className="inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-red-500/20 text-ink-mid hover:text-red-400 outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
+        <button onClick={onDelete} aria-label={`Delete ${item.title}`} data-testid={`calendar-item-delete-${item.id}`} className="inline-flex min-h-tap min-w-tap items-start justify-center pt-1.5 rounded hover:bg-[hsl(var(--destructive)/0.08)] text-ink-mid hover:text-destructive outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"><Trash2 className="w-3.5 h-3.5" /></button>
       </div>
     </div>
   );
@@ -223,7 +234,7 @@ export function SortableItem({ item, date, clashes, selectMode, selected, highli
 export function DroppableDay({ dateStr, children }: { dateStr: string; children: React.ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: `day-${dateStr}` });
   return (
-    <div ref={setNodeRef} className={`min-h-[60px] rounded-xl p-2 transition-colors ${isOver ? 'bg-primary/10 ring-1 ring-ring/30' : ''}`}>
+    <div ref={setNodeRef} className={`min-h-[3.5rem] transition-colors ${isOver ? 'bg-[rgb(62_216_255_/_0.10)] shadow-[inset_0_0_0_1px_var(--accent)]' : ''}`}>
       {children}
     </div>
   );

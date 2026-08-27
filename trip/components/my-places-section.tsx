@@ -27,13 +27,14 @@ import { isSafeHref } from '@/lib/safe-href';
  * deletes with the shared undo toast (`lib/undo-toast`).
  */
 
-// Leg-keyed CSS gradient for the card banner (Himalayan warmth for Nepal, winter-neon for Japan,
-// a neutral premium sweep otherwise — CSS/gradient art only, D-imagery rule).
-function bannerGradient(legId: string): string {
-  if (legId === 'nepal') return 'from-orange-500/30 via-rose-500/20 to-amber-400/20';
-  if (legId === 'japan') return 'from-sky-500/30 via-indigo-500/20 to-fuchsia-400/20';
-  return 'from-gold-500/25 via-white/10 to-gold-400/20';
-}
+// The banner is a SCREENED FIELD, not a three-stop gradient: one custom property resolved
+// from `data-leg`, mixed at the --now-screen ceiling. A custom trip's leg id is 'main',
+// which lands on the Nepal default by construction rather than needing a third branch.
+// Declared as the `background` shorthand so an engine without color-mix drops it whole and
+// inherits the flat fill underneath — the same fallback order globals.css uses for `.dens`.
+const SCREEN = {
+  background: 'color-mix(in srgb, var(--now) var(--now-screen), rgb(var(--surface-raised)))',
+} as const;
 
 function toDraft(place: MyPlace): ItineraryDraft {
   return {
@@ -70,27 +71,30 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
   };
 
   return (
+    // No entrance and no scroll-reveal: the card is present when you arrive.
     <m.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
       whileHover={reduce ? undefined : { y: -6 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
       data-testid={`myplace-card-${place.id}`}
-      className="glass-card rounded-2xl overflow-hidden flex flex-col"
+      data-leg={place.legId}
+      className="rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low overflow-hidden flex flex-col transition-colors hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
     >
-      {/* Gradient banner (no photo — CSS art). */}
-      <div className={`relative aspect-[16/7] bg-gradient-to-br ${bannerGradient(place.legId)} flex items-center justify-center`}>
-        <MapPin className="w-8 h-8 text-ink-mid" aria-hidden="true" />
+      {/* No photograph is ever attached to an imported place, so the banner is the
+          screened country field rather than a plate. */}
+      <div
+        className="relative aspect-[16/7] bg-surface-raised flex items-center justify-center"
+        style={SCREEN}
+      >
+        <MapPin className="w-8 h-8 text-ink-lo" aria-hidden="true" />
         <div className="absolute top-3 left-3">
           <AddedBadge added={placements.length > 0} testId={`myplace-added-${place.id}`} />
         </div>
       </div>
 
-      <div className="p-4 flex flex-col gap-3 flex-1">
+      <div className="p-gut flex flex-col gap-3 flex-1">
         <div>
-          <h3 className="font-display font-bold text-white text-sm leading-tight">{place.name}</h3>
-          {place.note && <p className="text-[11px] text-ink-mid mt-1 italic line-clamp-2">{place.note}</p>}
+          <h3 className="text-t-body font-semibold text-ink-hi leading-tight">{place.name}</h3>
+          {place.note && <p className="text-t-sm text-ink-mid mt-1 line-clamp-2">{place.note}</p>}
         </div>
 
         <div className="mt-auto flex items-center gap-2">
@@ -101,7 +105,9 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
             aria-haspopup="dialog"
             data-testid={`myplace-add-${place.id}`}
             aria-label={`Add ${place.name} to your plan`}
-            className="flex-1 min-w-0 inline-flex min-h-tap items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium text-ink-hi hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className={`btn max-w-none flex-1 min-w-0 outline-none focus-visible:outline-none ${
+              placements.length > 0 ? '' : 'btn--2'
+            }`}
           >
             {placements.length > 0 ? 'Added · edit plan' : 'Add to plan'}
           </button>
@@ -112,7 +118,7 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
               rel="noopener noreferrer"
               data-testid={`myplace-link-${place.id}`}
               aria-label={`Open ${place.name} in Google Maps`}
-              className="shrink-0 inline-flex items-center justify-center h-tap w-tap rounded-xl bg-white/5 border border-white/10 text-ink-mid hover:bg-white/10 hover:text-primary transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="shrink-0 grid place-items-center h-tap w-tap rounded-r1 border-hair border-[color:hsl(var(--border))] text-ink-mid transition-colors hover:border-[color:var(--border-ui)] hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               <ExternalLink className="w-4 h-4" aria-hidden="true" />
             </a>
@@ -122,7 +128,7 @@ function MyPlaceCard({ place, onDelete }: { place: MyPlace; onDelete: () => void
             onClick={onDelete}
             data-testid={`myplace-delete-${place.id}`}
             aria-label={`Delete ${place.name}`}
-            className="shrink-0 inline-flex items-center justify-center h-tap w-tap rounded-xl bg-white/5 border border-white/10 text-ink-mid hover:bg-red-500/20 hover:text-red-300 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="shrink-0 grid place-items-center h-tap w-tap rounded-r1 border-hair border-[color:hsl(var(--border))] text-ink-mid transition-colors hover:border-[color:hsl(var(--destructive))] hover:text-[color:hsl(var(--destructive))] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <Trash2 className="w-4 h-4" aria-hidden="true" />
           </button>
@@ -162,7 +168,7 @@ export default function MyPlacesSection({ legId }: { legId: string }) {
         <SectionHeading
           id={`my-places-${legId}-heading`}
           className="mb-10"
-          title={<>My <span className="text-display-emphasis">places</span></>}
+          title="My places"
           subtitle="Spots you imported from Google Maps."
         />
         <div data-testid={`my-places-grid-${legId}`} className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">

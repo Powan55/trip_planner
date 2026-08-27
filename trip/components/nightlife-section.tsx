@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { m, AnimatePresence, useReducedMotion } from 'framer-motion';
+import { m, AnimatePresence } from 'framer-motion';
 import {
   Music, Eye, EyeOff, MapPin, DollarSign, Calendar, Headphones,
   Search, X, SlidersHorizontal, SearchX, Star, Check, CalendarDays,
@@ -13,9 +13,16 @@ import type { ItineraryStore } from '@/hooks/use-itinerary';
 import { uiPrefs } from '@/core/storage/gateway';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { useItineraryContext } from '@/components/itinerary-provider';
-import { FADE_FLOOR } from '@/lib/motion';
 
 type SortKey = 'mustSee' | 'name';
+
+// Shared control shapes. A facet chip is `.chip`: STRUCK when it is on, a plain rule when
+// it is off — the mark carries the state, so no --accent fill is spent on a filter.
+const CTRL =
+  'rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low text-t-sm text-ink-hi transition-colors hover:border-[color:var(--border-ui)] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
+const FACET =
+  'chip min-h-tap px-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
+const FACET_OFF = 'hover:border-[color:var(--border-ui)] hover:text-ink-hi';
 
 /** City = last comma segment of `location` ("Thamel, Kathmandu" → "Kathmandu"). */
 function cityOf(loc: string): string {
@@ -36,20 +43,19 @@ function VenueCard({
   const isAdded = placements.length > 0;
   const summary = formatPlacementSummary(placements);
   return (
+    // No entrance and no scroll-reveal: the card is present when you arrive.
     <m.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
       whileHover={{ y: -4 }}
-      className="relative p-5 rounded-2xl bg-gradient-to-br from-purple-900/20 to-fuchsia-900/20 border border-purple-500/10 hover:border-purple-500/20 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-300 overflow-hidden"
+      data-leg={isNepal ? 'nepal' : 'japan'}
+      className="relative p-gut rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)] overflow-hidden"
     >
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="p-2 rounded-xl bg-fuchsia-500/10">
-            <Music className="w-4 h-4 text-fuchsia-400" />
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-r1 border-hair border-[color:var(--now)]">
+            <Music className="w-4 h-4 text-now" aria-hidden="true" />
           </div>
           <div>
-            <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
+            <h3 className="text-t-body font-semibold text-ink-hi flex items-center gap-1.5">
               {/* V6-10: the details control is the TITLE, not the card body — a button
                   cannot legally wrap flow content, and its children-presentational ARIA
                   role hid this <h3> from the heading outline entirely. The `::after`
@@ -65,36 +71,34 @@ function VenueCard({
                 {venue.name}
               </button>
               {/* same content-semantic "must-see" label as the gold ribbon. */}
-              {venue.mustSee && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
+              {venue.mustSee && <Star className="w-3 h-3 fill-current text-now" aria-hidden="true" />}
             </h3>
-            <p className="text-[11px] text-ink-mid flex items-center gap-1">
-              <MapPin className="w-3 h-3" />
+            <p className="pr pr--lo flex items-center gap-1">
+              <MapPin className="w-3 h-3" aria-hidden="true" />
               {venue.location}
             </p>
           </div>
         </div>
-        <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
-          {venue.country}
-        </span>
+        <span className="chip border-[color:var(--now)] text-now">{venue.country}</span>
       </div>
 
-      <p className="text-xs text-ink-mid mb-3">{venue.description}</p>
+      <p className="text-t-sm text-ink-mid mb-3">{venue.description}</p>
 
-      <div className="grid grid-cols-2 gap-2 text-[11px]">
-        <div className="flex items-center gap-1.5 text-ink-mid">
-          <Headphones className="w-3 h-3 text-purple-400" />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex items-center gap-1.5 pr pr--lo">
+          <Headphones className="w-3 h-3" aria-hidden="true" />
           <span>{venue.musicType}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-ink-mid">
-          <DollarSign className="w-3 h-3 text-green-400" />
+        <div className="flex items-center gap-1.5 pr pr--lo">
+          <DollarSign className="w-3 h-3" aria-hidden="true" />
           <span>{venue.priceRange}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-ink-mid">
-          <Music className="w-3 h-3 text-fuchsia-400" />
+        <div className="flex items-center gap-1.5 pr pr--lo">
+          <Music className="w-3 h-3" aria-hidden="true" />
           <span>{venue.vibe}</span>
         </div>
-        <div className="flex items-center gap-1.5 text-ink-mid">
-          <Calendar className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
+        <div className="flex items-center gap-1.5 pr pr--lo">
+          <Calendar className="w-3 h-3" aria-hidden="true" />
           <span>{venue.bestDays}</span>
         </div>
       </div>
@@ -106,13 +110,13 @@ function VenueCard({
       {isAdded && (
         <span
           data-testid={`nightlife-added-${venue.id}`}
-          className="mt-3 flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary/10 border border-ring/40 text-primary text-[11px] font-medium"
+          className="chip chip--struck mt-3 flex w-full justify-center"
         >
-          <Check className="w-3 h-3 shrink-0" />
+          <Check className="w-3 h-3 shrink-0" aria-hidden="true" />
           <span>Added</span>
-          <span className="text-muted-foreground" aria-hidden="true">·</span>
-          <span className="flex items-center gap-1 text-foreground">
-            <CalendarDays className="w-3 h-3 shrink-0" />
+          <span aria-hidden="true">·</span>
+          <span className="flex items-center gap-1">
+            <CalendarDays className="w-3 h-3 shrink-0" aria-hidden="true" />
             {summary}
           </span>
         </span>
@@ -136,7 +140,6 @@ function VenueCard({
  * false "Added" badge on any curated (recommendation/photo/map/featured) card.
  */
 export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Japan' }) {
-  const prefersReducedMotion = useReducedMotion();
   const { traveler } = useActiveTraveler();
   const { findPlacements } = useItineraryContext();
   const [visible, setVisible] = useState(true);
@@ -293,38 +296,25 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
   return (
     <section id="nightlife" data-testid="nightlife-section" aria-labelledby="nightlife-heading" className="py-20 px-4 sm:px-6">
       <div className="max-w-[1200px] mx-auto">
-        {/* masthead entrance now FLOORS the fade (FADE_FLOOR → 1) instead of
-            pinning it at 1. The floor is shallow enough that the (non-reduced-motion) axe
-            scan still sees the muted `text-ink-mid` subtitle ≥AA at the darkest frame —
-            the guarantee, preserved. Under reduce we keep the pin outright:
-            MotionConfig neutralises `y` but not opacity, so an un-forked floor would
-            strand an off-screen reveal at 0.7. */}
-        <m.div
-          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: FADE_FLOOR, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-10"
-        >
-          <h2 id="nightlife-heading" className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
-            Nightlife <span className="text-gradient-sakura">& Bars</span>
+        {/* No scroll-reveal on this masthead, and so no wrapper opacity for the axe scan
+            to catch mid-fade. Content is present when you arrive. */}
+        <div className="text-center mb-10">
+          <h2 id="nightlife-heading" className="pr pr--l text-ink-hi mb-3">
+            Nightlife &amp; Bars
           </h2>
-          <p className="text-ink-mid max-w-xl mx-auto mb-4">
+          <p className="text-t-lead text-ink-mid max-w-xl mx-auto mb-4">
             Discover the best clubs, bars, and late-night experiences {scopeLabel}.
           </p>
           <button
             onClick={toggleVisible}
             aria-expanded={visible}
             aria-controls="nightlife-content"
-            className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-              visible
-                ? 'bg-fuchsia-500/20 text-fuchsia-300 ring-1 ring-fuchsia-500/30 hover:bg-fuchsia-500/30'
-                : 'bg-white/5 text-ink-mid hover:bg-white/10 hover:text-ink-hi'
-            }`}
+            className={`${FACET} mx-auto ${visible ? 'chip--struck' : FACET_OFF}`}
           >
-            {visible ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            {visible ? <EyeOff className="w-4 h-4" aria-hidden="true" /> : <Eye className="w-4 h-4" aria-hidden="true" />}
             {visible ? 'Hide Nightlife Section' : 'Show Nightlife Section'}
           </button>
-        </m.div>
+        </div>
 
         {/* `initial={false}` skips the ENTER animation for content already
             present on first render. `visible` defaults to true, so without this the
@@ -359,30 +349,30 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                     onChange={(e) => setQuery(e.target.value)}
                     placeholder="Search bars, clubs, music…"
                     aria-label="Search nightlife venues"
-                    className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+                    className={`${CTRL} w-full min-h-tap pl-9 pr-9 py-2 placeholder:text-ink-lo`}
                   />
                   {query && (
                     <button
                       type="button"
                       onClick={() => setQuery('')}
                       aria-label="Clear search"
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-ink-mid hover:text-ink-hi hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-r1 text-ink-lo transition-colors hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <SlidersHorizontal className="w-4 h-4 text-ink-mid" />
+                  <SlidersHorizontal className="w-4 h-4 text-ink-lo" aria-hidden="true" />
                   <label htmlFor="nightlife-sort" className="sr-only">Sort</label>
                   <select
                     id="nightlife-sort"
                     value={sort}
                     onChange={(e) => setSort(e.target.value as SortKey)}
-                    className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+                    className={`${CTRL} min-h-tap px-3 py-2`}
                   >
-                    <option value="mustSee" className="bg-surface">Sort: Must-see first</option>
-                    <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
+                    <option value="mustSee" className="bg-surface-low">Sort: Must-see first</option>
+                    <option value="name" className="bg-surface-low">Sort: Name (A–Z)</option>
                   </select>
                 </div>
               </div>
@@ -395,14 +385,10 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                       key={city}
                       onClick={() => setActiveCity(city)}
                       aria-pressed={activeCity === city}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                        activeCity === city
-                          ? 'text-fuchsia-300 bg-fuchsia-500/15 ring-1 ring-fuchsia-500/30'
-                          : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
-                      }`}
+                      className={`${FACET} ${activeCity === city ? 'chip--struck' : FACET_OFF}`}
                     >
                       {city === 'All' ? 'All cities' : city}
-                      <span className="ml-1.5 text-ink-mid font-mono">{cityCounts[city] ?? 0}</span>
+                      <span className="num ml-1.5 text-ink-lo">{cityCounts[city] ?? 0}</span>
                     </button>
                   ))}
                 </div>
@@ -415,14 +401,10 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                     key={vibe}
                     onClick={() => setActiveVibe(vibe)}
                     aria-pressed={activeVibe === vibe}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                      activeVibe === vibe
-                        ? 'text-fuchsia-300 bg-fuchsia-500/15 ring-1 ring-fuchsia-500/30'
-                        : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
-                    }`}
+                    className={`${FACET} ${activeVibe === vibe ? 'chip--struck' : FACET_OFF}`}
                   >
                     {vibe === 'All' ? 'All vibes' : vibe}
-                    <span className="ml-1.5 text-ink-mid font-mono">{vibeCounts[vibe] ?? 0}</span>
+                    <span className="num ml-1.5 text-ink-lo">{vibeCounts[vibe] ?? 0}</span>
                   </button>
                 ))}
               </div>
@@ -439,14 +421,17 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-16 px-6 rounded-2xl bg-gradient-to-br from-purple-900/20 to-fuchsia-900/20 border border-purple-500/10">
-                  <SearchX className="w-10 h-10 mx-auto mb-4 text-ink-lo" />
-                  <p className="text-ink-mid font-medium mb-1">No venues match your filters</p>
-                  <p className="text-ink-lo text-sm mb-5">Try a different search, city, or vibe.</p>
+                <div className="empty-frame p-gut py-16 text-center">
+                  <SearchX className="w-10 h-10 mx-auto mb-4 text-ink-lo" aria-hidden="true" />
+                  <p className="empty mb-1">Nothing on file matches these filters</p>
+                  <p className="empty mb-5 text-ink-lo">
+                    <span className="num">{venues.length}</span> venues are listed here. Widen the
+                    search, the city or the vibe to reach them.
+                  </p>
                   <button
                     type="button"
                     onClick={resetFilters}
-                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-fuchsia-300 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className="btn btn--2 mx-auto outline-none focus-visible:outline-none"
                   >
                     Clear filters
                   </button>

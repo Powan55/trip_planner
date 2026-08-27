@@ -33,12 +33,12 @@ export function CalendarBulkToolbar({ selectedCount, selectedDate, onBulkMove, o
       role="region"
       aria-label="Bulk actions"
       data-testid="calendar-bulk-bar"
-      className="flex flex-wrap items-center gap-2 mb-3 p-2.5 rounded-xl bg-white/5 border border-white/10"
+      className="flex flex-wrap items-center gap-2 mb-3 p-2 rounded-r1 bg-[rgb(var(--surface-raised))] border-hair border-[color:hsl(var(--border))]"
     >
       <span
         aria-live="polite"
         data-testid="calendar-bulk-count"
-        className="text-xs font-medium text-ink-mid px-1"
+        className="pr px-1"
       >
         {selectedCount} selected
       </span>
@@ -50,7 +50,7 @@ export function CalendarBulkToolbar({ selectedCount, selectedDate, onBulkMove, o
         disabled={selectedCount === 0}
         data-testid="calendar-bulk-move-select"
         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onBulkMove(e.target.value)}
-        className="px-2 py-1.5 rounded-lg bg-surface border border-[color:var(--border-ui)] text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40"
+        className="min-h-tap px-2 rounded-r1 bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] font-machine text-t-micro uppercase tracking-[0.11em] text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:text-ink-lo disabled:cursor-not-allowed"
       >
         <option value="" disabled>Move to day…</option>
         {TRIP_DATES.filter((d) => d !== selectedDate).map((d) => (
@@ -63,7 +63,7 @@ export function CalendarBulkToolbar({ selectedCount, selectedDate, onBulkMove, o
         value=""
         data-testid="calendar-bulk-copy-select"
         onChange={(e: React.ChangeEvent<HTMLSelectElement>) => onCopyDay(e.target.value)}
-        className="px-2 py-1.5 rounded-lg bg-surface border border-[color:var(--border-ui)] text-white text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="min-h-tap px-2 rounded-r1 bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] font-machine text-t-micro uppercase tracking-[0.11em] text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
       >
         <option value="" disabled>Copy day to…</option>
         {TRIP_DATES.filter((d) => d !== selectedDate).map((d) => (
@@ -75,7 +75,7 @@ export function CalendarBulkToolbar({ selectedCount, selectedDate, onBulkMove, o
         onClick={onRequestDelete}
         disabled={selectedCount === 0}
         data-testid="calendar-bulk-delete"
-        className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs text-ink-mid hover:text-rose-300 hover:bg-rose-400/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:outline-none disabled:opacity-40 disabled:hover:bg-transparent"
+        className="chip min-h-tap px-3 transition-colors outline-none hover:text-[color:hsl(var(--destructive))] hover:border-[color:hsl(var(--destructive))] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:text-ink-lo disabled:border-dashed disabled:cursor-not-allowed disabled:hover:text-ink-lo disabled:hover:border-[color:var(--border-ui)]"
       >
         <Trash2 className="w-3.5 h-3.5" />
         Delete selected

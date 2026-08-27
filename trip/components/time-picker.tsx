@@ -140,7 +140,7 @@ export default function TimePicker({ id, value, onChange, testId }: TimePickerPr
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+                className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70"
                 onClick={() => setOpen(false)}
               >
                 <m.div
@@ -278,7 +278,7 @@ function TimeColumn<T extends string | number>({
 
   return (
     <div className="flex flex-col min-w-0">
-      <span id={`${listId}-label`} className="text-[10px] uppercase tracking-wide text-ink-mid mb-1 text-center">
+      <span id={`${listId}-label`} className="text-t-micro uppercase tracking-wide text-ink-mid mb-1 text-center">
         {label}
       </span>
       <div

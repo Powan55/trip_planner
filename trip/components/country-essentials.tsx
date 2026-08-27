@@ -26,53 +26,44 @@ function FeaturedCard({ destination }: { destination: typeof FEATURED_DESTINATIO
   const [imgError, setImgError] = useState(false);
   const reduce = useReducedMotion();
   return (
+    // No entrance and no scroll-reveal: the card is present when you arrive.
     <m.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
       whileHover={reduce ? undefined : { y: -6 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-      className={`group relative overflow-hidden rounded-2xl p-5 transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)] ${
-        isNepal ? 'glass-nepal' : 'glass-japan'
-      }`}
+      data-leg={isNepal ? 'nepal' : 'japan'}
+      className="plate group relative overflow-hidden rounded-r1 p-gut border-hair border-[color:hsl(var(--border))] transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
     >
+      {/* The ratio lives on the frame as `--plate-ar`, which is what the recipe reads, and
+          the grid is what gives the ramp a row to span. */}
       {destination.image && !imgError && (
-        <div className="relative -mx-5 -mt-5 mb-3 aspect-[16/9] overflow-hidden rounded-t-2xl bg-surface-raised motion-reduce:[&_img]:!transform-none">
-          <OptimizedImage
-            src={destination.image}
-            alt={destination.name}
-            fill
-            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-            className="object-cover transition-transform duration-500 group-hover:scale-105"
-            onError={() => setImgError(true)}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
+        <div className="frame [--plate-ar:16_/_9] -mx-gut -mt-gut mb-3">
+          <div className="fig bg-surface-raised motion-reduce:[&_img]:!transform-none">
+            <OptimizedImage
+              src={destination.image}
+              alt={destination.name}
+              fill
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
+              onError={() => setImgError(true)}
+            />
+          </div>
+          <div className="ramp" aria-hidden="true" />
         </div>
       )}
-      <div
-        className={`absolute -right-6 -top-6 h-24 w-24 rounded-full blur-2xl opacity-40 transition-opacity duration-300 group-hover:opacity-60 ${
-          isNepal ? 'bg-himalaya-400/30' : 'bg-sakura-400/30'
-        }`}
-        aria-hidden="true"
-      />
       <div className="relative">
-        <span className="text-3xl">{destination.emoji}</span>
+        <span className="text-n-sm" aria-hidden="true">{destination.emoji}</span>
         <div className="mt-3 flex items-center gap-2">
-          <h4 className="font-display font-bold text-white">{destination.name}</h4>
-          <span className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
-            <MapPin className="w-2.5 h-2.5" />
+          <h4 className="text-t-body font-semibold text-ink-hi">{destination.name}</h4>
+          <span className="chip border-[color:var(--now)] text-now">
+            <MapPin className="w-2.5 h-2.5" aria-hidden="true" />
             {destination.country}
           </span>
         </div>
-        <p className="mt-2 text-xs text-ink-mid leading-relaxed">{destination.blurb}</p>
+        <p className="mt-2 text-t-sm text-ink-mid leading-relaxed">{destination.blurb}</p>
         {/* Add-to-plan affordance — additive; only Featured cards get
             it (not food/etiquette/weather). Featured has no id/category;
             the adapter derives sourceId from the name and uses 'sightseeing'. */}
-        <AddToPlanButton
-          source={destination}
-          sourceType="featured"
-          accentColor={isNepal ? 'text-himalaya-400' : 'text-sakura-400'}
-        />
+        <AddToPlanButton source={destination} sourceType="featured" accentColor="text-now" />
       </div>
     </m.div>
   );
@@ -83,25 +74,19 @@ function FoodCard({ food }: { food: typeof LOCAL_FOODS[0] }) {
   const reduce = useReducedMotion();
   return (
     <m.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
       whileHover={reduce ? undefined : { y: -5 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-      className={`group rounded-xl p-4 transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)] ${
-        isNepal ? 'glass-nepal' : 'glass-japan'
-      }`}
+      data-leg={isNepal ? 'nepal' : 'japan'}
+      className="group rounded-r1 p-gut border-hair border-[color:hsl(var(--border))] bg-surface-low transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
     >
       <div className="flex items-start gap-3">
-        <span className="text-2xl">{food.emoji}</span>
+        <span className="text-n-sm" aria-hidden="true">{food.emoji}</span>
         <div>
           <div className="flex items-center gap-2">
-            <h4 className="font-display font-bold text-white text-sm">{food.name}</h4>
-            <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
-              {food.country}
-            </span>
+            <h4 className="text-t-body font-semibold text-ink-hi">{food.name}</h4>
+            <span className="chip border-[color:var(--now)] text-now">{food.country}</span>
           </div>
-          <p className="text-xs text-ink-mid mt-1">{food.description}</p>
+          <p className="text-t-sm text-ink-mid mt-1">{food.description}</p>
         </div>
       </div>
     </m.div>
@@ -109,7 +94,6 @@ function FoodCard({ food }: { food: typeof LOCAL_FOODS[0] }) {
 }
 
 export default function CountryEssentials({ country }: { country: 'Nepal' | 'Japan' }) {
-  const isNepal = country === 'Nepal';
   const featured = FEATURED_DESTINATIONS.filter((d) => d.country === country);
   const foods = LOCAL_FOODS.filter((f) => f.country === country);
   const etiquette = ETIQUETTE_TIPS.filter((t) => t.country === country || t.country === 'Both');
@@ -120,14 +104,14 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
         <SectionHeading
           id="essentials-heading"
           className="mb-12"
-          title={<>{country}{' '}<span className={isNepal ? 'text-gradient-himalaya' : 'text-gradient-sakura'}>Essentials</span></>}
+          title={`${country} Essentials`}
           subtitle={`Featured spots, local flavors, and cultural know-how for ${country}.`}
         />
 
         {/* Featured Destinations */}
         <div className="mb-12">
-          <h3 className="font-display text-xl font-bold text-white mb-6 flex items-center gap-2 justify-center">
-            <MapPin className="w-5 h-5 text-muted-foreground" aria-hidden="true" /> Featured Destinations
+          <h3 className="pr pr--l text-ink-hi mb-6 flex items-center gap-2 justify-center">
+            <MapPin className="w-4 h-4 text-ink-lo" aria-hidden="true" /> Featured Destinations
           </h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {featured.map((destination) => (
@@ -138,8 +122,8 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
 
         {/* Foods to Try */}
         <div className="mb-12">
-          <h3 className="font-display text-xl font-bold text-white mb-6 flex items-center gap-2 justify-center">
-            <Utensils className="w-5 h-5 text-muted-foreground" aria-hidden="true" /> Local Foods to Try
+          <h3 className="pr pr--l text-ink-hi mb-6 flex items-center gap-2 justify-center">
+            <Utensils className="w-4 h-4 text-ink-lo" aria-hidden="true" /> Local Foods to Try
           </h3>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {foods.map((food) => (
@@ -149,22 +133,29 @@ export default function CountryEssentials({ country }: { country: 'Nepal' | 'Jap
         </div>
 
         {/* Etiquette */}
-        <div className="glass-card rounded-2xl p-5 max-w-3xl mx-auto">
-          <h3 className="font-display text-lg font-bold text-white mb-4 flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-muted-foreground" aria-hidden="true" /> Cultural Etiquette
+        {/* A ruled list, not a card of cards: a row is a border-bottom and text. A tip
+            that applies to BOTH legs takes the neutral rule rather than a third colour. */}
+        <div className="max-w-3xl mx-auto rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low">
+          <h3 className="pr pr--l text-ink-hi p-gut py-3 flex items-center gap-2 border-b-2 border-[color:hsl(var(--border))]">
+            <BookOpen className="w-4 h-4 text-ink-lo" aria-hidden="true" /> Cultural Etiquette
           </h3>
-          <div className="space-y-3">
+          <div className="list">
             {etiquette.map((tip) => (
-              <div key={tip.title} className="flex items-start gap-3 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-                <Heart className={`w-4 h-4 mt-0.5 shrink-0 ${
-                  tip.country === 'Nepal' ? 'text-himalaya-400' : tip.country === 'Japan' ? 'text-sakura-400' : 'text-gold-400'
-                }`} />
+              <div
+                key={tip.title}
+                data-leg={tip.country === 'Japan' ? 'japan' : 'nepal'}
+                className="r [--lead:auto]"
+              >
+                <Heart
+                  className={`w-4 h-4 mt-0.5 shrink-0 ${tip.country === 'Both' ? 'text-ink-lo' : 'text-now'}`}
+                  aria-hidden="true"
+                />
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h4 className="text-sm font-semibold text-white">{tip.title}</h4>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/5 text-ink-mid">{tip.country}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-t-body font-semibold text-ink-hi">{tip.title}</h4>
+                    <span className="chip">{tip.country}</span>
                   </div>
-                  <p className="text-xs text-ink-mid mt-0.5">{tip.description}</p>
+                  <p className="text-t-sm text-ink-mid mt-0.5">{tip.description}</p>
                 </div>
               </div>
             ))}

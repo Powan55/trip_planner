@@ -19,7 +19,7 @@
 // inner box and pad the rest with the brand background so no glyph pixels fall
 // in the mask-clipped border.
 //
-// Background = the page field (#0E0920), the colour the app's <body> actually paints
+// Background = the page field (#0A0818), the colour the app's <body> actually paints
 // (the --navy-900 channel / --background token, app/globals.css). Same hex feeds the
 // manifest theme/background_color in gen-sw.mjs and `themeColor` in app/layout.tsx,
 // so the installed app, splash, and address bar all agree. Re-valued to the D-334
@@ -42,8 +42,8 @@ const ROOT = join(__dirname, '..');
 const SVG_PATH = join(ROOT, 'public', 'favicon.svg');
 const OUT_DIR = join(ROOT, 'public', 'icons');
 
-// The app's page field #0E0920 (matches manifest background_color/theme_color).
-const BG = { r: 0x0e, g: 0x09, b: 0x20, alpha: 1 };
+// The app's page field #0A0818 (matches manifest background_color/theme_color).
+const BG = { r: 0x0a, g: 0x08, b: 0x18, alpha: 1 };
 
 async function renderGlyph(svgBuffer, size) {
   // Render the SVG crisply at the requested edge length.

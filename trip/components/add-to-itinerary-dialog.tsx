@@ -488,7 +488,7 @@ export default function AddToItineraryDialog({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
       onClick={onClose}
     >
       <m.div
@@ -582,7 +582,7 @@ export default function AddToItineraryDialog({
                       if (editingPlacementId === p.item.id) startAddingNew();
                     }}
                     aria-label={`Remove from ${formatDate(p.date)}`}
-                    className="shrink-0 p-1.5 rounded-lg text-ink-mid hover:text-red-400 hover:bg-red-500/20 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"
+                    className="shrink-0 p-1.5 rounded-lg text-ink-mid hover:text-destructive hover:bg-[hsl(var(--destructive)/0.08)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -699,7 +699,7 @@ export default function AddToItineraryDialog({
                     }`}
                   >
                     {CATEGORY_ICON_MAP[cat]}
-                    <span className="capitalize text-[10px] leading-tight text-center break-words w-full">{cat}</span>
+                    <span className="capitalize text-t-micro leading-tight text-center break-words w-full">{cat}</span>
                   </button>
                 );
               })}

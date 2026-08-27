@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { m } from 'framer-motion';
-import { BookOpen, Camera, Check, ImageOff, Sparkles, Wallet } from 'lucide-react';
+import { BookOpen, Camera, ImageOff, Sparkles, Wallet } from 'lucide-react';
 import { formatDateLong } from '@/lib/trip-data';
 import { getCityForDate, getCountryForDate, TRIP_DATES } from '@/core/dates';
 import { getNow } from '@/lib/trip-now';
@@ -131,14 +131,14 @@ export default function TripStoryRecap() {
       <div className="mx-auto max-w-3xl">
         {/* The trip-level summary — opens the story. */}
         <header className="mb-10 text-center">
-          <p className="text-eyebrow mb-3 uppercase text-muted-foreground">The story, cover to cover</p>
-          <h2 id="story-title" className="font-display text-2xl sm:text-3xl font-bold text-white mb-4">
-            <span className="text-display-emphasis">{days.length} days</span>, one journey
+          <p className="pr mb-3">The story, cover to cover</p>
+          <h2 id="story-title" className="text-display-lg text-ink-hi mb-4">
+            {days.length} days, one journey
           </h2>
-          <p data-testid="story-trip-summary" className="mx-auto max-w-2xl text-base leading-relaxed text-ink-mid">
+          <p data-testid="story-trip-summary" className="mx-auto max-w-2xl text-t-lead leading-relaxed text-ink-mid">
             {totalPlanned > 0 ? (
               <>
-                <span className="font-semibold text-foreground">{totalDone}</span> of {totalPlanned} planned
+                <span className="num text-ink-hi">{totalDone}</span> of {totalPlanned} planned
                 activities done
               </>
             ) : (
@@ -175,7 +175,7 @@ export default function TripStoryRecap() {
         </div>
 
         <footer className="mt-12 text-center">
-          <p className="text-sm italic text-ink-lo">
+          <p className="text-t-sm text-ink-mid">
             And that was the trip — {LEGS.map(legLabel).join(', then ')}, {days.length} days in all.
           </p>
         </footer>
@@ -198,19 +198,19 @@ function StoryLocked({ nowDateStr }: { nowDateStr: string }) {
       data-testid="trip-story-recap"
       className="px-gutter py-section"
     >
-      <div data-testid="trip-story-locked" className="glass-card mx-auto max-w-2xl rounded-3xl p-8 text-center sm:p-12">
-        <p className="text-eyebrow mb-3 uppercase text-muted-foreground">Coming soon</p>
-        <h2 id="story-locked-title" className="font-display text-2xl font-bold text-white sm:text-3xl">
+      <div data-testid="trip-story-locked" className="empty-frame mx-auto max-w-2xl p-8 text-center sm:p-12">
+        <p className="stamp stamp--dry mb-3">Not yet valid</p>
+        <h2 id="story-locked-title" className="text-display-lg text-ink-hi">
           Your story unlocks after the trip
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-base leading-relaxed text-ink-mid">
+        <p className="mx-auto mt-4 max-w-xl text-t-lead leading-relaxed text-ink-mid">
           Once the last day in Japan wraps on {formatDateLong(LAST_TRIP_DATE)}, this page becomes a
           full day-by-day narrative of the trip — weaving what was planned, what actually happened,
           your journal reflections, and what was spent.
         </p>
         {elapsed.length > 0 && (
-          <p className="mt-4 text-sm text-ink-mid">
-            So far you&apos;ve lived <span className="font-semibold text-foreground">{elapsed.length}</span> of{' '}
+          <p className="mt-4 text-t-body text-ink-mid">
+            So far you&apos;ve lived <span className="num text-ink-hi">{elapsed.length}</span> of{' '}
             {TRIP_DATES.length} trip days — come back once the trip wraps to read the whole story.
           </p>
         )}
@@ -250,31 +250,31 @@ function DayStory({
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
       aria-labelledby={headingId}
       data-testid={`story-day-${date}`}
-      className="glass-card rounded-2xl p-6 sm:p-8"
+      className="border-hair border-border bg-surface-low p-6 sm:p-8"
     >
       <header className="mb-4">
-        <h3 id={headingId} className="font-display text-lg font-bold leading-tight text-white sm:text-xl">
-          Day <span className="text-foreground">{dayNumber}</span>
+        <h3 id={headingId} className="text-display-md text-ink-hi">
+          Day <span className="tabular-nums">{dayNumber}</span>
           <span className="mx-2 text-ink-lo" aria-hidden="true">
             —
           </span>
           {city}
         </h3>
-        <p className="mt-0.5 text-xs text-ink-mid">{formatDateLong(date)}</p>
+        <p className="pr pr--lo mt-0.5">{formatDateLong(date)}</p>
       </header>
 
       {/* Plan-vs-actual, in prose: the run-rate line + the read-only item list. */}
       {summary.planned === 0 ? (
-        <p data-testid={`story-no-plan-${date}`} className="mb-3 text-sm italic text-ink-mid">
+        <p data-testid={`story-no-plan-${date}`} className="empty mb-3">
           A free day — nothing was planned.
         </p>
       ) : (
         <>
-          <p data-testid={`story-plan-summary-${date}`} className="mb-2 text-sm text-ink-mid">
-            <span className="font-semibold text-foreground">{summary.done}</span> of {summary.planned} planned{' '}
+          <p data-testid={`story-plan-summary-${date}`} className="mb-2 text-t-sm text-ink-mid">
+            <span className="num text-ink-hi">{summary.done}</span> of {summary.planned} planned{' '}
             {summary.planned === 1 ? 'activity' : 'activities'} done.
           </p>
-          <ul data-testid={`story-plan-${date}`} className="mb-3 space-y-1" aria-label={`Plan for Day ${dayNumber}, ${city}`}>
+          <ul data-testid={`story-plan-${date}`} className="list -mx-6 mb-3 sm:-mx-8" aria-label={`Plan for Day ${dayNumber}, ${city}`}>
             {items.map((item) => {
               const done = item.done === true;
               return (
@@ -282,13 +282,15 @@ function DayStory({
                   key={item.id}
                   data-testid="story-plan-item"
                   data-done={done ? 'true' : 'false'}
-                  className="flex items-start gap-2 text-sm"
+                  data-mark={done ? 'struck' : 'hollow'}
+                  className="r"
                 >
-                  <span aria-hidden="true" className={`mt-0.5 flex-shrink-0 ${done ? 'text-emerald-400' : 'text-ink-lo'}`}>
-                    <Check className="h-3.5 w-3.5" strokeWidth={3} />
+                  <span aria-hidden="true" className={`mk mt-1 ${done ? 'mk--struck' : 'mk--hollow'}`} />
+                  <span className="min-w-0">
+                    <h3>{item.title}</h3>
                   </span>
-                  <span className={done ? 'text-ink-lo line-through' : 'text-ink-hi'}>{item.title}</span>
-                  <span className="sr-only">{done ? '— done' : '— not done'}</span>
+                  {/* The done state IN WORDS, so the mark is redundant rather than the cue. */}
+                  <span className={`pr mt-1 ${done ? '' : 'pr--lo'}`}>{done ? 'Done' : 'Not yet'}</span>
                 </li>
               );
             })}
@@ -298,8 +300,8 @@ function DayStory({
 
       {/* The day's journal reflection, read-only. */}
       {entry && (
-        <div data-testid={`story-journal-${date}`} className="mt-3 border-t border-white/10 pt-3">
-          <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <div data-testid={`story-journal-${date}`} className="mt-3 border-t-2 border-border pt-3">
+          <p className="pr mb-2 flex items-center gap-1.5">
             <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
             Reflection
           </p>
@@ -308,7 +310,7 @@ function DayStory({
               {mood && (
                 <span
                   data-testid={`story-journal-mood-${date}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground"
+                  className="chip"
                 >
                   <span aria-hidden="true">{mood.glyph}</span>
                   {mood.label}
@@ -317,9 +319,9 @@ function DayStory({
               {entry.highlight && (
                 <span
                   data-testid={`story-journal-highlight-${date}`}
-                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-ink-hi"
+                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-t-body font-semibold text-ink-hi"
                 >
-                  <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-ink-lo" aria-hidden="true" />
                   <span className="min-w-0 break-words">{entry.highlight}</span>
                 </span>
               )}
@@ -328,7 +330,7 @@ function DayStory({
           {entry.text && (
             <p
               data-testid={`story-journal-body-${date}`}
-              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-hi"
+              className="whitespace-pre-wrap break-words text-t-body leading-relaxed text-ink-hi"
             >
               {entry.text}
             </p>
@@ -341,9 +343,9 @@ function DayStory({
 
       {/* The day's logged spend, in the day's leg-local currency — only when >0. */}
       {spend > 0 && (
-        <p data-testid={`story-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-ink-mid">
-          <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
-          Spent <span className="font-semibold text-ink-hi">{formatMoney(spend, legCurrency(country))}</span>
+        <p data-testid={`story-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-t-sm text-ink-mid">
+          <Wallet className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
+          Spent <span className="num text-ink-hi">{formatMoney(spend, legCurrency(country))}</span>
         </p>
       )}
     </m.article>
@@ -376,8 +378,8 @@ export function StoryPhotos({
   if (photos.length === 0) return null;
 
   return (
-    <div data-testid={`story-photos-${date}`} className="mt-3 border-t border-white/10 pt-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+    <div data-testid={`story-photos-${date}`} className="mt-3 border-t-2 border-border pt-3">
+      <p className="pr mb-2 flex items-center gap-1.5">
         <Camera className="h-3.5 w-3.5" aria-hidden="true" />
         Photos
       </p>
@@ -423,7 +425,7 @@ function StoryPhotoThumb({ meta, onOpen }: { meta: PhotoMeta; onOpen: () => void
     <li
       data-testid={`story-photo-${meta.id}`}
       data-missing={missing ? 'true' : 'false'}
-      className="relative aspect-square w-20 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.03] sm:w-24"
+      className="relative aspect-square w-20 flex-shrink-0 overflow-hidden border-hair border-border bg-surface-low sm:w-24"
     >
       {missing ? (
         <div
@@ -445,11 +447,11 @@ function StoryPhotoThumb({ meta, onOpen }: { meta: PhotoMeta; onOpen: () => void
           <img src={url} alt={meta.altText} className="h-full w-full object-cover" />
         </button>
       ) : (
-        <div className="h-full w-full motion-safe:animate-pulse bg-white/[0.04]" aria-hidden="true" />
+        <div className="load h-full w-full"><span className="pr pr--lo">Loading</span></div>
       )}
 
       {meta.caption && !missing && (
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1 pb-0.5 pt-2 text-[9px] text-ink-hi">
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1 pb-0.5 pt-2 text-t-micro text-ink-hi">
           {meta.caption}
         </span>
       )}

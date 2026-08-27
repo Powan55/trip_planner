@@ -120,7 +120,7 @@ export default function PhotoAttach({
   return (
     <section data-testid="photo-attach" aria-label={heading} className="mt-4">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h4 className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+        <h4 className="flex items-center gap-2 text-t-micro font-semibold uppercase tracking-widest text-muted-foreground">
           <Camera className="h-3.5 w-3.5" aria-hidden="true" />
           {heading}
         </h4>
@@ -239,9 +239,21 @@ export default function PhotoAttach({
         </ul>
       ) : (
         !pending && (
-          <p className="text-xs text-ink-mid" data-testid="photo-empty">
-            {hydrated ? 'No photos yet.' : 'No photos yet…'}
-          </p>
+          // 9.8: an empty state renders the SHAPE of the thing that is missing, at the
+          // size it will be — three thumbnail slots drawn hollow in the grid the photos
+          // will land in — plus the condition, in words, at --t-body. Never a grey
+          // sentence at --t-micro, which is smaller than body copy and is the line a
+          // first-run user reads most.
+          <div data-testid="photo-empty">
+            <ul aria-hidden="true" className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {[0, 1, 2].map((i) => (
+                <li key={i} className="empty-frame aspect-square" />
+              ))}
+            </ul>
+            <p className="empty mt-2">
+              {hydrated ? 'No photos on file yet.' : 'No photos on file yet…'}
+            </p>
+          </div>
         )
       )}
 
@@ -262,7 +274,7 @@ export default function PhotoAttach({
                 if (pendingDelete) void removePhoto(pendingDelete.id);
                 setPendingDelete(null);
               }}
-              className="bg-rose-500 text-white hover:bg-rose-400"
+              className="btn btn--danger"
             >
               Remove
             </AlertDialogAction>
@@ -298,7 +310,7 @@ function PhotoThumb({
   const { url, missing } = usePhotoObjectUrl(meta.id);
 
   return (
-    <li data-testid={`photo-thumb-${meta.id}`} className="relative aspect-square overflow-hidden rounded-lg border border-white/10 bg-white/[0.03]">
+    <li data-testid={`photo-thumb-${meta.id}`} className="relative aspect-square overflow-hidden rounded-r1 border border-hair border-[hsl(var(--border))] bg-[rgb(var(--surface-low))]">
       {missing ? (
         <div
           data-testid={`photo-placeholder-${meta.id}`}
@@ -306,7 +318,7 @@ function PhotoThumb({
           title={meta.caption ?? meta.altText}
         >
           <ImageOff className="h-4 w-4 text-ink-lo" aria-hidden="true" />
-          <span className="line-clamp-2 text-[10px] leading-tight text-ink-mid">
+          <span className="line-clamp-2 text-t-micro leading-tight text-ink-mid">
             {meta.caption ?? meta.altText}
           </span>
           <span className="sr-only">Photo no longer on this device</span>
@@ -330,11 +342,16 @@ function PhotoThumb({
           />
         </button>
       ) : (
-        <div className="h-full w-full motion-safe:animate-pulse bg-white/[0.04]" aria-hidden="true" />
+        // No shimmer and no pulse over a photograph — a sweep there reads as a rendering
+        // fault. The word is a real text node, because a plain grey tile is
+        // indistinguishable from an empty slot.
+        <div className="load h-full w-full" aria-hidden="true">
+          <span className="pr pr--lo">Loading</span>
+        </div>
       )}
 
       {(meta.caption || meta.altText) && !missing && (
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3 text-[10px] text-ink-hi">
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1.5 pb-1 pt-3 text-t-micro text-ink-hi">
           {meta.caption ?? meta.altText}
         </span>
       )}
@@ -347,7 +364,7 @@ function PhotoThumb({
         onClick={onDelete}
         data-testid={`photo-delete-${meta.id}`}
         aria-label={`Remove photo: ${meta.altText}`}
-        className="absolute right-1 top-1 inline-flex h-tap w-tap items-center justify-center rounded-md bg-black/50 text-white outline-none hover:bg-red-500/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+        className="absolute right-1 top-1 inline-flex h-tap w-tap items-center justify-center rounded-md bg-black/50 text-white outline-none hover:bg-red-500/70 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Trash2 className="h-4 w-4" aria-hidden="true" />
       </button>

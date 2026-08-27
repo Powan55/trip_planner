@@ -164,12 +164,12 @@ export default function VisitedPlacesPanel() {
       <section
         aria-labelledby="visited-heading"
         data-testid="visited-places-panel"
-        className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6"
+        className="mx-auto w-full max-w-3xl px-gut pb-16"
       >
         <h2 id="visited-heading" className="sr-only">
           Places you have already been
         </h2>
-        <p className="text-sm text-ink-mid">Loading your travel history…</p>
+        <p className="empty">Loading your travel history…</p>
       </section>
     );
   }
@@ -178,7 +178,7 @@ export default function VisitedPlacesPanel() {
     <section
       aria-labelledby="visited-heading"
       data-testid="visited-places-panel"
-      className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6"
+      className="mx-auto w-full max-w-3xl pb-16"
     >
       <h2 id="visited-heading" className="sr-only">
         Places you have already been
@@ -200,7 +200,7 @@ export default function VisitedPlacesPanel() {
           countTestId="visited-country-count"
           listTestId="visited-country-list"
           emptyTestId="visited-country-empty"
-          empty="No countries yet. Add the ones you'd visited before this trip."
+          empty="Nothing on file yet — add the countries you'd been to before this trip and they join your lifetime total."
           headingId="visited-countries-heading"
           items={visited.countries}
           removeTestId={(name) => `visited-country-remove-${name}`}
@@ -215,7 +215,7 @@ export default function VisitedPlacesPanel() {
             <div className="flex-1">
               <label
                 htmlFor="visited-country-select"
-                className="text-xs uppercase tracking-widest text-ink-lo"
+                className="pr pr--lo"
               >
                 Country
               </label>
@@ -225,7 +225,7 @@ export default function VisitedPlacesPanel() {
                 ref={countrySelectRef}
                 value={countryDraft}
                 onChange={(e) => setCountryDraft(e.target.value)}
-                className="mt-1 min-h-[44px] w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="mt-1 min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="">Choose a country…</option>
                 {countryOptions.map((name) => (
@@ -239,7 +239,7 @@ export default function VisitedPlacesPanel() {
               type="submit"
               disabled={countryDraft === ''}
               data-testid="visited-country-add"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-ink-hi transition-colors hover:bg-white/5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="btn btn--2 shrink-0 px-4"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add country
@@ -255,7 +255,7 @@ export default function VisitedPlacesPanel() {
           countTestId="visited-city-count"
           listTestId="visited-city-list"
           emptyTestId="visited-city-empty"
-          empty="No cities yet. Type any city you'd been to before this trip."
+          empty="Nothing on file yet — type any city you'd been to before this trip and it joins your lifetime total."
           headingId="visited-cities-heading"
           items={visited.cities}
           removeTestId={(name) => `visited-city-remove-${name}`}
@@ -270,7 +270,7 @@ export default function VisitedPlacesPanel() {
             <div className="flex-1">
               <label
                 htmlFor="visited-city-input"
-                className="text-xs uppercase tracking-widest text-ink-lo"
+                className="pr pr--lo"
               >
                 City
               </label>
@@ -290,13 +290,13 @@ export default function VisitedPlacesPanel() {
                 spellCheck={false}
                 aria-invalid={cityError !== null}
                 aria-describedby={cityError === null ? undefined : 'visited-city-error'}
-                className="mt-1 min-h-[44px] w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="mt-1 min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
             <button
               type="submit"
               data-testid="visited-city-add"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="btn btn--2 shrink-0 px-4"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               Add city
@@ -306,7 +306,7 @@ export default function VisitedPlacesPanel() {
             <p
               id="visited-city-error"
               data-testid="visited-city-error"
-              className="mt-2 text-sm text-rose-300"
+              className="err mt-2 text-t-body"
             >
               {cityError}
             </p>
@@ -314,7 +314,7 @@ export default function VisitedPlacesPanel() {
         </PlaceGroup>
       </div>
 
-      <p className="mt-8 text-sm text-ink-lo">
+      <p className="mt-8 max-w-2xl px-gut text-t-sm text-ink-lo">
         This list is yours, not the trip&rsquo;s: it stays on this device when a trip is cleared or
         you sign out. It never leaves the device.
       </p>
@@ -356,31 +356,37 @@ function PlaceGroup({
   children: React.ReactNode;
 }) {
   return (
-    <div className="glass-subtle rounded-2xl p-5">
-      <div className="flex items-baseline justify-between gap-3">
-        <div>
-          <p className="mb-1 text-[0.65rem] uppercase tracking-widest text-ink-lo">{eyebrow}</p>
-          <h3 id={headingId} className="flex items-center gap-2 font-display text-lg font-bold text-ink-hi">
-            <Icon className="h-4 w-4 text-ink-mid" aria-hidden="true" />
+    <div>
+      {/* The running-head field strip, deliberately NOT sticky: the app ships a fixed navbar at
+          top:0, and a second sticky bar per group would stack under it. */}
+      <div className="head static flex-wrap">
+        <span className="f">
+          <span className="k">{eyebrow}</span>
+          <h3 id={headingId} className="v !flex items-center gap-1.5">
+            <Icon className="h-3.5 w-3.5 text-ink-lo" aria-hidden="true" />
             {title}
           </h3>
-        </div>
-        <span data-testid={countTestId} className="shrink-0 text-xs font-medium text-ink-mid">
-          {count} recorded
+        </span>
+        <span className="f">
+          <span className="k">On file</span>
+          <span data-testid={countTestId} className="v">
+            {count} recorded
+          </span>
         </span>
       </div>
 
-      <div className="mt-3">{children}</div>
+      <div className="px-gut pt-3">{children}</div>
 
       {items.length === 0 ? (
-        <p data-testid={emptyTestId} className="mt-4 text-sm text-ink-mid">
+        // Empty copy sits at --t-body / --text-mid, never --t-micro, and points forward.
+        <p data-testid={emptyTestId} className="empty mt-4 max-w-2xl px-gut">
           {empty}
         </p>
       ) : (
         <ul
           aria-labelledby={headingId}
           data-testid={listTestId}
-          className="mt-4 flex flex-wrap gap-2"
+          className="mt-4 flex flex-wrap items-center gap-2 px-gut"
         >
           {items.map((name) => {
             // Marked, not disabled (issue #236): the remove still works, it just does not last.
@@ -389,21 +395,19 @@ function PlaceGroup({
               <li
                 key={name}
                 data-trip-claimed={claimed ? 'true' : undefined}
-                className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] py-0.5 pl-3 pr-0.5 text-sm text-ink-hi"
+                className={`chip gap-0 py-0 pe-0 ps-2 normal-case tracking-normal ${
+                  claimed ? 'chip--hollow' : 'chip--struck'
+                }`}
               >
-                {name}
-                {claimed && (
-                  <span className="text-[0.65rem] uppercase tracking-wide text-ink-mid">
-                    In your trip
-                  </span>
-                )}
-                {/* 44px, the house tap-target floor — a delete is the one control nobody should hit
-                    by accident or miss by a pixel. */}
+                <span className="text-t-body">{name}</span>
+                {claimed && <span className="pr pr--lo ms-1.5">In your trip</span>}
+                {/* The house tap-target floor — a delete is the one control nobody should hit by
+                    accident or miss by a pixel. */}
                 <button
                   type="button"
                   data-testid={removeTestId(name)}
                   onClick={() => onRemove(name)}
-                  className="inline-flex h-11 w-11 items-center justify-center rounded-full text-ink-mid transition-colors hover:bg-white/10 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="ms-1 inline-flex min-h-tap min-w-tap items-center justify-center text-ink-mid transition-colors hover:bg-[hsl(var(--destructive)/0.08)] hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 >
                   <X className="h-4 w-4" aria-hidden="true" />
                   {/* The caveat rides in the NAME, not a description: someone moving button to

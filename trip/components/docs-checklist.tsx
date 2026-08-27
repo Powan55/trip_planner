@@ -72,25 +72,39 @@ function DocRow({
   };
 
   return (
-    <li className="border-b border-white/5 py-1 last:border-b-0">
+    <li className="border-b-hair border-border last:border-b-0">
       <label
         htmlFor={`docs-item-${item.id}`}
-        className="flex min-h-[44px] cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-ink-hi outline-none transition-colors duration-200 hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface"
+        data-mark={item.checked ? undefined : 'hollow'}
+        className="r cursor-pointer !border-b-0 outline-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-ring"
       >
-        <input
-          id={`docs-item-${item.id}`}
-          data-testid={`docs-item-${item.id}`}
-          type="checkbox"
-          checked={item.checked}
-          onChange={() => {
-            onToggle(item.id);
-            haptic();
-          }}
-          className="h-5 w-5 flex-shrink-0 rounded border-white/30 bg-transparent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        />
-        <span className={item.checked ? 'text-ink-lo line-through' : undefined}>{item.label}</span>
+        <span className="tm flex items-center justify-center pt-0">
+          <input
+            id={`docs-item-${item.id}`}
+            data-testid={`docs-item-${item.id}`}
+            type="checkbox"
+            checked={item.checked}
+            onChange={() => {
+              onToggle(item.id);
+              haptic();
+            }}
+            className="h-5 w-5 flex-shrink-0 rounded-r1 border-[color:var(--border-ui)] bg-transparent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          />
+        </span>
+        <span className="min-w-0">
+          {/* Struck means committed, so a filed document keeps the TOP tier and takes the rule
+              through it; hollow recedes by tier via [data-mark] above. role=presentation keeps
+              the row-title recipe without adding one heading per checkbox to the page outline —
+              the label already names the input. */}
+          <h3 role="presentation" className={item.checked ? 'line-through' : undefined}>
+            {item.label}
+          </h3>
+        </span>
+        <span className={item.checked ? 'chip chip--struck' : 'hollow-tag'}>
+          {item.checked ? 'filed' : 'not yet'}
+        </span>
       </label>
-      <div className="pl-10 pr-2 pb-1.5">
+      <div className="px-gut pb-2">
         <label htmlFor={`docs-note-${item.id}`} className="sr-only">
           Note for {item.label}
         </label>
@@ -105,7 +119,7 @@ function DocRow({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commitNote}
           placeholder="Add a note — expiry, policy #, reference…"
-          className="w-full rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-ink-hi placeholder:text-ink-lo outline-none transition-colors focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/60"
+          className="w-full rounded-r1 border-hair border-border bg-surface-raised px-3 py-1.5 text-t-sm text-ink-hi placeholder:text-ink-lo outline-none transition-colors focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/60"
         />
         {/* #258: an optional device-local photo per row (passport page, visa stamp, boarding pass …),
             alongside the text note above. Reuses the journal/expense capture surface with a third
@@ -144,11 +158,11 @@ export default function DocsChecklist() {
 
   if (!hydrated) {
     return (
-      <section aria-labelledby="docs-heading" data-testid="docs-checklist" className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
+      <section aria-labelledby="docs-heading" data-testid="docs-checklist" className="mx-auto w-full max-w-3xl px-gut pb-16">
         <h2 id="docs-heading" className="sr-only">
           Documents and readiness checklist
         </h2>
-        <p className="text-sm text-ink-mid">Loading your checklist…</p>
+        <p className="empty">Loading your checklist…</p>
       </section>
     );
   }
@@ -161,9 +175,9 @@ export default function DocsChecklist() {
   const allDone = completion.total > 0 && completion.done === completion.total;
 
   return (
-    <section aria-labelledby="docs-heading" data-testid="docs-checklist" className="relative mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
+    <section aria-labelledby="docs-heading" data-testid="docs-checklist" className="relative mx-auto w-full max-w-3xl pb-16">
       <CelebrationBurst active={celebrate} testId="docs-celebration" celebrationId="docs-complete" />
-      <header className="mb-6">
+      <header className="mb-6 px-gut">
         {/* #218: the eyebrow and title used to be printed here a second time, ~40px under the
             page masthead that already carries both. The heading stays as the section's
             accessible name (`aria-labelledby` above) and the h2 the group h3s nest under —
@@ -171,25 +185,29 @@ export default function DocsChecklist() {
         <h2 id="docs-heading" className="sr-only">
           Documents and readiness checklist
         </h2>
-        <p data-testid="docs-progress" className="text-sm font-medium text-ink-mid">
+        {/* e2e/docs-palette.spec.ts asserts this node reads exactly "0/18 ready" — the count and
+            the word are the contract, so nothing else may join this text node. */}
+        <p data-testid="docs-progress" className="num text-n-sm text-ink-hi">
           {completion.done}/{completion.total} ready
         </p>
+        {/* The track is capped so the UNFILLED remainder is always visible: a bar with no visible
+            remainder stops being a reading and becomes an underline. */}
         <div
           role="progressbar"
           aria-valuenow={completion.done}
           aria-valuemin={0}
           aria-valuemax={completion.total}
           aria-label={`${completion.done} of ${completion.total} items ready`}
-          className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+          className="fill"
+          style={{ '--w': completion.total > 0 ? `${(completion.done / completion.total) * 100}%` : '0%' } as React.CSSProperties}
         >
-          <div
-            className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none"
-            style={{ width: completion.total > 0 ? `${(completion.done / completion.total) * 100}%` : '0%' }}
-          />
+          <i />
         </div>
         {allDone && (
-          <p data-testid="docs-complete" className="mt-3 text-sm font-medium text-foreground">
-            All set — you&apos;re ready to fly. ✈
+          // KNOWN CEILING: a chip, not a --accent stamp. The accent FILL answers only "what is
+          // now?" and every fill site sits on a named allowlist; a completion state is not one.
+          <p data-testid="docs-complete" className="mt-3">
+            <span className="chip chip--struck">All {completion.total} filed — ready to fly</span>
           </p>
         )}
       </header>
@@ -203,23 +221,29 @@ export default function DocsChecklist() {
           const headingId = `docs-group-${section}-heading`;
           const sec = completion.perSection[section];
           return (
-            <div key={section} data-testid={`docs-section-${section}`} className="glass-subtle rounded-2xl p-5">
-              <div className="flex items-baseline justify-between gap-3">
-                <div>
-                  <p className="mb-1 text-[0.65rem] uppercase tracking-widest text-muted-foreground">{meta.eyebrow}</p>
-                  <h3 id={headingId} className="flex items-center gap-2 font-display text-lg font-bold text-white">
-                    <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+            <div key={section} data-testid={`docs-section-${section}`}>
+              {/* The running-head field strip, deliberately NOT sticky: the app already ships a
+                  fixed navbar at top:0, and a second sticky bar per group would stack under it. */}
+              <div className="head static flex-wrap">
+                <span className="f">
+                  <span className="k">Section</span>
+                  <h3 id={headingId} className="v !flex items-center gap-1.5">
+                    <Icon className="h-3.5 w-3.5 text-ink-lo" aria-hidden="true" />
                     {meta.label}
                   </h3>
-                </div>
-                <span
-                  data-testid={`docs-section-progress-${section}`}
-                  className="shrink-0 text-xs font-medium text-ink-mid"
-                >
-                  {sec.done}/{sec.total}
+                </span>
+                <span className="f">
+                  <span className="k">Filed</span>
+                  <span data-testid={`docs-section-progress-${section}`} className="v">
+                    {sec.done}/{sec.total}
+                  </span>
+                </span>
+                <span className="f f--drop">
+                  <span className="k">Why</span>
+                  <span className="v normal-case">{meta.eyebrow}</span>
                 </span>
               </div>
-              <ul aria-labelledby={headingId} className="mt-3 flex flex-col">
+              <ul aria-labelledby={headingId} className="list">
                 {groupItems.map((item) => (
                   <DocRow key={item.id} item={item} onToggle={toggleItem} onNote={setNote} />
                 ))}

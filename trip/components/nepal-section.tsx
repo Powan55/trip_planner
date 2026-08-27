@@ -10,12 +10,9 @@ export default function NepalSection() {
     <RecommendationSection
       id="nepal"
       title="Nepal Destinations"
-      titleGradient="text-gradient-himalaya"
       subtitle="Explore the mystical temples, vibrant markets, and breathtaking mountain views of Kathmandu Valley."
       items={allItems}
       categories={NEPAL_CATEGORIES}
-      accentColor="text-himalaya-400"
-      glassClass="glass-nepal"
     />
   );
 }

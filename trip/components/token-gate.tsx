@@ -546,7 +546,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
               id={titleId}
               className="text-display-md text-ink-hi leading-tight truncate"
             >
-              Nepal <span className="text-display-emphasis">×</span> Japan Journey
+              Nepal × Japan Journey
             </h2>
           </div>
         </div>
@@ -792,7 +792,7 @@ function CompactCountdown() {
             <span className="font-mono text-base sm:text-lg font-bold text-ink-hi tabular-nums leading-none">
               {String(u.value).padStart(2, '0')}
             </span>
-            <span className="mt-0.5 text-[9px] uppercase tracking-wider text-ink-lo">
+            <span className="mt-0.5 text-t-micro uppercase tracking-wider text-ink-lo">
               {u.label}
             </span>
           </div>

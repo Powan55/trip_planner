@@ -34,21 +34,19 @@ export default function PassportPage() {
         <Reveal className="mx-auto max-w-[880px]">
           <section className="passport-page" aria-labelledby="passport-title">
             <div className="passport-page__body">
-              <p
-                className="text-eyebrow uppercase"
-                style={{ color: 'var(--paper-lo)' }}
-              >
-                Lifetime record
+              <p className="pr" style={{ color: 'var(--paper-lo)' }}>
+                Lifetime record &middot; page 01
               </p>
-              <h1
-                id="passport-title"
-                className="font-display text-editorial-lg mt-2"
-              >
+              {/* The one display line on the sheet stays in the SERIF, and that is the
+                  parchment exception rather than an oversight: the machine face is the dark
+                  field's instrument voice, and a passport's own title page is set in a book
+                  face. Everything under it is machine type in the D-294 inks. */}
+              <h1 id="passport-title" className="font-display text-editorial-lg mt-2">
                 Passport
               </h1>
               <p
-                className="mt-3 max-w-lg text-sm leading-relaxed sm:text-base"
-                style={{ color: 'var(--paper-lo)' }}
+                className="mt-3 max-w-lg text-t-body leading-relaxed"
+                style={{ color: 'var(--on-paper)' }}
               >
                 One stamp for every country you have set foot in. Trip days stamp themselves as
                 they arrive, and the record stays on this device.

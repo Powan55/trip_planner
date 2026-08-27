@@ -62,6 +62,13 @@ import {
 
 type FilterValue = MarkerCategory | 'All';
 
+// The chrome around the canvas. A filter is a `.chip`: STRUCK when it is on, a plain rule
+// when it is off. No filter spends an --accent fill — that answers one question only, "what
+// is now?", which on this screen is the selected day.
+const FACET =
+  'chip min-h-tap px-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60';
+const FACET_OFF = 'hover:border-[color:var(--border-ui)] hover:text-ink-hi';
+
 // ── MapSection: the /map page chrome that re-composes <TripMap> ─────────
 // Owns the category filter UI, the itinerary overlay toggle, the fullscreen
 // slot-swap, the geolocate note banner, and the
@@ -697,6 +704,7 @@ export default function MapSection() {
     [allRows],
   );
   // Total items across the whole itinerary — the honest "of M" denominator, so an
+  // NOTE: FACET / FACET_OFF are declared at module scope below the imports.
   // item with no pin and no curated-marker match isn't silently missing from the count.
   const totalItineraryItems = useMemo(
     () => plans.reduce((sum, p) => sum + (p.items?.length ?? 0), 0),
@@ -730,7 +738,7 @@ export default function MapSection() {
         <SectionHeading
           id="map-heading"
           className="mb-8"
-          title={<>Interactive <span className="text-display-emphasis">Map</span></>}
+          title="Interactive Map"
           subtitle={
             curated.length > 0
               ? 'A real, pannable map of every place across the Kathmandu Valley and Japan. Filter by category, tap a pin for details, or flip on your itinerary to see the plan take shape day by day.'
@@ -757,15 +765,17 @@ export default function MapSection() {
                 onClick={() => handleFilter(value)}
                 aria-pressed={isActive}
                 data-testid={`map-filter-${value.toLowerCase().replace(/\s+/g, '-')}`}
-                className={`flex items-center gap-1.5 min-h-tap px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+                // The seven category hexes are frozen, so an ACTIVE category chip keeps its
+                // own badge colour and an inactive one is a plain rule.
+                className={`${FACET} ${
                   isActive
                     ? value === 'All'
-                      ? 'bg-white/10 text-white border-white/20'
-                      : `${style!.badge}`
-                    : 'text-ink-mid border-transparent hover:bg-white/5 hover:text-ink-hi'
+                      ? 'chip--struck'
+                      : style!.badge
+                    : FACET_OFF
                 }`}
               >
-                {Icon && <Icon className="w-3.5 h-3.5" />}
+                {Icon && <Icon className="w-3.5 h-3.5" aria-hidden="true" />}
                 {value}
               </button>
             );
@@ -780,15 +790,11 @@ export default function MapSection() {
               onClick={() => setSavedOnly((v) => !v)}
               aria-pressed={savedOnly}
               data-testid="map-filter-saved"
-              className={`flex items-center gap-1.5 min-h-tap px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
-                savedOnly
-                  ? 'bg-primary/20 text-primary border-primary/40'
-                  : 'text-ink-mid border-transparent hover:bg-white/5 hover:text-ink-hi'
-              }`}
+              className={`${FACET} ${savedOnly ? 'chip--struck' : FACET_OFF}`}
             >
-              <Heart className={`w-3.5 h-3.5 ${savedOnly ? 'fill-current' : ''}`} />
+              <Heart className={`w-3.5 h-3.5 ${savedOnly ? 'fill-current' : ''}`} aria-hidden="true" />
               Saved
-              <span className="text-ink-mid font-mono">{savedCount}</span>
+              <span className="num text-ink-lo">{savedCount}</span>
             </button>
           )}
         </div>
@@ -805,15 +811,15 @@ export default function MapSection() {
               aria-label={searchOpen ? 'Close map search' : 'Search places on map'}
               aria-expanded={searchOpen}
               data-testid="map-search-toggle"
-              className="flex items-center justify-center h-tap w-tap rounded-lg text-ink-mid border border-white/10 hover:bg-white/5 hover:text-ink-hi transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="grid h-tap w-tap place-items-center rounded-r1 border-hair border-[color:hsl(var(--border))] text-ink-mid transition-colors hover:border-[color:var(--border-ui)] hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
-              <Search className="w-3.5 h-3.5" />
+              <Search className="w-3.5 h-3.5" aria-hidden="true" />
             </button>
 
             {searchOpen && (
               <div
                 data-testid="map-search-panel"
-                className="absolute z-10 top-full mt-2 left-1/2 -translate-x-1/2 w-72 max-w-[85vw] glass-card rounded-xl p-2 border border-white/10 shadow-xl"
+                className="absolute z-10 top-full mt-2 left-1/2 -translate-x-1/2 w-72 max-w-[85vw] rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low p-2 shadow-lg"
               >
                 {/* Issue #22 — a real <form>. Enter submits natively (no key handler of ours),
                     and the submit button is the ONLY thing that ever queries the world: typing
@@ -837,7 +843,7 @@ export default function MapSection() {
                     }}
                     placeholder="Search places…"
                     data-testid="map-search-input"
-                    className="w-full px-2.5 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-xs text-white placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    className="w-full min-h-tap px-2.5 py-1.5 rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface text-t-sm text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                   />
                   <button
                     type="submit"
@@ -848,7 +854,7 @@ export default function MapSection() {
                     disabled={!searchQuery.trim()}
                     aria-busy={world.phase === 'searching'}
                     data-testid="map-search-world-submit"
-                    className="mt-1.5 w-full flex items-center justify-center gap-1.5 min-h-tap px-2.5 py-1.5 rounded-lg border border-white/10 bg-white/5 text-xs font-medium text-ink-hi hover:bg-white/10 hover:text-white disabled:opacity-40 disabled:hover:bg-white/5 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                    className="btn btn--2 max-w-none mt-1.5 w-full outline-none focus-visible:outline-none"
                   >
                     <Globe className="w-3.5 h-3.5" aria-hidden="true" />
                     {world.phase === 'searching' ? 'Searching…' : 'Search the world'}
@@ -865,7 +871,7 @@ export default function MapSection() {
                       tabIndex={-1}
                       role="status"
                       data-testid="map-search-status"
-                      className="mt-2 px-0.5 text-[11px] text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
+                      className="mt-2 px-0.5 text-t-sm text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded-r1"
                     >
                       {searchStatusText}
                     </p>
@@ -875,14 +881,14 @@ export default function MapSection() {
                           list can only ever appear below this one. */}
                       <p
                         id="map-search-trip-heading"
-                        className="px-2.5 pt-0.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-ink-lo"
+                        className="pr pr--lo px-2.5 pt-0.5 pb-1"
                       >
                         On your trip
                       </p>
                       <ul data-testid="map-search-results" aria-labelledby="map-search-trip-heading">
                         {searchResults.length === 0 ? (
-                          <li className="px-2.5 py-1.5 text-xs text-ink-mid">
-                            No places on your trip match &ldquo;{searchQuery.trim()}&rdquo;.
+                          <li className="empty px-2.5 py-1.5">
+                            Nothing on your trip matches &ldquo;{searchQuery.trim()}&rdquo; yet.
                           </li>
                         ) : (
                           searchResults.map((hit) => (
@@ -891,14 +897,14 @@ export default function MapSection() {
                                 type="button"
                                 onClick={() => selectSearchResult(hit)}
                                 data-testid={`map-search-result-${hit.id}`}
-                                className="w-full text-left min-h-tap flex flex-col justify-center px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                className="w-full text-left min-h-tap flex flex-col justify-center px-2.5 py-1.5 rounded-r1 text-t-sm text-ink-hi hover:bg-[rgb(255_255_255/0.05)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                               >
-                                <span className="block font-medium">{hit.name}</span>
+                                <span className="block font-semibold">{hit.name}</span>
                                 {/* says WHAT this result is — a curated place ("Boudha,
                                     Kathmandu · Nepal"), a city on the trip, or one of the user's
                                     own plans — so three different kinds of thing don't read as
                                     one undifferentiated list. */}
-                                <span className="block text-ink-mid text-[11px]">{hit.source}</span>
+                                <span className="pr pr--lo block">{hit.source}</span>
                               </button>
                             </li>
                           ))
@@ -913,11 +919,11 @@ export default function MapSection() {
                               on the trip and never renders as one. */}
                           <p
                             id="map-search-world-heading"
-                            className="flex items-center gap-1.5 px-2.5 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wide text-ink-lo border-t border-white/10 mt-1.5"
+                            className="pr pr--lo flex items-center gap-1.5 px-2.5 pt-2.5 pb-1 border-t-hair border-[color:hsl(var(--border))] mt-1.5"
                           >
                             <Globe className="w-3 h-3" aria-hidden="true" />
                             Elsewhere in the world
-                            <span className="font-normal normal-case tracking-normal text-ink-lo">
+                            <span className="font-normal normal-case tracking-normal">
                               · OpenStreetMap
                             </span>
                           </p>
@@ -926,7 +932,7 @@ export default function MapSection() {
                             aria-labelledby="map-search-world-heading"
                           >
                             {world.places.length === 0 ? (
-                              <li className="px-2.5 py-1.5 text-xs text-ink-mid">
+                              <li className="empty px-2.5 py-1.5">
                                 Nothing else in the world matches &ldquo;{world.query}&rdquo;.
                               </li>
                             ) : (
@@ -936,12 +942,12 @@ export default function MapSection() {
                                     type="button"
                                     onClick={() => selectWorldPlace(place)}
                                     data-testid={`map-search-result-${place.id}`}
-                                    className="w-full text-left min-h-tap flex flex-col justify-center px-2.5 py-1.5 rounded-lg text-xs text-ink-hi hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                    className="w-full text-left min-h-tap flex flex-col justify-center px-2.5 py-1.5 rounded-r1 text-t-sm text-ink-hi hover:bg-[rgb(255_255_255/0.05)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                                   >
-                                    <span className="block font-medium">{place.name}</span>
+                                    <span className="block font-semibold">{place.name}</span>
                                     {/* Nominatim's own `display_name`, verbatim — the full
                                         region trail is what tells two same-named places apart. */}
-                                    <span className="block text-ink-mid text-[11px]">
+                                    <span className="pr pr--lo block">
                                       {place.displayName}
                                     </span>
                                   </button>
@@ -965,18 +971,14 @@ export default function MapSection() {
             data-testid="map-itinerary-toggle"
             data-stop-count={exactCount}
             data-total-count={totalItineraryItems}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
-              showItinerary
-                ? 'bg-primary/20 text-primary border-primary/40'
-                : 'text-ink-mid border-white/10 hover:bg-white/5 hover:text-ink-hi'
-            }`}
+            className={`${FACET} ${showItinerary ? 'chip--struck' : FACET_OFF}`}
           >
-            <RouteIcon className="w-3.5 h-3.5" />
+            <RouteIcon className="w-3.5 h-3.5" aria-hidden="true" />
             My itinerary
             {showItinerary && totalItineraryItems > 0 && (
               <span
                 data-testid="map-itinerary-count"
-                className="text-muted-foreground"
+                className="num text-ink-lo"
                 aria-hidden="true"
               >
                 · {exactCount} of {totalItineraryItems} {totalItineraryItems === 1 ? 'plan' : 'plans'} exactly placed
@@ -992,11 +994,7 @@ export default function MapSection() {
             onClick={toggleWakeLock}
             aria-pressed={wakeLockOn}
             data-testid="map-wake-lock-toggle"
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
-              wakeLockOn
-                ? 'bg-primary/20 text-primary border-primary/40'
-                : 'text-ink-mid border-white/10 hover:bg-white/5 hover:text-ink-hi'
-            }`}
+            className={`${FACET} ${wakeLockOn ? 'chip--struck' : FACET_OFF}`}
           >
             <Sun className="w-3.5 h-3.5" aria-hidden="true" />
             Keep screen on
@@ -1006,7 +1004,7 @@ export default function MapSection() {
         {wakeLock.supported && wakeLock.held && (
           <p
             data-testid="map-wake-lock-hint"
-            className="max-w-md mx-auto mb-4 -mt-2 text-center text-[11px] text-ink-mid"
+            className="pr pr--lo max-w-md mx-auto mb-4 -mt-2 text-center normal-case tracking-normal"
           >
             Screen stays awake while this is on — turn it off to save battery.
           </p>
@@ -1021,7 +1019,7 @@ export default function MapSection() {
         {showItinerary && (
           <p
             data-testid="map-route-caveat"
-            className="max-w-md mx-auto mb-4 text-center text-[11px] text-ink-mid"
+            className="pr pr--lo max-w-md mx-auto mb-4 text-center normal-case tracking-normal"
           >
             {selectedDay && (
               <>
@@ -1043,7 +1041,7 @@ export default function MapSection() {
         {footprints.length > 0 && (
           <p
             data-testid="map-visited-note"
-            className="max-w-md mx-auto mb-4 text-center text-[11px] text-ink-mid"
+            className="pr pr--lo max-w-md mx-auto mb-4 text-center normal-case tracking-normal"
           >
             Filled in so far: {visitedCountryLine(footprints.map((fp) => fp.country))}. The soft
             gold wash is the ground your visits cover — drawn from the cities you have actually
@@ -1059,9 +1057,9 @@ export default function MapSection() {
           <div
             role="status"
             data-testid="map-note"
-            className="max-w-md mx-auto mb-4 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-ink-mid"
+            className="max-w-md mx-auto mb-4 flex items-start gap-2 rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low p-gut py-2 text-t-sm text-ink-mid"
           >
-            <LocateFixed className="w-3.5 h-3.5 shrink-0 mt-0.5 text-ink-lo" />
+            <LocateFixed className="w-3.5 h-3.5 shrink-0 mt-0.5 text-ink-lo" aria-hidden="true" />
             <span>{geoNote}</span>
           </div>
         )}
@@ -1079,9 +1077,9 @@ export default function MapSection() {
           <div
             role="status"
             data-testid="map-offline-hint"
-            className="max-w-md mx-auto mb-4 flex items-start gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-ink-mid"
+            className="max-w-md mx-auto mb-4 flex items-start gap-2 rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low p-gut py-2 text-t-sm text-ink-mid"
           >
-            <WifiOff className="w-3.5 h-3.5 shrink-0 mt-0.5 text-ink-lo" />
+            <WifiOff className="w-3.5 h-3.5 shrink-0 mt-0.5 text-ink-lo" aria-hidden="true" />
             <span>
               You&apos;re offline — your pins and route still show, but the map background
               needs a connection.
@@ -1089,7 +1087,7 @@ export default function MapSection() {
           </div>
         )}
 
-        <div className="glass-card rounded-3xl p-3 sm:p-4">
+        <div className="rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low p-3 sm:p-4">
           {/* Inline map slot. The persistent map-host node (mapHostRef, below)
               lives here in normal mode and is relocated into the portaled
               fullscreen shell on expand — see the relocation effect. This slot
@@ -1097,7 +1095,7 @@ export default function MapSection() {
               while the host is away in fullscreen. */}
           <div
             ref={inlineSlotRef}
-            className="relative w-full h-[560px] sm:h-[600px] rounded-2xl overflow-hidden border border-white/10"
+            className="relative w-full h-[560px] sm:h-[600px] rounded-r1 overflow-hidden border-hair border-[color:hsl(var(--border))]"
           />
           {/* the Legend that used to sit here was deleted. It rendered the same 7
               categories, the same icons and the same CATEGORY_STYLES as the filter chips
@@ -1114,10 +1112,10 @@ export default function MapSection() {
             The old "then re-order by client-side haversine distance" wording here described
             behaviour the code has not had since `orderByProximity` was deleted. */}
         <div className="mt-6" data-testid="map-day-strip">
-          <div className="flex items-center gap-1.5 mb-2 text-xs font-medium text-ink-mid">
-            <CalendarPlus className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
-            <span>Pick a day, or plan one around a pin</span>
-            <span className="text-ink-lo font-normal">
+          <div className="flex flex-wrap items-center gap-1.5 mb-2">
+            <CalendarPlus className="w-3.5 h-3.5 text-ink-lo" aria-hidden="true" />
+            <span className="pr pr--l text-ink-hi">Pick a day, or plan one around a pin</span>
+            <span className="pr pr--lo normal-case tracking-normal">
               — tap a day to see just that day, or drag a pin here
             </span>
           </div>
@@ -1179,33 +1177,39 @@ export default function MapSection() {
                         ? 'Showing this day on the map — activate to show the whole trip again.'
                         : 'Activate to show only this day on the map. Drop a pin here to anchor it.'
                     }`}
-                    className={`flex flex-col items-start gap-0.5 min-w-[92px] min-h-[44px] px-3 py-2 rounded-xl border text-left transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+                    // FILLED means committed, UNFILLED means not yet: a day with nothing
+                    // planned is drawn HOLLOW at the size it will occupy, never shorter.
+                    // The selected day takes the --accent RULE (an inset bar), not a fill.
+                    data-mark={planned === 0 ? 'hollow' : 'struck'}
+                    className={`flex flex-col items-start gap-0.5 min-w-[92px] min-h-tap px-3 py-2 rounded-r1 border-hair text-left transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
                       isDropTarget
-                        ? 'border-ring bg-primary/20 ring-2 ring-ring/50'
+                        ? 'border-[color:var(--accent)] bg-[rgb(62_216_255/0.10)]'
                         : isSelected
-                          ? 'border-ring/50 bg-primary/10 text-primary'
-                          : 'border-white/10 bg-white/5 text-ink-mid hover:bg-white/10'
+                          ? 'border-[color:var(--accent)] bg-[rgb(62_216_255/0.10)] shadow-[inset_3px_0_0_var(--accent)]'
+                          : planned === 0
+                            ? 'border-dashed border-[color:var(--text-lo)] bg-transparent'
+                            : 'border-[color:hsl(var(--border))] bg-surface-low hover:border-[color:var(--border-ui)]'
                     }`}
                   >
-                    <span className="flex items-center gap-1 text-[11px] font-semibold">
-                      Day {i + 1}
+                    <span className="pr pr--l flex items-center gap-1 text-ink-hi">
+                      Day <span className="num">{i + 1}</span>
                       {anchored && (
                         <span
-                          className="w-1.5 h-1.5 rounded-full bg-primary"
+                          className="w-1.5 h-1.5 rounded-full bg-[color:hsl(var(--accent))]"
                           aria-hidden="true"
                         />
                       )}
                     </span>
-                    <span className="text-[10px] text-ink-mid">
+                    <span className="pr pr--lo">
                       {formatDate(date).replace(/^[A-Za-z]+,\s*/, '')}
                     </span>
-                    <span className="text-[10px] text-ink-mid font-mono">
+                    <span className={`pr ${planned === 0 ? 'pr--lo' : ''}`}>
                       {planned === 0 ? (
-                        'no plans'
+                        'not yet'
                       ) : (
                         <>
-                          {planned} {planned === 1 ? 'plan' : 'plans'}
-                          <span className="text-ink-lo"> · {exact} exact</span>
+                          <span className="num">{planned}</span> {planned === 1 ? 'plan' : 'plans'}
+                          <span className="pr--lo"> · <span className="num">{exact}</span> exact</span>
                         </>
                       )}
                     </span>
@@ -1222,7 +1226,7 @@ export default function MapSection() {
             <div
               data-testid="map-day-order"
               data-anchored={anchorsReady && anchors[selectedDay] ? 'true' : 'false'}
-              className="mt-2 glass-card rounded-2xl p-3 border border-white/10"
+              className="mt-2 rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low p-3"
             >
               {(() => {
                 const anchorId = anchorsReady ? anchors[selectedDay] : undefined;
@@ -1234,29 +1238,31 @@ export default function MapSection() {
                 const coord = anchorCoordFor(selectedDay);
                 return (
                   <>
-                    <p className="text-xs font-medium text-ink-mid mb-2 flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
-                      Day {dayNo}
+                    <p className="pr pr--l text-ink-hi mb-2 flex flex-wrap items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-ink-lo" aria-hidden="true" />
+                      Day <span className="num">{dayNo}</span>
                       {anchorMarker ? (
                         // was "ordered by distance from X" — a claim the code no
                         // longer honours. The anchor is the day's base point now.
-                        <span className="text-ink-lo font-normal">
+                        <span className="pr pr--lo normal-case tracking-normal">
                           · distances from{' '}
-                          <span className="text-foreground">{anchorMarker.name}</span>
+                          <span className="text-ink-hi">{anchorMarker.name}</span>
                         </span>
                       ) : (
-                        <span className="text-ink-lo font-normal">· plans in time order</span>
+                        <span className="pr pr--lo normal-case tracking-normal">· plans in time order</span>
                       )}
                     </p>
                     {selectedDayRows.length === 0 ? (
                       // Only one honest empty case is left: a day with no plans at all. The
                       // old second branch ("none of this day's N items have a map location")
                       // is now false by construction — under every plan has a position.
-                      <p data-testid="map-day-order-empty" className="text-[11px] text-ink-mid py-1">
-                        Nothing planned for this day yet — drop a pin here to start.
+                      // The shape of the missing thing, at the size it will be.
+                      <p data-testid="map-day-order-empty" className="empty-frame empty p-gut py-4 text-center">
+                        Not yet planned. Drop a pin onto this day, or anchor one from a
+                        popup, and its stops will be ruled in here.
                       </p>
                     ) : (
-                      <ol className="space-y-1">
+                      <ol className="list">
                         {selectedDayRows.map((row, idx) => {
                           const p = row.placement;
                           const km =
@@ -1275,7 +1281,7 @@ export default function MapSection() {
                           const segNode = segFromPrevKm !== null && (
                             <div
                               data-testid={`map-day-order-seg-${row.item.id}`}
-                              className="flex items-center gap-1.5 pl-1 pb-1 text-[10px] text-ink-lo"
+                              className="pr pr--lo flex items-center gap-1.5 pl-1 pb-1"
                             >
                               <span aria-hidden="true">↕</span>
                               {segFromPrevKm < 1
@@ -1295,21 +1301,22 @@ export default function MapSection() {
                                 <div
                                   data-testid={`map-day-order-stop-${row.item.id}`}
                                   data-placement="none"
-                                  className="w-full flex items-center gap-2 min-h-[44px] -mx-1 px-1 text-[11px] text-ink-mid"
+                                  data-mark="hollow"
+                                  className="w-full flex items-center gap-2 min-h-tap -mx-1 px-1 text-t-sm text-ink-mid"
                                 >
                                   <span
-                                    className="grid place-items-center w-5 h-5 shrink-0 rounded-full border border-dashed border-white/35 text-ink-lo font-mono text-[10px]"
+                                    className="num grid place-items-center w-5 h-5 shrink-0 rounded-full border-2 border-dashed border-[color:var(--text-lo)] text-ink-lo text-t-micro"
                                     aria-hidden="true"
                                   >
                                     ?
                                   </span>
-                                  <span className="min-w-0 truncate text-ink-hi">
+                                  <span className="hollow min-w-0 truncate">
                                     {row.item.title}
                                   </span>
                                   <a
                                     href="/plan/"
                                     data-testid={`map-day-order-locate-${row.item.id}`}
-                                    className="ml-auto shrink-0 rounded text-ink-mid underline underline-offset-2 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                    className="ml-auto shrink-0 rounded-r1 text-ink-mid underline underline-offset-2 hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                                   >
                                     No location yet — set one
                                   </a>
@@ -1341,16 +1348,18 @@ export default function MapSection() {
                                     ? `Show ${row.item.title} on the map — approximate, placed from ${p.derivedFrom} — ${position}`
                                     : `Show ${row.item.title} on the map — ${position}`
                                 }
-                                className="w-full flex items-center gap-2 min-h-[44px] -mx-1 px-1 rounded-lg text-left text-[11px] text-ink-mid hover:bg-white/5 hover:text-white transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+                                className="w-full flex items-center gap-2 min-h-tap -mx-1 px-1 rounded-r1 text-left text-t-sm text-ink-mid hover:bg-[rgb(255_255_255/0.05)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
                               >
                                 {/* the approximate marker must survive GREYSCALE, so
                                     it is a SHAPE (hollow ring, no solid core) plus TEXT (the
                                     verbatim source of the coordinate) — never colour alone. */}
                                 <span
-                                  className={`grid place-items-center w-5 h-5 shrink-0 rounded-full font-mono text-[10px] ${
+                                  // Survives greyscale: the approximate mark is a SHAPE (a
+                                  // hollow ring, no solid core) plus the words beside it.
+                                  className={`num grid place-items-center w-5 h-5 shrink-0 rounded-full text-t-micro ${
                                     approx
-                                      ? 'border border-white/45 text-ink-mid'
-                                      : 'bg-muted text-foreground'
+                                      ? 'border-2 border-[color:var(--text-lo)] text-ink-lo'
+                                      : 'bg-[color:var(--text-hi)] text-[color:rgb(var(--surface))]'
                                   }`}
                                   aria-hidden="true"
                                 >
@@ -1368,7 +1377,7 @@ export default function MapSection() {
                                   </span>
                                 )}
                                 {km !== null && (
-                                  <span className="ml-auto shrink-0 font-mono text-ink-mid">
+                                  <span className="num ml-auto shrink-0 text-ink-mid">
                                     {km < 1 ? `${Math.round(km * 1000)} m` : `${km.toFixed(1)} km`}
                                   </span>
                                 )}
@@ -1392,9 +1401,11 @@ export default function MapSection() {
           MapLibre instance inside <TripMap> survives fullscreen toggles.
           className toggles inline (absolute, fills the relative inline slot) vs
           fullscreen (fixed inset-0 → resolves against the VIEWPORT because its
-          parent is the body-portaled shell, escaping the glass-card
-          backdrop-filter containing block). The fullscreen buttons are direct
-          children so they travel with the host and stay clickable in both modes. */}
+          parent is the body-portaled shell). The card around the inline slot no
+          longer carries a backdrop-filter, so it no longer creates a containing
+          block of its own — the portal now guarantees rather than rescues that.
+          The fullscreen buttons are direct children so they travel with the host
+          and stay clickable in both modes. */}
       <div
         ref={mapHostRef}
         data-testid="map-shell"
@@ -1442,7 +1453,7 @@ export default function MapSection() {
           aria-label={isFullscreen ? 'Exit fullscreen map' : 'Open map fullscreen'}
           aria-pressed={isFullscreen}
           data-testid="map-fullscreen-toggle"
-          className="absolute top-3 left-3 z-10 grid place-items-center h-tap w-tap rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-ink-mid hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute top-3 left-3 z-10 grid place-items-center h-tap w-tap rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low text-ink-mid transition-colors hover:border-[color:var(--border-ui)] hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {isFullscreen ? (
             <Minimize2 className="w-4 h-4" />
@@ -1468,9 +1479,9 @@ export default function MapSection() {
             // and that gap fell to 2.75px — still WCAG 2.5.8-clean (both ≥24px) but visually
             // touching, and this pair has ALREADY caused one unclickable-control bug. `left-16`
             // (68px) restores 11.25px. Recompute this if either control changes width again.
-            className="absolute top-3 left-16 z-10 flex min-h-tap items-center gap-1.5 px-3 py-2 rounded-lg bg-surface/80 backdrop-blur border border-white/10 text-ink-hi text-xs hover:text-white hover:bg-surface-raised transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="chip absolute top-3 left-16 z-10 min-h-tap bg-surface-low px-2.5 text-ink-hi transition-colors hover:border-[color:var(--text-hi)] outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <X className="w-4 h-4" />
+            <X className="w-4 h-4" aria-hidden="true" />
             Close
           </button>
         )}
@@ -1478,8 +1489,9 @@ export default function MapSection() {
 
       {/* Fullscreen portal target: a bare mount point appended to
           document.body. When fullscreen is active the map-host is relocated INTO
-          this slot, so its fixed-inset sizing resolves against the viewport
-          instead of the glass-card's backdrop-filter containing block. Rendered
+          this slot, so its fixed-inset sizing resolves against the viewport and
+          cannot be captured by any transform or filter added to the card later.
+          Rendered
           only after mount so the static-export prerender never touches document.
           Kept mounted for the component's whole lifetime (not gated on
           isFullscreen) so React never tears down a slot while the imperatively-

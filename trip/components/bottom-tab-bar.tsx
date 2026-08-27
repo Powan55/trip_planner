@@ -28,11 +28,16 @@ import { isTravelRoute } from '@/lib/travel-route';
  * - Active state mirrors the navbar EXACTLY: trailing-slash-agnostic `isRouteActive` (Home
  * exact; others `===` or `startsWith(target + '/')`), driven by `usePathname()` (which
  * excludes basePath — the whole bar is basePath-agnostic).
- * - Active tint via INLINE style `hsl(var(--accent-scroll))` (: dynamic color must be an
- * inline style, never a dynamic Tailwind class) — same idiom + same live accent var the
- * navbar's underline uses, so both navs re-tint together via the route-accent engine.
+ * - THIS BAR *IS* THE `.nav` RECIPE. There is exactly one fixed bottom bar in the app: the
+ * recipe's `position:fixed; bottom:0` and this component's are the same bar, not two, so the
+ * `.nav` class is applied here rather than shipped as a second element that would stack on
+ * top of this one. MATERIAL carries the active state — a lighter surface, raised 7px — which
+ * is what leaves the screen's one `--accent` FILL free for the thing that is actually live.
+ * The accent survives only as a RULE (the top hairline), which spends nothing.
  * - Z-LADDER: the bar is `z-50` (navbar/tab-bar/dialog tier) so it sits above page
- * content and the presence bar (z-40) but below the token gate (z-70).
+ * content and the presence bar (z-40) but below the token gate (z-70). `.nav` declares
+ * `z-index:60`; the `z-50` utility outranks it (utilities layer > `@layer components`),
+ * which is deliberate — the ladder is the app's, not the recipe's.
  * - SAFE AREA: `paddingBottom: env(safe-area-inset-bottom)` keeps the labels clear of
  * the home-indicator on notched phones.
  * - HEIGHT CONTRACT: on mount we publish the bar's height as `--tab-bar-h` on
@@ -96,42 +101,48 @@ export default function BottomTabBar() {
     <nav
       data-testid="tab-bar"
       aria-label="Primary mobile"
-      className="md:hidden fixed bottom-0 inset-x-0 z-50 border-t border-white/10 bg-surface/90 backdrop-blur-xl"
-      style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
+      // `block` overrides `.nav`'s own `display:grid`: the grid belongs on the <ul>, so the
+      // five tabs are grid items and the list keeps its semantics. `md:hidden` still wins
+      // over both — it is a utility and `.nav` is layered.
+      className="nav block md:hidden z-50"
     >
-      <ul className="flex items-stretch" style={{ height: `${TAB_BAR_HEIGHT_PX}px` }}>
+      <ul
+        className="grid grid-cols-5 items-stretch"
+        style={{ height: `${TAB_BAR_HEIGHT_PX}px` }}
+      >
         {items.map((item) => {
           const isActive = isRouteActive(pathname, item.href);
           const Icon = item.icon;
           return (
-            <li key={item.label} className="flex-1 min-w-0">
+            <li key={item.label} className="flex min-w-0">
               <Link
                 href={item.href}
                 onClick={vtClick(item.href)}
                 data-testid={`tab-bar-${item.label.toLowerCase()}`}
                 aria-current={isActive ? 'page' : undefined}
                 data-active={isActive ? 'true' : undefined}
-                className="relative flex h-full min-h-[44px] w-full flex-col items-center justify-center gap-1 rounded-lg px-1 text-[11px] font-medium outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
-                // the active color is dynamic (route-accent var) → inline style, never a
-                // dynamic Tailwind class. Inactive tabs take ink-mid (#27): an unselected
-                // option in a control is a live destination, not a receded one — same call
-                // the swept token-gate mode toggle makes. "You are here" is carried by the
-                // accent + hairline + aria-current, not by dimming the other four.
-                style={isActive ? { color: 'hsl(var(--accent-scroll))' } : undefined}
+                // `.nav a` carries the whole recipe: the trapezoid clip-path, the
+                // --surface-1 stock, the 7px raise on the active tab, min-height var(--tap)
+                // and the tab-raise transition. Only the flex-fill is left to say here.
+                className="relative min-w-0 flex-1"
               >
-                {/* Active top hairline in the same accent (decorative). */}
+                {/* The active top rule. A RULE, not a fill — it does not spend the
+                    screen's one --accent fill. Decorative: aria-current carries the fact. */}
                 {isActive && (
                   <span
                     aria-hidden="true"
-                    className="absolute left-1/2 top-0 h-0.5 w-8 -translate-x-1/2 rounded-full"
+                    className="absolute left-0 right-0 top-0 h-[2px]"
                     style={{ backgroundColor: 'hsl(var(--accent-scroll))' }}
                   />
                 )}
-                <Icon
-                  className={`h-5 w-5 shrink-0 ${isActive ? '' : 'text-ink-mid'}`}
-                  aria-hidden="true"
-                />
-                <span className={`truncate ${isActive ? '' : 'text-ink-mid'}`}>{item.label}</span>
+                {/* The icon sits in the recipe's `.n` slot, so it inherits that slot's
+                    ink tier: --text-lo inactive, --text-hi active. FILLED means committed
+                    — "you are here" is the material and the tier, never a dimming of the
+                    other four. */}
+                <span className="n flex items-center justify-center">
+                  <Icon className="h-5 w-5 shrink-0" aria-hidden="true" />
+                </span>
+                <span className="t block truncate px-1 text-center">{item.label}</span>
               </Link>
             </li>
           );

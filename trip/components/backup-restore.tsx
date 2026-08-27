@@ -28,7 +28,7 @@ import { useDocs } from '@/hooks/use-docs';
  * backup includes journal AND photos, so downloading a backup can never silently exfiltrate photos —
  * the file only ever lives on the user's own device.
  *
- * A11y / contrast: dark glassmorphism; the quietest caption is `text-ink-mid`, whose token
+ * A11y / contrast: ruled instrument blocks; the quietest caption is `text-ink-mid`, whose token
  * clears AA on every surface step by construction (#27); status/error use their
  * own AA-clearing tints; buttons expose visible focus rings and the file input is a real,
  * keyboard-reachable, labelled `<input type="file">`. No text animates through low opacity.
@@ -143,21 +143,21 @@ export default function BackupRestore() {
   return (
     <section
       aria-labelledby="backup-restore-title"
-      className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6"
+      className="w-full"
       data-testid="backup-restore"
     >
-      <div className="glass-card rounded-2xl p-6 sm:p-8">
+      <div className="border-hair border-border bg-surface-raised px-gut py-4">
         <div className="mb-5 flex items-start gap-3">
-          <ShieldCheck className="mt-0.5 h-6 w-6 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-ink-lo" aria-hidden="true" />
           <div>
             <h2
               id="backup-restore-title"
-              className="font-display text-xl font-bold text-white sm:text-2xl"
+              className="pr pr--l text-ink-hi"
             >
               Backup &amp; Restore
             </h2>
             {/* Describes the panel rather than being its subject → ink-mid. */}
-            <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+            <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
               Save your <strong className="font-semibold text-ink-hi">whole trip</strong> to a single
               file — itinerary, journal, photos, expenses, budget and checklists — or restore it all
               from a backup. Everything is stored on this device; a backup lets you keep a copy or move
@@ -168,17 +168,17 @@ export default function BackupRestore() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           {/* Export */}
-          <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <h3 className="text-sm font-semibold text-white">Export</h3>
-            <p className="text-sm text-ink-mid">
-              Download your entire trip — <strong className="text-white">including your journal and
+          <div className="flex flex-col gap-2 border-hair border-border bg-surface-low px-gut py-4">
+            <h3 className="pr pr--l text-ink-hi">Export</h3>
+            <p className="text-t-body text-ink-mid">
+              Download your entire trip — <strong className="font-semibold text-ink-hi">including your journal and
               photos</strong> — as a single backup file.
             </p>
             <button
               type="button"
               onClick={handleExport}
               data-testid="backup-export-button"
-              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="btn mt-1 px-4"
             >
               <Download className="h-4 w-4" aria-hidden="true" />
               Back up whole trip
@@ -186,17 +186,17 @@ export default function BackupRestore() {
           </div>
 
           {/* Import */}
-          <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-            <h3 className="text-sm font-semibold text-white">Import</h3>
-            <p className="text-sm text-ink-mid">
+          <div className="flex flex-col gap-2 border-hair border-border bg-surface-low px-gut py-4">
+            <h3 className="pr pr--l text-ink-hi">Import</h3>
+            <p className="text-t-body text-ink-mid">
               Restore everything from a backup — itinerary, journal and photos. This{' '}
-              <strong className="text-white">replaces your current trip</strong>.
+              <strong className="font-semibold text-ink-hi">replaces your current trip</strong>.
             </p>
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               data-testid="backup-import-trigger"
-              className="mt-1 inline-flex items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="btn btn--2 mt-1 px-4"
             >
               <Upload className="h-4 w-4" aria-hidden="true" />
               Choose backup file
@@ -219,7 +219,7 @@ export default function BackupRestore() {
         {/* Status line (success/error). aria-live so a screen reader announces the outcome. */}
         <div aria-live="polite" className="mt-4 min-h-[1.25rem]">
           {status.kind === 'success' && (
-            <p data-testid="backup-status" className="text-sm font-medium text-green-300">
+            <p data-testid="backup-status" className="text-t-body font-medium text-ink-hi">
               {status.message}
             </p>
           )}
@@ -227,7 +227,7 @@ export default function BackupRestore() {
             <p
               data-testid="backup-error"
               role="alert"
-              className="flex items-center gap-2 text-sm font-medium text-red-300"
+              className="err flex items-center gap-2 text-t-body font-medium"
             >
               <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
               {status.message}
@@ -245,25 +245,25 @@ export default function BackupRestore() {
         pendingImport &&
         createPortal(
           <div
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
             role="dialog"
             aria-modal="true"
             aria-labelledby="backup-confirm-title"
             data-testid="backup-confirm-dialog"
           >
-            <div className="glass-card-dark w-full max-w-md rounded-2xl p-6">
+            <div className="w-full max-w-md rounded-r3 border-2 border-border bg-surface-low p-6">
               <div className="mb-3 flex items-center gap-2">
-                {/* gold is the warning/danger surface colour generally. This is the
-                    destructive-confirm ("cannot be undone") affordance, so it STAYS gold — unlike the
-                    reassurance ShieldCheck above, which is decoration and went to ink. */}
-                <AlertTriangle className="h-5 w-5 shrink-0 text-gold-400" aria-hidden="true" />
-                <h3 id="backup-confirm-title" className="font-display text-lg font-bold text-white">
+                {/* The destructive-confirm ("cannot be undone") affordance, so it carries
+                    --destructive — unlike the reassurance ShieldCheck above, which is decoration
+                    and sits on the ink ramp. The retired gold literal is gone with the rest. */}
+                <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+                <h3 id="backup-confirm-title" className="text-t-lead font-semibold text-ink-hi">
                   Replace your current trip?
                 </h3>
               </div>
-              <p className="text-sm text-ink-mid">
-                Importing <span className="font-medium text-white">{pendingImport.name}</span> will
-                replace your <strong className="text-white">itinerary, journal and photos</strong> with
+              <p className="text-t-body text-ink-mid">
+                Importing <span className="font-machine text-t-sm text-ink-hi">{pendingImport.name}</span> will
+                replace your <strong className="font-semibold text-ink-hi">itinerary, journal and photos</strong> with
                 the contents of that file.{' '}
                 {synced ? (
                   <>
@@ -274,8 +274,8 @@ export default function BackupRestore() {
                   <>Expenses, budget and checklists are replaced too.</>
                 )}
               </p>
-              <p className="mt-2 text-sm text-ink-mid">
-                This changes the trip <strong className="text-white">on this device</strong> and cannot
+              <p className="mt-2 text-t-body text-ink-mid">
+                This changes the trip <strong className="font-semibold text-ink-hi">on this device</strong> and cannot
                 be undone. The page will reload once it&apos;s restored.
               </p>
               <div className="mt-6 flex justify-end gap-3">
@@ -284,7 +284,7 @@ export default function BackupRestore() {
                   onClick={cancelImport}
                   disabled={importing}
                   data-testid="backup-confirm-cancel"
-                  className="rounded-lg border border-[color:var(--border-ui)] px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-50"
+                  className="btn btn--2 px-4"
                 >
                   Cancel
                 </button>
@@ -293,7 +293,7 @@ export default function BackupRestore() {
                   onClick={confirmImport}
                   disabled={importing}
                   data-testid="backup-confirm-import"
-                  className="rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-60"
+                  className="btn btn--danger px-4"
                 >
                   {importing ? 'Restoring…' : 'Replace trip'}
                 </button>

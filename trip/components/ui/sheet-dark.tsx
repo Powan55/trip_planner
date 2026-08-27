@@ -23,7 +23,11 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
  * `body[data-dialog-open]` seam flag (Lane-M FAB hides on it), and PARENT-OWNED
  * focus-return fired on the framer exit (`onExitComplete`). The panel carries the
  * app's SOLE surviving glass recipe (`.sheet-surface`, globals.css) — the nav/
- * overlay layer, HIG-legal — over a `bg-black/60 backdrop-blur-sm` scrim.
+ * overlay layer, HIG-legal — over a SOLID `bg-black/70` scrim. The scrim's own blur is
+ * gone: a backdrop-filter across the whole viewport composites the entire page behind it
+ * every frame, and what it bought (telling the panel apart from the page) is already done
+ * by the panel's rule and fill. `.sheet-surface` itself is unlayered CSS in a file this
+ * bundle does not own, so its blur is still live and is owed a decision.
  *
  * Radix was deliberately NOT adopted: the existing `components/ui/sheet.tsx` radix
  * Sheet is LIGHT-MODE and, contrary to the A5's "dead code" note, is a
@@ -36,11 +40,11 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
  * them to the settled end-state, so nothing is ever stuck at opacity-0.
  *
  * MOTION (issue #24): the panel entrance is `overlayPanelMotion()` from `lib/motion.ts`, not a
- * literal here. D-292 pins every dialog and sheet to Tier 3 whatever route opened it, and what
- * that revokes is precisely the `scale: 0.9` spring the centre variant used to open with — the
- * design system names it in so many words ("no spring, no scale-from-0.9"). The SCRIM's cross-fade is
- * untouched: it is opacity-only, inside the budget, and it is what holds the panel mounted long
- * enough to play its exit.
+ * literal here. D-292 pins every dialog and sheet to Tier 3 whatever route opened it. There is
+ * now no `scale()` in EITHER tier — a panel that scales in swells rather than arrives, so both
+ * tiers are a rise on the ink curve and differ only in how far and how long. The SCRIM's
+ * cross-fade is untouched: it is opacity-only, inside the budget, and it is what holds the
+ * panel mounted long enough to play its exit.
  */
 
 export interface SheetProps {
@@ -151,10 +155,13 @@ export default function Sheet({
   // `overscroll-contain` on each consumer's own `overflow-y-auto` body (a flick that bottoms
   // out inside the sheet does not chain). This primitive owns neither — the panel is
   // `overflow-hidden` and the scrolling element belongs to the consumer.
+  // The scrim is an OPAQUE-ENOUGH wash, not a blur. A `backdrop-filter` on a full-viewport
+  // scrim is a per-frame composite of the whole page behind it, and what it buys — telling
+  // the panel apart from the page — is already done by the panel's own rule and fill.
   const scrimClass =
     side === 'center'
-      ? 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm'
-      : 'fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end bg-black/60 backdrop-blur-sm';
+      ? 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70'
+      : 'fixed inset-0 z-50 flex items-end justify-center sm:items-stretch sm:justify-end bg-black/70';
 
   const panelMotion = overlayPanelMotion(side);
 

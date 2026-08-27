@@ -9,17 +9,21 @@
  * calls at integration; see the notes for which imports get it and
  * with what heights.
  *
- * Consumes tokens only:
- * - `.animate-shimmer` for the sweep. That utility is INFINITE and is already
- * hard-neutralized (`animation:none !important`) under `prefers-reduced-motion`
- * in globals.css — so under reduced motion the bars render as static muted
- * blocks (no sweep), which is the required behavior. This
- * component adds no motion of its own.
- * - Muted surface tokens (`--muted` / `--border`) for the resting fill.
+ * NO SWEEP, AND THE WORD IS A REAL TEXT NODE. The shimmer is gone: over a
+ * photograph a moving gradient reads as a rendering fault, and a static grey
+ * block is indistinguishable from an EMPTY one — which is the state this
+ * component is most often mistaken for. So the panel prints `LOADING` as actual
+ * text (never a `content:` string, which is not reliably announced) and draws
+ * the rows it is reserving as hollow frames. The shape arrives before the data.
+ *
+ * Consumes tokens only — `.load` for the block, `.empty-frame` for the reserved
+ * rows, `.pr` for the label. This component adds no motion of its own, so there
+ * is nothing to neutralize under `prefers-reduced-motion`.
  *
  * Decorative: the whole tree is `aria-hidden="true"` (a loading placeholder has
  * no semantic content; screen readers should skip it and reach the real section
- * once it mounts).
+ * once it mounts). The printed word is for the sighted reader; `data-loading`
+ * carries the label for anything that queries it.
  *
  * 0-overflow: the outer box is `w-full` and every inner bar is width-bounded, so
  * it never widens the page at 360/390/414.
@@ -56,19 +60,6 @@ interface SectionSkeletonProps {
   label?: string;
 }
 
-/**
- * The moving-gradient background the `.animate-shimmer` keyframe sweeps. Sized
- * 200% so `background-position-x: -200%` (the keyframe end) travels a full pass.
- * Built from muted/foreground tokens so it reads on the dark field but stays
- * quiet. Under reduced motion the sweep is off (static gradient — still a valid
- * muted block).
- */
-const SHIMMER_STYLE: React.CSSProperties = {
-  backgroundImage:
-    'linear-gradient(90deg, hsl(var(--muted)) 0%, hsl(var(--secondary)) 20%, hsl(var(--muted)) 40%, hsl(var(--muted)) 100%)',
-  backgroundSize: '200% 100%',
-};
-
 export default function SectionSkeleton({
   height = 'clamp(20rem, 60vh, 34rem)',
   count = 3,
@@ -95,27 +86,23 @@ export default function SectionSkeleton({
       style={{ height, maxHeight: height }}
     >
       <div className="px-gutter py-section">
-        <div className="glass-subtle mx-auto flex max-w-[1200px] flex-col gap-6 rounded-3xl p-6 sm:p-10">
-          {/* Eyebrow + title placeholders (matches the section header rhythm). */}
-          <div className="flex flex-col items-center gap-3">
-            <span
-              className="animate-shimmer h-3 w-24 rounded-full"
-              style={SHIMMER_STYLE}
-            />
-            <span
-              className="animate-shimmer h-8 w-64 max-w-[80%] rounded-lg"
-              style={SHIMMER_STYLE}
-            />
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-4">
+          {/* The panel's own printed head: the word, plus the count of rows being
+              reserved. No <h2> — the whole tree is aria-hidden, so a heading here would
+              be a phantom in the outline and exposed to nobody. */}
+          <div className="flex items-baseline justify-between gap-3 border-b-2 border-[hsl(var(--border))] pb-2">
+            <span className="pr pr--l">Loading</span>
+            <span className="pr pr--lo">
+              {rows} {rows === 1 ? 'row' : 'rows'} reserved
+            </span>
           </div>
 
-          {/* Content-row placeholders. */}
-          <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* The rows the section will fill, at the size they will be. */}
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: rows }).map((_, i) => (
-              <div
-                key={i}
-                className="animate-shimmer h-40 w-full rounded-2xl"
-                style={SHIMMER_STYLE}
-              />
+              <div key={i} className="load h-40 w-full">
+                <span className="pr pr--lo">Loading</span>
+              </div>
             ))}
           </div>
         </div>

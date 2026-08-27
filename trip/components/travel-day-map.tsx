@@ -20,7 +20,7 @@
 
 import { useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { ChevronDown, MapPinned } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import MapIslandBoundary from '@/components/map-island-boundary';
 import { buildItineraryStops } from '@/lib/itinerary-map';
@@ -28,8 +28,8 @@ import { buildItineraryStops } from '@/lib/itinerary-map';
 const PlanDayMap = dynamic(() => import('@/components/plan-day-map'), {
   ssr: false,
   loading: () => (
-    <div className="grid h-full w-full place-items-center text-ink-mid">
-      <span className="text-xs">Loading map…</span>
+    <div className="load h-full w-full">
+      <span className="pr pr--lo">Loading map</span>
     </div>
   ),
 });
@@ -57,32 +57,29 @@ export default function TravelDayMap({ date }: { date: string }) {
       data-stop-ids={dayStops.map((s) => s.marker.id).join(',')}
       open={open}
       onToggle={(e) => setOpen(e.currentTarget.open)}
-      className="group mx-auto mt-4 max-w-2xl overflow-hidden rounded-2xl glass-card"
+      className="group mx-auto mt-4 max-w-2xl border-t-2 border-border"
     >
       <summary
         data-testid="travel-day-map-summary"
-        className="flex min-h-[48px] cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset focus-visible:outline-none [&::-webkit-details-marker]:hidden"
+        className="flex min-h-tap cursor-pointer list-none items-center justify-between gap-3 px-gut py-2 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset [&::-webkit-details-marker]:hidden"
       >
         <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
-          <h2 className="flex items-center gap-1.5 font-display text-base font-bold text-white">
-            <MapPinned className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-            Today&rsquo;s map
-          </h2>
-          <span className="text-xs text-ink-mid" data-testid="travel-day-map-count">
+          <h2 className="pr pr--l text-ink-hi">Today&rsquo;s map</h2>
+          <span className="pr pr--lo" data-testid="travel-day-map-count">
             {totalItems === 0
               ? 'nothing planned'
               : `${dayStops.length} of ${totalItems} ${totalItems === 1 ? 'stop' : 'stops'} pinned`}
           </span>
         </span>
         <ChevronDown
-          className="h-5 w-5 shrink-0 text-ink-mid transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
+          className="h-5 w-5 shrink-0 text-ink-lo transition-transform duration-200 group-open:rotate-180 motion-reduce:transition-none"
           aria-hidden="true"
         />
       </summary>
 
-      <div className="px-3 pb-3 sm:px-4 sm:pb-4">
+      <div className="px-gut pb-3">
         {dayStops.length === 0 ? (
-          <p data-testid="travel-day-map-empty" className="px-2 pb-2 text-sm text-ink-mid">
+          <p data-testid="travel-day-map-empty" className="empty pb-2">
             {totalItems === 0
               ? 'Nothing planned for this day yet — plan something and it lands on the map.'
               : `None of this day's ${totalItems} ${totalItems === 1 ? 'item has' : 'items have'} a map location yet.`}
@@ -95,7 +92,7 @@ export default function TravelDayMap({ date }: { date: string }) {
           // reports as maplibre-reduced. Its chunk is deliberately not precached, so
           // cold-offline React.lazy throws here; unwrapped, Travel Mode's whole
           // /travel/ route would drop to app/error.tsx when someone opens the day map.
-          <div className="h-[300px] overflow-hidden rounded-xl sm:h-[360px]">
+          <div className="h-[300px] overflow-hidden rounded-r1 border-hair border-border sm:h-[360px]">
             {open && (
               <MapIslandBoundary label="The day map">
                 <PlanDayMap

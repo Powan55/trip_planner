@@ -53,10 +53,10 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
     }
 
     return (
-      <div className="glass-card rounded-2xl p-3 sm:p-6">
-        <div className="grid grid-cols-7 gap-1 mb-2">
+      <div className="border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] p-3 sm:p-4">
+        <div className="grid grid-cols-7 gap-1 mb-2 border-b-2 border-[color:hsl(var(--border))] pb-1">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => (
-            <div key={d} className="min-w-0 text-center text-[10px] sm:text-xs text-ink-lo py-1">{d}</div>
+            <div key={d} className="pr pr--lo min-w-0 text-center py-1">{d}</div>
           ))}
         </div>
         <div className="grid grid-cols-7 gap-1">
@@ -84,21 +84,21 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
                 aria-pressed={isSelected}
                 aria-label={`${formatDateLong(date)}${hasItems ? `, ${dayPlan.items?.length ?? 0} activities planned` : ', no activities planned'}${spendLabel}`}
                 data-testid={`calendar-day-${date}`}
-                className={`min-w-0 aspect-square rounded-lg flex flex-col items-center justify-center text-sm transition-all relative outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${isToday ? 'animate-today-pulse ' : ''}${
+                className={`num min-w-0 aspect-square rounded-r1 flex flex-col items-center justify-center text-t-body transition-colors relative outline-none border-hair focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${isToday ? 'animate-today-pulse ' : ''}${
                   isSelected
-                    ? 'bg-primary/20 ring-2 ring-ring text-white font-bold scale-105'
+                    ? 'bg-[rgb(62_216_255_/_0.10)] text-ink-hi border-[color:var(--accent)] shadow-[inset_0_-3px_0_var(--accent)]'
                     : hasItems
                       ? country === 'nepal'
-                        ? 'bg-himalaya-500/10 text-himalaya-400 hover:bg-himalaya-500/20'
-                        : 'bg-sakura-400/10 text-sakura-400 hover:bg-sakura-400/20'
-                      : 'text-ink-mid hover:bg-white/5'
+                        ? 'bg-himalaya-500/10 text-himalaya-400 border-himalaya-500/60 hover:bg-himalaya-500/20'
+                        : 'bg-sakura-400/10 text-sakura-400 border-sakura-400/60 hover:bg-sakura-400/20'
+                      : 'text-ink-lo border-dashed border-[color:var(--border-ui)] hover:bg-white/5'
                 }`}
               >
                 {new Date(date + 'T12:00:00').getDate()}
                 {hasItems && (
                   <div className="absolute bottom-1 flex gap-0.5">
                     {(dayPlan.items ?? []).slice(0, 3).map((_, j: number) => (
-                      <div key={j} className={`w-1 h-1 rounded-full ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`} />
+                      <div key={j} className={`w-1 h-1 ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`} />
                     ))}
                   </div>
                 )}
@@ -131,7 +131,7 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
           pixel-equivalent to before — now gated to `lg+` since the day-strip owns `<lg`. */}
       <div className="hidden lg:block">
       {viewMode === 'calendar' ? renderCalendar() : (
-        <div className="glass-card rounded-2xl p-4 max-h-[600px] overflow-y-auto scrollbar-hide space-y-1">
+        <div className="list max-h-[37rem] overflow-y-auto scrollbar-hide border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))]">
           {TRIP_DATES.map((date) => {
             const country = getCountryForDate(date);
             const dayPlan = getDayPlan(date);
@@ -142,15 +142,17 @@ export function CalendarDayPicker({ selectedDate, onSelectDate, viewMode, getDay
                 key={date}
                 onClick={() => onSelectDate(date)}
                 aria-pressed={isSelected}
-                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                  isSelected ? 'bg-primary/20 ring-1 ring-ring/30 text-white' : 'text-ink-mid hover:bg-white/5'
-                }`}
+                aria-current={isSelected ? 'true' : undefined}
+                data-mark={hasItems ? undefined : 'hollow'}
+                className="r w-full [--cols:1fr_auto] !items-center text-t-body text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`} />
-                  <span>{formatDate(date)}</span>
+                  <span
+                    className={`mk ${hasItems ? `mk--struck ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}` : 'mk--hollow'}`}
+                  />
+                  <span className="num text-t-sm">{formatDate(date)}</span>
                 </div>
-                {hasItems && <span className="text-xs text-ink-mid">{dayPlan.items?.length ?? 0} items</span>}
+                <span className="mt">{hasItems ? `${dayPlan.items?.length ?? 0} items` : 'unplanned'}</span>
               </button>
             );
           })}

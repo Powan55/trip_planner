@@ -130,7 +130,7 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   // you would want a guide".
   guides: {
     accent: 'var(--coral)',
-    titleClass: 'text-display-emphasis',
+    titleClass: 'text-[color:var(--text-hi)]',
     photo: { src: '/images/japan/ja1.jpg', country: 'jp', focus: 'center 44%' },
   },
   // Boudhanath, Kathmandu: the whitewashed dome and gilded spire, the Buddha's painted
@@ -153,7 +153,7 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   // page's header is a place seen from above, which is what the page does.
   map: {
     accent: 'var(--marigold)',
-    titleClass: 'text-display-emphasis',
+    titleClass: 'text-[color:var(--text-hi)]',
     photo: { src: '/images/featured/shibuya.jpg', country: 'jp', focus: 'center 48%' },
   },
   // Garden of Dreams, Kathmandu: the white neoclassical pavilion behind a long
@@ -161,7 +161,7 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   // the set, for the quietest page.
   journal: {
     accent: 'var(--violet)',
-    titleClass: 'text-display-emphasis',
+    titleClass: 'text-[color:var(--text-hi)]',
     photo: { src: '/images/nepal/na7.jpg', country: 'np', focus: 'center 58%' },
   },
   // The Great Himalayan Range from Dhulikhel: snow peaks along the horizon under a
@@ -170,13 +170,13 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   // lands in the darkest part of the scrim.
   flights: {
     accent: 'var(--mint)',
-    titleClass: 'text-display-emphasis',
+    titleClass: 'text-[color:var(--text-hi)]',
     photo: { src: '/images/nepal/na19.jpg', country: 'np', focus: 'center 74%' },
   },
   // TIER 3 — /plan and /more. No photography, by rule. Unchanged.
   plan: {
     accent: 'hsl(var(--accent-scroll))',
-    titleClass: 'text-display-emphasis',
+    titleClass: 'text-[color:var(--text-hi)]',
     wash: 'var(--hero-wash)',
   },
 };
@@ -195,24 +195,29 @@ export default function PageHero({
   const copy = (
     <>
       {eyebrow && (
-        <p className="text-eyebrow uppercase mb-3" style={{ color: accent }}>
+        <p className="pr mb-3" style={{ color: accent }}>
           {eyebrow}
         </p>
       )}
       <Heading className={`text-display-lg ${titleClass}`}>{title}</Heading>
       {subtitle && (
-        <p className={`mt-3 max-w-2xl text-base leading-relaxed ${photo ? 'text-ink-mid' : 'text-muted-foreground'}`}>
+        // --t-lead: the ONE paragraph on a surface. Never `text-base`, which is off this
+        // scale and does not move under the outdoor root bump.
+        <p className={`mt-3 max-w-2xl text-t-lead ${photo ? 'text-ink-mid' : 'text-[color:var(--text-mid)]'}`}>
           {subtitle}
         </p>
       )}
     </>
   );
 
-  // ---- Tier 3: the glass panel, exactly as it was ----
+  // ---- Tier 3: the printed panel ----
+  // The glass is gone (there are no card shadows and no glass in this direction) and so
+  // is the entrance: content is present when you arrive. The two carve-outs on that rule
+  // are /recap's scroll storytelling and the front-door hero, and neither is this.
   if (!photo) {
     return (
       <header className={`px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10 ${className}`}>
-        <div className="glass-panel animate-reveal-up relative overflow-hidden mx-auto max-w-[1200px] px-6 py-8 sm:px-10 sm:py-12">
+        <div className="relative overflow-hidden mx-auto max-w-[1200px] border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] rounded-r1 px-6 py-8 sm:px-10 sm:py-12">
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-0"
@@ -251,7 +256,7 @@ export default function PageHero({
       </div>
 
       <div className="photo-header__body">
-        <div className="animate-reveal-up mx-auto w-full max-w-[1200px] px-gutter">{copy}</div>
+        <div className="mx-auto w-full max-w-[1200px] px-gutter">{copy}</div>
       </div>
     </header>
   );
