@@ -5116,3 +5116,47 @@ The same file already carried this rule in a comment on an earlier test, and the
 **Sibling, filed separately as issue #335:** `saveDocs` has the identical shape, and the docs snapshot-apply path calls it directly rather than through the store's commit. Not reachable by hand — the docs checklist has no remove control — but the two domains sitting on opposite sides of the same rule is how this gets reintroduced.
 
 **Changes if:** a domain gains a seed that can legitimately be empty, at which point the `hasKey` guard is the only thing still distinguishing the two states and the length check should come out.
+### D-448 · (2026-08-30) · A `globals.css` recipe outranks a Tailwind utility, so the utility reads as live and renders nothing
+
+**Decision.** The component recipes in `trip/app/globals.css` are two-class selectors — specificity (0,2,0). Tailwind 3.3.3 emits no native `@layer` here, so its utilities sit at (0,1,0) with nothing to lift them above the recipe. A single-class utility written against a recipe loses, always, and loses silently. The class is in the markup, it reads as live to anyone reviewing the JSX, and it renders nothing.
+
+**Six live bugs shipped before the rule had a name**, each diagnosed on its own for a while, because the markup looked correct in every one:
+
+- destructive confirms at 3.27:1 contrast;
+- the `.plate` scrim at zero height;
+- `aspect-auto` dead on home-chapters — a 966px band inside a 512px column, which is what produced sideways page scroll at desktop widths;
+- `duration-[var(--duration-press)]` dropped by Tailwind across 5 components;
+- `flex` inert on `calendar-sortable-item`, killing a documented 44px tap-target fix;
+- `!text-ink-hi` rendering white-on-white in the print block.
+
+**The sanctioned hatch is the recipe's own custom property, not a heavier selector.** `--lead`, `--cols`, `--plate-ar`/`--plate-rows`, or a bare `!` where a single keyword really is the whole change. `[--lead:13px]` is one token, wins with no specificity fight, and leaves the next override exactly as easy as this one. Escalating the selector instead only moves the fight one round later.
+
+**The print block must list the escaped-bang twins.** A `!` hatch emits `.\!text-ink-mid`, whose own `!important` outranks the print reset, so the print block spells those twins out alongside their plain forms. Miss one and that hatch silently opts out of the paper ramp — which is exactly how `!text-ink-hi` reached white-on-white.
+
+**One regression test, on the case that fails invisibly.** `trip/lib/__tests__/plate-ramp-frame.test.ts` asserts the structural rule behind the scrim bug: a ramp must sit inside a `.frame` ancestor, because `.plate .frame` is the grid it spans and outside one there is no row to take a height from. Five call sites shipped that way and measured h=0 in Chromium against the compiled stylesheet. The other five bugs are visible the moment someone looks at the page; a zero-height scrim is not.
+
+**Changes if:** the recipes move into a declared `@layer components` with utilities in a later layer. Layer order beats specificity outright, so a single-class utility would win by construction and the hatches stop being necessary. That is the real fix, and it is a whole-stylesheet change rather than a slice.
+### D-449 · Extends D-448 · (2026-08-30) · `.plate`'s aspect ratio is an opt-in property, not a media-query breakpoint
+
+**Decision.** `.plate` takes its shape from `--plate-ar` and `--plate-rows` — defaulted in the recipe and opted into per surface by `.plate--band` and `.plate--wide`. A bare 700px breakpoint no longer decides whether a plate is landscape. The query survives only *inside* `.plate--wide`, tuning 16/10 to 21/9 for a surface that has already declared itself wide.
+
+**Why the breakpoint could not be made correct.** A media query reads the viewport. It cannot see how many columns the plate sits in, and that is what actually decides whether the caption fits. In the inspiration grid the plate is 317-465px wide from 700 up, where 21/9 leaves the 58% caption row 79-94px to hold 138-160px of chip, title and blurb. The overflow goes upward out of the row — `.lay` is `justify-content: flex-end` — so title and blurb land on unscrimmed photograph, above the line the ramp guarantee says text may never cross, and at 1024 the country chip cleared the frame entirely. The breakpoint was not mistuned. It was structurally unable to be right, so retuning it would only have moved which call site was wrong.
+
+**Portrait stays the default for the same reason landscape is opt-in.** The portrait frame holds wherever the plate is a grid cell, which is the only place the caption has to survive a narrow column. A surface that knows it has the width says so.
+
+**It is D-448's hatch applied to shape.** A custom property on the recipe is how a call site overrides a two-class selector without a specificity fight, so the fix and the convention are the same thing.
+
+**Changes if:** container queries land on this surface, at which point the plate could read its own column count directly and both the opt-in modifiers and the surviving 700px query become redundant.
+### D-485 · (2026-08-30) · The service worker outlives `page.route`, so an assertion on a transient state must start before the navigation
+
+**Decision.** Any e2e assertion on a state that exists only for a window — a loading skeleton, a placeholder, an in-flight spinner — starts its wait **before** the navigation, concurrently with it, and captures whatever it measures at the moment the wait latches rather than after. `await goto(...)` then `await expect(...)` is the wrong shape for this class of test, however long the timeout is.
+
+**Chunk throttling stops applying the moment the service worker claims the page.** `out/sw.js` serves same-origin static GETs cache-first — `scripts/gen-sw.mjs:1233` routes them into `cacheFirst()` at `:1082`, which returns the Cache Storage hit and never calls `fetch`. Per-route lazy chunks that miss the precache are backfilled into it on their first successful online fetch (`:88`). A request answered from Cache Storage produces no network request, so Playwright's `page.route('**/_next/static/chunks/**')` never fires and the delay it was holding is silently not applied. The throttle is a first-visit-only device, and nothing goes red when it lapses.
+
+**The helper's return is bound to that same event, and is unbounded against the window.** `gotoAsTraveler` waits on `navigator.serviceWorker.controller` (`trip/e2e/polish-bundle.spec.ts:28-33`), so it returns when the worker claims the page — measured 2.0-2.3s on a good run and 12.5s on a slow one, against a placeholder window that opens at hydration and closes roughly 1.3s later. Neither number is a property of the code under test. Waiting for the navigation to settle first means racing a variable against a fixed window and having no way to tell which won.
+
+**Two specs in `trip/e2e/polish-bundle.spec.ts` were written the old way.** One flaked. The other passed on roughly 150ms of margin, which is a pass by luck, not by construction. Both now run their wait inside a `Promise.all` alongside the navigation, and the box measurement is chained off the wait rather than taken as a separate step afterwards.
+
+**This is a shape the codebase invites.** `gotoAsTraveler` is copy-pasted into 12 spec files rather than shared, and 10 of those copies carry the controller wait. A third spec written the natural way — navigate, then assert — would flake identically, and would look correct in review.
+
+**Changes if:** the SW registration is gated off under test, or `gotoAsTraveler` becomes one shared helper that resolves on something bounded by the page rather than by the worker. Either would decouple the helper's return from the throttle window and make the sequential shape safe again.
