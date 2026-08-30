@@ -47,12 +47,15 @@ vi.mock('framer-motion', async () => {
 // #10 — the door's account probe (login validation) + the create-path seed, mocked so the wall's
 // handlers can be driven for real with zero firebase. The mock is file-wide but inert for every
 // pre-#10 test above (they never submit a form, so the dynamic import never runs).
-const probeMock = vi.fn<(code: string) => Promise<'exists' | 'missing' | 'unavailable'>>(
-  async () => 'unavailable',
-);
+const probeMock = vi.fn<
+  (code: string) => Promise<{ verdict: 'exists' | 'missing' | 'unavailable'; name?: string }>
+>(async () => ({ verdict: 'unavailable' }));
 const pushAccountIdentityMock = vi.fn(async (_code: string, _name: string) => {});
 const pushTripListMock = vi.fn(async (_code: string) => {});
 vi.mock('@/lib/trips-remote', () => ({
+  // The login path takes the account's display name (D-277's identity doc) off THIS result when
+  // the device has none stored — there is no second read to mock. Nothing here is about the name,
+  // so every default answer above omits `name`: an account that knows none.
   probeAccountIdentity: (code: string) => probeMock(code),
   pushAccountIdentity: (code: string, name: string) => pushAccountIdentityMock(code, name),
   pushTripList: (code: string) => pushTripListMock(code),
@@ -61,6 +64,7 @@ vi.mock('@/lib/trips-remote', () => ({
 import TokenGate from '@/components/token-gate';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import { setSyncCode, getSyncCode } from '@/core/storage/gateway';
+import { setUserName, getUserName } from '@/lib/identity';
 
 function render(el: ReactElement) {
   const container = document.createElement('div');
@@ -92,7 +96,7 @@ beforeEach(() => {
   window.localStorage.clear();
   window.sessionStorage.clear();
   probeMock.mockClear();
-  probeMock.mockResolvedValue('unavailable');
+  probeMock.mockResolvedValue({ verdict: 'unavailable' });
   pushAccountIdentityMock.mockClear();
   pushTripListMock.mockClear();
 });
@@ -421,7 +425,7 @@ describe('#10 — handleLogin probes the pasted key; only a server-confirmed abs
   const NEW_KEY = '99999999-8888-4777-8666-555544443333';
 
   it("probe 'missing' → the error renders AND zero state was stored (no key, no signIn, no navigation)", async () => {
-    probeMock.mockResolvedValue('missing');
+    probeMock.mockResolvedValue({ verdict: 'missing' });
     const loc = stubLocation();
     const view = render(createElement(TokenGate));
     await openLogin(view);
@@ -447,7 +451,7 @@ describe('#10 — handleLogin probes the pasted key; only a server-confirmed abs
   });
 
   it("probe 'unavailable' → ADMITS (fail open: offline must never lock a real user out)", async () => {
-    probeMock.mockResolvedValue('unavailable');
+    probeMock.mockResolvedValue({ verdict: 'unavailable' });
     const loc = stubLocation();
     const view = render(createElement(TokenGate));
     await openLogin(view);
@@ -462,7 +466,7 @@ describe('#10 — handleLogin probes the pasted key; only a server-confirmed abs
   });
 
   it("probe 'exists' → admits exactly the same way", async () => {
-    probeMock.mockResolvedValue('exists');
+    probeMock.mockResolvedValue({ verdict: 'exists' });
     const loc = stubLocation();
     const view = render(createElement(TokenGate));
     await openLogin(view);
@@ -475,9 +479,10 @@ describe('#10 — handleLogin probes the pasted key; only a server-confirmed abs
     view.unmount();
   });
 
-  it('the STORED key skips the probe entirely — a returning device is never re-gated', async () => {
+  it('the STORED key skips the probe entirely when this device also knows its name', async () => {
     const stored = '11111111-2222-3333-4444-555555555555';
     setSyncCode(stored);
+    setUserName('Sora'); // nothing left to ask the server: not re-gated, and the name is local
     const loc = stubLocation();
     const view = render(createElement(TokenGate));
     await openLogin(view);
@@ -490,8 +495,55 @@ describe('#10 — handleLogin probes the pasted key; only a server-confirmed abs
     });
     await submitLogin(view);
 
-    expect(probeMock).not.toHaveBeenCalled(); // stored sessions are NEVER re-gated
+    expect(probeMock).not.toHaveBeenCalled(); // no read at all — and no wait for one
     expect(loc.replace).toHaveBeenCalledTimes(1); // logged straight in
+    view.unmount();
+  });
+
+  // Same returning device, but with no local name (a sign-out clears the name slot). The one read
+  // still happens — it is the only place the account's name lives — and its VERDICT is what must
+  // not gate: a stored session is never re-gated, so even 'missing' admits.
+  it("a stored key with no local name reads for the NAME only — 'missing' still admits", async () => {
+    const stored = '11111111-2222-3333-4444-555555555555';
+    setSyncCode(stored);
+    probeMock.mockResolvedValue({ verdict: 'missing' });
+    const loc = stubLocation();
+    const view = render(createElement(TokenGate));
+    await openLogin(view);
+    const useSaved = view.container.querySelector<HTMLButtonElement>(
+      '[data-testid="token-gate-use-saved"]',
+    )!;
+    await act(async () => {
+      useSaved.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await submitLogin(view);
+
+    expect(probeMock).toHaveBeenCalledTimes(1);
+    expect(view.container.querySelector('[data-testid="token-gate-error"]')).toBeNull();
+    expect(getSyncCode()).toBe(stored);
+    expect(loc.replace).toHaveBeenCalledTimes(1); // admitted, not re-gated
+    view.unmount();
+  });
+
+  // ...and the name that read returns is ADOPTED — the whole reason the deviation reads at all.
+  // Without this, "I log in as Powan and it says Traveler" is only covered by composition.
+  it("a stored key with no local name adopts the account's name from the probe", async () => {
+    const stored = '11111111-2222-3333-4444-555555555555';
+    setSyncCode(stored);
+    probeMock.mockResolvedValue({ verdict: 'exists', name: 'Powan' });
+    stubLocation();
+    const view = render(createElement(TokenGate));
+    await openLogin(view);
+    const useSaved = view.container.querySelector<HTMLButtonElement>(
+      '[data-testid="token-gate-use-saved"]',
+    )!;
+    await act(async () => {
+      useSaved.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    await submitLogin(view);
+
+    expect(probeMock).toHaveBeenCalledTimes(1);
+    expect(getUserName()).toBe('Powan'); // not DEFAULT_TRAVELER_NAME
     view.unmount();
   });
 });

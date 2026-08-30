@@ -156,6 +156,9 @@ export async function pushAccountIdentity(code: string, name: string): Promise<v
  * doc doesn't exist, or `name` is missing/non-string/blank — TOTAL, never throws, so the caller's
  * "remote absent" branch covers every failure identically. Sanitised to `trim().slice(0, 24)`, the
  * cap the rename input already enforces.
+ *
+ * The DOOR does not call this — its login path gets the same name off `probeAccountIdentity`'s
+ * single read. This serves the provider's post-load reconciler, which has no probe to ride on.
  */
 export async function fetchAccountIdentity(code: string): Promise<string | undefined> {
   if (!isRemoteConfigured() || !code) return undefined;
@@ -164,9 +167,7 @@ export async function fetchAccountIdentity(code: string): Promise<string | undef
     const { doc, getDoc } = fs;
     const snap = await getDoc(doc(db, 'trips', code, 'profile', 'identity'));
     if (!snap.exists()) return undefined;
-    const data = snap.data() as Record<string, unknown>;
-    if (typeof data.name !== 'string') return undefined;
-    return data.name.trim().slice(0, 24) || undefined;
+    return readIdentityName(snap.data() as Record<string, unknown> | undefined);
   } catch (err) {
     console.warn('[trips-remote] account identity fetch failed:', err);
     return undefined;
@@ -177,8 +178,22 @@ export async function fetchAccountIdentity(code: string): Promise<string | undef
 
 export type AccountProbe = 'exists' | 'missing' | 'unavailable';
 
+/**
+ * The probe's answer: the verdict, plus the account's display name when the read found one.
+ * `name` is only ever set alongside `verdict: 'exists'`, and is `undefined` for a doc that has no
+ * usable `name` field — so a caller reading it gets "the account knows no name" and "the account
+ * isn't there" as the same fallback, which is what the door wants.
+ */
+export type AccountProbeResult = { verdict: AccountProbe; name?: string };
+
 /** How long the door waits for the identity read before admitting anyway (#10). */
 const PROBE_TIMEOUT_MS = 8000;
+
+/** The shared sanitiser for `profile/identity`'s `name`: trimmed, capped at 24, blank ⇒ undefined. */
+function readIdentityName(data: Record<string, unknown> | undefined): string | undefined {
+  if (typeof data?.name !== 'string') return undefined;
+  return data.name.trim().slice(0, 24) || undefined;
+}
 
 /**
  * ONE server read of `trips/{code}/profile/identity`, raced against a timer — the door's login
@@ -189,13 +204,17 @@ const PROBE_TIMEOUT_MS = 8000;
  *   this value — validation fails OPEN, because a network failure must never lock a real user out
  *   of their own data.
  *
+ * It also returns the account's display NAME out of that same snapshot (D-277's `name` field),
+ * because the door needs both and this is the document that holds both: one read serves the
+ * validation and the "I log in as Powan and it says Traveler" fix, under this ONE 8s budget.
+ *
  * `getDocFromServer`, never a plain `getDoc`: a cold/stale cache reports absence, and a cached
  * absence rejecting a REAL user is the one wrong the fail-open design cannot tolerate. A rules
  * change that denies this read (code 'permission-denied') is logged loudly, because it silently
  * turns validation off for every login while everything else keeps working.
  */
-export async function probeAccountIdentity(code: string): Promise<AccountProbe> {
-  if (!isRemoteConfigured() || !code) return 'unavailable';
+export async function probeAccountIdentity(code: string): Promise<AccountProbeResult> {
+  if (!isRemoteConfigured() || !code) return { verdict: 'unavailable' };
   try {
     const { db, fs } = await getRemote();
     const { doc, getDocFromServer } = fs;
@@ -203,13 +222,14 @@ export async function probeAccountIdentity(code: string): Promise<AccountProbe> 
       getDocFromServer(doc(db, 'trips', code, 'profile', 'identity')),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), PROBE_TIMEOUT_MS)),
     ]);
-    if (snap === null) return 'unavailable'; // timer won — admit rather than hang the door
-    return snap.exists() ? 'exists' : 'missing';
+    if (snap === null) return { verdict: 'unavailable' }; // timer won — admit rather than hang the door
+    if (!snap.exists()) return { verdict: 'missing' };
+    return { verdict: 'exists', name: readIdentityName(snap.data() as Record<string, unknown>) };
   } catch (err) {
     if ((err as { code?: unknown } | null)?.code === 'permission-denied') {
       console.warn('[door] rules deny the identity probe — token validation is inoperative');
     }
-    return 'unavailable'; // offline/error must admit — never lock a real user out
+    return { verdict: 'unavailable' }; // offline/error must admit — never lock a real user out
   }
 }
 

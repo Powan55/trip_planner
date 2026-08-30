@@ -27,10 +27,15 @@ vi.mock('@/core/trips', () => ({
   isDefaultTrip: () => state.isDefault,
 }));
 
-// dynamic(loader, opts) → a stub standing in for the lazily-loaded ConciergeChat.
+// dynamic(loader, opts) → a stub standing in for the lazily-loaded ConciergeChat. It stamps the
+// `side` prop so this file can also pin WHICH EDGE this mount asks for (see the last test).
 vi.mock('next/dynamic', () => ({
-  default: () => () =>
-    createElement('button', { type: 'button', 'data-testid': 'concierge-trigger' }, 'Concierge'),
+  default: () => (props: { side?: string }) =>
+    createElement(
+      'button',
+      { type: 'button', 'data-testid': 'concierge-trigger', 'data-side': props.side },
+      'Concierge',
+    ),
 }));
 
 import TravelConcierge from '@/components/travel-concierge';
@@ -102,5 +107,16 @@ describe('TravelConcierge mount gating (S343)', () => {
     expect(isConciergeAllowedForActiveTrip()).toBe(true);
     state.isDefault = true;
     expect(isConciergeAllowedForActiveTrip()).toBe(true);
+  });
+
+  // Owner report: the panel slid in from the side in Travel Mode. This mount's trigger sits in
+  // the fixed `.tm-thumb-zone` band, so the panel rises out of it. The navbar mount keeps the
+  // side drawer (its default), and the class strings both resolve to are pinned in
+  // components/__tests__/concierge-sheet-side.test.tsx.
+  it('asks for the BOTTOM edge — the panel rises out of the thumb zone that opened it', () => {
+    const r = render(createElement(TravelConcierge));
+    const trigger = r.container.querySelector('[data-testid="concierge-trigger"]');
+    expect(trigger?.getAttribute('data-side')).toBe('bottom');
+    r.unmount();
   });
 });

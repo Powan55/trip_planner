@@ -60,6 +60,14 @@ vi.mock('@/lib/firebase-config', () => ({
 }));
 vi.mock('@/lib/trips-remote', () => ({
   subscribeTripList: (code: string, onMerge?: () => void) => subscribeTripListMock(code, onMerge),
+  // A5 pins the door's placeholder, so the account must know no name — otherwise the login path
+  // adopts it and there is no placeholder to pin. This is the door's ONE read (it carries both the
+  // #10 verdict and D-277's name); answering 'unavailable' is the honest shape for a test with no
+  // account behind it, and it is also what an offline device gets. The end-to-end name lives in
+  // door-account-name.test.ts.
+  probeAccountIdentity: async () => ({ verdict: 'unavailable' as const }),
+  // Still the provider's own path (`runAccountIdentitySync`), which has no probe to ride on.
+  fetchAccountIdentity: async () => undefined,
 }));
 // sonner's toast — spy so A5 can assert one call.
 const toastMock = vi.fn();
@@ -178,7 +186,11 @@ describe('A5 — post-login name-hint one-shot', () => {
     });
   }
 
-  // ⚠ RE-SCOPED IN S378 (D-277). This pins the DOOR's LOCAL PLACEHOLDER — nothing more.
+  // ⚠ RE-SCOPED IN S378 (D-277), and the paragraph below is kept as written EXCEPT its last
+  // sentence, which the account-name fix overtook: the door DOES take a name off the #10 probe's
+  // own snapshot now (one read, no new remote surface, still a dynamic import — D-239's
+  // firebase-free clause is about the STATIC graph and is intact). The mock above answers
+  // 'unavailable' with no name, so the placeholder this test pins is still the real outcome.
   // D-277 made the display name an attribute of the ACCOUNT, but it deliberately did NOT touch the
   // door: `token-gate` stays firebase-free (D-239 LOCKED, no push/lookup at the door), so a
   // token-only login still writes "Traveler" locally and this assertion stays literally true. What

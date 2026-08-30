@@ -327,7 +327,7 @@ function dropMessage(code: DropCode): string {
  * `ALLOWED_ORIGIN` (the real deployed GitHub Pages origin) — so a live call only works from that
  * deployed origin, never from `localhost` in dev. This is expected and not worked around here.
  */
-export function ConciergeChat() {
+export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' }) {
   const { traveler } = useActiveTraveler();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
@@ -429,6 +429,7 @@ export function ConciergeChat() {
       {/* `p-0` and the per-band padding below are what let the rows run edge to edge; `pr-16` on
           the header reserves the Radix close control's 44px box at `right-4`. */}
       <SheetContent
+        side={side}
         data-testid="concierge-panel"
         className="sheet-surface flex h-[100dvh] w-full flex-col gap-0 p-0 sm:max-w-lg"
       >

@@ -3,7 +3,8 @@
 // The concierge, in Travel Mode. Un-forked: this is the SECOND mount of the exact same
 // `<ConciergeChat />`, and only one of the two ever exists at a time — `navbar.tsx` (the other
 // mount) returns null under `/travel` (`lib/travel-route.ts`). All of the panel's own styling,
-// state grammar and gating live in that one component; this file only decides whether it mounts.
+// state grammar and gating live in that one component; this file decides whether it mounts, and
+// which edge it opens from.
 //
 // Gating is deliberately identical to the navbar's: `isConciergeAllowedForActiveTrip()`, because
 // the deployed Worker is hardcoded to the Nepal × Japan trip and a custom trip must not get it.
@@ -27,5 +28,7 @@ export default function TravelConcierge() {
   // so reading trip state during render can't produce a hydration mismatch (the navbar pattern).
   const allowed = useMemo(() => isConciergeAllowedForActiveTrip(), []);
   if (!allowed) return null;
-  return <ConciergeChat />;
+  // The ONE thing this mount styles differently: the panel rises out of the thumb zone that
+  // opened it instead of sliding in from a screen edge. Navbar's mount keeps `right`.
+  return <ConciergeChat side="bottom" />;
 }
