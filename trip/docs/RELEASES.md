@@ -2,13 +2,56 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v6.0.3`, deployed 2026-08-23. The newest live worker is `v1.10.0`, deployed 2026-08-23: the Firestore membership gate and the rate limiter are both live together now, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v6.1.0`, deployed 2026-08-26. The newest live worker is `v1.10.0`, deployed 2026-08-23: the Firestore membership gate and the rate limiter are both live together now, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
 
-**`v6.0.3` shipped on 2026-08-23.** Tag `v6.0.3` is `e562a7b`, that commit is `origin/main`'s head, and its deploy run (`32625557281`) succeeded — verified against the tag and the run, not against this paragraph. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
+**`v6.1.0` shipped on 2026-08-26.** Tag `v6.1.0` is `a2181de`, that commit is `origin/main`'s head, and its deploy run (`32929962823`) succeeded — verified against the tag and the run, not against this paragraph. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
 > **This paragraph was wrong for two days, which is why the sentence above says to check the tag.** It claimed `v5.14.4` was "recorded below and not yet deployed" and that `main` was at `v5.14.3`. Both were false: tag `v5.14.4` is commit `203cfc0`, that commit **is** `origin/main`'s head, `origin/main`'s `package.json` reads `5.14.4`, and its deploy run succeeded on 2026-08-14. The doc has now overstated what is live twice (`v5.14.0` was claimed about an hour early). The failure mode is always the same: this heading is edited when a release is *prepared* and nobody comes back to it when the release *ships*. Verify against `git tag` and the deploy run, never against this paragraph.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
+
+---
+
+## v7.0.0 (app) · 2026-08-30 · worker stays at v1.10.0
+
+The whole-app redesign. 219 files, every route moved onto a new component system, and all 36
+visual baselines re-shot against it. The PWA icons and `THEME_COLOR` changed with it, so an
+installed app looks different on the home screen too. Nothing here touches the worker.
+
+**Why the major, which is a choice here rather than a consequence.** D-102 puts the major slot behind
+an explicit owner call rather than a broken contract, so nothing in this release forced the number.
+`v6.0.0`'s entry is what set the threshold — *"someone who last opened `v5.14.4` does not recognise
+this build"* — and it fixed it at one accent colour, one front page and the custom-trip work. This
+clears that by a wide margin: the field, the type, the surfaces, the chrome and every component
+recipe moved together. Ruled 7.0.0 on review.
+
+**Fixes that landed alongside it.** The login door invented "Traveler" for any device with no saved
+name and then persisted it into both identity slots, so a traveller who signed in on a second device
+was renamed by their own login. It now takes the name off the account probe that read that document
+anyway, which keeps the door at one read and one 8s budget — and costs a returning device with no
+local name a wait of up to 8s where it used to admit instantly (D-486, amends D-277 section 6).
+Reordering a day under sync was silently discarded every single time: the merge re-sorts by `hlc` at
+both boundaries, including a self-merge of the device's own snapshot, so an order-only rewrite never
+survived. The reorder now re-stamps the day's live rows so the new order ascends, with the residual
+recorded honestly — a reorder republishes that whole day's local content over any peer edit this
+device has not yet received (D-487).
+
+**Three more, all of them invisible in the markup.** A focus ring specified on the `.btn` recipe was
+being beaten by a `focus-visible:outline-none` utility at identical specificity, decided purely by
+which one Tailwind emitted later; the rule that falls out is that a recipe which must beat a utility
+needs specificity above (0,2,0) (D-488). The restore confirm is opened from state and so has no
+Radix trigger to restore focus to, which dropped focus to `<body>` on close for keyboard users.
+And `/passport/` mismatched on hydration on every reload and on every reduced-motion first load,
+because a prerendered route reached a decision that only exists in the browser; the first render now
+answers with the export's own decision and an effect corrects it, with a drift test pinning the two
+together (both D-489).
+
+**Two content fixes with no mechanism behind them.** The landing page's "no API key" line sat in the
+column beside the word Map and read as the map reporting a failure — the map was always fine, the
+copy was ours. And the concierge opens as a bottom sheet in travel mode rather than a side panel,
+which is where a thumb is.
+
+Decisions D-486 through D-489 record the reasoning, with an in-place amendment to D-277 section 6.
 
 ---
 
