@@ -57,7 +57,7 @@ describe('S407 default pack — the day line names the day, not the leg id', () 
     const dec10 = SAMPLE_ITINERARY.find((d) => d.date === '2026-12-10')!;
     const dec19 = SAMPLE_ITINERARY.find((d) => d.date === '2026-12-19')!;
 
-    // Pinned verbatim by e2e/weather-tag.spec.ts ('Day 2 • Kathmandu, Nepal') — must not move.
+    // Pinned verbatim by e2e/weather-tag.spec.ts ('Day 2 · Kathmandu, Nepal') — must not move.
     expect(dayPlaceLabel(dec10)).toBe('Kathmandu, Nepal');
     expect(dayPlaceLabel(dec19)).toBe('Osaka, Japan');
   });

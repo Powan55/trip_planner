@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { m, useReducedMotion, type Variants } from 'framer-motion';
-import { BookOpen, Check, Clock, History, Sparkles, Wallet } from 'lucide-react';
+import { BookOpen, Clock, History, Sparkles, Wallet } from 'lucide-react';
 import { formatDateLong, CATEGORY_COLORS, type ItineraryItem } from '@/lib/trip-data';
 import { getCityForDate, getCountryForDate } from '@/core/dates';
 import { getNowAtTrip } from '@/lib/trip-now';
@@ -88,7 +88,7 @@ export default function TripRecap() {
       <section id="recap" aria-hidden="true" className="relative bg-surface py-12 sm:py-16 px-4 sm:px-6">
         <div
           data-testid="trip-recap-skeleton"
-          className="mx-auto min-h-[320px] max-w-3xl rounded-2xl glass-card"
+          className="mx-auto min-h-[320px] max-w-3xl border-hair border-border bg-surface-low"
         />
       </section>
     );
@@ -128,16 +128,16 @@ export default function TripRecap() {
       <div className="max-w-3xl mx-auto">
         {/* Section header — the days you've lived, and the run-rate across them. */}
         <header className="mb-6">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
+          <p className="pr mb-2 flex items-center gap-1.5">
             <History className="h-3.5 w-3.5" aria-hidden="true" />
             Days so far
           </p>
-          <h2 id="recap-title" className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
-            The trip, <span className="text-display-emphasis">day by day</span>
+          <h2 id="recap-title" className="text-display-lg text-ink-hi">
+            The trip, day by day
           </h2>
           {plannedTotal > 0 && (
-            <p data-testid="recap-summary" className="text-sm text-ink-mid mt-2" aria-live="polite">
-              <span className="font-semibold text-foreground">{doneTotal}</span>
+            <p data-testid="recap-summary" className="text-t-sm text-ink-mid mt-2" aria-live="polite">
+              <span className="num text-n-sm text-ink-hi">{doneTotal}</span>
               <span className="sr-only"> of </span>
               <span aria-hidden="true"> of </span>
               {plannedTotal} activities done across {elapsed.length}{' '}
@@ -206,23 +206,23 @@ function RecapCard({
       variants={variants}
       aria-labelledby={headingId}
       data-testid={`recap-card-${date}`}
-      className="glass-card rounded-2xl p-5 sm:p-6"
+      className="border-hair border-border bg-surface-low p-5 sm:p-6"
     >
       {/* Header — "Day N — {city}" + the long date, mirroring the Today panel's header language. */}
       <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-2 mb-4">
         <div>
-          <h3 id={headingId} className="font-display text-lg sm:text-xl font-bold text-white leading-tight">
-            Day <span className="text-foreground">{dayNumber}</span>
+          <h3 id={headingId} className="text-display-md text-ink-hi">
+            Day <span className="tabular-nums">{dayNumber}</span>
             <span className="text-ink-lo mx-2" aria-hidden="true">
               —
             </span>
             {getCityForDate(date)}
           </h3>
-          <p className="text-xs text-ink-mid mt-0.5">{formatDateLong(date)}</p>
+          <p className="pr pr--lo mt-0.5">{formatDateLong(date)}</p>
         </div>
         {summary.planned > 0 && (
-          <p data-testid={`recap-done-count-${date}`} className="text-sm text-ink-mid flex-shrink-0">
-            <span className="font-semibold text-foreground">{summary.done}</span>
+          <p data-testid={`recap-done-count-${date}`} className="text-t-sm text-ink-mid flex-shrink-0">
+            <span className="num text-n-sm text-ink-hi">{summary.done}</span>
             <span className="sr-only"> of </span>
             <span aria-hidden="true"> of </span>
             {summary.planned} done
@@ -232,13 +232,13 @@ function RecapCard({
 
       {/* Plan + actual: the day's items, each with a done/not-done tick (read-only — no toggle). */}
       {items.length === 0 ? (
-        <p data-testid={`recap-no-plan-${date}`} className="text-sm text-ink-mid italic">
-          No plans this day — a free day.
+        <p data-testid={`recap-no-plan-${date}`} className="empty">
+          No plans this day &mdash; a free day.
         </p>
       ) : (
         <ul
           data-testid={`recap-plan-${date}`}
-          className="space-y-1.5"
+          className="list -mx-5 sm:-mx-6"
           aria-label={`Plan for Day ${dayNumber}, ${getCityForDate(date)}`}
         >
           {items.map((item) => (
@@ -249,10 +249,10 @@ function RecapCard({
 
       {/* the day's logged-expense total — only when >0. */}
       {spend > 0 && (
-        <p data-testid={`recap-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-sm text-ink-mid">
-          <Wallet className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+        <p data-testid={`recap-spend-${date}`} className="mt-3 flex items-center gap-1.5 text-t-sm text-ink-mid">
+          <Wallet className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true" />
           Spent{' '}
-          <span className="font-semibold text-ink-hi">{formatMoney(spend, legCurrency(getCountryForDate(date)))}</span>
+          <span className="num text-ink-hi">{formatMoney(spend, legCurrency(getCountryForDate(date)))}</span>
         </p>
       )}
 
@@ -269,45 +269,33 @@ export function RecapItem({ item, date }: { item: ItineraryItem; date: string })
   const timeInfo = describeItemTime(item, date);
 
   return (
+    // FILLED means committed, UNFILLED means not yet — one mark, and the row states the
+    // same fact in words below it, so nothing here depends on the mark or on colour.
     <li
       data-testid="recap-plan-item"
       data-done={done ? 'true' : 'false'}
-      className={`flex items-center gap-3 rounded-lg border p-2.5 ${
-        done ? 'border-emerald-500/25 bg-emerald-500/[0.04]' : 'border-white/10 bg-white/[0.02]'
-      }`}
+      data-mark={done ? 'struck' : 'hollow'}
+      className="r"
     >
-      {/* The done indicator — read-only status, not a control. */}
-      <span
-        aria-hidden="true"
-        className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md border ${
-          done ? 'border-emerald-400 bg-emerald-400 text-surface' : 'border-white/20 text-transparent'
-        }`}
-      >
-        <Check className="h-3.5 w-3.5" strokeWidth={3} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className={`block truncate text-sm font-medium ${done ? 'text-ink-lo line-through' : 'text-ink-hi'}`}>
-          {item.title}
-        </span>
+      <span aria-hidden="true" className={`mk ${done ? 'mk--struck' : 'mk--hollow'} mt-1`} />
+      <span className="min-w-0">
+        <h3 className="truncate">{item.title}</h3>
         {(timeInfo || cat) && (
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[11px] text-ink-mid">
+          <span className="mt flex flex-wrap items-center gap-x-2.5 gap-y-1">
             {timeInfo && (
               <span className="inline-flex items-center gap-1">
                 <Clock className="h-3 w-3" aria-hidden="true" />
                 {timeInfo.label}
-                {timeInfo.badge && (
-                  <span className="text-[10px] uppercase tracking-wide text-ink-mid">{timeInfo.badge}</span>
-                )}
+                {timeInfo.badge && <span>{timeInfo.badge}</span>}
               </span>
             )}
-            {cat && (
-              <span className={`inline-flex rounded-full px-2 py-0.5 ${cat.bg} ${cat.text}`}>{item.category}</span>
-            )}
+            {cat && <span className="chip">{item.category}</span>}
           </span>
         )}
       </span>
-      {/* SR-only status so the done state reads without relying on the color-only tick. */}
-      <span className="sr-only">{done ? '— done' : '— not done'}</span>
+      {/* The done state IN WORDS. It was sr-only against a colour-only tick; the mark is now
+          redundant by design, so the word is visible and the screen reader gets one copy. */}
+      <span className={`pr ${done ? '' : 'pr--lo'} mt-1`}>{done ? 'Done' : 'Not yet'}</span>
     </li>
   );
 }
@@ -317,8 +305,8 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
   const mood = entry?.mood ? MOOD_META[entry.mood] : null;
 
   return (
-    <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+    <div className="mt-4 border-t-2 border-border pt-3">
+      <p className="pr mb-2 flex items-center gap-1.5">
         <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
         Reflection
       </p>
@@ -330,7 +318,7 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
               {mood && (
                 <span
                   data-testid={`recap-journal-mood-${date}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground"
+                  className="chip"
                 >
                   <span aria-hidden="true">{mood.glyph}</span>
                   {mood.label}
@@ -341,9 +329,9 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
                 // max-w-full so it can shrink and the child's break-words engages.
                 <span
                   data-testid={`recap-journal-highlight-${date}`}
-                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-ink-hi"
+                  className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-t-body font-semibold text-ink-hi"
                 >
-                  <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+                  <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-ink-lo" aria-hidden="true" />
                   <span className="break-words min-w-0">{entry.highlight}</span>
                 </span>
               )}
@@ -352,15 +340,15 @@ function RecapReflection({ date, entry }: { date: string; entry: JournalEntry | 
           {entry.text && (
             <p
               data-testid={`recap-journal-body-${date}`}
-              className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-hi"
+              className="whitespace-pre-wrap break-words text-t-body leading-relaxed text-ink-hi"
             >
               {entry.text}
             </p>
           )}
         </div>
       ) : (
-        <p data-testid={`recap-no-journal-${date}`} className="text-sm text-ink-mid italic">
-          No journal entry for this day.
+        <p data-testid={`recap-no-journal-${date}`} className="empty">
+          Unwritten &mdash; nothing logged on this day.
         </p>
       )}
     </div>

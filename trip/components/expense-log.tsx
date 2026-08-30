@@ -31,17 +31,17 @@ export default function ExpenseLog({
   );
 
   return (
-    <div className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5" data-testid="expense-log">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <div className="mt-6 border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))]" data-testid="expense-log">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-[color:hsl(var(--border))] px-gut py-2">
         <div className="flex items-center gap-2">
-          <ReceiptText className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <h3 className="text-sm font-semibold text-white sm:text-base">Logged expenses</h3>
+          <ReceiptText className="h-3.5 w-3.5 shrink-0 text-ink-lo" aria-hidden="true" />
+          <h3 className="pr pr--l text-ink-hi">Logged expenses</h3>
         </div>
         <button
           type="button"
           onClick={onLog}
           data-testid="expense-log-open"
-          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-primary px-3.5 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="btn px-4 focus-visible:outline-none"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Log expense
@@ -49,17 +49,31 @@ export default function ExpenseLog({
       </div>
 
       {ordered.length === 0 ? (
-        <div
-          data-testid="expense-log-empty"
-          className="rounded-lg border border-dashed border-white/10 px-4 py-8 text-center"
-        >
-          <p className="text-sm text-ink-mid">No expenses logged yet.</p>
-          <p className="mt-1 text-xs text-ink-mid">
-            Tap “Log expense” to record a meal, a taxi, or a ticket — it counts against your budget above.
+        // The empty state renders the SHAPE of the thing that is missing at the size it
+        // will be, plus the condition that fills it. Three ruled slots with the real field names
+        // printed on them, not a grey sentence; the copy sits at --t-body / --text-mid and points
+        // forward rather than captioning an absence.
+        <div data-testid="expense-log-empty">
+          <div className="list">
+            {[1, 2, 3].map((slot) => (
+              <div key={slot} className="r" data-mark="hollow" aria-hidden="true">
+                <span className="tm !text-ink-lo">{String(slot).padStart(2, '0')}</span>
+                <span className="min-w-0">
+                  <span className="empty-frame block h-4 w-full max-w-[14rem]" />
+                  <span className="mt">amount · category · leg</span>
+                </span>
+                <span className="hollow-tag">unwritten</span>
+              </div>
+            ))}
+          </div>
+          <p className="empty px-gut py-3">
+            Nothing has been written into the log yet. Ten categories and two leg currencies are
+            ruled and waiting — “Log expense” records the first meal, taxi or ticket against the
+            budget above.
           </p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-2" data-testid="expense-list">
+        <ul className="list list-none" data-testid="expense-list">
           {ordered.map((e) => {
             const cur = legCurrency(e.leg);
             // A forward/unrecognised category (#150) is retained on the row but has no color
@@ -71,13 +85,9 @@ export default function ExpenseLog({
               <li
                 key={e.id}
                 data-testid={`expense-item-${e.id}`}
-                className="flex items-center gap-3 rounded-lg border border-white/10 bg-surface/40 p-3"
+                className="r [--cols:auto_1fr_auto_auto] !items-center"
               >
-                <span
-                  className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${colors.bg} ${colors.text}`}
-                >
-                  {e.category}
-                </span>
+                <span className={`chip shrink-0 capitalize ${colors.text}`}>{e.category}</span>
                 {/* 🔴 — MOBILE-ONLY UNCLIP. Measured on a real 390px shoot: this row spends
                     ~150 of its ~241px inner width on the shrink-0 category chip + the two 44px
                     (a11y-floor) icon buttons + three 12px gaps, leaving the text column ~89px. With
@@ -91,13 +101,13 @@ export default function ExpenseLog({
                     for a live mobile defect, not a screenshot tweak — but is what surfaced it,
                     and a marketing shot of a clipped row is why it could not be deferred. */}
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-white sm:truncate" data-testid={`expense-item-${e.id}-amount`}>
+                  <p className="num text-t-body text-ink-hi sm:truncate" data-testid={`expense-item-${e.id}-amount`}>
                     {formatMoney(e.amount, cur)}
-                    <span className="ml-1.5 text-xs font-normal capitalize text-ink-mid">· {e.leg}</span>
+                    <span className="ml-1.5 font-machine text-t-micro uppercase tracking-[0.11em] text-ink-mid">· {e.leg}</span>
                     {splitCount > 0 && (
                       <span
                         data-testid={`expense-item-${e.id}-split`}
-                        className="ml-1.5 inline-flex items-center gap-1 rounded-full bg-white/10 px-1.5 py-0.5 align-middle text-[0.65rem] font-normal text-ink-mid"
+                        className="chip ml-1.5 align-middle"
                       >
                         <Users className="h-3 w-3" aria-hidden="true" />
                         split {splitCount}
@@ -106,7 +116,7 @@ export default function ExpenseLog({
                   </p>
                   {e.note && (
                     <p
-                      className="text-xs text-ink-hi sm:truncate"
+                      className="text-t-sm text-ink-hi sm:truncate"
                       data-testid={`expense-item-${e.id}-note`}
                     >
                       {e.note}
@@ -115,7 +125,7 @@ export default function ExpenseLog({
                   {/* "Logged by {name}" attribution — present only on a synced
                       expense stamped by an active traveler; dormant rows carry no createdBy. */}
                   {e.createdBy && (
-                    <p className="text-[0.7rem] text-ink-mid sm:truncate" data-testid={`expense-item-${e.id}-author`}>
+                    <p className="mt sm:truncate" data-testid={`expense-item-${e.id}-author`}>
                       logged by {e.createdBy}
                     </p>
                   )}
@@ -125,7 +135,7 @@ export default function ExpenseLog({
                   onClick={() => onEdit(e)}
                   data-testid={`expense-item-edit-${e.id}`}
                   aria-label={`Edit ${e.category} expense of ${formatMoney(e.amount, cur)}`}
-                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-ink-mid transition-colors hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-r1 text-ink-mid transition-colors hover:bg-white/5 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Pencil className="h-4 w-4" aria-hidden="true" />
                 </button>
@@ -134,7 +144,7 @@ export default function ExpenseLog({
                   onClick={() => onDelete(e)}
                   data-testid={`expense-item-delete-${e.id}`}
                   aria-label={`Delete ${e.category} expense of ${formatMoney(e.amount, cur)}`}
-                  className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-ink-mid transition-colors hover:bg-red-500/20 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                  className="inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-r1 text-ink-mid transition-colors hover:bg-white/5 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   <Trash2 className="h-4 w-4" aria-hidden="true" />
                 </button>

@@ -190,18 +190,22 @@ function MarkerPopupContent({
   const Icon = style.icon;
   const favorited = isFavorite(marker.id);
   return (
-    <div className="w-[248px] max-w-[80vw]">
+    <div className="plate w-[248px] max-w-[80vw]" data-leg={marker.country === 'Japan' ? 'japan' : 'nepal'}>
+      {/* DOM chrome only — the ratio lives on the frame as `--plate-ar`, which is what the
+          recipe reads, and the grid is what gives the ramp a row to span. */}
       {marker.image && !imgError && (
-        <div className="relative -mx-3 -mt-3 mb-3 aspect-[16/9] overflow-hidden rounded-t-xl bg-surface-raised">
-          <OptimizedImage
-            src={marker.image}
-            alt={marker.name}
-            fill
-            sizes="248px"
-            className="object-cover"
-            onError={() => setImgError(true)}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
+        <div className="frame [--plate-ar:16_/_9] -mx-3 -mt-3 mb-3">
+          <div className="fig bg-surface-raised">
+            <OptimizedImage
+              src={marker.image}
+              alt={marker.name}
+              fill
+              sizes="248px"
+              className="object-cover"
+              onError={() => setImgError(true)}
+            />
+          </div>
+          <div className="ramp" aria-hidden="true" />
         </div>
       )}
       <div className="flex items-start gap-2.5">
@@ -212,21 +216,19 @@ function MarkerPopupContent({
         </div>
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5 mb-1">
-            <h3 className="font-display font-bold text-white text-sm leading-tight">
+            <h3 className="text-t-body font-semibold text-ink-hi leading-tight">
               {marker.name}
             </h3>
-            <span
-              className={`text-[9px] px-1.5 py-0.5 rounded-full border ${style.badge}`}
-            >
-              {marker.category}
-            </span>
+            {/* The seven category hexes are frozen, so the chip keeps its category colour
+                and takes the instrument's geometry around it. */}
+            <span className={`chip ${style.badge}`}>{marker.category}</span>
           </div>
           {/* `/40`→`/55` — axe
               caught this pre-existing AA contrast fail (3.72:1) once a real E2E
               scanned the popup with content OPEN for the first time (the earlier
               /map axe pack never opens a popup, so this was never exercised). */}
-          <p className="flex items-center gap-1 text-[11px] text-ink-mid mb-1.5">
-            <MapPin className="w-3 h-3" />
+          <p className="pr pr--lo flex items-center gap-1 mb-1.5">
+            <MapPin className="w-3 h-3" aria-hidden="true" />
             {marker.area} · {marker.country}
           </p>
         </div>
@@ -237,17 +239,17 @@ function MarkerPopupContent({
             aria-pressed={favorited}
             aria-label={favorited ? `Remove ${marker.name} from saved` : `Save ${marker.name}`}
             data-testid={`map-popup-favorite-${marker.id}`}
-            className={`ml-auto shrink-0 p-1.5 rounded-lg border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+            className={`ml-auto shrink-0 grid h-8 w-8 place-items-center rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               favorited
-                ? 'bg-primary/10 border-ring/40 text-primary hover:bg-primary/25'
-                : 'bg-white/5 border-white/10 text-ink-mid hover:bg-white/10 hover:text-ink-hi'
+                ? 'border-[color:hsl(var(--accent))] text-[color:hsl(var(--accent))] bg-[rgb(62_216_255/0.10)]'
+                : 'border-[color:hsl(var(--border))] text-ink-lo hover:border-[color:var(--border-ui)] hover:text-ink-hi'
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${favorited ? 'fill-current' : ''}`} />
           </button>
         )}
       </div>
-      <p className="text-xs text-ink-mid leading-relaxed mt-1.5">
+      <p className="text-t-sm text-ink-mid leading-relaxed mt-1.5">
         {marker.description}
       </p>
       <a
@@ -255,18 +257,12 @@ function MarkerPopupContent({
         target="_blank"
         rel="noopener noreferrer"
         data-testid="map-popup-directions"
-        className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
+        className="chip mt-2 min-h-tap px-2.5 text-ink-hi transition-colors hover:border-[color:var(--text-hi)] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
       >
-        <Navigation className="w-3.5 h-3.5" strokeWidth={2.5} />
+        <Navigation className="w-3.5 h-3.5" strokeWidth={2.5} aria-hidden="true" />
         Directions
       </a>
-      <AddToPlanButton
-        source={marker}
-        sourceType="map"
-        accentColor={
-          marker.country === 'Nepal' ? 'text-himalaya-400' : 'text-sakura-400'
-        }
-      />
+      <AddToPlanButton source={marker} sourceType="map" accentColor="text-now" />
 
       {/* "Anchor to a day" — assign this pin to a trip day so that day's stops
           re-order by distance from it. THREE equivalent affordances (a11y floor):
@@ -277,7 +273,7 @@ function MarkerPopupContent({
       {enableDayAssign && assignDays && assignDays.length > 0 && (
         <div
           data-testid={`map-popup-assign-${marker.id}`}
-          className="mt-2 pt-2 border-t border-white/10"
+          className="mt-2 pt-2 border-t-hair border-[color:hsl(var(--border))]"
         >
           <div className="flex items-stretch gap-1.5">
             {/* Desktop-pointer drag handle (drops onto the day strip). Hidden from the
@@ -292,7 +288,7 @@ function MarkerPopupContent({
               data-testid={`map-popup-drag-${marker.id}`}
               aria-hidden="true"
               title="Drag onto a day below to anchor it"
-              className="hidden sm:grid place-items-center w-7 shrink-0 rounded-lg bg-white/5 border border-white/10 text-muted-foreground cursor-grab active:cursor-grabbing hover:bg-white/10 hover:text-primary transition-colors"
+              className="hidden sm:grid place-items-center w-7 shrink-0 rounded-r1 border-hair border-[color:hsl(var(--border))] text-ink-lo cursor-grab active:cursor-grabbing hover:border-[color:var(--border-ui)] hover:text-ink-hi transition-colors"
             >
               <CalendarPlus className="w-3.5 h-3.5" />
             </span>
@@ -304,10 +300,10 @@ function MarkerPopupContent({
               value={assignDate}
               onChange={(e) => setAssignDate(e.target.value)}
               data-testid={`map-popup-assign-select-${marker.id}`}
-              className="min-w-0 flex-1 px-2 py-1.5 rounded-lg bg-surface/60 border border-white/10 text-[11px] text-white outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="min-w-0 flex-1 min-h-tap px-2 py-1.5 rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low text-t-sm text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               {assignDays.map((d) => (
-                <option key={d.date} value={d.date} className="bg-surface text-white">
+                <option key={d.date} value={d.date} className="bg-surface-low text-ink-hi">
                   {d.label}
                 </option>
               ))}
@@ -317,7 +313,7 @@ function MarkerPopupContent({
               onClick={() => assignDate && onAssignDay?.(marker, assignDate)}
               data-testid={`map-popup-assign-confirm-${marker.id}`}
               aria-label={`Anchor a day around ${marker.name}`}
-              className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-primary/10 border border-ring/40 text-primary text-[11px] font-medium hover:bg-primary/25 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
+              className="chip chip--struck shrink-0 min-h-tap px-2.5 transition-colors hover:border-[color:hsl(var(--accent))] hover:text-[color:hsl(var(--accent))] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
             >
               Anchor
             </button>
@@ -348,16 +344,16 @@ function ItineraryStopPopupContent({ stop }: { stop: DayStop }) {
       {/* Issue #1 — the heading names the same two numbers the map draws: which day this
           is, and which stop of that day this pin is. The pin shows the second one, so the
           popup has to confirm it or the number on the canvas is unverifiable. */}
-      <h3 className="font-display font-bold text-white text-sm leading-tight">
-        Day {stop.day} · Stop {stop.seq}
-        <span className="ml-1.5 font-sans text-[11px] font-normal text-ink-mid">
+      <h3 className="pr pr--l text-ink-hi">
+        Day <span className="num">{stop.day}</span> · Stop <span className="num">{stop.seq}</span>
+        <span className="pr pr--lo ml-1.5">
           {stop.items.length} {stop.items.length === 1 ? 'plan' : 'plans'} here
         </span>
       </h3>
       <ul className="mt-1.5 space-y-1">
         {stop.items.map((item) => (
-          <li key={item.id} className="flex items-start gap-1.5 text-xs text-ink-hi">
-            <MapPin className="w-3 h-3 mt-0.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <li key={item.id} className="flex items-start gap-1.5 text-t-sm text-ink-hi">
+            <MapPin className="w-3 h-3 mt-0.5 shrink-0 text-ink-lo" aria-hidden="true" />
             <span className="min-w-0">{item.title}</span>
           </li>
         ))}
@@ -366,7 +362,7 @@ function ItineraryStopPopupContent({ stop }: { stop: DayStop }) {
         <>
           <p
             data-testid="map-stop-approx-note"
-            className="mt-2 pt-2 border-t border-white/10 flex items-start gap-1.5 text-[11px] text-ink-mid"
+            className="hollow mt-2 pt-2 border-t-hair border-[color:hsl(var(--border))] flex items-start gap-1.5 text-t-sm"
           >
             <CircleDashed className="w-3.5 h-3.5 mt-px shrink-0" aria-hidden="true" />
             <span>
@@ -376,9 +372,9 @@ function ItineraryStopPopupContent({ stop }: { stop: DayStop }) {
           <a
             href="/plan/"
             data-testid="map-stop-set-pin"
-            className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:text-primary/80 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 rounded"
+            className="chip mt-1.5 min-h-tap px-2.5 text-ink-hi transition-colors hover:border-[color:var(--text-hi)] outline-none focus-visible:ring-2 focus-visible:ring-ring/60"
           >
-            <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} />
+            <MapPin className="w-3.5 h-3.5" strokeWidth={2.5} aria-hidden="true" />
             Set an exact pin in the planner
           </a>
         </>
@@ -1197,12 +1193,13 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
       {/* Loading skeleton until the GL canvas is ready. */}
       {!mapReady && (
-        <div className="absolute inset-0 grid place-items-center bg-surface">
-          {/* loading label `/40`→`/55` so "Loading map…" clears AA (3.76→6.22)
-              on the navy skeleton while the GL canvas mounts. */}
-          <div className="flex flex-col items-center gap-3 text-ink-mid">
-            <MapPin className="w-6 h-6 motion-safe:animate-pulse" />
-            <span className="text-xs">Loading map…</span>
+        // The word is a real text node, not a `content:` string — a static block is
+        // indistinguishable from an empty one, and generated content is not reliably
+        // announced. The pulse goes with it: the word carries the state.
+        <div className="load absolute inset-0">
+          <div className="flex flex-col items-center gap-3">
+            <MapPin className="w-6 h-6 text-ink-lo" aria-hidden="true" />
+            <span className="pr">Loading map</span>
           </div>
         </div>
       )}
@@ -1235,18 +1232,22 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           )
         : null}
 
-      {/* Scoped dark-brand overrides for the MapLibre popup + controls. A plain
-          <style> element (local to this component, not globals.css which
-          owns) — the default popup/control chrome is light, so we retint it to
-          the navy/gold palette. */}
+      {/* Scoped overrides for the MapLibre popup + controls. A plain <style> element
+          (local to this component; globals.css owns the token layer) — the default chrome
+          is light, so it is retinted here.
+
+          THE SEAM. These read the LIVE surface tokens rather than the BRAND.navy* copies
+          two lines of JS away, because this is DOM the page repaints and the canvas is not.
+          A ramp change reaches the popup on its own now; the GL paint properties below
+          still take the frozen hexes, which is the rule for the canvas. */}
       <style>{`
         .njp-map-popup .maplibregl-popup-content {
-          background: ${BRAND.navy800};
-          color: #fff;
-          border: 1px solid rgba(255,255,255,0.10);
-          border-radius: 0.75rem;
+          background: rgb(var(--surface-raised));
+          color: var(--text-hi);
+          border: var(--hair) solid hsl(var(--border));
+          border-radius: var(--r-3);
           padding: 0.75rem;
-          box-shadow: 0 12px 32px rgba(0,0,0,0.55);
+          box-shadow: var(--shadow-lg);
           /* bound the popup height so its on-screen box is STABLE regardless of
              content (the "Anchor to a day" block can make it tall). An unbounded tall
              popup re-anchors/jitters against the map edge under continuous repaint,
@@ -1261,32 +1262,33 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           scroll-margin-bottom: 2rem;
         }
         .njp-map-popup .maplibregl-popup-tip {
-          border-top-color: ${BRAND.navy800};
-          border-bottom-color: ${BRAND.navy800};
+          border-top-color: rgb(var(--surface-raised));
+          border-bottom-color: rgb(var(--surface-raised));
         }
         .njp-map-popup .maplibregl-popup-close-button {
-          color: rgba(255,255,255,0.6);
-          font-size: 18px;
+          color: var(--text-lo);
+          font-size: var(--t-lead);
           padding: 2px 7px;
           right: 2px;
           top: 2px;
         }
         .njp-map-popup .maplibregl-popup-close-button:hover {
-          color: #fff;
-          background: rgba(255,255,255,0.08);
-          border-radius: 6px;
+          color: var(--text-hi);
+          background: rgb(255 255 255 / 0.05);
+          border-radius: var(--r-1);
         }
         .maplibregl-ctrl-attrib {
-          background: rgba(10,14,39,0.75) !important;
-          color: rgba(255,255,255,0.55);
+          background: rgb(var(--surface) / 0.82) !important;
+          color: var(--text-lo);
         }
-        .maplibregl-ctrl-attrib a { color: rgba(255,255,255,0.7); }
+        .maplibregl-ctrl-attrib a { color: var(--text-mid); }
         .maplibregl-ctrl-group {
-          background: ${BRAND.navy800};
-          border: 1px solid rgba(255,255,255,0.10);
+          background: rgb(var(--surface-raised));
+          border: var(--hair) solid hsl(var(--border));
+          border-radius: var(--r-1);
         }
         .maplibregl-ctrl-group button + button {
-          border-top: 1px solid rgba(255,255,255,0.10);
+          border-top: var(--hair) solid hsl(var(--border));
         }
         .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
           filter: invert(1) brightness(1.4);

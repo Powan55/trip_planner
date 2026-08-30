@@ -24,7 +24,7 @@ import { usePresence } from '@/hooks/use-presence';
  * names contained.
  *
  * A11y: a labeled live region (`role="status"` + `aria-live="polite"`) so a
- * screen reader announces who joins — the region is the always-mounted, boxless `<aside>`
+ * screen reader announces who joins — the region is the always-mounted, boxless wrapper
  * and only the pill inside it is conditional, because a region inserted in the same commit
  * as its content is not reliably announced. With a visually-hidden summary sentence; the dots are
  * `aria-hidden` decoration. The only motion is one declarative `m` reveal, which the
@@ -36,14 +36,14 @@ export default function PresenceBar() {
   const active = usePresence();
 
   // No active others / dormant / guest ⇒ show nothing (portfolio + guest unchanged). The
-  // <aside> live region itself stays mounted and empty: a region only announces a mutation
+  // live region itself stays mounted and empty: a region only announces a mutation
   // of a region ALREADY in the tree, so one inserted together with its roster is not
   // reliably announced. Empty it has no children and therefore no box.
   const names = active.map((p) => p.name).join(', ');
   const verb = active.length === 1 ? 'is' : 'are';
 
   return (
-    <aside role="status" aria-live="polite" aria-label="Travelers active now">
+    <div role="status" aria-live="polite" aria-label="Travelers active now">
       {active.length === 0 ? null : (
         <m.div
           initial={{ opacity: 0, y: 8 }}
@@ -56,7 +56,7 @@ export default function PresenceBar() {
           // bottom coordinate changed; left/z/max-width and everything else are as before.
           className="fixed left-4 z-40 max-w-[calc(100vw-2rem)] sm:max-w-xs bottom-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom)+1rem)] md:bottom-4"
         >
-          <div className="flex items-center gap-2.5 rounded-full glass-card px-3 py-2 shadow-lg">
+          <div className="flex items-center gap-2.5 rounded-r1 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-3 py-2">
             {/* Overlapping accent dots — one per active traveler, decorative (names follow). */}
             <span className="flex -space-x-1.5" aria-hidden="true">
               {active.map((p) => {
@@ -65,7 +65,7 @@ export default function PresenceBar() {
                   <span
                     key={p.uid}
                     title={p.name}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-surface text-[10px] font-semibold text-surface"
+                    className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-surface text-t-micro font-semibold text-surface"
                     style={{ backgroundColor: p.accent }}
                   >
                     {initial}
@@ -76,9 +76,9 @@ export default function PresenceBar() {
 
             {/* Visible label: names + "active now". `min-w-0` + `truncate` so a long roster
                 can never overflow the pill. */}
-            <span className="min-w-0 truncate text-xs font-medium text-ink-hi">
+            <span className="pr min-w-0 truncate text-[color:var(--text-hi)]">
               <span className="truncate">{names}</span>
-              <span className="text-ink-mid"> · active now</span>
+              <span className="text-[color:var(--text-lo)]"> · active now</span>
             </span>
 
             {/* Screen-reader summary (the dots are aria-hidden); polite live region above
@@ -89,6 +89,6 @@ export default function PresenceBar() {
           </div>
         </m.div>
       )}
-    </aside>
+    </div>
   );
 }

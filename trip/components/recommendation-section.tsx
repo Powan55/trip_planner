@@ -9,7 +9,12 @@ import { Recommendation } from '@/lib/nepal-data';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import AddedBadge from '@/components/added-badge';
-import PlaceDetailSheet, { type PlaceDetailData } from '@/components/place-detail-sheet';
+import PlaceDetailSheet, {
+  SHEET_PANEL,
+  SHEET_HEAD,
+  SHEET_CLOSE,
+  type PlaceDetailData,
+} from '@/components/place-detail-sheet';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useCardTilt, useGyroOptIn } from '@/hooks/use-card-tilt';
@@ -17,15 +22,21 @@ import { useCardTilt, useGyroOptIn } from '@/hooks/use-card-tilt';
 interface RecommendationSectionProps {
   id: string;
   title: string;
-  titleGradient: string;
   subtitle: string;
   items: Recommendation[];
   categories: string[];
-  accentColor: string;
-  glassClass: string;
 }
 
 type SortKey = 'rating' | 'name';
+
+// The three control shapes this section repeats. A facet chip is `.chip`: STRUCK when it
+// is on, plain rule when it is off — the mark carries the state and no fill is spent, so
+// the screen's one `--accent` fill stays free for the thing that is actually live.
+const CTRL =
+  'rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low text-t-sm text-ink-hi transition-colors hover:border-[color:var(--border-ui)] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
+const FACET =
+  'chip min-h-tap px-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
+const FACET_OFF = 'hover:border-[color:var(--border-ui)] hover:text-ink-hi';
 
 /**
  * Derive a display city from a Recommendation's free-text `location`. Locations read
@@ -40,7 +51,6 @@ function cityOf(loc: string | undefined): string | undefined {
 
 function RecommendationCard({
   item,
-  accentColor,
   onOpen,
   favorited,
   onToggleFavorite,
@@ -48,7 +58,6 @@ function RecommendationCard({
   added,
 }: {
   item: Recommendation;
-  accentColor: string;
   onOpen: () => void;
   favorited: boolean;
   onToggleFavorite: () => void;
@@ -73,43 +82,54 @@ function RecommendationCard({
       onPointerLeave={tilt.onPointerLeave}
       data-testid={`guide-tilt-${item.id}`}
       data-tilt-enabled={tilt.enabled}
-      className="glass-card relative rounded-2xl overflow-hidden group transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)]"
+      className="plate relative rounded-r1 overflow-hidden group border-hair border-[color:hsl(var(--border))] transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
     >
+      {/* The ratio lives on the frame as `--plate-ar`, which is what the recipe reads, and
+          the grid is what gives the ramp a row to span. */}
       {item.image && !imgError ? (
-        <div
-          className="vt-shared relative aspect-[16/10] bg-surface-raised overflow-hidden motion-reduce:[&_img]:!transform-none"
-          style={{ ['--vt-name']: `place-photo-${item.id}` } as CSSProperties}
-        >
-          <OptimizedImage
-            src={item.image}
-            alt={item.name}
-            fill
-            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-            onError={() => setImgError(true)}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-surface/80 to-transparent" />
-          <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-1 rounded-full bg-black/40 backdrop-blur-sm">
-            <Camera className="w-3 h-3 text-muted-foreground" aria-hidden="true" />
-            <span className="text-xs font-mono text-foreground">{item.photoRating}/5</span>
-          </div>
-          <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
-            {item.mustSee && (
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                <Star className="w-3 h-3 fill-surface" />
-                Must-see
+        <div className="frame [--plate-ar:16_/_10]">
+          <div
+            className="fig vt-shared bg-surface-raised motion-reduce:[&_img]:!transform-none"
+            style={{ ['--vt-name']: `place-photo-${item.id}` } as CSSProperties}
+          >
+            <OptimizedImage
+              src={item.image}
+              alt={item.name}
+              fill
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              onError={() => setImgError(true)}
+            />
+            <div className="absolute top-3 right-3 z-[3] flex items-center gap-1">
+              <span className="chip chip--struck bg-[rgb(var(--scrim-ink-rgb)/0.72)]">
+                <Camera className="w-3 h-3" aria-hidden="true" />
+                <span className="num">{item.photoRating}</span>/5
               </span>
-            )}
-            <AddedBadge added={added} testId={`guide-added-${item.id}`} />
+            </div>
+            <div className="absolute top-3 left-3 z-[3] flex flex-col items-start gap-1.5">
+              {item.mustSee && (
+                <span className="stamp border-[color:var(--now)] bg-[rgb(var(--scrim-ink-rgb)/0.72)] text-now">
+                  <Star className="w-3 h-3 fill-current" aria-hidden="true" />
+                  Must-see
+                </span>
+              )}
+              <AddedBadge added={added} testId={`guide-added-${item.id}`} />
+            </div>
           </div>
+          {/* The ramp reads the scrim-ink channel, so it cannot drift from the measured
+              worst-case pixel the way a pasted rgba() does. */}
+          <div className="ramp" aria-hidden="true" />
         </div>
       ) : (
-        <div className="aspect-[16/10] bg-gradient-to-br from-surface-raised to-surface-overlay flex items-center justify-center relative">
-          <MapPin className={`w-8 h-8 ${accentColor} opacity-30`} />
+        // No photograph: the frame renders at its FULL SIZE, hollow, rather than
+        // shrinking, and it is never captioned as absent.
+        <div className="empty-frame m-gut aspect-[16/10] flex items-center justify-center relative">
+          <MapPin className="w-8 h-8 text-ink-lo" aria-hidden="true" />
+          <span className="hollow-tag absolute bottom-2">No plate on file</span>
           <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
             {item.mustSee && (
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                <Star className="w-3 h-3 fill-surface" />
+              <span className="stamp border-[color:var(--now)] text-now">
+                <Star className="w-3 h-3 fill-current" aria-hidden="true" />
                 Must-see
               </span>
             )}
@@ -117,10 +137,10 @@ function RecommendationCard({
           </div>
         </div>
       )}
-      <div className="p-4 pb-0">
+      <div className="p-gut pb-0">
         <div className="flex items-start justify-between gap-2 mb-2">
           <h3
-            className="vt-shared font-display font-bold text-white text-sm leading-tight"
+            className="vt-shared text-t-body font-semibold text-ink-hi leading-tight"
             style={{ ['--vt-name']: `place-title-${item.id}` } as CSSProperties}
           >
             {/* V6-10: the details control is the TITLE, not the whole card body. A
@@ -140,27 +160,27 @@ function RecommendationCard({
               {item.name}
             </button>
           </h3>
-          <span className={`text-[10px] px-2 py-0.5 rounded-full ${accentColor} bg-white/5 whitespace-nowrap`}>{item.category}</span>
+          <span className="chip border-[color:var(--now)] text-now whitespace-nowrap">{item.category}</span>
         </div>
-        <p className="text-xs text-ink-mid mb-3 line-clamp-2">{item.description}</p>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-mid">
-          <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{item.bestTime}</span>
-          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{item.duration}</span>
+        <p className="text-t-sm text-ink-mid mb-3 line-clamp-2">{item.description}</p>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 pr pr--lo">
+          <span className="flex items-center gap-1"><Clock className="w-3 h-3" aria-hidden="true" />{item.bestTime}</span>
+          <span className="flex items-center gap-1"><MapPin className="w-3 h-3" aria-hidden="true" />{item.duration}</span>
           <span className="flex items-center gap-1">
             {Array.from({ length: item.photoRating }).map((_, i) => (
-              <Star key={i} className="w-2.5 h-2.5 fill-current text-muted-foreground" />
+              <Star key={i} className="w-2.5 h-2.5 fill-current" aria-hidden="true" />
             ))}
           </span>
         </div>
-        {item.notes && <p className="text-[11px] text-ink-mid mt-2 italic">💡 {item.notes}</p>}
+        {item.notes && <p className="text-t-sm text-ink-mid mt-2">{item.notes}</p>}
       </div>
       {/* Both controls in this row need `relative z-10`: the title button's stretched
           `::after` is a positioned box and would otherwise paint over these static
           siblings and swallow their clicks. */}
-      <div className="px-4 pb-4 flex items-start gap-2">
+      <div className="p-gut pt-3 flex items-start gap-2">
         {/* Add-to-plan affordance — additive; a sibling of the details button. */}
         <div className="relative z-10 flex-1 min-w-0">
-          <AddToPlanButton source={item} sourceType="recommendation" accentColor={accentColor} />
+          <AddToPlanButton source={item} sourceType="recommendation" accentColor="text-now" />
         </div>
         {/* Favorite/bookmark toggle — a sibling of AddToPlanButton, real <button>, and
             gated on the favorites hook's hydration so server/first-client-paint always match
@@ -172,10 +192,10 @@ function RecommendationCard({
             aria-pressed={favorited}
             aria-label={favorited ? `Remove ${item.name} from saved` : `Save ${item.name}`}
             data-testid={`guide-favorite-${item.id}`}
-            className={`relative z-10 mt-3 shrink-0 p-2 rounded-xl border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+            className={`relative z-10 mt-3 shrink-0 grid place-items-center h-tap w-tap rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               favorited
-                ? 'bg-primary/10 border-ring/40 text-primary hover:bg-primary/25'
-                : 'bg-white/5 border-white/10 text-ink-mid hover:bg-white/10 hover:text-ink-hi'
+                ? 'border-[color:hsl(var(--accent))] text-[color:hsl(var(--accent))] bg-[rgb(62_216_255/0.10)]'
+                : 'border-[color:hsl(var(--border))] text-ink-lo hover:border-[color:var(--border-ui)] hover:text-ink-hi'
             }`}
           >
             <Heart className={`w-3.5 h-3.5 ${favorited ? 'fill-current' : ''}`} />
@@ -214,27 +234,30 @@ function FilterSheet({
       labelledBy={titleId}
       side="right"
       testId="guide-filters-sheet"
-      className="w-full sm:w-[440px] sm:max-w-full sm:h-full rounded-t-2xl sm:rounded-t-none sm:rounded-l-2xl max-h-[85vh] sm:max-h-none"
+      className={`${SHEET_PANEL} w-full sm:w-[440px] sm:max-w-full sm:h-full max-h-[85vh] sm:max-h-none`}
     >
-      <div className="shrink-0 flex items-center justify-between gap-3 px-5 sm:px-6 pt-5 pb-4 border-b border-white/10">
-        <h3 id={titleId} className="font-display text-lg font-bold text-white">Filters</h3>
+      <div className={SHEET_HEAD}>
+        <div className="min-w-0">
+          <span className="pr pr--lo block">Guide</span>
+          <h3 id={titleId} className="pr pr--l text-ink-hi">Filters</h3>
+        </div>
         <button
           type="button"
           data-testid="guide-filters-close"
           onClick={onClose}
           aria-label="Close filters"
-          className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className={SHEET_CLOSE}
         >
           <X className="w-5 h-5" />
         </button>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6 py-5">{children}</div>
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-gut py-5">{children}</div>
     </Sheet>
   );
 }
 
 export default function RecommendationSection({
-  id, title, titleGradient, subtitle, items, categories, accentColor, glassClass,
+  id, title, subtitle, items, categories,
 }: RecommendationSectionProps) {
   const [activeCategory, setActiveCategory] = useState('All');
   const [activeCity, setActiveCity] = useState('All');
@@ -393,7 +416,7 @@ export default function RecommendationSection({
         <SectionHeading
           id={`${id}-heading`}
           className="mb-10"
-          title={<>{title} <span className={titleGradient}>Guide</span></>}
+          title={`${title} Guide`}
           subtitle={subtitle}
         />
 
@@ -410,14 +433,14 @@ export default function RecommendationSection({
               placeholder="Search by name or description…"
               aria-label={`Search ${title} guide`}
               data-testid="guide-search-input"
-              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+              className={`${CTRL} w-full min-h-tap pl-9 pr-9 py-2 placeholder:text-ink-lo`}
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-ink-mid hover:text-ink-hi hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-r1 text-ink-lo transition-colors hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -431,12 +454,12 @@ export default function RecommendationSection({
             aria-haspopup="dialog"
             aria-expanded={filtersOpen}
             aria-label={activeFilterCount > 0 ? `Filters, ${activeFilterCount} active` : 'Filters'}
-            className="shrink-0 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm font-medium hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className={`${CTRL} shrink-0 inline-flex min-h-tap items-center gap-2 px-3`}
           >
-            <SlidersHorizontal className="w-4 h-4 text-ink-mid" />
-            <span>Filters</span>
+            <SlidersHorizontal className="w-4 h-4 text-ink-lo" aria-hidden="true" />
+            <span className="pr pr--l text-ink-hi">Filters</span>
             {activeFilterCount > 0 && (
-              <span className={`ml-0.5 inline-flex items-center justify-center min-w-[1.25rem] h-5 px-1.5 rounded-full text-xs font-mono bg-white/10 ${accentColor}`}>
+              <span className="chip chip--struck num ml-0.5">
                 {activeFilterCount}
               </span>
             )}
@@ -455,23 +478,23 @@ export default function RecommendationSection({
           <div className="space-y-6">
             {/* Sort */}
             <div>
-              <label htmlFor={`${id}-sort`} className="text-xs font-medium text-ink-mid mb-2 block">Sort</label>
+              <label htmlFor={`${id}-sort`} className="pr pr--lo mb-2 block">Sort</label>
               <select
                 id={`${id}-sort`}
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortKey)}
                 data-testid="guide-sort-select"
-                className="w-full px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+                className={`${CTRL} w-full min-h-tap px-3 py-2`}
               >
-                <option value="rating" className="bg-surface">Sort: Top rated</option>
-                <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
+                <option value="rating" className="bg-surface-low">Sort: Top rated</option>
+                <option value="name" className="bg-surface-low">Sort: Name (A–Z)</option>
               </select>
             </div>
 
             {/* City filter chips (only when more than one city is present) */}
             {cities.length > 2 && (
               <div>
-                <span className="text-xs font-medium text-ink-mid mb-2 block">City</span>
+                <span className="pr pr--lo mb-2 block">City</span>
                 <div className="flex flex-wrap gap-2">
                   {cities.map((city) => (
                     <button
@@ -479,14 +502,10 @@ export default function RecommendationSection({
                       onClick={() => setActiveCity(city)}
                       aria-pressed={activeCity === city}
                       data-testid={`guide-filter-city-${city.toLowerCase()}`}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                        activeCity === city
-                          ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                          : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
-                      }`}
+                      className={`${FACET} ${activeCity === city ? 'chip--struck' : FACET_OFF}`}
                     >
                       {city === 'All' ? 'All cities' : city}
-                      <span className="ml-1.5 text-ink-mid font-mono">{cityCounts[city] ?? 0}</span>
+                      <span className="num ml-1.5 text-ink-lo">{cityCounts[city] ?? 0}</span>
                     </button>
                   ))}
                 </div>
@@ -499,7 +518,7 @@ export default function RecommendationSection({
                 favorites to hydrate). */}
             {((favoritesReady && savedCount > 0) || plannedCount > 0) && (
               <div>
-                <span className="text-xs font-medium text-ink-mid mb-2 block">Status</span>
+                <span className="pr pr--lo mb-2 block">Status</span>
                 <div className="flex flex-wrap gap-2">
                   {favoritesReady && savedCount > 0 && (
                     <button
@@ -507,15 +526,11 @@ export default function RecommendationSection({
                       onClick={() => setSavedOnly((v) => !v)}
                       aria-pressed={savedOnly}
                       data-testid="guide-filter-saved"
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                        savedOnly
-                          ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                          : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
-                      }`}
+                      className={`${FACET} ${savedOnly ? 'chip--struck' : FACET_OFF}`}
                     >
                       <Heart className={`w-3 h-3 ${savedOnly ? 'fill-current' : ''}`} />
                       Saved
-                      <span className="ml-0.5 text-ink-mid font-mono">{savedCount}</span>
+                      <span className="num ml-0.5 text-ink-lo">{savedCount}</span>
                     </button>
                   )}
                   {plannedCount > 0 && (
@@ -524,15 +539,11 @@ export default function RecommendationSection({
                       onClick={() => setPlannedOnly((v) => !v)}
                       aria-pressed={plannedOnly}
                       data-testid="guide-filter-planned"
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                        plannedOnly
-                          ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                          : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
-                      }`}
+                      className={`${FACET} ${plannedOnly ? 'chip--struck' : FACET_OFF}`}
                     >
                       <Check className="w-3 h-3" />
                       Planned
-                      <span className="ml-0.5 text-ink-mid font-mono">{plannedCount}</span>
+                      <span className="num ml-0.5 text-ink-lo">{plannedCount}</span>
                     </button>
                   )}
                 </div>
@@ -541,7 +552,7 @@ export default function RecommendationSection({
 
             {/* Category filter chips with live counts */}
             <div>
-              <span className="text-xs font-medium text-ink-mid mb-2 block">Category</span>
+              <span className="pr pr--lo mb-2 block">Category</span>
               <div className="flex flex-wrap gap-2">
                 {categories.map((cat) => (
                   <button
@@ -549,14 +560,10 @@ export default function RecommendationSection({
                     onClick={() => setActiveCategory(cat)}
                     aria-pressed={activeCategory === cat}
                     data-testid={`guide-filter-category-${cat.toLowerCase()}`}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                      activeCategory === cat
-                        ? `${accentColor} bg-white/10 ring-1 ring-current/30`
-                        : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
-                    }`}
+                    className={`${FACET} ${activeCategory === cat ? 'chip--struck' : FACET_OFF}`}
                   >
                     {cat}
-                    <span className="ml-1.5 text-ink-mid font-mono">{categoryCounts[cat] ?? 0}</span>
+                    <span className="num ml-1.5 text-ink-lo">{categoryCounts[cat] ?? 0}</span>
                   </button>
                 ))}
               </div>
@@ -569,7 +576,7 @@ export default function RecommendationSection({
                 onClick={clearAllFilters}
                 disabled={activeFilterCount === 0}
                 data-testid="guide-filters-clear"
-                className="flex-1 px-4 py-2.5 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-ink-hi hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn btn--2 max-w-none flex-1 outline-none focus-visible:outline-none"
               >
                 Clear all
               </button>
@@ -577,7 +584,7 @@ export default function RecommendationSection({
                 type="button"
                 onClick={() => setFiltersOpen(false)}
                 data-testid="guide-filters-apply"
-                className={`flex-1 px-4 py-2.5 rounded-xl bg-white/10 border border-[color:var(--border-ui)] text-sm font-semibold hover:bg-white/15 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${accentColor}`}
+                className="btn max-w-none flex-1 outline-none focus-visible:outline-none"
               >
                 Show {filtered.length} {filtered.length === 1 ? 'result' : 'results'}
               </button>
@@ -592,7 +599,7 @@ export default function RecommendationSection({
               type="button"
               onClick={gyro.request}
               data-testid="guide-tilt-optin"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-ink-mid bg-white/5 border border-white/10 hover:bg-white/10 hover:text-ink-hi transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className={`${FACET} ${FACET_OFF}`}
             >
               <SlidersHorizontal className="w-3 h-3" />
               Enable motion tilt
@@ -607,7 +614,6 @@ export default function RecommendationSection({
               <RecommendationCard
                 key={item.id}
                 item={item}
-                accentColor={accentColor}
                 onOpen={() => openDetail(item)}
                 favorited={favorites.includes(item.id)}
                 onToggleFavorite={() => toggleFavorite(item.id)}
@@ -617,14 +623,17 @@ export default function RecommendationSection({
             ))}
           </div>
         ) : (
-          <div data-testid="guide-empty-state" className={`text-center py-16 px-6 rounded-2xl ${glassClass}`}>
+          <div data-testid="guide-empty-state" className="empty-frame p-gut py-16 text-center">
             <SearchX className="w-10 h-10 mx-auto mb-4 text-ink-lo" />
-            <p className="text-ink-mid font-medium mb-1">No places match your filters</p>
-            <p className="text-ink-lo text-sm mb-5">Try a different search, city, or category.</p>
+            <p className="empty mb-1">Nothing on file matches these filters</p>
+            <p className="empty mb-5 text-ink-lo">
+              <span className="num">{items.length}</span> places are in this guide. Widen the
+              search, the city or the category to reach them.
+            </p>
             <button
               type="button"
               onClick={resetFilters}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${accentColor}`}
+              className="btn btn--2 mx-auto outline-none focus-visible:outline-none"
             >
               Clear filters
             </button>

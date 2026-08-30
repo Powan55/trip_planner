@@ -22,6 +22,7 @@ export default function SafetyPage() {
         eyebrow="In case you need it"
         title="Travel Safety Kit"
         description="Emergency and embassy numbers, a Nepali/Japanese phrasebook, and a document checklist — works offline once loaded."
+        className="max-w-4xl"
       />
       {/* The kit is N×J content (emergency numbers per country + a Nepali/Japanese phrasebook),
           presented as the ACTIVE trip's safety kit — so a custom trip gets the same honest empty
@@ -34,7 +35,7 @@ export default function SafetyPage() {
             it stands, so what is added here is the way to ASK for it — a phone has no print
             shortcut. Inside DefaultTripOnly on purpose: on a custom trip there is no kit below,
             so there must be no button offering to print one. */}
-        <div className="mx-auto flex w-full max-w-4xl justify-end px-4 pb-4 sm:px-6 print:hidden">
+        <div className="mx-auto flex w-full max-w-4xl justify-end px-gut pb-4 print:hidden">
           <PrintButton label="Print safety sheet" />
         </div>
         <SafetyKit />

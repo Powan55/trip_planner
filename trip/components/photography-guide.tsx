@@ -13,6 +13,14 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 
 type SortKey = 'mustSee' | 'name';
 
+// Shared control shapes. A facet chip is `.chip`: STRUCK when it is on, a plain rule when
+// it is off — the mark carries the state, so no --accent fill is spent on a filter.
+const CTRL =
+  'rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low text-t-sm text-ink-hi transition-colors hover:border-[color:var(--border-ui)] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
+const FACET =
+  'chip min-h-tap px-2.5 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
+const FACET_OFF = 'hover:border-[color:var(--border-ui)] hover:text-ink-hi';
+
 function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => void; added: boolean }) {
   const isNepal = spot.country === 'Nepal';
   const [imgError, setImgError] = useState(false);
@@ -24,40 +32,44 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
       viewport={{ once: true }}
       whileHover={reduce ? undefined : { y: -6 }}
       transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-      className={`group relative rounded-2xl p-5 transition-[box-shadow,border-color] duration-300 hover:![box-shadow:var(--shadow-lg),var(--shadow-glow)] focus-within:![box-shadow:var(--shadow-lg),var(--shadow-glow)] hover:border-[hsl(var(--accent-scroll)/0.55)] focus-within:border-[hsl(var(--accent-scroll)/0.55)] ${
-        isNepal ? 'glass-nepal' : 'glass-japan'
-      }`}
+      data-leg={isNepal ? 'nepal' : 'japan'}
+      className="plate group relative rounded-r1 p-gut border-hair border-[color:hsl(var(--border))] transition-colors duration-300 hover:border-[color:var(--border-ui)] focus-within:border-[color:var(--border-ui)]"
     >
+      {/* The ratio lives on the frame as `--plate-ar`, which is what the recipe reads. An
+          `aspect-[16/10]` on `.fig` was (0,1,0) under a (0,2,0) recipe, and with no grid
+          parent the ramp had no row to span and rendered at height 0. */}
       {spot.image && !imgError && (
-        <div className="relative -mx-5 -mt-5 mb-4 aspect-[16/10] overflow-hidden rounded-t-2xl bg-surface-raised motion-safe:group-hover:[&_img]:scale-105 [&_img]:transition-transform [&_img]:duration-500">
-          <OptimizedImage
-            src={spot.image}
-            alt={`${spot.name}, ${spot.city}`}
-            fill
-            sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
-            className="object-cover"
-            onError={() => setImgError(true)}
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-          <div className="absolute top-3 left-3 flex flex-col items-start gap-1.5">
-            {spot.mustSee && (
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                <Star className="w-3 h-3 fill-surface" />
-                Must-see
-              </span>
-            )}
-            <AddedBadge added={added} testId={`photo-added-${spot.id}`} />
+        <div className="frame [--plate-ar:16_/_10] -mx-gut -mt-gut mb-4">
+          <div className="fig bg-surface-raised motion-safe:group-hover:[&_img]:scale-105 [&_img]:transition-transform [&_img]:duration-500">
+            <OptimizedImage
+              src={spot.image}
+              alt={`${spot.name}, ${spot.city}`}
+              fill
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              className="object-cover"
+              onError={() => setImgError(true)}
+            />
+            <div className="absolute top-3 left-3 z-[3] flex flex-col items-start gap-1.5">
+              {spot.mustSee && (
+                <span className="stamp border-[color:var(--now)] bg-[rgb(var(--scrim-ink-rgb)/0.72)] text-now">
+                  <Star className="w-3 h-3 fill-current" aria-hidden="true" />
+                  Must-see
+                </span>
+              )}
+              <AddedBadge added={added} testId={`photo-added-${spot.id}`} />
+            </div>
           </div>
+          <div className="ramp" aria-hidden="true" />
         </div>
       )}
 
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className={`p-2 rounded-xl ${isNepal ? 'bg-himalaya-400/10' : 'bg-sakura-400/10'}`}>
-            <Camera className={`w-4 h-4 ${isNepal ? 'text-himalaya-400' : 'text-sakura-400'}`} />
+          <div className="grid h-8 w-8 shrink-0 place-items-center rounded-r1 border-hair border-[color:var(--now)]">
+            <Camera className="w-4 h-4 text-now" aria-hidden="true" />
           </div>
           <div>
-            <h3 className="font-display font-bold text-white text-sm flex items-center gap-1.5">
+            <h3 className="text-t-body font-semibold text-ink-hi flex items-center gap-1.5">
               {/* V6-10: the details control is the TITLE, not the card body. A button
                   wrapping flow content is non-conforming HTML, and `button` is a
                   children-presentational ARIA role — it swallowed this <h3> so the ~60
@@ -74,49 +86,51 @@ function PhotoCard({ spot, onOpen, added }: { spot: PhotoSpot; onOpen: () => voi
               </button>
               {/* this is the "Must-see" RIBBON's no-image fallback — the same
                   content-semantic label in icon form — so it keeps the ribbon's gold. */}
-              {spot.mustSee && !spot.image && <Star className="w-3 h-3 fill-current text-gold-400" aria-hidden="true" />}
+              {spot.mustSee && !spot.image && <Star className="w-3 h-3 fill-current text-now" aria-hidden="true" />}
             </h3>
-            <p className="text-[11px] text-ink-mid">{spot.city}, {spot.country}</p>
+            <p className="pr pr--lo">{spot.city} · {spot.country}</p>
           </div>
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          <span className={`text-[10px] px-2 py-0.5 rounded-full ${isNepal ? 'text-himalaya-400 bg-himalaya-400/10' : 'text-sakura-400 bg-sakura-400/10'}`}>
-            {spot.category}
-          </span>
+          <span className="chip border-[color:var(--now)] text-now">{spot.category}</span>
           {/* No-image cards have no top-left overlay stack, so surface the chip here. */}
           {(!spot.image || imgError) && <AddedBadge added={added} testId={`photo-added-${spot.id}`} />}
         </div>
       </div>
 
-      <div className="space-y-2 text-xs">
-        <div className="flex items-center gap-2 text-ink-mid">
-          <Clock className="w-3.5 h-3.5 text-muted-foreground" aria-hidden="true" />
-          <span>{spot.bestTime}</span>
+      {/* The shooting facts, as a ruled list. A row is a border and text. */}
+      <dl className="list -mx-gut border-t-hair border-[color:hsl(var(--border))]">
+        <div className="r [--lead:auto] !items-center">
+          <dt className="flex items-center gap-2">
+            <Clock className="w-3.5 h-3.5 text-ink-lo" aria-hidden="true" />
+            <span className="pr pr--lo w-16 shrink-0">Light</span>
+          </dt>
+          <dd className="text-t-sm text-ink-hi">{spot.bestTime}</dd>
         </div>
-        <div className="flex items-center gap-2 text-ink-mid">
-          <Aperture className="w-3.5 h-3.5 text-purple-400" />
-          <span>{spot.style}</span>
+        <div className="r [--lead:auto] !items-center">
+          <dt className="flex items-center gap-2">
+            <Aperture className="w-3.5 h-3.5 text-ink-lo" aria-hidden="true" />
+            <span className="pr pr--lo w-16 shrink-0">Style</span>
+          </dt>
+          <dd className="text-t-sm text-ink-hi">{spot.style}</dd>
         </div>
-        <div className="flex items-center gap-2 text-ink-mid">
-          <Camera className="w-3.5 h-3.5 text-blue-400" />
-          <span>{spot.gear}</span>
+        <div className="r [--lead:auto] !items-center">
+          <dt className="flex items-center gap-2">
+            <Camera className="w-3.5 h-3.5 text-ink-lo" aria-hidden="true" />
+            <span className="pr pr--lo w-16 shrink-0">Gear</span>
+          </dt>
+          <dd className="text-t-sm text-ink-hi">{spot.gear}</dd>
         </div>
-      </div>
+      </dl>
 
-      <div className="mt-3 p-2.5 rounded-lg bg-white/5">
-        <p className="text-[11px] text-ink-mid italic">💡 {spot.tip}</p>
-      </div>
+      <p className="mt-3 text-t-sm text-ink-mid">{spot.tip}</p>
 
       {/* Add-to-plan affordance — additive; a sibling of the details button. `relative
           z-10` lifts it above the title button's stretched `::after`, which would
           otherwise paint over it (positioned pseudo beats a static sibling) and swallow
           its clicks. */}
       <div className="relative z-10">
-        <AddToPlanButton
-          source={spot}
-          sourceType="photo"
-          accentColor={isNepal ? 'text-himalaya-400' : 'text-sakura-400'}
-        />
+        <AddToPlanButton source={spot} sourceType="photo" accentColor="text-now" />
       </div>
     </m.div>
   );
@@ -243,7 +257,7 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
         <SectionHeading
           id="photography-heading"
           className="mb-10"
-          title={<>Photography <span className="text-display-emphasis">Guide</span></>}
+          title="Photography Guide"
           subtitle="Capture the perfect shot at every destination with expert shooting tips and gear suggestions."
         />
 
@@ -257,30 +271,30 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search spots, styles, tips…"
               aria-label="Search photography guide"
-              className="w-full pl-9 pr-9 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+              className={`${CTRL} w-full min-h-tap pl-9 pr-9 py-2 placeholder:text-ink-lo`}
             />
             {query && (
               <button
                 type="button"
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-md text-ink-mid hover:text-ink-hi hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-r1 text-ink-lo transition-colors hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <SlidersHorizontal className="w-4 h-4 text-ink-mid" />
+            <SlidersHorizontal className="w-4 h-4 text-ink-lo" aria-hidden="true" />
             <label htmlFor="photo-sort" className="sr-only">Sort</label>
             <select
               id="photo-sort"
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
-              className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+              className={`${CTRL} min-h-tap px-3 py-2`}
             >
-              <option value="mustSee" className="bg-surface">Sort: Must-see first</option>
-              <option value="name" className="bg-surface">Sort: Name (A–Z)</option>
+              <option value="mustSee" className="bg-surface-low">Sort: Must-see first</option>
+              <option value="name" className="bg-surface-low">Sort: Name (A–Z)</option>
             </select>
           </div>
         </div>
@@ -293,14 +307,10 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
                 key={city}
                 onClick={() => setActiveCity(city)}
                 aria-pressed={activeCity === city}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                  activeCity === city
-                    ? 'text-primary bg-primary/10 ring-1 ring-ring/30'
-                    : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
-                }`}
+                className={`${FACET} ${activeCity === city ? 'chip--struck' : FACET_OFF}`}
               >
                 {city === 'All' ? 'All cities' : city}
-                <span className="ml-1.5 text-ink-mid font-mono">{cityCounts[city] ?? 0}</span>
+                <span className="num ml-1.5 text-ink-lo">{cityCounts[city] ?? 0}</span>
               </button>
             ))}
           </div>
@@ -313,14 +323,10 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
               key={cat}
               onClick={() => setActiveCategory(cat)}
               aria-pressed={activeCategory === cat}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                activeCategory === cat
-                  ? 'text-primary bg-primary/10 ring-1 ring-ring/30'
-                  : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
-              }`}
+              className={`${FACET} ${activeCategory === cat ? 'chip--struck' : FACET_OFF}`}
             >
               {cat}
-              <span className="ml-1.5 text-ink-mid font-mono">{categoryCounts[cat] ?? 0}</span>
+              <span className="num ml-1.5 text-ink-lo">{categoryCounts[cat] ?? 0}</span>
             </button>
           ))}
         </div>
@@ -332,14 +338,17 @@ export default function PhotographyGuide({ country }: { country?: 'Nepal' | 'Jap
             ))}
           </div>
         ) : (
-          <div className="text-center py-16 px-6 rounded-2xl glass-card">
-            <SearchX className="w-10 h-10 mx-auto mb-4 text-ink-lo" />
-            <p className="text-ink-mid font-medium mb-1">No spots match your filters</p>
-            <p className="text-ink-lo text-sm mb-5">Try a different search, city, or category.</p>
+          <div className="empty-frame p-gut py-16 text-center">
+            <SearchX className="w-10 h-10 mx-auto mb-4 text-ink-lo" aria-hidden="true" />
+            <p className="empty mb-1">Nothing on file matches these filters</p>
+            <p className="empty mb-5 text-ink-lo">
+              <span className="num">{spots.length}</span> spots are surveyed here. Widen the
+              search, the city or the category to reach them.
+            </p>
             <button
               type="button"
               onClick={resetFilters}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-sm font-medium text-primary hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="btn btn--2 mx-auto outline-none focus-visible:outline-none"
             >
               Clear filters
             </button>

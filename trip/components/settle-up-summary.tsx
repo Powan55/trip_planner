@@ -24,24 +24,24 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
   return (
     <div
       data-testid="settle-up"
-      className="mt-6 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+      className="mt-6 border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))]"
     >
-      <div className="mb-4 flex items-center gap-2">
-        <Users className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-        <h3 className="text-sm font-semibold text-white sm:text-base">Settle up</h3>
+      <div className="flex items-center gap-2 border-b-2 border-[color:hsl(var(--border))] px-gut py-2">
+        <Users className="h-3.5 w-3.5 shrink-0 text-ink-lo" aria-hidden="true" />
+        <h3 className="pr pr--l text-ink-hi">Settle up</h3>
       </div>
 
-      <div className="flex flex-col gap-5">
+      <div className="flex flex-col gap-5 py-3">
         {settlements.map((s) => {
           const balances = Object.entries(s.balances);
           return (
             <div key={s.leg} data-testid={`settle-up-leg-${s.leg}`} className="flex flex-col gap-3">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-lo">
+              <p className="pr pr--lo px-gut">
                 {legLabel(s.leg)} · {s.currency}
               </p>
 
               {/* Per-person net */}
-              <ul className="flex flex-wrap gap-2" data-testid={`settle-up-balances-${s.leg}`}>
+              <ul className="flex flex-wrap gap-2 px-gut" data-testid={`settle-up-balances-${s.leg}`}>
                 {balances.map(([id, net]) => {
                   // `settle()`'s own tolerance, not a hardcoded half unit: a 0.5 threshold is a
                   // whole-unit assumption (NPR/JPY) and called every USD balance under 50 cents
@@ -51,22 +51,20 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
                     <li
                       key={id}
                       data-testid={`settle-up-balance-${s.leg}-${id}`}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-surface/40 px-2.5 py-1 text-xs"
+                      className={`chip gap-1.5 ${settled ? 'chip--hollow' : 'chip--struck'}`}
                     >
                       <span
                         aria-hidden="true"
                         className="h-2 w-2 shrink-0 rounded-full"
                         style={{ backgroundColor: rosterAccent(id) }}
                       />
-                      <span className="font-medium text-ink-hi">{id}</span>
+                      <span>{id}</span>
                       {settled ? (
                         <span className="text-ink-lo">settled</span>
                       ) : net > 0 ? (
-                        <span className="text-emerald-300/90">
-                          is owed {formatMoney(net, s.currency)}
-                        </span>
+                        <span className="num">is owed {formatMoney(net, s.currency)}</span>
                       ) : (
-                        <span className="text-gold-400/90">owes {formatMoney(-net, s.currency)}</span>
+                        <span className="num">owes {formatMoney(-net, s.currency)}</span>
                       )}
                     </li>
                   );
@@ -75,21 +73,21 @@ export default function SettleUpSummary({ settlements }: { settlements: LegSettl
 
               {/* Minimal transfers */}
               {s.transfers.length === 0 ? (
-                <p className="text-xs text-ink-mid" data-testid={`settle-up-even-${s.leg}`}>
+                <p className="empty px-gut" data-testid={`settle-up-even-${s.leg}`}>
                   All square — nobody owes anybody.
                 </p>
               ) : (
-                <ul className="flex flex-col gap-1.5" data-testid={`settle-up-transfers-${s.leg}`}>
+                <ul className="list list-none" data-testid={`settle-up-transfers-${s.leg}`}>
                   {s.transfers.map((t) => (
                     <li
                       key={`${t.from}-${t.to}`}
                       data-testid={`settle-up-transfer-${s.leg}-${t.from}-${t.to}`}
-                      className="flex items-center gap-2 text-sm text-ink-hi"
+                      className="r [--cols:auto_auto_1fr_auto] !items-center text-t-body text-ink-hi"
                     >
-                      <span className="font-semibold text-white">{t.from}</span>
-                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-ink-mid" aria-hidden="true" />
-                      <span className="font-semibold text-white">{t.to}</span>
-                      <span className="ml-auto font-semibold text-foreground">
+                      <span className="font-semibold">{t.from}</span>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-ink-lo" aria-hidden="true" />
+                      <span className="font-semibold">{t.to}</span>
+                      <span className="num text-n-sm">
                         {formatMoney(t.amount, s.currency)}
                       </span>
                     </li>

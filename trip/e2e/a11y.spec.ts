@@ -151,6 +151,8 @@ test('axe: /nepal with the filters sheet OPEN has zero serious/critical/moderate
   // Open the filters sheet and wait for the dialog to attach before scanning.
   await page.getByTestId('guide-filters-trigger').click();
   await expect(page.getByTestId('guide-filters-sheet')).toBeVisible();
+  // Settle the entrance fade before the axe scan: mid-fade opacity composites text to a false hit.
+  await expect(page.getByTestId('guide-filters-sheet')).toHaveCSS('opacity', '1');
 
   const results = await scanFor(page).analyze();
 

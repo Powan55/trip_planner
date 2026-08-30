@@ -9,12 +9,12 @@ import SectionSkeleton from '@/components/section-skeleton';
 
 export const TripStoryRecap = dynamic(() => import('@/components/trip-story-recap'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="60vh" count={4} />,
+  loading: () => <SectionSkeleton height="60vh" count={4} contentClassName="max-w-3xl" />,
 });
 
 // — the "Trip Wrapped" capstone, a SEPARATE lazy island composed below the story (never
 // touches trip-story-recap.tsx's internals). Same ssr:false + skeleton idiom.
 export const WrappedStory = dynamic(() => import('@/components/wrapped-story'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="50vh" count={3} />,
+  loading: () => <SectionSkeleton height="50vh" count={3} contentClassName="max-w-3xl" />,
 });

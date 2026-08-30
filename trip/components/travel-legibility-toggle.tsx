@@ -60,14 +60,14 @@ export default function TravelLegibilityToggle() {
       aria-pressed={high}
       aria-label="High legibility"
       data-testid="travel-legibility-toggle"
-      className={`inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center gap-1.5 rounded-lg px-3 text-sm font-medium outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+      className={`pr inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center gap-1.5 rounded-r1 border-hair px-2 outline-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
         high
-          ? 'bg-primary/20 text-primary hover:bg-primary/25'
-          : 'text-ink-mid hover:bg-white/10 hover:text-white'
+          ? 'border-solid border-[color:hsl(var(--accent))] text-[color:hsl(var(--accent))]'
+          : 'border-dashed border-[color:var(--text-lo)] text-ink-lo hover:bg-white/5 hover:text-ink-mid'
       }`}
     >
-      <Sun className="h-4 w-4" aria-hidden="true" />
-      <span className="hidden sm:inline">High legibility</span>
+      <Sun className="h-4 w-4 shrink-0" aria-hidden="true" />
+      <span className="hidden sm:inline">{high ? 'Outdoor on' : 'Outdoor'}</span>
     </button>
   );
 }

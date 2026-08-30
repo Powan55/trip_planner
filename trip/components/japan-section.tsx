@@ -10,12 +10,9 @@ export default function JapanSection() {
     <RecommendationSection
       id="japan"
       title="Japan Winter"
-      titleGradient="text-gradient-sakura"
       subtitle="From Tokyo's neon glow to Kyoto's ancient temples — your ultimate winter Japan guide."
       items={allItems}
       categories={JAPAN_CATEGORIES}
-      accentColor="text-sakura-400"
-      glassClass="glass-japan"
     />
   );
 }

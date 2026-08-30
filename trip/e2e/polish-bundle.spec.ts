@@ -86,10 +86,13 @@ test.describe('S218 — skeleton loading slots wired for lazy islands', () => {
   for (const route of ['/map/', '/journal/'] as const) {
     test(`${route} renders the SectionSkeleton loading fallback while its island loads`, async ({ page }) => {
       await throttleChunks(page);
-      await gotoAsTraveler(page, route);
-      await expect(page.locator('[data-loading="Loading section"]').first()).toBeVisible({
-        timeout: 15_000,
-      });
+      // Wait starts before the navigation, same reason as the Home test below.
+      await Promise.all([
+        expect(page.locator('[data-loading="Loading section"]').first()).toBeVisible({
+          timeout: 15_000,
+        }),
+        gotoAsTraveler(page, route),
+      ]);
     });
   }
 
@@ -103,8 +106,8 @@ test.describe('S218 — skeleton loading slots wired for lazy islands', () => {
    * upward: cold CLS on Home measured 0.175–1.001 (Google calls 0.25 "poor"), and the hero
    * briefly painted UNDER the fixed navbar on the way.
    *
-   * Chunk throttling (above) is what makes this deterministic: it holds the island's chunk
-   * so the placeholder is guaranteed on screen, no race, nothing to retry.
+   * Chunk throttling (above) widens the placeholder's window but does not remove it, so the
+   * wait has to be running before the navigation settles.
    */
   // app/page.tsx `TRIP_STRIP_H` — Home's FIRST skeleton in DOM order is the trip strip's,
   // above the fold, and it is the one that used to render 826.5px against this declaration.
@@ -113,13 +116,14 @@ test.describe('S218 — skeleton loading slots wired for lazy islands', () => {
   test('Home\'s first skeleton reserves no more height than it declares', async ({ page }) => {
     await page.setViewportSize({ width: 360, height: 740 });
     await throttleChunks(page);
-    await gotoAsTraveler(page, '/');
 
-    // The strip's chunk is requested only after hydration and then held for a second, so its
-    // `loading:` skeleton is guaranteed on screen — no race, nothing to retry.
+    // Wait starts before the navigation: gotoAsTraveler returns on the service-worker
+    // controller, which can land after the skeleton is gone.
     const skeleton = page.locator('[data-loading="Loading section"]').first();
-    await expect(skeleton).toBeAttached({ timeout: 15_000 });
-    const box = await skeleton.boundingBox();
+    const [box] = await Promise.all([
+      expect(skeleton).toBeAttached({ timeout: 15_000 }).then(() => skeleton.boundingBox()),
+      gotoAsTraveler(page, '/'),
+    ]);
     expect(box).not.toBeNull();
     expect(box!.height).toBeLessThanOrEqual(HOME_FIRST_RESERVATION_PX);
   });

@@ -30,9 +30,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       closeButton
       toastOptions={{
         classNames: {
+          // Printed stock: a 2px rule and a square corner, no elevation shadow.
           toast:
-            'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
-          description: 'group-[.toast]:text-muted-foreground',
+            'group toast group-[.toaster]:bg-[rgb(var(--surface-raised))] group-[.toaster]:text-foreground group-[.toaster]:border-2 group-[.toaster]:border-border group-[.toaster]:rounded-r2',
+          description: 'group-[.toast]:text-t-body group-[.toast]:text-[color:var(--text-mid)]',
           actionButton:
             'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
           cancelButton:

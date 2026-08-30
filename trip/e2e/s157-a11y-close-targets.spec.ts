@@ -200,6 +200,8 @@ test.describe('S157 FU-22 — dialog close-X >=44px touch targets + axe', () => 
     await page.getByTestId(`guide-card-${BOUDHA_ID}`).click();
     const sheet = page.getByTestId('place-detail-sheet');
     await expect(sheet).toBeVisible();
+    // Settle the fade before the axe scan — reduced motion does NOT (framer gates positional keys).
+    await expect(sheet).toHaveCSS('opacity', '1');
 
     const closeBtn = page.getByTestId('place-detail-close');
     await assertHitArea44(closeBtn);

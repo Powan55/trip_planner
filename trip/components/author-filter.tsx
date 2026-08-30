@@ -73,15 +73,13 @@ export default function AuthorFilterControl({
     return true;
   };
 
-  // Shared chip classes — static literals. Active = primary-token pill (cyan chrome;:
-  // this comment used to say "gold pill (brand primary)" — moved brand primary off gold, the
-  // code beneath was already correct, only the prose had rotted). Inactive = muted, hover-lit.
+  // Shared chip classes — static literals, the shared `.chip` recipe. The selected option is
+  // STRUCK (a full-strength border + hi ink), the rest are ordinary printed chips; `aria-pressed`
+  // carries the state for anyone the material does not reach.
   // `transition-colors` is neutralized under reduced motion.
   const chip = (active: boolean) =>
-    `px-3 py-1.5 rounded-lg text-xs sm:text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-      active
-        ? 'bg-primary/20 text-primary ring-1 ring-ring/30'
-        : 'text-ink-mid hover:bg-white/5 hover:text-ink-hi'
+    `chip min-h-tap px-3 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+      active ? 'chip--struck' : 'hover:bg-white/5 hover:text-ink-hi'
     }`;
 
   return (
@@ -89,7 +87,7 @@ export default function AuthorFilterControl({
       data-testid="author-filter"
       className={`flex flex-wrap items-center justify-center gap-2 ${className}`}
     >
-      <span className="inline-flex items-center gap-1.5 text-xs text-ink-mid mr-0.5">
+      <span className="pr pr--lo inline-flex items-center gap-1.5 mr-0.5">
         <Users className="w-3.5 h-3.5" aria-hidden="true" />
         <span>Filter by</span>
       </span>

@@ -120,9 +120,9 @@ export default function PlanDayMap({
               onCancelPick?.();
             }
           }}
-          className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 border-b border-white/10 bg-surface/95 px-3 py-2 backdrop-blur"
+          className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 border-b-2 border-[color:hsl(var(--border))] bg-surface-low p-gut py-2"
         >
-          <p aria-live="polite" className="min-w-0 flex-1 text-xs text-ink-hi">
+          <p aria-live="polite" className="pr pr--l min-w-0 flex-1 text-ink-hi">
             Tap the map to place the pin
           </p>
           <button
@@ -133,7 +133,7 @@ export default function PlanDayMap({
               const v = viewRef.current;
               if (v) onPick?.({ lng: v.lng, lat: v.lat });
             }}
-            className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg border border-[color:var(--border-ui)] px-3 text-xs font-medium text-ink-hi transition-colors hover:bg-white/10 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="chip min-h-tap shrink-0 px-2.5 text-ink-hi transition-colors hover:border-[color:var(--text-hi)] outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
             Use centre
@@ -143,7 +143,7 @@ export default function PlanDayMap({
             onClick={() => onCancelPick?.()}
             aria-label="Cancel placing the pin"
             data-testid="plan-map-pick-cancel"
-            className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-ink-mid transition-colors hover:bg-white/10 hover:text-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="grid h-tap w-tap shrink-0 place-items-center rounded-r1 border-hair border-[color:hsl(var(--border))] text-ink-mid transition-colors hover:border-[color:var(--border-ui)] hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -159,10 +159,11 @@ export default function PlanDayMap({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex justify-center p-3">
           <span
             data-testid="plan-day-map-count"
-            className="inline-flex items-center gap-1.5 rounded-full bg-surface/85 px-3 py-1.5 text-xs text-ink-mid backdrop-blur"
+            className="chip bg-surface-low px-2.5 py-1"
           >
-            <MapPinned className="h-3.5 w-3.5" />
-            {dayStops.length} of {totalItems} {totalItems === 1 ? 'stop' : 'stops'} shown
+            <MapPinned className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="num">{dayStops.length}</span> of{' '}
+            <span className="num">{totalItems}</span> {totalItems === 1 ? 'stop' : 'stops'} shown
           </span>
         </div>
       )}

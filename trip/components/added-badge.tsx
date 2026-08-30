@@ -6,15 +6,16 @@ import { Check } from 'lucide-react';
  * motion; all Tailwind classes are literals. Presentational only:
  * callers pass `added` in; it holds no hooks/store access.
  *
- * Solid dark backing + gold text reads over bright card imagery (mirrors the
- * photo-rating pill) and stays visually distinct from the solid-gold "Must-see" chip.
+ * It is a STRUCK chip: this place is committed to a day, so the border is the struck
+ * --text-hi rule and the word says so. Solid backing rather than a blur, because it sits
+ * over bright card imagery and a blur there is a per-frame cost for a 5-character label.
  */
 export default function AddedBadge({ added, testId }: { added: boolean; testId: string }) {
   if (!added) return null;
   return (
     <span
       data-testid={testId}
-      className="flex items-center gap-1 px-2 py-1 rounded-full bg-black/50 backdrop-blur-sm border border-primary/40 text-primary text-[10px] font-semibold uppercase tracking-wide"
+      className="chip chip--struck bg-[rgb(var(--surface)/0.82)]"
     >
       <Check className="w-3 h-3 shrink-0" />
       Added

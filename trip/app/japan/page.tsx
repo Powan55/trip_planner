@@ -21,7 +21,9 @@ export const metadata = {
 
 export default function JapanPage() {
   return (
-    <main className="min-h-screen bg-surface">
+    // The leg channel: one attribute makes every descendant country-aware via --now,
+    // which is what replaced the per-route repaint.
+    <main data-leg="japan" className="min-h-screen bg-surface">
       {/* PageHero supplies the page's <h1> ( pages shipped
           without one — a11y win). Section components keep their own <h2>s. */}
       <PageHero

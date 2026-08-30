@@ -98,7 +98,7 @@ import {
  * - Journal → `clearAll()` is a LOCAL wipe ONLY.
  * Dormant, every clear is a plain local wipe.
  *
- * A11y / house style: dark glassmorphism, labelled disclosure buttons, ≥44px touch targets,
+ * A11y / house style: ruled instrument blocks, labelled disclosure buttons, ≥44px touch targets,
  * visible focus rings, `aria-live` on the sign-out state. No notifications group.
  */
 
@@ -124,7 +124,7 @@ export default function SettingsPanel() {
   return (
     <section
       aria-labelledby="settings-title"
-      className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6"
+      className="mx-auto w-full max-w-5xl pb-16"
       data-testid="settings-panel"
     >
       <div className="flex flex-col gap-4">
@@ -214,21 +214,21 @@ function SettingsGroup({
     <details
       open={defaultOpen}
       data-testid={testId}
-      className="group glass-card overflow-hidden rounded-2xl"
+      className="group overflow-hidden border-y-2 border-border bg-surface-low"
     >
       <summary
         data-testid={`${testId}-toggle`}
-        className="flex min-h-[44px] cursor-pointer list-none items-center gap-3 px-6 py-4 transition-colors hover:bg-white/[0.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50 sm:px-8"
+        className="flex min-h-tap cursor-pointer list-none items-center gap-3 px-gut py-4 transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/50"
       >
         {icon}
         <span className="min-w-0 flex-1">
           {/* The group title is the section heading, not decoration: without it the page went
               <h1> straight to the cards' <h3> and axe's heading-order failed. <h2> inside the
               <summary>'s span mirrors travel-essentials-card.tsx. Tailwind preflight zeroes
-              heading font-size/weight/margin, so `text-lg font-bold` renders byte-identical to
-              the <span> it replaced; the `block` class is dropped because <h2> already is one. */}
-          <h2 className="font-display text-lg font-bold text-white">{title}</h2>
-          <span className="block text-sm text-ink-mid">{summary}</span>
+              heading font-size/weight/margin, so `.pr` fully controls it; the `block` class is
+              dropped because <h2> already is one. */}
+          <h2 className="pr pr--l text-ink-hi">{title}</h2>
+          <span className="block text-t-body text-ink-mid">{summary}</span>
         </span>
         <span
           aria-hidden="true"
@@ -237,7 +237,7 @@ function SettingsGroup({
           ›
         </span>
       </summary>
-      <div className="border-t border-white/10 px-6 py-6 sm:px-8">{children}</div>
+      <div className="border-t-hair border-border px-gut py-6">{children}</div>
     </details>
   );
 }
@@ -253,10 +253,10 @@ function SignInRequired({ what }: { what: 'trip' | 'sync' }) {
   return (
     <div
       data-testid={`settings-signin-required-${what}`}
-      className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+      className="border-hair border-border bg-surface-raised px-gut py-4"
     >
-      <h3 className="text-sm font-semibold text-white">Log in to unlock this</h3>
-      <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+      <h3 className="pr pr--l text-ink-hi">Log in to unlock this</h3>
+      <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
         {what === 'trip'
           ? 'A trip’s Trip Token lets anyone view and edit that trip, so it’s only shown to a logged-in user.'
           : 'Your key is an account credential, so it’s only shown to the logged-in user it belongs to.'}
@@ -271,15 +271,15 @@ function IdentityGroup({ name }: { name: string | null }) {
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs uppercase tracking-widest text-ink-lo">Signed in as</p>
+          <p className="pr pr--lo">Signed in as</p>
           <p
             data-testid="settings-identity-name"
             aria-live="polite"
-            className="mt-1 font-display text-2xl font-bold text-display-emphasis"
+            className="num mt-1 text-n-md text-ink-hi"
           >
             {name ?? 'Not signed in'}
           </p>
-          <p className="mt-1 max-w-md text-sm text-ink-mid">
+          <p className="mt-1 max-w-md text-t-body text-ink-mid">
             {name
               ? 'Your itinerary edits are attributed to you across the shared trip.'
               : 'Log in with your key to attribute your edits.'}
@@ -292,7 +292,7 @@ function IdentityGroup({ name }: { name: string | null }) {
           <button
             type="button"
             data-testid={name ? 'settings-sign-out' : 'settings-sign-in'}
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="btn btn--2 self-start px-4"
           >
             <LogOut className="h-4 w-4" aria-hidden="true" />
             {name ? 'Sign out' : 'Sign in'}
@@ -312,9 +312,9 @@ function IdentityGroup({ name }: { name: string | null }) {
           deletes every locally-stored photo (IndexedDB, app-scoped). Gated on `name` like Rename
           above (meaningless when not signed in). */}
       {name && (
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-          <h3 className="text-sm font-semibold text-white">Forget this device</h3>
-          <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+        <div className="border-hair border-border bg-surface-raised px-gut py-4">
+          <h3 className="pr pr--l text-ink-hi">Forget this device</h3>
+          <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
             Signs out and permanently deletes every photo stored on this device. Use this before
             handing the device to someone else or giving it away.
           </p>
@@ -322,7 +322,7 @@ function IdentityGroup({ name }: { name: string | null }) {
             <button
               type="button"
               data-testid="settings-forget-device"
-              className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-rose-400/40 px-4 py-2.5 text-sm font-semibold text-rose-300 transition-colors hover:bg-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="btn btn--2 btn--danger mt-3 px-4"
             >
               <Trash2 className="h-4 w-4" aria-hidden="true" />
               Forget this device
@@ -361,7 +361,7 @@ function RenameIdentity({ current }: { current: string }) {
       className="flex flex-col gap-2 sm:flex-row sm:items-end"
     >
       <label className="flex-1">
-        <span className="text-xs uppercase tracking-widest text-ink-lo">Display name</span>
+        <span className="pr pr--lo">Display name</span>
         <input
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -370,14 +370,14 @@ function RenameIdentity({ current }: { current: string }) {
           autoCapitalize="words"
           spellCheck={false}
           data-testid="settings-identity-rename-input"
-          className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring"
+          className="mt-1 min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring"
         />
       </label>
       <button
         type="submit"
         disabled={!dirty}
         data-testid="settings-identity-rename-save"
-        className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="btn btn--2 px-4"
       >
         Save
       </button>
@@ -455,10 +455,10 @@ function LinkGoogleIdentity() {
   return (
     <div
       data-testid="settings-identity-google"
-      className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+      className="border-hair border-border bg-surface-raised px-gut py-4"
     >
-      <h3 className="text-sm font-semibold text-white">Link a Google account</h3>
-      <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+      <h3 className="pr pr--l text-ink-hi">Link a Google account</h3>
+      <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
         Optional. This device already has its own identity for shared trips; linking Google is how
         you get it back if you clear your browser data or change phone. It doesn&rsquo;t change who
         you are on a trip, and nothing is posted anywhere.
@@ -466,7 +466,7 @@ function LinkGoogleIdentity() {
       {linked ? (
         <p
           data-testid="settings-identity-google-linked"
-          className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-green-300"
+          className="mt-3 inline-flex items-center gap-2 text-t-body font-semibold text-ink-hi"
         >
           <Check className="h-4 w-4 shrink-0" aria-hidden="true" />
           Linked to Google
@@ -478,14 +478,14 @@ function LinkGoogleIdentity() {
           disabled={busy || linked === null}
           aria-busy={busy}
           data-testid="settings-identity-google-link"
-          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn btn--2 mt-3 px-4"
         >
           {busy ? 'Opening Google…' : 'Link a Google account'}
         </button>
       )}
       <div aria-live="polite" className="mt-2 min-h-[1.25rem]">
         {status && (
-          <p data-testid="settings-identity-google-status" className="text-sm text-ink-mid">
+          <p data-testid="settings-identity-google-status" className="text-t-body text-ink-mid">
             {status}
           </p>
         )}
@@ -494,7 +494,7 @@ function LinkGoogleIdentity() {
         <p
           role="alert"
           data-testid="settings-identity-google-error"
-          className="mt-1 flex items-center gap-2 text-sm font-medium text-red-300"
+          className="err mt-1 flex items-center gap-2 text-t-body font-medium"
         >
           <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
           {error}
@@ -613,9 +613,9 @@ function TripAccessGroup() {
   return (
     <div className="flex flex-col gap-4" data-testid="settings-access-card">
       {/* This device's code — the out-of-band invite, and the thing a friend pastes. */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">This device&rsquo;s code</h3>
-        <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+      <div className="border-hair border-border bg-surface-raised px-gut py-4">
+        <h3 className="pr pr--l text-ink-hi">This device&rsquo;s code</h3>
+        <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
           Send this to someone on the trip and ask them to add it below &mdash; that&rsquo;s how
           this device gets access. It identifies this browser, not you: it isn&rsquo;t a login and
           it opens nothing on its own.
@@ -623,7 +623,7 @@ function TripAccessGroup() {
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <code
             data-testid="settings-access-uid"
-            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-ink-hi"
+            className="min-h-tap min-w-0 flex-1 truncate rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body leading-[1.6] text-ink-hi"
           >
             {uid ?? '…'}
           </code>
@@ -632,7 +632,7 @@ function TripAccessGroup() {
             onClick={copyUid}
             disabled={!uid}
             data-testid="settings-access-uid-copy"
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+            className="btn btn--2 px-4"
           >
             {copied ? (
               <Check className="h-4 w-4" aria-hidden="true" />
@@ -648,10 +648,10 @@ function TripAccessGroup() {
       </div>
 
       {/* The roster. */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">Who can open this trip</h3>
+      <div className="border-hair border-border bg-surface-raised px-gut py-4">
+        <h3 className="pr pr--l text-ink-hi">Who can open this trip</h3>
         {tripKey === '' ? (
-          <p data-testid="settings-access-sample" className="mt-1 max-w-2xl text-sm text-ink-mid">
+          <p data-testid="settings-access-sample" className="mt-1 max-w-2xl text-t-body text-ink-mid">
             This is the sample trip &mdash; it lives on this device only, so there is nobody to add.
             Create a trip from your Trips page to plan with someone.
           </p>
@@ -660,7 +660,7 @@ function TripAccessGroup() {
             {members === null ? (
               <p
                 data-testid="settings-access-open"
-                className="mt-1 flex items-start gap-1.5 max-w-2xl text-sm text-ink-mid"
+                className="mt-1 flex max-w-2xl items-start gap-1.5 text-t-body text-ink-mid"
               >
                 <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 Anyone holding this trip&rsquo;s Trip Token can open it. Once this device has
@@ -673,13 +673,13 @@ function TripAccessGroup() {
                   <li
                     key={memberUid}
                     data-testid="settings-access-row"
-                    className="flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-surface/60 p-2"
+                    className="flex min-h-tap flex-wrap items-center gap-2 border-b-hair border-border py-2 last:border-b-0"
                   >
-                    <span className="flex min-h-[44px] min-w-0 flex-1 flex-col justify-center px-2">
-                      <code className="truncate font-mono text-sm text-ink-hi">
+                    <span className="flex min-h-tap min-w-0 flex-1 flex-col justify-center px-2">
+                      <code className="truncate font-machine text-t-body text-ink-hi">
                         {memberUid.slice(0, 8)}…
                       </code>
-                      <span className="text-xs text-ink-mid">
+                      <span className="text-t-sm text-ink-mid">
                         {role === 'owner' ? 'Owner' : 'Member'}
                         {memberUid === uid ? ' · this device' : ''}
                       </span>
@@ -691,7 +691,7 @@ function TripAccessGroup() {
                         disabled={busy}
                         data-testid="settings-access-remove"
                         aria-label={`Remove device ${memberUid.slice(0, 8)}`}
-                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[color:var(--border-ui)] text-ink-mid transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+                        className="btn btn--2 btn--danger min-w-tap px-0"
                       >
                         <X className="h-4 w-4" aria-hidden="true" />
                       </button>
@@ -714,14 +714,14 @@ function TripAccessGroup() {
                 autoCapitalize="off"
                 spellCheck={false}
                 data-testid="settings-access-add-input"
-                className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
               <button
                 type="submit"
                 disabled={!addValue.trim() || busy}
                 aria-busy={busy}
                 data-testid="settings-access-add-submit"
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+                className="btn btn--2 px-4"
               >
                 <UserPlus className="h-4 w-4" aria-hidden="true" />
                 Add device
@@ -731,7 +731,7 @@ function TripAccessGroup() {
         )}
         <div aria-live="polite" className="mt-2 min-h-[1.25rem]">
           {status && (
-            <p data-testid="settings-access-status" className="text-sm text-ink-mid">
+            <p data-testid="settings-access-status" className="text-t-body text-ink-mid">
               {status}
             </p>
           )}
@@ -740,7 +740,7 @@ function TripAccessGroup() {
           <p
             role="alert"
             data-testid="settings-access-error"
-            className="mt-1 flex items-center gap-2 text-sm font-medium text-red-300"
+            className="err mt-1 flex items-center gap-2 text-t-body font-medium"
           >
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
             {error}
@@ -844,10 +844,10 @@ function ClaimOldName({ current }: { current: string }) {
   return (
     <div
       data-testid="settings-claim-old-name"
-      className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+      className="border-hair border-border bg-surface-raised px-gut py-4"
     >
-      <h3 className="text-sm font-semibold text-white">Claim items under an old name</h3>
-      <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+      <h3 className="pr pr--l text-ink-hi">Claim items under an old name</h3>
+      <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
         If you renamed yourself, everything you added before the rename is still stamped with the
         old name — so you show up twice in the traveller filter. Claiming rewrites those stamps to
         “{current}” across your plan, your expenses and your document checklist.
@@ -871,7 +871,7 @@ function ClaimOldName({ current }: { current: string }) {
         className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end"
       >
         <label className="flex-1">
-          <span className="text-xs uppercase tracking-widest text-ink-lo">Old name</span>
+          <span className="pr pr--lo">Old name</span>
           <input
             value={value}
             onChange={(e) => {
@@ -882,14 +882,14 @@ function ClaimOldName({ current }: { current: string }) {
             autoComplete="off"
             spellCheck={false}
             data-testid="settings-claim-name-input"
-            className="mt-1 w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring"
+            className="mt-1 min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </label>
         <button
           type="submit"
           disabled={matches === 0}
           data-testid="settings-claim-name-submit"
-          className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="btn btn--2 px-4"
         >
           {matches === 1 ? 'Claim 1 entry' : `Claim ${matches} entries`}
         </button>
@@ -899,14 +899,14 @@ function ClaimOldName({ current }: { current: string }) {
       <p
         aria-live="polite"
         data-testid="settings-claim-name-status"
-        className="mt-2 text-sm text-ink-mid"
+        className="mt-2 max-w-2xl text-t-body text-ink-mid"
       >
         {claimed === null
           ? status
           : `Claimed ${claimed} entr${claimed === 1 ? 'y' : 'ies'} as “${current}”.`}
       </p>
       {matches > 0 && claimed === null && (
-        <p className="mt-1 max-w-2xl text-xs text-amber-200/70">
+        <p className="mt-1 max-w-2xl text-t-sm text-ink-mid">
           Check that number first. It counts everything carrying that exact name — including
           anything a fellow traveller left while logged in as “{DEFAULT_TRAVELER_NAME}” — and the
           rewrite syncs to every device. Only the “added by” and “last edited by” stamps change.
@@ -996,13 +996,13 @@ function TripGroup() {
       {onSharedTrip && (
         <div
           data-testid="settings-trip-shared-banner"
-          className="rounded-xl border border-gold-400/40 bg-gold-400/[0.06] p-4 sm:p-5"
+          className="border-hair border-[color:var(--border-ui)] bg-surface-raised px-gut py-4"
         >
-          <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-            <ShieldAlert className="h-4 w-4 shrink-0 text-gold-400" aria-hidden="true" />
+          <h3 className="pr pr--l flex items-center gap-2 text-ink-hi">
+            <ShieldAlert className="h-4 w-4 shrink-0 text-ink-lo" aria-hidden="true" />
             You&rsquo;re on a shared trip
           </h3>
-          <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+          <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
             This browser is viewing a trip you created or joined. Your own itinerary and data are
             safe on your main trip — switch back any time.
           </p>
@@ -1010,7 +1010,7 @@ function TripGroup() {
             type="button"
             onClick={switchToMain}
             data-testid="settings-trip-switch-main"
-            className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="btn mt-3 px-4"
           >
             Switch to my main trip
           </button>
@@ -1018,22 +1018,22 @@ function TripGroup() {
       )}
 
       {/* Current Trip Token — the shareable secret for THIS trip (and only this trip). */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">This trip&rsquo;s Trip Token</h3>
+      <div className="border-hair border-border bg-surface-raised px-gut py-4">
+        <h3 className="pr pr--l text-ink-hi">This trip&rsquo;s Trip Token</h3>
         {tripKey === '' ? (
           // #10 — the default pack is a local-only sample: no remote path, no token, nothing to
           // share. Rendering the empty string as a "secret" with live copy buttons would hand the
           // user a broken share link.
           <p
             data-testid="settings-trip-key-sample"
-            className="mt-1 max-w-2xl text-xs text-ink-mid"
+            className="mt-1 max-w-2xl text-t-sm text-ink-mid"
           >
             This is the sample trip &mdash; it lives on this device only and has no Trip Token.
             Create a trip from your Trips page to get one you can share.
           </p>
         ) : (
         <>
-        <p className="mt-1 flex items-start gap-1.5 text-xs text-ink-mid">
+        <p className="mt-1 flex max-w-2xl items-start gap-1.5 text-t-sm text-ink-mid">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Share this to invite someone to THIS trip &mdash; anyone holding it can view and edit it.
           It opens nothing else in your account.
@@ -1041,7 +1041,7 @@ function TripGroup() {
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <code
             data-testid="settings-trip-key"
-            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-ink-hi"
+            className="min-h-tap min-w-0 flex-1 truncate rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body leading-[1.6] text-ink-hi"
           >
             {tripKey ?? '…'}
           </code>
@@ -1051,7 +1051,7 @@ function TripGroup() {
               onClick={() => tripKey && copy(tripKey, 'key')}
               disabled={!tripKey}
               data-testid="settings-trip-key-copy"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+              className="btn btn--2 px-4"
             >
               {copied === 'key' ? (
                 <Check className="h-4 w-4" aria-hidden="true" />
@@ -1065,7 +1065,7 @@ function TripGroup() {
               onClick={() => shareLink && copy(shareLink, 'link')}
               disabled={!shareLink}
               data-testid="settings-trip-link-copy"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+              className="btn btn--2 px-4"
             >
               {copied === 'link' ? (
                 <Check className="h-4 w-4" aria-hidden="true" />
@@ -1086,10 +1086,10 @@ function TripGroup() {
       {/* Add an existing trip by pasting its Trip Token. */}
       <form
         onSubmit={join}
-        className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+        className="border-hair border-border bg-surface-raised px-gut py-4"
       >
-        <h3 className="text-sm font-semibold text-white">Add a trip by Trip Token</h3>
-        <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+        <h3 className="pr pr--l text-ink-hi">Add a trip by Trip Token</h3>
+        <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
           Paste the Trip Token a friend shared with you to add their trip and switch to it. Your own
           key is a login, not a trip &mdash; it never goes here.
         </p>
@@ -1106,13 +1106,13 @@ function TripGroup() {
             autoCapitalize="off"
             spellCheck={false}
             data-testid="settings-trip-join-input"
-            className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+            className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           />
           <button
             type="submit"
             disabled={!joinValue.trim()}
             data-testid="settings-trip-join-submit"
-            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+            className="btn btn--2 px-4"
           >
             Add trip
           </button>
@@ -1124,7 +1124,7 @@ function TripGroup() {
       <Link
         href="/trips/"
         data-testid="settings-trip-manage-link"
-        className="inline-flex min-h-[44px] items-center gap-1 self-start rounded-lg px-1 text-sm font-semibold text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+        className="inline-flex min-h-tap items-center gap-1 self-start rounded-r1 px-1 text-t-body font-semibold text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         Manage all trips &rarr;
       </Link>
@@ -1149,7 +1149,7 @@ function TripGroup() {
  * front door owns that. Switching accounts = sign out → log in, which keeps one entry point for the
  * one credential instead of a second, unlabelled back door in Settings.
  *
- * A11y / house style matches TripGroup verbatim (glass card, ≥44px targets, focus rings, aria-live).
+ * A11y / house style matches TripGroup verbatim (ruled block, ≥44px targets, focus rings, aria-live).
  * Storage is read post-mount only (ssr:false island). Dormant-safe: minting is a pure local write;
  * the push/subscribe self-gate on `isRemoteConfigured()`, so the token is inert until sync is
  * configured.
@@ -1189,9 +1189,9 @@ function SyncGroup() {
   return (
     <div className="flex flex-col gap-4" data-testid="settings-sync-card">
       {/* Your User Token — masked until revealed. */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">Your key</h3>
-        <p className="mt-1 flex items-start gap-1.5 text-xs text-ink-mid">
+      <div className="border-hair border-border bg-surface-raised px-gut py-4">
+        <h3 className="pr pr--l text-ink-hi">Your key</h3>
+        <p className="mt-1 flex max-w-2xl items-start gap-1.5 text-t-sm text-ink-mid">
           <ShieldAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           This is how you log in. <strong className="font-semibold text-ink-hi">Never share it</strong>{' '}
           &mdash; it opens your whole account and every trip in it. Copy it only to log in on your own
@@ -1200,7 +1200,7 @@ function SyncGroup() {
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <code
             data-testid="settings-sync-code"
-            className="min-w-0 flex-1 truncate rounded-lg border border-white/10 bg-surface/60 px-3 py-2.5 font-mono text-sm text-ink-hi"
+            className="min-h-tap min-w-0 flex-1 truncate rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body leading-[1.6] text-ink-hi"
           >
             {code === null ? 'Not set up yet' : revealed ? code : '•'.repeat(24)}
           </code>
@@ -1209,7 +1209,7 @@ function SyncGroup() {
               type="button"
               onClick={reveal}
               data-testid="settings-sync-reveal"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+              className="btn px-4"
             >
               {code === null ? 'Create my key' : revealed ? 'Showing' : 'Reveal'}
             </button>
@@ -1218,7 +1218,7 @@ function SyncGroup() {
               onClick={copy}
               disabled={code === null || !revealed}
               data-testid="settings-sync-copy"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:opacity-40"
+              className="btn btn--2 px-4"
             >
               {copied ? <Check className="h-4 w-4" aria-hidden="true" /> : <Copy className="h-4 w-4" aria-hidden="true" />}
               {copied ? 'Copied' : 'Copy'}
@@ -1228,7 +1228,7 @@ function SyncGroup() {
         <div aria-live="polite" className="sr-only">
           {copied ? 'Your key copied to clipboard' : ''}
         </div>
-        <p className="mt-3 max-w-2xl text-xs text-ink-mid">
+        <p className="mt-3 max-w-2xl text-t-sm text-ink-mid">
           To use this account on another device, log out there (or open the app fresh) and enter this
           key at the front door.
         </p>
@@ -1266,8 +1266,8 @@ function CurrencyGroup() {
   return (
     <div className="grid gap-4 lg:grid-cols-2">
       {/* Home / display currency toggle */}
-      <fieldset className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <legend className="px-1 text-sm font-semibold text-white">Show totals in</legend>
+      <fieldset className="border-hair border-border bg-surface-raised px-gut py-4">
+        <legend className="pr pr--l px-1 text-ink-hi">Show totals in</legend>
         <div
           role="radiogroup"
           aria-label="Home currency for totals"
@@ -1284,10 +1284,8 @@ function CurrencyGroup() {
                 aria-checked={active}
                 onClick={() => setHomeCurrency(cur)}
                 data-testid={`budget-currency-${cur.toLowerCase()}`}
-                className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
-                  active
-                    ? 'border-ring bg-primary/10 text-primary'
-                    : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
+                className={`chip min-h-tap px-4 ${
+                  active ? 'chip--struck bg-[rgb(62_216_255/0.10)]' : 'chip--hollow hover:bg-white/[0.05]'
                 }`}
               >
                 <span aria-hidden="true">{currencySymbol(cur)}</span>
@@ -1299,9 +1297,9 @@ function CurrencyGroup() {
       </fieldset>
 
       {/* Exchange rates (manual override; seeded) */}
-      <fieldset className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <legend className="px-1 text-sm font-semibold text-white">Exchange rates</legend>
-        <p className="mt-1 flex items-center gap-1.5 text-xs text-ink-mid">
+      <fieldset className="border-hair border-border bg-surface-raised px-gut py-4">
+        <legend className="pr pr--l px-1 text-ink-hi">Exchange rates</legend>
+        <p className="mt-1 flex items-center gap-1.5 text-t-sm text-ink-mid">
           <Info className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           Approximate defaults — edit to match today&apos;s rate. Units per 1 US dollar.
         </p>
@@ -1325,7 +1323,7 @@ function CurrencyGroup() {
           type="button"
           onClick={resetRates}
           data-testid="budget-rate-reset"
-          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-[color:var(--border-ui)] px-3 py-1.5 text-xs font-semibold text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="btn btn--2 mt-3 px-3"
         >
           <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
           Reset to defaults
@@ -1355,7 +1353,7 @@ function RateField({
   const draft = useDraftOnBlur(display, onChange);
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={id} className="text-xs font-medium text-ink-lo">
+      <label htmlFor={id} className="pr pr--lo">
         {label}
       </label>
       <input
@@ -1367,7 +1365,7 @@ function RateField({
         step="any"
         placeholder={String(seed)}
         {...draft}
-        className="w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+        className="min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2 num text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
       />
     </div>
   );
@@ -1429,9 +1427,9 @@ function DataGroup() {
       {/* Calendar export — one .ics file with every planned item as a VEVENT, importable into
           a phone's calendar app for lock-screen/alarm reminders (#259). Disabled when there is
           nothing to export. */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">Export to calendar</h3>
-        <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+      <div className="border-hair border-border bg-surface-raised px-gut py-4">
+        <h3 className="pr pr--l text-ink-hi">Export to calendar</h3>
+        <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
           Download your itinerary as a calendar file (.ics) you can import into your phone&rsquo;s
           calendar app for reminders.
         </p>
@@ -1440,7 +1438,7 @@ function DataGroup() {
           onClick={handleExportIcs}
           disabled={!hasItineraryItems}
           data-testid="settings-export-itinerary-ics"
-          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          className="btn btn--2 mt-3 px-4"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           Export itinerary (.ics)
@@ -1449,9 +1447,9 @@ function DataGroup() {
 
       {/* Expense CSV export — a spreadsheet-ready sibling to the whole-trip JSON export
           above. Disabled when there is nothing to export (empty-safe: no zero-row file). */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">Export expenses</h3>
-        <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+      <div className="border-hair border-border bg-surface-raised px-gut py-4">
+        <h3 className="pr pr--l text-ink-hi">Export expenses</h3>
+        <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
           Download every logged expense as a spreadsheet-ready CSV file.
         </p>
         <button
@@ -1459,7 +1457,7 @@ function DataGroup() {
           onClick={handleExportCsv}
           disabled={expenses.length === 0}
           data-testid="settings-export-expenses-csv"
-          className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+          className="btn btn--2 mt-3 px-4"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           Export expenses (CSV)
@@ -1471,13 +1469,13 @@ function DataGroup() {
       <ExpensesBackupRestore expenses={expenses} restoreExpenses={restoreExpenses} />
 
       {/* Per-domain clears — each behind a Radix AlertDialog confirm. */}
-      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-        <h3 className="text-sm font-semibold text-white">Clear trip data</h3>
-        <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+      <div className="border-hair border-border bg-surface-raised px-gut py-4">
+        <h3 className="pr pr--l text-ink-hi">Clear trip data</h3>
+        <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
           Permanently remove data for one area of the trip. On a shared trip this clears it for
           everyone; the journal is always private to this device.
         </p>
-        <ul className="mt-4 flex flex-col divide-y divide-white/10">
+        <ul className="mt-4">
           <ClearRow
             testId="settings-clear-itinerary"
             label="Itinerary"
@@ -1589,9 +1587,9 @@ function ExpensesBackupRestore({
   };
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-      <h3 className="text-sm font-semibold text-white">Expenses backup</h3>
-      <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+    <div className="border-hair border-border bg-surface-raised px-gut py-4">
+      <h3 className="pr pr--l text-ink-hi">Expenses backup</h3>
+      <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
         Save your logged expenses to a file, or restore them from a backup. This is a separate file
         from the whole-trip export above — it covers expenses only.
       </p>
@@ -1600,7 +1598,7 @@ function ExpensesBackupRestore({
           type="button"
           onClick={handleExport}
           data-testid="settings-export-expenses-json"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="btn btn--2 px-4"
         >
           <Download className="h-4 w-4" aria-hidden="true" />
           Export expenses (JSON)
@@ -1609,7 +1607,7 @@ function ExpensesBackupRestore({
           type="button"
           onClick={() => fileInputRef.current?.click()}
           data-testid="settings-import-expenses-trigger"
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="btn px-4"
         >
           <Upload className="h-4 w-4" aria-hidden="true" />
           Restore expenses
@@ -1627,7 +1625,7 @@ function ExpensesBackupRestore({
 
       <div aria-live="polite" className="mt-3 min-h-[1.25rem]">
         {status.kind === 'success' && (
-          <p data-testid="settings-import-expenses-status" className="text-sm font-medium text-green-300">
+          <p data-testid="settings-import-expenses-status" className="text-t-body font-medium text-ink-hi">
             {status.message}
           </p>
         )}
@@ -1635,7 +1633,7 @@ function ExpensesBackupRestore({
           <p
             data-testid="settings-import-expenses-error"
             role="alert"
-            className="flex items-center gap-2 text-sm font-medium text-red-300"
+            className="err flex items-center gap-2 text-t-body font-medium"
           >
             <AlertTriangle className="h-4 w-4 shrink-0" aria-hidden="true" />
             {status.message}
@@ -1654,13 +1652,13 @@ function ExpensesBackupRestore({
         }}
       >
         <AlertDialogContent
-          className="glass-card-dark border-white/10 text-white"
+          className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
           data-testid="settings-import-expenses-dialog"
         >
           <AlertDialogHeader>
             <AlertDialogTitle>Replace your logged expenses?</AlertDialogTitle>
-            <AlertDialogDescription className="text-ink-mid">
-              Importing <span className="font-medium text-white">{pendingImport?.name}</span> will
+            <AlertDialogDescription className="text-t-body text-ink-mid">
+              Importing <span className="font-machine text-t-sm text-ink-hi">{pendingImport?.name}</span> will
               replace your current expenses with the contents of that file. On a shared trip this
               replaces expenses for everyone. This cannot be undone.
             </AlertDialogDescription>
@@ -1675,7 +1673,7 @@ function ExpensesBackupRestore({
             <AlertDialogAction
               data-testid="settings-import-expenses-confirm"
               onClick={confirmImport}
-              className="bg-rose-500 text-white hover:bg-rose-400"
+              className="btn btn--danger"
             >
               Replace expenses
             </AlertDialogAction>
@@ -1705,36 +1703,36 @@ function ClearRow({
   onConfirm: () => void;
 }) {
   return (
-    <li className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+    <li className="flex min-h-tap items-center justify-between gap-4 border-b-hair border-border py-3 last:border-b-0">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-white">{label}</p>
-        <p className="text-xs text-ink-mid">{description}</p>
+        <p className="text-t-body font-semibold text-ink-hi">{label}</p>
+        <p className="text-t-sm text-ink-mid">{description}</p>
       </div>
       <AlertDialog>
         <AlertDialogTrigger asChild>
           <button
             type="button"
             data-testid={testId}
-            className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-lg border border-rose-400/40 px-3 py-2 text-sm font-semibold text-rose-300 transition-colors hover:bg-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="btn btn--2 btn--danger shrink-0 px-3"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" />
             Clear
           </button>
         </AlertDialogTrigger>
         <AlertDialogContent
-          className="glass-card-dark border-white/10 text-white"
+          className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
           data-testid={`${testId}-dialog`}
         >
           <AlertDialogHeader>
             <AlertDialogTitle>{title}</AlertDialogTitle>
-            <AlertDialogDescription className="text-ink-mid">{body}</AlertDialogDescription>
+            <AlertDialogDescription className="text-t-body text-ink-mid">{body}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel data-testid={`${testId}-cancel`}>Cancel</AlertDialogCancel>
             <AlertDialogAction
               data-testid={`${testId}-confirm`}
               onClick={onConfirm}
-              className="bg-rose-500 text-white hover:bg-rose-400"
+              className="btn btn--danger"
             >
               {confirmLabel}
             </AlertDialogAction>

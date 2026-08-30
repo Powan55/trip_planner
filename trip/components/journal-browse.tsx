@@ -92,7 +92,7 @@ export default function JournalBrowse() {
         <h2 id="journal-browse-heading" className="sr-only">
           All journal entries
         </h2>
-        <p className="text-sm text-ink-mid">Loading your journal…</p>
+        <p className="empty">Loading your journal…</p>
       </section>
     );
   }
@@ -115,12 +115,12 @@ export default function JournalBrowse() {
       className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6"
     >
       <header className="mb-6">
-        <p className="mb-2 flex items-center gap-1.5 text-xs uppercase tracking-widest text-muted-foreground">
+        <p className="pr mb-2 flex items-center gap-1.5">
           <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
           Every day, in your words
         </p>
-        <h2 id="journal-browse-heading" className="font-display text-2xl font-bold leading-tight text-white sm:text-3xl">
-          All journal <span className="text-display-emphasis">entries</span>
+        <h2 id="journal-browse-heading" className="text-display-lg text-ink-hi">
+          All journal entries
         </h2>
       </header>
 
@@ -141,7 +141,7 @@ export default function JournalBrowse() {
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search entries by word, place or date…"
               data-testid="journal-browse-search"
-              className="min-h-[44px] w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-9 pr-12 text-sm text-white placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+              className="min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-low py-3 pl-9 pr-12 text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
             />
             {query && (
               <button
@@ -149,7 +149,7 @@ export default function JournalBrowse() {
                 onClick={() => setQuery('')}
                 aria-label="Clear search"
                 data-testid="journal-browse-search-clear"
-                className="absolute right-1 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-ink-mid outline-none transition-colors duration-200 hover:bg-white/10 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="absolute right-1 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-r1 text-ink-mid outline-none transition-colors duration-200 hover:bg-white/5 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -161,7 +161,7 @@ export default function JournalBrowse() {
             role="status"
             aria-live="polite"
             data-testid="journal-browse-search-status"
-            className="mt-2 min-h-[1.25rem] text-xs text-ink-mid"
+            className="pr pr--lo mt-2 min-h-[1.25rem]"
           >
             {q ? `${matched.length} of ${entries.length} entries match` : ''}
           </p>
@@ -186,16 +186,16 @@ export default function JournalBrowse() {
           ))}
         </ul>
       ) : entries.length === 0 ? (
-        <div data-testid="journal-browse-empty" className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center">
-          <p className="text-sm text-ink-mid">No journal entries yet.</p>
-          <p className="mt-1 text-xs text-ink-lo">
+        <div data-testid="journal-browse-empty" className="empty-frame p-6 text-center">
+          <p className="empty">Unwritten &mdash; every trip day is still blank.</p>
+          <p className="empty mt-1">
             Write about a trip day from the Today panel — it will show up here.
           </p>
         </div>
       ) : (
-        <div data-testid="journal-browse-no-match" className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center">
-          <p className="text-sm text-ink-mid">No entries match that search.</p>
-          <p className="mt-1 text-xs text-ink-lo">Try a shorter word, a place name, or a date like December 10.</p>
+        <div data-testid="journal-browse-no-match" className="empty-frame p-6 text-center">
+          <p className="empty">No entries match that search.</p>
+          <p className="empty mt-1">Try a shorter word, a place name, or a date like December 10.</p>
         </div>
       )}
     </section>
@@ -221,10 +221,10 @@ function JournalRow({
     <article
       aria-labelledby={headingId}
       data-testid={`journal-browse-row-${date}`}
-      className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+      className="border-hair border-border bg-surface-low p-4 sm:p-5"
     >
       <header className="mb-2 flex items-start justify-between gap-3">
-        <h3 id={headingId} className="text-sm font-semibold text-white">
+        <h3 id={headingId} className="pr pr--l">
           {formatDateLong(date)}
         </h3>
         <button
@@ -232,7 +232,7 @@ function JournalRow({
           onClick={onEdit}
           data-testid={`journal-browse-edit-${date}`}
           aria-label={`Edit journal entry for ${formatDateLong(date)}`}
-          className="inline-flex min-h-[44px] flex-shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="chip min-h-tap flex-shrink-0 gap-1.5 px-3 outline-none transition-colors duration-200 hover:bg-white/5 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
           Edit
@@ -244,7 +244,7 @@ function JournalRow({
           {mood && (
             <span
               data-testid={`journal-browse-mood-${date}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-2.5 py-1 text-xs font-medium text-muted-foreground"
+              className="chip"
             >
               <span aria-hidden="true">{mood.glyph}</span>
               {mood.label}
@@ -253,9 +253,9 @@ function JournalRow({
           {entry?.highlight && (
             <span
               data-testid={`journal-browse-highlight-${date}`}
-              className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-sm font-medium text-ink-hi"
+              className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-t-body font-semibold text-ink-hi"
             >
-              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-muted-foreground" aria-hidden="true" />
+              <Sparkles className="h-3.5 w-3.5 flex-shrink-0 text-ink-lo" aria-hidden="true" />
               <span className="min-w-0 break-words">{entry.highlight}</span>
             </span>
           )}
@@ -265,7 +265,7 @@ function JournalRow({
       {entry?.text && (
         <p
           data-testid={`journal-browse-body-${date}`}
-          className="whitespace-pre-wrap break-words text-sm leading-relaxed text-ink-hi"
+          className="whitespace-pre-wrap break-words text-t-body leading-relaxed text-ink-hi"
         >
           {entry.text}
         </p>
@@ -291,8 +291,8 @@ export function JournalPhotoStrip({ date, photos }: { date: string; photos: Phot
   if (photos.length === 0) return null;
 
   return (
-    <div data-testid={`journal-browse-photos-${date}`} className="mt-3 border-t border-white/10 pt-3">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+    <div data-testid={`journal-browse-photos-${date}`} className="mt-3 border-t-2 border-border pt-3">
+      <p className="pr mb-2 flex items-center gap-1.5">
         <Camera className="h-3.5 w-3.5" aria-hidden="true" />
         Photos
       </p>
@@ -338,7 +338,7 @@ function JournalPhotoThumb({ meta, onOpen }: { meta: PhotoMeta; onOpen: () => vo
     <li
       data-testid={`journal-browse-photo-${meta.id}`}
       data-missing={missing ? 'true' : 'false'}
-      className="relative aspect-square w-20 flex-shrink-0 overflow-hidden rounded-lg border border-white/10 bg-white/[0.03] sm:w-24"
+      className="relative aspect-square w-20 flex-shrink-0 overflow-hidden border-hair border-border bg-surface-low sm:w-24"
     >
       {missing ? (
         <div
@@ -360,11 +360,11 @@ function JournalPhotoThumb({ meta, onOpen }: { meta: PhotoMeta; onOpen: () => vo
           <img src={url} alt={meta.altText} className="h-full w-full object-cover" />
         </button>
       ) : (
-        <div className="h-full w-full motion-safe:animate-pulse bg-white/[0.04]" aria-hidden="true" />
+        <div className="load h-full w-full"><span className="pr pr--lo">Loading</span></div>
       )}
 
       {meta.caption && !missing && (
-        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1 pb-0.5 pt-2 text-[9px] text-ink-hi">
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 truncate bg-gradient-to-t from-black/70 to-transparent px-1 pb-0.5 pt-2 text-t-micro text-ink-hi">
           {meta.caption}
         </span>
       )}

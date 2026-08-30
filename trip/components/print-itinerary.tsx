@@ -39,7 +39,7 @@ export default function PrintItinerary() {
 
   return (
     <>
-      <div className="mx-auto flex w-full max-w-[1200px] justify-end px-4 pb-2 sm:px-6 print:hidden">
+      <div className="mx-auto flex w-full max-w-[1200px] justify-end px-gut pb-2 print:hidden">
         <PrintButton label="Print itinerary" />
       </div>
 

@@ -1,11 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { m, useReducedMotion, useInView } from 'framer-motion';
+import { useInView } from 'framer-motion';
 import { useCountUp } from '@/hooks/use-count-up';
 import { useDraftOnBlur } from '@/hooks/use-draft-on-blur';
 import { showUndoToast } from '@/lib/undo-toast';
-import { Wallet } from 'lucide-react';
 import { CATEGORY_COLORS, type ItineraryCategory } from '@/lib/trip-data';
 import { useBudget } from '@/hooks/use-budget';
 import {
@@ -14,14 +13,18 @@ import {
   currencySymbol,
   formatMoney,
   safeAmount,
+  convert,
+  ratePerUsd,
   BUDGET_CATEGORIES,
   LEGS,
+  SEED_RATES,
   type BudgetModel,
   type BudgetRollup,
   type LegRollup,
   type CategoryRollup,
   type CurrencyCode,
   type Leg,
+  type SpentInput,
 } from '@/core/budget/model';
 import { useExpenses } from '@/hooks/use-expenses';
 import { usePhotos } from '@/hooks/use-photos';
@@ -36,7 +39,6 @@ import { legLabel } from '@/lib/leg-label';
 import BurnRateView from '@/components/burn-rate-view';
 import ExpenseLog from '@/components/expense-log';
 import SettleUpSummary from '@/components/settle-up-summary';
-import { FADE_FLOOR } from '@/lib/motion';
 
 /**
  * Budget panel. Mounted on `/plan` below the trip timeline
@@ -59,12 +61,11 @@ import { FADE_FLOOR } from '@/lib/motion';
  * this component holds only controlled inputs + the persistence effect. Inputs are TOTAL: an empty /
  * NaN value is treated as 0/unset and never renders `NaN`.
  *
- * A11y / house style: dark glassmorphism (glass-card), labelled inputs, visible focus rings, ≥44px
- * touch targets on the currency toggle, `aria-live` on the grand total, reduced-motion-gated reveal.
+ * A11y / house style: hairline-ruled surfaces, labelled inputs, visible focus rings, tap-floor
+ * touch targets on every control, and `aria-live` on the grand total. No entrance to fork: the
+ * panel is present when you arrive.
  */
 export default function BudgetPanel() {
-  const prefersReducedMotion = useReducedMotion();
-
   // Reactive budget store — the shared `createReactiveStore` skeleton. Seeds from
   // the StoragePort's SSR value, hydrates on mount, and re-reads on the `'budget:changed'` event +
   // cross-tab `storage`. Replaces the panel's former ad-hoc `useState` + `loadBudget`/
@@ -175,45 +176,23 @@ export default function BudgetPanel() {
     window.dispatchEvent(new CustomEvent(EXPENSE_OPEN_EVENT, { detail: { expense } }));
   };
 
-  // FLOORED fade.
-  // The animated branch now runs FADE_FLOOR → 1: shallow enough that the axe scan (which
-  // runs WITHOUT reduced motion and can sample mid-animation) still sees the muted budget
-  // copy ≥AA at the darkest frame. Reduced-motion branch left intact — it lands at 1.
-  const reveal = prefersReducedMotion
-    ? { hidden: { opacity: 0 }, show: { opacity: 1, transition: { duration: 0.3 } } }
-    : {
-        hidden: { opacity: FADE_FLOOR, y: 16 },
-        show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: [0.22, 1, 0.36, 1] as const } },
-      };
-
   return (
     <section
       aria-labelledby="budget-panel-title"
       className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6"
       data-testid="budget-panel"
     >
-      <m.div
-        initial="hidden"
-        whileInView="show"
-        viewport={{ once: true, amount: 0.15 }}
-        variants={reveal}
-        className="glass-card rounded-2xl p-6 sm:p-8"
-      >
+      <div className="border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))] p-gut sm:p-6">
         {/* Header */}
-        <div className="mb-6 flex items-start gap-3">
-          <Wallet className="mt-0.5 h-6 w-6 shrink-0 text-muted-foreground" aria-hidden="true" />
-          <div>
-            <h2
-              id="budget-panel-title"
-              className="font-display text-xl font-bold text-white sm:text-2xl"
-            >
-              Trip Budget
-            </h2>
-            <p className="mt-1 max-w-2xl text-sm text-ink-mid">
-              Track your budget, spending, pace, and who owes whom — all in one place, saved on this
-              device.
-            </p>
+        <div className="mb-5">
+          <div className="sec">
+            <h2 id="budget-panel-title">Trip budget</h2>
+            <span className="sub">{expenses.length} entries logged</span>
           </div>
+          <p className="max-w-2xl text-t-body text-ink-mid">
+            Track your budget, spending, pace, and who owes whom — all in one place, saved on this
+            device.
+          </p>
         </div>
 
         {/* the money views behind a real, keyboard-operable tablist (one at a time). */}
@@ -228,7 +207,12 @@ export default function BudgetPanel() {
           tabIndex={0}
           className="mt-6 focus-visible:outline-none"
         >
-          <div className="grid gap-4 lg:grid-cols-2">
+          {/* The ruled ledger. It is the SHAPE of the record, drawn at the
+              size it will be: every category line, every leg currency and the derived home
+              column, ruled and totalled, whether or not anything has been written into it. */}
+          <Ledger spent={spent} model={model} entries={expenses.length} home={home} />
+
+          <div className="mt-6 grid gap-4 lg:grid-cols-2">
             {LEGS.map((leg) => {
               const tripLeg = getActiveTrip().legs.find((l) => l.id === leg);
               return (
@@ -287,12 +271,6 @@ export default function BudgetPanel() {
             home={home}
             now={now}
           />
-          {roll.totalBudgetHome <= 0 && (
-            <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-ink-mid">
-              Set a budget on the <strong className="font-semibold text-ink-hi">Budget</strong> tab
-              to see how your spending is tracking against plan.
-            </p>
-          )}
         </div>
 
         {/* Settle up — who owes whom over the split expenses; empty until ≥1 split. */}
@@ -306,14 +284,136 @@ export default function BudgetPanel() {
         >
           <SettleUpSummary settlements={settlements} />
           {settlements.length === 0 && (
-            <p className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-ink-mid">
-              Log a <strong className="font-semibold text-ink-hi">split</strong> expense on the
-              Expenses tab and this shows who owes whom.
+            <p className="empty border-hair border-[color:hsl(var(--border))] p-gut">
+              Nothing is split yet, so nobody owes anybody. Log a{' '}
+              <strong className="font-semibold text-ink-hi">split</strong> expense on the Expenses
+              tab and the minimal set of transfers is printed here.
             </p>
           )}
         </div>
-      </m.div>
+      </div>
     </section>
+  );
+}
+
+/**
+ * THE RULED LEDGER — the empty state as the designed state.
+ *
+ * The hardest empty state in the app is this one: at three months out `legBudgets` is
+ * `{nepal: 0, japan: 0}` and there are zero expenses. Rendering that as "No expenses yet" throws
+ * away every fact the app actually holds. So the ledger is drawn instead: all ten real category
+ * lines, one column per leg in that leg's own currency, the derived home column, the rates
+ * printed in the head with their provenance, and a double-ruled total — ruled and waiting for the
+ * first entry rather than captioned as absent.
+ *
+ * Every figure is READ, never asserted: the categories are `BUDGET_CATEGORIES`, the currencies
+ * `legCurrency`, the rates `model.rates` (labelled `seed` only while they still equal
+ * `SEED_RATES`), and the amounts the same `expensesToSpent` aggregate the rollup consumes.
+ *
+ * The home column DROPS below 560px, not clips: it is derived from the leg columns at the rates
+ * printed in the head, so nothing unrecoverable leaves the screen.
+ */
+function Ledger({
+  spent,
+  model,
+  entries,
+  home,
+}: {
+  spent: SpentInput;
+  model: BudgetModel;
+  entries: number;
+  home: CurrencyCode;
+}) {
+  const seeded = model.rates.NPR === SEED_RATES.NPR && model.rates.JPY === SEED_RATES.JPY;
+  const rows = BUDGET_CATEGORIES.map((category, i) => {
+    const perLeg = LEGS.map((leg) => safeAmount(spent.byCategory?.[leg]?.[category]));
+    const homeTotal = LEGS.reduce(
+      (sum, leg, j) => sum + convert(perLeg[j], legCurrency(leg), home, model.rates),
+      0,
+    );
+    return { category, no: String(i + 1).padStart(2, '0'), perLeg, homeTotal };
+  });
+  const legTotals = LEGS.map((_, j) => rows.reduce((sum, r) => sum + r.perLeg[j], 0));
+  const homeGrand = rows.reduce((sum, r) => sum + r.homeTotal, 0);
+  const unwritten = entries === 0;
+  const cell = 'px-2 py-1.5 text-right whitespace-nowrap border-b-hair border-[color:hsl(var(--border))]';
+
+  return (
+    <div data-testid="budget-ledger">
+      <div className="sec">
+        <h3 className="pr pr--l text-ink-hi">Expense ledger</h3>
+        <span className="sub">{unwritten ? 'ruled, unwritten' : `${entries} entries`}</span>
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        {unwritten && <span className="stamp stamp--dry">Unwritten</span>}
+        {LEGS.map((leg) => (
+          <span key={leg} className="chip">
+            {legCurrency(leg)} {ratePerUsd(model.rates, legCurrency(leg))} / {home}
+          </span>
+        ))}
+        <span className="chip">{seeded ? 'seed rates' : 'rates overridden'}</span>
+      </div>
+
+      <div className="overflow-x-auto border-hair border-[color:hsl(var(--border))]">
+        <table className="w-full border-collapse">
+          <caption className="sr-only">
+            Logged spend by category, one column per leg in that leg&rsquo;s currency plus the
+            total converted to {home}.
+          </caption>
+          <thead>
+            <tr className="border-b-2 border-[color:hsl(var(--border))]">
+              <th scope="col" className="pr pr--lo px-2 py-1.5 text-left">No</th>
+              <th scope="col" className="pr pr--lo px-2 py-1.5 text-left">Category</th>
+              {LEGS.map((leg) => (
+                <th key={leg} scope="col" className="pr pr--lo px-2 py-1.5 text-right whitespace-nowrap">
+                  {legLabel(leg)} · {legCurrency(leg)}
+                </th>
+              ))}
+              <th scope="col" className="pr pr--lo hidden px-2 py-1.5 text-right min-[560px]:table-cell">
+                {home}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const blank = row.homeTotal === 0;
+              return (
+                <tr key={row.category} data-testid={`budget-ledger-${row.category}`} data-mark={blank ? 'hollow' : undefined}>
+                  <td className={`num px-2 py-1.5 border-b-hair border-[color:hsl(var(--border))] ${blank ? 'text-ink-lo' : 'text-ink-mid'}`}>
+                    {row.no}
+                  </td>
+                  <td className={`px-2 py-1.5 capitalize border-b-hair border-[color:hsl(var(--border))] text-t-body ${blank ? 'text-ink-lo' : 'text-ink-hi'}`}>
+                    {row.category}
+                  </td>
+                  {LEGS.map((leg, j) => (
+                    <td key={leg} className={`num ${cell} ${row.perLeg[j] > 0 ? 'text-ink-hi' : 'text-ink-lo'}`}>
+                      {row.perLeg[j] > 0 ? formatMoney(row.perLeg[j], legCurrency(leg)) : '—'}
+                    </td>
+                  ))}
+                  <td className={`num hidden min-[560px]:table-cell ${cell} ${blank ? 'text-ink-lo' : 'text-ink-hi'}`}>
+                    {blank ? '—' : formatMoney(row.homeTotal, home)}
+                  </td>
+                </tr>
+              );
+            })}
+            {/* The double rule is the ledger's own convention for a closing total. */}
+            <tr data-testid="budget-ledger-total" className="border-t-[3px] border-double border-[color:hsl(var(--border))]">
+              <td className="px-2 py-2" />
+              <td className="pr px-2 py-2 text-left">Total · {entries} {entries === 1 ? 'entry' : 'entries'}</td>
+              {LEGS.map((leg, j) => (
+                <td key={leg} className="num px-2 py-2 text-right whitespace-nowrap text-ink-hi">
+                  {formatMoney(legTotals[j], legCurrency(leg))}
+                </td>
+              ))}
+              <td className="num hidden px-2 py-2 text-right text-ink-hi min-[560px]:table-cell">
+                {formatMoney(homeGrand, home)}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
 
@@ -356,7 +456,7 @@ function MoneyTabs({ view, onChange }: { view: MoneyView; onChange: (v: MoneyVie
       role="tablist"
       aria-label="Money views"
       onKeyDown={onKeyDown}
-      className="flex gap-1 overflow-x-auto rounded-xl border border-white/10 bg-surface/40 p-1"
+      className="flex gap-1 overflow-x-auto border-b-2 border-[color:hsl(var(--border))] pt-1.5"
     >
       {MONEY_TABS.map((t) => {
         const active = t.id === view;
@@ -371,10 +471,10 @@ function MoneyTabs({ view, onChange }: { view: MoneyView; onChange: (v: MoneyVie
             aria-controls={`budget-view-panel-${t.id}`}
             tabIndex={active ? 0 : -1}
             onClick={() => onChange(t.id)}
-            className={`min-h-[44px] flex-1 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+            className={`min-h-tap flex-1 whitespace-nowrap rounded-t-r2 border-hair border-b-0 px-4 font-machine text-t-label uppercase tracking-[0.11em] transition-[translate,background-color] [transition-duration:var(--duration-raise)] ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               active
-                ? 'bg-primary text-primary-foreground'
-                : 'text-ink-mid hover:bg-white/5 hover:text-white'
+                ? '-translate-y-[5px] border-[color:var(--border-ui)] bg-[rgb(var(--surface-overlay))] text-ink-hi'
+                : 'border-[color:hsl(var(--border))] bg-[rgb(var(--surface-raised))] text-ink-lo hover:text-ink-hi'
             }`}
           >
             {t.label}
@@ -403,17 +503,17 @@ function SpentRemaining({
   // Nothing to show until either a budget is set or something has been spent.
   if (budgetLocal <= 0 && spentLocal <= 0) return null;
   return (
-    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs" data-testid={testId}>
+    <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 font-machine text-t-sm" data-testid={testId}>
       <span className="text-ink-mid">
         Spent{' '}
-        <span className="font-semibold text-ink-hi" data-testid={`${testId}-spent`}>
+        <span className="num text-ink-hi" data-testid={`${testId}-spent`}>
           {formatMoney(spentLocal, cur)}
         </span>
       </span>
       <span aria-hidden="true" className="text-ink-lo">
         ·
       </span>
-      <span className={over ? 'text-red-400' : 'text-emerald-300/90'}>
+      <span className={over ? 'text-[color:hsl(var(--destructive))]' : 'text-[color:var(--mint)]'}>
         {over ? 'Over by ' : 'Left '}
         <span className="font-semibold" data-testid={`${testId}-remaining`}>
           {formatMoney(Math.abs(remainingLocal), cur)}
@@ -460,11 +560,11 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
   return (
     <div
       data-testid="budget-grand-total"
-      className="mt-6 flex flex-col gap-3 rounded-xl border border-border bg-muted/40 p-5 sm:flex-row sm:items-center sm:justify-between"
+      className="mt-6 flex flex-col gap-3 border-t-[3px] border-double border-[color:hsl(var(--border))] p-gut sm:flex-row sm:items-center sm:justify-between"
     >
       <div>
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">Total trip budget</p>
-        <p className="mt-1 text-sm text-ink-mid">
+        <p className="pr">Total trip budget</p>
+        <p className="mt-1 text-t-sm text-ink-mid">
           {LEGS.map(legLabel).join(' + ')}, converted to {home}
         </p>
       </div>
@@ -472,25 +572,25 @@ function GrandTotal({ roll, home }: { roll: BudgetRollup; home: CurrencyCode }) 
         <p
           data-testid="budget-grand-total-value"
           aria-live="polite"
-          className="font-mono text-3xl font-bold text-display-emphasis"
+          className="num text-n-lg text-ink-hi"
         >
           {formatMoney(roll.totalBudgetHome, home)}
         </p>
         {anySpend && (
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs sm:justify-end">
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 font-machine text-t-sm sm:justify-end">
             <span className="text-ink-mid">
               Spent{' '}
               <CountUpMoney
                 amount={roll.totalSpentHome}
                 cur={home}
                 testId="budget-grand-total-spent"
-                className="font-semibold text-ink-hi"
+                className="num text-ink-hi"
               />
             </span>
             <span aria-hidden="true" className="text-ink-lo">
               ·
             </span>
-            <span className={over ? 'text-red-400' : 'text-emerald-300/90'}>
+            <span className={over ? 'text-[color:hsl(var(--destructive))]' : 'text-[color:var(--mint)]'}>
               {over ? 'Over by ' : 'Left '}
               <span className="font-semibold" data-testid="budget-grand-total-remaining">
                 {formatMoney(Math.abs(roll.totalRemainingHome), home)}
@@ -536,22 +636,23 @@ function LegBudgetCard({
   return (
     <div
       data-testid={`budget-leg-${leg}`}
-      className="flex flex-col gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4"
+      data-leg={leg}
+      className="flex flex-col gap-4 border-hair border-[color:hsl(var(--border))] p-gut"
     >
-      <div>
-        <h3 className="text-sm font-semibold text-white">{title}</h3>
-        <p className="mt-0.5 text-xs text-ink-mid">{subtitle}</p>
+      <div className="sec !mb-0">
+        <h3 className="pr pr--l text-ink-hi">{title}</h3>
+        <span className="sub">{subtitle}</span>
       </div>
 
       {/* Leg total budget (in the leg's local currency) */}
       <div className="flex flex-col gap-1">
-        <label htmlFor={legInputId} className="text-xs font-medium text-ink-mid">
+        <label htmlFor={legInputId} className="pr pr--lo">
           Total budget ({cur})
         </label>
         <div className="relative">
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-mid"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-machine text-t-sm text-ink-lo"
           >
             {sym}
           </span>
@@ -564,19 +665,18 @@ function LegBudgetCard({
             step="any"
             placeholder="0"
             {...legDraft}
-            className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-2 pr-3 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`num w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] py-2 pr-3 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-[color:hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-9' : 'pl-7'
             }`}
           />
         </div>
         {/* Home-currency echo of this leg's total (presentation-only). */}
-        <p className="text-xs text-ink-mid" data-testid={`budget-leg-${leg}-home`}>
+        <p className="font-machine text-t-sm text-ink-mid" data-testid={`budget-leg-${leg}-home`}>
           {home === cur ? (
-            <span className="text-ink-mid">Shown in {cur}</span>
+            <span>Shown in {cur}</span>
           ) : (
             <>
-              ≈ <span className="font-semibold text-ink-hi">{formatMoney(budgetHome, home)}</span> in{' '}
-              {home}
+              ≈ <span className="num text-ink-hi">{formatMoney(budgetHome, home)}</span> in {home}
             </>
           )}
         </p>
@@ -591,13 +691,13 @@ function LegBudgetCard({
       </div>
 
       {/* Per-category budgets (optional) */}
-      <details className="group rounded-lg border border-white/10 bg-surface/40">
+      <details className="group border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface))]">
         <summary
           data-testid={`budget-leg-${leg}-categories-toggle`}
-          className="flex min-h-[44px] cursor-pointer list-none items-center justify-between rounded-lg px-3 py-2 text-xs font-medium text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="pr flex min-h-tap cursor-pointer list-none items-center justify-between px-3 py-2 text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           <span>Break down by category (optional)</span>
-          <span aria-hidden="true" className="text-ink-mid transition-transform group-open:rotate-90">
+          <span aria-hidden="true" className="text-ink-lo transition-transform group-open:rotate-90">
             ›
           </span>
         </summary>
@@ -652,14 +752,14 @@ function CategoryBudgetInput({
       <div className="flex items-center gap-3">
         <label
           htmlFor={catId}
-          className={`inline-flex min-w-[6.5rem] items-center rounded-full px-2.5 py-0.5 text-xs font-medium capitalize ${colors.bg} ${colors.text}`}
+          className={`chip min-w-[6.5rem] capitalize ${colors.text}`}
         >
           {category}
         </label>
         <div className="relative flex-1">
           <span
             aria-hidden="true"
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-mid"
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 font-machine text-t-micro text-ink-lo"
           >
             {sym}
           </span>
@@ -673,7 +773,7 @@ function CategoryBudgetInput({
             placeholder="0"
             aria-label={`${category} budget for the ${leg} leg, in ${cur}`}
             {...draft}
-            className={`w-full rounded-lg border border-[color:var(--border-ui)] bg-surface/60 py-1.5 pr-2.5 text-xs text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
+            className={`num w-full min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface))] py-1.5 pr-2.5 text-t-sm text-ink-hi placeholder:text-ink-lo focus-visible:border-[color:hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 ${
               sym === 'Rs' ? 'pl-8' : 'pl-6'
             }`}
           />
@@ -681,14 +781,14 @@ function CategoryBudgetInput({
       </div>
       {showCatSpend && catRoll && (
         <p
-          className="pl-[calc(6.5rem+0.75rem)] text-[11px]"
+          className="pl-[calc(6.5rem+0.75rem)] font-machine text-t-micro"
           data-testid={`budget-cat-${leg}-${category}-spent-remaining`}
         >
           <span className="text-ink-mid">Spent {formatMoney(catRoll.spentLocal, cur)}</span>
           <span aria-hidden="true" className="mx-1.5 text-ink-lo">
             ·
           </span>
-          <span className={catRoll.remainingLocal < 0 ? 'text-red-400' : 'text-emerald-300/80'}>
+          <span className={catRoll.remainingLocal < 0 ? 'text-[color:hsl(var(--destructive))]' : 'text-[color:var(--mint)]'}>
             {catRoll.remainingLocal < 0 ? 'over by ' : 'left '}
             {formatMoney(Math.abs(catRoll.remainingLocal), cur)}
           </span>

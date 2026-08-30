@@ -40,9 +40,9 @@ import { withBasePath } from '@/lib/utils';
 //     '#111640' — a leftover from the blue field two palettes ago, older than the
 //     charcoal it outlived. navy700 is NOT re-valued because it has zero consumers;
 //     it is stale, harmless, and deletable by whoever next touches this object.
-//     Measured, since two of these are contrast pairs, at the D-334 ramp: gold400 on
-//     navy900 11.97 -> 12.09, white on the navy800 popup 16.22 -> 16.45, navy900 ink on
-//     a gold500 pin 8.70 -> 8.79. All three stay far above AA.
+//     Measured, since two of these are contrast pairs, at the re-cast ramp: gold400 on
+//     navy900 12.09 -> 12.30, white on the navy800 popup 16.45 -> 16.38, navy900 ink on
+//     a gold500 pin 8.79 -> 8.94. All three stay far above AA.
 //   · BRAND HUES ARE FROZEN. gold400/gold500/sakura400/himalaya500 are the map's own
 //     identity colours — route line, stop stroke, label halo, marker stroke, and the
 //     CATEGORY_COLOR pins below. They stay at the retired values until /map's palette
@@ -62,8 +62,8 @@ import { withBasePath } from '@/lib/utils';
 //     through. So the freeze is no longer hiding a defect — it is just an unfinished
 //     palette.
 export const BRAND = {
-  navy900: '#0E0920',
-  navy800: '#221745',
+  navy900: '#0A0818',
+  navy800: '#1C1948',
   navy700: '#1a2050',
   gold400: '#f0c760',
   gold500: '#d4a843',

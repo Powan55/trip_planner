@@ -62,18 +62,18 @@ export default function TravelArrivalToast() {
           data-testid="travel-arrival-toast"
           className="fixed inset-x-0 bottom-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom)+0.75rem)] z-40 flex justify-center px-4 md:bottom-6"
         >
-          <div className="flex w-full max-w-md items-center gap-3 rounded-2xl glass-card p-3 shadow-2xl sm:p-4">
+          <div className="flex w-full max-w-md items-center gap-3 border-hair border-border bg-surface-raised p-3 sm:p-4">
             <span
               aria-hidden="true"
-              className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-muted/40 text-muted-foreground sm:inline-flex"
+              className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-r1 border-hair border-[color:var(--border-ui)] text-ink-lo sm:inline-flex"
             >
               <Compass className="h-5 w-5" />
             </span>
             <div className="min-w-0 flex-1">
-              <p id={titleId} className="text-sm font-semibold text-white">
+              <p id={titleId} className="pr pr--l text-ink-hi">
                 You&rsquo;re on the trip
               </p>
-              <p className="mt-0.5 text-xs text-ink-mid">
+              <p className="mt-0.5 text-t-sm text-ink-mid">
                 Open Travel Mode for a focused, on-the-go companion.
               </p>
             </div>
@@ -82,7 +82,7 @@ export default function TravelArrivalToast() {
                 type="button"
                 onClick={onEnter}
                 data-testid="travel-arrival-enter"
-                className="inline-flex min-h-[44px] items-center rounded-lg bg-primary px-3 text-sm font-semibold text-primary-foreground outline-none transition-colors duration-200 hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+                className="btn px-3"
               >
                 Open
               </button>
@@ -91,7 +91,7 @@ export default function TravelArrivalToast() {
                 onClick={dismiss}
                 aria-label="Dismiss Travel Mode suggestion"
                 data-testid="travel-arrival-dismiss"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg text-ink-mid outline-none transition-colors duration-200 hover:bg-white/10 hover:text-white focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                className="inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 border-hair border-[color:var(--border-ui)] text-ink-mid outline-none transition-colors duration-200 hover:bg-white/5 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>

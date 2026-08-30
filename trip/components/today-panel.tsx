@@ -1,11 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { m, useReducedMotion } from 'framer-motion';
 import { MapPin, ArrowRight } from 'lucide-react';
 import {
   formatDateLong,
-  CATEGORY_COLORS,
   type ItineraryItem,
 } from '@/lib/trip-data';
 import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-now';
@@ -108,7 +107,7 @@ export default function TodayPanel() {
       <section id="today" aria-hidden="true" className="relative bg-surface py-12 sm:py-16 px-4 sm:px-6">
         <div
           data-testid="today-panel-skeleton"
-          className="mx-auto min-h-[420px] max-w-3xl rounded-2xl glass-card"
+          className="mx-auto min-h-[420px] max-w-3xl border-hair border-border bg-surface-low"
         />
       </section>
     );
@@ -149,22 +148,27 @@ export default function TodayPanel() {
         whileInView="show"
         viewport={{ once: true, amount: 0.2 }}
         variants={reveal}
-        className="max-w-3xl mx-auto glass-card rounded-2xl p-6 sm:p-8"
+        className="max-w-3xl mx-auto border-hair border-border bg-surface-low p-6 sm:p-8"
       >
-        {/* Header — "Day N — {city}", consistent with the hero's travel mode. */}
-        <header className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6">
+        {/* Header — "Day N — {city}", consistent with the hero's travel mode. --now is the
+            leg channel; nothing sets it on the shell yet, so the surface that knows its leg
+            sets it rather than inheriting Nepal's stop through the Japan fortnight. */}
+        <header
+          className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-6"
+          style={{ ['--now']: todayInTrip.country.toLowerCase() === 'japan' ? 'var(--jp-a)' : 'var(--np-a)' } as CSSProperties}
+        >
           <div>
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Today on the trip</p>
-            <h2 id="today-title" className="font-display text-2xl sm:text-3xl font-bold text-white leading-tight">
-              Day <span className="text-display-emphasis">{todayInTrip.dayNumber}</span>
+            <p className="pr mb-2">Today on the trip</p>
+            <h2 id="today-title" className="text-display-lg text-ink-hi">
+              Day <span className="text-now tabular-nums">{todayInTrip.dayNumber}</span>
               <span className="text-ink-lo mx-2">—</span>
               {todayInTrip.city}
             </h2>
-            <p className="text-sm text-ink-mid mt-1">{formatDateLong(todayInTrip.date)}</p>
+            <p className="pr pr--l pr--lo mt-1">{formatDateLong(todayInTrip.date)}</p>
           </div>
           {items.length > 0 && (
-            <p className="text-sm text-ink-mid" aria-live="polite">
-              <span className="font-semibold text-foreground">{doneCount}</span>
+            <p className="text-t-sm text-ink-mid" aria-live="polite">
+              <span className="num text-n-sm text-ink-hi">{doneCount}</span>
               <span aria-hidden="true"> / </span>
               <span className="sr-only"> of </span>
               {items.length} done
@@ -223,59 +227,56 @@ export default function TodayPanel() {
 /**
  * The "Up next" rail. A prominent, non-interactive band naming the next upcoming
  * agenda item (time + title + category + location) by the resolved clock, or an "all caught
- * up" line when nothing is upcoming. Static markup consistent with the panel's glass-card
+ * up" line when nothing is upcoming. Static markup on the ruled list grammar
  * design — no motion-only affordance, so it is reduced-motion-safe by construction (the
  * parent panel owns the already-gated reveal). Semantic: an `aria-live="polite"` region so
  * the change is announced when the rail advances (e.g. after toggling the current item done).
  */
 function NextUpRail({ item, date }: { item: ItineraryItem | null; date: string }) {
-  const cat = item ? CATEGORY_COLORS[item.category] : null;
   // Display rule — NOT the `nextUp` selection logic
   // purely how the already-chosen item's time renders.
   const timeInfo = item ? describeItemTime(item, date) : null;
 
   return (
-    <div
-      data-testid="today-next-up"
-      aria-live="polite"
-      className="rounded-xl border border-border bg-muted/40 p-4"
-    >
-      <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-2 flex items-center gap-1.5">
+    <div data-testid="today-next-up" aria-live="polite" className="border-y-2 border-border">
+      <p className="pr flex items-center gap-1.5 px-gut pt-2">
         <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         Up next
       </p>
-      {item ? (
-        <div className="flex items-start gap-3">
-          {timeInfo && (
-            <span className="flex-shrink-0 font-mono text-lg font-bold text-foreground leading-tight">
-              {timeInfo.label}
-              {timeInfo.badge && (
-                <span className="block text-[10px] font-sans font-normal uppercase tracking-wide text-muted-foreground leading-tight">
-                  {timeInfo.badge}
-                </span>
-              )}
+      <div className="list">
+        {item ? (
+          <div className="r">
+            <span className="tm">
+              {timeInfo?.label ?? '—'}
+              {timeInfo?.badge && <span className="pr pr--lo block">{timeInfo.badge}</span>}
             </span>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="font-semibold text-white leading-snug">{item.title}</p>
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-mid">
-              {item.location && (
-                <span className="inline-flex items-center gap-1 min-w-0">
-                  <MapPin className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
-                  <span className="truncate">{item.location}</span>
-                </span>
-              )}
-              {cat && (
-                <span className={`inline-flex rounded-full px-2 py-0.5 ${cat.bg} ${cat.text}`}>
-                  {item.category}
-                </span>
-              )}
-            </p>
+            <span className="min-w-0">
+              <h3>{item.title}</h3>
+              <span className="mt flex flex-wrap items-center gap-x-2 gap-y-1">
+                {item.location && (
+                  <span className="inline-flex min-w-0 items-center gap-1">
+                    <MapPin className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
+                    <span className="truncate">{item.location}</span>
+                  </span>
+                )}
+                {item.category && <span className="chip">{item.category}</span>}
+              </span>
+            </span>
+            <span />
           </div>
-        </div>
-      ) : (
-        <p className="text-sm text-ink-mid">You're all caught up for today.</p>
-      )}
+        ) : (
+          <div className="r" data-mark="hollow">
+            <span className="tm">—</span>
+            <span className="min-w-0">
+              {/* `e2e/today-next.spec.ts` pins this phrase — it asserts the rail survives
+                  with nothing upcoming rather than disappearing. */}
+              <h3 className="empty">You&rsquo;re all caught up for today</h3>
+              <span className="mt">Everything on today is struck</span>
+            </span>
+            <span />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

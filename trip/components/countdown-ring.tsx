@@ -55,13 +55,15 @@ export default function CountdownRing({
             <stop offset="100%" stopColor="hsl(var(--accent-scroll))" />
           </linearGradient>
         </defs>
-        {/* Track */}
+        {/* Track — the UNFILLED remainder, so it takes the hollow mark's own token rather
+            than a white wash that drifts with nothing. Geometry is unchanged. */}
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke="rgba(255,255,255,0.10)"
+          stroke="var(--border-ui)"
+          strokeOpacity={0.45}
           strokeWidth={strokeWidth}
         />
         {/* Progress — CSS-driven transition, skipped entirely under reduced motion so the

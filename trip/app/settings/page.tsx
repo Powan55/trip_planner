@@ -24,6 +24,7 @@ export default function SettingsPage() {
         title="Settings"
         titleId="settings-title"
         description="Manage who your edits are attributed to, choose your display currency and exchange rates, and back up, restore, or clear your on-device trip data."
+        className="max-w-5xl"
       />
       <Settings />
     </main>

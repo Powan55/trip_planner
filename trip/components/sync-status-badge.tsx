@@ -16,7 +16,7 @@ import { formatRelativeTime } from '@/lib/relative-time';
  * `fixed` pill inside an ALWAYS-mounted `role="status"` + `aria-live="polite"` wrapper (a
  * live region only announces a mutation of a region already in the tree, so the wrapper
  * cannot be born with its text; it is empty and boxless while there is nothing to show),
- * `aria-label`, a `glass-card` surface, an `sr-only` full-sentence
+ * `aria-label`, a solid printed-stock surface, an `sr-only` full-sentence
  * summary, and one declarative `m.*` reveal — the app-wide `<MotionConfig reducedMotion="user">`
  * (`components/theme-provider.tsx`) auto-neutralizes that reveal under prefers-reduced-motion, so
  * no manual guard is needed here.
@@ -91,8 +91,15 @@ export function SyncStatusBadge() {
           data-state={isBlocked ? 'blocked' : isPending ? 'pending' : 'synced'}
           className={`fixed ${online ? 'top-20' : 'top-32'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
         >
+          {/* Printed stock, not glass. The FILL grammar carries the state: a struck
+              (solid) rule when synced, a hollow dashed one when the sync has not
+              landed. The word always says which — colour is never the only carrier. */}
           <div
-            className={`flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] ${tone}`}
+            className={`flex items-center gap-2 bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1 border-2 ${
+              isBlocked || isPending
+                ? 'border-dashed border-[color:var(--text-lo)]'
+                : 'border-[hsl(var(--border))]'
+            } ${tone}`}
           >
             {isBlocked ? (
               <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
@@ -101,7 +108,9 @@ export function SyncStatusBadge() {
             ) : (
               <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
             )}
-            <span data-testid="sync-status-text">{label}</span>
+            <span data-testid="sync-status-text" className={`pr ${tone}`}>
+              {label}
+            </span>
             <span className="sr-only">{summary}</span>
           </div>
         </m.div>

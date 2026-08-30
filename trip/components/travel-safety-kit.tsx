@@ -1,5 +1,6 @@
 'use client';
 
+import { AlertTriangle } from 'lucide-react';
 import { EMERGENCY_CONTACTS, HAZARD_NOTES, SAFETY_PHRASES, DOCUMENT_CHECKLIST } from '@/core/content/safety';
 import type { EmergencyContact, HazardNote, Phrase, ChecklistItem } from '@/core/content/safety';
 import { useWakeLock } from '@/lib/use-wake-lock';
@@ -31,22 +32,32 @@ export default function TravelSafetyKit() {
   const checklistByGroup = groupBy(DOCUMENT_CHECKLIST, (i) => i.group);
 
   return (
-    <div data-testid="safety-kit" className="mx-auto w-full max-w-4xl px-4 pb-20 sm:px-6">
+    <div data-testid="safety-kit" className="mx-auto w-full max-w-4xl pb-20">
       {/* ── 1. Emergency & embassy contacts ─────────────────────────────────────────────── */}
       <section aria-labelledby="safety-emergency-heading" className="mb-14">
-        <h2 id="safety-emergency-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
-          Emergency &amp; Embassy Contacts
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm text-ink-mid">
-          Tap a number to call. Numbers flagged below could not be re-confirmed against a live
-          source in this build — double-check them before you travel.
+        <div className="sec px-gut">
+          <h2 id="safety-emergency-heading">Emergency &amp; Embassy Contacts</h2>
+          <span className="sub">{EMERGENCY_CONTACTS.length} numbers · offline</span>
+        </div>
+        <p className="mb-4 max-w-2xl px-gut text-t-sm text-ink-mid">
+          Tap a row to call. Numbers flagged below could not be re-confirmed against a live source
+          in this build — double-check them before you travel.
         </p>
 
-        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+        <div>
           {(['Nepal', 'Japan'] as const).map((country) => (
-            <div key={country} className="glass-subtle rounded-2xl p-5">
-              <h3 className="font-display text-lg font-bold text-white">{country}</h3>
-              <ul className="mt-3 flex flex-col gap-3">
+            <div key={country}>
+              <div className="head static flex-wrap">
+                <span className="f">
+                  <span className="k">Country</span>
+                  <h3 className="v">{country}</h3>
+                </span>
+                <span className="f">
+                  <span className="k">Numbers</span>
+                  <span className="v">{(contactsByCountry[country] ?? []).length}</span>
+                </span>
+              </div>
+              <ul className="list">
                 {(contactsByCountry[country] ?? []).map((c) => (
                   <ContactRow key={c.id} contact={c} />
                 ))}
@@ -58,18 +69,24 @@ export default function TravelSafetyKit() {
 
       {/* ── 2. Hazard & alert notes ──────────────────────────────────────────────────────── */}
       <section aria-labelledby="safety-hazards-heading" className="mb-14">
-        <h2 id="safety-hazards-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
-          Hazards &amp; Local Alerts
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm text-ink-mid">
-          Two things worth knowing before you need them — this is background, not a live feed.
+        <div className="sec px-gut">
+          <h2 id="safety-hazards-heading">Hazards &amp; Local Alerts</h2>
+          <span className="sub">background · not a live feed</span>
+        </div>
+        <p className="mb-4 max-w-2xl px-gut text-t-sm text-ink-mid">
+          Two things worth knowing before you need them.
         </p>
 
-        <div className="mt-6 grid gap-6 sm:grid-cols-2">
+        <div>
           {(['Japan', 'Nepal'] as const).map((country) => (
-            <div key={country} className="glass-subtle rounded-2xl p-5">
-              <h3 className="font-display text-lg font-bold text-white">{country}</h3>
-              <ul className="mt-3 flex flex-col gap-3">
+            <div key={country}>
+              <div className="head static flex-wrap">
+                <span className="f">
+                  <span className="k">Country</span>
+                  <h3 className="v">{country}</h3>
+                </span>
+              </div>
+              <ul className="list">
                 {(hazardsByCountry[country] ?? []).map((note) => (
                   <HazardRow key={note.id} note={note} />
                 ))}
@@ -81,19 +98,28 @@ export default function TravelSafetyKit() {
 
       {/* ── 3. Phrasebook ────────────────────────────────────────────────────────────────── */}
       <section aria-labelledby="safety-phrasebook-heading" className="mb-14">
-        <h2 id="safety-phrasebook-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
-          Phrasebook
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm text-ink-mid">
-          {SAFETY_PHRASES.length} essential phrases, each in the native script with a romanization
-          you can read aloud. Nothing here needs a connection — if saying it does not land, show
-          someone the script.
+        <div className="sec px-gut">
+          <h2 id="safety-phrasebook-heading">Phrasebook</h2>
+          <span className="sub">{SAFETY_PHRASES.length} phrases · offline</span>
+        </div>
+        <p className="mb-4 max-w-2xl px-gut text-t-sm text-ink-mid">
+          Each phrase in the native script with a romanization you can read aloud. Nothing here
+          needs a connection — if saying it does not land, show someone the script.
         </p>
 
-        <div className="mt-6 flex flex-col gap-8">
+        <div className="flex flex-col gap-8">
           {Object.entries(phrasesByCategory).map(([category, phrases]) => (
             <div key={category}>
-              <h3 className="font-display text-base font-semibold text-ink-hi">{category}</h3>
+              <div className="head static flex-wrap">
+                <span className="f">
+                  <span className="k">Category</span>
+                  <h3 className="v">{category}</h3>
+                </span>
+                <span className="f">
+                  <span className="k">Rows</span>
+                  <span className="v">{phrases.length}</span>
+                </span>
+              </div>
               {/* tabIndex=0 keeps the horizontal scroller keyboard-reachable (axe
                   scrollable-region-focusable): the table holds only read-only text, so it has
                   no focusable child of its own to scroll it with. Same idiom as
@@ -102,7 +128,7 @@ export default function TravelSafetyKit() {
                 tabIndex={0}
                 role="region"
                 aria-label={`${category} phrases`}
-                className="mt-2 overflow-x-auto rounded-xl border border-white/10 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="overflow-x-auto border-b-hair border-border outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               >
                 {/* #223 — `print:min-w-0` releases the 480px floor on paper. The floor exists so
                     the three columns stay side by side on a phone and the wrapper above scrolls;
@@ -110,13 +136,13 @@ export default function TravelSafetyKit() {
                     would simply run off the right edge and lose the Japanese column. The print
                     block's `overflow: visible` unclips the wrapper; this is what lets the table
                     reflow into the width it is actually given. */}
-                <table className="w-full min-w-[480px] border-collapse text-left text-sm print:min-w-0">
+                <table className="w-full min-w-[480px] border-collapse text-left text-t-body print:min-w-0">
                   <caption className="sr-only">{category} phrases — English, Nepali in Devanagari with romanization, Japanese in kana/kanji with romanization</caption>
                   <thead>
-                    <tr className="border-b border-white/10 text-xs uppercase tracking-wide text-ink-mid">
-                      <th scope="col" className="px-4 py-2 font-medium">English</th>
-                      <th scope="col" className="px-4 py-2 font-medium">Nepali</th>
-                      <th scope="col" className="px-4 py-2 font-medium">Japanese</th>
+                    <tr className="border-b-hair border-border">
+                      <th scope="col" className="pr px-gut py-2">English</th>
+                      <th scope="col" className="pr px-gut py-2">Nepali</th>
+                      <th scope="col" className="pr px-gut py-2">Japanese</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -133,18 +159,30 @@ export default function TravelSafetyKit() {
 
       {/* ── 4. Document checklist ────────────────────────────────────────────────────────── */}
       <section aria-labelledby="safety-checklist-heading">
-        <h2 id="safety-checklist-heading" className="font-display text-2xl font-bold text-white sm:text-3xl">
-          Document Checklist
-        </h2>
-        <p className="mt-2 max-w-2xl text-sm text-ink-mid">What to arrange, carry, and back up.</p>
+        <div className="sec px-gut">
+          <h2 id="safety-checklist-heading">Document Checklist</h2>
+          <span className="sub">{DOCUMENT_CHECKLIST.length} items · reference</span>
+        </div>
+        <p className="mb-4 max-w-2xl px-gut text-t-sm text-ink-mid">
+          What to arrange, carry, and back up.
+        </p>
 
-        <div className="mt-6 flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
           {Object.entries(checklistByGroup).map(([group, items]) => (
-            <div key={group} className="glass-subtle rounded-2xl p-5">
-              <h3 className="font-display text-base font-semibold text-ink-hi">{group}</h3>
-              <ul className="mt-3 flex flex-col gap-3">
-                {items.map((item) => (
-                  <ChecklistRow key={item.id} item={item} />
+            <div key={group}>
+              <div className="head static flex-wrap">
+                <span className="f">
+                  <span className="k">Group</span>
+                  <h3 className="v">{group}</h3>
+                </span>
+                <span className="f">
+                  <span className="k">Items</span>
+                  <span className="v">{items.length}</span>
+                </span>
+              </div>
+              <ul className="list">
+                {items.map((item, i) => (
+                  <ChecklistRow key={item.id} item={item} n={i + 1} />
                 ))}
               </ul>
             </div>
@@ -155,39 +193,63 @@ export default function TravelSafetyKit() {
   );
 }
 
+/**
+ * One contact. THE WHOLE ROW IS THE `tel:` LINK — one hand, cold, on a street you cannot read is
+ * the scene this page exists for, so the tap target is the 44px row rather than the digits inside
+ * it. Still exactly one `<a>` per row (e2e/safety.spec.ts locates it that way), and the
+ * accessible name still differs from the visible digit string.
+ *
+ * An unverified number is drawn HOLLOW on its tag and its note, but its SERVICE NAME keeps the top
+ * ink tier: the mark grammar says "not yet committed", and it is true of the confirmation, not of
+ * the emergency service. Dimming "Police" to signal a stale source would be the wrong statement.
+ *
+ * TWO COLUMNS, NOT THREE: the row drops the leading icon slot the other lists keep. A phone glyph
+ * beside a phone number is decoration, and at 390px it cost 70px that the longest service name
+ * ("Japan Visitor Hotline (24/7 multilingual tourist assistance, JNTO)") needs, next to a
+ * 15-character number set at the numeral tier.
+ */
 function ContactRow({ contact }: { contact: EmergencyContact }) {
+  const unverified = !contact.verified && !!contact.note;
   return (
-    <li data-testid={`safety-contact-${contact.id}`} className="flex flex-col gap-1">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-sm text-ink-hi">{contact.service}</span>
-        <a
-          href={`tel:${contact.tel}`}
-          aria-label={`Call ${contact.service}, ${contact.number}`}
-          className="inline-flex min-h-[44px] items-center rounded-lg bg-primary/10 px-3 font-mono text-sm font-semibold text-primary outline-none transition-colors hover:bg-primary/25 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
-        >
-          {contact.number}
-        </a>
-      </div>
-      {!contact.verified && contact.note && (
-        <p className="text-xs text-amber-300/90">Unverified this session: {contact.note}</p>
-      )}
+    <li data-testid={`safety-contact-${contact.id}`}>
+      <a
+        href={`tel:${contact.tel}`}
+        aria-label={`Call ${contact.service}, ${contact.number}`}
+        className="r [--cols:1fr_auto] no-underline"
+      >
+        <span className="min-w-0">
+          <h3>{contact.service}</h3>
+          {unverified && (
+            <>
+              <span className="hollow-tag mt-1">unverified</span>
+              <span className="mt !normal-case !tracking-normal">{contact.note}</span>
+            </>
+          )}
+        </span>
+        <span className="num self-center whitespace-nowrap text-n-sm text-ink-hi">{contact.number}</span>
+      </a>
     </li>
   );
 }
 
 function HazardRow({ note }: { note: HazardNote }) {
   return (
-    <li data-testid={`safety-hazard-${note.id}`} className="flex flex-col gap-1">
-      <span className="text-sm font-semibold text-ink-hi">{note.title}</span>
-      <span className="text-xs text-ink-mid">{note.body}</span>
+    <li data-testid={`safety-hazard-${note.id}`} className="r">
+      <span className="tm flex items-center">
+        <AlertTriangle className="h-4 w-4 text-ink-lo" aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <h3>{note.title}</h3>
+        <span className="mt !normal-case !tracking-normal text-ink-mid">{note.body}</span>
+      </span>
     </li>
   );
 }
 
 function PhraseRow({ phrase }: { phrase: Phrase }) {
   return (
-    <tr data-testid={`safety-phrase-${phrase.id}`} className="border-b border-white/5 last:border-0">
-      <td className="px-4 py-2 align-top text-ink-hi">{phrase.english}</td>
+    <tr data-testid={`safety-phrase-${phrase.id}`} className="border-b-hair border-border last:border-0">
+      <td className="px-gut py-2 align-top text-t-body text-ink-hi">{phrase.english}</td>
       <ScriptCell lang="ne" script={phrase.nepaliScript} roman={phrase.nepali} />
       <ScriptCell lang="ja" script={phrase.japaneseScript} roman={phrase.japanese} />
     </tr>
@@ -210,24 +272,24 @@ function PhraseRow({ phrase }: { phrase: Phrase }) {
  */
 function ScriptCell({ lang, script, roman }: { lang: 'ne' | 'ja'; script: string; roman: string }) {
   return (
-    <td className="px-4 py-2 align-top">
-      <span lang={lang} className="block text-base leading-snug text-ink-hi">
+    <td className="px-gut py-2 align-top">
+      <span lang={lang} className="block text-t-lead leading-snug text-ink-hi">
         {script}
       </span>
-      <span className="mt-0.5 block text-xs text-ink-mid">{roman}</span>
+      <span className="mt-0.5 block text-t-sm text-ink-mid">{roman}</span>
     </td>
   );
 }
 
-function ChecklistRow({ item }: { item: ChecklistItem }) {
+function ChecklistRow({ item, n }: { item: ChecklistItem; n: number }) {
   return (
-    <li data-testid={`safety-checklist-${item.id}`} className="flex gap-2 text-sm">
-      <span aria-hidden="true" className="mt-0.5 text-muted-foreground">
-        ✓
-      </span>
-      <span>
-        <span className="text-ink-hi">{item.label}</span>
-        {item.detail && <span className="block text-xs text-ink-mid">{item.detail}</span>}
+    <li data-testid={`safety-checklist-${item.id}`} className="r">
+      <span className="tm">{String(n).padStart(2, '0')}</span>
+      <span className="min-w-0">
+        <h3>{item.label}</h3>
+        {item.detail && (
+          <span className="mt !normal-case !tracking-normal text-ink-mid">{item.detail}</span>
+        )}
       </span>
     </li>
   );

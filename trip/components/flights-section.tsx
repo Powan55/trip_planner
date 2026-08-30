@@ -1,139 +1,131 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { m, useReducedMotion } from 'framer-motion';
-import { Hotel, Clock, Star, MapPin } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { JOURNEYS, BOOKED_STAYS, type Stay } from '@/lib/booking-data';
 import { FlightJourneyCard } from '@/components/flight-journey-card';
-import { FADE_FLOOR } from '@/lib/motion';
 
 // --- Static class records: never interpolate Tailwind class names. ---
-// /15 is not a Tailwind opacity step and emitted no rule; these chips had no fill. /20 is.
-// Status chip styling, keyed by booking status (stays only; journeys use the phase strip).
+// FILLED means committed, UNFILLED means not yet: a booked stay is STRUCK, an unbooked one is
+// drawn hollow. The word carries the state as well as the mark, so it reads without colour.
 const STATUS_CHIP: Record<'booked' | 'to-book', string> = {
-  'booked': 'bg-green-500/20 text-green-300 border border-green-500/30',
-  'to-book': 'bg-amber-500/20 text-amber-200 border border-amber-500/30 border-dashed',
+  'booked': 'chip chip--struck',
+  'to-book': 'chip chip--hollow',
 };
 
 function StatusChip({ status }: { status: 'booked' | 'to-book' }) {
   return (
-    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium ${STATUS_CHIP[status]}`}>
-      {status === 'booked' ? 'Booked' : 'To be booked'}
-    </span>
+    <span className={STATUS_CHIP[status]}>{status === 'booked' ? 'Booked' : 'To be booked'}</span>
   );
 }
 
-function StayCard({ stay }: { stay: Stay }) {
+/** One stay as a printed row: city · name · the facts the booking actually carries · its mark. */
+function StayRow({ stay }: { stay: Stay }) {
   return (
-    <m.article
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5 }}
-      className="glass-card rounded-2xl p-5 sm:p-6 h-full min-w-0"
-      aria-labelledby={`stay-${stay.id}-heading`}
-    >
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-indigo-500/20 text-indigo-300 shrink-0">
-            <Hotel className="w-5 h-5" aria-hidden="true" />
+    <div className="r [--lead:5.5rem]" data-leg={stay.country}>
+      <span className="tm truncate">{stay.city}</span>
+      <span className="min-w-0">
+        <h3 id={`stay-${stay.id}-heading`}>{stay.name}</h3>
+        <span className="mt flex flex-wrap items-center gap-x-2 gap-y-0.5">
+          {stay.stars !== null && (
+            <span className="inline-flex items-center gap-0.5" aria-label={`${stay.stars} star hotel`}>
+              {Array.from({ length: stay.stars }).map((_, i) => (
+                <Star key={i} className="w-2.5 h-2.5 fill-current" aria-hidden="true" />
+              ))}
+              <span className="ml-1">{stay.stars}-star</span>
+            </span>
+          )}
+          {stay.area && <span>{stay.area}</span>}
+        </span>
+        {stay.address && <span className="mt">{stay.address}</span>}
+        {stay.checkIn && (
+          <span className="mt">
+            Check-in {stay.checkIn}
+            {stay.checkOut ? ` → Check-out ${stay.checkOut}` : ''}
           </span>
-          <div className="min-w-0">
-            <h3 id={`stay-${stay.id}-heading`} className="font-display font-bold text-white text-base leading-tight">
-              {stay.name}
-            </h3>
-            <div className="text-[11px] text-ink-mid">{stay.city}</div>
-          </div>
-        </div>
-        <StatusChip status={stay.status} />
-      </div>
-
-      {stay.stars !== null && (
-        <div className="flex items-center gap-1 mb-3" aria-label={`${stay.stars} star hotel`}>
-          {Array.from({ length: stay.stars }).map((_, i) => (
-            <Star key={i} className="w-3.5 h-3.5 fill-current text-muted-foreground" aria-hidden="true" />
-          ))}
-          <span className="ml-1 text-[11px] text-ink-mid">{stay.stars}-star</span>
-        </div>
-      )}
-
-      {stay.area && (
-        <p className="flex items-start gap-1.5 text-xs text-ink-mid mb-1.5">
-          <MapPin className="w-3.5 h-3.5 text-indigo-300/70 mt-0.5 shrink-0" aria-hidden="true" />
-          <span>{stay.area}</span>
-        </p>
-      )}
-      {stay.address && (
-        <p className="text-[11px] text-ink-mid pl-5">{stay.address}</p>
-      )}
-      {stay.checkIn && (
-        <p className="mt-2 flex items-center gap-1.5 text-[11px] text-ink-mid">
-          <Clock className="w-3.5 h-3.5 text-indigo-300/70 shrink-0" aria-hidden="true" />
-          <span className="text-ink-mid">Check-in</span> {stay.checkIn}
-        </p>
-      )}
-      {stay.checkOut && (
-        <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-ink-mid">
-          <Clock className="w-3.5 h-3.5 text-indigo-300/70 shrink-0" aria-hidden="true" />
-          <span className="text-ink-mid">Check-out</span> {stay.checkOut}
-        </p>
-      )}
-      {stay.note && (
-        <p className="mt-1.5 text-[11px] text-ink-mid pl-5">{stay.note}</p>
-      )}
-    </m.article>
+        )}
+        {stay.note && <span className="mt">{stay.note}</span>}
+      </span>
+      <StatusChip status={stay.status} />
+    </div>
   );
 }
 
 export default function FlightsSection() {
-  const prefersReducedMotion = useReducedMotion();
   // Mount guard for parity with neighbor sections (this section is static/SSR-safe,
-  // but it is loaded ssr:false per; the guard avoids any flash before mount).
+  // but it is loaded ssr:false; the guard avoids any flash before mount).
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
+  // Every figure printed on this screen is READ from lib/booking-data, never asserted.
+  const segments = JOURNEYS.reduce((n, j) => n + j.legs.length, 0);
+  const ticketed = JOURNEYS.every((j) => j.status === 'booked');
+  const tight = JOURNEYS.flatMap((j) => j.layovers).find((l) => l.verdict === 'tight');
+
   return (
-    <section id="flights" aria-labelledby="flights-heading" className="py-20 px-4 sm:px-6">
-      <div className="max-w-[1200px] mx-auto">
-        {/* masthead entrance now FLOORS the fade (FADE_FLOOR → 1) instead of
-            pinning it at 1. The floor is shallow enough that the (non-reduced-motion) axe
-            scan still sees the muted `text-ink-mid` subtitle ≥AA at the darkest frame —
-            the guarantee, preserved. Under reduce we keep the pin outright:
-            MotionConfig neutralises `y` but not opacity, so an un-forked floor would
-            strand an off-screen reveal at 0.7. */}
-        <m.div
-          initial={prefersReducedMotion ? { opacity: 1 } : { opacity: FADE_FLOOR, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="text-center mb-10"
-        >
-          <h2 id="flights-heading" className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-white mb-3">
-            Flights <span className="text-display-emphasis">&amp; Stays</span>
-          </h2>
-          <p className="text-ink-mid max-w-xl mx-auto">
+    <section id="flights" aria-labelledby="flights-heading" className="pb-20">
+      {/* The running head. Solid --surface-1, no backdrop filter; it parks under the
+          fixed 64px navbar rather than at the viewport top. Below 440px the `f--drop` fields
+          are dropped rather than clipped, because a half-cut field reads as a bug. */}
+      <header className="head top-16">
+        <div className="f">
+          <span className="k">Journeys</span>
+          <span className="v">{JOURNEYS.length}</span>
+        </div>
+        <div className="f">
+          <span className="k">Segments</span>
+          <span className="v">{segments}</span>
+        </div>
+        <div className="f">
+          <span className="k">Ticketed</span>
+          <span className="v">{ticketed ? 'All' : 'Partial'}</span>
+        </div>
+        {tight && (
+          <div className="f f--drop">
+            <span className="k">Tight connection</span>
+            <span className="v">{tight.duration} · {tight.airportCode}</span>
+          </div>
+        )}
+        <div className="f f--drop">
+          <span className="k">Stays</span>
+          <span className="v">{BOOKED_STAYS.length}</span>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-[1200px] px-4 sm:px-6">
+        <div className="pt-8 pb-6">
+          <div className="sec">
+            <h2 id="flights-heading">Flights and stays</h2>
+            <span className="sub">
+              {JOURNEYS.length} journeys · {segments} segments{ticketed ? ' · all ticketed' : ''}
+            </span>
+          </div>
+          <p className="max-w-2xl text-t-lead text-ink-mid">
             Every confirmed booking for the journey — each flight leg with its layovers, seats and
             cabin, plus all four hotels across Nepal and Japan. Everything is booked; use “Check
             live status” on any journey to follow it on the day.
           </p>
-        </m.div>
+        </div>
 
         {mounted && (
           <>
-            {/* Four journey cards — Flighty-anatomy (phase → route → verbatim times → countdown
-                → labelled chips → layover verdict rows → deep-link rail). */}
-            <div className="grid lg:grid-cols-2 gap-5 mb-5">
-              {JOURNEYS.map((journey, i) => (
-                <FlightJourneyCard key={journey.id} journey={journey} index={i} />
+            {/* Four route diagrams — phase mark → route → verbatim times → countdown →
+                segment chain with layover nodes → deep-link rail. */}
+            <div className="grid gap-5 lg:grid-cols-2">
+              {JOURNEYS.map((journey) => (
+                <FlightJourneyCard key={journey.id} journey={journey} />
               ))}
             </div>
 
-            {/* Booked stays — a full-width 2-up grid (no empty column: the former
-                "Japan — to be booked" panel was permanently empty and is removed). */}
-            <div className="min-w-0">
-              <h3 className="sr-only">Accommodation</h3>
-              <div className="grid sm:grid-cols-2 gap-5">
+            {/* Booked stays — one ruled list, no cards. */}
+            <div className="mt-10 min-w-0">
+              <div className="sec">
+                <h2>Accommodation</h2>
+                <span className="sub">{BOOKED_STAYS.length} stays booked</span>
+              </div>
+              <div className="list border-t-2 border-[color:hsl(var(--border))]">
                 {BOOKED_STAYS.map((stay) => (
-                  <StayCard key={stay.id} stay={stay} />
+                  <StayRow key={stay.id} stay={stay} />
                 ))}
               </div>
             </div>

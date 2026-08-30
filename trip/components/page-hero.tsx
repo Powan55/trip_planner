@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react';
 import OptimizedImage from '@/components/optimized-image';
+import { cn } from '@/lib/utils';
 
 /**
  * PageHero — the per-page masthead.
@@ -14,9 +15,9 @@ import OptimizedImage from '@/components/optimized-image';
  *   the whole of a Tier-2 route's loudness allowance; below the band those routes are
  *   Tier 3 again, which is why the band carries `data-tier="2-header"` — the loud
  *   tokens are legal inside that subtree and nowhere else on the page.
- * - **Tier 3 (`/plan`, `/more`)** — unchanged: the `.glass-panel` card, a brand wash,
- *   no photography at all. Tier 3 forbids imagery, so the one variant those two routes
- *   share declares no photo and takes the original render path.
+ * - **Tier 3 (`/plan`, `/more`)** — the printed panel: a 2px rule on surface-1, a brand
+ *   wash, no photography at all. Tier 3 forbids imagery, so the one variant those two
+ *   routes share declares no photo and takes the original render path.
  *
  * THE ACCENT PER ROUTE, and every one of them is a token from `globals.css` — no
  * component in this file names a colour of its own:
@@ -96,6 +97,25 @@ interface PageHeroProps {
   as?: 'h1' | 'h2';
   /** Optional extra classes on the outer <header> (e.g. spacing overrides at mount). */
   className?: string;
+  /**
+   * Extra classes on the TIER-3 PANEL — the bordered box, not the outer <header>, because
+   * the panel is what carries the width and `px-gutter` on the header would nest inside a
+   * caller's clamp. Merged with `cn`, so a caller's `max-w-*` replaces the 1200px default;
+   * pass the width of the body below so the two edges line up. Ignored by the Tier-2
+   * photographic band, which is full-bleed and has no panel.
+   */
+  panelClassName?: string;
+  /**
+   * Extra classes on the TIER-2 BAND'S inner copy column (the `mx-auto max-w-[1200px]`
+   * wrapper around the title/eyebrow/subtitle) — not the full-bleed band itself, which has
+   * no width to override. Merged with `cn`, so a caller's `max-w-*` replaces the 1200px
+   * default instead of stacking with it. Ignored by the Tier-3 panel, which uses
+   * `panelClassName` instead. /journal is the one Tier-2 route that needs this: its body
+   * (`journal-browse.tsx`) is a text reading column at `max-w-3xl`, unlike its five
+   * photographic/grid siblings which are correctly 1200 — matching the band to the body
+   * here is what stops /journal snapping width at the island boundary.
+   */
+  bandClassName?: string;
 }
 
 interface HeroPhoto {
@@ -130,7 +150,7 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   // you would want a guide".
   guides: {
     accent: 'var(--coral)',
-    titleClass: 'text-display-emphasis',
+    titleClass: 'text-[color:var(--text-hi)]',
     photo: { src: '/images/japan/ja1.jpg', country: 'jp', focus: 'center 44%' },
   },
   // Boudhanath, Kathmandu: the whitewashed dome and gilded spire, the Buddha's painted
@@ -153,7 +173,7 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   // page's header is a place seen from above, which is what the page does.
   map: {
     accent: 'var(--marigold)',
-    titleClass: 'text-display-emphasis',
+    titleClass: 'text-[color:var(--text-hi)]',
     photo: { src: '/images/featured/shibuya.jpg', country: 'jp', focus: 'center 48%' },
   },
   // Garden of Dreams, Kathmandu: the white neoclassical pavilion behind a long
@@ -161,7 +181,7 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   // the set, for the quietest page.
   journal: {
     accent: 'var(--violet)',
-    titleClass: 'text-display-emphasis',
+    titleClass: 'text-[color:var(--text-hi)]',
     photo: { src: '/images/nepal/na7.jpg', country: 'np', focus: 'center 58%' },
   },
   // The Great Himalayan Range from Dhulikhel: snow peaks along the horizon under a
@@ -170,13 +190,13 @@ const VARIANTS: Record<HeroVariant, HeroVariantConfig> = {
   // lands in the darkest part of the scrim.
   flights: {
     accent: 'var(--mint)',
-    titleClass: 'text-display-emphasis',
+    titleClass: 'text-[color:var(--text-hi)]',
     photo: { src: '/images/nepal/na19.jpg', country: 'np', focus: 'center 74%' },
   },
   // TIER 3 — /plan and /more. No photography, by rule. Unchanged.
   plan: {
     accent: 'hsl(var(--accent-scroll))',
-    titleClass: 'text-display-emphasis',
+    titleClass: 'text-[color:var(--text-hi)]',
     wash: 'var(--hero-wash)',
   },
 };
@@ -188,6 +208,8 @@ export default function PageHero({
   subtitle,
   as = 'h1',
   className = '',
+  panelClassName,
+  bandClassName,
 }: PageHeroProps) {
   const { accent, titleClass, photo, wash } = VARIANTS[variant];
   const Heading = as;
@@ -195,24 +217,34 @@ export default function PageHero({
   const copy = (
     <>
       {eyebrow && (
-        <p className="text-eyebrow uppercase mb-3" style={{ color: accent }}>
+        <p className="pr mb-3" style={{ color: accent }}>
           {eyebrow}
         </p>
       )}
       <Heading className={`text-display-lg ${titleClass}`}>{title}</Heading>
       {subtitle && (
-        <p className={`mt-3 max-w-2xl text-base leading-relaxed ${photo ? 'text-ink-mid' : 'text-muted-foreground'}`}>
+        // --t-lead: the ONE paragraph on a surface. Never `text-base`, which is off this
+        // scale and does not move under the outdoor root bump.
+        <p className={`mt-3 max-w-2xl text-t-lead ${photo ? 'text-ink-mid' : 'text-[color:var(--text-mid)]'}`}>
           {subtitle}
         </p>
       )}
     </>
   );
 
-  // ---- Tier 3: the glass panel, exactly as it was ----
+  // ---- Tier 3: the printed panel ----
+  // The glass is gone (there are no card shadows and no glass in this direction) and so
+  // is the entrance: content is present when you arrive. The two carve-outs on that rule
+  // are /recap's scroll storytelling and the front-door hero, and neither is this.
   if (!photo) {
     return (
       <header className={`px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10 ${className}`}>
-        <div className="glass-panel animate-reveal-up relative overflow-hidden mx-auto max-w-[1200px] px-6 py-8 sm:px-10 sm:py-12">
+        <div
+          className={cn(
+            'relative overflow-hidden mx-auto max-w-[1200px] border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] rounded-r1 px-6 py-8 sm:px-10 sm:py-12',
+            panelClassName,
+          )}
+        >
           <span
             aria-hidden="true"
             className="pointer-events-none absolute inset-0"
@@ -251,7 +283,7 @@ export default function PageHero({
       </div>
 
       <div className="photo-header__body">
-        <div className="animate-reveal-up mx-auto w-full max-w-[1200px] px-gutter">{copy}</div>
+        <div className={cn('mx-auto w-full max-w-[1200px] px-gutter', bandClassName)}>{copy}</div>
       </div>
     </header>
   );

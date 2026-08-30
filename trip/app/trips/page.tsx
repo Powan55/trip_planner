@@ -21,6 +21,7 @@ export default function TripsPage() {
         eyebrow="Plan together"
         title="Trips"
         description="Switch between the trips this browser knows, start a brand-new one with its own shareable key, or join a trip someone shared with you."
+        className="max-w-5xl"
       />
       <TripsHub />
     </main>

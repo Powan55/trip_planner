@@ -166,12 +166,12 @@ export default function Navbar() {
         initial={{ y: -100 }}
         animate={{ y: 0 }}
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          // v2 cosmetic: on scroll the bar reads as a richer "liquid glass"
-          // surface — deeper navy fill, stronger blur+saturate, a luminous
-          // hairline bottom edge keyed to the route accent, and the v2 elevation
-          // ramp. Surfaces/type only; nav logic + a11y contracts untouched.
+          // SOLID, NOT GLASS, and that is a free win rather than a taste. A blurred
+          // sticky bar is a per-scroll-frame repaint on the one surface that is always
+          // composited, and a printed running head does not need one. What replaces it is
+          // what a running head actually is: opaque stock and a 2px rule under it.
           scrolled
-            ? 'bg-surface/80 backdrop-blur-xl backdrop-saturate-150 border-b border-white/[0.06] shadow-2xl'
+            ? 'bg-[rgb(var(--surface-low))] border-b-2 border-[hsl(var(--border))]'
             : 'bg-transparent'
         }`}
       >
@@ -182,11 +182,11 @@ export default function Navbar() {
               {/* on a custom trip the brand is the trip's own name (mount-safe — Navbar
                   never SSRs, see the primaryItems/brand comment above). Default trip: unchanged. */}
               {brand ? (
-                <span data-testid="navbar-brand" className="font-display font-bold text-lg tracking-tight text-white truncate max-w-[40vw]">
+                <span data-testid="navbar-brand" className="truncate max-w-[40vw] font-machine text-t-label font-semibold uppercase tracking-[0.13em] text-[color:var(--text-hi)]">
                   {brand}
                 </span>
               ) : (
-                <span data-testid="navbar-brand" className="font-display font-bold text-lg tracking-tight text-white">
+                <span data-testid="navbar-brand" className="font-machine text-t-label font-semibold uppercase tracking-[0.13em] text-[color:var(--text-hi)]">
                   Nepal <span className="text-muted-foreground">×</span> Japan
                 </span>
               )}
@@ -209,16 +209,21 @@ export default function Navbar() {
                     data-testid={`navbar-link-${item.label.toLowerCase()}`}
                     aria-current={isActive ? 'page' : undefined}
                     data-active={isActive ? 'true' : undefined}
-                    className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                      isActive ? 'text-white' : 'text-ink-mid hover:text-white hover:bg-white/5'
+                    className={`relative flex min-h-tap items-center gap-1.5 rounded-r1 px-3 py-2 font-machine text-t-label font-semibold uppercase tracking-[0.11em] transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                      isActive
+                        ? 'text-[color:var(--text-hi)]'
+                        : 'text-[color:var(--text-lo)] hover:text-[color:var(--text-hi)] hover:bg-white/5'
                     }`}
                   >
                     <item.icon className="w-4 h-4" />
                     {item.label}
+                    {/* The live field takes a 4px accent RULE, not a fill — a rule is
+                        unlimited and spends nothing, which leaves the screen's one accent
+                        fill free for the thing that is actually live. */}
                     {isActive && (
                       <span
                         aria-hidden="true"
-                        className="absolute left-3 right-3 -bottom-0.5 h-0.5 rounded-full"
+                        className="absolute inset-x-0 bottom-0 h-[4px]"
                         style={{ backgroundColor: 'hsl(var(--accent-scroll))' }}
                       />
                     )}
@@ -241,7 +246,7 @@ export default function Navbar() {
                     onClick={() => setMoreOpen((v) => !v)}
                     aria-expanded={moreOpen}
                     aria-controls="navbar-more-menu"
-                    className="flex items-center gap-1 px-3 py-2 rounded-lg text-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none text-ink-mid hover:text-white hover:bg-white/5"
+                    className="flex min-h-tap items-center gap-1 rounded-r1 px-3 py-2 font-machine text-t-label font-semibold uppercase tracking-[0.11em] text-[color:var(--text-lo)] transition-all duration-200 outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     More
                     <ChevronDown
@@ -264,7 +269,7 @@ export default function Navbar() {
                         initial={panelInitial}
                         animate={panelAnimate}
                         exit={panelExit}
-                        className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-white/[0.08] bg-surface/95 backdrop-blur-xl backdrop-saturate-150 shadow-2xl p-2 z-50"
+                        className="absolute right-0 top-full z-50 mt-2 w-56 rounded-r2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-raised))] p-1"
                       >
                         {moreItems.map((item) => {
                           const isActive = isRouteActive(pathname, item.href);
@@ -278,8 +283,10 @@ export default function Navbar() {
                               }}
                               data-testid={`navbar-more-link-${item.label.toLowerCase()}`}
                               aria-current={isActive ? 'page' : undefined}
-                              className={`flex items-center gap-2.5 w-full min-h-[40px] px-3 py-2 rounded-lg text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                                isActive ? 'text-white bg-white/5' : 'text-ink-mid hover:text-white hover:bg-white/5'
+                              className={`flex w-full min-h-tap items-center gap-2.5 px-3 py-2 text-t-body transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                                isActive
+                                  ? 'bg-[rgb(62_216_255_/_0.10)] text-[color:var(--text-hi)] shadow-[inset_3px_0_0_hsl(var(--accent))]'
+                                  : 'text-[color:var(--text-mid)] hover:bg-white/5 hover:text-[color:var(--text-hi)]'
                               }`}
                             >
                               <item.icon className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
@@ -288,7 +295,7 @@ export default function Navbar() {
                           );
                         })}
 
-                        <div className="my-1.5 border-t border-white/[0.08]" aria-hidden="true" />
+                        <div className="my-1 border-t-hair border-[hsl(var(--border))]" aria-hidden="true" />
 
                         <button
                           type="button"
@@ -297,13 +304,15 @@ export default function Navbar() {
                             closeMore();
                             window.dispatchEvent(new CustomEvent('palette:open'));
                           }}
-                          className="flex items-center justify-between gap-2.5 w-full min-h-[40px] px-3 py-2 rounded-lg text-sm text-ink-mid hover:text-white hover:bg-white/5 transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                          className="flex w-full min-h-tap items-center justify-between gap-2.5 px-3 py-2 text-t-body text-[color:var(--text-mid)] transition-all outline-none hover:bg-white/5 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                         >
                           <span className="flex items-center gap-2.5">
                             <Search className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
                             Search
                           </span>
-                          <span className="text-xs text-ink-lo">⌘K / Ctrl+K</span>
+                          {/* the literal string, not a symbol: e2e/more-menu.spec.ts asserts
+                              this row contains "Ctrl+K", and a Windows user needs it anyway. */}
+                          <span className="chip">⌘K / Ctrl+K</span>
                         </button>
                       </m.div>
                     )}
@@ -340,7 +349,7 @@ export default function Navbar() {
                 onClick={() => enterTravel(navigate)}
                 data-testid="navbar-travel-mode"
                 aria-label="Enter Travel Mode"
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-full border border-ring/30 bg-primary/10 px-2.5 text-sm font-medium text-primary outline-none transition-colors hover:bg-primary/20 hover:text-primary focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-3.5"
+                className="inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-r1 border border-[color:hsl(var(--accent))] px-2.5 font-machine text-t-micro font-semibold uppercase tracking-[0.11em] text-[color:hsl(var(--accent))] outline-none transition-colors hover:bg-[rgb(62_216_255_/_0.10)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none sm:px-3.5"
               >
                 <Compass className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">Travel Mode</span>
@@ -364,17 +373,19 @@ export default function Navbar() {
 function TravelerChip({ name, accent }: { name: string; accent: string }) {
   return (
     <div
-      className="flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full border bg-white/5"
+      className="flex items-center gap-1.5 rounded-r1 border py-1 pl-2.5 pr-1"
       style={{ borderColor: `${accent}40` }}
     >
-      <span className="flex items-center gap-1.5 min-w-0 text-xs text-ink-mid">
+      {/* The traveller mark is STRUCK — a filled disc, because an identified traveller is
+          a committed fact. The name is stated in words beside it. */}
+      <span className="pr flex min-w-0 items-center gap-1.5">
         <span
           aria-hidden="true"
-          className="shrink-0 w-2 h-2 rounded-full"
+          className="h-[9px] w-[9px] shrink-0 rounded-full"
           style={{ backgroundColor: accent }}
         />
         <span className="truncate">
-          You are <span className="font-semibold text-white">{name}</span>
+          You are <span className="text-[color:var(--text-hi)]">{name}</span>
         </span>
       </span>
       <SignOutConfirm testId="navbar-sign-out">
@@ -382,7 +393,7 @@ function TravelerChip({ name, accent }: { name: string; accent: string }) {
           aria-label={`Sign out ${name}`}
           title="Sign out"
           data-testid="navbar-sign-out"
-          className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full text-ink-mid hover:text-white hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-r1 text-[color:var(--text-lo)] outline-none transition-colors hover:bg-white/10 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
         </button>

@@ -80,9 +80,12 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
  * aria-describedby, document-level Esc, a Tab-trap inside the panel, autofocus on the first field
  * (re-asserted when the form changes). Intentional DIVERGENCES — it is a WALL, not a dismissible
  * modal: NON-dismissible (no overlay-click-close, no X, Esc does not dismiss); no focus-return-to-
- * trigger. #10 adds the ONE error state the wall now has (`role="alert"` under the key field, for
- * a key the server says does not exist); a submit is otherwise simply disabled until its fields
- * are non-empty.
+ * trigger. A submit is disabled until its fields are non-empty; anything that fails after that
+ * lands in the wall's ONE failure slot (`role="alert"`, above the submit so it is reachable from
+ * both forms, with an annunciator label naming the condition and a sentence saying what to do).
+ * Three conditions reach it: a key the server says does not exist (#10), a browser refusing site
+ * storage, and a refused sign-in. NOTHING here fails silently — a door that says nothing when it
+ * cannot let you in is the failure mode this slot exists for.
  *
  * Motion uses the lightweight `m.*` only; reduced motion is honored by
  * the global <MotionConfig reducedMotion="user">. Tailwind classes are static literals; the
@@ -126,6 +129,32 @@ type View = 'landing' | 'auth';
  */
 const SEED_PUSH_BUDGET_MS = 5000;
 
+/** The wall's failure state: an annunciator label, and the condition stated in words. */
+type WallError = { label: string; text: string };
+
+/**
+ * Site storage refused (Safari "Block All Cookies", Chrome's on-device-site-data switch, a
+ * sandboxed iframe). `core/storage/gateway.ts` degrades every write to a silent no-op by
+ * contract — it never throws — so nothing is stored, nothing is raised, and the door would
+ * simply re-open after the reload with nothing said. It has to be detected by reading back.
+ */
+const STORAGE_BLOCKED: WallError = {
+  label: 'Storage · Blocked',
+  text: 'This browser is blocking site storage, so this device cannot keep you signed in. Allow site data for this site, or leave private browsing, then try again.',
+};
+
+/** #10 — the probe's one rejection: a pasted key that names no account. */
+const KEY_REJECTED: WallError = {
+  label: 'Key · Rejected',
+  text: 'This user does not exist. Check your key, or create an account.',
+};
+
+/** `signIn` refused the display name. Storage is already proven writable by this point. */
+const SIGN_IN_FAILED: WallError = {
+  label: 'Sign-in · Failed',
+  text: 'We could not start a session on this device. Reload the page and try again.',
+};
+
 function TokenGateWall({ onHold }: { onHold: () => void }) {
   const [view, setView] = useState<View>('landing');
   /**
@@ -158,8 +187,8 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
   const [userToken, setUserToken] = useState('');
   const [name, setName] = useState('');
   const [busy, setBusy] = useState(false);
-  /** #10 — the wall's one error: the pasted key names no account. Rendered as role="alert". */
-  const [loginError, setLoginError] = useState<string | null>(null);
+  /** The wall's one error slot, shared by both paths. Rendered as role="alert". */
+  const [wallError, setWallError] = useState<WallError | null>(null);
   /** Non-null once path (b) has minted + persisted: the wall becomes the show-once screen. */
   const [minted, setMinted] = useState<string | null>(null);
   /** This device's stored User Token, offered as a one-tap convenience. */
@@ -172,6 +201,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
   const descId = `${baseId}-desc`;
   const tokenFieldId = `${baseId}-user-token`;
   const nameFieldId = `${baseId}-name`;
+  const errorId = `${baseId}-error`;
 
   const panelRef = useRef<HTMLDivElement>(null);
   const firstFieldRef = useRef<HTMLInputElement>(null);
@@ -291,13 +321,24 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     void Promise.race([seed, new Promise((r) => setTimeout(r, SEED_PUSH_BUDGET_MS))]).then(go, go);
   };
 
+  /**
+   * Write the credential, then read it back. The account IS localStorage on this device, and
+   * `writeString` swallows a blocked-storage failure by contract, so a write returning is not
+   * evidence that anything was stored — this is the only thing that distinguishes "saved" from
+   * "silently dropped", and without it a blocked browser loops back to this wall saying nothing.
+   */
+  const persistToken = (token: string) => {
+    setSyncCode(token); // key 28 — the account credential (Trip Tokens never come here)
+    return getSyncCode() === token;
+  };
+
   /** Path (a) — log in with the USER token ONLY (decision 2026-07-30). */
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (busy) return;
     const token = userToken.trim();
     if (!token) return;
-    setLoginError(null);
+    setWallError(null);
     // #10 — validate a NEW key against the account's identity doc BEFORE any state is written.
     // The stored key is this device's live session credential and is never re-gated (a returning
     // device must log in even fully offline), so the probe is skipped for it entirely.
@@ -311,15 +352,20 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
       if (probe === 'missing') {
         // An invented key must leave ZERO stored state: no setSyncCode, no signIn, no onHold.
         setBusy(false);
-        setLoginError('This user does not exist. Check your key, or create an account.');
+        setWallError(KEY_REJECTED);
         return;
       }
       // 'exists' and 'unavailable' both proceed exactly as before #10.
     } else {
       setBusy(true);
     }
+    // Before `onHold`, so a refused store leaves the wall exactly as it found it.
+    if (!persistToken(token)) {
+      setBusy(false);
+      setWallError(STORAGE_BLOCKED);
+      return;
+    }
     onHold();
-    setSyncCode(token); // key 28 — the account credential (Trip Tokens never come here)
     // The door no longer collects a name: reuse this device's saved display name, else default
     // (renamable in Settings → Identity). `signIn` needs a non-empty name — it IS the identity slot.
     // the default is a TRANSIENT placeholder — the account-identity reconciler in
@@ -329,6 +375,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     const who = stored || DEFAULT_TRAVELER_NAME;
     if (!signIn(who)) {
       setBusy(false);
+      setWallError(SIGN_IN_FAILED);
       return;
     }
     // A5: when the name truly defaulted to "Traveler" (nothing stored), leave a one-shot
@@ -345,12 +392,20 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     if (busy) return;
     const who = name.trim();
     if (!who) return;
+    setWallError(null);
     setBusy(true);
-    onHold();
     const token = crypto.randomUUID();
-    setSyncCode(token);
+    // A minted key that cannot be stored is worse than no account at all: the show-once screen
+    // would hand over a credential the device has already forgotten. Same read-back as path (a).
+    if (!persistToken(token)) {
+      setBusy(false);
+      setWallError(STORAGE_BLOCKED);
+      return;
+    }
+    onHold();
     if (!signIn(who)) {
       setBusy(false);
+      setWallError(SIGN_IN_FAILED);
       return;
     }
     // #10 — create BOTH account docs now (profile/identity + profile/tripList), so the account
@@ -379,15 +434,18 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
    * first, over the picture. The auth card keeps it exactly where it was. One node either way —
    * only one view is ever mounted — so `getByTestId` still resolves to a single element.
    *
-   * Contrast over the photograph: the fill is surface-3 at 40 %, which is DARKER than the cover's
-   * graded worst-case pixel, so it only ever darkens what is behind the text. The measured
-   * `door lead + join note (mid)` pair in scripts/contrast-tokens.mjs is therefore a lower bound.
+   * Contrast over the photograph: the fill is surface-3, now OPAQUE rather than at 40 % — flat
+   * enamel, no glass — and surface-3 is darker than the cover's graded worst-case pixel, so it
+   * only ever darkens what is behind the text. Going opaque removes the photograph from behind
+   * the glyphs entirely, so the measured `door lead + join note (mid)` pair in
+   * scripts/contrast-tokens.mjs stays a lower bound and the real number is text-mid on
+   * surface-3, 8.67:1.
    */
   const invite =
     pendingTrip && !minted ? (
       <p
         data-testid="token-gate-invite"
-        className="w-full max-w-[46ch] rounded-xl border border-border bg-muted/40 px-3 py-2.5 text-xs leading-relaxed text-ink-mid"
+        className="w-full max-w-[46ch] rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-overlay px-3 py-2.5 text-t-sm leading-relaxed text-ink-mid"
       >
         Someone shared a trip with you. Log in or create an account and we&rsquo;ll add it to your
         trips.
@@ -477,11 +535,26 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
         // #25 — the two views take two radii, and the radius follows the TIER, not the panel.
         // The landing is Tier 1 and keeps the loudest container radius; the auth card is a FORM,
         // therefore Tier 3 always (D-292 puts every dialog, sheet and form there regardless of
-        // which surface opens it), and a Tier-3 surface takes the calm card radius. Its fill,
-        // border and elevation are already the ruled ones — `.glass-card-dark` is surface-2 +
-        // --border + the elevated shadow — so this is the only geometry that had to move.
-        className={`relative w-full glass-card-dark p-6 sm:p-8 shadow-2xl my-auto ${
-          view === 'landing' ? 'max-w-5xl rounded-3xl' : 'max-w-md rounded-2xl'
+        // which surface opens it), so it takes the instrument's calm radius.
+        //
+        // OFF THE RETIRED DARK-CARD RECIPE, AND THE FILL DID NOT MOVE. That recipe was
+        // surface-2 + --border + an elevated shadow, and surface-2 is the fill
+        // scripts/contrast-tokens.mjs pins as "the auth panel" — every pairing measured against
+        // it is unchanged. What goes is the SHADOW: there are no card shadows in this
+        // direction, the hairline IS the edge. (The class name is left unwritten on purpose: a
+        // deletion note that spells it reads as a live consumer to the next grep.)
+        //
+        // The colour of that hairline is NOT decided here on the auth view. globals.css's
+        // unlayered `.wall-auth-open [role='dialog']` is (0,2,0) and steps border-color to
+        // --border-ui, because over the cover --border measures 1.04:1 and disappears in the
+        // photograph's highlights (D-332). So this utility supplies the width and the LANDING's
+        // colour, and the wall rule wins on the one view that floats on a picture.
+        //
+        // KNOWN CEILING: the landing keeps `rounded-3xl` rather than an instrument radius,
+        // because `.door-cover` hard-codes the matching `var(--radius-2xl)` top corners and the
+        // cover bleeds to this panel's edge. The two have to move in one edit, in globals.css.
+        className={`relative w-full border-hair border-[color:hsl(var(--border))] bg-surface-raised p-6 sm:p-8 my-auto ${
+          view === 'landing' ? 'max-w-5xl rounded-3xl' : 'max-w-md rounded-r2'
         }`}
       >
         {view === 'landing' ? (
@@ -522,31 +595,29 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
             }}
           />
         ) : (
-          /* ── The boarding-pass AUTH card: the wall's second view. Unchanged from apart
-                from the "your key" rename — this change moves it behind a CTA, it does not
-                rewrite it. Kept inline (NOT extracted into an inner component) on purpose: an
-                inner function component is a new type on every parent render, which would
-                remount the inputs on every keystroke. ── */
+          /* ── The boarding-pass AUTH card: the wall's second view. Kept inline (NOT extracted
+                into an inner component) on purpose: an inner function component is a new type on
+                every parent render, which would remount the inputs on every keystroke. ── */
           <>
         {invite && <div className="mb-4">{invite}</div>}
         {/* Boarding-pass header: ticket-stub iconography + trip title. */}
         <div className="flex items-center gap-3 mb-1">
           <span
-            className="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-2xl bg-muted/40 text-foreground"
+            className="shrink-0 inline-flex items-center justify-center w-11 h-11 rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-overlay text-ink-hi"
             aria-hidden="true"
           >
             <Plane className="w-6 h-6 -rotate-12" />
           </span>
           <div className="min-w-0">
-            <p className="text-eyebrow uppercase text-ink-lo">Boarding Pass</p>
-            {/* text-display-md, NOT `font-display font-bold`: Instrument Serif ships weight 400
-                only, so the old pairing asked the browser to synthesise a bold. The sans display
-                step carries a real 800. */}
+            <p className="pr pr--lo">Boarding Pass</p>
+            {/* The machine face, not a display step: this is a printed document heading, and
+                `font-display` is the serif at weight 400 only — a `font-bold` beside it asks the
+                browser to synthesise a weight that does not exist. */}
             <h2
               id={titleId}
-              className="text-display-md text-ink-hi leading-tight truncate"
+              className="font-machine text-n-sm font-semibold tracking-tight text-ink-hi leading-tight truncate"
             >
-              Nepal <span className="text-display-emphasis">×</span> Japan Journey
+              Nepal × Japan Journey
             </h2>
           </div>
         </div>
@@ -558,24 +629,28 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
 
         {/* Perforation line — the boarding-pass tear. Decorative, no layout box of its own. */}
         <div className="relative my-5" aria-hidden="true">
-          <div className="border-t border-dashed border-border" />
+          <div className="border-t-hair border-dashed border-border" />
         </div>
 
         {minted ? (
           <>
-            <p id={descId} className="text-sm text-ink-mid mb-4 leading-relaxed">
+            <p id={descId} className="text-t-body text-ink-mid mb-4 leading-relaxed">
               Your account is ready, {name.trim()}. One thing left.
             </p>
             <UserTokenShowOnce token={minted} onConfirm={finish} />
           </>
         ) : (
           <>
-            <p id={descId} className="text-sm text-ink-mid mb-4 leading-relaxed">
+            <p id={descId} className="text-t-body text-ink-mid mb-4 leading-relaxed">
               Log in with your key to reach your trips, or create an account.
             </p>
 
             {/* Path switch. Two plain buttons with aria-pressed — no roving-tabindex tablist needed
-                for a two-way toggle that swaps a form (each stays individually tabbable). */}
+                for a two-way toggle that swaps a form (each stays individually tabbable).
+                The selected one is STRUCK, which is this system's one mark for "committed"; the
+                unselected one is an ordinary printed chip, NOT a dimmed copy of the struck one.
+                `whitespace-normal` beats `.chip`'s nowrap so "Create an account" wraps to two
+                lines in a 136px column at 360px instead of running out of the panel. */}
             <div className="mb-4 grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -583,10 +658,8 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                 aria-pressed={mode === 'login'}
                 disabled={busy}
                 data-testid="token-gate-mode-login"
-                className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
-                  mode === 'login'
-                    ? 'border-ring/60 bg-primary/10 text-primary'
-                    : 'border-border text-ink-mid hover:bg-muted/40'
+                className={`chip min-h-tap justify-center whitespace-normal px-3 text-center leading-tight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:text-ink-lo ${
+                  mode === 'login' ? 'chip--struck bg-white/5' : 'hover:bg-white/5 hover:text-ink-hi'
                 }`}
               >
                 Log in
@@ -597,10 +670,8 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                 aria-pressed={mode === 'create'}
                 disabled={busy}
                 data-testid="token-gate-mode-create"
-                className={`min-h-[44px] rounded-xl border px-3 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 ${
-                  mode === 'create'
-                    ? 'border-ring/60 bg-primary/10 text-primary'
-                    : 'border-border text-ink-mid hover:bg-muted/40'
+                className={`chip min-h-tap justify-center whitespace-normal px-3 text-center leading-tight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:text-ink-lo ${
+                  mode === 'create' ? 'chip--struck bg-white/5' : 'hover:bg-white/5 hover:text-ink-hi'
                 }`}
               >
                 Create an account
@@ -610,7 +681,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
             <form onSubmit={mode === 'login' ? handleLogin : handleCreate}>
               {mode === 'login' && (
                 <>
-                  <label htmlFor={tokenFieldId} className="text-xs text-ink-mid mb-1.5 block">
+                  <label htmlFor={tokenFieldId} className="pr pr--lo mb-1.5 block">
                     Your key
                   </label>
                   <div className="relative">
@@ -629,14 +700,15 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                       readOnly={busy}
                       placeholder="Paste your key"
                       data-testid="token-gate-user-token"
+                      aria-describedby={wallError ? errorId : undefined}
                       // #25 — the ruled field recipe, and the edge is the part that mattered.
                       // --border-ui (4.94:1 on the page field, 3.72 on this surface-3 fill) is the
                       // boundary of an INTERACTIVE control; --border and the old border-white/10
                       // are decorative washes at ~1.2-1.7:1, which is under WCAG 1.4.11's 3:1 for
-                      // the one edge that says "you can type here". The fill moves to surface-3
-                      // (bg-muted) so the field reads as recessed against the surface-2 panel
-                      // instead of as a white veil, and the focus ring is already marigold.
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-muted border border-[color:var(--border-ui)] text-ink-hi font-mono text-sm placeholder:text-ink-lo placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
+                      // the one edge that says "you can type here". The fill stays surface-3 —
+                      // recessed against the surface-2 panel, and the pair contrast-tokens.mjs
+                      // measures — and only the width, radius and type step move onto the tokens.
+                      className="w-full min-h-tap pl-9 pr-3 py-2.5 rounded-r1 bg-surface-overlay border-hair border-[color:var(--border-ui)] text-ink-hi font-machine text-t-body placeholder:text-ink-lo placeholder:font-sans focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
                     />
                   </div>
                   {savedToken !== null && savedToken !== userToken && (
@@ -645,25 +717,10 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                       onClick={() => setUserToken(savedToken)}
                       disabled={busy}
                       data-testid="token-gate-use-saved"
-                      className="mt-2 text-xs text-primary hover:text-primary/80 underline underline-offset-4 outline-none focus-visible:ring-2 focus-visible:ring-ring rounded disabled:opacity-50"
+                      className="mt-2 inline-flex min-h-tap items-center rounded-r1 px-1 font-machine text-t-label font-semibold uppercase tracking-[0.11em] text-primary underline underline-offset-4 transition-colors outline-none hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:text-ink-lo disabled:no-underline"
                     >
                       Use this device&rsquo;s saved key
                     </button>
-                  )}
-                  {/* #10 — the probe's ONE rejection. role="alert" so the announcement is live. */}
-                  {loginError && (
-                    <p
-                      role="alert"
-                      data-testid="token-gate-error"
-                      // --coral, not text-red-400: there are exactly six accents and coral is the
-                      // one for warmth/warning. text-red-400 is a raw Tailwind hue outside the
-                      // ruled set, i.e. a colour no palette sweep is looking for. Colour is not
-                      // the cue anyway — the message, role="alert" and the sentence itself carry
-                      // it; this is only what the sentence is painted in.
-                      className="mt-2 text-xs leading-relaxed text-[color:var(--coral)]"
-                    >
-                      {loginError}
-                    </p>
                   )}
                 </>
               )}
@@ -672,7 +729,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                   only). On login the display name is reused from the device / defaults, not asked. */}
               {mode === 'create' && (
                 <>
-                  <label htmlFor={nameFieldId} className="text-xs text-ink-mid mb-1.5 block">
+                  <label htmlFor={nameFieldId} className="pr pr--lo mb-1.5 block">
                     Your name
                   </label>
                   <div className="relative">
@@ -692,12 +749,40 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                       readOnly={busy}
                       placeholder="Enter your name"
                       data-testid="token-gate-name"
+                      aria-describedby={wallError ? errorId : undefined}
                       // The same field recipe as the key field above — see the note there for why
                       // the edge is --border-ui and the fill is surface-3.
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-muted border border-[color:var(--border-ui)] text-ink-hi text-sm placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
+                      className="w-full min-h-tap pl-9 pr-3 py-2.5 rounded-r1 bg-surface-overlay border-hair border-[color:var(--border-ui)] text-ink-hi text-t-body placeholder:text-ink-lo focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2"
                     />
                   </div>
                 </>
+              )}
+
+              {/* THE WALL'S ONE FAILURE SLOT, and it sits outside the mode fork because two of
+                  its three conditions — refused site storage and a refused sign-in — reach it on
+                  the CREATE path as well as on log-in.
+
+                  The state gets its OWN material, a coral rule around it, rather than being a
+                  differently-tinted paragraph: an annunciator label says which condition, the
+                  sentence says what to do, and role="alert" announces it on insert. Colour is the
+                  last cue here, never the only one.
+
+                  --coral, not text-red-400: there are exactly six accents, coral is the one for
+                  warmth/warning, and it is the pair contrast-tokens.mjs already measures on this
+                  panel (`auth error (coral) on the panel`). A raw Tailwind hue is a colour no
+                  palette sweep is looking for. */}
+              {wallError && (
+                <div className="mt-3 border-hair border-[color:var(--coral)] rounded-r1 px-gut py-2">
+                  <p className="pr text-[color:var(--coral)]">{wallError.label}</p>
+                  <p
+                    id={errorId}
+                    role="alert"
+                    data-testid="token-gate-error"
+                    className="mt-1 text-t-sm leading-relaxed text-[color:var(--coral)]"
+                  >
+                    {wallError.text}
+                  </p>
+                </div>
               )}
 
               <button
@@ -705,7 +790,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                 disabled={!canSubmit || busy}
                 aria-busy={busy}
                 data-testid="token-gate-submit"
-                className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+                className="btn mt-3 w-full px-4"
               >
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
                 {mode === 'login' ? 'Log in' : 'Create account'}
@@ -714,7 +799,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
               {/* The never-mix guard, in copy: each form names the OTHER token and where it
                   goes. (#10: the User Token side is additionally validated server-side on new
                   logins; the Trip Token side stays labels + flow.) */}
-              <p className="mt-3 text-xs leading-relaxed text-ink-lo">
+              <p className="mt-3 text-t-sm leading-relaxed text-ink-lo">
                 {mode === 'login'
                   ? 'Your key is your account — it opens every trip you have. A Trip Token is not a login: add one from your Trips page after you log in.'
                   : 'We’ll make your key — the one way back into your account — and show it to you once. Trips (and their Trip Tokens) come next, on your Trips page.'}
@@ -749,7 +834,7 @@ function CompactCountdown() {
 
   if (cd.isPast) {
     return (
-      <p className="text-sm font-medium text-foreground text-center" role="status">
+      <p className="text-t-body text-ink-hi text-center" role="status">
         The journey has begun.
       </p>
     );
@@ -785,16 +870,20 @@ function CompactCountdown() {
         style={{ gridTemplateColumns: `repeat(${units.length}, minmax(0, 1fr))` }}
       >
         {units.map((u) => (
+          // Material and type only — the cell count and the units array above are untouched.
+          // `.num` is the machine face at 600 with tabular figures; `font-bold` is dropped
+          // rather than restated, because no 700 of that face is loaded to render it.
           <div
             key={u.label}
-            className="flex flex-col items-center rounded-lg bg-surface-low border border-border py-1.5"
+            className="flex flex-col items-center rounded-r1 border-hair border-[color:hsl(var(--border))] bg-surface-low py-1.5"
           >
-            <span className="font-mono text-base sm:text-lg font-bold text-ink-hi tabular-nums leading-none">
+            <span className="num text-t-lead sm:text-n-sm text-ink-hi leading-none">
               {String(u.value).padStart(2, '0')}
             </span>
-            <span className="mt-0.5 text-[9px] uppercase tracking-wider text-ink-lo">
-              {u.label}
-            </span>
+            {/* `leading-tight` is the height reserve above, not taste: `.pr` sets no
+                line-height, and inheriting 1.5 pushes the cell past `h-[58px]` under the
+                outdoor root bump — a pre-hydration jump in exactly one mode. */}
+            <span className="pr pr--lo mt-0.5 leading-tight">{u.label}</span>
           </div>
         ))}
       </div>

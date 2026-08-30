@@ -68,15 +68,15 @@ export default function TravelExpenseQuickAdd({ date }: { date: string }) {
           type="button"
           onClick={() => setOpen(true)}
           data-testid="travel-expense-quickadd-trigger"
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[color:var(--border-ui)] bg-white/[0.03] px-4 py-3 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="pr flex min-h-tap w-full items-center justify-center gap-2 rounded-r1 border-hair border-dashed border-[color:var(--text-lo)] text-ink-lo outline-none transition-colors duration-200 hover:bg-white/5 hover:text-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Log an expense
         </button>
       ) : (
-        <div className="rounded-2xl glass-card p-3 sm:p-4">
+        <div className="border-y-hair border-border px-gut py-3">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-mid">
+            <p className="pr pr--l">
               Log an expense for {dayLabel}
             </p>
             <button
@@ -84,7 +84,7 @@ export default function TravelExpenseQuickAdd({ date }: { date: string }) {
               onClick={() => setOpen(false)}
               aria-label="Collapse log an expense"
               data-testid="travel-expense-quickadd-collapse"
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="inline-flex h-tap w-tap shrink-0 items-center justify-center rounded-r1 border-hair border-[color:var(--border-ui)] text-ink-mid outline-none transition-colors hover:bg-white/5 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -97,7 +97,7 @@ export default function TravelExpenseQuickAdd({ date }: { date: string }) {
               </label>
               <span
                 aria-hidden="true"
-                className={`pointer-events-none absolute top-1/2 -translate-y-1/2 text-ink-lo ${sym === 'Rs' ? 'left-3 text-sm' : 'left-3 text-base'}`}
+                className="num pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-t-body text-ink-lo"
               >
                 {sym}
               </span>
@@ -118,7 +118,7 @@ export default function TravelExpenseQuickAdd({ date }: { date: string }) {
                 }}
                 placeholder="0"
                 autoComplete="off"
-                className={`min-h-[44px] w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pr-3 text-sm text-white placeholder:text-ink-lo outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
+                className={`num min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay py-2 pr-3 text-t-body text-ink-hi placeholder:text-ink-lo outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring ${sym === 'Rs' ? 'pl-9' : 'pl-8'}`}
               />
             </div>
 
@@ -131,10 +131,10 @@ export default function TravelExpenseQuickAdd({ date }: { date: string }) {
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 data-testid="travel-expense-quickadd-category"
-                className="min-h-[44px] w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm capitalize text-white outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2 text-t-body text-ink-hi outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring capitalize"
               >
                 {BUDGET_CATEGORIES.map((c) => (
-                  <option key={c} value={c} className="bg-surface capitalize text-white">
+                  <option key={c} value={c} className="bg-surface capitalize text-ink-hi">
                     {c}
                   </option>
                 ))}
@@ -158,7 +158,7 @@ export default function TravelExpenseQuickAdd({ date }: { date: string }) {
                 }}
                 placeholder="Note (optional)"
                 autoComplete="off"
-                className="min-h-[44px] w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2 text-t-body text-ink-hi placeholder:text-ink-lo outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
               />
             </div>
 
@@ -167,7 +167,7 @@ export default function TravelExpenseQuickAdd({ date }: { date: string }) {
               onClick={handleSave}
               disabled={!amountValid}
               data-testid="travel-expense-quickadd-save"
-              className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-primary"
+              className="btn shrink-0 px-4"
             >
               <Check className="h-4 w-4" aria-hidden="true" />
               Save

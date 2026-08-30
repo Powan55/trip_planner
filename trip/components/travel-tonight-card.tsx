@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Music, MapPin } from 'lucide-react';
 import { getNowUtcMsForPlace, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
 import {
@@ -24,6 +23,10 @@ import { selectTonightItem } from '@/lib/travel-tonight';
  * Only shows for the REAL today-in-trip (not a `?date=` preview — "tonight" is inherently
  * about today) once the place-local clock reaches 17:00 and today has a not-done item starting
  * at/after that hour. Static: no animation, so reduced motion is a non-issue by construction.
+ *
+ * Drawn as a printed row rather than a card, with the country chip carrying the leg. The heading
+ * stays an `<h2>` because `/travel`'s only other headings are the masthead `<h1>` and the sibling
+ * section `<h2>`s — an `<h3>` here would be a skipped level.
  */
 export default function TravelTonightCard() {
   const { getDayPlan, hydrated } = useItineraryContext();
@@ -41,7 +44,8 @@ export default function TravelTonightCard() {
 
   if (!hydrated || !todayInTrip) return null;
 
-  const offsetMin = offsetForCountry(getCountryForDate(todayInTrip.date));
+  const country = getCountryForDate(todayInTrip.date);
+  const offsetMin = offsetForCountry(country);
   // Inverse of placeWallClockToUtcMs at minutes=0: today's place-local midnight, as a UTC
   // instant. The difference to "now" (also a UTC instant) is today's local minutes-of-day.
   const midnightUtcMs = placeWallClockToUtcMs(todayInTrip.date, 0, offsetMin);
@@ -57,30 +61,22 @@ export default function TravelTonightCard() {
     <section
       aria-labelledby="travel-tonight-title"
       data-testid="travel-tonight"
-      className="mx-auto mt-4 max-w-2xl rounded-2xl glass-card p-4 sm:p-5"
+      className="mx-auto mt-4 grid max-w-2xl grid-cols-[80px_1fr_auto] items-start gap-3 border-t-2 border-border px-gut py-3"
     >
-      <p className="flex items-center gap-1.5 text-xs uppercase tracking-widest text-fuchsia-400/80">
-        <Music className="h-3.5 w-3.5" aria-hidden="true" />
-        Tonight
-      </p>
-      <h2
-        id="travel-tonight-title"
-        className="mt-1 font-display text-lg font-bold leading-snug text-white"
-        data-testid="travel-tonight-title"
-      >
-        {tonightItem.title}
-      </h2>
-      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-ink-mid">
-        {typeof start === 'number' && (
-          <span className="font-mono">{formatTimeAmPm(start)}</span>
-        )}
-        {tonightItem.location && (
-          <span className="inline-flex min-w-0 items-center gap-1">
-            <MapPin className="h-3 w-3 flex-shrink-0" aria-hidden="true" />
-            <span className="truncate">{tonightItem.location}</span>
-          </span>
-        )}
-      </p>
+      <span className="num whitespace-nowrap text-t-sm text-ink-mid">
+        {typeof start === 'number' ? formatTimeAmPm(start) : '—'}
+      </span>
+      <div className="min-w-0">
+        <h2
+          id="travel-tonight-title"
+          data-testid="travel-tonight-title"
+          className="text-t-body font-semibold leading-snug text-ink-hi"
+        >
+          {tonightItem.title}
+        </h2>
+        {tonightItem.location && <span className="pr pr--lo mt-1 block">{tonightItem.location}</span>}
+      </div>
+      <span className={country === 'japan' ? 'chip chip--jp' : 'chip chip--np'}>Tonight</span>
     </section>
   );
 }

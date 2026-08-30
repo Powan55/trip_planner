@@ -19,6 +19,7 @@ export default function MorePage() {
         title="More"
         eyebrow="Everything else"
         subtitle="The rest of your trip tools — flights, packing, documents, journal, and account."
+        panelClassName="max-w-[680px]"
       />
       <MoreList />
     </main>

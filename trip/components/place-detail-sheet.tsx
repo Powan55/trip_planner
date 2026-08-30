@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type CSSProperties } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import Sheet from '@/components/ui/sheet-dark';
-import { X, MapPin, Clock, Star, ExternalLink, Tag, CalendarClock, Coins, Check, CalendarDays } from 'lucide-react';
+import { X, MapPin, Clock, Star, ExternalLink, CalendarClock, Coins, Check, CalendarDays } from 'lucide-react';
 import OptimizedImage from '@/components/optimized-image';
 import AddToPlanButton from '@/components/add-to-plan-button';
 import AddToItineraryDialog, { buildMapsPlaceUrl } from '@/components/add-to-itinerary-dialog';
@@ -41,6 +41,45 @@ import { useItineraryContext } from '@/components/itinerary-provider';
  * motion, so nothing is left stuck at opacity-0. Tailwind classes are static literals
  *.
  */
+
+/**
+ * THE SHEET TREATMENT. The recipe set in `globals.css` has no modal/sheet entry and this
+ * is the app's busiest overlay, so the treatment is authored here as four class strings
+ * rather than as new recipes — a sheet is a composition of `.plate` + `.list` + `.capline`
+ * plus a frame, not a new primitive, and the token layer is not this file's to extend.
+ * `import-place-sheet` shares the same `ui/sheet-dark` primitive and should import these
+ * four rather than re-deriving them, so the two overlays cannot drift apart.
+ *
+ * What it is, and why:
+ * - THE PANEL FILL IS NOT OURS TO SET. `ui/sheet-dark.tsx` stamps `.sheet-surface`, which
+ *   is declared UNLAYERED in globals.css and therefore beats every Tailwind utility
+ *   regardless of specificity — a `bg-*` here would be silently inert, not merely
+ *   overridden. It is also the one glass recipe the token layer deliberately kept for the
+ *   overlay tier. So the treatment governs the panel's GEOMETRY and everything INSIDE it,
+ *   and leaves the fill alone rather than fighting it with `!important`.
+ * - INSTRUMENT GEOMETRY at the corners: `--r-3`, not the surviving 40px `--radius-2xl`.
+ *   A 40px corner on a 6px system is the one place the old scale shows through.
+ * - TWO 2px RULES, top and bottom, mirroring `.head`'s `border-bottom: 2px`. The head band
+ *   and the pinned footer are the printed page's head and foot; the scroll region between
+ *   them is the page, and the foot takes an opaque `--surface-1` so the pinned actions
+ *   never read as floating over the body.
+ * - The head band is a running head, not a masthead: a `--t-micro` key over a `--t-label`
+ *   value. The display title does not carry the screen here either.
+ * - The close control sits on the FIELD, never on the photograph. A focus ring drawn
+ *   inside a saturated fill measures 1.00:1 — i.e. no ring at all — and a control parked
+ *   on a photograph has the same problem with no fixed value to measure against.
+ * - The photograph is a `.plate`: halftone + ramp, captioned on a ruled `.capline`
+ *   BENEATH it. No text is ever set over the image.
+ * - The practical rows are a `.list`: `var(--tap)` minimum, hairline separators, zero
+ *   backgrounds and zero shadows.
+ */
+export const SHEET_PANEL = 'rounded-t-r3 sm:rounded-t-none sm:rounded-l-r3';
+export const SHEET_HEAD =
+  'shrink-0 flex items-center justify-between gap-3 p-gut py-3 border-b-2 border-[color:hsl(var(--border))]';
+export const SHEET_FOOT =
+  'shrink-0 p-gut pt-3 pb-5 border-t-2 border-[color:hsl(var(--border))] bg-surface-low space-y-2.5';
+export const SHEET_CLOSE =
+  'shrink-0 grid place-items-center h-tap w-tap rounded-r1 border-hair border-[color:hsl(var(--border))] text-ink-mid transition-colors hover:border-[color:var(--border-ui)] hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none';
 
 export interface PlaceDetailData {
   /** Stable key for the place (source id or a derived id) — used for React keys. */
@@ -119,8 +158,9 @@ export default function PlaceDetailSheet({
   // consistency with the other two link-out sites (add-to-itinerary-dialog, calendar-planner).
   const mapsUrl = place ? buildMapsPlaceUrl(place.name, undefined, undefined, place.location) : null;
   const bodyText = place?.longDescription || place?.description;
-  const accentText = isNepal ? 'text-himalaya-400' : 'text-sakura-400';
-  const accentChipBg = isNepal ? 'bg-himalaya-400/10' : 'bg-sakura-400/10';
+  // Country identity is the leg channel, scoped to this sheet by `data-leg` on the panel —
+  // the sheet portals to <body>, so it cannot inherit the route's leg and has to declare it.
+  const leg = isNepal ? 'nepal' : 'japan';
 
   const handleCustomAdd = () => {
     customTriggerRef.current = (document.activeElement as HTMLButtonElement) ?? null;
@@ -137,85 +177,97 @@ export default function PlaceDetailSheet({
       disableEscape={customOpen}
       testId="place-detail-sheet"
       // Mobile: rises from the bottom (bottom sheet). Desktop (sm+): right side panel.
-      className="w-full sm:w-[440px] sm:max-w-full sm:h-full rounded-t-2xl sm:rounded-t-none sm:rounded-l-2xl max-h-[88vh] sm:max-h-none"
+      className={`${SHEET_PANEL} w-full sm:w-[440px] sm:max-w-full sm:h-full max-h-[88vh] sm:max-h-none`}
     >
+      {/* The sheet portals to <body>, so it cannot inherit the route's leg. `display:
+          contents` declares it without adding a box: custom properties inherit through a
+          contents element, and the children stay direct flex items of the panel. */}
       {place && (
-        <>
-            {/* Non-scrolling header. The image is capped at 38vh: on
-                ultra-short viewports (e.g. 740×360 landscape) the natural
-                aspect-[16/10] height (~275px at the 440px panel width) would
-                starve the flex column and push the pinned footer below the fold.
-                max-h-[38vh] + object-cover crops the image instead, keeping BOTH
-                footer actions on-screen. On tall viewports (390×844, 1280×900)
-                38vh always exceeds the natural height, so the cap never binds and
-                the 16/10 framing is unchanged. */}
-            <div className="shrink-0 relative">
-              {place.image ? (
-                <div
-                  className="vt-shared relative aspect-[16/10] max-h-[38vh] bg-surface-raised overflow-hidden"
-                  style={{ ['--vt-name']: `place-photo-${place.id}` } as CSSProperties}
-                >
-                  <OptimizedImage
-                    src={place.image}
-                    alt={place.name}
-                    fill
-                    sizes="(min-width: 640px) 440px, 100vw"
-                    className="object-cover"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-surface/90 via-surface/20 to-transparent" />
-                </div>
-              ) : (
-                <div className={`aspect-[16/10] max-h-[38vh] flex items-center justify-center ${isNepal ? 'bg-gradient-to-br from-himalaya-500/20 to-surface-raised' : 'bg-gradient-to-br from-sakura-500/20 to-surface-raised'}`}>
-                  <MapPin className={`w-10 h-10 opacity-30 ${accentText}`} />
-                </div>
-              )}
-              <button
-                type="button"
-                data-testid="place-detail-close"
-                onClick={onClose}
-                aria-label="Close details"
-                className="absolute top-3 right-3 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg bg-black/50 hover:bg-black/70 text-ink-hi backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-              >
-                <X className="w-5 h-5" />
-              </button>
-              {place.mustSee && (
-                <span className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 rounded-full bg-gold-500/90 text-surface text-[10px] font-bold uppercase tracking-wide">
-                  <Star className="w-3 h-3 fill-surface" />
-                  Must-see
-                </span>
-              )}
-            </div>
-
-            {/* Scrollable body — the only scroll region. tabIndex=0 keeps it
-                keyboard-reachable (axe scrollable-region-focusable): the body holds only
-                read-only text, so at 17px it can scroll with no focusable child of its own. */}
-            <div tabIndex={0} className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6 py-4">
-              <div className="flex items-start justify-between gap-3 mb-1">
+        <div data-leg={leg} className="contents">
+            {/* The running head. A --t-micro key over a --t-label value, on the same 2px
+                rule the app-wide head uses — the close control lives here, on the field,
+                rather than parked on the photograph. */}
+            <div className={SHEET_HEAD}>
+              <div className="min-w-0">
+                <span className="pr pr--lo block">{place.country}</span>
                 <h3
                   id={titleId}
-                  className="vt-shared font-display text-xl font-bold text-white leading-tight"
+                  className="vt-shared pr pr--l truncate text-ink-hi"
                   style={{ ['--vt-name']: `place-title-${place.id}` } as CSSProperties}
                 >
                   {place.name}
                 </h3>
               </div>
-              <div className="flex flex-wrap items-center gap-2 mb-4">
+              <div className="flex shrink-0 items-center gap-2">
+                {place.mustSee && (
+                  <span className="stamp border-[color:var(--now)] text-now">
+                    <Star className="w-3 h-3 fill-current" aria-hidden="true" />
+                    Must-see
+                  </span>
+                )}
+                <button
+                  type="button"
+                  data-testid="place-detail-close"
+                  onClick={onClose}
+                  aria-label="Close details"
+                  className={SHEET_CLOSE}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* The plate. The image is capped at 38vh: on ultra-short viewports (e.g.
+                740×360 landscape) the natural 16/10 height (~275px at the 440px
+                panel width) would starve the flex column and push the pinned footer below
+                the fold. max-h-[38vh] + object-cover crops the image instead, keeping BOTH
+                footer actions on-screen. On tall viewports (390×844, 1280×900) 38vh always
+                exceeds the natural height, so the cap never binds and the 16/10 framing is
+                unchanged. Nothing is set over it — the caption is the ruled line beneath.
+                The ratio is `--plate-ar` on the frame because that is what the recipe reads;
+                `min-w-full` is load-bearing beside the cap, since a max-height on an
+                aspect-ratio box transfers back through the ratio and shrinks the WIDTH. */}
+            <div className="plate shrink-0 relative">
+              {place.image ? (
+                <div className="frame [--plate-ar:16_/_10] max-h-[38vh] min-w-full">
+                  <div
+                    className="fig vt-shared bg-surface-raised"
+                    style={{ ['--vt-name']: `place-photo-${place.id}` } as CSSProperties}
+                  >
+                    <OptimizedImage
+                      src={place.image}
+                      alt={place.name}
+                      fill
+                      sizes="(min-width: 640px) 440px, 100vw"
+                      className="object-cover"
+                    />
+                  </div>
+                  <div className="ramp" aria-hidden="true" />
+                </div>
+              ) : (
+                // No photograph for this place: the frame keeps its size and goes hollow.
+                <div className="empty-frame m-gut aspect-[16/10] max-h-[38vh] flex flex-col items-center justify-center gap-2">
+                  <MapPin className="w-10 h-10 text-ink-lo" aria-hidden="true" />
+                  <span className="hollow-tag">No plate on file</span>
+                </div>
+              )}
+              <div className="capline">
                 {place.location && (
-                  <span className="inline-flex items-center gap-1 text-xs text-ink-mid">
-                    <MapPin className="w-3 h-3 shrink-0" />
+                  <span className="pr">
+                    <MapPin className="mr-1 inline-block h-3 w-3 align-[-1px]" aria-hidden="true" />
                     {place.location}
                   </span>
                 )}
-                {place.category && (
-                  <span className={`inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full ${accentText} ${accentChipBg}`}>
-                    <Tag className="w-2.5 h-2.5" />
-                    {place.category}
-                  </span>
-                )}
+                {place.category && <span className="pr pr--lo">{place.category}</span>}
               </div>
+            </div>
 
+            {/* Scrollable body — the only scroll region. tabIndex=0 keeps it
+                keyboard-reachable (axe scrollable-region-focusable): the body holds only
+                read-only text, so at 17px it can scroll with no focusable child of its own. */}
+            <div tabIndex={0} className="flex-1 min-h-0 overflow-y-auto overscroll-contain py-4">
               {bodyText && (
-                <p className="text-sm text-ink-mid leading-relaxed mb-5">{bodyText}</p>
+                <p className="p-gut pt-0 text-t-lead text-ink-mid leading-relaxed">{bodyText}</p>
               )}
 
               {/* Practical info rows — each optional; omitted when unknown.
@@ -230,43 +282,56 @@ export default function PlaceDetailSheet({
                   used to have as a dl-row sibling — so `<dd>` still starts at the same
                   x-offset (icon 16px + gap 10px + label 96px + gap 10px, unchanged). */}
               {(place.bestTime || place.duration || place.priceHint || typeof place.rating === 'number') && (
-                <dl className="space-y-2.5 mb-2">
+                // A `.list` of dt/dd pairs. The wrapping div holds EXACTLY one dt and one
+                // dd (axe `only-dlitems`), so the decorative icon lives inside the dt; the
+                // label keeps its own fixed box so every value starts at one x-offset.
+                <dl className="list mt-4 border-t-hair border-[color:hsl(var(--border))]">
                   {place.bestTime && (
-                    <div className="flex items-center gap-2.5 text-sm">
-                      <dt className="flex items-center gap-2.5 shrink-0">
-                        <Clock className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
-                        <span className="text-ink-lo w-24 shrink-0">Best time</span>
+                    <div className="r [--lead:auto] !items-center">
+                      <dt className="flex shrink-0 items-center gap-2.5">
+                        <Clock className="w-4 h-4 shrink-0 text-ink-lo" aria-hidden="true" />
+                        <span className="pr pr--lo w-24 shrink-0">Best time</span>
                       </dt>
-                      <dd className="text-ink-hi">{place.bestTime}</dd>
+                      <dd className="text-t-body text-ink-hi">{place.bestTime}</dd>
                     </div>
                   )}
                   {place.duration && (
-                    <div className="flex items-center gap-2.5 text-sm">
-                      <dt className="flex items-center gap-2.5 shrink-0">
-                        <CalendarClock className="w-4 h-4 text-blue-400 shrink-0" aria-hidden="true" />
-                        <span className="text-ink-lo w-24 shrink-0">Duration</span>
+                    <div className="r [--lead:auto] !items-center">
+                      <dt className="flex shrink-0 items-center gap-2.5">
+                        <CalendarClock className="w-4 h-4 shrink-0 text-ink-lo" aria-hidden="true" />
+                        <span className="pr pr--lo w-24 shrink-0">Duration</span>
                       </dt>
-                      <dd className="text-ink-hi">{place.duration}</dd>
+                      <dd className="text-t-body text-ink-hi">{place.duration}</dd>
                     </div>
                   )}
                   {place.priceHint && (
-                    <div className="flex items-center gap-2.5 text-sm">
-                      <dt className="flex items-center gap-2.5 shrink-0">
-                        <Coins className="w-4 h-4 text-green-400 shrink-0" aria-hidden="true" />
-                        <span className="text-ink-lo w-24 shrink-0">Price</span>
+                    <div className="r [--lead:auto] !items-center">
+                      <dt className="flex shrink-0 items-center gap-2.5">
+                        <Coins className="w-4 h-4 shrink-0 text-ink-lo" aria-hidden="true" />
+                        <span className="pr pr--lo w-24 shrink-0">Price</span>
                       </dt>
-                      <dd className="text-ink-hi">{place.priceHint}</dd>
+                      <dd className="text-t-body text-ink-hi">{place.priceHint}</dd>
                     </div>
                   )}
                   {typeof place.rating === 'number' && place.rating > 0 && (
-                    <div className="flex items-center gap-2.5 text-sm">
-                      <dt className="flex items-center gap-2.5 shrink-0">
-                        <Star className="w-4 h-4 text-muted-foreground shrink-0" aria-hidden="true" />
-                        <span className="text-ink-lo w-24 shrink-0">Photo rating</span>
+                    <div className="r [--lead:auto] !items-center">
+                      <dt className="flex shrink-0 items-center gap-2.5">
+                        <Star className="w-4 h-4 shrink-0 text-ink-lo" aria-hidden="true" />
+                        <span className="pr pr--lo w-24 shrink-0">Photo rating</span>
                       </dt>
+                      {/* FILLED means committed, unfilled means not yet — so the five slots
+                          all render and the unearned ones stay as outlines. A short row of
+                          stars and a short row of nothing are the same shape. */}
                       <dd className="flex items-center gap-0.5">
-                        {Array.from({ length: Math.min(5, Math.max(0, Math.round(place.rating))) }).map((_, i) => (
-                          <Star key={i} className="w-3 h-3 fill-current text-muted-foreground" />
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Star
+                            key={i}
+                            className={`w-3 h-3 ${
+                              i < Math.min(5, Math.max(0, Math.round(place.rating ?? 0)))
+                                ? 'fill-current text-ink-hi'
+                                : 'text-ink-lo'
+                            }`}
+                          />
                         ))}
                       </dd>
                     </div>
@@ -276,15 +341,15 @@ export default function PlaceDetailSheet({
             </div>
 
             {/* Pinned footer — Maps link + add-to-plan, always visible. */}
-            <div className="shrink-0 px-5 sm:px-6 pt-3 pb-5 border-t border-white/10 bg-surface/40 space-y-2.5">
+            <div className={SHEET_FOOT}>
               {mapsUrl && (
                 <a
                   href={mapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs text-primary hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="btn btn--2 max-w-none w-full outline-none focus-visible:outline-none"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                   Search on Google Maps
                 </a>
               )}
@@ -292,7 +357,7 @@ export default function PlaceDetailSheet({
               {/* Source-linked add (recs / photos) — the shared state-aware control. */}
               {addSource && addSourceType && (
                 <div data-testid="place-detail-add-to-plan" className="[&>button]:mt-0">
-                  <AddToPlanButton source={addSource} sourceType={addSourceType} accentColor={accentText} />
+                  <AddToPlanButton source={addSource} sourceType={addSourceType} accentColor="text-now" />
                 </div>
               )}
 
@@ -314,18 +379,20 @@ export default function PlaceDetailSheet({
                         : `Add ${customAddDraft.title} to your trip plan`
                     }
                     className={
+                      // STRUCK once it is committed to a day; HOLLOW while it is only an
+                      // idea. Both keep the same box, so the row never reflows on commit.
                       customIsAdded
-                        ? 'w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-ring/40 text-primary text-xs font-medium hover:bg-primary/25 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none'
-                        : `w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none hover:bg-white/10 ${accentText}`
+                        ? 'btn max-w-none w-full outline-none focus-visible:outline-none'
+                        : 'btn btn--2 max-w-none w-full outline-none focus-visible:outline-none'
                     }
                   >
                     {customIsAdded ? (
                       <>
-                        <Check className="w-3.5 h-3.5 shrink-0" />
+                        <Check className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
                         <span>Added</span>
-                        <span className="text-muted-foreground" aria-hidden="true">·</span>
-                        <span className="flex items-center gap-1 text-foreground">
-                          <CalendarDays className="w-3 h-3 shrink-0" />
+                        <span aria-hidden="true">·</span>
+                        <span className="flex items-center gap-1">
+                          <CalendarDays className="w-3 h-3 shrink-0" aria-hidden="true" />
                           {customSummary}
                         </span>
                       </>
@@ -340,14 +407,14 @@ export default function PlaceDetailSheet({
                     data-testid="place-detail-add-to-plan"
                     onClick={handleCustomAdd}
                     aria-haspopup="dialog"
-                    className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none hover:bg-white/10 ${accentText}`}
+                    className="btn btn--2 max-w-none w-full outline-none focus-visible:outline-none"
                   >
                     Add to plan
                   </button>
                 )
               )}
             </div>
-        </>
+        </div>
       )}
 
       {/* Custom-add dialog (nightlife path). Portals over the sheet (via its own

@@ -14,10 +14,9 @@ import dynamic from 'next/dynamic';
 export const TravelDatePicker = dynamic(() => import('@/components/travel-date-picker'), {
   ssr: false,
   loading: () => (
-    <div
-      aria-hidden="true"
-      className="mx-auto mt-6 min-h-[220px] max-w-2xl rounded-2xl glass-card"
-    />
+    <div className="load mx-auto mt-6 min-h-[220px] max-w-2xl">
+      <span className="pr pr--lo">Loading</span>
+    </div>
   ),
 });
 
@@ -25,7 +24,7 @@ export const TravelDatePicker = dynamic(() => import('@/components/travel-date-p
 // way as the date picker to hold the route under its First Load JS budget.
 export const TravelLegibilityToggle = dynamic(() => import('@/components/travel-legibility-toggle'), {
   ssr: false,
-  loading: () => <div aria-hidden="true" className="h-11 w-11 shrink-0 rounded-lg" />,
+  loading: () => <div aria-hidden="true" className="h-tap w-tap shrink-0 rounded-r1" />,
 });
 
 // — the exit X (hard DoD). Same lazy ssr:false island pattern as the legibility toggle so it
@@ -33,7 +32,7 @@ export const TravelLegibilityToggle = dynamic(() => import('@/components/travel-
 // and it hydrates in-place within ~a beat — the escape hatch is present effectively immediately.
 export const TravelExitButton = dynamic(() => import('@/components/travel-exit-button'), {
   ssr: false,
-  loading: () => <div aria-hidden="true" className="h-11 w-11 shrink-0 rounded-lg" />,
+  loading: () => <div aria-hidden="true" className="h-tap w-tap shrink-0 rounded-r1" />,
 });
 
 // — the concierge, mounted into the reserved `.tm-thumb-zone` band. Its own island (same

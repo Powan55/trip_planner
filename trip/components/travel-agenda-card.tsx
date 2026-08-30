@@ -40,11 +40,9 @@ export default function TravelAgendaCard({ date }: { date?: string } = {}) {
   // Reserve height before hydration so the island mount doesn't collapse→expand.
   if (!hydrated) {
     return (
-      <div
-        data-testid="travel-agenda-skeleton"
-        aria-hidden="true"
-        className="mx-auto mt-4 min-h-[160px] max-w-2xl rounded-2xl glass-card"
-      />
+      <div data-testid="travel-agenda-skeleton" className="load mx-auto mt-4 min-h-[160px] max-w-2xl">
+        <span className="pr pr--lo">Loading</span>
+      </div>
     );
   }
 

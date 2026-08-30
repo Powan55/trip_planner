@@ -10,22 +10,21 @@ import { isTravelRoute } from '@/lib/travel-route';
 /**
  * Global, invisible host for the custom "add your own plan" flow.
  *
- * Mounted ONCE in the root layout at (this component does NOT mount
- * itself). It renders nothing until an event arrives; it listens on `window` for the
- * CustomEvent `quickadd:open` — emitted by's quick-add FAB and by the calendar
- * FAB — and opens `AddToItineraryDialog` in CUSTOM mode preset to the requested day:
+ * Mounted ONCE in the root layout (this component does NOT mount itself). It renders nothing
+ * until an event arrives; it listens on `window` for the CustomEvent `quickadd:open` — emitted
+ * by the app-wide quick-add FAB and by the calendar's own FAB — and opens
+ * `AddToItineraryDialog` in CUSTOM mode preset to the requested day:
  *
  * window.dispatchEvent(new CustomEvent('quickadd:open', { detail: { date: '2026-12-22' } }))
  *
  * `detail.date` is optional; when absent (or not a valid trip date) the dialog falls
  * back to the first trip date (the dialog validates `presetDate` against TRIP_DATES).
  *
- * The dialog itself owns the full modal contract it inherits: (document-level
- * Esc, Tab-trap, first-field autofocus, parent-owned focus-return on
- * `AnimatePresence onExitComplete`), (pinned action footer), (portal to
- * `document.body`), and the `body[data-dialog-open]` seam flag. Focus-return here is
- * parent-owned per: we capture `document.activeElement` when the event fires and
- * refocus it once the exit animation completes.
+ * `AddToItineraryDialog` owns the whole modal contract: document-level Esc, Tab-trap,
+ * first-field autofocus, the pinned action footer, the portal to `document.body`, and the
+ * `body[data-dialog-open]` seam flag. Only focus-return is parent-owned, and it is owned here:
+ * we capture `document.activeElement` when the event fires and refocus it once the exit
+ * animation completes (`AnimatePresence onExitComplete`).
  *
  * Custom items are plain ItineraryItems with NO sourceId/sourceType, so the
  * `draft` we pass is a minimal empty candidate: the dialog's custom mode reads the
@@ -53,9 +52,9 @@ interface QuickAddDetail {
 export const QUICKADD_OPEN_EVENT = 'quickadd:open';
 
 export default function QuickAddHost() {
-  // Travel Mode zero-chrome-leakage (TM-9) — this invisible dialog host is
-  // suppressed under `/travel`. Nothing in dispatches `quickadd:open` there;
-  // a later TM change that wants the global add-flow lifts this guard deliberately.
+  // Travel Mode zero-chrome-leakage (TM-9) — this invisible dialog host is suppressed under
+  // `/travel`. Nothing under `/travel` dispatches `quickadd:open`; a later change that wants the
+  // global add-flow there lifts this guard deliberately.
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [presetDate, setPresetDate] = useState<string | undefined>(undefined);
@@ -81,6 +80,7 @@ export default function QuickAddHost() {
     <AnimatePresence
       onExitComplete={() => {
         triggerRef.current?.focus?.();
+        triggerRef.current = null;
       }}
     >
       {open && (

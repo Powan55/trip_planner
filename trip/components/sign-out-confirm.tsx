@@ -83,12 +83,12 @@ export default function SignOutConfirm({
     >
       <AlertDialogTrigger asChild>{children}</AlertDialogTrigger>
       <AlertDialogContent
-        className="glass-card-dark border-white/10 text-white"
+        className="border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-raised))] text-white"
         data-testid={`${testId}-dialog`}
       >
         <AlertDialogHeader>
           <AlertDialogTitle>{forgetDevice ? 'Forget this device?' : 'Sign out of this device?'}</AlertDialogTitle>
-          <AlertDialogDescription className="text-ink-mid">
+          <AlertDialogDescription className="text-[color:var(--text-mid)]">
             {forgetDevice
               ? "This does everything signing out does, and also permanently deletes every photo stored on this device. Your key still gets you back into your account, but neither the plan nor these photos come back unless the trip was synced elsewhere first."
               : "This removes this trip's data from this device. Your key gets you back into your account, but the plan itself won't come back unless it's synced to another device."}
@@ -99,7 +99,7 @@ export default function SignOutConfirm({
           type="button"
           onClick={handleBackup}
           data-testid={`${testId}-backup`}
-          className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+          className="inline-flex min-h-tap items-center justify-center gap-2 self-start rounded-r1 border border-[color:var(--border-ui)] px-4 py-2.5 font-machine text-t-label font-semibold uppercase tracking-[0.12em] text-[color:var(--text-hi)] transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
         >
           {backup === 'done' ? (
             <Check className="h-4 w-4" aria-hidden="true" />
@@ -122,7 +122,7 @@ export default function SignOutConfirm({
           <AlertDialogAction
             data-testid={`${testId}-confirm`}
             onClick={handleConfirm}
-            className="bg-rose-500 text-white hover:bg-rose-400"
+            className="btn btn--danger"
           >
             {forgetDevice ? 'Forget this device' : 'Sign out'}
           </AlertDialogAction>

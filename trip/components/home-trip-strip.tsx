@@ -53,17 +53,18 @@ export default function HomeTripStrip() {
 
   return (
     <nav aria-label="Your trips" data-testid="home-trip-strip">
-      <div className="mx-auto flex max-w-[1200px] items-center gap-2 overflow-x-auto px-4 py-2 sm:px-6">
-        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-ink-lo">
-          Your trips
-        </span>
+      {/* The chip row. The ACTIVE trip is struck (a committed fact, `--text-hi` edge); every
+          other is a neutral chip you can move to. Nothing here is an --accent fill: the one
+          fill on this screen answers "what is now?", and it is the countdown. */}
+      <div className="mx-auto flex max-w-[1200px] items-center gap-2 overflow-x-auto px-gut py-2">
+        <span className="pr pr--lo shrink-0">Your trips</span>
         {trips.map((t, i) =>
           t.id === activeId ? (
             <span
               key={t.id}
               aria-current="true"
               data-testid={`home-trip-chip-${i}`}
-              className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-ring/60 bg-primary/10 px-3.5 text-sm font-semibold text-primary"
+              className="chip chip--struck min-h-tap shrink-0 px-3"
             >
               <span className="max-w-[12rem] truncate">{t.name}</span>
             </span>
@@ -74,7 +75,7 @@ export default function HomeTripStrip() {
               onClick={() => switchTo(t.id)}
               aria-label={`Switch to trip ${t.name}`}
               data-testid={`home-trip-chip-${i}`}
-              className="inline-flex min-h-[44px] shrink-0 items-center rounded-full border border-[color:var(--border-ui)] px-3.5 text-sm font-medium text-ink-mid transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="chip min-h-tap shrink-0 px-3 transition-colors hover:bg-white/5 hover:text-ink-hi"
             >
               <span className="max-w-[12rem] truncate">{t.name}</span>
             </button>
@@ -83,7 +84,7 @@ export default function HomeTripStrip() {
         <Link
           href="/trips/"
           data-testid="home-trip-new"
-          className="inline-flex min-h-[44px] shrink-0 items-center gap-1.5 rounded-full border border-[color:var(--border-ui)] px-3.5 text-sm font-medium text-ink-mid transition-colors hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="chip min-h-tap shrink-0 gap-1.5 px-3 transition-colors hover:bg-white/5 hover:text-ink-hi"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           New

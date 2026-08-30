@@ -89,15 +89,15 @@ export default class MapIslandBoundary extends Component<Props, State> {
       // static aside without the live-region announcement `status`/`alert` would
       // force. No motion, so it is reduced-motion-safe by construction (same
       // reasoning as app/error.tsx).
+      // The failure is stated in words, on a frame drawn at the size the thing would have
+      // occupied. Nothing is captioned as absent; the copy points forward.
       <div
         data-testid="map-island-unavailable"
         role="note"
-        className="glass-card mx-auto w-full max-w-md rounded-2xl p-6 text-center"
+        className="empty-frame mx-auto w-full max-w-md p-gut py-6 text-center"
       >
-        <p className="mb-2 font-display text-base font-semibold text-white">
-          Map unavailable offline
-        </p>
-        <p className="text-sm text-ink-mid">
+        <p className="pr pr--l err mb-2">Map engine not on this device</p>
+        <p className="empty">
           {label} needs its map engine, which isn&apos;t stored on this device — it is
           large, and it would show a blank canvas without cached tiles anyway.
           Reconnect to load it. Everything else on this page works offline, and your
