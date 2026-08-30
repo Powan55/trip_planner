@@ -35,9 +35,8 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
  * dark primitive is a pure de-duplication of the three hand-rolled sheets — zero
  * behaviour change, intact.
  *
- * reduced-motion: entrance/exit are opacity + a small transform; the global
- * reduced-motion CSS guard + framer's `MotionConfig reducedMotion="user"` collapse
- * them to the settled end-state, so nothing is ever stuck at opacity-0.
+ * reduced-motion: entrance/exit are opacity + a small transform. `reducedMotion="user"` gates
+ * POSITIONAL keys only, so the opacity tween still runs in full under reduced motion.
  *
  * MOTION (issue #24): the panel entrance is `overlayPanelMotion()` from `lib/motion.ts`, not a
  * literal here. D-292 pins every dialog and sheet to Tier 3 whatever route opened it. There is

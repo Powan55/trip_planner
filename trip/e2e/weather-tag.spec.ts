@@ -129,10 +129,10 @@ test.describe('S216 — calendar day-card weather tag (read-only, cache-derived)
     await page.getByTestId(`calendar-day-${OUT_OF_WINDOW_DAY}`).click();
     await expect(page.getByTestId('calendar-day-weather-tag')).toHaveCount(0);
     // The header itself still renders correctly (no broken layout from the missing tag).
-    // S336: 'Day N •' matches two legit header nodes (the compact date line AND the
+    // S336: 'Day N ·' matches two legit header nodes (the compact date line AND the
     // location line), so assert the unambiguous location header specifically.
     await expect(page.getByTestId('calendar-prev-day')).toBeVisible();
-    await expect(page.getByText('Day 2 • Kathmandu, Nepal')).toBeVisible();
+    await expect(page.getByText('Day 2 · Kathmandu, Nepal')).toBeVisible();
   });
 
   // S407 — the RENDERED day header, on the served build. Dec 9 is spent in Syracuse / JFK / the
@@ -144,8 +144,8 @@ test.describe('S216 — calendar day-card weather tag (read-only, cache-derived)
   test('S407: the Dec-9 header renders "New York, USA", never "New York, Nepal"', async ({ page }) => {
     await gotoPlanner(page, IN_TRIP_DAY);
     await page.getByTestId('calendar-day-2026-12-09').click();
-    await expect(page.getByText('Day 1 • New York, USA')).toBeVisible();
-    await expect(page.getByText('Day 1 • New York, Nepal')).toHaveCount(0);
+    await expect(page.getByText('Day 1 · New York, USA')).toBeVisible();
+    await expect(page.getByText('Day 1 · New York, Nepal')).toHaveCount(0);
   });
 
   test('a fresh session (weather never fetched) shows no tag anywhere, no console errors', async ({ page }) => {

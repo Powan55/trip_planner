@@ -382,7 +382,7 @@ test.describe('S406 · map search over every place in the trip', () => {
     await page.getByTestId('map-search-input').fill('Reykjavik');
 
     const results = page.getByTestId('map-search-results');
-    await expect(results).toContainText('No places on your trip match “Reykjavik”.');
+    await expect(results).toContainText('Nothing on your trip matches “Reykjavik” yet.');
     await expect(results.getByRole('button')).toHaveCount(0);
     // The world list does not exist until it is asked for. Typing is not asking.
     await expect(page.getByTestId('map-search-world-results')).toHaveCount(0);
@@ -454,7 +454,7 @@ test.describe('issue #22 · searching for a place anywhere in the world', () => 
     await page.getByTestId('map-search-toggle').click();
     await page.getByTestId('map-search-input').fill('Reykjavik');
     // Nothing on the trip matches, and until the button is pressed that is the whole answer.
-    await expect(page.getByTestId('map-search-results')).toContainText('No places on your trip');
+    await expect(page.getByTestId('map-search-results')).toContainText('Nothing on your trip matches');
     await page.getByTestId('map-search-world-submit').click();
 
     // TRIP FIRST, WORLD SECOND — in the DOM, not just visually.

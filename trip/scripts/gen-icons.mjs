@@ -25,12 +25,8 @@
 // so the installed app, splash, and address bar all agree. Re-valued to the D-334
 // page field.
 //
-// 🔴 THE COMMITTED PNGs UNDER public/icons/ ARE STALE AND HAVE BEEN FOR TWO PALETTES.
 // This script is not part of `npm run build` (which is `next build && gen-sw.mjs`), so
-// nothing regenerates them; they still carry the pre-aubergine field. Re-running it is
-// a binary asset change and belongs in its own commit — `node scripts/gen-icons.mjs`,
-// then eyeball the four PNGs. Only the installed/home-screen icon is affected; the
-// address bar and splash read THEME_COLOR from gen-sw.mjs, which IS current.
+// regenerating the icons is a deliberate, separate binary-asset commit.
 
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';

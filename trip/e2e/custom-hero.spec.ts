@@ -82,10 +82,10 @@ test.describe('S253 — custom trip hero', () => {
     await page.getByTestId('calendar-day-2027-05-11').click();
 
     // `exact` matters: a substring match would still pass if a label were appended.
-    await expect(page.getByText('Day 2 • Testville', { exact: true })).toBeVisible();
-    await expect(page.getByText('Day 2 • Testville, Japan')).toHaveCount(0);
-    await expect(page.getByText('Day 2 • Testville, Nepal')).toHaveCount(0);
-    await expect(page.getByText('Day 2 • Testville, Testville × Sampleburg')).toHaveCount(0);
+    await expect(page.getByText('Day 2 · Testville', { exact: true })).toBeVisible();
+    await expect(page.getByText('Day 2 · Testville, Japan')).toHaveCount(0);
+    await expect(page.getByText('Day 2 · Testville, Nepal')).toHaveCount(0);
+    await expect(page.getByText('Day 2 · Testville, Testville × Sampleburg')).toHaveCount(0);
   });
 
   test('360×740 mobile: tidy 3-col countdown grid above the fold, no horizontal overflow', async ({
