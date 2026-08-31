@@ -128,9 +128,11 @@ export default function HomeBento() {
               placeholder. In-trip it is the next upcoming item; PRE-trip it is the first
               thing on the itinerary. If there is genuinely nothing to say (an emptied
               itinerary, pre-trip) the row is not rendered — a row whose only content is an
-              apology is worse than no row. */}
+              apology is worse than no row.
+
+              Pre-trip the lead prints `formatDate()`, too wide for the default `--lead` track. */}
           {(todayInTrip || firstPlanned) && (
-            <li data-testid="home-bento-next-up" className="r">
+            <li data-testid="home-bento-next-up" className="r [--lead:5.75rem]">
               <span className="tm">
                 {!todayInTrip
                   ? formatDate(firstPlanned!.date)

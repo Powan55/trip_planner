@@ -954,6 +954,14 @@ html {
   font-weight: 400;
 }
 
+/* `machine` sets family only, and the one IBM Plex Mono face loaded here is the 600 — so
+   these sites render lighter than intended whenever the fallback stack is in use (cold
+   cache, or before the `preload: false` font lands). Unlayered like `.font-display` above:
+   it beats `font-bold` on source order, not specificity, and goes inert inside a layer. */
+.font-machine {
+  font-weight: 600;
+}
+
 /* ---- Surfaces ------------------------------------
    Apple-HIG correction: glass/vibrancy belongs on the NAV/OVERLAY layer, not on
    CONTENT. The former six translucent `.glass-*` tiers are SOLID fills — most on
@@ -3051,7 +3059,12 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     white-space: nowrap;
     color: var(--text-hi);
   }
-  .strip .rt b { font-size: var(--n-sm); }
+  /* the UA default `bolder` resolves against the 600 parent and lands on 900, which this
+     family does not have. */
+  .strip .rt b {
+    font-weight: 600;
+    font-size: var(--n-sm);
+  }
   .strip .rt i {
     font-style: normal;
     display: block;

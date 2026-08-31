@@ -99,23 +99,53 @@ async function expectAxeClean(page: Page, label: string, testInfo: TestInfo) {
 //
 // `/profile/` (issue #4) joins the list rather than getting its own pack: it is a form, and a
 // form is the shape axe has the most to say about — labels, names, the invalid state.
-const UNGATED_ROUTES = [
-  '/flights/',
-  '/safety/',
-  '/recap/',
-  '/settings/',
-  '/share/',
-  '/passport/',
-  '/profile/',
-] as const;
+//
+// `/plan/` carries a viewport because a11y.spec.ts already scans it at desktop width, where
+// the expense ledger's table fits and its scroller does not exist to be scanned.
+const UNGATED_ROUTES: {
+  path: string;
+  viewport?: { width: number; height: number };
+  ready?: string;
+}[] = [
+  { path: '/flights/' },
+  { path: '/safety/' },
+  { path: '/recap/' },
+  { path: '/settings/' },
+  { path: '/share/' },
+  { path: '/passport/' },
+  { path: '/profile/' },
+  { path: '/plan/', viewport: { width: 390, height: 844 }, ready: 'budget-ledger' },
+];
 
-for (const route of UNGATED_ROUTES) {
-  test(`axe: ${route} has zero serious/critical (traveler state)`, async ({ page }, testInfo) => {
-    await gotoSettled(page, route);
+for (const { path, viewport, ready } of UNGATED_ROUTES) {
+  const label = viewport ? `${path} @${viewport.width}px` : path;
+  test(`axe: ${label} has zero serious/critical (traveler state)`, async ({ page }, testInfo) => {
+    if (viewport) await page.setViewportSize(viewport);
+    await gotoSettled(page, path);
     await expect(page.locator('h1').first()).toBeVisible({ timeout: 15_000 });
-    await expectAxeClean(page, route, testInfo);
+    if (ready) await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15_000 });
+    await expectAxeClean(page, label, testInfo);
   });
 }
+
+// axe only proves something in that region is focusable, not that the node which scrolls is.
+test('the expense ledger scroller is keyboard-reachable and named @390px', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await gotoSettled(page, '/plan/');
+  const scroller = page.getByTestId('budget-ledger-scroll');
+  await expect(scroller).toBeVisible({ timeout: 15_000 });
+
+  const overflows = await scroller.evaluate((el) => el.scrollWidth > el.clientWidth);
+  expect(overflows, 'ledger scroller should overflow horizontally at 390px').toBe(true);
+
+  await scroller.focus();
+  await expect(scroller).toBeFocused();
+  await expect(scroller).toHaveAccessibleName(/Logged spend by category/);
+  await page.keyboard.press('ArrowRight');
+  await expect
+    .poll(() => scroller.evaluate((el) => el.scrollLeft), { timeout: 5_000 })
+    .toBeGreaterThan(0);
+});
 
 // ── Travel Mode designed states, full-page, on the desktop net (TM-12 runs iPhone-only) ──
 const TM_SEED = {

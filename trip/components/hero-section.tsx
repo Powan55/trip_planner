@@ -531,17 +531,20 @@ export default function HeroSection() {
         {/* Badge — the printed date field. `.chip` is the ruled form; it keeps the same
             box and drops two type steps, which spends less of the fold budget, not more. */}
         <m.div variants={reveal} className="mb-2 min-[420px]:mb-6">
-          <span className="chip chip--struck px-3 py-2">
+          <span className="chip chip--struck whitespace-normal px-3 py-2">
             <Plane className="w-4 h-4" aria-hidden="true" />
             {TRIP_DATE_LABEL}
           </span>
         </m.div>
 
-        {/* Title —: a custom trip shows its own name, no Nepal×Japan branding. */}
+        {/* Title —: a custom trip shows its own name, no Nepal×Japan branding.
+            The step is `rem`, not `px`: a px size opts out of the outdoor high-legibility
+            root bump. Scoped under 340px rather than lowering the shared clamp floor in
+            tailwind.config.ts, which would move the 390px hero and re-shoot its baselines. */}
         <m.h1
           variants={reveal}
           id="hero-heading"
-          className="text-display-2xl text-ink-hi mb-4"
+          className="text-display-2xl max-[339px]:text-[2.4rem] text-ink-hi mb-4"
         >
           {custom ? (
             <span>{customName}</span>

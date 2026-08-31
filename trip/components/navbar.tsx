@@ -177,7 +177,7 @@ export default function Navbar() {
       >
         <div className="max-w-[1200px] mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-16">
-            <Link href="/" onClick={vtClick('/')} aria-label={brand ? `${brand} — home` : 'Nepal × Japan — home'} className="flex items-center gap-2.5 group rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+            <Link href="/" onClick={vtClick('/')} aria-label={brand ? `${brand} — home` : 'Nepal × Japan — home'} className="flex min-h-tap items-center gap-2.5 group rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
               <MapPin className="w-5 h-5 text-muted-foreground group-hover:scale-110 transition-transform" />
               {/* on a custom trip the brand is the trip's own name (mount-safe — Navbar
                   never SSRs, see the primaryItems/brand comment above). Default trip: unchanged. */}
