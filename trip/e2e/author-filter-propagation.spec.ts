@@ -6,7 +6,7 @@ import type { Page } from '@playwright/test';
  *
  * Reported: *"when i click on the filter by name all everything thats not related to that person should
  * dessipear from the calander etc."* Before this slice exactly ONE consumer filtered (the day's
- * item list); every other piece of chrome read the unfiltered stored day. With "Sushil" selected
+ * item list); every other piece of chrome read the unfiltered stored day. With "Rhea" selected
  * the list showed 2 rows under a pill reading "5 items", a month cell with 5 dots and an
  * `aria-label` announcing "5 activities planned", and a map plotting all 5.
  *
@@ -40,9 +40,9 @@ const ITINERARY_KEY = 'nepal_japan_itinerary';
 const FIXTURE_DAY = '2026-12-15';
 const SPAN_DAY = '2026-12-16';
 
-/** The fixture identity (`e2e/fixtures.ts` signs in as Powan). "Sushil" is the other author. */
-const ME = 'Powan';
-const OTHER = 'Sushil';
+/** The fixture identity (`e2e/fixtures.ts` signs in as Alina). "Rhea" is the other author. */
+const ME = 'Alina';
+const OTHER = 'Rhea';
 
 async function waitForPlannerReady(page: Page) {
   await page.locator('[data-testid^="calendar-day-"]').first().waitFor({ state: 'visible' });
@@ -59,7 +59,7 @@ async function gotoSettled(page: Page, path: string) {
  * with the filter too, not just its denominator.
  *
  * Deliberate shape:
- *   · the EARLIEST item is mine, so filtering to Sushil must MOVE the "From" pill, not just keep it;
+ *   · the EARLIEST item is mine, so filtering to Rhea must MOVE the "From" pill, not just keep it;
  *   · the one clashing PAIR is cross-author, so filtering to either name must drop BOTH badges —
  *     a filter that narrowed the list but not the clash set would leave a badge warning about a
  *     collision with something not on screen;
@@ -94,18 +94,18 @@ async function seedTwoAuthorDays(page: Page) {
             city: 'Kathmandu',
             country: 'nepal',
             items: [
-              item('af-p1', 'Powan Morning', me, 480), // 08:00 — the earliest, and MINE
-              item('af-p2', 'Powan Clash', me, 600), // 10:00-11:00 ┐ cross-author
-              item('af-s1', 'Sushil Clash', other, 630), // 10:30-11:30 ┘ overlap
-              item('af-s2', 'Sushil Afternoon', other, 840), // 14:00
-              item('af-p3', 'Powan Span', me, 1080, { endDate: spanDay }), // 18:00, spans
+              item('af-p1', 'Alina Morning', me, 480), // 08:00 — the earliest, and MINE
+              item('af-p2', 'Alina Clash', me, 600), // 10:00-11:00 ┐ cross-author
+              item('af-s1', 'Rhea Clash', other, 630), // 10:30-11:30 ┘ overlap
+              item('af-s2', 'Rhea Afternoon', other, 840), // 14:00
+              item('af-p3', 'Alina Span', me, 1080, { endDate: spanDay }), // 18:00, spans
             ],
           },
           {
             date: spanDay,
             city: 'Kathmandu',
             country: 'nepal',
-            items: [item('af-s3', 'Sushil Next Day', other, 540)],
+            items: [item('af-s3', 'Rhea Next Day', other, 540)],
           },
         ]),
       );
@@ -231,23 +231,23 @@ test.describe('S383 — a selected author narrows the WHOLE calendar surface', (
     expect(all.mapCountText).toBe('5 of 5 stops shown');
     expect(all.spanBandIds).toEqual(['af-p3']);
 
-    // ── Filter to Sushil. He owns 2 of the 5, neither of them the earliest, and his clash
-    // partner is Powan's — so EVERY number below has to move, in a different way each.
+    // ── Filter to Rhea. She owns 2 of the 5, neither of them the earliest, and her clash
+    // partner is Alina's — so EVERY number below has to move, in a different way each.
     await pickAuthor(page, OTHER);
     const mine = await chromeSnapshot(page, FIXTURE_DAY);
 
     expect(mine.rowIds).toEqual(['af-s1', 'af-s2']);
     expect(mine.glanceCount).toBe('2 items'); // 🔴 the headline defect: this read "5 items"
-    expect(mine.firstStart).toBe('From 10:30 AM'); // moved off Powan's 8:00
+    expect(mine.firstStart).toBe('From 10:30 AM'); // moved off Alina's 8:00
     expect(mine.clashIds).toEqual([]); // the pair was cross-author
     expect(mine.monthDots).toBe(2);
     expect(mine.monthLabel).toContain('2 activities planned');
     expect(mine.stripLabel).toContain('2 activities');
     expect(mine.mapTotalAttr).toBe('2');
     expect(mine.mapCountText).toBe('2 of 2 stops shown');
-    expect(mine.spanBandIds).toEqual([]); // the span is Powan's
+    expect(mine.spanBandIds).toEqual([]); // the span is Alina's
 
-    // D-142: filtering NARROWS, it never reorders. Sushil's two rows keep their stored
+    // D-142: filtering NARROWS, it never reorders. Rhea's two rows keep their stored
     // order relative to each other, which is also their order in the unfiltered list.
     expect(mine.rowIds).toEqual(all.rowIds.filter((id) => mine.rowIds.includes(id)));
 
@@ -269,13 +269,13 @@ test.describe('S383 — a selected author narrows the WHOLE calendar surface', (
     await waitForPlannerReady(page);
     await selectDay(page, SPAN_DAY);
 
-    // SPAN_DAY holds one Sushil item, and is COVERED (not owned) by Powan's span band.
+    // SPAN_DAY holds one Rhea item, and is COVERED (not owned) by Alina's span band.
     const all = await chromeSnapshot(page, SPAN_DAY);
     expect(all.rowIds).toEqual(['af-s3']);
     expect(all.spanBandIds).toEqual(['af-p3']);
 
-    // Filter to ME: Sushil's item goes, and so does the day's only row — but Powan's span band
-    // stays, because it IS his. A band is filtered by its own author, not by the day it covers.
+    // Filter to ME: Rhea's item goes, and so does the day's only row — but Alina's span band
+    // stays, because it IS hers. A band is filtered by its own author, not by the day it covers.
     await pickMine(page);
     const asMe = await chromeSnapshot(page, SPAN_DAY);
     expect(asMe.rowIds).toEqual([]);

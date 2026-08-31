@@ -5215,3 +5215,19 @@ The same file already carried this rule in a comment on an earlier test, and the
 **The trap that makes the naive fix wrong, and it is D-246 recurring.** framer reads `initial` once at mount and re-reads an `animate` target whenever it changes. Deferring the decision without moving the resting target leaves an off-screen reveal at the fade floor forever — `whileInView` never fires for content below the fold, so nothing ever arrives to lift it. That is the exact state D-246 measured axe scanning: a floored masthead resting at the floor indefinitely, which is why the floor has to be AA-safe on its own. The deferral therefore has to change what the element rests at, not only when the decision is read. Cite `FADE_FLOOR`, never a number copied out of a decision entry.
 
 **Changes if:** a second prerendered route reaches a client-only decision — the pair generalises but the ratchet's surface list does not, so the list has to grow with it — or Radix ships a close-focus fallback for triggerless dialogs, which would retire part 1.
+
+### D-490 · (2026-08-31) · A meta line names its destination in words; it never prints the route, and a line that would only repeat the row's title is dropped
+
+The v7.0.0 type pull-back removed `font-family: var(--font-machine)`, `text-transform: uppercase` and the tracking from `.list .mt`. Every recipe that lost them was carrying label text, which survives the change. Two call sites were not: the command palette and `/more/` both printed `href.replace(/\//g, '')` — a raw slug — and relied entirely on the uppercase machine face to make it read as machine annotation rather than prose. In the new type, `checklist` under **Documents** is indistinguishable from a lowercase typo of the title.
+
+**Decision.** A meta line renders a human name resolved from `NAV_ITEMS`, never a route string. `routeLabel()` lives in `lib/nav-items.ts` because that is where the catalog it reads lives; the palette was the wrong home for it, and `/more/` could not reach it there without a component-to-component import.
+
+**The fallback is load-bearing, not defensive.** `/nepal/` and `/japan/` left `NAV_ITEMS` when `/guides/` replaced them, but both are still palette destinations. The segment-titlecasing fallback is what keeps those two rows named, and it is pinned by test rather than left to be rediscovered.
+
+**Suppression over repetition.** Where the resolved name equals the row's own title — 14 of the palette's 20 rows — the line is not rendered. `/more/` drops it on all 11, because every row there is a `NAV_ITEMS` entry by construction and the suppression would fire every time; a branch that cannot produce output is not worth keeping. The palette's rows are mixed height by design.
+
+**What it cost, recorded rather than absorbed.** Three command-palette baselines moved for a change made in a round scoped to a different surface, and `/more/`'s rows now sit at exactly the 44px D-350 floor with no headroom, having lost their second line.
+
+**Why nothing caught it.** No baseline covers `/more/`, and no spec asserted either surface's meta text — the palette was caught only because a baseline happened to include it. The unit test added here pins `routeLabel` and cannot see `/more/`, which no longer calls it. That gap is filed, not closed by this entry.
+
+**Changes if:** a surface needs the route itself visible — a debug or developer view — in which case it prints the route deliberately in a machine face, and this rule is scoped to navigation surfaces rather than relaxed.

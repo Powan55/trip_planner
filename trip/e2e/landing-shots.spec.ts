@@ -43,7 +43,7 @@ const SHOOT_TODAY = '2026-11-15';
 /** Phone frame. The landing slots are `aspect-[390/844]` (`landing-page.tsx`), so the shot is 1:1. */
 const VIEWPORT = { width: 390, height: 844 } as const;
 
-/** Fictional party for the shoot. Deliberately none of `TRAVELERS` (Powan / Sushil / Uttam). */
+/** Fictional party for the shoot. Deliberately none of `TRAVELERS` (Alina / Rhea / Milo). */
 const ME = 'Sam';
 const FRIEND_A = 'Alex';
 const FRIEND_B = 'Rina';

@@ -920,44 +920,10 @@ html {
   overscroll-behavior-y: contain;
 }
 
-/* ---- The serif cannot be bold, so stop asking it to (G-2) ---------------------
-   Instrument Serif ships WEIGHT 400 ONLY (app/layout.tsx pins `weight: '400'`, and
-   there is no other weight to pin). tailwind.config.ts already says in writing, on the
-   `editorial-*` steps, that pairing `font-display` with `font-bold`/`font-semibold`
-   "produces a browser-SYNTHESISED bold, which is already a live defect in this
-   codebase" — and then the tree shipped 70 of them, across 45 files: every page title,
-   section masthead, error heading and dialog title in the app was rendering a smeared
-   algorithmic fake bold (the browser double-strikes/shears the 400 outlines).
-
-   ONE RULE INSTEAD OF 70 CALL-SITE EDITS. `font-bold`/`font-semibold` on those sites
-   are almost always doing a SECOND job — they sit in a shared class string with the
-   sans steps, or they were copied off a sans heading — so deleting them one by one is
-   45 files of churn with 45 chances to also change a size or a colour by accident.
-   Pinning the family's only real weight at the family utility fixes every site at once
-   and keeps working for sites that do not exist yet.
-
-   UNLAYERED, AND THAT IS THE WHOLE MECHANISM — do not "tidy" this into `@layer base`
-   or `@layer components`. `.font-display` and `.font-bold` are both 0,1,0, so this only
-   wins by SOURCE ORDER, and plain CSS below the `@tailwind utilities` injection point
-   at the top of this file is emitted after every utility. In a layer it would lose and
-   the fix would be silently inert. Same idiom, and same reason, as `.glass-card` below.
-   No `!important`: order is enough, and `!important` here would also beat the inline
-   `style` a future animation might need.
-
-   IT PINS THE SERIF ONLY. `display` is `var(--font-display), Georgia, serif` in
-   tailwind.config.ts — a family of its own, never the UI sans (`font-sans`/`font-mono`
-   both resolve `--font-sans`), so no sans weight is affected. It also pins the GEORGIA
-   fallback, which is deliberate: Georgia has a real bold, so without this the heading
-   weight would visibly change when the lazily-loaded webfont (`preload: false`) swaps
-   in. A heading that needs weight contrast takes a sans display step, not a fake bold. */
-.font-display {
-  font-weight: 400;
-}
-
 /* `machine` sets family only, and the one IBM Plex Mono face loaded here is the 600 — so
    these sites render lighter than intended whenever the fallback stack is in use (cold
-   cache, or before the `preload: false` font lands). Unlayered like `.font-display` above:
-   it beats `font-bold` on source order, not specificity, and goes inert inside a layer. */
+   cache, or before the `preload: false` font lands). Unlayered on purpose: it beats
+   `font-bold` on source order, not specificity, and goes inert inside a layer. */
 .font-machine {
   font-weight: 600;
 }
@@ -2324,17 +2290,16 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
 @layer components {
   /* ---- PRINT · the form itself, true regardless of state ---- */
   .pr {
-    font-family: var(--font-machine);
     font-weight: 600;
     font-size: var(--t-micro);
-    letter-spacing: 0.13em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--text-mid);
   }
   .pr--lo { color: var(--text-lo); }
   .pr--l {
     font-size: var(--t-label);
-    letter-spacing: 0.11em;
+    letter-spacing: 0.06em;
   }
   .num {
     font-family: var(--font-machine);
@@ -2350,19 +2315,15 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     margin-bottom: 0.7rem;
   }
   .sec h2 {
-    font-family: var(--font-machine);
     font-weight: 600;
     font-size: var(--t-label);
-    letter-spacing: 0.13em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--text-hi);
   }
   .sec .sub {
-    font-family: var(--font-machine);
-    font-weight: 600;
+    font-weight: 500;
     font-size: var(--t-micro);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
     text-align: right;
     color: var(--text-lo);
   }
@@ -2390,10 +2351,9 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
   }
   .hollow-tag {
     display: inline-block;
-    font-family: var(--font-machine);
     font-weight: 600;
-    font-size: var(--t-micro);
-    letter-spacing: 0.12em;
+    font-size: var(--t-label);
+    letter-spacing: 0.06em;
     text-transform: uppercase;
     white-space: nowrap;
     color: var(--text-lo);
@@ -2644,20 +2604,15 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
   }
   .sys .r:hover { background: rgb(255 255 255 / 0.05); }
   .sys .nm {
-    font-family: var(--font-machine);
     font-weight: 600;
     font-size: var(--t-label);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
     color: var(--text-hi);
   }
   /* EVERY ROW STATES ITS CONDITION IN WORDS, which is what makes the mark redundant by
      design and the panel colour-blind-safe. */
   .sys .cond {
-    font-family: var(--font-machine);
-    font-weight: 600;
+    font-weight: 500;
     font-size: var(--t-sm);
-    letter-spacing: 0.01em;
     color: var(--text-mid);
   }
   .sys .val {
@@ -3042,11 +2997,8 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
   }
   .strip .mt {
     display: block;
-    font-family: var(--font-machine);
-    font-weight: 600;
-    font-size: var(--t-micro);
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
+    font-weight: 500;
+    font-size: var(--t-label);
     margin-top: 0.14rem;
     color: var(--text-mid);
   }
@@ -3111,11 +3063,8 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
   }
   .cell .f {
     display: block;
-    font-family: var(--font-machine);
-    font-weight: 600;
-    font-size: var(--t-micro);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+    font-weight: 500;
+    font-size: var(--t-label);
     margin-top: 0.12rem;
     color: var(--text-mid);
   }
@@ -3184,11 +3133,8 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     display: block;
   }
   .list .mt {
-    font-family: var(--font-machine);
-    font-weight: 600;
-    font-size: var(--t-micro);
-    letter-spacing: 0.09em;
-    text-transform: uppercase;
+    font-weight: 500;
+    font-size: var(--t-label);
     margin-top: 0.14rem;
     color: var(--text-mid);
   }
@@ -3225,11 +3171,9 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     display: inline-flex;
     align-items: center;
     gap: 0.3em;
-    font-family: var(--font-machine);
     font-weight: 600;
-    font-size: var(--t-micro);
-    letter-spacing: 0.11em;
-    text-transform: uppercase;
+    font-size: var(--t-label);
+    letter-spacing: 0.01em;
     white-space: nowrap;
     padding: 0.16em 0.42em;
     border: 1px solid var(--border-ui);
@@ -3267,11 +3211,9 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     color: var(--on-accent);
     border-bottom: 3px solid var(--lip-volt);
     border-radius: var(--r-1);
-    font-family: var(--font-machine);
     font-weight: 600;
-    font-size: var(--t-label);
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
+    font-size: var(--t-body);
+    letter-spacing: 0.01em;
     transition: translate var(--duration-press) linear,
       border-bottom-width var(--duration-press) linear;
   }
@@ -3398,13 +3340,11 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     line-height: 1.05;
     color: var(--text-lo);
   }
-  /* 0.56rem == 9.52px at the 17px root — rem for the same reason as .axis span above. */
+  /* 0.62rem == 10.54px at the 17px root — rem for the same reason as .axis span above. */
   .nav a .t {
-    font-family: var(--font-machine);
     font-weight: 600;
-    font-size: 0.56rem;
-    letter-spacing: 0.13em;
-    text-transform: uppercase;
+    font-size: 0.62rem;
+    letter-spacing: 0.01em;
     color: var(--text-mid);
   }
   .nav a[aria-current='page'] {

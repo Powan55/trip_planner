@@ -20,11 +20,8 @@ import { cn } from "@/lib/utils"
 //   · THE FOCUS RING GOES OUTWARD ON A SATURATED FILL. Measured: an accent ring drawn
 //     INSIDE an accent fill is 1.00:1 and a white one 1.68:1 — i.e. no ring at all.
 //     Offset outward it lands on the field at 19.80:1. `ring-offset` is load-bearing.
-//
-// `uppercase` is CSS only: it never touches the DOM text, so every accessible name and
-// every `getByRole(name:)` assertion reads exactly what it read before.
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-r1 font-machine text-t-label font-semibold uppercase tracking-[0.14em] transition-all [transition-duration:var(--duration-press)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:w-4 [&_svg]:h-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-r1 font-sans text-t-body font-semibold tracking-[0.01em] transition-all [transition-duration:var(--duration-press)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:w-4 [&_svg]:h-4 [&_svg]:shrink-0",
   {
     variants: {
       variant: {
@@ -39,7 +36,7 @@ const buttonVariants = cva(
         ghost:
           "text-[color:var(--text-mid)] hover:bg-white/5 hover:text-[color:var(--text-hi)] disabled:text-[color:var(--text-lo)] disabled:cursor-not-allowed",
         link:
-          "text-[color:hsl(var(--accent))] normal-case tracking-normal font-sans text-t-body underline-offset-4 hover:underline focus-visible:underline focus-visible:ring-0 focus-visible:ring-offset-0 disabled:text-[color:var(--text-lo)]",
+          "text-[color:hsl(var(--accent))] text-t-body underline-offset-4 hover:underline focus-visible:underline focus-visible:ring-0 focus-visible:ring-offset-0 disabled:text-[color:var(--text-lo)]",
       },
       // Every size now sits on `--tap` (44px) rather than a fixed sub-floor height.
       // Measured at this app's 17px root, the old scale was default 42.5 · xs 29.75 ·
@@ -49,9 +46,9 @@ const buttonVariants = cva(
       // how easy the control is to hit.
       size: {
         default: "min-h-tap px-4 py-2",
-        xs: "min-h-tap px-2 text-t-micro tracking-[0.12em]",
+        xs: "min-h-tap px-2 text-t-micro",
         sm: "min-h-tap px-3",
-        lg: "min-h-tap py-3 px-6 text-t-body tracking-[0.1em]",
+        lg: "min-h-tap py-3 px-6 text-t-body",
         icon: "h-tap w-tap",
         "icon-sm": "min-h-tap min-w-tap",
       },

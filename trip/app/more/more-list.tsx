@@ -75,7 +75,7 @@ export default function MoreList() {
     return new Map<string, NavItem>(companions.map((i) => [i.href, i]));
   }, [mounted]);
 
-  // The row: an icon in the recipe's leading column, the label, the route as printed meta.
+  // The row: an icon in the recipe's leading column and the label.
   // KNOWN CEILING: the two `!` utilities are not decoration — `.list .r` is a 0,2,0
   // selector and a bare utility is 0,1,0, so it cannot reach the 58px timestamp track an
   // icon does not need. Every single-class recipe (`.cell`, `.chip`, `.btn`) composes with
@@ -141,7 +141,6 @@ export default function MoreList() {
                       >
                         <Icon className="h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
                         <h3>{item.label}</h3>
-                        <span className="mt">{item.href.replace(/\//g, '') || 'home'}</span>
                       </Link>
                     </li>
                   );

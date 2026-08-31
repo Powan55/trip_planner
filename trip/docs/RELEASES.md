@@ -51,7 +51,28 @@ column beside the word Map and read as the map reporting a failure — the map w
 copy was ours. And the concierge opens as a bottom sheet in travel mode rather than a side panel,
 which is where a thumb is.
 
-Decisions D-486 through D-489 record the reasoning, with an in-place amendment to D-277 section 6.
+**The type pull-back, and the one thing it broke on the way through.** Ordinary words no longer render in
+the monospaced face. Section labels, buttons, navigation, dialog titles and the small meta lines under list rows
+are set in the regular sans face, mostly in sentence case instead of all-caps. Numbers kept the monospaced
+treatment on purpose: countdown digits, times, currency amounts, airport codes and the budget columns are
+unchanged, so figures still line up in their columns. A few labels are a step larger, because the all-caps
+setting had been doing some of the sizing work.
+
+That change also removed the uppercase machine face from the command palette and the More page, which were
+printing each row’s route underneath its name — `checklist`, `home #dashboard`. In the old type that read as a
+label; in the new type it reads as a lowercase typo of the row’s own title. Both now name the destination in
+words, and where that would only repeat the title the line is dropped rather than padded. No baseline covers the
+More page, which is why the suite had nothing to say about it (D-490).
+
+**The front door fits at 320px again, and three smaller things.** The hero title and date badge were clipped at
+the narrowest supported width. The date on the home page’s “Next up” row overflowed its lane and collided with the
+row title from the tenth of any month onward. The expense ledger on the plan page could not be reached or
+scrolled from a keyboard. The navigation brand had shrunk under the 44px tap floor.
+
+**The default pack is demo data now.** The expense-split roster and the hotel notes carried real traveller names
+and real room counts. Both are fabricated. Nothing about the app’s behaviour changed with them.
+
+Decisions D-486 through D-490 record the reasoning, with an in-place amendment to D-277 section 6.
 
 ---
 

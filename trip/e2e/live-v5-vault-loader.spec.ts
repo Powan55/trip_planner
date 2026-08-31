@@ -18,7 +18,7 @@ test.describe('live-v5-vault loader', () => {
     await seedLiveVault(page, PLACEHOLDER_DUMP_PATH);
     await page.goto('/');
 
-    // The seeded token ("Powan", a real TRAVELERS entry) is what the app's
+    // The seeded token from the dump is what the app's
     // Trip Token wall gate reads via `identityStore.getToken()` (the gateway,
     // D-097). If the loader's addInitScript seed did NOT run before the
     // wall's first-paint check, the wall would be open (role="dialog").

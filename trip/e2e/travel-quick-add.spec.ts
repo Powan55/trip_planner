@@ -74,12 +74,12 @@ test.describe('S318 · "Log something different" quick-add', () => {
     await input.press('Enter');
 
     // The item shows in the checklist ALREADY done: the row's toggle exposes the "Mark not done"
-    // name (aria-pressed=true) and the S316 completion footer names the acting traveler (Powan).
+    // name (aria-pressed=true) and the S316 completion footer names the acting traveler (Alina).
     const agenda = page.getByTestId('travel-agenda');
     await expect(agenda).toContainText('Found a street market');
     await expect(agenda.getByRole('button', { name: 'Mark not done: Found a street market' })).toBeVisible();
     await expect(agenda).toContainText('Completed');
-    await expect(agenda).toContainText('Powan');
+    await expect(agenda).toContainText('Alina');
 
     // The hard guarantee — persisted to the vault done:true + doneBy, no sourceId/sourceType (D-074).
     // POLL the on-disk read: the footer renders from in-memory state a microtask BEFORE the store
@@ -102,7 +102,7 @@ test.describe('S318 · "Log something different" quick-add', () => {
       sourceId?: string;
       sourceType?: string;
     };
-    expect(item.doneBy).toBe('Powan');
+    expect(item.doneBy).toBe('Alina');
     expect(item.doneAt).toBeTruthy();
     expect(item.category).toBe('sightseeing');
     expect(item.sourceId).toBeUndefined();
@@ -114,7 +114,7 @@ test.describe('S318 · "Log something different" quick-add', () => {
     const agendaAfter = page.getByTestId('travel-agenda');
     await expect(agendaAfter.getByRole('button', { name: 'Mark not done: Found a street market' })).toBeVisible();
     await expect(agendaAfter).toContainText('Completed');
-    await expect(agendaAfter).toContainText('Powan');
+    await expect(agendaAfter).toContainText('Alina');
     let afterReload: Record<string, unknown> | null = null;
     await expect
       .poll(async () => {
@@ -122,7 +122,7 @@ test.describe('S318 · "Log something different" quick-add', () => {
         return (afterReload as { done?: boolean } | null)?.done;
       })
       .toBe(true);
-    expect((afterReload as unknown as { doneBy?: string }).doneBy).toBe('Powan');
+    expect((afterReload as unknown as { doneBy?: string }).doneBy).toBe('Alina');
   });
 
   test('the optional category field (≤2 fields) sets the item category', async ({ page }) => {

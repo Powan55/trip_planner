@@ -420,7 +420,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
           type="button"
           data-testid="concierge-trigger"
           aria-label="Open trip concierge chat"
-          className="inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface-low))] px-2.5 font-machine text-t-micro uppercase tracking-[0.12em] text-ink-hi outline-none transition-colors hover:bg-[rgb(var(--surface-overlay))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5"
+          className="inline-flex min-h-tap min-w-tap items-center justify-center gap-1.5 rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface-low))] px-2.5 font-sans text-t-label font-semibold text-ink-hi outline-none transition-colors hover:bg-[rgb(var(--surface-overlay))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:px-3.5"
         >
           <MessageSquare className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">Concierge</span>
@@ -434,11 +434,15 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
         className="sheet-surface flex h-[100dvh] w-full flex-col gap-0 p-0 sm:max-w-lg"
       >
         <SheetHeader className="shrink-0 space-y-1.5 border-b-hair border-[color:hsl(var(--border))] px-gut pb-3 pr-16 pt-5 text-left">
-          <div className="sec mb-0">
+          {/* Not `.sec`: its `.sec h2` (0,1,1) beats SheetTitle's own (0,1,0) type utilities and
+              printed this title uppercase at 12.75px. `.sub` goes with it — it needs a `.sec`. */}
+          <div className="flex items-baseline justify-between gap-3">
             <SheetTitle>Trip concierge</SheetTitle>
             {/* The product rule, printed in the running head rather than left to be discovered:
                 this surface proposes and the traveller applies. */}
-            <span className="sub">Proposes · you apply</span>
+            <span className="text-right text-t-micro font-medium text-[color:var(--text-lo)]">
+              Proposes · you apply
+            </span>
           </div>
           {/* (owner ruling Q5): the web-search leg is DELETED, so the old
               "AI and search services" is no longer true — and neither is the plural: the ladder

@@ -623,12 +623,9 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
           </span>
           <div className="min-w-0">
             <p className="pr pr--lo">Boarding Pass</p>
-            {/* The machine face, not a display step: this is a printed document heading, and
-                `font-display` is the serif at weight 400 only — a `font-bold` beside it asks the
-                browser to synthesise a weight that does not exist. */}
             <h2
               id={titleId}
-              className="font-machine text-n-sm font-semibold tracking-tight text-ink-hi leading-tight truncate"
+              className="font-sans text-n-sm font-semibold tracking-tight text-ink-hi leading-tight truncate"
             >
               Nepal × Japan Journey
             </h2>
@@ -730,7 +727,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                       onClick={() => setUserToken(savedToken)}
                       disabled={busy}
                       data-testid="token-gate-use-saved"
-                      className="mt-2 inline-flex min-h-tap items-center rounded-r1 px-1 font-machine text-t-label font-semibold uppercase tracking-[0.11em] text-primary underline underline-offset-4 transition-colors outline-none hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:text-ink-lo disabled:no-underline"
+                      className="mt-2 inline-flex min-h-tap items-center rounded-r1 px-1 font-sans text-t-sm font-semibold text-primary underline underline-offset-4 transition-colors outline-none hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:text-ink-lo disabled:no-underline"
                     >
                       Use this device&rsquo;s saved key
                     </button>
