@@ -61,7 +61,8 @@
     /* THE INK RULE, and it is load-bearing: never white text on a saturated fill,
        always --on-accent #140F20. White on volt measures 1.68:1 and white on marigold
        1.59:1 — neither is a near miss, both are unreadable. That is why BOTH
-       --primary-foreground (29 sites via text-primary-foreground) and
+       --primary-foreground (1 site via text-primary-foreground,
+       components/ui/sonner.tsx) and
        --accent-foreground are the ink, and why contrast-tokens.mjs carries
        white-on-volt and white-on-marigold as guards that MUST keep failing. A guard
        that starts passing means someone lightened a fill. */
@@ -117,20 +118,20 @@
        reading size — and the Tailwind keys already mix units (`calc(var(--radius) -
        2px)`), so px is the honest unit. Rendered px == the number written.
 
-       BLAST RADIUS, audited in-tree. Moving -xl/-2xl repaints 76 `rounded-2xl`
-       elements + 6 `rounded-3xl` + 9 directional (`rounded-t-2xl` x7,
-       `rounded-l-2xl` x2), and — the largest single jump in the app — the
-       `.glass-panel` consumers (10 files, 18 class sites), which read
-       var(--radius-2xl) directly in the class body (app/checklist|guides|journal|
-       packing|recap|safety|settings|share|trips + components/page-hero.tsx):
-       12px -> 40px. Moving `--radius` also moves
-       Tailwind's rounded-lg/md/sm, which derive from it: 8.5 -> 12px, 6.5 -> 10px,
-       4.5 -> 8px. `rounded-xl` (134 sites) does NOT move; it stays at 12px. */
+       BLAST RADIUS, re-counted in-tree over app/ + components/. The Tailwind radius
+       utilities are now nearly unused: `rounded-2xl` is 3 sites and all three are
+       `after:` focus rings (nightlife-section, photography-guide,
+       recommendation-section), `rounded-3xl` is 1 (token-gate.tsx's landing card), and
+       `rounded-xl` / `rounded-t-2xl` / `rounded-l-2xl` are 0. What the app actually
+       renders is the instrument scale: `rounded-r1` 192 sites, `rounded-r2` 21. Moving
+       `--radius` still moves Tailwind's rounded-lg/md/sm, which derive from it:
+       8.5 -> 12px, 6.5 -> 10px, 4.5 -> 8px. */
     --radius-sm: 6px;    /* r-xs  — tier badges, tiny chips                        */
     --radius: 12px;      /* r-sm  — Tailwind rounded-lg/md/sm derive from this     */
-    --radius-lg: 12px;   /* r-sm  — `rounded-xl` (134 sites) STAYS at 12px         */
-    --radius-xl: 28px;   /* r-lg  — `rounded-2xl`: cards, colour blocks            */
-    --radius-2xl: 40px;  /* r-xl  — `rounded-3xl` + .glass-panel; loudest containers */
+    --radius-lg: 12px;   /* r-sm  — reaches nothing today: its only consumer is
+                                    tailwind's `rounded-xl` key, which has 0 sites  */
+    --radius-xl: 28px;   /* r-lg  — `rounded-2xl`, i.e. the three focus rings      */
+    --radius-2xl: 40px;  /* r-xl  — `rounded-3xl` + .door-cover's top corners      */
     /* NOTE, corrected: `--radius-sm` used to be described as a DEAD token pinned to
        whatever `calc(var(--radius) - 4px)` produces, so the two could never disagree.
        They now DO disagree by design — 6px here vs 8px from the calc — because 6px is
@@ -168,7 +169,7 @@
        it mirrors. `--background: 247.5 50% 6.3%` and `--navy-900: 10 8 24` are the same
        colour written twice, in two notations, and only one of them is greppable as a hex.
        --navy-850 was added when the ramp went to FOUR steps and this channel had
-       three; the alias below (--surface-low) is what .glass-subtle fills from. */
+       three; the alias below is --surface-low, the calm/recessed step. */
     --navy-900: 10 8 24;
     --navy-850: 20 16 51;
     --navy-800: 28 25 72;
@@ -674,10 +675,9 @@
     /* ---- the instrument's three working-screen animations ----
        There are no entrances, no scroll-reveal, no stagger, no shimmer and no pulse on
        these surfaces: content is present when you arrive. What is left is three timings.
-       --duration-ink is separate from --duration-draw (900ms, the longest single
-       animation permitted) because ink-draw is a chart drawing itself once, not a reveal.
-       --ease-ink is the ink curve; press is linear on purpose — a confirm is a state
-       change, so it should not ease. */
+       --duration-ink and --ease-ink are the ink pair, kept under the name-stability rule
+       now that the chart-draw recipe they timed has no consumers left. Press is linear on
+       purpose — a confirm is a state change, so it should not ease. */
     --duration-ink: 420ms;
     --duration-press: 90ms;
     --duration-raise: 140ms;
@@ -792,9 +792,9 @@
 
        FOUR STEPS, FOUR VALUES. Each step here is the base ramp shifted down one, and
        --surface takes a new deepest value below --bg. Do not collapse two of these
-       onto the same value to save a line — if -low and -raised are equal, the 8
-       `.glass-subtle` sites become pixel-identical to a raised card and the calm tier
-       silently disappears in outdoor mode. HALF-MEASURED NOW, and know which half.
+       onto the same value to save a line — if -low and -raised are equal, a recessed
+       surface becomes pixel-identical to a raised card and the calm tier silently
+       disappears in outdoor mode. HALF-MEASURED NOW, and know which half.
        contrast-tokens.mjs models all four surfaces, and TM[i] is exactly normal[i-1] — so a
        TM step LIGHTENED onto its lighter neighbour lands on that row's own normal background,
        fg and bg identical, ratio not strictly greater, and the run exits 1 (verified:
@@ -930,24 +930,20 @@ html {
 
 /* ---- Surfaces ------------------------------------
    Apple-HIG correction: glass/vibrancy belongs on the NAV/OVERLAY layer, not on
-   CONTENT. The former six translucent `.glass-*` tiers are SOLID fills — most on
-   `--surface-raised`, with `.glass-subtle` one step down on `--surface-low` — each
-   carrying a `hsl(var(--border))` edge and one of the two shadow tiers. Edited at
-   the class BODY, so all 122 consumers repaint with ZERO component edits
-   (`.glass-card` 67, `.glass-card-dark` 18, `.glass-panel` 18, `.glass-subtle` 8,
-   `.glass-nepal` 5, `.glass-japan` 5, `.sheet-surface` 2 — counted in-tree, not
-   relayed). Removing the translucent scrim makes text sit on a darker, fully-opaque
-   fill, so contrast RISES.
+   CONTENT. The surviving `.glass-*` tiers are SOLID fills on `--surface-raised`, each
+   carrying a `hsl(var(--border))` edge and one of the two shadow tiers. Edited at the
+   class BODY, so consumers repaint with ZERO component edits. Removing the translucent
+   scrim makes text sit on a darker, fully-opaque fill, so contrast RISES.
+
+   Re-counted in-tree over app/ + components/ + lib/: `.glass-card` 3 class sites (all
+   in components/hero-section.tsx), `.glass-card-dark` 1 (lib/fly-chip.ts),
+   `.sheet-surface` 2 (components/concierge-chat.tsx + components/ui/sheet-dark.tsx).
+   The four modifiers this block used to carry — `.glass-panel`, `.glass-subtle`,
+   `.glass-nepal`, `.glass-japan` — reached zero consumers and are deleted.
 
    NO GLASS RECIPE SURVIVES. `.sheet-surface` (below) was the last one and is now an
    opaque overlay tier — see its own block for the three measurements that made the call.
    The navbar/tab-bar hand-roll their own `backdrop-blur` and are untouched.
-
-   Country tints survive as CONTENT wayfinding: `.glass-nepal` / `.glass-japan` keep
-   a SOLID low-alpha brand tint over the surface fill — re-pointed from the retired
-   himalaya/sakura literals to the ruled country stops --np-a / --jp-a. Measured over
-   surface-2: --text-hi 14.15 / 13.67, --text-lo 5.45 / 5.27. Both tinted
-   fills still clear AA for every text tier.
 
    Each recipe below keeps a BORDER, and that is not decoration. F-8, recorded
    against D-291: the resting shadow is a black blur on a near-black canvas and
@@ -966,28 +962,18 @@ html {
    Every other rule here is unlayered and therefore lands AFTER the `@tailwind
    utilities` injection point at the top of the file, which is exactly how the glass
    fills win over utility classes without `!important`. A radius must NOT win that
-   way. Counted across app/ + components/: of the 67 `.glass-card` class strings, 58
-   already declare their own radius — 43 `rounded-2xl` (which agree with this value
-   anyway), 5 `rounded-xl`, 3 `rounded-lg`, 3 `rounded-3xl`, and 4 `rounded-full`. An
-   unlayered `border-radius` here would silently override all 58, and turning four
-   circles into 28px rectangles is not a repaint, it is a break.
+   way: a consumer that picks its own radius utility has made a decision, and an
+   unlayered `border-radius` here would silently overrule it — turning a circle into a
+   28px rectangle is not a repaint, it is a break.
 
    `@layer components` is emitted BEFORE the utilities, so this is a genuine default:
-   the 9 sites that set no radius of their own get the ruled card radius, and the 58
-   that made a decision keep it. */
+   a site that sets no radius of its own gets the ruled card radius, and one that made
+   a decision keeps it. Re-counted: 3 `.glass-card` sites, 2 of which carry their own
+   `rounded-r2`. */
 @layer components {
   .glass-card {
     border-radius: var(--radius-xl);
   }
-}
-
-/* SPLIT OUT of the shared `.glass-card` rule — it no longer has the same fill. The
-   calm/recessed tier sits on --surface-low (#141033), one step below a raised card,
-   which is the whole point of the name. */
-.glass-subtle {
-  background: rgb(var(--surface-low));
-  border: 1px solid hsl(var(--border));
-  box-shadow: var(--shadow-sm);
 }
 
 /* Elevated content/overlay consumers (dialogs, content panels) — solid + the
@@ -996,28 +982,6 @@ html {
   background: rgb(var(--surface-raised));
   border: 1px solid hsl(var(--border));
   box-shadow: var(--shadow-lg);
-}
-
-/* Nepal — 10% --np-a over the surface fill (content wayfinding, not chrome). */
-.glass-nepal {
-  background: linear-gradient(0deg, rgb(255 138 61 / 0.10), rgb(255 138 61 / 0.10)), rgb(var(--surface-raised));
-  border: 1px solid hsl(var(--border));
-  box-shadow: var(--shadow-sm);
-}
-
-/* Japan — 10% --jp-a over the surface fill (content wayfinding, not chrome). */
-.glass-japan {
-  background: linear-gradient(0deg, rgb(255 143 199 / 0.10), rgb(255 143 199 / 0.10)), rgb(var(--surface-raised));
-  border: 1px solid hsl(var(--border));
-  box-shadow: var(--shadow-sm);
-}
-
-/* Page heroes/panels — solid, the loudest container radius, resting shadow. */
-.glass-panel {
-  background: rgb(var(--surface-raised));
-  border: 1px solid hsl(var(--border));
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-sm);
 }
 
 /* ---- The overlay tier — and the last glass recipe is now gone too ------------------
@@ -1923,18 +1887,6 @@ html[data-vt-active] .animate-route-fade {
   to   { transform: translateY(0); }
 }
 
-/* Staggered reveal — children opt in with.animate-reveal-up and inherit an
-   incremental 40ms delay (1..8). Beyond the 8th child the base 0ms applies. The
-   framer-motion equivalent is `staggerChildren: 0.04` with a spring transition. */
-.reveal-stagger > *:nth-child(1) { animation-delay: 0ms; }
-.reveal-stagger > *:nth-child(2) { animation-delay: 40ms; }
-.reveal-stagger > *:nth-child(3) { animation-delay: 80ms; }
-.reveal-stagger > *:nth-child(4) { animation-delay: 120ms; }
-.reveal-stagger > *:nth-child(5) { animation-delay: 160ms; }
-.reveal-stagger > *:nth-child(6) { animation-delay: 200ms; }
-.reveal-stagger > *:nth-child(7) { animation-delay: 240ms; }
-.reveal-stagger > *:nth-child(8) { animation-delay: 280ms; }
-
 /* Reduced-motion: honor the OS setting app-wide. This is the CSS layer
    that covers raw CSS animations/transitions and smooth scroll; framer-motion
    is handled separately via <MotionConfig reducedMotion="user">. */
@@ -1975,40 +1927,21 @@ html[data-vt-active] .animate-route-fade {
   .drag-overlay {
     animation: none !important;
   }
-  /* Zero out the staggered reveal delays so nothing is held invisible waiting to
-     start under reduced motion. */
-  .reveal-stagger > * {
-    animation-delay: 0ms !important;
-  }
-  /* ---- The printed instrument's three forks ----
+  /* ---- The printed instrument's forks ----
      THE GOVERNING RULE IS STRONGER THAN "TURN IT OFF": information carried by motion must
      be RE-CARRIED BY A STATIC MARK. An animation whose fork is `animation: none` and
      nothing else has silently deleted a signal.
 
-     ink-draw: the chart paints complete on the first frame. `clip-path: none` is the belt
-     — the universal collapse above lands the `both` fill on inset(0) anyway, but a
-     clipped chart that ever failed to reach its end state would be an empty chart.
      press: the lip still collapses, instantly. A confirm is a state change, not a
      movement, so nothing is lost.
      tab-raise: the active tab is still the lighter surface, still raised. MATERIAL
      carries that state, so removing the motion removes nothing.
-
-     caret-press: the ring stops and rests at the bright end state its own rule carries, so
-     the present stays marked four times over (triangle, bar, tag, ring). It is INFINITE, so
-     the universal 0.01ms collapse above would leave it looping ultra-fast rather than stop it.
 
      The other thing this direction loops is not stopped here: the T-minus keeps updating
      every second because the number IS the information — suppressing the update would
      delete a live fact from a user who asked for less motion, which is not what the
      preference means. Only the digit roll is dropped, and that belongs to the countdown
      component, not to this file. */
-  .caret .ring {
-    animation: none;
-  }
-  .draw {
-    animation: none;
-    clip-path: none;
-  }
   .btn,
   .nav a {
     transition: none;
@@ -2277,7 +2210,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
    THE GRAMMAR, once, so each recipe below only names its exceptions.
      FILLED means committed. UNFILLED means not yet.
    One rule, applied without exception to systems lamps, chart columns, route nodes, log
-   slots, list rows, day tabs, instrument cells and the approach rail. At three months out
+   slots, list rows, day tabs and instrument cells. At three months out
    most of this product is "not yet", so the mark that draws NOT YET is the mark that
    draws the app.
 
@@ -2380,11 +2313,6 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     border-radius: var(--r-1);
     padding: 0.24em 0.55em;
     transform: rotate(-1.4deg);
-  }
-  .stamp--jp {
-    color: var(--jp-a);
-    border-color: var(--jp-a);
-    transform: rotate(1.1deg);
   }
   .stamp--live {
     color: var(--on-accent);
@@ -2495,10 +2423,12 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
   /* The ratio and the row split are CUSTOM PROPERTIES THE RECIPE READS, not declarations a
      consumer can override. `.plate .frame` is (0,2,0) and a Tailwind utility is (0,1,0), so
      `aspect-auto` / `aspect-[16/10]` on this element is silently inert — it reads as live in
-     source while the recipe paints 3/4 underneath. Two consumers had exactly that. */
+     source while the recipe paints 3/4 underneath. Two consumers had exactly that.
+     The split is ONE number rather than a two-track shorthand because the ramp below reads
+     it as well, and two copies of it are two things to keep in step. */
   .plate .frame {
     display: grid;
-    grid-template-rows: var(--plate-rows, 56% 44%);
+    grid-template-rows: var(--plate-split, 56%) calc(100% - var(--plate-split, 56%));
     aspect-ratio: var(--plate-ar, 3 / 4);
   }
   .plate .fig {
@@ -2524,10 +2454,24 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     mix-blend-mode: multiply;
     opacity: 0.5;
   }
-  /* The ramp reaches ~82% field by the 64% line and the caption grid puts every text pixel
-     below it, so the legibility guarantee is enforced by the GRID rather than by
-     discipline. Stops read the scrim-ink channel, never a literal, so they cannot drift
-     from it the way a pasted rgba() does. */
+  /* THE STOPS ARE OFFSETS FROM THE SPLIT, NOT FIXED PERCENTAGES, and that is the whole
+     legibility guarantee: the ramp has to reach its floor wherever the caption row actually
+     starts. Authored as literals they were correct for the 56% default and for nothing else
+     — `--plate-split: 42%` on `.plate--band` and on `.plate--wide` at >=700px dropped the
+     row top from the 0.753 point of this ramp to 0.307, and the two modifiers silently
+     opted out of the rule the default is built on. Written as split±n the bracketing stops
+     are 0.69 at split-4% and 0.88 at split+8%, so BOTH splits put the row top at
+     0.69 + (4/12) x 0.19 = 0.753. Default resolves to the shipped 34/52/64/80; the band to
+     20/38/50/66. scripts/contrast-tokens.mjs models the row line, which is a CEILING and not
+     a rendered position: `.lay` is flex-end, so glyphs start at (row bottom - content
+     height). Measured worst rendered alpha over 300-1000px was bare .plate 0.892,
+     `.plate--band` 0.642, `.plate--wide` 0.693 — the 0.307 line was only ever reached by
+     caption content taller than its row, fixed at the consumer (#376), and it is now off
+     the ramp entirely. What the ramp alone does NOT clear is 4.5:1 against the brightest
+     pixel of the real photographs, which is white: 44% of boudhanath.jpg is near-white
+     behind the caption. That is why the chip carries its own ground below, and why the tiers
+     above it are hi/mid only. Stops read the scrim-ink channel, never a literal, so they
+     cannot drift from it the way a pasted rgba() does. */
   .plate .ramp {
     grid-area: 1 / 1 / 3 / 2;
     position: relative;
@@ -2536,12 +2480,22 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     background: linear-gradient(
       to bottom,
       rgb(var(--scrim-ink-rgb) / 0) 0%,
-      rgb(var(--scrim-ink-rgb) / 0) 34%,
-      rgb(var(--scrim-ink-rgb) / 0.69) 52%,
-      rgb(var(--scrim-ink-rgb) / 0.88) 64%,
-      rgb(var(--scrim-ink-rgb) / 0.97) 80%,
+      rgb(var(--scrim-ink-rgb) / 0) calc(var(--plate-split, 56%) - 22%),
+      rgb(var(--scrim-ink-rgb) / 0.69) calc(var(--plate-split, 56%) - 4%),
+      rgb(var(--scrim-ink-rgb) / 0.88) calc(var(--plate-split, 56%) + 8%),
+      rgb(var(--scrim-ink-rgb) / 0.97) calc(var(--plate-split, 56%) + 24%),
       rgb(var(--surface)) 100%
     );
+  }
+  /* `.chip` sets no fill, so on a plate the country stop lands straight on the ramp: np-a
+     3.81 and jp-a 4.26 at the DEFAULT split, i.e. under the floor before any modifier is
+     involved. It takes the same rgb(--surface / .82) backing a chip over photography
+     already uses in components/added-badge.tsx. Measured against a bare white photo pixel
+     rather than the ramp — the chip is `self-start` at the top of a flex-end column, so it
+     is the one caption element that can be pushed off the ramp entirely — that is np-a 4.95
+     and jp-a 5.53 through the grain. */
+  .plate .chip {
+    background: rgb(var(--surface) / 0.82);
   }
   .plate .lay {
     grid-area: 2 / 1;
@@ -2562,12 +2516,6 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     border-top: 2px solid hsl(var(--border));
     border-bottom: var(--hair) solid hsl(var(--border));
   }
-  /* No photograph for this leg: the frame renders at its FULL SIZE, hollow, with the
-     caption line intact. The shape stays. */
-  .plate .frame.is-empty {
-    border: 1.5px dashed var(--text-lo);
-    border-radius: var(--r-1);
-  }
   /* SPEC 9.2 puts the landscape frame behind a bare 700px breakpoint. A breakpoint cannot
      see how many COLUMNS the plate sits in, and that is what actually decides whether the
      caption fits: in the inspiration grid the plate is 317-465px wide from 700 up, where
@@ -2579,7 +2527,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
      grid cell, which is the only place the caption has to survive a narrow column. */
   .plate--band {
     --plate-ar: auto;
-    --plate-rows: 42% 58%;
+    --plate-split: 42%;
   }
   .plate--wide {
     --plate-ar: 16 / 10;
@@ -2587,7 +2535,7 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
   @media (min-width: 700px) {
     .plate--wide {
       --plate-ar: 21 / 9;
-      --plate-rows: 42% 58%;
+      --plate-split: 42%;
     }
   }
 
@@ -2663,172 +2611,6 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     background: repeating-linear-gradient(90deg, var(--text-lo) 0 3px, transparent 3px 6px);
   }
 
-  /* ---- 9.4 · .appr — the approach rail ----
-     A printed rule on a BROKEN SCALE: the unruled days before departure take the left
-     42%, the ruled trip days the right 58%. THE BREAK IS MARKED — an unmarked broken axis
-     is a lie; a marked one is a printed convention. The unruled half is drawn hollow,
-     which IS the empty state, rendered at full size rather than said in a sentence. */
-  .railwrap {
-    position: relative;
-    height: 78px;
-    margin: 2.5rem var(--gut) 0.3rem;
-  }
-  .rail {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 34px;
-    height: 3px;
-  }
-  .rail .un {
-    position: absolute;
-    left: 0;
-    top: 1px;
-    width: var(--split, 42%);
-    height: 1px;
-    background: repeating-linear-gradient(90deg, var(--text-lo) 0 5px, transparent 5px 10px);
-  }
-  .rail .rl {
-    position: absolute;
-    left: var(--split, 42%);
-    right: 0;
-    top: 0;
-    height: 3px;
-    background: var(--text-hi);
-  }
-  .brk {
-    position: absolute;
-    top: 22px;
-    left: var(--split, 42%);
-    transform: translateX(-50%);
-    font-family: var(--font-machine);
-    font-weight: 600;
-    font-size: var(--t-label);
-    letter-spacing: -0.1em;
-    padding-inline: 0.2em;
-    color: var(--text-lo);
-    background: rgb(var(--surface));
-  }
-  .tick {
-    position: absolute;
-    top: 34px;
-    transform: translateX(-50%);
-  }
-  .tick .d {
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    margin: -3px auto 0;
-    background: var(--text-hi);
-    border: 2px solid rgb(var(--surface));
-  }
-  .tick[data-leg='np'] .d,
-  .tick[data-leg='nepal'] .d { background: var(--np-a); }
-  .tick[data-leg='jp'] .d,
-  .tick[data-leg='japan'] .d { background: var(--jp-a); }
-  /* z-index plus an opaque pad: the ruled line must never strike through a label. */
-  .tick .lab {
-    position: absolute;
-    top: 13px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 2;
-    text-align: center;
-    white-space: nowrap;
-    font-family: var(--font-machine);
-    font-weight: 600;
-    font-size: var(--t-micro);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    line-height: 1.35;
-    padding: 0.15em 0.35em;
-    color: var(--text-mid);
-    background: rgb(var(--surface));
-  }
-  .tick .lab b {
-    display: block;
-    color: var(--text-hi);
-  }
-  .tick.alt .lab {
-    top: auto;
-    bottom: 16px;
-  }
-  .tick[data-align='r'] .lab {
-    left: auto;
-    right: -4px;
-    transform: none;
-    text-align: right;
-  }
-  /* THE PRESENT — a stamped caret, not a glowing marker. */
-  .caret {
-    position: absolute;
-    top: 12px;
-    left: 0;
-  }
-  .caret .tri {
-    width: 0;
-    height: 0;
-    margin-left: 2px;
-    border-left: 7px solid transparent;
-    border-right: 7px solid transparent;
-    border-top: 9px solid hsl(var(--accent));
-  }
-  .caret .bar {
-    width: 2px;
-    height: 15px;
-    margin-left: 8px;
-    background: hsl(var(--accent));
-  }
-  .caret .tag {
-    position: absolute;
-    top: -21px;
-    left: 0;
-    transform: rotate(-1.2deg);
-    font-family: var(--font-machine);
-    font-weight: 600;
-    font-size: var(--t-micro);
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    white-space: nowrap;
-    padding: 0.12em 0.4em;
-    border-radius: var(--r-1);
-    color: var(--on-accent);
-    background: hsl(var(--accent));
-  }
-  /* The transform/opacity here ARE the bright end state the reduced-motion fork rests on —
-     `animation: none` in that block uncovers them, so the fork needs no second copy. */
-  .caret .ring {
-    position: absolute;
-    top: 22px;
-    left: 9px;
-    width: 19px;
-    height: 19px;
-    margin: -9px 0 0 -9.5px;
-    border: 2px solid hsl(var(--accent));
-    border-radius: 50%;
-    transform: scale(1.34);
-    opacity: 0.95;
-    animation: caret-press 2.4s ease-in-out infinite;
-  }
-  .chiprow {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin: 0.6rem var(--gut) 0;
-  }
-  /* Below 560px the labels go and the rail shrinks, but THE DOTS STAY — the shape is the
-     information — and the words move to the chip row underneath. */
-  @media (max-width: 559px) {
-    .tick .lab { display: none; }
-    .railwrap {
-      height: 46px;
-      margin-top: 2.1rem;
-    }
-  }
-  @media (min-width: 560px) {
-    .chiprow { display: none; }
-  }
-
   /* ---- 9.5 · .dens — plan density ----
      Screened at the 14% ceiling on BOTH channels; identity is carried mostly by the
      full-strength 1px border, which costs no screen headroom at all. The flat background
@@ -2878,13 +2660,6 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
       transparent 3px 6px
     );
   }
-  /* Loading: the SHAPE arrives before the data. */
-  .dens .b.is-load {
-    background: rgb(var(--surface-overlay));
-    border: 0;
-    height: 40%;
-    align-self: end;
-  }
   .mean {
     position: absolute;
     left: 0;
@@ -2911,13 +2686,12 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     gap: 2px;
     margin-top: 0.3rem;
   }
-  /* 0.53rem == 9.01px at the 17px root. IN REM, NOT the 9px the design names, because a px
-     tick label would not move under the outdoor root bump — which is the whole reason
-     `text-[Npx]` is illegal in this system. Only every 4th day is labelled; 32 collide. */
+  /* Only every 4th day is labelled; 32 collide. The size is --t-micro and not the 9px the
+     design names, because --t-micro is THE FLOOR and a tick label is not exempt from it. */
   .axis span {
     font-family: var(--font-machine);
     font-weight: 600;
-    font-size: 0.53rem;
+    font-size: var(--t-micro);
     text-align: center;
     color: var(--text-lo);
   }
@@ -3340,10 +3114,9 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     line-height: 1.05;
     color: var(--text-lo);
   }
-  /* 0.62rem == 10.54px at the 17px root — rem for the same reason as .axis span above. */
   .nav a .t {
     font-weight: 600;
-    font-size: 0.62rem;
+    font-size: var(--t-micro);
     letter-spacing: 0.01em;
     color: var(--text-mid);
   }
@@ -3359,21 +3132,6 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
       justify-content: center;
     }
   }
-
-  /* ---- 10.2 · ink-draw — a chart or rail draws itself, once per element per session ---- */
-  .draw { animation: ink-draw var(--duration-ink) var(--ease-ink) both; }
-}
-
-@keyframes ink-draw {
-  from { clip-path: inset(0 100% 0 0); }
-  to { clip-path: inset(0); }
-}
-
-/* KNOWN CEILING: 2.4s is under the D-293 6s loop floor. Allowlisted as a state indicator in
-   scripts/motion-loops.mjs (D-322) because it marks WHICH point on the rail is now. */
-@keyframes caret-press {
-  0%, 100% { transform: scale(1); opacity: 0.3; }
-  50% { transform: scale(1.34); opacity: 0.95; }
 }
 
 /* ---- Focus, UNLAYERED, and SOURCE ORDER IS NOT ENOUGH ----

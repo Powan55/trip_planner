@@ -63,7 +63,12 @@ export interface ItineraryItem {
   // stays valid with all three absent). See core/sync/{hlc,merge-day}.ts. Not yet wired
   // into the store. Defaulted losslessly at the Vault v3→v4 migration / read boundary.
   rev?: number; // monotonic per-item revision counter; starts at 1 on create.
-  hlc?: string; // Hybrid Logical Clock stamp (serialized) — the primary cross-client order key.
+  hlc?: string; // Hybrid Logical Clock stamp (serialized) — the cross-client CONFLICT key.
+  // The day-ORDER key, split off `hlc` so a content edit can advance the conflict key without
+  // also moving the row. Same serialized-HLC shape, so `ord ?? hlc` is a type-compatible
+  // fallback and a row that has never been edited or dragged since the split sorts exactly
+  // where it does today — additive-optional, NO migration and NO Vault version bump.
+  ord?: string;
   deleted?: boolean; // tombstone; true ⇒ deleted-but-retained so the delete can propagate + win.
   // done-tracking. Absent
   // = not done (falsy); `done === true` = checked off on the Today screen. Toggled via the

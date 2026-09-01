@@ -81,15 +81,19 @@ const ROUTES = [
 
 /**
  * Routes whose real surface sits behind a client gate: an `ssr:false` island (/trips/,
- * /profile/) or a mount gate (/more/). Their server-rendered <h1> is up long before the
- * island is, and an empty shell has nothing running — so without this wait the poll below
- * passes on its first read and the route is a free green. Keyed by path; absent = <h1> is
- * enough.
+ * /profile/, /settings/) or a mount gate (/more/, /checklist/). Their server-rendered <h1>
+ * comes from a page-level header and is up long before the island is, and an empty shell has
+ * nothing running — so without this wait the poll below passes on its first read and the
+ * route is a free green. Keyed by path; absent = <h1> is enough.
  */
 const READY: Record<string, string> = {
   '/more/': 'more-link-settings',
   '/trips/': 'trips-hub',
   '/profile/': 'visited-country-form',
+  '/settings/': 'settings-panel',
+  // `docs-progress`, NOT `docs-checklist`: that testid sits on the `!hydrated` early return as
+  // well as the real section, so waiting on it passes on the shell and audits nothing.
+  '/checklist/': 'docs-progress',
 };
 
 type RunningAnim = { name: string; duration: number; playState: string };

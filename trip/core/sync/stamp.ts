@@ -2,7 +2,8 @@
  * Sync v2 — the `rev`/`hlc` stamping helper, PURE core.
  *
  * The ONE place that decides how a local edit advances an item's `rev` (monotonic per-item
- * revision) and `hlc` (the primary merge order key). It rides ALONGSIDE the existing
+ * revision), `hlc` (the merge CONFLICT key) and `ord` (the day ORDER key — split off `hlc` so
+ * that advancing one does not move the row). It rides ALONGSIDE the existing
  * attribution stamping (`lib/attribution.ts` sets `createdBy`/`updatedBy`/`updatedAt`) —
  * this sets the two NEW ordering/version fields, keeping "one stamping concern, one module"
  * per side. Attribution stays in `lib/` (it takes a name source); the ordering stamp is pure
@@ -74,12 +75,25 @@ export function stampSyncCreated(item: ItineraryItem, physicalNow: number, actor
  * - `hlc = hlcSendOrLocal(parse(prev.hlc) ?? null, physicalNow, actor)`.
  * The result's `hlc` is ALWAYS strictly greater than the previous (monotonic — hlc.ts).
  *
+ * AND FREEZES THE ROW'S POSITION. `mergeItems` orders a day by `ord ?? hlc`, so an edit that
+ * advanced `hlc` alone — which it must, to win its own conflict resolve — also made the row the
+ * day maximum and dropped it to the bottom. Pinning `ord` to the PRE-EDIT key keeps the sort
+ * answer identical to what it was a moment before the edit. Every edit surface routes through
+ * here (the done toggle, the item editor, cross-day move, the rename-and-claim pass), so one
+ * freeze covers them all. Deliberately NOT pushed down into `nextSyncStamp`: expenses, docs,
+ * places and the budget flattener share that primitive and have no user-visible order.
+ *
+ * A row that carries neither `ord` nor `hlc` gets no `ord` — there is nothing truthful to freeze
+ * (`updatedAt` has already been rewritten to now by the attribution stamp that runs first), and
+ * the merge's own `seedHlcFromLegacy` fallback still gives it a total-order key.
+ *
  * @param item the item being edited (already merged with any patch + attribution).
  * @param physicalNow injected ms-since-epoch.
  * @param actor this device's uid.
  */
 export function stampSyncUpdated(item: ItineraryItem, physicalNow: number, actor: string): ItineraryItem {
-  return { ...item, ...nextSyncStamp(item, physicalNow, actor) };
+  const ord = item.ord ?? item.hlc;
+  return { ...item, ...(ord ? { ord } : {}), ...nextSyncStamp(item, physicalNow, actor) };
 }
 
 /**
@@ -97,32 +111,39 @@ export function stampSyncDeleted(item: ItineraryItem, physicalNow: number, actor
 }
 
 /**
- * Stamp a REORDER: re-stamp `rows` so their `hlc`s ASCEND in the array order given.
+ * Stamp a REORDER: re-stamp `rows` so their `ord`s ASCEND in the array order given.
  *
  * Array position is not a merge-visible fact. `mergeItems` re-sorts every merged row-set by
- * `hlc` ascending, and that sort runs at BOTH sync boundaries (`pushDayMerged` →
+ * `ord ?? hlc` ascending, and that sort runs at BOTH sync boundaries (`pushDayMerged` →
  * `mergeDay(remoteNow, localDay)`, and the server-acked snapshot → `mergeDays`). So a reorder
- * that leaves `hlc` alone is silently reverted by the very next merge — including a self-merge
- * of a snapshot the device produced itself. Making the new order ascend in `hlc` is what makes
- * it survive, WITHOUT touching the sort rule that four other synced domains share.
+ * that leaves the order key alone is silently reverted by the very next merge — including a
+ * self-merge of a snapshot the device produced itself. Making the new order ascend in `ord` is
+ * what makes it survive, WITHOUT touching the sort rule that four other synced domains share.
  *
- * Each row's stamp advances from `max(its own hlc, the previous row's new hlc)`, so the result
- * is strictly ascending across the array AND every row's new stamp is strictly greater than
- * THAT ROW's old stamp — which is what makes each reordered row beat its own pre-reorder copy
+ * `rev`/`hlc` ARE LEFT ALONE, and that is the point. Re-stamping `hlc` made every reordered row
+ * win its own conflict resolve, and `resolvePair` picks a whole row — so a drag shipped the
+ * dragging device's entire local snapshot over any peer edit that had not reached it yet, and a
+ * peer's newer note or title was silently replaced by the copy the dragger happened to hold. A
+ * drag now writes ONE field that no content edit reads, so it can no longer carry a body at all.
+ * `resolvePair` joins `ord` separately from the body winner, which is what still lets the new
+ * position land on top of a row whose content the peer wins.
+ *
+ * Each row's stamp advances from `max(its own ord ?? hlc, the previous row's new ord)`, so the
+ * result is strictly ascending across the array AND every row's new stamp is strictly greater
+ * than THAT ROW's old key — which is what makes each reordered row beat its own pre-reorder copy
  * still sitting on the server, since the merge resolves per `id`. It is NOT true that every new
  * stamp beats every input stamp: when `physicalNow` is behind the rows' existing stamps (a peer
  * clock ahead of ours, or offline-ahead edits) the first row's new stamp can still sort below a
  * LATER row's input stamp. That is harmless — no merge ever compares those two. (String compare
  * is the HLC compare: `serialize` is fixed-width, see hlc.ts.)
  *
- * TOMBSTONES PASS THROUGH UNTOUCHED, in place. A tombstone's `hlc` is the causal position of
- * the DELETE — advancing it would let a reorder win a delete-vs-concurrent-edit race it did not
- * previously win. `mergeItems` sorts tombstones into their own trailing partition anyway, so
- * their position was never user-visible.
+ * TOMBSTONES PASS THROUGH UNTOUCHED, in place. `mergeItems` sorts tombstones into their own
+ * trailing partition, so their position was never user-visible and there is nothing to express.
  *
- * CONVERGENCE is unchanged: this mints ordinary local stamps, so each row's merge winner is
- * still the HLC-max and the merge is still commutative + idempotent. Two devices reordering the
- * same day concurrently both land on the SAME array even though neither saw the other.
+ * CONVERGENCE is unchanged: this mints ordinary local stamps, so each row's `ord` is still an
+ * HLC-max over a total order and the merge is still commutative + idempotent. Two devices
+ * reordering the same day concurrently both land on the SAME array even though neither saw the
+ * other.
  *
  * They do not necessarily land on EITHER device's array. When the two reorders fall in different
  * milliseconds the later one wins wholesale, row for row. When they share a millisecond they also
@@ -135,7 +156,7 @@ export function stampSyncDeleted(item: ItineraryItem, physicalNow: number, actor
  * @param physicalNow injected ms-since-epoch.
  * @param actor this device's uid.
  */
-export function reorderSyncStamps<R extends { rev?: number; hlc?: string; deleted?: boolean }>(
+export function reorderSyncStamps<R extends { hlc?: string; ord?: string; deleted?: boolean }>(
   rows: readonly R[],
   physicalNow: number,
   actor: string,
@@ -143,9 +164,10 @@ export function reorderSyncStamps<R extends { rev?: number; hlc?: string; delete
   let last: string | undefined;
   return rows.map((row) => {
     if (row.deleted === true) return row;
-    const base = last === undefined || (row.hlc !== undefined && row.hlc > last) ? row.hlc : last;
-    const stamp = nextSyncStamp({ rev: row.rev, hlc: base }, physicalNow, actor);
-    last = stamp.hlc;
-    return { ...row, ...stamp };
+    const key = row.ord ?? row.hlc;
+    const base = last === undefined || (key !== undefined && key > last) ? key : last;
+    const ord = serialize(hlcSendOrLocal(base ? parse(base) : null, physicalNow, actor));
+    last = ord;
+    return { ...row, ord };
   });
 }

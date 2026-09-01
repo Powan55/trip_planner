@@ -138,6 +138,11 @@ jobs:
           # build every asset and every navigation would 404. Mounting serve-out.mjs at
           # the prefix is its own change; do not add the variable there without it.
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
+          # Same expression, same reason. Without it app/layout.tsx falls back to
+          # http://localhost:3000 for metadataBase, so every absolute og:/twitter: URL
+          # this build emits points at the runner and the "cannot drift" claim above is
+          # only half true. This is the one job that can prove the shipped value.
+          NEXT_PUBLIC_SITE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}
         run: npm run build
 
   # firestore.rules is published by the release now (deploy.yml's `publish-rules`, issue #39 /
@@ -188,12 +193,15 @@ jobs:
       # The `|| true` is part of the same fix, not sloppiness: steps run under `bash -e`, so the
       # exit 2 we are deliberately ignoring would abort the step before the sentinel is tested.
       #
-      # firebase-tools is pinned to a major so a v15 with different exec semantics cannot land
-      # here unannounced. The Firestore emulator jar needs Java; the ubuntu runner image ships
-      # one, and if that ever changes the fix is actions/setup-java, not dropping this job.
+      # firebase-tools is pinned to an EXACT version, matching deploy.yml's publish step: a range
+      # lets `npx --yes` resolve a whole unreviewed transitive tree on every run, and the same
+      # command runs in the job that holds the service-account key. Bump both together, and read
+      # the changelog first — v15 changes `emulators:exec` semantics. The Firestore emulator jar
+      # needs Java; the ubuntu runner image ships one, and if that ever changes the fix is
+      # actions/setup-java, not dropping this job.
       - name: Validate firestore.rules against the emulator
         run: |
-          npx --yes firebase-tools@14 emulators:exec --only firestore,auth --project demo-rules \
+          npx --yes firebase-tools@14.27.0 emulators:exec --only firestore,auth --project demo-rules \
             "node scripts/rules-check.mjs && touch \"$RUNNER_TEMP/rules-ok\"" || true
           test -f "$RUNNER_TEMP/rules-ok"
 

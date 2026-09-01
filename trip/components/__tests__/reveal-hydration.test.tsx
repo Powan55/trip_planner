@@ -1,29 +1,38 @@
 // @vitest-environment jsdom
 //
-// `<Reveal>` must render the SAME thing on the server and on the client's first render.
+// `<Reveal>` decides its entrance during render, and what that FIRST render contains is the
+// contract this file pins.
 //
-// It did not. `entranceFor()` reads `matchMedia` and the sessionStorage entrance ledger; both
-// are inert during the static export and live in the browser, so a prerendered route that
-// reaches a `<Reveal>` shipped `data-entrance="animate"` in its HTML and computed `"present"` on
-// the client's first render. `/passport/` is the one such route today — `app/passport/page.tsx`
-// is a Server Component and renders `<Reveal>` straight into the export — and it mismatched on
-// EVERY reload (the ledger is sessionStorage, which survives one) and on FIRST load for every
-// reduced-motion visitor.
+// No `<Reveal>` is prerendered: app/layout.tsx puts `{children}` inside `<ItineraryProvider>`,
+// which renders `{mounted && traveler ? children : null}`, so nothing routed reaches the static
+// export (measured: zero `data-entrance` in `out/**/*.html`) and there is no server markup for a
+// client render to disagree with. `/passport/` is a Server Component and is still gated by that
+// provider like every other route.
 //
-// Two proofs, deliberately different in kind:
-//   1. the attribute diff — render under prerender conditions, then under the client's, and
-//      compare the markup. This is the one that says WHAT differs.
-//   2. the real thing — `hydrateRoot` over the prerendered HTML with `onRecoverableError`
-//      wired, which is how React itself reports the mismatch. This is the one that says it
-//      actually happens.
+// What there is instead is a first paint. `entranceFor()` reads `prefers-reduced-motion` and the
+// sessionStorage entrance ledger, so a reduced-motion visitor and a visitor returning to a
+// surface already greeted this browser session must be `'present'`, at full opacity,
+// IMMEDIATELY. Deferring that decision to a post-paint effect answers `'animate'` first, which
+// paints every Tier-1/2 masthead at the fade floor and y:20 and then snaps it — the defect #370
+// reported. It is not cosmetic either: framer reads `initial` once, at mount, so an element that
+// mounted on `'animate'` and never intersects RESTS below full opacity, which is D-246's
+// measured regression, for exactly the visitors the fork exists to protect.
+//
+// Three proofs, deliberately different in kind:
+//   1. the first render, isolated — rendered to a string and read back, which is the only way to
+//      observe it before an effect could have corrected it.
+//   2. the real thing — mounted, watched for a post-paint change to `data-entrance`, and read at
+//      rest. This is the one that says the snap does not happen.
+//   3. `hydrateRoot` with `onRecoverableError` wired, for the day the provider gate changes and
+//      a reveal really is in the exported HTML.
 //
 // framer-motion is NOT mocked here: its `initial` is what puts `opacity`/`transform` into the
-// server markup, and stripping it would delete half the mismatch this file exists to catch.
+// markup, and stripping it would delete the thing every case below measures.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { createElement } from 'react';
 import { renderToString } from 'react-dom/server';
-import { hydrateRoot } from 'react-dom/client';
+import { createRoot, hydrateRoot } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 import { LazyMotion, MotionConfig, domAnimation } from 'framer-motion';
 
@@ -97,16 +106,25 @@ function entranceAttr(html: string): string {
 }
 
 /**
- * The client's FIRST render, isolated. It is the same component with the same inputs, so
- * rendering it to a string is exactly the tree React compares against the server's markup —
- * and it is the only way to observe that render without the effect having already corrected it.
+ * The client's FIRST render, isolated. Rendering to a string runs render and nothing else — no
+ * effect, no commit — so it is the only way to observe the paint a visitor actually gets rather
+ * than whatever a post-paint correction would have left behind.
  */
 function firstRenderMarkup(client: { reduced: boolean; greeted: string | null }): string {
   asClient(client);
   return renderToString(tree());
 }
 
-describe('<Reveal> — the prerender and the client\'s first render must agree', () => {
+/** That same first render, parsed, so `initial` can be read as computed style and not as text. */
+function firstPaint(client: { reduced: boolean; greeted: string | null }): HTMLElement {
+  const host = document.createElement('div');
+  host.innerHTML = firstRenderMarkup(client);
+  const el = host.querySelector<HTMLElement>('[data-entrance]');
+  if (el === null) throw new Error('the first render contains no [data-entrance] element');
+  return el;
+}
+
+describe('<Reveal> — the first render is the live decision, at full opacity', () => {
   beforeEach(() => {
     pathname.current = '/passport';
   });
@@ -117,32 +135,32 @@ describe('<Reveal> — the prerender and the client\'s first render must agree',
     resetEntranceMemoForTests();
   });
 
-  it('a RELOAD of /passport/ renders what the export contains (the ledger survives sessionStorage)', () => {
-    asPrerender();
-    const prerendered = renderToString(tree());
+  it('a RELOAD of /passport/ paints present, with no floored first frame', () => {
+    // A surface already greeted — the ledger is sessionStorage, so it survives a reload.
+    const el = firstPaint({ reduced: false, greeted: '/passport' });
 
-    // Second visit in the same session — exactly what a reload is.
-    const first = firstRenderMarkup({ reduced: false, greeted: '/passport' });
-
-    expect(entranceAttr(first), 'data-entrance').toBe(entranceAttr(prerendered));
-    expect(first).toBe(prerendered);
+    expect(el.dataset.entrance, 'data-entrance on the first render').toBe('present');
+    expect(Number(el.style.opacity || 1), 'first-frame opacity').toBe(1);
+    expect(el.style.transform || '', 'first-frame offset').toBe('');
   });
 
-  it('a REDUCED-MOTION first load of /passport/ renders what the export contains', () => {
-    asPrerender();
-    const prerendered = renderToString(tree());
+  it('a REDUCED-MOTION first load of /passport/ paints present, with no floored first frame', () => {
+    const el = firstPaint({ reduced: true, greeted: null });
 
-    const first = firstRenderMarkup({ reduced: true, greeted: null });
-
-    expect(entranceAttr(first), 'data-entrance').toBe(entranceAttr(prerendered));
-    expect(first).toBe(prerendered);
+    expect(el.dataset.entrance, 'data-entrance on the first render').toBe('present');
+    expect(Number(el.style.opacity || 1), 'first-frame opacity').toBe(1);
+    expect(el.style.transform || '', 'first-frame offset').toBe('');
   });
 
-  it('hydrating the export as a returning visitor reports no recoverable error', () => {
+  it('hydrating server markup as a first-time visitor reports no recoverable error', () => {
     asPrerender();
     const prerendered = renderToString(tree());
 
-    asClient({ reduced: true, greeted: '/passport' });
+    // The visitor the export's tier-only answer agrees with: motion allowed, ledger empty. The
+    // reduced-motion and returning visitors deliberately differ from it, and they are the two
+    // cases above — nothing hydrates them today, because the provider gate means no reveal is in
+    // the exported HTML at all. This case is what would go red first if that ever changed.
+    asClient({ reduced: false, greeted: null });
     const container = document.createElement('div');
     container.innerHTML = prerendered;
     document.body.appendChild(container);
@@ -158,32 +176,51 @@ describe('<Reveal> — the prerender and the client\'s first render must agree',
     container.remove();
   });
 
-  it('still lands the live decision after mount, at FULL opacity — never resting on the fade floor', async () => {
-    asPrerender();
-    const prerendered = renderToString(tree());
-    expect(entranceAttr(prerendered)).toBe('animate'); // /passport is Tier 1
-    expect(prerendered).toContain(`opacity:${FADE_FLOOR}`); // the export's floored start
-
+  it('a mounted reduced-motion reveal rests at FULL opacity, uncorrected', async () => {
     asClient({ reduced: true, greeted: '/passport' });
     const container = document.createElement('div');
-    container.innerHTML = prerendered;
     document.body.appendChild(container);
 
-    act(() => {
-      hydrateRoot(container, tree(), { onRecoverableError: () => {} });
+    // A `data-entrance` that CHANGES after paint is the snap #370 reported — the live decision
+    // arriving late. Watching the attribute rather than the style is what makes that
+    // unambiguous: framer rewrites style on mount either way, but the decision only moves if
+    // something deferred it.
+    const corrections: string[] = [];
+    const observer = new MutationObserver((records) => {
+      for (const r of records) {
+        corrections.push(`${r.oldValue} -> ${(r.target as HTMLElement).dataset.entrance}`);
+      }
     });
-    // let the deferred decision land and framer settle the corrected target
+    observer.observe(container, {
+      subtree: true,
+      attributes: true,
+      attributeOldValue: true,
+      attributeFilter: ['data-entrance'],
+    });
+
+    const root = createRoot(container);
+    act(() => {
+      root.render(tree());
+    });
+    // long enough for an effect-deferred decision to land and for framer to settle a target
     await act(async () => {
       await new Promise((r) => setTimeout(r, 60));
     });
+    observer.disconnect();
 
     const el = container.querySelector<HTMLElement>('[data-entrance]');
-    expect(el?.getAttribute('data-entrance'), 'corrected by the effect').toBe('present');
-    // THE POINT OF THE `animate` CORRECTOR. framer reads `initial` once, at mount, so an element
-    // that mounted on the prerender's 'animate' keeps the floored opacity unless something takes
-    // it off — and this reveal has never intersected, so `whileInView` will not. Resting below
-    // full opacity is D-246's measured regression, for exactly the visitors the fork protects.
+    expect(el?.getAttribute('data-entrance'), 'entrance at rest').toBe('present');
+    expect(corrections, 'post-paint corrections to data-entrance').toEqual([]);
+    // framer reads `initial` ONCE, at mount, so an element that mounted on 'animate' keeps the
+    // floored opacity unless something takes it off — and this reveal has never intersected, so
+    // `whileInView` will not. Resting below full opacity is D-246's measured regression, for
+    // exactly the visitors the fork protects.
+    expect(FADE_FLOOR, 'the floor a resting reveal must never sit on').toBeLessThan(1);
     expect(Number(el?.style.opacity ?? 1), 'resting opacity').toBe(1);
+
+    act(() => {
+      root.unmount();
+    });
     container.remove();
   });
 

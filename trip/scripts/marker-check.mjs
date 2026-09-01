@@ -123,11 +123,6 @@ const EXEMPT_FILES = new Set([
   'trip/scripts/marker-check.mjs',
 ]);
 
-const TEXT_EXT = new Set([
-  '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.json', '.md',
-  '.css', '.svg', '.txt', '.yml', '.yaml', '.html',
-]);
-
 function scanText(text, relPath) {
   const hits = [];
   text.split('\n').forEach((line, idx) => {
@@ -304,14 +299,27 @@ function main() {
     try {
       buf = fs.readFileSync(abs);
     } catch {
-      continue; // deleted or unreadable; git status will surface it
+      hits.push({
+        file: rel,
+        line: 0,
+        rule: 'unscanned',
+        text: 'tracked but unreadable — nothing was scanned',
+      });
+      continue;
     }
     // Skip binaries by content, not by extension, so an unknown text extension
     // is still scanned rather than silently ignored.
     if (buf.includes(0)) continue;
-    if (buf.length > 2_000_000) continue;
+    if (buf.length > 2_000_000) {
+      hits.push({
+        file: rel,
+        line: 0,
+        rule: 'unscanned',
+        text: `${buf.length} bytes, over the 2 MB read cap — nothing was scanned`,
+      });
+      continue;
+    }
     const ext = path.extname(rel).toLowerCase();
-    if (ext && !TEXT_EXT.has(ext)) continue;
 
     const text = buf.toString('utf-8');
     scanned++;
@@ -320,6 +328,17 @@ function main() {
       hits.push(...scanDocRefs(text, rel, repoRoot));
       hits.push(...scanTripIds(text, rel));
     }
+  }
+
+  // FAILS CLOSED. A zero scan means the enumeration or the root moved, at which point a
+  // clean verdict proves nothing — which is the failure mode a green run hides.
+  if (scanned === 0) {
+    hits.push({
+      file: repoRoot,
+      line: 0,
+      rule: 'unscanned',
+      text: 'git ls-files yielded no scannable file — the root moved and this scan proves nothing',
+    });
   }
 
   if (hits.length === 0) {

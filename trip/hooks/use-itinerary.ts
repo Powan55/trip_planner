@@ -116,7 +116,7 @@ function syncActor(): string {
 }
 
 // A FRESH-ID copy of an item's CONTENT: strip the per-placement identity and all sync
-// ordering fields (`id`/`deleted`/`rev`/`hlc`) and mint a new `id`, keeping `sourceId`
+// ordering fields (`id`/`deleted`/`rev`/`hlc`/`ord`) and mint a new `id`, keeping `sourceId`
 // and everything else. Used by BOTH the sync-on `moveItem` target step AND the sync-on
 // `restoreItem` (undo-of-delete) — the tombstone-source + fresh-id pattern. A fresh
 // id is what lets the copy coexist with the source's own tombstone without colliding, and
@@ -127,7 +127,7 @@ function syncActor(): string {
 // duplicate is byte-for-byte the same fresh-id-copy mechanics as a sync-on move target —
 // always a new id, never the source id.
 export function freshCopyOf(item: ItineraryItem): ItineraryItem {
-  const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ...content } = item;
+  const { id: _id, deleted: _deleted, rev: _rev, hlc: _hlc, ord: _ord, ...content } = item;
   return { ...content, id: generateItemId() } as ItineraryItem;
 }
 
@@ -547,9 +547,12 @@ export function useItinerary(): ItineraryStore {
   // date a two-week-old edit to now — a new defect traded for an old one. Only the three NAME
   // fields change. `doneAt` is untouched for the same reason.
   //
-  // Under sync we still advance `rev`/`hlc` (`stampSyncUpdated`, which touches ONLY those two
-  // ordering fields): without the bump the peers' unrewritten copies would tie or win the LWW
-  // resolve and the next snapshot would quietly unwind the claim. Tombstones are skipped — they
+  // Under sync we still advance `rev`/`hlc` (`stampSyncUpdated`, which touches ONLY the sync
+  // stamps): without the bump the peers' unrewritten copies would tie or win the LWW
+  // resolve and the next snapshot would quietly unwind the claim. The same stamper freezes each
+  // claimed row's `ord`, so a rename does not drag every claimed item to the bottom of its day —
+  // this pass touches many rows at once, which is where that would have been most visible.
+  // Tombstones are skipped — they
   // are invisible to the filter, to the feed and to the count the user approved.
   const claimAuthorship = useCallback((fromName: string): number => {
     const from = fromName.trim();
@@ -618,12 +621,13 @@ export function useItinerary(): ItineraryStore {
       // (a) `orderedIds` comes from the UI, which only ever sees LIVE items (the tombstone
       // filter). Core `reorderItems` drops any item not listed, so APPEND this day's tombstone
       // ids or the reorder silently drops pending deletes and stops them propagating.
-      // (b) re-stamp the live items so their hlcs ASCEND in the new order. Order is NOT a
-      // merge-visible fact on its own: `mergeItems` re-sorts by hlc ascending at both sync
-      // boundaries, so an order-only reorder was reverted by the next merge — the user's drag
-      // was silently discarded. `reorderSyncStamps` leaves tombstones alone (their hlc is the
-      // delete's causal position) and costs no extra network: the day is one doc, already
-      // being rewritten by this same commit.
+      // (b) re-stamp the live items so their `ord`s ASCEND in the new order. Order is NOT a
+      // merge-visible fact on its own: `mergeItems` re-sorts by `ord ?? hlc` ascending at both
+      // sync boundaries, so an order-only reorder was reverted by the next merge — the user's
+      // drag was silently discarded. `reorderSyncStamps` writes ONLY `ord`, so a drag cannot
+      // ship this device's whole row-set over a peer edit it has not seen; it leaves tombstones
+      // alone, and costs no extra network: the day is one doc, already being rewritten by this
+      // same commit.
       commit((current) => {
         const day = current.find((p) => p.date === date);
         const tombstoneIds = (day?.items ?? [])

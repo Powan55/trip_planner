@@ -383,6 +383,77 @@ describe('#344 — restoring a photo-meta subset deletes the dropped blobs (no o
   });
 });
 
+describe('never-destroy applies to photos too: a malformed photos.meta is dropped, not committed', () => {
+  it('leaves the live photo index AND its blobs intact when meta is not an array', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store, 2); // ph-seed-0, ph-seed-1 live on this device
+
+    const env = {
+      format: 'nepal-japan-trip-backup',
+      version: 1,
+      exportedAt: '2026-07-10T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      domains: {},
+      photos: { meta: 'x', blobs: {} }, // key present, value garbage
+    };
+    const file = new Blob([JSON.stringify(env)], { type: 'application/json' });
+
+    const res = await importTripBackup(file, store);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).not.toContain('photos');
+    // Index untouched — NOT rewritten to [].
+    const metas = JSON.parse(localStorage.getItem(STORAGE_KEYS.photos)!) as PhotoMeta[];
+    expect(metas.map((m) => m.id).sort()).toEqual(['ph-seed-0', 'ph-seed-1']);
+    // Blobs untouched — IndexedDB is the one store with no remote copy to recover from.
+    expect(await store.get('ph-seed-0')).not.toBeNull();
+    expect(await store.get('ph-seed-1')).not.toBeNull();
+  });
+
+  it('an empty ARRAY still tombstone-replaces (the guard is not overbroad)', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store, 1); // ph-seed-0
+
+    const env = {
+      format: 'nepal-japan-trip-backup',
+      version: 1,
+      exportedAt: '2026-07-10T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      domains: {},
+      photos: { meta: [], blobs: {} },
+    };
+    const file = new Blob([JSON.stringify(env)], { type: 'application/json' });
+
+    const res = await importTripBackup(file, store);
+
+    expect(res.ok).toBe(true);
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEYS.photos)!)).toEqual([]);
+    expect(await store.get('ph-seed-0')).toBeNull();
+  });
+
+  it('a meta whose data URL will not decode is counted as a skipped photo', async () => {
+    const store = makeInMemoryBlobStore();
+
+    const env = {
+      format: 'nepal-japan-trip-backup',
+      version: 1,
+      exportedAt: '2026-07-10T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      domains: {},
+      photos: { meta: [photoMeta('ph-bad')], blobs: { 'ph-bad': 'not-a-data-url' } },
+    };
+    const file = new Blob([JSON.stringify(env)], { type: 'application/json' });
+
+    const res = await importTripBackup(file, store);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.photosSkipped).toBe(1); // was 0 — the throw was invisible to both counters
+    expect(await store.get('ph-bad')).toBeNull();
+  });
+});
+
 describe('S273 — case 7: compression self-check (20-photo round-trip through the real pipeline)', () => {
   it('every photo byte survives export→import through the real compress/decompress path', async () => {
     const seedStore = makeInMemoryBlobStore();

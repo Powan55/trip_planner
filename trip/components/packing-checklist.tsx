@@ -5,6 +5,7 @@ import { Mountain, Compass, Globe2, Plus, Trash2 } from 'lucide-react';
 import { usePacking } from '@/hooks/use-packing';
 import { DEFAULT_TEMPLATE, type PackingCategory, type PackingItem } from '@/core/packing/model';
 import { haptic } from '@/lib/haptics';
+import { showUndoToast } from '@/lib/undo-toast';
 import { crossedIntoComplete } from '@/lib/celebration';
 import CelebrationBurst from '@/components/celebration-burst';
 
@@ -38,7 +39,7 @@ const CATEGORY_ORDER: PackingCategory[] = ['nepal', 'japan', 'universal'];
 const EMPTY_SLOTS = DEFAULT_TEMPLATE.slice(0, 8);
 
 export default function PackingChecklist() {
-  const { items, hydrated, progress, toggleItem, addItem, removeItem, restoreTemplate } = usePacking();
+  const { items, hydrated, progress, toggleItem, addItem, removeItem, restoreItem, restoreTemplate } = usePacking();
   const [draft, setDraft] = useState('');
 
   const handleAddSubmit = (e: FormEvent<HTMLFormElement>) => {
@@ -61,12 +62,18 @@ export default function PackingChecklist() {
     if (crossedIntoComplete(wasCompleteRef.current, complete)) {
       setCelebrate(true);
       haptic();
-      const t = setTimeout(() => setCelebrate(false), 650);
-      wasCompleteRef.current = complete;
-      return () => clearTimeout(t);
     }
     wasCompleteRef.current = complete;
   }, [hydrated, progress.checked, progress.total]);
+
+  // The burst window lives in its own effect keyed on `celebrate`, deliberately: folded into the
+  // edge effect above, any re-run of that effect (unchecking a row inside the window) clears the
+  // timer without re-arming it, leaving the burst on screen forever.
+  useEffect(() => {
+    if (!celebrate) return;
+    const t = setTimeout(() => setCelebrate(false), 650);
+    return () => clearTimeout(t);
+  }, [celebrate]);
 
   if (!hydrated) {
     return (
@@ -242,8 +249,10 @@ export default function PackingChecklist() {
                       <button
                         type="button"
                         onClick={() => {
+                          const index = items.findIndex((i) => i.id === item.id);
                           removeItem(item.id);
                           haptic();
+                          showUndoToast(`Removed “${item.label}”`, () => restoreItem(item, index));
                         }}
                         data-testid={`packing-remove-${item.id}`}
                         aria-label={`Remove ${item.label}`}

@@ -373,7 +373,7 @@ export default function Navbar() {
 function TravelerChip({ name, accent }: { name: string; accent: string }) {
   return (
     <div
-      className="flex items-center gap-1.5 rounded-r1 border py-1 pl-2.5 pr-1"
+      className="flex items-center gap-1.5 rounded-r1 border pl-2.5 pr-1"
       style={{ borderColor: `${accent}40` }}
     >
       {/* The traveller mark is STRUCK — a filled disc, because an identified traveller is
@@ -393,7 +393,7 @@ function TravelerChip({ name, accent }: { name: string; accent: string }) {
           aria-label={`Sign out ${name}`}
           title="Sign out"
           data-testid="navbar-sign-out"
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-r1 text-[color:var(--text-lo)] outline-none transition-colors hover:bg-white/10 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-r1 text-[color:var(--text-lo)] outline-none transition-colors hover:bg-white/10 hover:text-[color:var(--text-hi)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <LogOut className="w-3.5 h-3.5" aria-hidden="true" />
         </button>

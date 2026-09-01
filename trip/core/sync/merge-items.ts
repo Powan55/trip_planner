@@ -25,6 +25,12 @@ export interface SyncedRow {
   id: string;
   rev?: number;
   hlc?: string;
+  /**
+   * ORDER key, separate from the `hlc` CONFLICT key. Serialized-HLC shaped, so `ord ?? hlc`
+   * is a type-compatible fallback: a row that carries none orders by `hlc` exactly as before.
+   * Optional and unused by the domains that have no user-visible order (expenses, docs, places).
+   */
+  ord?: string;
   deleted?: boolean;
   /** Legacy HLC seed source when `hlc` is absent (seedHlcFromLegacy). */
   updatedAt?: string;
@@ -54,11 +60,32 @@ function rowHlc(row: SyncedRow): Hlc {
 }
 
 /**
- * Resolve two rows with the SAME `id` (one local, one remote) to a single winner
- * This is the whole per-row conflict decision — extracted verbatim
- * from `merge-day.ts`'s former `resolvePair`.
+ * Resolve two rows with the SAME `id` (one local, one remote) to a single winner.
+ *
+ * The BODY winner is `resolveWinner` below — the whole per-row conflict decision, extracted
+ * verbatim from `merge-day.ts`'s former `resolvePair` and unchanged since.
+ *
+ * `ord` is then joined SEPARATELY as a max over the two rows' `ord` FIELDS. It has to be
+ * independent of the body winner: a drag writes `ord` and nothing else, so a peer's later
+ * content edit wins the body — and would carry the row back to its old position if `ord` rode
+ * along with it. Compare the fields ONLY, never the `ord ?? hlc` effective key: falling back to
+ * `hlc` here would turn a peer's fresh EDIT stamp into a position and make the row jump, which
+ * is the very coupling this split exists to break.
+ *
+ * Convergence is unaffected. A max over a total order is commutative, idempotent and
+ * associative, and it is computed from the unordered pair, so the lattice-join argument in the
+ * module header still holds. With neither row carrying `ord` this returns the winner object
+ * itself, so every merge over pre-split data is byte-identical to before.
  */
 export function resolvePair<R extends SyncedRow>(a: R, b: R, policy: MergePolicy): R {
+  const win = resolveWinner(a, b, policy);
+  const ord =
+    a.ord === undefined ? b.ord : b.ord === undefined ? a.ord : a.ord > b.ord ? a.ord : b.ord;
+  return ord === undefined || ord === win.ord ? win : { ...win, ord };
+}
+
+/** The per-row CONTENT winner: tombstone policy, then HLC, then the equal-HLC tie-breaks. */
+function resolveWinner<R extends SyncedRow>(a: R, b: R, policy: MergePolicy): R {
   const aDel = a.deleted === true;
   const bDel = b.deleted === true;
 
@@ -138,9 +165,11 @@ function contentFingerprint(row: SyncedRow): string {
  * selector filters `deleted` out downstream.
  *
  * ORDERING: live rows sorted by
- * their winning `hlc` ASCENDING (oldest first), with `id` as a final deterministic tie-break;
- * tombstones appended after the live rows (same sort). Stable + fully convergent — independent
- * of argument order.
+ * their winning `ord ?? hlc` ASCENDING (oldest first), with `id` as a final deterministic
+ * tie-break; tombstones appended after the live rows (same sort). Both keys are fixed-width
+ * serialized HLCs, so a set where only SOME rows carry `ord` still compares totally and a row
+ * without one sits exactly where its `hlc` alone used to put it. Stable + fully convergent —
+ * independent of argument order.
  */
 export function mergeItems<R extends SyncedRow>(
   local: readonly R[],
@@ -163,7 +192,7 @@ export function mergeItems<R extends SyncedRow>(
   const live = winners.filter((it) => it.deleted !== true);
   const tombstones = winners.filter((it) => it.deleted === true);
 
-  const orderKey = (it: R) => it.hlc ?? seedHlcFromLegacy(it.updatedAt);
+  const orderKey = (it: R) => it.ord ?? it.hlc ?? seedHlcFromLegacy(it.updatedAt);
   const stableSort = (arr: R[]) =>
     arr.sort((x, y) => {
       const kx = orderKey(x);

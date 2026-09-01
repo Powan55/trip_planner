@@ -1,8 +1,7 @@
 // Core clock — pure, deterministically-testable countdown decomposition.
 //
 // Framework-free. `lib/countdown.ts` re-exports `computeCountdown` + `Countdown` from here,
-// so every caller (`components/hero-section.tsx`, `token-gate.tsx`, `trip-dashboard.tsx`)
-// reaches one implementation.
+// so every caller reaches one implementation.
 //
 // computeCountdown is PURE: it never reads the clock. The caller passes both the
 // target and the current `now`, so the same inputs always produce the same output,

@@ -236,6 +236,15 @@ const TOKENS = [
  *     not carry the map engine, and the basemap was never in it at all. The app had stopped doing
  *     the thing the landing page was still promising.
  * Shot 1 was accurate and is unchanged.
+ *
+ * The v7 re-shoot moved shots 1 and 2 again, both times because the PICTURE changed under the
+ * sentence: the planner's rows lost the coloured cards the shot-1 alt described (and only Morning
+ * is in frame now), and the Nepal row is back inside shot 2's crop, so "yen and rupees" is true of
+ * the picture again — the exact reverse of the correction above.
+ *
+ * Shot 3 is NOT from that re-shoot and is deliberately older than the other two: CARTO now stamps
+ * "API KEY REQUIRED" across the free dark-matter tiles `lib/map-style.ts` requests, so a fresh
+ * capture shows the watermark. Re-shoot it once the basemap serves clean tiles again.
  */
 const SHOTS = [
   {
@@ -243,14 +252,14 @@ const SHOTS = [
     fig: '01',
     src: '/images/landing/shot-1-day-planner.png',
     caption: 'The day planner, showing a morning in Kathmandu.',
-    alt: 'A phone screen: the day planner for Day 1 in Kathmandu, with a quick-add field at the top and the day’s timed stops below it, grouped under Morning and Afternoon, each on its own coloured card.',
+    alt: 'A phone screen: the day planner with the trip’s days in a strip across the top and the first one selected, a quick-add field under it, and the day’s stops listed below a Morning heading — each one a row carrying its time, its place and a note.',
   },
   {
     id: 'landing-shot-2',
     fig: '02',
     src: '/images/landing/shot-2-expenses.png',
     caption: 'The shared expense list, splitting a dinner in Tokyo.',
-    alt: 'A phone screen: the Expenses tab listing costs in yen, each row carrying a category tag, a note of what it was for, who logged it, and a “split 3” marker where the bill was shared.',
+    alt: 'A phone screen: the Expenses tab listing costs in yen and rupees, each row carrying a category tag, a note of what it was for, who logged it, and a “split 3” marker where the bill was shared.',
   },
   {
     id: 'landing-shot-3',

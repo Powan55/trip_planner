@@ -3,8 +3,7 @@
 // NOTHING IS COMPUTED HERE THAT THE APP DID NOT ALREADY COMPUTE. Every number below is a
 // count over an EXISTING date-backbone answer, not a second derivation of the itinerary:
 //
-//   days      = TRIP_DATES.length      — the same value `components/trip-dashboard.tsx`
-//                                        already shows as "Total Trip Duration"
+//   days      = TRIP_DATES.length
 //   cities    = distinct getCityForDate(date) over those dates
 //   countries = distinct getCountryForDate(date) over those dates
 //

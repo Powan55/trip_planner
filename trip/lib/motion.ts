@@ -431,19 +431,16 @@ export function entranceFor(pathname: string | null | undefined): EntranceDecisi
 }
 
 /**
- * The decision the STATIC EXPORT already contains — the tier gate alone.
+ * The decision the STATIC EXPORT would contain — the tier gate alone.
  *
- * `entranceFor()` is a client-only answer by construction: two of its three inputs
- * (`matchMedia`, the sessionStorage ledger) are inert during the prerender and live in the
- * browser. A prerendered route that reaches an entrance component therefore ships one answer in
- * its HTML and computes another on the client's FIRST render — a hydration mismatch, which React
- * recovers from by re-rendering the whole route on the client. It bit `/passport/` on every
- * reload (the ledger survives one) and on first load for every reduced-motion visitor.
- *
- * So the first render asks THIS, which is a pure function of the pathname and cannot disagree
- * with the prerender, and the live decision is deferred to an effect. The two functions must stay
- * in step: `lib/__tests__/motion-budget.test.ts` pins `entranceFor === prerenderEntranceFor` under
- * prerender conditions (no `matchMedia`, empty ledger) for every tiered surface.
+ * NO ENTRANCE COMPONENT IS CURRENTLY PRERENDERED: `app/layout.tsx` puts `{children}` inside
+ * `<ItineraryProvider>`, which renders nothing until it has mounted and identified a traveler,
+ * so no routed markup reaches `out/`. Nothing calls this in the app, and that is the point —
+ * it exists only for the pin in `lib/__tests__/motion-budget.test.ts`, which asserts
+ * `entranceFor === prerenderEntranceFor` under prerender conditions (no `matchMedia`, empty
+ * ledger) for every tiered surface. That pin is the tripwire for the day a reveal really is in
+ * the exported HTML: the two answers would then have to be reconciled before paint —
+ * `useLayoutEffect`, never a state-deferred correction, which paints the wrong entrance first.
  */
 export function prerenderEntranceFor(pathname: string | null | undefined): EntranceDecision {
   return isMotionAllowed('entrance', tierForPath(pathname)) ? 'animate' : 'present';
