@@ -59,7 +59,8 @@ export default function QuickAddInput({
         aria-label={label}
         placeholder={placeholder}
         data-testid={testId}
-        className="flex-1 min-w-0 px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white text-sm placeholder:text-ink-lo focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
+        // An unwritten line on a ruled form: the rule is drawn, the line is empty.
+        className="min-h-tap flex-1 min-w-0 rounded-r1 border border-[color:var(--border-ui)] bg-[rgb(var(--surface-low))] px-3 py-2.5 text-t-body text-[color:var(--text-hi)] placeholder:text-[color:var(--text-lo)] focus:outline-none focus:ring-2 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring"
       />
       <button
         type="button"
@@ -67,7 +68,9 @@ export default function QuickAddInput({
         disabled={!title.trim()}
         aria-label="Add plan"
         data-testid={`${testId}-submit`}
-        className="shrink-0 inline-flex h-tap w-tap items-center justify-center rounded-xl bg-primary/90 text-primary-foreground hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+        // Disabled recedes by TIER, never by opacity: dimming multiplies the alpha of the
+        // glyph inside it and drops the control straight through the contrast floor.
+        className="shrink-0 inline-flex h-tap w-tap items-center justify-center rounded-r1 border-b-[3px] border-b-[color:var(--lip-volt)] bg-[color:hsl(var(--accent))] text-[color:var(--on-accent)] outline-none transition-all [transition-duration:var(--duration-press)] hover:brightness-110 active:translate-y-[3px] active:border-b-0 active:mb-[3px] disabled:cursor-not-allowed disabled:border-b-0 disabled:bg-[rgb(var(--surface-overlay))] disabled:text-[color:var(--text-lo)] focus-visible:ring-2 focus-visible:ring-[color:var(--text-hi)] focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
       >
         <Plus className="w-4 h-4" aria-hidden="true" />
       </button>

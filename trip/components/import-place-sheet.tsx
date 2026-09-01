@@ -3,6 +3,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import Sheet from '@/components/ui/sheet-dark';
+import { SHEET_HEAD, SHEET_FOOT, SHEET_CLOSE } from '@/components/place-detail-sheet';
 import { X, Check, Link2, Search, Loader2, ChevronDown } from 'lucide-react';
 import {
   TRIP_DATES,
@@ -243,33 +244,35 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
       side="center"
       initialFocusRef={firstFieldRef}
       testId="import-place-sheet"
-      className="w-full max-w-md rounded-2xl max-h-[90vh]"
+      // Named exception to SHEET_PANEL: that constant rounds for a right-side drawer
+      // (`sm:rounded-l-r3`); this sheet is side="center" and needs all four corners.
+      className="w-full max-w-md rounded-r3 max-h-[90vh]"
     >
-        {/* Header */}
-        <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
+        <div className={SHEET_HEAD}>
           <div className="min-w-0">
-            <h3 id={titleId} className="font-display text-lg font-bold text-white leading-tight">
+            <span className="pr pr--lo block">Import</span>
+            <h3 id={titleId} className="pr pr--l text-ink-hi">
               Import a place
             </h3>
-            <p className="text-sm text-ink-mid mt-0.5">Save a spot from a Google Maps link.</p>
+            <p className="text-t-sm text-ink-mid mt-0.5">Save a spot from a Google Maps link.</p>
           </div>
           <button
             type="button"
             data-testid="import-place-cancel"
             onClick={onClose}
             aria-label="Close dialog"
-            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className={SHEET_CLOSE}
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Scrollable body */}
-        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-5 sm:px-6">
+        <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-gut py-4">
           <div className="space-y-4">
             {/* Link */}
             <div>
-              <label htmlFor={urlFieldId} className="text-xs text-ink-mid mb-1 block">
+              <label htmlFor={urlFieldId} className="pr pr--lo mb-1 block">
                 Google Maps link
               </label>
               {urlEditable ? (
@@ -289,14 +292,14 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                     inputMode="url"
                     autoComplete="off"
                     placeholder="https://maps.app.goo.gl/…"
-                    className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+                    className="flex-1 min-w-0 min-h-tap px-3 py-2 rounded-r1 bg-surface-raised border-hair border-[color:var(--border-ui)] text-ink-hi text-t-body focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
                   />
                   <button
                     type="button"
                     data-testid="import-place-lookup"
                     onClick={() => void runResolve(url)}
                     disabled={!isGooglePlaceUrl(url.trim()) || status === 'resolving'}
-                    className="shrink-0 inline-flex items-center gap-1.5 min-h-[44px] px-3 rounded-lg bg-white/5 border border-white/10 text-xs text-ink-hi hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="btn btn--2 shrink-0 px-3"
                   >
                     {status === 'resolving' ? <Loader2 className="w-3.5 h-3.5 motion-safe:animate-spin" /> : <Search className="w-3.5 h-3.5" />}
                     Look up
@@ -306,7 +309,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                 <p
                   id={urlFieldId}
                   data-testid="import-place-url-readonly"
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-sm text-ink-hi"
+                  className="flex items-center gap-1.5 min-h-tap px-3 py-2 rounded-r1 bg-surface-raised border-hair border-border text-t-body text-ink-hi"
                 >
                   <Link2 className="w-3.5 h-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="truncate break-all">{url || 'No link'}</span>
@@ -316,7 +319,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                 <p
                   data-testid="import-place-status"
                   role="status"
-                  className={`mt-1.5 text-xs ${statusIsWarning ? 'text-amber-300/80' : 'text-ink-mid'}`}
+                  className={`mt-1.5 text-t-sm ${statusIsWarning ? 'text-destructive' : 'text-ink-mid'}`}
                 >
                   {statusLine}
                 </p>
@@ -325,7 +328,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
 
             {/* Name (required) */}
             <div>
-              <label htmlFor={nameFieldId} className="text-xs text-ink-mid mb-1 block">Name *</label>
+              <label htmlFor={nameFieldId} className="pr pr--lo mb-1 block">Name *</label>
               <input
                 id={nameFieldId}
                 ref={urlEditable ? undefined : firstFieldRef}
@@ -334,14 +337,14 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
                 autoComplete="off"
                 placeholder="e.g., Fushimi Inari Shrine"
-                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+                className="w-full min-h-tap px-3 py-2 rounded-r1 bg-surface-raised border-hair border-[color:var(--border-ui)] text-ink-hi text-t-body focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
               />
             </div>
 
             {/* Country/leg radio — default pack only (a custom trip auto-assigns 'main'). */}
             {multiLeg && (
               <div>
-                <span id={legLabelId} className="text-xs text-ink-mid mb-1 block">Country</span>
+                <span id={legLabelId} className="pr pr--lo mb-1 block">Country</span>
                 {/* B-5: `role="group"` + `aria-pressed`, not radiogroup/radio — the composite
                     role promises arrow-key navigation this toggle never implemented. */}
                 <div className="flex flex-wrap gap-2" role="group" aria-labelledby={legLabelId}>
@@ -354,8 +357,8 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                         aria-pressed={active}
                         data-testid={`import-place-leg-${leg.id}`}
                         onClick={() => setLegId(leg.id)}
-                        className={`min-h-[44px] px-4 rounded-lg text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                          active ? 'bg-primary/10 border border-ring/40 text-primary' : 'bg-white/5 border border-white/10 text-ink-mid hover:bg-white/10'
+                        className={`chip min-h-tap px-4 ${
+                          active ? 'chip--struck bg-[rgb(62_216_255/0.10)]' : 'chip--hollow hover:bg-white/[0.05]'
                         }`}
                       >
                         {leg.countryLabel}
@@ -368,7 +371,7 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
 
             {/* Note (optional) */}
             <div>
-              <label htmlFor={noteFieldId} className="text-xs text-ink-mid mb-1 block">Note</label>
+              <label htmlFor={noteFieldId} className="pr pr--lo mb-1 block">Note</label>
               <textarea
                 id={noteFieldId}
                 data-testid="import-place-note-input"
@@ -376,18 +379,18 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                 onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNote(e.target.value)}
                 rows={2}
                 placeholder="Why you saved it…"
-                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 resize-none"
+                className="w-full px-3 py-2 rounded-r1 bg-surface-raised border-hair border-[color:var(--border-ui)] text-ink-hi text-t-body focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 resize-none"
               />
             </div>
 
             {/* Also add to plan (collapsed by default) */}
-            <div className="rounded-xl border border-white/10 bg-white/[0.03]">
+            <div className="rounded-r1 border-hair border-border bg-surface-raised">
               <button
                 type="button"
                 data-testid="import-place-toggle-plan"
                 onClick={() => setShowAddToPlan((v) => !v)}
                 aria-expanded={showAddToPlan}
-                className="w-full flex items-center justify-between gap-2 min-h-[44px] px-3 text-sm text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-xl"
+                className="w-full flex items-center justify-between gap-2 min-h-tap px-3 text-t-body text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none rounded-r1"
               >
                 <span>Also add to plan</span>
                 <ChevronDown className={`w-4 h-4 shrink-0 transition-transform ${showAddToPlan ? 'rotate-180' : ''}`} />
@@ -395,23 +398,23 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
               {showAddToPlan && (
                 <div className="px-3 pb-3 space-y-3">
                   <div>
-                    <label htmlFor={dateFieldId} className="text-xs text-ink-mid mb-1 block">Day</label>
+                    <label htmlFor={dateFieldId} className="pr pr--lo mb-1 block">Day</label>
                     <select
                       id={dateFieldId}
                       data-testid="import-place-day-select"
                       value={selectedDate}
                       onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+                      className="w-full min-h-tap px-3 py-2 rounded-r1 bg-surface-raised border-hair border-[color:var(--border-ui)] text-ink-hi text-t-body focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
                     >
                       {TRIP_DATES.map((d) => (
-                        <option key={d} value={d} className="bg-surface text-white">
+                        <option key={d} value={d} className="bg-surface text-ink-hi">
                           {dateOptionLabel(d)}
                         </option>
                       ))}
                     </select>
                   </div>
                   <div>
-                    <span id={catLabelId} className="text-xs text-ink-mid mb-1 block">Category</span>
+                    <span id={catLabelId} className="pr pr--lo mb-1 block">Category</span>
                     <div className="grid grid-cols-3 sm:grid-cols-5 gap-2" role="group" aria-labelledby={catLabelId}>
                       {ALL_CATEGORIES.map((cat) => {
                         const colors = CATEGORY_COLORS[cat];
@@ -424,8 +427,8 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
                             aria-pressed={active}
                             aria-label={`Category: ${cat}`}
                             data-testid={`import-place-cat-${cat}`}
-                            className={`min-h-[44px] px-1 rounded-lg text-[10px] capitalize leading-tight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                              active ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-ink-mid hover:bg-white/5'
+                            className={`min-h-tap px-1 rounded-r1 text-t-micro capitalize leading-tight transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                              active ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-ink-mid hover:bg-white/[0.05]'
                             }`}
                           >
                             {cat}
@@ -438,17 +441,16 @@ export default function ImportPlaceSheet({ open, initialUrl, urlEditable = false
               )}
             </div>
           </div>
-          <div className="h-4" />
         </div>
 
         {/* Pinned footer */}
-        <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-surface/40">
+        <div className={SHEET_FOOT}>
           <button
             type="button"
             onClick={handleConfirm}
             data-testid="import-place-confirm"
             disabled={!nameValid}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary"
+            className="btn w-full max-w-none px-4"
           >
             <Check className="w-4 h-4" />
             Save place

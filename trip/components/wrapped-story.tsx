@@ -173,7 +173,7 @@ export default function WrappedStory() {
   if (!hydrated) {
     return (
       <div data-testid="wrapped-story">
-        <SectionSkeleton height="50vh" count={3} />
+        <SectionSkeleton height="50vh" count={3} contentClassName="max-w-3xl" />
       </div>
     );
   }
@@ -191,25 +191,25 @@ export default function WrappedStory() {
       <div className="mx-auto max-w-3xl">
         <Reveal>
           <div className="relative">
-            <div data-testid="wrapped-entry" className="glass-card mx-auto rounded-3xl p-8 text-center sm:p-12">
+            <div data-testid="wrapped-entry" className="mx-auto border-hair border-border bg-surface-low p-8 text-center sm:p-12">
               <CelebrationBurst
                 active={celebrate && !reducedMotion}
                 testId="wrapped-celebration"
                 celebrationId="wrapped-post-trip"
                 weight="burst"
               />
-              <p className="text-eyebrow mb-3 uppercase text-muted-foreground">{copy.eyebrow}</p>
-              <h2 id="wrapped-title" className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
-                <span className="text-display-emphasis">{copy.title}</span>
+              <p className="pr mb-3">{copy.eyebrow}</p>
+              <h2 id="wrapped-title" className="text-display-lg text-ink-hi mb-3">
+                <span>{copy.title}</span>
               </h2>
-              <p data-testid="wrapped-blurb" className="mx-auto max-w-xl text-base leading-relaxed text-ink-mid">
+              <p data-testid="wrapped-blurb" className="mx-auto max-w-xl text-t-lead leading-relaxed text-ink-mid">
                 {copy.blurb(stats)}
               </p>
               <button
                 type="button"
                 data-testid="wrapped-share"
                 onClick={() => void shareWrapped(stats)}
-                className="mt-6 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-full border border-ring/30 bg-primary/10 px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                className="btn mx-auto mt-6 px-5"
               >
                 <Share2 className="h-4 w-4" aria-hidden="true" />
                 Share your wrapped
@@ -218,16 +218,16 @@ export default function WrappedStory() {
           </div>
         </Reveal>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="cells mt-6 grid-cols-1 sm:grid-cols-2">
           <Reveal>
             <StatPanel testId="wrapped-stat-days" icon={<MapPin className="h-4 w-4" aria-hidden="true" />} label="Days lived">
-              <span className="font-semibold text-foreground">{stats.daysElapsed}</span> of {stats.totalTripDays} trip days
+              <span className="num block text-n-lg leading-none text-ink-hi">{stats.daysElapsed}</span> of {stats.totalTripDays} trip days
             </StatPanel>
           </Reveal>
 
           <Reveal>
             <StatPanel testId="wrapped-stat-activities" icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" />} label="Activities">
-              <span className="font-semibold text-foreground">{stats.activitiesDone}</span> of {stats.activitiesPlanned} planned{' '}
+              <span className="num block text-n-lg leading-none text-ink-hi">{stats.activitiesDone}</span> of {stats.activitiesPlanned} planned{' '}
               activities done
             </StatPanel>
           </Reveal>
@@ -239,7 +239,7 @@ export default function WrappedStory() {
                   <LegSpendLine key={leg} leg={leg} spend={stats.spend[leg]} />
                 ))}
                 {LEGS.every((leg) => stats.spend[leg].total === 0) && (
-                  <span className="text-ink-lo">Nothing logged yet</span>
+                  <span className="empty">Unwritten &mdash; nothing logged yet</span>
                 )}
               </div>
             </StatPanel>
@@ -247,33 +247,33 @@ export default function WrappedStory() {
 
           <Reveal>
             <StatPanel testId="wrapped-stat-journal" icon={<BookOpen className="h-4 w-4" aria-hidden="true" />} label="Journal">
-              <span className="font-semibold text-foreground">{stats.journalCount}</span>{' '}
+              <span className="num block text-n-lg leading-none text-ink-hi">{stats.journalCount}</span>{' '}
               {stats.journalCount === 1 ? 'entry' : 'entries'} written
             </StatPanel>
           </Reveal>
 
           <Reveal>
             <StatPanel testId="wrapped-stat-photos" icon={<Camera className="h-4 w-4" aria-hidden="true" />} label="Photos">
-              <span className="font-semibold text-foreground">{stats.photoCount}</span>{' '}
+              <span className="num block text-n-lg leading-none text-ink-hi">{stats.photoCount}</span>{' '}
               {stats.photoCount === 1 ? 'photo' : 'photos'} captured
             </StatPanel>
           </Reveal>
 
           <Reveal>
             <StatPanel testId="wrapped-stat-packing" icon={<Backpack className="h-4 w-4" aria-hidden="true" />} label="Packing">
-              <span className="font-semibold text-foreground">{stats.packing.checked}</span> of {stats.packing.total} packed
+              <span className="num block text-n-lg leading-none text-ink-hi">{stats.packing.checked}</span> of {stats.packing.total} packed
             </StatPanel>
           </Reveal>
 
           <Reveal>
             <StatPanel testId="wrapped-stat-docs" icon={<FileCheck2 className="h-4 w-4" aria-hidden="true" />} label="Documents">
-              <span className="font-semibold text-foreground">{stats.docs.done}</span> of {stats.docs.total} ready
+              <span className="num block text-n-lg leading-none text-ink-hi">{stats.docs.done}</span> of {stats.docs.total} ready
             </StatPanel>
           </Reveal>
         </div>
 
-        <footer className="mt-8 flex items-center justify-center gap-1.5 text-center text-sm italic text-ink-lo">
-          <Sparkles className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+        <footer className="mt-8 flex items-center justify-center gap-1.5 text-center text-t-sm text-ink-mid">
+          <Sparkles className="h-3.5 w-3.5 text-ink-lo" aria-hidden="true" />
           That&rsquo;s the trip, wrapped up in numbers.
         </footer>
       </div>
@@ -293,14 +293,14 @@ function StatPanel({
   children: React.ReactNode;
 }) {
   return (
-    <div data-testid={testId} className="glass-card h-full rounded-2xl p-5">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+    <div data-testid={testId} className="cell h-full">
+      <p className="l !flex items-center gap-1.5">
         <span aria-hidden="true">{icon}</span>
         {label}
       </p>
       {/* #101 — a <div>, not a <p>: the Spend panel passes a flex column as `children`,
           and <div> inside <p> is invalid DOM (React logs on every /recap visit). */}
-      <div className="text-sm leading-relaxed text-ink-hi">{children}</div>
+      <div className="f !normal-case !tracking-normal">{children}</div>
     </div>
   );
 }
@@ -309,10 +309,10 @@ function LegSpendLine({ leg, spend }: { leg: Leg; spend: WrappedStats['spend'][L
   if (spend.total === 0) return null;
   return (
     <span data-testid={`wrapped-spend-${leg}`}>
-      <span className="font-semibold text-ink-hi">{legLabel(leg)}:</span>{' '}
-      <span className="font-semibold text-foreground">{formatMoney(spend.total, legCurrency(leg))}</span>
+      <span className="pr">{legLabel(leg)}</span>{' '}
+      <span className="num text-n-sm text-ink-hi">{formatMoney(spend.total, legCurrency(leg))}</span>
       {spend.topCategory && (
-        <span className="text-ink-mid"> — top category {capitalize(spend.topCategory.category)}</span>
+        <span className="text-ink-mid"> · top category {capitalize(spend.topCategory.category)}</span>
       )}
     </span>
   );

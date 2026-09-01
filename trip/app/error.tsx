@@ -6,7 +6,12 @@
 // segment and calls it with `{ error, reset }`. Root layout (ThemeProvider,
 // Navbar, etc.) is still mounted here — only `global-error.tsx` (see that file)
 // covers a crash IN the root layout itself, which is why this file can stay a
-// plain glass-card panel inside normal app chrome instead of its own <html>.
+// printed panel inside normal app chrome instead of shipping its own <html>.
+//
+// NOTHING HERE TOUCHES THE NETWORK, and that is the requirement rather than a
+// side effect: this app is offline-first, so the screen that says a page failed
+// must not itself need a fetch to render. Icons and the button are bundled, the
+// copy is literal, and both exits are ordinary navigations.
 //
 // Deliberately no framer-motion / reveal animation: a crash screen has nothing
 // to prove by moving, and skipping motion entirely is the simplest way to be
@@ -28,29 +33,40 @@ export default function ErrorBoundary({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  // A <main> because this REPLACES the failed page segment, and the root layout has no
+  // landmark of its own — every route ships one. Without it the crash screen is the one
+  // view in the app with no main landmark at all.
   return (
-    <div className="flex min-h-[70vh] items-center justify-center px-4 py-16">
+    <main className="flex min-h-[70vh] items-center justify-center px-gutter py-16">
+      {/* Printed stock, not glass: a 2px rule and a stated condition. The failure is
+          carried by the WORDS on the annunciator line, never by colour alone, and the
+          `.err` tier is spent on that one line rather than on the whole panel. */}
       <div
         role="alert"
-        className="glass-card w-full max-w-md rounded-2xl p-8 text-center"
+        className="w-full max-w-md border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] rounded-r1 p-gut py-7"
       >
-        <h1 className="font-display text-2xl font-bold text-white mb-3">
+        <p className="pr err mb-3">Render · Failed</p>
+        <h1 className="text-n-sm font-machine font-semibold uppercase tracking-[0.06em] text-[color:var(--text-hi)] mb-3">
           Something went wrong
         </h1>
-        <p className="text-sm text-ink-mid mb-2">
+        <p className="empty mb-3">
           This page hit a snag and couldn&apos;t render. It&apos;s a display glitch, not
           data loss — your trip plans, itinerary, and settings are safe in this
           device&apos;s local storage.
         </p>
         {error?.message && (
-          <p className="text-xs text-ink-mid mb-6 break-words">{error.message}</p>
+          // `border-t-hair`, never `border-t border-hair` — the second class is
+          // `border-width` on ALL FOUR sides, so the line rendered framed, not ruled.
+          <p className="font-machine text-t-sm text-[color:var(--text-lo)] mb-6 break-words border-t-hair border-[hsl(var(--border))] pt-3">
+            {error.message}
+          </p>
         )}
-        <div className="flex flex-wrap items-center justify-center gap-3 mt-2">
-          <Button onClick={() => reset()} variant="default">
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Button onClick={() => reset()} variant="default" className="flex-1">
             <RefreshCw aria-hidden="true" />
             Try again
           </Button>
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="flex-1">
             <a href={withBasePath('/')}>
               <HomeIcon aria-hidden="true" />
               Home
@@ -58,6 +74,6 @@ export default function ErrorBoundary({
           </Button>
         </div>
       </div>
-    </div>
+    </main>
   );
 }

@@ -215,7 +215,7 @@ test.describe('S252 · custom trip — nav gating', () => {
 });
 
 test.describe('custom trip: expense split roster is derived, not the hardcoded N×J trio', () => {
-  test('the split payer chips offer the signed-in traveler (self) and NOT Powan/Sushil/Uttam', async ({
+  test('the split payer chips offer the signed-in traveler (self) and NOT Alina/Rhea/Milo', async ({
     page,
   }) => {
     // Sign in a traveler on a fresh custom trip (no expenses yet) ⇒ the derived roster is [self].
@@ -239,7 +239,7 @@ test.describe('custom trip: expense split roster is derived, not the hardcoded N
     // Self is offered as the payer; the hardcoded Nepal×Japan roster is gone.
     await expect(page.getByTestId('expense-payer-Kenji')).toBeVisible();
     await expect(page.getByTestId('expense-split-member-Kenji')).toBeVisible();
-    for (const name of ['Powan', 'Sushil', 'Uttam']) {
+    for (const name of ['Alina', 'Rhea', 'Milo']) {
       await expect(page.getByTestId(`expense-payer-${name}`)).toHaveCount(0);
       await expect(page.getByTestId(`expense-split-member-${name}`)).toHaveCount(0);
     }

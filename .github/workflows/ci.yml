@@ -85,6 +85,16 @@ jobs:
       - name: Ambient-loop floor
         run: node scripts/motion-loops.mjs
 
+      # Fourth dependency-free check. A bare `var(--accent)` in a colour position is invalid at
+      # computed-value time, so the declaration is dropped and nothing goes red — it shipped 32
+      # dead declarations at once, both app-wide focus rings among them. Self-test first, same
+      # reason as the marker set's: a green audit from a broken detector is worse than a red one.
+      - name: Token wrapper self-test
+        run: node scripts/token-wrappers.mjs --self-test
+
+      - name: Token wrapper audit
+        run: node scripts/token-wrappers.mjs
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22

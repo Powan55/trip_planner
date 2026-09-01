@@ -5,7 +5,7 @@ import { m } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-import { FADE_FLOOR, entranceFor } from '@/lib/motion';
+import { FADE_FLOOR, entranceFor, prerenderEntranceFor } from '@/lib/motion';
 
 /**
  * Reveal — the ONE canonical section-masthead entrance (; scroll-driven CSS
@@ -91,11 +91,17 @@ import { FADE_FLOOR, entranceFor } from '@/lib/motion';
  * session renders present, no transition.
  *
  * `'present'` is the SAME branch as the reduced-motion fork, deliberately: it is
- * already shipped and already reviewed, so this adds no new rendering shape and
- * no new hydration characteristic. The server always prerenders `'animate'` for a
- * Tier-1/2 route (no window, empty ledger), exactly as it did before; only a
- * returning client's first render differs, in the same way and to the same degree
- * a reduced-motion client's already did.
+ * already shipped and already reviewed, so this adds no new rendering shape.
+ *
+ * CORRECTION to the sentence that used to close this paragraph — it claimed "no new
+ * hydration characteristic", on the reasoning that the server always prerenders
+ * `'animate'` for a Tier-1/2 route and only the client's first render differs. Both
+ * halves are true and together they are the defect: a differing first render IS a
+ * hydration mismatch, and `/passport/` is a Server Component, so its reveal really is
+ * in the exported HTML. It mismatched on every reload (the ledger is sessionStorage
+ * and survives one) and on first load for every reduced-motion visitor, and React
+ * recovered by re-rendering the whole route on the client. The decision is now
+ * deferred to an effect — see `prerenderEntranceFor` below and in lib/motion.ts.
  *
  * `data-entrance` is on both paths so the rule is observable from outside — an
  * e2e spec can assert that every reveal on /plan/ is `"present"` without knowing
@@ -110,7 +116,16 @@ export function Reveal({
 }) {
   // `usePathname()` is null with no app router mounted (a unit-test harness);
   // `entranceFor` reads that as an unscoped surface and returns 'present'.
-  const entrance = entranceFor(usePathname());
+  const pathname = usePathname();
+  // DEFERRED, for the same reason `cssTimeline` below is: the live decision reads `matchMedia`
+  // and the sessionStorage ledger, neither of which exists during the export. Rendering it on the
+  // first client render is a hydration mismatch on any PRERENDERED route that reaches a
+  // `<Reveal>` — /passport/ is the one today (a Server Component, so the reveal is in the shipped
+  // HTML), and it mismatched on every reload and on first load under reduced motion. The first
+  // render therefore answers with the prerender's own decision, which is pathname-only and cannot
+  // disagree, and the effect corrects it.
+  const [entrance, setEntrance] = useState(() => prerenderEntranceFor(pathname));
+  useEffect(() => setEntrance(entranceFor(pathname)), [pathname]);
   const animating = entrance === 'animate';
 
   const [cssTimeline, setCssTimeline] = useState(false);
@@ -146,6 +161,15 @@ export function Reveal({
       // negative-control run read 0.7 off the off-screen photography masthead before this
       // fork existed. Asserted in e2e/reveal.spec.ts.
       initial={animating ? { opacity: FADE_FLOOR, y: 20 } : { opacity: 1 }}
+      // The corrector for the deferred decision above, and it is not optional. framer reads
+      // `initial` ONCE, at mount: an element that mounted on the prerender's 'animate' and is
+      // then told 'present' would keep the floored opacity it started with and only reach 1 if it
+      // ever intersected — leaving an off-screen reveal resting below full opacity for exactly
+      // the reduced-motion and returning visitors this fork exists to protect (D-246's measured
+      // regression, asserted in e2e/reveal.spec.ts). An `animate` target IS re-read, so 'present'
+      // snaps to the end state with no transition, and 'animate' passes no target at all — the
+      // untouched `whileInView`-only path.
+      animate={animating ? undefined : { opacity: 1, y: 0, transition: { duration: 0 } }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       className={className}

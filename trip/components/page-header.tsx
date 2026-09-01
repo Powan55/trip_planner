@@ -25,6 +25,8 @@
  * strings to pass, the way `plan-hero.tsx` wraps PageHero.
  */
 
+import { cn } from '@/lib/utils';
+
 interface PageHeaderProps {
   eyebrow: string;
   title: string;
@@ -33,8 +35,19 @@ interface PageHeaderProps {
   titleId?: string;
   /** A token from globals.css. Never a literal colour. */
   accent?: string;
-  /** The one-shot panel entrance. False only where a route shipped without it. */
+  /**
+   * The one-shot panel entrance. Accepted and IGNORED: there are no entrances on the calm
+   * working screens any more. Kept in the signature because eight route files pass it and
+   * a prop-signature change breaks them silently.
+   */
   reveal?: boolean;
+  /**
+   * Extra classes on the masthead PANEL — the bordered box, not the outer <header>, because
+   * the panel is what carries the width. Merged with `cn`, so a caller's `max-w-*` replaces
+   * the 1200px default instead of stacking with it; each route passes the width of the body
+   * below it so the two edges line up.
+   */
+  className?: string;
 }
 
 export default function PageHeader({
@@ -43,12 +56,19 @@ export default function PageHeader({
   description,
   titleId,
   accent = 'hsl(var(--accent-scroll))',
-  reveal = true,
+  className,
 }: PageHeaderProps) {
   return (
     <header className="px-gutter pt-24 pb-8 sm:pt-28 sm:pb-10">
+      {/* Printed stock, not glass, and no entrance — content is present when you arrive.
+          `reveal` is kept in the props because eight route files pass it and this bundle
+          does not change a public signature; it now selects nothing, which is the honest
+          state until those callers are swept. */}
       <div
-        className={`glass-panel ${reveal ? 'animate-reveal-up ' : ''}relative mx-auto max-w-[1200px] overflow-hidden px-6 py-8 sm:px-10 sm:py-12`}
+        className={cn(
+          'relative mx-auto max-w-[1200px] overflow-hidden border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] rounded-r1 px-6 py-8 sm:px-10 sm:py-12',
+          className,
+        )}
       >
         <span
           aria-hidden="true"
@@ -56,13 +76,13 @@ export default function PageHeader({
           style={{ background: 'var(--hero-wash)' }}
         />
         <div className="relative">
-          <p className="text-eyebrow mb-3 uppercase" style={{ color: accent }}>
+          <p className="pr mb-3" style={{ color: accent }}>
             {eyebrow}
           </p>
-          <h1 id={titleId} className="text-display-lg text-display-emphasis">
+          <h1 id={titleId} className="text-display-lg text-[color:var(--text-hi)]">
             {title}
           </h1>
-          <p className="mt-3 max-w-2xl text-base leading-relaxed text-muted-foreground">
+          <p className="mt-3 max-w-2xl text-t-lead text-[color:var(--text-mid)]">
             {description}
           </p>
         </div>

@@ -34,7 +34,6 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
-  CommandShortcut,
 } from '@/components/ui/command';
 import { scrollToSectionWhenReady } from '@/lib/scroll-to-hash';
 import { loadPlans } from '@/lib/itinerary-storage';
@@ -42,6 +41,7 @@ import { searchPlanItems } from '@/lib/search-plan';
 import { formatDate, type DayPlan } from '@/lib/trip-data';
 import { parseConversionQuery, convertCurrency, type ConversionResult } from '@/lib/currency-convert';
 import { isDefaultTrip } from '@/core/trips';
+import { normalizePath, routeLabel } from '@/lib/nav-items';
 import { prefersReducedMotion } from '@/lib/motion';
 
 /**
@@ -72,6 +72,13 @@ import { prefersReducedMotion } from '@/lib/motion';
  * reduce (instant jump) — scrollToSectionWhenReady applies the same rule. No
  * framer-motion is introduced here, so the LazyMotion `strict` flag is irrelevant
  * to this file.
+ *
+ * Material: `.list` rows on --surface-low inside the shared Radix dialog. Row state is the
+ * recipe's own — `.list .r[aria-selected='true']` paints the volt wash plus a 3px inset
+ * rule, and cmdk drives `aria-selected` for BOTH the arrow-key highlight and pointer hover,
+ * so the two states can never disagree. Measured through the grain multiplier on
+ * --surface-low: text-hi 18.02 / 15.79 hover / 14.79 selected, text-mid 10.99 / 9.63 / 9.02,
+ * text-lo 6.94 / 6.08 / 5.70 — every row state clears AA on every tier.
  *
  * Matching: a custom deterministic `filter` (scoreItem) replaces cmdk's built-in
  * fuzzy scorer, which was loose enough to rank "nepal" → "Itinerary Planner" (…Planner)
@@ -151,13 +158,14 @@ const SECTIONS: Section[] = [
   { route: '/settings/', label: 'Settings', group: 'More', keywords: ['identity', 'currency', 'rates', 'sign out', 'clear', 'backup', 'export', 'import'], icon: Settings }, //
 ];
 
-// Trailing-slash-agnostic pathname compare (mirrors navbar.tsx).
-function normalizePath(p: string | null): string {
-  const stripped = (p ?? '/').replace(/\/+$/, '');
-  return stripped === '' ? '/' : stripped;
-}
-
 const GROUP_ORDER: Section['group'][] = ['Plan', 'Destinations', 'Guides', 'More'];
+
+// The row and group recipes, once. `[--lead:22px]` is the sanctioned custom-property hatch
+// for the icon column and `!items-center` the sanctioned `!` — `.list .r` is (0,2,0) and a
+// bare `grid-cols-*`/`items-center` utility is (0,1,0), so neither would apply.
+const ROW = 'r grid w-full [--lead:22px] !items-center';
+const ROW_ICON = 'h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]';
+const GROUP = 'p-0 [&_[cmdk-group-heading]]:px-gut [&_[cmdk-group-heading]]:py-2';
 
 // (Plan D10): routes that only exist for the default N×J trip — dropped from the
 // palette on a custom trip (Nepal/Japan/Flights, plus their #photography/#nightlife
@@ -457,14 +465,18 @@ export default function CommandPalette() {
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         onCloseAutoFocus={handleCloseAutoFocus}
-        className="overflow-hidden p-0 shadow-lg max-w-[92vw] sm:max-w-lg"
+        className="max-w-[92vw] overflow-hidden p-0 shadow-2xl sm:max-w-lg"
         data-testid="command-palette-dialog"
       >
         {/* Visually-hidden labelling satisfies the Radix Dialog a11y contract
-            (required title) without a visible header or a console warning. */}
+            (required title) without a visible header or a console warning. The
+            description carries the keyboard contract in words — the footer below states
+            the same thing in key caps and is aria-hidden, so it is never read as glyphs. */}
         <DialogTitle className="sr-only">Command palette</DialogTitle>
         <DialogDescription className="sr-only">
-          Search and jump to any section of the trip planner. Press Escape to close.
+          Search and jump to any section of the trip planner, or type an amount such as 100
+          USD to JPY to convert it. Use the up and down arrow keys to move through the
+          results, Enter to open the highlighted one, and Escape to close.
         </DialogDescription>
 
         <Command
@@ -472,26 +484,51 @@ export default function CommandPalette() {
           // first, keyword aliases below them, loose fuzzy noise is dropped. Replaces
           // cmdk's built-in scorer, which mis-ranked "nepal" → "Itinerary Planner".
           // value = clean label; keywords prop carries the aliases (fed to scoreItem).
-          // globals.css color tokens are untouched.
           filter={scoreItem}
-          className="[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-2 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5 [&_[cmdk-item]_svg]:h-4 [&_[cmdk-item]_svg]:w-4"
+          className="bg-[rgb(var(--surface-low))] [&_[cmdk-input-wrapper]]:border-b-2 [&_[cmdk-input-wrapper]]:px-gut"
         >
           <CommandInput
             placeholder="Jump to a section…"
             aria-label="Jump to a section"
             onValueChange={setQuery}
+            // ui/command.tsx ships `outline-none` on the input, which also kills the
+            // app-wide :focus-visible fallback. The one focusable control in the palette
+            // gets its ring back explicitly rather than relying on the caret alone.
+            className="focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[color:hsl(var(--accent))]"
           />
-          <CommandList>
+          {/* Empty search states what the list IS before anything is typed. Outside
+              CommandList on purpose: cmdk's list is a `role="listbox"` and a paragraph is
+              not an allowed owned child of one. */}
+          {!query.trim() && (
+            <p className="pr pr--lo border-b-hair border-[color:hsl(var(--border))] px-gut py-2">
+              {sections.length} destinations · type to filter, or convert an amount
+            </p>
+          )}
+          <CommandList className="list max-h-[min(60vh,26rem)]">
             {/* cmdk's own "no results" count only tracks items IT registers/
                 scores (see the CommandGroups below — our dynamic groups opt out of that
                 via forceMount), so gate this on OUR OWN dynamic-group state too —
-                otherwise "No matching section." could render ALONGSIDE a real "In your
+                otherwise the no-results frame could render ALONGSIDE a real "In your
                 plan" or "Currency Converter" hit. */}
-            {planResults.length === 0 && !parsedConversion && <CommandEmpty>No matching section.</CommandEmpty>}
+            {planResults.length === 0 && !parsedConversion && (
+              <CommandEmpty>
+                {/* SPEC 9.8: the shape of the thing that is missing, and the condition in
+                    words — never a grey sentence. Spans, not paragraphs: this sits inside
+                    the listbox, where `paragraph` is not an allowed child role. */}
+                <div className="empty-frame mx-gut px-gut py-5 text-left">
+                  <span className="block">Nothing here matches what you typed.</span>
+                  <span className="pr pr--lo mt-2 block">
+                    Try a route name, a city, or an amount like 100 usd to jpy
+                  </span>
+                </div>
+              </CommandEmpty>
+            )}
             {GROUP_ORDER.filter((group) => sections.some((s) => s.group === group)).map((group) => (
-              <CommandGroup key={group} heading={group}>
+              <CommandGroup key={group} heading={group} className={GROUP}>
                 {sections.filter((s) => s.group === group).map((section) => {
                   const Icon = section.icon;
+                  const here = normalizePath(pathname) === normalizePath(section.route);
+                  const destination = routeLabel(section.route, section.hash);
                   return (
                     <CommandItem
                       // Key on the (unique) label — two entries now share the /share/ route
@@ -500,10 +537,17 @@ export default function CommandPalette() {
                       value={section.label}
                       keywords={section.keywords}
                       onSelect={() => handleSelect({ route: section.route, hash: section.hash })}
-                      className="gap-3"
+                      className={ROW}
                     >
-                      <Icon className="shrink-0 text-muted-foreground" />
-                      <span className="truncate">{section.label}</span>
+                      <Icon className={ROW_ICON} aria-hidden="true" />
+                      <div className="min-w-0">
+                        <h3 className="truncate">{section.label}</h3>
+                        {/* Suppressed when it would only repeat the title the row already prints. */}
+                        {destination !== section.label && (
+                          <span className="mt truncate">{destination}</span>
+                        )}
+                      </div>
+                      {here && <span className="chip">Here</span>}
                     </CommandItem>
                   );
                 })}
@@ -522,19 +566,22 @@ export default function CommandPalette() {
                 Only rendered when there is at least one hit, so an empty query never
                 shows an empty "In your plan" heading. */}
             {planResults.length > 0 && (
-              <CommandGroup heading="In your plan" forceMount>
+              <CommandGroup heading="In your plan" forceMount className={GROUP}>
                 {planResults.map(({ item, date }) => (
                   <CommandItem
                     key={item.id}
                     forceMount
                     value={`${item.title}-${item.id}`}
                     onSelect={() => handleSelectPlanItem(item.id)}
-                    className="gap-3"
+                    className={ROW}
                     data-testid={`palette-plan-result-${item.id}`}
                   >
-                    <Calendar className="shrink-0 text-muted-foreground" />
-                    <span className="truncate flex-1">{item.title}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">{formatDate(date)}</span>
+                    <Calendar className={ROW_ICON} aria-hidden="true" />
+                    <div className="min-w-0">
+                      <h3 className="truncate">{item.title}</h3>
+                      <span className="mt truncate">{formatDate(date)}</span>
+                    </div>
+                    <span className="chip">{item.category}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>
@@ -544,49 +591,73 @@ export default function CommandPalette() {
                 convertCurrency), not cmdk's filter. A no-op onSelect: this item is a
                 read-only computed answer, not a navigation target. */}
             {parsedConversion && (
-              <CommandGroup heading="Currency Converter" forceMount>
+              <CommandGroup heading="Currency Converter" forceMount className={GROUP}>
                 <CommandItem
                   forceMount
                   value={`convert-${query}`}
                   onSelect={() => {}}
-                  className="gap-3"
+                  className={ROW}
                   data-testid="palette-currency-result"
                   data-conversion-status={conversionResult?.status ?? 'loading'}
+                  aria-busy={conversionResult === null || undefined}
                 >
-                  <Coins className="shrink-0 text-muted-foreground" />
+                  <Coins className={ROW_ICON} aria-hidden="true" />
                   {conversionResult === null && (
-                    <span className="truncate text-muted-foreground">
-                      Converting {parsedConversion.amount} {parsedConversion.from} to {parsedConversion.to}…
-                    </span>
+                    <>
+                      <div className="min-w-0">
+                        <h3 className="num truncate">
+                          {parsedConversion.amount} {parsedConversion.from} → {parsedConversion.to}
+                        </h3>
+                      </div>
+                      {/* Its own material (--surface-raised), not a dimmer copy of the row,
+                          and the word is a real text node so it is announced. */}
+                      <span className="load pr pr--lo px-2 py-1">Converting</span>
+                    </>
                   )}
                   {conversionResult?.status === 'ok' && (
-                    <span className="truncate flex-1">
-                      {conversionResult.source === 'reference' ? '≈ ' : ''}
-                      {parsedConversion.amount} {parsedConversion.from} = {formatConvertedAmount(conversionResult.converted)} {parsedConversion.to}
+                    <div className="min-w-0">
+                      <h3 className="num truncate">
+                        {conversionResult.source === 'reference' ? '≈ ' : ''}
+                        {parsedConversion.amount} {parsedConversion.from} ={' '}
+                        {formatConvertedAmount(conversionResult.converted)} {parsedConversion.to}
+                      </h3>
                       {conversionResult.source === 'reference' ? (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          (reference rate, as of {conversionResult.asOf} — not a live quote)
+                        <span className="mt">
+                          reference rate, as of {conversionResult.asOf} — not a live quote
                         </span>
                       ) : (
                         conversionResult.stale && (
-                          <span className="ml-2 text-xs text-muted-foreground">(cached, as of {conversionResult.asOf})</span>
+                          <span className="mt">cached, as of {conversionResult.asOf}</span>
                         )
                       )}
-                    </span>
+                    </div>
                   )}
                   {conversionResult?.status === 'unavailable' && (
-                    <span className="truncate text-muted-foreground">
-                      {conversionResult.currency} rate unavailable — no cached rate yet
-                    </span>
+                    <>
+                      <div className="min-w-0">
+                        <h3 className="truncate">{conversionResult.currency} rate unavailable</h3>
+                        <span className="mt">nothing cached on this device yet</span>
+                      </div>
+                      <span className="hollow-tag">No rate</span>
+                    </>
                   )}
                 </CommandItem>
               </CommandGroup>
             )}
           </CommandList>
-          <div className="flex items-center justify-end gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
-            <span>Press</span>
-            <CommandShortcut className="ml-0 rounded border border-border px-1.5 py-0.5">Esc</CommandShortcut>
-            <span>to close</span>
+          <div
+            aria-hidden="true"
+            className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 border-t-2 border-[color:hsl(var(--border))] px-gut py-2"
+          >
+            <span className="pr inline-flex items-center gap-1.5">
+              <kbd className="chip">↑↓</kbd>Move
+            </span>
+            <span className="pr inline-flex items-center gap-1.5">
+              <kbd className="chip">↵</kbd>Open
+            </span>
+            <span className="pr inline-flex items-center gap-1.5">
+              <kbd className="chip">Esc</kbd>Close
+            </span>
           </div>
         </Command>
       </DialogContent>

@@ -153,7 +153,7 @@ export default function HomeStatRow() {
     <section
       aria-labelledby="home-stats-title"
       data-testid="home-stat-row"
-      className="bg-surface px-4 sm:px-6 py-4"
+      className="bg-surface py-4"
     >
       {/* `-title`, never `-heading`: globals.css hangs a decorative gradient underline off
           every `h2[id$="-heading"]`, and hanging one off a visually-hidden heading paints a
@@ -162,37 +162,27 @@ export default function HomeStatRow() {
       <h2 id="home-stats-title" className="sr-only">
         The trip in numbers
       </h2>
-      {/* The dividers are the container showing through 1px gaps rather than borders on the
-          cells, so no cell owns an edge and the corners stay clean under `overflow-hidden`.
-          --border is decorative and is never the only thing separating the cells — the fill
-          step from --bg to --surface-low does that too. 20px is the ruled stat-tile radius;
-          it has no Tailwind key (see `.countdown-cell` in globals.css).
-
-          🔴 THE COLUMN COUNT MUST DIVIDE THE CELL COUNT EXACTLY, and that is not a
-          preference — it is forced by the divider mechanism above. Because the gaps are the
-          CONTAINER showing through, an empty grid track is not empty: it paints `bg-border`
-          as a solid block. This shipped as a visible defect. The grid was `sm:grid-cols-4`
-          while the row carried SIX cells, so at >=640px the last two tracks stood empty and
-          rendered as one blank purple slab under the third and fourth cells.
-          6 % 4 = 2 leftover; 6 % 3 = 0 and 6 % 2 = 0, so both breakpoints are now exact.
-
-          The count went 4 -> 6 when the two reserved slots were taken (issue #31) and the
-          column count was never moved with it. If a seventh cell is ever added, this line
-          moves again — 7 divides by neither 2 nor 3, so it would reintroduce the slab.
-          `STAT_ROW_H` in `app/page.tsx` is derived from the MOBILE row count (3 rows at
-          2 columns) and is unchanged by this: >=640px is still 2 rows, as its comment says. */}
-      <div className="mx-auto grid max-w-[1200px] grid-cols-2 gap-px overflow-hidden rounded-[20px] bg-border sm:grid-cols-3">
+      {/* THE EMPTY-TRACK SLAB IS GONE WITH THE MECHANISM THAT CAUSED IT. The dividers used
+          to be the container showing through 1px gaps, which meant an empty grid track was
+          not empty — it painted `bg-border` as a solid block, and the row shipped that
+          defect once (six cells against `sm:grid-cols-4`). `.cell` carries its own hairline
+          right/bottom edges, so a leftover track now paints nothing at all and the column
+          count no longer has to divide the cell count. The 2-up/3-up split is kept anyway:
+          the value step is --n-md and six of those across a phone is not readable.
+          `STAT_ROW_H` in `app/page.tsx` is a MEASURED literal and this changes the cell's
+          box — it is left alone here and owed a remeasure on the built export. */}
+      <div className="cells mx-auto max-w-[1200px] sm:grid-cols-3">
         {cells.map((cell) => (
-          <div key={cell.testId} data-testid={cell.testId} className="bg-surface-low px-4 py-4">
-            {/* Tabular figures so a changing value never reflows its own cell — the live
-                cell is the one that changes, and it sits in the same row as three that do
-                not. ink-hi on --surface-low measures 17.88:1, the caption's ink-lo 6.89:1. */}
-            <p className="text-2xl font-extrabold leading-none tabular-nums text-ink-hi sm:text-3xl">
-              {cell.value}
-            </p>
-            <p className="mt-1.5 text-[10px] uppercase tracking-[0.12em] text-ink-lo">
-              {cell.caption}
-            </p>
+          <div key={cell.testId} data-testid={cell.testId} className="cell">
+            {/* TWO `<p>` ELEMENTS, VALUE FIRST, and that is a contract rather than a layout
+                choice: `e2e/countdown.spec.ts`'s `liveStat()` reads the figure from
+                `p:first` and the trip-lifecycle caption from `p:nth(1)`. `.cell .v` and
+                `.cell .l` carry the tiers; the elements and their order do not move.
+                Tabular figures come with `.v`, so a changing value never reflows its own
+                cell — the live cell is the one that changes and it sits beside three that
+                do not. ink-hi on --surface-low measures 17.88:1, the label's ink-lo 6.89:1. */}
+            <p className="v">{cell.value}</p>
+            <p className="l">{cell.caption}</p>
           </div>
         ))}
       </div>

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { Trophy } from 'lucide-react';
 import CelebrationBurst from '@/components/celebration-burst';
 import { isMotionAllowed, tierForPath } from '@/lib/motion';
 import { milestonesReached, newlyReached, type MilestoneInput } from '@/lib/milestones';
@@ -66,7 +65,7 @@ export default function HomeMilestone({ input }: { input: MilestoneInput }) {
     <div
       data-testid="home-milestone"
       data-milestone={current?.id ?? ''}
-      className="relative mx-auto mt-[12px] flex h-[44px] max-w-[1200px] items-center gap-2 rounded-[20px] bg-surface-low px-4"
+      className="relative mx-auto mt-[12px] flex h-[44px] max-w-[1200px] items-center gap-2 border-hair border-border bg-surface-low px-gut"
     >
       <CelebrationBurst
         active={celebrating && burstAllowed}
@@ -76,22 +75,24 @@ export default function HomeMilestone({ input }: { input: MilestoneInput }) {
         celebrationId={`milestone:${current?.id ?? 'none'}`}
         weight="burst"
       />
-      <Trophy
-        className={`h-3.5 w-3.5 shrink-0 ${current ? 'text-primary' : 'text-ink-lo'}`}
+      <span
         aria-hidden="true"
+        className={`mk ${current ? 'mk--struck' : 'mk--hollow'}`}
       />
-      {/* ink-lo on --surface-low measures 6.89:1 (the caption pairing this band already uses);
-          ink-hi for a reached milestone is 17.88:1. Both clear AA comfortably.
-          `line-clamp-2`, NOT `truncate`: the longest string here is the empty state, which wraps
-          to two lines at 320px, and two lines of `text-xs leading-tight` (~16px each) fit the
-          44px box. Truncating it would hide the second half of the only sentence this line has
-          to say when nothing has happened yet. */}
+      {/* TWO TIERS, AND THE SPLIT IS THE 44px BOX. Empty copy sits at --t-body and never at
+          the micro floor, so the nothing-crossed line is short enough to hold ONE body line
+          at 320px. A reached label is authored elsewhere and can run long, so it takes
+          --t-sm and clamps to two lines — 2 x 18.6px still fits the frozen height that
+          `STAT_ROW_H` in app/page.tsx is summed from. ink-mid on --surface-low measures
+          10.6:1, ink-hi 17.88:1. */}
       <p
         role="status"
         data-testid="home-milestone-label"
-        className={`min-w-0 line-clamp-2 text-xs leading-tight ${current ? 'font-semibold text-ink-hi' : 'text-ink-lo'}`}
+        className={`min-w-0 leading-tight ${
+          current ? 'line-clamp-2 text-t-sm text-ink-hi' : 'text-t-body text-ink-mid'
+        }`}
       >
-        {current ? current.label : 'No milestones yet — the first lands when the trip does'}
+        {current ? current.label : 'Not yet — the first lands with the trip'}
       </p>
     </div>
   );

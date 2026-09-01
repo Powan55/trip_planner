@@ -37,7 +37,7 @@ export function PlanActivity() {
 }
 export const BudgetPanel = dynamic(() => import('@/components/budget-panel'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="28rem" count={2} />,
+  loading: () => <SectionSkeleton height="28rem" count={2} contentClassName="max-w-5xl" />,
 });
 
 // Issue #223 — the paper fallback. `ssr: false` for the same reason as the planner above: it

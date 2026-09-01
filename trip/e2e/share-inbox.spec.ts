@@ -103,7 +103,10 @@ test.describe('S220 share inbox — delete returns to the designed empty state',
     await page.locator('[data-testid^="share-item-delete-"]').click();
     await expect(rows(page)).toHaveCount(0);
     await expect(page.getByTestId('share-empty')).toBeVisible();
-    await expect(page.getByText('Nothing shared yet')).toBeVisible();
+    // #218 moved the inbox title into the section's sr-only accessible name, so the empty
+    // state's own words are the header paragraph rather than a visible "Nothing shared yet".
+    await expect(page.getByRole('heading', { name: 'Shared links inbox' })).toBeAttached();
+    await expect(page.getByTestId('share-inbox')).toContainText('Anything you share');
 
     // The empty state persists across a reload (the delete was really written).
     await page.reload({ waitUntil: 'load' });

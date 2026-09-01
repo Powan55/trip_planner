@@ -23,6 +23,7 @@ export default function ChecklistPage() {
         eyebrow="Before you fly"
         title="Documents & Readiness"
         description="Your critical travel documents and day-zero departure checklist — tick each one off as it's handled. Saved on this device and synced across your travelers."
+        className="max-w-3xl"
       />
       <DocsChecklist />
       {/* #20 — the machine-checked half of "am I ready?", below the human-attested list it

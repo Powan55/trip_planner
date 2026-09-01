@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Mountain, Compass, Globe2, Plus, Trash2 } from 'lucide-react';
 import { usePacking } from '@/hooks/use-packing';
-import type { PackingCategory, PackingItem } from '@/core/packing/model';
+import { DEFAULT_TEMPLATE, type PackingCategory, type PackingItem } from '@/core/packing/model';
 import { haptic } from '@/lib/haptics';
 import { crossedIntoComplete } from '@/lib/celebration';
 import CelebrationBurst from '@/components/celebration-burst';
@@ -31,6 +31,11 @@ const CATEGORY_META: Record<PackingCategory, { label: string; icon: typeof Mount
 };
 
 const CATEGORY_ORDER: PackingCategory[] = ['nepal', 'japan', 'universal'];
+
+/** The first rows the restore button would actually write, read from the template itself rather
+ *  than retyped — the empty state draws the real shape at full size and cannot drift from it.
+ *  Sliced from the universal head of the list, which a custom trip keeps too. */
+const EMPTY_SLOTS = DEFAULT_TEMPLATE.slice(0, 8);
 
 export default function PackingChecklist() {
   const { items, hydrated, progress, toggleItem, addItem, removeItem, restoreTemplate } = usePacking();
@@ -65,11 +70,11 @@ export default function PackingChecklist() {
 
   if (!hydrated) {
     return (
-      <section aria-labelledby="packing-heading" data-testid="packing-checklist" className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
+      <section aria-labelledby="packing-heading" data-testid="packing-checklist" className="mx-auto w-full max-w-3xl px-gut pb-16">
         <h2 id="packing-heading" className="sr-only">
           Packing checklist
         </h2>
-        <p className="text-sm text-ink-mid">Loading your checklist…</p>
+        <p className="empty">Loading your checklist…</p>
       </section>
     );
   }
@@ -78,9 +83,9 @@ export default function PackingChecklist() {
   for (const item of items) byCategory[item.category].push(item);
 
   return (
-    <section aria-labelledby="packing-heading" data-testid="packing-checklist" className="relative mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6">
+    <section aria-labelledby="packing-heading" data-testid="packing-checklist" className="relative mx-auto w-full max-w-3xl pb-16">
       <CelebrationBurst active={celebrate} testId="packing-celebration" celebrationId="packing-complete" />
-      <header className="mb-6">
+      <header className="mb-6 px-gut">
         {/* #218: the eyebrow and title used to be printed here a second time, ~40px under the
             page masthead that already carries both. The heading stays as the section's
             accessible name (`aria-labelledby` above) and the h2 the group h3s nest under —
@@ -88,11 +93,14 @@ export default function PackingChecklist() {
         <h2 id="packing-heading" className="sr-only">
           Packing checklist
         </h2>
-        <p data-testid="packing-progress" className="text-sm font-medium text-ink-mid">
+        {/* e2e/packing.spec.ts asserts this node reads exactly "0/28 packed" — the count and the
+            word are the contract, so nothing else may join this text node. */}
+        <p data-testid="packing-progress" className="num text-n-sm text-ink-hi">
           {progress.checked}/{progress.total} packed
         </p>
         {/* An emptied list (#328) leaves total at 0, and a progressbar whose max equals its min is
-            a degenerate one to announce — drop the bar and let the text node carry the state. */}
+            a degenerate one to announce — drop the bar and let the text node carry the state.
+            The track is capped at 260px so the unfilled remainder is always visible. */}
         {progress.total > 0 && (
           <div
             role="progressbar"
@@ -100,17 +108,15 @@ export default function PackingChecklist() {
             aria-valuemin={0}
             aria-valuemax={progress.total}
             aria-label={`${progress.checked} of ${progress.total} items packed`}
-            className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10"
+            className="fill"
+            style={{ '--w': `${(progress.checked / progress.total) * 100}%` } as React.CSSProperties}
           >
-            <div
-              className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none"
-              style={{ width: `${(progress.checked / progress.total) * 100}%` }}
-            />
+            <i />
           </div>
         )}
       </header>
 
-      <form onSubmit={handleAddSubmit} data-testid="packing-add-form" className="mb-6 flex gap-2">
+      <form onSubmit={handleAddSubmit} data-testid="packing-add-form" className="mb-6 flex gap-2 px-gut">
         <div className="flex-1">
           <label htmlFor="packing-add-input" className="sr-only">
             Add a packing item
@@ -122,7 +128,7 @@ export default function PackingChecklist() {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="Add an item…"
-            className="w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-ink-hi placeholder:text-ink-lo outline-none transition-colors focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/60"
+            className="min-h-tap w-full rounded-r1 border-hair border-border bg-surface-raised px-3 py-2 text-t-body text-ink-hi placeholder:text-ink-lo outline-none transition-colors focus-visible:border-ring/60 focus-visible:ring-1 focus-visible:ring-ring/60"
           />
         </div>
         <button
@@ -130,15 +136,34 @@ export default function PackingChecklist() {
           data-testid="packing-add-submit"
           aria-label="Add item"
           disabled={draft.trim() === ''}
-          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg bg-primary/90 text-primary-foreground transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="btn min-w-tap shrink-0 px-4"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
         </button>
       </form>
 
       {items.length === 0 && (
-        <div data-testid="packing-empty" className="glass-subtle rounded-2xl p-6 text-center">
-          <p className="text-sm text-ink-mid">Your packing list is empty. Add an item above, or start over from the built-in checklist.</p>
+        // The empty state renders the SHAPE of the missing list at the size it will be —
+        // eight hollow slots and the condition that fills them, not a grey sentence. Empty copy
+        // sits at --t-body / --text-mid, never --t-micro.
+        <div data-testid="packing-empty" className="px-gut">
+          <p className="empty max-w-2xl">
+            Nothing on your list yet. The built-in checklist is 28 items across the two legs and
+            the universal kit — restore it, or add your own above.
+          </p>
+          <ul aria-hidden="true" className="empty-frame mt-4 list">
+            {EMPTY_SLOTS.map((slot) => (
+              <li key={slot.id} className="r" data-mark="hollow">
+                <span className="tm flex items-center justify-center">
+                  <span className="mk mk--hollow" />
+                </span>
+                <span className="min-w-0">
+                  <h3>{slot.label}</h3>
+                </span>
+                <span className="hollow-tag">not yet</span>
+              </li>
+            ))}
+          </ul>
           <button
             type="button"
             onClick={() => {
@@ -146,7 +171,7 @@ export default function PackingChecklist() {
               haptic();
             }}
             data-testid="packing-restore-template"
-            className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-lg border border-white/10 bg-white/[0.06] px-4 text-sm font-medium text-ink-hi transition-colors hover:bg-white/[0.12] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="btn btn--2 mt-4 px-4"
           >
             Restore the default checklist
           </button>
@@ -160,44 +185,73 @@ export default function PackingChecklist() {
           const meta = CATEGORY_META[category];
           const Icon = meta.icon;
           const headingId = `packing-group-${category}-heading`;
+          const packed = groupItems.filter((i) => i.checked).length;
           return (
-            <div key={category} data-testid={`packing-group-${category}`} className="glass-subtle rounded-2xl p-5">
-              <h3 id={headingId} className="flex items-center gap-2 font-display text-lg font-bold text-white">
-                <Icon className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                {meta.label}
-              </h3>
-              <ul aria-labelledby={headingId} className="mt-3 flex flex-col gap-1">
+            <div key={category} data-testid={`packing-group-${category}`}>
+              {/* The running-head field strip, deliberately NOT sticky: the app ships a fixed
+                  navbar at top:0, and a second sticky bar per group would stack under it. */}
+              <div className="head static flex-wrap">
+                <span className="f">
+                  <span className="k">Leg</span>
+                  <h3 id={headingId} className="v !flex items-center gap-1.5">
+                    <Icon className="h-3.5 w-3.5 text-ink-lo" aria-hidden="true" />
+                    {meta.label}
+                  </h3>
+                </span>
+                <span className="f">
+                  <span className="k">Packed</span>
+                  <span className="v">
+                    {packed}/{groupItems.length}
+                  </span>
+                </span>
+              </div>
+              <ul aria-labelledby={headingId} className="list">
                 {groupItems.map((item) => (
-                  <li key={item.id} className="flex items-center gap-1">
-                    <label
-                      htmlFor={`packing-item-${item.id}`}
-                      className="flex min-h-[44px] flex-1 cursor-pointer items-center gap-3 rounded-lg px-2 py-2 text-sm text-ink-hi outline-none transition-colors duration-200 hover:bg-white/[0.06] has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-surface"
-                    >
-                      <input
-                        id={`packing-item-${item.id}`}
-                        data-testid={`packing-item-${item.id}`}
-                        type="checkbox"
-                        checked={item.checked}
-                        onChange={() => {
-                          toggleItem(item.id);
+                  <li key={item.id} className="border-b-hair border-border last:border-b-0">
+                    <div className="flex items-stretch">
+                      <label
+                        htmlFor={`packing-item-${item.id}`}
+                        data-mark={item.checked ? undefined : 'hollow'}
+                        className="r flex-1 cursor-pointer !border-b-0 outline-none has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-inset has-[:focus-visible]:ring-ring"
+                      >
+                        <span className="tm flex items-center justify-center">
+                          <input
+                            id={`packing-item-${item.id}`}
+                            data-testid={`packing-item-${item.id}`}
+                            type="checkbox"
+                            checked={item.checked}
+                            onChange={() => {
+                              toggleItem(item.id);
+                              haptic();
+                            }}
+                            className="h-5 w-5 flex-shrink-0 rounded-r1 border-[color:var(--border-ui)] bg-transparent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          />
+                        </span>
+                        <span className="min-w-0">
+                          {/* role=presentation keeps the row-title recipe without adding one
+                              heading per checkbox to the page outline — the label already names
+                              the input. */}
+                          <h3 role="presentation" className={item.checked ? 'line-through' : undefined}>
+                            {item.label}
+                          </h3>
+                        </span>
+                        <span className={item.checked ? 'chip chip--struck' : 'hollow-tag'}>
+                          {item.checked ? 'packed' : 'not yet'}
+                        </span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          removeItem(item.id);
                           haptic();
                         }}
-                        className="h-5 w-5 flex-shrink-0 rounded border-white/30 bg-transparent text-primary outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                      />
-                      <span className={item.checked ? 'text-ink-lo line-through' : undefined}>{item.label}</span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        removeItem(item.id);
-                        haptic();
-                      }}
-                      data-testid={`packing-remove-${item.id}`}
-                      aria-label={`Remove ${item.label}`}
-                      className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-lg text-ink-mid transition-colors hover:bg-red-500/20 hover:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
-                    >
-                      <Trash2 className="h-4 w-4" aria-hidden="true" />
-                    </button>
+                        data-testid={`packing-remove-${item.id}`}
+                        aria-label={`Remove ${item.label}`}
+                        className="inline-flex min-h-tap min-w-tap shrink-0 items-center justify-center rounded-r1 text-ink-mid transition-colors hover:bg-[hsl(var(--destructive)/0.08)] hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden="true" />
+                      </button>
+                    </div>
                   </li>
                 ))}
               </ul>

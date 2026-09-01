@@ -336,6 +336,8 @@ test.describe('S355 — landing a11y + responsive', () => {
     }, testInfo) => {
       await page.setViewportSize({ width, height: 900 });
       await gotoLoggedOut(page);
+      // Settle the entrance fade before the axe scan: mid-fade opacity composites text to a false hit.
+      await expect(page.locator('[role="dialog"]').first()).toHaveCSS('opacity', '1');
 
       const results = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
       // The minimum floor is serious/critical; this pack gates on MODERATE too, matching the house

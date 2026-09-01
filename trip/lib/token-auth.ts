@@ -114,7 +114,7 @@ export function accentForName(name: string): string {
 }
 
 /**
- * The default expense-split roster (the three actual Nepal×Japan friends). This is NO LONGER
+ * The default expense-split roster — three FABRICATED demo travellers. This is NO LONGER
  * the sign-in gate — it survives ONLY as
  * the fixed member list the expense-split UI (`expense-dialog` / `settle-up-summary` /
  * `budget-panel`) offers on the default trip. Accents kept as the original brand tints so those
@@ -122,9 +122,9 @@ export function accentForName(name: string): string {
  */
 export const TRAVELERS: readonly Traveler[] = [
   // Same three hand-assigned brand tints, re-valued with the families they name.
-  { name: 'Powan', token: 'Powan', accent: '#FFC43D' }, // gold 400
-  { name: 'Sushil', token: 'Sushil', accent: '#FF8FC7' }, // sakura 400
-  { name: 'Uttam', token: 'Uttam', accent: '#FF8A3D' }, // himalaya 400
+  { name: 'Alina', token: 'Alina', accent: '#FFC43D' }, // gold 400
+  { name: 'Rhea', token: 'Rhea', accent: '#FF8FC7' }, // sakura 400
+  { name: 'Milo', token: 'Milo', accent: '#FF8A3D' }, // himalaya 400
 ] as const;
 
 /**

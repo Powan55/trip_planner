@@ -298,7 +298,7 @@ test.describe('S338B — /trips is the post-login surface (D-239: select · crea
       }),
       { known: KNOWN_TRIPS_KEY, pointer: ACTIVE_TRIP_KEY },
     );
-    expect(after.token).toBe('Powan');
+    expect(after.token).toBe('Alina');
     expect(after.known).toBeNull();
     expect(after.pointer).toBeNull();
 

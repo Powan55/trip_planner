@@ -21,6 +21,7 @@ export default function SharePage() {
         eyebrow="Shared to your trip"
         title="Shared Links"
         description="Links and notes you share from your phone land here. Assign each to a trip day or clear it out. Saved on this device only."
+        className="max-w-3xl"
       />
       <ShareInbox />
     </main>

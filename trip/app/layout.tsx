@@ -1,4 +1,4 @@
-import { Geist, Instrument_Serif } from 'next/font/google'
+import { Geist, IBM_Plex_Mono } from 'next/font/google'
 import type { Viewport } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -27,21 +27,25 @@ import {
   TripJoinHandshake,
 } from './chrome-islands'
 
-// TWO faces — a text family and a display family.
+// TWO faces — a text family and a machine family.
 // `--font-sans` = Geist (variable weight axis, OFL, one download) carries the whole
 // UI, including `font-mono`, which aliases it + `tnum` in tailwind.config (Geist has
 // real tabular figures, so numerals still align with NO monospace download).
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' })
-// `--font-display` = Instrument Serif, headings ONLY (never a data value —
-// standing rule). `preload: false` is LOAD-BEARING: it is what keeps the second face
-// off the critical path and is what made affordable at all. Do not remove it.
-// The family ships weight 400 only; heading sites that pair `font-display` with
-// `font-bold`/`font-semibold` get a synthesized bold.
-const instrumentSerif = Instrument_Serif({
-  weight: '400',
+// THE MACHINE FACE — every printed label, key, condition and numeral in the instrument.
+// ONE weight, 600, and never request 400: none is loaded, so CSS font matching would
+// render the 600 file and the lighter intent would be invisible. Where lighter machine
+// text is wanted, use Geist with `tnum`, already loaded. `preload: false` is LOAD-BEARING
+// — it is what keeps the second face off the critical path.
+//
+// This replaces Instrument Serif, which rendered a browser-synthesised bold at 70 of its
+// 91 `font-display` sites. `--font-display` is re-pointed at Geist on <body> below rather
+// than dropped, so those sites keep a real family with a real weight axis. Net +7,080 B.
+const plexMono = IBM_Plex_Mono({
+  weight: '600',
   subsets: ['latin'],
   preload: false,
-  variable: '--font-display',
+  variable: '--font-plex-mono',
 })
 
 export const metadata = {
@@ -108,8 +112,8 @@ export const viewport: Viewport = {
   // manifest's theme_color/background_color emitted by gen-sw.mjs). This is the
   // browser/OS chrome colour and it MUST track --background: it is a hardcoded copy
   // of that token with no compiler tie, so a canvas re-value that misses it leaves a
-  // strip of the retired palette framing the app. Now #0E0920, the D-334 page field.
-  themeColor: '#0E0920',
+  // strip of the retired palette framing the app. Now #0A0818, the re-cast page field.
+  themeColor: '#0A0818',
 }
 
 export default function RootLayout({
@@ -122,7 +126,23 @@ export default function RootLayout({
   // attribute is present, which would make every navigation smooth-scroll to top instead of
   // jumping. Opting back in keeps 15's behaviour.
   return (
-    <html lang="en" suppressHydrationWarning className="dark" data-scroll-behavior="smooth">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      // THE FONT VARIABLES SIT ON <html>, NOT <body>, AND THAT IS LOAD-BEARING.
+      // globals.css declares `--font-machine` on `:root` and substitutes the loader's
+      // variable into it. A custom property is substituted where it is DECLARED, and it
+      // inherits downward only — so with the loader class on <body> the `:root`
+      // declaration would resolve against an unset variable, go invalid at computed-value
+      // time, and take every `font-family: var(--font-machine)` in the file down with it.
+      className={`dark ${geist.variable} ${plexMono.variable}`}
+      // `--font-display` is re-pointed at the sans stack rather than deleted: the Tailwind
+      // `display` key still resolves through it and 70+ `font-display` sites read it, so
+      // dropping it would land all of them on Georgia mid-flight. Geist is a real variable
+      // weight axis, which also retires the synthesised bold those sites were rendering.
+      style={{ '--font-display': 'var(--font-sans)' } as React.CSSProperties}
+      data-scroll-behavior="smooth"
+    >
       {/* Issue #180. An explicit <head>: the Metadata API cannot express an `http-equiv`
           meta, and `output: 'export'` rules out real headers — see lib/csp.ts for why and
           for what that costs (no `frame-ancestors`, no report-only).
@@ -141,7 +161,7 @@ export default function RootLayout({
         <meta httpEquiv="Content-Security-Policy" content={buildCsp()} />
         <meta name="referrer" content={REFERRER_POLICY} />
       </head>
-      <body className={`${geist.variable} ${instrumentSerif.variable} font-sans bg-surface`}>
+      <body className="font-sans bg-surface">
         {/* WCAG 2.4.1 (B-1). ONE link at the root covers every route: all 19 pages
             render inside the `#main` wrapper below, so no page-level skip link is needed.
             Invisible until focused, then a real chip above the navbar (z-50). */}

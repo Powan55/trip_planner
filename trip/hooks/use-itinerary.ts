@@ -8,7 +8,7 @@ import { getActiveTraveler } from '@/lib/token-auth';
 import { isTripRemoteConfigured } from '@/lib/firebase-config';
 import { realClock } from '@/lib/trip-now';
 import { stampCreated, stampUpdated, stampDone } from '@/lib/attribution';
-import { stampSyncCreated, stampSyncUpdated, stampSyncDeleted } from '@/core/sync/stamp';
+import { stampSyncCreated, stampSyncUpdated, stampSyncDeleted, reorderSyncStamps } from '@/core/sync/stamp';
 import { itineraryStoragePort, itinerarySyncPort } from '@/lib/itinerary-ports';
 import { createReactiveStore } from '@/hooks/create-reactive-store';
 import { generateItemId } from '@/lib/item-id';
@@ -609,23 +609,32 @@ export function useItinerary(): ItineraryStore {
 
   const reorderItems = useCallback(
     (date: string, orderedIds: string[]) => {
-      // `orderedIds` comes from the UI, which only ever sees LIVE items (the tombstone
-      // filter). Core `reorderItems` drops any item not listed — so, when sync is on, we
-      // must APPEND this day's tombstone ids so the reorder does not silently drop pending
-      // deletes (which would stop them propagating). Reorder is order-only: it does NOT bump
-      // rev/hlc — the tombstones keep their existing stamps and simply trail the live
-      // items. Dormant: no tombstones
-      // exist, so this is byte-identical to before.
+      // DORMANT: a plain order-only rewrite, byte-identical to before.
+      if (!syncEnabled()) {
+        commit((current) => itinerary.reorderItems(current, date, orderedIds));
+        return;
+      }
+      // SYNC ON:
+      // (a) `orderedIds` comes from the UI, which only ever sees LIVE items (the tombstone
+      // filter). Core `reorderItems` drops any item not listed, so APPEND this day's tombstone
+      // ids or the reorder silently drops pending deletes and stops them propagating.
+      // (b) re-stamp the live items so their hlcs ASCEND in the new order. Order is NOT a
+      // merge-visible fact on its own: `mergeItems` re-sorts by hlc ascending at both sync
+      // boundaries, so an order-only reorder was reverted by the next merge — the user's drag
+      // was silently discarded. `reorderSyncStamps` leaves tombstones alone (their hlc is the
+      // delete's causal position) and costs no extra network: the day is one doc, already
+      // being rewritten by this same commit.
       commit((current) => {
-        let ids = orderedIds;
-        if (syncEnabled()) {
-          const day = current.find((p) => p.date === date);
-          const tombstoneIds = (day?.items ?? [])
-            .filter((i) => i.deleted === true && !orderedIds.includes(i.id))
-            .map((i) => i.id);
-          if (tombstoneIds.length > 0) ids = [...orderedIds, ...tombstoneIds];
-        }
-        return itinerary.reorderItems(current, date, ids);
+        const day = current.find((p) => p.date === date);
+        const tombstoneIds = (day?.items ?? [])
+          .filter((i) => i.deleted === true && !orderedIds.includes(i.id))
+          .map((i) => i.id);
+        const ids = tombstoneIds.length > 0 ? [...orderedIds, ...tombstoneIds] : orderedIds;
+        const now = realClock.now().getTime();
+        const actor = syncActor();
+        return itinerary
+          .reorderItems(current, date, ids)
+          .map((p) => (p.date === date ? { ...p, items: reorderSyncStamps(p.items, now, actor) } : p));
       });
     },
     [commit],

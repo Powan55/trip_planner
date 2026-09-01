@@ -60,8 +60,13 @@ const HomeSectionNav = dynamic(() => import('@/components/home-section-nav'), {
 // — the compact "Your trips" chip strip (multi-trip on first paint; null when signed out).
 // Same lazy-island recipe as HomeSectionNav above: Home's First Load JS has ~zero
 // headroom, so even this small component must stay OUT of the initial required-chunk set.
-/** Measured height of the rendered strip (44px chip + `py-2`). Declared in ONE place so the
- *  LazyVisible reservation and the chunk-gap loading slot can never drift apart. */
+/** Measured height of the rendered strip (44px chip + `py-2`, which is 2 x 8.5 at the 17px
+ *  root). Declared in ONE place so the LazyVisible reservation and the chunk-gap loading slot
+ *  can never drift apart.
+ *  RE-MEASURED on the built export against the settled tree: 61.0 at every width from 320 to
+ *  1920, at both viewport-height ends and both clock states. Flat, and unchanged.
+ *  `e2e/polish-bundle.spec.ts` hard-codes this 61 as `HOME_FIRST_RESERVATION_PX` (it is Home's
+ *  first skeleton in DOM order, above the fold), so moving it means moving that spec too. */
 const TRIP_STRIP_H = '61px';
 const HomeTripStrip = dynamic(() => import('@/components/home-trip-strip'), {
   ssr: false,
@@ -74,16 +79,14 @@ const HomeTripStrip = dynamic(() => import('@/components/home-trip-strip'), {
  *  direction (the box collapses upward rather than the page jumping down onto content) and the
  *  band sits below the fold either way.
  *
- *  Issue #31 grew the band, and the arithmetic is written out because it is the only thing
- *  keeping this literal honest:
- *    6 cells in 2 columns = 3 rows × 78px          = 234
- *    + the 2 × 1px grid gaps showing the divider   =   2
- *    + the section's `py-4`                        =  32
- *    + the milestone line (`h-[44px]` + `mt-[12px]`) = 56   → 324
- *  The milestone box uses arbitrary pixel classes rather than `h-11`/`mt-3` precisely so this
- *  sum stays exact: the app's root font is 17px, at which the rem-based scale would not land
- *  on 44 and 12. At >=640px the grid is 2 rows, so the real height there is 245px. */
-const STAT_ROW_H = '324px';
+ *  MEASURED off the built export, signed in — the old written-out arithmetic (6 cells x 78px +
+ *  gaps + `py-4` + the milestone line) no longer describes this band, so it is gone rather than
+ *  left to read as current. RE-MEASURED against the settled tree, unchanged:
+ *      304.5 at 390 — flat at 304.5 across 320-639, the stacked case
+ *      233.7 at 1280 — flat from 640 up
+ *  Independent of viewport HEIGHT and identical pre-trip and in-trip. 305 is the mobile
+ *  number, so >=640 over-reserves by ~71. */
+const STAT_ROW_H = '305px';
 // — the stat band directly under the hero (issue #26): trip days, countries, cities and the
 // one live figure. Same lazy-island recipe as every other Home section, so its chunk stays
 // out of Home's First Load JS; it is deliberately NOT inside <HeroSection>, whose height is
@@ -96,17 +99,39 @@ const HomeStatRow = dynamic(() => import('@/components/home-stat-row'), {
  *  `loading:` slot and the `<LazyVisible minHeight>` at the call site read this one literal,
  *  or the chunk-fetch gap resizes the box the placeholder reserved.
  *
- *  Measured on the built export, signed in, at both clock states: 583.1 at every width below
- *  640 — the leg cards stack there, which is the tall case — then 457.8 at 640-1023 and 425.9
- *  above. Height does not vary with viewport height.
- *  640 keeps ~57px of headroom over that for a longer leg label or a third chip row, and
- *  over-reserving is the safe direction the neighbours below already take: the box collapses
- *  upward at the island's idle beat rather than the page jumping down onto content. A pack
- *  with more than two legs stacks taller on mobile and would move this number. */
-const JOURNEY_H = '640px';
+ *  RE-MEASURED on the built export against the SETTLED tree, signed in, both clock states
+ *  (identical), independent of viewport height. The previous figures were taken while
+ *  globals.css was still in flight and every one of them read ~15.7 high:
+ *      320 -> 517.2   360 -> 399.6   390/414 -> 380.5   430/480/560 -> 353
+ *      600/639 -> 325.5   >=640 -> 359.5
+ *  518 is the 320 number. 320 is a supported width (same rule BENTO_H already applies), so it
+ *  is the one that must not under-reserve; 390 over-reserves by ~137 and that is the safe
+ *  direction — the box collapses upward at the island's idle beat rather than the page jumping
+ *  down onto content. A pack with more than two legs stacks taller and would move this. */
+const JOURNEY_H = '518px';
 const HomeJourneyBar = dynamic(() => import('@/components/home-journey-bar'), {
   ssr: false,
   loading: () => <SectionSkeleton height={JOURNEY_H} />,
+});
+// — the readiness roll-up: what is done and what is not, across the four subjects that have
+// a completion state (day plans, docs, packing, budget). Read-only composition of hooks the
+// bento already calls, so it adds no new data source. Same dynamic(ssr:false) + LazyVisible
+// island pattern as every other below-fold section — its chunk stays out of First Load JS.
+/** Reserved height of the readiness section. Declared ONCE — the same rule as JOURNEY_H and
+ *  STAT_ROW_H: the `loading:` slot here and the `<LazyVisible minHeight>` at the call site
+ *  must never drift apart, or the chunk-fetch gap resizes the box the placeholder reserved.
+ *  RE-MEASURED off the built export against the SETTLED tree, not derived. Both clock states
+ *  agree and viewport height does not move it. The previous figures were taken while
+ *  globals.css was still in flight and read ~15.8 high:
+ *      320 -> 422.9   360-430 -> 402.2   480-639 -> 381.5   640-900 -> 308   >=1024 -> 287.3
+ *  So 402.2 at 390 and 287.3 at 1280. 423 is the 320 number — the tall case, and the one that
+ *  must not under-reserve; 1280 over-reserves by ~136, the safe direction (the box collapses
+ *  upward at the island's idle beat rather than the page jumping down onto content).
+ *  Re-measure if a fifth check is added or a row grows a second line of detail. */
+const READINESS_H = '423px';
+const HomeReadiness = dynamic(() => import('@/components/home-readiness'), {
+  ssr: false,
+  loading: () => <SectionSkeleton height={READINESS_H} />,
 });
 // — the "at a glance" bento grid (read-only composition of existing hooks: next-up,
 // budget spent, cached weather, packing/docs %, map link, Travel Mode entry). Same
@@ -117,46 +142,47 @@ const HomeJourneyBar = dynamic(() => import('@/components/home-journey-bar'), {
  *  site must never drift apart, or the chunk-fetch gap resizes the box the placeholder
  *  reserved.
  *
- *  Issue #106 grew the section: it took the `#dashboard` anchor from the deleted
- *  trip-dashboard, so it now carries a VISIBLE "At a glance" heading (plus the
- *  `h2[id$="-heading"]` underline) and `py-10 sm:py-14` where it had an `sr-only` title and
- *  `py-4 sm:py-6`. It also wraps rather than gridding, so its height is a step function of
- *  WIDTH, and issue #92's Connection tile added one more narrow tile. Re-measured on the
- *  BUILT export, signed in, every tile mounted, pre-trip / in-trip (the two states no longer
- *  agree — in-trip carries the extra tile past a row boundary at 640 and at 1280):
- *      320 → 727.3 / 816.5    360 → 727.3 / 816.5    390 → 727.3 / 816.5
- *      414 → 725.3 / 814.5    640 → 763.5 / 874.0    768 → 653.0 / 653.0
- *     1024 → 542.5 / 542.5   1280 → 432.0 / 542.5
- *  640 is the tall one, not mobile: the `sm:` bases take effect there and the 26rem wide
- *  basis fits fewer tiles per row than the width would otherwise allow.
+ *  It wraps rather than gridding, so its height is a step function of WIDTH. RE-MEASURED on the
+ *  BUILT export against the SETTLED tree, signed in, every tile mounted, pre-trip / in-trip (the
+ *  two states still disagree — in-trip carries an extra tile). The previous figures were taken
+ *  while globals.css was still in flight and read ~29 high:
+ *      320 -> 637.6 / 699.3    360 -> 620.1 / 681.8    390 -> 602.6 / 664.3
+ *      414 -> 585 / 664.3    430 -> 585 / 646.7    480 -> 568.3 / 630
+ *      560 -> 500.5 / 562.2    600 -> 503.1 / 564.8    639 -> 504.6 / 566.3
+ *      640-900 -> 538.6 / 600.3   >=1024 -> 521 / 582.7
+ *  Mobile is the tall one again (the redesign flattened the old 640 bump), and viewport height
+ *  does not move it. This is the one section where the two clock states differ at all — every
+ *  other constant here measured identically under `?today=off` and `?today=` in-trip.
  *
  *  A PLAIN px VALUE, NOT A `clamp(_, vh, _)` — the idiom the neighbours use does not fit this
- *  section and would be decoration. Height here runs INVERSELY to width (702 at 390, 424 at
- *  1280) while `vh` runs WITH it, so no vh expression can both cover mobile and stay near the
- *  desktop number; every candidate over-reserved desktop by ~300px anyway. So this is
+ *  section and would be decoration. Height here runs INVERSELY to width while `vh` runs WITH
+ *  it, so no vh expression can both cover mobile and stay near the desktop number. So this is
  *  STAT_ROW_H's treatment instead: one measured literal at the tallest layout that matters,
  *  over-reserving the shorter ones for the ~200ms before the island's idle beat fires, which
  *  is the safe direction (the box collapses upward rather than the page jumping down onto
- *  content). 880 covers every supported width, 320 included — the tile basis is sized so the
- *  narrow tiles still pair at 320 (see `BentoTile` in components/home-bento.tsx), which is
- *  what keeps the mobile end flat at ~727 instead of running away to 912. The 866 this
- *  replaces was derived rather than measured and came in 8px under the 640 in-trip case. */
-const BENTO_H = '880px';
+ *  content). 700 covers every supported width, 320 included, in BOTH clock states. */
+const BENTO_H = '700px';
 const HomeBento = dynamic(() => import('@/components/home-bento'), {
   ssr: false,
   loading: () => <SectionSkeleton height={BENTO_H} />,
 });
-/** Reserved height of the chapter bands (issue #92). Two `.photo-header` bands, whose height
- *  is a `clamp(300px, 40svh, 380px)` in globals.css — so unlike the bento above, this section
- *  runs WITH viewport height, and its ceiling is where that clamp tops out. Measured on the
- *  built export at 390 wide: 912.9 at 844 tall, 954.5 at 896, and 997.8 once the viewport is
- *  tall enough (>=950) to pin both bands at the 380 ceiling. The masthead + `py-10` account
- *  for 236.8 of that at every width from 320 to 414 — the subtitle wraps to two lines there,
- *  which the first estimate (110.5, one line) missed, and is why 960 came in ~38px short.
- *  Mobile is the tall case: the two bands stack below 640px and sit side by side above it,
- *  and the >=900px clamp (max 460) is a single row. 1000 covers the ceiling; every shorter
- *  viewport over-reserves, which is the safe direction. */
-const CHAPTERS_H = '1000px';
+/** Reserved height of the chapter bands (issue #92). Two plates whose frame is a
+ *  `clamp(300px, 40svh, 380px)` (and `clamp(360px, 46svh, 460px)` from 900px up) — so unlike
+ *  the bento above, this section runs WITH viewport height, and its ceiling is where that
+ *  clamp tops out. RE-MEASURED on the built export against the SETTLED tree, both clock states
+ *  identical. The previous figures were taken while globals.css was still in flight and read
+ *  ~15.7 high:
+ *      390 wide -> 907.4 at 844 tall, 992.2 at 1200 (both frames pinned at the 380 ceiling)
+ *     1280 wide -> 574.9 at 844 tall, 646.7 at 1200
+ *      320 wide -> 968.4 at 844 tall, 1053.2 at 1200  <- the tall case
+ *  320 is taller than 390 because the capline wraps to two lines there and the masthead
+ *  subtitle wraps as well. Mobile is the tall end either way: the two plates stack below 640
+ *  and sit side by side above it.
+ *  1054 covers the 320 ceiling; every shorter viewport over-reserves, the safe direction.
+ *  The band's frame no longer takes its WIDTH from the plate recipe's aspect-ratio (it clears
+ *  it with `plate--band`), so it is full-bleed at last — that changed the band's width, not
+ *  its height, and this figure is measured after it. */
+const CHAPTERS_H = '1054px';
 const HomeChapters = dynamic(() => import('@/components/home-chapters'), {
   ssr: false,
   loading: () => <SectionSkeleton height={CHAPTERS_H} />,
@@ -168,9 +194,29 @@ const HomeChapters = dynamic(() => import('@/components/home-chapters'), {
 // the `#inspiration` slot is the photo gallery again (issue #21) — it was standing in as a
 // two-card weather panel. Same lazy island, same section id; taller reservation because the
 // gallery is eight image cards rather than two text cards.
+//
+// RE-MEASURED on the built export against the SETTLED tree, signed in, both clock states
+// identical, after the plate frame took a 400px cap in components/travel-inspiration.tsx and
+// stopped switching to the recipe's landscape frame at 700:
+//     320 -> 3768.1   360/390 -> 3832.5  <- peak
+//     414-639 -> 3813.4   640 -> 1985.3   660-900 -> 1998.7   >=1024 -> 1545
+// The grid is ONE column below 640 (`sm:grid-cols-2`), two to 1023 and three above, and the
+// plate frame is portrait, so the height used to run WITH WIDTH — eight plates deep, 7146 at
+// 639, and the 415-639 band under-reserved by up to ~2640. Capping the frame flattens that
+// run into a plateau, so 3833 is BOTH the 390 figure the neighbours' convention asks for and
+// the peak across every supported width: no width under-reserves now. Wider viewports
+// over-reserve, the safe direction — the box collapses upward at the island's idle beat
+// rather than the page jumping down onto content.
+// The 700-1023 band used to measure 960-1121 because the landscape frame collapsed each plate
+// to a 136-181px letterbox; that is the frame the caption overflowed, and it is gone. This
+// literal did not move — the peak is at 360/390, which never took that frame.
+// A plain px value, not a `clamp(_, vh, _)`: the driver is width, and no vh expression can
+// track that or survive the cliff at the breakpoint.
+// Both copies of this value — here and the `<LazyVisible minHeight>` at the call site — must
+// move together, the same rule the named constants above carry.
 const TravelInspiration = dynamic(() => import('@/components/travel-inspiration'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="clamp(40rem, 130vh, 80rem)" />,
+  loading: () => <SectionSkeleton height="3833px" />,
 });
 
 // — the user's imported "My places" for a CUSTOM trip's home (custom trips have no guide pages;
@@ -242,8 +288,13 @@ export default function HomePage() {
       <TodayPanel />
       <TripRecap />
       <LazyVisible component={HomeBento} minHeight={BENTO_H} />
+      {/* The readiness roll-up sits AFTER the bento deliberately: "at a glance" is the
+          current state, this is what is left before departure, and that is the order you
+          want to read them in. It takes no `#` anchor — home-section-nav.tsx lists five
+          landmarks and a sixth would change a shipped control. */}
+      <LazyVisible component={HomeReadiness} minHeight={READINESS_H} />
       <LazyVisible component={GatedHomeChapters} minHeight={CHAPTERS_H} />
-      <LazyVisible component={GatedTravelInspiration} minHeight="clamp(40rem, 130vh, 80rem)" />
+      <LazyVisible component={GatedTravelInspiration} minHeight="3833px" />
       {/* Custom-trip-only "My places" (renders null on the default pack). minHeight 0 so the
           default pack reserves no visible box while the gate resolves. */}
       <LazyVisible component={CustomTripMyPlaces} minHeight="0px" />

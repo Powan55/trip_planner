@@ -120,8 +120,22 @@ export function primaryItemsForActiveTrip(): NavItem[] {
   return [...base, ...promoted];
 }
 
+function titleCase(slug: string): string {
+  return slug.replace(/[-_]+/g, ' ').replace(/^./, (c) => c.toUpperCase());
+}
+
+// Where a route goes, in words. The fallback carries /nepal/ and /japan/, which left the nav
+// catalog when `/guides/` replaced them but are still palette destinations.
+export function routeLabel(route: string, hash?: string): string {
+  // A scan, not a lookup Map: `Map` in this module is the lucide icon, not the global.
+  const page =
+    NAV_ITEMS.find((item) => item.href === route)?.label ??
+    (route.split('/').filter(Boolean).map(titleCase).join(' · ') || 'Home');
+  return hash ? `${page} · ${titleCase(hash.slice(1))}` : page;
+}
+
 // Trailing-slash-agnostic pathname compare ('' and '/' both mean Home).
-function normalizePath(p: string | null): string {
+export function normalizePath(p: string | null): string {
   const stripped = (p ?? '/').replace(/\/+$/, '');
   return stripped === '' ? '/' : stripped;
 }

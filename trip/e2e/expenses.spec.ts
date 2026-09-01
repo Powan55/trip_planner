@@ -199,42 +199,42 @@ test.describe('S102 Expense logging — log/edit/delete feeds spent + remaining,
     // No split logged yet ⇒ the Settle up summary is hidden.
     await expect(page.getByTestId('settle-up')).toHaveCount(0);
 
-    // Log a 300 NPR expense split among all three (default). Powan (the signed-in traveler) pays.
+    // Log a 300 NPR expense split among all three (default). Alina (the signed-in traveler) pays.
     await showView(page, 'expenses'); // S322: the log trigger lives on the Expenses view
     await page.getByTestId('expense-log-open').click();
     await expect(page.getByTestId('expense-dialog')).toBeVisible();
     await page.getByTestId('expense-amount-input').fill('300');
     await page.getByTestId('expense-category-food').click();
     await expect(page.getByTestId('expense-leg-nepal')).toHaveAttribute('aria-pressed', 'true');
-    // Opt into split (default payer = Powan, members = whole roster).
+    // Opt into split (default payer = Alina, members = whole roster).
     await page.getByTestId('expense-split-toggle').click();
     await expect(page.getByTestId('expense-split-panel')).toBeVisible();
-    await expect(page.getByTestId('expense-payer-Powan')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByTestId('expense-payer-Alina')).toHaveAttribute('aria-pressed', 'true');
     await page.getByTestId('expense-save').click();
     await expect(page.getByTestId('expense-dialog')).toHaveCount(0);
 
     // The row shows a split chip, and the Settle up summary appears with the minimal transfers:
-    // 300 split 3 ways = 100 each; Sushil and Uttam each pay Powan Rs 100.
+    // 300 split 3 ways = 100 each; Rhea and Milo each pay Alina Rs 100.
     await expect(page.locator('[data-testid$="-split"]').first()).toBeVisible();
     await showView(page, 'settle'); // S322: the who-owes-whom summary is behind the Settle tab
     await expect(page.getByTestId('settle-up')).toBeVisible();
-    await expect(page.getByTestId('settle-up-transfer-nepal-Sushil-Powan')).toContainText('Sushil');
-    await expect(page.getByTestId('settle-up-transfer-nepal-Sushil-Powan')).toContainText('Rs 100');
-    await expect(page.getByTestId('settle-up-transfer-nepal-Uttam-Powan')).toContainText('Rs 100');
-    await expect(page.getByTestId('settle-up-balance-nepal-Powan')).toContainText('is owed');
+    await expect(page.getByTestId('settle-up-transfer-nepal-Rhea-Alina')).toContainText('Rhea');
+    await expect(page.getByTestId('settle-up-transfer-nepal-Rhea-Alina')).toContainText('Rs 100');
+    await expect(page.getByTestId('settle-up-transfer-nepal-Milo-Alina')).toContainText('Rs 100');
+    await expect(page.getByTestId('settle-up-balance-nepal-Alina')).toContainText('is owed');
 
     // The split fields persisted to localStorage.
     const stored = await readStored(page);
     expect(stored).toHaveLength(1);
-    expect(stored![0].paidBy).toBe('Powan');
-    expect(stored![0].split).toEqual(['Powan', 'Sushil', 'Uttam']);
+    expect(stored![0].paidBy).toBe('Alina');
+    expect(stored![0].split).toEqual(['Alina', 'Rhea', 'Milo']);
 
     // RELOAD — the split + the Settle up summary survive.
     await reloadSettled(page);
     await settleBudget(page);
     await showView(page, 'settle'); // reload resets to the default Budget view
     await expect(page.getByTestId('settle-up')).toBeVisible();
-    await expect(page.getByTestId('settle-up-transfer-nepal-Sushil-Powan')).toContainText('Rs 100');
+    await expect(page.getByTestId('settle-up-transfer-nepal-Rhea-Alina')).toContainText('Rs 100');
 
     // Edit → clear the split → back to the fast path (summary gone, expense unchanged in totals).
     await showView(page, 'expenses'); // the expense rows (+ their edit control) live on Expenses

@@ -36,12 +36,19 @@ import {
  * against that would wrongly prompt a self-join for a `?trip=nepal-japan-2026` link on the
  * default pack).
  *
+ * THE THREE STATES ARE ALL DRAWN, and none of them is a lighter tint of another. Waiting says
+ * SWITCHING in words on a disabled control; the failure states its condition as a sentence in the
+ * error tier. Both are reachable: `joinTrip` writes through a storage layer that SWALLOWS a
+ * denied or full write, so a browser with storage blocked used to reload straight back onto the
+ * old trip with nothing said. The pointer is read back rather than assumed.
+ *
  * A11y: reuses the app's Radix `AlertDialog` (focus trap + Esc-to-cancel + labelled dialog for
- * free); both actions are ≥44px touch targets. Renders `null` (nothing mounts) on every normal
- * load, so it costs nothing unless a `?trip=` link is actually opened.
+ * free); both actions clear the tap floor through the shared control recipe. Renders `null`
+ * (nothing mounts) on every normal load, so it costs nothing unless a `?trip=` link is opened.
  */
 export default function TripJoinHandshake() {
   const [token, setToken] = useState<string | null>(null);
+  const [status, setStatus] = useState<'idle' | 'joining' | 'error'>('idle');
   const { traveler } = useActiveTraveler();
   // Depend on the BOOLEAN, not the traveler object: `useActiveTraveler` re-resolves a fresh object
   // on every identity:changed, which would re-run this effect for no reason.
@@ -74,44 +81,88 @@ export default function TripJoinHandshake() {
 
   const handleJoin = () => {
     if (!token) return;
+    setStatus('joining');
     joinTrip(token, 'Shared trip'); // register + write the pointer...
-    // ..then full reload, landing on the HOME dashboard — a clean, param-free
-    // target, so the secret token does not linger in the address bar / history either.
+    // ...but the write is best-effort, so read the pointer back before navigating. If it did not
+    // stick, the reload would land on the OLD trip and look like the token was wrong.
+    if (getActiveTripId() !== token) {
+      setStatus('error');
+      return;
+    }
+    // Full reload, landing on the HOME dashboard — a clean, param-free target, so the secret
+    // token does not linger in the address bar / history either.
     window.location.replace(withBasePath('/'));
   };
 
   if (!token) return null;
 
+  const joining = status === 'joining';
   // Show a shortened form of the (secret) token in copy — enough to recognise the link, not the
   // whole key spilled into a dialog.
   const shortToken = token.length > 12 ? `${token.slice(0, 8)}…` : token;
 
   return (
-    <AlertDialog open onOpenChange={(open) => { if (!open) handleCancel(); }}>
+    <AlertDialog
+      open
+      onOpenChange={(open) => {
+        if (!open && !joining) handleCancel();
+      }}
+    >
       <AlertDialogContent
-        className="glass-card-dark border-white/10 text-white"
+        className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi"
         data-testid="trip-join-dialog"
       >
         <AlertDialogHeader>
           <AlertDialogTitle>Add this trip?</AlertDialogTitle>
-          <AlertDialogDescription className="text-ink-mid">
-            You opened a shared Trip Token (
-            <span className="font-mono text-ink-hi">{shortToken}</span>). Adding it switches this
-            browser to that trip — your current view is replaced. You can switch back any time from
-            your Trips page. A Trip Token can&rsquo;t be verified in advance — if the trip opens
-            empty, it may be mistyped or the trip is brand new.
+          <AlertDialogDescription className="text-t-body text-ink-mid">
+            A Trip Token is one trip&rsquo;s key &mdash; anyone holding it opens the same plan.
+            Adding this one switches this browser to that trip; your current view is replaced and
+            nothing you already have is deleted. Switch back any time from your Trips page.
           </AlertDialogDescription>
         </AlertDialogHeader>
+
+        {/* The token itself, printed. It is the subject of this dialog, so it is drawn rather
+            than mentioned mid-sentence. */}
+        <div
+          data-testid="trip-join-token"
+          className="border-hair border-[color:hsl(var(--border))] bg-surface-raised px-gut py-2"
+        >
+          <span className="pr block">Trip Token</span>
+          <span className="num block text-n-sm text-ink-hi">{shortToken}</span>
+        </div>
+
+        <p className="text-t-sm text-ink-lo">
+          A Trip Token can&rsquo;t be checked before it is used. If the trip opens empty, it may be
+          mistyped, or the trip is brand new.
+        </p>
+
+        {status === 'error' && (
+          <p
+            role="alert"
+            data-testid="trip-join-error"
+            className="err border-hair border-[color:hsl(var(--destructive))] px-gut py-2 text-t-body"
+          >
+            This browser did not save the switch, so you are still on your current trip. Private
+            browsing and a full storage box both block the write &mdash; try again in a normal
+            window, or free some space.
+          </p>
+        )}
+
         <AlertDialogFooter>
-          <AlertDialogCancel data-testid="trip-join-cancel" className="min-h-[44px]">
+          <AlertDialogCancel data-testid="trip-join-cancel" disabled={joining}>
             Cancel
           </AlertDialogCancel>
           <AlertDialogAction
             data-testid="trip-join-confirm"
-            onClick={handleJoin}
-            className="min-h-[44px] bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={(e) => {
+              // Radix closes the dialog on action-click; the switch owns the navigation, and on
+              // the failure path the dialog has to stay up to carry the message.
+              e.preventDefault();
+              handleJoin();
+            }}
+            disabled={joining}
           >
-            Add trip
+            {joining ? 'Switching…' : status === 'error' ? 'Try again' : 'Add trip'}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

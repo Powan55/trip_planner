@@ -302,29 +302,43 @@ type PanelMotion = Record<
   { initial: TargetAndTransition; animate: TargetAndTransition; exit: TargetAndTransition }
 >;
 
+/**
+ * The ink curve and the two durations the printed direction moves on, as JS numbers.
+ *
+ * They are hand-mirrored from `--ease-ink` / `--duration-ink` / `--duration-exit` in
+ * app/globals.css for the same reason `FADE_FLOOR` is a constant: framer takes a number and
+ * an array, and cannot read a custom property. Move them together or they drift.
+ */
+const EASE_INK = [0.2, 0.7, 0.3, 1] as const; // --ease-ink
+const DUR_INK = 0.42; // --duration-ink  420ms
+const DUR_EXIT = 0.16; // --duration-exit 160ms
+
+// NO scale(), in either tier. A panel that scales in swells rather than arrives, and this
+// direction moves things instead: the loud tier is a longer rise on the ink curve, the calm
+// tier a shorter one. Both end at the same place, so nothing downstream has to branch.
 const PANEL_MOTION_LOUD: PanelMotion = {
   center: {
-    initial: { scale: 0.9, opacity: 0 },
-    animate: { scale: 1, opacity: 1 },
-    exit: { scale: 0.9, opacity: 0 },
+    initial: { opacity: 0, y: 14 },
+    animate: { opacity: 1, y: 0, transition: { duration: DUR_INK, ease: EASE_INK } },
+    exit: { opacity: 0, y: 14, transition: { duration: DUR_EXIT, ease: 'easeIn' } },
   },
   right: {
     initial: { opacity: 0, y: 40 },
-    animate: { opacity: 1, y: 0, x: 0 },
-    exit: { opacity: 0, y: 40 },
+    animate: { opacity: 1, y: 0, x: 0, transition: { duration: DUR_INK, ease: EASE_INK } },
+    exit: { opacity: 0, y: 40, transition: { duration: DUR_EXIT, ease: 'easeIn' } },
   },
 };
 
 const PANEL_MOTION_CALM: PanelMotion = {
   center: {
     initial: { opacity: 0, y: 8 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
-    exit: { opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } },
+    animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_INK } },
+    exit: { opacity: 0, transition: { duration: DUR_EXIT, ease: 'easeIn' } },
   },
   right: {
     initial: { opacity: 0, y: 8 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: 'easeOut' } },
-    exit: { opacity: 0, transition: { duration: 0.16, ease: 'easeIn' } },
+    animate: { opacity: 1, y: 0, transition: { duration: 0.2, ease: EASE_INK } },
+    exit: { opacity: 0, transition: { duration: DUR_EXIT, ease: 'easeIn' } },
   },
 };
 
@@ -414,6 +428,25 @@ export function entranceFor(pathname: string | null | undefined): EntranceDecisi
   const decision = decideEntrance(surface);
   currentSurfaceDecision = { surface, decision };
   return decision;
+}
+
+/**
+ * The decision the STATIC EXPORT already contains — the tier gate alone.
+ *
+ * `entranceFor()` is a client-only answer by construction: two of its three inputs
+ * (`matchMedia`, the sessionStorage ledger) are inert during the prerender and live in the
+ * browser. A prerendered route that reaches an entrance component therefore ships one answer in
+ * its HTML and computes another on the client's FIRST render — a hydration mismatch, which React
+ * recovers from by re-rendering the whole route on the client. It bit `/passport/` on every
+ * reload (the ledger survives one) and on first load for every reduced-motion visitor.
+ *
+ * So the first render asks THIS, which is a pure function of the pathname and cannot disagree
+ * with the prerender, and the live decision is deferred to an effect. The two functions must stay
+ * in step: `lib/__tests__/motion-budget.test.ts` pins `entranceFor === prerenderEntranceFor` under
+ * prerender conditions (no `matchMedia`, empty ledger) for every tiered surface.
+ */
+export function prerenderEntranceFor(pathname: string | null | undefined): EntranceDecision {
+  return isMotionAllowed('entrance', tierForPath(pathname)) ? 'animate' : 'present';
 }
 
 function decideEntrance(surface: string): EntranceDecision {

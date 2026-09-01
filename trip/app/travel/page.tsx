@@ -31,10 +31,12 @@ export default function TravelPage() {
   return (
     <main
       data-testid="travel-mode-root"
-      className="travel-mode-root min-h-[100dvh] bg-surface px-gutter"
+      className="travel-mode-root min-h-[100dvh] bg-surface"
     >
-      <div className="mx-auto flex max-w-2xl items-center justify-between gap-2">
-        <h1 className="text-display-lg text-display-emphasis">Travel Mode</h1>
+      {/* The masthead: printed, not a display title. The weight on this screen belongs to the
+          day number and the running head below it, per the instrument grammar. */}
+      <div className="mx-auto flex max-w-2xl items-center justify-between gap-2 border-b-2 border-border pb-2">
+        <h1 className="pr pr--l text-ink-hi">Travel Mode</h1>
         <div className="flex shrink-0 items-center gap-1">
           {/* outdoor high-legibility toggle — TM-local, chrome-free header row. */}
           <TravelLegibilityToggle />

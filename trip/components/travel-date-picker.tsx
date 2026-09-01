@@ -16,8 +16,7 @@
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
-import { Calendar } from 'lucide-react';
-import { TRIP_DATE_LABEL, formatDateLong } from '@/core/dates';
+import { TRIP_DATE_LABEL, formatDateLong, getCountryForDate } from '@/core/dates';
 import { getNow, getTodayInTrip, type TripToday } from '@/lib/trip-now';
 import { useTravelTick } from '@/lib/travel-tick';
 import { resolveTravelDate } from '@/lib/travel-date';
@@ -36,7 +35,9 @@ import TravelExpenseQuickAdd from '@/components/travel-expense-quickadd';
 const TravelEssentialsCard = dynamic(() => import('@/components/travel-essentials-card'), {
   ssr: false,
   loading: () => (
-    <div aria-hidden="true" className="mx-auto mt-4 min-h-[160px] max-w-2xl rounded-2xl glass-card" />
+    <div className="load mx-auto mt-4 min-h-[160px] max-w-2xl">
+      <span className="pr pr--lo">Loading</span>
+    </div>
   ),
 });
 
@@ -46,7 +47,7 @@ const TravelEssentialsCard = dynamic(() => import('@/components/travel-essential
 // `/travel` chunk too.
 const TravelLastTrainChip = dynamic(() => import('@/components/travel-last-train-chip'), {
   ssr: false,
-  loading: () => <div aria-hidden="true" className="mx-auto mt-3 h-4 max-w-2xl" />,
+  loading: () => <div aria-hidden="true" className="mx-auto mt-4 h-12 max-w-2xl" />,
 });
 const TravelTonightCard = dynamic(() => import('@/components/travel-tonight-card'), {
   ssr: false,
@@ -59,7 +60,9 @@ const TravelTonightCard = dynamic(() => import('@/components/travel-tonight-card
 const TravelDayMap = dynamic(() => import('@/components/travel-day-map'), {
   ssr: false,
   loading: () => (
-    <div aria-hidden="true" className="mx-auto mt-4 min-h-[48px] max-w-2xl rounded-2xl glass-card" />
+    <div className="load mx-auto mt-4 min-h-tap max-w-2xl">
+      <span className="pr pr--lo">Loading</span>
+    </div>
   ),
 });
 
@@ -106,11 +109,9 @@ export default function TravelDatePicker() {
 
   if (!hydrated) {
     return (
-      <div
-        data-testid="travel-date-skeleton"
-        aria-hidden="true"
-        className="mx-auto mt-4 h-16 max-w-2xl rounded-2xl glass-card"
-      />
+      <div data-testid="travel-date-skeleton" className="load mx-auto mt-4 h-16 max-w-2xl">
+        <span className="pr pr--lo">Loading</span>
+      </div>
     );
   }
 
@@ -137,25 +138,29 @@ export default function TravelDatePicker() {
       <section
         aria-labelledby="travel-date-empty-title"
         data-testid="travel-date-empty"
-        className="mx-auto mt-6 max-w-2xl rounded-2xl glass-card p-6 text-center sm:p-8"
+        className="mx-auto mt-6 max-w-2xl border-t-2 border-border"
       >
-        {/* Decorative empty-state glyph, not text: it takes ink-lo, the tier the swept
-            files already use for a purely ornamental mark (hero-section's em-dash rule). */}
-        <Calendar className="mx-auto mb-3 h-10 w-10 text-ink-lo" aria-hidden="true" />
-        <h2 id="travel-date-empty-title" className="font-display text-xl font-bold text-white">
-          Not a trip day
-        </h2>
-        <p className="mt-2 text-sm text-ink-mid">
-          That date isn&rsquo;t part of the trip ({TRIP_DATE_LABEL}).
+        {/* The shape the day cell will take, drawn hollow, rather than a grey sentence. */}
+        <div className="cell is-hollow border-r-0">
+          <h2 id="travel-date-empty-title">
+            <span className="l">Day</span>{' '}
+            <span className="v !text-n-lg">&mdash;</span>{' '}
+            <span className="f">Not a trip day</span>
+          </h2>
+        </div>
+        <p className="empty px-gut py-3">
+          The trip runs {TRIP_DATE_LABEL}. Nothing is filed outside it.
         </p>
-        <button
-          type="button"
-          onClick={() => goTo(null)}
-          data-testid="travel-date-empty-return"
-          className="mt-4 inline-flex min-h-[44px] items-center gap-2 rounded-lg glass-card px-4 py-2 text-sm font-medium text-white outline-none transition-colors duration-200 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-        >
-          Back to today
-        </button>
+        <div className="px-gut pb-3">
+          <button
+            type="button"
+            onClick={() => goTo(null)}
+            data-testid="travel-date-empty-return"
+            className="btn w-full"
+          >
+            Back to today
+          </button>
+        </div>
       </section>
     );
   }
@@ -168,9 +173,19 @@ export default function TravelDatePicker() {
 
   const selectedDate = resolution.date;
 
+  // The leg the whole day subtree is read against. `--now` resolves off this one attribute, so
+  // every country-aware mark below (cells, chips, the running head's leg field) follows the
+  // picked day rather than being repainted per component.
+  const leg = getCountryForDate(selectedDate);
+
   return (
-    <>
-      <div className="mx-auto mt-4 max-w-2xl">
+    <div data-leg={leg}>
+      {/* the running head — the one piece of chrome on a chrome-free route, and the honest
+          connection field lives in it (see travel-sync-line.tsx). Placed first so its sticky
+          position pins under the safe-area inset with nothing above it to fight. */}
+      <TravelSyncLine date={selectedDate} />
+
+      <div className="mx-auto mt-3 max-w-2xl">
         <TravelDayStrip
           selectedDate={selectedDate}
           todayDate={todayInTrip?.date ?? null}
@@ -179,10 +194,7 @@ export default function TravelDatePicker() {
       </div>
 
       {resolution.isPreTripDefault && (
-        <p
-          data-testid="travel-pretrip-notice"
-          className="mx-auto mt-3 max-w-2xl text-center text-sm text-ink-mid"
-        >
+        <p data-testid="travel-pretrip-notice" className="pr pr--l mx-auto mt-3 max-w-2xl px-gut">
           Trip starts in {resolution.daysUntilStart} {resolution.daysUntilStart === 1 ? 'day' : 'days'}
         </p>
       )}
@@ -190,23 +202,21 @@ export default function TravelDatePicker() {
       {resolution.isPreview && (
         <div
           data-testid="travel-preview-banner"
-          className="mx-auto mt-3 flex max-w-2xl items-center justify-between gap-3 rounded-xl border border-gold-400/20 bg-gold-400/[0.06] px-4 py-2 text-sm"
+          className="mx-auto mt-3 flex max-w-2xl flex-wrap items-center justify-between gap-x-3 gap-y-2 border-y-hair border-border px-gut py-2"
         >
-          <span>Previewing {formatDateLong(selectedDate)} — not today</span>
+          <span className="pr pr--lo min-w-0">
+            Previewing {formatDateLong(selectedDate)} &mdash; not today
+          </span>
           <button
             type="button"
             onClick={() => goTo(null)}
             data-testid="travel-preview-back"
-            className="shrink-0 rounded-lg px-3 py-1.5 font-medium text-primary outline-none transition-colors duration-200 hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="chip min-h-tap shrink-0 border-[color:hsl(var(--accent))] px-3 text-[color:hsl(var(--accent))] outline-none transition-colors duration-200 hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             Back to today
           </button>
         </div>
       )}
-
-      {/* connection line — a visible "are my changes safe" signal for the during-trip screen
-          (honest online/offline state; no last-sync timestamp is tracked — see travel-sync-line.tsx). */}
-      <TravelSyncLine />
 
       {/* the hero shrank to a ONE-LINE now/next strip so the checklist below is the primary
           surface. Its off-trip fallback still renders above (resolution.date === null branch). */}
@@ -240,6 +250,6 @@ export default function TravelDatePicker() {
 
       {/* Essentials collapsed to ONE expandable row (closed by default). */}
       <TravelEssentialsCard date={selectedDate} />
-    </>
+    </div>
   );
 }

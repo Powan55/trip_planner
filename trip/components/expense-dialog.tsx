@@ -23,7 +23,7 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
 /**
  * Fast expense-log dialog. A NEW, lightweight modal, deliberately
  * separate from the itinerary add dialog (`add-to-itinerary-dialog.tsx`), reached via the
- * `expense:open` event + `ExpenseLogHost` — the itinerary quick-add FAB is left single-purpose
+ * `expense:open` event + `ExpenseLogHost` — the itinerary quick-add FAB is left single-purpose.
  * It writes expenses THROUGH the reactive store (`useExpenses`), so the budget
  * panel's spent/remaining updates live via the shared CustomEvent.
  *
@@ -242,7 +242,7 @@ export default function ExpenseDialog({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
       onClick={onClose}
     >
       <m.div
@@ -257,15 +257,15 @@ export default function ExpenseDialog({
         // lives with the primitive (`components/ui/sheet-dark.tsx`), gated by `lib/motion.ts`.
         {...overlayPanelMotion()}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
+        className="w-full max-w-md bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] rounded-r2 max-h-[90vh] flex flex-col overflow-hidden"
       >
         {/* Pinned header */}
         <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
           <div className="min-w-0">
-            <h3 id={titleId} className="font-display text-lg font-bold text-white leading-tight">
+            <h3 id={titleId} className="pr pr--l text-ink-hi">
               {isEdit ? 'Edit expense' : 'Log an expense'}
             </h3>
-            <p className="text-sm text-ink-mid mt-0.5 truncate">
+            <p className="text-t-sm text-ink-mid mt-1 truncate">
               {isEdit ? 'Update the amount, category, or leg.' : 'A meal, a taxi, a ticket — a few taps.'}
             </p>
           </div>
@@ -274,7 +274,7 @@ export default function ExpenseDialog({
             data-testid="expense-cancel"
             onClick={onClose}
             aria-label="Close dialog"
-            className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="shrink-0 inline-flex items-center justify-center min-h-tap min-w-tap rounded-r1 hover:bg-white/5 hover:text-ink-hi text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <X className="w-5 h-5" />
           </button>
@@ -285,7 +285,7 @@ export default function ExpenseDialog({
           <div className="space-y-4 pb-1">
             {/* Amount — the autofocused, "type first" field */}
             <div>
-              <label htmlFor={amountFieldId} className="text-xs text-ink-lo mb-1 block">
+              <label htmlFor={amountFieldId} className="pr pr--lo mb-1 block">
                 Amount ({cur}) *
               </label>
               <div className="relative">
@@ -321,7 +321,7 @@ export default function ExpenseDialog({
 
             {/* Leg toggle — preset, one tap to override */}
             <div>
-              <span id={legLabelId} className="text-xs text-ink-lo mb-1 block">Leg</span>
+              <span id={legLabelId} className="pr pr--lo mb-1 block">Leg</span>
               {/* B-5: `role="group"` + `aria-pressed`, NOT radiogroup/radio. The composite
                   role promises arrow-key navigation and a roving tabIndex that this toggle
                   never implemented; a wrong role is worse than none. */}
@@ -343,10 +343,8 @@ export default function ExpenseDialog({
                       aria-pressed={active}
                       onClick={() => setLeg(l)}
                       data-testid={`expense-leg-${l}`}
-                      className={`inline-flex min-h-[44px] flex-1 items-center justify-center gap-1.5 rounded-lg border px-4 py-2 text-sm font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none ${
-                        active
-                          ? 'border-ring bg-primary/10 text-primary'
-                          : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
+                      className={`chip min-h-tap flex-1 justify-center px-4 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none ${
+                        active ? 'chip--struck bg-white/5' : 'hover:bg-white/5 hover:text-ink-hi'
                       }`}
                     >
                       <span aria-hidden="true">{currencySymbol(legCurrency(l))}</span>
@@ -359,7 +357,7 @@ export default function ExpenseDialog({
 
             {/* Category chips — one-tap, always a value (required, no empty state) */}
             <div>
-              <span id={categoryLabelId} className="text-xs text-ink-lo mb-1 block">Category *</span>
+              <span id={categoryLabelId} className="pr pr--lo mb-1 block">Category *</span>
               <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
                 {BUDGET_CATEGORIES.map((cat) => {
                   const colors = CATEGORY_COLORS[cat];
@@ -372,12 +370,12 @@ export default function ExpenseDialog({
                       aria-pressed={isActive}
                       aria-label={`Category: ${cat}`}
                       data-testid={`expense-category-${cat}`}
-                      className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                        isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-ink-mid hover:bg-white/5'
+                      className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                        isActive ? `${colors.text} border-current bg-white/5` : 'border-transparent text-ink-lo hover:bg-white/5 hover:text-ink-hi'
                       }`}
                     >
                       {CATEGORY_ICON_MAP[cat]}
-                      <span className="capitalize text-[10px] leading-tight text-center break-words w-full">{cat}</span>
+                      <span className="pr pr--lo capitalize leading-tight text-center break-words w-full text-current">{cat}</span>
                     </button>
                   );
                 })}
@@ -386,29 +384,29 @@ export default function ExpenseDialog({
 
             {/* Note (optional) */}
             <div>
-              <label htmlFor={noteFieldId} className="text-xs text-ink-lo mb-1 block">Note</label>
+              <label htmlFor={noteFieldId} className="pr pr--lo mb-1 block">Note</label>
               <input
                 id={noteFieldId}
                 data-testid="expense-note-input"
                 value={note}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNote(e.target.value)}
-                className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+                className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 placeholder="e.g., Ramen at Ichiran"
                 autoComplete="off"
               />
             </div>
 
             {/* Split — opt-in. Collapsed = the fast path (nothing written). */}
-            <div className="rounded-lg border border-white/10 bg-white/[0.02]">
+            <div className="rounded-r1 border-hair border-[color:hsl(var(--border))]">
               <button
                 type="button"
                 data-testid="expense-split-toggle"
                 aria-expanded={splitOn}
                 onClick={() => setSplitOn((v) => !v)}
-                className="flex min-h-[44px] w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="pr flex min-h-tap w-full items-center justify-between gap-2 rounded-r1 px-3 text-left text-ink-hi transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <span className="flex items-center gap-2">
-                  <Users className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                  <Users className="h-3.5 w-3.5 text-ink-lo" aria-hidden="true" />
                   Split with others
                 </span>
                 <span aria-hidden="true" className={`text-ink-lo transition-transform ${splitOn ? 'rotate-90' : ''}`}>
@@ -420,7 +418,7 @@ export default function ExpenseDialog({
                 <div className="flex flex-col gap-3 px-3 pb-3 pt-1" data-testid="expense-split-panel">
                   {/* Payer */}
                   <div>
-                    <span id={`${baseId}-payer-label`} className="text-xs text-ink-lo mb-1 block">Paid by</span>
+                    <span id={`${baseId}-payer-label`} className="pr pr--lo mb-1 block">Paid by</span>
                     <div role="group" aria-labelledby={`${baseId}-payer-label`} className="flex flex-wrap gap-2">
                       {allNames.map((name) => {
                         const active = paidBy === name;
@@ -431,8 +429,8 @@ export default function ExpenseDialog({
                             aria-pressed={active}
                             onClick={() => setPaidBy(name)}
                             data-testid={`expense-payer-${name}`}
-                            className={`inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                              active ? 'border-ring bg-primary/10 text-primary' : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
+                            className={`chip min-h-tap gap-1.5 px-3 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                              active ? 'chip--struck bg-white/5' : 'hover:bg-white/5 hover:text-ink-hi'
                             }`}
                           >
                             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />
@@ -445,7 +443,7 @@ export default function ExpenseDialog({
 
                   {/* Members (split evenly among) */}
                   <div>
-                    <span id={`${baseId}-members-label`} className="text-xs text-ink-lo mb-1 block">Split evenly among</span>
+                    <span id={`${baseId}-members-label`} className="pr pr--lo mb-1 block">Split evenly among</span>
                     <div role="group" aria-labelledby={`${baseId}-members-label`} className="flex flex-wrap gap-2">
                       {allNames.map((name) => {
                         const active = splitMembers.includes(name);
@@ -456,8 +454,8 @@ export default function ExpenseDialog({
                             aria-pressed={active}
                             onClick={() => toggleMember(name)}
                             data-testid={`expense-split-member-${name}`}
-                            className={`inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                              active ? 'border-ring bg-primary/10 text-primary' : 'border-[color:var(--border-ui)] text-ink-mid hover:bg-white/5'
+                            className={`chip min-h-tap gap-1.5 px-3 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                              active ? 'chip--struck bg-white/5' : 'hover:bg-white/5 hover:text-ink-hi'
                             }`}
                           >
                             <span aria-hidden="true" className="h-2 w-2 rounded-full" style={{ backgroundColor: rosterAccent(name) }} />
@@ -467,11 +465,11 @@ export default function ExpenseDialog({
                       })}
                     </div>
                     {splitMembers.length === 0 ? (
-                      <p className="mt-1.5 text-xs text-gold-400/80" data-testid="expense-split-hint">
+                      <p className="mt-1.5 font-machine text-t-sm text-[color:var(--marigold)]" data-testid="expense-split-hint">
                         Pick at least one person, or this stays a personal expense.
                       </p>
                     ) : (
-                      <p className="mt-1.5 text-xs text-ink-mid" data-testid="expense-split-hint">
+                      <p className="mt-1.5 font-machine text-t-sm text-ink-mid" data-testid="expense-split-hint">
                         {amountValid
                           ? `${formatMoney(Number(amount) / splitMembers.length, cur)} each`
                           : `Split ${splitMembers.length} ways`}
@@ -496,12 +494,12 @@ export default function ExpenseDialog({
         </div>
 
         {/* Pinned action footer */}
-        <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-surface/40">
+        <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t-2 border-[color:hsl(var(--border))]">
           <button
             onClick={handleSave}
             data-testid="expense-save"
             disabled={saveDisabled}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary"
+            className="btn w-full px-4 focus-visible:outline-none"
           >
             <Check className="w-4 h-4" />
             {isEdit ? 'Update expense' : 'Save expense'}

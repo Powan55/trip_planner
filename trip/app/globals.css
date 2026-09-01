@@ -12,33 +12,48 @@
        orange->gold, Japan pink->violet), never from the surfaces. What changed is
        that the material is now a dark violet rather than a grey.
 
-       D-334 RE-VALUES THAT RAMP, and the interesting part is what did NOT move: the
-       base hue barely shifts (258 -> ~254). The change that actually removes the warm
-       "night shift" cast is SATURATION, 32% -> 50%. This was measured, not assumed —
-       pushing the hue up toward 270 for "more purple" RAISES the red channel and makes
-       the cast worse. Blue:red at surface-2 goes 1.50 -> 2.20 on the saturation lift
-       alone.
+       D-334 RE-VALUED THAT RAMP on saturation, and the ramp is RE-CAST AGAIN here. What
+       D-334 left behind was ONE HUE AT FOUR LIGHTNESSES — bg 253, surface-1 255,
+       surface-2 254, surface-3 255 — so depth was signalled by brightness alone and the
+       whole screen read as a single wash. The consequence that matters is not aesthetic:
+       on that ramp a Nepal panel and a Japan panel came out nearly the same plum, so the
+       country channels, which are the app's entire wayfinding system, did almost no
+       visible work.
+
+       THE FIX IS NOT A NEW PALETTE. The floor drops and cools (253 -> 248), the rise
+       cools with it (255/254/255 -> 247/244/243), and warmth arrives ONLY as screened
+       country tint on top. A cool field pushes a warm tint forward; a warm field absorbs
+       it. Warming the field was tried and rejected on inspection — it made Nepal LESS
+       legible as Nepal. It stops at 243-248 rather than rotating to blue because a
+       generic dark-blue product shell is an anti-goal, so the ramp is still recognisably
+       this app's aubergine.
 
        Steps stay deliberately close together, and the reason is measured: pushing
        surface lightness apart to "separate" the tiers is what breaks the text tiers.
        Do NOT chase more separation here — the edge comes from --border/--border-ui.
 
+       THE TRIPLETS CARRY A DECIMAL WHERE THEY NEED ONE. `#0A0818` rounded to whole
+       numbers is `248 50% 6%`, which renders rgb(10 8 23) — one off on blue from the hex
+       it claims to be, and this file writes the same four colours twice (HSL here,
+       RGB channels at --navy-*). A triplet that does not round-trip makes the two copies
+       disagree by construction. scripts/contrast-tokens.mjs prints the round-tripping
+       form; take it from there rather than rounding by hand.
+
        Every value below is a straight HSL conversion of a hex whose contrast is
        measured; `npm run contrast-check` (scripts/contrast-tokens.mjs) re-measures the
-       whole set and exits non-zero on any regression. Tightest text pair is 5.46:1
-       (--text-lo on --surface-3), so all twelve text/surface pairings clear AA — 21%
-       over the floor at the tightest. */
-    --background: 253 56% 8%;    /* #0E0920 -- the page field.   was 257 37% 7%   */
+       whole set and exits non-zero on any regression. Tightest text pair is 5.48:1
+       (--text-lo on --surface-3), so all twelve text/surface pairings clear AA. */
+    --background: 247.5 50% 6.3%;   /* #0A0818 -- the page field.  was 253 56% 8%  */
     --foreground: 0 0% 100%;     /* #FFFFFF -- --text-hi.        unchanged        */
-    --card: 254 50% 18%;         /* #221745 -- surface-2.        was 258 32% 16%  */
+    --card: 244 48% 19%;         /* #1C1948 -- surface-2.        was 254 50% 18%  */
     --card-foreground: 0 0% 100%;
-    --popover: 254 50% 18%;      /* #221745 -- surface-2                          */
+    --popover: 244 48% 19%;      /* #1C1948 -- surface-2                          */
     --popover-foreground: 0 0% 100%;
     /* The chrome accent moves MARIGOLD -> VOLT #3ED8FF (D-334). Marigold was chosen
        when the canvas moved to aubergine and it made ONE colour mean two things at
        once: "pressable" AND "Nepal" (--np-b IS #FFC43D). Volt splits them — chrome is
        cool and functional, country identity stays warm and content-owned, and the two
-       country gradients below are byte-identical because of it. Volt measures 11.56:1
+       country gradients below are byte-identical because of it. Volt measures 11.76:1
        on the page field, which is why it is also the focus ring. Marigold keeps its
        hex and survives as Nepal's identity stop; it just stops being the interaction
        colour. */
@@ -51,11 +66,11 @@
        white-on-volt and white-on-marigold as guards that MUST keep failing. A guard
        that starts passing means someone lightened a fill. */
     --primary-foreground: 258 36% 9%;   /* #140F20 --on-accent */
-    --secondary: 255 52% 12%;    /* #170F2F -- surface-1.        was 258 33% 12%  */
+    --secondary: 246.9 52.2% 13.1%; /* #141033 -- surface-1.     was 255 52% 12%  */
     --secondary-foreground: 0 0% 100%;
-    --muted: 255 46% 24%;        /* #2F2159 -- surface-3.        was 260 29% 20%  */
-    --muted-foreground: 259 23% 68%;    /* #A79BC0 --text-lo — the FLOOR tier, 7.50:1
-                                           on the page field. UNCHANGED by D-334.
+    --muted: 243 45% 25%;        /* #26235C -- surface-3.        was 255 46% 24%  */
+    --muted-foreground: 259 23% 68%;    /* #A79BC0 --text-lo — the FLOOR tier, 7.63:1
+                                           on the page field. Not moved by the re-cast.
                                            There is no fourth text tier below this. */
     /* shadcn interactive-fill accent (menus/toggles/selected). One chrome accent
        site-wide, now volt — same one-accent rule, new hue. The Japan/Nepal
@@ -80,15 +95,15 @@
        which is the last place to be casual about legibility. */
     --destructive: 356 82% 65%;
     --destructive-foreground: 258 36% 9%;   /* #140F20 --on-accent — 5.74:1 */
-    /* Borders/inputs = --border #4A3880. DECORATIVE ONLY at 2.01:1 on the page field
+    /* Borders/inputs = --border #4A3880. DECORATIVE ONLY at 2.04:1 on the page field
        — it wraps content that already carries its own contrast and may NEVER be the
        sole cue for anything. An INTERACTIVE control's boundary is --border-ui #9184C9
-       (5.89 / 5.54 / 4.97 / 4.28 across the four steps, up from a 3.72 worst case),
+       (5.98 / 5.51 / 4.95 / 4.30 across the four steps, up from a 3.72 worst case),
        declared below. contrast-tokens.mjs guards --border from ever being read as a UI
        cue by asserting it stays under 3:1. */
     --border: 255 39% 36%;
     --input: 255 39% 36%;
-    --ring: 192 100% 62%;        /* volt — 11.56:1 on bg, 8.41:1 on surface-3 */
+    --ring: 192 100% 62%;        /* volt — 11.76:1 on bg, 8.44:1 on surface-3 */
 
     /* ---- Radii — DE-FLATTENED ----
        Previously everything at `lg` and above collapsed onto 8/12px (-xl and -2xl
@@ -143,18 +158,21 @@
        reduced-transparency nav fallback. A stable wrong name beats a rename that
        silently drops a consumer.
 
-       RE-VALUED AGAIN under D-334 — same four names, same four roles, more chromatic
-       and cooler (the saturation lift, not a hue swing):
-         --navy-900 = #0E0920 = --bg        = --background   was #100C1A
-         --navy-850 = #170F2F = --surface-1 = --secondary     was #1A1428
-         --navy-800 = #221745 = --surface-2 = --card          was #241C36
-         --navy-700 = #2F2159 = --surface-3 = --muted         was #2E2442
+       RE-VALUED AGAIN with the re-cast — same four names, same four roles, cooler and
+       one step deeper at the floor:
+         --navy-900 = #0A0818 = --bg        = --background    was #0E0920
+         --navy-850 = #141033 = --surface-1 = --secondary     was #170F2F
+         --navy-800 = #1C1948 = --surface-2 = --card          was #221745
+         --navy-700 = #26235C = --surface-3 = --muted         was #2F2159
+       THIS IS THE ONE A RAMP CHANGE MISSES, because the name says nothing about the ramp
+       it mirrors. `--background: 247.5 50% 6.3%` and `--navy-900: 10 8 24` are the same
+       colour written twice, in two notations, and only one of them is greppable as a hex.
        --navy-850 was added when the ramp went to FOUR steps and this channel had
        three; the alias below (--surface-low) is what .glass-subtle fills from. */
-    --navy-900: 14 9 32;
-    --navy-850: 23 15 47;
-    --navy-800: 34 23 69;
-    --navy-700: 47 33 89;
+    --navy-900: 10 8 24;
+    --navy-850: 20 16 51;
+    --navy-800: 28 25 72;
+    --navy-700: 38 35 92;
     /* Semantic surface tier — components reference INTENT, not palette steps.
        surface = deepest page/base field; -low = calm/recessed fills (list rows,
        stat cells); -raised = lifted panels/fills; -overlay = top overlay step.
@@ -184,8 +202,8 @@
     /* ---- Text — THREE TIERS, AND NO FOURTH ----
        THE THREE HEXES DID NOT MOVE UNDER D-334 and re-hueing them is out of scope of
        any recolour that does not also sweep the ~728 sites that were moved onto them
-       under issue #27. Re-MEASURED on the new ramp: hi 19.47/18.33/16.45/14.16,
-       mid 11.87/11.18/10.03/8.64, lo 7.50/7.06/6.34/5.46. All twelve clear AA and
+       under issue #27. Re-MEASURED on the new ramp: hi 19.80/18.23/16.38/14.21,
+       mid 12.07/11.12/9.99/8.67, lo 7.63/7.03/6.31/5.48. All twelve clear AA and
        --text-lo IS the floor — there is nothing below it. Because no tier is
        expressed as an alpha on white, a wrapper opacity can no longer multiply a
        floored alpha below AA, which is the D-100 / D-246 defect class by
@@ -298,8 +316,8 @@
 
        Each is >=4.5:1 as text on the page field AND >=4.5:1 against --on-accent when
        used as a fill, so any one of them is legal both ways round. Measured on the new
-       --bg: marigold 12.25 · coral 7.65 · mint 11.17 · volt 11.56 · violet 7.82 ·
-       pink 9.28. */
+       --bg: marigold 12.46 · coral 7.78 · mint 11.36 · volt 11.76 · violet 7.95 ·
+       pink 9.43. */
     --marigold: #FFC43D;  /* Nepal's gold stop · celebration       */
     --coral:    #FF7A6B;  /* food · warmth · streaks               */
     --mint:     #4ADE80;  /* done · offline-ready · sightseeing    */
@@ -310,7 +328,7 @@
        object. A lip measures 1.90-2.02:1 against its OWN fill (volt/--lip-volt: 1.96):
        that is deliberate, it is a shading, not a boundary. The control's boundary
        against the page is the FILL vs --bg (7.65-12.25:1). Every lip also clears 3:1
-       against --bg on its own (3.94-6.07:1, and --lip-volt at 5.89) so a button never
+       against --bg on its own (4.01-6.17:1, and --lip-volt at 5.98) so a button never
        dissolves at its bottom edge. A LIP MAY NEVER BE THE ONLY CUE FOR ANYTHING, and
        the calm/Tier-3 controls have no lips at all. */
     --lip-marigold: #C08400;
@@ -332,8 +350,8 @@
     /* ---- Borders ----
        --border (declared above as an HSL triplet for the shadcn/Tailwind `border`
        key) is #4A3880 and is DECORATIVE ONLY. --border-ui is the boundary of an
-       INTERACTIVE control: 5.89:1 on --bg, 5.54 on surface-1, 4.97 on surface-2,
-       4.28 on surface-3 — clears WCAG 1.4.11's 3:1 on every step, with more room than
+       INTERACTIVE control: 5.98:1 on --bg, 5.51 on surface-1, 4.95 on surface-2,
+       4.30 on surface-3 — clears WCAG 1.4.11's 3:1 on every step, with more room than
        the 3.72 worst case it replaces. If a control's edge is the thing telling you it
        is a control, it takes --border-ui. */
     --border-ui: #9184C9;
@@ -360,7 +378,7 @@
        So the value lives here, once. Re-pointing the wash is now a one-line edit
        rather than a nine-file sweep that someone will do eight-ninths of.
 
-       Composited over --surface-2 this measures rgb(37,42,88), blue:red 2.38 — i.e.
+       Composited over --surface-2 this measures rgb(31,44,90), blue:red 2.90 — i.e.
        the wash now reads COOLER than the surface it sits on rather than warmer. */
     --hero-wash: radial-gradient(120% 140% at 0% 0%, rgb(62 216 255 / 0.10) 0%, transparent 55%);
 
@@ -371,7 +389,7 @@
        moved is that marigold was doing both jobs. Do not "harmonise" these with the
        cooler canvas.
        Japan is PINK -> VIOLET. Nepal is ORANGE -> GOLD. Every stop passes 4.5:1
-       ALONE (np-a 8.30, np-b 12.25, jp-a 9.28, jp-b 7.82 on --bg), which is what
+       ALONE (np-a 8.44, np-b 12.46, jp-a 9.43, jp-b 7.95 on --bg), which is what
        makes these gradients legal as TEXT fills and not only as backgrounds. */
     --np-a: #FF8A3D;
     --np-b: #FFC43D;
@@ -432,9 +450,15 @@
        --paper-lo BINDS FIRST if --paper ever darkens again; re-measure it before
        touching --paper. --bind-hi/-lo are the binding-edge stripes, retuned for the
        D-294 parchment (F-3: on the darker page the old light stripe measured 1.00:1
-       against it, i.e. the bound-book edge had silently vanished). Decorative. */
+       against it, i.e. the bound-book edge had silently vanished). Decorative.
+
+       THREE INK TIERS, NOT TWO. The dark ramp has --text-hi/-mid/-lo, so a paper block with
+       only two inks cannot carry the component recipes and /passport had to paint with the
+       D-294 inks directly. --paper-mid is the missing middle step, the sRGB midpoint of the
+       other two, and it is measured like everything else: 9.86 / 7.50 / 5.60 on --paper. */
     --paper: #DCCDAE;
     --on-paper: #2A2036;
+    --paper-mid: #3E334D;
     --paper-lo: #524563;
     --ink-nepal: #8E0E30;
     --ink-japan: #223C7C;
@@ -443,18 +467,78 @@
     --bind-lo: #B39F7B;
 
     /* ---- Geometry ----
-       --tap is the 44px floor for every interactive element. --shell is the centred
-       page measure. --stack is the vertical rhythm between major sections; it steps
-       up at 900px in the media query at the end of this layer. */
+       --tap is the 44px floor for every interactive element (52px outdoors — see the
+       [data-tm-legibility] block). --shell is the centred page measure. --stack is the
+       vertical rhythm between major sections; it steps up at 900px in the media query at
+       the end of this layer. --hair is the hairline WIDTH — the rules are the layout
+       here, so it is a token and not a literal 1px. --gut is the page gutter.
+
+       --r-1/-2/-3 are the instrument radii. An instrument is square, so the scale tops
+       out at 6px; --radius-* above stays for the surfaces that still consume it. RADIUS
+       IS PX AND NEVER REM, for the same reason it is px above: geometry has no reason to
+       scale with the reading size, and the root is 17px. */
     --tap: 44px;
     --shell: min(1180px, 100%);
     --stack: 40px;
+    --hair: 1px;
+    --gut: 14px;
+    --r-1: 2px;
+    --r-2: 4px;
+    --r-3: 6px;
+
+    /* ---- The instrument type scale ----
+       Two families, and everything numeric is tabular. Authored at the 17px root
+       (html{font-size:106.25%}), so the px in each comment is the rendered size — every
+       value is in rem precisely so the outdoor root bump moves it. NO `text-[Npx]` is
+       legal anywhere; a literal px size opts out of that bump by definition.
+
+       --t-micro is THE FLOOR and it is one spelling of the micro-label role. Uppercase
+       mono takes .08-.14em of tracking — the tracking is what stops mono caps reading as
+       a terminal dump, and it is part of the step, not decoration.
+
+       --font-machine IS WIRED. --font-plex-mono is emitted by next/font in app/layout.tsx
+       (IBM Plex Mono, weight 600 only) and the class carrying it sits on <html> so this
+       :root declaration can substitute it — a custom property is substituted where it is
+       DECLARED and inherits downward only, so the same variable on <body> would leave this
+       line resolving against nothing and take every consumer down with it. Never REQUEST
+       mono 400: only 600 is loaded, so CSS font matching would render the 600 file and the
+       lighter intent would be invisible. Where lighter machine text is wanted, use
+       --font-sans with `tnum`, already loaded. */
+    --font-machine: var(--font-plex-mono), ui-monospace, 'Cascadia Mono', Consolas, monospace;
+    --t-micro: 0.6875rem;  /* 11.69px — annunciator keys, tick labels, chips. THE FLOOR */
+    --t-label: 0.75rem;    /* 12.75px — section headings, row meta                      */
+    --t-sm: 0.8125rem;     /* 13.81px — conditions, table cells                         */
+    --t-body: 0.9375rem;   /* 15.94px — row titles, prose                               */
+    --t-lead: 1.0625rem;   /* 18.06px — the one paragraph on a surface                  */
+    --n-sm: 1.25rem;       /* 21.25px — cell values, night counts                       */
+    --n-md: 1.75rem;       /* 29.75px — section values                                  */
+    --n-lg: 2.625rem;      /* 44.63px — screen headline value                           */
+    --n-xl: 4.25rem;       /* 72.25px — the T-minus below 400px                         */
+    --n-2xl: 6.25rem;      /* 106.25px — the T-minus numeral                            */
+
+    /* ---- The leg channel ----
+       Country stops being a repaint and becomes ONE custom property, set on the shell
+       from `data-leg`, so every route is country-aware for zero bytes instead of four
+       routes being repainted. It is CONTENT wayfinding and may never become interactive
+       chrome — that is --accent's job and the map-category hue gate depends on the split.
+
+       --np-screen / --jp-screen are the SCREENED TINT ceilings, and 14% for both is a
+       post-grain measurement, not a preference. Measured on --surface-2 with --text-lo
+       binding: np-a at 18% reads 4.71 against the raw color-mix and 4.48 once the film
+       grain lands, i.e. under the floor. 18% is legal only on a surface proven to carry
+       nothing composited over it. Japan cannot buy headroom by swapping to --jp-b
+       either: the field sits at hue 244 and --jp-b is 13 deg away, so a --jp-b screen
+       rotates the surface by 7 deg and does no visible work, where --jp-a moves it 19. */
+    --now: var(--np-a);
+    --now-screen: 14%;
+    --np-screen: 14%;
+    --jp-screen: 14%;
 
     /* ---- hairline separator ----
        Space-separated RGB channels + alpha so `rgb(var(--hairline))` resolves.
        RE-VALUED from the neutral white/.08 to the ruled rgba(207,198,224,.14), which
-       is the aubergine-tinted separator: on the D-334 ramp it composites to #29233B on
-       the page field (1.30:1) and #3A305B on surface-2 (1.37:1).
+       is the aubergine-tinted separator: on the D-334 ramp it composites to #262334 on
+       the page field (1.29:1) and #35315D on surface-2 (1.36:1).
 
        IT NOW HAS ZERO CONSUMERS, deliberately. The six .glass-* recipes below used
        to take their edge from this token; they now take it from --border, because a
@@ -482,7 +566,7 @@
        Moved as one unit AGAIN under D-334, marigold -> volt, for the same reason: this
        is the copy that actually paints :focus-visible's app-wide outline, every
        eyebrow, the tab-bar active tint, the h2 underline, --shadow-glow, today-pulse
-       and the drag overlay. Volt at 11.56:1 on the page field is the ruled focus ring,
+       and the drag overlay. Volt at 11.76:1 on the page field is the ruled focus ring,
        so the fallback ring and the ring token still agree by construction. If you are
        here to change the accent again: --primary, --accent, --ring and THESE TWO are
        one edit, and --accent-scroll-rgb is the one people forget (it is the "r, g, b"
@@ -523,8 +607,8 @@
        BACK TO A BLUR here because the locked direction says so — but the objection
        was correct and is recorded as F-8 against D-291, so read this before leaning
        on it: --shadow-sm and --shadow-lg are BLACK BLURS ON A NEAR-BLACK CANVAS and
-       contribute almost nothing on their own. --border (1.99:1) and --border-ui
-       (4.94:1) are what actually define an edge here. NEVER SHIP A SURFACE WHOSE
+       contribute almost nothing on their own. --border (2.04:1) and --border-ui
+       (5.98:1) are what actually define an edge here. NEVER SHIP A SURFACE WHOSE
        ONLY SEPARATION IS --shadow-sm. That is why every one of the six glass recipes
        below keeps a real border, and why the ring is not simply gone: its job moved
        to the border, not to the blur. --shadow-lg stays reserved for genuinely
@@ -586,6 +670,18 @@
     --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);   /* presses, pops — gentle overshoot */
     --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);    /* reveals, draws — expo settle */
     --ease-inout: cubic-bezier(0.42, 0, 0.58, 1);       /* ambient loops */
+
+    /* ---- the instrument's three working-screen animations ----
+       There are no entrances, no scroll-reveal, no stagger, no shimmer and no pulse on
+       these surfaces: content is present when you arrive. What is left is three timings.
+       --duration-ink is separate from --duration-draw (900ms, the longest single
+       animation permitted) because ink-draw is a chart drawing itself once, not a reveal.
+       --ease-ink is the ink curve; press is linear on purpose — a confirm is a state
+       change, so it should not ease. */
+    --duration-ink: 420ms;
+    --duration-press: 90ms;
+    --duration-raise: 140ms;
+    --ease-ink: cubic-bezier(0.2, 0.7, 0.3, 1);
   }
 
   /* --stack steps up on the wide layout. Declared here rather than in a component
@@ -593,7 +689,31 @@
   @media (min-width: 900px) {
     :root {
       --stack: 60px;
+      --gut: 20px;
     }
+  }
+
+  /* THE LEG CHANNEL'S BINDING, and it is the only one. `--now` is set from `data-leg` and
+     INHERITS, so the attribute can sit on the shell and every route below it is
+     country-aware for zero bytes — components have no reason to re-derive the ink inline.
+
+     THE BARE `[data-leg]` RULE IS WHAT MAKES A SHELL-LEVEL ATTRIBUTE SAFE. Nesting does
+     not re-apply the :root default, so with only the Japan rule below, a Nepal block
+     inside a Japan shell would keep Japan's ink. Any leg id that is not Japan lands on
+     Nepal here, which covers 'nepal', 'np' and a custom single-leg trip's 'main' without
+     a third branch. Equal specificity, so source order gives Japan the override.
+
+     BOTH SPELLINGS are matched because the app's own leg ids are 'nepal'/'japan'
+     (core/budget/model.ts) while the design carries them as np/jp; a selector that
+     matches neither fails silently. */
+  [data-leg] {
+    --now: var(--np-a);
+    --now-screen: var(--np-screen);
+  }
+  [data-leg='japan'],
+  [data-leg='jp'] {
+    --now: var(--jp-a);
+    --now-screen: var(--jp-screen);
   }
 
   /* the ambient trip-phase overrides are deleted with the aurora they
@@ -622,7 +742,7 @@
      THE COST OF THAT, which is the defect this block is being fixed for: the ONLY thing
      left raising TM's text contrast was the surface ramp below darkening one step, and the
      tiers are fixed hexes that do not move with it. `text-ink-lo` on a TM card measured
-     7.06:1 with the toggle ON, against the 15.53:1 the deleted selector used to give it —
+     7.03:1 with the toggle ON, against the 15.47:1 the deleted selector used to give it —
      a 55% loss of exactly the headroom the one mode built for sun on a screen exists for.
      Still AA, so no contrast guard fired; nothing measured the high-legibility ramp at all.
      The tier overrides below are what restore it, and scripts/contrast-tokens.mjs now models
@@ -631,10 +751,10 @@
      WHAT THAT HARNESS ASSERTS, and why it is not just this block's own promise: a strict
      RAISE per tier x surface pairing, PLUS a 12:1 OUTDOOR FLOOR. The raise alone is not a
      check, which was measured rather than argued — in the defect state above every pairing
-     still "rose" by 0.29-1.40 purely from the surface ramp darkening under fixed-hex text, so
+     still "rose" purely from the surface ramp darkening under fixed-hex text, so
      a raise-only assertion is green on a dead feature. The floor is what fires. It is 12
-     because these overrides bottom out at 13.22, which leaves 1.22 of room for a re-tune —
-     13 would leave 0.22 and go red on any nudge. Be honest about what 12 does and does not
+     because these overrides bottom out at 13.17, which leaves 1.17 of room for a re-tune —
+     13 would leave 0.17 and go red on any nudge. Be honest about what 12 does and does not
      do: it fires on 7 of the 12 defect-state pairings and on every `lo` row, but the defect
      state's ceiling AMONG THE ROWS THIS FIX MOVES — mid and lo; `hi` is #FFFFFF in both modes
      and was never broken — is 12.34 (text-mid on --surface), which CLEARS 12
@@ -654,13 +774,19 @@
        harder against direct sunlight glare. Values are pixel-identical in the normal state
        (this block only applies once the attribute is stamped).
 
-       RE-VALUED WITH THE CANVAS, TWICE NOW: these are hardcoded copies of the base
+       RE-VALUED WITH THE CANVAS, THREE TIMES NOW: these are hardcoded copies of the base
        ramp, so a base-ramp change that skips this block silently paints the RETIRED
        palette back onto /travel — the same "hardcoded copy of a token that drifts"
        defect this file documents elsewhere. It happened once already (these were still
-       the blue-navy ramp after the aubergine move) and D-334 is the second time they
-       had to move. Same RELATIONSHIP as before (one step darker than the base ramp, a
-       stronger border, a brighter secondary ink), now on the D-334 ramp. --border is
+       the blue-navy ramp after the aubergine move), D-334 is the second time they
+       had to move, and the cool re-cast is the third. Same RELATIONSHIP as before (one
+       step darker than the base ramp, a stronger border, a brighter secondary ink).
+
+       THE PAIR THAT BREAKS FIRST IF THE FIELD IS EVER DEEPENED AGAIN is `text-hi on
+       --surface`: deepening the field raises NORMAL-mode contrast faster than this
+       block's, so the outdoor advantage has already narrowed from +0.76 to +0.43. The
+       correcting knob is the deepest step above, NEVER the ink tiers — flattening the
+       tiers is the exact defect this block exists to fix. --border is
        pointed at --border-ui #9184C9 = hsl(251 39% 65%), the ruled INTERACTIVE boundary
        at 5.89:1 — exactly the right target for a high-legibility mode.
 
@@ -672,18 +798,24 @@
        contrast-tokens.mjs models all four surfaces, and TM[i] is exactly normal[i-1] — so a
        TM step LIGHTENED onto its lighter neighbour lands on that row's own normal background,
        fg and bg identical, ratio not strictly greater, and the run exits 1 (verified:
-       -low onto -raised fails `text-hi on --surface-low`, 18.33 vs 18.33, NOT A RAISE). A TM
+       -low onto -raised fails `text-hi on --surface-low`, 18.23 vs 18.23, NOT A RAISE). A TM
        step DARKENED raises the ratio and sails through both assertions. So collapsing two
        steps ONTO ONE VALUE — which is what this warning literally describes, and the way a
-       dev actually does it — is still SILENT: setting -low and -raised both to #0E0920, or
+       dev actually does it — is still SILENT: setting -low and -raised both to #0A0818, or
        both to some new middle value, exits 0. Only the lighten direction is covered. */
-    --surface: 7 5 16;          /* below --bg  — new deepest step */
-    --surface-low: 14 9 32;     /* = --bg        */
-    --surface-raised: 23 15 47; /* = --surface-1 */
-    --surface-overlay: 34 23 69;/* = --surface-2 */
+    --surface: 7 5 16;          /* #070510 — below --bg. SHIPPED, unchanged by the re-cast:
+                                   TM[i] == normal[i-1] carries it, so no new outdoor value
+                                   is derived and there is no extra token to maintain. */
+    --surface-low: 10 8 24;     /* = --bg        #0A0818 */
+    --surface-raised: 20 16 51; /* = --surface-1 #141033 */
+    --surface-overlay: 28 25 72;/* = --surface-2 #1C1948 */
     --foreground: 0 0% 100%;
     --border: 251 39% 65%;
     --muted-foreground: 260 25% 88%;
+    /* Outdoor geometry: a bigger target and a heavier hairline for a gloved hand in
+       glare. Both are TM-local like everything else in this block. */
+    --tap: 52px;
+    --hair: 1.5px;
     /* THREE TIERS, THREE VALUES — the same rule as FOUR STEPS, FOUR VALUES above, and it
        is the one the deleted `[class*='text-white/']` selector broke: that rule flattened
        every tier onto white@0.92, so all three computed identically and the tier system
@@ -694,16 +826,16 @@
 
        MEASURED, not chosen by eye (scripts/contrast-tokens.mjs, TM section — these hexes
        are mirrored there and the two files must move together). On --surface-raised, the
-       fill of a TM card: hi 18.33 · mid 16.14 · lo 14.73, against the flat 15.53 the old
-       selector produced — and against 18.33/11.18/7.06, which is what these same three
+       fill of a TM card: hi 18.23 · mid 16.05 · lo 14.66, against the flat 15.47 the old
+       selector produced — and against 18.23/11.12/7.03, which is what these same three
        tiers computed to in TM WITHOUT these overrides, i.e. the defect state (all three
        numbers on this line are TM-context; the normal-mode triple on this surface is
-       16.45/10.03/6.34, a different quantity). Every one of the
+       16.38/9.99/6.31, a different quantity). Every one of the
        twelve tier x surface pairings is strictly higher than its normal-mode counterpart,
        which is the "monotonic contrast RAISE only" promise this block has always claimed
        and, between the sweep and now, had stopped keeping. --text-lo lands ~5% under the
-       old flat 15.53 deliberately: that is the price of the tiers staying three distinct
-       values, and 14.73:1 is over three times AA. */
+       old flat 15.47 deliberately: that is the price of the tiers staying three distinct
+       values, and 14.66:1 is over three times AA. */
     --text-mid: #F2EFF9;
     --text-lo: #E9E4F5;
     /* Type-scale bump: `rem` is always ROOT-relative in CSS
@@ -788,38 +920,12 @@ html {
   overscroll-behavior-y: contain;
 }
 
-/* ---- The serif cannot be bold, so stop asking it to (G-2) ---------------------
-   Instrument Serif ships WEIGHT 400 ONLY (app/layout.tsx pins `weight: '400'`, and
-   there is no other weight to pin). tailwind.config.ts already says in writing, on the
-   `editorial-*` steps, that pairing `font-display` with `font-bold`/`font-semibold`
-   "produces a browser-SYNTHESISED bold, which is already a live defect in this
-   codebase" — and then the tree shipped 70 of them, across 45 files: every page title,
-   section masthead, error heading and dialog title in the app was rendering a smeared
-   algorithmic fake bold (the browser double-strikes/shears the 400 outlines).
-
-   ONE RULE INSTEAD OF 70 CALL-SITE EDITS. `font-bold`/`font-semibold` on those sites
-   are almost always doing a SECOND job — they sit in a shared class string with the
-   sans steps, or they were copied off a sans heading — so deleting them one by one is
-   45 files of churn with 45 chances to also change a size or a colour by accident.
-   Pinning the family's only real weight at the family utility fixes every site at once
-   and keeps working for sites that do not exist yet.
-
-   UNLAYERED, AND THAT IS THE WHOLE MECHANISM — do not "tidy" this into `@layer base`
-   or `@layer components`. `.font-display` and `.font-bold` are both 0,1,0, so this only
-   wins by SOURCE ORDER, and plain CSS below the `@tailwind utilities` injection point
-   at the top of this file is emitted after every utility. In a layer it would lose and
-   the fix would be silently inert. Same idiom, and same reason, as `.glass-card` below.
-   No `!important`: order is enough, and `!important` here would also beat the inline
-   `style` a future animation might need.
-
-   IT PINS THE SERIF ONLY. `display` is `var(--font-display), Georgia, serif` in
-   tailwind.config.ts — a family of its own, never the UI sans (`font-sans`/`font-mono`
-   both resolve `--font-sans`), so no sans weight is affected. It also pins the GEORGIA
-   fallback, which is deliberate: Georgia has a real bold, so without this the heading
-   weight would visibly change when the lazily-loaded webfont (`preload: false`) swaps
-   in. A heading that needs weight contrast takes a sans display step, not a fake bold. */
-.font-display {
-  font-weight: 400;
+/* `machine` sets family only, and the one IBM Plex Mono face loaded here is the 600 — so
+   these sites render lighter than intended whenever the fallback stack is in use (cold
+   cache, or before the `preload: false` font lands). Unlayered on purpose: it beats
+   `font-bold` on source order, not specificity, and goes inert inside a layer. */
+.font-machine {
+  font-weight: 600;
 }
 
 /* ---- Surfaces ------------------------------------
@@ -833,14 +939,14 @@ html {
    relayed). Removing the translucent scrim makes text sit on a darker, fully-opaque
    fill, so contrast RISES.
 
-   The ONE surviving glass recipe lives in `.sheet-surface` (below) and is consumed
-   only by the Sheet primitive — the nav/overlay layer, HIG-legal. The
-   navbar/tab-bar hand-roll their own `backdrop-blur` and are untouched.
+   NO GLASS RECIPE SURVIVES. `.sheet-surface` (below) was the last one and is now an
+   opaque overlay tier — see its own block for the three measurements that made the call.
+   The navbar/tab-bar hand-roll their own `backdrop-blur` and are untouched.
 
    Country tints survive as CONTENT wayfinding: `.glass-nepal` / `.glass-japan` keep
    a SOLID low-alpha brand tint over the surface fill — re-pointed from the retired
    himalaya/sakura literals to the ruled country stops --np-a / --jp-a. Measured over
-   the D-334 surface-2: --text-hi 14.07 / 13.72, --text-lo 5.42 / 5.29. Both tinted
+   surface-2: --text-hi 14.15 / 13.67, --text-lo 5.45 / 5.27. Both tinted
    fills still clear AA for every text tier.
 
    Each recipe below keeps a BORDER, and that is not decoration. F-8, recorded
@@ -876,7 +982,7 @@ html {
 }
 
 /* SPLIT OUT of the shared `.glass-card` rule — it no longer has the same fill. The
-   calm/recessed tier sits on --surface-low (#170F2F), one step below a raised card,
+   calm/recessed tier sits on --surface-low (#141033), one step below a raised card,
    which is the whole point of the name. */
 .glass-subtle {
   background: rgb(var(--surface-low));
@@ -914,28 +1020,30 @@ html {
   box-shadow: var(--shadow-sm);
 }
 
-/* ---- The ONE surviving glass recipe --------------------------
-   Consumed ONLY by the shared dark `Sheet` primitive (components/ui/sheet.tsx) —
-   the nav/overlay layer (place-detail / import-place / guide-filter sheets), which
-   is HIG-legal for glass. This is the former `.glass-card-dark` glass body, minus
-   the grain layer; the 1px gradient edge + blur + elevated shadow are kept. */
+/* ---- The overlay tier — and the last glass recipe is now gone too ------------------
+   Consumed ONLY by the shared dark `Sheet` primitive (components/ui/sheet-dark.tsx) —
+   the nav/overlay layer (place-detail / import-place / guide-filter sheets).
+
+   THE BLUR IS DELETED, AND SO IS THE TRANSLUCENCY. This direction is flat enamel with
+   hard edges: no glass, no card shadows, hairlines are the layout. Three things made the
+   call rather than taste. (1) The primitive already draws a solid `bg-black/70` scrim and
+   deleted the SCRIM's own blur for this exact reason, so this backdrop-filter was
+   sampling a backdrop that is already 70% black — a composited full-viewport layer per
+   frame, for an effect nobody can see. (2) The fill was 0.86/0.88 alpha over that scrim,
+   i.e. already opaque to within a few percent, so going solid loses no ground: the panel
+   is --surface-raised (#1C1948), the same tier `.glass-card-dark` uses and the same value
+   the reduced-transparency fallback already degraded to, which is why that fallback's
+   sheet clause is now redundant and removed. (3) This rule is UNLAYERED, so a `bg-*`
+   utility on a sheet was silently inert rather than overridden; a fill nobody can override
+   has to be the fill the design actually wants.
+
+   The gradient border-box edge goes with it. F-8 (D-291): the resting shadow is a black
+   blur on a near-black canvas and separates almost nothing, so --border is what draws the
+   edge — one hairline, like every other recipe in this file. */
 .sheet-surface {
-  /* RECIPE UNCHANGED, and verified rather than assumed: the two fill stops were
-     already re-expressed against the --navy-800/-900 channel (they used to be
-     hardcoded blue literals), so re-valuing that channel carries this surface onto
-     the aubergine ramp on its own, with no edit here and no alpha change. This is
-     the payoff of the earlier de-hardcoding — the same fix is still outstanding for
-     the map style and a handful of page washes, which is why they will need their
-     own slices. */
-  background:
-    linear-gradient(180deg, rgb(var(--navy-800) / 0.88) 0%, rgb(var(--navy-900) / 0.86) 100%) padding-box,
-    linear-gradient(150deg, rgba(255, 255, 255, 0.16) 0%, rgba(255, 255, 255, 0.05) 55%, rgba(255, 255, 255, 0.02) 100%) border-box;
-  border: 1px solid transparent;
-  backdrop-filter: blur(18px) saturate(130%);
-  -webkit-backdrop-filter: blur(18px) saturate(130%);
-  box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.07),
-    var(--shadow-lg);
+  background: rgb(var(--surface-raised));
+  border: 1px solid hsl(var(--border));
+  box-shadow: var(--shadow-lg);
 }
 
 /* ---- The Tier-2 photographic page header (issue #3) -------------------------------
@@ -1244,6 +1352,15 @@ html {
   color: var(--on-paper);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-paper);
+  /* THE THREE INK TIERS ARE RE-POINTED AT THE PAPER RAMP, SCOPED TO THIS SHEET. Without
+     this the component recipes below (which all read --text-hi/-mid/-lo) render the dark
+     ramp's near-white inks on parchment, so /passport had to paint with the D-294 inks
+     directly instead of using them. Measured on --paper: 9.86 / 7.50 / 5.60. --now is
+     deliberately NOT re-pointed — nothing on this page reads it yet, and the honest paper
+     mapping is the two stamp inks, not a fallback nobody measured. */
+  --text-hi: var(--on-paper);
+  --text-mid: var(--paper-mid);
+  --text-lo: var(--paper-lo);
 }
 
 /* The bound edge. Decorative and nothing else — --bind-hi/--bind-lo were retuned for
@@ -1416,16 +1533,8 @@ html {
   color: hsl(var(--accent-foreground));
 }
 
-/* the gold display gradient is RETIRED (34 class sites renamed onto the class
-   below). A gold gradient on every <h1> was the old luxury-travel-blog identity fighting the
-   new one — under the display serif IS the flourish (that is what bought
-   with Instrument Serif), so a gradient on top of it is redundant. The class was RENAMED, not
-   just re-valued: a class whose name promises a gradient and a hue it no longer has is exactly
-   the lying-name defect set out to remove. The sakura/himalaya siblings below are Bucket 2
-   country identity and KEEP their gradients. */
-.text-display-emphasis {
-  color: hsl(var(--foreground));
-}
+/* The gold display gradient is retired; display headings inherit their tier ink. The
+   sakura/himalaya siblings below are country identity and KEEP their gradients. */
 
 /* The two country display gradients, re-valued onto the ruled stops: Japan is
    PINK -> VIOLET (--jp-a -> --jp-b) and Nepal is ORANGE -> GOLD (--np-a -> --np-b).
@@ -1435,7 +1544,7 @@ html {
    These are the reason every gradient stop had to pass 4.5:1 ALONE: the gradient is
    clipped to TEXT, so a reader lands on whichever stop happens to fall under the
    glyph they are looking at. An average would not be a measurement. Stops on the
-   D-334 page field: jp-a 9.28, jp-b 7.82, np-a 8.30, np-b 12.25. */
+   page field: jp-a 9.43, jp-b 7.95, np-a 8.44, np-b 12.46. */
 .text-gradient-sakura {
   background: linear-gradient(135deg, var(--jp-a) 0%, var(--jp-b) 100%);
   -webkit-background-clip: text;
@@ -1493,11 +1602,11 @@ html {
    also covers the two branches that have NO cap and no photograph: the custom-trip
    vibe gradient (whose stops this file does not author) and the SVG fallback art.
    White is the bound that holds for all three, so the ramp is sized by it and the
-   cap is only ever headroom. At 0.76 over white: --text-hi 9.22:1, --text-mid
-   5.62:1, and at the darkest frame of the entrance reveal (FADE_FLOOR 0.95) 8.53:1
-   and 5.27:1. --text-lo measures 3.55:1 there and therefore MAY NOT BE USED AS TEXT
+   cap is only ever headroom. At 0.76 over white: --text-hi 9.68:1, --text-mid
+   5.91:1, and at the darkest frame of the entrance reveal (FADE_FLOOR 0.95) 8.96:1
+   and 5.49:1. --text-lo measures 3.73:1 there and therefore MAY NOT BE USED AS TEXT
    OVER THE PHOTOGRAPH — in the hero it appears only on the opaque countdown
-   cells (6.25:1 on surface-2). 3.55 does clear the 3:1 bar for a decorative
+   cells (6.31:1 on surface-2). 3.55 does clear the 3:1 bar for a decorative
    non-text mark, and nothing in the hero relies on that.
 
    The last stop is the opaque page field, so the section blends into the
@@ -1556,10 +1665,10 @@ html {
    this colour — so every channel of every pixel is clamped at --duo-*-high and the
    brightest pixel the scrim can ever sit on becomes a number instead of a guess.
    That is the same engine `.photo-header` runs on, and scripts/contrast-tokens.mjs
-   measures this composite: --text-hi 10.60 (NP) / 10.84 (JP) and --text-mid 6.46 /
-   6.61 at the 0.76 scrim floor, both up from 9.22 / 5.62 against bare white.
+   measures this composite: --text-hi 11.16 (NP) / 11.41 (JP) and --text-mid 6.80 /
+   6.96 at the 0.76 scrim floor, both up from 9.68 / 5.91 against bare white.
 
-   IT DOES NOT UNLOCK THE FLOOR TIER. --text-lo measures 4.08 (NP) / 4.18 (JP) here,
+   IT DOES NOT UNLOCK THE FLOOR TIER. --text-lo measures 4.30 (NP) / 4.40 (JP) here,
    still short of 4.5, so the hero's "no floor-tier copy over the photograph" rule
    stands exactly as written and the harness guard that encodes it still fails on
    purpose. Do not re-tier hero copy off the back of this layer.
@@ -1607,7 +1716,7 @@ html {
    anyway. If the loop is ever wanted it belongs with the motion system (the
    session ledger and the per-surface loop counter), not smuggled in here.
 
-   --jp-a as the edge measures 7.73:1 against the cell fill, far past the 3:1 a
+   --jp-a as the edge measures 7.80:1 against the cell fill, far past the 3:1 a
    non-text boundary needs; it wins over `.glass-card`'s --border edge by source
    order at equal specificity. */
 .countdown-cell--live {
@@ -1616,29 +1725,13 @@ html {
 }
 
 /* ---- --accent-scroll consumers ---- */
-/* 1) Premium gradient underline beneath every section <h2...-heading> title.
-   Always-visible, additive (pure CSS, no component edits), and themed by the
-   scroll accent so sweeps it warm/cool. Centered under the centered titles. */
-h2[id$="-heading"] {
-  position: relative;
-}
-h2[id$="-heading"]::after {
-  content: "";
-  display: block;
-  width: 3rem;
-  height: 3px;
-  margin: 0.75rem auto 0;
-  border-radius: 9999px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    hsl(var(--accent-scroll)) 50%,
-    transparent 100%
-  );
-  opacity: 0.9;
-}
+/* The gradient underline that used to hang off every `h2[id$="-heading"]` is DELETED. It
+   was a retired-look artefact: a decorative 3rem centred flourish under a centred display
+   title, on a scale where section headings are 12.75px tracked mono and the weight has
+   moved to the numbers underneath. The ids stay — e2e pins `#dashboard-heading` and
+   `#inspiration-heading` — but nothing hangs off them now. */
 
-/* 2) Keyboard focus ring fallback uses the scroll accent. Components that set
+/* Keyboard focus ring fallback uses the scroll accent. Components that set
    their own Tailwind ring still win; this gives every other focusable element a
    visible, on-brand ring that also animates. */
 :focus-visible {
@@ -1887,6 +1980,39 @@ html[data-vt-active] .animate-route-fade {
   .reveal-stagger > * {
     animation-delay: 0ms !important;
   }
+  /* ---- The printed instrument's three forks ----
+     THE GOVERNING RULE IS STRONGER THAN "TURN IT OFF": information carried by motion must
+     be RE-CARRIED BY A STATIC MARK. An animation whose fork is `animation: none` and
+     nothing else has silently deleted a signal.
+
+     ink-draw: the chart paints complete on the first frame. `clip-path: none` is the belt
+     — the universal collapse above lands the `both` fill on inset(0) anyway, but a
+     clipped chart that ever failed to reach its end state would be an empty chart.
+     press: the lip still collapses, instantly. A confirm is a state change, not a
+     movement, so nothing is lost.
+     tab-raise: the active tab is still the lighter surface, still raised. MATERIAL
+     carries that state, so removing the motion removes nothing.
+
+     caret-press: the ring stops and rests at the bright end state its own rule carries, so
+     the present stays marked four times over (triangle, bar, tag, ring). It is INFINITE, so
+     the universal 0.01ms collapse above would leave it looping ultra-fast rather than stop it.
+
+     The other thing this direction loops is not stopped here: the T-minus keeps updating
+     every second because the number IS the information — suppressing the update would
+     delete a live fact from a user who asked for less motion, which is not what the
+     preference means. Only the digit roll is dropped, and that belongs to the countdown
+     component, not to this file. */
+  .caret .ring {
+    animation: none;
+  }
+  .draw {
+    animation: none;
+    clip-path: none;
+  }
+  .btn,
+  .nav a {
+    transition: none;
+  }
   /* belt-and-braces: the useViewTransition() helper already short-
      circuits to a plain push under reduced motion (rung 1 — no VT is ever started),
      so these pseudo-elements never exist. This hard-stops the VT cross-fade anyway
@@ -2020,44 +2146,10 @@ body:has(form:focus-within) .door-kb {
   border-bottom: 1px solid rgb(255 255 255 / 0.06);
   background: rgb(var(--navy-900) / 0.9); /* navy-900 @ 90% */
 }
-.home-nav-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  overflow-x: auto;
-  padding: 0.375rem 1rem;
-}
-@media (min-width: 640px) {
-  .home-nav-inner {
-    padding-left: 1.5rem;
-    padding-right: 1.5rem;
-  }
-}
-.home-nav-link {
-  display: inline-flex;
-  min-height: 44px;
-  flex-shrink: 0;
-  align-items: center;
-  border-radius: 0.5rem;
-  padding: 0 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: rgb(255 255 255 / 0.7); /* matches navbar.tsx's inactive-link tone */
-}
-.home-nav-link:hover {
-  color: #fff;
-  background: rgb(255 255 255 / 0.05);
-}
-.home-nav-link[aria-current='true'] {
-  /* was the #f0c760 gold-400 literal. The active-section tint is chrome, so it is
-     pointed at the same var the tab-bar's active tint and the focus ring use and
-     can't drift from them. That var has since gone gold -> marigold -> volt (D-334)
-     and this line has needed no edit at any of them, which is the whole argument for
-     it. */
-  color: hsl(var(--accent-scroll));
-}
+/* `.home-nav-inner` and `.home-nav-link` are DELETED: the strip's inner rail is now the
+   `.head` running-head recipe (components/home-section-nav.tsx), so both had zero
+   consumers. `.home-nav` itself STAYS — it carries the sticky offset and it is the
+   selector the @media print block hides this strip by. */
 
 /* Anchor-jump landing offset: a bare hash jump aligns the target's TOP edge flush with
    the viewport top, which would land it UNDER the fixed navbar (h-16 = 4rem) and — for every
@@ -2158,20 +2250,13 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
    at breakpoints where the inset is 0, which would be a regression, not a fix. */
 
 /* ──/A6 · behavior 7 (reduced-transparency fallback) ─────────────────────
-   left exactly ONE glass recipe standing: `.sheet-surface` (the dark
-   Sheet primitive) plus the navbar/tab-bar's own hand-rolled `backdrop-blur`
-   Under the OS "reduce
-   transparency" setting, degrade JUST that surviving nav-layer glass to an opaque
-   solid — content is already de-glassed at the token layer and is NOT
-   touched here, so this can never reintroduce glass on content. Plain (unlayered)
-   CSS, so it wins over the Tailwind utility layer without needing `!important`
-   (same idiom as `.glass-card`/`.sheet-surface` above). */
+   What is left to degrade is the navbar/tab-bar's own hand-rolled `backdrop-blur`.
+   `.sheet-surface`'s clause is GONE because the recipe itself is now an opaque solid at
+   the same value this block degraded it to — the two paths converged, so the override
+   was a no-op. Content is already de-glassed at the token layer and is NOT touched here,
+   so this can never reintroduce glass on content. Plain (unlayered) CSS, so it wins over
+   the Tailwind utility layer without needing `!important`. */
 @media (prefers-reduced-transparency: reduce) {
-  .sheet-surface {
-    background: rgb(var(--surface-raised));
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
   [data-testid="navbar"],
   [data-testid="tab-bar"] {
     background: rgb(var(--navy-900) / 0.98);
@@ -2179,6 +2264,1162 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
     -webkit-backdrop-filter: none;
   }
 }
+/* ============================================================================
+   THE PRINTED INSTRUMENT — component recipes.
+
+   Layered in `@layer components` DELIBERATELY, and it is the opposite call from the
+   `.glass-*` fills above. Those are unlayered so they win over utilities; these are a
+   new system meant to be composed WITH utilities, so a `p-4` on a `.cell` should win
+   rather than lose silently. The one exception is the `:focus-visible` overrides, which
+   sit unlayered at the end — the app-wide focus ring is unlayered, and an unlayered rule
+   beats every layered one regardless of specificity.
+
+   THE GRAMMAR, once, so each recipe below only names its exceptions.
+     FILLED means committed. UNFILLED means not yet.
+   One rule, applied without exception to systems lamps, chart columns, route nodes, log
+   slots, list rows, day tabs, instrument cells and the approach rail. At three months out
+   most of this product is "not yet", so the mark that draws NOT YET is the mark that
+   draws the app.
+
+   Shared defaults: focus is `2px solid hsl(var(--accent))` inset by 2px, except on a saturated
+   fill where it goes OUTWARD onto the field. Row hover is `rgb(255 255 255 / .05)` and
+   nothing else moves. DISABLED DROPS THE TEXT TIER AND HOLLOWS THE MARK BUT KEEPS OPACITY
+   1 — dimming a row is how you hide a fact. A mark is never the sole cue: every state is
+   also stated in words.
+   ========================================================================= */
+@layer components {
+  /* ---- PRINT · the form itself, true regardless of state ---- */
+  .pr {
+    font-weight: 600;
+    font-size: var(--t-micro);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-mid);
+  }
+  .pr--lo { color: var(--text-lo); }
+  .pr--l {
+    font-size: var(--t-label);
+    letter-spacing: 0.06em;
+  }
+  .num {
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .sec {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.8rem;
+    margin-bottom: 0.7rem;
+  }
+  .sec h2 {
+    font-weight: 600;
+    font-size: var(--t-label);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-hi);
+  }
+  .sec .sub {
+    font-weight: 500;
+    font-size: var(--t-micro);
+    text-align: right;
+    color: var(--text-lo);
+  }
+
+  /* ---- STRUCK vs HOLLOW · the one mark, used everywhere ---- */
+  .mk {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    justify-self: center;
+    flex: 0 0 auto;
+  }
+  .mk--struck { background: var(--text-hi); }
+  .mk--hollow {
+    border: 2px solid var(--text-lo);
+    background: transparent;
+  }
+  .mk--part {
+    background: conic-gradient(var(--text-hi) 0 var(--p, 50%), transparent 0);
+    border: 1.5px solid var(--text-lo);
+  }
+  .hollow {
+    color: var(--text-lo);
+    font-weight: 500;
+  }
+  .hollow-tag {
+    display: inline-block;
+    font-weight: 600;
+    font-size: var(--t-label);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    color: var(--text-lo);
+    border: 1px dashed var(--text-lo);
+    border-radius: var(--r-1);
+    padding: 0.12em 0.45em;
+  }
+
+  /* ---- STAMP · applied after printing, in another ink, off-register ----
+     A --accent FILL answers exactly one question, "what is now?", and every fill site
+     belongs on a named allowlist. A --accent RULE (an underline, a caret bar, a focus
+     ring) is unlimited and spends nothing. */
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-micro);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--np-a);
+    border: 2px solid var(--np-a);
+    border-radius: var(--r-1);
+    padding: 0.24em 0.55em;
+    transform: rotate(-1.4deg);
+  }
+  .stamp--jp {
+    color: var(--jp-a);
+    border-color: var(--jp-a);
+    transform: rotate(1.1deg);
+  }
+  .stamp--live {
+    color: var(--on-accent);
+    border-color: hsl(var(--accent));
+    background: hsl(var(--accent));
+    transform: rotate(-0.9deg);
+  }
+  .stamp--dry {
+    color: var(--text-lo);
+    border-style: dashed;
+    border-color: var(--text-lo);
+    transform: rotate(-0.7deg);
+  }
+
+  /* ---- 9.8 · EMPTY, LOADING AND ERROR ----
+     An empty state renders the SHAPE of the thing that is missing, at the size it will
+     be, plus the count and the condition that fills it. Never a grey sentence.
+
+     `.load` is the block; THE WORD `LOADING` IS A REAL TEXT NODE the component renders
+     inside it, never a `content:` string — a static grey block is indistinguishable from
+     an empty one, and generated content is not reliably announced. There is no shimmer:
+     over a photograph a sweep reads as a rendering fault.
+
+     Empty copy sits at --t-body / --text-mid and NEVER at --t-micro. Nothing is captioned
+     as absent: NOT YET · UNWRITTEN · UNFILED · AWAITING · NOT YET VALID · NO DATES ON
+     FILE. Every one is a true statement about a real document and points forward. */
+  .empty {
+    font-size: var(--t-body);
+    color: var(--text-mid);
+  }
+  .empty-frame {
+    background: transparent;
+    border: 1.5px dashed var(--text-lo);
+    border-radius: var(--r-1);
+  }
+  .load {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgb(var(--surface-raised));
+    border-radius: var(--r-1);
+  }
+  /* An error states the failure IN WORDS. The mark does not change shape, because a shape
+     change would claim the check completed. */
+  .err { color: hsl(var(--destructive)); }
+
+  /* ---- 9.1 · .head — the running head ----
+     Solid --surface-1, not glass. The parent direction had this as
+     backdrop-filter: blur(14px) saturate(1.3), sticky, on every screen — a
+     per-scroll-frame repaint on the one surface that is always composited. A printed
+     running head does not need one. */
+  .head {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+    background: rgb(var(--surface-low));
+    border-bottom: 2px solid hsl(var(--border));
+  }
+  .head::-webkit-scrollbar { display: none; }
+  .head .f {
+    flex: 0 0 auto;
+    padding: 0.42rem 0.7rem;
+    white-space: nowrap;
+    border-right: var(--hair) solid hsl(var(--border));
+  }
+  .head .f:last-child { border-right: 0; }
+  .head .k {
+    display: block;
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-micro);
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--text-lo);
+  }
+  .head .v {
+    display: block;
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-label);
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-hi);
+  }
+  /* The head is on every screen, so the live field takes the RULE and leaves the screen's
+     one --accent FILL for the thing that is actually live. */
+  .head .f--live .v { box-shadow: inset 0 -4px 0 hsl(var(--accent)); }
+  .head .f--now .v { color: var(--now); }
+  .head a.f:hover,
+  .head button.f:hover { background: rgb(255 255 255 / 0.05); }
+  .head a.f:active,
+  .head button.f:active { background: rgb(62 216 255 / 0.10); }
+  /* A half-cut field reads as a bug, so the marked fields are DROPPED, not clipped. Three
+     fields survive on a 390px phone. */
+  @media (max-width: 439px) {
+    .head .f--drop { display: none; }
+  }
+
+  /* ---- 9.2 · .plate — the photographic plate ---- */
+  .plate {
+    position: relative;
+    isolation: isolate;
+    background: rgb(var(--surface));
+  }
+  /* The ratio and the row split are CUSTOM PROPERTIES THE RECIPE READS, not declarations a
+     consumer can override. `.plate .frame` is (0,2,0) and a Tailwind utility is (0,1,0), so
+     `aspect-auto` / `aspect-[16/10]` on this element is silently inert — it reads as live in
+     source while the recipe paints 3/4 underneath. Two consumers had exactly that. */
+  .plate .frame {
+    display: grid;
+    grid-template-rows: var(--plate-rows, 56% 44%);
+    aspect-ratio: var(--plate-ar, 3 / 4);
+  }
+  .plate .fig {
+    grid-area: 1 / 1 / 3 / 2;
+    position: relative;
+    overflow: hidden;
+  }
+  .plate img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  /* The halftone screen. Pure CSS: zero bytes, zero image requests, one tiled gradient.
+     It is what makes the photograph read as printed rather than pasted. */
+  .plate .fig::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image: radial-gradient(circle at 50% 50%, rgb(0 0 0 / 0.22) 34%, transparent 36%);
+    background-size: 3px 3px;
+    mix-blend-mode: multiply;
+    opacity: 0.5;
+  }
+  /* The ramp reaches ~82% field by the 64% line and the caption grid puts every text pixel
+     below it, so the legibility guarantee is enforced by the GRID rather than by
+     discipline. Stops read the scrim-ink channel, never a literal, so they cannot drift
+     from it the way a pasted rgba() does. */
+  .plate .ramp {
+    grid-area: 1 / 1 / 3 / 2;
+    position: relative;
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(
+      to bottom,
+      rgb(var(--scrim-ink-rgb) / 0) 0%,
+      rgb(var(--scrim-ink-rgb) / 0) 34%,
+      rgb(var(--scrim-ink-rgb) / 0.69) 52%,
+      rgb(var(--scrim-ink-rgb) / 0.88) 64%,
+      rgb(var(--scrim-ink-rgb) / 0.97) 80%,
+      rgb(var(--surface)) 100%
+    );
+  }
+  .plate .lay {
+    grid-area: 2 / 1;
+    position: relative;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding: 0 var(--gut) 0.7rem;
+  }
+  /* The caption is a ruled line BENEATH the plate, never over it. Below 700px it wraps to
+     two lines rather than truncating. */
+  .capline {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.2rem 0.9rem;
+    padding: 0.45rem var(--gut) 0.5rem;
+    border-top: 2px solid hsl(var(--border));
+    border-bottom: var(--hair) solid hsl(var(--border));
+  }
+  /* No photograph for this leg: the frame renders at its FULL SIZE, hollow, with the
+     caption line intact. The shape stays. */
+  .plate .frame.is-empty {
+    border: 1.5px dashed var(--text-lo);
+    border-radius: var(--r-1);
+  }
+  /* SPEC 9.2 puts the landscape frame behind a bare 700px breakpoint. A breakpoint cannot
+     see how many COLUMNS the plate sits in, and that is what actually decides whether the
+     caption fits: in the inspiration grid the plate is 317-465px wide from 700 up, where
+     21/9 leaves the caption row (58%) 79-94px to hold 138-160px of chip + title + blurb.
+     The overflow goes UPWARD out of the row — `.lay` is `justify-content: flex-end` — so
+     title and blurb land on unscrimmed photograph, above the line the ramp guarantee says
+     text may never cross, and at 1024 the country chip cleared the frame entirely.
+     So landscape is OPT-IN per surface. The portrait default holds wherever the plate is a
+     grid cell, which is the only place the caption has to survive a narrow column. */
+  .plate--band {
+    --plate-ar: auto;
+    --plate-rows: 42% 58%;
+  }
+  .plate--wide {
+    --plate-ar: 16 / 10;
+  }
+  @media (min-width: 700px) {
+    .plate--wide {
+      --plate-ar: 21 / 9;
+      --plate-rows: 42% 58%;
+    }
+  }
+
+  /* ---- 9.3 · .sys — the systems annunciator ---- */
+  .sys .r {
+    display: grid;
+    grid-template-columns: 15px 1fr auto;
+    gap: 0.7rem;
+    align-items: center;
+    min-height: var(--tap);
+    padding: 0.55rem var(--gut);
+    background: rgb(var(--surface-low));
+    border-bottom: var(--hair) solid hsl(var(--border));
+  }
+  .sys .r:hover { background: rgb(255 255 255 / 0.05); }
+  .sys .nm {
+    font-weight: 600;
+    font-size: var(--t-label);
+    color: var(--text-hi);
+  }
+  /* EVERY ROW STATES ITS CONDITION IN WORDS, which is what makes the mark redundant by
+     design and the panel colour-blind-safe. */
+  .sys .cond {
+    font-weight: 500;
+    font-size: var(--t-sm);
+    color: var(--text-mid);
+  }
+  .sys .val {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .sys .val b {
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--n-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--text-hi);
+  }
+  .sys .val i {
+    font-style: normal;
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-micro);
+    letter-spacing: 0.1em;
+    margin-left: 0.3em;
+    color: var(--text-lo);
+  }
+  .sys .r[data-s='hollow'] .nm,
+  .sys .r[data-s='hollow'] .cond,
+  .sys .r[data-s='hollow'] .val b,
+  .sys .r[aria-disabled='true'] .nm,
+  .sys .r[aria-disabled='true'] .val b { color: var(--text-lo); }
+  /* Disabled recedes by TIER, never by opacity. */
+  .sys .r[aria-disabled='true'] { opacity: 1; }
+  /* The struck track, capped so the UNFILLED remainder is always visible: a bar with no
+     visible remainder stops being a reading and becomes an underline. `display: block` is
+     load-bearing — as an inline span the track never renders at all. */
+  .fill {
+    display: block;
+    height: 3px;
+    max-width: 260px;
+    margin-top: 0.36rem;
+    position: relative;
+    background: rgb(var(--surface-overlay));
+  }
+  .fill i {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: var(--w, 0%);
+    background: var(--text-hi);
+  }
+  .sys .r[data-s='hollow'] .fill i {
+    background: repeating-linear-gradient(90deg, var(--text-lo) 0 3px, transparent 3px 6px);
+  }
+
+  /* ---- 9.4 · .appr — the approach rail ----
+     A printed rule on a BROKEN SCALE: the unruled days before departure take the left
+     42%, the ruled trip days the right 58%. THE BREAK IS MARKED — an unmarked broken axis
+     is a lie; a marked one is a printed convention. The unruled half is drawn hollow,
+     which IS the empty state, rendered at full size rather than said in a sentence. */
+  .railwrap {
+    position: relative;
+    height: 78px;
+    margin: 2.5rem var(--gut) 0.3rem;
+  }
+  .rail {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 34px;
+    height: 3px;
+  }
+  .rail .un {
+    position: absolute;
+    left: 0;
+    top: 1px;
+    width: var(--split, 42%);
+    height: 1px;
+    background: repeating-linear-gradient(90deg, var(--text-lo) 0 5px, transparent 5px 10px);
+  }
+  .rail .rl {
+    position: absolute;
+    left: var(--split, 42%);
+    right: 0;
+    top: 0;
+    height: 3px;
+    background: var(--text-hi);
+  }
+  .brk {
+    position: absolute;
+    top: 22px;
+    left: var(--split, 42%);
+    transform: translateX(-50%);
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-label);
+    letter-spacing: -0.1em;
+    padding-inline: 0.2em;
+    color: var(--text-lo);
+    background: rgb(var(--surface));
+  }
+  .tick {
+    position: absolute;
+    top: 34px;
+    transform: translateX(-50%);
+  }
+  .tick .d {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    margin: -3px auto 0;
+    background: var(--text-hi);
+    border: 2px solid rgb(var(--surface));
+  }
+  .tick[data-leg='np'] .d,
+  .tick[data-leg='nepal'] .d { background: var(--np-a); }
+  .tick[data-leg='jp'] .d,
+  .tick[data-leg='japan'] .d { background: var(--jp-a); }
+  /* z-index plus an opaque pad: the ruled line must never strike through a label. */
+  .tick .lab {
+    position: absolute;
+    top: 13px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 2;
+    text-align: center;
+    white-space: nowrap;
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-micro);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.35;
+    padding: 0.15em 0.35em;
+    color: var(--text-mid);
+    background: rgb(var(--surface));
+  }
+  .tick .lab b {
+    display: block;
+    color: var(--text-hi);
+  }
+  .tick.alt .lab {
+    top: auto;
+    bottom: 16px;
+  }
+  .tick[data-align='r'] .lab {
+    left: auto;
+    right: -4px;
+    transform: none;
+    text-align: right;
+  }
+  /* THE PRESENT — a stamped caret, not a glowing marker. */
+  .caret {
+    position: absolute;
+    top: 12px;
+    left: 0;
+  }
+  .caret .tri {
+    width: 0;
+    height: 0;
+    margin-left: 2px;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 9px solid hsl(var(--accent));
+  }
+  .caret .bar {
+    width: 2px;
+    height: 15px;
+    margin-left: 8px;
+    background: hsl(var(--accent));
+  }
+  .caret .tag {
+    position: absolute;
+    top: -21px;
+    left: 0;
+    transform: rotate(-1.2deg);
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-micro);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    padding: 0.12em 0.4em;
+    border-radius: var(--r-1);
+    color: var(--on-accent);
+    background: hsl(var(--accent));
+  }
+  /* The transform/opacity here ARE the bright end state the reduced-motion fork rests on —
+     `animation: none` in that block uncovers them, so the fork needs no second copy. */
+  .caret .ring {
+    position: absolute;
+    top: 22px;
+    left: 9px;
+    width: 19px;
+    height: 19px;
+    margin: -9px 0 0 -9.5px;
+    border: 2px solid hsl(var(--accent));
+    border-radius: 50%;
+    transform: scale(1.34);
+    opacity: 0.95;
+    animation: caret-press 2.4s ease-in-out infinite;
+  }
+  .chiprow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0.6rem var(--gut) 0;
+  }
+  /* Below 560px the labels go and the rail shrinks, but THE DOTS STAY — the shape is the
+     information — and the words move to the chip row underneath. */
+  @media (max-width: 559px) {
+    .tick .lab { display: none; }
+    .railwrap {
+      height: 46px;
+      margin-top: 2.1rem;
+    }
+  }
+  @media (min-width: 560px) {
+    .chiprow { display: none; }
+  }
+
+  /* ---- 9.5 · .dens — plan density ----
+     Screened at the 14% ceiling on BOTH channels; identity is carried mostly by the
+     full-strength 1px border, which costs no screen headroom at all. The flat background
+     is declared first as the color-mix fallback: without it an unsupported color-mix drops
+     the whole declaration and the column paints as nothing. */
+  .dens {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 2px;
+    align-items: end;
+    height: 104px;
+    margin-top: 0.5rem;
+    position: relative;
+    border-bottom: 2px solid hsl(var(--border));
+  }
+  .dens .b {
+    background: rgb(var(--surface-raised));
+    background: color-mix(in srgb, var(--np-a) var(--np-screen), rgb(var(--surface-raised)));
+    border: 1px solid var(--np-a);
+    border-bottom: 0;
+  }
+  .dens .b[data-leg='jp'],
+  .dens .b[data-leg='japan'] {
+    background: rgb(var(--surface-raised));
+    background: color-mix(in srgb, var(--jp-a) var(--jp-screen), rgb(var(--surface-raised)));
+    border-color: var(--jp-a);
+  }
+  /* An empty day is HOLLOW, not short: drawn at the height it will occupy. */
+  .dens .b[data-empty] {
+    background: transparent;
+    border: 1px dashed var(--text-lo);
+    border-bottom: 0;
+  }
+  .dens .b[data-thin] {
+    background: repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--np-a) var(--np-screen), rgb(var(--surface-raised))) 0 3px,
+      transparent 3px 6px
+    );
+  }
+  .dens .b[data-leg='jp'][data-thin],
+  .dens .b[data-leg='japan'][data-thin] {
+    background: repeating-linear-gradient(
+      45deg,
+      color-mix(in srgb, var(--jp-a) var(--jp-screen), rgb(var(--surface-raised))) 0 3px,
+      transparent 3px 6px
+    );
+  }
+  /* Loading: the SHAPE arrives before the data. */
+  .dens .b.is-load {
+    background: rgb(var(--surface-overlay));
+    border: 0;
+    height: 40%;
+    align-self: end;
+  }
+  .mean {
+    position: absolute;
+    left: 0;
+    right: 0;
+    pointer-events: none;
+    border-top: 1px dashed var(--text-lo);
+  }
+  .mean span {
+    position: absolute;
+    right: 0;
+    top: -15px;
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-micro);
+    letter-spacing: 0.1em;
+    padding-inline: 0.25em;
+    color: var(--text-lo);
+    background: rgb(var(--surface));
+  }
+  .axis {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+    gap: 2px;
+    margin-top: 0.3rem;
+  }
+  /* 0.53rem == 9.01px at the 17px root. IN REM, NOT the 9px the design names, because a px
+     tick label would not move under the outdoor root bump — which is the whole reason
+     `text-[Npx]` is illegal in this system. Only every 4th day is labelled; 32 collide. */
+  .axis span {
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: 0.53rem;
+    text-align: center;
+    color: var(--text-lo);
+  }
+
+  /* ---- 9.6 · .strip — the route ---- */
+  .strip {
+    position: relative;
+    padding-left: calc(var(--gut) + 26px);
+  }
+  .strip::before {
+    content: '';
+    position: absolute;
+    left: calc(var(--gut) + 8px);
+    top: 16px;
+    bottom: 26px;
+    width: 3px;
+    background: linear-gradient(
+      to bottom,
+      var(--np-a) 0 30%,
+      var(--text-lo) 30% 40%,
+      var(--jp-a) 40% 100%
+    );
+  }
+  .strip--one::before { background: var(--np-a); }
+  .strip .s {
+    position: relative;
+    display: grid;
+    grid-template-columns: 54px 1fr auto;
+    gap: 0.7rem;
+    align-items: center;
+    min-height: var(--tap);
+    padding: 0.62rem var(--gut) 0.62rem 0;
+    border-bottom: var(--hair) solid hsl(var(--border));
+  }
+  .strip .s::before {
+    content: '';
+    position: absolute;
+    left: -18px;
+    top: 50%;
+    width: 13px;
+    height: 13px;
+    margin-top: -6.5px;
+    border-radius: 50%;
+    background: var(--np-a);
+    border: 2px solid rgb(var(--surface));
+    box-shadow: 0 0 0 1px var(--np-a);
+  }
+  .strip .s[data-leg='jp']::before,
+  .strip .s[data-leg='japan']::before {
+    background: var(--jp-a);
+    box-shadow: 0 0 0 1px var(--jp-a);
+  }
+  .strip .s[data-open]::before {
+    background: transparent;
+    border: 2px dashed var(--text-lo);
+    box-shadow: none;
+  }
+  .strip .s[data-transit]::before {
+    background: rgb(var(--surface));
+    border: 2px solid var(--text-lo);
+    box-shadow: none;
+  }
+  .strip img {
+    width: 54px;
+    height: 40px;
+    object-fit: cover;
+    border: 1px solid hsl(var(--border));
+  }
+  /* `display: block` on both. As inline spans the name and the meta run together on one
+     line, which is a defect and not a style preference. */
+  .strip .nm {
+    display: block;
+    font-size: var(--t-body);
+    font-weight: 600;
+    line-height: 1.28;
+    color: var(--text-hi);
+  }
+  .strip .mt {
+    display: block;
+    font-weight: 500;
+    font-size: var(--t-label);
+    margin-top: 0.14rem;
+    color: var(--text-mid);
+  }
+  /* The right column never wraps; below 560px the name takes the second line instead. */
+  .strip .rt {
+    text-align: right;
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    color: var(--text-hi);
+  }
+  /* the UA default `bolder` resolves against the 600 parent and lands on 900, which this
+     family does not have. */
+  .strip .rt b {
+    font-weight: 600;
+    font-size: var(--n-sm);
+  }
+  .strip .rt i {
+    font-style: normal;
+    display: block;
+    font-size: var(--t-micro);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-lo);
+  }
+
+  /* ---- 9.7 · .cell — the instrument cell ---- */
+  .cells {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 2px solid hsl(var(--border));
+  }
+  .cell {
+    padding: 0.62rem var(--gut);
+    background: rgb(var(--surface-low));
+    border-right: var(--hair) solid hsl(var(--border));
+    border-bottom: var(--hair) solid hsl(var(--border));
+  }
+  .cell .l {
+    display: block;
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-micro);
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--text-lo);
+  }
+  .cell .v {
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--n-md);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-hi);
+  }
+  .cell .v small {
+    font-size: var(--t-label);
+    letter-spacing: 0.06em;
+    color: var(--text-lo);
+  }
+  .cell .f {
+    display: block;
+    font-weight: 500;
+    font-size: var(--t-label);
+    margin-top: 0.12rem;
+    color: var(--text-mid);
+  }
+  .cell.is-hollow .v,
+  .cell.is-hollow .f { color: var(--text-lo); }
+  .cell.is-now .v { color: var(--now); }
+  /* 4-up collapses to 2x2 below 560px: four cells across a 390px phone puts every caption
+     on two lines. */
+  @media (min-width: 560px) {
+    .cells--4 { grid-template-columns: repeat(4, 1fr); }
+  }
+
+  /* ---- 9.7 · .list — rows ----
+     ZERO filters, zero shadows, zero background. A row is a border-bottom and text; that
+     is why the working screens stay calm. */
+  /* THE LEAD TRACK IS A REM AND IT IS OVERRIDABLE, and both halves are defects found by
+     consumers. 58px was sized for the prototype's 24h clock; the app prints
+     `formatTimeAmPm` -> `12:00 PM`, 8 mono glyphs at --t-sm, which is 3.9rem of advance
+     (66px at the 17px root, 70px at the outdoor bump) and wrapped to two lines as shipped.
+     It is in rem so it moves with the outdoor root instead of opting out of it.
+
+     `--lead` is the escape hatch, and it exists because this is a TWO-CLASS selector: a
+     `grid-cols-[13px_1fr_auto]` utility is 0,1,0 and loses to it silently, which is why
+     the rows that lead with a 13px mark or a 22px icon reached for `!important` or, worse,
+     wrote an override that never applied. A custom property is read at the element, so a
+     one-token `[--lead:13px]` sets it with no `!` and no specificity fight.
+
+     `--cols` is the same hatch one level up, for the few rows that need a different NUMBER
+     of tracks (4 for an expense row, 2 for a contact row). Both are kept: `--lead` is the
+     narrow, common case and cannot get the rest of the track list wrong. */
+  .list .r {
+    display: grid;
+    grid-template-columns: var(--cols, var(--lead, 4.5rem) 1fr auto);
+    gap: 0.7rem;
+    align-items: start;
+    min-height: var(--tap);
+    padding: 0.6rem var(--gut);
+    border-bottom: var(--hair) solid hsl(var(--border));
+  }
+  .list .r:hover { background: rgb(255 255 255 / 0.05); }
+  .list .r[aria-current='true'],
+  .list .r[aria-selected='true'] {
+    background: rgb(62 216 255 / 0.10);
+    box-shadow: inset 3px 0 0 hsl(var(--accent));
+  }
+  .list .tm {
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-sm);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    padding-top: 0.1rem;
+    color: var(--text-mid);
+  }
+  .list h3 {
+    font-size: var(--t-body);
+    font-weight: 600;
+    line-height: 1.28;
+    color: var(--text-hi);
+  }
+  /* The meta line is its own line. As an inline span its `margin-top` below is ignored
+     outright — the same defect `.strip .nm`/`.mt` already carries a fix for. SINGLE-CLASS
+     ON PURPOSE: a `flex` utility on a meta row that lays out chips still has to win, and a
+     two-class `.list .mt` would outrank it and silently flatten those rows. */
+  .mt {
+    display: block;
+  }
+  .list .mt {
+    font-weight: 500;
+    font-size: var(--t-label);
+    margin-top: 0.14rem;
+    color: var(--text-mid);
+  }
+  .list .r[data-mark='hollow'] h3 {
+    color: var(--text-lo);
+    font-weight: 500;
+  }
+  .list .r[data-mark='hollow'] .mt { color: var(--text-lo); }
+  /* The explicit unplanned row. It is a FACT, not a spacer. */
+  .gap {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.36rem var(--gut);
+    border-bottom: var(--hair) solid hsl(var(--border));
+  }
+  .gap::before,
+  .gap::after {
+    content: '';
+    flex: 1;
+    border-top: 1px dashed var(--text-lo);
+  }
+  .gap span {
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-micro);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-lo);
+  }
+
+  /* ---- 9.7 · .chip ---- */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3em;
+    font-weight: 600;
+    font-size: var(--t-label);
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+    padding: 0.16em 0.42em;
+    border: 1px solid var(--border-ui);
+    border-radius: var(--r-1);
+    color: var(--text-mid);
+  }
+  .chip--struck {
+    border-color: var(--text-hi);
+    color: var(--text-hi);
+  }
+  .chip--hollow {
+    border-style: dashed;
+    border-color: var(--text-lo);
+    color: var(--text-lo);
+  }
+  .chip--np {
+    border-color: var(--np-a);
+    color: var(--np-a);
+  }
+  .chip--jp {
+    border-color: var(--jp-a);
+    color: var(--jp-a);
+  }
+
+  /* ---- 9.7 · .btn ----
+     No scale() anywhere in this direction: a press collapses the 3px lip and translates
+     down by the same 3px, so the control moves rather than swelling. */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: var(--tap);
+    background: linear-gradient(100deg, var(--cta-a), var(--cta-b));
+    color: var(--on-accent);
+    border-bottom: 3px solid var(--lip-volt);
+    border-radius: var(--r-1);
+    font-weight: 600;
+    font-size: var(--t-body);
+    letter-spacing: 0.01em;
+    transition: translate var(--duration-press) linear,
+      border-bottom-width var(--duration-press) linear;
+  }
+  .btn:hover { filter: brightness(1.08); }
+  .btn:active {
+    translate: 0 3px;
+    border-bottom-width: 0;
+    margin-bottom: 3px;
+  }
+  .btn:disabled,
+  .btn[disabled] {
+    background: rgb(var(--surface-overlay));
+    color: var(--text-lo);
+    border-bottom-color: hsl(var(--border));
+    cursor: not-allowed;
+    filter: none;
+  }
+  .btn--2 {
+    background: transparent;
+    color: var(--text-hi);
+    border: 1px solid var(--border-ui);
+    border-bottom: 3px solid var(--border-ui);
+  }
+
+  /* ---- The danger variant. SPEC 9.7 defines none, and that is why it is here ----
+     Three bundles independently invented three different destructive buttons, and every
+     one of them shipped `bg-rose-500 text-white`: an off-palette fill at 3.27:1, on the
+     delete-confirm label, which is the last control in the app to be casual about.
+     `--destructive` + `--destructive-foreground` is 5.74:1 and is the ink rule this file
+     already argues by name at the --destructive declaration.
+
+     WORSE THAN 3.27 IN PRACTICE, and this is the part the class name hid. All four
+     `bg-rose-500` sites were `AlertDialogAction`, whose base is buttonVariants() —
+     `bg-gradient-to-r` sets background-IMAGE, `bg-rose-500` sets background-COLOR, so the
+     rose never painted at all. Those buttons rendered the volt CTA gradient with white
+     ink: 1.52:1 on the far stop. A colour that is inert is not a near miss.
+
+     ONE MODIFIER, TWO SHAPES: `btn btn--danger` is the filled confirm, `btn btn--2
+     btn--danger` is the outline affordance. COMPOUND SELECTORS ARE LOAD-BEARING — these
+     are 0,2,0 / 0,3,0 so they beat a Tailwind utility, which is what lets a call site drop
+     `bg-*`/`text-*`/`hover:` strings entirely instead of fighting the base variant.
+
+     THE OUTLINE'S HOVER TINT IS 8% AND THAT IS MEASURED, not rounded down for taste. The
+     workarounds used 15%: destructive ink on its own 15% wash reads 5.18 on --bg and 4.66
+     on --surface-1, but 4.17 on --surface-2 — under the floor on a surface these buttons
+     do sit on. At 8% it is 5.66 / 5.13 / 4.60 and holds on all three. `filter: none` is
+     part of the measurement rather than a tidy-up: .btn's hover brightness would move the
+     rendered pixel away from the number above.
+
+     CEILING: --destructive as TEXT on --surface-3 is 4.35, i.e. the outline shape is legal
+     on bg / surface-1 / surface-2 and not below. scripts/contrast-tokens.mjs carries that
+     as a guard so it fails loudly rather than being remembered. */
+  .btn.btn--danger {
+    background: hsl(var(--destructive));
+    color: hsl(var(--destructive-foreground));
+    border-bottom-color: hsl(var(--destructive) / 0.55);
+  }
+  .btn.btn--2.btn--danger {
+    background: transparent;
+    color: hsl(var(--destructive));
+    border-color: hsl(var(--destructive));
+  }
+  .btn.btn--2.btn--danger:hover:not(:disabled) {
+    background: hsl(var(--destructive) / 0.08);
+    filter: none;
+  }
+  /* Disabled recedes by TIER and keeps opacity 1, like every other control here. Spelled
+     out at 0,3,0 because .btn:disabled ties with .btn.btn--danger and loses on order. */
+  .btn.btn--danger:disabled,
+  .btn.btn--danger[disabled] {
+    background: rgb(var(--surface-overlay));
+    color: var(--text-lo);
+    border-color: hsl(var(--border));
+    filter: none;
+  }
+
+  /* A full-bleed CTA on a desktop column reads as a banner. */
+  @media (min-width: 900px) {
+    .btn { max-width: 420px; }
+  }
+
+  /* ---- 9.9 · .nav — file tabs ----
+     Each tab carries its own live number, so the nav is itself an instrument. MATERIAL
+     carries the active state — a lighter surface, raised 7px — so it does not depend on an
+     accent colour, which is what leaves the screen's one --accent fill free for the thing
+     that is actually live.
+
+     FIXED, NOT STATIC. The prototype ships `position: static` so a full-page screenshot
+     puts the nav at the foot of the capture instead of floating over the middle of it;
+     that is a capture artefact and the only place the prototype differs from what the app
+     builds. Do not copy it. */
+  .nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    align-items: end;
+    padding: 0 4px env(safe-area-inset-bottom);
+    background: rgb(var(--surface));
+    border-top: 1px solid hsl(var(--border));
+  }
+  .nav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    min-height: var(--tap);
+    margin: 7px 2px 0;
+    padding: 0.26rem 0 0.32rem;
+    text-decoration: none;
+    background: rgb(var(--surface-low));
+    clip-path: polygon(9% 0, 91% 0, 100% 100%, 0 100%);
+    transition: translate var(--duration-raise) ease-out;
+  }
+  .nav a .n {
+    font-family: var(--font-machine);
+    font-weight: 600;
+    font-size: var(--t-label);
+    font-variant-numeric: tabular-nums;
+    line-height: 1.05;
+    color: var(--text-lo);
+  }
+  /* 0.62rem == 10.54px at the 17px root — rem for the same reason as .axis span above. */
+  .nav a .t {
+    font-weight: 600;
+    font-size: 0.62rem;
+    letter-spacing: 0.01em;
+    color: var(--text-mid);
+  }
+  .nav a[aria-current='page'] {
+    background: rgb(var(--surface-overlay));
+    margin-top: 0;
+  }
+  .nav a[aria-current='page'] .n,
+  .nav a[aria-current='page'] .t { color: var(--text-hi); }
+  @media (min-width: 900px) {
+    .nav {
+      grid-template-columns: repeat(5, minmax(0, 168px));
+      justify-content: center;
+    }
+  }
+
+  /* ---- 10.2 · ink-draw — a chart or rail draws itself, once per element per session ---- */
+  .draw { animation: ink-draw var(--duration-ink) var(--ease-ink) both; }
+}
+
+@keyframes ink-draw {
+  from { clip-path: inset(0 100% 0 0); }
+  to { clip-path: inset(0); }
+}
+
+/* KNOWN CEILING: 2.4s is under the D-293 6s loop floor. Allowlisted as a state indicator in
+   scripts/motion-loops.mjs (D-322) because it marks WHICH point on the rail is now. */
+@keyframes caret-press {
+  0%, 100% { transform: scale(1); opacity: 0.3; }
+  50% { transform: scale(1.34); opacity: 0.95; }
+}
+
+/* ---- Focus, UNLAYERED, and SOURCE ORDER IS NOT ENOUGH ----
+   Being unlayered is what beats `@layer components`, so a focus override written inside
+   that block above would be silently inert. But unlayered does NOT mean unbeatable:
+   tailwind's `@layer` is a build-time directive, not a native cascade layer, and there is
+   not one `@layer` at-rule left in the built stylesheet. Everything here competes on plain
+   specificity + source order, and tailwind emits its UTILITIES LAST.
+
+   So `.focus-visible\:outline-none:focus-visible { outline: 2px solid transparent }` — a
+   utility 20 buttons still carry from before they moved onto the .btn recipe — is (0,2,0)
+   and lands AFTER us. A plain `.btn:focus-visible` is also (0,2,0) and loses the tie on
+   order: measured in chromium on the built export, a keyboard-focused .btn computed
+   `outline-color: rgba(0, 0, 0, 0)` with no box-shadow, i.e. no visible ring at all
+   (WCAG 2.4.7). The doubled `.btn.btn` buys (0,3,0) and wins outright — same move, and for
+   the same reason, as `.btn.btn--danger` above. Keep it doubled: it is what makes the ring
+   survive a 21st button pasting that utility in. e2e/focus-visible.spec.ts asserts the
+   computed value so this cannot rot back quietly — axe cannot see a missing focus ring.
+
+   .btn's ring goes OUTWARD, and `outline-offset` is load-bearing there rather than
+   cosmetic: an accent ring drawn INSIDE an accent fill measures 1.00:1 and a white one
+   1.68:1, i.e. no ring at all. Offset outward it lands on the field at 19.80:1.
+   The tabpanels go the other way — they are full-bleed containers, so an outward ring
+   would be drawn past the gutter; inset keeps it on the panel. */
+.head .f:focus-visible,
+.sys .r:focus-visible,
+.list .r:focus-visible {
+  outline: 2px solid hsl(var(--accent));
+  outline-offset: -2px;
+}
+.nav a:focus-visible {
+  outline: 2px solid hsl(var(--accent));
+  outline-offset: -3px;
+}
+.btn.btn:focus-visible {
+  outline: 2px solid var(--text-hi);
+  outline-offset: 2px;
+}
+/* (0,3,0) — two attribute selectors plus the pseudo-class, counted the same way as .btn.btn
+   above, so it wins the same tie-break. These panels are `tabIndex={0}` so they take
+   focus when you tab off the tablist, and they carry the same inert outline-none utility. */
+[role='tabpanel'][tabindex]:focus-visible {
+  outline: 2px solid hsl(var(--accent-scroll));
+  outline-offset: -2px;
+}
+
 /* ── Print — the paper fallback (issue #223) ──────────────────────────────────
    THIS IS NOT A LIGHT THEME AND IT DOES NOT REOPEN D-009. Dark-mode-only governs the
    SCREEN theme: there is still no toggle, no `light` class, no user-facing choice, and
@@ -2257,7 +3498,10 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
      A4 page, entirely from one visually-hidden string, which makes the print dialog
      shrink-to-fit the whole document and makes a headless page.pdf clip it. The phrasebook
      scroller the rule above exists for is unaffected by this carve-out. */
-  .sr-only {
+  .sr-only,
+  .\!sr-only {
+    /* pre-emptive: no source file uses !sr-only today. Kept so the day one does, it
+       does not silently opt out of this carve-out the way !text-ink-hi once did. */
     overflow: hidden !important;
   }
 
@@ -2266,18 +3510,32 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
      specificity 0, so a plain class selector wins the !important tie without anything
      louder. Measured on white by the same WCAG relative-luminance math
      scripts/contrast-tokens.mjs uses: #000 21.00:1, #333 12.63:1, #555 7.46:1. The floor
-     tier lands within 0.04 of the screen ramp's own floor (--text-lo, 7.50:1 on the page
+     tier lands within 0.17 of the screen ramp's own floor (--text-lo, 7.63:1 on the page
      field), so the D-100 / D-246 contrast floor holds on paper as written rather than by
-     luck — and there is still no fourth tier. */
+     luck — and there is still no fourth tier.
+
+     Each tier ALSO matches its escaped-bang twin. `!text-ink-mid` compiles to a SEPARATE
+     class (`.\!text-ink-mid`) whose own !important outranks the universal reset, so a
+     hatched site kept its screen colour and only `-webkit-text-fill-color` pulled the
+     paint to black — grey tier lost, silently. `!text-ink-hi` needs a rule of its own for
+     the same reason: unmatched it computes to the screen's near-white. */
   .text-ink-mid,
-  .text-muted-foreground {
+  .\!text-ink-mid,
+  .text-muted-foreground,
+  .\!text-muted-foreground {
     color: #333 !important;
     -webkit-text-fill-color: #333 !important;
   }
 
-  .text-ink-lo {
+  .text-ink-lo,
+  .\!text-ink-lo {
     color: #555 !important;
     -webkit-text-fill-color: #555 !important;
+  }
+
+  .\!text-ink-hi {
+    color: #000 !important;
+    -webkit-text-fill-color: #000 !important;
   }
 
   /* — chrome off. Every app-wide overlay in this repo is positioned with Tailwind's
@@ -2293,6 +3551,8 @@ body:has(.travel-mode-root) a[href="#main"] { display: none; }
      photo band on every Tier-2 masthead (it also carries the sign-in wall's `.door-wall`,
      so one selector covers both). */
   .fixed,
+  /* pre-emptive twin, same reasoning as !sr-only above — no source file uses !fixed yet */
+  .\!fixed,
   [data-testid='navbar'],
   [data-testid='tab-bar'],
   [data-testid='scroll-progress'],

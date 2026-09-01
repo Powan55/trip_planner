@@ -161,8 +161,8 @@ for (const vp of VIEWPORTS) {
       // with no guest mode (D-241), any unidentified session sees the front-door wall on
       // EVERY route, which would put the wall in every sub-route screenshot.
       await ctx.addInitScript(() => {
-        window.localStorage.setItem('tripPlannerToken', 'Powan');
-        window.localStorage.setItem('tripPlannerUserName', 'Powan');
+        window.localStorage.setItem('tripPlannerToken', 'Alina');
+        window.localStorage.setItem('tripPlannerUserName', 'Alina');
         // S155: this block owns its OWN context (not the shared fixtures.ts page), so it
         // must ALSO pre-seed the first-run-tour "seen" flag — otherwise the tour's
         // full-screen dialog fires on fresh storage and lands in every hero/footer baseline.

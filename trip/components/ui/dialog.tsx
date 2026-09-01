@@ -60,7 +60,7 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:rounded-lg',
+        'fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-gut py-5 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 sm:rounded-r2',
         overlayMotion('entrance', DIALOG_ENTER_LOUD, DIALOG_ENTER_CALM),
         className
       )}
@@ -74,7 +74,7 @@ const DialogContent = React.forwardRef<
           shared Radix close reachable only via command-palette.tsx; the
           5 other dialogs (calendar editor, add-to-itinerary, expense log, place detail,
           time picker) render their own inline close buttons and are untouched. */}
-      <DialogPrimitive.Close className="absolute right-4 top-4 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+      <DialogPrimitive.Close className="absolute right-4 top-4 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-r1 opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogPrimitive.Close>
@@ -118,7 +118,7 @@ const DialogTitle = React.forwardRef<
   <DialogPrimitive.Title
     ref={ref}
     className={cn(
-      'text-lg font-semibold leading-none tracking-tight',
+      'font-sans text-t-lead font-semibold leading-tight text-[color:var(--text-hi)]',
       className
     )}
     {...props}
@@ -132,7 +132,7 @@ const DialogDescription = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DialogPrimitive.Description
     ref={ref}
-    className={cn('text-sm text-muted-foreground', className)}
+    className={cn('text-t-body text-[color:var(--text-mid)]', className)}
     {...props}
   />
 ));

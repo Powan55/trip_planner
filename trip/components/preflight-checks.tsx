@@ -41,13 +41,52 @@ const STATE_ICON: Record<PreflightState, typeof CheckCircle2> = {
   unknown: HelpCircle,
 };
 
+/**
+ * All three headlines sit on the TOP ink tier, and that is the annunciator's own rule rather than
+ * a flattening: the mark, the icon shape, the verdict chip and the words all say which state a row
+ * is in, so the headline colour was never the carrier. It matters most for `unknown` — the route
+ * is axe-scanned (e2e/docs-checklist-a11y.spec.ts) and a "couldn't check" verdict is exactly the
+ * line a traveler must not miss.
+ *
+ * The `!` is load-bearing, not noise. SPEC 9.3's `.sys .cond` is (0,2,0) and
+ * `.sys .r[data-s='hollow'] .cond` is (0,3,0), so a bare `text-ink-hi` is (0,1,0) and loses:
+ * measured, `ok` painted --text-mid and BOTH hollow states painted --text-lo, i.e. the floor
+ * tier on exactly the two rows this rule is about.
+ */
 const STATE_CLASS: Record<PreflightState, string> = {
-  ok: 'text-emerald-300',
-  attention: 'text-amber-300',
-  // Deliberately the TOP ink tier, not a dimmed one: the route is axe-scanned
-  // (e2e/docs-checklist-a11y.spec.ts) and a "couldn't check" verdict is exactly the line a
-  // traveler must not miss. It is the row's headline, so it takes the headline's tier.
-  unknown: 'text-ink-hi',
+  ok: '!text-ink-hi',
+  attention: '!text-ink-hi',
+  unknown: '!text-ink-hi',
+};
+
+/** FILLED means committed, UNFILLED means not yet — a check that did not pass is not a check that
+ *  ran and failed, so both non-ok states draw hollow and say which they are in words. */
+const STATE_MARK: Record<PreflightState, 'struck' | 'hollow'> = {
+  ok: 'struck',
+  attention: 'hollow',
+  unknown: 'hollow',
+};
+
+/** The one place a colour is spent on this panel: the state that asks the traveler to DO
+ *  something. --destructive is the app's only "act on this" ink and the recipe set defines no other. */
+const STATE_CHIP: Record<PreflightState, string> = {
+  ok: 'chip chip--struck',
+  attention: 'chip border-destructive text-destructive',
+  unknown: 'chip chip--hollow',
+};
+
+/**
+ * The verdict word. Redundant with the mark by design, so the panel is colour-blind-safe.
+ *
+ * `unknown` must never spell "unchecked". This route also renders the human-attested tickbox list,
+ * where unchecked means "you have not done it yet" — a determined verdict. Unknown means the probe
+ * could not run at all. Folding the two makes a browser that answered nothing read like one that
+ * answered "not done", which is the false pass this whole module exists to refuse.
+ */
+const STATE_WORD: Record<PreflightState, string> = {
+  ok: 'ready',
+  attention: 'look',
+  unknown: 'unknown',
 };
 
 const ROW_ICON: Record<string, typeof MapPinned> = {
@@ -61,24 +100,37 @@ const ROW_ICON: Record<string, typeof MapPinned> = {
 function CheckRow({ check }: { check: PreflightCheck }) {
   const StateIcon = STATE_ICON[check.state];
   const RowIcon = ROW_ICON[check.id] ?? CheckCircle2;
+  const mark = STATE_MARK[check.state];
   return (
-    <li
-      data-testid={`preflight-row-${check.id}`}
-      data-state={check.state}
-      className="flex items-start gap-3 border-b border-white/5 py-3 last:border-b-0"
-    >
-      <RowIcon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-      <div className="min-w-0 flex-1">
-        <p className="text-[0.65rem] uppercase tracking-widest text-muted-foreground">{check.label}</p>
-        <p className={`mt-0.5 flex items-center gap-1.5 text-sm font-medium ${STATE_CLASS[check.state]}`}>
+    <li data-testid={`preflight-row-${check.id}`} data-state={check.state} className="r" data-s={mark}>
+      <span className={`mk mk--${mark}`} aria-hidden="true" />
+      <span className="min-w-0">
+        <span className="nm flex items-center gap-1.5">
+          <RowIcon className="h-3.5 w-3.5 shrink-0 text-ink-lo" aria-hidden="true" />
+          {check.label}
+        </span>
+        <span className={`cond mt-0.5 flex items-center gap-1.5 ${STATE_CLASS[check.state]}`}>
           <StateIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
           {check.headline}
-        </p>
-        <p className="mt-1 text-xs leading-relaxed text-ink-mid">{check.detail}</p>
-      </div>
+        </span>
+        <span className="cond mt-1 block text-t-sm leading-relaxed !text-ink-lo">{check.detail}</span>
+      </span>
+      <span className="val">
+        <span className={STATE_CHIP[check.state]}>{STATE_WORD[check.state]}</span>
+      </span>
     </li>
   );
 }
+
+/** The rows the annunciator will hold, drawn at full size before the probes resolve. The value
+ *  cell carries a real LOADING text node — a bare grey block is indistinguishable from an empty
+ *  one, and generated content is not reliably announced. */
+const LOADING_ROWS: Array<{ id: string; label: string }> = [
+  { id: 'map-shell', label: 'Map shell' },
+  { id: 'storage', label: 'Storage room' },
+  { id: 'clock', label: 'Clock & time zone' },
+  { id: 'sync', label: 'Trip data' },
+];
 
 export default function PreflightChecks() {
   // Sync is reactive (the outbox can drain while this page is open); the other three are
@@ -118,20 +170,28 @@ export default function PreflightChecks() {
     <section
       aria-labelledby="preflight-heading"
       data-testid="preflight-checks"
-      className="mx-auto w-full max-w-3xl px-4 pb-16 sm:px-6"
+      className="mx-auto w-full max-w-3xl pb-16"
     >
-      <div className="glass-subtle rounded-2xl p-5">
-        <p className="mb-1 flex items-center gap-1.5 text-[0.65rem] uppercase tracking-widest text-muted-foreground">
-          <PlaneTakeoff className="h-3.5 w-3.5" aria-hidden="true" />
-          The night before
-        </p>
-        <h2 id="preflight-heading" className="font-display text-lg font-bold text-white">
-          Ready to go?
-        </h2>
-        <p className="mt-1 text-xs leading-relaxed text-ink-mid">
-          What this device can confirm on its own — no connection needed, and nothing here is sent
-          anywhere.
-        </p>
+      <div className="border-y-2 border-border bg-surface-low">
+        <div className="px-gut pt-4">
+          <p className="pr pr--lo mb-1.5 flex items-center gap-1.5">
+            <PlaneTakeoff className="h-3.5 w-3.5" aria-hidden="true" />
+            The night before
+          </p>
+          <div className="sec">
+            <h2 id="preflight-heading">Ready to go?</h2>
+            {checks !== null && (
+              <span data-testid="preflight-tally" className="sub">
+                {tally('ok')} ready · {tally('attention')} to look at · {tally('unknown')}{' '}
+                couldn&apos;t be checked
+              </span>
+            )}
+          </div>
+          <p className="mb-3 max-w-2xl text-t-sm leading-relaxed text-ink-mid">
+            What this device can confirm on its own — no connection needed, and nothing here is sent
+            anywhere.
+          </p>
+        </div>
         {/* The live region is THIS SPAN, not the card. `role="status"` carries an implicit
             `aria-atomic="true"`, so putting it on the <section> re-announced the eyebrow, the
             heading, the intro, this summary, the tally AND all five rows with their detail
@@ -146,21 +206,30 @@ export default function PreflightChecks() {
         </span>
 
         {checks === null ? (
-          <p data-testid="preflight-loading" className="mt-4 text-sm text-ink-mid">
-            Checking…
-          </p>
+          // The shape arrives before the data: the same rows at the same size, hollow, each
+          // saying in words that it has not run yet.
+          <ul data-testid="preflight-loading" aria-labelledby="preflight-heading" className="sys">
+            {LOADING_ROWS.map((row) => (
+              <li key={row.id} className="r" data-s="hollow">
+                <span className="mk mk--hollow" aria-hidden="true" />
+                <span className="min-w-0">
+                  <span className="nm">{row.label}</span>
+                  <span className="cond mt-0.5 block">Checking on this device…</span>
+                </span>
+                <span className="val">
+                  <span className="load px-2 py-1 text-t-micro font-machine tracking-[0.12em] text-ink-lo">
+                    LOADING
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
         ) : (
-          <>
-            <p data-testid="preflight-tally" className="mt-3 text-xs font-medium text-ink-mid">
-              {tally('ok')} ready · {tally('attention')} to look at · {tally('unknown')} couldn&apos;t
-              be checked
-            </p>
-            <ul aria-labelledby="preflight-heading" className="mt-2 flex flex-col">
-              {checks.map((check) => (
-                <CheckRow key={check.id} check={check} />
-              ))}
-            </ul>
-          </>
+          <ul aria-labelledby="preflight-heading" className="sys">
+            {checks.map((check) => (
+              <CheckRow key={check.id} check={check} />
+            ))}
+          </ul>
         )}
       </div>
     </section>

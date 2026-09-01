@@ -12,7 +12,7 @@ import type { Page } from '@playwright/test';
  *
  * We seed the exact keys the real sign-in writes (`lib/token-auth.ts` `signIn` →
  * `identityStore.setToken` + `identityStore.setName`, i.e. `tripPlannerToken` +
- * `tripPlannerUserName`) for the first traveler in `TRAVELERS` (Powan). The wall's
+ * `tripPlannerUserName`) for the first traveler in `TRAVELERS` (Alina). The wall's
  * decision runs on the client on first paint, so we seed BEFORE any app script via
  * `page.addInitScript` (runs before any other script on every navigation in this
  * context) — the wall never has a chance to open, on any route.
@@ -32,7 +32,7 @@ import type { Page } from '@playwright/test';
  */
 
 /** The default traveler identity every spec in the pack rides on (first of TRAVELERS). */
-const DEFAULT_TOKEN = 'Powan';
+const DEFAULT_TOKEN = 'Alina';
 
 /**
  * ⚠️ VESTIGIAL since issue #8 — the glyphs are SELF-HOSTED now

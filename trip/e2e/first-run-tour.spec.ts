@@ -50,7 +50,11 @@ test.describe('S155 — first-run tour shows exactly once', () => {
     await gotoFreshHome(page);
     await expectTourVisible(page);
     await expect(page.getByTestId('tour-progress')).toHaveText('Step 1 of 5');
-    await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible();
+    // Scoped: a page-wide heading lookup also matches the home bento's cards, whose
+    // accessible names contain these words ("Open the map", "Nothing left today").
+    await expect(
+      page.getByTestId('tour-dialog').getByRole('heading', { name: 'Today' }),
+    ).toBeVisible();
     // Not yet marked seen at this point.
     expect(await page.evaluate((k) => window.localStorage.getItem(k), TOUR_SEEN_KEY)).toBeNull();
   });
@@ -104,7 +108,9 @@ test.describe('S155 — first-run tour shows exactly once', () => {
     const labels = ['Today', 'Plan', 'Budget', 'Journal', 'Map'];
     for (let i = 0; i < labels.length; i++) {
       await expect(page.getByTestId('tour-progress')).toHaveText(`Step ${i + 1} of 5`);
-      await expect(page.getByRole('heading', { name: labels[i] })).toBeVisible();
+      await expect(
+        page.getByTestId('tour-dialog').getByRole('heading', { name: labels[i] }),
+      ).toBeVisible();
       await page.getByTestId('tour-next').click();
     }
 
@@ -174,6 +180,8 @@ test.describe('S155 — first-run tour keyboard + a11y', () => {
   test('axe: zero serious/critical violations on the open tour dialog', async ({ page }, testInfo) => {
     await gotoFreshHome(page);
     await expectTourVisible(page);
+    // Settle the entrance fade before the axe scan: mid-fade opacity composites text to a false hit.
+    await expect(page.getByTestId('tour-dialog')).toHaveCSS('opacity', '1');
 
     const results = await new AxeBuilder({ page }).include('[data-testid="tour-dialog"]').analyze();
     const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');

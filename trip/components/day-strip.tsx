@@ -100,22 +100,26 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
             aria-pressed={isSelected}
             aria-label={`${long}${todayLabel}${activityLabel}`}
             data-testid={`day-strip-${date}`}
-            className={`snap-center shrink-0 w-16 relative flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-xl text-sm transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+            // A DAY TAB (SPEC 9.9). MATERIAL carries the active state — a lighter surface,
+            // raised 5px — so it does not depend on an accent colour, which is what leaves
+            // the screen's one accent fill for the thing that is actually live. A day with
+            // nothing on it is drawn HOLLOW (dashed, --text-lo) at the size it will be,
+            // never shorter. Under reduced motion the raise lands instantly and the tab is
+            // still the lighter surface, still raised: nothing is lost.
+            className={`snap-center shrink-0 w-16 relative flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-r1 border transition-all [transition-duration:var(--duration-raise)] ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
               isSelected
-                ? 'bg-primary/20 ring-2 ring-ring text-white font-bold'
+                ? '-translate-y-[5px] bg-[rgb(var(--surface-overlay))] border-[hsl(var(--border))] text-[color:var(--text-hi)]'
                 : count > 0
                   ? country === 'nepal'
-                    ? 'bg-himalaya-500/10 text-himalaya-400 hover:bg-himalaya-500/20'
-                    : 'bg-sakura-400/10 text-sakura-400 hover:bg-sakura-400/20'
-                  : 'text-ink-lo hover:bg-white/5'
+                    ? 'bg-[rgb(var(--surface-low))] border-[color:var(--np-a)] text-[color:var(--np-a)] hover:bg-white/5'
+                    : 'bg-[rgb(var(--surface-low))] border-[color:var(--jp-a)] text-[color:var(--jp-a)] hover:bg-white/5'
+                  : 'border-dashed border-[color:var(--text-lo)] text-[color:var(--text-lo)] hover:bg-white/5'
             }`}
           >
-            {/* Today marker: a small pill above the weekday, on the matching chip only. */}
+            {/* THE STAMP — applied after printing, in another ink, off-register. There is
+                exactly one of these on the strip and it answers "what is now?". */}
             {isToday && (
-              <span
-                className="absolute -top-1.5 px-1.5 py-px rounded-full bg-gold-500 text-surface text-[8px] font-bold uppercase tracking-wide leading-none"
-                aria-hidden="true"
-              >
+              <span className="stamp stamp--live absolute -top-2 z-[1] px-1 py-0" aria-hidden="true">
                 Today
               </span>
             )}
@@ -125,18 +129,25 @@ export default function DayStrip({ dates, selectedDate, onSelect, meta, todayDat
                 wrapper, above which the axe pack always runs; Travel Mode has no such wrapper
                 (the strip is the ONLY day picker, at every width), so it's genuinely visible to
                 a real user and must clear contrast on its own. */}
-            <span className="text-[10px] uppercase tracking-wide text-ink-mid">{weekday}</span>
-            <span className="text-base leading-none">{dayNum}</span>
-            {/* Country dot: himalaya (nepal) / sakura (japan). */}
+            <span className="pr pr--lo">{weekday}</span>
+            <span className="num text-n-sm">{dayNum}</span>
+            {/* The country mark: FILLED when the day carries items, an unfilled ring when
+                it does not. Same disc, same place — only the fill says which. */}
             <span
-              className={`w-1.5 h-1.5 rounded-full ${country === 'nepal' ? 'bg-himalaya-400' : 'bg-sakura-400'}`}
+              className={`h-[7px] w-[7px] rounded-full ${
+                count > 0
+                  ? country === 'nepal'
+                    ? 'bg-[color:var(--np-a)]'
+                    : 'bg-[color:var(--jp-a)]'
+                  : 'border-2 border-[color:var(--text-lo)]'
+              }`}
               aria-hidden="true"
             />
             {/* Item-count badge, only when the day has items. */}
             {count > 0 && (
               <span
-                className={`absolute top-1 right-1 min-w-[1rem] h-4 px-1 flex items-center justify-center rounded-full text-[9px] font-semibold ${
-                  isSelected ? 'bg-primary text-primary-foreground' : 'bg-white/10 text-ink-mid'
+                className={`num absolute top-1 right-1 flex h-4 min-w-[1rem] items-center justify-center px-1 text-t-micro ${
+                  isSelected ? 'text-[color:var(--text-hi)]' : 'text-[color:var(--text-lo)]'
                 }`}
                 aria-hidden="true"
               >

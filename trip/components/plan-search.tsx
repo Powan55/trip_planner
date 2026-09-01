@@ -84,7 +84,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
             setActiveIndex(0);
           }}
           onKeyDown={onKeyDown}
-          className="w-full pl-9 pr-9 py-2.5 rounded-lg bg-surface border border-[color:var(--border-ui)] text-white text-sm placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="w-full min-h-tap pl-9 pr-9 py-2 rounded-r1 bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] font-sans text-t-body text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         />
         {query && (
           <button
@@ -105,10 +105,10 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
           role="listbox"
           aria-label="Plan search results"
           data-testid="plan-search-results"
-          className="absolute z-20 mt-1.5 w-full max-h-72 overflow-y-auto rounded-lg bg-surface border border-[color:var(--border-ui)] shadow-xl py-1"
+          className="absolute z-20 mt-1.5 w-full max-h-72 overflow-y-auto rounded-r1 bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)]"
         >
           {results.length === 0 ? (
-            <li role="presentation" className="px-3 py-2.5 text-sm text-ink-mid" data-testid="plan-search-empty">
+            <li role="presentation" className="empty px-3 py-3" data-testid="plan-search-empty">
               No matches
             </li>
           ) : (
@@ -125,10 +125,10 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
                   data-testid={`plan-search-result-${result.item.id}`}
                   onMouseEnter={() => setActiveIndex(i)}
                   onClick={() => choose(result)}
-                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 outline-none ${i === activeIndex ? 'bg-primary/20 text-white' : 'text-ink-hi hover:bg-white/5'}`}
+                  className={`w-full min-h-tap text-left px-3 py-2 text-t-body flex items-center justify-between gap-2 outline-none border-b-hair border-[color:hsl(var(--border))] ${i === activeIndex ? 'bg-[rgb(62_216_255_/_0.10)] text-ink-hi shadow-[inset_3px_0_0_hsl(var(--accent))]' : 'text-ink-hi hover:bg-white/5'}`}
                 >
                   <span className="truncate">{result.item.title}</span>
-                  <span className="shrink-0 text-xs text-ink-mid">{formatDate(result.date)}</span>
+                  <span className="shrink-0 font-machine text-t-micro tracking-[0.09em] uppercase text-ink-mid">{formatDate(result.date)}</span>
                 </button>
               </li>
             ))

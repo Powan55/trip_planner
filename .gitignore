@@ -54,3 +54,18 @@ briefs/
 .claude/
 docs/plans/
 docs/reports/
+
+# Local design/agent tooling, created by the design skill in this working tree.
+# Not part of the app, and it carries vendor names and absolute local paths that the
+# publishing scan is right to reject. That scan enumerates with `git ls-files`, so these
+# are invisible to it until someone stages them - which is exactly what the documented
+# `git add -A` pre-commit step does. Ignored so that step stays safe.
+.impeccable/
+.github/agents/
+.github/hooks/
+.github/skills/
+PRODUCT.md
+
+# Local knowledge-graph output from the graphify skill. Regeneratable, and it
+# extracts content from files already gitignored above (HANDOFF.md, CLAUDE.md).
+graphify-out/

@@ -31,6 +31,12 @@ import { useViewTransition } from '@/hooks/use-view-transition';
  * not catalog-driven (the palette isn't a route), dispatching the same `palette:open`
  * window CustomEvent that `components/command-palette.tsx` listens for. Rendered
  * unconditionally (no mount gate) since it carries no trip-dependent data.
+ *
+ * THIS IS THE INDEX. It is the second tap of the "any tab -> INDEX (1) -> surface (2)"
+ * claim, so every one of the 19 surfaces is reachable from here and the IA cost of the
+ * five-tab bar is zero. Rows take `.list`, group heads take `.sec` with their own count,
+ * and the catalog itself is READ, never re-authored — `lib/nav-items.ts` remains the one
+ * source and `lib/__tests__/nav-items.test.ts` pins it down to the label list.
  */
 
 // Group definitions keyed by href. Labels/icons come from the catalog.
@@ -69,31 +75,42 @@ export default function MoreList() {
     return new Map<string, NavItem>(companions.map((i) => [i.href, i]));
   }, [mounted]);
 
+  // The row: an icon in the recipe's leading column and the label.
+  // KNOWN CEILING: the two `!` utilities are not decoration — `.list .r` is a 0,2,0
+  // selector and a bare utility is 0,1,0, so it cannot reach the 58px timestamp track an
+  // icon does not need. Every single-class recipe (`.cell`, `.chip`, `.btn`) composes with
+  // plain utilities; only the descendant ones need this.
+  const ROW =
+    'r grid w-full [--lead:22px] !items-center text-left outline-none';
+
   return (
-    <div className="mx-auto max-w-[680px] px-4 pb-24 sm:px-6">
-      <section aria-labelledby="more-group-search" className="mb-8">
-        <h2
-          id="more-group-search"
-          className="mb-2 px-1 text-eyebrow uppercase tracking-wide text-ink-lo"
-        >
-          Search
-        </h2>
-        <ul className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] divide-y divide-white/[0.06]">
+    <div className="mx-auto max-w-[680px] pb-24">
+      <section aria-labelledby="more-group-search" className="mb-7">
+        <div className="sec px-gut pt-2">
+          <h2 id="more-group-search">Search</h2>
+          <span className="sub">Every surface</span>
+        </div>
+        <ul className="list border-t-2 border-[hsl(var(--border))]">
           <li>
             <button
               type="button"
               data-testid="more-search"
               onClick={() => window.dispatchEvent(new CustomEvent('palette:open'))}
-              className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-sm text-ink-hi outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
+              className={ROW}
             >
-              <Search className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-              <span className="flex-1">Search</span>
+              <Search className="h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
+              <h3>Search</h3>
+              <span className="chip">⌘K</span>
             </button>
           </li>
         </ul>
       </section>
       {!mounted ? (
-        <div aria-busy="true" className="h-40" />
+        // The SHAPE arrives before the data, and the word is a real text node: a bare grey
+        // block is indistinguishable from an empty one and is not announced.
+        <div aria-busy="true" className="load pr pr--lo mx-gut h-40">
+          Loading
+        </div>
       ) : (
         GROUPS.map((group) => {
           const items = group.hrefs
@@ -102,15 +119,16 @@ export default function MoreList() {
           if (items.length === 0) return null; // empty group hidden
           const isAccount = group.title === 'Account';
           const headingId = `more-group-${group.title.toLowerCase().replace(/[^a-z]+/g, '-')}`;
+          const count = items.length + (isAccount ? 1 : 0);
           return (
-            <section key={group.title} aria-labelledby={headingId} className="mb-8">
-              <h2
-                id={headingId}
-                className="mb-2 px-1 text-eyebrow uppercase tracking-wide text-ink-lo"
-              >
-                {group.title}
-              </h2>
-              <ul className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] divide-y divide-white/[0.06]">
+            <section key={group.title} aria-labelledby={headingId} className="mb-7">
+              <div className="sec px-gut">
+                <h2 id={headingId}>{group.title}</h2>
+                <span className="sub">
+                  {count} {count === 1 ? 'entry' : 'entries'}
+                </span>
+              </div>
+              <ul className="list border-t-2 border-[hsl(var(--border))]">
                 {items.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -119,10 +137,10 @@ export default function MoreList() {
                         href={item.href}
                         onClick={vtClick(item.href)}
                         data-testid={`more-link-${item.label.toLowerCase().replace(/[^a-z]+/g, '-')}`}
-                        className="flex min-h-[52px] items-center gap-3 px-4 text-sm text-ink-hi outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
+                        className={ROW}
                       >
-                        <Icon className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        <span className="flex-1">{item.label}</span>
+                        <Icon className="h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
+                        <h3>{item.label}</h3>
                       </Link>
                     </li>
                   );
@@ -133,10 +151,11 @@ export default function MoreList() {
                       <button
                         type="button"
                         data-testid="more-sign-out"
-                        className="flex min-h-[52px] w-full items-center gap-3 px-4 text-left text-sm text-ink-hi outline-none transition-colors hover:bg-white/[0.05] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:outline-none"
+                        className={ROW}
                       >
-                        <LogOut className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
-                        <span className="flex-1">Sign out</span>
+                        <LogOut className="h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
+                        <h3>Sign out</h3>
+                        <span className="mt">Ends session</span>
                       </button>
                     </SignOutConfirm>
                   </li>

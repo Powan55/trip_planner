@@ -69,15 +69,15 @@ export default function TravelLogDifferent({ date }: { date: string }) {
           type="button"
           onClick={() => setOpen(true)}
           data-testid="travel-log-different-trigger"
-          className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-[color:var(--border-ui)] bg-white/[0.03] px-4 py-3 text-sm font-medium text-ink-mid outline-none transition-colors duration-200 hover:bg-white/[0.06] hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="pr flex min-h-tap w-full items-center justify-center gap-2 rounded-r1 border-hair border-dashed border-[color:var(--text-lo)] text-ink-lo outline-none transition-colors duration-200 hover:bg-white/5 hover:text-ink-mid focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Plus className="h-4 w-4" aria-hidden="true" />
           Log something different
         </button>
       ) : (
-        <div className="rounded-2xl glass-card p-3 sm:p-4">
+        <div className="border-y-hair border-border px-gut py-3">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-mid">
+            <p className="pr pr--l">
               Log something you already did
             </p>
             <button
@@ -85,7 +85,7 @@ export default function TravelLogDifferent({ date }: { date: string }) {
               onClick={() => setOpen(false)}
               aria-label="Collapse log something different"
               data-testid="travel-log-different-collapse"
-              className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-ink-mid outline-none transition-colors hover:bg-white/10 hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+              className="inline-flex h-tap w-tap shrink-0 items-center justify-center rounded-r1 border-hair border-[color:var(--border-ui)] text-ink-mid outline-none transition-colors hover:bg-white/5 hover:text-ink-hi focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -97,10 +97,10 @@ export default function TravelLogDifferent({ date }: { date: string }) {
               onChange={(e) => setCategory(e.target.value as ItineraryCategory)}
               aria-label={`Category for what you logged on ${dayLabel}`}
               data-testid="travel-log-different-category"
-              className="min-h-[44px] shrink-0 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm capitalize text-white outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring sm:w-40"
+              className="min-h-tap w-full rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2 text-t-body text-ink-hi outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 focus-visible:ring-ring shrink-0 capitalize sm:w-40"
             >
               {ALL_CATEGORIES.map((c) => (
-                <option key={c} value={c} className="bg-surface capitalize text-white">
+                <option key={c} value={c} className="bg-surface capitalize text-ink-hi">
                   {c}
                 </option>
               ))}

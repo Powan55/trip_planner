@@ -1,11 +1,9 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
-// Inlined from lib/utils' withBasePath — importing that barrel eagerly drags
-// clsx/tailwind-merge into the four gated routes' First Load (same bundle
-// discipline as the lazy gateway import below). NEXT_PUBLIC_* is build-inlined.
-const withBasePath = (path: string) =>
-  `${process.env.NEXT_PUBLIC_BASE_PATH || ''}${path}`;
+// Not '@/lib/utils' — that barrel eagerly drags clsx/tailwind-merge into the four
+// gated routes' First Load (same bundle discipline as the lazy gateway import below).
+import { withBasePath } from '@/lib/base-path';
 
 /**
  * DefaultTripOnly — gates an N×J-specific section island (Nepal, Japan,
@@ -54,25 +52,27 @@ export default function DefaultTripOnly({ children }: { children: ReactNode }) {
       data-testid="default-trip-only-empty-state"
       className="mx-auto max-w-[1200px] px-4 py-16 text-center sm:px-6"
     >
-      <p className="font-display text-lg font-semibold text-white">
+      {/* NOT ON THIS TRIP is a true statement about a real section and it points forward:
+          the two ways out are named right underneath it. Nothing here is captioned as
+          absent, and the copy sits at --t-body, never at the micro floor. */}
+      <p className="pr pr--lo mb-3">Section · Not on this trip</p>
+      <p className="font-machine text-n-sm font-semibold uppercase tracking-[0.06em] text-[color:var(--text-hi)]">
         This page belongs to the Nepal × Japan trip
       </p>
-      <p className="mt-2 text-sm text-ink-mid">
-        Your current trip doesn&apos;t use this section.
-      </p>
-      <div className="mt-6 flex items-center justify-center gap-3">
+      <p className="empty mt-2">Your current trip doesn&apos;t use this section.</p>
+      <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <button
           type="button"
           onClick={switchToDefault}
           data-testid="default-trip-only-switch"
-          className="inline-flex min-h-[44px] items-center rounded-lg border border-ring/40 px-4 text-sm font-medium text-primary outline-none transition-colors hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="pr inline-flex min-h-tap items-center rounded-r1 border border-[color:hsl(var(--accent))] px-4 text-[color:hsl(var(--accent))] outline-none transition-colors hover:bg-[rgb(62_216_255_/_0.10)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Switch to the Nepal × Japan trip
         </button>
         <a
           href={withBasePath('/trips/')}
           data-testid="default-trip-only-trips-link"
-          className="inline-flex min-h-[44px] items-center rounded-lg border border-[color:var(--border-ui)] px-4 text-sm font-medium text-ink-hi outline-none transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="pr inline-flex min-h-tap items-center rounded-r1 border border-[color:var(--border-ui)] px-4 text-[color:var(--text-hi)] outline-none transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           Manage trips
         </a>

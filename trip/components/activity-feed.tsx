@@ -2,10 +2,9 @@
 
 import { useMemo } from 'react';
 import { History } from 'lucide-react';
-import { CATEGORY_COLORS, type ItineraryCategory, formatDate } from '@/lib/trip-data';
+import { type ItineraryCategory, formatDate } from '@/lib/trip-data';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { formatRelativeTime } from '@/lib/relative-time';
-import { FadeIn } from '@/components/ui/animate';
 
 /**
  * Recent-changes activity feed.
@@ -28,10 +27,8 @@ import { FadeIn } from '@/components/ui/animate';
  * visually unchanged.
  *
  * A11y: a labeled region (`<section aria-labelledby>`) with a real
- * heading and an ordered `<ol>` (the list IS ordered, newest-first). The only motion is
- * one declarative `FadeIn` reveal, which
- * `<MotionConfig reducedMotion="user">` auto-neutralizes under prefers-reduced-motion
- * — no scroll-linked transform, no rAF, nothing that needs a manual guard.
+ * heading and an ordered `<ol>` (the list IS ordered, newest-first). No motion at all: the
+ * feed is present when you arrive, so there is nothing for reduced motion to switch off.
  *
  * Static Tailwind literals only; dark-only; `min-w-0`/`truncate` so long
  * names/titles never overflow at narrow widths.
@@ -89,48 +86,45 @@ export default function ActivityFeed({ className = '' }: { className?: string })
   if (entries.length === 0) return null;
 
   return (
-    <FadeIn className={className}>
+    <div className={className}>
       <section
         aria-labelledby="activity-feed-heading"
-        className="max-w-2xl mx-auto glass-card rounded-2xl px-5 py-4"
+        className="mx-auto max-w-2xl border-hair border-[color:hsl(var(--border))] bg-[rgb(var(--surface-low))]"
       >
         <h3
           id="activity-feed-heading"
-          className="inline-flex items-center gap-2 text-sm font-semibold text-ink-hi mb-3"
+          className="pr pr--l inline-flex items-center gap-2 border-b-2 border-[color:hsl(var(--border))] px-gut py-2 text-ink-hi"
         >
-          <History className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
+          <History className="w-3.5 h-3.5" aria-hidden="true" />
           Recent changes
         </h3>
 
-        <ol className="space-y-2.5">
+        <ol className="list list-none">
           {entries.map((entry) => {
-            const colors = CATEGORY_COLORS[entry.category];
             const relative = formatRelativeTime(entry.updatedAt);
             return (
-              <li key={entry.id} className="flex items-start gap-2.5 text-left">
-                {/* Small category cue (cheap — reuses the shared color map). Decorative. */}
-                <span
-                  className={`shrink-0 mt-1 w-2 h-2 rounded-full ${colors.bg} ring-1 ${colors.border}`}
-                  aria-hidden="true"
-                />
-                <div className="min-w-0 flex-1">
+              <li key={entry.id} className="r [--lead:13px] !items-center text-left">
+                {/* The struck mark — a filed edit is a committed fact. Category ink, decorative. */}
+                <span className="mk mk--struck" aria-hidden="true" />
+                <div className="min-w-0">
                   {/* "{author} edited {title}" — author and title both truncate so a long
                       name or title can never overflow the row. */}
-                  <p className="text-sm text-ink-hi leading-snug truncate">
-                    <span className="font-medium text-white">{entry.author}</span>
+                  <p className="truncate text-t-body leading-snug text-ink-hi">
+                    <span className="font-semibold">{entry.author}</span>
                     <span className="text-ink-mid"> edited </span>
-                    <span className="text-ink-hi">{entry.title}</span>
+                    <span>{entry.title}</span>
                   </p>
-                  <p className="text-xs text-ink-mid mt-0.5">
+                  <p className="mt">
                     {entry.dateLabel}
                     {relative ? <span> · {relative}</span> : null}
                   </p>
                 </div>
+                <span className="chip capitalize">{entry.category}</span>
               </li>
             );
           })}
         </ol>
       </section>
-    </FadeIn>
+    </div>
   );
 }

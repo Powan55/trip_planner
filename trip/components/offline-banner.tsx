@@ -24,7 +24,7 @@ import { useOnline } from '@/hooks/use-online';
  *
  * Structural mirror of `components/presence-bar.tsx`: a `fixed` pill inside a
  * live region, `role="status"` + `aria-live="polite"`
- * + `aria-label`, a `glass-card` surface, an `sr-only` full-sentence summary,
+ * + `aria-label`, a solid printed-stock surface, an `sr-only` full-sentence summary,
  * and one declarative `m.*` reveal — the app-wide `<MotionConfig
  * reducedMotion="user">` (in `components/theme-provider.tsx`) auto-neutralizes
  * that reveal under prefers-reduced-motion, so no manual guard is needed here.
@@ -61,9 +61,12 @@ export function OfflineBanner() {
           data-testid="offline-banner"
           className="fixed top-20 left-1/2 z-40 -translate-x-1/2 max-w-[calc(100vw-2rem)]"
         >
-          <div className="flex items-center gap-1.5 rounded-full glass-card px-3 py-1.5 shadow-lg text-[11px] text-ink-mid">
-            <WifiOff className="h-3 w-3 shrink-0" aria-hidden="true" />
-            <span>Offline — showing cached content</span>
+          {/* The running head's offline field, printed: solid stock, a 2px rule, mono
+              caps. NOT glass and NOT red — being offline is a condition of the network,
+              stated in words, and the app keeps working from its precache. */}
+          <div className="flex items-center gap-2 border-2 border-[hsl(var(--border))] bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1">
+            <WifiOff className="h-3 w-3 shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
+            <span className="pr">Net · Offline · Cached</span>
             <span className="sr-only">
               Your device has lost its network connection. The app keeps working from cached
               data, and this message will disappear automatically once you&apos;re back online.

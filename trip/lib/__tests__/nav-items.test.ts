@@ -8,8 +8,8 @@ import {
 } from '../nav-items';
 
 // isRouteActive drives the active state of every primary-nav item (navbar + mobile
-// tab bar since FU-4). `normalizePath` is module-private, so it is exercised only
-// through isRouteActive here — a deliberate fence.
+// tab bar since FU-4). `normalizePath` is exported for the command palette, which
+// compares the same way; it is still exercised here through isRouteActive.
 
 describe('isRouteActive', () => {
   it('Home is exact-match only', () => {

@@ -47,7 +47,7 @@ const withBase = (p) => `${BASE_PATH}${p}`;
 // — three hand-synced copies with no compiler tie, so they move together or the
 // installed app is framed in a palette the app no longer uses. Re-valued to the
 // D-334 page field.
-const THEME_COLOR = '#0E0920';
+const THEME_COLOR = '#0A0818';
 
 // -------------------------------------------------------------------------
 // Recursively list every file under a directory as out/-relative POSIX paths.

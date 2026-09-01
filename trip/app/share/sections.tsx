@@ -9,5 +9,5 @@ import SectionSkeleton from '@/components/section-skeleton';
 
 export const ShareInbox = dynamic(() => import('@/components/share-inbox'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="30rem" count={2} />,
+  loading: () => <SectionSkeleton height="30rem" count={2} contentClassName="max-w-3xl" />,
 });

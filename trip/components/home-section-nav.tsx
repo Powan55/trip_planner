@@ -90,17 +90,25 @@ export default function HomeSectionNav() {
   }, []);
 
   return (
+    // `.home-nav` STAYS on the outer element and is not merely legacy: it carries the
+    // sticky offset, and it is the selector the print block in globals.css hides this
+    // strip by. `.head` supplies the running-head grammar on the inner rail.
     <nav aria-label="Home sections" data-testid="home-section-nav" className="home-nav">
-      <div className="home-nav-inner">
-        {SECTIONS.map(({ id, label }) => (
+      {/* Full-bleed, not centred in a 1200px measure: `.head` paints a solid ground, so an
+          inset rail would leave the outer strip's own fill showing either side of it. */}
+      <div className="head">
+        {SECTIONS.map(({ id, label }, i) => (
           <a
             key={id}
             href={`#${id}`}
             data-testid={`home-section-nav-${id}`}
             aria-current={activeId === id ? 'true' : undefined}
-            className="home-nav-link"
+            className={`f flex min-h-tap flex-col justify-center${
+              activeId === id ? ' f--live' : ''
+            }`}
           >
-            {label}
+            <span className="k">{String(i + 1).padStart(2, '0')}</span>
+            <span className="v">{label}</span>
           </a>
         ))}
       </div>

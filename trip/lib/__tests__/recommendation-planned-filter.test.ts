@@ -117,12 +117,9 @@ describe('RecommendationSection — the Planned filter tracks the itinerary stor
       createElement(RecommendationSection, {
         id: 'nepal-attractions',
         title: 'Attractions',
-        titleGradient: '',
         subtitle: '',
         items: ITEMS,
         categories: ['All', 'Temple'],
-        accentColor: '',
-        glassClass: '',
       }),
     );
 

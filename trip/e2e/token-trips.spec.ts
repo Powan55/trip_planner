@@ -321,6 +321,8 @@ test.describe('S233 — axe', () => {
   test('front-door gate has zero serious/critical violations', async ({ page }) => {
     await gotoFresh(page, '/');
     await expect(page.locator('[role="dialog"]')).toHaveCount(1);
+    // Settle the entrance fade before the axe scan: mid-fade opacity composites text to a false hit.
+    await expect(page.locator('[role="dialog"]')).toHaveCSS('opacity', '1');
     const results = await new AxeBuilder({ page }).include('[role="dialog"]').analyze();
     const blocking = results.violations.filter((v) => v.impact === 'serious' || v.impact === 'critical');
     expect(blocking, blocking.map((v) => `${v.id} [${v.impact}]`).join('; ')).toEqual([]);

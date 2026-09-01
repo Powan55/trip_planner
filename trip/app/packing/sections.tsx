@@ -8,5 +8,5 @@ import SectionSkeleton from '@/components/section-skeleton';
 
 export const PackingChecklist = dynamic(() => import('@/components/packing-checklist'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="40rem" count={3} />,
+  loading: () => <SectionSkeleton height="40rem" count={3} contentClassName="max-w-3xl" />,
 });

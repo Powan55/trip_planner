@@ -70,12 +70,14 @@ export default function AddToPlanButton({ source, sourceType, accentColor }: Add
           onClick={handleOpen}
           aria-haspopup="dialog"
           aria-label={`${draft.title} is planned ${summary.toLowerCase()}. Modify or remove.`}
-          className="w-full mt-3 flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-primary/10 border border-ring/40 text-primary text-xs font-medium hover:bg-primary/25 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          // STRUCK: this place is committed to a day, so the mark is filled and the
+          // border is the struck --text-hi rule, not a tint.
+          className="pr mt-3 flex min-h-tap w-full items-center justify-center gap-2 rounded-r1 border border-[color:var(--text-hi)] px-3 py-2 text-[color:var(--text-hi)] outline-none transition-colors hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         >
           <Check className="w-3.5 h-3.5 shrink-0" />
           <span>Added</span>
-          <span className="text-muted-foreground" aria-hidden="true">·</span>
-          <span className="flex items-center gap-1 text-foreground">
+          <span className="text-[color:var(--text-lo)]" aria-hidden="true">·</span>
+          <span className="flex items-center gap-1 tabular-nums">
             <CalendarDays className="w-3 h-3 shrink-0" />
             {summary}
           </span>
@@ -87,7 +89,9 @@ export default function AddToPlanButton({ source, sourceType, accentColor }: Add
           onClick={handleOpen}
           aria-haspopup="dialog"
           aria-label={`Add ${draft.title} to your trip plan`}
-          className={`w-full mt-3 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-xs font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none hover:bg-white/10 ${accentColor ?? 'text-ink-hi'}`}
+          // HOLLOW: not yet on any day, so the border is dashed --text-lo and the label
+          // sits a tier down. Same box, same size — unfilled, never smaller.
+          className={`pr mt-3 flex min-h-tap w-full items-center justify-center gap-1.5 rounded-r1 border border-dashed border-[color:var(--text-lo)] px-3 py-2 transition-colors outline-none hover:bg-white/5 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${accentColor ?? 'text-[color:var(--text-lo)]'}`}
         >
           <Plus className="w-3.5 h-3.5 shrink-0" />
           Add to plan

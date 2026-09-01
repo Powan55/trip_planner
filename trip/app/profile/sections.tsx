@@ -8,5 +8,5 @@ import SectionSkeleton from '@/components/section-skeleton';
 
 export const VisitedPlaces = dynamic(() => import('@/components/visited-places-panel'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="28rem" count={2} />,
+  loading: () => <SectionSkeleton height="28rem" count={2} contentClassName="max-w-3xl" />,
 });

@@ -35,7 +35,7 @@ beforeEach(() => {
 
 describe('rosterForActiveTrip — default pack (pixel-identical)', () => {
   it('returns exactly the fixed TRAVELERS names, ignoring expenses', () => {
-    expect(rosterForActiveTrip([])).toEqual(['Powan', 'Sushil', 'Uttam']);
+    expect(rosterForActiveTrip([])).toEqual(['Alina', 'Rhea', 'Milo']);
     // History on the default pack changes nothing — still the fixed roster.
     expect(
       rosterForActiveTrip([exp({ paidBy: 'Stranger', split: ['Someone'] })]),

@@ -2521,6 +2521,10 @@ and comment that the placeholder is transient, with the end-to-end guarantee liv
 reconciler test. Its sibling `consumeNameHint` cases need a branch-3 case. Do not contort the door
 to satisfy a new assertion there: the door is deliberately not where this is fixed, and forcing a name
 lookup into it violates D-239's LOCKED firebase-free clause.
+**Amended 2026-08-30 by D-486: the last two sentences no longer govern.** D-296 (2026-08-10) already
+put a lazy read of `profile/identity` inside `handleLogin` and narrowed the firebase-free clause to
+*statically* firebase-free, so the door now takes the name off that same read. The rest of this
+section — re-scoping the assertion rather than deleting it — still stands.
 
 **Section 7: No rules change, no owner action, stays on Spark.** Verified at source:
 `firestore.rules`'s `match /trips/{tripId}` → `match /{sub}/{document=**}` recursive wildcard already
@@ -5116,3 +5120,114 @@ The same file already carried this rule in a comment on an earlier test, and the
 **Sibling, filed separately as issue #335:** `saveDocs` has the identical shape, and the docs snapshot-apply path calls it directly rather than through the store's commit. Not reachable by hand — the docs checklist has no remove control — but the two domains sitting on opposite sides of the same rule is how this gets reintroduced.
 
 **Changes if:** a domain gains a seed that can legitimately be empty, at which point the `hasKey` guard is the only thing still distinguishing the two states and the length check should come out.
+### D-448 · (2026-08-30) · A `globals.css` recipe outranks a Tailwind utility, so the utility reads as live and renders nothing
+
+**Decision.** The component recipes in `trip/app/globals.css` are two-class selectors — specificity (0,2,0). Tailwind 3.3.3 emits no native `@layer` here, so its utilities sit at (0,1,0) with nothing to lift them above the recipe. A single-class utility written against a recipe loses, always, and loses silently. The class is in the markup, it reads as live to anyone reviewing the JSX, and it renders nothing.
+
+**Six live bugs shipped before the rule had a name**, each diagnosed on its own for a while, because the markup looked correct in every one:
+
+- destructive confirms at 3.27:1 contrast;
+- the `.plate` scrim at zero height;
+- `aspect-auto` dead on home-chapters — a 966px band inside a 512px column, which is what produced sideways page scroll at desktop widths;
+- `duration-[var(--duration-press)]` dropped by Tailwind across 5 components;
+- `flex` inert on `calendar-sortable-item`, killing a documented 44px tap-target fix;
+- `!text-ink-hi` rendering white-on-white in the print block.
+
+**The sanctioned hatch is the recipe's own custom property, not a heavier selector.** `--lead`, `--cols`, `--plate-ar`/`--plate-rows`, or a bare `!` where a single keyword really is the whole change. `[--lead:13px]` is one token, wins with no specificity fight, and leaves the next override exactly as easy as this one. Escalating the selector instead only moves the fight one round later.
+
+**The print block must list the escaped-bang twins.** A `!` hatch emits `.\!text-ink-mid`, whose own `!important` outranks the print reset, so the print block spells those twins out alongside their plain forms. Miss one and that hatch silently opts out of the paper ramp — which is exactly how `!text-ink-hi` reached white-on-white.
+
+**One regression test, on the case that fails invisibly.** `trip/lib/__tests__/plate-ramp-frame.test.ts` asserts the structural rule behind the scrim bug: a ramp must sit inside a `.frame` ancestor, because `.plate .frame` is the grid it spans and outside one there is no row to take a height from. Five call sites shipped that way and measured h=0 in Chromium against the compiled stylesheet. The other five bugs are visible the moment someone looks at the page; a zero-height scrim is not.
+
+**Changes if:** the recipes move into a declared `@layer components` with utilities in a later layer. Layer order beats specificity outright, so a single-class utility would win by construction and the hatches stop being necessary. That is the real fix, and it is a whole-stylesheet change rather than a slice.
+### D-449 · Extends D-448 · (2026-08-30) · `.plate`'s aspect ratio is an opt-in property, not a media-query breakpoint
+
+**Decision.** `.plate` takes its shape from `--plate-ar` and `--plate-rows` — defaulted in the recipe and opted into per surface by `.plate--band` and `.plate--wide`. A bare 700px breakpoint no longer decides whether a plate is landscape. The query survives only *inside* `.plate--wide`, tuning 16/10 to 21/9 for a surface that has already declared itself wide.
+
+**Why the breakpoint could not be made correct.** A media query reads the viewport. It cannot see how many columns the plate sits in, and that is what actually decides whether the caption fits. In the inspiration grid the plate is 317-465px wide from 700 up, where 21/9 leaves the 58% caption row 79-94px to hold 138-160px of chip, title and blurb. The overflow goes upward out of the row — `.lay` is `justify-content: flex-end` — so title and blurb land on unscrimmed photograph, above the line the ramp guarantee says text may never cross, and at 1024 the country chip cleared the frame entirely. The breakpoint was not mistuned. It was structurally unable to be right, so retuning it would only have moved which call site was wrong.
+
+**Portrait stays the default for the same reason landscape is opt-in.** The portrait frame holds wherever the plate is a grid cell, which is the only place the caption has to survive a narrow column. A surface that knows it has the width says so.
+
+**It is D-448's hatch applied to shape.** A custom property on the recipe is how a call site overrides a two-class selector without a specificity fight, so the fix and the convention are the same thing.
+
+**Changes if:** container queries land on this surface, at which point the plate could read its own column count directly and both the opt-in modifiers and the surviving 700px query become redundant.
+### D-485 · (2026-08-30) · The service worker outlives `page.route`, so an assertion on a transient state must start before the navigation
+
+**Decision.** Any e2e assertion on a state that exists only for a window — a loading skeleton, a placeholder, an in-flight spinner — starts its wait **before** the navigation, concurrently with it, and captures whatever it measures at the moment the wait latches rather than after. `await goto(...)` then `await expect(...)` is the wrong shape for this class of test, however long the timeout is.
+
+**Chunk throttling stops applying the moment the service worker claims the page.** `out/sw.js` serves same-origin static GETs cache-first — `scripts/gen-sw.mjs:1233` routes them into `cacheFirst()` at `:1082`, which returns the Cache Storage hit and never calls `fetch`. Per-route lazy chunks that miss the precache are backfilled into it on their first successful online fetch (`:88`). A request answered from Cache Storage produces no network request, so Playwright's `page.route('**/_next/static/chunks/**')` never fires and the delay it was holding is silently not applied. The throttle is a first-visit-only device, and nothing goes red when it lapses.
+
+**The helper's return is bound to that same event, and is unbounded against the window.** `gotoAsTraveler` waits on `navigator.serviceWorker.controller` (`trip/e2e/polish-bundle.spec.ts:28-33`), so it returns when the worker claims the page — measured 2.0-2.3s on a good run and 12.5s on a slow one, against a placeholder window that opens at hydration and closes roughly 1.3s later. Neither number is a property of the code under test. Waiting for the navigation to settle first means racing a variable against a fixed window and having no way to tell which won.
+
+**Two specs in `trip/e2e/polish-bundle.spec.ts` were written the old way.** One flaked. The other passed on roughly 150ms of margin, which is a pass by luck, not by construction. Both now run their wait inside a `Promise.all` alongside the navigation, and the box measurement is chained off the wait rather than taken as a separate step afterwards.
+
+**This is a shape the codebase invites.** `gotoAsTraveler` is copy-pasted into 12 spec files rather than shared, and 10 of those copies carry the controller wait. A third spec written the natural way — navigate, then assert — would flake identically, and would look correct in review.
+
+**Changes if:** the SW registration is gated off under test, or `gotoAsTraveler` becomes one shared helper that resolves on something bounded by the page rather than by the worker. Either would decouple the helper's return from the throttle window and make the sequential shape safe again.
+### D-486 · Amends D-277 section 6 · (2026-08-30) · The door reads the account name off the probe it already issues; "do not force a name lookup into the door" no longer governs
+
+**Decision.** `probeAccountIdentity` returns `{ verdict, name }` off its single `getDocFromServer` of `trips/{code}/profile/identity`, and `handleLogin` adopts that name instead of hard-coding `stored || 'Traveler'`. The door gains no second read, no second timeout and no budget of its own: D-296's one 8s race now serves both #10's key validation and this.
+
+**Why section 6's clause stopped governing.** It read *"forcing a name lookup into it violates D-239's LOCKED firebase-free clause"*. Five days later D-296 amended that clause to its real invariant — the door is **STATICALLY firebase-free only** — and put a dynamically-imported read of *this exact document* inside `handleLogin`. A name read of a document the door already reads cannot violate a rule that read lives under. D-277 section 2's write contract is untouched: this is a read, and it is awaited before `signIn`.
+
+**What decided it is section 5, not the door.** Attribution there is immutable, and section 3 admits that an item created before the reconciler runs is stamped permanently. So the nudge-toast-plus-rename remedy repairs the name chip and leaves attribution wrong forever: everything the traveller creates in that window stays signed "Traveler", which section 5 itself calls a merged identity that may belong to several humans. The remedy fixed the label. The defect was in the data.
+
+**The verdict still gates only a NEW key.** A key already stored on the device skips gating exactly as D-296 requires — a live session credential is never re-gated. On that stored-key path the read is issued for the name alone and every verdict admits, `'missing'` included, because a device that is already signed in must not be evicted by an answer about someone else's document.
+
+**The cost, recorded rather than buried.** A returning device with no local name now waits up to 8s at the door where it previously admitted instantly. It still admits — the race is fail-open on that path in every branch — but the wait is real, it is new, and it is paid by precisely the person this fixes.
+
+**Changes if:** a second account-level scalar moves into `profile/identity`, at which point section 1's clobber analysis has to be redone from scratch and this stops being a read of one field (D-277's own `Changes if` already names that trigger); or token-format discrimination (`user-`/`trip-` prefixes) lands, which would let the door answer before any network and changes what this read is for (D-296's trigger).
+
+### D-487 · (2026-08-30) · A reorder under sync is a real HLC-stamping event; ordering stays derived from the hlc sort, and the residual is a whole-day republish
+
+**Decision.** Reordering a day under sync re-stamps that day's live rows so their `hlc`s ascend in the new order (`reorderSyncStamps`, `core/sync/stamp.ts`). Ordering stays a **derived** property of `mergeItems`' hlc-ascending sort instead of becoming a field of its own. No schema change, no migration, and `merge-items.ts`, `merge-day.ts` and `hlc.ts` are untouched, so the four other synced domains are unaffected by construction.
+
+**What it replaces was universal, 100%-reproducible data loss.** That sort runs at both sync boundaries, including a self-merge of a snapshot the device produced itself, so an order-only rewrite was reverted by the very next merge with no peer involved at all. Every drag under sync was silently discarded, on one device, every time.
+
+**The residual, at its real scope — which is wider than it was first stated.** Re-stamping *every* live row republishes the whole day's local content over any peer edit this device has not yet received, not just the rows that moved. The realistic worst case is offline: go offline, drag one card, come back, and the entire day's stale local content beats everything a peer did meanwhile. Stated at full width here, because the narrower version of this sentence is what made the trade look cheap.
+
+**Why the trade was accepted anyway.** The defect is universal and deterministic; the residual needs genuine concurrency that the local store has not yet absorbed. Trading a loss that happens to everyone every time for one that happens to two people editing the same day across a sync gap is worth taking, and worth taking now rather than behind the design that removes it.
+
+**Two facts about the stamp, corrected here because both were stated too strongly.** (1) The new stamp is **not** strictly greater than every input stamp. Each row advances from `max(its own hlc, the previous row's new hlc)`, so the result ascends across the array and beats that row's own prior stamp — it is not lifted above some other row's input. (2) Two devices reordering the same day inside one millisecond do converge, but they may converge on an order that is **neither** device's: the merge resolves each row independently, so the array they ascend into can be an interleaving neither traveller performed. Convergence is the guarantee. Agreeing with either drag is not.
+
+**Upgrade path, named:** a separate order register — fractional indexing or LSEQ — which makes position a value that merges rather than a consequence of time, and takes the whole-day republish with it. Not built now because it changes merge algebra shared by four domains, so its blast radius is every synced surface rather than one gesture.
+
+**Changes if:** the residual is actually reported — an offline reorder seen clobbering a peer's day — or a second domain needs user-controlled ordering, at which point the order register stops being one gesture's cost and starts being shared.
+
+### D-488 · Extends D-448 · (2026-08-30) · Tailwind's `@layer` here is a build-time directive, so an unlayered rule does not outrank a layered one; the focus ring lost on source order
+
+**Decision.** Any recipe rule that must beat a Tailwind utility needs specificity **above (0,2,0)**. At (0,2,0) the two tie, source order decides, and utilities are emitted last.
+
+**The premise that was wrong, and it was written down.** A comment in `globals.css` stated that an unlayered rule beats every layered one regardless of specificity. That is true of native cascade layers. It is false here, because there are no cascade layers in the output at all: Tailwind's `@layer` is a build-time directive telling the compiler where to place a rule, and **zero `@layer` at-rules reach the built stylesheet**. Nothing is layered, so nothing is outranked by being unlayered. This is why nobody expected a utility to beat the `.btn` recipe — the file's own explanation said it could not.
+
+**Measured on the shipped stylesheet, not argued.** `.btn:focus-visible` sits at byte 75736; `.focus-visible\:outline-none:focus-visible` sits at byte 83754. Equal specificity, (0,2,0) each. The later one wins, so a button carrying that utility rendered with no focus ring while the recipe meant to guarantee one read as live in both the CSS and the JSX.
+
+**It is D-448 read from the other side.** D-448 measured the recipe beating a single-class utility at (0,1,0) and concluded the utility loses silently. Same emission order, same absent layers; the only difference is that a `:focus-visible` utility carries a pseudo-class and so ties instead of losing. Both directions are decided by where Tailwind writes the rule, which is the one thing the markup does not show.
+
+**Changes if:** the recipes move into a declared `@layer components` with utilities in a later layer — D-448's own named fix. Layer order beats specificity outright, so this rule inverts rather than relaxes, and every hatch written against it needs re-reading.
+
+### D-489 · (2026-08-30) · Two render rules: a programmatically-opened dialog owns its close focus, and a client-only decision is never read on a prerendered route's first render
+
+**Part 1 — no `Trigger` means no `triggerRef`, and Radix drops focus to `<body>`.** Radix restores focus on close to the trigger that opened the dialog. A dialog opened from state has no trigger, so that ref is null and a keyboard user is returned to the top of the document instead of to the control they pressed. **Rule: any Radix dialog opened programmatically supplies `onCloseAutoFocus`**, preventing the default and focusing the originating control itself. `components/backup-restore.tsx`'s restore confirm now does; `components/command-palette.tsx` already did, and its comment is the pattern to copy.
+
+**Part 2 — the first render answers with what the export contains.** A client-only decision read during the first render of anything reachable from a prerendered route is a hydration mismatch, and React recovers by re-rendering the whole route on the client. `entranceFor()` reads `matchMedia` and a sessionStorage ledger, neither of which exists during the export; `/passport/` is a Server Component whose `<Reveal>` really is in the shipped HTML, so it mismatched on every reload and on every reduced-motion first load. The shape is a **pair**: `prerenderEntranceFor` — pathname-only, so it cannot disagree with the export — answers the first render, and an effect installs the live decision. Plus a **drift ratchet**: `lib/__tests__/motion-budget.test.ts` asserts the two agree under prerender conditions for every tiered surface, so a new input added to the live decision without a prerender counterpart fails a test instead of shipping a mismatch.
+
+**The trap that makes the naive fix wrong, and it is D-246 recurring.** framer reads `initial` once at mount and re-reads an `animate` target whenever it changes. Deferring the decision without moving the resting target leaves an off-screen reveal at the fade floor forever — `whileInView` never fires for content below the fold, so nothing ever arrives to lift it. That is the exact state D-246 measured axe scanning: a floored masthead resting at the floor indefinitely, which is why the floor has to be AA-safe on its own. The deferral therefore has to change what the element rests at, not only when the decision is read. Cite `FADE_FLOOR`, never a number copied out of a decision entry.
+
+**Changes if:** a second prerendered route reaches a client-only decision — the pair generalises but the ratchet's surface list does not, so the list has to grow with it — or Radix ships a close-focus fallback for triggerless dialogs, which would retire part 1.
+
+### D-490 · (2026-08-31) · A meta line names its destination in words; it never prints the route, and a line that would only repeat the row's title is dropped
+
+The v7.0.0 type pull-back removed `font-family: var(--font-machine)`, `text-transform: uppercase` and the tracking from `.list .mt`. Every recipe that lost them was carrying label text, which survives the change. Two call sites were not: the command palette and `/more/` both printed `href.replace(/\//g, '')` — a raw slug — and relied entirely on the uppercase machine face to make it read as machine annotation rather than prose. In the new type, `checklist` under **Documents** is indistinguishable from a lowercase typo of the title.
+
+**Decision.** A meta line renders a human name resolved from `NAV_ITEMS`, never a route string. `routeLabel()` lives in `lib/nav-items.ts` because that is where the catalog it reads lives; the palette was the wrong home for it, and `/more/` could not reach it there without a component-to-component import.
+
+**The fallback is load-bearing, not defensive.** `/nepal/` and `/japan/` left `NAV_ITEMS` when `/guides/` replaced them, but both are still palette destinations. The segment-titlecasing fallback is what keeps those two rows named, and it is pinned by test rather than left to be rediscovered.
+
+**Suppression over repetition.** Where the resolved name equals the row's own title — 14 of the palette's 20 rows — the line is not rendered. `/more/` drops it on all 11, because every row there is a `NAV_ITEMS` entry by construction and the suppression would fire every time; a branch that cannot produce output is not worth keeping. The palette's rows are mixed height by design.
+
+**What it cost, recorded rather than absorbed.** Three command-palette baselines moved for a change made in a round scoped to a different surface, and `/more/`'s rows now sit at exactly the 44px D-350 floor with no headroom, having lost their second line.
+
+**Why nothing caught it.** No baseline covers `/more/`, and no spec asserted either surface's meta text — the palette was caught only because a baseline happened to include it. The unit test added here pins `routeLabel` and cannot see `/more/`, which no longer calls it. That gap is filed, not closed by this entry.
+
+**Changes if:** a surface needs the route itself visible — a debug or developer view — in which case it prints the route deliberately in a machine face, and this rule is scoped to navigation surfaces rather than relaxed.

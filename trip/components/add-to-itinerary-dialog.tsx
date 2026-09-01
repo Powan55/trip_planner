@@ -488,7 +488,7 @@ export default function AddToItineraryDialog({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70"
       onClick={onClose}
     >
       <m.div
@@ -502,21 +502,21 @@ export default function AddToItineraryDialog({
         // entrance as every other modal, from `components/ui/sheet-dark.tsx`.
         {...overlayPanelMotion()}
         onClick={(e: React.MouseEvent) => e.stopPropagation()}
-        className="w-full max-w-md glass-card-dark rounded-2xl shadow-2xl max-h-[90vh] flex flex-col overflow-hidden"
+        className="w-full max-w-md bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] rounded-r2 max-h-[90vh] flex flex-col overflow-hidden"
       >
         {/* Non-scrolling header — stays pinned at the top of the panel. */}
         <div className="flex items-start justify-between gap-3 px-5 sm:px-6 pt-5 sm:pt-6 pb-4 shrink-0">
           <div className="min-w-0">
-            <h3 id={titleId} className="font-display text-lg font-bold text-white leading-tight">
+            <h3 id={titleId} className="pr pr--l text-ink-hi">
               {isCustom ? 'Add your own plan' : isModifyMode ? 'Update plan' : 'Add to plan'}
             </h3>
             {isCustom ? (
-              <p className="text-sm text-ink-lo mt-0.5 truncate">A dinner spot, a place a friend mentioned…</p>
+              <p className="text-t-sm text-ink-mid mt-1 truncate">A dinner spot, a place a friend mentioned…</p>
             ) : (
               <>
-                <p className="text-sm text-ink-hi mt-0.5 truncate">{draft.title}</p>
+                <p className="text-t-body text-ink-hi mt-1 truncate">{draft.title}</p>
                 {draft.location && (
-                  <p className="text-xs text-ink-mid mt-0.5 flex items-center gap-1">
+                  <p className="text-t-sm text-ink-mid mt-0.5 flex items-center gap-1">
                     <MapPin className="w-3 h-3 shrink-0" />
                     <span className="truncate">{draft.location}</span>
                   </p>
@@ -524,7 +524,7 @@ export default function AddToItineraryDialog({
               </>
             )}
           </div>
-          <button type="button" data-testid="add-item-cancel" onClick={onClose} aria-label="Close dialog" className="shrink-0 inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-lg hover:bg-white/10 text-ink-mid outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
+          <button type="button" data-testid="add-item-cancel" onClick={onClose} aria-label="Close dialog" className="shrink-0 inline-flex items-center justify-center min-h-tap min-w-tap rounded-r1 text-ink-mid hover:bg-white/5 hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -537,19 +537,21 @@ export default function AddToItineraryDialog({
         {/* Existing placements (modify/remove mode) */}
         {isModifyMode && (
           <div className="mb-5 space-y-2">
-            <span className="text-xs text-ink-lo block">Already planned</span>
+            <span className="pr pr--lo block">Already planned</span>
             {existingPlacements.map((p) => {
               const isEditing = p.item.id === editingPlacementId;
               return (
                 <div
                   key={p.item.id}
-                  className={`flex items-center gap-2 p-2.5 rounded-xl border transition-colors ${
-                    isEditing ? 'bg-primary/10 border-ring/40' : 'bg-white/5 border-white/10'
+                  className={`flex items-center gap-2 p-2.5 rounded-r1 border-hair transition-colors ${
+                    isEditing
+                      ? 'bg-[rgb(62_216_255_/_0.10)] border-[color:hsl(var(--accent))]'
+                      : 'bg-[rgb(var(--surface-raised))] border-[color:hsl(var(--border))]'
                   }`}
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-ink-hi truncate">{formatDate(p.date)}</p>
-                    <p className="text-xs text-ink-mid truncate">
+                    <p className="text-t-body text-ink-hi truncate">{formatDate(p.date)}</p>
+                    <p className="text-t-sm text-ink-mid truncate">
                       {placeLabelForDate(p.date)}
                       {(() => {
                         const timeInfo = describeItemTime(p.item, p.date);
@@ -562,7 +564,9 @@ export default function AddToItineraryDialog({
                     type="button"
                     onClick={() => startEditingPlacement(p)}
                     aria-pressed={isEditing}
-                    className="shrink-0 px-2.5 py-1 rounded-lg text-xs text-ink-hi bg-white/5 hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                    className={`chip shrink-0 min-h-tap px-3 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                      isEditing ? 'chip--struck bg-white/5' : 'hover:bg-white/5 hover:text-ink-hi'
+                    }`}
                   >
                     Modify
                   </button>
@@ -582,7 +586,7 @@ export default function AddToItineraryDialog({
                       if (editingPlacementId === p.item.id) startAddingNew();
                     }}
                     aria-label={`Remove from ${formatDate(p.date)}`}
-                    className="shrink-0 p-1.5 rounded-lg text-ink-mid hover:text-red-400 hover:bg-red-500/20 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-400 focus-visible:outline-none"
+                    className="shrink-0 inline-flex items-center justify-center min-h-tap min-w-tap rounded-r1 text-ink-mid hover:text-[color:hsl(var(--destructive))] hover:bg-[hsl(var(--destructive)/0.08)] transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -593,10 +597,10 @@ export default function AddToItineraryDialog({
               type="button"
               onClick={startAddingNew}
               aria-pressed={editingPlacementId === null}
-              className={`w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed text-xs transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+              className={`chip w-full min-h-tap justify-center gap-1.5 px-3 border-dashed transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
                 editingPlacementId === null
-                  ? 'border-ring/40 text-primary bg-primary/5'
-                  : 'border-white/10 text-ink-mid hover:text-ink-hi hover:border-white/20'
+                  ? 'border-[color:hsl(var(--accent))] text-ink-hi bg-[rgb(62_216_255_/_0.10)]'
+                  : 'text-ink-lo hover:bg-white/5 hover:text-ink-hi'
               }`}
             >
               <Plus className="w-3.5 h-3.5" />
@@ -611,26 +615,26 @@ export default function AddToItineraryDialog({
           {isCustom && (
             <>
               <div>
-                <label htmlFor={titleFieldId} className="text-xs text-ink-lo mb-1 block">Title *</label>
+                <label htmlFor={titleFieldId} className="pr pr--lo mb-1 block">Title *</label>
                 <input
                   id={titleFieldId}
                   ref={titleInputRef}
                   data-testid="add-item-title-input"
                   value={customTitle}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomTitle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+                  className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   placeholder="e.g., Ramen Nagi"
                   autoComplete="off"
                 />
               </div>
               <div>
-                <label htmlFor={locationFieldId} className="text-xs text-ink-lo mb-1 block">Location</label>
+                <label htmlFor={locationFieldId} className="pr pr--lo mb-1 block">Location</label>
                 <input
                   id={locationFieldId}
                   data-testid="add-item-location-input"
                   value={customLocation}
                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomLocation(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+                  className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                   placeholder="e.g., Shinjuku"
                   autoComplete="off"
                 />
@@ -643,7 +647,7 @@ export default function AddToItineraryDialog({
                   data-testid="add-item-maps-link"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-primary hover:bg-white/10 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                  className="chip min-h-tap w-full justify-center gap-2 px-3 text-[color:hsl(var(--accent))] border-[color:hsl(var(--accent))] transition-colors hover:bg-white/5 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                 >
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                   Search on Google Maps
@@ -652,10 +656,11 @@ export default function AddToItineraryDialog({
                 <span
                   aria-disabled="true"
                   data-testid="add-item-maps-link"
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-xs text-ink-lo cursor-not-allowed select-none"
+                  className="chip chip--hollow min-h-tap w-full justify-center gap-2 px-3 cursor-not-allowed select-none"
                 >
                   <ExternalLink className="w-3.5 h-3.5 shrink-0" />
                   Search on Google Maps
+                  <span className="sr-only"> — add a title first</span>
                 </span>
               )}
             </>
@@ -663,17 +668,17 @@ export default function AddToItineraryDialog({
 
           {/* Date select */}
           <div>
-            <label htmlFor={dateFieldId} className="text-xs text-ink-lo mb-1 block">Date *</label>
+            <label htmlFor={dateFieldId} className="pr pr--lo mb-1 block">Date *</label>
             <select
               id={dateFieldId}
               ref={firstFieldRef}
               data-testid="add-item-day-select"
               value={selectedDate}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setSelectedDate(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2"
+              className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
             >
               {TRIP_DATES.map((d) => (
-                <option key={d} value={d} className="bg-surface text-white">
+                <option key={d} value={d} className="bg-surface text-ink-hi">
                   {dateOptionLabel(d)}
                 </option>
               ))}
@@ -682,7 +687,7 @@ export default function AddToItineraryDialog({
 
           {/* Category grid (same pattern as ItemEditor) */}
           <div>
-            <span id={categoryLabelId} className="text-xs text-ink-lo mb-1 block">Category</span>
+            <span id={categoryLabelId} className="pr pr--lo mb-1 block">Category</span>
             <div className="grid grid-cols-4 sm:grid-cols-5 gap-2" role="group" aria-labelledby={categoryLabelId}>
               {ALL_CATEGORIES.map((cat) => {
                 const colors = CATEGORY_COLORS[cat];
@@ -694,12 +699,12 @@ export default function AddToItineraryDialog({
                     onClick={() => setCategory(cat)}
                     aria-pressed={isActive}
                     aria-label={`Category: ${cat}`}
-                    className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-lg text-xs transition-all outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
-                      isActive ? `${colors.bg} ${colors.text} ring-1 ${colors.border}` : 'text-ink-mid hover:bg-white/5'
+                    className={`flex flex-col items-center justify-start gap-1 min-h-[3rem] px-1 py-2 rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none ${
+                      isActive ? `${colors.text} border-current bg-white/5` : 'border-transparent text-ink-lo hover:bg-white/5 hover:text-ink-hi'
                     }`}
                   >
                     {CATEGORY_ICON_MAP[cat]}
-                    <span className="capitalize text-[10px] leading-tight text-center break-words w-full">{cat}</span>
+                    <span className="pr pr--lo capitalize leading-tight text-center break-words w-full text-current">{cat}</span>
                   </button>
                 );
               })}
@@ -709,19 +714,19 @@ export default function AddToItineraryDialog({
           {/* Time + Duration */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor={timeFieldId} className="text-xs text-ink-lo mb-1 block">Time</label>
+              <label htmlFor={timeFieldId} className="pr pr--lo mb-1 block">Time</label>
               <TimePicker id={timeFieldId} value={startMinutes} onChange={handleTimeChange} testId="add-item-time-input" />
             </div>
             <div>
-              <label htmlFor={durationFieldId} className="text-xs text-ink-lo mb-1 block">Duration (min)</label>
+              <label htmlFor={durationFieldId} className="pr pr--lo mb-1 block">Duration (min)</label>
               <DurationField id={durationFieldId} value={durationMinutes} onChange={handleDurationChange} testId="add-item-duration-input" />
             </div>
           </div>
 
           {/* Notes */}
           <div>
-            <label htmlFor={notesFieldId} className="text-xs text-ink-lo mb-1 block">Notes</label>
-            <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} className="w-full px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:ring-1 focus:ring-ring focus-visible:ring-2 resize-none" placeholder="Additional notes..." />
+            <label htmlFor={notesFieldId} className="pr pr--lo mb-1 block">Notes</label>
+            <textarea id={notesFieldId} value={notes} onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setNotes(e.target.value)} rows={2} className="w-full min-h-tap px-3 py-2 rounded-r1 bg-[rgb(var(--surface))] border-hair border-[color:var(--border-ui)] text-t-body text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none resize-none" placeholder="Additional notes..." />
           </div>
         </div>
         </div>
@@ -730,7 +735,7 @@ export default function AddToItineraryDialog({
             ALWAYS visible and clickable at any viewport height. The top
             border + panel bg give a clean divider so scrolled content doesn't bleed
             under it. */}
-        <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t border-white/10 bg-surface/40">
+        <div className="shrink-0 px-5 sm:px-6 pt-4 pb-5 sm:pb-6 border-t-2 border-[color:hsl(var(--border))]">
           {/* D-316 — the refusal, INSIDE the pinned footer so it is visible without
               scrolling on a short viewport. A blocked user action → `role="alert"`
               (assertive), never `role="status"`. Height reserved so the footer never
@@ -738,7 +743,7 @@ export default function AddToItineraryDialog({
           <p
             role="alert"
             data-testid="add-item-clash-error"
-            className="mb-3 min-h-[1rem] text-xs text-destructive"
+            className="err mb-3 min-h-[1rem] text-t-sm"
           >
             {clashError}
           </p>
@@ -747,7 +752,7 @@ export default function AddToItineraryDialog({
             onClick={handleConfirm}
             data-testid="add-item-confirm"
             disabled={confirmDisabled}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-primary"
+            className="btn w-full px-4 focus-visible:outline-none"
           >
             <Check className="w-4 h-4" />
             {editingPlacementId ? 'Update plan' : 'Add to plan'}

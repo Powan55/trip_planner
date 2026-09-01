@@ -338,7 +338,10 @@ export default function HeroSection() {
           style={{
             background: custom
               ? `linear-gradient(180deg, ${customVibe!.gradient.join(', ')})`
-              : 'linear-gradient(180deg, #0b1020 0%, #15203c 32%, #2a3252 52%, #6e5a78 70%, #b9786b 82%, #e8a86a 92%, #f4cf8e 100%)',
+              // Every stop is a token, and none is invented: the field ramp climbing into the
+              // two Nepal stops at the horizon. The retired copy hardcoded seven hexes off a
+              // palette that no longer exists.
+              : 'linear-gradient(180deg, rgb(var(--surface)) 0%, rgb(var(--surface-low)) 34%, rgb(var(--surface-raised)) 56%, rgb(var(--surface-overlay)) 74%, var(--np-a) 92%, var(--np-b) 100%)',
           }}
         />
         {/* Bundled Himalayan photo layer — at FULL strength (issue #26). It used to be
@@ -406,7 +409,7 @@ export default function HeroSection() {
           style={{
             ...(prefersReducedMotion ? {} : { y: glowY, opacity: glowOpacity }),
             background:
-              'radial-gradient(60% 50% at 22% 86%, rgba(244,196,107,0.45) 0%, rgba(244,196,107,0) 60%), radial-gradient(45% 40% at 82% 30%, rgba(244,143,177,0.30) 0%, rgba(244,143,177,0) 65%), radial-gradient(40% 35% at 95% 70%, rgba(99,179,237,0.22) 0%, rgba(99,179,237,0) 70%)',
+              'radial-gradient(60% 50% at 22% 86%, rgb(255 196 61 / 0.45) 0%, rgb(255 196 61 / 0) 60%), radial-gradient(45% 40% at 82% 30%, rgb(255 143 199 / 0.30) 0%, rgb(255 143 199 / 0) 65%), radial-gradient(40% 35% at 95% 70%, rgb(192 140 255 / 0.22) 0%, rgb(192 140 255 / 0) 70%)',
           }}
         />
         )}
@@ -426,18 +429,22 @@ export default function HeroSection() {
           preserveAspectRatio="xMidYMax slice"
           xmlns="http://www.w3.org/2000/svg"
         >
+          {/* KNOWN CEILING: literal hexes, not var(). An SVG gradient stop cannot
+              interpolate a custom property, so these are hand copies of the field ramp
+              (--surface-overlay/-raised/-low/--surface) and the two country stops, and
+              they have to be re-derived by hand if the ramp moves. */}
           <defs>
             <linearGradient id="rangeFar" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#3a4368" />
-              <stop offset="100%" stopColor="#222a48" />
+              <stop offset="0%" stopColor="#26235C" />
+              <stop offset="100%" stopColor="#1C1948" />
             </linearGradient>
             <linearGradient id="rangeMid" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#1c2440" />
-              <stop offset="100%" stopColor="#121830" />
+              <stop offset="0%" stopColor="#141033" />
+              <stop offset="100%" stopColor="#0F0C26" />
             </linearGradient>
             <linearGradient id="rangeNear" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#0c1124" />
-              <stop offset="100%" stopColor="#070b18" />
+              <stop offset="0%" stopColor="#0A0818" />
+              <stop offset="100%" stopColor="#070510" />
             </linearGradient>
           </defs>
 
@@ -447,7 +454,7 @@ export default function HeroSection() {
             d="M0 330 L120 250 L240 300 L360 200 L470 280 L600 170 L720 250 L850 190 L980 270 L1110 210 L1240 280 L1360 230 L1440 290 L1440 600 L0 600 Z"
           />
           <path
-            fill="#f4cf8e"
+            fill="#FFC43D"
             opacity="0.85"
             d="M360 200 L392 232 L376 230 L408 252 L344 252 L340 232 Z M600 170 L636 206 L618 204 L652 232 L568 232 L566 206 Z M850 190 L884 222 L868 220 L900 246 L820 246 L816 222 Z M1110 210 L1140 240 L1126 238 L1154 262 L1082 262 L1080 240 Z"
           />
@@ -469,7 +476,7 @@ export default function HeroSection() {
           />
 
           {/* Sparse "neon" window lights on the near skyline */}
-          <g fill="#f4cf8e" opacity="0.6">
+          <g fill="#FFC43D" opacity="0.6">
             <rect x="92" y="442" width="4" height="6" />
             <rect x="102" y="452" width="4" height="6" />
             <rect x="222" y="424" width="4" height="6" />
@@ -480,7 +487,7 @@ export default function HeroSection() {
             <rect x="1068" y="414" width="4" height="6" />
             <rect x="1068" y="432" width="4" height="6" />
           </g>
-          <g fill="#63b3ed" opacity="0.5">
+          <g fill="#FF8FC7" opacity="0.5">
             <rect x="102" y="442" width="4" height="6" />
             <rect x="232" y="424" width="4" height="6" />
             <rect x="710" y="448" width="4" height="6" />
@@ -521,28 +528,33 @@ export default function HeroSection() {
         animate="show"
         className="relative z-10 max-w-[1200px] mx-auto px-4 sm:px-6 text-center pt-2 min-[420px]:pt-20 sm:pt-24 pb-10 min-[420px]:pb-16"
       >
-        {/* Badge */}
-        <m.div
-          variants={reveal}
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-card mb-2 min-[420px]:mb-6"
-        >
-          <Plane className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
-          <span className="text-sm text-muted-foreground font-medium">{TRIP_DATE_LABEL}</span>
+        {/* Badge — the printed date field. `.chip` is the ruled form; it keeps the same
+            box and drops two type steps, which spends less of the fold budget, not more. */}
+        <m.div variants={reveal} className="mb-2 min-[420px]:mb-6">
+          <span className="chip chip--struck whitespace-normal px-3 py-2">
+            <Plane className="w-4 h-4" aria-hidden="true" />
+            {TRIP_DATE_LABEL}
+          </span>
         </m.div>
 
-        {/* Title —: a custom trip shows its own name, no Nepal×Japan branding. */}
+        {/* Title —: a custom trip shows its own name, no Nepal×Japan branding.
+            The step is `rem`, not `px`: a px size opts out of the outdoor high-legibility
+            root bump. Scoped under 340px rather than lowering the shared clamp floor in
+            tailwind.config.ts, which would move the 390px hero and re-shoot its baselines. */}
         <m.h1
           variants={reveal}
           id="hero-heading"
-          className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-bold tracking-tight mb-4"
+          className="text-display-2xl max-[339px]:text-[2.4rem] text-ink-hi mb-4"
         >
           {custom ? (
-            <span className="text-white">{customName}</span>
+            <span>{customName}</span>
           ) : (
             <>
-              <span className="text-white">Nepal</span>
-              <span className="text-display-emphasis mx-3">×</span>
-              <span className="text-white">Japan</span>
+              <span>Nepal</span>
+              {/* ink-MID, never ink-lo: this glyph sits over the photograph, where the
+                  floor tier measures 3.73:1 (the rule on `.hero-scrim` in globals.css). */}
+              <span className="text-ink-mid mx-3">×</span>
+              <span>Japan</span>
             </>
           )}
         </m.h1>
@@ -554,7 +566,7 @@ export default function HeroSection() {
             hero copy over the photo may drop to the floor tier. */}
         <m.p
           variants={reveal}
-          className="text-lg sm:text-xl text-ink-mid max-w-2xl mx-auto mb-3"
+          className="text-t-lead text-ink-mid max-w-2xl mx-auto mb-3"
         >
           {custom
             ? [customDestinations, customVibe?.tagline].filter(Boolean).join(' — ')
@@ -576,14 +588,24 @@ export default function HeroSection() {
             {/* ink-mid, NOT `text-muted-foreground`: this line sits OVER THE PHOTOGRAPH
                 (the card below it does not), and --muted-foreground resolves to the floor
                 tier, which measures 3.55:1 there. */}
-            <p className="text-sm text-ink-mid mb-4 uppercase tracking-widest">You're on the trip</p>
-            <div data-testid="hero-travel-mode" className="inline-flex flex-col items-center gap-2 glass-card rounded-2xl px-6 sm:px-10 py-5 sm:py-6 max-w-full">
-              <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
-                Day <span data-testid="hero-day-number" className="text-display-emphasis">{todayInTrip.dayNumber}</span>
+            <p className="pr mb-4">You're on the trip</p>
+            {/* --now is the leg channel and nothing sets it on the shell yet, so the one
+                surface that knows which leg it is on sets it here rather than inheriting
+                Nepal's stop through the whole Japan fortnight. */}
+            <div
+              data-testid="hero-travel-mode"
+              style={{ ['--now']: todayInTrip.country.toLowerCase() === 'japan' ? 'var(--jp-a)' : 'var(--np-a)' } as CSSProperties}
+              className="inline-flex flex-col items-center gap-2 glass-card rounded-r2 px-6 sm:px-10 py-5 sm:py-6 max-w-full"
+            >
+              <div className="text-display-xl text-ink-hi">
+                Day{' '}
+                <span data-testid="hero-day-number" className="text-now tabular-nums">
+                  {todayInTrip.dayNumber}
+                </span>
                 <span className="text-ink-lo mx-2 sm:mx-3">—</span>
                 {todayInTrip.city}
               </div>
-              <p className="text-sm sm:text-base text-ink-mid">{formatDateLong(todayInTrip.date)}</p>
+              <p className="pr pr--l pr--lo">{formatDateLong(todayInTrip.date)}</p>
             </div>
             {/* in-trip, the ONE obvious action is Travel Mode — the
                 purpose-built on-trip experience. Collapsed from two buttons to this single
@@ -594,7 +616,7 @@ export default function HeroSection() {
                 type="button"
                 onClick={() => enterTravel()}
                 data-testid="home-intrip-travel"
-                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all duration-200 hover:scale-105 shadow-lg shadow-primary/20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
+                className="btn px-6"
               >
                 <Compass className="w-4 h-4" />
                 Open Travel Mode
@@ -611,12 +633,10 @@ export default function HeroSection() {
           <m.div variants={reveal} className="relative mb-10">
             {/* ink-mid, matching the in-trip panel's caption above: this line also sits over
                 the hero photograph, where the floor tier fails contrast. */}
-            <p className="text-sm text-ink-mid mb-4 uppercase tracking-widest">The journey&rsquo;s over</p>
-            <div data-testid="hero-post-trip" className="inline-flex flex-col items-center gap-2 glass-card rounded-2xl px-6 sm:px-10 py-5 sm:py-6 max-w-full">
-              <div className="font-display text-3xl sm:text-4xl md:text-5xl font-bold text-white leading-tight">
-                Trip complete
-              </div>
-              <p className="text-sm sm:text-base text-ink-mid">{TRIP_DATE_LABEL}</p>
+            <p className="pr mb-4">The journey&rsquo;s over</p>
+            <div data-testid="hero-post-trip" className="inline-flex flex-col items-center gap-2 glass-card rounded-r2 px-6 sm:px-10 py-5 sm:py-6 max-w-full">
+              <div className="text-display-xl text-ink-hi">Trip complete</div>
+              <p className="pr pr--l pr--lo">{TRIP_DATE_LABEL}</p>
             </div>
           </m.div>
         ) : (
@@ -624,7 +644,7 @@ export default function HeroSection() {
             variants={reveal}
             className="mb-2 min-[420px]:mb-10"
           >
-            <p className="text-sm text-ink-mid mb-2 min-[420px]:mb-4 uppercase tracking-widest">Countdown to day one</p>
+            <p className="pr mb-2 min-[420px]:mb-4">Countdown to day one</p>
             <div className="grid grid-cols-3 sm:flex sm:flex-wrap justify-center gap-3 sm:gap-4 mb-2 min-[420px]:mb-4">
               {/* the cells lost `.animate-pulse-glow` — a 3s infinite box-shadow breathe
                   on all six. They already read as a group via.glass-card; the glow added
@@ -664,15 +684,24 @@ export default function HeroSection() {
                     live ? ' countdown-cell--live' : ''
                   }`}
                 >
+                  {/* FAMILY AND WEIGHT ONLY. Every font-SIZE, padding and min-width on this
+                      cell is the value that shipped (D-311's fold budget, gated by
+                      e2e/countdown.spec.ts). The machine face is 600 and no 400 or 800 is
+                      loaded, so `font-extrabold` here would render a synthesised bold. Two
+                      digits at 0.6em advance measure ~30px inside the 46px content box at
+                      min-w-70, so the face change cannot overflow the frozen cell. */}
                   <div
                     data-testid={`countdown-${key}`}
-                    className={`text-2xl sm:text-3xl md:text-4xl font-extrabold tabular-nums tracking-tight ${
+                    className={`font-machine text-2xl sm:text-3xl md:text-4xl tabular-nums tracking-tight ${
                       live ? 'text-gradient-sakura' : 'text-foreground'
                     }`}
                   >
                     <CountUpNumber live={timeLeft[key] ?? 0} active={mounted} format={padUnit} />
                   </div>
-                  <div className="text-[10px] sm:text-xs text-ink-lo uppercase tracking-wider mt-1 font-bold">{label}</div>
+                  {/* 0.588rem == 9.996px at the 17px root, i.e. the shipped 10px, expressed
+                      in rem so it is not a `text-[Npx]` that opts out of the outdoor root
+                      bump. --t-micro is 0.6875rem and would GROW the frozen cell by 17%. */}
+                  <div className="text-[0.588rem] sm:text-xs text-ink-lo uppercase tracking-wider mt-1 font-bold">{label}</div>
                 </div>
                 );
               })}
@@ -716,10 +745,7 @@ export default function HeroSection() {
             Travel Mode) is reachable from the tab bar, so nothing is stranded. */}
         {!(mounted && todayInTrip) && (
           <m.div variants={reveal} className="flex justify-center">
-            <Link
-              href="/plan/"
-              className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-all duration-200 hover:scale-105 shadow-lg shadow-primary/20 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface focus-visible:outline-none"
-            >
+            <Link href="/plan/" className="btn px-6">
               <Calendar className="w-4 h-4" />
               Open Planner
             </Link>

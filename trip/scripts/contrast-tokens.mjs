@@ -33,17 +33,27 @@ const grain = c => '#' + ch(c).map(v => {
   const b = v / 255, o = b <= 0.5 ? Math.min(1, 2 * b) : 1;
   return Math.round(255 * (b * 0.94 + o * 0.06)).toString(16).padStart(2, '0');
 }).join('');
+// ONE DECIMAL, NOT ZERO, and it is not tidiness: `#0A0818` rounds to `248 50% 6%`, which
+// renders rgb(10 8 23) — a blue channel off by one from the hex it claims to be. globals.css
+// declares the same four colours twice (HSL for the shadcn keys, RGB channels for --navy-*),
+// so a triplet that does not round-trip makes the two copies disagree by construction.
+// `+x.toFixed(1)` drops a trailing .0, so a value that never needed the decimal is unchanged.
 const hsl = h => {
   const [r, g, b] = hex(h); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
   let H = 0; if (d) H = mx === r ? ((g - b) / d + (g < b ? 6 : 0)) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
   const Li = (mx + mn) / 2, S = d ? d / (1 - Math.abs(2 * Li - 1)) : 0;
-  return `${Math.round(H * 60)} ${Math.round(S * 100)}% ${Math.round(Li * 100)}%`;
+  return `${+(H * 60).toFixed(1)} ${+(S * 100).toFixed(1)}% ${+(Li * 100).toFixed(1)}%`;
 };
 
 const C = {
-  // ---- canvas (D-334: more chromatic and cooler; the base hue barely moved, the
-  // saturation went 32% -> 50%, and that lift is what removes the warm cast) ----
-  bg: '#0E0920', surface1: '#170F2F', surface2: '#221745', surface3: '#2F2159',
+  // ---- canvas. RE-CAST: the field cools and the floor drops. The shipped ramp was one
+  // hue at four lightnesses (253/255/254/255), so depth was signalled by brightness alone
+  // and every surface read as the same wash — which is also why a Nepal panel and a Japan
+  // panel came out the same plum and the country channels did no visible work. Now the
+  // floor goes 253 -> 248 and the rise cools with it (247/244/243); warmth arrives only as
+  // screened country tint on top (the SCREENED TINT block below). It stops at 243-248
+  // rather than rotating to blue because a generic dark-blue product shell is an anti-goal.
+  bg: '#0A0818', surface1: '#141033', surface2: '#1C1948', surface3: '#26235C',
   // D-294: the passport page is PARCHMENT, not the earlier cream #F4EDE0. It is a
   // material scoped to one surface, not a light mode.
   paper: '#DCCDAE',
@@ -52,7 +62,15 @@ const C = {
   // --paper-lo BINDS FIRST when the page darkens: on the old cream it was #6B5B7E
   // with only 5.27:1 of headroom, and D-294's darker parchment forced it to #524563.
   // Re-measure this one before ever changing --paper again.
-  onAccent: '#140F20', onPaper: '#2A2036', paperLo: '#524563',
+  // THREE PAPER INKS, not two. The dark ramp has hi/mid/lo, so a two-ink paper block could
+  // not carry the component recipes and /passport painted with the stamp inks instead.
+  // paperMid is the sRGB midpoint of the other two; globals.css scopes all three onto
+  // --text-hi/-mid/-lo inside `.passport-page`.
+  onAccent: '#140F20', onPaper: '#2A2036', paperMid: '#3E334D', paperLo: '#524563',
+  // --destructive #EF5D66 (hsl 356 82% 65%). It was NOT modelled here, which is how four
+  // delete-confirms shipped `bg-rose-500 text-white` — an off-palette fill at 3.27:1 — and
+  // how the ink rule's own worked example stayed an unmeasured number in a comment.
+  destructive: '#EF5D66',
   // ---- accents. STILL SIX. D-334 retires `sky` #5CD2F5 and puts `volt` in its slot,
   // because the chrome accent must be one of the six rather than a seventh bolted on.
   // The other five keep their hexes — marigold most deliberately of all: it stops being
@@ -69,14 +87,14 @@ const C = {
   // not, and the reason the chrome moved is that marigold was doing both jobs. ----
   npA: '#FF8A3D', npB: '#FFC43D',            // Nepal: orange -> gold
   jpA: '#FF8FC7', jpB: '#C08CFF',            // Japan: pink -> violet
-  // ---- borders (D-334: --border-ui's worst case goes 3.72 -> 4.28) ----
+  // ---- borders (--border-ui's worst case is 4.30, on --surface-3) ----
   border: '#4A3880', borderUI: '#9184C9',
   // ---- the derived steps of the three Tailwind brand families ----
   // Not part of the ruled palette, but they are rendered as TEXT (`text-gold-400`
   // and friends) and lib/token-auth.ts hashes traveller accents into two of them, so
-  // they need a guard like anything else. himalaya600 at 4.96 is the TIGHTEST PAIR
-  // IN THE WHOLE HARNESS — 10% over the floor — which is exactly why it is here
-  // rather than asserted in a comment.
+  // they need a guard like anything else. himalaya600 at 5.05 is the tightest of the SOLID
+  // pairs (12% over the floor; only the two screened tints below sit closer), which is
+  // exactly why it is here rather than asserted in a comment.
   gold600: '#C08400', sakura300: '#FFB1D8', himalaya600: '#C2692E',
   // ---- stamp inks on paper (D-294 values, NOT the pre-D-294 #B3123C/#2B4B9B/#0F6E5C) ----
   inkNepal: '#8E0E30', inkJapan: '#223C7C', inkGreen: '#0C5849',
@@ -86,7 +104,11 @@ const C = {
   // block re-values the four SEMANTIC surface names one step darker (--surface takes a new
   // deepest step BELOW --bg), so a TM card fills from tmRaised, not surface2. These eight
   // hexes are a mirror of that block; edit both or /travel silently drifts.
-  tmSurface: '#070510', tmLow: '#0E0920', tmRaised: '#170F2F', tmOverlay: '#221745',
+  // The deepest step KEEPS its shipped #070510: the relationship TM[i] == normal[i-1]
+  // carries the re-cast on its own, so no new outdoor value is derived. The pair that binds
+  // first if the field is ever deepened again is `text-hi on TM --surface` — deepening
+  // raises normal-mode contrast faster than TM's, so the outdoor advantage narrows.
+  tmSurface: '#070510', tmLow: '#0A0818', tmRaised: '#141033', tmOverlay: '#1C1948',
   // The tiers move WITH it. They did not before: issue #27's sweep put TM's body copy on
   // fixed hexes, which the surface ramp cannot lift, and the `[class*='text-white/']`
   // catch-all that used to raise them stopped matching anything. --text-hi is #FFFFFF in
@@ -114,6 +136,24 @@ C.rowHover = over('#FFFFFF', C.surface1, 0.05);
 C.rowSel = over(C.volt, C.surface1, 0.10);
 // chip fill inside a calm row
 C.chip = over('#FFFFFF', C.surface2, 0.06);
+// ---- THE SCREENED COUNTRY TINT, and the ceiling is measured post-grain --------------
+// `color-mix(in srgb, var(--np-a) 14%, var(--surface-2))`. This is the only place warmth
+// touches the cool field, and --text-lo is the pair that binds.
+//
+// 14% FOR BOTH CHANNELS, and the reason the tempting 18% is wrong is the whole lesson here:
+// measured against the raw color-mix RESULT, npA at 18% reads 4.71 and looks legal. That is
+// not what renders. Anything composited over a screened tint moves the pair that binds, and
+// this app paints a film-grain tile (mix-blend-mode:overlay at .06) which LIGHTENS a dark
+// ground ~6% — worth ~0.2 of ratio under light text. Through grain() the same 18% is 4.48
+// and under the floor, which is what the guard below pins. Precision applied to the wrong
+// quantity is more dangerous than a rough number, because it carries false authority.
+//
+// JAPAN CANNOT BUY HEADROOM BY SWAPPING CHANNELS. The field sits at hue 244 and jp-b
+// #C08CFF is 13 deg away, so a jp-b screen rotates the surface by 7 deg and does no visible
+// work; jp-a moves it 19 deg and reads. So Japan is forced onto the channel with less room.
+C.npScreen14 = grain(over(C.npA, C.surface2, 0.14));
+C.jpScreen14 = grain(over(C.jpA, C.surface2, 0.14));
+C.npScreen18 = grain(over(C.npA, C.surface2, 0.18));
 // ---- issue #27 route 1 (/checklist) — the fills that route's text ACTUALLY sits on ----
 // Worked out from the markup rather than assumed: app/checklist/page.tsx is `bg-surface`
 // (= --bg) and the section cards are `.glass-subtle`, which fills from --surface-low, i.e.
@@ -177,6 +217,16 @@ C.heroCapJp76 = over(C.bg, C.duoJpHigh, 0.76);
 // it is the one that would bind first if --paper or the floor ever moved.
 C.paperFading = over(C.paper, C.bg, 0.95);
 C.inkGreenFading = over(C.inkGreen, C.bg, 0.95);
+
+// ---- `.btn--2.btn--danger`'s hover wash, on each ground it can sit on ------------------
+// The outline danger button tints itself with its OWN ink on hover, so both sides of the
+// pair move together and the token pairing is not the rendered one. The three bundles that
+// hand-rolled this button used 15%, which measures 4.17 on --surface-2 — under the floor on
+// a surface these buttons do sit on. 8% is what holds on every ground the shape is legal on.
+C.dangerHover08Bg = over(C.destructive, C.bg, 0.08);
+C.dangerHover08S1 = over(C.destructive, C.surface1, 0.08);
+C.dangerHover08S2 = over(C.destructive, C.surface2, 0.08);
+C.dangerHover15S2 = over(C.destructive, C.surface2, 0.15);
 
 // ---- issue #3, the Tier-2 photographic page header (.photo-header in globals.css) ----
 // A Tier-2 header band's HEIGHT is per-route, so bottom-alignment alone is not a
@@ -248,6 +298,16 @@ const pairs = [
   ['text-hi on row[selected]', C.textHi, C.rowSel, 4.5],
   ['text-mid on row[selected]', C.textMid, C.rowSel, 4.5],
   ['text-lo on chip fill', C.textLo, C.chip, 4.5],
+
+  ['-- SCREENED COUNTRY TINT AT THE 14% CEILING (measured through the grain) --'],
+  ['text-lo on np-a 14% / surface-2', C.textLo, C.npScreen14, 4.5],
+  ['text-lo on jp-a 14% / surface-2', C.textLo, C.jpScreen14, 4.5],
+  ['text-mid on np-a 14% / surface-2', C.textMid, C.npScreen14, 4.5],
+  ['text-hi on jp-a 14% / surface-2', C.textHi, C.jpScreen14, 4.5],
+  // The tint's own 1px border is full-strength channel, which is where most of the identity
+  // sits: it costs no screen headroom at all, so the fill can stay at the ceiling.
+  ['np-a border on its own 14% tint, 1.4.11', C.npA, C.npScreen14, 3],
+  ['jp-a border on its own 14% tint, 1.4.11', C.jpA, C.jpScreen14, 3],
 
   ['-- /checklist, ISSUE #27 ROUTE 1 (tiers on that route\'s composited fills) --'],
   ['label (hi) on row:hover', C.textHi, C.docsRowHover, 4.5],
@@ -445,8 +505,23 @@ const pairs = [
   ['stat value (hi) on a stat cell', C.textHi, C.surface1, 4.5],
   ['stat caption (lo) on a stat cell', C.textLo, C.surface1, 4.5],
 
+  ['-- THE DANGER VARIANT (globals.css `.btn--danger`, SPEC 9.7 defines none) --'],
+  // The filled confirm. --destructive is a SATURATED FILL and the ink rule covers it like
+  // any other; the guards below carry the two spellings that keep getting reached for.
+  ['on-accent ink on the destructive fill', C.onAccent, C.destructive, 4.5],
+  // The outline affordance: ink and border are both --destructive, at rest and on hover.
+  ['destructive as text on bg', C.destructive, C.bg, 4.5],
+  ['destructive as text on surface-1', C.destructive, C.surface1, 4.5],
+  ['destructive as text on surface-2', C.destructive, C.surface2, 4.5],
+  ['destructive ink on its own 8% hover, bg', C.destructive, C.dangerHover08Bg, 4.5],
+  ['destructive ink on its own 8% hover, s1', C.destructive, C.dangerHover08S1, 4.5],
+  ['destructive ink on its own 8% hover, s2', C.destructive, C.dangerHover08S2, 4.5],
+  ['destructive border vs surface-1, 1.4.11', C.destructive, C.surface1, 3],
+  ['destructive border vs surface-3, 1.4.11', C.destructive, C.surface3, 3],
+
   ['-- PASSPORT PARCHMENT (a light material inside the dark app, D-294) --'],
   ['on-paper ink on paper', C.onPaper, C.paper, 4.5],
+  ['paper-mid on paper', C.paperMid, C.paper, 4.5],
   ['paper-lo on paper', C.paperLo, C.paper, 4.5],
   ['nepal stamp ink on paper', C.inkNepal, C.paper, 4.5],
   ['japan stamp ink on paper', C.inkJapan, C.paper, 4.5],
@@ -488,8 +563,8 @@ const pairs = [
 // RAISE only, never a lowering, at every site it touches". Nothing measured that, and it
 // quietly stopped being true: issue #27's sweep moved TM's body copy onto fixed-hex tiers,
 // the `[class*='text-white/']` catch-all that used to raise them stopped matching anything,
-// and the tiers were left riding the surface ramp alone (text-lo on a TM card: 15.53 ->
-// 7.06). AA passed at every site throughout, which is precisely why an AA-floor assertion
+// and the tiers were left riding the surface ramp alone (text-lo on a TM card: 15.47 ->
+// 7.03). AA passed at every site throughout, which is precisely why an AA-floor assertion
 // could not have caught it — an outdoor mode that is merely AA has lost the thing it is for.
 //
 // TWO ASSERTIONS PER ROW, AND THE SECOND ONE IS THE LOAD-BEARING ONE. Each row is one tier
@@ -506,10 +581,10 @@ const pairs = [
 //   2. THE OUTDOOR FLOOR, 12:1, and it is deliberately NOT 4.5. TM exists to be readable
 //      with the sun on the screen; the number it has to hold is a headroom number, not a
 //      legality number. 12 is calibrated against the two real reference points rather than
-//      picked: the deleted `text-white/*` rule's OWN WORST pairing was 13.99 (white@0.92 on
-//      --surface-overlay) and the tier overrides that replace it bottom out at 13.22. So 12
-//      sits below everything TM has ever actually delivered, with 1.22 of room for a re-tune
-//      — 13 would leave 0.22 and go red on any nudge.
+//      picked: the deleted `text-white/*` rule's OWN WORST pairing was 14.02 (white@0.92 on
+//      --surface-overlay) and the tier overrides that replace it bottom out at 13.17. So 12
+//      sits below everything TM has ever actually delivered, with 1.17 of room for a re-tune
+//      — 13 would leave 0.17 and go red on any nudge.
 //      BE PRECISE ABOUT WHAT IT CATCHES, because the tempting sentence here is false: 12 is
 //      NOT far above what the surface ramp reaches on its own. The defect state fires 7 of
 //      these 12 rows and every `lo` row, but its own ceiling is 12.34 (text-mid on
@@ -540,7 +615,23 @@ const guards = [
   ['white on mint      (=> use --on-accent ink)', C.textHi, C.mint, 4.5],
   ['white on nepal B   (=> use --on-accent ink)', C.textHi, C.npB, 4.5],
   ['white on CTA stop B(=> use --on-accent ink)', C.textHi, C.ctaB, 4.5],
+  // The one the app actually shipped, four times, on delete-confirms. 3.27:1.
+  ['white on destructive(=> use --on-accent ink)', C.textHi, C.destructive, 4.5],
   ['--border as text/UI cue (decorative only)', C.border, C.bg, 3],
+  // THE OUTLINE DANGER BUTTON'S TWO CEILINGS, both stated as the number that would have to
+  // move. (1) --destructive as text on --surface-3 is 4.35 — the shape is legal on bg /
+  // surface-1 / surface-2 and not below, and the fix if it is ever wanted there is the
+  // FILLED variant, not a lighter ink. (2) The 15% hover wash three bundles hand-rolled
+  // reads 4.17 on --surface-2, which is why the recipe screens at 8%. A reader who finds
+  // 15% in git history will reach for it; this is what it measures.
+  ['destructive as text on surface-3', C.destructive, C.surface3, 4.5],
+  ['destructive ink on a 15% hover wash, s2', C.destructive, C.dangerHover15S2, 4.5],
+  // THE 18% SCREEN. A reader who finds `npMaxUngrained: 0.18` written down will reach for it,
+  // because it is the more precise-looking number and Nepal genuinely has 4 points of headroom
+  // against the raw color-mix. This is what it measures once the grain lands: 4.48, under the
+  // floor. 18% is legal ONLY on a surface proven to carry nothing composited over it — prove
+  // it, never assume it. If this guard starts passing, the grain or --text-lo moved.
+  ['np-a screened at 18% under --text-lo', C.textLo, C.npScreen18, 4.5],
   // Issue #26. The hero's rule is "no floor-tier TEXT over the photograph", and this is
   // what makes it load-bearing instead of a comment: --text-lo is 3.55:1 at the scrim
   // floor, fine for a decorative mark and NOT fine for a word. If this guard ever starts
@@ -654,10 +745,11 @@ for (const [label, nFg, nBg, tFg, tBg, target] of tmPairs) {
 console.log('\ncomposited worst-case pixels:');
 for (const k of ['npScrim72', 'npScrim82', 'jpScrim72', 'jpScrim82', 'rowHover', 'rowSel', 'chip',
                  'docsRowHover', 'docsNoteFill', 'npHdrMin', 'jpHdrMin', 'npHdrRest', 'jpHdrRest',
-                 'doorWall',
+                 'doorWall', 'npScreen14', 'jpScreen14', 'npScreen18',
                  'heroScrim76', 'heroScrim90', 'heroHiFading', 'heroMidFading',
                  'heroCapNp76', 'heroCapJp76',
-                 'paperFading', 'inkGreenFading'])
+                 'paperFading', 'inkGreenFading',
+                 'dangerHover08Bg', 'dangerHover08S1', 'dangerHover08S2', 'dangerHover15S2'])
   console.log('  ' + k.padEnd(11), C[k]);
 console.log('\nhex -> hsl (the form the shadcn tokens in globals.css take):');
 for (const k of Object.keys(C)) console.log('  ' + k.padEnd(11), C[k], ' hsl(' + hsl(C[k]) + ')');

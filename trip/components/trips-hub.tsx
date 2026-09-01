@@ -386,16 +386,16 @@ export default function TripsHub() {
     <section
       aria-labelledby="trips-hub-title"
       data-testid="trips-hub"
-      className="mx-auto w-full max-w-5xl px-4 pb-16 sm:px-6"
+      className="mx-auto w-full max-w-5xl pb-16"
     >
       <h2 id="trips-hub-title" className="sr-only">
         Your trips: select one, create a trip, or add a trip by Trip Token
       </h2>
       <div className="flex flex-col gap-4">
         {/* 1 — Every trip this browser knows. */}
-        <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-          <h3 className="text-sm font-semibold text-white">Your trips</h3>
-          <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+        <div className="border-y-2 border-border bg-surface-low px-gut py-4">
+          <h3 className="pr pr--l text-ink-hi">Your trips</h3>
+          <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
             Every trip this browser has created or joined. Tap one to switch to it.
           </p>
           <ul data-testid="trips-hub-list" className="mt-3 flex flex-col gap-2">
@@ -415,7 +415,7 @@ export default function TripsHub() {
                 <li
                   key={t.id}
                   data-testid={`trips-hub-row-${i}`}
-                  className="flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-surface/60 p-2"
+                  className="flex min-h-tap flex-wrap items-center gap-2 border-b-hair border-border py-2 last:border-b-0"
                 >
                   {renamingId === t.id ? (
                     <form
@@ -433,12 +433,12 @@ export default function TripsHub() {
                         maxLength={40}
                         autoFocus
                         autoComplete="off"
-                        className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                        className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                       />
                       <button
                         type="submit"
                         data-testid={`trips-hub-rename-save-${i}`}
-                        className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                        className="btn px-4"
                       >
                         Save
                       </button>
@@ -448,31 +448,29 @@ export default function TripsHub() {
                       {isCurrent ? (
                         <Link
                           href="/"
-                          className="flex min-h-[44px] min-w-0 flex-1 flex-col justify-center rounded-lg px-2 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex min-h-tap min-w-0 flex-1 flex-col justify-center rounded-r1 px-2 py-1.5 no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <span className="flex items-center gap-2">
-                            <span className="truncate text-sm font-semibold text-white">{t.name}</span>
-                            <span className="shrink-0 rounded-full border border-ring/60 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-primary">
-                              Current
-                            </span>
+                            <span className="truncate text-t-body font-semibold text-ink-hi">{t.name}</span>
+                            <span className="chip chip--struck shrink-0">Current</span>
                           </span>
-                          <span className="text-xs text-ink-mid">{subtitle}</span>
+                          <span className="text-t-sm text-ink-mid">{subtitle}</span>
                         </Link>
                       ) : canManage ? (
                         <button
                           type="button"
                           onClick={() => switchTo(t.id)}
-                          className="flex min-h-[44px] min-w-0 flex-1 flex-col justify-center rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          className="flex min-h-tap min-w-0 flex-1 flex-col justify-center rounded-r1 px-2 py-1.5 text-left transition-colors hover:bg-white/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          <span className="truncate text-sm font-semibold text-white">{t.name}</span>
-                          <span className="text-xs text-ink-mid">{subtitle} · tap to switch</span>
+                          <span className="truncate text-t-body font-semibold text-ink-hi">{t.name}</span>
+                          <span className="text-t-sm text-ink-mid">{subtitle} · tap to switch</span>
                         </button>
                       ) : (
                         // Unidentified render: readable, but switching is a trip-mutating registry
                         // action — see canManage's docstring above.
-                        <div className="flex min-h-[44px] min-w-0 flex-1 flex-col justify-center px-2 py-1.5">
-                          <span className="truncate text-sm font-semibold text-white">{t.name}</span>
-                          <span className="text-xs text-ink-mid">{subtitle}</span>
+                        <div className="flex min-h-tap min-w-0 flex-1 flex-col justify-center px-2 py-1.5">
+                          <span className="truncate text-t-body font-semibold text-ink-hi">{t.name}</span>
+                          <span className="text-t-sm text-ink-mid">{subtitle}</span>
                         </div>
                       )}
                       {canManage && (
@@ -484,7 +482,7 @@ export default function TripsHub() {
                           }}
                           data-testid={`trips-hub-rename-${i}`}
                           aria-label={`Rename ${t.name}`}
-                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[color:var(--border-ui)] text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                          className="btn btn--2 min-w-tap px-0"
                         >
                           <Pencil className="h-4 w-4" aria-hidden="true" />
                         </button>
@@ -496,7 +494,7 @@ export default function TripsHub() {
                             onClick={() => copyToken(t.id)}
                             data-testid={`trips-hub-copy-token-${i}`}
                             aria-label={`Copy the Trip Token for ${t.name}`}
-                            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                            className="btn btn--2 px-3"
                           >
                             {copiedTokenId === t.id ? (
                               <Check className="h-4 w-4" aria-hidden="true" />
@@ -510,7 +508,7 @@ export default function TripsHub() {
                             onClick={() => copyLink(t.id)}
                             data-testid={`trips-hub-copy-${i}`}
                             aria-label={`Copy share link for ${t.name}`}
-                            className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                            className="btn btn--2 px-3"
                           >
                             {copiedId === t.id ? (
                               <Check className="h-4 w-4" aria-hidden="true" />
@@ -527,7 +525,7 @@ export default function TripsHub() {
                           onClick={() => setForgetId(t.id)}
                           data-testid={`trips-hub-forget-${i}`}
                           aria-label={`Forget ${t.name}`}
-                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg border border-[color:var(--border-ui)] text-ink-mid transition-colors hover:bg-rose-500/10 hover:text-rose-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                          className="btn btn--2 btn--danger min-w-tap px-0"
                         >
                           <Trash2 className="h-4 w-4" aria-hidden="true" />
                         </button>
@@ -552,7 +550,7 @@ export default function TripsHub() {
           <Link
             href="/settings/"
             data-testid="trips-hub-sync-link"
-            className="mt-3 inline-flex min-h-[44px] items-center gap-1 self-start rounded-lg px-1 text-sm font-semibold text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+            className="mt-3 inline-flex min-h-tap items-center gap-1 self-start rounded-r1 px-1 text-t-body font-semibold text-primary transition-colors hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             See your key &mdash; log in on another device &rarr;
           </Link>
@@ -564,7 +562,7 @@ export default function TripsHub() {
         {canManage && needsAccount && (
           <div
             data-testid="trips-hub-finish-account"
-            className="rounded-xl border border-border bg-muted/40 p-4 sm:p-5"
+            className="border-y-2 border-border bg-surface-raised px-gut py-4"
           >
             {mintedUserToken ? (
               <UserTokenShowOnce
@@ -579,8 +577,8 @@ export default function TripsHub() {
               />
             ) : (
               <>
-                <h3 className="text-sm font-semibold text-white">Finish setting up your account</h3>
-                <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+                <h3 className="pr pr--l text-ink-hi">Finish setting up your account</h3>
+                <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
                   You signed in before accounts existed, so you don&rsquo;t have a key yet.
                   Creating one takes a second, changes nothing you already have, and is what lets you
                   log in on another device and see these same trips.
@@ -589,7 +587,7 @@ export default function TripsHub() {
                   type="button"
                   onClick={finishAccount}
                   data-testid="trips-hub-finish-account-mint"
-                  className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                  className="btn mt-3 px-4"
                 >
                   Create my key
                 </button>
@@ -604,10 +602,10 @@ export default function TripsHub() {
         {trips !== null && !canManage && (
           <div
             data-testid="trips-hub-signin-required"
-            className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5"
+            className="border-y-2 border-border bg-surface-low px-gut py-4"
           >
-            <h3 className="text-sm font-semibold text-white">Log in to manage trips</h3>
-            <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+            <h3 className="pr pr--l text-ink-hi">Log in to manage trips</h3>
+            <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
               Creating a trip, adding one by Trip Token, renaming and sharing all belong to an
               account &mdash; log in with your key, or create an account in a few seconds.
             </p>
@@ -616,9 +614,9 @@ export default function TripsHub() {
 
         {/* 2 — Create, with a REQUIRED name. */}
         {canManage && (
-        <form onSubmit={create} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-          <h3 className="text-sm font-semibold text-white">Create a trip</h3>
-          <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+        <form onSubmit={create} className="border-y-2 border-border bg-surface-low px-gut py-4">
+          <h3 className="pr pr--l text-ink-hi">Create a trip</h3>
+          <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
             Starts a fresh, empty trip with its own Trip Token. You&rsquo;ll switch to it now; copy
             that Trip Token (or its link) from the list above to invite anyone you want to plan with.
           </p>
@@ -636,13 +634,13 @@ export default function TripsHub() {
                 maxLength={40}
                 required
                 autoComplete="off"
-                className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <label htmlFor="trips-hub-create-start" className="text-xs text-ink-mid">
+                <label htmlFor="trips-hub-create-start" className="pr pr--lo">
                   Start date (optional, defaults to today)
                 </label>
                 <input
@@ -655,11 +653,11 @@ export default function TripsHub() {
                     setCreateStart(e.target.value);
                     setCreateError(null);
                   }}
-                  className="min-w-0 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 />
               </div>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <label htmlFor="trips-hub-create-end" className="text-xs text-ink-mid">
+                <label htmlFor="trips-hub-create-end" className="pr pr--lo">
                   End date (optional, defaults to +30 days)
                 </label>
                 {/* min/max express the span cap natively, so the date picker cannot even offer a
@@ -675,18 +673,18 @@ export default function TripsHub() {
                     setCreateEnd(e.target.value);
                     setCreateError(null);
                   }}
-                  className="min-w-0 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                  className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
                 />
               </div>
             </div>
             {createError && (
-              <p role="alert" data-testid="trips-hub-create-date-error" className="text-xs text-red-400">
+              <p role="alert" data-testid="trips-hub-create-date-error" className="err text-t-sm">
                 {createError}
               </p>
             )}
 
             <div className="flex flex-col gap-1">
-              <label htmlFor="trips-hub-create-destinations" className="text-xs text-ink-mid">
+              <label htmlFor="trips-hub-create-destinations" className="pr pr--lo">
                 Destinations (comma-separated)
               </label>
               <input
@@ -700,12 +698,12 @@ export default function TripsHub() {
                 placeholder="e.g. Kochi, Munnar, Alleppey"
                 required
                 autoComplete="off"
-                className="min-w-0 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-h-tap min-w-0 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
             </div>
 
             <fieldset className="flex flex-col gap-2">
-              <legend className="text-xs text-ink-mid">Vibe (optional)</legend>
+              <legend className="pr pr--lo">Vibe (optional)</legend>
               {/* B-5: `role="group"` + `aria-pressed`, not radiogroup/radio — the composite
                   role promises arrow-key navigation this toggle never implemented. */}
               <div role="group" aria-label="Trip vibe" className="flex flex-wrap gap-2">
@@ -716,10 +714,10 @@ export default function TripsHub() {
                     aria-pressed={createVibe ? createVibe === key : key === Object.keys(VIBES)[0]}
                     data-testid={`trips-hub-create-vibe-${key}`}
                     onClick={() => setCreateVibe(key)}
-                    className={`inline-flex min-h-[44px] items-center justify-center rounded-lg border px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface ${
+                    className={`chip min-h-tap px-3 ${
                       (createVibe ? createVibe === key : key === Object.keys(VIBES)[0])
-                        ? 'border-ring/60 bg-primary/10 text-primary'
-                        : 'border-[color:var(--border-ui)] text-white hover:bg-white/5'
+                        ? 'chip--struck bg-[rgb(62_216_255/0.10)]'
+                        : 'chip--hollow hover:bg-white/[0.05]'
                     }`}
                   >
                     {vibe.label}
@@ -733,7 +731,7 @@ export default function TripsHub() {
               disabled={!createName.trim() || !createDestinations.trim() || creating}
               aria-busy={creating}
               data-testid="trips-hub-create"
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 self-start rounded-lg border border-ring/60 px-4 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+              className="btn self-start px-4"
             >
               <Plus className="h-4 w-4" aria-hidden="true" />
               {creating ? 'Creating trip…' : 'Create trip'}
@@ -744,9 +742,9 @@ export default function TripsHub() {
 
         {/* 3 — Join by pasted key, with an optional name for the row. */}
         {canManage && (
-        <form onSubmit={join} className="rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-          <h3 className="text-sm font-semibold text-white">Add a trip by Trip Token</h3>
-          <p className="mt-1 max-w-2xl text-sm text-ink-mid">
+        <form onSubmit={join} className="border-y-2 border-border bg-surface-low px-gut py-4">
+          <h3 className="pr pr--l text-ink-hi">Add a trip by Trip Token</h3>
+          <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
             Paste the Trip Token a friend shared with you to add their trip to your list and switch
             to it.
           </p>
@@ -763,7 +761,7 @@ export default function TripsHub() {
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
-              className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 font-mono text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             />
             <div className="flex flex-col gap-2 sm:flex-row">
               <label htmlFor="trips-hub-join-name" className="sr-only">
@@ -777,19 +775,19 @@ export default function TripsHub() {
                 placeholder="Shared trip"
                 maxLength={40}
                 autoComplete="off"
-                className="min-w-0 flex-1 rounded-lg border border-[color:var(--border-ui)] bg-surface/60 px-3 py-2.5 text-sm text-white placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 text-t-body text-ink-hi placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
               />
               <button
                 type="submit"
                 disabled={!joinKey.trim()}
                 data-testid="trips-hub-join"
-                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-[color:var(--border-ui)] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-surface disabled:cursor-not-allowed disabled:opacity-40"
+                className="btn btn--2 px-4"
               >
                 Add trip
               </button>
             </div>
           </div>
-          <p className="mt-3 max-w-2xl text-xs text-ink-lo">
+          <p className="mt-3 max-w-2xl text-t-sm text-ink-lo">
             A Trip Token opens one trip &mdash; it is not a login, and your own key never goes
             here. Trip Tokens can&rsquo;t be verified in advance: if the trip opens empty, it may be
             mistyped or the trip is brand new.
@@ -800,7 +798,7 @@ export default function TripsHub() {
 
       {/* forget confirm (reused Radix AlertDialog, mirrors the calendar clear/delete gate). */}
       <AlertDialog open={forgetId !== null} onOpenChange={(open) => { if (!open) setForgetId(null); }}>
-        <AlertDialogContent className="glass-card-dark border-white/10 text-white" data-testid="trips-hub-forget-confirm">
+        <AlertDialogContent className="rounded-r3 border-2 border-border bg-surface-low text-ink-hi" data-testid="trips-hub-forget-confirm">
           <AlertDialogHeader>
             <AlertDialogTitle>Forget {forgetTrip?.name ?? 'this trip'}?</AlertDialogTitle>
             <AlertDialogDescription className="text-ink-mid">
@@ -815,7 +813,7 @@ export default function TripsHub() {
             <AlertDialogAction
               data-testid="trips-hub-forget-action"
               onClick={confirmForget}
-              className="bg-rose-500 text-white hover:bg-rose-400"
+              className="btn btn--danger"
             >
               Forget trip
             </AlertDialogAction>

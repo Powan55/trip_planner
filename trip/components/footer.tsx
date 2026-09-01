@@ -11,32 +11,22 @@ export default function Footer() {
   if (isTravelRoute(pathname)) return null;
 
   return (
-    // v2 cosmetic restyle: the footer becomes a quiet closing panel on the
-    // aurora field — a luminous route-accent hairline across the top, richer
-    // spacing rhythm, and legibility-tuned muted type. Content/logic unchanged.
-    <footer className="relative py-18 px-gutter border-t border-white/[0.06]">
-      {/* Route-accent hairline: a soft gradient rule keyed to --accent-scroll so
-          the footer warms/cools with the page. Decorative, adds no layout box. */}
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-px"
-        style={{
-          background:
-            'linear-gradient(90deg, transparent 0%, hsl(var(--accent-scroll) / 0.6) 50%, transparent 100%)',
-        }}
-      />
-      <div className="max-w-[1200px] mx-auto text-center">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <MapPin className="w-4 h-4 text-muted-foreground" aria-hidden="true" />
-          <span className="font-display font-bold tracking-tight text-white">Nepal <span className="text-muted-foreground">×</span> Japan Journey</span>
+    // The colophon: the imprint line at the foot of a printed form. A 2px rule across the
+    // top, then three printed fields. The old soft accent-gradient hairline is gone — an
+    // --accent RULE is unlimited, but a glow is not a rule, and a printed sheet does not
+    // fade its own edge out at the margins.
+    <footer className="relative px-gutter py-12 border-t-2 border-[hsl(var(--border))]">
+      <div className="mx-auto flex max-w-[1200px] flex-col items-center gap-3 text-center">
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
+          <span className="font-machine text-t-label font-semibold uppercase tracking-[0.13em] text-[color:var(--text-hi)]">
+            Nepal <span className="text-[color:var(--text-lo)]">×</span> Japan Journey
+          </span>
         </div>
-        <p className="text-sm text-muted-foreground mb-4">
-          {TRIP_DATE_LABEL}
-        </p>
-        {/* The copyright/version note qualifies the wordmark above rather than
-            being the footer's subject, so it takes ink-mid (#27) — still clearly
-            quieter than the white wordmark, and AA on the navy field by token. */}
-        <p className="text-xs text-ink-mid">
+        <p className="pr pr--lo tabular-nums">{TRIP_DATE_LABEL}</p>
+        {/* The copyright/version note qualifies the wordmark above rather than being the
+            footer's subject, so it sits a tier down. */}
+        <p className="pr pr--lo tabular-nums">
           &copy; {new Date().getFullYear()} Lax
           {' '}&middot;{' '}
           v{process.env.NEXT_PUBLIC_APP_VERSION}
