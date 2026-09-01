@@ -2,15 +2,56 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v6.1.0`, deployed 2026-08-26. The newest live worker is `v1.10.0`, deployed 2026-08-23: the Firestore membership gate and the rate limiter are both live together now, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v7.0.0`, deployed 2026-08-31. The newest live worker is `v1.10.0`, deployed 2026-08-23: the Firestore membership gate and the rate limiter are both live together now, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
 
-**`v6.1.0` shipped on 2026-08-26.** Tag `v6.1.0` is `a2181de`, that commit is `origin/main`'s head, and its deploy run (`32929962823`) succeeded — verified against the tag and the run, not against this paragraph. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
+**`v7.0.0` shipped on 2026-08-31.** Tag `v7.0.0` is `7e80551`, that commit is `origin/main`'s head, and its deploy run (`33463907613`) succeeded — verified against the tag and the run, not against this paragraph. This paragraph named `v6.1.0` for a day after `v7.0.0` went live, which is the same drift the note below describes; it was corrected while preparing `v7.0.1`. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
 > **This paragraph was wrong for two days, which is why the sentence above says to check the tag.** It claimed `v5.14.4` was "recorded below and not yet deployed" and that `main` was at `v5.14.3`. Both were false: tag `v5.14.4` is commit `203cfc0`, that commit **is** `origin/main`'s head, `origin/main`'s `package.json` reads `5.14.4`, and its deploy run succeeded on 2026-08-14. The doc has now overstated what is live twice (`v5.14.0` was claimed about an hour early). The failure mode is always the same: this heading is edited when a release is *prepared* and nobody comes back to it when the release *ships*. Verify against `git tag` and the deploy run, never against this paragraph.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
 
 ---
+
+## v7.0.1 (app) · 2026-09-01 · worker stays at v1.10.0
+
+Follow-ups to the v7.0.0 redesign. Seven issues, all measured against the shipped v7.0.0 build
+before anything was changed — none were stale. Nothing here touches the worker.
+
+**The one users would have hit.** The install-to-Home hint fired for signed-out visitors. It is a
+`duration: Infinity` toast on a `position: fixed` Toaster, so unlike every other overlay in the app
+it never cleared on scroll — at 375×667 on the front door it covered 100% of "Create an account",
+67% of "I have a key — log in" and 48% of "Someone shared a trip with me". That is all three CTAs on
+the one screen whose job is a three-second decision, for a visitor with no trip data for the hint to
+protect. It now requires a signed-in traveler (D-491).
+
+**Accessibility, which is an acceptance criterion here and not polish.** The `/guides/` country links
+had lost their 44px tap floor when v7 dropped the icon box it rode on — measured 29.8px, on the only
+route into the country guides from that screen. Thirteen `/more/` row titles were `<h3>` inside a
+link or button, which is children-presentational, so a screen-reader user navigating by heading heard
+the four group headings and none of the rows. Both `.head` running heads were overflow scrollers with
+hidden scrollbars, no focusable child and no `tabIndex`, i.e. axe `scrollable-region-focusable` at
+serious — reachable by pointer only between roughly 440 and 510px.
+
+**Why that last one shipped at all, and what now stops it.** The a11y pack scanned `/flights/` at
+desktop width, where the head fits, and the phone widths, where it also fits. The defect lived in the
+band between them. The pack now carries explicit 480px scans for `/flights/` and `/plan/`, and the
+a11y and reduced-motion packs cover `/guides/`, `/more/`, `/trips/` and `/profile/`, which no pack had
+ever scanned. `role="group"`, not `region`: axe allows only `group`/`none`/`presentation`/`doc-footnote`
+on a `<header>`, so the `<div>` recipe used elsewhere trades a serious violation for a minor one (D-493).
+
+**Tooling.** `npm run lint` runs at `--max-warnings 0` with the 35 standing warnings cleared, so a
+real regression now fails the way a type or test regression already does. Separately, and outside
+this build: Dependabot alerts were enabled and `Visual regression (Windows baselines)` became a
+required check on `dev` and `main`, so a red visual run can finally block a merge.
+
+**Known and deliberately not fixed.** The quick-add FAB is suppressed on `/trips/` and `/packing/`,
+where "add to plan" is not the primary action, but its overlap with `Filters` on `/nepal/` and
+`/japan/` has no contained fix, and the `/map/` filter chips still sit under the tab bar at first
+paint. Both are flow content under fixed chrome that clears as soon as the user scrolls; the
+`calc(var(--tab-bar-h) …)` idiom only moves `position: fixed` elements, and three spacing candidates
+each just relocated the obstruction to a different control (D-492). Re-scoped rather than patched.
+
+Closes #351, #352, #354, #356, #363, #364, #365.
 
 ## v7.0.0 (app) · 2026-08-30 · worker stays at v1.10.0
 
