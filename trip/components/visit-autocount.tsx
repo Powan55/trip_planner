@@ -23,7 +23,6 @@ export default function VisitAutocount() {
   useEffect(() => {
     runVisitAutocount();
     // Boot-once: intentionally no deps — this must run on the initial load only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return null;

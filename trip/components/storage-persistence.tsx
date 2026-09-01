@@ -20,7 +20,8 @@
 // PROACTIVE complement to reactive write-failure toast — deliberately not built here.
 // 3. INSTALL-TO-HOME HINT: a single, dismissable, once-EVER sonner toast (persisted dismissal
 // via the gateway's `installHintStore`, key 30) shown when the app is not already running
-// standalone. Static hint only — no `beforeinstallprompt` capture/native-prompt flow (YAGNI).
+// standalone AND a traveler is signed in. Static hint only — no `beforeinstallprompt`
+// capture/native-prompt flow (YAGNI).
 // 4. REACTIVE WRITE-FAILURE TOAST: listens for the gateway's `trip:quota-exceeded`
 // `window` `CustomEvent`, fired (defensively, never-throw) from `core/storage/gateway.ts`'s
 // `writeString` and the itinerary Vault's `saveItinerary` when a write is rejected because
@@ -48,6 +49,7 @@ import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { installHintStore, backupPromptStore } from '@/core/storage/gateway';
+import { getActiveTraveler } from '@/lib/token-auth';
 import { getTodayInTrip } from '@/lib/trip-now';
 import { legLabel } from '@/lib/leg-label';
 import { getActiveTrip } from '@/core/trips';
@@ -147,7 +149,13 @@ export function StoragePersistence() {
     }
 
     // ── 3. Install-to-Home education (once ever, dismissable) ────────────
-    if (!isStandalone() && !installHintStore.hasBeenDismissed()) {
+    // Signed-in only. The Toaster is position:fixed, so this `duration: Infinity` toast is the
+    // one piece of chrome that does NOT clear on scroll — parked over the front door at 375x667
+    // it covered all three of TokenGate's CTAs (#352). "Install so your trip data can't be
+    // cleared" has nothing to say to a visitor with no trip data anyway. `!!getActiveTraveler()`
+    // is the same "gate passed" read first-run-tour.tsx uses; every sign-in path ends in a full
+    // reload, so a traveler who signs in still gets the hint on the very next mount.
+    if (getActiveTraveler() && !isStandalone() && !installHintStore.hasBeenDismissed()) {
       const description = isIOS()
         ? 'Tap Share, then "Add to Home Screen" — installed apps are protected from Safari clearing their data.'
         : "Install this app to your Home Screen so your trip data can't be cleared.";

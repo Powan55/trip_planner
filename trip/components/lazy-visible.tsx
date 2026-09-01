@@ -94,7 +94,6 @@ interface LazyVisibleProps {
    * the section stays out of the initial render tree (and out of First Load JS).
    * Rendered prop-less here; any props on the underlying component must be optional.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   component: ComponentType<any>;
   /**
    * Reserved height for the placeholder so the swap-in causes no CLS. Any CSS length

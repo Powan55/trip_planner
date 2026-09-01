@@ -35,15 +35,12 @@ vi.mock('@/core/photos/blob-store', async (importOriginal) => {
 // Mirrors `import-place-sheet.test.ts` / `journal-browse-photos.test.ts`'s passthrough mock.
 vi.mock('framer-motion', async () => {
   const React = await import('react');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const strip = (p: any) => {
     const { initial, animate, exit, whileHover, whileInView, whileTap, viewport, transition, layout, onExitComplete, ...rest } = p;
     return rest;
   };
   return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     m: { div: (props: any) => React.createElement('div', strip(props)) },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     AnimatePresence: ({ children, onExitComplete }: any) => {
       const wasOpen = React.useRef(false);
       const isOpen = !(children == null || children === false);

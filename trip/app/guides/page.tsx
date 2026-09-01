@@ -111,9 +111,12 @@ export default function GuidesPage() {
                     <span className="pr text-now">
                       Leg {i + 1} · {c.dates}
                     </span>
+                    {/* min-h-tap, not a hand-rolled height: the 44px floor used to ride on an
+                        h-11 icon box that v7 dropped with the icon, leaving a 29.8px target on
+                        the only route into the country guides from this screen (#363). */}
                     <Link
                       href={c.href}
-                      className="group mt-1 inline-flex items-center gap-2 rounded-r1 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="group mt-1 inline-flex min-h-tap items-center gap-2 rounded-r1 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <span className="font-machine text-n-md font-semibold leading-none tracking-tight text-ink-hi">
                         {c.name}

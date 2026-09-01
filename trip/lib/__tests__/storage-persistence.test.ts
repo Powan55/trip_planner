@@ -10,8 +10,9 @@
 // Proves the required behaviors:
 //   - persist() is called when supported and skipped when already persisted;
 //   - the near-quota toast fires above the threshold and not below (and only once per module load);
-//   - the install hint renders only when NOT standalone and NOT previously dismissed, and dismissing
-//     it (action click) persists via the gateway so a later mount does not show it again.
+//   - the install hint renders only when a traveler is SIGNED IN, NOT standalone and NOT previously
+//     dismissed, and dismissing it (action click) persists via the gateway so a later mount does not
+//     show it again.
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { createElement, type ReactElement } from 'react';
@@ -82,7 +83,7 @@ vi.mock('@/core/trips', async (importOriginal) => {
 });
 
 import { StoragePersistence } from '@/components/storage-persistence';
-import { installHintStore, backupPromptStore, STORAGE_KEYS } from '@/core/storage/gateway';
+import { installHintStore, backupPromptStore, identityStore, STORAGE_KEYS } from '@/core/storage/gateway';
 
 function render(el: ReactElement) {
   const container = document.createElement('div');
@@ -138,6 +139,15 @@ function stubStorageManager(opts: {
     configurable: true,
   });
   return { persist, persisted: persistedFn, estimate };
+}
+
+/**
+ * Seeds the identity slot the install hint now gates on (#352). `resolveToken` takes any
+ * non-empty trimmed name, so the token alone is a signed-in traveler.
+ */
+function signInTraveler(name = 'Alina') {
+  identityStore.setToken(name);
+  identityStore.setName(name);
 }
 
 /** Stubs matchMedia + navigator.standalone for the install-hint standalone check. */
@@ -267,18 +277,51 @@ describe('StoragePersistence — near-quota warning', () => {
 });
 
 describe('StoragePersistence — install-to-Home hint', () => {
-  it('shows the hint when NOT standalone and NOT previously dismissed', async () => {
+  it('shows the hint when signed in, NOT standalone and NOT previously dismissed', async () => {
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
     stubStandalone(false);
+    signInTraveler();
     const r = render(createElement(StoragePersistence));
     await r.settle();
     expect(h.toastCalls.some((c) => c.message.includes('Install this app'))).toBe(true);
     r.unmount();
   });
 
+  // #352 — the Toaster is position:fixed, so this duration:Infinity toast never clears on scroll.
+  // Over the signed-out front door at 375x667 it covered all three TokenGate CTAs.
+  it('does NOT show the hint to a signed-out visitor, even with nothing dismissed (#352)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    stubStandalone(false);
+    expect(identityStore.getToken()).toBeNull();
+    const r = render(createElement(StoragePersistence));
+    await r.settle();
+    expect(h.toastCalls.some((c) => c.message.includes('Install this app'))).toBe(false);
+    // and the dismissal is NOT burned, so the hint survives for the same person after sign-in
+    expect(installHintStore.hasBeenDismissed()).toBe(false);
+    r.unmount();
+  });
+
+  it('shows the hint on the next mount once that same visitor signs in (#352 — not killed)', async () => {
+    stubStorageManager({ supportsPersist: false, supportsEstimate: false });
+    stubStandalone(false);
+    const signedOut = render(createElement(StoragePersistence));
+    await signedOut.settle();
+    expect(h.toastCalls.some((c) => c.message.includes('Install this app'))).toBe(false);
+    signedOut.unmount();
+
+    // Every sign-in path in token-gate.tsx ends in a full reload, so the next mount is the
+    // realistic re-entry point — no same-mount identity listener needed.
+    signInTraveler();
+    const signedIn = render(createElement(StoragePersistence));
+    await signedIn.settle();
+    expect(h.toastCalls.some((c) => c.message.includes('Install this app'))).toBe(true);
+    signedIn.unmount();
+  });
+
   it('does NOT show the hint when already standalone', async () => {
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
     stubStandalone(true);
+    signInTraveler();
     const r = render(createElement(StoragePersistence));
     await r.settle();
     expect(h.toastCalls.some((c) => c.message.includes('Install this app'))).toBe(false);
@@ -288,6 +331,7 @@ describe('StoragePersistence — install-to-Home hint', () => {
   it('does NOT show the hint again once dismissed (gateway-persisted, once-ever)', async () => {
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
     stubStandalone(false);
+    signInTraveler();
     installHintStore.markDismissed();
     expect(window.localStorage.getItem(STORAGE_KEYS.installHintDismissed)).toBe('1');
     const r = render(createElement(StoragePersistence));
@@ -299,6 +343,7 @@ describe('StoragePersistence — install-to-Home hint', () => {
   it('clicking the action dismisses the toast AND persists the dismissal via the gateway', async () => {
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
     stubStandalone(false);
+    signInTraveler();
     expect(installHintStore.hasBeenDismissed()).toBe(false);
     const r = render(createElement(StoragePersistence));
     await r.settle();
@@ -314,6 +359,7 @@ describe('StoragePersistence — install-to-Home hint', () => {
   it('does NOT persist dismissal when the toast is swiped away (onDismiss), only when the action is clicked (#249)', async () => {
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
     stubStandalone(false);
+    signInTraveler();
     const r = render(createElement(StoragePersistence));
     await r.settle();
     const call = h.toastCalls.find((c) => c.message.includes('Install this app'));
@@ -328,6 +374,7 @@ describe('StoragePersistence — install-to-Home hint', () => {
   it('uses iOS Share -> Add to Home Screen wording on an iOS user agent', async () => {
     stubStorageManager({ supportsPersist: false, supportsEstimate: false });
     stubStandalone(false, true);
+    signInTraveler();
     const r = render(createElement(StoragePersistence));
     await r.settle();
     const call = h.toastCalls.find((c) => c.message.includes('Install this app'));
