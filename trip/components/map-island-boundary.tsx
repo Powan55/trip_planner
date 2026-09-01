@@ -36,6 +36,8 @@
 // Add a new map island next month and the build names it for you.
 
 import { Component, type ReactNode } from 'react';
+import { RefreshCw } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 /**
  * Digests Next uses for CONTROL FLOW rather than for real failures. These must be
@@ -100,9 +102,22 @@ export default class MapIslandBoundary extends Component<Props, State> {
         <p className="empty">
           {label} needs its map engine, which isn&apos;t stored on this device — it is
           large, and it would show a blank canvas without cached tiles anyway.
-          Reconnect to load it. Everything else on this page works offline, and your
+          Reconnect, then try again. Everything else on this page works offline, and your
           saved places and itinerary are safe on this device.
         </p>
+        {/* A full reload, not `setState({ failed: false })`: re-rendering the island only
+            re-imports the chunk if webpack has evicted the rejected module, so clearing
+            state alone can repaint the same failure with no way out. */}
+        <Button
+          data-testid="map-island-retry"
+          variant="outline"
+          size="sm"
+          className="mt-4"
+          onClick={() => window.location.reload()}
+        >
+          <RefreshCw aria-hidden="true" />
+          Try again
+        </Button>
       </div>
     );
   }

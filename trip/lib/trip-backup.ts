@@ -457,23 +457,27 @@ export async function importTripBackup(
     if (pr.ok) itinPlans = pr.plans;
   }
 
-  // Photos — sanitize meta, decode each present blob.
-  const metas = sanitizePhotos(env.photos?.meta);
+  // Photos — sanitize meta, decode each present blob. `hasMeta` is the shape gate the generic
+  // domains get from `spec.validate` above: photos are the only domain with no remote copy, so a
+  // malformed `meta` must DROP (leave the live index and its blobs alone), not commit an empty set.
+  const rawMeta = env.photos?.meta;
+  const hasMeta = Array.isArray(rawMeta);
+  const metas = hasMeta ? sanitizePhotos(rawMeta) : [];
   const decoded: Array<[string, Blob]> = [];
+  let photosSkipped = 0;
   for (const m of metas) {
     const dataUrl = env.photos?.blobs?.[m.id];
     if (typeof dataUrl === 'string') {
       try {
         decoded.push([m.id, dataUrlToBlob(dataUrl)]);
       } catch {
-        /* malformed data URL → this photo becomes a placeholder (meta kept, blob absent) */
+        photosSkipped++; // malformed data URL → this photo becomes a placeholder (meta kept, blob absent)
       }
     }
   }
 
   // ── Phase B — commit ──
   const restored: string[] = [];
-  let photosSkipped = 0;
 
   // Blobs FIRST (id-preserving), so a re-import doesn't duplicate and meta↔blob links hold.
   for (const [id, blob] of decoded) {
@@ -483,7 +487,7 @@ export async function importTripBackup(
   // Any meta whose blob was never provided at all is also a placeholder.
   photosSkipped += metas.filter((m) => env.photos?.blobs?.[m.id] === undefined).length;
 
-  if (env.photos && 'meta' in env.photos) {
+  if (hasMeta) {
     // #344: the meta rollback is a tombstone-replace (restore wins), so any LIVE meta id absent
     // from the restored set is being dropped here — without this, its blob orphans forever in the
     // app-scoped IndexedDB store (nothing else names it back to a trip to GC it later).

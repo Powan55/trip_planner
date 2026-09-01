@@ -32,8 +32,21 @@ function isPlannerRoute(pathname: string | null | undefined): boolean {
  * Measured at 375x667 and 390x844, the FAB obscured "Rename Nepal × Japan" on `/trips/` and
  * "Remove Water purification tablets" on `/packing/` at first paint (#353). Same
  * boundary-checked match as `isPlannerRoute` above.
+ *
+ * The read-only reference routes carry the same defect and nothing reserves the 56px band the
+ * FAB sits in — on `/safety/` it lands over the emergency numbers, which is the worst place in
+ * the app to cover a row. `/guides/` and `/checklist/` keep the FAB: adding from them is a real
+ * intent, so they need a clearance reservation rather than suppression.
  */
-const NON_ADD_ROUTES = ['/trips', '/packing'] as const;
+const NON_ADD_ROUTES = [
+  '/trips',
+  '/packing',
+  '/safety',
+  '/more',
+  '/recap',
+  '/profile',
+  '/flights',
+] as const;
 
 function isNonAddRoute(pathname: string | null | undefined): boolean {
   if (!pathname) return false;

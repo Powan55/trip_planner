@@ -9,7 +9,7 @@ import { deriveRowPhases, type TravelRowPhase } from '@/lib/travel-hero';
 import type { NextUpContext } from '@/lib/whats-next';
 import { formatRelativeTime } from '@/lib/relative-time';
 import { formatDurationText } from '@/lib/time-picker-format';
-import { unplannedGapMinutes } from '@/lib/unplanned-gap';
+import { unplannedGapsByItemId } from '@/lib/unplanned-gap';
 
 /**
  * The shared trip-agenda list, in two variants:
@@ -237,6 +237,7 @@ function TravelAgenda({ items, date, dayNumber, city, onToggle, ctx }: CommonPro
   }
 
   const phases = deriveRowPhases(items, ctx);
+  const gaps = unplannedGapsByItemId(items, ctx.dayDate, ctx.placeOffsetMin);
   const doneCount = items.filter((it) => it.done === true).length;
 
   return (
@@ -252,9 +253,9 @@ function TravelAgenda({ items, date, dayNumber, city, onToggle, ctx }: CommonPro
       </div>
       <ul className="list" aria-label={`Agenda — Day ${dayNumber}, ${city}`}>
         {items.map((item, i) => {
-          // The unplanned rule between this row and the one above it: a FACT about the pair,
-          // not a spacer.
-          const gapMin = unplannedGapMinutes(items[i - 1], item);
+          // The unplanned rule above this row: a FACT about the pair, not a spacer. Keyed by id
+          // because the gap is measured in chronological order, which stored order need not be.
+          const gapMin = gaps.get(item.id) ?? null;
           return (
             <Fragment key={item.id}>
               {gapMin !== null && (

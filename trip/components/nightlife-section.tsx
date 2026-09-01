@@ -356,7 +356,7 @@ export default function NightlifeSection({ country }: { country?: 'Nepal' | 'Jap
                       type="button"
                       onClick={() => setQuery('')}
                       aria-label="Clear search"
-                      className="absolute right-2 top-1/2 -translate-y-1/2 grid h-8 w-8 place-items-center rounded-r1 text-ink-lo transition-colors hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 text-ink-lo transition-colors hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>

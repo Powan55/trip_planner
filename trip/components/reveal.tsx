@@ -5,7 +5,7 @@ import { m } from 'framer-motion';
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 
-import { FADE_FLOOR, entranceFor, prerenderEntranceFor } from '@/lib/motion';
+import { FADE_FLOOR, entranceFor } from '@/lib/motion';
 
 /**
  * Reveal — the ONE canonical section-masthead entrance (; scroll-driven CSS
@@ -93,15 +93,16 @@ import { FADE_FLOOR, entranceFor, prerenderEntranceFor } from '@/lib/motion';
  * `'present'` is the SAME branch as the reduced-motion fork, deliberately: it is
  * already shipped and already reviewed, so this adds no new rendering shape.
  *
- * CORRECTION to the sentence that used to close this paragraph — it claimed "no new
- * hydration characteristic", on the reasoning that the server always prerenders
- * `'animate'` for a Tier-1/2 route and only the client's first render differs. Both
- * halves are true and together they are the defect: a differing first render IS a
- * hydration mismatch, and `/passport/` is a Server Component, so its reveal really is
- * in the exported HTML. It mismatched on every reload (the ledger is sessionStorage
- * and survives one) and on first load for every reduced-motion visitor, and React
- * recovered by re-rendering the whole route on the client. The decision is now
- * deferred to an effect — see `prerenderEntranceFor` below and in lib/motion.ts.
+ * NO REVEAL IS PRERENDERED, so this adds no hydration characteristic. `/passport/` is a
+ * Server Component, but `app/layout.tsx` puts `{children}` inside `<ItineraryProvider>`,
+ * which renders `{mounted && traveler ? children : null}` — nothing routed reaches the
+ * static export (measured: zero `data-entrance` anywhere in the exported HTML). The decision is
+ * therefore read at render time, which is the only way `initial` is right at mount:
+ * framer reads `initial` once, so deferring the decision paints every Tier-1/2 masthead at
+ * the floored opacity and y:20 before correcting, including for the returning and
+ * reduced-motion visitors the fork exists to protect. `lib/__tests__/motion-budget.test.ts`
+ * pins `prerenderEntranceFor` against this one; if it ever starts failing, a Reveal has
+ * become genuinely prerendered and the answer then is `useLayoutEffect`.
  *
  * `data-entrance` is on both paths so the rule is observable from outside — an
  * e2e spec can assert that every reveal on /plan/ is `"present"` without knowing
@@ -117,15 +118,7 @@ export function Reveal({
   // `usePathname()` is null with no app router mounted (a unit-test harness);
   // `entranceFor` reads that as an unscoped surface and returns 'present'.
   const pathname = usePathname();
-  // DEFERRED, for the same reason `cssTimeline` below is: the live decision reads `matchMedia`
-  // and the sessionStorage ledger, neither of which exists during the export. Rendering it on the
-  // first client render is a hydration mismatch on any PRERENDERED route that reaches a
-  // `<Reveal>` — /passport/ is the one today (a Server Component, so the reveal is in the shipped
-  // HTML), and it mismatched on every reload and on first load under reduced motion. The first
-  // render therefore answers with the prerender's own decision, which is pathname-only and cannot
-  // disagree, and the effect corrects it.
-  const [entrance, setEntrance] = useState(() => prerenderEntranceFor(pathname));
-  useEffect(() => setEntrance(entranceFor(pathname)), [pathname]);
+  const entrance = entranceFor(pathname);
   const animating = entrance === 'animate';
 
   const [cssTimeline, setCssTimeline] = useState(false);
@@ -161,15 +154,6 @@ export function Reveal({
       // negative-control run read 0.7 off the off-screen photography masthead before this
       // fork existed. Asserted in e2e/reveal.spec.ts.
       initial={animating ? { opacity: FADE_FLOOR, y: 20 } : { opacity: 1 }}
-      // The corrector for the deferred decision above, and it is not optional. framer reads
-      // `initial` ONCE, at mount: an element that mounted on the prerender's 'animate' and is
-      // then told 'present' would keep the floored opacity it started with and only reach 1 if it
-      // ever intersected — leaving an off-screen reveal resting below full opacity for exactly
-      // the reduced-motion and returning visitors this fork exists to protect (D-246's measured
-      // regression, asserted in e2e/reveal.spec.ts). An `animate` target IS re-read, so 'present'
-      // snaps to the end state with no transition, and 'animate' passes no target at all — the
-      // untouched `whileInView`-only path.
-      animate={animating ? undefined : { opacity: 1, y: 0, transition: { duration: 0 } }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       className={className}

@@ -2,15 +2,166 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v7.0.0`, deployed 2026-08-31. The newest live worker is `v1.10.0`, deployed 2026-08-23: the Firestore membership gate and the rate limiter are both live together now, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v7.0.1`, deployed 2026-09-01. The newest live worker is `v1.10.0`, deployed 2026-08-23: the Firestore membership gate and the rate limiter are both live together now, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
 
-**`v7.0.0` shipped on 2026-08-31.** Tag `v7.0.0` is `7e80551`, that commit is `origin/main`'s head, and its deploy run (`33463907613`) succeeded — verified against the tag and the run, not against this paragraph. This paragraph named `v6.1.0` for a day after `v7.0.0` went live, which is the same drift the note below describes; it was corrected while preparing `v7.0.1`. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
+**`v7.0.1` shipped on 2026-09-01.** Tag `v7.0.1` is `fa2f497`, that commit is `origin/main`'s head, and its deploy run (`33476633246`) succeeded — verified against the tag and the run, not against this paragraph. **`v7.1.0` is recorded below and has not shipped**: it is prepared, and this paragraph will say so until a `v7.1.0` tag exists. That gap is the drift this paragraph keeps falling into — it named `v6.1.0` for a day after `v7.0.0` went live, and then `v7.0.0` after `v7.0.1` did. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
 > **This paragraph was wrong for two days, which is why the sentence above says to check the tag.** It claimed `v5.14.4` was "recorded below and not yet deployed" and that `main` was at `v5.14.3`. Both were false: tag `v5.14.4` is commit `203cfc0`, that commit **is** `origin/main`'s head, `origin/main`'s `package.json` reads `5.14.4`, and its deploy run succeeded on 2026-08-14. The doc has now overstated what is live twice (`v5.14.0` was claimed about an hour early). The failure mode is always the same: this heading is edited when a release is *prepared* and nobody comes back to it when the release *ships*. Verify against `git tag` and the deploy run, never against this paragraph.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
 
 ---
+
+## v7.1.0 (app) · 2026-09-01 · worker stays at v1.10.0
+
+A read of the whole app against its own documented invariants, off the back of the v7.0.1
+follow-ups, and it found considerably more than they did. Everything below was measured against the
+shipped build before it was changed — none of it was stale. Minor rather than patch: the itinerary
+vault gains an optional persisted field and the sync merge decides row order differently. Nothing
+here touches the worker.
+
+**Two sync defects that lost work, and they are the reason for the release.** `hlc` was doing two
+jobs at once: the last-writer conflict key AND the day-order key. Because `mergeItems` sorted on it,
+any edit — a done toggle, a rename, a time change — had to become the day maximum to win its own
+resolve, which also dropped its row to the bottom of the day (#367). And because a reorder had to
+advance `hlc` to survive that same sort, a drag re-stamped every live row from the dragging device's
+local copy, so `resolvePair` handed that whole body the win and silently replaced a peer's newer note
+or title with whatever this device happened to hold (#368). The order key is now a field of its own,
+`ord`: `mergeItems` sorts by `ord ?? hlc`, an edit freezes `ord` at the pre-edit key, a reorder writes
+`ord` and nothing else, and `resolvePair` joins `ord` as a max over the two rows' `ord` fields,
+independently of the body winner — which is what lets a new position land on a row whose content the
+peer wins. Additive-optional, so `CURRENT_ITINERARY_VERSION` stays 5 and there is no migration: with
+neither side carrying `ord`, every merge over pre-split data is byte-identical to before (D-494,
+amending D-487).
+
+**The transitional window, stated because it is the part that is not visible from the code later.**
+Until every device runs this build the split is asymmetric. An old client's reorder bumps `hlc` and
+writes no `ord`, and a new client merging that row keeps its own — so **an old client's drag is
+invisible to a new client for any row that already carries `ord`.** Rows carrying no `ord` on either
+side still follow it, which is why a day untouched since the split reorders correctly across builds
+and a day edited once does not. The other direction is worse: an old client's drag still republishes
+its whole local copy of the day over peer edits it has not received, and a new client cannot repair
+that from its side — the incoming `hlc` really is higher, nothing in the received row distinguishes a
+reorder from an edit, and a heuristic that declined a legitimately-higher `hlc` would drop real edits
+to save hypothetical ones. The window closes when the last old device updates, and nothing else
+closes it.
+
+**Two more places where arriving data deleted local data.** A whole-trip restore whose `photos.meta`
+did not parse wrote an empty index and then hard-deleted every blob from IndexedDB — photos are the
+one domain with no remote copy, so that was the only copy of them anywhere. A malformed `meta` is now
+dropped and the live index left alone, which is the shape gate every other domain already got from
+`spec.validate`. Separately, a remote expenses snapshot rebuilt the list leg by leg over `LEGS`, so
+any row whose leg this build's pack does not declare — retained on purpose by `sanitizeExpense` — was
+erased on the first snapshot after it arrived. Those rows are carried across untouched now: never
+merged into a leg, never pushed up.
+
+**Accessibility, which is an acceptance criterion here and not polish.** The mobile tab labels were
+set at `0.62rem`, i.e. 10.54px against the 11.69px floor `--t-micro` defines in the same file (#366);
+the plan-density tick labels were at 9.01px. Both read `--t-micro` now. Nine controls sat under the
+44px tap floor (#372): the four search clear buttons — `/plan/`'s at roughly 21px, the guide,
+nightlife and photography ones at 34px — the navbar sign-out at 29.75px, the map popup favourite at
+34px, and MapLibre's own zoom and locate buttons at 29px on `/map/`, which is the one route built for
+one hand outdoors. `tm-acceptance` pinned that floor for `/travel`'s controls and nothing else, and
+axe has no target-size rule enabled, so `e2e/tap-targets.spec.ts` now measures the rest at the width
+each one actually renders at. The `/guides/` country links got their floor back in v7.0.1 as a
+`min-h-tap`, and that was the wrong shape for that row: the caption is a percentage of a
+fixed-aspect frame, so 14.2px of empty tap box shoved the eyebrow off the top of the row and onto
+unscrimmed photograph at 300px and again between 640 and 760px. It is a pseudo-element now, still
+reading `--tap`, so the target is 52px outdoors and it costs the layout nothing (#376).
+
+**The quick-add FAB was sitting on a tap-to-call emergency number.** On `/safety/` the whole contact
+row is the `tel:` link — Ambulance 102 in Nepal, 119 in Japan — and the 56px FAB lands on top of it,
+which is the worst row in the app to cover. It is suppressed on the read-only reference routes now:
+`/safety/`, `/more/`, `/recap/`, `/profile/` and `/flights/` join `/trips/` and `/packing/` (#353).
+`/guides/` and `/checklist/` keep it, because adding from those is a real intent; what they need is a
+clearance reservation, and that is not in this release.
+
+**The photographic plate broke its own legibility invariant, and the harness could not see it.**
+`.plate` documents that its caption grid keeps every text pixel below the point where the scrim ramp
+has reached its floor. The ramp's stops were authored as fixed percentages for the 56% default while
+the recipe shipped two splits, so `--band` and `--wide` moved the caption row to 42% and left its top
+at 0.307 alpha where the default gets 0.753 — both modifiers had silently opted out of the rule the
+default is built on (#373). The stops are offsets from `--plate-split` now, so either split puts the
+row top at the same 0.753 by construction. The country chip needed a ground of its own regardless:
+`.chip` sets no fill, so the country stop landed straight on the ramp and measured 3.81 for Nepal and
+4.26 for Japan at the *default* split — under the floor before any modifier was involved, which the
+issue had not predicted. It takes the `rgb(--surface / .82)` backing `added-badge.tsx` already uses
+for a chip over photography, measured against a bare white photo pixel rather than the ramp, which is
+4.95 and 5.53 through the grain. `scripts/contrast-tokens.mjs` carried no `.plate` pairs at all; it
+asserts eight now, and that is how the chip was found.
+
+**Every section masthead painted 20px low and then snapped.** The entrance decision was deferred to
+an effect to avoid a hydration mismatch, but framer reads `initial` once at mount, so a decision
+arriving post-paint arrives after the only read that matters — every Tier-1 and Tier-2 masthead
+painted at `y: 20` and the floored opacity before correcting itself, including for the reduced-motion
+visitor and the returning visitor whose `'present'` fork exists precisely to spare them that (#370).
+The premise behind the deferral is measurably false: `app/layout.tsx` puts `{children}` inside
+`<ItineraryProvider>`, which renders nothing until it has mounted and identified a traveler, so
+nothing routed reaches the export — 0 of the 22 HTML files in `out/` contain a `data-entrance`
+attribute. The decision is read at render time again. `prerenderEntranceFor` is kept, called by
+nothing, as the tripwire for the day its premise becomes true (D-495, amending D-489 part 2).
+
+**Dead CSS and one dead component, each zero re-proved with a positive grep.** The whole
+approach-rail block — `.railwrap`, `.rail`, `.brk`, the `.tick` and `.caret` families, `.chiprow` and
+both its media forks — had no consumer, and neither did `.reveal-stagger`'s eight delay rules, the
+`ink-draw` recipe and keyframe, four `.glass-*` modifiers, `.stamp--jp`, `.plate .frame.is-empty` or
+`.dens .b.is-load`. Their reduced-motion forks and `motion-loops.mjs`'s `.caret .ring` entry went in
+the same commit, because a keyframe and its allowlist entry have to move together or that gate fails.
+`components/ui/animate.tsx` had no importers. `globals.css` is 242 lines shorter (#371). The comments
+that made all of this invisible were corrected rather than deleted: the glass block claimed 122
+consumers across seven recipes and there are 6 across three; the radius blast-radius note claimed 134
+`rounded-xl` sites and there are none, because what the app renders is the instrument scale
+(`rounded-r1` 192 sites, `rounded-r2` 21); `--primary-foreground` claimed 29 and has 1.
+
+**Gate hygiene.** `firebase-tools` was resolved from a floating major by `npx --yes` inside the one
+job that holds the Google service-account key, in a repo where every third-party action is
+SHA-pinned; it is exact-pinned at `14.27.0` at both call sites now, CI's emulator step and the
+publish, which have to be bumped together. `marker-check` skipped files by extension, so
+`firestore.rules` and `.env.local.example` — the two tracked files whose extensions were not on the
+list — were never scanned at all. It scans every non-binary tracked file now, reports anything it
+could not read or that exceeds the 2 MB cap as an explicit `unscanned` hit instead of continuing
+past it, and fails closed on a zero-file scan, because a clean verdict over nothing proves nothing.
+The CI build sets `NEXT_PUBLIC_SITE_URL` alongside `NEXT_PUBLIC_BASE_PATH`, so the absolute `og:` and
+`twitter:` URLs it emits are the shipped ones rather than `localhost:3000`. The reduced-motion audit
+was passing `/settings/` and `/checklist/` against an unmounted island — both are the `ssr:false`
+shape the READY map exists for and neither was in it, so the poll read an empty shell and returned
+green (#374). And the landing-shot capture waited on the text "Loading map…", which the redesign had
+changed, so it matched nothing, counted 0 on the first tick and let the shoot proceed over the
+skeleton — the exact failure the comment above it warns about. It waits on the skeleton's own element
+now.
+
+**Smaller.** Closing the journal editor discarded the draft with no way back — on Cancel, on Esc, and
+silently when the day rolled over underneath it. Deleting a packing item was one tap and permanent.
+Both put up an undo toast now, and packing's restores the row at its index with its category and
+packed state rather than minting a fresh universal one. Three celebration bursts — packing, documents
+and home milestones — folded their timeout into the edge-detect effect, so any re-run inside the
+window cleared the timer without re-arming it and left the burst on screen for good; each owns its
+own effect now. A `requestAnimationFrame` scheduled by the fullscreen-map cleanup was never cancelled
+(#375). The unplanned-time rules were drawn between rendered neighbours, which is stored order rather
+than chronological order, and subtracted wall-clock minutes across rows that can carry their own
+timezone offset — an 11:00 row appended to a day already holding 09:00 and 14:00 claimed a four-hour
+hole that it fills itself. They are measured on the absolute instant against `sortItemsByTime` now,
+and keyed by the row each is drawn above (#369). The map island's offline copy said "Reconnect" with
+nothing to press, and preflight checks read the device once on mount with no way to confirm a fix had
+landed; both got a button. `SELECTED_DATE_EVENT` was dispatched to zero listeners and is gone. The
+two front-door product screenshots were re-shot, because the picture had moved under both alt texts —
+shot 3 is deliberately older, since CARTO now stamps "API KEY REQUIRED" across the free tiles
+`lib/map-style.ts` asks for. Nine of the 36 visual baselines moved with the navbar and tab-bar
+geometry and were re-shot.
+
+**Measured, and it does not reproduce.** `/map/`'s facet chips are not bisected by the tab bar.
+Swept at seven device sizes: at 390×844 the last chip row bottoms out at 729.9 against a bar top of
+779, and 375×812, 393×852, 412×915 and 430×932 clear it by between 29.9 and 101.9px. At 375×667 and
+360×640 rows do pass under the bar, but that is flow content scrolling under fixed chrome, which
+every route does and which the page-bottom padding already accounts for — not the geometry the issue
+describes. Left open with the measurements rather than closed silently (#355).
+
+**Still open, and it is owner action.** `firestore.rules` has never been published. The
+`FIREBASE_SERVICE_ACCOUNT` secret does not exist on the repository, so `publish-rules` takes its
+no-credential path on every run — annotated and marked failed since v6.0.3, so no longer silent, but
+the rules on the live project are still whatever was last set by hand. Arming it means reading the
+live member rosters first, which is not something CI can do. The in-repo half, the exact
+`firebase-tools` pin next to the credential, shipped here; the rest is #263 and it stays open.
 
 ## v7.0.1 (app) · 2026-09-01 · worker stays at v1.10.0
 

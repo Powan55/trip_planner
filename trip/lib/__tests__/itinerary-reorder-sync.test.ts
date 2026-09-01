@@ -56,7 +56,7 @@ vi.mock('@/lib/trip-now', async (importOriginal) => {
 import { useItinerary } from '@/hooks/use-itinerary';
 import { loadPlans, savePlans } from '@/lib/itinerary-storage';
 import { mergeDay, mergeDays } from '@/core/sync/merge-day';
-import { reorderSyncStamps } from '@/core/sync/stamp';
+import { nextSyncStamp, reorderSyncStamps } from '@/core/sync/stamp';
 
 const DATE = '2026-12-10';
 
@@ -171,10 +171,53 @@ describe('drag-to-reorder inside a day survives the sync round trip', () => {
     expect(tombstoneAfter).toEqual(tombstoneBefore); // delete ordering untouched by a reorder
     expect(ids(mergeDays(loadPlans(), [mergeDay(localDay, localDay)])[0].items)).toEqual(['c', 'a']);
   });
+
+  it('checking off the FIRST row leaves it first — an edit advances the conflict key, not the order key', async () => {
+    // The done toggle (components/travel-agenda-card.tsx) is a plain `updateItem`, so it takes
+    // the same stamping path as the item editor and the rename-and-claim pass. When one field
+    // did both jobs the edit made the row the day maximum and the very next merge dropped it to
+    // the bottom of the day — from the user's side, ticking a box moved the row.
+    const h = await seedThreeItems();
+    const remoteNow = dayOf(loadPlans());
+
+    state.nowMs += 1000;
+    await h.run((s) => s.updateItem(DATE, 'a', { done: true }));
+    expect(ids(dayOf(h.current.plans).items)).toEqual(['a', 'b', 'c']);
+
+    const written = mergeDay(remoteNow, dayOf(loadPlans()));
+    expect(ids(written.items)).toEqual(['a', 'b', 'c']);
+    expect(written.items.find((i) => i.id === 'a')!.done).toBe(true);
+
+    expect(ids(dayOf(mergeDays(loadPlans(), [written])).items)).toEqual(['a', 'b', 'c']);
+  });
+
+  it("a peer's newer edit survives this device's drag — a reorder writes position, not content", async () => {
+    const h = await seedThreeItems();
+    const before = dayOf(loadPlans());
+
+    // The peer edits `b`'s notes and pushes. This device has NOT received that snapshot.
+    const peerAt = state.nowMs + 1000;
+    const remoteAfterPeer: DayPlan = {
+      ...before,
+      items: before.items.map((i) =>
+        i.id === 'b' ? { ...i, notes: 'peer note', ...nextSyncStamp(i, peerAt, 'Bee') } : i,
+      ),
+    };
+
+    // LATER, still unaware, this device drags. A reorder that re-stamped the merge key would
+    // make every local row win its resolve carrying this device's stale body, so the peer's
+    // note would be replaced by a copy that never had it.
+    state.nowMs += 5000;
+    await h.run((s) => s.reorderItems(DATE, ['c', 'a', 'b']));
+
+    const written = mergeDay(remoteAfterPeer, dayOf(loadPlans()));
+    expect(ids(written.items)).toEqual(['c', 'a', 'b']); // the drag lands
+    expect(written.items.find((i) => i.id === 'b')!.notes).toBe('peer note'); // and costs nothing
+  });
 });
 
 describe('reorderSyncStamps — the ordering stamp is convergent', () => {
-  type Row = { id: string; title: string; rev?: number; hlc?: string; deleted?: boolean };
+  type Row = { id: string; title: string; rev?: number; hlc?: string; ord?: string; deleted?: boolean };
   // Fixture stamps are PT_WIDTH=15 wide, exactly what `serialize` emits. A wider literal here
   // still parses to the right `pt`, but the raw string compares below (and the one inside
   // `reorderSyncStamps`) would then be comparing mismatched widths and could pass on padding.
@@ -187,19 +230,22 @@ describe('reorderSyncStamps — the ordering stamp is convergent', () => {
   const pick = (list: Row[], order: string[]): Row[] =>
     order.map((id) => list.find((r) => r.id === id)!);
 
-  it('stamps strictly ascending hlcs in array order, so the merge sort reproduces that order', () => {
+  it('stamps strictly ascending ords in array order, so the merge sort reproduces that order', () => {
     const out = reorderSyncStamps(pick(rows(), ['c', 'a', 'b']), 1_700_000_005_000, 'Powan');
     expect(byId(out)).toEqual(['c', 'a', 'b']);
-    expect(out[0].hlc! < out[1].hlc!).toBe(true);
-    expect(out[1].hlc! < out[2].hlc!).toBe(true);
-    // Every row's new stamp beats THAT ROW's old one, which is what makes it win against its own
+    expect(out[0].ord! < out[1].ord!).toBe(true);
+    expect(out[1].ord! < out[2].ord!).toBe(true);
+    // Every row's new stamp beats THAT ROW's old key, which is what makes it win against its own
     // pre-reorder remote copy (the merge resolves per `id`). Here `physicalNow` is also ahead of
     // every input, so the head additionally clears the tail's old stamp — that is a property of
     // this fixture, not of the function; see the docstring for the lagging-clock case.
     const before = rows();
-    pick(before, ['c', 'a', 'b']).forEach((r, i) => expect(out[i].hlc! > r.hlc!).toBe(true));
-    expect(out[0].hlc! > '001700000003000:000000:Powan').toBe(true);
-    expect(out.map((r) => r.rev)).toEqual([2, 2, 2]);
+    pick(before, ['c', 'a', 'b']).forEach((r, i) => expect(out[i].ord! > r.hlc!).toBe(true));
+    expect(out[0].ord! > '001700000003000:000000:Powan').toBe(true);
+    // A drag is not a revision and must not touch the CONFLICT key: leaving both alone is what
+    // stops the dragging device's whole row-set from beating a peer's unseen edits.
+    expect(out.map((r) => r.rev)).toEqual([1, 1, 1]);
+    expect(out.map((r) => r.hlc)).toEqual(pick(rows(), ['c', 'a', 'b']).map((r) => r.hlc));
   });
 
   it('two devices reordering the same day concurrently converge on ONE order', () => {
@@ -248,6 +294,6 @@ describe('reorderSyncStamps — the ordering stamp is convergent', () => {
     }));
     const out = reorderSyncStamps([tied[2], tied[0], tied[1]], 1_700_000_001_000, 'Powan');
     expect(byId(out)).toEqual(['c', 'a', 'b']);
-    expect(out[0].hlc! < out[1].hlc! && out[1].hlc! < out[2].hlc!).toBe(true);
+    expect(out[0].ord! < out[1].ord! && out[1].ord! < out[2].ord!).toBe(true);
   });
 });

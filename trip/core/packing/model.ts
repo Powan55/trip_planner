@@ -132,6 +132,20 @@ export function removeItem(items: readonly PackingItem[], id: string): PackingIt
   return list.filter((item) => item.id !== id);
 }
 
+/**
+ * Put a removed item back where it was — the undo of `removeItem`. NOT `addItem`: that mints a
+ * `universal`/unchecked row, which would move a leg item into the wrong group and drop its packed
+ * state. An out-of-range `index` appends; an id already present is a no-op. Returns a NEW array.
+ * TOTAL.
+ */
+export function restoreItem(items: readonly PackingItem[], item: PackingItem, index: number): PackingItem[] {
+  const list = Array.isArray(items) ? items : [];
+  const restored = sanitizeItem(item);
+  if (restored === null || list.some((i) => i.id === restored.id)) return [...list];
+  const at = Number.isInteger(index) && index >= 0 && index <= list.length ? index : list.length;
+  return [...list.slice(0, at), restored, ...list.slice(at)];
+}
+
 /** `{ checked, total }` packed count across `items` (e.g. for a "12/28 packed" indicator). Pure. */
 export function packingProgress(items: readonly PackingItem[]): { checked: number; total: number } {
   const list = Array.isArray(items) ? items : [];

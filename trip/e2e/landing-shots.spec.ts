@@ -342,8 +342,11 @@ test.describe('S356 — landing product shots', () => {
     // `!mapReady` skeleton over the GL canvas, and the 1500ms sleep that stood here lost that race
     // on a cold engine load — the re-shoot for issue #34 captured "Loading map…" and would have
     // shipped it. Wait for the skeleton to leave instead; it is the component's own readiness
-    // signal, so it cannot drift from what "the map is up" means.
-    await expect(page.getByTestId('map-shell').getByText('Loading map…')).toHaveCount(0, {
+    // signal, so it cannot drift from what "the map is up" means. Match the skeleton's OWN
+    // element, not its wording: the text locator here read "Loading map…" and the ellipsis is
+    // gone, so it matched nothing, the count was 0 on the first tick, and the guard passed
+    // while the skeleton was still up — the very failure the paragraph above describes.
+    await expect(page.getByTestId('map-shell').locator('.load')).toHaveCount(0, {
       timeout: 30_000,
     });
     await frame(page, 'map-shell', 72); // just clear of the sticky navbar

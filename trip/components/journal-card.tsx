@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { BookOpen, Pencil, Sparkles } from 'lucide-react';
 import { useJournal } from '@/hooks/use-journal';
 import { formatDateLong } from '@/lib/trip-data';
+import { showUndoToast } from '@/lib/undo-toast';
 import PhotoAttach from '@/components/photo-attach';
 import { MOODS, type Mood, type JournalEntry } from '@/core/journal/model';
 
@@ -66,6 +67,18 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
   const wasEditing = useRef(false);
   // Live ref to the latest handleCancel so the once-registered Esc listener calls the current one.
   const onCancelRef = useRef<() => void>(() => {});
+  // The day the open draft was written for, so a rollover can offer it back to THAT day.
+  const draftDateRef = useRef(date);
+
+  // True when the open draft differs from what is stored for the day it was written for.
+  const draftDiffers = (against: string) => {
+    const cur = getEntry(against);
+    return (
+      draftText !== (cur?.text ?? '') ||
+      draftMood !== (cur?.mood ?? null) ||
+      draftHighlight !== (cur?.highlight ?? '')
+    );
+  };
 
   // Seed the draft from the current entry whenever we OPEN the editor (or the day changes under it).
   const openEditor = () => {
@@ -76,6 +89,7 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
     // Record the return target BEFORE the trigger unmounts: an existing entry opens from the Edit
     // button, the empty state opens from the "Write about today" prompt.
     returnFocusTo.current = cur ? 'edit' : 'write';
+    draftDateRef.current = date;
     setEditing(true);
   };
 
@@ -83,8 +97,18 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
   // it so we never save a stale day's draft onto a new day. This is NOT a user close, so it must not
   // steal/return focus — clear the return target.
   useEffect(() => {
+    const from = draftDateRef.current;
+    if (editing && draftDiffers(from)) {
+      const draft = { text: draftText, mood: draftMood, highlight: draftHighlight };
+      // Undo writes the draft to the day it was written for, rather than re-opening the editor —
+      // re-opening would put a stale day's text on the new day, which is why this closes at all.
+      showUndoToast(`Draft closed — ${formatDateLong(from)} rolled over`, () => saveEntry(from, draft));
+    }
+    draftDateRef.current = date;
     returnFocusTo.current = null;
     setEditing(false);
+    // The day change is the whole trigger; the draft it reads is whatever is open at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date]);
 
   const handleSave = () => {
@@ -98,6 +122,16 @@ export default function JournalCard({ date, isToday = true }: { date: string; is
   };
 
   const handleCancel = () => {
+    if (draftDiffers(date)) {
+      const draft = { text: draftText, mood: draftMood, highlight: draftHighlight };
+      showUndoToast('Draft discarded', () => {
+        setDraftText(draft.text);
+        setDraftMood(draft.mood);
+        setDraftHighlight(draft.highlight);
+        returnFocusTo.current = getEntry(date) ? 'edit' : 'write';
+        setEditing(true);
+      });
+    }
     setEditing(false);
   };
   onCancelRef.current = handleCancel;

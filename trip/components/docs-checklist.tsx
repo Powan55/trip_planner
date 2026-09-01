@@ -149,12 +149,18 @@ export default function DocsChecklist() {
     if (crossedIntoComplete(wasCompleteRef.current, complete)) {
       setCelebrate(true);
       haptic();
-      const t = setTimeout(() => setCelebrate(false), 650);
-      wasCompleteRef.current = complete;
-      return () => clearTimeout(t);
     }
     wasCompleteRef.current = complete;
   }, [hydrated, completion.done, completion.total]);
+
+  // The burst window lives in its own effect keyed on `celebrate`, deliberately: folded into the
+  // edge effect above, any re-run of that effect (unchecking a row inside the window) clears the
+  // timer without re-arming it, leaving the burst on screen forever.
+  useEffect(() => {
+    if (!celebrate) return;
+    const t = setTimeout(() => setCelebrate(false), 650);
+    return () => clearTimeout(t);
+  }, [celebrate]);
 
   if (!hydrated) {
     return (

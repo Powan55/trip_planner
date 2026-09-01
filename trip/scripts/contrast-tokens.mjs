@@ -156,7 +156,7 @@ C.jpScreen14 = grain(over(C.jpA, C.surface2, 0.14));
 C.npScreen18 = grain(over(C.npA, C.surface2, 0.18));
 // ---- issue #27 route 1 (/checklist) — the fills that route's text ACTUALLY sits on ----
 // Worked out from the markup rather than assumed: app/checklist/page.tsx is `bg-surface`
-// (= --bg) and the section cards are `.glass-subtle`, which fills from --surface-low, i.e.
+// (= --bg) and the section cards fill from --surface-low, i.e.
 // SURFACE-1 — one step DOWN from a raised card, so surface-2's numbers would have been the
 // wrong reference. Two white tints composite on top of that: the row label's
 // `hover:bg-white/[0.06]` and the note input's `bg-white/[0.03]`. The flat pairs (hi/mid/lo
@@ -248,6 +248,35 @@ C.npHdrMin = hdr(C.duoNpHigh, 0.52, 0.62);
 C.jpHdrMin = hdr(C.duoJpHigh, 0.52, 0.62);
 C.npHdrRest = hdr(C.duoNpHigh, 0.86, 0.78);
 C.jpHdrRest = hdr(C.duoJpHigh, 0.86, 0.78);
+
+// ---- issue #373, the photographic plate (.plate in globals.css) --------------------
+// `.plate .ramp` spans BOTH grid rows, so the alpha under the caption is decided by where
+// row 2 starts. The stops used to be fixed percentages authored for ONE split while the
+// recipe shipped two, which put the 42% modifiers at 0.307 instead of 0.753. They are now
+// OFFSETS FROM `--plate-split`, so the two stops bracketing the row line are always 0.69 at
+// split-4% and 0.88 at split+8% and the line always lands 4/12 of the way between them:
+//   .plate                      56% -> stops 34/52/64/80 -> 0.69 + (4/12) * 0.19 = 0.753
+//   .plate--band / .plate--wide 42% -> stops 20/38/50/66 -> 0.69 + (4/12) * 0.19 = 0.753
+// Both rows below therefore measure the same composite BY CONSTRUCTION, and they are both
+// kept because that is the property being asserted — a stop that stopped tracking the split
+// would move one of them and not the other.
+// The row TOP is the highest any glyph can sit and `.lay` is flex-end, whose overflow
+// goes upward out of the row — so these are the best case for the pairs below, not a
+// pessimistic one. There is no duotone cap on `.plate` (the caps are `.photo-header__duo-*`
+// and the halftone screen is transparent between its dots), so the brightest pixel under
+// the ramp is white — the same bound the hero scrim is sized by.
+const plateRamp = a => grain(over(C.scrimInk, '#FFFFFF', a));
+const PLATE_ROW_TOP = 0.69 + (4 / 12) * (0.88 - 0.69);
+C.plateLay = plateRamp(PLATE_ROW_TOP);
+C.plateLayBand = plateRamp(PLATE_ROW_TOP);
+// The country chip is the one caption element the ramp cannot cover, and it failed at the
+// DEFAULT split too (np-a 3.81, jp-a 4.26) — `.chip` sets no fill, so the stop landed on the
+// ramp itself. globals.css gives `.plate .chip` the rgb(--surface / .82) ground that
+// components/added-badge.tsx already uses for a chip over photography. THE GROUND IS
+// MEASURED ON BARE WHITE, not on the ramp: the chip is `self-start` at the top of a flex-end
+// column, so it is the one element that can be pushed clear of the ramp (#376's failure
+// mode), and a backing measured that way holds at either split and off the ramp entirely.
+C.plateChip = grain(over(C.bg, '#FFFFFF', 0.82));
 
 // The app's own chrome is text over this photograph too. `components/navbar.tsx` is
 // fixed and `bg-transparent` until you scroll, so on a full-bleed band the brand, the
@@ -416,6 +445,21 @@ const pairs = [
   ['navbar link (white/70) over JP header', C.navWhite70Jp, C.jpHdrMin, 4.5],
   ['brand separator + pin (lo) over NP header', C.textLo, C.npHdrMin, 4.5],
   ['brand separator + pin (lo) over JP header', C.textLo, C.jpHdrMin, 4.5],
+
+  ['-- ISSUE #373 THE PHOTOGRAPHIC PLATE (ramp alpha at the caption row top) --'],
+  // The default 56%/44% split — components/travel-inspiration.tsx, a bare `.plate`.
+  ['plate title (hi) at the 56% split', C.textHi, C.plateLay, 4.5],
+  ['plate blurb (mid) at the 56% split', C.textMid, C.plateLay, 4.5],
+  // `.chip--np` / `.chip--jp` are the country stop as TEXT and as the chip's 1px edge, on
+  // the chip's own ground. Contrast is symmetric, so the 4.5 text row covers the 3:1 edge.
+  ['country chip (nepal A) on the chip ground', C.npA, C.plateChip, 4.5],
+  ['country chip (japan A) on the chip ground', C.jpA, C.plateChip, 4.5],
+  // The 42%/58% split — `.plate--band` (components/home-chapters.tsx) and `.plate--wide`
+  // at >=700px (app/guides/page.tsx). The chapter numerals are display text, so 3:1.
+  ['plate eyebrow/body (mid) at the 42% split', C.textMid, C.plateLayBand, 4.5],
+  ['plate title (hi) at the 42% split', C.textHi, C.plateLayBand, 4.5],
+  ['chapter 01 numeral (marigold) at the 42% split', C.marigold, C.plateLayBand, 3],
+  ['chapter 02 numeral (pink) at the 42% split', C.pink, C.plateLayBand, 3],
 
   ['-- THE FRONT DOOR, ISSUE #25 --'],
   // The cover and the two chapters REUSE `.photo-header` unchanged, so their scrim composites
@@ -745,6 +789,7 @@ for (const [label, nFg, nBg, tFg, tBg, target] of tmPairs) {
 console.log('\ncomposited worst-case pixels:');
 for (const k of ['npScrim72', 'npScrim82', 'jpScrim72', 'jpScrim82', 'rowHover', 'rowSel', 'chip',
                  'docsRowHover', 'docsNoteFill', 'npHdrMin', 'jpHdrMin', 'npHdrRest', 'jpHdrRest',
+                 'plateLay', 'plateLayBand', 'plateChip',
                  'doorWall', 'npScreen14', 'jpScreen14', 'npScreen18',
                  'heroScrim76', 'heroScrim90', 'heroHiFading', 'heroMidFading',
                  'heroCapNp76', 'heroCapJp76',
