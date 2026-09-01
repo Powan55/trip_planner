@@ -27,6 +27,20 @@ function isPlannerRoute(pathname: string | null | undefined): boolean {
 }
 
 /**
+ * Routes where "add to plan" is not the primary action, so a floating add button is both
+ * redundant and in the way: `/trips/` is the trip switcher, `/packing/` is a checklist.
+ * Measured at 375x667 and 390x844, the FAB obscured "Rename Nepal × Japan" on `/trips/` and
+ * "Remove Water purification tablets" on `/packing/` at first paint (#353). Same
+ * boundary-checked match as `isPlannerRoute` above.
+ */
+const NON_ADD_ROUTES = ['/trips', '/packing'] as const;
+
+function isNonAddRoute(pathname: string | null | undefined): boolean {
+  if (!pathname) return false;
+  return NON_ADD_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
+}
+
+/**
  * Quick-add FAB.
  *
  * A phone-only floating "add to plan" button that opens the custom-add dialog for a sensible
@@ -86,7 +100,8 @@ export default function QuickAddFab() {
     window.dispatchEvent(new CustomEvent('quickadd:open', { detail: { date } }));
   };
 
-  if (dialogOpen || isTravelRoute(pathname) || isPlannerRoute(pathname)) return null;
+  if (dialogOpen || isTravelRoute(pathname) || isPlannerRoute(pathname) || isNonAddRoute(pathname))
+    return null;
 
   return (
     <button

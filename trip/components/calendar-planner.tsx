@@ -1155,7 +1155,12 @@ export default function CalendarPlanner() {
   // still reads the full set from the store in handleDragEnd, so persistence is unaffected;
   // we only change what renders and which ids the SortableContext tracks (so a drag inside
   // a filtered view stays consistent with what's visible).
-  const visibleItems = visiblePlan.items ?? [];
+  // Identity is already stable — `visiblePlan` is itself a useMemo and `DayPlan.items` is
+  // required, so the `?? []` arm is unreachable. The wrapper is here for exhaustive-deps,
+  // which reads `visiblePlan.items ?? []` as a fresh value and warns on the four memos below;
+  // those warnings are fatal now that lint runs at --max-warnings 0. It also pins the property
+  // so a future nullable-items change can't silently un-memoize them.
+  const visibleItems = useMemo(() => visiblePlan.items ?? [], [visiblePlan]);
   // phase-of-day grouping: NEVER re-sorts
   // timed items — the calendar view's manual/stored order stays untouched (sort-clash.spec.ts's
   // regression net) — only moves untimed items to a trailing "Anytime" run. `isNewPhase` marks
@@ -1210,7 +1215,7 @@ export default function CalendarPlanner() {
       }
     }
     return bands;
-  }, [plans, selectedDate, authorFilter, myName]);
+  }, [plans, selectedDate, authorFilter, myName, myPriorNames]);
 
   // day-scoped map data: the selected day's coordinate stops (marker-matched),
   // re-derived from the live plan so a reorder yields a new ordered array → PlanDayMap
@@ -1274,7 +1279,17 @@ export default function CalendarPlanner() {
             and the composer at navbar+strip), so a third sticky band would either collide with
             them or push both offsets, which are documented as must-never-drift. Every field is
             live: the day, its place, what is on it and how much of it is struck. */}
-        <header className="head static mb-6 -mx-4 sm:-mx-6" data-leg={currentPlan.country}>
+        {/* tabIndex=0 + a named group for the same reason as flights-section: `.head` scrolls
+            horizontally with a hidden scrollbar and holds nothing focusable, so at ~480px the
+            overflowing fields were pointer-only (#365). `group`, not `region` — axe's
+            aria-allowed-role rejects `region` on a <header>. Inset ring — full-bleed. */}
+        <header
+          className="head static mb-6 -mx-4 sm:-mx-6 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+          tabIndex={0}
+          role="group"
+          aria-label="Day summary"
+          data-leg={currentPlan.country}
+        >
           <div className="f">
             <span className="k">Day</span>
             <span className="v">{currentIdx + 1} / {TRIP_DATES.length}</span>

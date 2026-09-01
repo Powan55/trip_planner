@@ -292,7 +292,9 @@ export default function HomeBento() {
                 <MapIcon className="w-4 h-4" aria-hidden="true" />
               </span>
               <span className="relative min-w-0">
-                <h3>Open the map</h3>
+                {/* role=presentation: the whole row is the link and a link is
+                    children-presentational, so this never reached the outline (#364). */}
+                <h3 role="presentation">Open the map</h3>
                 <span className="mt">Every place on one map</span>
               </span>
               <ArrowRight className="relative w-4 h-4 text-ink-lo transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
@@ -311,7 +313,7 @@ export default function HomeBento() {
                 <Compass className="w-4 h-4" aria-hidden="true" />
               </span>
               <span className="min-w-0">
-                <h3>Open Travel Mode</h3>
+                <h3 role="presentation">Open Travel Mode</h3>
                 <span className="mt">One hand, no signal</span>
               </span>
               <ArrowRight className="w-4 h-4 text-ink-lo" aria-hidden="true" />

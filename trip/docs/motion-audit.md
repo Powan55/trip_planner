@@ -38,9 +38,11 @@ toasts. All of it is proven neutralized by `motion.spec.ts` (surface-level) and 
 `e2e/motion-reduced-audit.spec.ts`'s `ROUTES` array plus `/travel/`, which is a separate test
 because it needs an in-trip clock and a seeded day), and the `/`-scrolled case.
 
-> **Coverage gap opened since (as of 2026-08-10).** The app now has 17 routes. Three of them,
-> `/guides/`, `/more/` and `/trips/`, are absent from `ROUTES` and from the table below. Adding
-> them to `e2e/motion-reduced-audit.spec.ts`'s `ROUTES` restores route-completeness.
+> **Coverage gap closed (2026-08-31, issue #351).** `/guides/`, `/more/`, `/trips/` and `/profile/`
+> joined `e2e/motion-reduced-audit.spec.ts`'s `ROUTES`, which now covers all 18 static routes plus
+> `/travel/`. The last three go through a new `READY` map: their surface is a mount-gated list or an
+> `ssr:false` island, and an empty shell has nothing running, so the poll would have passed for free.
+> The table below still lists the S212 set and does not carry rows for the later additions.
 
 | Route | Motion surfaces beyond shared chrome | Verdict |
 |---|---|---|

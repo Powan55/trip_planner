@@ -66,7 +66,6 @@ function hasOrientationListener(spy: ReturnType<typeof vi.spyOn>): boolean {
 beforeEach(() => {
   h.reduce = false;
   __resetGyroForTest();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   delete (globalThis as any).DeviceOrientationEvent;
 });
 
@@ -118,7 +117,6 @@ describe('useCardTilt — reduced-motion HARD no-op (D-007/D-056b)', () => {
         clientX: 90,
         clientY: 10,
         currentTarget: { getBoundingClientRect: () => RECT },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } as any),
     ).not.toThrow();
     expect(() => hook.current.onPointerLeave()).not.toThrow();
@@ -138,9 +136,7 @@ describe('useCardTilt — gyro permission gating', () => {
   });
 
   it('a denied iOS request is a silent no-op — still no listener', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).DeviceOrientationEvent = function () {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).DeviceOrientationEvent.requestPermission = vi
       .fn()
       .mockResolvedValue('denied');
@@ -156,9 +152,7 @@ describe('useCardTilt — gyro permission gating', () => {
   });
 
   it('one grant drives a SINGLE shared listener for many cards', async () => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).DeviceOrientationEvent = function () {};
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (globalThis as any).DeviceOrientationEvent.requestPermission = vi
       .fn()
       .mockResolvedValue('granted');

@@ -102,6 +102,15 @@ async function expectAxeClean(page: Page, label: string, testInfo: TestInfo) {
 //
 // `/plan/` carries a viewport because a11y.spec.ts already scans it at desktop width, where
 // the expense ledger's table fits and its scroller does not exist to be scanned.
+//
+// `/guides/`, `/more/` and `/trips/` (issue #351) are live nav routes that no pack scanned.
+// Two of them need a `ready` for the same reason `/plan/` needs a viewport — their real
+// surface is behind a client gate, and the server-rendered <h1> is up long before it:
+// MoreList holds an `aria-busy` placeholder until mounted, and TripsHub is an `ssr:false`
+// island. `/profile/` gets one too (it had none): its VisitedPlaces island renders an
+// aria-hidden skeleton, then a "Loading…" branch that carries the panel's own testid, so the
+// form is the first state worth scanning. `/guides/` is server-rendered static content
+// (DefaultTripOnly renders children pre-mount), so the <h1> wait is enough.
 const UNGATED_ROUTES: {
   path: string;
   viewport?: { width: number; height: number };
@@ -113,8 +122,17 @@ const UNGATED_ROUTES: {
   { path: '/settings/' },
   { path: '/share/' },
   { path: '/passport/' },
-  { path: '/profile/' },
+  { path: '/profile/', ready: 'visited-country-form' },
+  { path: '/guides/' },
+  { path: '/more/', ready: 'more-link-settings' },
+  { path: '/trips/', ready: 'trips-hub' },
   { path: '/plan/', viewport: { width: 390, height: 844 }, ready: 'budget-ledger' },
+  // #365 — the `.head` running heads overflow only in a narrow band (~440-510px): at 390 they
+  // fit, and at desktop width they fit again, so scanning either end of the range proved
+  // nothing and a serious `scrollable-region-focusable` shipped between them. 480px is inside
+  // the band for both, and is the width that measured the violation.
+  { path: '/flights/', viewport: { width: 480, height: 844 } },
+  { path: '/plan/', viewport: { width: 480, height: 844 }, ready: 'budget-ledger' },
 ];
 
 for (const { path, viewport, ready } of UNGATED_ROUTES) {

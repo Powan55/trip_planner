@@ -444,6 +444,25 @@ test.describe('S83 · quick-add FAB seam (components/quick-add-fab.tsx)', () => 
     await goto(page, '/plan/');
     await expect(page.getByTestId('quick-add-fab')).toHaveCount(0);
   });
+
+  /**
+   * #353 — `/trips/` and `/packing/` join the suppressed set. "Add to plan" writes a calendar
+   * item, which is not the primary action on the trip switcher or on a packing checklist, and
+   * the FAB was measured obscuring "Rename Nepal × Japan" and "Remove Water purification
+   * tablets" at first paint. Same differential shape as the `/plan/` test above: prove the FAB
+   * is really visible at this viewport first, so each zero-count can only be the route guard.
+   */
+  test('the FAB is route-suppressed on /trips/ and /packing/', async ({ page }) => {
+    await page.setViewportSize(PHONE);
+
+    await goto(page, FAB_ROUTE);
+    await expect(page.getByTestId('quick-add-fab')).toBeVisible();
+
+    for (const route of ['/trips/', '/packing/']) {
+      await goto(page, route);
+      await expect(page.getByTestId('quick-add-fab')).toHaveCount(0);
+    }
+  });
 });
 
 test.describe('S83 · navigation — bottom tab bar (phone) + navbar (desktop)', () => {

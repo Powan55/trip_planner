@@ -5231,3 +5231,43 @@ The v7.0.0 type pull-back removed `font-family: var(--font-machine)`, `text-tran
 **Why nothing caught it.** No baseline covers `/more/`, and no spec asserted either surface's meta text — the palette was caught only because a baseline happened to include it. The unit test added here pins `routeLabel` and cannot see `/more/`, which no longer calls it. That gap is filed, not closed by this entry.
 
 **Changes if:** a surface needs the route itself visible — a debug or developer view — in which case it prints the route deliberately in a machine face, and this rule is scoped to navigation surfaces rather than relaxed.
+
+### D-491 · (2026-08-31) · The install-to-Home hint is signed-in-only, because a `duration: Infinity` toast is the one piece of chrome that never clears on scroll
+
+`components/ui/sonner.tsx` sets the Toaster `position: fixed`. Every other overlay in the app either scrolls away with the document or dismisses itself on a timer; a `duration: Infinity` toast does neither. `TokenGate` is also pathname-free, so an always-on toast is not a `/`-only concern — it lands on the front door on every route a signed-out visitor can reach.
+
+Measured at 375x667 on the shipped v7.0.0 front door, the install hint covered 100% of "Create an account", 67% of "I have a key — log in" and 48% of "Someone shared a trip with me" (#352). That is all three of the wall's CTAs, on the one screen whose job is a three-second decision.
+
+**Decision.** The hint gates on `getActiveTraveler()` — the same "gate passed" read `first-run-tour.tsx` already uses — in addition to the existing standalone and dismissal checks. Offsetting the toast was rejected: it tunes one viewport and leaves the next one to be discovered.
+
+The feature is not lost. Every sign-in path in `token-gate.tsx` ends in a full reload, so a traveler who signs in gets the hint on the very next mount, and a signed-out visitor no longer burns the once-ever dismissal flag without ever having seen it.
+
+**Generalizes to:** any future `duration: Infinity` toast. It is app-wide chrome that cannot be scrolled out of the way, so it needs a reason to exist on the signed-out wall before it is allowed there.
+
+### D-492 · (2026-08-31) · `calc(var(--tab-bar-h) + env(safe-area-inset-bottom) + gap)` is a `position: fixed` idiom and does nothing for flow content
+
+This calc appears in `quick-add-fab.tsx`, `presence-bar.tsx`, `travel-arrival-toast.tsx` and `ui/sonner.tsx`, and in all four the element is `position: fixed` — the calc is its `bottom`, lifting it above the tab bar. Applied to normal flow content it only adds padding underneath, leaving the content exactly where it was.
+
+The document-level version of the same reservation already exists once, at `app/layout.tsx:191`: `#main` carries `pb-[calc(var(--tab-bar-h,64px)+env(safe-area-inset-bottom))]`. That is what guarantees the END of a page clears the bar, and it is why obstruction count at maximum scroll measures 0 on every route.
+
+**What this rules out.** #353 and #355 were both scoped as "add bottom clearance". Neither can be fixed that way: they are flow content that happens to occupy the 65px band under the fixed tab bar at first paint, and it clears as soon as the user scrolls. Three spacing candidates were measured on `/map/` and each one merely moved the obstruction to a different control, because on a content-dense page that band always contains something.
+
+**The fixes that do work are of a different kind:** suppress the floating element on routes where its action is not primary (`/trips/` and `/packing/` joined `/travel` and `/plan` for the quick-add FAB), or change what the page leads with. Spacing is not one of them.
+
+**Also recorded so it is not re-measured:** when auditing this class, exclude elements inside `details:not([open])`. Collapsed disclosure content reports a real `getBoundingClientRect()` and fails a Playwright `click()` with a timeout, which reads exactly like an unreachable control and is not one. Four findings on `/plan/`, `/settings/`, `/more/` and `/guides/` were withdrawn for this reason.
+
+### D-493 · (2026-09-01) · `region` is not an allowed role on `<header>`; `group` is
+
+axe-core's `html-elms` table gives `header` exactly `['group', 'none', 'presentation', 'doc-footnote']`. Setting `role="region"` on one trades a serious `scrollable-region-focusable` violation for a minor `aria-allowed-role` violation — measured, not reasoned:
+
+```
+header + role="group"   axe: none
+header + role="region"  axe: aria-allowed-role (minor)
+header + no role        axe: scrollable-region-focusable (serious)
+```
+
+**Decision.** A `<header>` that is an overflow scroller takes `tabIndex={0}` + `role="group"` + `aria-label`. The `role="region"` used by the scrollers in `travel-safety-kit.tsx` and `budget-panel.tsx` is correct there only because those are `<div>`s — the two idioms are not interchangeable, and reaching for the div recipe on a `<header>` is how the minor violation gets introduced.
+
+Checked and not a cost: axe resolves `header`'s implicit role as `banner` only when it is outside sectioning content. Both running heads sit inside `<main>`, so their implicit role was already `generic` and the override destroys no landmark.
+
+**Why it was not caught earlier:** `.head` overflows only in a narrow band around 440-510px. `e2e/a11y-full-audit.spec.ts` scanned `/flights/` at desktop width, where it fits, so the serious violation lived between the two widths the suite measured. That is why the pack now carries explicit 480px entries for `/flights/` and `/plan/`.
