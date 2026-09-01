@@ -29,6 +29,7 @@ describe('Vault schema drift guard', () => {
       updatedAt: true,
       rev: true,
       hlc: true,
+      ord: true,
       deleted: true,
       done: true,
       doneBy: true,

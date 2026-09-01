@@ -7,8 +7,8 @@ import type { ItineraryItem } from '@/lib/trip-data';
  * a "same content, another day" copy that is handed to `addItem`. These checks pin the two
  * properties the duplicate correctness depends on:
  *   1. the copy carries the source's CONTENT (title/category/location/notes/sourceId/time…);
- *   2. it gets a FRESH id and drops the sync ordering fields (deleted/rev/hlc), so it can
- *      never reuse the source id nor inherit a tombstone.
+ *   2. it gets a FRESH id and drops the sync ordering fields (deleted/rev/hlc/ord), so it can
+ *      never reuse the source id, inherit a tombstone, nor land on the source's position.
  */
 describe('freshCopyOf — S128 duplicate fresh-id copy', () => {
   const source: ItineraryItem = {
@@ -25,6 +25,7 @@ describe('freshCopyOf — S128 duplicate fresh-id copy', () => {
     deleted: true,
     rev: 7,
     hlc: '2026-12-20T10:00:00.000Z-0001-abc',
+    ord: '001700000009000:000000:abc',
   } as ItineraryItem;
 
   it('mints a fresh id — never reuses the source id', () => {
@@ -49,10 +50,12 @@ describe('freshCopyOf — S128 duplicate fresh-id copy', () => {
     expect(copy.sourceType).toBe('recommendation');
   });
 
-  it('drops the sync ordering fields (deleted/rev/hlc) so no tombstone is inherited', () => {
+  it('drops the sync ordering fields (deleted/rev/hlc/ord) so no tombstone or position is inherited', () => {
     const copy = freshCopyOf(source);
     expect(copy.deleted).toBeUndefined();
     expect(copy.rev).toBeUndefined();
     expect(copy.hlc).toBeUndefined();
+    // Without this the copy sorts where the SOURCE sat instead of appending to its new day.
+    expect(copy.ord).toBeUndefined();
   });
 });

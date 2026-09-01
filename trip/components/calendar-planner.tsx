@@ -48,7 +48,7 @@ import { useExpenses } from '@/hooks/use-expenses';
 import { expensesByDate } from '@/core/budget/burn-rate';
 import { legCurrency, formatMoney } from '@/core/budget/model';
 import { effectiveStartMinutes, offsetForCountry } from '@/core/dates';
-import { unplannedGapMinutes } from '@/lib/unplanned-gap';
+import { unplannedGapsByItemId } from '@/lib/unplanned-gap';
 import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { extractQuickAddTime } from '@/lib/quick-add-parse';
 import { describeItemTime } from '@/lib/item-time-display';
@@ -1187,9 +1187,16 @@ export default function CalendarPlanner() {
   // not on screen is unreadable; clash detection is order-independent so this is a pure narrowing.
   // The overlap is judged on the absolute instant, so the day and its offset
   // come along — a day can hold items in another zone.
+  const dayOffsetMin = offsetForCountry(getCountryForDate(selectedDate));
   const dayClashIds = useMemo(
-    () => clashingItemIds(visibleItems, selectedDate, offsetForCountry(getCountryForDate(selectedDate))),
-    [visibleItems, selectedDate],
+    () => clashingItemIds(visibleItems, selectedDate, dayOffsetMin),
+    [visibleItems, selectedDate, dayOffsetMin],
+  );
+  // the day's unplanned rules, keyed by the row each is drawn ABOVE. Measured in chronological
+  // order (stored order is append order), presentation-only — the rendered order stays stored.
+  const dayGaps = useMemo(
+    () => unplannedGapsByItemId(visibleItems, selectedDate, dayOffsetMin),
+    [visibleItems, selectedDate, dayOffsetMin],
   );
 
   // multi-day spans — a PURE view-layer render derivation off the existing `plans` (no
@@ -1759,9 +1766,9 @@ export default function CalendarPlanner() {
                     ) : (
                       phaseGroups.map(({ item, phase, isNewPhase }, idx) => {
                         const markerId = markerIdFor(item);
-                        // The explicit unplanned rule between this row and the one above it. A
-                        // FACT about the pair, not a spacer — see `unplannedGapMinutes`.
-                        const gapMin = unplannedGapMinutes(phaseGroups[idx - 1]?.item, item);
+                        // The explicit unplanned rule above this row. A FACT about the pair, not a
+                        // spacer — see `unplannedGapsByItemId`.
+                        const gapMin = dayGaps.get(item.id) ?? null;
                         return (
                         <div key={item.id}>
                           {/* phase-of-day header — subtle, non-interactive, shown only at a

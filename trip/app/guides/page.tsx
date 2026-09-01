@@ -111,12 +111,14 @@ export default function GuidesPage() {
                     <span className="pr text-now">
                       Leg {i + 1} · {c.dates}
                     </span>
-                    {/* min-h-tap, not a hand-rolled height: the 44px floor used to ride on an
-                        h-11 icon box that v7 dropped with the icon, leaving a 29.8px target on
-                        the only route into the country guides from this screen (#363). */}
+                    {/* The 44px floor (#363) is a PSEUDO-ELEMENT, not min-h-tap: the caption row
+                        is a percentage of a fixed-aspect frame, so 14.2px of empty tap box shoved
+                        the eyebrow off the top of the row and onto unscrimmed photograph at
+                        300px and at 640-760px. `h-tap` keeps it reading --tap, so the target is
+                        still 52px outdoors, and it costs the layout nothing. */}
                     <Link
                       href={c.href}
-                      className="group mt-1 inline-flex min-h-tap items-center gap-2 rounded-r1 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      className="group relative mt-1 inline-flex items-center gap-2 rounded-r1 outline-none after:absolute after:inset-x-0 after:top-1/2 after:h-tap after:-translate-y-1/2 after:content-[''] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       <span className="font-machine text-n-md font-semibold leading-none tracking-tight text-ink-hi">
                         {c.name}

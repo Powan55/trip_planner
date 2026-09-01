@@ -92,7 +92,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
             onClick={clear}
             aria-label="Clear search"
             data-testid="plan-search-clear"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 rounded text-ink-mid hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+            className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 text-ink-mid hover:text-ink-hi outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
           >
             <X className="w-4 h-4" />
           </button>

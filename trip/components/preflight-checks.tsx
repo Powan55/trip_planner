@@ -10,7 +10,9 @@ import {
   HelpCircle,
   MapPinned,
   PlaneTakeoff,
+  RefreshCw,
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useSyncStatus } from '@/hooks/use-sync-status';
 import {
   evaluateSync,
@@ -133,10 +135,13 @@ const LOADING_ROWS: Array<{ id: string; label: string }> = [
 ];
 
 export default function PreflightChecks() {
-  // Sync is reactive (the outbox can drain while this page is open); the other three are
-  // one-shot reads on mount. `null` = still checking — never an optimistic placeholder.
+  // Sync is reactive (the outbox can drain while this page is open); the other three are read
+  // on mount and on demand. `null` = still checking — never an optimistic placeholder.
   const syncStatus = useSyncStatus();
   const [environment, setEnvironment] = useState<PreflightCheck[] | null>(null);
+  // Bumped by "Run again". Re-keying the same effect keeps the `alive` cancellation, so a
+  // second press cannot let a slower earlier run overwrite the newer verdicts.
+  const [runId, setRunId] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -153,7 +158,7 @@ export default function PreflightChecks() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [runId]);
 
   const checks: PreflightCheck[] | null = environment && [...environment, evaluateSync(syncStatus)];
 
@@ -191,6 +196,21 @@ export default function PreflightChecks() {
             What this device can confirm on its own — no connection needed, and nothing here is sent
             anywhere.
           </p>
+          {/* Every row here is actionable ("Free up space", "Map engine not saved yet"), so the
+              panel has to be able to confirm the fix landed without a page reload. */}
+          <Button
+            data-testid="preflight-rerun"
+            variant="outline"
+            size="sm"
+            className="mb-4"
+            onClick={() => {
+              setEnvironment(null);
+              setRunId((n) => n + 1);
+            }}
+          >
+            <RefreshCw aria-hidden="true" />
+            Run again
+          </Button>
         </div>
         {/* The live region is THIS SPAN, not the card. `role="status"` carries an implicit
             `aria-atomic="true"`, so putting it on the <section> re-announced the eyebrow, the

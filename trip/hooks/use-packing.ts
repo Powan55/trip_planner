@@ -8,6 +8,7 @@ import {
   toggleItem as toggleItemCore,
   addItem as addItemCore,
   removeItem as removeItemCore,
+  restoreItem as restoreItemCore,
   packingProgress,
   type PackingItem,
 } from '@/core/packing/model';
@@ -38,6 +39,8 @@ export interface PackingStore {
   toggleItem(id: string): void;
   addItem(label: string): void;
   removeItem(id: string): void;
+  /** Undo of `removeItem` — puts `item` back at `index` with its category and packed state intact. */
+  restoreItem(item: PackingItem, index: number): void;
   /** Re-seed this trip's built-in template, replacing whatever is in the slot. The way back from
    * an emptied list (#328) — `packingSeed` is trip-aware, so a custom trip re-seeds universal-only. */
   restoreTemplate(): void;
@@ -74,11 +77,27 @@ export function usePacking(): PackingStore {
     [commit],
   );
 
+  const restoreItem = useCallback(
+    (item: PackingItem, index: number) => {
+      commit((current) => restoreItemCore(current, item, index));
+    },
+    [commit],
+  );
+
   const restoreTemplate = useCallback(() => {
     commit(() => [...packingSeed()]);
   }, [commit]);
 
-  return { items, hydrated, progress: packingProgress(items), toggleItem, addItem, removeItem, restoreTemplate };
+  return {
+    items,
+    hydrated,
+    progress: packingProgress(items),
+    toggleItem,
+    addItem,
+    removeItem,
+    restoreItem,
+    restoreTemplate,
+  };
 }
 
 // Re-exported so tests/callers can compare byte-transport values directly without importing the

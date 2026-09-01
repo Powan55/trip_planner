@@ -129,7 +129,7 @@ vi.mock('firebase/firestore', () => ({
 
 // Static (default-pack) imports for the regression-guard block.
 import { subscribeRemoteExpenses } from '@/lib/expenses-remote';
-import { loadExpenses } from '@/core/budget/storage';
+import { loadExpenses, saveExpenses } from '@/core/budget/storage';
 import { setActiveTripId } from '@/core/storage/gateway';
 import { setTripConfig, type TripConfigBlock } from '@/core/trips/registry';
 
@@ -187,6 +187,25 @@ describe('DEFAULT pack — regression guard (LEGS unchanged, byte-identical)', (
     fake.emitServerSnapshot(); // no docs at all
     await flush();
     expect(loadExpenses()).toEqual([]);
+    unsub();
+  });
+
+  it('a local row whose leg is outside LEGS survives the snapshot rebuild (retention, not deletion)', async () => {
+    // `sanitizeExpense` keeps a foreign leg verbatim on purpose; `applySnapshot` rebuilds the slot
+    // by iterating LEGS, so without carrying these across, the first snapshot deleted them for good.
+    saveExpenses([
+      { ...mainExpense('keep-me'), leg: 'unknown-leg' },
+      { ...mainExpense('nepal-row'), leg: 'nepal' },
+    ]);
+    const unsub = subscribeRemoteExpenses();
+    await flush();
+    fake.emitServerSnapshot(); // no docs at all
+    await flush();
+    expect(
+      loadExpenses()
+        .map((e) => e.id)
+        .sort(),
+    ).toEqual(['keep-me', 'nepal-row']);
     unsub();
   });
 

@@ -303,6 +303,9 @@ export default function MapSection() {
 
   // TripMap's imperative handle — we call resize() after relocating the host node.
   const tripMapRef = useRef<TripMapHandle | null>(null);
+  // Holds the frame the fullscreen-exit cleanup schedules, so unmount can cancel it.
+  const exitRafRef = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(exitRafRef.current), []);
 
   // The GL map lives inside a single, persistent host div (`mapHostRef`) that we
   // physically relocate between an inline slot and the portaled fullscreen slot
@@ -694,7 +697,7 @@ export default function MapSection() {
       // whichever map is live then. tripMapRef holds an imperative TripMapHandle, not a React
       // node, so the rule's "snapshot it in the effect" advice would capture the pre-mount null.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      requestAnimationFrame(() => tripMapRef.current?.resize());
+      exitRafRef.current = requestAnimationFrame(() => tripMapRef.current?.resize());
     };
   }, [isFullscreen]);
 

@@ -239,7 +239,7 @@ function MarkerPopupContent({
             aria-pressed={favorited}
             aria-label={favorited ? `Remove ${marker.name} from saved` : `Save ${marker.name}`}
             data-testid={`map-popup-favorite-${marker.id}`}
-            className={`ml-auto shrink-0 grid h-8 w-8 place-items-center rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
+            className={`ml-auto shrink-0 inline-flex min-h-tap min-w-tap items-center justify-center rounded-r1 border-hair transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/60 ${
               favorited
                 ? 'border-[color:hsl(var(--accent))] text-[color:hsl(var(--accent))] bg-[rgb(62_216_255/0.10)]'
                 : 'border-[color:hsl(var(--border))] text-ink-lo hover:border-[color:var(--border-ui)] hover:text-ink-hi'
@@ -1286,6 +1286,10 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
           background: rgb(var(--surface-raised));
           border: var(--hair) solid hsl(var(--border));
           border-radius: var(--r-1);
+        }
+        .maplibregl-ctrl-group button {
+          width: var(--tap);
+          height: var(--tap);
         }
         .maplibregl-ctrl-group button + button {
           border-top: var(--hair) solid hsl(var(--border));

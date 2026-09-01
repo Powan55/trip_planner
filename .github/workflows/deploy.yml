@@ -196,7 +196,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       # Pinned, and not decoration: this is the one job that runs with a Google credential, and
-      # `npx firebase-tools@14` needs Node >= 20. Today's ubuntu-latest ships it, so leaving this
+      # `npx firebase-tools` needs Node >= 20. Today's ubuntu-latest ships it, so leaving this
       # off would work right up until the runner image moves and the publish breaks with the key
       # already in hand. No npm cache: nothing here installs from a lockfile.
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -239,7 +239,12 @@ jobs:
           # lives in exactly one reviewable place. That file is also the ONLY thing aiming this
           # at the right project — rules-check proves the rules against an emulator, never
           # against a live project, so it cannot catch a publish pointed somewhere else.
-          npx --yes firebase-tools@14 deploy --only firestore:rules --non-interactive
+          #
+          # EXACT version, not a range. Every action above is SHA-pinned so nothing unreviewed
+          # executes next to a credential, and `npx --yes` on a range resolves a fresh transitive
+          # tree on every run three lines after the key lands on disk. Keep this in step with
+          # ci.yml's emulator step, and bump the two together.
+          npx --yes firebase-tools@14.27.0 deploy --only firestore:rules --non-interactive
 
   deploy:
     # publish-rules, not build: a failed publish must ship nothing (see the note above).

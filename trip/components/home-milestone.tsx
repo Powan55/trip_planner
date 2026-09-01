@@ -46,8 +46,7 @@ export default function HomeMilestone({ input }: { input: MilestoneInput }) {
 
   // Latest-value ref so the effect can read the current input WITHOUT depending on the object
   // identity of a prop the parent rebuilds every render — depending on `input` directly would
-  // re-run this on every render, and its cleanup would clear the 700ms burst the moment the
-  // next render landed. Keyed instead on what actually matters: which milestones are true.
+  // re-run this on every render. Keyed instead on what actually matters: which milestones are true.
   const inputRef = useRef(input);
   inputRef.current = input;
   const reachedKey = reached.map((m) => m.id).join(',');
@@ -57,9 +56,16 @@ export default function HomeMilestone({ input }: { input: MilestoneInput }) {
     seenRef.current = milestonesReached(inputRef.current).map((m) => m.id);
     if (!fresh) return;
     setCelebrating(true);
+  }, [reachedKey]);
+
+  // The burst window lives in its own effect keyed on `celebrating`, deliberately: folded into the
+  // edge effect above, a milestone regressing inside the window clears the timer without re-arming
+  // it, leaving the burst on screen forever.
+  useEffect(() => {
+    if (!celebrating) return;
     const timer = setTimeout(() => setCelebrating(false), 700);
     return () => clearTimeout(timer);
-  }, [reachedKey]);
+  }, [celebrating]);
 
   return (
     <div

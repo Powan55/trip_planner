@@ -368,12 +368,13 @@ describe('the entrance ledger (D-293 rule 7)', () => {
 });
 
 describe('prerenderEntranceFor — what the static export actually contains', () => {
-  // `<Reveal>` renders THIS on its first client render and only then asks `entranceFor()`, so a
-  // prerendered route cannot mismatch on hydration (/passport/ is a Server Component and did, on
-  // every reload and on every reduced-motion first load). The two answers must not drift: this is
-  // the ratchet that fails if a new input is added to `decideEntrance` without a prerender
-  // counterpart. `beforeEach` above already installs prerender conditions — no `matchMedia`, empty
-  // ledger — which is exactly what the export is built under.
+  // Nothing in the app calls this (D-495): no `<Reveal>` reaches the static export, so there is
+  // no prerendered answer for the client's first render to disagree with, and `<Reveal>` asks
+  // `entranceFor()` directly. This is the tripwire for the day one IS prerendered — the two
+  // answers must not drift, and this is the ratchet that fails if a new input is added to
+  // `decideEntrance` without a prerender counterpart. `beforeEach` above already installs
+  // prerender conditions — no `matchMedia`, empty ledger — which is exactly what the export is
+  // built under.
   const ALL = [...TIER_1_SURFACES, ...TIER_2_SURFACES, ...TIER_3_SURFACES];
 
   it('equals entranceFor() under prerender conditions, for every tiered surface', () => {
@@ -389,7 +390,8 @@ describe('prerenderEntranceFor — what the static export actually contains', ()
     entranceLedger.markGreeted('/passport');
     setReducedMotion(true);
     expect(prerenderEntranceFor('/passport/'), 'still the export answer').toBe('animate');
-    // ...while the live decision has moved. That gap IS the hydration mismatch, deferred.
+    // ...while the live decision has moved. That gap is what a prerendered reveal would
+    // mismatch on, and why reconciling it would have to happen before paint.
     expect(entranceFor('/passport/')).toBe('present');
   });
 

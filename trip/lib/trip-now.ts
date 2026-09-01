@@ -5,8 +5,7 @@
 // `ClockPort`: it owns all the I/O — reading the real clock AND resolving the `?today=`
 // simulation override — and delegates the PURE trip-day
 // math to `core/dates` (`dayInTripFor`). The public API here (`getNow`, `getTodayInTrip`,
-// `TripToday`) is BYTE-IDENTICAL to before, so every caller (`hero-section.tsx`,
-// `trip-dashboard.tsx`, `calendar-planner.tsx`, `quick-add-fab.tsx`) is untouched. The
+// `TripToday`) is BYTE-IDENTICAL to before, so every caller is untouched. The
 // override resolution/precedence/timing (an I/O concern) intentionally STAYS here — only
 // deterministic math moved to core.
 //

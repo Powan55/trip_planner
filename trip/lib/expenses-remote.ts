@@ -32,7 +32,7 @@
 
 import { saveExpenses, loadExpenses } from '@/core/budget/storage';
 import { sanitizeExpenses, type Expense } from '@/core/budget/expenses';
-import { LEGS, type Leg } from '@/core/budget/model';
+import { LEGS, isLeg, type Leg } from '@/core/budget/model';
 import { EXPENSES_CHANGED_EVENT } from '@/core/storage/events';
 import { isTripRemoteConfigured, getTripId } from './firebase-config';
 import { getRemote, type FirestoreMod } from './firebase-remote';
@@ -167,6 +167,10 @@ export function subscribeRemoteExpenses(): () => void {
   ) => {
     const local = loadExpenses();
     const dirty = new Set(outboxDirty('expenses'));
+    // A row whose leg this build's pack does not declare is RETAINED verbatim by `sanitizeExpense`
+    // on purpose; the per-leg rebuild below would delete it on the first snapshot. Carried across
+    // untouched — never merged into a leg, never pushed up.
+    const foreign = local.filter((e) => !isLeg(e.leg));
     const result: Expense[] = [];
     for (const leg of LEGS) {
       const localLeg = local.filter((e) => e.leg === leg);
@@ -188,7 +192,7 @@ export function subscribeRemoteExpenses(): () => void {
         result.push(...gcTombstoneRows(mergeItems(localLeg, remoteLeg), realClock.now().getTime()));
       }
     }
-    persistAndDispatch(result);
+    persistAndDispatch([...result, ...foreign]);
   };
 
   const attemptSetup = async () => {

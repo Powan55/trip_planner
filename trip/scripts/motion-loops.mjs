@@ -55,8 +55,6 @@ const STATE_INDICATORS = {
     'busy: the skeleton sweep says "still loading", and a 6s cycle would outlast most of the fetches it reports on',
   '.animate-today-pulse':
     'state: marks WHICH calendar cell is today; at 6s the ring reads as decoration rather than as a marker (and it never carries the fact alone — the cell is also labelled)',
-  '.caret .ring':
-    'state: marks WHICH point on the approach rule is the present moment; at 6s it reads as decoration rather than as a marker',
 };
 
 const css = readFileSync(CSS_PATH, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
