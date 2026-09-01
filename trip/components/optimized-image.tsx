@@ -160,6 +160,9 @@ export default function OptimizedImage({
   };
 
   const imgEl = (
+    // This component IS the custom image loader the rule asks for: next/image's optimizer
+    // does not exist under the static export, so the raster tier is a native <img> by design.
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       ref={imgRef}
       src={withBasePath(src)}
@@ -189,6 +192,7 @@ export default function OptimizedImage({
     <>
       {/* LQIP backdrop — fades OUT as the real image fades in. aria-hidden; decorative. */}
       {blur && (
+        // eslint-disable-next-line @next/next/no-img-element
         <img
           src={blur}
           alt=""

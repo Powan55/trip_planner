@@ -541,7 +541,12 @@ export default function CommandPalette() {
                     >
                       <Icon className={ROW_ICON} aria-hidden="true" />
                       <div className="min-w-0">
-                        <h3 className="truncate">{section.label}</h3>
+                        {/* Every row title in this list is `role="presentation"`: a CommandItem
+                            is a `role="option"` and an option is children-presentational, so
+                            these <h3>s never reached the heading outline — and a listbox row is
+                            not a section heading in the first place (#364). The recipe styles
+                            `.list h3` by tag, so the paint is unchanged. */}
+                        <h3 role="presentation" className="truncate">{section.label}</h3>
                         {/* Suppressed when it would only repeat the title the row already prints. */}
                         {destination !== section.label && (
                           <span className="mt truncate">{destination}</span>
@@ -578,7 +583,7 @@ export default function CommandPalette() {
                   >
                     <Calendar className={ROW_ICON} aria-hidden="true" />
                     <div className="min-w-0">
-                      <h3 className="truncate">{item.title}</h3>
+                      <h3 role="presentation" className="truncate">{item.title}</h3>
                       <span className="mt truncate">{formatDate(date)}</span>
                     </div>
                     <span className="chip">{item.category}</span>
@@ -605,7 +610,7 @@ export default function CommandPalette() {
                   {conversionResult === null && (
                     <>
                       <div className="min-w-0">
-                        <h3 className="num truncate">
+                        <h3 role="presentation" className="num truncate">
                           {parsedConversion.amount} {parsedConversion.from} → {parsedConversion.to}
                         </h3>
                       </div>
@@ -616,7 +621,7 @@ export default function CommandPalette() {
                   )}
                   {conversionResult?.status === 'ok' && (
                     <div className="min-w-0">
-                      <h3 className="num truncate">
+                      <h3 role="presentation" className="num truncate">
                         {conversionResult.source === 'reference' ? '≈ ' : ''}
                         {parsedConversion.amount} {parsedConversion.from} ={' '}
                         {formatConvertedAmount(conversionResult.converted)} {parsedConversion.to}
@@ -635,7 +640,7 @@ export default function CommandPalette() {
                   {conversionResult?.status === 'unavailable' && (
                     <>
                       <div className="min-w-0">
-                        <h3 className="truncate">{conversionResult.currency} rate unavailable</h3>
+                        <h3 role="presentation" className="truncate">{conversionResult.currency} rate unavailable</h3>
                         <span className="mt">nothing cached on this device yet</span>
                       </div>
                       <span className="hollow-tag">No rate</span>

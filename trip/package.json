@@ -11,7 +11,7 @@
     "build:e2e": "node -e \"process.env.NEXT_PUBLIC_CONCIERGE_URL='https://concierge.test';require('child_process').execSync('npm run build',{stdio:'inherit'})\"",
     "analyze": "next build --webpack && node scripts/flatten-segment-payloads.mjs && node scripts/gen-sw.mjs",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings 0",
     "gen:images": "node scripts/gen-images.mjs",
     "test": "vitest run",
     "test:watch": "vitest",

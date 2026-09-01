@@ -101,7 +101,6 @@ function stopGyroIfIdle(): void {
 export function motionPermissionSupported(): boolean {
   return (
     typeof DeviceOrientationEvent !== 'undefined' &&
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     typeof (DeviceOrientationEvent as any).requestPermission === 'function'
   );
 }
@@ -119,7 +118,6 @@ export async function requestMotionPermission(): Promise<boolean> {
     return true;
   }
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const res: string = await (DeviceOrientationEvent as any).requestPermission();
     gyroGranted = res === 'granted';
     if (gyroGranted) startGyro();

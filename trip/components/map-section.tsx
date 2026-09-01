@@ -690,6 +690,10 @@ export default function MapSection() {
       window.scrollTo(0, scrollY);
       // Exit resize is handled by the relocation effect (host → inline slot);
       // one more here guards the scroll-restore reflow.
+      // Reading .current late is the point: this rAF runs a frame AFTER cleanup and must resize
+      // whichever map is live then. tripMapRef holds an imperative TripMapHandle, not a React
+      // node, so the rule's "snapshot it in the effect" advice would capture the pre-mount null.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       requestAnimationFrame(() => tripMapRef.current?.resize());
     };
   }, [isFullscreen]);

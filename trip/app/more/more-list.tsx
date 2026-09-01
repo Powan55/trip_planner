@@ -76,6 +76,10 @@ export default function MoreList() {
   }, [mounted]);
 
   // The row: an icon in the recipe's leading column and the label.
+  // The row title carries `role="presentation"` (same call as docs-/packing-checklist): the
+  // whole row is the control, and a link/button is children-presentational, so the <h3> was
+  // never reaching the heading outline anyway — it only looked like it did in source (#364).
+  // The group <h2>s stay; the rows are reachable as a labelled list of links.
   // KNOWN CEILING: the two `!` utilities are not decoration — `.list .r` is a 0,2,0
   // selector and a bare utility is 0,1,0, so it cannot reach the 58px timestamp track an
   // icon does not need. Every single-class recipe (`.cell`, `.chip`, `.btn`) composes with
@@ -99,7 +103,7 @@ export default function MoreList() {
               className={ROW}
             >
               <Search className="h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
-              <h3>Search</h3>
+              <h3 role="presentation">Search</h3>
               <span className="chip">⌘K</span>
             </button>
           </li>
@@ -140,7 +144,7 @@ export default function MoreList() {
                         className={ROW}
                       >
                         <Icon className="h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
-                        <h3>{item.label}</h3>
+                        <h3 role="presentation">{item.label}</h3>
                       </Link>
                     </li>
                   );
@@ -154,7 +158,7 @@ export default function MoreList() {
                         className={ROW}
                       >
                         <LogOut className="h-[18px] w-[18px] shrink-0 text-[color:var(--text-lo)]" aria-hidden="true" />
-                        <h3>Sign out</h3>
+                        <h3 role="presentation">Sign out</h3>
                         <span className="mt">Ends session</span>
                       </button>
                     </SignOutConfirm>

@@ -66,8 +66,23 @@ export default function FlightsSection() {
     <section id="flights" aria-labelledby="flights-heading" className="pb-20">
       {/* The running head. Solid --surface-1, no backdrop filter; it parks under the
           fixed 64px navbar rather than at the viewport top. Below 440px the `f--drop` fields
-          are dropped rather than clipped, because a half-cut field reads as a bug. */}
-      <header className="head top-16">
+          are dropped rather than clipped, because a half-cut field reads as a bug.
+
+          tabIndex=0 + a named group: `.head` is an overflow-x scroller with its scrollbar
+          hidden and it holds no focusable child, so between ~440 and ~510px the "Tight
+          connection" field was reachable by pointer only (axe scrollable-region-focusable,
+          #365). Same idiom as travel-safety-kit, but `group` rather than its `region`:
+          those are divs and this is a <header>, where axe's aria-allowed-role rejects
+          `region` outright — measured, it trades one violation for another. `group` is also
+          the honest mapping, since a running head is not a landmark you navigate TO.
+          The ring is INSET — this head is full-bleed, so the app-wide outward ring would
+          draw past the gutter. */}
+      <header
+        className="head top-16 outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        tabIndex={0}
+        role="group"
+        aria-label="Flight summary"
+      >
         <div className="f">
           <span className="k">Journeys</span>
           <span className="v">{JOURNEYS.length}</span>

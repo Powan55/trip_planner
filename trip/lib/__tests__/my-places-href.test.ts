@@ -25,15 +25,12 @@ vi.mock('@/components/itinerary-provider', () => ({
 
 vi.mock('framer-motion', async () => {
   const React = await import('react');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const strip = (p: any) => {
     const { initial, animate, exit, whileHover, whileInView, whileTap, viewport, transition, layout, ...rest } = p;
     return rest;
   };
   return {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     m: { div: (props: any) => React.createElement('div', strip(props)) },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     AnimatePresence: ({ children }: any) => children,
     useReducedMotion: () => false,
   };

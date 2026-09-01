@@ -49,7 +49,7 @@ import type { Page } from '@playwright/test';
 
 const THRESHOLD_MS = 50;
 
-/** Every user-facing route (the 14 content routes; matches ROUTE_HTML minus 404). */
+/** Every user-facing route: all 18 static content routes under app/, minus /travel/ (below). */
 const ROUTES = [
   '/',
   '/plan/',
@@ -69,9 +69,28 @@ const ROUTES = [
   // the running set empty here exactly as it does everywhere else. Its sibling flourish,
   // <CelebrationBurst>, renders nothing at all under reduce (e2e/motion.spec.ts owns that half).
   '/passport/',
+  // Issue #351 — live nav routes that were never in this net. /guides/ is static content;
+  // the other three are client-gated and need READY below.
+  '/guides/',
+  '/more/',
+  '/trips/',
+  '/profile/',
   // /travel is handled separately below (needs an in-trip clock + seed to render its
   // animated hero/agenda branch — the very surfaces D-185's spring-free guard governs).
 ] as const;
+
+/**
+ * Routes whose real surface sits behind a client gate: an `ssr:false` island (/trips/,
+ * /profile/) or a mount gate (/more/). Their server-rendered <h1> is up long before the
+ * island is, and an empty shell has nothing running — so without this wait the poll below
+ * passes on its first read and the route is a free green. Keyed by path; absent = <h1> is
+ * enough.
+ */
+const READY: Record<string, string> = {
+  '/more/': 'more-link-settings',
+  '/trips/': 'trips-hub',
+  '/profile/': 'visited-country-form',
+};
 
 type RunningAnim = { name: string; duration: number; playState: string };
 
@@ -144,6 +163,8 @@ async function assertNoMotion(page: Page, path: string, label = path) {
   await page.goto(path, { waitUntil: 'load' });
   await settleSW(page);
   await expect(page.locator('h1, [data-testid$="-root"]').first()).toBeVisible({ timeout: 15_000 });
+  const ready = READY[path];
+  if (ready) await expect(page.getByTestId(ready)).toBeVisible({ timeout: 15_000 });
   await expectNoPersistentMotion(page, label);
 }
 
