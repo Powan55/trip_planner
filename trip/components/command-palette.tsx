@@ -41,7 +41,7 @@ import { searchPlanItems } from '@/lib/search-plan';
 import { formatDate, type DayPlan } from '@/lib/trip-data';
 import { parseConversionQuery, convertCurrency, type ConversionResult } from '@/lib/currency-convert';
 import { isDefaultTrip } from '@/core/trips';
-import { normalizePath } from '@/lib/nav-items';
+import { normalizePath, routeLabel } from '@/lib/nav-items';
 import { prefersReducedMotion } from '@/lib/motion';
 
 /**
@@ -159,11 +159,6 @@ const SECTIONS: Section[] = [
 ];
 
 const GROUP_ORDER: Section['group'][] = ['Plan', 'Destinations', 'Guides', 'More'];
-
-// What the row prints as its route, mirroring more-list.tsx's meta line.
-function routeLabel(route: string, hash?: string): string {
-  return (route.replace(/\//g, '') || 'home') + (hash ? ` ${hash}` : '');
-}
 
 // The row and group recipes, once. `[--lead:22px]` is the sanctioned custom-property hatch
 // for the icon column and `!items-center` the sanctioned `!` — `.list .r` is (0,2,0) and a
@@ -533,6 +528,7 @@ export default function CommandPalette() {
                 {sections.filter((s) => s.group === group).map((section) => {
                   const Icon = section.icon;
                   const here = normalizePath(pathname) === normalizePath(section.route);
+                  const destination = routeLabel(section.route, section.hash);
                   return (
                     <CommandItem
                       // Key on the (unique) label — two entries now share the /share/ route
@@ -546,7 +542,10 @@ export default function CommandPalette() {
                       <Icon className={ROW_ICON} aria-hidden="true" />
                       <div className="min-w-0">
                         <h3 className="truncate">{section.label}</h3>
-                        <span className="mt truncate">{routeLabel(section.route, section.hash)}</span>
+                        {/* Suppressed when it would only repeat the title the row already prints. */}
+                        {destination !== section.label && (
+                          <span className="mt truncate">{destination}</span>
+                        )}
                       </div>
                       {here && <span className="chip">Here</span>}
                     </CommandItem>

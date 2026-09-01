@@ -306,6 +306,18 @@ test.describe('S258: hero first CTA clears the fold on an xs viewport', () => {
       // Fully within the fold, with margin: top non-negative, bottom at or above the line.
       expect(box!.y).toBeGreaterThanOrEqual(0);
       expect(box!.y + box!.height).toBeLessThanOrEqual(FOLD_HEIGHT_PX - FOLD_MARGIN_PX);
+
+      // Horizontal reflow (WCAG 1.4.10). On rects, not `scrollWidth`: the hero clips its
+      // overflow, so a document-level width check cannot see ink pushed off the edge.
+      const heroBox = await page.locator('section#hero').boundingBox();
+      expect(heroBox).not.toBeNull();
+      for (const child of [page.locator('#hero-heading'), page.locator('section#hero .chip')]) {
+        await expect(child).toBeVisible();
+        const cb = await child.boundingBox();
+        expect(cb).not.toBeNull();
+        expect(cb!.x).toBeGreaterThanOrEqual(heroBox!.x);
+        expect(cb!.x + cb!.width).toBeLessThanOrEqual(heroBox!.x + heroBox!.width);
+      }
     });
   }
 });

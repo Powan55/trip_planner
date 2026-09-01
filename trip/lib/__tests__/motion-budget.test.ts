@@ -27,7 +27,9 @@ import {
   isMotionAllowed,
   OVERLAY_TIER,
   overlayMotion,
+  overlayPanelMotion,
   prefersReducedMotion,
+  prerenderEntranceFor,
   resetEntranceMemoForTests,
   surfaceKey,
   tierForPath,
@@ -231,6 +233,41 @@ describe('the overlay pin (D-292, "regardless of which route opens it. No except
   });
 });
 
+describe('overlayPanelMotion — what actually plays under prefers-reduced-motion: reduce', () => {
+  // The claim `components/ui/sheet-dark.tsx` makes, pinned so it cannot quietly stop being true.
+  // framer's `<MotionConfig reducedMotion="user">` gates POSITIONAL keys only (motion-dom's
+  // `positionalKeys` = width/height/top/left/right/bottom + the transform props), so `y` is
+  // neutralised to an instant set and the OPACITY tween still runs in full. That is permitted —
+  // WCAG 2.3.3 excludes opacity from "motion animation", and e2e/motion-reduced-audit.spec.ts
+  // states the same house tolerance — but ONLY while the fade stays a short one-shot.
+  //
+  // What would make it a real defect is losing the explicit transitions: a framer variant without
+  // one gets the default SPRING, and a spring is what plays under reduce on every dialog, sheet
+  // and popover in the product. Both panels, both directions.
+  for (const side of ['center', 'right'] as const) {
+    it(`${side}: the entrance and exit fades stay short, explicit one-shots`, () => {
+      const motion = overlayPanelMotion(side);
+
+      for (const [phase, budget] of [
+        ['animate', 0.2],
+        ['exit', 0.16],
+      ] as const) {
+        const target = motion[phase] as { opacity?: number; transition?: { duration?: number } };
+        expect(target.opacity, `${phase} is an opacity change`).toBeTypeOf('number');
+        expect(target.transition?.duration, `${phase} has an explicit duration, not a spring`).toBeTypeOf(
+          'number',
+        );
+        expect(target.transition?.duration, `${phase} within the overlay budget`).toBeLessThanOrEqual(
+          budget,
+        );
+      }
+
+      // The movement half is a transform, which is the half framer's gate actually neutralises.
+      expect((motion.initial as { y?: number }).y, 'the rise is a transform key').toBeTypeOf('number');
+    });
+  }
+});
+
 describe('prefers-reduced-motion — one read, and it never throws', () => {
   it('reports the preference when matchMedia is present', () => {
     setReducedMotion(true);
@@ -327,6 +364,38 @@ describe('the entrance ledger (D-293 rule 7)', () => {
     } finally {
       Object.defineProperty(window, 'sessionStorage', { configurable: true, value: real });
     }
+  });
+});
+
+describe('prerenderEntranceFor — what the static export actually contains', () => {
+  // `<Reveal>` renders THIS on its first client render and only then asks `entranceFor()`, so a
+  // prerendered route cannot mismatch on hydration (/passport/ is a Server Component and did, on
+  // every reload and on every reduced-motion first load). The two answers must not drift: this is
+  // the ratchet that fails if a new input is added to `decideEntrance` without a prerender
+  // counterpart. `beforeEach` above already installs prerender conditions — no `matchMedia`, empty
+  // ledger — which is exactly what the export is built under.
+  const ALL = [...TIER_1_SURFACES, ...TIER_2_SURFACES, ...TIER_3_SURFACES];
+
+  it('equals entranceFor() under prerender conditions, for every tiered surface', () => {
+    for (const surface of ALL) {
+      window.sessionStorage.clear();
+      resetEntranceMemoForTests();
+      expect(prerenderEntranceFor(`${surface}/`), surface).toBe(entranceFor(`${surface}/`));
+    }
+  });
+
+  it('is pathname-only — the ledger and the preference cannot move it', () => {
+    expect(prerenderEntranceFor('/passport/')).toBe('animate');
+    entranceLedger.markGreeted('/passport');
+    setReducedMotion(true);
+    expect(prerenderEntranceFor('/passport/'), 'still the export answer').toBe('animate');
+    // ...while the live decision has moved. That gap IS the hydration mismatch, deferred.
+    expect(entranceFor('/passport/')).toBe('present');
+  });
+
+  it('an unrouted render is present on both sides', () => {
+    expect(prerenderEntranceFor(null)).toBe('present');
+    expect(entranceFor(null)).toBe('present');
   });
 });
 

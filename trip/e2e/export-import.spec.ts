@@ -321,6 +321,24 @@ test.describe('S92 confirm dialog portals to body (D-094) — clickable when /se
     });
     await expect(page.getByTestId('backup-confirm-dialog')).toBeVisible();
 
+    // The confirm panel is a Radix AlertDialog now, and it ANIMATES in (`zoom-in-95` +
+    // `slide-in-from-top-[48%]`, 200 ms — components/ui/alert-dialog.tsx). Playwright's
+    // visibility check does not wait for that, so an elementFromPoint fired straight after
+    // `toBeVisible()` can hit-test the button while it is still scaled down and slid up, and
+    // read the footer as topmost. Wait for the SETTLED transform — scale 1 and the plain
+    // `translate(-50%, -50%)` the centring classes leave behind — before probing.
+    await page.waitForFunction(() => {
+      const el = document.querySelector('[data-testid="backup-confirm-dialog"]') as HTMLElement | null;
+      if (!el) return false;
+      const m = new DOMMatrix(getComputedStyle(el).transform);
+      return (
+        Math.abs(m.a - 1) < 0.001 &&
+        Math.abs(m.d - 1) < 0.001 &&
+        Math.abs(m.e + el.offsetWidth / 2) < 0.5 &&
+        Math.abs(m.f + el.offsetHeight / 2) < 0.5
+      );
+    });
+
     // ── FU-11 document-level proof ──────────────────────────────────────────────────
     // At the confirm button's on-screen centre, the TOPMOST hit-test node must be the
     // confirm button itself (not the footer), and walking that node's ancestry upward

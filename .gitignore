@@ -65,3 +65,7 @@ docs/reports/
 .github/hooks/
 .github/skills/
 PRODUCT.md
+
+# Local knowledge-graph output from the graphify skill. Regeneratable, and it
+# extracts content from files already gitignored above (HANDOFF.md, CLAUDE.md).
+graphify-out/

@@ -430,6 +430,25 @@ export function entranceFor(pathname: string | null | undefined): EntranceDecisi
   return decision;
 }
 
+/**
+ * The decision the STATIC EXPORT already contains — the tier gate alone.
+ *
+ * `entranceFor()` is a client-only answer by construction: two of its three inputs
+ * (`matchMedia`, the sessionStorage ledger) are inert during the prerender and live in the
+ * browser. A prerendered route that reaches an entrance component therefore ships one answer in
+ * its HTML and computes another on the client's FIRST render — a hydration mismatch, which React
+ * recovers from by re-rendering the whole route on the client. It bit `/passport/` on every
+ * reload (the ledger survives one) and on first load for every reduced-motion visitor.
+ *
+ * So the first render asks THIS, which is a pure function of the pathname and cannot disagree
+ * with the prerender, and the live decision is deferred to an effect. The two functions must stay
+ * in step: `lib/__tests__/motion-budget.test.ts` pins `entranceFor === prerenderEntranceFor` under
+ * prerender conditions (no `matchMedia`, empty ledger) for every tiered surface.
+ */
+export function prerenderEntranceFor(pathname: string | null | undefined): EntranceDecision {
+  return isMotionAllowed('entrance', tierForPath(pathname)) ? 'animate' : 'present';
+}
+
 function decideEntrance(surface: string): EntranceDecision {
   if (prefersReducedMotion()) return 'present';
   if (!isMotionAllowed('entrance', tierForSurface(surface))) return 'present';

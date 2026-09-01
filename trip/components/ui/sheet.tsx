@@ -40,27 +40,38 @@ const SheetOverlay = React.forwardRef<
 SheetOverlay.displayName = SheetPrimitive.Overlay.displayName;
 
 /**
- * There is no `side` prop. The one consumer (`components/concierge-chat.tsx`) opens from the
- * right, which was also the cva `defaultVariants` — so the other three branches were unreachable
- * configuration. This is the string `side: 'right'` already resolved to (base then side, the same
- * order cva concatenated them). If a second sheet ever needs another edge, add the variant back
- * for that edge, not for four.
+ * TWO edges, not four. `right` is the drawer every non-Travel-Mode mount uses and was also the
+ * cva `defaultVariants`; `bottom` exists for the Travel Mode concierge, which rises from the
+ * thumb zone that triggers it instead of sliding in from an edge no thumb is near. The other two
+ * cva branches stay deleted — they were unreachable configuration. Each string below is what cva
+ * concatenated (base, then side) already resolved to.
  */
-const SHEET_CONTENT_CLASS = `fixed z-50 gap-4 bg-background p-gut py-5 transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out ${overlayMotion(
+const SHEET_CONTENT_BASE = `fixed z-50 gap-4 bg-background p-gut py-5 transition ease-in-out data-[state=open]:animate-in data-[state=closed]:animate-out ${overlayMotion(
   'entrance',
   SHEET_TIMING_LOUD,
   SHEET_TIMING_CALM,
-)} inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm`;
+)}`;
+
+const SHEET_CONTENT_SIDE = {
+  right:
+    'inset-y-0 right-0 h-full w-3/4 border-l data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-sm',
+  // `mx-auto` is inert at full width and only bites once a caller caps it (the concierge's
+  // `sm:max-w-lg`), which centres the sheet on a desktop viewport instead of pinning it left.
+  bottom:
+    'inset-x-0 bottom-0 mx-auto w-full border-t data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom',
+} as const;
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content> & {
+    side?: keyof typeof SHEET_CONTENT_SIDE;
+  }
+>(({ className, children, side = 'right', ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
-      className={cn(SHEET_CONTENT_CLASS, className)}
+      className={cn(SHEET_CONTENT_BASE, SHEET_CONTENT_SIDE[side], className)}
       {...props}
     >
       {children}
@@ -96,7 +107,7 @@ const SheetTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SheetPrimitive.Title
     ref={ref}
-    className={cn('font-machine text-t-label font-semibold uppercase tracking-[0.11em] text-[color:var(--text-hi)]', className)}
+    className={cn('font-sans text-t-lead font-semibold leading-tight text-[color:var(--text-hi)]', className)}
     {...props}
   />
 ));

@@ -92,11 +92,11 @@ describe('token-auth · signIn / getActiveTraveler / signOut round-trip', () => 
 });
 
 describe('token-auth · TRAVELERS is now only the expense-split roster', () => {
-  it('still exposes the three friends with their brand accents', () => {
-    expect(TRAVELERS.map((t) => t.name)).toEqual(['Powan', 'Sushil', 'Uttam']);
-    // R2/D-265: pins Powan's fixed hand-assigned tint (TRAVELERS[0].accent, token-auth.ts).
-    // An accent move fails here with a message about Powan's accent, not about a chrome
-    // repaint. Re-valued to gold-400 under the D-291/D-292/D-293 palette.
+  it('still exposes the three demo travellers with their brand accents', () => {
+    expect(TRAVELERS.map((t) => t.name)).toEqual(['Alina', 'Rhea', 'Milo']);
+    // R2/D-265: pins the first roster member's fixed hand-assigned tint (TRAVELERS[0].accent,
+    // token-auth.ts). An accent move fails here with a message about that accent, not about a
+    // chrome repaint. Re-valued to gold-400 under the D-291/D-292/D-293 palette.
     expect(TRAVELERS[0].accent).toBe('#FFC43D');
   });
 });

@@ -184,15 +184,33 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
   const CODE = 'aaaa1111-bbbb-4222-8333-cccc4444dddd';
   const IDENTITY_PATH = `trips/${CODE}/profile/identity`;
 
-  it("doc present ⇒ 'exists' (a real account), via the SERVER read", async () => {
+  it("doc present ⇒ 'exists' + the account's name, via ONE SERVER read", async () => {
     fake.setDocData(IDENTITY_PATH, { version: 1, name: 'Powan' });
-    expect(await probeAccountIdentity(CODE)).toBe('exists');
+    // The name comes back with the verdict: this is the read the door's login uses for BOTH, and
+    // one read is the whole point — a second one for the name is what this shape deleted.
+    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists', name: 'Powan' });
     expect(getDocFromServerCalls).toBe(1);
     expect(getDocCalls).toBe(0); // never the cached read — a cached absence must not reject
   });
 
-  it("server answers and the doc is absent ⇒ 'missing' (an invented key)", async () => {
-    expect(await probeAccountIdentity(CODE)).toBe('missing');
+  it("an account with no usable name ⇒ 'exists' with name undefined (never a fabricated one)", async () => {
+    fake.setDocData(IDENTITY_PATH, { version: 1 });
+    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists', name: undefined });
+    fake.setDocData(IDENTITY_PATH, { version: 1, name: 42 }); // non-string
+    expect((await probeAccountIdentity(CODE)).name).toBeUndefined();
+    fake.setDocData(IDENTITY_PATH, { version: 1, name: '   ' }); // blank once trimmed
+    expect((await probeAccountIdentity(CODE)).name).toBeUndefined();
+  });
+
+  it('the returned name is sanitised — trimmed and capped at 24, same as the rename input', async () => {
+    fake.setDocData(IDENTITY_PATH, { version: 1, name: '  Powan  ' });
+    expect((await probeAccountIdentity(CODE)).name).toBe('Powan');
+    fake.setDocData(IDENTITY_PATH, { version: 1, name: 'P'.repeat(40) });
+    expect((await probeAccountIdentity(CODE)).name).toBe('P'.repeat(24));
+  });
+
+  it("server answers and the doc is absent ⇒ 'missing' (an invented key), with no name", async () => {
+    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'missing' });
     expect(getDocFromServerCalls).toBe(1);
   });
 
@@ -200,7 +218,18 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
     serverRead.impl = async () => {
       throw new Error('network down');
     };
-    expect(await probeAccountIdentity(CODE)).toBe('unavailable');
+    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'unavailable' });
+  });
+
+  it('a rejected read RESOLVES — it never throws at the caller, and never invents a name', async () => {
+    // The door's own `.catch` would absorb this too; totality is pinned at the source so a caller
+    // that awaits it bare never needs its own guard to avoid stranding the wall on `busy`.
+    serverRead.impl = async () => {
+      throw new Error('network down');
+    };
+    await expect(probeAccountIdentity(CODE)).resolves.toEqual({ verdict: 'unavailable' });
+    fake.setDocData(IDENTITY_PATH, { version: 1, name: 'Powan' }); // present, but unreadable
+    await expect(probeAccountIdentity(CODE)).resolves.not.toHaveProperty('name', 'Powan');
   });
 
   it("a permission-denied rejection is 'unavailable' AND logs the loud inoperative warning", async () => {
@@ -208,7 +237,7 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
     serverRead.impl = async () => {
       throw Object.assign(new Error('denied'), { code: 'permission-denied' });
     };
-    expect(await probeAccountIdentity(CODE)).toBe('unavailable');
+    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'unavailable' });
     expect(warn).toHaveBeenCalledWith(
       '[door] rules deny the identity probe — token validation is inoperative',
     );
@@ -222,7 +251,7 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
       const probe = probeAccountIdentity(CODE);
       await vi.advanceTimersByTimeAsync(0); // flush getRemote's dynamic imports → the race is armed
       await vi.advanceTimersByTimeAsync(8_001);
-      expect(await probe).toBe('unavailable');
+      expect(await probe).toEqual({ verdict: 'unavailable' });
     } finally {
       vi.useRealTimers();
     }
@@ -230,9 +259,9 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
 
   it("dormant or blank code ⇒ 'unavailable' with NO read at all", async () => {
     isRemoteConfiguredMock.mockReturnValue(false);
-    expect(await probeAccountIdentity(CODE)).toBe('unavailable');
+    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'unavailable' });
     isRemoteConfiguredMock.mockReturnValue(true);
-    expect(await probeAccountIdentity('')).toBe('unavailable');
+    expect(await probeAccountIdentity('')).toEqual({ verdict: 'unavailable' });
     expect(getDocFromServerCalls).toBe(0);
   });
 });

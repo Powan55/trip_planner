@@ -51,7 +51,8 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
  * the network):
  * (a) **Log in** — User Token ONLY (decision 2026-07-30; the door asks for nothing else) →
  * `setSyncCode` → `signIn(displayName)` → reload landing `/trips/`. The display name is not
- * asked for here: it is reused from this device's identity slot if present, else defaults to
+ * asked for here: it is reused from this device's identity slot if present, else taken off the
+ * #10 probe's own snapshot (D-277 stores the name in the doc the probe reads), else defaults to
  * "Traveler" (renamable in Settings → Identity). The name is still load-bearing — it is the
  * identity slot `getActiveTraveler` reads to dismiss the wall and to attribute edits — the door
  * just no longer collects it. Offers this device's stored key-28 token when present ( soft
@@ -339,25 +340,36 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
     const token = userToken.trim();
     if (!token) return;
     setWallError(null);
-    // #10 — validate a NEW key against the account's identity doc BEFORE any state is written.
-    // The stored key is this device's live session credential and is never re-gated (a returning
-    // device must log in even fully offline), so the probe is skipped for it entirely.
-    if (token !== getSyncCode()) {
-      setBusy(true);
+    setBusy(true);
+    // The door still does not ASK for a name (D-239, 2026-07-30): it reuses this device's saved
+    // display name, else the account's own, else the placeholder (renamable in Settings →
+    // Identity). Read BEFORE `signIn`, which writes the slot this reads.
+    const stored = getUserName()?.trim();
+    // ONE server read of `trips/{token}/profile/identity` answers BOTH questions the login has —
+    // #10's "is this key real?" and D-277's "what is this account called?" — because they live in
+    // the same document. Two reads with two budgets is what this replaced; one read means one 8s
+    // worst case, and the timeout case is the probe's own, already-tested one.
+    //
+    // Issued when the key is NEW (that is #10's validation, which a stored name does not excuse)
+    // or when this device has no name to reuse. A returning device with a name already stored
+    // skips it entirely and pays nothing — it must log in fully offline.
+    const fresh = token !== getSyncCode();
+    let account: string | undefined;
+    if (fresh || !stored) {
       // Dynamic import keeps the door STATICALLY firebase-free (D-239/D-054). The probe itself
       // gates on isRemoteConfigured() and fails OPEN: dormant/offline/timeout → 'unavailable'.
       const probe = await import('@/lib/trips-remote')
         .then(({ probeAccountIdentity }) => probeAccountIdentity(token))
-        .catch(() => 'unavailable' as const);
-      if (probe === 'missing') {
+        .catch(() => ({ verdict: 'unavailable' as const, name: undefined }));
+      if (fresh && probe.verdict === 'missing') {
         // An invented key must leave ZERO stored state: no setSyncCode, no signIn, no onHold.
+        // The stored key is this device's live session credential and is never re-gated.
         setBusy(false);
         setWallError(KEY_REJECTED);
         return;
       }
       // 'exists' and 'unavailable' both proceed exactly as before #10.
-    } else {
-      setBusy(true);
+      account = probe.name;
     }
     // Before `onHold`, so a refused store leaves the wall exactly as it found it.
     if (!persistToken(token)) {
@@ -366,23 +378,24 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
       return;
     }
     onHold();
-    // The door no longer collects a name: reuse this device's saved display name, else default
-    // (renamable in Settings → Identity). `signIn` needs a non-empty name — it IS the identity slot.
-    // the default is a TRANSIENT placeholder — the account-identity reconciler in
-    // itinerary-provider replaces it with the account's real name after this reload. The door
-    // itself stays firebase-free and issues no identity read or write.
-    const stored = getUserName()?.trim();
-    const who = stored || DEFAULT_TRAVELER_NAME;
+    // `signIn` needs a non-empty name — it IS the identity slot. Taking the account's name here is
+    // the fix for "I log in as Powan and it says Traveler": D-277 made the name an attribute of the
+    // account and left the correction to the provider's post-reload reconciler, which leaves the
+    // placeholder rendered and STAMPED onto anything edited before that read lands — and
+    // permanently so wherever no reconciler can run (a dormant build, or a read that fails).
+    // Dormant self-gates to `undefined`, so nothing changes for a build with no account layer.
+    const who = stored || account || DEFAULT_TRAVELER_NAME;
     if (!signIn(who)) {
       setBusy(false);
       setWallError(SIGN_IN_FAILED);
       return;
     }
-    // A5: when the name truly defaulted to "Traveler" (nothing stored), leave a one-shot
-    // cross-reload flag. The provider consumes it after the reload and nudges the traveler to
-    // rename themselves — otherwise they're never told their edits are attributed to "Traveler".
-    // (`signIn` above has since written "Traveler" into the slot, so capture `stored` pre-sign-in.)
-    if (!stored) nameHintFlag.mark();
+    // A5: when the name truly defaulted to "Traveler" (nothing stored, and the account knows no
+    // name either), leave a one-shot cross-reload flag. The provider consumes it after the reload
+    // and nudges the traveler to rename themselves — otherwise they're never told their edits are
+    // attributed to "Traveler". (`signIn` above has since written the name into the slot, so
+    // capture `stored` pre-sign-in.)
+    if (!stored && !account) nameHintFlag.mark();
     finish();
   };
 
@@ -610,12 +623,9 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
           </span>
           <div className="min-w-0">
             <p className="pr pr--lo">Boarding Pass</p>
-            {/* The machine face, not a display step: this is a printed document heading, and
-                `font-display` is the serif at weight 400 only — a `font-bold` beside it asks the
-                browser to synthesise a weight that does not exist. */}
             <h2
               id={titleId}
-              className="font-machine text-n-sm font-semibold tracking-tight text-ink-hi leading-tight truncate"
+              className="font-sans text-n-sm font-semibold tracking-tight text-ink-hi leading-tight truncate"
             >
               Nepal × Japan Journey
             </h2>
@@ -717,7 +727,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
                       onClick={() => setUserToken(savedToken)}
                       disabled={busy}
                       data-testid="token-gate-use-saved"
-                      className="mt-2 inline-flex min-h-tap items-center rounded-r1 px-1 font-machine text-t-label font-semibold uppercase tracking-[0.11em] text-primary underline underline-offset-4 transition-colors outline-none hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:text-ink-lo disabled:no-underline"
+                      className="mt-2 inline-flex min-h-tap items-center rounded-r1 px-1 font-sans text-t-sm font-semibold text-primary underline underline-offset-4 transition-colors outline-none hover:text-ink-hi focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:text-ink-lo disabled:no-underline"
                     >
                       Use this device&rsquo;s saved key
                     </button>

@@ -74,7 +74,7 @@ export interface Stay {
   status: BookingStatus;      // 'booked'
   checkIn?: string;           // optional human label; omit if not a fixed booking fact
   checkOut?: string;
-  note?: string;              // short human-readable extra line (e.g. '5 nights · 3 adults · 3 rooms'); omit if nothing extra to show
+  note?: string;              // short human-readable extra line (e.g. '5 nights · 2 adults · 1 room'); omit if nothing extra to show
 }
 
 export const OUTBOUND_JOURNEY: Journey = {
@@ -178,7 +178,7 @@ export const OSAKA_STAY: Stay = {
   address: 'Shinsaibashi, Osaka',
   city: 'Osaka', country: 'japan', status: 'booked',
   checkIn: '3:00pm Sat Dec 19',
-  note: '5 nights · 3 adults · 3 rooms',
+  note: '5 nights · 2 adults · 1 room',
 };
 
 export const KYOTO_STAY: Stay = {
@@ -186,7 +186,7 @@ export const KYOTO_STAY: Stay = {
   address: 'Kawaramachi, Kyoto',
   city: 'Kyoto', country: 'japan', status: 'booked',
   checkIn: '2:00pm Thu Dec 24',
-  note: '3 nights · 3 adults · 3 rooms',
+  note: '3 nights · 2 adults · 1 room',
 };
 
 export const TOKYO_STAY: Stay = {
@@ -195,7 +195,7 @@ export const TOKYO_STAY: Stay = {
   city: 'Tokyo', country: 'japan', status: 'booked',
   checkIn: '3:00pm Sun Dec 27',
   checkOut: '10:00am Sat Jan 9',
-  note: '13 nights · 3 adults · 3 rooms',
+  note: '13 nights · 2 adults · 1 room',
 };
 
 // Convenience ordered list for the section to map over.

@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
 import { Download, Upload, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { downloadTripBackup, importTripBackup } from '@/lib/trip-backup';
 import { savePlans } from '@/lib/itinerary-storage';
@@ -10,6 +9,17 @@ import { getActiveTraveler } from '@/lib/token-auth';
 import { useItineraryContext } from '@/components/itinerary-provider';
 import { useMyPlaces } from '@/hooks/use-my-places';
 import { useDocs } from '@/hooks/use-docs';
+import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogFooter,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
 
 /**
  * Backup & Restore panel — mounted on `/plan`.
@@ -33,14 +43,27 @@ import { useDocs } from '@/hooks/use-docs';
  * own AA-clearing tints; buttons expose visible focus rings and the file input is a real,
  * keyboard-reachable, labelled `<input type="file">`. No text animates through low opacity.
  *
- * Overlay mounting: the confirm dialog is a `fixed` overlay, so it renders
- * via the mount-guarded `createPortal(…, document.body)` pattern — the SAME as
- * `calendar-planner.tsx`'s `ItemEditor` and `add-to-itinerary-dialog.tsx`. Inline
- * `fixed` route content is trapped by `app/template.tsx`'s `.animate-route-fade` stacking
- * context, so the app `<footer>` (a sibling outside that wrapper) would paint over / capture
- * clicks on the confirm buttons once `/plan` is scrolled down; portaling to `body` lifts the
- * dialog out of that context. The `mounted` guard keeps `document.body` untouched during the
- * static-export prerender.
+ * Overlay mounting: the confirm dialog is a `fixed` overlay. Inline `fixed` route content is
+ * trapped by `app/template.tsx`'s `.animate-route-fade` stacking context, so the app `<footer>`
+ * (a sibling outside that wrapper) would paint over / capture clicks on the confirm buttons once
+ * `/plan` is scrolled down; portaling to `body` lifts the dialog out of that context. That is
+ * proved from the document in e2e/export-import.spec.ts, and it still holds.
+ *
+ * THE CONFIRM IS THE HOUSE PRIMITIVE, not a hand-rolled portal. It used to be the latter, with
+ * `role="dialog" aria-modal="true"` and nothing behind it: no Escape, no focus trap, no initial
+ * focus, no focus restore, and no `body[data-dialog-open]`, so the page scrolled behind the scrim
+ * and a keyboard or screen-reader user was never moved into — or told about — an irreversible
+ * import that replaces itinerary, journal and photos. `components/ui/alert-dialog.tsx` (Radix,
+ * already in the shared bundle via `sign-out-confirm.tsx`, which is this app's other destructive
+ * confirm) supplies every one of those, plus `role="alertdialog"` and initial focus on CANCEL,
+ * which is the right default for a destructive choice. Outside-click deliberately does not
+ * dismiss — Radix's alert dialog reserves dismissal for an explicit answer.
+ *
+ * `useDialogOpenFlag` is still ours to call: Radix owns its own scroll lock but knows nothing
+ * about `body[data-dialog-open]`, which is the seam `components/quick-add-fab.tsx` reads.
+ *
+ * The confirm button calls `preventDefault()` so the dialog stays up while the async restore
+ * runs (the "Restoring…" state); `confirmImport` clears `pendingImport`, which is what closes it.
  */
 
 type Status =
@@ -53,17 +76,22 @@ export default function BackupRestore() {
   const { restoreMyPlaces } = useMyPlaces();
   const { restoreDocsChecklist } = useDocs();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Focus-return target. Radix's modal content restores focus to its TRIGGER, and this dialog has
+  // none — it is opened by the file input's `change`, so `triggerRef` is null and focus would land
+  // on <body>. The button that started the flow is the honest place to put it back.
+  const importTriggerRef = useRef<HTMLButtonElement>(null);
   const [status, setStatus] = useState<Status>({ kind: 'idle' });
   // The picked file, held while the confirm dialog is open (so Confirm can import it and Cancel can
   // discard it). importTripBackup decompresses + parses the raw file itself, so we don't pre-read.
   const [pendingImport, setPendingImport] = useState<{ file: File; name: string } | null>(null);
   // Guards the confirm button while the async restore runs (a restore reads/writes IndexedDB blobs).
   const [importing, setImporting] = useState(false);
-  // Portal mount guard: document.body is only touched after mount, never during
-  // the static-export prerender. The `dynamic({ssr:false})` mount on /plan already keeps
-  // this off the server render, and this guard is the belt-and-suspenders convention match.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  // The FAB seam (see the note above). Radix does not set it.
+  useDialogOpenFlag(!!pendingImport);
+  // Radix keeps the panel mounted through its close animation, by which point `pendingImport` is
+  // already null — without this the filename blanks out mid-fade on every cancel.
+  const lastImportName = useRef('');
+  if (pendingImport) lastImportName.current = pendingImport.name;
 
   // Whether this build is syncing for a signed-in traveler. Under sync the itinerary is
   // restored via `restorePlans` (tombstone-replace MERGE — propagates + survives the next snapshot);
@@ -193,6 +221,7 @@ export default function BackupRestore() {
               <strong className="font-semibold text-ink-hi">replaces your current trip</strong>.
             </p>
             <button
+              ref={importTriggerRef}
               type="button"
               onClick={() => fileInputRef.current?.click()}
               data-testid="backup-import-trigger"
@@ -236,72 +265,82 @@ export default function BackupRestore() {
         </div>
       </div>
 
-      {/* Confirm dialog — PORTALED to document.body, rendered only while an
-          import is pending. Portaling lifts this `fixed` overlay out of /plan's
-          `.animate-route-fade` stacking context so the app <footer> can't paint over /
-          capture its buttons when the page is scrolled down. Explicit
-          shared-trip copy. */}
-      {mounted &&
-        pendingImport &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="backup-confirm-title"
-            data-testid="backup-confirm-dialog"
-          >
-            <div className="w-full max-w-md rounded-r3 border-2 border-border bg-surface-low p-6">
-              <div className="mb-3 flex items-center gap-2">
-                {/* The destructive-confirm ("cannot be undone") affordance, so it carries
-                    --destructive — unlike the reassurance ShieldCheck above, which is decoration
-                    and sits on the ink ramp. The retired gold literal is gone with the rest. */}
-                <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
-                <h3 id="backup-confirm-title" className="text-t-lead font-semibold text-ink-hi">
-                  Replace your current trip?
-                </h3>
-              </div>
-              <p className="text-t-body text-ink-mid">
-                Importing <span className="font-machine text-t-sm text-ink-hi">{pendingImport.name}</span> will
-                replace your <strong className="font-semibold text-ink-hi">itinerary, journal and photos</strong> with
-                the contents of that file.{' '}
-                {synced ? (
-                  <>
-                    Expenses, budget and the documents checklist are merged instead — anything you&apos;ve
-                    changed on this trip since the backup was made is kept.
-                  </>
-                ) : (
-                  <>Expenses, budget and checklists are replaced too.</>
-                )}
-              </p>
-              <p className="mt-2 text-t-body text-ink-mid">
-                This changes the trip <strong className="font-semibold text-ink-hi">on this device</strong> and cannot
-                be undone. The page will reload once it&apos;s restored.
-              </p>
-              <div className="mt-6 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={cancelImport}
-                  disabled={importing}
-                  data-testid="backup-confirm-cancel"
-                  className="btn btn--2 px-4"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmImport}
-                  disabled={importing}
-                  data-testid="backup-confirm-import"
-                  className="btn btn--danger px-4"
-                >
-                  {importing ? 'Restoring…' : 'Replace trip'}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      {/* Confirm — see the modal-contract note at the top of this file. Controlled by
+          `pendingImport`, so the dialog closes only when the pending file is cleared. */}
+      <AlertDialog
+        open={!!pendingImport}
+        onOpenChange={(open) => {
+          if (!open) cancelImport();
+        }}
+      >
+        <AlertDialogContent
+          // Radix does not set this; it hides the rest of the document with `aria-hidden`
+          // instead — except that `hideOthers` deliberately skips any subtree containing an
+          // `aria-live` region, and this panel has one (the export/import status line). Keeping
+          // the attribute the hand-rolled dialog already carried costs nothing and closes that
+          // hole for the ATs that read it.
+          aria-modal="true"
+          onCloseAutoFocus={(e) => {
+            e.preventDefault();
+            importTriggerRef.current?.focus();
+          }}
+          className="max-w-md border-2 border-border bg-surface-low"
+          data-testid="backup-confirm-dialog"
+        >
+          {/* The primitive centres its header on mobile; two paragraphs of prose read badly that
+              way, and the panel it replaces was left-aligned at every width. */}
+          <AlertDialogHeader className="text-left">
+            <AlertDialogTitle className="flex items-center gap-2">
+              {/* The destructive-confirm ("cannot be undone") affordance, so it carries
+                  --destructive — unlike the reassurance ShieldCheck above, which is decoration
+                  and sits on the ink ramp. The retired gold literal is gone with the rest. */}
+              <AlertTriangle className="h-5 w-5 shrink-0 text-destructive" aria-hidden="true" />
+              Replace your current trip?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Importing{' '}
+              <span className="font-machine text-t-sm text-ink-hi">{lastImportName.current}</span> will
+              replace your <strong className="font-semibold text-ink-hi">itinerary, journal and photos</strong> with
+              the contents of that file.{' '}
+              {synced ? (
+                <>
+                  Expenses, budget and the documents checklist are merged instead — anything you&apos;ve
+                  changed on this trip since the backup was made is kept.
+                </>
+              ) : (
+                <>Expenses, budget and checklists are replaced too.</>
+              )}
+            </AlertDialogDescription>
+            {/* A second <AlertDialogDescription> would duplicate Radix's aria-describedby id, so
+                this half is a plain paragraph — it is elaboration, and the described-by text
+                above already carries what the choice is. */}
+            <p className="text-t-body text-[color:var(--text-mid)]">
+              This changes the trip <strong className="font-semibold text-ink-hi">on this device</strong> and cannot
+              be undone. The page will reload once it&apos;s restored.
+            </p>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={importing}
+              data-testid="backup-confirm-cancel"
+              className="btn btn--2 px-4"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault(); // stay open while the restore runs — see the note up top
+                void confirmImport();
+              }}
+              disabled={importing}
+              data-testid="backup-confirm-import"
+              className="btn btn--danger px-4"
+            >
+              {importing ? 'Restoring…' : 'Replace trip'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </section>
   );
 }

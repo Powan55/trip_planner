@@ -94,13 +94,17 @@ import { entranceFor } from '@/lib/motion';
  * app uses for every other reading. Static literals (the zero-live-trip-data rule above), and each
  * is checkable: 32 days is the same figure `first-run-tour.tsx` and `map-section.tsx` print, the
  * two legs are the two the app ships, there is no invite mechanism at all, and the stack has no
- * paid service and no keyed map provider in it.
+ * paid service in it.
+ *
+ * These readings are written for a stranger, so they carry no developer vocabulary. "no API key"
+ * used to sit here and on the Map row below, where it read as a fault report on the map rather
+ * than the boast it was (D-079: the basemap is keyless by design and has never needed a key).
  */
 const FACTS = [
   { label: 'Days', value: '32', foot: 'Dec 2026 — Jan 2027' },
   { label: 'Countries', value: '02', foot: 'Nepal, then Japan' },
   { label: 'Invites to send', value: '00', foot: 'One Trip Token instead' },
-  { label: 'Price', value: '0', foot: 'No card, no API key' },
+  { label: 'Price', value: '0', foot: 'Free, no card needed' },
 ] as const;
 
 /**
@@ -121,7 +125,7 @@ const FACTS = [
  */
 const ONBOARD = [
   { name: 'Itinerary', cond: 'Every day, in the order you will do it', n: '32', unit: 'days' },
-  { name: 'Map', cond: 'Your stops, pinned and joined in order', n: null, unit: 'no API key' },
+  { name: 'Map', cond: 'Your stops, pinned and joined in order', n: null, unit: 'street map' },
   { name: 'Guides', cond: 'Where to go, eat, shoot and go out late', n: '4', unit: 'kinds' },
   { name: 'Money', cond: 'Yen and rupees in, who-owes-who out', n: '3', unit: 'currencies' },
   { name: 'Checklists', cond: 'Packing and documents, before you fly', n: '2', unit: 'lists' },
@@ -660,7 +664,7 @@ export default function LandingPage({
         style={{ background: 'var(--mint)', color: 'var(--on-accent)' }}
       >
         <span className="font-machine text-t-micro font-semibold uppercase tracking-[0.14em]">
-          No subscription &middot; no API key
+          No subscription &middot; no card
         </span>
         <p className="text-display-xl">Start the countdown.</p>
         <p className="max-w-[38ch] text-t-body leading-relaxed">

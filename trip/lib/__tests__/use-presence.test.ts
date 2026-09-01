@@ -51,7 +51,7 @@ import { usePresence, type ActivePresence } from '@/hooks/use-presence';
 import { IDENTITY_CHANGED_EVENT } from '@/lib/token-auth';
 
 const ACTIVE_WINDOW_MS = 2 * 180_000; // mirrors the hook's own copy (lib/presence.ts's ACTIVE_WINDOW_MS)
-const POWAN = { name: 'Powan', token: 'Powan', accent: '#FFC43D' }; // gold-400
+const ALINA = { name: 'Alina', token: 'Alina', accent: '#FFC43D' }; // gold-400
 
 interface HookHandle {
   current: ActivePresence[];
@@ -107,7 +107,7 @@ describe('usePresence (S54/D-057)', () => {
   });
 
   it('SSR-safe: returns [] on first paint, before the lazy import resolves', () => {
-    gate.traveler = POWAN;
+    gate.traveler = ALINA;
     const h = renderPresence();
     // The mount effect ran synchronously (activate() started the dynamic import), but its
     // `.then` has not landed yet — subscribePresence has not been called, and the hook still
@@ -119,7 +119,7 @@ describe('usePresence (S54/D-057)', () => {
 
   it('DORMANT (isRemoteConfigured() false): never subscribes, returns []', async () => {
     gate.remoteOn = false;
-    gate.traveler = POWAN;
+    gate.traveler = ALINA;
     const h = renderPresence();
     await flush();
     expect(presenceCtl.calls).toBe(0); // no import('@/lib/presence') work landed
@@ -138,7 +138,7 @@ describe('usePresence (S54/D-057)', () => {
   });
 
   it('active others: excludes self, filters by isActive, enriches accent (known + fallback)', async () => {
-    gate.traveler = POWAN; // the viewer
+    gate.traveler = ALINA; // the viewer
     const h = renderPresence();
     await flush();
     expect(presenceCtl.calls).toBe(1);
@@ -146,18 +146,18 @@ describe('usePresence (S54/D-057)', () => {
     const now = Date.now();
     act(() => {
       presenceCtl.cb?.([
-        { uid: 'u-sushil', name: 'Sushil', lastSeen: now }, // active, known accent (sakura)
-        { uid: 'u-powan', name: 'Powan', lastSeen: now }, // self — excluded
-        { uid: 'u-uttam', name: 'Uttam', lastSeen: now - 10 * 60_000 }, // stale (10m > 3m window) — excluded
+        { uid: 'u-rhea', name: 'Rhea', lastSeen: now }, // active, known accent (sakura)
+        { uid: 'u-alina', name: 'Alina', lastSeen: now }, // self — excluded
+        { uid: 'u-milo', name: 'Milo', lastSeen: now - 10 * 60_000 }, // stale (10m > 3m window) — excluded
         { uid: 'u-guest', name: 'Random Guest', lastSeen: null }, // pending beat counts active, unknown accent
       ]);
     });
 
     const names = h.current.map((p) => p.name).sort();
-    expect(names).toEqual(['Random Guest', 'Sushil']);
+    expect(names).toEqual(['Random Guest', 'Rhea']);
 
-    const sushil = h.current.find((p) => p.name === 'Sushil');
-    expect(sushil?.accent).toBe('#FF8FC7'); // TRAVELERS sakura accent (sakura-400)
+    const rhea = h.current.find((p) => p.name === 'Rhea');
+    expect(rhea?.accent).toBe('#FF8FC7'); // TRAVELERS sakura accent (sakura-400)
 
     const guest = h.current.find((p) => p.name === 'Random Guest');
     // R2/D-265: pins hooks/use-presence.ts's FALLBACK_ACCENT literal — fallback gold, no matching
@@ -170,7 +170,7 @@ describe('usePresence (S54/D-057)', () => {
 
   it('stale eviction tick: a traveler whose heartbeat stopped ages off after the active window', async () => {
     vi.useFakeTimers();
-    gate.traveler = POWAN;
+    gate.traveler = ALINA;
     const h = renderPresence();
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
@@ -178,9 +178,9 @@ describe('usePresence (S54/D-057)', () => {
     expect(presenceCtl.calls).toBe(1);
 
     act(() => {
-      presenceCtl.cb?.([{ uid: 'u-sushil', name: 'Sushil', lastSeen: Date.now() }]);
+      presenceCtl.cb?.([{ uid: 'u-rhea', name: 'Rhea', lastSeen: Date.now() }]);
     });
-    expect(h.current.map((p) => p.name)).toEqual(['Sushil']);
+    expect(h.current.map((p) => p.name)).toEqual(['Rhea']);
 
     // No new snapshot arrives, but the eviction interval re-filters on ACTIVE_WINDOW_MS ticks —
     // once real (fake) time has moved past the window, the same record ages off.
@@ -200,7 +200,7 @@ describe('usePresence (S54/D-057)', () => {
     expect(presenceCtl.calls).toBe(0);
 
     // Sign in.
-    gate.traveler = POWAN;
+    gate.traveler = ALINA;
     act(() => {
       window.dispatchEvent(new CustomEvent(IDENTITY_CHANGED_EVENT));
     });
@@ -208,9 +208,9 @@ describe('usePresence (S54/D-057)', () => {
     expect(presenceCtl.calls).toBe(1); // subscribe opened live, no reload needed
 
     act(() => {
-      presenceCtl.cb?.([{ uid: 'u-sushil', name: 'Sushil', lastSeen: Date.now() }]);
+      presenceCtl.cb?.([{ uid: 'u-rhea', name: 'Rhea', lastSeen: Date.now() }]);
     });
-    expect(h.current.map((p) => p.name)).toEqual(['Sushil']);
+    expect(h.current.map((p) => p.name)).toEqual(['Rhea']);
 
     // Sign out.
     gate.traveler = null;

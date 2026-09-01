@@ -355,9 +355,17 @@ function Ledger({
         <span className="chip">{seeded ? 'seed rates' : 'rates overridden'}</span>
       </div>
 
-      <div className="overflow-x-auto border-hair border-[color:hsl(var(--border))]">
+      {/* No `focus-visible:outline-none` utility here on purpose: the ring comes from the
+          unlayered `:focus-visible` fallback in globals.css, and a utility would beat it. */}
+      <div
+        role="region"
+        aria-labelledby="budget-ledger-caption"
+        tabIndex={0}
+        data-testid="budget-ledger-scroll"
+        className="overflow-x-auto border-hair border-[color:hsl(var(--border))]"
+      >
         <table className="w-full border-collapse">
-          <caption className="sr-only">
+          <caption id="budget-ledger-caption" className="sr-only">
             Logged spend by category, one column per leg in that leg&rsquo;s currency plus the
             total converted to {home}.
           </caption>

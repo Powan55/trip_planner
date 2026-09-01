@@ -84,7 +84,7 @@ export default function PlanSearch({ plans, onSelect }: PlanSearchProps) {
             setActiveIndex(0);
           }}
           onKeyDown={onKeyDown}
-          className="w-full min-h-tap pl-9 pr-9 py-2 rounded-r1 bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] font-machine text-t-sm text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+          className="w-full min-h-tap pl-9 pr-9 py-2 rounded-r1 bg-[rgb(var(--surface-low))] border-hair border-[color:var(--border-ui)] font-sans text-t-body text-ink-hi placeholder:text-ink-lo outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
         />
         {query && (
           <button
