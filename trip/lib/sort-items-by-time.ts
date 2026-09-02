@@ -60,7 +60,7 @@ export function sortItemsByTime(
  * Tokyo flight that genuinely overlaps its Detroit layover reads as disjoint. `dayDate` +
  * `dayOffsetMin` resolve each item through the SAME `placeWallClockToUtcMs` every other
  * instant consumer uses — no second time-math path here. (No longer latent: D-316 derives
- * the span from the free-text `duration` too, and all 158 seed items carry one. The four
+ * the span from the free-text `duration` too, and all 180 seed items carry one. The four
  * overlaps that surfaced when it went live are gone — issue #18/D-327 corrected all of them
  * in `core/content/itinerary.ts`, so the shipped seed is clean and the badge now only ever
  * reports a collision a user, a peer's sync or an import produced.)
@@ -88,7 +88,7 @@ interface Interval {
  * untimed, or it has no duration.
  *
  * D-316: the duration comes from `effectiveDurationMinutes`, so the free-text `duration`
- * the 158 seed items carry is now derived at read. Before that this returned `null` for
+ * the 180 seed items carry is now derived at read. Before that this returned `null` for
  * every seed item and the whole clash feature could not fire.
  *
  * D-316 addendum (A-14): `endDate` exempts an item only while it still covers `dayDate` —

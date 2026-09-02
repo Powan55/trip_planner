@@ -385,7 +385,7 @@ test.describe('S383 — NON-REGRESSION: no filter selected means nothing changed
     page,
   }) => {
     // No seeding: the real content pack. It carries ZERO attribution (measured in S383: 0
-    // createdBy / 0 updatedBy / 0 doneBy across 158 items), so `distinctAuthors` is empty and
+    // createdBy / 0 updatedBy / 0 doneBy across 180 items), so `distinctAuthors` is empty and
     // the control renders nothing. That makes a fresh install the strongest possible
     // non-regression case: the filter cannot even be selected, so every number on this page
     // must be exactly what it was before this slice.

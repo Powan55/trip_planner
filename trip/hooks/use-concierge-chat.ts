@@ -36,24 +36,28 @@ export interface ChatTurn {
 // raised BOTH to 7000 (from 2000) so the whole fully-planned 32-day digest fits
 // without mid-trip truncation. raised BOTH to 9500, because the digest now carries a
 // per-item time + category prefix. MEASURED, not estimated:
-// fully-planned 32-day sample trip, 158 items: 6636 chars BEFORE → 9452 AFTER.
+// fully-planned 32-day sample trip, 180 items: 7514 chars BEFORE → 10746 AFTER (the Nepal leg
+// rebuild moved the seed 158 → 180 items; the pre-rebuild pair was 6636 → 9452).
 // Both numbers are pinned EXACTLY by the "MEASUREMENT" test in
 // lib/__tests__/concierge-digest-s327.test.ts (constants MEASURED_DIGEST_BEFORE/AFTER), so the
 // slack claim below is backed by a test that goes red rather than by a run someone did once —
 // change what the digest emits and that test fails and asks you to re-measure.
 //
-// ⚠️ THE SLACK IS THIN NOW, AND IT CANNOT BE BOUGHT BACK FROM THIS FILE. #12 spent 402 of it:
+// ⚠️ THE SLACK IS GONE, AND IT CANNOT BE BOUGHT BACK FROM THIS FILE. #12 spent 402 of it:
 // +351 taking the per-item times 24-hour → 12-hour (`18:30` → `6:30 PM`, the bug), and +51
 // making the date line unconditional. #18 then spent 26 more, and NOT by changing this format:
-// D-327 retitled a seed item, the title is in the digest, and the digest grew. Worst case is now
-// 9461 chars, on an in-window clock (the "(Day 31 of 32, Tokyo)." branch is longer than
-// "(before the trip)."), leaving about 39 chars — under one itinerary item, where there used to
-// be room for ten. Note what that means: this budget is now spent by editing the TRIP, not only
-// by editing the builder, so a longer plan title is a cap change. The cap test in that same
-// file walks all 32 trip days and fails if any of them truncates.
+// D-327 retitled a seed item, the title is in the digest, and the digest grew. The note here used
+// to say ~39 chars were left and that the next seed edit would probably break the cap. It did:
+// the Nepal leg rebuild took the seed 158 → 180 items and the fully-planned digest to 10746 chars,
+// 1246 OVER this cap. Re-measured, and pinned, in that same test file.
 // If a future change needs more room, DIGEST_CAP and the Worker's CONTEXT_TRUNCATE_LENGTH move
 // TOGETHER, in a Worker deploy. Raising this one alone does not buy room, it just moves the
 // truncation server-side where nothing turns red (see the coupling note below).
+//
+// So the overflow BEHAVIOUR changed instead of the number. `buildTripDigest` no longer slices the
+// string mid-line; it drops whole day lines, furthest in time from today first, and appends one
+// line naming what it dropped. The cap test in that file walks all 32 clock days and checks that
+// degradation rather than the old "never truncates" invariant, which the trip itself made false.
 // Keep these two constants equal; a higher client cap would ship bytes the server silently
 // discards. (They land + deploy together per the coupling; don't raise one without
 // the other.)
@@ -164,7 +168,9 @@ export function buildTripDescriptor(): TripDescriptor | null {
  * though `12-20` would save ~160 chars, because a non-ISO date echoed back into an op is dropped
  * silently by `validateOps` — the bug class, not worth reintroducing.
  *
- * Hard-capped at `DIGEST_CAP` chars (truncate + '…') — a token-budget guard for the Worker call.
+ * Hard-capped at `DIGEST_CAP` chars — a token-budget guard for the Worker call. Overflow drops
+ * WHOLE day lines, furthest in time from today first, and appends one line naming the omitted
+ * dates; it no longer slices mid-line. See the overflow block at the bottom of the function.
  */
 // The digest is a LINE-oriented format ("date city: item; item") assembled by interpolation, and
 // item titles / day cities reach storage from paths no `<input>` constrains: a restored backup
@@ -176,7 +182,7 @@ export function buildTripDescriptor(): TripDescriptor | null {
 const oneLine = (s: string): string => s.replace(/[\r\n;]+/g, ' ');
 
 export function buildTripDigest(): string {
-  const lines: string[] = [
+  const head: string[] = [
     // the header states the ISO format + the exact valid range explicitly. The human-readable
     // TRIP_DATE_LABEL alone was letting the model echo "Dec 20" or a wrong YEAR back in an op's
     // date, which `validateOps` then dropped silently — the user just saw a reply
@@ -211,7 +217,7 @@ export function buildTripDigest(): string {
   const now = getNowAtTrip();
   const today = getTodayInTrip();
   const stamp = `Today is ${now.date} ${formatTimeAmPm(now.minutes)}`;
-  lines.push(
+  head.push(
     today
       ? `${stamp} (Day ${today.dayNumber} of ${TRIP_DATES.length}, ${today.city}).`
       : `${stamp} (${now.date < TRIP_DATES[0] ? 'before' : 'after'} the trip).`,
@@ -220,6 +226,7 @@ export function buildTripDigest(): string {
   const plans = itineraryStoragePort.load();
   const byDate = new Map(plans.map((d) => [d.date, d]));
 
+  const days: { date: string; line: string }[] = [];
   for (const date of TRIP_DATES) {
     const day = byDate.get(date);
     const items = (day?.items ?? []).filter((i) => i.deleted !== true);
@@ -242,11 +249,52 @@ export function buildTripDigest(): string {
         return `${time}${i.category} ${oneLine(i.title)} #${i.id}`;
       })
       .join('; ');
-    lines.push(`${date} ${oneLine(city)}: ${entries}`);
+    days.push({ date, line: `${date} ${oneLine(city)}: ${entries}` });
   }
 
-  const digest = lines.join('\n');
-  return digest.length > DIGEST_CAP ? `${digest.slice(0, DIGEST_CAP - 1)}…` : digest;
+  const full = [...head, ...days.map((d) => d.line)].join('\n');
+  if (full.length <= DIGEST_CAP) return full; // byte-identical to the pre-overflow output
+
+  // OVER CAP. The old behaviour here was `digest.slice(0, DIGEST_CAP - 1) + '…'`, which cut the
+  // string mid-line: the model was handed a half-written day it read as a whole one, and it always
+  // lost the SAME end of the trip no matter when it was asked. The concierge is asked "what should
+  // I do tomorrow?", so proximity to now is the relevance signal — drop WHOLE day lines, furthest
+  // in time from today first, and say which ones went. Without that last line the model answers
+  // confidently about a day it cannot see, and worse: the header above states that any unlisted
+  // date is unplanned, which an omitted day would turn into a lie.
+  //
+  // `TRIP_DATES` is contiguous, so a date's index IS its day number and |Δindex| is the distance.
+  // Off-trip, clamp to the nearer end of the window (before the trip, the first days matter; after
+  // it, the last). Ties go to the earlier day, which is the one already spent.
+  const lastDate = TRIP_DATES[TRIP_DATES.length - 1];
+  const refDate =
+    now.date < TRIP_DATES[0] ? TRIP_DATES[0] : now.date > lastDate ? lastDate : now.date;
+  const ref = TRIP_DATES.indexOf(refDate);
+  const dropOrder = days
+    .map((d, i) => ({ i, dist: Math.abs(TRIP_DATES.indexOf(d.date) - ref) }))
+    .sort((a, b) => b.dist - a.dist || a.i - b.i)
+    .map((d) => d.i);
+
+  // Re-measured after each drop rather than estimated: the omission line grows as it drops, and
+  // "does the whole string fit" is the only thing that matters. ≤32 rebuilds of a ≤9500-char
+  // string — not worth a smarter loop.
+  const dropped = new Set<number>();
+  for (const i of dropOrder) {
+    dropped.add(i);
+    const omitted = days.filter((_, j) => dropped.has(j)).map((d) => d.date);
+    const out = [
+      ...head,
+      ...days.filter((_, j) => !dropped.has(j)).map((d) => d.line),
+      `${omitted.length} day(s) omitted for length (they ARE planned, not unplanned): ${oneLine(omitted.join(', '))}`,
+    ].join('\n');
+    if (out.length <= DIGEST_CAP) return out;
+  }
+
+  // Every day dropped and still over cap — only reachable if the fixed header alone exceeds
+  // DIGEST_CAP (it is ~250 chars against 9500). Slice as the last resort so the cap holds
+  // unconditionally rather than depending on a header staying short.
+  const bare = [...head, `${days.length} day(s) omitted for length.`].join('\n');
+  return bare.length > DIGEST_CAP ? `${bare.slice(0, DIGEST_CAP - 1)}…` : bare;
 }
 
 /**

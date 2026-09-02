@@ -131,9 +131,11 @@ describe('day-arrival counting — the itinerary credits a city once its day has
     const { tripPlacesThrough } = await load({ today: '2026-12-16' });
     expect(tripPlacesThrough('2026-12-16')).toEqual([
       { city: 'New York', country: 'USA' },
-      { city: 'Kathmandu', country: 'Nepal' }, // Dec 10-12, and again Dec 15 — recorded once
+      { city: 'Kathmandu', country: 'Nepal' }, // Dec 10 and Dec 12 — recorded once
+      { city: 'Kirtipur', country: 'Nepal' }, // Dec 11, new with the Nepal rebuild
       { city: 'Lalitpur', country: 'Nepal' },
       { city: 'Nagarkot', country: 'Nepal' },
+      { city: 'Chitlang', country: 'Nepal' }, // Dec 15, new with the Nepal rebuild
       { city: 'Bhaktapur', country: 'Nepal' },
     ]);
     // Tomorrow's cities are NOT credited today.
@@ -145,8 +147,10 @@ describe('day-arrival counting — the itinerary credits a city once its day has
     expect(allTripPlaces().map((p) => p.city)).toEqual([
       'New York',
       'Kathmandu',
+      'Kirtipur',
       'Lalitpur',
       'Nagarkot',
+      'Chitlang',
       'Bhaktapur',
       'Osaka',
       'Kyoto',
@@ -163,8 +167,10 @@ describe('day-arrival counting — the itinerary credits a city once its day has
     expect(getVisited().cities).toEqual([
       'New York',
       'Kathmandu',
+      'Kirtipur',
       'Lalitpur',
       'Nagarkot',
+      'Chitlang',
       'Bhaktapur',
       'Osaka',
     ]);

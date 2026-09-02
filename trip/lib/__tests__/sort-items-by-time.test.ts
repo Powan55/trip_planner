@@ -270,8 +270,8 @@ const SEED_DURATIONS = TRIP_ITINERARY.flatMap((d) =>
 );
 
 describe('D-316 — parseDurationText derives the span from the text the data already holds', () => {
-  it('every seed `duration` string parses to positive minutes (all 158 of them)', () => {
-    expect(SEED_DURATIONS.length).toBe(158); // the premise: the strings exist and are all here
+  it('every seed `duration` string parses to positive minutes (all 180 of them)', () => {
+    expect(SEED_DURATIONS.length).toBe(180); // the premise: the strings exist and are all here
     const failed = SEED_DURATIONS.filter((s) => {
       const v = parseDurationText(s);
       return typeof v !== 'number' || !Number.isInteger(v) || v <= 0;

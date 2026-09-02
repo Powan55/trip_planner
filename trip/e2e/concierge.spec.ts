@@ -162,7 +162,13 @@ test.describe('S350 · concierge panel — starter chips, list rendering, ops ch
     page,
   }) => {
     const hits = await stubChat(page);
-    await page.goto('/', { waitUntil: 'load' });
+    // CLOCK PINNED (D-075 `?today=`). Over DIGEST_CAP the digest no longer truncates — it sheds
+    // WHOLE day lines, furthest in time from today first — and the fully-planned seed is always
+    // over it (10746 chars against 9500), so WHICH dates survive depends on when the suite runs.
+    // Unpinned, the Dec-9 assertion below passes today and starts failing on 2026-12-22, the clock
+    // at which Dec 9 becomes the FIRST day dropped. Pinning today ONTO Dec 9 puts that line at
+    // distance 0 — the last day the drop order can reach, whatever the seed grows to.
+    await page.goto('/?today=2026-12-09', { waitUntil: 'load' });
     await assertConciergeWired(page); // R5 — instant, named failure instead of a 30s timeout below
     await page.getByTestId('concierge-trigger').click();
     await expect(page.getByTestId('concierge-panel')).toBeVisible();
@@ -187,9 +193,13 @@ test.describe('S350 · concierge panel — starter chips, list rendering, ops ch
     // airport the plane really leaves from, and only the day's city label moved.
     // #12: the SEED is still 24-hour ('05:30') — it is the DIGEST that renders 12-hour, so this
     // pin is what proves the conversion happens on the way out rather than in the fixture.
+    // This day line survives the length shed only because the clock is pinned onto it (see goto).
     expect(context).toContain('2026-12-09 New York: 5:30 AM transportation Depart Syracuse');
     // Untimed items get NO token, never a fake midnight. #12 moved what a fake midnight looks
     // like: `formatTimeAmPm(0)` is '12:00 AM', so guarding '00:00 ' would no longer guard anything.
+    // The pinned clock also makes THIS deterministic: the digest's own "Today is …" stamp reads
+    // 12:00 PM at the override's local noon, where an unpinned run that happened to start inside
+    // the 00:00 minute would emit `Today is <date> 12:00 AM ` and fail here.
     expect(context).not.toContain('12:00 AM ');
     expect(context.length).toBeLessThanOrEqual(9500); // DIGEST_CAP
 

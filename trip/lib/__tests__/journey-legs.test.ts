@@ -95,7 +95,16 @@ describe('journeyLegs (the shipped pack)', () => {
     const [nepal, japan] = journeyLegs();
     // Dec 9 is the departure day and is spent in New York (D-315) — the leg id stays
     // 'nepal' for currency and offset, so the rail shows the city the day is actually in.
-    expect(nepal.cities).toEqual(['New York', 'Kathmandu', 'Lalitpur', 'Nagarkot', 'Bhaktapur']);
+    // Kirtipur (Dec 11) and Chitlang (Dec 15) joined the rail with the Nepal leg rebuild.
+    expect(nepal.cities).toEqual([
+      'New York',
+      'Kathmandu',
+      'Kirtipur',
+      'Lalitpur',
+      'Nagarkot',
+      'Chitlang',
+      'Bhaktapur',
+    ]);
     expect(japan.cities).toEqual(['Osaka', 'Kyoto', 'Tokyo']);
   });
 });

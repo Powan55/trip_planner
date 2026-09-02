@@ -1,6 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { buildItineraryStops, matchMarker, stopMarkerFor, segmentKm, type Placement } from '@/lib/itinerary-map';
+import {
+  buildItineraryStops,
+  matchMarker,
+  stopMarkerFor,
+  segmentKm,
+  NAME_INDEX,
+  type Placement,
+} from '@/lib/itinerary-map';
 import { MAP_MARKERS } from '@/lib/map-data';
+import { TRIP_ITINERARY } from '@/core/content/itinerary';
 import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 /**
@@ -156,6 +164,70 @@ describe('S379 — a generic city word must not claim a specific landmark pin', 
   });
 });
 
+/**
+ * The alias match is WORD-BOUNDED, not a bare substring.
+ *
+ * `hay.includes(alias)` has no boundary, so a short alias could match inside a longer word.
+ * "Asan Bazaar" strips to `asan`, which clears the discriminating-alias guard (4 chars, not its
+ * own city) and sits inside "Basantapur" — the `location` on Kathmandu Durbar Square, ~450 m
+ * away. That produced no wrong pin only because np-durbar-ktm precedes np-asan in MAP_MARKERS
+ * and `matchMarker` returns the FIRST hit: the defect was masked by array order, so a reorder or
+ * an item whose text says only "Basantapur" would have started pinning to the bazaar. Same class
+ * as the `osaka` alias above — a wrong pin looks exactly like a right pin.
+ */
+describe('alias matching is word-bounded — a short alias must not match inside a longer word', () => {
+  it('an item that says only "Basantapur" does NOT claim the Asan Bazaar pin', () => {
+    const item: ItineraryItem = {
+      id: 'bas',
+      title: 'Wander Basantapur',
+      category: 'sightseeing',
+      location: 'Basantapur',
+    };
+    expect(matchMarker(item)?.id ?? null).not.toBe('np-asan');
+  });
+
+  // Order-independent: the same assertion against the alias mechanism itself, so it cannot be
+  // satisfied by np-durbar-ktm merely sitting earlier in the array.
+  it('"Basantapur" alone matches NO marker', () => {
+    expect(matchMarker({ id: 'bas2', title: 'Basantapur', category: 'sightseeing' })).toBeNull();
+  });
+
+  it('a genuine Asan Bazaar item still resolves to np-asan', () => {
+    expect(matchMarker({ id: 'a1', title: 'Morning at Asan Bazaar', category: 'shopping' })?.id).toBe('np-asan');
+    expect(
+      matchMarker({ id: 'a2', title: 'Spice shopping', category: 'shopping', location: 'Asan, Kathmandu' })?.id,
+    ).toBe('np-asan');
+  });
+
+  // The apostrophe behaviour this landed on: `\b` after a letter IS a boundary before `'`, so an
+  // alias still matches when the haystack continues into "'s" or any punctuation.
+  it("an alias still matches when followed by 's or punctuation", () => {
+    expect(matchMarker({ id: 'a3', title: "Asan's morning crowd", category: 'photography' })?.id).toBe('np-asan');
+    expect(matchMarker({ id: 'a4', title: 'Dinner (Thamel).', category: 'food' })?.id).toBe('np-thamel');
+  });
+
+  // The two aliases that END in punctuation: a trailing `\b` after `'` or `)` would demand a
+  // following word character and never match at end of string, so it must not be emitted.
+  it('an alias ending in punctuation still matches at end of string', () => {
+    // Only the stripped alias "le sherpa & farmers'" can match this one — the full marker name
+    // ("… Market") is not in the text — so an unconditional trailing `\b` shows up here as null.
+    expect(matchMarker({ id: 'p0', title: "Lunch at Le Sherpa & Farmers'", category: 'food' })?.id).toBe(
+      'np-le-sherpa',
+    );
+    expect(matchMarker({ id: 'p1', title: "Le Sherpa & Farmers' Market", category: 'food' })?.id).toBe('np-le-sherpa');
+    expect(matchMarker({ id: 'p2', title: 'Kinkaku-ji (Golden Pavilion)', category: 'sightseeing' })?.id).toBe(
+      'jp-kinkakuji',
+    );
+  });
+
+  // Regex metacharacters in a marker name are escaped, not interpreted: `kar.ma`'s dot must not
+  // match any character.
+  it('a metacharacter in a marker name is literal', () => {
+    expect(matchMarker({ id: 'm1', title: 'kar.ma Coffee', category: 'food' })?.id).toBe('np-karma-coffee');
+    expect(matchMarker({ id: 'm2', title: 'karXma Coffee', category: 'food' })?.id).not.toBe('np-karma-coffee');
+  });
+});
+
 describe('S137 — buildItineraryStops includes pinned custom items as real stops', () => {
   it('a day with one legacy-matched item and one pinned custom item yields TWO stops', () => {
     const plans: DayPlan[] = [
@@ -219,5 +291,116 @@ describe('issue #224 — segmentKm: stop-to-stop distance reveals a backtrack', 
     expect(segmentKm(none, placed)).toBeNull();
     expect(segmentKm(placed, none)).toBeNull();
     expect(segmentKm(none, none)).toBeNull();
+  });
+});
+
+/**
+ * THE GATE THAT WAS MISSING. Six seed items plotted at the wrong pin through a full green suite,
+ * because every existing assertion in this file is hand-written: it can only catch a defect
+ * somebody already thought of. The tests below are DERIVED FROM THE DATA, so they grow with it.
+ *
+ * What got through, and what each test would have caught — replayed against the pre-fix data and
+ * matcher, not assumed:
+ *  • Newa Lahana was entered TWICE (np-newa-kitchen + np-newa-lahana, same restaurant, 293 m
+ *    apart) because the dedupe list named it by marker id, not by name. → "no two markers share
+ *    a name" goes red on exactly that pair.
+ *  • np-thamel's `thamel` alias shadowed three Thamel VENUES, because `matchMarker` returned the
+ *    first hit in MAP_MARKERS order and np-thamel sits at index 4. → "every seed item that names
+ *    a marker in its title" goes red on n3-3, n7-1 and n10-8.
+ *  • Five markers carried a qualifier no itinerary text contains ("Phulchowki Summit",
+ *    "Chandragiri Hills Cable Car — Base Station", …) so n7-2 and n9-1 matched nothing.
+ *    ⚠️ NONE of these tests catches that. The rule is keyed on the marker's own name, so a
+ *    marker whose name no itinerary text can contain is simply invisible to it — the item is
+ *    not covered rather than failing (52 covered pre-fix, 54 after). The double-space test at
+ *    the bottom catches the np-shivapuri variant and nothing catches the other four. Closing it
+ *    properly needs a declared card-id → marker-id join, which this repo does not have: seed
+ *    items carry a REGISTRY card id in `sourceId` ('na18'), never a marker id.
+ */
+describe('the marker vocabulary is self-consistent with the seed', () => {
+  // Fix 1's gate. Two rows for one venue is not a style problem: they carry different
+  // coordinates, so the pin a plan draws depends on which row the matcher reaches first.
+  it('no two markers share a name', () => {
+    const byName = new Map<string, string[]>();
+    for (const mk of MAP_MARKERS) {
+      const k = mk.name.toLowerCase();
+      byName.set(k, [...(byName.get(k) ?? []), mk.id]);
+    }
+    const dupes = [...byName].filter(([, ids]) => ids.length > 1);
+    expect(
+      dupes,
+      `markers share a name — one venue, two rows, two coordinates:\n${dupes
+        .map(([name, ids]) => `  "${name}" → ${ids.join(', ')}`)
+        .join('\n')}`,
+    ).toEqual([]);
+  });
+
+  /**
+   * If a marker's NAME appears in a seed item's TITLE, that item must resolve to THAT marker.
+   *
+   * Built from the data, never hand-listed, so a new researched place is covered the moment it
+   * is added. Deliberately keyed on the TITLE ALONE and not `location`: `location` is exactly
+   * the field the np-thamel shadowing came through ("Breakfast at Pumpernickel Bakery" /
+   * `location: 'Thamel'`), so including it would let the defect define the expectation.
+   *
+   * The item is passed AS AUTHORED — `sourceId` included — because that is what production
+   * resolves. `sourceId` legitimately outranks the name join, so an item whose sourceId names a
+   * DIFFERENT marker than its title would fail here; today none does, and if one is ever
+   * authored that is a content bug worth surfacing, not a rule to loosen.
+   *
+   * Exclusions: NONE. Measured on the current seed — 54 of 180 items carry a marker name in
+   * their title and not one of them is ambiguous (no title contains two marker names). The
+   * longest-name tie-break below is therefore unexercised today; it is there so that a future
+   * marker whose name nests inside another's resolves to the SPECIFIC one rather than to
+   * whichever the reduce happened to see first.
+   */
+  it("every seed item that names a marker in its title resolves to that marker's own pin", () => {
+    const pattern = (name: string) => {
+      const escaped = name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      // Same conditional boundaries as `aliasPattern`: two marker names end in punctuation
+      // ("Le Sherpa & Farmers' Market" strips nothing, "Kinkaku-ji (Golden Pavilion)"), where a
+      // trailing \b would demand a following word character and never match at end of title.
+      const lead = /^\w/.test(name) ? '\\b' : '';
+      const tail = /\w$/.test(name) ? '\\b' : '';
+      return new RegExp(`${lead}${escaped}${tail}`, 'i');
+    };
+    const named = MAP_MARKERS.map((mk) => ({ mk, re: pattern(mk.name) }));
+
+    const failures: string[] = [];
+    let covered = 0;
+    for (const plan of TRIP_ITINERARY) {
+      for (const item of plan.items ?? []) {
+        const hits = named.filter(({ re }) => re.test(item.title));
+        if (hits.length === 0) continue;
+        covered++;
+        const want = hits.reduce((a, b) => (b.mk.name.length > a.mk.name.length ? b : a)).mk;
+        const got = matchMarker(item);
+        if (got?.id !== want.id) {
+          failures.push(
+            `  ${item.id} "${item.title}" (location: ${JSON.stringify(item.location ?? null)})\n` +
+              `      want ${want.id} ("${want.name}")  got ${got ? `${got.id} ("${got.name}")` : 'NULL — no marker at all'}`,
+          );
+        }
+      }
+    }
+
+    expect(
+      failures,
+      `itinerary items named a marker in their title and plotted somewhere else.\n` +
+        `A wrong pin looks exactly like a right pin, so read the list:\n${failures.join('\n')}`,
+    ).toEqual([]);
+    // The rule must keep BITING as the seed changes. If this floor is ever the thing that fails,
+    // do not lower it — find out why items stopped naming their markers.
+    expect(covered, 'the derived rule covers almost nothing — it has gone vacuous').toBeGreaterThanOrEqual(50);
+  });
+
+  // The strip list in `NAME_INDEX` removes place-type words MID-STRING, and `.trim()` only trims
+  // the ends, so a name with the word in the middle leaves a hole: "Shivapuri National Park —
+  // Panimuhan Gate" produced the alias `shivapuri national  — panimuhan gate`, two spaces, which
+  // no itinerary text can ever contain. That marker was unreachable by name and nothing said so.
+  it('no derived alias contains a collapsed double space', () => {
+    const bad = NAME_INDEX.flatMap(({ marker, keys }) =>
+      keys.filter((k) => /\s{2,}/.test(k)).map((k) => `  ${marker.id}: ${JSON.stringify(k)}`),
+    );
+    expect(bad, `the place-type strip left a hole mid-alias — these can never match:\n${bad.join('\n')}`).toEqual([]);
   });
 });

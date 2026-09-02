@@ -104,76 +104,84 @@
   },
   {
     "date": "2026-12-11",
-    "city": "Kathmandu",
+    "city": "Kirtipur",
     "country": "nepal",
     "items": [
       {
         "id": "n3-1",
-        "title": "Sunrise at Swayambhunath (Monkey Temple)",
-        "category": "photography",
-        "time": "06:00",
-        "duration": "2h",
-        "notes": "365 steps to the top for a 360° valley panorama; bring a wide-angle lens for the cityscape",
-        "location": "Swayambhu Hill",
-        "sourceId": "na2"
+        "title": "Transfer to Tribhuvan's DOMESTIC terminal",
+        "category": "transportation",
+        "time": "05:45",
+        "duration": "30min",
+        "notes": "The mountain flight goes from the domestic terminal, about 600 m north of the international terminal you landed at. Do not navigate to a generic KTM pin — it lands mid-airfield",
+        "location": "Thamel → Domestic Terminal, Tribhuvan Intl (KTM)"
       },
       {
         "id": "n3-2",
-        "title": "Breakfast at OR2K Restaurant",
-        "category": "food",
-        "time": "08:30",
+        "title": "Everest Experience mountain flight",
+        "category": "sightseeing",
+        "time": "06:30",
         "duration": "1h",
-        "notes": "Mediterranean-Nepali fusion with rooftop cushion seating; vegetarian-friendly",
-        "location": "Thamel",
-        "sourceId": "nf3"
+        "notes": "An hour at around 25,000 ft: every seat is a window seat and the plane turns so both sides get the same view — the one thing that beats the December haze outright. Booked early in the stay on purpose, because winter radiation fog has closed Tribhuvan outright and a cancellation gets rescheduled, so this must not be left to the 18th. Book direct at buddhaair.com or through the hotel",
+        "location": "Domestic Terminal, Tribhuvan Intl (KTM)",
+        "sourceId": "na32"
       },
       {
         "id": "n3-3",
-        "title": "Kathmandu Durbar Square",
-        "category": "cultural",
-        "time": "10:00",
-        "duration": "3h",
-        "notes": "UNESCO royal square — Hanuman Dhoka, the temples, and the living goddess at Kumari Ghar",
-        "location": "Basantapur",
-        "sourceId": "na4"
+        "title": "Breakfast at Pumpernickel Bakery",
+        "category": "food",
+        "time": "08:15",
+        "duration": "1h",
+        "notes": "Open from 06:30, the only Thamel cafe confirmed to serve before 07:00. The walled garden is cold until about 09:00 in December — start indoors and move out when the sun reaches the courtyard",
+        "location": "Thamel",
+        "sourceId": "nf20"
       },
       {
         "id": "n3-4",
-        "title": "Lunch — momos at Yangling",
-        "category": "food",
-        "time": "13:00",
-        "duration": "1h",
-        "notes": "Legendary Thamel momo spot; try the jhol (soup) momos",
-        "location": "Thamel",
-        "sourceId": "nf2"
+        "title": "Drive to Kirtipur",
+        "category": "transportation",
+        "time": "09:15",
+        "duration": "30min",
+        "notes": "15-30 minutes by taxi at about NPR 450-700; the local bus from just south of Ratna Park is about NPR 35 and takes 25 minutes",
+        "location": "Thamel → Kirtipur"
       },
       {
         "id": "n3-5",
-        "title": "Asan Bazaar street photography",
-        "category": "photography",
-        "time": "14:30",
-        "duration": "2h",
-        "notes": "Oldest market in the city — spices, fabrics and hidden temples; ask permission for portraits",
-        "location": "Asan, Kathmandu",
-        "sourceId": "na8"
+        "title": "Nepal v India 'A' T20I at the TU International Cricket Ground",
+        "category": "sightseeing",
+        "time": "10:00",
+        "duration": "4h",
+        "notes": "A day game, not floodlit — gates open 60-90 minutes before the 10:00 start and a T20 finishes around 13:15. Confirm the fixture with the Cricket Association of Nepal nearer the time; tickets are Khalti-only, so the hotel may need to buy them. No re-entry, so bring water",
+        "location": "Kirtipur, Kathmandu",
+        "sourceId": "na34"
       },
       {
         "id": "n3-6",
-        "title": "Sunset at Boudhanath Stupa",
+        "title": "Kirtipur old town & Uma Maheshwor hill",
         "category": "sightseeing",
-        "time": "16:30",
+        "time": "14:30",
         "duration": "2h",
-        "notes": "Walk clockwise with the pilgrims; shoot the golden-hour dome from a rooftop cafe",
-        "location": "Boudha, Kathmandu",
-        "sourceId": "na1"
+        "notes": "A 15-minute walk uphill from the ground on uneven stone, for the old Newar town and the ridge view across to Chandragiri. NPR 100 town entry for non-Nepalis when the ticket booth is staffed, which it frequently is not",
+        "location": "Kirtipur, Kathmandu",
+        "sourceId": "na29"
       },
       {
         "id": "n3-7",
+        "title": "Late lunch at Newa Lahana",
+        "category": "food",
+        "time": "16:30",
+        "duration": "1.5h",
+        "notes": "Community-run Newari khaja ghar at the top of the hill, rice beer brewed on site, open to 21:00 and no reservation needed. Ask for an indoor floor — the top floor is unheated and goes cold fast once the sun drops. Cash is safest",
+        "location": "Kirtipur, Kathmandu",
+        "sourceId": "nf8"
+      },
+      {
+        "id": "n3-8",
         "title": "Live music at Purple Haze Rock Bar",
         "category": "nightlife",
         "time": "20:00",
         "duration": "2.5h",
-        "notes": "First full Kathmandu night — Purple Haze's live rock/blues bands in Thamel. Thamel bars wind down ~23:00-midnight (loosely enforced); verify hours/cover before going.",
+        "notes": "Back in Thamel for the first full Kathmandu night — Purple Haze's live rock/blues bands. Thamel bars wind down ~23:00-midnight (loosely enforced); verify hours/cover before going.",
         "location": "Thamel, Kathmandu",
         "sourceId": "nightlife-nl1"
       }
@@ -186,56 +194,66 @@
     "items": [
       {
         "id": "n4-1",
-        "title": "Morning aarti at Pashupatinath Temple",
-        "category": "cultural",
-        "time": "07:00",
-        "duration": "2.5h",
-        "notes": "Sacred Hindu temple on the Bagmati; cremation ghats and ritual — photograph with sensitivity (non-Hindus cannot enter the main shrine)",
-        "location": "Pashupatinath",
-        "sourceId": "na3"
+        "title": "Sunrise at Swayambhunath (Monkey Temple)",
+        "category": "photography",
+        "time": "06:30",
+        "duration": "2h",
+        "notes": "365 steps to a 360° valley panorama; sunrise is 06:44-06:49 in mid-December. On the valley floor the haze burns off through the morning and thickens again after lunch, so the city shots want this end of the day",
+        "location": "Swayambhu Hill",
+        "sourceId": "na2"
       },
       {
         "id": "n4-2",
+        "title": "Boudha Farmers Market in the Utpala Cafe garden",
+        "category": "food",
+        "time": "09:00",
+        "duration": "1.5h",
+        "notes": "Saturday-only, roughly 08:00-14:00 in the monastery cafe's walled garden, with the kitchen switching to a buffet rather than a-la-carte. This is the trip's only Saturday and the reason the Boudha day sits here — worth confirming the market is running that week",
+        "location": "Boudha, Kathmandu",
+        "sourceId": "nf17"
+      },
+      {
+        "id": "n4-3",
         "title": "Kopan Monastery viewpoint",
         "category": "photography",
-        "time": "10:00",
-        "duration": "2h",
-        "notes": "Hilltop monastery overlooking Boudhanath; prayer flags and golden roofs — respect quiet hours",
+        "time": "10:45",
+        "duration": "1.75h",
+        "notes": "Hilltop monastery looking down on Boudhanath; prayer flags and golden roofs — respect the quiet hours",
         "location": "Kopan Hill, Boudha",
         "sourceId": "na15"
       },
       {
-        "id": "n4-3",
-        "title": "Lunch at Himalayan Java",
-        "category": "food",
-        "time": "12:30",
-        "duration": "1h",
-        "notes": "Nepali-grown coffee and a light bite at the garden-view branch",
-        "location": "Boudha, Kathmandu",
-        "sourceId": "nf7"
-      },
-      {
         "id": "n4-4",
-        "title": "Garden of Dreams",
-        "category": "free",
-        "time": "14:30",
-        "duration": "2h",
-        "notes": "Neo-classical garden oasis — fountains and pavilions, a calm break from the city bustle",
-        "location": "Kaiser Mahal, Kathmandu",
-        "sourceId": "na7"
+        "title": "Lunch at Coffee Beans Specialty Coffee, Tushal",
+        "category": "food",
+        "time": "12:45",
+        "duration": "1h",
+        "notes": "A bright upstairs shophouse a few minutes off the kora, indoors and warm, open 07:00-20:00. Ask the price of the lot before you pick it — the house filter is about NPR 200 and the 'specialty' lots about NPR 400, and staff do not always volunteer the difference",
+        "location": "Tushal, Boudha",
+        "sourceId": "nf18"
       },
       {
         "id": "n4-5",
-        "title": "Dinner at Roadhouse Cafe",
-        "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
-        "notes": "Best wood-fired pizza in town with a craft-beer selection; lively Thamel branch",
-        "location": "Thamel",
-        "sourceId": "nf5"
+        "title": "Taragaon Next",
+        "category": "cultural",
+        "time": "14:00",
+        "duration": "1.75h",
+        "notes": "1970s brick-vaulted modernist complex about 600 m west of the stupa, open daily 10:00-17:30 including Saturday. Assume there is nothing on site to eat or drink, and register ahead through the form on taragaonnext.com if you want the guided tour",
+        "location": "Boudha, Kathmandu",
+        "sourceId": "na35"
       },
       {
         "id": "n4-6",
+        "title": "Sunset at Boudhanath Stupa",
+        "category": "sightseeing",
+        "time": "16:00",
+        "duration": "2h",
+        "notes": "Walk clockwise with the pilgrims and shoot the dome from a rooftop cafe. Sunset is about 17:15, so the golden light is on the whitewash from roughly 16:30 and the butter lamps come after",
+        "location": "Boudha, Kathmandu",
+        "sourceId": "na1"
+      },
+      {
+        "id": "n4-7",
         "title": "Casino Royale",
         "category": "nightlife",
         "time": "20:15",
@@ -245,7 +263,7 @@
         "sourceId": "nightlife-nl27"
       },
       {
-        "id": "n4-7",
+        "id": "n4-8",
         "title": "Club Deja Vu",
         "category": "nightlife",
         "time": "21:45",
@@ -266,54 +284,85 @@
         "title": "Patan Durbar Square",
         "category": "sightseeing",
         "time": "08:30",
-        "duration": "3h",
-        "notes": "The finest Newari architecture — Krishna Temple and the Golden Temple ring the square",
-        "location": "Lalitpur",
+        "duration": "2.5h",
+        "notes": "The finest Newari architecture in the valley — the Krishna Temple and the Golden Temple ring the square. Morning is the clean window, before the valley haze thickens again through the afternoon",
+        "location": "Patan, Lalitpur",
         "sourceId": "na5"
       },
       {
         "id": "n5-2",
         "title": "Patan Museum",
         "category": "cultural",
-        "time": "11:30",
+        "time": "11:00",
         "duration": "1.5h",
-        "notes": "The best museum in Nepal — Hindu & Buddhist bronze and stone art in a restored palace",
-        "location": "Patan"
+        "notes": "The best museum in Nepal — Hindu and Buddhist bronze and stone art, in a restored palace wing on the square itself",
+        "location": "Patan Durbar Square, Lalitpur"
       },
       {
         "id": "n5-3",
-        "title": "Lunch at Cafe Swotha",
+        "title": "Lunch at Honacha",
         "category": "food",
-        "time": "13:30",
-        "duration": "1.5h",
-        "notes": "Newari set meal in a beautifully restored heritage courtyard",
-        "location": "Patan",
-        "sourceId": "nf4"
+        "time": "12:45",
+        "duration": "45min",
+        "notes": "The old Newari bhatti in the alley behind Krishna Mandir, frying black-lentil bara on the same tawa for 60-70 years. Cash only, they cook a set quantity and stop when it goes, and the same family runs a second Honacha 20 m away by the Bhimsen Temple that no map pin separates — expect to ask",
+        "location": "Mangal Bazar, Patan",
+        "sourceId": "nf9"
       },
       {
         "id": "n5-4",
-        "title": "Patan alley courtyards & metalwork",
-        "category": "shopping",
-        "time": "15:30",
-        "duration": "1.5h",
-        "notes": "Wander the back lanes for hidden bahals and workshops; Patan is famous for handmade bronze and silver",
-        "location": "Patan"
+        "title": "Nag Bahal courtyard",
+        "category": "sightseeing",
+        "time": "13:45",
+        "duration": "45min",
+        "notes": "Free, unticketed and open at any hour, immediately beside the Golden Temple about 320 m north-north-west of Durbar Square — not south, where some listings put it. A living neighbourhood: walk clockwise around the chaityas and ask before close-ups of residents",
+        "location": "Nag Bahal, Patan",
+        "sourceId": "na25"
       },
       {
         "id": "n5-5",
-        "title": "Golden-hour street photography in Patan",
-        "category": "photography",
-        "time": "17:00",
-        "duration": "1.5h",
-        "notes": "Warm side light filters through the narrow streets and brick facades",
-        "location": "Patan",
-        "sourceId": "ps14"
+        "title": "Kumbheshwar Technical School",
+        "category": "shopping",
+        "time": "14:45",
+        "duration": "1h",
+        "notes": "Fair-trade weaving and craft, best seen 10:00-15:00 while the looms are running. Their published week is Sunday-Thursday, but Nepal moved to a Saturday-Sunday government weekend in April 2026 and the listing may not have caught up — phone +977 1 5537484 ahead",
+        "location": "Chakupat, Lalitpur",
+        "sourceId": "na38"
       },
       {
         "id": "n5-6",
+        "title": "kar.ma Coffee, Jhamsikhel",
+        "category": "food",
+        "time": "16:00",
+        "duration": "45min",
+        "notes": "Nepal's benchmark third-wave roaster, buying single-origin lots direct from mid-hill farming families. It is on Level 2 of the Gyan Mandala building and invisible from street level — look for the stairs; beans to take home and cards accepted",
+        "location": "Jhamsikhel, Lalitpur",
+        "sourceId": "nf16"
+      },
+      {
+        "id": "n5-7",
+        "title": "Golden-hour street photography in Patan",
+        "category": "photography",
+        "time": "17:00",
+        "duration": "1h",
+        "notes": "Warm side light filters through the narrow streets and brick facades; sunset is about 17:15, so the good window is short and then it is gone",
+        "location": "Patan, Lalitpur",
+        "sourceId": "ps14"
+      },
+      {
+        "id": "n5-8",
+        "title": "Dinner at Raithaane, Kupondole",
+        "category": "food",
+        "time": "18:30",
+        "duration": "1.5h",
+        "notes": "Modern Nepali as preservation rather than fusion, built on heritage grains bought direct from farmers. The kitchen closes about 20:30 so this is the sitting; reserve on +977 9801002971, and note it has moved from the Saugal courtyard address that maps still carry",
+        "location": "Kupondole, Lalitpur",
+        "sourceId": "nf13"
+      },
+      {
+        "id": "n5-9",
         "title": "Sam's Bar social night",
         "category": "nightlife",
-        "time": "20:00",
+        "time": "20:30",
         "duration": "2h",
         "notes": "Cheap drinks, pool tables and a mix of travelers — Thamel's easiest casual night. Verify hours/cover before going.",
         "location": "Thamel, Kathmandu",
@@ -332,16 +381,16 @@
         "category": "transportation",
         "time": "05:00",
         "duration": "1h",
-        "notes": "Early departure to reach the ridge before first light",
+        "notes": "Early departure to reach the ridge before first light. It is 2-8C up there at dawn and 18-20C by midday — layers, not a heavy coat",
         "location": "Kathmandu → Nagarkot"
       },
       {
         "id": "n6-2",
-        "title": "Himalayan sunrise viewpoint",
+        "title": "Himalayan sunrise at the Nagarkot view tower",
         "category": "photography",
-        "time": "06:00",
+        "time": "06:15",
         "duration": "2h",
-        "notes": "Panorama over the Everest, Langtang and Ganesh Himal ranges; telephoto 70-200mm and a tripod essential",
+        "notes": "On the rim you are above the overnight inversion, so Everest, Langtang and Ganesh Himal stay sharp from first light to about 09:00 and wash out after 10:00 — the opposite of the valley floor. Sunrise is about 06:45; telephoto 70-200mm and a tripod",
         "location": "Nagarkot View Tower",
         "sourceId": "na17"
       },
@@ -351,103 +400,152 @@
         "category": "food",
         "time": "08:30",
         "duration": "1h",
-        "notes": "Relaxed breakfast with the range still in view",
+        "notes": "Relaxed breakfast with the range still in view; Bhaktapur is about 45 minutes back down the ridge",
         "location": "Nagarkot"
       },
       {
         "id": "n6-4",
         "title": "Bhaktapur Durbar Square",
         "category": "cultural",
-        "time": "11:00",
-        "duration": "4h",
-        "notes": "Best-preserved medieval city — 55-Window Palace, Nyatapola Temple and the pottery square",
+        "time": "10:30",
+        "duration": "2.5h",
+        "notes": "Best-preserved medieval city in the valley — the 55-Window Palace and Nyatapola Temple. Buy the NPR 1,800 foreigner ticket here and show your passport at the gate: it extends to a week free, which covers the return visit on the 16th",
         "location": "Bhaktapur",
         "sourceId": "na6"
       },
       {
         "id": "n6-5",
+        "title": "Lunch at Aama ko Bara Pasal, Taumadhi",
+        "category": "food",
+        "time": "13:00",
+        "duration": "45min",
+        "notes": "A two-metre-wide shopfront beside Nyatapola that has made bara since the early 1970s — cash only, no English menu, tiny and unheated, and a fixed daily quantity that goes. There is no map node for the shop, so ask in Taumadhi rather than trusting a dot",
+        "location": "Taumadhi Square, Bhaktapur",
+        "sourceId": "nf10"
+      },
+      {
+        "id": "n6-6",
+        "title": "Bhaktapur Pottery Square",
+        "category": "photography",
+        "time": "14:00",
+        "duration": "1.25h",
+        "notes": "The full drying ground is out 11:00-14:00, and the enclosed square sits in cold flat shade until about 09:00 — which is why it belongs here and not at dawn. Stay on the perimeter, do not walk between the drying pots, and ask before close-ups of the potters",
+        "location": "Talako, Bhaktapur",
+        "sourceId": "na21"
+      },
+      {
+        "id": "n6-7",
         "title": "Juju Dhau (King Curd) tasting",
         "category": "food",
-        "time": "15:00",
+        "time": "15:30",
         "duration": "30min",
         "notes": "The famous Bhaktapur sweet yogurt served in a clay pot — a must-try",
         "location": "Bhaktapur"
       },
       {
-        "id": "n6-6",
-        "title": "Drive back to Kathmandu",
-        "category": "transportation",
-        "time": "16:00",
+        "id": "n6-8",
+        "title": "Bibaha Panchami at Ram Mandir, Battisputali",
+        "category": "cultural",
+        "time": "17:00",
+        "duration": "1.25h",
+        "notes": "Kathmandu's main Ram temple, and the re-enacted wedding of Ram and Sita falls today, Monday 14 December 2026 — the only major dated Hindu festival inside the trip. The date is confirmed but the scale of the Kathmandu observance is documented nowhere and it may be a modest neighbourhood puja, so treat it as a detour with upside: come off the highway at Gaushala on the return leg rather than making a separate trip. Modest dress, shoes off inside",
+        "location": "Battisputali, Kathmandu",
+        "sourceId": "na37"
+      },
+      {
+        "id": "n6-9",
+        "title": "Quiet dinner in Thamel",
+        "category": "food",
+        "time": "19:00",
         "duration": "1.5h",
-        "notes": "Return to the hotel; quiet evening to rest",
-        "location": "Bhaktapur → Kathmandu"
+        "notes": "Low-key evening after a 05:00 start — the next three days all run long",
+        "location": "Thamel, Kathmandu"
       }
     ]
   },
   {
     "date": "2026-12-15",
-    "city": "Kathmandu",
+    "city": "Chitlang",
     "country": "nepal",
     "items": [
       {
         "id": "n7-1",
-        "title": "Chandragiri Hills cable car",
-        "category": "nature",
-        "time": "08:00",
-        "duration": "3.5h",
-        "notes": "Cable car to a hilltop with Himalayan and valley views; December offers the clearest skies — bring layers for the cold at the top",
-        "location": "Chandragiri",
-        "sourceId": "na18"
+        "title": "Breakfast at Chikusa Cafe, Jyatha",
+        "category": "food",
+        "time": "07:30",
+        "duration": "45min",
+        "notes": "Open since 1998 with no espresso machine at all, on purpose — everything is cloth-filter drip, moka pot or French press, so do not turn up wanting a flat white. Food is made to order and slow by design; cash is easiest, and it is about 10 minutes' walk from the hotel",
+        "location": "Jyatha, Thamel",
+        "sourceId": "nf19"
       },
       {
         "id": "n7-2",
-        "title": "Summit photography — Everest on a clear day",
-        "category": "photography",
-        "time": "11:30",
+        "title": "Chandragiri Hills cable car",
+        "category": "nature",
+        "time": "08:30",
         "duration": "1h",
-        "notes": "On a clear winter morning the distant peaks line the horizon; telephoto for compressed ridges",
+        "notes": "Cable car up to the valley rim; hours are 08:00-17:00 on weekdays, shorter than some listings claim. Bring layers — the top is genuinely cold in December",
+        "location": "Chandragiri, Kathmandu",
+        "sourceId": "na18"
+      },
+      {
+        "id": "n7-3",
+        "title": "Summit photography from the Chandragiri rim",
+        "category": "photography",
+        "time": "09:30",
+        "duration": "1h",
+        "notes": "Above the overnight inversion again: the peaks hold sharp until about 09:00 and soften after 10:00, so shoot the ridge line first and the valley second. Telephoto for compressed ridges",
         "location": "Chandragiri summit",
         "sourceId": "ps15"
       },
       {
-        "id": "n7-3",
-        "title": "Lunch at Thakali Kitchen",
-        "category": "food",
-        "time": "13:30",
-        "duration": "1h",
-        "notes": "Authentic Thakali dal bhat with unlimited refills — the quintessential Nepali meal",
-        "location": "Kathmandu",
-        "sourceId": "nf6"
-      },
-      {
         "id": "n7-4",
-        "title": "Budhanilkantha (Sleeping Vishnu)",
-        "category": "cultural",
-        "time": "15:00",
-        "duration": "1.5h",
-        "notes": "Nepal's largest stone statue — a 5-metre reclining Vishnu floating in a water tank",
-        "location": "Budhanilkantha, north Kathmandu",
-        "sourceId": "na11"
+        "title": "Walk down the far side to Chitlang",
+        "category": "nature",
+        "time": "11:00",
+        "duration": "2h",
+        "notes": "The trailhead at the top station is an unsigned path beside the men's bathroom between the yellow snack shops: down the stairs to a road, left at the police checkpoint, then ask further down for the steep trail into the woods. December has no mud and no leeches, which is why nobody walks this June to September",
+        "location": "Chandragiri → Chitlang",
+        "sourceId": "na33"
       },
       {
         "id": "n7-5",
-        "title": "Dinner & live music at House of Music",
-        "category": "nightlife",
-        "time": "19:00",
+        "title": "Lunch, the Newar village and the goat-cheese farm in Chitlang",
+        "category": "food",
+        "time": "13:15",
         "duration": "2h",
-        "notes": "Wind down with dinner and a local band — Thamel's most consistent live-music calendar, an alternative to Purple Haze",
-        "location": "Thamel",
-        "sourceId": "nightlife-nl29"
+        "notes": "The pin marks a village strung along about a kilometre of valley, not a building — navigate to a named target such as Chitlang Organic Village Resort. The goat-cheese farm is a family homestay rather than a shop with fixed hours, so call ahead or you may arrive to a closed door",
+        "location": "Chitlang, Makwanpur",
+        "sourceId": "na33"
       },
       {
         "id": "n7-6",
-        "title": "Mazaaj Hookah Lounge",
+        "title": "Drive back to Kathmandu via the Kulekhani road",
+        "category": "transportation",
+        "time": "15:15",
+        "duration": "2h",
+        "notes": "The return leg is about two hours. Agree the pickup point with the driver before leaving Thamel — the whole day lives or dies on him knowing where the trail comes out",
+        "location": "Chitlang → Kathmandu"
+      },
+      {
+        "id": "n7-7",
+        "title": "Dinner at Tukche Thakali Kitchen, Gairidhara",
+        "category": "food",
+        "time": "18:30",
+        "duration": "1.5h",
+        "notes": "Family-run since 1997 and spiced closer to a real Thakali set than the milder chain versions; open to 21:00, a 10-minute taxi from Thamel. Dhedo and the hot black-lentil dal are the right order after a day on the ridge",
+        "location": "Gairidhara, Kathmandu",
+        "sourceId": "nf11"
+      },
+      {
+        "id": "n7-8",
+        "title": "Live music at House of Music",
         "category": "nightlife",
-        "time": "21:15",
-        "duration": "1.75h",
-        "notes": "A low-key Tuesday close — seated rooftop hookah lounge with live music, winding the night down without ending it. Verify hours before going.",
+        "time": "20:30",
+        "duration": "2h",
+        "notes": "Thamel's most consistent live-music calendar, and a short night after eight hours on foot. Verify hours/cover before going.",
         "location": "Thamel, Kathmandu",
-        "sourceId": "nightlife-nl31"
+        "sourceId": "nightlife-nl29"
       }
     ]
   },
@@ -460,63 +558,94 @@
         "id": "n8-1",
         "title": "Changu Narayan Temple",
         "category": "cultural",
-        "time": "08:00",
-        "duration": "2h",
-        "notes": "The oldest Hindu temple in the valley and a UNESCO site — exquisite 5th-century stone and woodcarving",
+        "time": "07:30",
+        "duration": "1h",
+        "notes": "The oldest Hindu temple in the valley and a UNESCO site — 5th-century stone and woodcarving. Kept to about an hour: the weight of the day is Panauti, and the hilltop is cold and shaded this early",
         "location": "Changunarayan Hill",
         "sourceId": "na12"
       },
       {
         "id": "n8-2",
-        "title": "Hike down toward Bhaktapur",
-        "category": "nature",
-        "time": "10:00",
-        "duration": "2h",
-        "notes": "Gentle ridge walk through terraced fields with valley views; easy half-day trail",
-        "location": "Changunarayan → Bhaktapur"
+        "title": "Kailashnath Mahadev Statue, Sanga",
+        "category": "sightseeing",
+        "time": "09:00",
+        "duration": "1.25h",
+        "notes": "Nepal's tallest Shiva statue, not the world's — the 112 m Vishwas Swaroopam at Nathdwara took that in 2022, though nearly every Nepali listing still says otherwise. Grounds open 07:30; the motorable road ends at the Hilltake gate at NPR 100, while the separate footpath gate to the left is nominally free",
+        "location": "Sanga, Araniko Highway",
+        "sourceId": "na26"
       },
       {
         "id": "n8-3",
-        "title": "Pottery Square & lunch in Bhaktapur",
-        "category": "food",
-        "time": "12:30",
-        "duration": "1.5h",
-        "notes": "Watch potters at the wheel, then a Newari lunch in the old town",
-        "location": "Bhaktapur"
+        "title": "Drive to Panauti",
+        "category": "transportation",
+        "time": "10:15",
+        "duration": "1.25h",
+        "notes": "Araniko Highway to Banepa and then south, sealed the whole way. Carry cash for the day — there is no ATM out here worth relying on",
+        "location": "Sanga → Panauti"
       },
       {
         "id": "n8-4",
-        "title": "Taudaha Lake birdwatching",
-        "category": "nature",
-        "time": "15:30",
-        "duration": "1.5h",
-        "notes": "Tranquil lake on the valley rim — December is best for migratory birds; tea stalls along the shore",
-        "location": "Chobhar",
-        "sourceId": "na10"
+        "title": "Panauti",
+        "category": "cultural",
+        "time": "11:30",
+        "duration": "3h",
+        "notes": "Some of Nepal's oldest surviving pagoda temples, a street plan on UNESCO's tentative list, and almost no other foreigners in frame. The NPR 300 combined ticket covers the Indreshwar complex and the volunteer-run museum 40 m away in the same courtyard; the 20-minute stair climb to the hilltop viewpoint above town is worth adding",
+        "location": "Panauti, Kavrepalanchok",
+        "sourceId": "na30"
       },
       {
         "id": "n8-5",
-        "title": "Quiet dinner near the hotel",
+        "title": "Lunch in Panauti",
         "category": "food",
-        "time": "19:00",
-        "duration": "1.5h",
-        "notes": "Low-key evening to recharge before the final days",
-        "location": "Thamel, Kathmandu"
+        "time": "14:30",
+        "duration": "45min",
+        "notes": "Simple local food near the Indreshwar complex before the drive back west",
+        "location": "Panauti, Kavrepalanchok"
       },
       {
         "id": "n8-6",
-        "title": "Thamel bar crawl — Purple Haze to Sam's",
+        "title": "Drive back to Bhaktapur",
+        "category": "transportation",
+        "time": "15:15",
+        "duration": "1h",
+        "notes": "Back via Banepa to reach Bhaktapur for the last hour of light",
+        "location": "Panauti → Bhaktapur"
+      },
+      {
+        "id": "n8-7",
+        "title": "Golden hour in Bhaktapur Durbar Square",
+        "category": "photography",
+        "time": "16:15",
+        "duration": "1.25h",
+        "notes": "Free re-entry on the week ticket bought on the 14th — show the same ticket and your passport at the gate. Sunset is about 17:15, so the warm light across the brick is short",
+        "location": "Bhaktapur",
+        "sourceId": "na6"
+      },
+      {
+        "id": "n8-8",
+        "title": "Dinner at Restaurant TUSA",
+        "category": "food",
+        "time": "17:30",
+        "duration": "1.5h",
+        "notes": "Twelve covers and seven courses in a rebuilt Newari courtyard house, on a single strict seating window of 17:30-19:30. It books weeks ahead with a 50% advance, so reserve long before arrival on +977 9821055559 or at tusanepal.com, and confirm they are trading in December 2026",
+        "location": "Nagpokhari, Bhaktapur",
+        "sourceId": "nf14"
+      },
+      {
+        "id": "n8-9",
+        "title": "Fat Monk's Rooftop Bar",
         "category": "nightlife",
         "time": "20:30",
-        "duration": "1.5h",
-        "notes": "A softer Wednesday night, trimmed to leave slack before the pre-dawn Phulchowki climb — still beats staying in. Verify hours/cover before going.",
-        "location": "Thamel, Kathmandu"
+        "duration": "2h",
+        "notes": "Back in Thamel after the run east — a rooftop, so take a layer, and Thamel bars wind down ~23:00-midnight. Verify hours/cover before going.",
+        "location": "Thamel, Kathmandu",
+        "sourceId": "nightlife-nl28"
       }
     ]
   },
   {
     "date": "2026-12-17",
-    "city": "Kathmandu",
+    "city": "Lalitpur",
     "country": "nepal",
     "items": [
       {
@@ -525,7 +654,7 @@
         "category": "photography",
         "time": "05:30",
         "duration": "4h",
-        "notes": "The valley's highest rim peak, blanketed in rhododendron forest — layered ridge-lines and a Himalayan panorama on clear December mornings",
+        "notes": "The valley's highest rim peak, blanketed in rhododendron forest — layered ridge-lines and a Himalayan panorama. You are above the overnight inversion up here, so it holds sharp until about 09:00 and washes out after 10:00; it is 2-8C at the top before sunrise",
         "location": "Phulchowki, Godavari",
         "sourceId": "na16"
       },
@@ -535,40 +664,70 @@
         "category": "nature",
         "time": "10:00",
         "duration": "1.5h",
-        "notes": "Peaceful gardens at the foot of Phulchowki — a calm stroll after the climb",
-        "location": "Godavari"
+        "notes": "Peaceful gardens at the foot of Phulchowki — a flat stroll to walk off the descent",
+        "location": "Godavari, Lalitpur"
       },
       {
         "id": "n9-3",
-        "title": "Lunch back in Patan",
+        "title": "Lunch in Godavari",
         "category": "food",
-        "time": "13:00",
-        "duration": "1h",
-        "notes": "Refuel on the way back into the city",
-        "location": "Patan"
+        "time": "11:45",
+        "duration": "45min",
+        "notes": "Refuel before crossing the south valley to Khokana",
+        "location": "Godavari, Lalitpur"
       },
       {
         "id": "n9-4",
-        "title": "Chobhar Gorge & Jal Binayak",
-        "category": "sightseeing",
-        "time": "15:00",
-        "duration": "2h",
-        "notes": "Dramatic gorge where the Bagmati cuts the valley rim; vintage suspension bridge and a riverside temple in soft afternoon light",
-        "location": "Chobhar",
-        "sourceId": "na14"
+        "title": "Khokana and the mustard-oil mills",
+        "category": "cultural",
+        "time": "12:45",
+        "duration": "1.25h",
+        "notes": "A medieval street plan still intact, with a mustard-oil industry worked on a wooden beam press — ask specifically for the traditional press, because most mills here are motorised now. Mill floors are hot, dark and crowded with no guardrails; watch your feet and ask before photographing workers",
+        "location": "Khokana, Lalitpur",
+        "sourceId": "na28"
       },
       {
         "id": "n9-5",
-        "title": "Farewell dinner at OR2K rooftop",
-        "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
-        "notes": "A relaxed last proper Nepal dinner with sunset rooftop views",
-        "location": "Thamel",
-        "sourceId": "nf3"
+        "title": "Bungamati woodcarvers' village",
+        "category": "cultural",
+        "time": "14:15",
+        "duration": "1.25h",
+        "notes": "A 20-25 minute walk from Khokana over the Karya Binayak ridge, which is a valley viewpoint in its own right. The Rato Machhindranath idol is in residence here for the whole trip window — Yomari Punhi falls on 24 December, six days after departure. Be discreet with the camera near the army camp on the village edge",
+        "location": "Bungamati, Lalitpur",
+        "sourceId": "na27"
       },
       {
         "id": "n9-6",
+        "title": "Chobhar Gorge & Jal Binayak",
+        "category": "sightseeing",
+        "time": "15:45",
+        "duration": "1h",
+        "notes": "The gorge where the Bagmati cuts the valley rim — vintage suspension bridge and a riverside temple, in soft side light after 15:00",
+        "location": "Chobhar, Kathmandu",
+        "sourceId": "na14"
+      },
+      {
+        "id": "n9-7",
+        "title": "Taudaha Lake birdwatching",
+        "category": "nature",
+        "time": "16:45",
+        "duration": "1h",
+        "notes": "Late afternoon is the lake's best hour and December is peak for migratory birds; tea stalls along the shore",
+        "location": "Chobhar, Kathmandu",
+        "sourceId": "na10"
+      },
+      {
+        "id": "n9-8",
+        "title": "Dinner at Chez Caroline, Baber Mahal Revisited",
+        "category": "food",
+        "time": "18:30",
+        "duration": "1.75h",
+        "notes": "French bistro in the courtyard of a restored Rana palace and stable complex, sharing it with the Siddhartha Art Gallery. Reserve on 01-5363070 and ask for an indoor table — the courtyard is cold after sunset; allow 30-40 minutes to walk the arcades",
+        "location": "Baber Mahal Revisited, Kathmandu",
+        "sourceId": "nf12"
+      },
+      {
+        "id": "n9-9",
         "title": "Kathmandu send-off at Club Fahrenheit",
         "category": "nightlife",
         "time": "20:30",
@@ -586,50 +745,109 @@
     "items": [
       {
         "id": "n10-1",
-        "title": "Slow breakfast & last city views",
-        "category": "free",
-        "time": "08:00",
-        "duration": "1.5h",
-        "notes": "No rush this morning — coffee and a final look over the valley",
-        "location": "Kathmandu"
+        "title": "Rani Pokhari at first light",
+        "category": "photography",
+        "time": "07:00",
+        "duration": "30min",
+        "notes": "Open 05:00-16:00 and free, so there is no sunset shot here — the water is dead still at dawn instead. Reopened to the public in March 2025; guidebooks saying it is shut all year are out of date, and the temple in the middle only opens on Bhai Tika, so shoot it across the water",
+        "location": "Jamal, Kathmandu",
+        "sourceId": "na23"
       },
       {
         "id": "n10-2",
+        "title": "Dharahara observation deck",
+        "category": "sightseeing",
+        "time": "08:15",
+        "duration": "1.25h",
+        "notes": "Book the timed slot ahead at dharahara.gov.np — daily entries are capped and slots sell out; arrive 30 minutes early. The deck is on the 20th floor (older write-ups say the 8th, which belonged to the tower that fell in 2015) and 08:00-09:30 is the mountain window",
+        "location": "Sundhara, Kathmandu",
+        "sourceId": "na22"
+      },
+      {
+        "id": "n10-3",
+        "title": "Kathmandu Durbar Square",
+        "category": "cultural",
+        "time": "09:45",
+        "duration": "2h",
+        "notes": "UNESCO royal square — Hanuman Dhoka, the temple plinths and the living goddess at Kumari Ghar. The valley haze is thinnest now and thickens again through the afternoon",
+        "location": "Basantapur, Kathmandu",
+        "sourceId": "na4"
+      },
+      {
+        "id": "n10-4",
+        "title": "Itum Bahal courtyard",
+        "category": "sightseeing",
+        "time": "11:45",
+        "duration": "45min",
+        "notes": "An unmarked low doorway straight off the Thamel-to-Durbar-Square walk, opening into a lived-in monastery courtyard. Enclosed on four sides, so it only works once the sun clears the walls; ask before photographing residents, keep out of doorways and walk clockwise around the chaityas",
+        "location": "Itum Bahal, Kathmandu",
+        "sourceId": "na24"
+      },
+      {
+        "id": "n10-5",
+        "title": "Asan Bazaar",
+        "category": "sightseeing",
+        "time": "12:45",
+        "duration": "1h",
+        "notes": "Oldest market in the city — spices, fabrics and hidden temples packed into six converging lanes; ask permission for portraits",
+        "location": "Asan, Kathmandu",
+        "sourceId": "na8"
+      },
+      {
+        "id": "n10-7",
+        "title": "Lunch in Thamel",
+        "category": "food",
+        "time": "13:45",
+        "duration": "1h",
+        "notes": "Easy bite back at the hotel end between the old city and the afternoon",
+        "location": "Thamel, Kathmandu"
+      },
+      {
+        "id": "n10-8",
+        "title": "Museum of Nepali Art",
+        "category": "cultural",
+        "time": "15:00",
+        "duration": "1.25h",
+        "notes": "Paubha and thangka shown as art rather than as souvenirs, three minutes' walk from Thamel and open daily 10:00-18:00. Entrance from the EAST GATE only, not the Kathmandu Guest House lobby; the ticket is valid all day for re-entry and cash is safest",
+        "location": "Thamel, Kathmandu",
+        "sourceId": "na36"
+      },
+      {
+        "id": "n10-9",
         "title": "Souvenir shopping in Thamel & Asan",
         "category": "shopping",
-        "time": "10:00",
-        "duration": "2.5h",
+        "time": "16:15",
+        "duration": "1h",
         "notes": "Pashmina, singing bowls, Nepali tea, prayer flags and handmade paper — last gifts before Japan",
         "location": "Thamel & Asan, Kathmandu"
       },
       {
-        "id": "n10-3",
-        "title": "Lunch at Cafe Swotha",
-        "category": "food",
-        "time": "13:00",
-        "duration": "1.5h",
-        "notes": "One more Newari meal in the Patan courtyard",
-        "location": "Patan",
-        "sourceId": "nf4"
+        "id": "n10-10",
+        "title": "Check out and collect the bags",
+        "category": "hotel",
+        "time": "17:15",
+        "duration": "45min",
+        "notes": "Settle up and load the luggage into the vehicle now, so the evening runs straight on to the airport with nothing to come back for",
+        "location": "Thamel, Kathmandu"
       },
       {
-        "id": "n10-4",
-        "title": "Garden of Dreams — afternoon unwind",
-        "category": "free",
-        "time": "15:00",
+        "id": "n10-11",
+        "title": "Pashupatinath evening aarti",
+        "category": "cultural",
+        "time": "18:15",
         "duration": "1.5h",
-        "notes": "Quiet pavilions and fountains to close out the Nepal leg",
-        "location": "Kaiser Mahal, Kathmandu",
-        "sourceId": "na7"
+        "notes": "The riverside aarti on the Bagmati ghats; non-Hindus cannot enter the main shrine, and the cremation ghats need photographing with restraint. Bags are already in the vehicle and the temple is about 3 km from the airport, so this is on the way out, not a detour",
+        "location": "Pashupatinath, Kathmandu",
+        "sourceId": "na3"
       },
       {
-        "id": "n10-5",
-        "title": "Check out & transfer to airport (KTM)",
+        "id": "n10-12",
+        "title": "Transfer to Tribhuvan (KTM)",
         "category": "transportation",
-        "time": "20:30",
-        "duration": "2h",
-        "notes": "Check out of the Thamel hotel, last dinner, and head to Tribhuvan for the late-night departure",
-        "location": "Thamel, Kathmandu → Tribhuvan Intl (KTM)"
+        "time": "20:00",
+        "duration": "1.5h",
+        "notes": "Straight from Pashupatinath to the international terminal for the late-night departure",
+        "location": "Pashupatinath → Tribhuvan Intl (KTM)"
       },
       {
         "id": "n10-6",

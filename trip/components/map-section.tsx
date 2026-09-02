@@ -91,10 +91,10 @@ function visitedCountryLine(countries: readonly string[]): string {
 }
 
 // ──: what the map search can resolve ───────────────────────────────────────────────────
-// One row shape for THREE in-bundle sources — the 27 curated places, the cities the trip
+// One row shape for THREE in-bundle sources — the 73 curated places, the cities the trip
 // actually visits, and the user's own planned stops. `marker` is what the camera flies to, so
 // each source is ADAPTED here, at the call site, rather than widening `MapMarker` (which is the
-// curated-content type: 27 authored records with images and descriptions, consumed by the
+// curated-content type: 73 authored records with images and descriptions, consumed by the
 // popup, the favourites store and the guide cards — a city or a plan is none of those things,
 // and widening it would push an "is this real content?" branch into every one of them).
 //
@@ -143,7 +143,7 @@ const curatedHitsOf = (markers: MapMarker[]): SearchHit[] =>
   }));
 
 /**
- * The curated pack for the ACTIVE trip: the 27 authored Kathmandu-Valley/Japan places on the
+ * The curated pack for the ACTIVE trip: the 73 authored Kathmandu-Valley/Japan places on the
  * default trip, nothing on a custom one.
  *
  * `MAP_MARKERS` is default-pack CONTENT, but `/map/` consumed it as if it were app chrome — and

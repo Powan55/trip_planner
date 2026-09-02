@@ -21,12 +21,12 @@ export interface CityCoord {
   longitude: number;
 }
 
-// 14 rows. Every per-day city in `core/dates`' TRIP_CITIES / the sample
+// 16 rows. Every per-day city in `core/dates`' TRIP_CITIES / the sample
 // itinerary has real coordinates, so day-trip days (Nagarkot, Kyoto, Osaka, …) get real
 // weather instead of the graceful `unavailable` fallback. The original two (Kathmandu, Tokyo)
 // are byte-identical to keep the weather net exact. A weather-coords coverage unit test
-// asserts `isKnownWeatherCity` is true for all 8 canonical trip cities so no trip day loses weather
-// (8 VISITED cities out of the 14 rows here — the extra rows are day-trip cities the reroute
+// asserts `isKnownWeatherCity` is true for all canonical trip cities so no trip day loses weather
+// (10 VISITED cities out of the 16 rows here — the extra rows are day-trip cities the reroute
 // dropped plus Syracuse, kept because a custom trip may still name them).
 export const CITY_COORDS: Record<string, CityCoord> = {
   // Departure: Dec 9 is spent in Syracuse, JFK and the air, and D-315 names that day New York —
@@ -47,6 +47,8 @@ export const CITY_COORDS: Record<string, CityCoord> = {
   Lalitpur: { latitude: 27.6667, longitude: 85.324 },
   Nagarkot: { latitude: 27.7157, longitude: 85.5206 },
   Bhaktapur: { latitude: 27.671, longitude: 85.4298 },
+  Kirtipur: { latitude: 27.6799, longitude: 85.2747 },
+  Chitlang: { latitude: 27.6533, longitude: 85.174 },
   // Japan
   Tokyo: { latitude: 35.6762, longitude: 139.6503 },
   Hakone: { latitude: 35.2324, longitude: 139.1069 },

@@ -12,6 +12,11 @@
 //
 // #12 changes that encoding from 24-hour `HH:MM` to 12-hour `h:mm AM/PM`, and makes the date line
 // unconditional, so every expectation and both pinned sizes below moved with it.
+//
+// The Nepal leg rebuild (158 → 180 seed items) pushes the fully-planned digest past DIGEST_CAP for
+// the first time, so the cap block below no longer asserts "never truncates" — it asserts the
+// replacement guarantee, that overflow drops whole days furthest-from-today first and says so.
+// Both pinned sizes moved again with the content.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { buildTripDigest, capHistory, type ChatTurn } from '@/hooks/use-concierge-chat';
@@ -43,12 +48,18 @@ const DIGEST_CAP = 9500; // must equal the constant in use-concierge-chat.ts (co
 // park, then the afternoon rides". The title is in the digest, so the seed grew and so did this.
 // That is the mechanism worth remembering: this number moves when the TRIP moves, not only when
 // the builder changes, and 26 chars of plan text is all it took.
-// The Worker floor is now 9452 against its 9500, and the in-window worst case is 9461 (9435 + the
-// same +26), leaving ~39 chars. That is under one itinerary item. There were ten before #12.
-// The NEXT change that lengthens a seed title probably breaks the cap, and the fix is not here:
-// DIGEST_CAP and the Worker's CONTEXT_TRUNCATE_LENGTH move together, in a Worker deploy.
-const MEASURED_DIGEST_BEFORE = 6636;
-const MEASURED_DIGEST_AFTER = 9452;
+//
+// AND THAT IS EXACTLY WHAT HAPPENED. RE-MEASURED after the Nepal leg rebuild: 6636 → 7514 and
+// 9452 → 10746. The seed went 158 → 180 items and the fully-planned digest is now 1246 chars OVER
+// DIGEST_CAP (9500). The comment above called this a cap change and it was right, but the fix
+// still is not here: DIGEST_CAP moves only with the Worker's CONTEXT_TRUNCATE_LENGTH, in a Worker
+// deploy. So the BUILDER changed instead — overflow drops whole day lines furthest-from-today
+// first and names them, in place of the old mid-line `slice(0, CAP-1) + '…'`. See the overflow
+// block further down for what that did to the assertions here.
+// These two numbers are still the UNCAPPED assembled sizes, i.e. what the trip would send if the
+// budget allowed: (2) minus DIGEST_CAP is how much of the plan the concierge cannot see.
+const MEASURED_DIGEST_BEFORE = 7514;
+const MEASURED_DIGEST_AFTER = 10746;
 const HISTORY_CHAR_CAP = 3000; // must equal the constant in use-concierge-chat.ts
 const MAX_BODY_BYTES = 16 * 1024; // the Worker's hard 413 ceiling (worker/src/index.ts:24)
 // S395: must equal TRIP_LABEL_MAX in use-concierge-chat.ts AND the Worker's own (providers.ts).
@@ -57,6 +68,24 @@ const TRIP_LABEL_MAX = 120;
 function seed(plans: DayPlan[]) {
   localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(plans));
 }
+
+// The seed trip's day lines, rebuilt from SAMPLE_ITINERARY INDEPENDENTLY of `buildTripDigest` —
+// the same reconstruction the MEASUREMENT test at the bottom has always used, lifted to module
+// scope so the overflow test can reuse it. Its value is that it is not the code under test: a
+// day line the builder emits either IS one of these, byte for byte, or the builder mangled it.
+const seedByDate = new Map(SAMPLE_ITINERARY.map((d) => [d.date, d]));
+const SEED_DAYS = TRIP_DATES.map((date) => seedByDate.get(date)).filter(
+  (d): d is DayPlan => !!d && d.items.length > 0,
+);
+const seedDayLine = (d: DayPlan): string =>
+  `${d.date} ${d.city}: ${d.items
+    .map((i) => {
+      const m = effectiveStartMinutes(i);
+      return `${m === undefined ? '' : `${formatTimeAmPm(m)} `}${i.category} ${i.title} #${i.id}`;
+    })
+    .join('; ')}`;
+/** The overflow note `buildTripDigest` appends when it has had to drop whole days. */
+const OMISSION_NOTE = /^(\d+) day\(s\) omitted for length \(they ARE planned, not unplanned\): (.+)$/;
 
 describe('buildTripDigest (S327)', () => {
   beforeEach(() => localStorage.clear());
@@ -337,13 +366,14 @@ describe('buildTripDigest (S327)', () => {
     it('INSIDE the window: the REAL trip-local day (destination-offset clock, not device-local), plus Day N and the time', () => {
       vi.useFakeTimers();
       // 2026-12-15T12:00:00Z at the Nepal leg's +345 offset is 17:45 -- still Dec 15, nowhere
-      // near a day boundary. Day-7/Kathmandu is verified INDEPENDENTLY of the code under test:
+      // near a day boundary. Day-7/Chitlang is verified INDEPENDENTLY of the code under test:
       // core/trips/packs/nepal-japan-2026.ts (Nepal leg = Dec9-18) + core/content/itinerary.ts
-      // (2026-12-15 -> Kathmandu) + counting Dec9..Dec15 inclusive = 7 -- not by calling
+      // (2026-12-15 -> Chitlang, the Chandragiri/Chitlang day the Nepal rebuild put here; it read
+      // Kathmandu before) + counting Dec9..Dec15 inclusive = 7 -- not by calling
       // getTodayInTrip()/dayInTripFor and echoing back whatever they say. 12:00Z + 345min = 17:45
       // = 5:45 PM, computed the same way and likewise not read back off the code under test.
       vi.setSystemTime(new Date('2026-12-15T12:00:00Z'));
-      expect(dateLine()).toBe('Today is 2026-12-15 5:45 PM (Day 7 of 32, Kathmandu).');
+      expect(dateLine()).toBe('Today is 2026-12-15 5:45 PM (Day 7 of 32, Chitlang).');
     });
 
     it('BEFORE the window: a real date and time, and it says so -- never silence', () => {
@@ -372,42 +402,90 @@ describe('buildTripDigest (S327)', () => {
     });
   });
 
-  it('S362: the fully-planned SAMPLE trip STILL fits under the raised 9500 cap, times and all', () => {
-    // key absent => loadPlans() seeds SAMPLE_ITINERARY (items on every trip date). At the OLD 2000
-    // cap this truncated mid-trip; S328/S329 raised it to 7000 for the ` #<id>` tags, and S362 to
-    // 9500 for the `HH:MM category ` prefixes — the enriched digest MEASURES 9025 chars (asserted
-    // exactly in the MEASUREMENT test below), so 7000 would have cut a third of the trip.
-    const digest = buildTripDigest();
-    expect(digest.length).toBeLessThanOrEqual(DIGEST_CAP);
-    expect(digest.endsWith('…')).toBe(false); // no truncation — the whole trip fits now
-    // sanity: the last trip date's day is present (nothing got cut off the end)
-    const lastPlannedDate = [...SAMPLE_ITINERARY].reverse().find((d) => d.items.length > 0)!.date;
-    expect(digest).toContain(lastPlannedDate);
-    // and it would NOT have fit at the old ceiling — this is what justifies the raise
-    expect(digest.length).toBeGreaterThan(7000);
+  // ── OVERFLOW ────────────────────────────────────────────────────────────────────────────────
+  //
+  // WHAT CHANGED HERE, AND WHY. Until the Nepal leg was rebuilt (158 → 180 seed items) this block
+  // asserted a STRICT invariant: "the fully-planned trip fits, and no clock day truncates",
+  // walking all 32 days and failing on any trailing '…'. That invariant is now false and cannot be
+  // made true from this repo — the assembled digest measures 10746 chars against a DIGEST_CAP of
+  // 9500 (pinned exactly by the MEASUREMENT test below), and DIGEST_CAP only moves together with
+  // the Worker's CONTEXT_TRUNCATE_LENGTH, in a Worker deploy.
+  //
+  // So the guarantee MOVED rather than being dropped: from "never truncates" to "degrades
+  // gracefully and visibly". `buildTripDigest` no longer slices the string mid-line; it drops
+  // WHOLE day lines, furthest in time from today first, and appends one line naming the omitted
+  // dates. The four properties below are what replaces "no '…'", and on the things the model
+  // actually reads they are stronger than the old assertion was:
+  //   (a) the result still fits DIGEST_CAP, on every one of the 32 clock days;
+  //   (b) no PARTIAL day line survives — every emitted day line is byte-identical to a real one
+  //       (the old '…' check permitted a half-written day the model read as a whole one);
+  //   (c) whatever was dropped is NAMED, so the model is told its view is partial. This is not
+  //       cosmetic: the header line states "any date not listed below is unplanned", which an
+  //       unannounced drop turns into a lie the model then answers confidently from;
+  //   (d) today's own day and its neighbours are the ones that survive — a tail chop always
+  //       sacrificed the same end of the trip no matter when the question was asked.
+  it('the fully-planned SAMPLE trip no longer fits, and degrades by WHOLE days on every clock day', () => {
+    // key absent => loadPlans() seeds SAMPLE_ITINERARY (items on every trip date).
+    const fullLines = new Set(SEED_DAYS.map(seedDayLine));
+    const seedDates = SEED_DAYS.map((d) => d.date);
 
-    // #12: the cap has to hold on EVERY day, not just whatever day the suite runs on. The date
-    // line is unconditional now and its in-window form ("… (Day 31 of 32, Tokyo).") is the LONGER
-    // of the two branches, so the real worst case is inside the trip, not outside it. DIGEST_CAP
-    // cannot be raised without the Worker's CONTEXT_TRUNCATE_LENGTH moving with it (they are
-    // deliberately equal, see hooks/use-concierge-chat.ts), and that is a separate manual
-    // deploy, so an overflow here is a genuine blocker rather than a number to nudge.
     let worst = 0;
     for (const date of TRIP_DATES) {
       vi.useFakeTimers();
       vi.setSystemTime(new Date(`${date}T06:00:00Z`)); // mid-day at both leg offsets, no day edge
-      const d = buildTripDigest();
-      worst = Math.max(worst, d.length);
-      expect(d.endsWith('…'), `truncated with the clock on ${date}`).toBe(false);
+      const digest = buildTripDigest();
+      const lines = digest.split('\n');
+      worst = Math.max(worst, digest.length);
+
+      // (a)
+      expect(digest.length, `over cap with the clock on ${date}`).toBeLessThanOrEqual(DIGEST_CAP);
+      expect(digest.endsWith('…'), `sliced mid-line with the clock on ${date}`).toBe(false);
+      // the three fixed lines are never drop candidates
+      expect(lines[0]).toContain('Any date not listed below is unplanned.');
+      expect(lines[1]).toContain('Each item is "h:mm AM/PM category Title #id".');
+      expect(lines[2]).toContain(`Today is ${date} `);
+
+      // (c) this seed is genuinely over cap, so every clock day must carry the note
+      const note = OMISSION_NOTE.exec(lines[lines.length - 1]);
+      expect(note, `no omission note with the clock on ${date}`).not.toBeNull();
+      const omitted = note![2].split(', ');
+      expect(Number(note![1])).toBe(omitted.length);
+
+      // (b) everything between the header and the note is a WHOLE, unmodified seed day line
+      const dayLines = lines.slice(3, -1);
+      for (const line of dayLines) {
+        expect(
+          fullLines.has(line),
+          `partial or altered day line with the clock on ${date}: ${line.slice(0, 72)}`,
+        ).toBe(true);
+      }
+      // and the note names EXACTLY the missing days — no more, no fewer, in trip order
+      const kept = new Set(dayLines.map((l) => l.slice(0, 10)));
+      expect(omitted, `the note disagrees with what is missing on ${date}`).toEqual(
+        seedDates.filter((d) => !kept.has(d)),
+      );
+
+      // (d) today survives, and so do the days either side of it
+      const i = TRIP_DATES.indexOf(date);
+      for (const near of [TRIP_DATES[i - 1], date, TRIP_DATES[i + 1]]) {
+        if (near && seedDates.includes(near)) {
+          expect(kept.has(near), `${near} dropped while the clock was on ${date}`).toBe(true);
+        }
+      }
       vi.useRealTimers();
     }
     expect(worst).toBeLessThanOrEqual(DIGEST_CAP);
-    console.log(`[#12] worst-case in-window digest: ${worst} chars, ${DIGEST_CAP - worst} under DIGEST_CAP`);
+    console.log(
+      `[overflow] worst-case emitted digest over the 32 clock days: ${worst} chars, ` +
+        `${DIGEST_CAP - worst} under DIGEST_CAP (full digest is 10746)`,
+    );
   });
 
-  it('still enforces the cap: a digest exceeding 9500 chars truncates with an ellipsis', () => {
-    // Synthetic over-cap payload: pad every trip date with a long-titled item so the joined digest
-    // blows past 9500. Proves the cap guard itself still fires at the new ceiling.
+  it('an extreme over-cap trip keeps a CONTIGUOUS window around today and drops the rest whole', () => {
+    // Synthetic payload ~3x the cap: pad every trip date with long-titled items. The real seed only
+    // overflows by ~13%, so it can never show what happens when MOST of the trip has to go — which
+    // is the case where "which days survive" is the entire question. This replaces the old
+    // "truncates with an ellipsis" test: there is no ellipsis to assert any more.
     const bigTitle = 'A very long itinerary item title used to pad the digest well past the cap '.repeat(4);
     seed(
       TRIP_DATES.map((date, di) => ({
@@ -421,9 +499,36 @@ describe('buildTripDigest (S327)', () => {
         })),
       })),
     );
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-12-24T06:00:00Z')); // mid-trip: days fall on BOTH sides of now
+
     const digest = buildTripDigest();
-    expect(digest.length).toBe(DIGEST_CAP); // exactly cap length (cap-1 chars + '…')
-    expect(digest.endsWith('…')).toBe(true);
+    const lines = digest.split('\n');
+    expect(digest.length).toBeLessThanOrEqual(DIGEST_CAP);
+    expect(digest.endsWith('…')).toBe(false);
+
+    // whole lines only: each surviving day still carries its LAST item's id, so nothing was cut
+    const dayLines = lines.slice(3, -1);
+    for (const line of dayLines) {
+      expect(line.endsWith(`#big-${TRIP_DATES.indexOf(line.slice(0, 10))}-2`), line.slice(0, 72)).toBe(
+        true,
+      );
+    }
+
+    // the survivors are a contiguous run centred on today — the proximity rule, stated as a shape
+    const kept = dayLines.map((l) => l.slice(0, 10));
+    const idx = kept.map((d) => TRIP_DATES.indexOf(d));
+    expect(idx.length).toBeGreaterThan(0);
+    expect(idx.length).toBeLessThan(TRIP_DATES.length); // the drop really bit
+    expect(idx).toEqual([...idx].sort((a, b) => a - b)); // still in trip order
+    expect(idx[idx.length - 1] - idx[0]).toBe(idx.length - 1); // no holes: one window, not a scatter
+    expect(kept).toContain('2026-12-24'); // and today is inside it
+
+    // ...and every dropped day is named, so the model cannot mistake them for unplanned
+    expect(lines[lines.length - 1]).toBe(
+      `${TRIP_DATES.length - kept.length} day(s) omitted for length (they ARE planned, not unplanned): ` +
+        TRIP_DATES.filter((d) => !kept.includes(d)).join(', '),
+    );
   });
 
   it('MEASUREMENT (S362) — before/after digest size and the worst-case POST body vs the 16 KB 413', () => {
@@ -450,26 +555,12 @@ describe('buildTripDigest (S327)', () => {
       `Today is ${nowAt.date} ${formatTimeAmPm(nowAt.minutes)} (before the trip).`,
     ].join('\n');
 
-    const byDate = new Map(SAMPLE_ITINERARY.map((d) => [d.date, d]));
-    const days = TRIP_DATES.map((date) => byDate.get(date)).filter(
-      (d): d is DayPlan => !!d && d.items.length > 0,
-    );
+    const days = SEED_DAYS;
     const oldDigest = [
       oldHeader,
       ...days.map((d) => `${d.date} ${d.city}: ${d.items.map((i) => `${i.title} #${i.id}`).join('; ')}`),
     ].join('\n');
-    const newDigest = [
-      newHeader,
-      ...days.map(
-        (d) =>
-          `${d.date} ${d.city}: ${d.items
-            .map((i) => {
-              const m = effectiveStartMinutes(i);
-              return `${m === undefined ? '' : `${formatTimeAmPm(m)} `}${i.category} ${i.title} #${i.id}`;
-            })
-            .join('; ')}`,
-      ),
-    ].join('\n');
+    const newDigest = [newHeader, ...days.map(seedDayLine)].join('\n');
 
     // (3) WORST-CASE POST BODY: the digest padded to its cap, a full 12-turn history squeezed
     // through the real `capHistory`, and a 2000-char message — the exact JSON the hook would send.
@@ -509,27 +600,45 @@ describe('buildTripDigest (S327)', () => {
       0,
     );
 
+    const emitted = buildTripDigest();
     console.log(
       `\n[S362 MEASUREMENT — fully-planned 32-day SAMPLE trip, ${totalItems} items (${timed} timed)]\n` +
         `  (1) digest BEFORE (title #id)        : ${oldDigest.length} chars\n` +
         `  (2) digest AFTER  (HH:MM cat title #id): ${newDigest.length} chars  (+${newDigest.length - oldDigest.length}, ~${((newDigest.length - oldDigest.length) / totalItems).toFixed(1)}/item)\n` +
         `      as UTF-8                         : ${new TextEncoder().encode(newDigest).length} bytes (multi-byte titles)\n` +
-        `      vs DIGEST_CAP ${DIGEST_CAP}            : ${DIGEST_CAP - newDigest.length} chars of cap unused\n` +
+        `      vs DIGEST_CAP ${DIGEST_CAP}            : ${newDigest.length - DIGEST_CAP} chars OVER cap\n` +
+        `  (2b) what buildTripDigest EMITS here : ${emitted.length} chars — ${emitted.split('\n').slice(-1)[0]}\n` +
         `  (3) worst-case POST body             : ${worstBody.length} chars / ${worstBytes} bytes\n` +
         `        digest at cap ${DIGEST_CAP} + history ${JSON.stringify(bigHistory).length} (cap ${HISTORY_CHAR_CAP}, ${bigHistory.length}/12 turns kept) + message 2000 + trip ${new TextEncoder().encode(JSON.stringify(worstTrip)).length} bytes (S395, label at TRIP_LABEL_MAX ${TRIP_LABEL_MAX}) + JSON overhead\n` +
         `  (4) headroom under MAX_BODY_BYTES ${MAX_BODY_BYTES}: ${MAX_BODY_BYTES - worstBytes} bytes\n` +
-        `  COUPLING: the Worker's CONTEXT_TRUNCATE_LENGTH must be >= ${newDigest.length} (it re-slices\n` +
-        `  context server-side), so a 9000 ceiling would silently cut ${newDigest.length - 9000} chars off the last day.\n`,
+        `  COUPLING: the Worker's CONTEXT_TRUNCATE_LENGTH must be >= DIGEST_CAP ${DIGEST_CAP}; the client\n` +
+        `  never sends more than that, so the server's own context.slice() stays unreachable.\n`,
     );
 
-    // SELF-CHECK: the reconstruction above must reproduce the REAL builder byte-for-byte, or the
-    // "before" number it derives is fiction. (localStorage is cleared, so the builder is reading
-    // the very same SAMPLE_ITINERARY via the Vault fallback.) Asserted AFTER the log so the
-    // instrumentation still prints when it fails.
-    expect(newDigest).toBe(buildTripDigest());
+    // SELF-CHECK. The reconstruction above must be the REAL builder's output, or the numbers it
+    // derives are fiction. It used to be a flat `toBe(buildTripDigest())`; the seed is over cap
+    // now, so the builder legitimately emits a SUBSET of these lines plus an omission note. The
+    // check is therefore: every line the builder emitted, apart from that note, is one of these
+    // lines byte-for-byte and in this order — and the note names exactly the ones it left out.
+    // (localStorage is cleared, so the builder reads the very same SAMPLE_ITINERARY via the Vault
+    // fallback.) Asserted AFTER the log so the instrumentation still prints when it fails.
+    const emittedLines = emitted.split('\n');
+    const note = OMISSION_NOTE.exec(emittedLines[emittedLines.length - 1]);
+    expect(note).not.toBeNull();
+    const keptLines = emittedLines.slice(0, -1);
+    const keptSet = new Set(keptLines);
+    const fullLines = newDigest.split('\n');
+    expect(fullLines.filter((l) => keptSet.has(l))).toEqual(keptLines); // same lines, same order
+    expect(note![2].split(', ')).toEqual(
+      fullLines.slice(3).filter((l) => !keptSet.has(l)).map((l) => l.slice(0, 10)),
+    );
 
-    // The enriched digest still fits the raised cap uncut — the point of the 7000 → 9500 raise.
-    expect(newDigest.length).toBeLessThanOrEqual(DIGEST_CAP);
+    // The fully-planned digest NO LONGER FITS — that is the finding, not a regression to nudge.
+    // Stated as an assertion rather than left implicit in the pinned constant below: if the trip
+    // ever shrinks back under the cap this goes red and asks whether the overflow path is still
+    // exercised by the real seed at all.
+    expect(newDigest.length).toBeGreaterThan(DIGEST_CAP);
+    expect(emitted.length).toBeLessThanOrEqual(DIGEST_CAP); // ...and what actually ships does fit
     expect(newDigest.length).toBeGreaterThan(oldDigest.length); // times + categories really landed
 
     // THE TWO ABSOLUTE ASSERTIONS. Everything above is RELATIVE (<= cap, > before), which means a
@@ -540,18 +649,18 @@ describe('buildTripDigest (S327)', () => {
     const REMEASURE =
       'Do NOT widen this assertion or add a tolerance — that just moves the rot. Re-measure from ' +
       'the [S362 MEASUREMENT] block printed above, then update this constant AND every comment ' +
-      'that quotes the number: DIGEST_CAP + its slack claim ' +
-      '(hooks/use-concierge-chat.ts), and the Worker CONTEXT_TRUNCATE_LENGTH coupling, which must ' +
-      'stay >= the new size or the server silently truncates the last day.';
+      'that quotes the number: DIGEST_CAP + its overflow note (hooks/use-concierge-chat.ts). The ' +
+      'Worker CONTEXT_TRUNCATE_LENGTH coupling is sized against DIGEST_CAP, not against this ' +
+      'number, and the two caps only move together in a Worker deploy.';
     expect(
       oldDigest.length,
       `S362 (1): the PRE-S362 digest size changed. ${REMEASURE}`,
     ).toBe(MEASURED_DIGEST_BEFORE);
     expect(
       newDigest.length,
-      `S362 (2): the live digest size changed. The cost of the per-item "h:mm AM/PM category " ` +
-        `prefixes, and the remaining slack under DIGEST_CAP ${DIGEST_CAP}, are both computed ` +
-        `from this exact number. ${REMEASURE}`,
+      `S362 (2): the live digest size changed. How far the fully-planned trip overruns ` +
+        `DIGEST_CAP ${DIGEST_CAP}, and therefore how many days the concierge stops seeing, is ` +
+        `computed from this exact number. ${REMEASURE}`,
     ).toBe(MEASURED_DIGEST_AFTER);
 
     // ...and the worst case the hook can now emit still clears the Worker's 413 ceiling. LEFT

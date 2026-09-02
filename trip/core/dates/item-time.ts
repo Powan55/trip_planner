@@ -189,7 +189,7 @@ export function parseTimeString(raw: string): number | undefined {
 /**
  * The ONE free-text `duration` parser (D-316). Derives minutes AT READ from the text the
  * seed content and the v5 vault already hold — there is deliberately NO migration and no
- * re-authoring of the 158 seed strings (D-139 locks "the migration never sets
+ * re-authoring of the 180 seed strings (D-139 locks "the migration never sets
  * `durationMinutes`"; D-095 forbids reordering shipped steps).
  *
  * The grammar is EXACTLY what the data holds and what `lib/time-picker-format.ts`'s

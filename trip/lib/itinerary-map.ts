@@ -32,7 +32,35 @@ function containingCity(mk: MapMarker): string | null {
   return mk.area.split(',').pop()!.trim().toLowerCase();
 }
 
-// Precompute lowercased key fragments per marker for cheap contains-matching.
+// An alias matches on WORD BOUNDARIES, never as a bare substring. `hay.includes(k)` let a short
+// alias match INSIDE another word: "Asan Bazaar" strips to `asan`, which clears the
+// discriminating-alias guard below (4 chars, and not its own city "kathmandu") and is a substring
+// of "Basantapur" — the `location` on Kathmandu Durbar Square, a different site ~450 m away. It
+// produced no wrong pin only because np-durbar-ktm precedes np-asan in MAP_MARKERS and the first
+// hit wins, i.e. it was masked by array order: reordering the markers, or an item whose text says
+// only "Basantapur", flips it silently. `tusa` (Restaurant TUSA) inside "Tusal, Boudha" is the
+// same shape. Measured over the seed items + curated cards + marker names — the basis is
+// 180 seed items + 95 registry cards + one row per marker, 348 haystacks today (the "423" this
+// comment used to quote matched no basis `matchMarker` is ever called on; re-counted 2026-09-01,
+// when it stood at 349 with the duplicate Newa Lahana row still in): NOT ONE resolved pin
+// changes — the only alias/haystack pairs that stop matching are those two, which array order
+// was already hiding.
+//
+// The boundary wraps the WHOLE alias — aliases are multi-word ("kathmandu durbar", "asan bazaar")
+// — and is applied per side only when that side's own edge character is a word character. Two
+// aliases end in punctuation, "le sherpa & farmers'" and "kinkaku-ji (golden pavilion)", and a
+// trailing `\b` after `'` or `)` demands a FOLLOWING word character, so those would never match at
+// end of string. After a letter `\b` is the behaviour we want next to an apostrophe: `asan` still
+// matches "Asan's". Metacharacters are escaped — marker names carry `(`, `)`, `&`, `.` and `'`.
+function aliasPattern(alias: string): RegExp {
+  const escaped = alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const lead = /^\w/.test(alias) ? '\\b' : '';
+  const tail = /\w$/.test(alias) ? '\\b' : '';
+  return new RegExp(`${lead}${escaped}${tail}`, 'i');
+}
+
+// Precompute lowercased key fragments per marker, each compiled ONCE into its matcher: the
+// per-item loop below runs for every itinerary item on every render.
 export const NAME_INDEX = MAP_MARKERS.map((mk) => {
   // A short, distinctive key: the primary proper-noun of the place name.
   const keys = [mk.name.toLowerCase()];
@@ -50,23 +78,48 @@ export const NAME_INDEX = MAP_MARKERS.map((mk) => {
   // and a wrong pin looks exactly like a right pin. An alias that equals the marker's
   // own containing city cannot identify the marker, so it is dropped. Locality-level
   // aliases ("thamel", "shibuya", "fushimi inari") are unaffected — they name the
-  // place, not its container. Measured over the 158 seed items: kills all 19 wrong
-  // pins, loses 0 correct ones.
+  // place, not its container. RE-MEASURED 2026-09-01 on the new basis — 180 seed items and
+  // the longest-alias-wins matcher below, not the 158 items / first-hit-wins matcher the
+  // original claim was made on: re-admitting city-name aliases puts 19 items back on a
+  // container's pin (all 19 are Osaka: j1-3b, j1-4, j1-6, j2-2, j2-3, j2-5, j3-1..4, j4-1,
+  // j4-2, j4-4, j5-1..4, j6-1, j6-2 → jp-osaka-castle), and loses 0 correct ones. Same
+  // number as before by coincidence of the seed, not because the count was carried over.
   if (primary && primary.length >= 4 && primary !== containingCity(mk)) keys.push(primary);
-  return { marker: mk, keys };
+  const aliases = keys.filter(Boolean);
+  return { marker: mk, keys: aliases, patterns: aliases.map(aliasPattern) };
 });
+
+// Every alias of every marker in ONE flat list, LONGEST ALIAS FIRST — the order `matchMarker`
+// scans, so the first hit is the MOST SPECIFIC hit rather than the earliest row in MAP_MARKERS.
+//
+// It used to be first-hit-in-array-order, and that is the same defect class the word-boundary
+// fix above describes: position, not specificity, decided the winner. Concretely — np-thamel
+// ('Thamel Bazaar', `area: 'Thamel, Kathmandu'`, alias `thamel`) sits at MAP_MARKERS index 4,
+// and `containingCity` returns null for a SINGLE-SEGMENT area, so the discriminating-alias
+// guard could never drop `thamel`: it names the locality, not a container. Every venue IN
+// Thamel carries "Thamel" in its `location`, so "Breakfast at Pumpernickel Bakery / Thamel"
+// (np-pumpernickel, index 42), "Chikusa Cafe, Jyatha / Jyatha, Thamel" (index 41) and "Museum
+// of Nepali Art / Thamel, Kathmandu" (index 28) all resolved to Thamel Bazaar — three
+// researched venues plotted at the district they sit in, and a wrong pin looks exactly like a
+// right pin. `pumpernickel bakery` (19 chars) now beats `thamel` (6). Specificity, not position.
+//
+// Sorted ONCE at module scope, not per item: the per-item loop is the same single pass it
+// always was. `sort` is stable in V8, so aliases of equal length keep MAP_MARKERS order and
+// the result stays deterministic.
+export const ALIAS_INDEX: Array<{ marker: MapMarker; alias: string; re: RegExp }> = NAME_INDEX.flatMap(
+  ({ marker, keys, patterns }) => patterns.map((re, i) => ({ marker, alias: keys[i], re })),
+).sort((a, b) => b.alias.length - a.alias.length);
 
 export function matchMarker(item: ItineraryItem): MapMarker | null {
   // 1) Exact sourceId join (curated map-card items).
   if (item.sourceId && MARKER_BY_ID.has(item.sourceId)) {
     return MARKER_BY_ID.get(item.sourceId)!;
   }
-  // 2) Name contains-match against the marker vocabulary (sample items).
+  // 2) Name match against the marker vocabulary (sample items), word-bounded — see
+  // `aliasPattern` — most specific first, see `ALIAS_INDEX`.
   const hay = `${item.title} ${item.location ?? ''}`.toLowerCase();
-  for (const { marker, keys } of NAME_INDEX) {
-    for (const k of keys) {
-      if (k && hay.includes(k)) return marker;
-    }
+  for (const { marker, re } of ALIAS_INDEX) {
+    if (re.test(hay)) return marker;
   }
   return null;
 }
@@ -228,7 +281,7 @@ export function stopMarkerFor(item: ItineraryItem, country: string): MapMarker |
 // USER-DATA rewrite, against hard invariant.
 
 // Rung 4's index — NO new table: built at module scope from the `area` strings the
-// 27 curated markers already carry. First marker wins where two share an area (Thamel,
+// 73 curated markers already carry. First marker wins where two share an area (Thamel,
 // Shinjuku). Normalisation is case + whitespace only, deliberately: the three areas carrying a
 // parenthetical ("Nagarkot (~32 km)", "Nara (~45 min from Kyoto)", "Hakone (~85 min from
 // Tokyo)") are each named by their own marker too, so an item saying "Hakone" is already taken

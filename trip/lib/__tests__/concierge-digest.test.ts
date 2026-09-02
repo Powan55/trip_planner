@@ -210,7 +210,9 @@ describe('#12: the digest carries the real current date and time, and 12-hour ti
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(new Date('2026-12-15T12:00:00Z')); // Nepal leg, +345 → 17:45 local
 
-    expect(await contextOnTheWire()).toContain('Today is 2026-12-15 5:45 PM (Day 7 of 32, Kathmandu).');
+    // Dec 15 reads Chitlang since the Nepal rebuild put the Chandragiri/Chitlang day here; it was
+    // Kathmandu before. Day 7 of 32 is unchanged (Dec 9..Dec 15 inclusive).
+    expect(await contextOnTheWire()).toContain('Today is 2026-12-15 5:45 PM (Day 7 of 32, Chitlang).');
   });
 
   it('AFTER the trip window: still a real date, and it says the trip is over', async () => {

@@ -219,7 +219,7 @@ test.describe('S151 · map trip-mode upgrades', () => {
 });
 
 /**
- * S406 — search resolves EVERY place in the trip, not only the 27 curated markers.
+ * S406 — search resolves EVERY place in the trip, not only the 73 curated markers.
  *
  * Two halves, and both matter:
  *  • New York (the Dec 9 departure day's city, D-315 — Syracuse until 2026-08-14) is a TRIP
