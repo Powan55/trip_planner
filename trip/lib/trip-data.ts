@@ -59,9 +59,10 @@ export interface ItineraryItem {
   createdBy?: string;
   updatedBy?: string;
   updatedAt?: string; // ISO timestamp
-  // Sync v2 per-item merge fields ( — additive per; every existing item
-  // stays valid with all three absent). See core/sync/{hlc,merge-day}.ts. Not yet wired
-  // into the store. Defaulted losslessly at the Vault v3→v4 migration / read boundary.
+  // Sync v2 per-item merge fields (additive-optional; existing items stay valid without
+  // them). hooks/use-itinerary.ts stamps local mutations when isTripRemoteConfigured()
+  // is true. See core/sync/{stamp,hlc,merge-day}.ts. Legacy merge fields are defaulted
+  // losslessly at the Vault v3→v4 migration / read boundary; ord needs no migration.
   rev?: number; // monotonic per-item revision counter; starts at 1 on create.
   hlc?: string; // Hybrid Logical Clock stamp (serialized) — the cross-client CONFLICT key.
   // The day-ORDER key, split off `hlc` so a content edit can advance the conflict key without
