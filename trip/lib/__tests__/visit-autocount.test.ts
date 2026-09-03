@@ -153,8 +153,11 @@ describe('day-arrival counting — the itinerary credits a city once its day has
       'Chitlang',
       'Bhaktapur',
       'Osaka',
+      'Nara',
       'Kyoto',
       'Tokyo',
+      'Kamakura',
+      'Kawaguchiko',
     ]);
     expect(tripPlacesThrough('2026-12-18').map((p) => p.city)).not.toContain('Tokyo');
     expect(tripPlacesThrough('2027-06-01')).toEqual(allTripPlaces()); // after the trip: all of it

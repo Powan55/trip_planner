@@ -78,12 +78,11 @@ export const NAME_INDEX = MAP_MARKERS.map((mk) => {
   // and a wrong pin looks exactly like a right pin. An alias that equals the marker's
   // own containing city cannot identify the marker, so it is dropped. Locality-level
   // aliases ("thamel", "shibuya", "fushimi inari") are unaffected — they name the
-  // place, not its container. RE-MEASURED 2026-09-01 on the new basis — 180 seed items and
-  // the longest-alias-wins matcher below, not the 158 items / first-hit-wins matcher the
-  // original claim was made on: re-admitting city-name aliases puts 19 items back on a
-  // container's pin (all 19 are Osaka: j1-3b, j1-4, j1-6, j2-2, j2-3, j2-5, j3-1..4, j4-1,
-  // j4-2, j4-4, j5-1..4, j6-1, j6-2 → jp-osaka-castle), and loses 0 correct ones. Same
-  // number as before by coincidence of the seed, not because the count was carried over.
+  // place, not its container. RE-MEASURED after the Japan leg rebuild, on the 261-item seed and
+  // the longest-alias-wins matcher below: re-admitting city-name aliases puts 21 items back on a
+  // container's pin (all 21 are Osaka: j1-3b, j1-4, j1-6, j2-3, j2-4, j2-5, j2-7, j2-8, j3-1..4,
+  // j3-6, j4-1, j4-4, j4-5, j4-7, j5-8, j5-9, j6-1, j6-2 → jp-osaka-castle), and loses 0 correct
+  // ones. It was 19 on the 180-item seed; the guard carries more weight now, not less.
   if (primary && primary.length >= 4 && primary !== containingCity(mk)) keys.push(primary);
   const aliases = keys.filter(Boolean);
   return { marker: mk, keys: aliases, patterns: aliases.map(aliasPattern) };
@@ -281,7 +280,7 @@ export function stopMarkerFor(item: ItineraryItem, country: string): MapMarker |
 // USER-DATA rewrite, against hard invariant.
 
 // Rung 4's index — NO new table: built at module scope from the `area` strings the
-// 73 curated markers already carry. First marker wins where two share an area (Thamel,
+// 156 curated markers already carry. First marker wins where two share an area (Thamel,
 // Shinjuku). Normalisation is case + whitespace only, deliberately: the three areas carrying a
 // parenthetical ("Nagarkot (~32 km)", "Nara (~45 min from Kyoto)", "Hakone (~85 min from
 // Tokyo)") are each named by their own marker too, so an item saying "Hakone" is already taken

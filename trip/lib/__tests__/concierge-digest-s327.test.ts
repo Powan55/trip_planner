@@ -56,10 +56,16 @@ const DIGEST_CAP = 9500; // must equal the constant in use-concierge-chat.ts (co
 // deploy. So the BUILDER changed instead — overflow drops whole day lines furthest-from-today
 // first and names them, in place of the old mid-line `slice(0, CAP-1) + '…'`. See the overflow
 // block further down for what that did to the assertions here.
+//
+// RE-MEASURED AGAIN after the Japan leg rebuild: 7514 → 10043 and 10747 → 14842. The seed went
+// 180 → 261 items, and the overrun went 1247 → 5342 chars. At a pre-trip clock that is 14 of the
+// 32 days the concierge cannot see — Dec 27 through Jan 9, the entire Tokyo leg. The overflow
+// path is doing its job and the cap is still the Worker's to move, so nothing here is a fix; the
+// number is recorded so the cost is visible rather than inferred.
 // These two numbers are still the UNCAPPED assembled sizes, i.e. what the trip would send if the
 // budget allowed: (2) minus DIGEST_CAP is how much of the plan the concierge cannot see.
-const MEASURED_DIGEST_BEFORE = 7514;
-const MEASURED_DIGEST_AFTER = 10747;
+const MEASURED_DIGEST_BEFORE = 10043;
+const MEASURED_DIGEST_AFTER = 14842;
 const HISTORY_CHAR_CAP = 3000; // must equal the constant in use-concierge-chat.ts
 const MAX_BODY_BYTES = 16 * 1024; // the Worker's hard 413 ceiling (worker/src/index.ts:24)
 // S395: must equal TRIP_LABEL_MAX in use-concierge-chat.ts AND the Worker's own (providers.ts).

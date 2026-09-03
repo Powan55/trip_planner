@@ -96,18 +96,18 @@ describe('S377 — the ordering key is the ABSOLUTE INSTANT, not the wall clock 
     // the SAME calendar day, eastbound over the date line. Keyed on wall-clock minutes the
     // layover (935) sorts before the flight (1055); keyed on the instant it cannot.
     const ids = sortItemsByTime(day.items, day.date, dayOffset).map((i) => i.id);
-    expect(ids).toEqual(['j22-1', 'j22-2', 'j22-3', 'j22-4', 'j22-5', 'j22-6']);
+    expect(ids).toEqual(['j22-1', 'j22-2', 'j22-3', 'j22-4', 'j22-5', 'j22-6', 'j22-7']);
 
     const idx = (id: string) => ids.indexOf(id);
-    expect(idx('j22-4')).toBeLessThan(idx('j22-5')); // fly before you land
-    expect(idx('j22-5')).toBeLessThan(idx('j22-6')); // land before you fly on
+    expect(idx('j22-5')).toBeLessThan(idx('j22-6')); // fly before you land
+    expect(idx('j22-6')).toBeLessThan(idx('j22-7')); // land before you fly on
   });
 
   it('the displayed wall-clock is deliberately NON-MONOTONIC on Jan-9 (D-137: no per-item badge)', () => {
     const day = TRIP_ITINERARY.find((d) => d.date === '2027-01-09')!;
     const times = sortItemsByTime(day.items, day.date, offsetForCountry(day.country)).map((i) => i.time);
     // Correctly ordered by instant, but the rendered times read 17:35 → 15:35 → 21:35.
-    expect(times).toEqual(['09:00', '11:00', '13:00', '17:35', '15:35', '21:35']);
+    expect(times).toEqual(['08:30', '10:00', '10:45', '13:00', '17:35', '15:35', '21:35']);
   });
 
   it('a per-item tzOffsetMin flips the order against the wall clock (unit, no seed data)', () => {
@@ -270,8 +270,8 @@ const SEED_DURATIONS = TRIP_ITINERARY.flatMap((d) =>
 );
 
 describe('D-316 — parseDurationText derives the span from the text the data already holds', () => {
-  it('every seed `duration` string parses to positive minutes (all 180 of them)', () => {
-    expect(SEED_DURATIONS.length).toBe(180); // the premise: the strings exist and are all here
+  it('every seed `duration` string parses to positive minutes (all 261 of them)', () => {
+    expect(SEED_DURATIONS.length).toBe(261); // the premise: the strings exist and are all here
     const failed = SEED_DURATIONS.filter((s) => {
       const v = parseDurationText(s);
       return typeof v !== 'number' || !Number.isInteger(v) || v <= 0;
@@ -496,7 +496,7 @@ describe('D-316 — the shipped seed content under the now-live predicate', () =
     // the nested item occupies (the `j1-4` precedent), so the pair meets exactly and the
     // half-open rule leaves it clean.
     for (const [date, container, nested] of [
-      ['2026-12-21', 'j3-1', 'j3-2'], // USJ morning → lunch + the afternoon rides
+      ['2026-12-21', 'j3-2', 'j3-3'], // USJ morning → lunch + the afternoon rides
       ['2026-12-23', 'j5-1', 'j5-2'], // Shinsekai wander → the kushikatsu lunch
       ['2026-12-31', 'j13-3', 'j13-4'], // NYE club block → the countdown and the rest of the night
     ] as const) {
@@ -512,12 +512,12 @@ describe('D-316 — the shipped seed content under the now-live predicate', () =
 
   it('containment still counts — a synthetic item dropped inside the real USJ block badges and blocks', () => {
     // The containment RULE is unchanged by the content fix; only the seed stopped exercising it.
-    // Synthetic fixture, real day: 10:00–11:00 sits fully inside j3-1's 09:00–13:00.
+    // Synthetic fixture, real day: 10:00–11:00 sits fully inside j3-2's 09:00–13:00.
     const day = TRIP_ITINERARY.find((d) => d.date === '2026-12-21')!;
     const offset = offsetForCountry(day.country);
     const nested = mk('nested', { time: '10:00', duration: '1h' });
-    expect([...clashingItemIds([...day.items, nested], day.date, offset)].sort()).toEqual(['j3-1', 'nested']);
-    expect(firstClashWith(nested, day.items, day.date, offset)?.id).toBe('j3-1');
+    expect([...clashingItemIds([...day.items, nested], day.date, offset)].sort()).toEqual(['j3-2', 'nested']);
+    expect(firstClashWith(nested, day.items, day.date, offset)?.id).toBe('j3-2');
   });
 
   it('Dec 19 is clean: j1-4 hotel check-in is 45m, so it no longer runs into the 19:00 walk', () => {

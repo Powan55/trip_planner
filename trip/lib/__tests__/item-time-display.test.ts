@@ -82,31 +82,31 @@ describe('describeItemTime — display rule', () => {
  * a KNOWN offset, only for an unknown one.
  *
  * The PAIR is still the instrument, and both halves are load-bearing:
- *   · `j22-5` is the Detroit layover (`tzOffsetMin: -300`) logged on a `country: 'japan'` day.
+ *   · `j22-6` is the Detroit layover (`tzOffsetMin: -300`) logged on a `country: 'japan'` day.
  *     Badging it JST claimed a time 14 hours away from the one the item actually means; badging
  *     it nothing left it reading as JST by context. It must say EST. FAILS on BOTH earlier
  *     versions of the code (pre-S390-A said 'JST', S390-A said null).
- *   · `j22-4` is its SAME-DAY sibling with no override. It is the control: it fails on the
+ *   · `j22-5` is its SAME-DAY sibling with no override. It is the control: it fails on the
  *     over-broad "fix" (re-derive the badge for every item, or drop the day-country path), which
  *     would otherwise read as a pass. It must still say JST.
  * Whole-object `toEqual`, never `toBeFalsy()`/`not.toBe('JST')` — the latter pass on `undefined`
  * and on `'NPT'` respectively, i.e. they accept a 5h45 lie in place of a 14h one.
  *
- * 🔴 The time itself is NEVER converted (D-137's surviving core rule): `j22-5` still reads
+ * 🔴 The time itself is NEVER converted (D-137's surviving core rule): `j22-6` still reads
  * "3:35 PM", the wall-clock in Detroit — only the label attached to it changed.
  */
 describe('describeItemTime — S393: an item in another zone is badged with its REAL zone', () => {
   const LAST_DAY = '2027-01-09';
 
   it('a seeded item with its own tzOffsetMin renders its OWN zone, not the day’s', () => {
-    expect(describeItemTime(seeded('j22-5'), LAST_DAY)).toEqual({
+    expect(describeItemTime(seeded('j22-6'), LAST_DAY)).toEqual({
       label: '3:35 PM',
       badge: 'EST',
     });
   });
 
   it('its same-day sibling with no override keeps the day-country badge (the control)', () => {
-    expect(describeItemTime(seeded('j22-4'), LAST_DAY)).toEqual({
+    expect(describeItemTime(seeded('j22-5'), LAST_DAY)).toEqual({
       label: '5:35 PM',
       badge: 'JST',
     });
@@ -115,7 +115,7 @@ describe('describeItemTime — S393: an item in another zone is badged with its 
   it('the Nepal leg is covered too — an override on a nepal day names its own zone', () => {
     // n1-1 departs Syracuse (-300) on a `country: 'nepal'` day → NPT would be 10h45 wrong.
     // (2026-12-09 carries no unbadged sibling — every item on it is an override — so the
-    // control for this rule is the j22-4 assertion above, on the day that HAS both kinds.)
+    // control for this rule is the j22-5 assertion above, on the day that HAS both kinds.)
     expect(describeItemTime(seeded('n1-1'), '2026-12-09')).toEqual({
       label: '5:29 AM',
       badge: 'EST',

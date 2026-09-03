@@ -36,8 +36,8 @@ export interface ChatTurn {
 // raised BOTH to 7000 (from 2000) so the whole fully-planned 32-day digest fits
 // without mid-trip truncation. raised BOTH to 9500, because the digest now carries a
 // per-item time + category prefix. MEASURED, not estimated:
-// fully-planned 32-day sample trip, 180 items: 7514 chars BEFORE → 10747 AFTER (the Nepal leg
-// rebuild moved the seed 158 → 180 items; the pre-rebuild pair was 6636 → 9452).
+// fully-planned 32-day sample trip, 261 items: 10043 chars BEFORE → 14842 AFTER (the Japan leg
+// rebuild moved the seed 180 → 261 items; the pair before it was 7514 → 10747).
 // Both numbers are pinned EXACTLY by the "MEASUREMENT" test in
 // lib/__tests__/concierge-digest-s327.test.ts (constants MEASURED_DIGEST_BEFORE/AFTER), so the
 // slack claim below is backed by a test that goes red rather than by a run someone did once —
@@ -49,7 +49,9 @@ export interface ChatTurn {
 // D-327 retitled a seed item, the title is in the digest, and the digest grew. The note here used
 // to say ~39 chars were left and that the next seed edit would probably break the cap. It did:
 // the Nepal leg rebuild took the seed 158 → 180 items and the fully-planned digest to 10747 chars,
-// 1246 OVER this cap. Re-measured, and pinned, in that same test file.
+// 1247 OVER this cap. The Japan leg rebuild then took it to 261 items and 14842 chars, 5342 over.
+// At a pre-trip clock the overflow path now drops 14 of the 32 days — Dec 27 to Jan 9, the whole
+// Tokyo leg. Re-measured, and pinned, in that same test file.
 // If a future change needs more room, DIGEST_CAP and the Worker's CONTEXT_TRUNCATE_LENGTH move
 // TOGETHER, in a Worker deploy. Raising this one alone does not buy room, it just moves the
 // truncation server-side where nothing turns red (see the coupling note below).

@@ -105,6 +105,6 @@ describe('journeyLegs (the shipped pack)', () => {
       'Chitlang',
       'Bhaktapur',
     ]);
-    expect(japan.cities).toEqual(['Osaka', 'Kyoto', 'Tokyo']);
+    expect(japan.cities).toEqual(['Osaka', 'Nara', 'Kyoto', 'Tokyo', 'Kamakura', 'Kawaguchiko']);
   });
 });

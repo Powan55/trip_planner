@@ -909,27 +909,38 @@
         "category": "hotel",
         "time": "18:15",
         "duration": "45m",
-        "notes": "Real booked hotel in Shinsaibashi, Osaka. Drop bags and freshen up before the first Osaka night out",
+        "notes": "Real booked hotel in Shinsaibashi. Official check-in is 15:00 and the flight lands at 17:35, so the room is already waiting — the airport limousine bus from Itami to the Namba terminal is about 25 minutes and the hotel is a short walk on from there",
         "location": "Shinsaibashi, Osaka"
       },
       {
         "id": "j1-5",
-        "title": "Dotonbori evening walk & the Glico sign",
+        "title": "Dotonbori and the Glico Running Man",
         "category": "sightseeing",
         "time": "19:00",
-        "duration": "1.5h",
-        "notes": "First look at the neon canal-front strip — the Glico Running Man sign, the giant crab and puffer-fish signs; an easy, low-effort orientation for jet-lagged legs",
+        "duration": "1h",
+        "notes": "Sunset was 16:50, so the canal is already fully dark and nothing outdoor has been lost to the late landing. Shoot the sign from Ebisu Bridge, directly opposite it — that is the frame everyone comes for, and a slow shutter turns the canal into a mirror of the neon. Public street, always on, five minutes from the hotel",
         "location": "Dotonbori, Osaka",
-        "sourceId": "ja12"
+        "sourceId": "jp-dotonbori"
       },
       {
         "id": "j1-6",
-        "title": "Namba/Shinsaibashi bars & late-night food",
+        "title": "Dinner and drinks in Hozenji Yokocho",
+        "category": "food",
+        "time": "20:00",
+        "duration": "1h 45m",
+        "notes": "A lantern-lit stone alley behind Hozenji Temple, two minutes off the Dotonbori crowd, with about sixty izakaya and kushikatsu counters along it. Most of them shut between 22:00 and 23:00, so this is the early half of the night and not the late one. Small counters — walking the lane and taking the first place with three free seats beats holding out for one particular door",
+        "location": "Hozenji Yokocho, Namba, Osaka",
+        "sourceId": "nightlife-nl59"
+      },
+      {
+        "id": "j1-7",
+        "title": "Giraffe",
         "category": "nightlife",
-        "time": "21:00",
-        "duration": "3h",
-        "notes": "Ease into the trip with a first round of Namba/Shinsaibashi bars, then ramen or takoyaki to close out night one — confirm cover charges and drink prices before sitting down. Last train ~00:00, first ~05:00 — taxi or plan to stay out.",
-        "location": "Namba/Shinsaibashi, Osaka"
+        "time": "22:00",
+        "duration": "2h",
+        "notes": "Steps from the Glico sign, unpretentious and party-first with a mixed tourist and local floor — the right first-night room because nobody has to dress for it or commit to a long night after thirty hours in transit. Top 40 and hip-hop. Last trains in Osaka run to roughly 00:00 and first trains from about 05:00, but the hotel is a walk from here so neither matters tonight. Verify the door charge before going in",
+        "location": "Dotonbori, Osaka",
+        "sourceId": "nightlife-nl56"
       }
     ]
   },
@@ -940,51 +951,83 @@
     "items": [
       {
         "id": "j2-1",
-        "title": "Osaka Castle & grounds",
+        "title": "Osaka Castle keep and moat",
         "category": "sightseeing",
         "time": "09:30",
-        "duration": "2h",
-        "notes": "Reconstructed keep with a museum and skyline views; the moat and plum grove are crisp and quiet in winter",
-        "location": "Chuo, Osaka",
-        "sourceId": "ja30"
+        "duration": "2h 30m",
+        "notes": "Open 09:00-17:00 with last entry at 16:30, and this is the window: the keep closes Dec 28 to Jan 1 every year and reopens Jan 2 at 09:00, by which time the party is in Tokyo. Winter strips the plum grove bare, which keeps the sightlines across the moat open — shoot the keep from the far bank for the reflection",
+        "location": "Chuo-ku, Osaka",
+        "sourceId": "jp-osaka-castle"
       },
       {
         "id": "j2-2",
-        "title": "Lunch near Namba",
+        "title": "Lunch on the Dotonbori canal",
         "category": "food",
-        "time": "12:00",
+        "time": "12:15",
         "duration": "1h",
-        "notes": "Casual bite before the afternoon shopping run",
-        "location": "Namba, Osaka"
+        "notes": "Fifteen minutes back from Tanimachi 4-chome. Takoyaki, okonomiyaki and negiyaki from the canal-front stands, eaten standing up. Osaka has no reservation culture at this end of the market and no queue worth planning around at lunch — the evening is when it backs up",
+        "location": "Dotonbori, Osaka",
+        "sourceId": "jp-dotonbori"
       },
       {
         "id": "j2-3",
-        "title": "Shinsaibashi shopping & Amerikamura",
+        "title": "Shinsaibashi-suji arcade and Amerikamura",
         "category": "shopping",
         "time": "13:30",
-        "duration": "2.5h",
-        "notes": "The long covered Shinsaibashi-suji arcade for shopping, then Amerikamura's streetwear blocks and casual cafes next door",
+        "duration": "2h 30m",
+        "notes": "The long covered arcade runs north from Dotonbori and is at its busiest on a Sunday, with no seasonal closure to work around. Amerikamura, one block west, is the streetwear quarter — vintage, sneakers and record shops around Triangle Park. Note that Soemoncho, the strip immediately east of the canal, is adult-nightlife-adjacent with unclear pricing and persistent touts: walk through it, do not stop for a drink",
         "location": "Shinsaibashi & Amerikamura, Osaka",
         "sourceId": "ja27"
       },
       {
         "id": "j2-4",
-        "title": "Dotonbori dinner",
-        "category": "food",
-        "time": "18:00",
-        "duration": "1.5h",
-        "notes": "Takoyaki, okonomiyaki and the canal-front neon before the night out",
-        "location": "Dotonbori, Osaka",
-        "sourceId": "ja12"
+        "title": "Umeda Sky Building — Floating Garden Observatory",
+        "category": "photography",
+        "time": "16:30",
+        "duration": "1h 30m",
+        "notes": "Two stops north on the Midosuji line and a nine-minute walk. An open-air rooftop deck at 173 m with a waist-high barrier and nothing overhead, which is why the escalator across the void between the two towers is the shot as much as the view is. Sunset is 16:50 and full dark about 17:20, so arriving now buys the whole transition. Handheld only — tripods are not allowed up there",
+        "location": "Umeda, Kita-ku, Osaka",
+        "sourceId": "ps21"
       },
       {
         "id": "j2-5",
-        "title": "Shinsaibashi/Amerikamura party night",
+        "title": "Osaka Hikari-Renaissance, Nakanoshima",
+        "category": "photography",
+        "time": "18:15",
+        "duration": "1h 15m",
+        "notes": "A fifteen-minute walk south from Umeda onto the Nakanoshima sandbar. Projection mapping on the 1918 Central Public Hall plus a tunnel of light along the riverside path — a December-only event that on the 2025-26 pattern ran Dec 14-31, so it overlaps the whole Osaka leg. Free, and the tripod is welcome here even though it was not on the roof. Confirm the 2026 dates when they post in November",
+        "location": "Nakanoshima, Kita-ku, Osaka",
+        "sourceId": "ps22"
+      },
+      {
+        "id": "j2-6",
+        "title": "Dotonbori food crawl",
+        "category": "food",
+        "time": "19:45",
+        "duration": "1h 30m",
+        "notes": "Back south on the Midosuji line from Yodoyabashi, ten minutes. The proper crawl this time rather than the lunchtime version — kushikatsu, ikayaki, a crab from one of the signed shopfronts, and the canal at full brightness on the way through",
+        "location": "Dotonbori, Osaka",
+        "sourceId": "jp-dotonbori"
+      },
+      {
+        "id": "j2-7",
+        "title": "Nihonshu Unagidani",
         "category": "nightlife",
-        "time": "21:00",
+        "time": "21:30",
+        "duration": "1h",
+        "notes": "A standing sake bar near Shinsaibashi Station with more than a hundred bottles in glass-fronted fridges you pick from yourself. Cheap, quick and a genuine local room rather than a club warm-up bar — one round here before the floor fills up next door",
+        "location": "Shinsaibashi, Osaka",
+        "sourceId": "nightlife-nl60"
+      },
+      {
+        "id": "j2-8",
+        "title": "Club Bambi",
+        "category": "nightlife",
+        "time": "22:45",
         "duration": "3h",
-        "notes": "The first big party night — try Club Bambi (young, cheap, hip-hop-inclusive) or GHOST Ultra Lounge tonight — or Club Joule/Giraffe for a change of room (verify hours/cover before going); agree the cover charge and any drink minimum before going in. Cap the night with Kinryu Ramen Dotonbori (24h). Last train ~00:00, first ~05:00 — taxi or stay out till first train.",
-        "location": "Shinsaibashi/Amerikamura, Osaka"
+        "notes": "The first proper club night, and a Sunday: the big Shinsaibashi rooms programme Friday and Saturday, so a young cheap hip-hop-inclusive floor is the honest pick tonight rather than a flagship with nobody in it. Check tonight's actual event before walking there and agree the cover and any drink minimum at the door. Kinryu Ramen on Dotonbori runs 24 hours and is the walk home",
+        "location": "Shinsaibashi, Osaka",
+        "sourceId": "nightlife-nl21"
       }
     ]
   },
@@ -995,40 +1038,62 @@
     "items": [
       {
         "id": "j3-1",
+        "title": "Shinsaibashi → Universal City",
+        "category": "transportation",
+        "time": "08:00",
+        "duration": "45min",
+        "notes": "Midosuji line to Umeda, walk through to JR Osaka, Loop line to Nishikujo, then the Yumesaki line two stops to Universal City. About 40 minutes with the transfers, and the gate queue is what the extra five minutes are for",
+        "location": "Shinsaibashi → Universal City, Osaka"
+      },
+      {
+        "id": "j3-2",
         "title": "Universal Studios Japan — Super Nintendo World",
         "category": "sightseeing",
         "time": "09:00",
         "duration": "4h",
-        "notes": "The morning half of a full USJ day, up to the lunch break; prioritize Super Nintendo World and an Express Pass if available — check current anime/game collaborations closer to the date",
-        "location": "Universal Studios Japan, Konohana, Osaka",
+        "notes": "The single most booking-sensitive day of the trip. Three things have to be bought and they are not the same purchase: a dated Studio Pass, an Express Pass, and a Super Nintendo World Area Timed Entry ticket unless the Express Pass already bundles one. Express Passes release roughly 60 days out, one new date per day at 00:00, which puts Dec 21 at around 21 Oct 2026 and the good passes go first. Same-day timed entry now runs through the park app, so at least one phone needs data and the app installed before the gate, not in the queue. The published operating calendar sets the day's hours about two months out — do not assume 09:00-21:00",
+        "location": "Universal Studios Japan, Konohana-ku, Osaka",
         "sourceId": "ja28"
       },
       {
-        "id": "j3-2",
-        "title": "Lunch inside the park, then the afternoon rides",
+        "id": "j3-3",
+        "title": "Lunch inside the park",
         "category": "food",
         "time": "13:00",
-        "duration": "4h",
-        "notes": "Quick refuel between rides, then back in for the afternoon half of the park day — out around 5pm",
-        "location": "Universal Studios Japan, Osaka"
-      },
-      {
-        "id": "j3-3",
-        "title": "Dinner near Namba",
-        "category": "food",
-        "time": "19:00",
-        "duration": "1.5h",
-        "notes": "Recover from a long theme-park day before a lighter night",
-        "location": "Namba, Osaka"
+        "duration": "1h",
+        "notes": "Eat at the back of the lunch rush rather than the front of it — the Nintendo World restaurants are the bottleneck and the rest of the park empties out between 12:00 and 13:00",
+        "location": "Universal Studios Japan, Osaka",
+        "sourceId": "ja28"
       },
       {
         "id": "j3-4",
-        "title": "Lighter Namba night",
+        "title": "Afternoon rides and the evening parade",
+        "category": "sightseeing",
+        "time": "14:00",
+        "duration": "4h 30m",
+        "notes": "Dec 21 is a Monday and falls before the Japanese school winter holidays, which start around Dec 25 — this is the good half of December and the reason the park day sits here and not later in the trip. Check the current anime and game collaborations when the date gets close; they rotate and they are the thing this group would actually queue for",
+        "location": "Universal Studios Japan, Osaka",
+        "sourceId": "ja28"
+      },
+      {
+        "id": "j3-5",
+        "title": "Late dinner at Kinryu Ramen, Dotonbori",
+        "category": "food",
+        "time": "19:45",
+        "duration": "1h",
+        "notes": "Back on the canal about 19:30 after the park. Open 24 hours, order from the machine, eat standing or on the tatami platform out front, help yourself to the kimchi and chives on the counter. The right end to a fourteen-hour day on foot",
+        "location": "Dotonbori, Osaka",
+        "sourceId": "jp-dotonbori"
+      },
+      {
+        "id": "j3-6",
+        "title": "Karaoke box in Namba",
         "category": "nightlife",
         "time": "21:00",
-        "duration": "2h",
-        "notes": "A lower-key night after USJ — late food and a couple of easy bars in Namba, or swap in a Big Echo/Karaoke Kan karaoke box for a lower-output alternative. Last train ~00:00, first ~05:00 — taxi or stay out till first train.",
-        "location": "Namba, Osaka"
+        "duration": "2h 30m",
+        "notes": "A deliberately lower-output night between two big ones. Big Echo and Karaoke Kan both have Namba and Shinsaibashi branches, they take three people into a private room without a wait on a Monday, and the hourly rate is a fraction of a club door. Drinks are ordered to the room, so nobody is standing at a bar",
+        "location": "Namba, Osaka",
+        "sourceId": "nightlife-nl58"
       }
     ]
   },
@@ -1039,84 +1104,175 @@
     "items": [
       {
         "id": "j4-1",
-        "title": "Den Den Town / Nipponbashi anime shopping",
-        "category": "shopping",
-        "time": "10:30",
+        "title": "Shinsaibashi → Osakako",
+        "category": "transportation",
+        "time": "09:45",
+        "duration": "30min",
+        "notes": "Midosuji line one stop to Hommachi, then the Chuo line west to Osakako. The aquarium is a five-minute walk from the exit",
+        "location": "Shinsaibashi → Tempozan, Osaka"
+      },
+      {
+        "id": "j4-2",
+        "title": "Osaka Aquarium Kaiyukan",
+        "category": "sightseeing",
+        "time": "10:15",
         "duration": "3h",
-        "notes": "Osaka's anime and electronics district — hunt for One Piece, Naruto and Dragon Ball Z figures and collectibles across the arcade's specialty shops",
+        "notes": "Built as a single spiral descent around a 9 m-deep central Pacific tank holding whale sharks, so the same tank is seen from eight different depths on the way down. Broadly 10:00-20:00 with seasonal variation and last entry an hour before closing — Kaiyukan publishes a per-date calendar, so check the actual day rather than the general hours. Buy a timed e-ticket: it is cheaper than the gate and the gate queue on a holiday afternoon is long. Indoors, which is the point on a cold December day",
+        "location": "Tempozan, Minato-ku, Osaka",
+        "sourceId": "jp-kaiyukan"
+      },
+      {
+        "id": "j4-3",
+        "title": "Lunch on the Tempozan quay",
+        "category": "food",
+        "time": "13:15",
+        "duration": "45min",
+        "notes": "Eat here rather than carrying the appetite back into town — the quay has the food floors, the Ferris wheel and the harbour ferry terminal all on the same block, and backtracking to Namba for lunch costs an hour of the shopping afternoon",
+        "location": "Tempozan, Minato-ku, Osaka",
+        "sourceId": "jp-kaiyukan"
+      },
+      {
+        "id": "j4-4",
+        "title": "Tempozan → Nipponbashi",
+        "category": "transportation",
+        "time": "14:15",
+        "duration": "30min",
+        "notes": "Chuo line back east to Sakaisuji-Hommachi, then the Sakaisuji line south to Nipponbashi. About 25 minutes",
+        "location": "Tempozan → Nipponbashi, Osaka"
+      },
+      {
+        "id": "j4-5",
+        "title": "Den Den Town figure and manga run",
+        "category": "shopping",
+        "time": "14:45",
+        "duration": "3h 30m",
+        "notes": "Osaka's answer to Akihabara, strung along Sakaisuji between Nipponbashi and Ebisucho. Shops run roughly 11:00-20:00 with no December closure, and the useful pattern is that the big chains sit on the main street while the second-hand and garage-kit dealers are one block back. One Piece, Naruto and Dragon Ball are everywhere; the things worth the trip are the used-figure floors and the gachapon walls, which turn over faster here than in Tokyo",
         "location": "Nipponbashi, Osaka",
         "sourceId": "ja29"
       },
       {
-        "id": "j4-2",
-        "title": "Lunch in Nipponbashi",
+        "id": "j4-6",
+        "title": "Dinner on Dotonbori",
         "category": "food",
-        "time": "13:30",
-        "duration": "1h",
-        "notes": "Casual lunch between the figure shops",
-        "location": "Nipponbashi, Osaka"
-      },
-      {
-        "id": "j4-3",
-        "title": "Dotonbori food crawl",
-        "category": "food",
-        "time": "18:00",
-        "duration": "2h",
-        "notes": "A second pass through Dotonbori for more street food before the night out",
+        "time": "18:30",
+        "duration": "1h 30m",
+        "notes": "A ten-minute walk north from Den Den Town puts the group back on the canal without a train. Okonomiyaki tonight if the crawl on the 20th did takoyaki — the two are not interchangeable and Osaka will tell you so",
         "location": "Dotonbori, Osaka",
-        "sourceId": "ja12"
+        "sourceId": "jp-dotonbori"
       },
       {
-        "id": "j4-4",
-        "title": "Namba/Shinsaibashi bars & clubs",
+        "id": "j4-7",
+        "title": "Amerikamura bars",
         "category": "nightlife",
-        "time": "21:00",
-        "duration": "3h",
-        "notes": "Another round through Namba and Shinsaibashi — try Pure Osaka (Dotonbori) tonight, rotating off the first party night's venues (verify before going). Cap it with Kinryu Ramen Dotonbori (24h). Last train ~00:00, first ~05:00 — taxi or stay out till first train.",
-        "location": "Namba/Shinsaibashi, Osaka"
+        "time": "20:45",
+        "duration": "2h",
+        "notes": "Amemura is the youth-culture quarter — streetwear by day, hip-hop and rap-leaning bars at night, cheaper and less touristed than the Shinsaibashi club row a block east. A Tuesday is exactly the night for it: small rooms with a crowd rather than a big room without one",
+        "location": "Amerikamura, Osaka",
+        "sourceId": "nightlife-nl13"
+      },
+      {
+        "id": "j4-8",
+        "title": "Pure Osaka",
+        "category": "nightlife",
+        "time": "23:00",
+        "duration": "2h 30m",
+        "notes": "A Dotonbori-area room, deliberately rotated off Sunday's Shinsaibashi floor so the two club nights are not the same night twice. Tuesday is quiet everywhere in Osaka, so check tonight's event before committing — and if the floor is dead, Amerikamura is a four-minute walk back",
+        "location": "Dotonbori, Osaka",
+        "sourceId": "nightlife-nl23"
       }
     ]
   },
   {
     "date": "2026-12-23",
-    "city": "Osaka",
+    "city": "Nara",
     "country": "japan",
     "items": [
       {
         "id": "j5-1",
-        "title": "Shinsekai & Spa World flex day",
-        "category": "sightseeing",
-        "time": "10:30",
-        "duration": "2.5h",
-        "notes": "The retro Shinsekai district under Tsutenkaku Tower and its old-Osaka atmosphere, up to the kushikatsu lunch at 1pm; the Spa World bathhouse soak then fills the open afternoon after it — a relaxed recovery day before the last Osaka night",
-        "location": "Shinsekai, Osaka"
+        "title": "Shinsaibashi → Kintetsu-Nara",
+        "category": "transportation",
+        "time": "09:00",
+        "duration": "1h 15m",
+        "notes": "One stop or an eight-minute walk to Osaka-Namba, then a Kintetsu Rapid Express straight through to Kintetsu-Nara in 35-38 minutes, six an hour. The Rapid Express needs no reservation — only the Limited Express does, and it saves about five minutes for the price of a seat ticket. Door to door about 1h15, the shortest real day trip on the whole trip",
+        "location": "Shinsaibashi → Kintetsu-Nara"
       },
       {
         "id": "j5-2",
-        "title": "Lunch — kushikatsu in Shinsekai",
+        "title": "Nakatanidou",
         "category": "food",
-        "time": "13:00",
-        "duration": "1h",
-        "notes": "Deep-fried skewers, Osaka's other signature street food; the rule is no double-dipping the sauce",
-        "location": "Shinsekai, Osaka"
+        "time": "10:15",
+        "duration": "30min",
+        "notes": "Four hundred metres from the station on Sanjo-dori, so it costs ten minutes on the walk in rather than a detour. Warm yomogi mochi sold one piece at a time over the counter at about 150-200 yen. The two-man high-speed mallet demonstration outside is what the crowds film, but it runs on no published timetable — treat it as luck, not as an item to wait for",
+        "location": "Sanjo-dori, Nara",
+        "sourceId": "jp-nakatanidou"
       },
       {
         "id": "j5-3",
-        "title": "Dinner before the final Osaka night",
-        "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
-        "notes": "Fuel up before the biggest party night of the Osaka leg",
-        "location": "Namba, Osaka"
+        "title": "Nara Park and the walk up to Nandaimon",
+        "category": "photography",
+        "time": "10:45",
+        "duration": "45min",
+        "notes": "The deer come right up the approach path and will bow for a shika-senbei cracker, which is the whole reason to shoot with an 85mm here rather than a wide. They also head-butt for the crackers, so hand them over rather than negotiating. The park itself is free",
+        "location": "Nara Park, Nara",
+        "sourceId": "jp-nara"
       },
       {
         "id": "j5-4",
-        "title": "Biggest Osaka party night",
+        "title": "Todai-ji Daibutsuden",
+        "category": "cultural",
+        "time": "11:30",
+        "duration": "1h 30m",
+        "notes": "The largest wooden temple hall in the world, holding a 15 m bronze Buddha cast in 752. Open 08:00-17:00 from November to March with no closing days, 800 yen for the hall while the park around it stays free. The pillar at the back with a hole cut through its base is sized to the Buddha's nostril and there is usually a queue of children going through it",
+        "location": "Zoshicho, Nara",
+        "sourceId": "jp-todaiji"
+      },
+      {
+        "id": "j5-5",
+        "title": "Lunch on the Higashimuki arcade",
+        "category": "food",
+        "time": "13:15",
+        "duration": "1h",
+        "notes": "The covered arcade between Kintetsu-Nara Station and the park, which is where Nara actually eats — kakinoha-zushi wrapped in persimmon leaf, udon, and the narezushi counters. Nothing here needs booking and nothing here closes in December",
+        "location": "Higashimuki arcade, Nara",
+        "sourceId": "jp-nakatanidou"
+      },
+      {
+        "id": "j5-6",
+        "title": "Nara Park at low light",
+        "category": "photography",
+        "time": "14:30",
+        "duration": "1h 15m",
+        "notes": "Sunset is 16:51 and the reality is that the park has to be finished by 16:00 — the light goes flat under the trees well before it goes off the sky. Side light through the cedar avenue between Nandaimon and the Kasuga approach is the best hour of the day here",
+        "location": "Nara Park, Nara",
+        "sourceId": "jp-nara"
+      },
+      {
+        "id": "j5-7",
+        "title": "Kintetsu-Nara → Shinsaibashi",
+        "category": "transportation",
+        "time": "15:45",
+        "duration": "1h 15m",
+        "notes": "Straight back the way it came. Himeji Castle was the alternative shape for today — 1h50 door to door and genuinely better architecture, but last admission is 16:00 with no re-entry, so it would have meant leaving before midday and losing the evening. It is also shut Dec 29-30, its only two closing days of the year, which kills any idea of going back for it later",
+        "location": "Kintetsu-Nara → Shinsaibashi"
+      },
+      {
+        "id": "j5-8",
+        "title": "Kushikatsu under Tsutenkaku, Shinsekai",
+        "category": "food",
+        "time": "18:00",
+        "duration": "1h 45m",
+        "notes": "Ten minutes down the Midosuji line to Ebisucho. Shinsekai is the 1912 retro quarter under the Tsutenkaku tower and kushikatsu is its dish — deep-fried skewers with a communal sauce tub on every table, and the one rule that matters is no double-dipping. Cabbage on the table is free and is what you use to scoop more sauce",
+        "location": "Shinsekai, Naniwa-ku, Osaka"
+      },
+      {
+        "id": "j5-9",
+        "title": "Club Joule",
         "category": "nightlife",
         "time": "21:30",
-        "duration": "3.5h",
-        "notes": "The final and biggest Osaka night out — try GHOST Ultra Lounge or Club Bambi across Shinsaibashi, Amerikamura and Namba before the move to Kyoto (verify hours/cover before going); pace the group for tomorrow's checkout. One more round of Kinryu Ramen Dotonbori (24h) before calling it. Last train ~00:00, first ~05:00 — taxi or stay out till first train.",
-        "location": "Shinsaibashi/Amerikamura/Namba, Osaka"
+        "duration": "3h 30m",
+        "notes": "The last Osaka night, so the biggest room on the strip: three floors in Shinsaibashi with an 800-capacity main floor, a mezzanine and a rooftop terrace, EDM through hip-hop. It is a Wednesday, so check the actual listing before committing the night to it — GHOST Ultra Lounge and Gala Resort are the two fallbacks within the same few blocks. Pace it: checkout is 11:00 tomorrow and the bags have to be packed",
+        "location": "Chuo-ku, Osaka",
+        "sourceId": "nightlife-nl54"
       }
     ]
   },
@@ -1127,50 +1283,90 @@
     "items": [
       {
         "id": "j6-1",
-        "title": "Check out of Osaka hotel",
+        "title": "Check out of the Shinsaibashi hotel",
         "category": "hotel",
         "time": "10:00",
         "duration": "1h",
-        "notes": "Pack up and settle out before the short hop to Kyoto",
-        "location": "Osaka"
+        "notes": "Real booked checkout is 11:00 — bags down and settled before then. Nothing about today needs an earlier start, because the Kyoto room is not available until 14:00 either way",
+        "location": "Shinsaibashi, Osaka"
       },
       {
         "id": "j6-2",
-        "title": "Osaka → Kyoto by JR train",
+        "title": "Osaka → Kyoto by Hankyu",
         "category": "transportation",
-        "time": "11:30",
-        "duration": "45min",
-        "notes": "JR Special Rapid (or Shinkansen, depending on exact hotel locations) from Osaka/Umeda to Kyoto Station; a light travel day — keep Christmas Eve easy",
-        "location": "Osaka → Kyoto"
+        "time": "11:15",
+        "duration": "1h 15m",
+        "notes": "Midosuji line to Osaka-Umeda, then a Hankyu Kyoto Line Limited Express straight to Kyoto-Kawaramachi in about 45 minutes for around 410 yen. This is the better train than the JR Special Rapid today: it is slower to Kyoto Station but it terminates directly under the Shijo-Kawaramachi crossing, which is where the hotel is, so it saves a second transfer with three suitcases",
+        "location": "Osaka → Kyoto-Kawaramachi"
       },
       {
         "id": "j6-3",
-        "title": "Check in to the Kawaramachi hotel",
-        "category": "hotel",
-        "time": "14:00",
+        "title": "Nishiki Market",
+        "category": "food",
+        "time": "12:45",
         "duration": "1h",
-        "notes": "Real booked hotel (official check-in 2:00pm) in Kawaramachi, Kyoto. Drop bags and rest before the Christmas Eve evening",
-        "location": "Kawaramachi, Kyoto"
+        "notes": "Leave the bags at the hotel desk on the way past — check-in is not until 14:00. The market is a covered arcade five blocks long, 350 m from the crossing, typically 10:00-18:00 store by store. A good number of stalls close on Wednesdays and Dec 24 is a Thursday, so that does not bite today. Eat standing at the stall: tamagoyaki on a stick, soy-milk doughnuts, grilled scallops, hamo tempura",
+        "location": "Nishikikoji-dori, Nakagyo Ward, Kyoto",
+        "sourceId": "jp-nishiki"
       },
       {
         "id": "j6-4",
-        "title": "Pontocho Christmas Eve dinner",
-        "category": "food",
-        "time": "18:30",
-        "duration": "2h",
-        "notes": "Dinner down the narrow riverside lane — obanzai (Kyoto home cooking) or a casual yudofu hot-pot to warm up; reserve ahead if possible",
-        "location": "Pontocho, Kyoto",
-        "sourceId": "nightlife-nl15"
+        "title": "Check in to the Shijo-Kawaramachi hotel",
+        "category": "hotel",
+        "time": "14:00",
+        "duration": "45min",
+        "notes": "Real booked check-in is 14:00, at the Shijo-Kawaramachi crossing. Everything on the Kyoto leg except Arashiyama and Fushimi is inside a 25-minute radius of this door, which is why the evenings can run late here without a taxi plan",
+        "location": "Shijo-Kawaramachi, Kyoto"
       },
       {
         "id": "j6-5",
-        "title": "Kiyamachi-dori bars",
+        "title": "Nijo Castle and the Ninomaru Palace",
+        "category": "cultural",
+        "time": "15:00",
+        "duration": "2h",
+        "notes": "Hankyu one stop to Karasuma, Karasuma line to Karasuma-Oike, Tozai line to Nijojo-mae — about 25 minutes. Go straight to the palace and do the moat afterwards: the castle takes last entry at 16:00 but the Ninomaru Palace reception shuts at 16:10 and that is the hard cut. This is the last chance for it — the Ninomaru and Honmaru interiors both close Dec 26-28, and Ninomaru also closes every Tuesday in December. 800 yen for the grounds, 1,300 with Ninomaru; the Honmaru needs a separate advance reservation and is shut Dec 26-28 regardless. The nightingale floors are the reason to pay the extra 500",
+        "location": "Nijojo-cho, Nakagyo Ward, Kyoto",
+        "sourceId": "jp-nijo-castle"
+      },
+      {
+        "id": "j6-6",
+        "title": "Kyoto Station building and the Daikaidan light show",
+        "category": "sightseeing",
+        "time": "17:30",
+        "duration": "45min",
+        "notes": "Twenty minutes from Nijojo-mae. The Daikaidan is a 171-step staircase cut up the east side of the station atrium with LEDs set into every riser; the light show runs on it through the evening and costs nothing. The observation deck on the tower opposite runs 10:00-21:00 with last entry 20:30 if the group wants the paid version, and the 10th-floor ramen street runs roughly 11:00-22:00. All of it survives the New Year shutdown, which almost nothing else in Kyoto does",
+        "location": "Shimogyo Ward, Kyoto",
+        "sourceId": "jp-kyoto-station"
+      },
+      {
+        "id": "j6-7",
+        "title": "Christmas Eve dinner at Menami",
+        "category": "food",
+        "time": "19:00",
+        "duration": "2h",
+        "notes": "An obanzai counter on Kiyamachi, one street back from Pontocho: the day's dishes are set out in bowls along the counter and you point. Open 15:00-22:00 with last order 21:30, closed Wednesdays, so Dec 24 is fine. Two things about booking it — Christmas Eve is the single biggest restaurant night of the Japanese year and a walk-in trio will be turned away, and Menami takes bookings by phone only, in the afternoon, in Japanese. Somebody has to make that call, and it has to happen in early December",
+        "location": "Kiyamachi, Nakagyo Ward, Kyoto",
+        "sourceId": "jp-menami"
+      },
+      {
+        "id": "j6-8",
+        "title": "Pontocho Alley",
+        "category": "photography",
+        "time": "21:15",
+        "duration": "45min",
+        "notes": "Two minutes from the restaurant. A single lane barely two metres wide between the Kamo River and Kiyamachi, wooden fronts and lanterns the whole length. Shoot it from the Sanjo end looking south with a fast prime — it is narrow enough that a wide lens just gets you walls. Some doors here carry a seating charge or take regulars only, so a posted menu or an English sign is the signal that a place will seat three",
+        "location": "Pontocho, Nakagyo Ward, Kyoto",
+        "sourceId": "jp-pontocho"
+      },
+      {
+        "id": "j6-9",
+        "title": "Rocking Bar ING",
         "category": "nightlife",
-        "time": "21:00",
-        "duration": "2.5h",
-        "notes": "Kyoto's main drinking street for a lighter first night — keep it easy after the transfer day; Rocking Bar ING on Kiyamachi-dori is a good dive-bar stop. Kyoto's last buses/subway run earlier than Tokyo/Osaka (well before midnight) — plan a taxi back if you're out late.",
+        "time": "22:15",
+        "duration": "2h",
+        "notes": "A dive rock bar on Kiyamachi-dori run by the same owner for more than twenty years, walls buried in Rolling Stones memorabilia — the counterpoint to a night that has otherwise been all lanterns and machiya. Kyoto's subway stops around 23:30-23:50 and the city buses are largely finished by 22:30, but the hotel is a seven-minute walk from this door, which is the entire reason the Kyoto nights are based here",
         "location": "Kiyamachi-dori, Kyoto",
-        "sourceId": "nightlife-nl14"
+        "sourceId": "nightlife-nl62"
       }
     ]
   },
@@ -1181,50 +1377,111 @@
     "items": [
       {
         "id": "j7-1",
-        "title": "Dawn at Fushimi Inari",
-        "category": "photography",
-        "time": "06:30",
-        "duration": "2.5h",
-        "notes": "Thousands of vermillion torii winding up the mountain; arrive before 7 AM for empty tunnel shots, use the gates as leading lines",
-        "location": "Fushimi, Kyoto",
-        "sourceId": "ja2"
+        "title": "Kawaramachi → Fushimi Inari",
+        "category": "transportation",
+        "time": "06:00",
+        "duration": "30min",
+        "notes": "Five minutes on foot east over Shijo bridge to Keihan Gion-Shijo, then a local or semi-express south to Fushimi-Inari — the limited expresses do not stop there. First Keihan services run from about 05:20, so this works",
+        "location": "Kawaramachi → Fushimi, Kyoto"
       },
       {
         "id": "j7-2",
-        "title": "Inari-style breakfast & tea",
-        "category": "food",
-        "time": "09:30",
-        "duration": "1h",
-        "notes": "Kitsune udon and inari-zushi at a shrine-approach stall after the climb",
-        "location": "Fushimi, Kyoto"
+        "title": "Dawn at Fushimi Inari",
+        "category": "photography",
+        "time": "06:30",
+        "duration": "2h 30m",
+        "notes": "Civil dawn is 06:35 and sunrise is 07:03, so 06:30 is right for arriving and wrong for shooting. The lower torii route has footpath lighting and lanterns — enough to walk by, not enough to shoot by — so bring a torch and expect the first twenty minutes to be a walk. Usable frames start around 06:50 and the empty-tunnel window then runs to about 08:00. The mountain trail above Yotsutsuji is genuinely dark, with a standing local warning about wild boar and advice not to go up alone, so stay on the lit lower loop until it is light. Grounds are free and open around the clock; the shrine office and amulet counters only open around 07:00",
+        "location": "Fukakusa Yabunouchicho, Fushimi Ward, Kyoto",
+        "sourceId": "jp-fushimi"
       },
       {
         "id": "j7-3",
-        "title": "Higashiyama & Kiyomizu-dera",
-        "category": "cultural",
-        "time": "12:00",
-        "duration": "2.5h",
-        "notes": "Hilltop temple with its wooden stage over the valley, then the preserved Sannenzaka/Ninenzaka slopes down through Higashiyama",
-        "location": "Higashiyama, Kyoto"
+        "title": "Breakfast at Inoda Coffee Honten",
+        "category": "food",
+        "time": "09:30",
+        "duration": "45min",
+        "notes": "Back north to Gion-Shijo and twelve minutes west on foot. Inoda opens at 07:00, which is why it cannot be breakfast on the way out to the shrine and works perfectly on the way back. Open every day of the year. Order the Arabian Pearl — it comes with milk and sugar already in it by house default, which catches people out — and sit in the old round-counter room rather than the annexe",
+        "location": "Sakaimachi-dori, Nakagyo Ward, Kyoto",
+        "sourceId": "jp-inoda-coffee"
       },
       {
         "id": "j7-4",
-        "title": "Gion evening walk",
-        "category": "sightseeing",
-        "time": "17:00",
-        "duration": "1.5h",
-        "notes": "Stroll the lantern-lit lanes of Gion and Hanamikoji as they light up for Christmas evening",
-        "location": "Gion, Kyoto",
-        "sourceId": "nightlife-nl16"
+        "title": "Kyoto International Manga Museum",
+        "category": "cultural",
+        "time": "10:45",
+        "duration": "1h 45m",
+        "notes": "A ten-minute walk north to Karasuma-Oike. A 1920s elementary school converted into a manga library, corridors walled floor to ceiling with about 300,000 volumes that visitors are free to pull down and read on the stairs or the lawn. 10:00-17:00, last admission 16:30, 1,200 yen. Today is the last day it can be seen on this trip: the museum's own calendar closes it from 2026/12/26 to 2027/1/6. Most of the collection is Japanese-only, with a smaller shelf of translated and foreign work",
+        "location": "Karasuma-dori Oike-agaru, Nakagyo Ward, Kyoto",
+        "sourceId": "jp-manga-museum"
       },
       {
         "id": "j7-5",
-        "title": "Pontocho/Kawaramachi bars",
+        "title": "Karasuma-Oike → Kiyomizu-michi",
+        "category": "transportation",
+        "time": "12:30",
+        "duration": "45min",
+        "notes": "Subway back to Shijo, then the 100 or 206 bus east to Kiyomizu-michi and a ten-minute walk up the hill. The buses run every few minutes and are the slow part; a taxi is about fifteen minutes and worth it for three people if one is behind schedule",
+        "location": "Nakagyo → Higashiyama, Kyoto"
+      },
+      {
+        "id": "j7-6",
+        "title": "Kiyomizu-dera",
+        "category": "cultural",
+        "time": "13:15",
+        "duration": "1h 30m",
+        "notes": "Founded in 780 above the Otowa waterfall, and the wooden stage projects out over the valley on a lattice of pillars driven together without a single nail. 500 yen, opens at 06:00 daily and closes about 18:00 in winter, with no closing days all year — it is open two hours before almost anything else in Kyoto, which makes it the better dawn target than Fushimi if the group ever wants to swap. The special night viewings are spring and autumn only, so there is nothing to book in December",
+        "location": "Kiyomizu, Higashiyama Ward, Kyoto",
+        "sourceId": "jp-kiyomizudera"
+      },
+      {
+        "id": "j7-7",
+        "title": "Sannenzaka and Ninenzaka",
+        "category": "photography",
+        "time": "14:45",
+        "duration": "1h 30m",
+        "notes": "Two stone-stepped lanes of preserved machiya running downhill from Kiyomizu towards Kodai-ji, tea shops and sweet stalls the whole way — this is where the afternoon eating happens, on the hoof. Shops run roughly 09:00-18:00 and start pulling shutters once it goes dark, which is 17:20. The five-storey Yasaka Pagoda stands about 200 m below the foot of Ninenzaka and closes most of the frames shot along here. The steps are worn and slick in the wet; the name Sannenzaka carries a local superstition about falling on them",
+        "location": "Higashiyama Ward, Kyoto",
+        "sourceId": "jp-sannenzaka"
+      },
+      {
+        "id": "j7-8",
+        "title": "Saryo Tsujiri, Gion Honten",
+        "category": "food",
+        "time": "16:30",
+        "duration": "45min",
+        "notes": "Ten minutes down from the foot of Ninenzaka and directly on the Gion walk. Uji matcha parfaits and warabi mochi from a house that has been in tea since 1860. No reservations and there is a queue; posted hours have moved more than once in recent years, so check the door rather than a listing. Tearoom last order is around 20:00 on a weekday",
+        "location": "Gion, Higashiyama Ward, Kyoto",
+        "sourceId": "jp-saryo-tsujiri"
+      },
+      {
+        "id": "j7-9",
+        "title": "Hanamikoji-dori after dark",
+        "category": "photography",
+        "time": "17:20",
+        "duration": "45min",
+        "notes": "Full dark is 17:20 and the paper lanterns are lit by then, which is the only reason this is an evening item rather than an afternoon one. Kyoto fines photography on the private side alleys off this street at 10,000 yen, and photographing geiko or maiko without their consent is not permitted at all — the shooting happens from the public street, pointed at architecture. The ochaya along here are introduction-only and cannot be booked, so this is a walk, not a booking",
+        "location": "Gionmachi Minamigawa, Higashiyama Ward, Kyoto",
+        "sourceId": "jp-hanamikoji"
+      },
+      {
+        "id": "j7-10",
+        "title": "Christmas dinner at Tempura Yoshikawa",
+        "category": "food",
+        "time": "18:15",
+        "duration": "1h 30m",
+        "notes": "Twenty minutes west across Shijo bridge, or ten by taxi. An eight-seat counter in a ryokan garden where the chef fries each piece in front of you and puts it straight on your paper. Dinner runs 17:30-19:30 and is bookable, which the lunch counter is not — the 12:00-13:30 lunch sitting takes no reservations at all and would have collided head-on with Kiyomizu, which is why it is dinner or nothing. Closed Tuesdays and Wednesdays; Friday Dec 25 is open. This is a real bill, so decide before booking rather than at the counter",
+        "location": "Tominokoji, Nakagyo Ward, Kyoto",
+        "sourceId": "jp-tempura-yoshikawa"
+      },
+      {
+        "id": "j7-11",
+        "title": "Rokudenashi",
         "category": "nightlife",
-        "time": "20:30",
-        "duration": "2.5h",
-        "notes": "Christmas night bars along Pontocho and Kawaramachi — traditional atmosphere with an easy night out. Kyoto's transit stops earlier than Tokyo/Osaka — a taxi back is the safe call late.",
-        "location": "Pontocho/Kawaramachi, Kyoto"
+        "time": "20:15",
+        "duration": "2h 15m",
+        "notes": "A first-floor-up jazz bar on Kiyamachi run by a working drummer for about forty years — a room where the records are the point and the conversation is quiet. Kyoto has no hip-hop floor worth the trip and pretending otherwise wastes a night; this is what the city is actually good at. Ten minutes on foot from the hotel",
+        "location": "Kiyamachi, Shimogyo Ward, Kyoto",
+        "sourceId": "nightlife-nl63"
       }
     ]
   },
@@ -1235,50 +1492,130 @@
     "items": [
       {
         "id": "j8-1",
-        "title": "Early Arashiyama Bamboo Grove",
-        "category": "photography",
-        "time": "07:00",
-        "duration": "1.5h",
-        "notes": "Walk the towering bamboo path before the crowds; arrive before 8 AM and look straight up for the canopy shot with an ultra-wide",
-        "location": "Arashiyama, Kyoto",
-        "sourceId": "ja10"
+        "title": "Kawaramachi → Arashiyama",
+        "category": "transportation",
+        "time": "06:15",
+        "duration": "45min",
+        "notes": "Hankyu from Kyoto-Kawaramachi to Katsura, change for the Arashiyama branch, then a ten-minute walk over the river. First services run from about 05:40, so a 07:00 arrival at the grove is realistic",
+        "location": "Kawaramachi → Arashiyama, Kyoto"
       },
       {
         "id": "j8-2",
-        "title": "Tenryu-ji garden & Togetsukyo Bridge",
-        "category": "nature",
-        "time": "08:45",
-        "duration": "1.5h",
-        "notes": "Zen garden with borrowed-scenery mountains, then the riverside Togetsukyo Bridge with the winter hills behind. Optional: the Iwatayama Monkey Park across the bridge",
-        "location": "Arashiyama, Kyoto"
+        "title": "Arashiyama Bamboo Grove",
+        "category": "photography",
+        "time": "07:00",
+        "duration": "1h 15m",
+        "notes": "Sunrise is 07:04, so the first fifteen minutes are pre-dawn and the path is unlit — it is a public right of way with no gate and no fee, which is exactly why arriving before 08:00 is the only reliable way to have it to yourselves. The crowd argument holds until about 08:30. Point the camera straight up for the canopy; at eye level it is a corridor of people by nine. The December Hanatouro illumination that older guides sell here has not run in its original form since 2021 and even then finished around Dec 19 — do not plan on it",
+        "location": "Sagaogurayama, Ukyo Ward, Kyoto",
+        "sourceId": "jp-arashiyama"
       },
       {
         "id": "j8-3",
-        "title": "Lunch — yudofu by the river",
-        "category": "food",
-        "time": "11:00",
-        "duration": "1h",
-        "notes": "Simmering tofu hot-pot, an Arashiyama winter speciality, beside the Hozu River",
-        "location": "Arashiyama, Kyoto"
+        "title": "Tenryu-ji and the Cloud Dragon",
+        "category": "cultural",
+        "time": "08:30",
+        "duration": "1h 30m",
+        "notes": "The grove path runs straight out of the back of this temple. Open 08:30-17:00, last admission 16:50, year round; 500 yen for the Sogenchi pond garden, 800 with the buildings. The Cloud Dragon painted on the Hatto ceiling is a separate 500-yen ticket and is only open to the public at weekends and on holidays — Dec 26 is a Saturday, which is the whole reason Arashiyama is today and not a weekday. The garden keeps Muso Soseki's fourteenth-century layout and borrows the Arashiyama hills as its back wall",
+        "location": "Sagatenryuji, Ukyo Ward, Kyoto",
+        "sourceId": "jp-tenryuji"
       },
       {
         "id": "j8-4",
-        "title": "Nishiki Market & Kawaramachi",
-        "category": "shopping",
-        "time": "14:00",
-        "duration": "2h",
-        "notes": "\"Kyoto's Kitchen\" covered arcade for pickles, knives, yuba and sweets, spilling into the Kawaramachi shopping streets",
-        "location": "Nishiki Market & Kawaramachi, Kyoto",
-        "sourceId": "jp-nishiki"
+        "title": "Togetsukyo Bridge",
+        "category": "photography",
+        "time": "10:05",
+        "duration": "25min",
+        "notes": "A 155 m timber-clad bridge across the Katsura at the mouth of the Hozu gorge, and the crossing point to the monkey park, so it is a waypoint as much as a photograph. In late December the hills behind it are bare and brown rather than green and the sun drops behind the ridge by about 16:00 — the light on the water is a morning thing here",
+        "location": "Arashiyama, Kyoto",
+        "sourceId": "jp-togetsukyo"
       },
       {
         "id": "j8-5",
-        "title": "Final Kyoto night — Gion/Kiyamachi",
+        "title": "Arashiyama Monkey Park Iwatayama",
+        "category": "nature",
+        "time": "10:30",
+        "duration": "1h 30m",
+        "notes": "Immediately across the bridge, then a twenty-minute climb up a steep path — the macaques are at the top, not the gate. Winter hours are 09:00-16:00, it closes in heavy rain or snow, the gate is cash only and there are no advance tickets. Feeding is only allowed inside the hut at the summit and only with the 100-yen bags sold there. The view back over Kyoto from the feeding ground is the second reason to climb it",
+        "location": "Arashiyama, Nishikyo Ward, Kyoto",
+        "sourceId": "jp-monkey-park"
+      },
+      {
+        "id": "j8-6",
+        "title": "Yudofu lunch at Yudofu Sagano",
+        "category": "food",
+        "time": "12:15",
+        "duration": "1h 15m",
+        "notes": "Simmering tofu hot-pot in tatami rooms round a garden, which is the Arashiyama winter dish and comfortably seats three. Open 11:00-17:30 with last order 16:30, but it keeps irregular holidays — meaning it can be shut on the day with no notice, so have the Togetsukyo-end soba shops as the fallback. The multi-course version needs two days of notice; the standard set is walk-in",
+        "location": "Arashiyama, Ukyo Ward, Kyoto",
+        "sourceId": "jp-yudofu-sagano"
+      },
+      {
+        "id": "j8-7",
+        "title": "Arashiyama → Kinkaku-ji",
+        "category": "transportation",
+        "time": "13:30",
+        "duration": "45min",
+        "notes": "About 40 minutes across the north-west of the city — the Randen tram to Kitano-Hakubaicho then the 205 bus, or a straight taxi. There is no fast rail connection between these two, which is why pairing them in one day works but leaves no slack",
+        "location": "Arashiyama → Kita Ward, Kyoto"
+      },
+      {
+        "id": "j8-8",
+        "title": "Kinkaku-ji",
+        "category": "sightseeing",
+        "time": "14:15",
+        "duration": "1h 15m",
+        "notes": "Two floors sheathed in gold leaf, mirrored in the Kyoko-chi pond. 09:00-17:00 daily, open every day of the year including through Dec 29 to Jan 3, 500 yen. The route through the grounds is one-way and takes about 40 minutes, so there is no going back for a second look at the pond — get the frame on the first pass. Afternoon light puts the sun behind the pavilion; the reflection is better than the facade at this hour",
+        "location": "Kinkakujicho, Kita Ward, Kyoto",
+        "sourceId": "jp-kinkakuji"
+      },
+      {
+        "id": "j8-9",
+        "title": "Kinkaku-ji → Kawaramachi",
+        "category": "transportation",
+        "time": "15:45",
+        "duration": "45min",
+        "notes": "The 205 bus from Kinkakuji-michi runs all the way down to Shijo-Kawaramachi in about 40 minutes. It is slow and it is full at this hour, and it is still the simplest way back",
+        "location": "Kita Ward → Shijo-Kawaramachi, Kyoto"
+      },
+      {
+        "id": "j8-10",
+        "title": "Nishiki Market at its loudest",
+        "category": "shopping",
+        "time": "16:45",
+        "duration": "45min",
+        "notes": "Worth a second pass rather than a first: a Saturday in the last week of December is the market at its most alive all year, because this is the week Kyoto shops for osechi and the vendors are calling prices down the arcade. It shuts at 18:00. Its actual peak is Dec 28-31, by which time the party is in Tokyo, and then most stalls close Jan 1-4",
+        "location": "Nishikikoji-dori, Nakagyo Ward, Kyoto",
+        "sourceId": "jp-nishiki"
+      },
+      {
+        "id": "j8-11",
+        "title": "Dinner at Giro Giro Hitoshina",
+        "category": "food",
+        "time": "17:45",
+        "duration": "2h",
+        "notes": "A ten-minute walk south along the canal. A kaiseki counter run by young cooks with the pretension taken out of it — a set course, plated in front of you, at a fraction of what the form usually costs. Open 17:30-23:00, closed the last Monday of the month, which in December 2026 is the 28th and so is not a factor. Reservations are effectively required and a Saturday wants one to four weeks of notice, so this is one to book from Nepal",
+        "location": "Nishi-Kiyamachi, Shimogyo Ward, Kyoto",
+        "sourceId": "jp-giro-giro"
+      },
+      {
+        "id": "j8-12",
+        "title": "Sent James Club",
         "category": "nightlife",
         "time": "20:00",
-        "duration": "3h",
-        "notes": "The final Kyoto night out — Gion's traditional bars into the Kiyamachi strip, with Sent James Club (Pontocho) for a mellow jazz stop, before the move to Tokyo tomorrow. Kyoto's transit stops earlier than Tokyo/Osaka — a taxi back is the safe call late.",
-        "location": "Gion/Kiyamachi-dori, Kyoto"
+        "duration": "1h 30m",
+        "notes": "A riverside jazz bar in Pontocho running since 1983, with a terrace over the Kamo. The mellow half of the last Kyoto night, and it sits directly between dinner and the room below",
+        "location": "Pontocho, Kyoto",
+        "sourceId": "nightlife-nl64"
+      },
+      {
+        "id": "j8-13",
+        "title": "Urbanguild",
+        "category": "nightlife",
+        "time": "21:45",
+        "duration": "2h 15m",
+        "notes": "A small performance space on Kiyamachi that programmes anything from jazz to experimental electronics, one night to the next — the closest Kyoto gets to a room this group would pick for itself. Check the calendar before going, because the booking genuinely changes the night. Last subway is 23:30-23:50 and the buses stopped an hour before that, but the hotel is walkable from here",
+        "location": "Kiyamachi-dori, Kyoto",
+        "sourceId": "nightlife-nl66"
       }
     ]
   },
@@ -1289,49 +1626,89 @@
     "items": [
       {
         "id": "j9-1",
-        "title": "Check out of the Kawaramachi hotel",
-        "category": "hotel",
-        "time": "11:00",
+        "title": "Breakfast at Honke Daiichi Asahi",
+        "category": "food",
+        "time": "09:15",
         "duration": "1h",
-        "notes": "Real booked checkout time — pack up before the Shinkansen to Tokyo",
-        "location": "Kyoto"
+        "notes": "Ten minutes by taxi down to Takabashi, by Kyoto Station. Open 06:00-01:00 and closed Thursdays — Dec 27 is a Sunday, so it is open, and it is the one genuinely early proper meal on the Kyoto leg. Kyoto-style shoyu ramen with a queue outside from before opening most days; going now rather than at the traditional 06:00 costs nothing but the queue",
+        "location": "Takabashi, Shimogyo Ward, Kyoto",
+        "sourceId": "jp-daiichi-asahi"
       },
       {
         "id": "j9-2",
-        "title": "Kyoto → Tokyo by Shinkansen",
-        "category": "transportation",
-        "time": "12:30",
-        "duration": "2.5h",
-        "notes": "Tokaido Shinkansen from Kyoto Station to Tokyo/Shinagawa; book seats ahead — this is New Year travel season. Right-side seats for a Mt Fuji glimpse past Shizuoka",
-        "location": "Kyoto → Tokyo"
+        "title": "Check out of the Shijo-Kawaramachi hotel",
+        "category": "hotel",
+        "time": "11:00",
+        "duration": "30min",
+        "notes": "Real booked checkout is 11:00. Bags come with the group rather than into storage — the train is the next thing that happens",
+        "location": "Shijo-Kawaramachi, Kyoto"
       },
       {
         "id": "j9-3",
-        "title": "Check in to Tokyo hotel (Shinjuku/Kabukicho edge)",
-        "category": "hotel",
-        "time": "15:30",
-        "duration": "1h",
-        "notes": "Not yet booked at itinerary-writing time — target the Shinjuku/Kabukicho edge (Higashi-Shinjuku, Seibu-Shinjuku or Shinjuku-sanchome) for easy walking access to nightlife; one room, same hotel (see the to-book list)",
-        "location": "Shinjuku, Tokyo"
+        "title": "Kawaramachi → Kyoto Station",
+        "category": "transportation",
+        "time": "11:45",
+        "duration": "30min",
+        "notes": "The 4, 5 or 205 bus straight down Kawaramachi-dori, or the Karasuma subway from Shijo. Be early rather than exact: the oversized-baggage seats are at the end of the car, three suitcases take a moment to stow, and the year-end platform crush is not the place to be improvising",
+        "location": "Shijo-Kawaramachi → Kyoto Station"
       },
       {
         "id": "j9-4",
-        "title": "Omoide Yokocho food & drinks",
-        "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
-        "notes": "\"Memory Lane\" — lantern-lit yakitori stalls under the Shinjuku tracks; an easy orientation dinner. Cash only",
-        "location": "Shinjuku, Tokyo",
-        "sourceId": "ja15"
+        "title": "Kyoto → Tokyo by Shinkansen",
+        "category": "transportation",
+        "time": "12:30",
+        "duration": "2h 20m",
+        "notes": "The one hard transport constraint of the trip. Every Nozomi runs all-reserved from 25 Dec 2026 to 5 Jan 2027, and Dec 27 sits inside that window — a non-reserved ticket does not buy a seat on a Nozomi, it buys standing room in the vestibule. Reserved seats opened one month ahead at 10:00 JST, so 27 Nov 2026, and three seats together on the Sunday of the year-end migration will not survive a casual approach. Three adults with checked-size suitcases also need the oversized-baggage seats at the end of the car: free, but they must be reserved with the ticket and there are only a handful per car. Hikari and Kodama keep their non-reserved cars and take about forty minutes longer. Right-side seats for the Fuji glimpse past Shizuoka",
+        "location": "Kyoto → Tokyo"
       },
       {
         "id": "j9-5",
-        "title": "Kabukicho walk, Golden Gai & Shinjuku bars",
+        "title": "Tokyo Station → Shinjuku, and check in to the Kabukicho hotel",
+        "category": "hotel",
+        "time": "15:00",
+        "duration": "1h",
+        "notes": "Real booked check-in is 15:00. The Chuo Rapid runs Tokyo Station to Shinjuku in 14 minutes and the hotel is a short walk on from the east side. Thirteen nights in one room from here, which is the whole logic of the Tokyo leg: Kabukicho puts Golden Gai, Omoide Yokocho and the Shinjuku clubs inside a ten-minute walk, and the Yamanote inside five",
+        "location": "Kabukicho, Shinjuku, Tokyo"
+      },
+      {
+        "id": "j9-6",
+        "title": "Projection mapping on the Metropolitan Government Building",
+        "category": "sightseeing",
+        "time": "17:15",
+        "duration": "1h",
+        "notes": "A twenty-minute walk west of the hotel and free, with no ticket and no queue. Screenings run nightly through December and January at 17:30, 18:00, 18:30, 19:00, 19:30, 20:00, 20:30 and 21:30, about fifteen minutes each, on a rotating programme that has included Godzilla, Gundam and Pokemon pieces. The observation decks in the same building are a separate thing and are shut Dec 29-31 and Jan 2-3 — Jan 1 is the only day in that stretch they open, so the deck is booked for then",
+        "location": "Nishi-Shinjuku, Tokyo",
+        "sourceId": "jp-metro-gov-decks"
+      },
+      {
+        "id": "j9-7",
+        "title": "Omoide Yokocho",
+        "category": "food",
+        "time": "18:45",
+        "duration": "1h 30m",
+        "notes": "About sixty yakitori and offal counters wedged under the rail viaduct on the west side of Shinjuku Station. Grill smoke and lanterns from around 17:00, most stalls to midnight or 01:00, and mostly cash. Counters seat six to eight, so a walk-in trio on a Sunday evening will be split up or waiting — plan on two stalls rather than one, and treat the second as the plan rather than a defeat",
+        "location": "Nishishinjuku, Shinjuku, Tokyo",
+        "sourceId": "jp-omoide-yokocho"
+      },
+      {
+        "id": "j9-8",
+        "title": "Shinjuku Golden Gai",
         "category": "nightlife",
         "time": "20:30",
-        "duration": "3h",
-        "notes": "Orientation night — walk Kabukicho's neon blocks, then bar-hop through Golden Gai's tiny alleys; look for an English-friendly sign. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Kabukicho & Golden Gai, Shinjuku"
+        "duration": "2h",
+        "notes": "Six narrow alleys of more than two hundred bars, each seating five to ten people, each with its own theme. Most open from 19:00. Two things to read off the door before going in: the seat charge, which runs 500-1,500 yen per person on top of the drinks, and whether the bar takes a group of three at all — a good number will not. An English-welcome sign is the reliable signal",
+        "location": "Kabukicho, Shinjuku, Tokyo",
+        "sourceId": "jp-golden-gai"
+      },
+      {
+        "id": "j9-9",
+        "title": "T2 Shinjuku",
+        "category": "nightlife",
+        "time": "22:45",
+        "duration": "2h 15m",
+        "notes": "A big Kabukicho room that runs all week, which is the point on a Sunday when the Fri-Sat rooms are dark and Shibuya Yokocho closes at 23:00 instead of 05:00. Open-format. First night of thirteen — keep it short, the shape of the leg matters more than tonight does",
+        "location": "Kabukicho, Shinjuku, Tokyo",
+        "sourceId": "nightlife-nl34"
       }
     ]
   },
@@ -1342,49 +1719,82 @@
     "items": [
       {
         "id": "j10-1",
-        "title": "Senso-ji Temple & Nakamise-dori",
-        "category": "cultural",
-        "time": "09:30",
-        "duration": "2h",
-        "notes": "Tokyo's oldest Buddhist temple — the Thunder Gate (Kaminarimon), the main hall, and the Nakamise-dori approach lined with snack and souvenir stalls",
-        "location": "Asakusa, Tokyo",
-        "sourceId": "ja1"
+        "title": "Shinjuku → Asakusa",
+        "category": "transportation",
+        "time": "09:15",
+        "duration": "30min",
+        "notes": "Toei Shinjuku line east to Bakuro-yokoyama, then the Asakusa line; about 35 minutes. A full-day Hakone loop was the alternative shape for today and is genuinely good — Open-Air Museum, the Owakudani ropeway and the lake torii at Hakone Shrine — but it needs a 07:30 start, a Romancecar seat booked a month out, and the ropeway runs only 09:00-16:15 in December and January against 16:45 the rest of the year, so the loop barely closes. Today's east-Tokyo run is date-locked in a way Hakone is not, which is why it wins: Nakamise is still a shopping street rather than the one-way queue corridor it becomes from the evening of Dec 31 to Jan 3, and Ameyoko is in the loudest week of its year",
+        "location": "Shinjuku → Asakusa, Tokyo"
       },
       {
         "id": "j10-2",
-        "title": "Lunch in Asakusa",
-        "category": "food",
-        "time": "12:00",
-        "duration": "1h",
-        "notes": "Casual bite near the temple before heading to Ueno",
-        "location": "Asakusa, Tokyo"
+        "title": "Senso-ji and Nakamise-dori",
+        "category": "cultural",
+        "time": "09:45",
+        "duration": "2h",
+        "notes": "Tokyo's oldest temple, founded in 645. In through the Kaminarimon under the four-metre lantern, up the Nakamise stalls to the main hall and the five-storey pagoda. Grounds are free and the main hall runs 06:00-17:00. Being here today rather than in the New Year window is deliberate — from the evening of Dec 31 to Jan 3 the approach is marshalled one-way for hatsumode and stops being a street you can browse",
+        "location": "Asakusa, Taito, Tokyo",
+        "sourceId": "jp-sensoji"
       },
       {
         "id": "j10-3",
-        "title": "Ueno Park & Ameyoko Market",
-        "category": "sightseeing",
-        "time": "13:30",
-        "duration": "2.5h",
-        "notes": "A relaxed park stroll, then the bustling Ameyoko market street under the train tracks for snacks and cheap finds",
-        "location": "Ueno, Tokyo"
+        "title": "Suzukien Asakusa Honten",
+        "category": "food",
+        "time": "11:45",
+        "duration": "45min",
+        "notes": "Ten minutes north of the temple. Seven graded strengths of matcha gelato, with No. 7 sold as the strongest in the world — it is bitter enough that most people pair it with a weaker scoop rather than eating it alone. Open 10:00-17:00, closed the third Wednesday of the month, so today is fine. It shuts before dark, which is why it comes before the Skytree slot and not after",
+        "location": "Asakusa, Taito, Tokyo",
+        "sourceId": "jp-suzukien"
       },
       {
         "id": "j10-4",
-        "title": "Dinner in Shinjuku",
-        "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
-        "notes": "Back to the home base for dinner",
-        "location": "Shinjuku, Tokyo"
+        "title": "Ameya-Yokocho",
+        "category": "shopping",
+        "time": "12:45",
+        "duration": "1h 45m",
+        "notes": "Five minutes on the Ginza line to Ueno. Four hundred-odd stalls under and beside the Yamanote viaduct, most of them 10:00-19:00. The last week of December is the loudest week of its year: this is when Tokyo buys crab, roe and osechi ingredients, and the vendors shout prices down as the day goes on. Lunch is the standing counters in here — kebabs, oden, seafood bowls — not a sit-down anywhere else",
+        "location": "Ueno, Taito, Tokyo",
+        "sourceId": "jp-ameyoko"
       },
       {
         "id": "j10-5",
-        "title": "Easy Shinjuku night",
+        "title": "Tokyo Skytree",
+        "category": "sightseeing",
+        "time": "15:15",
+        "duration": "1h 30m",
+        "notes": "Ginza line to Asakusa and one stop on the Tobu Skytree line, about 20 minutes. Open 10:00-21:00 with last entry 20:00. Sunset is 16:35, so a slot starting around 15:30 buys daylight, sunset and the city lit up from a single ticket — that is the whole reason for the time. Buy the timed ticket online, it is cheaper than the counter and skips the ground-floor queue. Tokyo National Museum is shut today for two independent reasons (closed Dec 26-31, and Mondays), which is why Ueno was a market stop rather than a museum one",
+        "location": "Oshiage, Sumida, Tokyo",
+        "sourceId": "jp-skytree"
+      },
+      {
+        "id": "j10-6",
+        "title": "JUMP SHOP Tokyo Solamachi",
+        "category": "shopping",
+        "time": "16:45",
+        "duration": "1h",
+        "notes": "The official Shonen Jump store, in the Solamachi mall at the foot of the tower, running on the mall's 10:00-21:00. One Piece, Naruto, Dragon Ball, Jujutsu Kaisen and Demon Slayer goods, a good share of it shop-exclusive and not in the Akihabara chains. Buy here rather than planning to find it later",
+        "location": "Oshiage, Sumida, Tokyo",
+        "sourceId": "jp-jump-shop"
+      },
+      {
+        "id": "j10-7",
+        "title": "Motsuyaki Daitoryo",
+        "category": "food",
+        "time": "18:30",
+        "duration": "1h 30m",
+        "notes": "Back to Ueno, twenty minutes. Charcoal-grilled offal skewers and cheap highballs at plastic crates under the Ameyoko tracks, spilling into the street when the room is full — one of the last places in central Tokyo that still trades like this. Roughly 10:00 to midnight daily, though the published hours are secondary-source only, so confirm at the door. Cash. Ponta Honke, the tonkatsu house four minutes away, is shut on Mondays and is booked for tomorrow instead",
+        "location": "Ueno, Taito, Tokyo",
+        "sourceId": "jp-motsuyaki-daitoryo"
+      },
+      {
+        "id": "j10-8",
+        "title": "DUG Jazz Cafe and Bar",
         "category": "nightlife",
-        "time": "21:00",
-        "duration": "2.5h",
-        "notes": "A lighter night after a sightseeing-heavy day — an easy Shinjuku bar round. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Shinjuku, Tokyo"
+        "time": "20:45",
+        "duration": "2h",
+        "notes": "A sixty-year-old jazz kissa by the Shinjuku east exit, and the room Murakami put in Norwegian Wood. A Monday is the worst night of the week for the Kabukicho mega-clubs — they programme Friday and Saturday and a Monday floor is empty — so tonight is a bar with a reason to exist rather than a club without one. Twenty-five minutes back from Ueno on the Yamanote",
+        "location": "Shinjuku, Tokyo",
+        "sourceId": "nightlife-nl45"
       }
     ]
   },
@@ -1395,50 +1805,121 @@
     "items": [
       {
         "id": "j11-1",
-        "title": "Akihabara anime/figures/games/arcades",
-        "category": "shopping",
-        "time": "10:00",
-        "duration": "4h",
-        "notes": "Multi-floor arcades, manga shops and figure stores — hunt for One Piece, Naruto, DBZ figures and Jump merch. Super Potato for retro games",
-        "location": "Akihabara, Tokyo",
-        "sourceId": "ja6"
+        "title": "Shinjuku → Tsukiji",
+        "category": "transportation",
+        "time": "07:30",
+        "duration": "30min",
+        "notes": "Marunouchi line to Ginza, then one stop on the Hibiya line. Draw cash today while it is easy: banks, post offices and most ATMs shut from roughly Dec 31 to Jan 3, and only the convenience-store machines keep working through it",
+        "location": "Shinjuku → Tsukiji, Tokyo"
       },
       {
         "id": "j11-2",
-        "title": "Lunch in Akihabara",
+        "title": "Tsukiji Outer Market",
         "category": "food",
-        "time": "14:00",
-        "duration": "1h",
-        "notes": "Quick curry or a themed anime cafe between the figure shops",
-        "location": "Akihabara, Tokyo"
+        "time": "08:00",
+        "duration": "1h 45m",
+        "notes": "Trade starts around 06:00 and general shopping runs roughly 09:00-14:00, with stalls shutting through the early afternoon. Come knowing what today is: Dec 28-30 is the busiest stretch of its year and the market itself asks casual visitors to consider other days, so this is a crush, not a stroll. The last trading day is Dec 30, then it is closed Dec 31 to Jan 4 and reopens Jan 5. Tamagoyaki on a stick, uni, grilled scallop, a knife shop if anyone wants one. Toyosu, the wholesale market that replaced the inner one, is not on this plan: a 05:00 start does not survive a night out, and its January 2027 calendar was not published in time to promise a Wednesday",
+        "location": "Tsukiji, Chuo, Tokyo",
+        "sourceId": "jp-tsukiji-outer"
       },
       {
         "id": "j11-3",
-        "title": "GiGO arcade & gachapon",
-        "category": "free",
-        "time": "15:30",
-        "duration": "1.5h",
-        "notes": "Floors of UFO-catchers, rhythm games and retro cabinets; bring a stack of 100-yen coins",
-        "location": "Akihabara, Tokyo",
-        "sourceId": "ja25"
+        "title": "Sushi Zanmai Honten",
+        "category": "food",
+        "time": "09:45",
+        "duration": "1h",
+        "notes": "Open 24 hours and listed as open every day of the year, no reservations, at the entrance to the outer market. In a district full of two-seat counters and forty-minute queues, this is the one that seats three adults together at nine in the morning without an argument. Sit at the counter and order by piece rather than taking a set",
+        "location": "Tsukiji, Chuo, Tokyo",
+        "sourceId": "jp-sushi-zanmai"
       },
       {
         "id": "j11-4",
-        "title": "Dinner in Shinjuku",
-        "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
-        "notes": "Reset before the night out",
-        "location": "Shinjuku, Tokyo"
+        "title": "Tsukiji → Ueno",
+        "category": "transportation",
+        "time": "11:00",
+        "duration": "25min",
+        "notes": "Hibiya line straight through, about fifteen minutes plus the walk. Aim to be at the restaurant door by 11:30",
+        "location": "Tsukiji → Ueno, Tokyo"
       },
       {
         "id": "j11-5",
-        "title": "Shinjuku/Kabukicho bars & nightlife",
+        "title": "Ponta Honke",
+        "category": "food",
+        "time": "11:30",
+        "duration": "1h 15m",
+        "notes": "A tonkatsu house that has been in Ueno since 1905 and effectively invented the dish — the katsu here is cut thick, fried pale and served without the sauce most places drown it in. Lunch runs 11:00-14:00 with last order 13:45 and it is closed Mondays, which is why it could not be yesterday. No reservations for a small group, so queue for the first sitting rather than turning up at one",
+        "location": "Ueno, Taito, Tokyo",
+        "sourceId": "jp-ponta-honke"
+      },
+      {
+        "id": "j11-6",
+        "title": "Yanaka Ginza and the Yuyake Dandan steps",
+        "category": "photography",
+        "time": "13:15",
+        "duration": "1h 30m",
+        "notes": "Four minutes on the Yamanote to Nippori. A short shopping street of about seventy small shops in one of the few parts of central Tokyo that neither the 1945 firebombing nor the bubble flattened. The Yuyake Dandan steps at the top are the frame — the name means sunset steps and they face west down the street. Shops run roughly 10:00-18:00 and many close by dusk, and sunset is 16:35, so the honest window for the light is mid-afternoon rather than actual sunset. Menchi katsu and grilled rice balls from the street",
+        "location": "Yanaka, Taito, Tokyo",
+        "sourceId": "jp-yanaka-ginza"
+      },
+      {
+        "id": "j11-7",
+        "title": "Super Potato Akihabara",
+        "category": "shopping",
+        "time": "15:00",
+        "duration": "1h",
+        "notes": "Eight minutes down the Yamanote from Nippori. The retro game shop, roughly 11:00-20:00 — Famicom and Super Famicom carts by the wall, boxed hardware upstairs, and a floor of playable arcade cabinets at the top that most people miss because the stairs look like storage",
+        "location": "Akihabara, Chiyoda, Tokyo",
+        "sourceId": "jp-super-potato"
+      },
+      {
+        "id": "j11-8",
+        "title": "Mandarake Complex Akihabara",
+        "category": "shopping",
+        "time": "16:00",
+        "duration": "1h 30m",
+        "notes": "Eight floors, one specialism per floor, 12:00-20:00 daily and open year-round — which matters because it is one of the few Akihabara names that does not take a New Year break. Vintage figures, cels, doujinshi, Showa-era Jump. The buy-back counter closes at 19:30 if anyone wants to sell rather than buy",
+        "location": "Akihabara, Chiyoda, Tokyo",
+        "sourceId": "jp-mandarake-akihabara"
+      },
+      {
+        "id": "j11-9",
+        "title": "Akihabara Radio Kaikan",
+        "category": "shopping",
+        "time": "17:30",
+        "duration": "45min",
+        "notes": "The tower directly outside the Electric Town exit, ten floors of tenants mostly running 10:00-20:00 with a few later. Figures, trading cards, models and the Kotobukiya and Volks floors. This is the building that has been in half the anime set in Akihabara, which is its own reason to go up it",
+        "location": "Akihabara, Chiyoda, Tokyo",
+        "sourceId": "jp-radio-kaikan"
+      },
+      {
+        "id": "j11-10",
+        "title": "GiGO Akihabara Building 3",
+        "category": "free",
+        "time": "18:15",
+        "duration": "1h 15m",
+        "notes": "Open 10:00-23:30 daily. Floors of UFO catchers, rhythm games and retro cabinets — bring a stack of 100-yen coins and expect the crane machines to be winnable but calibrated. Worth noting for later: the arcades are the most reliable Akihabara category across Jan 1-3, when the shops upstairs each make their own call about opening",
+        "location": "Akihabara, Chiyoda, Tokyo",
+        "sourceId": "jp-gigo-akihabara"
+      },
+      {
+        "id": "j11-11",
+        "title": "Gyukatsu Motomura Shinjuku Honten",
+        "category": "food",
+        "time": "20:00",
+        "duration": "1h 15m",
+        "notes": "Twenty minutes back on the Chuo-Sobu line. Beef cutlet fried rare and served with a hot stone at each seat so you finish your own slices to taste — 11:00-22:00 with last order 21:00, no reservations, and the queue is shortest either side of the dinner rush. Two minutes from the hotel door",
+        "location": "Kabukicho, Shinjuku, Tokyo",
+        "sourceId": "jp-gyukatsu-motomura"
+      },
+      {
+        "id": "j11-12",
+        "title": "Zero Tokyo",
         "category": "nightlife",
-        "time": "21:00",
-        "duration": "3h",
-        "notes": "Another round through the Shinjuku/Kabukicho base — try WARP Shinjuku (Kabukicho mega-club, EDM/hip-hop, a 5-min walk from the hotel zone) — or T2 Shinjuku/Zero Tokyo for a different room in the same area (verify hours/cover before going). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Shinjuku/Kabukicho, Tokyo"
+        "time": "21:45",
+        "duration": "2h 45m",
+        "notes": "A Kabukicho room deliberately rotated against the one from Sunday so the Shinjuku nights are not the same floor five times. Open-format. It is a Tuesday, so check the listing before walking over; the point of being based here is that a wrong call costs a five-minute walk rather than a taxi",
+        "location": "Kabukicho, Shinjuku, Tokyo",
+        "sourceId": "nightlife-nl38"
       }
     ]
   },
@@ -1449,41 +1930,93 @@
     "items": [
       {
         "id": "j12-1",
-        "title": "Shibuya Crossing & Shibuya Sky",
+        "title": "Shibuya Crossing",
         "category": "sightseeing",
-        "time": "10:00",
-        "duration": "2h",
-        "notes": "The world's busiest crossing from ground level, then the open-air Shibuya Sky observation deck for the view down onto it",
+        "time": "10:15",
+        "duration": "1h",
+        "notes": "Up to three thousand people cross at once when the lights change. Ground level first from the Hachiko exit, then the second-floor windows over the scramble for the overhead frame that does not need a ticket. Worth knowing now rather than tomorrow: from the morning of Dec 31 the Hachiko statue is fenced off, there is a public drinking ban in force here, the shops near the station suspend alcohol sales and the crossing's big screens go dark at 23:00",
         "location": "Shibuya, Tokyo",
-        "sourceId": "ja3"
+        "sourceId": "jp-shibuya"
       },
       {
         "id": "j12-2",
-        "title": "Harajuku — Takeshita-dori & Omotesando",
+        "title": "Takeshita-dori, Harajuku",
         "category": "shopping",
-        "time": "12:30",
-        "duration": "2h",
-        "notes": "Youth-fashion chaos on Takeshita-dori, then the tree-lined Omotesando; check for anime pop-ups and Jump-related events along the way",
-        "location": "Harajuku, Tokyo",
-        "sourceId": "ps27"
+        "time": "11:30",
+        "duration": "1h 30m",
+        "notes": "One stop north on the Yamanote. Four hundred metres of teen fashion, crepe stands and pop-up character shops, most of it 10:00-20:00 — narrow enough that it is shoulder to shoulder by midday and that is the experience rather than a problem. Omotesando runs parallel one block south if anyone wants the opposite of this",
+        "location": "Harajuku, Shibuya, Tokyo",
+        "sourceId": "jp-takeshita-dori"
       },
       {
         "id": "j12-3",
-        "title": "Shibuya dinner",
+        "title": "Lunch at Uobei Shibuya Dogenzaka",
         "category": "food",
-        "time": "18:00",
-        "duration": "1.5h",
-        "notes": "Fuel up before the big club night",
-        "location": "Shibuya, Tokyo"
+        "time": "13:15",
+        "duration": "1h",
+        "notes": "Back two minutes on the Yamanote. Conveyor sushi at 150 yen a plate ordered from an individual touch panel and delivered along a track at speed — no chef, no queue-jumping, and three adjacent seats is the normal case here rather than the exception, which is not true of most of the food on this trip. 11:00-23:00 on a weekday, last order 22:30",
+        "location": "Dogenzaka, Shibuya, Tokyo",
+        "sourceId": "jp-uobei"
       },
       {
         "id": "j12-4",
-        "title": "Shibuya or Roppongi club night",
+        "title": "Starbucks Reserve Roastery Tokyo",
+        "category": "food",
+        "time": "14:30",
+        "duration": "1h 15m",
+        "notes": "Three minutes down the Toyoko line to Nakameguro. Four floors on the Meguro river built around a copper cask column that runs the height of the building — the roastery floor at the bottom, the Teavana floor above it, and a cocktail bar at the top. Open 07:00-22:00. It is a coffee shop and it is also the best-built interior on this leg, which is why it earns an hour rather than a takeaway cup",
+        "location": "Nakameguro, Meguro, Tokyo",
+        "sourceId": "jp-sbux-roastery"
+      },
+      {
+        "id": "j12-5",
+        "title": "Shibuya Sky",
+        "category": "photography",
+        "time": "15:45",
+        "duration": "1h 15m",
+        "notes": "The open-air rooftop deck on top of Shibuya Scramble Square, 10:00-22:30 with last entry 21:20 and twenty-minute entry slots. Booking for today opens at 00:00 JST on 16 Dec, exactly fourteen days ahead, and the sunset slots go within minutes — sunset is 16:35, so the slot to fight for is around 15:40-16:00 and that is the one to be sitting at a screen for. The rooftop closes in wind or rain and only the indoor 46th floor stays open, with no refund for the view, so this is a gamble that pays about four times in five",
+        "location": "Shibuya, Tokyo",
+        "sourceId": "jp-shibuya-sky"
+      },
+      {
+        "id": "j12-6",
+        "title": "Miyashita Park rooftop",
+        "category": "free",
+        "time": "17:15",
+        "duration": "45min",
+        "notes": "A park built on the roof of a shopping block, 08:00-23:00 and free — skate bowl, bouldering wall and a lawn looking back at the towers you were just on top of. Five minutes from Shibuya Station and the way in to the alley underneath it",
+        "location": "Jingumae, Shibuya, Tokyo",
+        "sourceId": "jp-miyashita-park"
+      },
+      {
+        "id": "j12-7",
+        "title": "Shibuya Yokocho",
+        "category": "food",
+        "time": "18:15",
+        "duration": "2h",
+        "notes": "Nineteen-odd regional-food counters filling the ground floor under the rooftop park, one prefecture each — Hokkaido crab at one end, Okinawan awamori at the other. It runs 11:00-05:00 Monday to Saturday, so a Wednesday is a late one, and it is the only proper sit-down food near the Shibuya clubs still going at four in the morning. Note the Sunday exception for later in the trip: it closes at 23:00 then instead",
+        "location": "Jingumae, Shibuya, Tokyo",
+        "sourceId": "nightlife-nl68"
+      },
+      {
+        "id": "j12-8",
+        "title": "Shibuya standing bars",
         "category": "nightlife",
-        "time": "21:00",
-        "duration": "3.5h",
-        "notes": "Prioritize rap/hip-hop events if available — try Harlem (Shibuya, the hip-hop institution since 1997) or Club Camelot (3 floors, hip-hop/R&B, young crowd); arrive 23:30-01:00 for peak sets, ¥1,000-3,500 door with drinks (verify before going). Roppongi is the international backup. Cap the night with Ichiran or Nagi ramen (both 24h). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Shibuya/Roppongi, Tokyo"
+        "time": "20:30",
+        "duration": "1h 30m",
+        "notes": "The tachinomi counters in the backstreets off the east exit — beer from about 200 yen, highballs from 300, standing room only and nobody sitting on a seat charge. An hour and a half here costs what one Golden Gai cover costs, and it is where Shibuya actually drinks before midnight",
+        "location": "Shibuya, Tokyo",
+        "sourceId": "nightlife-nl43"
+      },
+      {
+        "id": "j12-9",
+        "title": "Harlem",
+        "category": "nightlife",
+        "time": "22:15",
+        "duration": "3h",
+        "notes": "The Tokyo hip-hop institution, running in Maruyamacho since 1997 — main room upstairs, smaller bar level below, and the floor does not fill until after midnight. Doors 22:00-23:00, sets to about 05:00, door typically 1,000-3,500 yen with a drink, and confirmed still operating in 2026. The honest caveat is that the calendar is weighted to Friday and Saturday and this is a Wednesday, so read tonight's event before committing the night to it. Ichiran on the far side of the station runs 24 hours and is the walk home",
+        "location": "Maruyamacho, Shibuya, Tokyo",
+        "sourceId": "jp-harlem"
       }
     ]
   },
@@ -1494,39 +2027,61 @@
     "items": [
       {
         "id": "j13-1",
-        "title": "Late brunch & easy shopping",
+        "title": "Slow start in Kabukicho",
         "category": "free",
-        "time": "11:00",
+        "time": "11:30",
         "duration": "2h",
-        "notes": "Keep the daytime light — rest up for the big night ahead",
-        "location": "Shinjuku, Tokyo"
+        "notes": "Tonight runs to four or five in the morning, so the daytime is deliberately empty. Two jobs: draw cash if it was not done on the 29th, because the banks and most ATMs are shut from today to Jan 3 and only the convenience-store machines keep working, and check that the countdown ticket is actually in a phone rather than an email nobody has opened",
+        "location": "Kabukicho, Shinjuku, Tokyo"
       },
       {
         "id": "j13-2",
-        "title": "Pre-game dinner",
+        "title": "Gyukatsu Motomura Shinjuku Honten",
         "category": "food",
-        "time": "18:00",
-        "duration": "1.5h",
-        "notes": "A relaxed dinner in Shinjuku or Shibuya before the countdown",
-        "location": "Shinjuku/Shibuya, Tokyo"
+        "time": "13:45",
+        "duration": "1h 15m",
+        "notes": "A proper meal before a long night rather than after it. 11:00-22:00, last order 21:00, no reservations — the mid-afternoon gap between the lunch and dinner queues is the easiest time of day to get three seats together here",
+        "location": "Kabukicho, Shinjuku, Tokyo",
+        "sourceId": "jp-gyukatsu-motomura"
       },
       {
         "id": "j13-3",
-        "title": "New Year's Eve club/event",
-        "category": "nightlife",
-        "time": "21:30",
-        "duration": "2h 15m",
-        "notes": "Shibuya's street countdown is fenced off/cancelled — do not plan on it. Book ahead instead: Club Camelot NYE (hip-hop/R&B — best vibe match) or WOMB New Year's Countdown to 2027 (Dec 31 2026, ¥6,500 online / ¥8,000 door, ~22:00-04:30 — bigger, techno/house); tickets typically go on sale ~Nov, so grab them the week they drop. Free backup: the Shinjuku Tokyo Met-Gov building's official countdown. Verify lineups/tickets before relying on any of these.",
-        "location": "Shinjuku/Shibuya/Roppongi, Tokyo"
+        "title": "Rest before the night",
+        "category": "free",
+        "time": "15:15",
+        "duration": "2h",
+        "notes": "Worth knowing before anyone plans a route home: some JR lines including the Yamanote run all night tonight on a reduced timetable, but the Metro and the private lines do not — they run late, to roughly 02:00-03:00, and then stop. Being based at Shinjuku, on the Yamanote, is the advantage here, and it is why the night does not need a taxi plan",
+        "location": "Kabukicho, Shinjuku, Tokyo"
       },
       {
         "id": "j13-4",
-        "title": "New Year countdown",
+        "title": "Projection mapping in Nishi-Shinjuku",
+        "category": "sightseeing",
+        "time": "17:15",
+        "duration": "1h",
+        "notes": "The free nightly show on the Metropolitan Government No. 1 Building wall, twenty minutes on foot from the hotel — the 17:30 screening tonight, before the countdown crowd builds on the same plaza from about 22:00. The observation decks inside are shut today and stay shut through Dec 31",
+        "location": "Nishi-Shinjuku, Tokyo",
+        "sourceId": "jp-metro-gov-decks"
+      },
+      {
+        "id": "j13-5",
+        "title": "New Year's Eve dinner at Omoide Yokocho",
+        "category": "food",
+        "time": "18:45",
+        "duration": "1h 30m",
+        "notes": "Yakitori and a beer standing up under the tracks. The honest warning is that every stall here sets its own year-end break and a good share shut Dec 31 to Jan 3 without publishing it, so walk the lane and take what has its shutter up rather than aiming at one counter. Ramen Nagi in Golden Gai runs 24 hours and is three minutes away if the whole alley has gone dark",
+        "location": "Nishishinjuku, Shinjuku, Tokyo",
+        "sourceId": "jp-omoide-yokocho"
+      },
+      {
+        "id": "j13-6",
+        "title": "Countdown at WARP Shinjuku",
         "category": "nightlife",
-        "time": "23:45",
-        "duration": "1h 45m",
-        "notes": "See in 2027 with the club/event crowd and stay on the floor after it; trains run all night on New Year's Eve",
-        "location": "Tokyo"
+        "time": "22:15",
+        "duration": "5h 45m",
+        "notes": "The ticketed club countdown is the real midnight product in Tokyo and it has to be bought in the first half of December. On the 2026 turn a comparable room ran 22:30-04:30 with advance at 6,000 yen sold out before the night, door at 8,000 before 01:00 and 5,000 after — and it stated that if advance sold out there would be no door sales at all before 01:00. Missing the advance window means not getting in until one in the morning. Two things this plan will not do: Club Camelot, which older lists still name for this night, ended nightclub operations on 5 May 2025 and the space is now a rental studio; and the Shibuya street countdown has been cancelled six years running and should be treated as a place you can end up rather than an event. The free fallback is the official Metropolitan Government countdown on the plaza walked past at 17:30 — projection mapping and live performance from about 22:00 to midnight, twenty minutes from this door, with registration opening in the second week of November",
+        "location": "Kabukicho, Shinjuku, Tokyo",
+        "sourceId": "nightlife-nl20"
       }
     ]
   },
@@ -1537,40 +2092,62 @@
     "items": [
       {
         "id": "j14-1",
-        "title": "Recovery morning",
-        "category": "free",
-        "time": "11:00",
-        "duration": "2h",
-        "notes": "A deliberately late start after New Year's Eve",
-        "location": "Shinjuku, Tokyo"
+        "title": "Hanazono Shrine hatsumode on the way home",
+        "category": "cultural",
+        "time": "04:30",
+        "duration": "45min",
+        "notes": "Five minutes from Kabukicho and directly on the walk back from the club. The grounds are open around the clock and the shrine runs a full hatsumode with food stalls through Jan 1-3, at a fraction of the effort of Meiji Jingu — and coming off the floor at half four is the one hour it is genuinely quiet, because the queue only builds from about nine. The other reason this is the plan: Meiji Jingu takes roughly three million people over these three days and, for a group that has been out until four, an hour in a marshalled queue is not the New Year anyone wants",
+        "location": "Shinjuku 5-chome, Tokyo",
+        "sourceId": "jp-hanazono-shrine"
       },
       {
         "id": "j14-2",
-        "title": "Meiji Shrine hatsumode (if energy allows)",
-        "category": "cultural",
-        "time": "14:00",
-        "duration": "2h",
-        "notes": "The first shrine visit of the year draws big New Year crowds; many places keep holiday hours, so treat this as optional if the group needs the extra rest",
-        "location": "Harajuku, Tokyo",
-        "sourceId": "ja9"
+        "title": "Late start",
+        "category": "free",
+        "time": "12:30",
+        "duration": "1h",
+        "notes": "Nothing before this is worth setting an alarm for. Almost every department store and mall in Tokyo is shut today — Scramble Square, Parco and so the Pokemon Center with it, 109, Isetan, Takashimaya, Ginza Six, Marui, Roppongi Hills, Tokyo Midtown — and several stay shut on Jan 2 as well",
+        "location": "Kabukicho, Shinjuku, Tokyo"
       },
       {
         "id": "j14-3",
-        "title": "New Year lunch",
-        "category": "food",
-        "time": "16:30",
-        "duration": "1h",
-        "notes": "Note many restaurants shut on Jan 1 — a hotel-area spot or konbini is a reliable backup",
-        "location": "Shinjuku, Tokyo"
+        "title": "Tokyo National Museum",
+        "category": "cultural",
+        "time": "14:00",
+        "duration": "2h 30m",
+        "notes": "Twenty-five minutes on the Yamanote to Ueno. This is the New Year's Day answer: the museum is closed Dec 26-31 and reopens today, which makes it one of the very few serious things open. On the previous turn the Jan 1 opening ran from 13:00 rather than the usual 09:30, so do not turn up early. 1,000 yen adult, closed Mondays, and open to 20:00 on Fridays and Saturdays. The Honkan's Japanese galleries and the Heiseikan archaeology rooms are the two hours; the Gallery of Horyuji Treasures is the third if there is appetite",
+        "location": "Ueno Park, Taito, Tokyo",
+        "sourceId": "jp-tokyo-national-museum"
       },
       {
         "id": "j14-4",
-        "title": "Low-pressure Shinjuku bars",
+        "title": "Metropolitan Government South observation deck",
+        "category": "sightseeing",
+        "time": "17:00",
+        "duration": "1h 15m",
+        "notes": "Back to Shinjuku, twenty-five minutes. Today is the only date in the whole Dec 29 to Jan 3 stretch the decks open, and only the South one — normal daytime entry is free and walk-up, and the deck runs to 22:00 with last entry 21:30. The first-sunrise opening this morning was a lottery rather than a queue, so nothing was missed by sleeping. Sunset was 16:38, so this is the city lit rather than the sunset, and on a clear January evening Fuji sits on the western horizon from up here",
+        "location": "Nishi-Shinjuku, Tokyo",
+        "sourceId": "jp-metro-gov-decks"
+      },
+      {
+        "id": "j14-5",
+        "title": "Sushi Zanmai Honten",
+        "category": "food",
+        "time": "18:45",
+        "duration": "1h 30m",
+        "notes": "Twenty-five minutes back down to Tsukiji, and worth the trip on exactly this date: it is open 24 hours every day of the year, including today, when most of the city is not. The outer market around it is a different story — it shut on Dec 30 and does not reopen until Jan 5 — so the lanes will be dead and the restaurant will not be. No reservations, and three at the counter is normal here",
+        "location": "Tsukiji, Chuo, Tokyo",
+        "sourceId": "jp-sushi-zanmai"
+      },
+      {
+        "id": "j14-6",
+        "title": "Big Echo Shibuya Center-Gai",
         "category": "nightlife",
-        "time": "20:00",
-        "duration": "2h",
-        "notes": "A calmer chill night — some venues may be closed for the holiday, so keep expectations light; Big Echo/Karaoke Kan (24h) is the guaranteed-open fallback if bars are shut. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Shinjuku, Tokyo"
+        "time": "21:00",
+        "duration": "2h 30m",
+        "notes": "The guaranteed-open plan on the one night when Golden Gai's bars each make their own call and none of them publish it. Twenty-four-hour karaoke at roughly 225-1,985 yen a head depending on the hour, private room, drinks ordered in. The clubs that ran countdowns last night are either shut or empty tonight, and pretending otherwise would waste the evening. Ichiran on Center-Gai runs 24 hours for the walk back",
+        "location": "Shibuya Center-Gai, Tokyo",
+        "sourceId": "nightlife-nl41"
       }
     ]
   },
@@ -1581,39 +2158,82 @@
     "items": [
       {
         "id": "j15-1",
-        "title": "Ikebukuro & Sunshine City anime day",
-        "category": "shopping",
-        "time": "10:30",
-        "duration": "3h",
-        "notes": "Anime stores, the Pokémon Center, gashapon walls and character-goods pop-ups; holiday and New Year limited-edition merch appears in early January",
-        "location": "Ikebukuro, Tokyo"
+        "title": "Meiji Jingu hatsumode",
+        "category": "cultural",
+        "time": "08:00",
+        "duration": "1h 30m",
+        "notes": "Five minutes on the Yamanote to Harajuku. Roughly three million people come through here over Jan 1-3, and the peak windows are 22:00 to 03:00 and from 10:00 onwards each day — so 08:00 to 09:30 is the one civilised slot in the whole period and it is the reason for the early start. The approach is a wide gravel avenue through 70 hectares of planted forest, every tree of it donated and hand-planted in the 1920s, which is the part most people walk straight past",
+        "location": "Yoyogi, Shibuya, Tokyo",
+        "sourceId": "jp-meiji-jingu"
       },
       {
         "id": "j15-2",
-        "title": "Lunch in Ikebukuro",
-        "category": "food",
-        "time": "14:00",
-        "duration": "1h",
-        "notes": "Easy lunch between the shops",
-        "location": "Ikebukuro, Tokyo"
+        "title": "animate Ikebukuro Main Store",
+        "category": "shopping",
+        "time": "10:00",
+        "duration": "1h 30m",
+        "notes": "Fifteen minutes north on the Yamanote. Today is hatsu-uri, the first sale of the year and the day the lucky bags go out, and this is animate's busiest day of the year — queues form before the 10:00 opening and stores often open early when the line is long, so arriving at ten means arriving behind it. Nine floors, one genre per floor. If there is one bag to queue for on this trip, it is here rather than at a department store",
+        "location": "Higashi-Ikebukuro, Toshima, Tokyo",
+        "sourceId": "jp-animate-ikebukuro"
       },
       {
         "id": "j15-3",
-        "title": "Dinner in Shinjuku",
-        "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
-        "notes": "Back to the home base for dinner",
-        "location": "Shinjuku, Tokyo"
+        "title": "Pokemon Center MEGA TOKYO",
+        "category": "shopping",
+        "time": "11:45",
+        "duration": "1h 15m",
+        "notes": "In Sunshine City, ten minutes east on foot. Back to normal 10:00-20:00 hours today after the New Year closure — the Parco branch in Shibuya was shut yesterday and this one is the reason the Pokemon stop is on Jan 2 rather than Jan 1. The Pikachu Sweets cafe and the trading-card counter are on the same floor",
+        "location": "Higashi-Ikebukuro, Toshima, Tokyo",
+        "sourceId": "jp-pokemon-center"
       },
       {
         "id": "j15-4",
-        "title": "Kabukicho/Shinjuku nightlife",
+        "title": "Lunch in Sunshine City",
+        "category": "food",
+        "time": "13:15",
+        "duration": "1h",
+        "notes": "Eat in the building rather than going back out — most Ikebukuro independents are still on a New Year break and the mall floors are open and full. Sunshine City runs its own lucky bags today too, on the way through",
+        "location": "Sunshine City, Higashi-Ikebukuro, Tokyo"
+      },
+      {
+        "id": "j15-5",
+        "title": "Ginza Six",
+        "category": "shopping",
+        "time": "15:00",
+        "duration": "1h 45m",
+        "notes": "Twenty minutes on the Marunouchi line. Shops 10:30-20:30, and Ginza's stores reopen today with their own lucky bags after being shut for New Year's Day. The rooftop garden is free, runs 07:00-23:00 and is one of the few open spaces in Ginza with somewhere to sit; the Tsutaya bookshop on the sixth floor is the other reason to come in rather than walk past",
+        "location": "Ginza, Chuo, Tokyo",
+        "sourceId": "jp-ginza-six"
+      },
+      {
+        "id": "j15-6",
+        "title": "Marunouchi Naka-dori illumination",
+        "category": "photography",
+        "time": "17:00",
+        "duration": "1h 15m",
+        "notes": "A ten-minute walk north. Champagne-gold lights strung through 1.2 km of zelkova trees between Yurakucho and Otemachi, lit 16:00-23:00 with the season running mid-November to mid-February — which is the point: this covers the whole stay, whereas the Roppongi Keyakizaka lights that most guides send you to finish on Dec 25, two days before the party reaches Tokyo. The separate avenue section and the pedestrian street closures also ended Dec 25, so the road is live traffic now — shoot from the pavement",
+        "location": "Marunouchi, Chiyoda, Tokyo",
+        "sourceId": "jp-marunouchi-lights"
+      },
+      {
+        "id": "j15-7",
+        "title": "Vampire Cafe",
+        "category": "food",
+        "time": "18:45",
+        "duration": "1h 30m",
+        "notes": "Seventh floor of a Ginza block, ten minutes back south. Coffin tables, a fake-blood fountain and staff in full costume — one of the longest-running themed restaurants in Tokyo, and a novelty stop rather than a meal anyone would order for the food. Reserve, because it is small and it is the New Year week",
+        "location": "Ginza, Chuo, Tokyo",
+        "sourceId": "nightlife-nl50"
+      },
+      {
+        "id": "j15-8",
+        "title": "Sel Octagon Tokyo",
         "category": "nightlife",
-        "time": "21:00",
-        "duration": "3h",
-        "notes": "Another Shinjuku/Kabukicho night — the group's reliable go-to base, WARP Shinjuku or Golden Gai if you want a change of pace. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Kabukicho, Shinjuku"
+        "time": "22:00",
+        "duration": "4h",
+        "notes": "Six minutes on the Hibiya line to Roppongi. A large basement room on Gaien-Higashi-dori built around a lighting rig closer to a festival stage than a bar, roughly 22:00-04:30 — and the Roppongi club that is not fed by touts on the street, which is the reason it is the pick here rather than anything on the strip. Saturday is one of only three weekend club nights on the whole Tokyo leg, the others being New Year's Eve and Jan 8, so this is one of three chances at a real floor. Door prices are per head and a trio is a target: buy at the door of the room itself and walk past anyone offering a deal on the pavement",
+        "location": "Roppongi, Minato, Tokyo",
+        "sourceId": "jp-sel-octagon"
       }
     ]
   },
@@ -1624,83 +2244,164 @@
     "items": [
       {
         "id": "j16-1",
-        "title": "Nakano Broadway collectors' run",
-        "category": "shopping",
-        "time": "10:30",
-        "duration": "2.5h",
-        "notes": "Retro multi-floor mall — the original Mandarake, vintage manga, cels and rare Dragon Ball/Naruto/One Piece figures; quieter than Akihabara",
-        "location": "Nakano, Tokyo",
-        "sourceId": "ja22"
+        "title": "Shinjuku → Mitaka",
+        "category": "transportation",
+        "time": "09:15",
+        "duration": "30min",
+        "notes": "Twenty minutes on the Chuo Rapid, then the museum shuttle from the south exit or a fifteen-minute walk along the Tamagawa Josui canal path. Today is the national return-travel peak and the worst single day of the year on the rails, so the whole day is deliberately built on one line in western Tokyo — Mitaka and Nakano are both on the Chuo and neither goes near a Shinkansen platform. The Kamakura day was moved off today for the same reason: the Enoden is overloaded through Jan 1-3 with boarding queues at Kamakura Station running forty minutes. The Koenji and Shimokitazawa vintage plan came off too — independent second-hand shops are exactly the category that stays shut through Jan 3, tenant by tenant, with nothing published in advance",
+        "location": "Shinjuku → Mitaka, Tokyo"
       },
       {
         "id": "j16-2",
-        "title": "Koenji thrift & streetwear (optional)",
-        "category": "free",
-        "time": "13:30",
-        "duration": "1.5h",
-        "notes": "An optional afternoon detour nearby for thrift shops, streetwear and low-key bar culture",
-        "location": "Koenji, Tokyo"
+        "title": "Ghibli Museum, Mitaka",
+        "category": "cultural",
+        "time": "10:00",
+        "duration": "2h",
+        "notes": "Advance reservation only, no door sales, and the tickets for the whole of January were released at 10:00 JST on 10 Dec — that is 06:15 in Kathmandu, and they routinely go the same morning, so somebody had to be awake for it. There is no second chance and no walk-up. Open 10:00-18:00 with entry slots at 10:00, 12:00, 14:00 and 16:00; closed Tuesdays, and the annual winter closure runs on the Dec 27 to Jan 2 pattern, which leaves Jan 3, 4, 6, 7 and 8 as the only possible dates on this trip. 1,000 yen. No photography inside — that is enforced, not advisory — and the short film in the basement theatre changes monthly and is only ever shown here",
+        "location": "Mitaka, Tokyo",
+        "sourceId": "jp-ghibli-museum"
       },
       {
         "id": "j16-3",
-        "title": "Omoide Yokocho dinner",
+        "title": "Lunch in Kichijoji",
         "category": "food",
-        "time": "18:00",
-        "duration": "1.5h",
-        "notes": "A second round of yakitori-alley food before the last stretch of nights",
-        "location": "Shinjuku, Tokyo"
+        "time": "12:15",
+        "duration": "1h 15m",
+        "notes": "One stop back down the Chuo line and the obvious stop between the museum and Nakano. Pick from what actually has its shutter up rather than from a name chosen in advance — Jan 3 is the day independent shops each make their own call, and the arcade around the station is where enough of them will be open to make that work",
+        "location": "Kichijoji, Musashino, Tokyo"
       },
       {
         "id": "j16-4",
-        "title": "Golden Gai & Kabukicho",
+        "title": "Nakano Broadway",
+        "category": "shopping",
+        "time": "14:00",
+        "duration": "1h",
+        "notes": "Twelve minutes east on the Chuo line, then a five-minute arcade walk from the north exit. A 1966 shopping complex that turned into the collectors' building — 10:00-20:00 for the building, but most of the collector shops only open at 12:00. It is open on a Sunday and individual shops still set their own New Year closures; the chain publishes a year-end operating page each December, so read that rather than assuming. This is a confirm day, not a certainty",
+        "location": "Nakano, Tokyo",
+        "sourceId": "jp-nakano-broadway"
+      },
+      {
+        "id": "j16-5",
+        "title": "Mandarake Nakano",
+        "category": "shopping",
+        "time": "15:00",
+        "duration": "2h 30m",
+        "notes": "More than twenty separate shops spread across the upper floors of the same building, each one a single specialism — cels, vintage Showa-era figures, doujinshi, first-run Jump, model kits — which is the difference between here and the single eight-floor Akihabara complex. 12:00-20:00 daily. This is where the rare Dragon Ball and One Piece pieces actually are, and the prices reflect that",
+        "location": "Nakano Broadway, Nakano, Tokyo",
+        "sourceId": "jp-mandarake-nakano"
+      },
+      {
+        "id": "j16-6",
+        "title": "Sugoi Niboshi Ramen Nagi, Golden Gai",
+        "category": "food",
+        "time": "18:15",
+        "duration": "1h",
+        "notes": "Five minutes back into Shinjuku on the Chuo line. Up a near-vertical staircase in the Golden Gai main building — a heavy dried-sardine broth that people either love or find too much, which is the point of it. Advertised as 24 hours year-round, but it is a small owner-run shop and can still take a short year-end break, so look at the door rather than promising it to anyone",
+        "location": "Golden Gai, Kabukicho, Shinjuku, Tokyo",
+        "sourceId": "jp-ramen-nagi"
+      },
+      {
+        "id": "j16-7",
+        "title": "Whiska",
         "category": "nightlife",
-        "time": "20:30",
-        "duration": "3h",
-        "notes": "Bar-hop a different corner of Golden Gai, then into Kabukicho. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Golden Gai & Kabukicho, Shinjuku"
+        "time": "20:00",
+        "duration": "2h 30m",
+        "notes": "A whisky bar in Golden Gai with a jazz-CD soundtrack, and a different door from the one on the 27th — the whole point of a two-hundred-bar alley is not to go back to the same five seats. Assume half the lane is dark tonight and pick from what has its light on; the seat charge is per person and posted at the door",
+        "location": "Golden Gai, Kabukicho, Shinjuku, Tokyo",
+        "sourceId": "nightlife-nl46"
       }
     ]
   },
   {
     "date": "2027-01-04",
-    "city": "Tokyo",
+    "city": "Kamakura",
     "country": "japan",
     "items": [
       {
         "id": "j17-1",
-        "title": "Tokyo Tower & Roppongi Hills/Mori",
-        "category": "sightseeing",
-        "time": "10:30",
-        "duration": "3h",
-        "notes": "Daytime look at the 333m Tokyo Tower and the Roppongi Hills/Mori area ahead of tonight's nightlife focus",
-        "location": "Roppongi/Minato, Tokyo"
+        "title": "Shinjuku → Kamakura",
+        "category": "transportation",
+        "time": "07:45",
+        "duration": "1h 15m",
+        "notes": "Sixty-one minutes direct on the Shonan-Shinjuku Line for about 920 yen, no transfer. Today is the first day clear of the Jan 1-3 hatsumode crush that had boarding queues at Kamakura Station running forty minutes, and clear of the return-travel peak that made yesterday unusable for anything with a long train on it",
+        "location": "Shinjuku → Kamakura"
       },
       {
         "id": "j17-2",
-        "title": "Lunch near Roppongi",
-        "category": "food",
-        "time": "14:00",
-        "duration": "1h",
-        "notes": "Casual lunch before the afternoon wind-down",
-        "location": "Roppongi, Tokyo"
+        "title": "Kotoku-in, the Great Buddha of Kamakura",
+        "category": "cultural",
+        "time": "09:15",
+        "duration": "1h 15m",
+        "notes": "Five minutes on the Enoden from Kamakura to Hase, then a seven-minute walk. An 11.4 m bronze Amida cast in 1252, sitting in the open since the hall around it was destroyed by a tsunami in the fifteenth century. 08:00-17:00 October to March with entry until 16:45, no closing days, 300 yen — and for another 50 yen you can go inside the statue and see the casting seams from the back, which takes five minutes and is the part nobody photographs",
+        "location": "Hase, Kamakura, Kanagawa",
+        "sourceId": "jp-kotokuin"
       },
       {
         "id": "j17-3",
-        "title": "Roppongi dinner",
-        "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
-        "notes": "Dinner near the lights before the club night",
-        "location": "Roppongi, Tokyo"
+        "title": "Kamakurakokomae Station crossing",
+        "category": "photography",
+        "time": "10:45",
+        "duration": "45min",
+        "notes": "Four stops further along the single-track Enoden. The level crossing from the opening sequence of Slam Dunk, where the road meets the sea wall with Enoshima on the horizon — a straight hit on the anime side of this trip and it costs nothing but the fare. It is a working level crossing on a residential street and Kamakura City has put up signage about people standing in the road for the shot: take it from the pavement and let the train come to the frame",
+        "location": "Koshigoe, Kamakura, Kanagawa",
+        "sourceId": "jp-kamakurakokomae"
       },
       {
         "id": "j17-4",
-        "title": "Roppongi clubs/bars",
+        "title": "Lunch on Komachi-dori",
+        "category": "food",
+        "time": "12:00",
+        "duration": "1h 15m",
+        "notes": "Back into Kamakura on the Enoden. The covered shopping street running north from the station towards Tsurugaoka Hachimangu — shirasu on rice, croquettes and purple sweet-potato soft serve eaten walking. Everything here is open again now that the hatsumode week has broken, which was not true yesterday",
+        "location": "Komachi-dori, Kamakura, Kanagawa"
+      },
+      {
+        "id": "j17-5",
+        "title": "Kamakura → Yokohama Minatomirai",
+        "category": "transportation",
+        "time": "13:30",
+        "duration": "1h",
+        "notes": "JR Yokosuka line to Yokohama, about 25 minutes, then the Minatomirai line two stops to Bashamichi. The museum is five minutes on foot from the exit",
+        "location": "Kamakura → Shinko, Yokohama"
+      },
+      {
+        "id": "j17-6",
+        "title": "CUPNOODLES MUSEUM Yokohama",
+        "category": "sightseeing",
+        "time": "14:30",
+        "duration": "2h",
+        "notes": "Verify this one before relying on it. Beyond its normal Dec 31 to Jan 1 closure, this museum was shut for the whole of January 2026 for works, and the sister site in Osaka ran its own year-end maintenance the same winter — whether that repeats in 2027 was unknown when this was written, so check the official site. Assuming it is open: 10:00-18:00, last entry 17:00, closed Tuesdays, so a Monday works. 500 yen entry plus 500 yen a cup at My CUPNOODLES Factory, where you decorate a blank cup, pick a soup and four toppings and watch it sealed and shrink-wrapped. That is a forty-five-minute activity the group will still be talking about later. The cup factory is same-day but takes a numbered ticket that can run out on a busy afternoon; the Chicken Ramen Factory needs booking ahead",
+        "location": "Shinko, Naka-ku, Yokohama",
+        "sourceId": "jp-cupnoodles"
+      },
+      {
+        "id": "j17-7",
+        "title": "Yokohama Chinatown",
+        "category": "food",
+        "time": "17:00",
+        "duration": "2h",
+        "notes": "One stop on the Minatomirai line to Motomachi-Chukagai. The largest Chinatown in Japan — about three hundred restaurants and stalls in a ten-block grid behind painted gates, with street counters selling steamed buns, xiaolongbao and grilled skewers to eat standing. It is dark by 16:45 and the lanterns are lit, which is why this is the evening half. Worth filing: it is one of the very few food districts near Tokyo that stays busy right through Jan 1-3, so it is the answer if the New Year dinner problem in Shinjuku ever bites",
+        "location": "Yamashitacho, Naka-ku, Yokohama",
+        "sourceId": "jp-yokohama-chinatown"
+      },
+      {
+        "id": "j17-8",
+        "title": "Yokohama → Shinjuku",
+        "category": "transportation",
+        "time": "19:15",
+        "duration": "1h",
+        "notes": "About fifty-five minutes back, Minatomirai line to Yokohama then the Shonan-Shinjuku or Tokyu-Fukutoshin through service",
+        "location": "Yokohama → Shinjuku, Tokyo"
+      },
+      {
+        "id": "j17-9",
+        "title": "Bar Shinjuku Whisky Salon",
         "category": "nightlife",
-        "time": "21:00",
-        "duration": "3.5h",
-        "notes": "Roppongi's foreigner-friendly, international club scene — try V2 Tokyo or Jumanji 55 (cheap, rowdy) — or Sel Octagon/Odeon Tokyo for a straighter, less tout-adjacent alternative; prioritize hip-hop/rap events where available; watch for overcharging and tout traps in this district (verify hours/cover before going). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Roppongi, Tokyo"
+        "time": "20:45",
+        "duration": "1h 30m",
+        "notes": "A quiet bar next to Golden Gai, run by one of the country's named whisky specialists, with a list deep enough to make the choice the entertainment. A Monday in Roppongi is the worst combination of a dead floor and active touts, and after twelve hours out on trains this is the honest end to the day rather than a club nobody wants to be in",
+        "location": "Shinjuku, Tokyo",
+        "sourceId": "nightlife-nl47"
       }
     ]
   },
@@ -1711,39 +2412,71 @@
     "items": [
       {
         "id": "j18-1",
-        "title": "Warner Bros. Studio Tour Tokyo",
-        "category": "sightseeing",
-        "time": "10:00",
-        "duration": "4h",
-        "notes": "The Harry Potter studio-tour attraction — a major themed day out; alternative is the Ghibli Museum or an anime cafe/pop-up day if tickets are unavailable",
-        "location": "Toshimaen, Nerima, Tokyo"
+        "title": "Shinjuku → Toshimaen",
+        "category": "transportation",
+        "time": "09:00",
+        "duration": "45min",
+        "notes": "Toei Oedo line direct from Shinjuku, about 25 minutes, then a short walk. Allow the extra — the entry slot is timed and there is no re-entry once inside",
+        "location": "Shinjuku → Kasugacho, Nerima, Tokyo"
       },
       {
         "id": "j18-2",
-        "title": "Lunch at the studio tour",
-        "category": "food",
-        "time": "14:30",
-        "duration": "1h",
-        "notes": "On-site cafe between the sets",
-        "location": "Toshimaen, Tokyo"
+        "title": "Warner Bros. Studio Tour Tokyo",
+        "category": "sightseeing",
+        "time": "10:00",
+        "duration": "4h 30m",
+        "notes": "Timed entry, non-refundable, and January is peak — 6,600 to 7,300 yen adult depending on the date. Tickets are also sold at the onsite ticket office, contrary to the common claim that it is website-only, but pre-booking is the only sane approach in the New Year week and this should have gone in as the calendar opened. No re-entry, and four hours is the minimum rather than the comfortable case. The Ghibli Museum is usually named as the fallback if this sells out: it closes on Tuesdays and today is a Tuesday, so it is not one — teamLab, Nakano or an anime-cafe day would be",
+        "location": "Kasugacho, Nerima, Tokyo",
+        "sourceId": "jp-warner-bros"
       },
       {
         "id": "j18-3",
-        "title": "Dinner in Shinjuku",
-        "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
-        "notes": "Back to base for dinner",
-        "location": "Shinjuku, Tokyo"
+        "title": "Nerima → Shibakoen",
+        "category": "transportation",
+        "time": "15:00",
+        "duration": "45min",
+        "notes": "Oedo line the whole way round to Akabanebashi, about 35 minutes, and the tower is five minutes from that exit",
+        "location": "Nerima → Shibakoen, Minato, Tokyo"
       },
       {
         "id": "j18-4",
-        "title": "Shinjuku nightlife",
+        "title": "Tokyo Tower",
+        "category": "sightseeing",
+        "time": "16:00",
+        "duration": "1h 30m",
+        "notes": "Main deck 09:00-22:30 with last entry 22:00, 1,500 yen; the Top Deck at 250 m is a separate timed tour worth booking online. Sunset is 16:41, so a late-afternoon arrival buys the last of the daylight and the lights coming on from one ticket. Winter nights give the sharpest panoramas of the year here, and the glass floor panels on the main deck are the thing people either love or refuse to stand on",
+        "location": "Shibakoen, Minato, Tokyo",
+        "sourceId": "jp-tokyo-tower"
+      },
+      {
+        "id": "j18-5",
+        "title": "Tokyo Midtown Walkway of Light",
+        "category": "photography",
+        "time": "18:00",
+        "duration": "1h 15m",
+        "notes": "A fifteen-minute walk from the tower, or one stop on the Oedo line. The Walkway of Light runs 17:00-23:00 and on the annual pattern stays lit into late February, so unlike the Roppongi Keyakizaka lights it is still on. Shops 11:00-21:00, restaurants to 23:00, and the outdoor rink beside it is shut on Jan 1 only",
+        "location": "Akasaka, Minato, Tokyo",
+        "sourceId": "jp-tokyo-midtown"
+      },
+      {
+        "id": "j18-6",
+        "title": "Dinner at Tokyo Midtown",
+        "category": "food",
+        "time": "19:30",
+        "duration": "1h 30m",
+        "notes": "Restaurants in the building run to 23:00, which makes this the simplest sit-down within a two-minute walk of the lights. Everything around Roppongi Crossing at this hour is priced for the club crowd and staffed for it too",
+        "location": "Tokyo Midtown, Akasaka, Minato, Tokyo",
+        "sourceId": "jp-tokyo-midtown"
+      },
+      {
+        "id": "j18-7",
+        "title": "Karaoke Kan, Shibuya",
         "category": "nightlife",
-        "time": "21:00",
-        "duration": "3h",
-        "notes": "An easy Shinjuku night to close out the day. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Shinjuku, Tokyo"
+        "time": "21:30",
+        "duration": "2h 30m",
+        "notes": "The karaoke box used in Lost in Translation — rooms 601 and 602 are the ones, and they can be asked for. Fifteen minutes from Roppongi. The night moves out of Roppongi on purpose: the good room there programmes Friday and Saturday, and a Tuesday on that strip is a quiet floor with active touts on the pavement outside it",
+        "location": "Udagawa-cho, Shibuya, Tokyo",
+        "sourceId": "nightlife-nl40"
       }
     ]
   },
@@ -1754,82 +2487,154 @@
     "items": [
       {
         "id": "j19-1",
-        "title": "TeamLab (Borderless or Planets)",
-        "category": "sightseeing",
-        "time": "10:00",
-        "duration": "3h",
-        "notes": "Immersive digital-art museum of ever-changing light and projection rooms; pre-booked timed ticket, wear white/light colours for the best effect",
-        "location": "Azabudai Hills / Toyosu, Tokyo"
+        "title": "Shinjuku Gyoen National Garden",
+        "category": "nature",
+        "time": "09:15",
+        "duration": "1h 45m",
+        "notes": "09:00-16:30 from Oct 1 to Mar 14, last entry 16:00, 500 yen, closed Mondays — and closed Dec 29 to Jan 3 every year on top of that, which leaves Jan 5 to Jan 8 as the only four dates on this whole trip when it is open, and three of those are already spoken for. Ten minutes on foot from Kabukicho. Fifty-eight hectares holding a French formal garden, an English landscape garden and a Japanese one side by side, the greenhouse, and a Taiwanese pavilion on the pond",
+        "location": "Naitomachi, Shinjuku, Tokyo",
+        "sourceId": "jp-shinjuku-gyoen"
       },
       {
         "id": "j19-2",
-        "title": "Lunch nearby",
-        "category": "food",
-        "time": "13:30",
-        "duration": "1h",
-        "notes": "Casual bite after the museum",
-        "location": "Tokyo"
+        "title": "Shinjuku → Toyosu",
+        "category": "transportation",
+        "time": "11:15",
+        "duration": "45min",
+        "notes": "Marunouchi line to Ginza, Yurakucho line east to Toyosu, about forty minutes. The whole afternoon runs east from here on one line, which is why the garden had to be the morning",
+        "location": "Shinjuku → Toyosu, Koto, Tokyo"
       },
       {
         "id": "j19-3",
-        "title": "Dinner",
-        "category": "food",
-        "time": "18:00",
-        "duration": "1.5h",
-        "notes": "Pick the neighbourhood based on tonight's best event",
-        "location": "Tokyo"
+        "title": "teamLab Planets TOKYO",
+        "category": "photography",
+        "time": "12:15",
+        "duration": "3h",
+        "notes": "Open 09:00-22:00 with last entry 21:00, from 3,600 yen, timed entry and January is peak — book as the calendar opens. One warning that is not on the ticket page: it closes for maintenance on scattered single weekdays that are only published on its own calendar, so check this specific date before booking anything around it. Practical matter — you walk barefoot through knee-deep water and the floors are mirrored, so trousers that roll above the knee, and a skirt is a bad idea. Phones survive it but bags do not; there are lockers",
+        "location": "Toyosu, Koto, Tokyo",
+        "sourceId": "jp-teamlab"
       },
       {
         "id": "j19-4",
-        "title": "Shibuya, Roppongi or Shinjuku night",
+        "title": "Monja Street, Tsukishima",
+        "category": "free",
+        "time": "15:45",
+        "duration": "1h 30m",
+        "notes": "Two stops back west on the Yurakucho line, four minutes. About eighty monja shops along Nishinaka-dori, and the way it works is that shops take names at the door rather than reservations — so the plan is to walk the street, put a name down at the one you want, and spend the wait on the rest of the lane. The whole street closes for several days over New Year, generally Dec 31 to Jan 3, so today is safely on the right side of it",
+        "location": "Tsukishima, Chuo, Tokyo",
+        "sourceId": "jp-monja-kondo"
+      },
+      {
+        "id": "j19-5",
+        "title": "Monja Kondo Honten",
+        "category": "food",
+        "time": "17:15",
+        "duration": "2h",
+        "notes": "Roughly 17:00-22:00 on a weekday. Monjayaki is cooked on the hotplate in front of you and eaten off the plate with a small metal spatula, scraped in crisp patches rather than served — it looks wrong and it is correct. Two or three monja between three people is the right order, not one each. Cash is safest along this street",
+        "location": "Tsukishima, Chuo, Tokyo",
+        "sourceId": "jp-monja-kondo"
+      },
+      {
+        "id": "j19-6",
+        "title": "Ebisu Yokocho",
         "category": "nightlife",
-        "time": "20:30",
-        "duration": "3.5h",
-        "notes": "Choose the venue closest to wherever the best event is tonight — Harlem/Camelot (Shibuya), WARP (Shinjuku) or V2/Jumanji 55 (Roppongi) are the standing options. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Shibuya/Roppongi/Shinjuku, Tokyo"
+        "time": "20:15",
+        "duration": "2h 30m",
+        "notes": "Thirty minutes west. About twenty open-fronted izakaya counters filling the ground floor of an old shopping arcade a few minutes from Ebisu Station, dressed to look like a post-war market — shared tables, an aisle one person wide, and it runs 17:00-05:00. A real izakaya night rather than a chain, and late enough to be the last stop instead of the first. Several stalls close Jan 1-3 but today is clear of that",
+        "location": "Ebisu, Shibuya, Tokyo",
+        "sourceId": "nightlife-nl69"
       }
     ]
   },
   {
     "date": "2027-01-07",
-    "city": "Tokyo",
+    "city": "Kawaguchiko",
     "country": "japan",
     "items": [
       {
         "id": "j20-1",
-        "title": "Last souvenir & anime-merch shopping",
-        "category": "shopping",
-        "time": "10:00",
-        "duration": "3h",
-        "notes": "Shibuya, Harajuku, Akihabara, Nakano or Ikebukuro — whichever still has gaps to fill; souvenirs, streetwear and gifts",
-        "location": "Tokyo"
+        "title": "Shinjuku → Shimo-Yoshida on the Fuji Excursion",
+        "category": "transportation",
+        "time": "07:00",
+        "duration": "2h 25m",
+        "notes": "The train is the whole problem with this day. About four round trips a day, 1h53 to 1h58, around 4,130 yen, every seat reserved with no non-reserved cars at all, and it sells out — the seats went on sale at 10:00 JST one month before, so 7 Dec 2026, which is 06:15 in Kathmandu. The first train leaves at 07:30 and reaches Kawaguchiko at 09:28; get off one stop early at Shimo-Yoshida, which puts the pagoda fifteen minutes away on foot instead of a bus ride back. Highway buses from the Shinjuku terminal are the fallback at about two hours and 2,200 yen, two an hour, but they sit in New Year road congestion Dec 29-31 and Jan 2-4 — Jan 7 is clear of both, which is part of why the day is here",
+        "location": "Shinjuku → Shimo-Yoshida, Yamanashi"
       },
       {
         "id": "j20-2",
-        "title": "Lunch",
-        "category": "food",
-        "time": "13:30",
-        "duration": "1h",
-        "notes": "Quick refuel between shopping stops",
-        "location": "Tokyo"
+        "title": "Chureito Pagoda, Arakurayama Sengen Park",
+        "category": "photography",
+        "time": "09:30",
+        "duration": "2h",
+        "notes": "Fifteen minutes on foot from the station to the shrine at the bottom, then 398 steps up to the viewing terrace. Free and open at all times. The composition is fixed by a purpose-built deck, so everyone shoots the same frame and the only variables are the air and the queue for the middle of the rail — December and early January have the driest, clearest air of the year, which is the actual reason this day sits in January rather than being wished for earlier. The steps are unlit: nobody should still be up there after 16:30, which is what caps the afternoon at the other end of the lake",
+        "location": "Arakura, Fujiyoshida, Yamanashi",
+        "sourceId": "jp-chureito"
       },
       {
         "id": "j20-3",
-        "title": "Final dinner",
-        "category": "food",
-        "time": "18:30",
-        "duration": "2h",
-        "notes": "A proper final-full-day dinner to mark the trip winding down; reserve ahead",
-        "location": "Shinjuku, Tokyo"
+        "title": "Shimo-Yoshida → Kawaguchiko",
+        "category": "transportation",
+        "time": "11:45",
+        "duration": "30min",
+        "notes": "One stop on the Fujikyuko line, then the station is the hub for the sightseeing buses. The two-day sightseeing bus pass is about 1,500 yen and pays for itself on the Oishi Park round trip alone",
+        "location": "Shimo-Yoshida → Kawaguchiko, Yamanashi"
       },
       {
         "id": "j20-4",
-        "title": "Final major club/bar night",
+        "title": "Lunch at Kawaguchiko Station",
+        "category": "food",
+        "time": "12:30",
+        "duration": "1h",
+        "notes": "Hoto — flat wheat noodles simmered in miso with pumpkin and root vegetables — is the Yamanashi dish and the station block is where the shops are. Eat before the bus rather than at the lake: Oishi Park is a strip of shoreline with a shop, not a place to sit down for an hour",
+        "location": "Kawaguchiko Station, Fujikawaguchiko, Yamanashi"
+      },
+      {
+        "id": "j20-5",
+        "title": "Oishi Park, Lake Kawaguchi",
+        "category": "photography",
+        "time": "14:00",
+        "duration": "1h 45m",
+        "notes": "About twenty-five minutes on the retro-bus loop from the station, free to enter. The north shore looks straight across the water at Fuji with the flower beds in front — bare in winter, which is honestly better, because nothing competes with the mountain. Two frames from one day and both completely different from the pagoda. Straight is that the mirror reflection everyone photographs needs a still morning and this is an afternoon: what the afternoon gives instead is direct light on the south face. If the reflection is the priority, run the day the other way round and take the pagoda after lunch — but then the unlit steps become the problem",
+        "location": "Oishi, Fujikawaguchiko, Yamanashi",
+        "sourceId": "jp-oishi-park"
+      },
+      {
+        "id": "j20-6",
+        "title": "Kawaguchiko Station before the train",
+        "category": "shopping",
+        "time": "16:15",
+        "duration": "1h",
+        "notes": "Back on the bus with time in hand. Sunset at the lake is 16:47 and the last direct return leaves at 17:38 — miss it and the alternative is a bus in the dark, so the buffer is deliberate",
+        "location": "Kawaguchiko Station, Fujikawaguchiko, Yamanashi"
+      },
+      {
+        "id": "j20-7",
+        "title": "Kawaguchiko → Shinjuku",
+        "category": "transportation",
+        "time": "17:38",
+        "duration": "1h 49m",
+        "notes": "The last direct Fuji Excursion of the day, arriving Shinjuku at 19:27. Reserved, same as the morning leg, and booked in the same transaction",
+        "location": "Kawaguchiko → Shinjuku, Tokyo"
+      },
+      {
+        "id": "j20-8",
+        "title": "Fuunji",
+        "category": "food",
+        "time": "19:45",
+        "duration": "1h",
+        "notes": "Eight minutes south of Shinjuku Station on foot, so it is genuinely on the way back from the platform. The tsukemen here is the famous one — thick noodles dipped into a dense chicken-and-fish broth. Open 11:00-15:00 and 17:00-21:00, closed Sundays plus a New Year break, and a Thursday works. About ten counter seats plus standing, so three people will be split up and there will be a queue: this is a twenty-minute meal, not a sit-down",
+        "location": "Yoyogi, Shibuya, Tokyo",
+        "sourceId": "jp-fuunji"
+      },
+      {
+        "id": "j20-9",
+        "title": "Zoetrope Whisky Bar",
         "category": "nightlife",
-        "time": "21:00",
-        "duration": "4h",
-        "notes": "The last big scheduled night — Shinjuku, Shibuya or Roppongi, whichever has the best event; Harlem/Camelot (Shibuya) or WARP (Shinjuku) are the standing picks. Cap it with Ichiran or Nagi ramen (both 24h). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Shinjuku/Shibuya/Roppongi, Tokyo"
+        "time": "21:15",
+        "duration": "2h",
+        "notes": "More than two hundred Japanese whiskies in a tiny cinema-themed room off the west side of Shinjuku, with silent films projected on the wall behind the bar. A short quiet night on purpose — tomorrow is a park from nine in the morning and then the last club night of the trip after it",
+        "location": "Shinjuku, Tokyo",
+        "sourceId": "nightlife-nl10"
       }
     ]
   },
@@ -1840,30 +2645,51 @@
     "items": [
       {
         "id": "j21-1",
-        "title": "Tokyo DisneySea",
-        "category": "sightseeing",
-        "time": "09:00",
-        "duration": "8h",
-        "notes": "A relaxed bonus day at Tokyo DisneySea — themed lands, rides and parades; a lighter, change-of-pace day before the very last night out",
-        "location": "Urayasu, Chiba"
+        "title": "Shinjuku → Maihama",
+        "category": "transportation",
+        "time": "07:45",
+        "duration": "1h",
+        "notes": "Chuo Rapid to Tokyo Station, then the Keyo line to Maihama — allow for the long underground walk between the two platforms at Tokyo, which is a genuine ten minutes and catches people out. About fifty-five minutes door to gate",
+        "location": "Shinjuku → Maihama, Urayasu, Chiba"
       },
       {
         "id": "j21-2",
-        "title": "Dinner near the hotel",
-        "category": "food",
-        "time": "19:00",
-        "duration": "1.5h",
-        "notes": "Reset after a full park day",
-        "location": "Shinjuku, Tokyo"
+        "title": "Tokyo DisneySea",
+        "category": "sightseeing",
+        "time": "09:00",
+        "duration": "11h",
+        "notes": "Typically 09:00-21:00, but the daily calendar for a month is only published around the 8th of the previous month, so the hours for today only appeared in early December — check them rather than assuming. Tickets were released at 14:00 JST on 8 Nov 2026, the same date two months out; date-specific, one park, and there is no park hopper. Jan 8 sits inside the New Year special-event window that runs Jan 1-11 and outside the Dec 26-31 gap week, which has peak crowds and no seasonal programme — that is why the park day is here and not earlier, and it should not be moved. Fantasy Springs and Journey to the Center of the Earth are the two to get standby passes for first",
+        "location": "Maihama, Urayasu, Chiba",
+        "sourceId": "jp-disneysea"
       },
       {
         "id": "j21-3",
-        "title": "One more big night out",
-        "category": "nightlife",
+        "title": "Maihama → Shibuya",
+        "category": "transportation",
+        "time": "20:00",
+        "duration": "1h",
+        "notes": "About fifty minutes. Out of the park a little before close rather than with everyone else — the Maihama platform after a park closing is its own event",
+        "location": "Maihama → Shibuya, Tokyo"
+      },
+      {
+        "id": "j21-4",
+        "title": "Ichiran Shibuya",
+        "category": "food",
         "time": "21:00",
+        "duration": "1h",
+        "notes": "Twenty-four hours. Order from the machine, fill in the paper form for firmness, richness and the red sauce, and eat in a booth facing a bamboo blind. One thing worth knowing with three people: Ichiran seats you in individual booths by design, and the dividers have to be folded back on request — which is not guaranteed at peak, so ask on the way in rather than after sitting down",
+        "location": "Jinnan, Shibuya, Tokyo",
+        "sourceId": "jp-ichiran-shibuya"
+      },
+      {
+        "id": "j21-5",
+        "title": "Harlem — the last club night",
+        "category": "nightlife",
+        "time": "22:30",
         "duration": "4h",
-        "notes": "The group's \"party 95% of nights\" preference gets one more full night — Shinjuku, Shibuya or Roppongi, whichever still has the best energy; Harlem/Camelot (Shibuya) or WARP (Shinjuku) if undecided. Cap it with Ichiran or Nagi ramen (both 24h). Jan 9 is not an early flight, so there's no need to hold back. Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
-        "location": "Shinjuku/Shibuya/Roppongi, Tokyo"
+        "notes": "Friday, and the last of only three weekend club nights on the Tokyo leg. Doors 22:00-23:00, sets to about 05:00, door typically 1,000-3,500 yen with a drink, and the floor does not fill until after midnight — which is the second wind of a fourteen-hour day and worth knowing before anyone promises to make it. Shibuya Yokocho under Miyashita Park serves until 05:00 and is the only proper sit-down food near these clubs still going at four",
+        "location": "Maruyamacho, Shibuya, Tokyo",
+        "sourceId": "jp-harlem"
       }
     ]
   },
@@ -1874,24 +2700,33 @@
     "items": [
       {
         "id": "j22-1",
-        "title": "Slow final breakfast & checkout",
+        "title": "Slow final breakfast",
         "category": "free",
-        "time": "09:00",
-        "duration": "1.5h",
-        "notes": "Unhurried last morning after the final night out; check out of the Shinjuku hotel late morning",
-        "location": "Shinjuku, Tokyo"
+        "time": "08:30",
+        "duration": "1h",
+        "notes": "Unhurried last morning after the final night out. The flight is not until 17:35, so the whole morning is genuinely free and nothing needs to be rushed",
+        "location": "Kabukicho, Shinjuku, Tokyo"
       },
       {
         "id": "j22-2",
-        "title": "Last-minute shopping (if time allows)",
-        "category": "shopping",
-        "time": "11:00",
-        "duration": "1.5h",
-        "notes": "A light last-minute souvenir run, or simply resting up before the flight home",
-        "location": "Shinjuku, Tokyo"
+        "title": "Check out of the Kabukicho hotel",
+        "category": "hotel",
+        "time": "10:00",
+        "duration": "30min",
+        "notes": "Real booked checkout is 10:00. The desk will hold the bags for the morning, which is what makes a last shopping run possible at all",
+        "location": "Kabukicho, Shinjuku, Tokyo"
       },
       {
         "id": "j22-3",
+        "title": "Last shopping run in Shinjuku",
+        "category": "shopping",
+        "time": "10:45",
+        "duration": "2h",
+        "notes": "A Saturday morning, and Jan 9 is not the day to discover that the one shop somebody saved for last opens at 11:00 — check before walking to it. Keep the tax-free paperwork and everything bought under it together and out of the suitcases; it has to go through the airport, not into the hold",
+        "location": "Shinjuku, Tokyo"
+      },
+      {
+        "id": "j22-4",
         "title": "Transfer to Haneda (HND)",
         "category": "transportation",
         "time": "13:00",
@@ -1900,7 +2735,7 @@
         "location": "Shinjuku, Tokyo → Haneda (HND)"
       },
       {
-        "id": "j22-4",
+        "id": "j22-5",
         "title": "Fly Tokyo Haneda (HND) → Detroit (DTW) — Long-haul home",
         "category": "transportation",
         "time": "17:35",
@@ -1909,7 +2744,7 @@
         "location": "Tokyo Haneda (HND T3) → Detroit Metro (DTW Terminal M)"
       },
       {
-        "id": "j22-5",
+        "id": "j22-6",
         "title": "Layover at Detroit (DTW) Terminal M",
         "category": "transportation",
         "time": "15:35",
@@ -1919,7 +2754,7 @@
         "tzOffsetMin": -300
       },
       {
-        "id": "j22-6",
+        "id": "j22-7",
         "title": "Fly Detroit (DTW) → Syracuse (SYR) — Final connection home",
         "category": "transportation",
         "time": "21:35",

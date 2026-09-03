@@ -108,24 +108,29 @@ describe('S100 getCityForDate — total over unmapped dates (defensive country d
 });
 
 describe('S100/S112 weather-coords coverage — every trip city is weather-queryable', () => {
-  it('isKnownWeatherCity is true for all 10 canonical trip cities (no day loses weather)', () => {
+  it('isKnownWeatherCity is true for all 13 canonical trip cities (no day loses weather)', () => {
     const uniqueCities = [...new Set(SAMPLE_ITINERARY.map((d) => d.city))].sort();
-    // S112: the Japan leg is now a straight 3-city route (Osaka -> Kyoto -> Tokyo, no more
-    // Hakone/Kawaguchiko/Yuzawa/Nikko/Yokohama day trips).
+    // The Japan leg bases are Osaka -> Kyoto -> Tokyo, and the rebuild named the three day-trip
+    // days for where they are actually spent rather than for the hotel: Nara (Dec 23),
+    // Kamakura (Jan 4) and Kawaguchiko (Jan 7).
     // D-315: + New York, the Dec-9 departure day's city.
-    // The Nepal leg rebuild: + Kirtipur (Dec 11) and Chitlang (Dec 15) — 10 cities across the 32
-    // days. Set EQUALITY, not `toContain`: an accidental 11th city goes red here. The loop below
-    // is the half that matters — both new cities carry real rows in `lib/city-coords.ts`, so no
-    // day drops to the `unavailable` weather fallback.
+    // The Nepal leg rebuild: + Kirtipur (Dec 11) and Chitlang (Dec 15) — 13 cities across the 32
+    // days. Set EQUALITY, not `toContain`: an accidental 14th city goes red here. The loop below
+    // is the half that matters — Kawaguchiko already had a row and Nara and Kamakura were added
+    // to `lib/city-coords.ts` with the day trips, so no day drops to the `unavailable` weather
+    // fallback.
     expect(uniqueCities).toEqual(
       [
         'Bhaktapur',
         'Chitlang',
+        'Kamakura',
         'Kathmandu',
+        'Kawaguchiko',
         'Kirtipur',
         'Kyoto',
         'Lalitpur',
         'Nagarkot',
+        'Nara',
         'New York',
         'Osaka',
         'Tokyo',

@@ -27,9 +27,9 @@ export interface FlightLeg {
   toCode: string;             // 'JFK'
   toName: string;             // 'New York JFK'
   toTerminal?: string;        // 'Terminal 4'
-  departLabel: string;        // human label, exactly as the booking reads: '5:30am Wed Dec 9'
-  arriveLabel: string;        // '7:02am Wed Dec 9'
-  duration: string;           // '1h 32m'
+  departLabel: string;        // human label, exactly as the booking reads: '5:29am Wed Dec 9'
+  arriveLabel: string;        // '7:03am Wed Dec 9'
+  duration: string;           // '1h 34m'
   seats?: string[];           // e.g. ['14A','14B']; omit on legs with no seats given (only the outbound has them)
   cabin: CabinClass;          // 'Economy'
   cabinCode?: string;         // 'V','W','L' (fare/booking class letter from the booking)
@@ -38,7 +38,7 @@ export interface FlightLeg {
 export interface Layover {
   airportCode: string;        // 'JFK'
   airportName?: string;       // 'New York JFK'
-  duration: string;           // '4h 53m'
+  duration: string;           // '2h 57m'
   // AUTHORED human judgment of the connection's comfort. NOT derived from
   // `duration` — a naive minutes threshold can't see immigration / terminal-change
   // tightness (a 2h55m international→international hop is tighter than 6h domestic).

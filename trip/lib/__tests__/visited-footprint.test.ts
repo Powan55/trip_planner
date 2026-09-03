@@ -149,11 +149,12 @@ describe('visitedTally — both sides of every comparison in ONE vocabulary', ()
   it('counts trip countries as LABELS, not leg ids, so the visited side can match it', async () => {
     const { visitedTally } = await load({});
     const { tripCities, tripCountries } = visitedTally();
-    // 10 cities (the Nepal rebuild added Kirtipur and Chitlang), and 3 country labels: USA (the
+    // 13 cities (the Nepal rebuild added Kirtipur and Chitlang; the Japan rebuild added the
+    // three day-trip bases Nara, Kamakura and Kawaguchiko), and 3 country labels: USA (the
     // Dec-9 departure day, D-315), Nepal, Japan. The leg count is 2 — `tripShape().countries` —
     // and pairing THAT with a label-counted visited side would call "every country" done after
     // USA + Nepal, with Japan never reached.
-    expect(tripCities).toBe(10);
+    expect(tripCities).toBe(13);
     expect(tripCountries).toBe(3);
   });
 
@@ -166,7 +167,7 @@ describe('visitedTally — both sides of every comparison in ONE vocabulary', ()
     expect(partial.visitedTally()).toEqual({
       cities: 2,
       countries: 2,
-      tripCities: 10,
+      tripCities: 13,
       tripCountries: 3,
     });
 
@@ -180,8 +181,11 @@ describe('visitedTally — both sides of every comparison in ONE vocabulary', ()
         'Chitlang',
         'Bhaktapur',
         'Osaka',
+        'Nara',
         'Kyoto',
         'Tokyo',
+        'Kamakura',
+        'Kawaguchiko',
       ],
     });
     const tally = all.visitedTally();

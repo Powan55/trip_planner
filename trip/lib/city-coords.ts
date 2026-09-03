@@ -58,6 +58,11 @@ export const CITY_COORDS: Record<string, CityCoord> = {
   Yuzawa: { latitude: 36.937, longitude: 138.808 },
   Nikko: { latitude: 36.7198, longitude: 139.6982 },
   Yokohama: { latitude: 35.4437, longitude: 139.638 },
+  // The two Japan day-trip bases that now have curated markers but no row: Nara (the Dec 23
+  // flex day) and Kamakura. Same reason the rows above exist — a day named for either would
+  // otherwise fail the content validator's "every itinerary city is weather-known" case.
+  Nara: { latitude: 34.6851, longitude: 135.843 },
+  Kamakura: { latitude: 35.3192, longitude: 139.5467 },
 };
 
 /** The coordinate for a city name, or `undefined` when it isn't a known trip city. */
