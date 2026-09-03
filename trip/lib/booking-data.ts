@@ -8,7 +8,7 @@
 // HARD RULE: time/duration/total labels are rendered VERBATIM. There is no
 // `Date` object, no parsing, no timezone math, no recompute anywhere in this module
 // or its presenter. The booking is the source of truth for its own arithmetic — the
-// outbound crosses the date line (totalDuration '1d 15m'), and "correcting" it would
+// outbound crosses the date line (totalDuration '23h 56m'), and "correcting" it would
 // be a bug. `'to-book'` exists as a `BookingStatus` member but NO record uses it,
 // and none ever has. Adding one needs a rendering treatment that no longer exists
 // for a journey: `FlightJourneyCard` does not read `status`, and the placeholder
@@ -20,7 +20,7 @@ export type CabinClass = 'Economy' | 'Premium Economy' | 'Business' | 'First';
 
 export interface FlightLeg {
   id: string;                 // stable, e.g. 'out-1', 'ret-2'
-  flightNumber: string;       // 'Meridian Air 4471', 'Skyline Continental 512', 'Pacific Crown Air 8823'
+  flightNumber: string;       // 'Delta 5363', 'Air India 102', 'China Southern Airlines 3068'
   fromCode: string;           // 'SYR'
   fromName: string;           // 'Syracuse Hancock Intl'
   fromTerminal?: string;      // 'Terminal 4' (omit when not given)
@@ -30,7 +30,7 @@ export interface FlightLeg {
   departLabel: string;        // human label, exactly as the booking reads: '5:30am Wed Dec 9'
   arriveLabel: string;        // '7:02am Wed Dec 9'
   duration: string;           // '1h 32m'
-  seats?: string[];           // e.g. ['14A','14B']; omit on legs with no seats given (this dataset omits it throughout)
+  seats?: string[];           // e.g. ['14A','14B']; omit on legs with no seats given (only the outbound has them)
   cabin: CabinClass;          // 'Economy'
   cabinCode?: string;         // 'V','W','L' (fare/booking class letter from the booking)
 }
@@ -74,37 +74,39 @@ export interface Stay {
   status: BookingStatus;      // 'booked'
   checkIn?: string;           // optional human label; omit if not a fixed booking fact
   checkOut?: string;
-  note?: string;              // short human-readable extra line (e.g. '5 nights · 2 adults · 1 room'); omit if nothing extra to show
+  note?: string;              // short human-readable extra line (e.g. '5 nights · 3 adults · 3 rooms'); omit if nothing extra to show
 }
 
 export const OUTBOUND_JOURNEY: Journey = {
   id: 'outbound', label: 'Outbound — Syracuse to Kathmandu', status: 'booked',
   fromSummary: 'Syracuse (SYR)', toSummary: 'Kathmandu (KTM)',
-  totalDuration: '1d 15m',            // verbatim from the booking source — render as-is, do NOT recompute
-  departDate: '2026-12-09',           // authored from leg out-1 '5:30am Wed Dec 9' (= TRIP_DATES[0])
+  totalDuration: '23h 56m',           // verbatim from the booking source — render as-is, do NOT recompute
+  departDate: '2026-12-09',           // authored from leg out-1 '5:29am Wed Dec 9' (= TRIP_DATES[0])
   legs: [
-    { id: 'out-1', flightNumber: 'Meridian Air 4471',
+    { id: 'out-1', flightNumber: 'Delta 5363', seats: ['11A', '11B', '11C'],
       fromCode: 'SYR', fromName: 'Syracuse Hancock Intl',
       toCode: 'JFK', toName: 'New York JFK', toTerminal: 'Terminal 4',
-      departLabel: '5:30am Wed Dec 9', arriveLabel: '7:02am Wed Dec 9',
-      duration: '1h 32m', cabin: 'Economy', cabinCode: 'V' },
-    { id: 'out-2', flightNumber: 'Skyline Continental 512',
+      departLabel: '5:29am Wed Dec 9', arriveLabel: '7:03am Wed Dec 9',
+      duration: '1h 34m', cabin: 'Economy', cabinCode: 'V' },
+    { id: 'out-2', flightNumber: 'Air India 102', seats: ['31D', '31E', '31G'],
       fromCode: 'JFK', fromName: 'New York JFK', fromTerminal: 'Terminal 4',
       toCode: 'DEL', toName: 'Delhi Indira Gandhi Intl', toTerminal: 'Terminal 3',
-      departLabel: '11:55am Wed Dec 9', arriveLabel: '1:20pm Thu Dec 10',
-      duration: '14h 55m', cabin: 'Economy', cabinCode: 'W' },
-    { id: 'out-3', flightNumber: 'Skyline Continental 618',
+      departLabel: '10:00am Wed Dec 9', arriveLabel: '11:40am Thu Dec 10',
+      duration: '15h 10m', cabin: 'Economy', cabinCode: 'W' },
+    { id: 'out-3', flightNumber: 'Air India 219', seats: ['26D', '26E', '26F'],
       fromCode: 'DEL', fromName: 'Delhi Indira Gandhi Intl', fromTerminal: 'Terminal 3',
       toCode: 'KTM', toName: 'Kathmandu Tribhuvan Intl', toTerminal: 'Terminal I',
-      departLabel: '2:30pm Thu Dec 10', arriveLabel: '4:30pm Thu Dec 10',
-      duration: '1h 45m', cabin: 'Economy', cabinCode: 'W' },
+      departLabel: '2:00pm Thu Dec 10', arriveLabel: '4:10pm Thu Dec 10',
+      duration: '1h 55m', cabin: 'Economy', cabinCode: 'W' },
   ],
   layovers: [
-    // 4h53m at JFK, same-terminal (T4) onward to the connecting flight — comfortable buffer.
-    { airportCode: 'JFK', airportName: 'New York JFK', duration: '4h 53m', verdict: 'relaxed' },
-    // 1h10m at Delhi to make an international onward flight (arrive T3 13:20 → depart T3 14:30) —
-    // razor-thin for an intl connection even same-terminal.
-    { airportCode: 'DEL', airportName: 'Delhi Indira Gandhi Intl', duration: '1h 10m', verdict: 'tight' },
+    // 2h57m at JFK, same-terminal (T4) onward — but the onward leg is the 15h long-haul, so it is
+    // a bag-recheck-free walk with no slack to spare if the regional inbound slips.
+    { airportCode: 'JFK', airportName: 'New York JFK', duration: '2h 57m', verdict: 'normal' },
+    // 2h20m at Delhi, same-terminal (T3) international→international (arrive 11:40 → depart 14:00).
+    // Enough for the transfer-security queue that made the earlier, shorter version of this
+    // connection the tight one.
+    { airportCode: 'DEL', airportName: 'Delhi Indira Gandhi Intl', duration: '2h 20m', verdict: 'normal' },
   ],
 };
 
@@ -114,12 +116,12 @@ export const RETURN_TO_JAPAN_JOURNEY: Journey = {
   totalDuration: '10h 50m',
   departDate: '2026-12-18',           // authored from leg ret-1 '11:30pm Fri Dec 18'
   legs: [
-    { id: 'ret-1', flightNumber: 'Pacific Crown Air 8823',
+    { id: 'ret-1', flightNumber: 'China Southern Airlines 3068',
       fromCode: 'KTM', fromName: 'Kathmandu Tribhuvan Intl', fromTerminal: 'Terminal I',
       toCode: 'CAN', toName: 'Guangzhou Baiyun Intl', toTerminal: 'Terminal 2',
       departLabel: '11:30pm Fri Dec 18', arriveLabel: '5:55am Sat Dec 19',
       duration: '4h 10m', cabin: 'Economy', cabinCode: 'L' },   // no seats given — omit the seats line in UI
-    { id: 'ret-2', flightNumber: 'Pacific Crown Air 8845',
+    { id: 'ret-2', flightNumber: 'China Southern Airlines 385',
       fromCode: 'CAN', fromName: 'Guangzhou Baiyun Intl', fromTerminal: 'Terminal 2',
       toCode: 'HND', toName: 'Tokyo Haneda', toTerminal: 'Terminal 3',
       departLabel: '8:50am Sat Dec 19', arriveLabel: '1:35pm Sat Dec 19',
@@ -136,7 +138,7 @@ export const TOKYO_TO_OSAKA_JOURNEY: Journey = {
   totalDuration: '1h 10m',
   departDate: '2026-12-19',           // authored from leg dom-1 '4:25pm Sat Dec 19'
   legs: [
-    { id: 'dom-1', flightNumber: 'Nova Air 640',
+    { id: 'dom-1', flightNumber: 'Japan Airlines 127',
       fromCode: 'HND', fromName: 'Tokyo Haneda', fromTerminal: 'Terminal 1',
       toCode: 'ITM', toName: 'Osaka Itami',
       departLabel: '4:25pm Sat Dec 19', arriveLabel: '5:35pm Sat Dec 19',
@@ -151,12 +153,12 @@ export const FLIGHT_HOME_JOURNEY: Journey = {
   totalDuration: '19h 23m',           // verbatim from the booking source — render as-is, do NOT recompute
   departDate: '2027-01-09',           // authored from leg home-1 '5:35pm Sat Jan 9'
   legs: [
-    { id: 'home-1', flightNumber: 'Meridian Air 1928',
+    { id: 'home-1', flightNumber: 'Delta 274',
       fromCode: 'HND', fromName: 'Tokyo Haneda', fromTerminal: 'Terminal 3',
       toCode: 'DTW', toName: 'Detroit Metropolitan Wayne County', toTerminal: 'Terminal M',
       departLabel: '5:35pm Sat Jan 9', arriveLabel: '3:35pm Sat Jan 9',
       duration: '12h', cabin: 'Economy', cabinCode: 'E' },   // no seats given — omit the seats line in UI
-    { id: 'home-2', flightNumber: 'Meridian Air 2054',
+    { id: 'home-2', flightNumber: 'Delta 1689',
       fromCode: 'DTW', fromName: 'Detroit Metropolitan Wayne County', fromTerminal: 'Terminal M',
       toCode: 'SYR', toName: 'Syracuse Hancock Intl',
       departLabel: '9:35pm Sat Jan 9', arriveLabel: '10:58pm Sat Jan 9',
@@ -174,28 +176,30 @@ export const NEPAL_STAY: Stay = {
 };
 
 export const OSAKA_STAY: Stay = {
-  id: 'osaka-hotel', name: 'Shinsaibashi Grand Hotel', stars: null,
+  id: 'osaka-hotel', name: 'HOTEL THE Grandee Shinsaibashi Namba', stars: null,
   address: 'Shinsaibashi, Osaka',
   city: 'Osaka', country: 'japan', status: 'booked',
   checkIn: '3:00pm Sat Dec 19',
-  note: '5 nights · 2 adults · 1 room',
+  checkOut: '11:00am Thu Dec 24',
+  note: '5 nights · 3 adults · 3 rooms',
 };
 
 export const KYOTO_STAY: Stay = {
-  id: 'kyoto-hotel', name: 'Kawaramachi Riverside Hotel', stars: null,
+  id: 'kyoto-hotel', name: 'Hotel Forza Kyoto Shijo Kawaramachi', stars: null,
   address: 'Kawaramachi, Kyoto',
   city: 'Kyoto', country: 'japan', status: 'booked',
   checkIn: '2:00pm Thu Dec 24',
-  note: '3 nights · 2 adults · 1 room',
+  checkOut: '11:00am Sun Dec 27',
+  note: '3 nights · 3 adults · 3 rooms',
 };
 
 export const TOKYO_STAY: Stay = {
-  id: 'tokyo-hotel', name: 'Shinjuku Skyline Hotel', stars: null,
+  id: 'tokyo-hotel', name: 'APA Hotel Shinjuku Kabukicho Chuo', stars: null,
   address: 'Kabukicho, Shinjuku, Tokyo',
   city: 'Tokyo', country: 'japan', status: 'booked',
   checkIn: '3:00pm Sun Dec 27',
   checkOut: '10:00am Sat Jan 9',
-  note: '13 nights · 2 adults · 1 room',
+  note: '13 nights · 3 adults · 3 rooms',
 };
 
 // Convenience ordered list for the section to map over.

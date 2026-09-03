@@ -8,15 +8,15 @@
  * BOUNDED to the 4 carriers that appear in this trip's data, not a general lookup. An
  * airline outside this map yields no tracker link (never a guessed/broken href). */
 const AIRLINE_IATA: Record<string, string> = {
-  'Meridian Air': 'MD',
-  'Skyline Continental': 'SK',
-  'Pacific Crown Air': 'PC',
-  'Nova Air': 'NV',
+  Delta: 'DL',
+  'Air India': 'AI',
+  'China Southern Airlines': 'CZ',
+  'Japan Airlines': 'JL',
 };
 
 /**
  * Build a FlightRadar24 flight-tracker URL from a booking `flightNumber` string
- * (e.g. `'Meridian Air 4471'` → `https://www.flightradar24.com/data/flights/md4471`). Returns
+ * (e.g. `'Delta 5363'` → `https://www.flightradar24.com/data/flights/dl5363`). Returns
  * `null` when the airline isn't in the bounded IATA map above or the string doesn't split
  * cleanly — total, never throws, never guesses.
  */

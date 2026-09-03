@@ -32,9 +32,9 @@ export const TRIP_ITINERARY: DayPlan[] = [
     // is behaviour (currency + UTC offset) and stays. Without this the header read "New York, Nepal".
     countryLabel: 'USA',
     items: [
-      { id: 'n1-1', title: 'Depart Syracuse (SYR) — Regional connection to New York (JFK)', category: 'transportation', time: '05:30', duration: '1h 32m', notes: 'SYR → JFK Terminal 4 · Regional connection · arrive 7:02am · Economy. Keep passport & onward boarding passes handy', location: 'Syracuse Hancock Intl (SYR) → New York JFK (T4)', tzOffsetMin: -300 },
-      { id: 'n1-2', title: 'Layover at New York (JFK) Terminal 4', category: 'transportation', time: '07:02', duration: '4h 53m', notes: 'Connection to the long-haul; grab a meal before the flight to Delhi', location: 'New York JFK — Terminal 4', tzOffsetMin: -300 },
-      { id: 'n1-3', title: 'Fly JFK → Delhi (DEL) — Long-haul to Delhi', category: 'transportation', time: '11:55', duration: '14h 55m', notes: 'JFK T4 → DEL Terminal 3 · Long-haul to Delhi · arrives 1:20pm Dec 10 · Economy. Long-haul — set watch ahead, hydrate, sleep on board', location: 'New York JFK (T4) → Delhi (DEL T3)', tzOffsetMin: -300 },
+      { id: 'n1-1', title: 'Depart Syracuse (SYR) — Regional connection to New York (JFK)', category: 'transportation', time: '05:29', duration: '1h 34m', notes: 'SYR → JFK Terminal 4 · Regional connection · arrive 7:03am · Economy. Keep passport & onward boarding passes handy', location: 'Syracuse Hancock Intl (SYR) → New York JFK (T4)', tzOffsetMin: -300 },
+      { id: 'n1-2', title: 'Layover at New York (JFK) Terminal 4', category: 'transportation', time: '07:03', duration: '2h 57m', notes: 'Connection to the long-haul, same terminal. Under three hours with the 15-hour leg on the other side of it, so eat before boarding rather than after clearing the gate', location: 'New York JFK — Terminal 4', tzOffsetMin: -300 },
+      { id: 'n1-3', title: 'Fly JFK → Delhi (DEL) — Long-haul to Delhi', category: 'transportation', time: '10:00', duration: '15h 10m', notes: 'JFK T4 → DEL Terminal 3 · Long-haul to Delhi · arrives 11:40am Dec 10 · Economy. Long-haul — set watch ahead, hydrate, sleep on board', location: 'New York JFK (T4) → Delhi (DEL T3)', tzOffsetMin: -300 },
     ],
   },
   {
@@ -42,9 +42,9 @@ export const TRIP_ITINERARY: DayPlan[] = [
     city: 'Kathmandu',
     country: 'nepal',
     items: [
-      { id: 'n2-1', title: 'Layover at Delhi (DEL) Terminal 3', category: 'transportation', time: '13:20', duration: '1h 10m', notes: 'Short connection at Indira Gandhi Intl before the final hop to Kathmandu', location: 'Delhi Indira Gandhi Intl — Terminal 3', tzOffsetMin: 330 },
-      { id: 'n2-2', title: 'Fly Delhi (DEL) → Kathmandu (KTM) — Delhi → Kathmandu', category: 'transportation', time: '14:30', duration: '1h 45m', notes: 'DEL T3 → KTM Terminal I · Delhi → Kathmandu · arrives 4:30pm · Economy. Window seat for first glimpses of the Himalaya on descent', location: 'Delhi (DEL T3) → Kathmandu Tribhuvan Intl (KTM)', tzOffsetMin: 330 },
-      { id: 'n2-3', title: 'Arrive Tribhuvan (KTM): visa on arrival & transfer', category: 'transportation', time: '16:30', duration: '1.5h', notes: 'Visa on arrival, baggage claim, currency exchange to Nepali rupees, then transfer into the city', location: 'Tribhuvan Intl Airport (KTM)' },
+      { id: 'n2-1', title: 'Layover at Delhi (DEL) Terminal 3', category: 'transportation', time: '11:40', duration: '2h 20m', notes: 'Same-terminal international connection at Indira Gandhi Intl before the final hop to Kathmandu — enough time for the transfer-security queue', location: 'Delhi Indira Gandhi Intl — Terminal 3', tzOffsetMin: 330 },
+      { id: 'n2-2', title: 'Fly Delhi (DEL) → Kathmandu (KTM) — Delhi → Kathmandu', category: 'transportation', time: '14:00', duration: '1h 55m', notes: 'DEL T3 → KTM Terminal I · Delhi → Kathmandu · arrives 4:10pm · Economy. Window seat for first glimpses of the Himalaya on descent', location: 'Delhi (DEL T3) → Kathmandu Tribhuvan Intl (KTM)', tzOffsetMin: 330 },
+      { id: 'n2-3', title: 'Arrive Tribhuvan (KTM): visa on arrival & transfer', category: 'transportation', time: '16:10', duration: '1.5h', notes: 'Visa on arrival, baggage claim, currency exchange to Nepali rupees, then transfer into the city', location: 'Tribhuvan Intl Airport (KTM)' },
       { id: 'n2-3b', title: 'Check in to the Thamel hotel', category: 'hotel', time: '18:00', duration: '1h', notes: '3-star hotel in Thamel, beside the Garden of Dreams and a short walk from the old town; rest and freshen up after the long journey', location: 'Thamel, Kathmandu' },
       { id: 'n2-4', title: 'Evening walk in Thamel', category: 'sightseeing', time: '19:30', duration: '1h', notes: 'Ease into the city — buy a local SIM card, browse the shops, get oriented', location: 'Thamel', sourceId: 'np-thamel' },
       { id: 'n2-5', title: 'Welcome dinner at Bhojan Griha', category: 'food', time: '20:30', duration: '2h', notes: 'Traditional Nepali dal bhat feast in a 150-year-old heritage building with a cultural dance show — reserve ahead', location: 'Dillibazar, Kathmandu', sourceId: 'nf1' },

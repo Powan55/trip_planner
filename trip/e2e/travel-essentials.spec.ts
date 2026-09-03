@@ -163,9 +163,9 @@ test.describe('S188 · flight-day-only visibility + byte-exact deep-link hrefs',
     const flightCard = page.getByTestId('travel-essentials-flight-outbound');
     await expect(flightCard).toBeVisible();
 
-    // FR24 tracker — byte-exact for the first leg (Meridian Air 4471).
+    // FR24 tracker — byte-exact for the first leg (Delta 5363).
     const tracker = page.getByTestId('travel-essentials-tracker-out-1');
-    await expect(tracker).toHaveAttribute('href', 'https://www.flightradar24.com/data/flights/md4471');
+    await expect(tracker).toHaveAttribute('href', 'https://www.flightradar24.com/data/flights/dl5363');
     await expect(tracker).toHaveAttribute('target', '_blank');
     await expect(tracker).toHaveAttribute('rel', /noopener/);
 

@@ -117,12 +117,12 @@ describe('describeItemTime — S393: an item in another zone is badged with its 
     // (2026-12-09 carries no unbadged sibling — every item on it is an override — so the
     // control for this rule is the j22-4 assertion above, on the day that HAS both kinds.)
     expect(describeItemTime(seeded('n1-1'), '2026-12-09')).toEqual({
-      label: '5:30 AM',
+      label: '5:29 AM',
       badge: 'EST',
     });
     // A plain Nepal-day item on the very next day still keeps NPT (nothing was over-broadened).
     expect(describeItemTime(seeded('n2-3'), '2026-12-10')).toEqual({
-      label: '4:30 PM',
+      label: '4:10 PM',
       badge: 'NPT',
     });
   });
@@ -131,7 +131,7 @@ describe('describeItemTime — S393: an item in another zone is badged with its 
     // The whole table is exercised on REAL seed items, not hand-built ones, so stripping an
     // override off the content goes red here rather than silently passing.
     expect(describeItemTime(seeded('n2-1'), '2026-12-10')).toEqual({
-      label: '1:20 PM',
+      label: '11:40 AM',
       badge: 'IST',
     });
     expect(describeItemTime(seeded('j1-1'), '2026-12-19')).toEqual({

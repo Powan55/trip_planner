@@ -52,12 +52,12 @@ test.describe('S325 · /flights honest + deep-linked', () => {
   test('each journey shows an external "Check live status" deep-link rail from booking-data', async ({ page }) => {
     await expect(page.getByText('Check live status').first()).toBeVisible();
 
-    // FlightRadar24 tracker for the outbound first leg (Meridian Air 4471) — exact href + external attrs.
+    // FlightRadar24 tracker for the outbound first leg (Delta 5363) — exact href + external attrs.
     const tracker = page.getByTestId('flights-tracker-out-1');
-    await expect(tracker).toHaveAttribute('href', 'https://www.flightradar24.com/data/flights/md4471');
+    await expect(tracker).toHaveAttribute('href', 'https://www.flightradar24.com/data/flights/dl5363');
     await expect(tracker).toHaveAttribute('target', '_blank');
     await expect(tracker).toHaveAttribute('rel', 'noopener noreferrer');
-    await expect(tracker).toHaveAttribute('aria-label', 'Track Meridian Air 4471 on FlightRadar24');
+    await expect(tracker).toHaveAttribute('aria-label', 'Track Delta 5363 on FlightRadar24');
 
     // Rome2Rio + Google Flights for the outbound journey (Syracuse -> Kathmandu).
     const r2r = page.getByTestId('flights-rome2rio-outbound');

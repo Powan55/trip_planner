@@ -14,10 +14,10 @@ import { OUTBOUND_JOURNEY, RETURN_TO_JAPAN_JOURNEY, TOKYO_TO_OSAKA_JOURNEY, FLIG
 
 describe('buildFlightTrackerUrl (pure)', () => {
   it('builds a byte-exact FlightRadar24 URL for each booked flight number', () => {
-    expect(buildFlightTrackerUrl('Meridian Air 4471')).toBe('https://www.flightradar24.com/data/flights/md4471');
-    expect(buildFlightTrackerUrl('Skyline Continental 512')).toBe('https://www.flightradar24.com/data/flights/sk512');
-    expect(buildFlightTrackerUrl('Pacific Crown Air 8823')).toBe('https://www.flightradar24.com/data/flights/pc8823');
-    expect(buildFlightTrackerUrl('Nova Air 640')).toBe('https://www.flightradar24.com/data/flights/nv640');
+    expect(buildFlightTrackerUrl('Delta 5363')).toBe('https://www.flightradar24.com/data/flights/dl5363');
+    expect(buildFlightTrackerUrl('Air India 102')).toBe('https://www.flightradar24.com/data/flights/ai102');
+    expect(buildFlightTrackerUrl('China Southern Airlines 3068')).toBe('https://www.flightradar24.com/data/flights/cz3068');
+    expect(buildFlightTrackerUrl('Japan Airlines 127')).toBe('https://www.flightradar24.com/data/flights/jl127');
   });
 
   it('resolves a tracker URL for every leg of every booked journey (no silent nulls)', () => {

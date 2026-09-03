@@ -36,7 +36,7 @@ export interface ChatTurn {
 // raised BOTH to 7000 (from 2000) so the whole fully-planned 32-day digest fits
 // without mid-trip truncation. raised BOTH to 9500, because the digest now carries a
 // per-item time + category prefix. MEASURED, not estimated:
-// fully-planned 32-day sample trip, 180 items: 7514 chars BEFORE → 10746 AFTER (the Nepal leg
+// fully-planned 32-day sample trip, 180 items: 7514 chars BEFORE → 10747 AFTER (the Nepal leg
 // rebuild moved the seed 158 → 180 items; the pre-rebuild pair was 6636 → 9452).
 // Both numbers are pinned EXACTLY by the "MEASUREMENT" test in
 // lib/__tests__/concierge-digest-s327.test.ts (constants MEASURED_DIGEST_BEFORE/AFTER), so the
@@ -48,7 +48,7 @@ export interface ChatTurn {
 // making the date line unconditional. #18 then spent 26 more, and NOT by changing this format:
 // D-327 retitled a seed item, the title is in the digest, and the digest grew. The note here used
 // to say ~39 chars were left and that the next seed edit would probably break the cap. It did:
-// the Nepal leg rebuild took the seed 158 → 180 items and the fully-planned digest to 10746 chars,
+// the Nepal leg rebuild took the seed 158 → 180 items and the fully-planned digest to 10747 chars,
 // 1246 OVER this cap. Re-measured, and pinned, in that same test file.
 // If a future change needs more room, DIGEST_CAP and the Worker's CONTEXT_TRUNCATE_LENGTH move
 // TOGETHER, in a Worker deploy. Raising this one alone does not buy room, it just moves the

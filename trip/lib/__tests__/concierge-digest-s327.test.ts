@@ -50,7 +50,7 @@ const DIGEST_CAP = 9500; // must equal the constant in use-concierge-chat.ts (co
 // the builder changes, and 26 chars of plan text is all it took.
 //
 // AND THAT IS EXACTLY WHAT HAPPENED. RE-MEASURED after the Nepal leg rebuild: 6636 → 7514 and
-// 9452 → 10746. The seed went 158 → 180 items and the fully-planned digest is now 1246 chars OVER
+// 9452 → 10747. The seed went 158 → 180 items and the fully-planned digest is now 1247 chars OVER
 // DIGEST_CAP (9500). The comment above called this a cap change and it was right, but the fix
 // still is not here: DIGEST_CAP moves only with the Worker's CONTEXT_TRUNCATE_LENGTH, in a Worker
 // deploy. So the BUILDER changed instead — overflow drops whole day lines furthest-from-today
@@ -59,7 +59,7 @@ const DIGEST_CAP = 9500; // must equal the constant in use-concierge-chat.ts (co
 // These two numbers are still the UNCAPPED assembled sizes, i.e. what the trip would send if the
 // budget allowed: (2) minus DIGEST_CAP is how much of the plan the concierge cannot see.
 const MEASURED_DIGEST_BEFORE = 7514;
-const MEASURED_DIGEST_AFTER = 10746;
+const MEASURED_DIGEST_AFTER = 10747;
 const HISTORY_CHAR_CAP = 3000; // must equal the constant in use-concierge-chat.ts
 const MAX_BODY_BYTES = 16 * 1024; // the Worker's hard 413 ceiling (worker/src/index.ts:24)
 // S395: must equal TRIP_LABEL_MAX in use-concierge-chat.ts AND the Worker's own (providers.ts).
@@ -407,7 +407,7 @@ describe('buildTripDigest (S327)', () => {
   // WHAT CHANGED HERE, AND WHY. Until the Nepal leg was rebuilt (158 → 180 seed items) this block
   // asserted a STRICT invariant: "the fully-planned trip fits, and no clock day truncates",
   // walking all 32 days and failing on any trailing '…'. That invariant is now false and cannot be
-  // made true from this repo — the assembled digest measures 10746 chars against a DIGEST_CAP of
+  // made true from this repo — the assembled digest measures 10747 chars against a DIGEST_CAP of
   // 9500 (pinned exactly by the MEASUREMENT test below), and DIGEST_CAP only moves together with
   // the Worker's CONTEXT_TRUNCATE_LENGTH, in a Worker deploy.
   //
@@ -477,7 +477,7 @@ describe('buildTripDigest (S327)', () => {
     expect(worst).toBeLessThanOrEqual(DIGEST_CAP);
     console.log(
       `[overflow] worst-case emitted digest over the 32 clock days: ${worst} chars, ` +
-        `${DIGEST_CAP - worst} under DIGEST_CAP (full digest is 10746)`,
+        `${DIGEST_CAP - worst} under DIGEST_CAP (full digest is 10747)`,
     );
   });
 

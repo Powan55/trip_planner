@@ -164,7 +164,7 @@ test.describe('S350 · concierge panel — starter chips, list rendering, ops ch
     const hits = await stubChat(page);
     // CLOCK PINNED (D-075 `?today=`). Over DIGEST_CAP the digest no longer truncates — it sheds
     // WHOLE day lines, furthest in time from today first — and the fully-planned seed is always
-    // over it (10746 chars against 9500), so WHICH dates survive depends on when the suite runs.
+    // over it (10747 chars against 9500), so WHICH dates survive depends on when the suite runs.
     // Unpinned, the Dec-9 assertion below passes today and starts failing on 2026-12-22, the clock
     // at which Dec 9 becomes the FIRST day dropped. Pinning today ONTO Dec 9 puts that line at
     // distance 0 — the last day the drop order can reach, whatever the seed grows to.

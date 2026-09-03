@@ -88,7 +88,7 @@ describe('trip-context digest (S244)', () => {
     // the header line that teaches the model the format, plus a real timed seed item.
     // #12: both moved from 24-hour to 12-hour.
     expect(body.context).toContain('Each item is "h:mm AM/PM category Title #id".');
-    expect(body.context).toContain('5:30 AM transportation Depart Syracuse');
+    expect(body.context).toContain('5:29 AM transportation Depart Syracuse');
     console.log('--- assembled digest sample (first 400 chars) ---\n' + body.context.slice(0, 400));
 
     h.unmount();
