@@ -21,6 +21,23 @@ import { act } from 'react-dom/test-utils';
 
 // Neutralise framer-motion: `m.<tag>` -> the host element (motion props stripped),
 // AnimatePresence -> a passthrough. Avoids the LazyMotion-strict throw in a bare test tree.
+//
+// ⚠ READ THIS BEFORE ADDING A TEST TO THIS FILE (issue #440). The Proxy below builds a FRESH
+// forwardRef component on every property access, so `m.form` is a different component type on
+// every render. React therefore REMOUNTS the wall subtree each render, and any DOM node captured
+// before a state change is detached by the time you use it. An event dispatched on a detached
+// node never reaches React's root-container listener, so the handler simply never runs.
+//
+// It fails SILENTLY -- no error, no failed dispatch, the probe just never called -- and then
+// surfaces several assertions later somewhere that looks unrelated.
+//
+// THE RULE: re-query every node AFTER the render that changes it. Never hoist a form/input into
+// a variable and reuse it across a state change.
+//
+// NOT a dispatchEvent problem. `form.dispatchEvent(new Event('submit', ...))` drives React fine
+// here; `submitLogin` works precisely BECAUSE it re-queries at call time. Spelled out because the
+// obvious reading is "dispatchEvent doesn't work in this file", which sends you off to fix a
+// helper that is not broken.
 vi.mock('framer-motion', async () => {
   const React = await vi.importActual<typeof import('react')>('react');
   const MOTION_PROPS = new Set([
@@ -401,6 +418,8 @@ describe('#10 — handleLogin probes the pasted key; only a server-confirmed abs
   }
 
   /** Type into the CONTROLLED key field (native setter + input event so React sees it). */
+  // Re-queries the input at call time, deliberately -- see the framer-motion mock note at the top
+  // of this file. Taking the node as a parameter instead would reintroduce #440.
   async function typeKey(view: { container: HTMLElement }, value: string) {
     const input = view.container.querySelector<HTMLInputElement>(
       '[data-testid="token-gate-user-token"]',
@@ -412,6 +431,8 @@ describe('#10 — handleLogin probes the pasted key; only a server-confirmed abs
     });
   }
 
+  // Same contract as `typeKey`: it takes the VIEW and finds the form itself. This is why it works
+  // after a type, and why it must keep taking the view rather than a captured form node (#440).
   async function submitLogin(view: { container: HTMLElement }) {
     const form = view.container
       .querySelector('[data-testid="token-gate-user-token"]')!
@@ -566,9 +587,7 @@ describe('#10 — handleCreate pushes profile/identity + profile/tripList for th
       nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     // Submit — mints the token, signs in, kicks off the seed, shows the show-once screen.
-    // ⚠ Re-query the form AFTER typing: this file's framer-motion mock mints a fresh `m.*`
-    // component per property access, so every re-render remounts the wall subtree — an element
-    // captured before the type is a detached node whose submit React never sees.
+    // Re-query the form AFTER typing — the mock-remount rule (see the top of this file, #440).
     const form = view.container
       .querySelector('[data-testid="token-gate-name"]')!
       .closest('form')!;
