@@ -13,9 +13,11 @@
  * `physicalNow` (ms) and `actor` (uid) are INJECTED. No clock read, no firebase, no window.
  * Imports only the domain type and the pure HLC helpers. Testable in isolation.
  *
- * ── STATUS: PROVIDED + UNIT-TESTED, NOT YET WIRED ────────────────────────
- * These helpers are complete and covered, but does NOT call them from the store — the
- * store mutators stay untouched this change.
+ * ── STATUS: WIRED ────────────────────────────────────────────────────────
+ * This header used to read NOT YET WIRED and say the store mutators were untouched. Both are
+ * long out of date. The stampers are called from the store mutators in `hooks/use-expenses.ts`,
+ * `hooks/use-docs.ts` and `hooks/use-my-places.ts`, and from `core/budget/flatten.ts` for the
+ * per-leaf budget stamps. `hooks/use-itinerary.ts` is the one store that does NOT call them.
  *
  * ── DORMANT-GATE DECISION for ──────
  * RECOMMENDED: at gate `hlc` stamping on the caller's `isRemoteConfigured()` — i.e.

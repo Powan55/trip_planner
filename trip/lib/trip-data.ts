@@ -60,8 +60,8 @@ export interface ItineraryItem {
   updatedBy?: string;
   updatedAt?: string; // ISO timestamp
   // Sync v2 per-item merge fields ( — additive per; every existing item
-  // stays valid with all three absent). See core/sync/{hlc,merge-day}.ts. Not yet wired
-  // into the store. Defaulted losslessly at the Vault v3→v4 migration / read boundary.
+  // stays valid with all three absent). See core/sync/{hlc,merge-day}.ts. Defaulted losslessly
+  // at the Vault v3→v4 migration / read boundary.
   rev?: number; // monotonic per-item revision counter; starts at 1 on create.
   hlc?: string; // Hybrid Logical Clock stamp (serialized) — the cross-client CONFLICT key.
   // The day-ORDER key, split off `hlc` so a content edit can advance the conflict key without
