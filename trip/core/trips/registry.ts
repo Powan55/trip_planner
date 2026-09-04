@@ -151,6 +151,9 @@ function sanitizeCityCoords(raw: unknown): Record<string, CityCoord> | undefined
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const out: Record<string, CityCoord> = {};
   for (const [city, v] of Object.entries(raw as Record<string, unknown>)) {
+    // Same guard `normalizeModel` carries: out of `JSON.parse` this is a real own property, and
+    // assigning it below would rewrite the prototype of the map we return rather than define a key.
+    if (city === '__proto__') continue;
     if (!city.trim() || v === null || typeof v !== 'object') continue;
     const { latitude, longitude } = v as Record<string, unknown>;
     if (

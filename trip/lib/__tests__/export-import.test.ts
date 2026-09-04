@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { exportItinerary, parseBackup } from '@/core/vault/export-import';
+import { QUARANTINE_MAX_CHARS } from '@/core/vault/compression';
 import {
   loadPlans,
   savePlans,
@@ -211,6 +212,79 @@ describe('S92 fail-safe — a bad import NEVER destroys current data (D-098)', (
     expect(result.ok).toBe(false);
     expect(localStorage.getItem(ITINERARY_QUARANTINE_KEY)).toBe(badRaw); // preserved
     expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before); // main untouched
+  });
+});
+
+describe('#411 — the quarantine slot is capped and written through the gateway', () => {
+  // The reported case: a whole-trip backup that lost its `domains` key, so `isTripBackup` refuses it
+  // and it falls through to `parseBackup` — carrying every embedded base64 photo with it.
+  const hugeBackup = () =>
+    JSON.stringify({
+      format: 'trip-backup',
+      version: 1,
+      exportedAt: '2026-07-17T00:00:00.000Z',
+      tripId: 'nepal-japan-2026',
+      photos: {
+        meta: [{ id: 'p1', tripId: 'nepal-japan-2026', bytes: 150000 }],
+        blobs: { p1: `data:image/jpeg;base64,${'QUJDREVGR0g'.repeat(20_000)}` },
+      },
+    });
+
+  it('a rejected file over the cap is stored as a leading slice plus its original length', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const raw = hugeBackup();
+    expect(raw.length).toBeGreaterThan(QUARANTINE_MAX_CHARS);
+
+    const result = parseBackup(raw);
+    expect(result.ok).toBe(false);
+
+    const stored = localStorage.getItem(ITINERARY_QUARANTINE_KEY)!;
+    expect(stored.startsWith(raw.slice(0, QUARANTINE_MAX_CHARS))).toBe(true);
+    expect(stored).toContain(String(raw.length)); // the original length is recoverable
+    // The slot holds the cap plus a one-line marker, NOT the whole file.
+    expect(stored.length).toBeLessThan(QUARANTINE_MAX_CHARS + 100);
+    expect(stored.length).toBeLessThan(raw.length / 2);
+    // The tail — the bulk of the base64 photo — did not make it into storage.
+    expect(stored).not.toContain(raw.slice(-2000));
+  });
+
+  it('a file AT the cap is still preserved verbatim (small rejects are unchanged)', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // `{"pad":"aaa…"}` sized to exactly the cap, and unrecognized (no schemaVersion) so it quarantines.
+    const raw = `{"pad":"${'a'.repeat(QUARANTINE_MAX_CHARS - 10)}"}`;
+    expect(raw.length).toBe(QUARANTINE_MAX_CHARS);
+
+    expect(parseBackup(raw).ok).toBe(false);
+    expect(localStorage.getItem(ITINERARY_QUARANTINE_KEY)).toBe(raw);
+  });
+
+  it('still writes ONLY into an empty slot — a truncated first capture is not clobbered', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const first = hugeBackup();
+    parseBackup(first);
+    const after = localStorage.getItem(ITINERARY_QUARANTINE_KEY);
+
+    parseBackup('{ a second rejected file');
+    expect(localStorage.getItem(ITINERARY_QUARANTINE_KEY)).toBe(after);
+  });
+
+  it('goes through the gateway, so a quota-dropped write fires trip:quota-exceeded', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // The raw `localStorage.setItem` this used to call swallowed the failure silently; only the
+    // gateway's `writeString` classifies it and dispatches.
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError');
+    });
+    const handler = vi.fn();
+    window.addEventListener('trip:quota-exceeded', handler);
+    try {
+      expect(parseBackup('{ not json').ok).toBe(false);
+      expect(handler).toHaveBeenCalledTimes(1);
+      const evt = handler.mock.calls[0][0] as CustomEvent<{ key: string }>;
+      expect(evt.detail.key).toBe(ITINERARY_QUARANTINE_KEY);
+    } finally {
+      window.removeEventListener('trip:quota-exceeded', handler);
+    }
   });
 });
 

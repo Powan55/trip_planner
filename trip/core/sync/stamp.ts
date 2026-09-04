@@ -13,17 +13,16 @@
  * `physicalNow` (ms) and `actor` (uid) are INJECTED. No clock read, no firebase, no window.
  * Imports only the domain type and the pure HLC helpers. Testable in isolation.
  *
- * ── STATUS: PROVIDED + UNIT-TESTED, NOT YET WIRED ────────────────────────
- * These helpers are complete and covered, but does NOT call them from the store — the
- * store mutators stay untouched this change.
+ * ── WIRED, BEHIND EACH CALLER'S SYNC GATE ──────────────────────────────
+ * Called from the store mutators: `hooks/use-itinerary.ts` (add / update / delete / copy-day /
+ * reorder), plus `use-docs.ts`, `use-expenses.ts`, `use-my-places.ts` and
+ * `core/budget/flatten.ts` through the `firstSyncStamp`/`nextSyncStamp` primitives.
  *
- * ── DORMANT-GATE DECISION for ──────
- * RECOMMENDED: at gate `hlc` stamping on the caller's `isRemoteConfigured()` — i.e.
- * only stamp `rev`/`hlc` on a local edit when remote sync is actually configured. Dormant
- * (no-Firebase) items then receive `rev`/`hlc` ONLY at the migration / `docToDayPlan`
- * defaulting boundary, so the dormant portfolio build stays byte-for-byte identical.
- * The helpers below are gate-agnostic (pure); the GATE is the caller's responsibility at
- * Confirmed at.
+ * ── DORMANT GATE ───────────────────────────────────────────────────────
+ * Every caller gates on its own `syncEnabled()` — `isTripRemoteConfigured()`, the TRIP-scoped
+ * gate — so a dormant build (no firebase env, or the local-only sample pack) stamps nothing and
+ * receives `rev`/`hlc` ONLY at the migration / `docToDayPlan` defaulting boundary. The helpers
+ * below are gate-agnostic (pure); the GATE stays the caller's.
  */
 
 import type { ItineraryItem } from '@/lib/trip-data';

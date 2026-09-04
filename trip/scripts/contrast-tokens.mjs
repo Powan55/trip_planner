@@ -106,7 +106,7 @@ const C = {
   // they need a guard like anything else. himalaya600 at 5.05 is the tightest of the SOLID
   // pairs (12% over the floor; only the two screened tints below sit closer), which is
   // exactly why it is here rather than asserted in a comment.
-  // ALL NINE STEPS ARE HERE NOW, not the three that happened to be needed: the family's ten
+  // ALL TEN STEPS ARE COVERED NOW, not the three that happened to be needed: the family's ten
   // ratios were published as MEASURED in a comment in tailwind.config.ts, and all ten were
   // stale by exactly one field re-cast — they reproduce against the retired #0E0920 and not
   // against the field the app paints. A number nothing runs drifts silently, so those ten

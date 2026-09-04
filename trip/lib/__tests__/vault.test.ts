@@ -6,6 +6,7 @@ import {
   hasStoredItinerary,
   type VaultConfig,
 } from '@/core/vault/load-save';
+import { QUARANTINE_MAX_CHARS } from '@/core/vault/compression';
 import {
   runItineraryMigrations,
   itineraryMigrations,
@@ -83,7 +84,7 @@ afterEach(() => {
 describe('Trip Vault — migration runner', () => {
   it('migration #1 (v2→v3) is a payload IDENTITY — deep-equal every DayPlan/ItineraryItem field', () => {
     // S96: target v3 explicitly so this pins migration #1's identity in isolation (the
-    // suite's original intent). Running the FULL chain to CURRENT (now 4) would additionally
+    // suite's original intent). Running the FULL chain to CURRENT would additionally
     // apply the v3→v4 backfill — proven separately in the v3→v4 suite below. The v2→v3
     // identity assertion itself is byte-unchanged.
     const out = runItineraryMigrations(REAL_V2, 2, itineraryMigrations, 3);
@@ -388,11 +389,77 @@ describe('Trip Vault — load/save four-state resolution (D-018 via envelope)', 
     loadItinerary(cfg);
     expect(localStorage.getItem(QUARANTINE_KEY)).toBe(first); // still the FIRST capture
   });
+
+  // The read-path quarantine is capped, on the same constant and in the same form as the import
+  // quarantine. Its input is already on disk so it can't bring in bytes the browser wasn't holding,
+  // but copying a multi-megabyte corrupt value back uncapped doubles its footprint — on the one
+  // boot where storage is least likely to have room, and where the copy is the user's only copy.
+  const hugeCorrupt = () =>
+    JSON.stringify({ junk: 'x'.repeat(QUARANTINE_MAX_CHARS * 4), tail: 'TAIL-MARKER' });
+
+  it('OVER the cap: quarantined as a leading slice plus the ORIGINAL length, not in full', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const raw = hugeCorrupt();
+    expect(raw.length).toBeGreaterThan(QUARANTINE_MAX_CHARS);
+    localStorage.setItem(STORAGE_KEY, raw);
+
+    expect(loadItinerary(cfg)).toEqual(FALLBACK);
+
+    const stored = localStorage.getItem(QUARANTINE_KEY)!;
+    expect(stored.startsWith(raw.slice(0, QUARANTINE_MAX_CHARS))).toBe(true);
+    expect(stored).toContain(String(raw.length)); // how much was dropped is still recoverable
+    expect(stored.length).toBeLessThan(QUARANTINE_MAX_CHARS + 100); // cap + a one-line marker
+    expect(stored.length).toBeLessThan(raw.length / 2);
+    expect(stored).not.toContain('TAIL-MARKER'); // the tail never reached storage
+  });
+
+  it('AT the cap: still quarantined VERBATIM — the cap only truncates what is over it', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // `{"pad":"aaa…"}` sized to exactly the cap, and unrecognized (no schemaVersion) so it is state D.
+    const raw = `{"pad":"${'a'.repeat(QUARANTINE_MAX_CHARS - 10)}"}`;
+    expect(raw.length).toBe(QUARANTINE_MAX_CHARS);
+    localStorage.setItem(STORAGE_KEY, raw);
+
+    expect(loadItinerary(cfg)).toEqual(FALLBACK);
+    expect(localStorage.getItem(QUARANTINE_KEY)).toBe(raw);
+  });
+
+  it("the cap does not weaken don't-clobber-first: a TRUNCATED first capture is still not overwritten", () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    localStorage.setItem(STORAGE_KEY, hugeCorrupt());
+    loadItinerary(cfg);
+    const first = localStorage.getItem(QUARANTINE_KEY)!;
+    expect(first.length).toBeLessThan(QUARANTINE_MAX_CHARS + 100); // it IS the truncated capture
+
+    localStorage.setItem(STORAGE_KEY, '{ a second corruption');
+    loadItinerary(cfg);
+    expect(localStorage.getItem(QUARANTINE_KEY)).toBe(first);
+  });
+
+  it('goes through the gateway, so a quota-dropped quarantine write fires trip:quota-exceeded', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    localStorage.setItem(STORAGE_KEY, '{ not json'); // seed BEFORE setItem starts throwing
+    // The raw `localStorage.setItem` this used to call swallowed the failure into the local catch,
+    // so a dropped quarantine was silent; only the gateway's `writeString` classifies and dispatches.
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota', 'QuotaExceededError');
+    });
+    const handler = vi.fn();
+    window.addEventListener('trip:quota-exceeded', handler);
+    try {
+      expect(loadItinerary(cfg)).toEqual(FALLBACK); // still degrades to the fallback, never throws
+      expect(handler).toHaveBeenCalledTimes(1);
+      const evt = handler.mock.calls[0][0] as CustomEvent<{ key: string }>;
+      expect(evt.detail.key).toBe(QUARANTINE_KEY);
+    } finally {
+      window.removeEventListener('trip:quota-exceeded', handler);
+    }
+  });
 });
 
 describe('Trip Vault — write side (envelope on disk) + round-trip', () => {
   it('saveItinerary writes a well-formed CURRENT envelope: {schemaVersion, updatedAt, payload}', () => {
-    // S96 (D-104): the write path always emits the CURRENT version (now 4). Asserted via
+    // S96 (D-104): the write path always emits the CURRENT version. Asserted via
     // the CURRENT_ITINERARY_VERSION constant so this pins "writes the current version",
     // not a frozen literal — the envelope-shape guarantee is unchanged.
     const plans: DayPlan[] = [
@@ -483,7 +550,7 @@ describe('Trip Vault — write side (envelope on disk) + round-trip', () => {
     expect(prev[1].items[0]).toMatchObject(REAL_V2[1].items[0]);
     saveItinerary(prev, cfg);
     const onDisk = JSON.parse(localStorage.getItem(STORAGE_KEY)!);
-    expect(onDisk.schemaVersion).toBe(CURRENT_ITINERARY_VERSION); // format upgraded on first write (now 4)
+    expect(onDisk.schemaVersion).toBe(CURRENT_ITINERARY_VERSION); // format upgraded on first write
     expect(onDisk.payload).toEqual(prev); // the (backfilled) payload round-trips verbatim
   });
 });

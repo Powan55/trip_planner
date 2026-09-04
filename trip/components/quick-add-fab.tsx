@@ -33,10 +33,12 @@ function isPlannerRoute(pathname: string | null | undefined): boolean {
  * "Remove Water purification tablets" on `/packing/` at first paint (#353). Same
  * boundary-checked match as `isPlannerRoute` above.
  *
- * The read-only reference routes carry the same defect and nothing reserves the 56px band the
- * FAB sits in — on `/safety/` it lands over the emergency numbers, which is the worst place in
- * the app to cover a row. `/guides/` and `/checklist/` keep the FAB: adding from them is a real
- * intent, so they need a clearance reservation rather than suppression.
+ * The read-only reference routes carry the same defect and nothing reserves the band the FAB
+ * sits in — on `/safety/` it lands over the emergency numbers, which is the worst place in the
+ * app to cover a row. `/guides/` and `/checklist/` join them (#381, #391): adding from them IS
+ * a real intent, but a bottom reservation was measured not to fix the overlap (D-492 — padding
+ * on normal-flow content leaves the content where it was), so the intent moved in-page instead.
+ * `components/quick-add-button.tsx` dispatches the same `quickadd:open` event there.
  */
 const NON_ADD_ROUTES = [
   '/trips',
@@ -46,6 +48,8 @@ const NON_ADD_ROUTES = [
   '/recap',
   '/profile',
   '/flights',
+  '/guides',
+  '/checklist',
 ] as const;
 
 function isNonAddRoute(pathname: string | null | undefined): boolean {
@@ -81,7 +85,8 @@ function isNonAddRoute(pathname: string | null | undefined): boolean {
  * POSITION: `bottom = var(--tab-bar-h, 64px) + env(safe-area-inset-bottom) + 1rem`, so it always
  * floats one comfortable gap above the tab bar regardless of safe-area inset. `right-4`.
  *
- * A11y / motion: 56px target (well over the 44px min), `aria-label="Add to plan"`, and an
+ * A11y / motion: 59.5px target (`h-14` is 3.5rem against the 17px root, not 56px; well over the
+ * 44px min), `aria-label="Add to plan"`, and an
  * OUTWARD focus ring — an accent ring drawn inside an accent fill measures 1.00:1, so
  * `ring-offset` is load-bearing here rather than cosmetic. The press is a 3px translate and
  * a lip collapse, never a scale, so there is no transform for reduced motion to fork: the

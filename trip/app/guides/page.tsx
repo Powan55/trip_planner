@@ -3,6 +3,7 @@ import { Camera, Wine, BookOpen, ArrowRight } from 'lucide-react';
 import PageHero from '@/components/page-hero';
 import DefaultTripOnly from '@/components/default-trip-only';
 import OptimizedImage from '@/components/optimized-image';
+import QuickAddButton from '@/components/quick-add-button';
 
 // GUIDES: the mobile "Guides" tab and desktop primary both point here.
 // A static chooser landing that fronts the two country guides (Nepal/Japan — their pages
@@ -169,6 +170,27 @@ export default function GuidesPage() {
               </section>
             ))}
           </div>
+
+          {/* #381/#391 — the quick-add FAB is route-suppressed here now, so adding lives in the
+              page instead of floating over it. It closes the chooser rather than opening it: the
+              grid above is a two-option choice and the plate recipe is landscape at every width
+              precisely so both options stay above the fold, which anything inserted ahead of it
+              would undo. */}
+          <section
+            aria-labelledby="guides-add-heading"
+            className="mt-10 border-t border-[color:hsl(var(--border))] pt-8"
+          >
+            <h2 id="guides-add-heading" className="font-machine text-n-sm font-semibold uppercase tracking-[0.06em] text-[color:var(--text-hi)]">
+              Something not in the guides?
+            </h2>
+            <p className="mt-2 max-w-md text-t-body leading-relaxed text-ink-mid">
+              Put your own stop on the itinerary — it lands on today if you&apos;re mid-trip, and on
+              the day you last had open otherwise.
+            </p>
+            <div className="mt-4">
+              <QuickAddButton />
+            </div>
+          </section>
         </div>
       </DefaultTripOnly>
     </main>

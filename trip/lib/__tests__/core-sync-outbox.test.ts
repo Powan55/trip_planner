@@ -632,3 +632,80 @@ describe('#237 — sequential tab-shaped operations on different chunks do not c
     expect(outboxDirty('itinerary').sort()).toEqual(['d2', 'd3']);
   });
 });
+
+// ── #439 — the slot is on disk, so its shape is whatever is on disk ───────────────────────────
+// The gateway's own shape gate proves the SLOT parses to an object; it says nothing about what a
+// DOMAIN holds inside it. `outboxDirty` spreads that value, `enqueue` Set-constructs it and `ack`
+// filters it, so a scalar there threw straight out of `withOutbox`/`flushOutbox` — the two async
+// callers, neither of which catches. Only local corruption or a future slot shape can put one
+// there, which is also why the discard branch now says something instead of dropping in silence.
+describe('loadSlot shape gate', () => {
+  it('a non-array dirty value is dropped per domain; the well-formed domain survives and neither async caller throws', async () => {
+    localStorage.setItem(
+      STORAGE_KEYS.syncOutbox,
+      JSON.stringify({ version: 1, dirty: { itinerary: 7, expenses: ['leg-1'] } }),
+    );
+    const h = makeHarness();
+
+    expect(outboxDirty('itinerary')).toEqual([]); // the number never reaches the spread
+    expect(outboxSnapshot().dirty).toEqual({ expenses: ['leg-1'] }); // the good domain is intact
+    expect(outboxBlocked()).toBe(0);
+
+    // `enqueue` used to do `new Set(7)` → "number is not iterable", rejecting the commit tail.
+    await expect(withOutbox(h.cs)({}, { d1: 1 })).resolves.toBeUndefined();
+    expect(h.attempts).toEqual([{ chunk: 'd1', version: 1 }]);
+    // `flushOutbox` reads the same value through `outboxDirty`'s spread.
+    await expect(flushOutbox(h.cs, makeStorage({ d1: 1 }))).resolves.toBeUndefined();
+    expect(outboxDirty('expenses')).toEqual(['leg-1']); // untouched by either call
+  });
+
+  for (const poison of [{ d1: 1 }, 'd1', null, true] as unknown[]) {
+    it(`dirty.itinerary = ${JSON.stringify(poison)} is dropped, and a commit still pushes`, async () => {
+      localStorage.setItem(
+        STORAGE_KEYS.syncOutbox,
+        JSON.stringify({ version: 1, dirty: { itinerary: poison } }),
+      );
+      const h = makeHarness();
+
+      expect(() => outboxDirty('itinerary')).not.toThrow();
+      expect(outboxDirty('itinerary')).toEqual([]);
+      await expect(withOutbox(h.cs)({}, { d1: 1 })).resolves.toBeUndefined();
+      expect(h.attempts).toEqual([{ chunk: 'd1', version: 1 }]);
+    });
+  }
+
+  it('a whole-slot `dirty: null` is unreadable, not a crash (typeof null === "object" passed the old guard)', async () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    localStorage.setItem(STORAGE_KEYS.syncOutbox, JSON.stringify({ version: 1, dirty: null }));
+    const h = makeHarness();
+
+    expect(outboxDirty('itinerary')).toEqual([]);
+    await expect(withOutbox(h.cs)({}, { d1: 1 })).resolves.toBeUndefined();
+    expect(h.attempts).toEqual([{ chunk: 'd1', version: 1 }]);
+  });
+
+  it('a version-mismatch slot is still discarded — but says so, ONCE per page load', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    localStorage.setItem(
+      STORAGE_KEYS.syncOutbox,
+      JSON.stringify({ version: 2, dirty: { itinerary: ['d1', 'd2'] } }),
+    );
+
+    expect(outboxDirty('itinerary')).toEqual([]); // discard behaviour is unchanged
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain('[outbox]');
+
+    // `loadSlot` runs on every enqueue/ack/flush/badge read — one warning, not one per read.
+    outboxDirty('itinerary');
+    outboxSnapshot();
+    outboxBlocked();
+    expect(warn).toHaveBeenCalledTimes(1);
+  });
+
+  it('an ABSENT slot is silent — the ordinary first-run path warns about nothing', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    expect(outboxDirty('itinerary')).toEqual([]);
+    expect(outboxSnapshot()).toEqual({ dirty: {}, lastAckAt: null });
+    expect(warn).not.toHaveBeenCalled();
+  });
+});

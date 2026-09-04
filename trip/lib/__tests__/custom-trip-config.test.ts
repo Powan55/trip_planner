@@ -163,6 +163,30 @@ describe('sanitizeTripConfig — cityCoords (#250)', () => {
   it('absent cityCoords stays absent — old configs serialize with no new field', () => {
     expect(sanitizeTripConfig(GOOD)!.cityCoords).toBeUndefined();
   });
+
+  // #439 — `normalizeModel` (core/budget/model.ts) skips a stored `__proto__` key and documents
+  // why; this sibling loop did not. Out of JSON.parse it is a real OWN property, so it reached the
+  // `out[city] = …` assignment and REPLACED the returned map's prototype instead of adding a key.
+  // The stored value is a peer's trip-meta doc or hand-edited storage, so it is reachable input.
+  it("a stored '__proto__' city key is skipped, not assigned — the returned map keeps a clean prototype", () => {
+    // JSON.parse, not a literal: that is how the slot actually arrives, and it is what makes
+    // `__proto__` an own property rather than a prototype write at parse time.
+    const cityCoords = JSON.parse(
+      '{"__proto__":{"latitude":1,"longitude":2},"Bali":{"latitude":-8.34,"longitude":115.09}}',
+    );
+    const out = sanitizeTripConfig({ ...GOOD, cityCoords })!.cityCoords!;
+
+    expect(out).toEqual({ Bali: { latitude: -8.34, longitude: 115.09 } });
+    expect(Object.getPrototypeOf(out)).toBe(Object.prototype); // was the poison object
+    // The phantom inherited pair the prototype rewrite used to hand every reader.
+    expect((out as Record<string, unknown>).latitude).toBeUndefined();
+    expect((out as Record<string, unknown>).longitude).toBeUndefined();
+  });
+
+  it("a cityCoords map holding ONLY '__proto__' collapses to undefined, never a bare {}", () => {
+    const cityCoords = JSON.parse('{"__proto__":{"latitude":1,"longitude":2}}');
+    expect(sanitizeTripConfig({ ...GOOD, cityCoords })!.cityCoords).toBeUndefined();
+  });
 });
 
 describe('getActiveTripCityCoord (#250)', () => {

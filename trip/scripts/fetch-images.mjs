@@ -35,8 +35,9 @@ const MIN_BYTES = 8 * 1024; // ~8 KB sanity floor
 const POLITE_DELAY_MS = 350; // between distinct subjects (be gentle with the API)
 const MAX_RETRIES = 5; // retry transient throttling (400/429/5xx) with backoff
 
-// The licence allowlist. A `-SA` or a digit has to follow `CC BY`, which is what rejects
-// the CC BY-NC / CC BY-ND variants; anything non-free ("Fair use") fails outright.
+// The licence allowlist. A space or a digit has to follow `CC BY`, optionally after `-SA` —
+// which is what rejects the CC BY-NC / CC BY-ND variants (`CC BY 4.0` and `CC BY-SA 4.0` both
+// pass); anything non-free ("Fair use") fails outright.
 const LICENCE_ALLOWED =
   /^(?:CC0|Public domain|CC BY(?:-SA)?[\s\d]|Unsplash License|Pexels License)/i;
 

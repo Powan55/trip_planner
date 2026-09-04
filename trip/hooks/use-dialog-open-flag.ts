@@ -10,11 +10,12 @@ import { useEffect, useState } from 'react';
  * dialog nested inside an open sheet cleared the flag while the sheet was still up (#130). The
  * count here makes that impossible: the attribute moves only on the empty↔non-empty transitions.
  *
- * It is a STACK rather than a counter because the order is the second thing it answers. Every
- * modal layer in the app already registers here, so the stack is the only place that knows one
- * layer is open over another — and a layer that is covered has to stand down from the
- * document-level keys the topmost one owns (see the Escape handler in `ui/sheet-dark.tsx`).
- * A count could not tell "two layers" from "I am the deeper one".
+ * It is a STACK rather than a counter because the order is the second thing it answers. It is the
+ * only place that knows one layer is open over another — and a layer that is covered has to stand
+ * down from the document-level keys the topmost one owns (see the Escape handler in
+ * `ui/sheet-dark.tsx`). A count could not tell "two layers" from "I am the deeper one".
+ * It only sees what registers: `first-run-tour.tsx` and `time-picker.tsx` are `aria-modal` and do
+ * not, so neither covers the layer beneath it.
  */
 let nextId = 1;
 let stack: number[] = [];

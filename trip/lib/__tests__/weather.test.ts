@@ -785,6 +785,35 @@ describe('getCachedForecastForDate (gateway read-only, S216)', () => {
     expect(getCachedForecastForDate('Atlantis', '2026-12-12')).toBeNull();
   });
 
+  // #439 — the gateway's shape gate proves the SLOT is an object, not that the value stored under
+  // ONE city key is the array `.find()` runs on. Only local corruption (devtools, another script
+  // on the origin, a hand-edited profile) can put a scalar there, and this read is on Home's
+  // render path, so the guard sits in the one reader both callers route through.
+  for (const poison of [7, 'not a forecast', { date: '2026-12-12' }, true, null] as unknown[]) {
+    it(`a corrupt cached value (${JSON.stringify(poison)}) reads as NO cache, never a throw on .find()`, () => {
+      weatherCache.set<unknown>('Kathmandu:forecast', poison);
+      expect(() => getCachedForecastForDate('Kathmandu', '2026-12-12')).not.toThrow();
+      expect(getCachedForecastForDate('Kathmandu', '2026-12-12')).toBeNull();
+    });
+  }
+
+  it('the same corrupt entry degrades the offline fallback to forecast:null rather than handing the card a non-array', async () => {
+    // Prime the current-conditions entry the stale fallback returns…
+    const okFetch = vi.fn().mockResolvedValue(jsonResponse(KATHMANDU_FIXTURE));
+    await fetchWeather('Kathmandu', okFetch as unknown as typeof fetch);
+    // …then corrupt ONLY the compound forecast key and go offline.
+    weatherCache.set<unknown>('Kathmandu:forecast', 'wat');
+    const downFetch = vi.fn().mockRejectedValue(new Error('offline'));
+    const result = await fetchWeather('Kathmandu', downFetch as unknown as typeof fetch);
+
+    expect(result.status).toBe('ok');
+    if (result.status === 'ok') {
+      expect(result.data.stale).toBe(true);
+      expect(result.data.tempC).toBe(12); // the good half of the cache still serves
+      expect(result.data.forecast).toBeNull(); // the bad half never reaches the card's .map()
+    }
+  });
+
   it('reads through the weatherCache gateway, never raw localStorage (D-078/D-097)', () => {
     weatherCache.set<ForecastDay[]>('Kathmandu:forecast', week());
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEYS.weatherCache) as string);

@@ -17,9 +17,9 @@ import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
  *  1. the lenient item schema accepts an item WITH `done` (true/false) and one WITHOUT it;
  *  2. `done` survives a saveItinerary → loadItinerary round-trip (both true and false);
  *  3. a LEGACY item with no `done` loads fine (absent = not done, `done === undefined`);
- *  4. adding `done` did NOT bump the on-disk version — the written envelope is still v4
- *     (CURRENT_ITINERARY_VERSION === 4), which is exactly what keeps the `schemaVersion`
- *     E2E/unit assertions on `toBe(4)`.
+ *  4. adding `done` did NOT bump the on-disk version — the written envelope stays on
+ *     `CURRENT_ITINERARY_VERSION`, which is exactly what keeps the `schemaVersion`
+ *     assertion below on the constant rather than a frozen literal.
  */
 
 const STORAGE_KEY = 'test_done_itinerary';

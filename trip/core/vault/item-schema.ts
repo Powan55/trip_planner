@@ -3,9 +3,10 @@
  *
  * A LEAF module: it imports zod and nothing else in `core/`. `./schema.ts` (which needs it for
  * `dayPlanSchema`) and `core/itinerary/model.ts` (which wraps it for the remote boundary) both
- * import it, and neither imports the other — that is the whole reason it lives here rather than
- * in `./schema.ts`, where the two were a runtime import cycle held together only by nobody
- * dereferencing across it at module-eval time. `./schema.ts` re-exports the symbol, so
+ * import it. `./schema.ts` still imports `model.ts` for `sanitizeItineraryItems`, but `model.ts`
+ * no longer imports back — that is the whole reason it lives here rather than in `./schema.ts`,
+ * where the two were a runtime import cycle held together only by nobody dereferencing across it
+ * at module-eval time. `./schema.ts` re-exports the symbol, so
  * `@/core/vault/schema` stays a valid import path for it and D-363's ONE-definition invariant is
  * untouched: only the file changed.
  *
@@ -74,8 +75,8 @@ export const itineraryItemSchema = z
     // done-tracking. NO
     // migration and NO version bump: an item with `done` absent is trivially "not done"
     // (falsy), so no on-disk backfill is required (unlike the Sync-v2 fields, which needed a
-    // deterministic hlc backfill). CURRENT_ITINERARY_VERSION STAYS 4 — the `schemaVersion`
-    // assertions remain `toBe(4)`. `.passthrough()` already tolerated it on read; declaring it
+    // deterministic hlc backfill). CURRENT_ITINERARY_VERSION is unchanged — the `schemaVersion`
+    // assertions are unaffected. `.passthrough()` already tolerated it on read; declaring it
     // makes the accepted surface explicit + typed.
     done: z.boolean().optional(),
     // Completion attribution.

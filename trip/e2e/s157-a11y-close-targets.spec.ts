@@ -132,10 +132,13 @@ test.describe('S157 FU-22 — dialog close-X >=44px touch targets + axe', () => 
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.setViewportSize(PHONE);
     // S357C: hosted on `/` (was `/plan/`) — the FAB is route-suppressed on the planner now
-    // (it has the S357A sticky composer), and the FAB is the app's only `quickadd:open`
-    // dispatcher, so Home is where this dialog is reachable. The scan below is a SCOPED
-    // subtree scan of `add-item-dialog` itself, so the host route does not change what is
-    // audited; the `toBeVisible()` below would fail loudly if the host were wrong.
+    // (it has the S357A sticky composer). `quickadd:open` gained a second dispatcher in
+    // #381/#391 (`components/quick-add-button.tsx`, on `/guides/` and `/checklist/`), but it
+    // is absent from Home, so the FAB is still how this dialog is reached here — and both
+    // dispatchers open the same dialog, so the close-X measured below is the same control on
+    // either path. The scan below is a SCOPED subtree scan of `add-item-dialog` itself, so the
+    // host route does not change what is audited; the `toBeVisible()` below would fail loudly
+    // if the host were wrong.
     await page.goto('/', { waitUntil: 'load' });
     await page
       .waitForFunction(

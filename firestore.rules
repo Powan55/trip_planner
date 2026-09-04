@@ -267,7 +267,7 @@ service cloud.firestore {
       // TWO DOCUMENT IDS, NOT A SUBTREE. `identity` and `tripList` are the only profile
       // paths the app reads or writes (lib/trips-remote.ts). A recursive carve-out here
       // would hand every holder of a trip id a create at any depth under `profile/`, and
-      // the D-9 delete exception below would then make every one of those documents
+      // the D-341 delete exception below would then make every one of those documents
       // permanent — a combination neither half was weighed against.
       // COST, ACCEPTED: on a MEMBER-GATED trip these two documents stay capability-only —
       // a non-member holding the tripId can read and write them. The app keeps nothing
@@ -281,10 +281,10 @@ service cloud.firestore {
       }
 
       // ── the rest of the profile prefix stays DELETABLE ────────────────────────
-      // The subtree block below refuses `delete` for the whole `profile` prefix (D-9). On
+      // The subtree block below refuses `delete` for the whole `profile` prefix (D-341). On
       // its own that makes anything which reaches this prefix by any other route permanent:
       // no client path, the owner's included, could remove it. These two blocks give the
-      // delete back everywhere EXCEPT the two documents above — those keep the D-9 denial,
+      // delete back everywhere EXCEPT the two documents above — those keep the D-341 denial,
       // because destroying `profile/identity` bricks an account and a bare token-holder
       // must not be able to do it. The second block covers anything nested BELOW a profile
       // document, where the id no longer says anything about what the document is.
@@ -312,9 +312,9 @@ service cloud.firestore {
       // `get, list, delete` + `create, update` is exactly the former `get, list, write`
       // (write ≡ create+update+delete) with the shape guard on the two ops that carry a
       // payload — the D-219 block split is UNCHANGED, except `delete` now carries the
-      // D-9 `sub != 'profile'` exception directly below.
+      // D-341 `sub != 'profile'` exception directly below.
       match /{sub}/{document=**} {
-        // `delete` excludes `sub == 'profile'` (D-9): matches ORed across sibling blocks
+        // `delete` excludes `sub == 'profile'` (D-341): matches ORed across sibling blocks
         // mean this wildcard would otherwise re-grant the delete the carve-out above just
         // narrowed away — `isMember()` is trivially true here on any trip id with no
         // top-level doc yet, which is exactly the account-path shape (D-296) the carve-out

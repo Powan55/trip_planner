@@ -15,29 +15,27 @@
 
 import { describe, it, expect } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 // lib/__tests__ -> trip/ -> repo root. Same `resolve(__dirname, ...)` shape the other
 // disk-reading specs here use (text-tier-sweep, motion-budget).
 const SCRIPT = resolve(__dirname, '../../../scripts/release-gate.mjs');
+const NOTES = resolve(__dirname, '../../../scripts/release-notes.mjs');
 
 const VERSION = '6.0.0';
 
-/** Runs the real gate against a throwaway tree holding just the two files it reads. */
-function runGate(heading: string): string {
+/** Runs one of the root scripts against a throwaway tree holding just the files it reads. */
+function runIn(releases: string, script: string, args: string[] = []): string {
   const dir = mkdtempSync(join(tmpdir(), 'release-gate-'));
   try {
     mkdirSync(join(dir, 'trip', 'docs'), { recursive: true });
     writeFileSync(join(dir, 'trip', 'package.json'), JSON.stringify({ version: VERSION }));
-    writeFileSync(
-      join(dir, 'trip', 'docs', 'RELEASES.md'),
-      `# Releases\n\n---\n\n${heading}\n\nWhat shipped.\n`,
-    );
+    writeFileSync(join(dir, 'trip', 'docs', 'RELEASES.md'), releases);
     try {
       // process.execPath rather than 'node' so the child is this run's interpreter.
-      return execFileSync(process.execPath, [SCRIPT], {
+      return execFileSync(process.execPath, [script, ...args], {
         cwd: dir,
         encoding: 'utf-8',
         stdio: ['ignore', 'pipe', 'pipe'],
@@ -50,6 +48,11 @@ function runGate(heading: string): string {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+}
+
+/** Runs the real gate against a one-entry RELEASES.md carrying `heading`. */
+function runGate(heading: string): string {
+  return runIn(`# Releases\n\n---\n\n${heading}\n\nWhat shipped.\n`, SCRIPT);
 }
 
 const HELD = /::error::.*marks v6\.0\.0 as held/;
@@ -81,5 +84,57 @@ describe('release-gate refuses a held release', () => {
     const out = runGate('## v6.0.01 (app) · 2026-08-16');
     expect(out).not.toMatch(HELD);
     expect(out).toContain('::error::trip/docs/RELEASES.md has no "## v6.0.0" heading');
+  });
+});
+
+// `release-notes.mjs` opens by claiming its heading match "mirrors scripts/release-gate.mjs
+// exactly". Nothing held that: two copies of one expression, no shared module and no test.
+// Kept duplicated on purpose — a shared module is a third file for two call sites, and the
+// gate is a standalone dependency-free script that answers before anything is installed — so
+// these are what make a divergence loud instead of it shipping the wrong release's body.
+const SHADOWED = [
+  '# Releases',
+  '',
+  '---',
+  '',
+  '## v6.0.0 (app) — 2026-08-20 · the entry under test',
+  '',
+  'What shipped.',
+  '',
+  '---',
+  '',
+  '## v5.9.2 (app) · **NOT DEPLOYED** — superseded by v6.0.0',
+  '',
+  'The older, held entry, whose heading names its successor.',
+  '',
+].join('\n');
+
+describe('release-notes picks the same entry release-gate does', () => {
+  it('both take the FIRST heading carrying the tag, not a later one that names it', () => {
+    // Two headings carry the v6.0.0 token and only the second is held, so a last-match scan
+    // flips both answers: the gate refuses a shippable release, the notes ship the wrong body.
+    expect(runIn(SHADOWED, SCRIPT)).toContain('ok   trip/docs/RELEASES.md documents v6.0.0');
+    const notes = runIn(SHADOWED, NOTES, ['v6.0.0']);
+    expect(notes.split('\n')[0]).toBe('## v6.0.0 (app) — 2026-08-20 · the entry under test');
+    expect(notes).not.toContain('v5.9.2');
+  });
+
+  it('both refuse the same near miss', () => {
+    const releases = '# Releases\n\n---\n\n## v6.0.01 (app) · 2026-08-16\n\nWhat shipped.\n';
+    expect(runIn(releases, SCRIPT))
+      .toContain('::error::trip/docs/RELEASES.md has no "## v6.0.0" heading');
+    expect(runIn(releases, NOTES, ['v6.0.0'])).toContain('No "## " heading carries v6.0.0');
+  });
+
+  it('and the matcher expression is character-for-character the same in both files', () => {
+    // The two fixtures above only probe the shapes they happen to hold; this catches any edit
+    // to either regex. Trimmed: the files disagree on line endings, not on the line.
+    const matcher = (path: string) =>
+      readFileSync(path, 'utf-8')
+        .split('\n')
+        .find((l) => l.trimStart().startsWith('const tagToken = '))
+        ?.trim();
+    expect(matcher(SCRIPT)).toContain('new RegExp');
+    expect(matcher(NOTES)).toBe(matcher(SCRIPT));
   });
 });

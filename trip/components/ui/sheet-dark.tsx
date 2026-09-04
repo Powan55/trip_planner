@@ -115,10 +115,11 @@ export default function Sheet({
 
   // Document-level Esc — suppressed when a nested layer owns it. Both handlers sit on
   // `document`, so `preventDefault()` in the deeper one cannot stop this one from also firing:
-  // a single press would close the dialog AND the sheet under it. `covered` is the general
-  // answer — every modal layer registers with the shared flag, so the sheet stands down
-  // whenever one opens over it, including a nested dialog that owns its `open` state privately
-  // and so cannot be wired through the `disableEscape` prop.
+  // a single press would close the dialog AND the sheet under it. `covered` answers for every
+  // layer that registers with the shared flag, so the sheet stands down whenever one of those
+  // opens over it, including a nested dialog that owns its `open` state privately and so cannot
+  // be wired through the `disableEscape` prop. A layer that does not register is what that prop
+  // is still there for.
   const escapeDisabled = disableEscape || covered;
   useEffect(() => {
     if (!open || escapeDisabled) return;

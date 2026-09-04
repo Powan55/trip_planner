@@ -85,15 +85,31 @@ function notifyChanged(): void {
 // SSR-safe / never-throw / corrupt-slot→empty are inherited from the gateway primitives; the
 // shape guard below folds a structurally-bad slot to empty too. ──────────────────────────────
 
+// Once per page load, not per read: `loadSlot` runs on every enqueue, ack, flush and badge
+// re-read, and an unreadable slot stays unreadable until the next `saveSlot` overwrites it.
+let warnedUnreadableSlot = false;
+
 function loadSlot(): OutboxSlot {
   const raw = readJson<OutboxSlot | null>('local', keyFor('syncOutbox'), null);
-  if (!raw || typeof raw !== 'object' || raw.version !== 1 || typeof raw.dirty !== 'object') {
+  if (!raw || typeof raw !== 'object' || raw.version !== 1 || !raw.dirty || typeof raw.dirty !== 'object') {
+    // Discarding here drops the retry record AND the first-snapshot protection those chunks
+    // carried, so a future version bump loses unpushed edits. Say so rather than doing it silently.
+    if (raw && !warnedUnreadableSlot) {
+      warnedUnreadableSlot = true;
+      console.warn('[outbox] discarded an unreadable outbox slot — any chunks it queued are no longer pending', raw);
+    }
     return { version: 1, dirty: {} };
   }
   // tolerate an old slot that simply lacks `lastAckAt`, or a structurally-bad
   // value on it — never throw, just treat it as "no ack yet recorded".
   const lastAckAt = typeof raw.lastAckAt === 'string' ? raw.lastAckAt : undefined;
-  return { version: 1, dirty: raw.dirty, lastAckAt };
+  // Per-domain shape gate. The gateway's own gate proves the SLOT is an object, not that a domain
+  // holds the `string[]` every reader spreads (`outboxDirty`), Set-constructs (`enqueue`) or
+  // filters (`ack`) — a number/object there threw straight out of `withOutbox`/`flushOutbox`.
+  const dirty = Object.fromEntries(
+    Object.entries(raw.dirty).filter(([, chunks]) => Array.isArray(chunks)),
+  ) as OutboxSlot['dirty'];
+  return { version: 1, dirty, lastAckAt };
 }
 
 function saveSlot(dirty: OutboxSlot['dirty'], lastAckAt?: string): void {

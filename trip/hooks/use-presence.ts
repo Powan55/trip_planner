@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler, IDENTITY_CHANGED_EVENT, TRAVELERS } from '@/lib/token-auth';
 import type { PresenceRecord } from '@/lib/presence';
@@ -62,7 +62,7 @@ export function usePresence(): ActivePresence[] {
   const [records, setRecords] = useState<PresenceRecord[]>([]);
   // A monotonically-increasing tick that forces a re-filter so stale travelers age off the
   // bar even without a new snapshot. Stored as state so a change re-renders + re-derives.
-  const [, setTick] = useState(0);
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,27 +122,43 @@ export function usePresence(): ActivePresence[] {
     };
   }, []);
 
-  // Derive the active OTHERS: active window + exclude self + named, enriched with accent.
-  const me = getActiveTraveler();
-  const now = Date.now();
-  const active: ActivePresence[] = [];
-  for (const r of records) {
-    if (!r.name) continue;
-    if (!recordIsActive(r.lastSeen, now)) continue;
-    // Exclude the viewer's own heartbeat — the bar shows who ELSE is here. Match by name
-    //; a traveler signed in on two tabs collapses to one entry below.
-    if (me && r.name.trim().toLowerCase() === me.name.trim().toLowerCase()) continue;
-    active.push({ uid: r.uid, name: r.name, accent: accentFor(r.name), lastSeen: r.lastSeen });
-  }
+  // Compared BY VALUE as a memo input, so an identity change re-derives even when no new
+  // snapshot follows it (sign-out's teardown clears `records` anyway; sign-in does not).
+  const meKey = getActiveTraveler()?.name.trim().toLowerCase() ?? null;
 
-  // Collapse duplicates by name (same traveler on multiple tabs/uids) — keep the freshest.
-  const byName = new Map<string, ActivePresence>();
-  for (const p of active) {
-    const key = p.name.trim().toLowerCase();
-    const existing = byName.get(key);
-    if (!existing || (p.lastSeen ?? Infinity) > (existing.lastSeen ?? -Infinity)) {
-      byName.set(key, p);
+  // Derive the active OTHERS: active window + exclude self + named, enriched with accent.
+  //
+  // MEMOIZED on the three things that can change the result — the snapshot, the eviction tick,
+  // and who the viewer is. Unmemoized this rebuilt the list, and so returned a NEW ARRAY
+  // IDENTITY, on every render; the one consumer today only maps over it, but any `useEffect`
+  // depending on it would loop. `Date.now()` stays INSIDE the memo, read at derive time rather
+  // than sampled when the interval fires: an eviction is decided by how much time has passed by
+  // the time the re-render lands, and sampling at the tick instead puts a heartbeat that stopped
+  // exactly one window ago on the wrong side of `<=` (it survives a further full window).
+  return useMemo(() => {
+    const now = Date.now();
+    const active: ActivePresence[] = [];
+    for (const r of records) {
+      if (!r.name) continue;
+      if (!recordIsActive(r.lastSeen, now)) continue;
+      // Exclude the viewer's own heartbeat — the bar shows who ELSE is here. Match by name
+      //; a traveler signed in on two tabs collapses to one entry below.
+      if (meKey && r.name.trim().toLowerCase() === meKey) continue;
+      active.push({ uid: r.uid, name: r.name, accent: accentFor(r.name), lastSeen: r.lastSeen });
     }
-  }
-  return Array.from(byName.values());
+
+    // Collapse duplicates by name (same traveler on multiple tabs/uids) — keep the freshest.
+    const byName = new Map<string, ActivePresence>();
+    for (const p of active) {
+      const key = p.name.trim().toLowerCase();
+      const existing = byName.get(key);
+      if (!existing || (p.lastSeen ?? Infinity) > (existing.lastSeen ?? -Infinity)) {
+        byName.set(key, p);
+      }
+    }
+    return Array.from(byName.values());
+    // `tick` is not read in the body — it is the cache key for the `Date.now()` above, which is
+    // what the eviction interval exists to re-evaluate. Dropping it freezes the bar.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [records, tick, meKey]);
 }

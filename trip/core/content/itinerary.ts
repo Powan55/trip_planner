@@ -9,8 +9,9 @@ import type { DayPlan } from '@/lib/trip-data';
  * is a `validate:content` check, not a derivation).
  *
  * `lib/sample-itinerary.ts` is a one-line delegate re-export (`TRIP_ITINERARY as
- * SAMPLE_ITINERARY` — the same object), so the Vault fallback wiring and every
- * caller are untouched, and the seed stays a synchronous pure module-scope const at the
+ * SAMPLE_ITINERARY` — the same object) with ONE production consumer left, `lib/leg-label.ts`.
+ * The Vault does NOT route through that alias: `core/vault/storage.ts` imports `TRIP_ITINERARY`
+ * from here directly. The seed stays a synchronous pure module-scope const at the
  * Vault read boundary (NO schema parse / I/O / laziness at runtime; strict
  * validation runs authoring/CI-time only, in `core/content/schema.ts` + the validate:content
  * suite). A content/seed swap NEVER rewrites live saved or synced data.

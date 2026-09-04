@@ -27,7 +27,10 @@ export function buildFlightTrackerUrl(flightNumber: string): string | null {
   const airline = trimmed.slice(0, lastSpace);
   const number = trimmed.slice(lastSpace + 1).trim();
   const iata = AIRLINE_IATA[airline];
-  if (!iata || !/^[0-9]+$/.test(number)) return null;
+  // D-307 family: `AIRLINE_IATA['toString']` is a FUNCTION, so the old `!iata` truthiness guard
+  // passed it through and `.toLowerCase()` threw — the one way this could break its never-throws
+  // contract. Typed, so a prototype key name reads as "not a carrier" like any other.
+  if (typeof iata !== 'string' || !/^[0-9]+$/.test(number)) return null;
   return `https://www.flightradar24.com/data/flights/${iata.toLowerCase()}${number}`;
 }
 

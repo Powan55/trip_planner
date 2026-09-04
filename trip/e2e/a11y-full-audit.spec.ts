@@ -254,11 +254,14 @@ test.describe('axe: key dialogs open (full page)', () => {
      * locator tweak, because this describe does FULL-PAGE scans (background + open dialog),
      * so the host route is part of what axe sees. It does not shrink coverage:
      *
-     *  - The AUDITED SUBJECT is unchanged. `quickadd:open` has exactly ONE dispatcher in the
-     *    app (`components/quick-add-fab.tsx`), so the FAB is the only way to reach
-     *    `AddToItineraryDialog mode="custom"` — the mode with the editable Title/Location
-     *    fields. Same component, same mode, same trigger, same 390px viewport, same
-     *    full-page scan. Reaching it "by another affordance on /plan/" is not available:
+     *  - The AUDITED SUBJECT is unchanged. `quickadd:open` has two dispatchers since
+     *    #381/#391 — the FAB and `components/quick-add-button.tsx`, which replaced it on
+     *    `/guides/` and `/checklist/` — but the second one exists on neither this route nor
+     *    the FAB's, so on `/` the FAB is still the only way to reach `AddToItineraryDialog
+     *    mode="custom"`, the mode with the editable Title/Location fields. Same component,
+     *    same mode, same trigger, same 390px viewport, same full-page scan. (Both dispatchers
+     *    open the same dialog, so this scan covers the in-page button's dialog too.) Reaching
+     *    it "by another affordance on /plan/" is not available:
      *    the planner's own add path opens `calendar-editor`, a DIFFERENT dialog (already
      *    axe-gated by e2e/s157-a11y-close-targets.spec.ts), and the S357A composer is not a
      *    quickadd dispatcher.

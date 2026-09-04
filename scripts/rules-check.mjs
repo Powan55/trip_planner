@@ -57,8 +57,9 @@
  *                     `< 1048576` "size cap" is `true` in a costume. Probed by equality.
  *   2. D-251 corollary — a request.resource-based guard applied to `write` breaks deleteDoc,
  *                     because request.resource is null on a delete ("Null value error").
- *   3. the shipped rules — D-219 split intact, all 8 real write shapes allowed, deletes allowed,
- *                     realistic-maximum payloads allowed (R5), hostile writes denied.
+ *   3. the shipped rules — D-219 split intact, all 9 real write shapes and all 3 collection
+ *                     listeners allowed, deletes allowed, realistic-maximum payloads allowed
+ *                     (R5), hostile writes denied.
  *   4. NEGATIVE CONTROL — the same hostile writes with the shape guard REMOVED must all be
  *                     ALLOWED. Without this phase the suite cannot tell a working guard from
  *                     no guard.
@@ -307,9 +308,18 @@ const shipped = readFileSync(RULES, 'utf8');
 
 console.log('\n  -- 3a. D-219 REGRESSION: the two-block split still holds --');
 await expect('LIST /trips (enumerate every capability token)', 'DENIED', () => getDocs(collection(db, 'trips')));
+// One pair per COLLECTION LISTENER the app opens (itinerary-remote.ts:471,
+// expenses-remote.ts:205, presence.ts:344): the subcollection query must be allowed under a
+// trip id the client already holds, and the same-named collection group across all trips
+// must not. Asserting only the days pair left the other two listeners resting on a shared
+// `allow get, list` line that nothing here read.
 await expect('collectionGroup("days") across all trips', 'DENIED', () => getDocs(collectionGroup(db, 'days')));
+await expect('collectionGroup("expenses") across all trips', 'DENIED', () => getDocs(collectionGroup(db, 'expenses')));
+await expect('collectionGroup("presence") across all trips', 'DENIED', () => getDocs(collectionGroup(db, 'presence')));
 await expect('GET /trips/{knownId} by direct id', 'ALLOWED', () => getDoc(doc(db, 'trips', TRIP)));
 await expect('LIST /trips/{knownId}/days (subcollection query)', 'ALLOWED', () => getDocs(collection(db, 'trips', TRIP, 'days')));
+await expect('LIST /trips/{knownId}/expenses (collection listener)', 'ALLOWED', () => getDocs(collection(db, 'trips', TRIP, 'expenses')));
+await expect('LIST /trips/{knownId}/presence (collection listener)', 'ALLOWED', () => getDocs(collection(db, 'trips', TRIP, 'presence')));
 
 console.log('\n  -- 3b. REAL PAYLOADS (every write call site) must be ALLOWED --');
 await expect('trips/{id}                       {schemaVersion,createdAt,seededFrom}', 'ALLOWED',
@@ -336,6 +346,10 @@ await expect('trips/{id}/profile/tripList      {version,trips[50],removed[50]}',
   () => setDoc(doc(db, 'trips', TRIP, 'profile', 'tripList'), { version: 1, trips: bigList(50), removed: bigList(50) }));
 await expect('trips/{id}/presence/{dev}        {name,lastSeen} setDoc(merge)', 'ALLOWED',
   () => setDoc(doc(db, 'trips', TRIP, 'presence', 'dev-1'), { name: 'Powan', lastSeen: new Date() }, { merge: true }));
+await expect('trips/{id}/places/list           {version,items[60]}', 'ALLOWED',
+  () => runTransaction(db, async (tx) => {
+    tx.set(doc(db, 'trips', TRIP, 'places', 'list'), { version: 1, items: bigList(60) });
+  }));
 
 console.log('\n  -- 3c. DELETES (kept out of every request.resource guard — it is null there) --');
 await expect('deleteDoc days/{date}            (itinerary-remote.ts:241)', 'ALLOWED',
@@ -379,6 +393,7 @@ const HOSTILE = [
   ['10,000 top-level fields on the trip doc', () => setDoc(doc(db, 'trips', TRIP), bigMap(10000))],
   ['10,000 top-level fields on a day doc', () => setDoc(doc(db, 'trips', TRIP, 'days', 'x'), bigMap(10000))],
   ['items[] with 20,000 elements', () => setDoc(doc(db, 'trips', TRIP, 'days', 'x'), { date: 'x', items: bigList(20000) })],
+  ['places/list items[] with 20,000 elements', () => setDoc(doc(db, 'trips', TRIP, 'places', 'list'), { version: 1, items: bigList(20000) })],
   ['trips[] with 20,000 elements', () => setDoc(doc(db, 'trips', TRIP, 'profile', 'tripList'), { version: 1, trips: bigList(20000) })],
   ['removed[] with 20,000 elements', () => setDoc(doc(db, 'trips', TRIP, 'profile', 'tripList'), { version: 1, removed: bigList(20000) })],
   ['budget fields{} with 20,000 entries', () => setDoc(doc(db, 'trips', TRIP, 'budget', 'model'), { version: 1, fields: bigMap(20000) })],
@@ -558,7 +573,7 @@ await expect('authed get on the PRESENT identity doc -> EXISTS', 'ALLOWED', asyn
   const snap = await getDoc(doc(db, 'trips', ACCT, 'profile', 'identity'));
   if (!snap.exists()) throw new Error('fixture: the probe target must exist by now');
 });
-await expect('authed deletes trips/{acct}/profile/identity -> DENIED (D-9: no client path deletes a profile doc; the door\'s identity doc must not be destroyable by a token-holder)', 'DENIED',
+await expect('authed deletes trips/{acct}/profile/identity -> DENIED (D-341: no client path deletes a profile doc; the door\'s identity doc must not be destroyable by a token-holder)', 'DENIED',
   () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'identity')));
 await expect('UNAUTH gets trips/{acct}/profile/identity', 'DENIED',
   () => getDoc(doc(dbU, 'trips', ACCT, 'profile', 'identity')));
@@ -576,7 +591,7 @@ await expect('...and still cannot list trips/L/meta', 'DENIED',
   () => getDocs(collection(dbS, 'trips', L, 'meta')));
 
 console.log('\n  -- 9c. the carve-out is TWO document ids, and nothing planted here is permanent --');
-await expect('authed deletes trips/{acct}/profile/tripList -> DENIED (same D-9 reason as identity)', 'DENIED',
+await expect('authed deletes trips/{acct}/profile/tripList -> DENIED (same D-341 reason as identity)', 'DENIED',
   () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'tripList')));
 await expect('stranger S creates trips/L/profile/planted   (gated trip, uncarved id)', 'DENIED',
   () => setDoc(doc(dbS, 'trips', L, 'profile', 'planted'), { junk: 1 }));

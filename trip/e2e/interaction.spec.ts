@@ -446,23 +446,72 @@ test.describe('S83 · quick-add FAB seam (components/quick-add-fab.tsx)', () => 
   });
 
   /**
-   * #353 — `/trips/` and `/packing/` join the suppressed set. "Add to plan" writes a calendar
+   * The whole of `NON_ADD_ROUTES` (components/quick-add-fab.tsx), asserted as one list.
+   *
+   * #353 put `/trips/` and `/packing/` in the suppressed set — "Add to plan" writes a calendar
    * item, which is not the primary action on the trip switcher or on a packing checklist, and
    * the FAB was measured obscuring "Rename Nepal × Japan" and "Remove Water purification
-   * tablets" at first paint. Same differential shape as the `/plan/` test above: prove the FAB
-   * is really visible at this viewport first, so each zero-count can only be the route guard.
+   * tablets" at first paint — and added five read-only reference routes in the same change
+   * that NOTHING asserted. #381/#391 add `/guides/` and `/checklist/`, whose in-page
+   * replacement is covered by the describe below. This list is now the full constant, so a
+   * route dropping out of it fails here rather than silently.
+   *
+   * Same differential shape as the `/plan/` test above: prove the FAB is really visible at this
+   * viewport first, so each zero-count can only be the route guard and never a broken harness.
    */
-  test('the FAB is route-suppressed on /trips/ and /packing/', async ({ page }) => {
+  test('the FAB is route-suppressed on every NON_ADD_ROUTE', async ({ page }) => {
     await page.setViewportSize(PHONE);
 
     await goto(page, FAB_ROUTE);
     await expect(page.getByTestId('quick-add-fab')).toBeVisible();
 
-    for (const route of ['/trips/', '/packing/']) {
+    for (const route of [
+      '/trips/',
+      '/packing/',
+      '/safety/',
+      '/more/',
+      '/recap/',
+      '/profile/',
+      '/flights/',
+      '/guides/',
+      '/checklist/',
+    ]) {
       await goto(page, route);
       await expect(page.getByTestId('quick-add-fab')).toHaveCount(0);
     }
   });
+});
+
+/**
+ * #381/#391 — the in-page "Add to plan" that replaced the FAB on `/guides/` and `/checklist/`.
+ *
+ * The FAB overlapped real controls on both routes ("Essentials" on Guides at 414×896, "Add
+ * photo" on Checklist at 390×844) and a bottom reservation was measured not to move them: the
+ * obstructed control's viewport `top` was byte-identical with 93px more padding under it
+ * (D-492). So adding moved into the page. `components/quick-add-button.tsx` dispatches the
+ * SAME `quickadd:open` event the FAB dispatches, into the same app-wide `QuickAddHost` — this
+ * asserts that seam still lands the custom dialog, from a route where the FAB no longer exists.
+ *
+ * Deliberately NOT at a phone viewport: the button is page content, not `md:hidden` chrome, and
+ * the default viewport is where a bad `md:hidden` copy-paste would show up.
+ */
+test.describe('#381 · in-page Add to plan (components/quick-add-button.tsx)', () => {
+  for (const route of ['/guides/', '/checklist/']) {
+    test(`the in-page Add to plan opens the custom dialog on ${route}`, async ({ page }) => {
+      await goto(page, route);
+
+      const add = page.getByTestId('quick-add-button');
+      await expect(add).toBeVisible();
+      // The FAB is gone here, so this is the only add affordance on the route.
+      await expect(page.getByTestId('quick-add-fab')).toHaveCount(0);
+
+      await add.click();
+      await expect(page.getByTestId('add-item-dialog')).toBeVisible();
+
+      await page.keyboard.press('Escape');
+      await expect(page.getByTestId('add-item-dialog')).toHaveCount(0);
+    });
+  }
 });
 
 test.describe('S83 · navigation — bottom tab bar (phone) + navbar (desktop)', () => {

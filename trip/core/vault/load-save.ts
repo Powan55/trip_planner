@@ -24,7 +24,14 @@ import {
   CURRENT_ITINERARY_VERSION,
   runItineraryMigrations,
 } from './migrations';
-import { isQuotaError, notifyQuotaExceeded } from '@/core/storage/gateway';
+import {
+  isQuotaError,
+  notifyQuotaExceeded,
+  readString,
+  writeString,
+} from '@/core/storage/gateway';
+// One cap for both quarantine writers, not two copies of the number.
+import { QUARANTINE_MAX_CHARS } from './compression';
 
 /**
  * Configuration for a Vault-backed storage slot. The itinerary passes its unchanged
@@ -44,11 +51,20 @@ export interface VaultConfig {
 const defaultNowISO = () => new Date().toISOString();
 
 /**
- * Preserve a corrupt raw payload verbatim so it is never silently lost.
+ * Preserve a corrupt raw payload so it is never silently lost.
  *
  * - Writes `raw` to the quarantine key ONLY IF that key is currently absent
  * (don't-clobber-first-capture — the first corruption most likely holds the user's
  * real, recoverable data).
+ * - Capped at `QUARANTINE_MAX_CHARS`, in the same leading-slice-plus-original-length form the
+ * import quarantine uses; under the cap the bytes are verbatim. The input here is already on
+ * disk, so it cannot smuggle in anything new — but an uncapped copy DOUBLES a multi-megabyte
+ * corrupt value's footprint at the moment storage is least healthy.
+ * - Routed through the gateway primitives, like the import quarantine: a write dropped for quota
+ * fires `trip:quota-exceeded` instead of vanishing into the catch below. Nothing here needs the
+ * gateway to be initialised — `readString`/`writeString` resolve `window` per call and hold no
+ * module state — and this module already imports it. (`saveItinerary`'s main-key write is
+ * separately raw; see its comment.)
  * - `console.warn` so the loss is never silent.
  * - NEVER throws — the preserve attempt is itself try/caught (quota / disabled storage
  * degrade quietly). Fires on ANY failure: parse error, unrecognized shape, failed
@@ -56,8 +72,12 @@ const defaultNowISO = () => new Date().toISOString();
  */
 function quarantineCorrupt(quarantineKey: string, raw: string): void {
   try {
-    if (window.localStorage.getItem(quarantineKey) === null) {
-      window.localStorage.setItem(quarantineKey, raw);
+    if (readString('local', quarantineKey) === null) {
+      const kept =
+        raw.length > QUARANTINE_MAX_CHARS
+          ? `${raw.slice(0, QUARANTINE_MAX_CHARS)}\n[truncated: kept the first ${QUARANTINE_MAX_CHARS} of ${raw.length} characters]`
+          : raw;
+      writeString('local', quarantineKey, kept);
     }
     console.warn(
       '[trip-vault] corrupt itinerary data detected; original preserved at',

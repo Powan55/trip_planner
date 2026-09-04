@@ -10,7 +10,7 @@
  *
  * Two functions, both framework-free (no React) but browser-facing:
  * - `exportItinerary()` serializes the CURRENT itinerary as a `CURRENT_ITINERARY_VERSION`
- * (currently v4) envelope string (Blob-ready; the download is wired in the UI —
+ * envelope string (Blob-ready; the download is wired in the UI —
  * client-only, no server).
  * - `parseBackup(rawText)` parses → migrates (if a legacy/older version) →
  * lenient-Zod-validates and returns the validated plans. It WRITES NOTHING: on ANY failure it
@@ -23,10 +23,11 @@
  */
 import type { DayPlan } from '@/lib/trip-data';
 import { loadPlans } from './storage';
-import { keyFor } from '@/core/storage/gateway';
+import { keyFor, readString, writeString } from '@/core/storage/gateway';
 import { makeEnvelope } from './envelope';
 import { parseItineraryPayloadStrict } from './schema';
 import { CURRENT_ITINERARY_VERSION, runItineraryMigrations } from './migrations';
+import { QUARANTINE_MAX_CHARS } from './compression';
 // Reuse the read path's version detection + payload extraction (exported export-only
 // from load-save.ts in) so import makes the IDENTICAL migrate-vs-quarantine
 // decision as the on-disk read — ONE source of truth, no re-derived copy to drift.
@@ -43,7 +44,7 @@ export type ParseResult = { ok: true; plans: DayPlan[] } | { ok: false; error: s
 
 /**
  * Serialize the current itinerary as a pretty-printed Vault envelope JSON string at the
- * CURRENT schema version (`CURRENT_ITINERARY_VERSION`, currently v4).
+ * CURRENT schema version (`CURRENT_ITINERARY_VERSION`).
  *
  * Reads the live plans through the Vault (`loadPlans()`), wraps them in the CURRENT
  * envelope (`{ schemaVersion, updatedAt, payload }`) exactly as the write path does,
@@ -56,29 +57,33 @@ export function exportItinerary(): string {
 }
 
 /**
- * Quarantine a rejected import blob verbatim, so a user
- * who imports the wrong/corrupt file can still recover its raw bytes. Uses the itinerary
- * quarantine slot for the ACTIVE pack via `keyFor('itineraryCorrupt')` — so a
+ * Quarantine a rejected import blob, so a user who imports the wrong/corrupt file can still
+ * recover its raw bytes — capped at `QUARANTINE_MAX_CHARS` (leading slice + the original length)
+ * so preserving a rejected file cannot itself consume the storage the live trip needs. Uses the
+ * itinerary quarantine slot for the ACTIVE pack via `keyFor('itineraryCorrupt')` — so a
  * non-default pack quarantines under `trip:{id}:itineraryCorrupt` rather than bleeding onto
  * the default pack's legacy literal; the default pack grandfathers to that literal, byte-
- * identical. NEVER throws (the preserve attempt is itself guarded); SSR/no-window
- * safe. This does NOT touch the main itinerary key — the live trip is untouched by a failed
- * import.
+ * identical.
+ *
+ * Routed through the gateway primitives (as `lib/expense-export.ts`'s sibling quarantine already
+ * is) rather than raw `localStorage`: they carry the same never-throw/SSR guarantees, and a write
+ * dropped for quota fires `trip:quota-exceeded` instead of vanishing into a local catch. This does
+ * NOT touch the main itinerary key — the live trip is untouched by a failed import.
  */
 function quarantineImport(raw: string): void {
   if (typeof window === 'undefined') return;
   const quarantineKey = keyFor('itineraryCorrupt');
-  try {
-    if (window.localStorage.getItem(quarantineKey) === null) {
-      window.localStorage.setItem(quarantineKey, raw);
-    }
-    console.warn(
-      '[trip-vault] rejected itinerary import; original preserved at',
-      quarantineKey,
-    );
-  } catch {
-    /* ignore (quota / disabled storage) — never throw from a preserve attempt */
+  if (readString('local', quarantineKey) === null) {
+    const kept =
+      raw.length > QUARANTINE_MAX_CHARS
+        ? `${raw.slice(0, QUARANTINE_MAX_CHARS)}\n[truncated: kept the first ${QUARANTINE_MAX_CHARS} of ${raw.length} characters]`
+        : raw;
+    writeString('local', quarantineKey, kept);
   }
+  console.warn(
+    '[trip-vault] rejected itinerary import; original preserved at',
+    quarantineKey,
+  );
 }
 
 /**

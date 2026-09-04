@@ -401,10 +401,11 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         return;
       }
 
-      // #10 — the concierge serves only trips that are ON THIS ACCOUNT, checked BEFORE any digest
-      // is built or a byte leaves the device: a custom trip the registry does not know (someone
-      // drove the pointer to an arbitrary id without joining it) gets no digest and no POST,
-      // because the digest would read whatever sits under that pointer's storage namespace.
+      // #10 — refuse to build a digest for a trip THIS BROWSER's registry does not know (someone
+      // drove the pointer to an arbitrary id without joining it), because the digest would read
+      // whatever sits under that pointer's storage namespace. A local-registry lookup, NOT a
+      // membership check: nothing on the client is access control, and the live Worker verifies
+      // nothing either (see lib/worker-auth.ts). It stops an accidental read, not an attacker.
       //
       // v6.0.2 removed a second refusal that stood here — the default pack on a configured build.
       // It was the client half of a membership gate (worker 1.9.0) that never deployed, so it

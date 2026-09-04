@@ -148,7 +148,7 @@ describe('usePresence (S54/D-057)', () => {
       presenceCtl.cb?.([
         { uid: 'u-rhea', name: 'Rhea', lastSeen: now }, // active, known accent (sakura)
         { uid: 'u-alina', name: 'Alina', lastSeen: now }, // self — excluded
-        { uid: 'u-milo', name: 'Milo', lastSeen: now - 10 * 60_000 }, // stale (10m > 3m window) — excluded
+        { uid: 'u-milo', name: 'Milo', lastSeen: now - 10 * 60_000 }, // stale (10m > 6m window) — excluded
         { uid: 'u-guest', name: 'Random Guest', lastSeen: null }, // pending beat counts active, unknown accent
       ]);
     });

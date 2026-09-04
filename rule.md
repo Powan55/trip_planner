@@ -58,7 +58,7 @@ regression and Release gate.
 on every pull request into `dev` or `main`, and again on the push to `main` that
 deploys.
 
-Six of its steps need no dependencies, so they run before the install and answer
+Seven of its steps need no dependencies, so they run before the install and answer
 in seconds:
 
 - `node scripts/marker-check.mjs --self-test` (the marker set still lines up with its own cases)
@@ -67,11 +67,13 @@ in seconds:
 - `node scripts/motion-loops.mjs` (ambient-loop floor: no sub-6s loop outside the allowlist, and every loop needs a reduced-motion stop)
 - `node scripts/token-wrappers.mjs --self-test` (same reason as the marker set's)
 - `node scripts/token-wrappers.mjs` (no bare `var(--x)` in a colour position)
+- `node scripts/asset-budget.mjs` (byte ceilings on the precached and bundled images)
 
-Then the install, and the four that need it:
+Then the install, and the five that need it:
 
 - `npx tsc --noEmit`
 - `npm run lint`
+- `trip/node_modules/.bin/eslint --no-config-lookup --max-warnings 0 … scripts/*.mjs` (the three root scripts — no npm script covers them, and it only works from the repo root)
 - `npm test` (Vitest)
 - `npm run build`
 
@@ -280,12 +282,9 @@ after the blueprint was written.
 
 ```
 cd trip
-npm ci --legacy-peer-deps
+npm ci
 npm run dev
 ```
-
-`--legacy-peer-deps` is required, not optional: `@types/node` is pinned at
-20.6.2 and `vite@8` (via `vitest`) wants `^20.19.0 || >=22.12.0`.
 
 Tests:
 

@@ -441,6 +441,11 @@ function LinkGoogleIdentity() {
         setStatus('Signed in with that Google account on this device.');
         // Adopting changes this device's identity, so re-run enrolment for the active trip —
         // otherwise the adopted identity is not in this trip's roster until the next page load.
+        // KNOWN CEILING: the active trip only. Every other known trip re-enrols from
+        // `itinerary-provider` when it is next activated, which is enough for a member — but
+        // `ensureMembership` enrols into an existing roster as 'member', so a member-gated trip
+        // whose SOLE owner was the pre-adoption uid ends up with no reachable owner, and the
+        // roster below offers removal and invite, never promotion. Needs a transfer path.
         const { ensureMembership } = await import('@/lib/trips-remote');
         await ensureMembership(getTripId());
       } else if (result === 'popup-blocked') {

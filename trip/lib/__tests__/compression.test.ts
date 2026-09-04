@@ -5,7 +5,12 @@
 // magic bytes (not extension), and the unsupported-browser fallback (CompressionStream mocked
 // undefined).
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { compressToBlob, decompressBlobOrText, supportsCompression } from '@/core/vault/compression';
+import {
+  compressToBlob,
+  decompressBlobOrText,
+  supportsCompression,
+  MAX_IMPORT_BYTES,
+} from '@/core/vault/compression';
 
 const SAMPLE = JSON.stringify({ schemaVersion: 5, updatedAt: '2026-07-17T00:00:00.000Z', payload: [] });
 
@@ -63,6 +68,31 @@ describe('S228 auto-detect on import — compressed vs plain, independent of ext
     const bytes = await blob.arrayBuffer();
     const file = new File([bytes], 'not-really.txt', { type: 'text/plain' });
     expect(await decompressBlobOrText(file)).toBe(SAMPLE);
+  });
+});
+
+describe('#411 size ceiling — an oversized picked file is refused BEFORE it is read into memory', () => {
+  // Stubs rather than real 64 MB Blobs: the point is that `arrayBuffer()` is never reached, which a
+  // real allocation would prove nothing extra about (and would cost 64 MB per case).
+  const blobOfSize = (size: number, bytes: Uint8Array = new TextEncoder().encode(SAMPLE)) =>
+    ({ size, arrayBuffer: vi.fn(async () => bytes.buffer) }) as unknown as Blob;
+
+  it('a file over MAX_IMPORT_BYTES rejects, and arrayBuffer() is never called', async () => {
+    const huge = blobOfSize(MAX_IMPORT_BYTES + 1);
+    await expect(decompressBlobOrText(huge)).rejects.toThrow(/too large/i);
+    expect(huge.arrayBuffer).not.toHaveBeenCalled();
+  });
+
+  it('a file exactly AT the ceiling is still read (the bound is >, not >=)', async () => {
+    const atCap = blobOfSize(MAX_IMPORT_BYTES);
+    expect(await decompressBlobOrText(atCap)).toBe(SAMPLE);
+    expect(atCap.arrayBuffer).toHaveBeenCalledTimes(1);
+  });
+
+  it('a normal-sized backup file is unaffected', async () => {
+    const blob = await compressToBlob(SAMPLE);
+    expect(blob.size).toBeLessThan(MAX_IMPORT_BYTES);
+    expect(await decompressBlobOrText(blob)).toBe(SAMPLE);
   });
 });
 

@@ -64,14 +64,12 @@ devices when the build is wired to Firebase.
 
 ```bash
 cd trip
-npm ci --legacy-peer-deps
+npm ci
 npm run dev
 ```
 
 Then open http://localhost:3000.
 
-> The `--legacy-peer-deps` flag is required, not optional: `@types/node` is pinned at 20.6.2
-> and `vite@8` (via `vitest`) wants `^20.19.0 || >=22.12.0`.
 > The service worker only registers in production builds, so offline support is not active
 > under `next dev`.
 
@@ -131,7 +129,7 @@ failures in their own output — the script accounts for that). Trust its verdic
 CLI's: `emulators:exec` has been seen exiting 2 after a completely green run, while shutting the
 emulator down, which is why the CI job records the harness's own exit code in a sentinel file
 instead. The harness resolves the `firebase` SDK out of `trip/node_modules`, so
-`npm ci --legacy-peer-deps` inside `trip/` must have run first.
+`npm ci` inside `trip/` must have run first.
 
 The **auth** emulator is required as well as firestore, because the rules now have an
 authentication floor: the harness signs in three anonymous users (owner, member, stranger)

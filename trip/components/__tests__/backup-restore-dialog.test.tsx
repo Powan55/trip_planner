@@ -190,7 +190,7 @@ describe('BackupRestore — the outcome reports what was actually restored', () 
 
   beforeEach(() => {
     reload.mockClear();
-    // jsdom's real `reload()` throws "Not implemented"; the success path schedules one.
+    // jsdom has no navigation; the success path schedules a reload, and this is what counts it.
     Object.defineProperty(window, 'location', {
       configurable: true,
       value: { ...window.location, reload },

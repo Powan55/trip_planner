@@ -1,27 +1,29 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { keyFor, favoritesStore } from '@/core/storage/gateway';
+import { useCallback } from 'react';
+import { keyFor, hasKey, favoritesStore } from '@/core/storage/gateway';
+import type { StoragePort } from '@/core/ports';
+import { createReactiveStore } from '@/hooks/create-reactive-store';
 
 /**
  * Reactive favorites store. A THIN React adapter over
- * the gateway's key-14 `favoritesStore`, mirroring `hooks/use-expenses.ts` /
- * `hooks/use-journal.ts` exactly — SIMPLER still: the persisted value is just a `string[]` of
+ * the gateway's key-14 `favoritesStore`, wiring `createReactiveStore` exactly like
+ * `hooks/use-journal.ts` — SIMPLER still: the persisted value is just a `string[]` of
  * `Recommendation` ids, so there is no separate framework-free domain module (: local-only,
- * no sync fan-out, no attribution).
+ * no sync fan-out, no attribution), and this file owns only `sanitizeIds` + the two mutators.
  *
- * Reactivity:
- * - `toggle` writes via `favoritesStore.set()` AND dispatches a same-tab CustomEvent
+ * Reactivity (all of it inside the shared factory):
+ * - `toggle` writes through the StoragePort AND dispatches a same-tab CustomEvent
  * (`FAVORITES_CHANGED_EVENT`) on `window`, so every card + the "Saved" chip (both read this
  * hook, one instance per `RecommendationSection`) update live.
  * - The hook listens for that CustomEvent (same-tab liveness) AND the cross-tab `storage`
  * event, re-reading from storage on either — via the exported key constant, never a literal.
  *
- * SSR-safe + hydrated gate (mirrors `use-expenses.ts`): the list starts `[]` (matching the
- * server render), hydrates from storage in a mount effect, and `toggle` reads the FRESHEST
- * persisted state as its base (not a stale React closure). `hydrated` is exposed so a consumer
- * (the favorite toggle button) can defer rendering until post-hydration — no SSR/first-paint
- * mismatch.
+ * SSR-safe + hydrated gate: every consumer (`recommendation-section`, `map-section`,
+ * `trip-map`) is a `dynamic({ssr:false})` island, so the factory's `storage.load()` seed
+ * produces no server DOM to mismatch; `toggle` reads the FRESHEST persisted state as its base
+ * (not a stale React closure). `hydrated` is exposed so a consumer (the favorite toggle button)
+ * can defer rendering until post-hydration.
  */
 
 import { FAVORITES_CHANGED_EVENT } from '@/core/storage/events';
@@ -49,6 +51,13 @@ function saveFavorites(ids: string[]): void {
   favoritesStore.set<string[]>(sanitizeIds(ids));
 }
 
+/** The favorites `StoragePort<string[]>` for `createReactiveStore` — local-only, no sync. */
+const favoritesStoragePort: StoragePort<string[]> = {
+  load: loadFavorites,
+  save: saveFavorites,
+  has: () => hasKey('local', keyFor('favorites')),
+};
+
 export interface FavoritesStoreApi {
   favorites: string[];
   hydrated: boolean;
@@ -56,49 +65,16 @@ export interface FavoritesStoreApi {
   toggle(id: string): void;
 }
 
+// The shared hydrate/listen/commit skeleton, instantiated once for the favorites domain.
+// Local-only: no `sync` port (key 14 is deliberately not synced — the D-229 addendum).
+const useFavoritesStore = createReactiveStore<string[]>({
+  eventName: FAVORITES_CHANGED_EVENT,
+  storageKeys: () => [keyFor('favorites')],
+  storage: favoritesStoragePort,
+});
+
 export function useFavorites(): FavoritesStoreApi {
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-  const hydratedRef = useRef(false);
-
-  // Load from localStorage on mount. SSR-safe: matches the server's [] first paint; the real
-  // read happens here after mount.
-  useEffect(() => {
-    setFavorites(loadFavorites());
-    setHydrated(true);
-    hydratedRef.current = true;
-  }, []);
-
-  // Re-read on a same-tab CustomEvent OR a cross-tab `storage` event, so every store instance
-  // (every RecommendationSection on the page) stays in sync within and across tabs.
-  useEffect(() => {
-    const reread = () => {
-      if (!hydratedRef.current) return;
-      setFavorites(loadFavorites());
-    };
-    const onCustom = () => reread();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === keyFor('favorites') || e.key === null) reread();
-    };
-    window.addEventListener(FAVORITES_CHANGED_EVENT, onCustom);
-    window.addEventListener('storage', onStorage);
-    return () => {
-      window.removeEventListener(FAVORITES_CHANGED_EVENT, onCustom);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, []);
-
-  // Single commit path: derive `next` from the freshest persisted state, write through
-  // `saveFavorites`, update React state, then dispatch the same-tab CustomEvent so other store
-  // instances re-read. Gated on `hydrated` so the first-render [] can't clobber a saved list.
-  const commit = useCallback((compute: (current: string[]) => string[]) => {
-    if (!hydratedRef.current) return;
-    const prev = loadFavorites();
-    const next = compute(prev);
-    saveFavorites(next);
-    setFavorites(next);
-    window.dispatchEvent(new CustomEvent(FAVORITES_CHANGED_EVENT));
-  }, []);
+  const { value: favorites, hydrated, commit } = useFavoritesStore();
 
   const isFavorite = useCallback((id: string) => favorites.includes(id), [favorites]);
 

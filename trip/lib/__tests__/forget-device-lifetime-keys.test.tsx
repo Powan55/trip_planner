@@ -81,7 +81,7 @@ async function mount(forgetDevice: boolean): Promise<void> {
 beforeEach(() => {
   localStorage.clear();
   sessionStorage.clear();
-  // jsdom throws on a real navigation; the confirm handler reloads after the teardown.
+  // jsdom has no navigation; the confirm handler reloads after the teardown, and this counts it.
   const real = window.location;
   Object.defineProperty(window, 'location', {
     value: { reload: vi.fn(), replace: vi.fn(), assign: vi.fn(), href: '', search: '' },

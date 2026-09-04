@@ -21,6 +21,11 @@ import { act } from 'react-dom/test-utils';
 
 // Neutralise framer-motion: `m.<tag>` -> the host element (motion props stripped),
 // AnimatePresence -> a passthrough. Avoids the LazyMotion-strict throw in a bare test tree.
+//
+// ⚠ FILE-WIDE: the trap below mints a NEW component type per property access, so React remounts
+// the whole `m.*` subtree on every re-render. Re-query a node at the moment you dispatch on it —
+// one captured earlier is detached, its events never reach React's root listener, and the handler
+// silently never runs. Dispatch is not the problem: a hand-built `submit` Event drives React fine.
 vi.mock('framer-motion', async () => {
   const React = await vi.importActual<typeof import('react')>('react');
   const MOTION_PROPS = new Set([
@@ -572,9 +577,7 @@ describe('#10 — handleCreate pushes profile/identity + profile/tripList for th
       nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
     // Submit — mints the token, signs in, kicks off the seed, shows the show-once screen.
-    // ⚠ Re-query the form AFTER typing: this file's framer-motion mock mints a fresh `m.*`
-    // component per property access, so every re-render remounts the wall subtree — an element
-    // captured before the type is a detached node whose submit React never sees.
+    // Re-queried AFTER typing, not before — see the mock's file-wide note.
     const form = view.container
       .querySelector('[data-testid="token-gate-name"]')!
       .closest('form')!;
@@ -637,9 +640,7 @@ describe('the ?trip= invitation: adopted lands Home, refused lands /trips/', () 
       setter.call(input, key);
       input.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    // Click the submit BUTTON rather than dispatching a bare `submit` Event at the form: a
-    // hand-built Event does not run jsdom's form-submission steps, so React's onSubmit never fired
-    // and the whole login silently did nothing (the probe was never called).
+    // Queried here, not before the type — see the mock's file-wide note.
     await act(async () => {
       view.container
         .querySelector<HTMLButtonElement>('[data-testid="token-gate-submit"]')!

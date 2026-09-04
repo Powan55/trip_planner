@@ -16,7 +16,7 @@ _Companion to the v4 plan (repo root). Purpose: the technical treatment of the v
 ## 1. Current-state summary (what v4 builds on)
 
 - **Layering (post-M15):** pure framework-free `core/` (itinerary CRUD, vault envelope/migrations, HLC + per-day item-level merge, budget/expenses/journal models, dates/trip-cities, countdown) → thin React hooks (`use-itinerary` 342, `use-expenses` 146, `use-journal` 122) → components. Ports: `StoragePort`/`SyncPort` (`core/ports.ts`), production adapters in `lib/itinerary-ports.ts`.
-- **Persistence:** typed storage gateway (`core/storage/gateway.ts`, ~400 lines, keys 1–13) over localStorage; itinerary rides the versioned Vault (currently `CURRENT_ITINERARY_VERSION = 4`) with ordered migrations + corruption quarantine (D-091).
+- **Persistence:** typed storage gateway (`core/storage/gateway.ts`, ~400 lines, keys 1–13) over localStorage; itinerary rides the versioned Vault (`CURRENT_ITINERARY_VERSION`) with ordered migrations + corruption quarantine (D-091).
 - **Sync:** itinerary only. `lib/itinerary-remote.ts` (600) + `core/sync/{hlc,merge-day,stamp}.ts`; per-day Firestore docs, item-level HLC merge, tombstones; everything gated on `isRemoteConfigured()` so the dormant build is byte-identical (D-038). Per-item `done` rides the itinerary schema, so it syncs.
 - **Not synced (per-device):** expenses (key 11), budget (key 10), journal (key 12), packing checklist (key 6).
 - **Reactivity:** hand-rolled CustomEvent (`*:changed`) + native `storage` event, re-read-from-storage-on-event; the pattern is duplicated ~3× and budget bypasses hooks entirely (read ad hoc in `budget-panel.tsx`).

@@ -501,12 +501,21 @@ function forecastCacheKey(city: string): string {
   return `${city}:forecast`;
 }
 
+/** THE read of a city's cached 7-day outlook — both readers route through it, so the shape check
+ * lives here once. The gateway's own gate proves the weather SLOT is an object; the value stored
+ * under one city key is still whatever is on disk, so a corrupt entry would otherwise reach
+ * `.find()` here and `.map()` in the card. Not an array ⇒ no cache, same as absent. */
+function readForecastCache(city: string): ForecastDay[] | null {
+  const forecast = weatherCache.get<ForecastDay[]>(forecastCacheKey(city));
+  return Array.isArray(forecast) ? forecast : null;
+}
+
 /** Read the cached last-good value for a city (through the gateway), tagged `stale: true`,
  * with the last cached 7-day outlook (if any) merged back in. */
 function readCache(city: string): WeatherNow | null {
   const cached = weatherCache.get<WeatherNow>(city);
   if (!cached) return null;
-  const forecast = weatherCache.get<ForecastDay[]>(forecastCacheKey(city));
+  const forecast = readForecastCache(city);
   // `feelsLikeC ?? null` normalises a value cached BEFORE the field was requested: it is
   // `undefined` on disk there, and the type says `number | null`. The offline path is exactly
   // when an old entry gets read, so normalise on the way out rather than trusting the shape.
@@ -542,7 +551,7 @@ function readAqiCache(city: string): AirQualityNow | null {
  * last fetched for whichever surface (Essentials/today panel) the user actually viewed.
  */
 export function getCachedForecastForDate(city: string, date: string): ForecastDay | null {
-  const forecast = weatherCache.get<ForecastDay[]>(forecastCacheKey(city));
+  const forecast = readForecastCache(city);
   if (!forecast) return null;
   return forecast.find((day) => day.date === date) ?? null;
 }

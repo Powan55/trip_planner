@@ -120,8 +120,8 @@ jobs:
           cache: npm
           cache-dependency-path: trip/package-lock.json
 
-      # --legacy-peer-deps is required, not optional: @types/node is pinned at
-      # 20.6.2 and vite@8 (via vitest) wants ^20.19.0 || >=22.12.0.
+      # --legacy-peer-deps is redundant now, not wrong: @types/node moved to 20.19.0 and the
+      # tree resolves the same without it (D-530). Kept — dropping it changes install behaviour.
       - name: Install
         run: npm ci --legacy-peer-deps
 
@@ -135,6 +135,27 @@ jobs:
       # thing that lints. It still gates the build: `build: needs: [checks]`.
       - name: Lint
         run: npm run lint
+
+      # The three scripts at the repo root are linted by nothing else: there is no root
+      # package.json, and `npm run lint` above is `eslint .` inside trip/. release-notes.mjs is
+      # the one that matters — its only call site is continue-on-error, so a typo there is
+      # silent on the deploy path too (#424).
+      #
+      # Runs from the repo root, and that is load-bearing: from trip/ every ../scripts path is
+      # skipped as "outside of base path" and eslint exits 0 — a green gate over zero files.
+      # --max-warnings 0 is what turns that warning red if the cwd ever moves. Not npx: there is
+      # no node_modules at the root, so it would fetch eslint from the registry instead.
+      #
+      # Two rules and an explicit globals list rather than a config file. --no-config-lookup
+      # keeps these files out of the app's project graph, which rules-check.mjs deliberately
+      # stays out of. Add a global when a script starts using another Node builtin.
+      - name: Lint the root scripts
+        working-directory: .
+        run: |
+          trip/node_modules/.bin/eslint --no-config-lookup --max-warnings 0 \
+            --rule '{"no-undef":"error","no-unused-vars":"error"}' \
+            --global process,console,fetch,setTimeout,Buffer \
+            scripts/*.mjs
 
       - name: Unit tests
         run: npm test
