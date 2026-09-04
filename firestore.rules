@@ -256,9 +256,9 @@ service cloud.firestore {
       // `get, list, delete` + `create, update` is exactly the former `get, list, write`
       // (write ≡ create+update+delete) with the shape guard on the two ops that carry a
       // payload — the D-219 block split is UNCHANGED, except `delete` now carries the
-      // D-9 `sub != 'profile'` exception directly below.
+      // D-341 `sub != 'profile'` exception directly below.
       match /{sub}/{document=**} {
-        // `delete` excludes `sub == 'profile'` (D-9): matches ORed across sibling blocks
+        // `delete` excludes `sub == 'profile'` (D-341): matches ORed across sibling blocks
         // mean this wildcard would otherwise re-grant the delete the carve-out above just
         // narrowed away — `isMember()` is trivially true here on any trip id with no
         // top-level doc yet, which is exactly the account-path shape (D-296) the carve-out
