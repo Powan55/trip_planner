@@ -37,7 +37,9 @@ export function formatRelativeTime(iso: string | undefined, now: Date = new Date
   // Sub-45s (and small negative clock-skew) reads as "just now".
   if (diffMs < 45 * SEC) return 'just now';
 
-  if (diffMs < HOUR) return `${Math.floor(diffMs / MIN)}m ago`;
+  // Clamped because the cutoff above is 45s, not a minute: 45-59s would otherwise floor to
+  // "0m ago". Every branch below is entered by a cutoff equal to its own unit, so none needs it.
+  if (diffMs < HOUR) return `${Math.max(1, Math.floor(diffMs / MIN))}m ago`;
   if (diffMs < DAY) return `${Math.floor(diffMs / HOUR)}h ago`;
   if (diffMs < WEEK) return `${Math.floor(diffMs / DAY)}d ago`;
   if (diffMs < MONTH) return `${Math.floor(diffMs / WEEK)}w ago`;

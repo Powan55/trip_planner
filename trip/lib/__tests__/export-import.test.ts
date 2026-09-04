@@ -255,6 +255,56 @@ describe('S124 migration on import — a v4-era export upgrades through migratio
   });
 });
 
+// The #123 row filter lives in the migration CHAIN, which both boundaries share — so on any
+// pre-v5 file it deleted rows BEFORE `parseItineraryPayloadStrict` ran, and the strict gate then
+// passed on the survivors. Only a subset of malformed rows reaches it (`isMigratableDay` rejects
+// null, primitives and a non-array `items`; a numeric `date` sails through and is still caught
+// above), and only below v5 — at schemaVersion 5 the loop body never runs, which is why every
+// existing pin here is green.
+describe('D-364 — the pre-v5 row filter is OFF on the import path, ON for the on-disk read', () => {
+  const V4_GOOD: DayPlan = {
+    date: '2026-12-09',
+    city: 'Kathmandu',
+    country: 'nepal',
+    items: [{ id: 'a1', title: 'Sunrise', category: 'photography', time: '06:00' }],
+  };
+  // `items: 5` — an object row the whole-array `map` steps cannot be applied to.
+  const V4_BAD = { date: '2026-12-10', city: 'Pokhara', country: 'nepal', items: 5 };
+  const v4Raw = () =>
+    JSON.stringify(makeEnvelope(4, [V4_GOOD, V4_BAD] as never, '2026-07-05T00:00:00.000Z'));
+
+  it('the on-disk READ still recovers the valid day (#123 partial-beats-nothing)', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    localStorage.setItem(ITINERARY_STORAGE_KEY, v4Raw());
+
+    const loaded = loadPlans();
+    expect(loaded.map((d) => d.date)).toEqual(['2026-12-09']);
+    expect(loaded[0].items[0].startMinutes).toBe(360); // the v4→v5 step still ran on the survivor
+    expect(localStorage.getItem(ITINERARY_QUARANTINE_KEY)).toBeNull();
+  });
+
+  it('the IMPORT rejects the same bytes into quarantine instead of silently truncating', () => {
+    savePlans(REAL_PLANS);
+    const before = localStorage.getItem(ITINERARY_STORAGE_KEY);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const raw = v4Raw();
+    const result = parseBackup(raw);
+
+    expect(result.ok).toBe(false);
+    expect(localStorage.getItem(ITINERARY_QUARANTINE_KEY)).toBe(raw);
+    expect(localStorage.getItem(ITINERARY_STORAGE_KEY)).toBe(before);
+    expect(loadPlans()).toEqual(REAL_PLANS); // the live trip is untouched
+  });
+
+  it('a clean pre-v5 file still imports (the opt-out rejects rows, not versions)', () => {
+    const result = parseBackup(JSON.stringify(makeEnvelope(4, [V4_GOOD], 'x')));
+    if (!result.ok) throw new Error(result.error);
+    expect(result.plans.map((d) => d.date)).toEqual(['2026-12-09']);
+    expect(result.plans[0].items[0].startMinutes).toBe(360);
+  });
+});
+
 describe('S92 empty-itinerary round-trip (delete-everything is portable)', () => {
   it('exporting an empty [] then importing it yields [] (NOT re-seeded sample)', () => {
     savePlans([]);

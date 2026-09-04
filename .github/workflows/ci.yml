@@ -22,6 +22,17 @@ name: CI
 # nothing more. It is the path this whole arrangement exists for, and it is only
 # partly closed here: the rest is branch protection, which prevents the push
 # rather than inspecting it. Do not add conditional e2e here to compensate.
+#
+# THE SAME INHERITANCE APPLIES TO SECRETS, AND IT FAILS QUIETLY. workflow_call
+# below takes no `secrets:` block and deploy.yml calls this workflow without
+# `secrets: inherit`, so a called run gets NO secrets at all. Nothing here reads
+# one today, which is the only reason that is safe. The day a step adds
+# ${{ secrets.SOMETHING }} it resolves to a real value on the pull-request path
+# and to the empty string on the deploy path — no error, no warning, one file
+# behaving two ways. If a secret is ever needed here, declare it under
+# `workflow_call:` AND pass it from deploy.yml in the same change, or keep the
+# step that needs it in deploy.yml, which is the only file that can read a
+# credential (D-302 clause 2).
 on:
   pull_request:
     branches: [dev, main]
@@ -94,6 +105,14 @@ jobs:
 
       - name: Token wrapper audit
         run: node scripts/token-wrappers.mjs
+
+      # Fifth dependency-free check. Nothing here measured bytes: the only size-adjacent
+      # guard was a COUNT of the six precached hero images in e2e/pwa.spec.ts, so a hero
+      # re-encoded at 2 MB kept it green — and that spec runs on pull requests only. Source
+      # tree only, deliberately: out/ does not exist this early, and a check that skipped
+      # itself when it was missing would report green having measured nothing.
+      - name: Asset byte budgets
+        run: node scripts/asset-budget.mjs
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:

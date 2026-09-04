@@ -63,7 +63,13 @@ vi.mock('@/lib/trips-remote', () => ({
 
 import TokenGate from '@/components/token-gate';
 import UserTokenShowOnce from '@/components/user-token-show-once';
-import { setSyncCode, getSyncCode } from '@/core/storage/gateway';
+import {
+  setSyncCode,
+  getSyncCode,
+  getActiveTripId,
+  DEFAULT_TRIP_ID,
+} from '@/core/storage/gateway';
+import { withBasePath } from '@/lib/utils';
 import { setUserName, getUserName } from '@/lib/identity';
 
 function render(el: ReactElement) {
@@ -603,6 +609,75 @@ describe('A2 — UserTokenShowOnce offers a durable Download .txt save', () => {
     expect(
       view.container.querySelector('[data-testid="user-token-show-once-copy"]'),
     ).not.toBeNull();
+    view.unmount();
+  });
+});
+
+// ── the `?trip=` invitation decides the LANDING, and only an adopted one lands Home ────────────
+//
+// The door holds a `?trip=` token through login and joins it before navigating, which is why the
+// docstring calls the join "the selection". `joinTrip` can now refuse — and a refused invitation
+// landing on Home would state that selection as fact while the browser sits on the previous trip.
+// The refusal is not spoken on the wall by design: this navigates on the same tick, so any state
+// set here would die with the page before it could be read. The LANDING is what carries it:
+// `/trips/`, the same place an arrival with no invitation at all goes.
+describe('the ?trip= invitation: adopted lands Home, refused lands /trips/', () => {
+  const KEY = '11111111-2222-4333-8444-555566667777';
+
+  async function loginWith(view: { container: HTMLElement }, key: string) {
+    const cta = view.container.querySelector<HTMLButtonElement>('[data-testid="landing-cta-login"]')!;
+    await act(async () => {
+      cta.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+    const input = view.container.querySelector<HTMLInputElement>(
+      '[data-testid="token-gate-user-token"]',
+    )!;
+    const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(input, key);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    // Click the submit BUTTON rather than dispatching a bare `submit` Event at the form: a
+    // hand-built Event does not run jsdom's form-submission steps, so React's onSubmit never fired
+    // and the whole login silently did nothing (the probe was never called).
+    await act(async () => {
+      view.container
+        .querySelector<HTMLButtonElement>('[data-testid="token-gate-submit"]')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+    });
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0)); // the probe's dynamic import + .then chain
+    });
+  }
+
+  it("a friend's Trip Token is adopted, and THAT is what earns the Home landing", async () => {
+    probeMock.mockResolvedValue({ verdict: 'unavailable' });
+    const loc = stubLocation();
+    loc.search = '?trip=friends-trip';
+    const view = render(createElement(TokenGate));
+    await loginWith(view, KEY);
+
+    expect(getSyncCode()).toBe(KEY);
+    expect(getActiveTripId()).toBe('friends-trip'); // the join really happened
+    expect(loc.replace).toHaveBeenCalledTimes(1);
+    expect(loc.replace).toHaveBeenCalledWith(withBasePath('/'));
+    view.unmount();
+  });
+
+  it('the account key arriving as ?trip= is refused, and the landing says so by not being Home', async () => {
+    // The reachable shape: a share link built out of the sender's OWN account key. Logging in with
+    // that key makes `pendingTrip === getSyncCode()`, which the registry refuses.
+    probeMock.mockResolvedValue({ verdict: 'unavailable' });
+    const loc = stubLocation();
+    loc.search = `?trip=${KEY}`;
+    const view = render(createElement(TokenGate));
+    await loginWith(view, KEY);
+
+    expect(getSyncCode()).toBe(KEY); // the LOGIN still succeeded — only the invitation failed
+    expect(getActiveTripId()).toBe(DEFAULT_TRIP_ID); // pointer never moved
+    expect(loc.replace).toHaveBeenCalledTimes(1);
+    expect(loc.replace).toHaveBeenCalledWith(withBasePath('/trips/'));
+    expect(loc.replace).not.toHaveBeenCalledWith(withBasePath('/'));
     view.unmount();
   });
 });

@@ -71,6 +71,34 @@ type Status =
   | { kind: 'success'; message: string }
   | { kind: 'error'; message: string };
 
+/**
+ * `importTripBackup` drops any domain that fails its validate gate and names the ones it actually
+ * committed in `result.restored`. Reading only `photosSkipped` and printing a fixed
+ * "itinerary, journal, photos and more are back" made a restore that dropped everything look
+ * identical to one that dropped nothing — on the surface a user reaches when something has
+ * already gone wrong. Slots with no entry here fall back to their own key rather than vanishing
+ * from the sentence, so a domain added to `lib/trip-backup.ts` is still reported.
+ */
+const DOMAIN_LABELS: Record<string, string> = {
+  itinerary: 'itinerary',
+  journal: 'journal',
+  photos: 'photos',
+  expenses: 'expenses',
+  budget: 'budget',
+  docsChecklist: 'documents checklist',
+  packing: 'packing list',
+  favorites: 'favorites',
+  dayAnchors: 'map anchors',
+  shareInbox: 'share inbox',
+  myPlaces: 'saved places',
+};
+
+/** "a" · "a and b" · "a, b and c". Hand-rolled: `Intl.ListFormat` is not in this tsconfig's `lib`. */
+function joinNames(names: string[]): string {
+  if (names.length < 3) return names.join(' and ');
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
+
 export default function BackupRestore() {
   const { restorePlans } = useItineraryContext();
   const { restoreMyPlaces } = useMyPlaces();
@@ -145,14 +173,21 @@ export default function BackupRestore() {
     );
     setImporting(false);
     setPendingImport(null);
-    if (result.ok) {
+    if (result.ok && result.restored.length === 0) {
+      setStatus({
+        kind: 'error',
+        message:
+          'Nothing in that file could be restored — no itinerary, journal, photos or other trip data was found in it.',
+      });
+    } else if (result.ok) {
       const skipped =
         result.photosSkipped > 0
           ? ` ${result.photosSkipped} photo${result.photosSkipped === 1 ? '' : 's'} could not be restored (storage limit).`
           : '';
+      const names = result.restored.map((slot) => DOMAIN_LABELS[slot] ?? slot);
       setStatus({
         kind: 'success',
-        message: `Trip restored — itinerary, journal, photos and more are back.${skipped} Reloading…`,
+        message: `Trip restored — ${joinNames(names)} ${names.length === 1 ? 'is' : 'are'} back.${skipped} Reloading…`,
       });
       // Reload so every store re-hydrates from the freshly-written localStorage/IndexedDB. A
       // short delay lets the aria-live status announce before the navigation.

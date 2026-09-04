@@ -62,11 +62,16 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     if (parsed.ok) expect(parsed.expenses).toEqual([E1, E2]);
   });
 
-  it('empty store exports + round-trips to an empty list', () => {
+  it('an empty store still EXPORTS, but restoring that file is refused', () => {
+    // This used to assert `ok:true` with `[]`, which is a wipe dressed as a restore: the caller
+    // hands the result to a tombstone-replace that deletes every live row on every device and
+    // reports "Expenses imported." The export half is harmless and stays.
     const json = exportExpenses([]);
+    expect(JSON.parse(json).payload).toEqual([]);
     const parsed = parseExpenseBackup(json);
-    expect(parsed.ok).toBe(true);
-    if (parsed.ok) expect(parsed.expenses).toEqual([]);
+    expect(parsed.ok).toBe(false);
+    if (!parsed.ok) expect(parsed.error).toMatch(/no expenses in it/);
+    expect(localStorage.getItem(EXPENSE_QUARANTINE_KEY)).toBe(json);
   });
 
   it('rejects invalid JSON and quarantines the raw text', () => {
@@ -89,12 +94,15 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     // ARRAY payload — so it passed the envelope gate, sanitized to [], and the caller's
     // tombstone-replace restore then deleted every logged expense on every device and said
     // "Expenses imported". Built from the real exporter, not hand-rolled, so it cannot drift.
+    // It is now stopped one gate earlier, on its `schemaVersion` — the row check no longer has to
+    // be the thing that notices, which is what makes an EMPTY itinerary export safe too.
     const itineraryFile = exportItinerary();
     expect(Array.isArray(JSON.parse(itineraryFile).payload)).toBe(true);
+    expect(JSON.parse(itineraryFile).schemaVersion).not.toBe(EXPENSE_EXPORT_VERSION);
 
     const result = parseExpenseBackup(itineraryFile);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toMatch(/missing or has malformed data/);
+    if (!result.ok) expect(result.error).toMatch(/not a recognized expenses export/);
     expect(localStorage.getItem(EXPENSE_QUARANTINE_KEY)).toBe(itineraryFile);
   });
 
@@ -147,8 +155,25 @@ describe('exportExpenses / parseExpenseBackup — schema + round-trip (S174, D-0
     }
   });
 
-  it('a future higher schemaVersion is still read leniently (forward-compat)', () => {
-    const raw = JSON.stringify({ schemaVersion: 99, updatedAt: 'x', payload: [E1] });
+  it('a version that is not exactly EXPENSE_EXPORT_VERSION is refused, whichever way it differs', () => {
+    // This used to assert that a higher version was "read leniently (forward-compat)". Leniency
+    // here is not forward-compatible, it is lossy: `sanitizeExpense` rebuilds each row
+    // field-by-field and strips keys it does not know, and the caller applies the result as a
+    // tombstone-replace — so a v2 file read by a v1 build propagates the STRIPPED rows to the
+    // newer devices that wrote them. A version this build cannot claim to understand is refused,
+    // with the bytes quarantined, until a migration step exists to actually understand it.
+    for (const schemaVersion of [0, 2, 99]) {
+      localStorage.clear();
+      const raw = JSON.stringify({ schemaVersion, updatedAt: 'x', payload: [E1] });
+      const result = parseExpenseBackup(raw);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.error).toMatch(/not a recognized expenses export/);
+      expect(localStorage.getItem(EXPENSE_QUARANTINE_KEY)).toBe(raw);
+    }
+  });
+
+  it('the CURRENT version still imports (the gate is equality, not a blanket refusal)', () => {
+    const raw = JSON.stringify({ schemaVersion: EXPENSE_EXPORT_VERSION, updatedAt: 'x', payload: [E1] });
     const result = parseExpenseBackup(raw);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.expenses).toEqual([E1]);

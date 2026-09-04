@@ -4,8 +4,8 @@
  * (a previous bug that went unnoticed because passthrough() silently tolerated it).
  */
 import { describe, it, expect } from 'vitest';
-import { itineraryItemSchema } from '@/core/vault/schema';
-import type { ItineraryItem } from '@/lib/trip-data';
+import { itineraryItemSchema, dayPlanSchema } from '@/core/vault/schema';
+import type { DayPlan, ItineraryItem } from '@/lib/trip-data';
 
 describe('Vault schema drift guard', () => {
   it('itineraryItemSchema contains all keys from ItineraryItem interface', () => {
@@ -50,6 +50,29 @@ describe('Vault schema drift guard', () => {
       throw new Error(
         `Schema is missing interface fields: ${missing.join(', ')}. ` +
           `Add them to itineraryItemSchema in core/vault/schema.ts to avoid silent data loss.`,
+      );
+    }
+    expect(missing).toEqual([]);
+  });
+
+  // Same two-layer guard for the sibling schema: `dayPlanSchema` is `.passthrough()` too, so a
+  // field added to `DayPlan` and forgotten here is tolerated on read, never declared, and lost
+  // by any consumer that rebuilds the object field-by-field.
+  it('dayPlanSchema contains all keys from the DayPlan interface', () => {
+    const allKeys: Record<keyof DayPlan, true> = {
+      date: true,
+      city: true,
+      country: true,
+      countryLabel: true,
+      items: true,
+    };
+
+    const schemaKeys = Object.keys(dayPlanSchema.shape);
+    const missing = Object.keys(allKeys).filter((key) => !schemaKeys.includes(key));
+    if (missing.length > 0) {
+      throw new Error(
+        `Schema is missing interface fields: ${missing.join(', ')}. ` +
+          `Add them to dayPlanSchema in core/vault/schema.ts to avoid silent data loss.`,
       );
     }
     expect(missing).toEqual([]);

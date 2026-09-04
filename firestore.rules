@@ -29,6 +29,12 @@ rules_version = '2';
 // out. That is not an escalation — on an open trip they could already delete every
 // document in it, which is strictly worse. The token was always the whole capability
 // (D-205); membership only narrows it going forward, and only for trips that adopt it.
+// That reasoning stops short of a roster that names NOBODY, and deliberately so: a deleted
+// document can be written again, whereas a trip whose roster answers "not a member" to
+// every uid has no route back — not even `delete`. Hence two invariants below, which are
+// the same rule read from both ends: a members map is only ever WRITTEN as a map naming at
+// least one owner (rosterIsWellFormed), and one that is already malformed READS as open
+// (isOpen), so it can be overwritten.
 //
 // The floor is Firebase ANONYMOUS auth (every device signs in silently on first load, and
 // may later be linked to Google). An anonymous uid is free and unlimited, so the floor is
@@ -170,17 +176,33 @@ service cloud.firestore {
         return /databases/$(database)/documents/trips/$(tripId);
       }
 
+      // The stored roster. Only ever read behind the `is map` test in isOpen() below, or
+      // after isOpen() is known false — which is what makes both callers safe.
+      function roster() {
+        return get(tripPath()).data.members;
+      }
+
       // TRUE for a trip with no members map — including one that does not exist yet, which
       // is what lets `create` and the first write of a brand-new trip through. This is the
       // opt-in lock: `isOpen()` is the grandfather clause for every pre-membership trip.
+      //
+      // A roster that is NOT A MAP, or one that is empty, reads as OPEN too. Neither can
+      // name anybody, so gating on it would answer every membership question with 'no' and
+      // deny every operation on the trip forever — including `delete`, the only repair
+      // reachable from the rules. Treating it as open keeps the trip readable and lets the
+      // bad value be overwritten; rosterIsWellFormed() below is what stops one being
+      // written in the first place.
       function isOpen() {
-        return !exists(tripPath()) || !('members' in get(tripPath()).data);
+        return !exists(tripPath())
+          || !('members' in get(tripPath()).data)
+          || !(roster() is map)
+          || roster().size() == 0;
       }
 
       // '' for a signed-in non-member. Only ever called after isOpen() is known false, so
-      // the members map is present.
+      // the members map is present and is a non-empty map.
       function role() {
-        return get(tripPath()).data.members.get(request.auth.uid, '');
+        return roster().get(request.auth.uid, '');
       }
 
       function isMember() {
@@ -192,10 +214,24 @@ service cloud.firestore {
       }
 
       // A create may not hand the creator anything less than 'owner'. A create with NO
-      // members map is the legacy/capability shape and stays legal.
+      // members map is the legacy/capability shape and stays legal. The `is map` test is
+      // not decoration: `.get()` on a scalar errors, and an erroring rule denies for a
+      // reason nobody can read off the ruleset.
       function claimsSelfAsOwner() {
         return !('members' in request.resource.data)
-          || request.resource.data.members.get(request.auth.uid, '') == 'owner';
+          || (request.resource.data.members is map
+            && request.resource.data.members.get(request.auth.uid, '') == 'owner');
+      }
+
+      // A roster is written as a MAP naming at least one 'owner', or not at all. Anything
+      // else — a scalar, a list, an empty map, a map in which nobody is owner — satisfies
+      // every other guard on the write and then leaves the trip with a roster that names
+      // no one who can manage it. See isOpen() for the other half: this refuses the bad
+      // value, isOpen() keeps a trip that already carries one repairable.
+      function rosterIsWellFormed() {
+        return !('members' in request.resource.data)
+          || (request.resource.data.members is map
+            && request.resource.data.members.values().hasAny(['owner']));
       }
 
       // A non-owner member may ADD members and touch nothing else. See the CEILING note in
@@ -210,7 +246,7 @@ service cloud.firestore {
       // `list` is granted by NOTHING, here or anywhere below (D-219).
       allow get: if isMember();
       allow create: if request.auth != null && boundedWrite() && claimsSelfAsOwner();
-      allow update: if boundedWrite() && (
+      allow update: if boundedWrite() && rosterIsWellFormed() && (
         (isOpen() && request.auth != null)   // grandfathered capability trip
         || isOwner()                         // owner: anything, incl. removing members
         || (isMember() && addsMembersOnly()) // member: may add members, nothing else
@@ -228,15 +264,35 @@ service cloud.firestore {
       //     loudly broken. That is the failure mode this block exists to prevent.
       //   · the trip-list sync writes here on a device that is a member of nothing.
       // Matches are additive, so this WIDENS the subtree block below for this one prefix.
-      // COST, ACCEPTED: on a MEMBER-GATED trip this one subtree therefore stays
-      // capability-only — a non-member holding the tripId can read and write
-      // trips/{tripId}/profile/**. The app keeps nothing there for a trip id (the account
-      // documents live under a userToken, D-239), and the alternative is circular: the door
-      // would have to know a membership before it is allowed to check whether the account
-      // exists at all.
-      match /profile/{document=**} {
-        allow get: if request.auth != null;
-        allow create, update: if request.auth != null && boundedWrite();
+      // TWO DOCUMENT IDS, NOT A SUBTREE. `identity` and `tripList` are the only profile
+      // paths the app reads or writes (lib/trips-remote.ts). A recursive carve-out here
+      // would hand every holder of a trip id a create at any depth under `profile/`, and
+      // the D-9 delete exception below would then make every one of those documents
+      // permanent — a combination neither half was weighed against.
+      // COST, ACCEPTED: on a MEMBER-GATED trip these two documents stay capability-only —
+      // a non-member holding the tripId can read and write them. The app keeps nothing
+      // there for a trip id (the account documents live under a userToken, D-239), and the
+      // alternative is circular: the door would have to know a membership before it is
+      // allowed to check whether the account exists at all.
+      match /profile/{docId} {
+        allow get: if request.auth != null && docId in ['identity', 'tripList'];
+        allow create, update: if request.auth != null && boundedWrite()
+          && docId in ['identity', 'tripList'];
+      }
+
+      // ── the rest of the profile prefix stays DELETABLE ────────────────────────
+      // The subtree block below refuses `delete` for the whole `profile` prefix (D-9). On
+      // its own that makes anything which reaches this prefix by any other route permanent:
+      // no client path, the owner's included, could remove it. These two blocks give the
+      // delete back everywhere EXCEPT the two documents above — those keep the D-9 denial,
+      // because destroying `profile/identity` bricks an account and a bare token-holder
+      // must not be able to do it. The second block covers anything nested BELOW a profile
+      // document, where the id no longer says anything about what the document is.
+      match /profile/{docId}/{rest=**} {
+        allow delete: if isMember() && !(docId in ['identity', 'tripList']);
+      }
+      match /profile/{docId}/{subCollection}/{rest=**} {
+        allow delete: if isMember();
       }
 
       // ── CARVE-OUT: the trip name, for someone who is not in yet ───────────────
@@ -262,8 +318,10 @@ service cloud.firestore {
         // mean this wildcard would otherwise re-grant the delete the carve-out above just
         // narrowed away — `isMember()` is trivially true here on any trip id with no
         // top-level doc yet, which is exactly the account-path shape (D-296) the carve-out
-        // exists for. `get, list` are unaffected: that capability-only read/write exposure
-        // on `profile/**` is the accepted cost stated in the carve-out's own header.
+        // exists for. `get, list` are unaffected: that capability-only read/write exposure,
+        // now two document ids wide, is the accepted cost stated in the carve-out's own
+        // header. Everything else under `profile/` gets its delete back from the pair of
+        // blocks above, so the exception here protects exactly those two documents.
         allow get, list: if isMember();
         allow delete: if isMember() && sub != 'profile';
         allow create, update: if isMember() && boundedWrite();

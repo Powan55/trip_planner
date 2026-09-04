@@ -37,13 +37,12 @@
  * and not in the app's tsc project, so it can never turn the app's own build or gate red.
  *
  * IT IS IN CI NOW (issue #39 / D-399). The `rules-check` job in .github/workflows/ci.yml installs
- * firebase-tools and runs the command above in the runner, on every pull request, on pushes to
- * `lax`, `uttam` and `dev` (ci.yml's push trigger lists exactly those — a push to a feature
- * branch runs nothing), and again on the push to `main` that deploys — because the release now
- * has a step that PUBLISHES firestore.rules
- * (deploy.yml's `publish-rules`), so nothing unproven may reach the live project. Still worth
- * running by hand when you change the rules: the gate tells you red or green, the phase output
- * tells you what actually moved.
+ * firebase-tools and runs the command above in the runner, on every pull request, on a push to
+ * every branch except `main` (ci.yml's push trigger is `branches-ignore: [main]`), and again on
+ * the push to `main` that deploys — because the release now has a step that PUBLISHES
+ * firestore.rules (deploy.yml's `publish-rules`), so nothing unproven reaches the live project.
+ * Still worth running by hand when you change the rules: the gate tells you red or green, the
+ * phase output tells you what actually moved.
  *
  * IF YOU EDIT THAT CI JOB, KEEP THE SENTINEL FILE. `emulators:exec` returns exit code 2 even when
  * the inner script exits 0 — measured twice locally, including with a trivial `node -e ''`: it
@@ -66,18 +65,21 @@
  *   5. restored     — shape guard back on, hostile writes denied again.
  *   6. MEMBERSHIP, positive — owner creates a trip carrying a members map and can do every job;
  *                     a member has full content read+write and may ADD a third member.
- *   7. MEMBERSHIP, negative — a stranger reaches nothing; a member cannot remove or re-role the
- *                     owner, cannot delete the trip, and cannot create a trip owning nobody; an
- *                     UNAUTHENTICATED client reaches nothing at all (the new floor); and D-219
- *                     still holds under auth (no /trips list, no collection group).
+ *   7. MEMBERSHIP, negative — a stranger reaches nothing: not the trip doc, and not one
+ *                     content document, by read, by write or by delete. A member cannot
+ *                     remove or re-role the owner, cannot delete the trip, and cannot create a
+ *                     trip owning nobody; an UNAUTHENTICATED client reaches nothing at all
+ *                     (the new floor); and D-219 still holds under auth (no /trips list, no
+ *                     collection group).
  *   8. GRANDFATHER  — a trip with NO members map keeps capability semantics for any signed-in
  *                     holder of the tripId. This is the opt-in lock: it is what stops a rules
  *                     deploy (instant, global) bricking every legacy trip and every ?trip= link.
- *   9. THE DOOR     — profile/** keeps capability semantics behind the auth floor, so the login
+ *   9. THE DOOR     — profile/identity and profile/tripList — the only two ids the carve-out
+ *                     covers — keep capability semantics behind the auth floor, so the login
  *                     door's probe of an ABSENT trips/{code}/profile/identity resolves to
  *                     "missing" rather than to permission-denied (D-296: a 403 there would make
  *                     token validation silently vacuous), and meta/** is readable by a
- *                     not-yet-member joiner.
+ *                     not-yet-member joiner. Nothing else planted under profile/ is permanent.
  *  10. NEGATIVE CONTROL — the same member denials with the membership predicates REMOVED must
  *                     all be ALLOWED. Same reason as phase 4, for the other half of the file.
  *  10b. restored    — membership back on, the denials deny again.
@@ -111,6 +113,8 @@ const L = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';      // phases 6-10: the membe
 const K = 'ffffffff-0000-1111-2222-333333333333';      // phase 8: a legacy, members-less trip
 const ACCT = '99999999-8888-7777-6666-555555555555';   // phase 9: a User Token — never a trip
 const THIRD = 'third-friend-uid-000000000000';         // a uid that is only ever a map key
+const GATED_DAY = '2026-12-14';                        // one CONTENT doc under the gated trip
+const BRICK = '00000000-1111-2222-3333-444444444444';  // phase 7f: a trip carrying a malformed roster
 
 let pass = 0, fail = 0;
 let results = [];
@@ -214,6 +218,15 @@ async function seed(path, data) {
   await loadRules(ALLOW_ALL);
   await setDoc(doc(db, ...path), data);
   await loadRules(shipped);
+}
+
+// The member-gated fixture: the trip doc AND one content document. The stranger denials
+// assert against a real day doc, not a hole, and phase 10 legitimately overwrites and
+// deletes it — so every phase that runs them rebuilds both.
+async function seedGated() {
+  await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+  await seed(['trips', L, 'days', GATED_DAY],
+    { date: GATED_DAY, city: 'Kathmandu', country: 'nepal', items: bigList(2) });
 }
 
 console.log(`\nfirestore.rules harness — emulator ${HOST}, auth ${AUTH_HOST}, project ${PROJECT}`);
@@ -434,12 +447,19 @@ await expect('O deletes trips/L', 'ALLOWED', () => deleteDoc(doc(db, 'trips', L)
 const phase6 = flush('PHASE 6 (membership, positive)');
 
 // ── 7. MEMBERSHIP, the negative path ─────────────────────────────────────────
-// These seven are the control set: phase 10 re-runs them with membership neutered and every
-// one of them MUST flip to ALLOWED.
+// This is the control set: phase 10 re-runs it with membership neutered and every one of
+// them MUST flip to ALLOWED.
 let createN = 0;
 const MEMBER_DENIALS = [
   ['stranger S gets trips/L', () => getDoc(doc(dbS, 'trips', L))],
   ['stranger S lists trips/L/days', () => getDocs(collection(dbS, 'trips', L, 'days'))],
+  // CONTENT, one document at a time. `get` and `list` share an allow line, but `create,
+  // update` and `delete` are separate lines on the subtree wildcard — without these three,
+  // relaxing either of those lines leaves every other assertion here passing.
+  ['stranger S gets trips/L/days/{date}', () => getDoc(doc(dbS, 'trips', L, 'days', GATED_DAY))],
+  ['stranger S writes trips/L/days/{date}',
+    () => setDoc(doc(dbS, 'trips', L, 'days', GATED_DAY), { date: GATED_DAY, city: 'Tokyo', country: 'japan', items: bigList(2) })],
+  ['stranger S deletes trips/L/days/{date}', () => deleteDoc(doc(dbS, 'trips', L, 'days', GATED_DAY))],
   ['stranger S adds ITSELF to members', () => updateDoc(doc(dbS, 'trips', L), { [`members.${S}`]: 'member' })],
   ['member M removes the owner', () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: deleteField() })],
   ["member M changes the owner's role", () => updateDoc(doc(dbM, 'trips', L), { [`members.${O}`]: 'member' })],
@@ -451,7 +471,7 @@ const MEMBER_DENIALS = [
 ];
 
 console.log('\n\n=== 7. MEMBERSHIP (negative): everyone else is out ===');
-await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+await seedGated();
 console.log(`  -- 7a. the ${MEMBER_DENIALS.length} member denials (phase 10 re-runs exactly these) --`);
 for (const [name, fn] of MEMBER_DENIALS) await expect(name, 'DENIED', fn);
 
@@ -476,6 +496,29 @@ console.log('\n  -- 7e. KNOWN CEILING (documented in firestore.rules, NOT fixabl
 // subcollection), this assertion fails and the header comment gets corrected with it.
 await expect('member M adds a third uid as "owner" (cannot police the value)', 'ALLOWED',
   () => updateDoc(doc(dbM, 'trips', L), { [`members.${THIRD}`]: 'owner' }));
+
+console.log('\n  -- 7f. a roster that names nobody is refused at the write... --');
+// A members map that is a scalar, or names no owner, passes boundedWrite() (`.size()` on a
+// string is a character count) and then answers every membership question with 'no' —
+// including the delete that is the only repair the rules can reach.
+await expect('O writes members as a STRING', 'DENIED',
+  () => setDoc(doc(db, 'trips', L), { members: 'x' }, { merge: true }));
+await expect('O empties the members map', 'DENIED',
+  () => setDoc(doc(db, 'trips', L), { members: {} }, { merge: true }));
+await expect('O rewrites the roster with nobody as owner', 'DENIED',
+  () => setDoc(doc(db, 'trips', L), { schemaVersion: 1, members: { [O]: 'member', [M]: 'member' } }));
+
+console.log('\n  -- ...and a trip that ALREADY carries one is still repairable --');
+// Planted with the rules under test having no say, because no write path produces this.
+await seed(['trips', BRICK], { schemaVersion: 1, members: 'x' });
+await expect('authed reads a trip whose stored members is a STRING', 'ALLOWED', () => getDoc(doc(dbS, 'trips', BRICK)));
+await expect('...writes its content', 'ALLOWED',
+  () => setDoc(doc(dbS, 'trips', BRICK, 'days', '2026-12-15'), { date: '2026-12-15', city: 'Pokhara', country: 'nepal', items: bigList(2) }));
+await expect('...and overwrites the roster with a valid one (the repair)', 'ALLOWED',
+  () => setDoc(doc(dbS, 'trips', BRICK), { schemaVersion: 1, members: { [S]: 'owner' } }));
+await seed(['trips', BRICK], { schemaVersion: 1, members: {} });
+await expect('authed reads a trip whose stored members map is EMPTY', 'ALLOWED', () => getDoc(doc(dbS, 'trips', BRICK)));
+await expect('...and can delete it (the last repair the rules can reach)', 'ALLOWED', () => deleteDoc(doc(dbS, 'trips', BRICK)));
 const phase7 = flush('PHASE 7 (membership, negative)');
 
 // ── 8. THE GRANDFATHER CLAUSE ────────────────────────────────────────────────
@@ -531,16 +574,38 @@ await expect('...but the same NON-MEMBER still cannot list trips/L/days', 'DENIE
   () => getDocs(collection(dbS, 'trips', L, 'days')));
 await expect('...and still cannot list trips/L/meta', 'DENIED',
   () => getDocs(collection(dbS, 'trips', L, 'meta')));
+
+console.log('\n  -- 9c. the carve-out is TWO document ids, and nothing planted here is permanent --');
+await expect('authed deletes trips/{acct}/profile/tripList -> DENIED (same D-9 reason as identity)', 'DENIED',
+  () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'tripList')));
+await expect('stranger S creates trips/L/profile/planted   (gated trip, uncarved id)', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'planted'), { junk: 1 }));
+await expect('stranger S creates trips/L/profile/identity/deep/doc  (any depth)', 'DENIED',
+  () => setDoc(doc(dbS, 'trips', L, 'profile', 'identity', 'deep', 'doc'), { junk: 1 }));
+await expect('stranger S gets trips/L/profile/planted', 'DENIED',
+  () => getDoc(doc(dbS, 'trips', L, 'profile', 'planted')));
+// A trip with no members map still hands its token holder a write anywhere under it, this
+// prefix included. What must not survive is a document there that NOBODY can remove.
+await seed(['trips', ACCT, 'profile', 'planted'], { junk: 1 });
+await expect('authed deletes a planted trips/{acct}/profile/planted', 'ALLOWED',
+  () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'planted')));
+await seed(['trips', ACCT, 'profile', 'identity', 'deep', 'doc'], { junk: 1 });
+await expect('authed deletes a planted trips/{acct}/profile/identity/deep/doc', 'ALLOWED',
+  () => deleteDoc(doc(db, 'trips', ACCT, 'profile', 'identity', 'deep', 'doc')));
 const phase9 = flush('PHASE 9 (the door + the account path)');
 
 // ── 10. NEGATIVE CONTROL for membership ──────────────────────────────────────
 console.log('\n\n=== 10. NEGATIVE CONTROL: same member denials, MEMBERSHIP REMOVED ===');
 let membersOff = shipped;
-for (const fn of ['isMember', 'isOwner', 'claimsSelfAsOwner']) {
+// `rosterIsWellFormed` is in this list even though it is a write-shape rule, not a membership
+// one: two of the denials above (removing the owner, re-roling the last one) are refused by
+// the roster invariant as well, so leaving it armed would make this control report fewer
+// flips than there are denials while measuring the wrong predicate.
+for (const fn of ['isMember', 'isOwner', 'claimsSelfAsOwner', 'rosterIsWellFormed']) {
   membersOff = neuter(membersOff, fn, 'return request.auth != null;',
     'without a working phase 10 the suite cannot distinguish member gating from a bare auth floor.');
 }
-await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+await seedGated();
 {
   const r = await loadRules(membersOff);
   console.log(`  membership-removed rules compile: HTTP ${r.status}`);
@@ -553,7 +618,7 @@ const phase10 = flush('PHASE 10 (membership REMOVED)  <-- MUST be red');
 // seed() reloads the shipped rules, and phase 10 mutated and then deleted trips/L, so the
 // fixture is rebuilt rather than assumed.
 console.log('\n\n=== 10b. MEMBERSHIP RESTORED ===');
-await seed(['trips', L], { schemaVersion: 1, members: { [O]: 'owner', [M]: 'member' } });
+await seedGated();
 for (const [name, fn] of MEMBER_DENIALS) await expect(name, 'DENIED', fn);
 const phase10b = flush('PHASE 10b (membership RESTORED)');
 

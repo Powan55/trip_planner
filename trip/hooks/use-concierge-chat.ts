@@ -136,11 +136,16 @@ export interface TripDescriptor {
  *
  * THREE FIELDS ONLY. `vibe` / `legs` / `currency` / `id` are ignored by `normalizeTrip` and would
  * only eat body budget, and the date range and cities are already on the wire inside the digest.
+ *
+ * `label` is the one field here this device does not author — it comes off the trip's meta doc,
+ * which any member of the trip writes. The slice bounds its LENGTH; `oneLine` (below) is what
+ * bounds its STRUCTURE, and the prompt it lands in is line-oriented. `start`/`end` need neither:
+ * `sanitizeTripConfig` already pins them to `YYYY-MM-DD`.
  */
 export function buildTripDescriptor(): TripDescriptor | null {
   if (isDefaultTrip()) return null;
   const trip = getActiveTrip();
-  return { label: trip.label.slice(0, TRIP_LABEL_MAX), start: trip.start, end: trip.end };
+  return { label: oneLine(trip.label).slice(0, TRIP_LABEL_MAX), start: trip.start, end: trip.end };
 }
 
 /**
@@ -175,7 +180,7 @@ export function buildTripDescriptor(): TripDescriptor | null {
  * dates; it no longer slices mid-line. See the overflow block at the bottom of the function.
  */
 // The digest is a LINE-oriented format ("date city: item; item") assembled by interpolation, and
-// item titles / day cities reach storage from paths no `<input>` constrains: a restored backup
+// every field it interpolates reaches storage from paths no `<input>` constrains: a restored backup
 // (`parseItineraryPayloadStrict`'s per-item rule is a bare `z.string()`) and a Firestore snapshot
 // written by the other member's device. A stored title carrying `\n` therefore forged its own row,
 // indistinguishable to the model from a real one — enough to steer the reply into a phishing link
@@ -221,7 +226,9 @@ export function buildTripDigest(): string {
   const stamp = `Today is ${now.date} ${formatTimeAmPm(now.minutes)}`;
   head.push(
     today
-      ? `${stamp} (Day ${today.dayNumber} of ${TRIP_DATES.length}, ${today.city}).`
+      // `today.city` resolves to a custom trip's own `destinations[0]`, which reaches the device
+      // from its meta doc — the same kind of value as the day lines below, so the same strip.
+      ? `${stamp} (Day ${today.dayNumber} of ${TRIP_DATES.length}, ${oneLine(today.city)}).`
       : `${stamp} (${now.date < TRIP_DATES[0] ? 'before' : 'after'} the trip).`,
   );
 
@@ -248,7 +255,9 @@ export function buildTripDigest(): string {
         // D-138 canonical STORAGE format and stays that, in the `time` field, untouched.
         const minutes = effectiveStartMinutes(i);
         const time = minutes === undefined ? '' : `${formatTimeAmPm(minutes)} `;
-        return `${time}${i.category} ${oneLine(i.title)} #${i.id}`;
+        // Every field of a stored item is a bare `z.string()` at the read boundary (permissive on
+        // read, deliberately), so `category` and `id` reach this line as freely as `title` does.
+        return `${time}${oneLine(i.category)} ${oneLine(i.title)} #${oneLine(i.id)}`;
       })
       .join('; ');
     days.push({ date, line: `${date} ${oneLine(city)}: ${entries}` });

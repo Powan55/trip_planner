@@ -20,7 +20,7 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
  * hand-rolled sheets (place-detail, import-place, guide-filter) each duplicated:
  * portal to <body> (mount-guarded, SSR-safe under output:'export'), a document-
  * level Escape, a Tab focus-trap inside the panel, first-focusable autofocus, the
- * `body[data-dialog-open]` seam flag (Lane-M FAB hides on it), and PARENT-OWNED
+ * `body[data-dialog-open]` flag the quick-add FAB hides on (D-369), and PARENT-OWNED
  * focus-return fired on the framer exit (`onExitComplete`). The panel carries the
  * app's SOLE surviving glass recipe (`.sheet-surface`, globals.css) — the nav/
  * overlay layer, HIG-legal — over a SOLID `bg-black/70` scrim. The scrim's own blur is
@@ -30,7 +30,7 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
  * bundle does not own, so its blur is still live and is owed a decision.
  *
  * Radix was deliberately NOT adopted: the existing `components/ui/sheet.tsx` radix
- * Sheet is LIGHT-MODE and, contrary to the A5's "dead code" note, is a
+ * Sheet is LIGHT-MODE and, contrary to an earlier note calling it dead code, is a
  * LIVE dependency of concierge-chat — so it is left intact. This
  * dark primitive is a pure de-duplication of the three hand-rolled sheets — zero
  * behaviour change, intact.
@@ -58,6 +58,8 @@ export interface SheetProps {
   /**
    * When true the sheet's Escape handler no-ops — used when a nested dialog is
    * open over the sheet and owns Escape, so one press closes the topmost layer.
+   * Rarely needed now: any layer holding `body[data-dialog-open]` suppresses this
+   * one automatically. This stays for a nested layer that does not register there.
    */
   disableEscape?: boolean;
   /** Focus target on open; defaults to the panel's first focusable element. */
@@ -106,9 +108,20 @@ export default function Sheet({
     return () => clearTimeout(timer);
   }, [open, initialFocusRef]);
 
-  // Document-level Esc — suppressed when a nested layer owns it.
+  // body[data-dialog-open] while open — the quick-add FAB hides on it (D-369). Ref-counted, so a
+  // dialog opened on top of this sheet cannot clear it on its way out — and it reports back
+  // whether such a dialog is there, which is what suppresses Escape below.
+  const covered = useDialogOpenFlag(open);
+
+  // Document-level Esc — suppressed when a nested layer owns it. Both handlers sit on
+  // `document`, so `preventDefault()` in the deeper one cannot stop this one from also firing:
+  // a single press would close the dialog AND the sheet under it. `covered` is the general
+  // answer — every modal layer registers with the shared flag, so the sheet stands down
+  // whenever one opens over it, including a nested dialog that owns its `open` state privately
+  // and so cannot be wired through the `disableEscape` prop.
+  const escapeDisabled = disableEscape || covered;
   useEffect(() => {
-    if (!open || disableEscape) return;
+    if (!open || escapeDisabled) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -117,11 +130,7 @@ export default function Sheet({
     };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, disableEscape]);
-
-  // body[data-dialog-open] seam flag while open (Lane-M FAB hides on it). Ref-counted, so a
-  // dialog opened on top of this sheet cannot clear it on its way out.
-  useDialogOpenFlag(open);
+  }, [open, escapeDisabled]);
 
   // Tab focus-trap inside the panel.
   const handleKeyDown = (e: React.KeyboardEvent) => {

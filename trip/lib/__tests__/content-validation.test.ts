@@ -23,6 +23,8 @@ import {
   foodItemSchema,
   etiquetteTipSchema,
   inspirationHighlightSchema,
+  mapMarkerSchema,
+  markerCategories,
   journeySchema,
   staySchema,
 } from '@/core/content/schema';
@@ -31,6 +33,7 @@ import { NEPAL_ATTRACTIONS, NEPAL_FOOD, NEPAL_CATEGORIES } from '@/lib/nepal-dat
 import { JAPAN_ATTRACTIONS, JAPAN_FOOD, JAPAN_CATEGORIES } from '@/lib/japan-data';
 import { NIGHTLIFE_VENUES } from '@/lib/nightlife-data';
 import { PHOTO_SPOTS, PHOTO_CATEGORIES } from '@/lib/photography-data';
+import { MAP_MARKERS, MARKER_CATEGORIES } from '@/lib/map-data';
 import { FEATURED_DESTINATIONS, LOCAL_FOODS, ETIQUETTE_TIPS } from '@/lib/travel-tips-data';
 import { INSPIRATION_HIGHLIGHTS } from '@/lib/inspiration-data';
 import { JOURNEYS, BOOKED_STAYS } from '@/lib/booking-data';
@@ -112,6 +115,10 @@ describe('validate:content — every content domain parses its STRICT schema', (
     eachValid(photoSpotSchema, PHOTO_SPOTS, 'PHOTO_SPOTS');
   });
 
+  it('map markers — the interactive map table', () => {
+    eachValid(mapMarkerSchema, MAP_MARKERS, 'MAP_MARKERS');
+  });
+
   it('travel tips — featured / foods / etiquette', () => {
     eachValid(featuredDestinationSchema, FEATURED_DESTINATIONS, 'FEATURED_DESTINATIONS');
     eachValid(foodItemSchema, LOCAL_FOODS, 'LOCAL_FOODS');
@@ -153,6 +160,7 @@ describe('validate:content — cross-content invariants', () => {
     expect(findDuplicates(JAPAN_FOOD.map((r) => r.id))).toEqual([]);
     expect(findDuplicates(NIGHTLIFE_VENUES.map((r) => r.id))).toEqual([]);
     expect(findDuplicates(PHOTO_SPOTS.map((r) => r.id))).toEqual([]);
+    expect(findDuplicates(MAP_MARKERS.map((r) => r.id))).toEqual([]);
     expect(findDuplicates(JOURNEYS.map((r) => r.id))).toEqual([]);
     expect(findDuplicates(BOOKED_STAYS.map((r) => r.id))).toEqual([]);
     expect(findDuplicates(INSPIRATION_HIGHLIGHTS.map((r) => r.id))).toEqual([]);
@@ -168,6 +176,23 @@ describe('validate:content — cross-content invariants', () => {
     for (const h of INSPIRATION_HIGHLIGHTS) {
       expect(known.has(h.image), `${h.id} → ${h.image} is not a bundled image`).toBe(true);
     }
+  });
+
+  // Same rule as the inspiration gallery above, on the domain that gained 65 photographs in
+  // one commit: a marker whose `image` is not a manifest key renders its popup with no photo
+  // and nothing anywhere says so. The schema only proves the string shape.
+  it('every map-marker image is a real bundled asset (a lib/image-manifest.json key)', () => {
+    const known = new Set(Object.keys(imageManifest));
+    for (const m of MAP_MARKERS) {
+      if (!m.image) continue;
+      expect(known.has(m.image), `${m.id} → ${m.image} is not a bundled image`).toBe(true);
+    }
+  });
+
+  // The schema's enum and the map's filter list are two hand-kept copies of one set. If they
+  // diverge, a marker parses clean here and then cannot be reached through the filter UI.
+  it('the marker schema enum and MARKER_CATEGORIES are the same set', () => {
+    expect([...markerCategories].sort()).toEqual([...MARKER_CATEGORIES].sort());
   });
 
   it('the inspiration gallery covers BOTH countries, and no alt text just repeats its title', () => {
@@ -203,6 +228,11 @@ describe('validate:content — cross-content invariants', () => {
     for (const p of PHOTO_SPOTS) {
       expect(PHOTO_CATEGORIES, `Photo category "${p.category}" (${p.id}) not in filter list`).toContain(
         p.category,
+      );
+    }
+    for (const m of MAP_MARKERS) {
+      expect(MARKER_CATEGORIES, `Marker category "${m.category}" (${m.id}) not in filter list`).toContain(
+        m.category,
       );
     }
   });
@@ -242,6 +272,20 @@ describe('validate:content — the validator HAS TEETH (broken fixture is reject
   it('flags a day OFF the 32 TRIP_DATES via the coverage invariant', () => {
     const dates = broken.dayOffTripDates.map((d) => d.date);
     expect(dates.every((d) => TRIP_DATES.includes(d))).toBe(false);
+  });
+
+  // The map table's own red-proof, written inline rather than into the shared fixture because
+  // the three ways a marker row goes wrong are all specific to it: a category outside the
+  // filter list, a coordinate that maplibre's LngLat constructor would throw on, and a typo'd
+  // key that would silently carry no photo.
+  it('rejects a bad marker — category, out-of-range lat, and an unknown key', () => {
+    const base = {
+      id: 'np-x', name: 'X', category: 'Cultural', country: 'Nepal', area: 'Kathmandu',
+      description: 'A place.', lng: 85.3, lat: 27.7, x: 10, y: 10,
+    };
+    expect(issuePaths(mapMarkerSchema.safeParse({ ...base, category: 'Nightlife' }))).toContain('category');
+    expect(issuePaths(mapMarkerSchema.safeParse({ ...base, lat: 500 }))).toContain('lat');
+    expect(issueMentions(mapMarkerSchema.safeParse({ ...base, imagee: '/images/map/x.jpg' }), 'imagee')).toBe(true);
   });
 
   it('prints the red-proof (what a rejection looks like — visible in the run output)', () => {

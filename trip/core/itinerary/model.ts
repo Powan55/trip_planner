@@ -8,13 +8,14 @@
  * remote `days/{date}.items` array threw inside `mergeItems` (which dereferences `it.id`
  * unconditionally) on every device that received the snapshot.
  *
- * THE RULE IS THE VAULT'S OWN, NOT A SECOND ONE. `itineraryItemSchema` (core/vault/schema.ts)
- * is already the declared lenient read contract for an item — `category` a plain string, no
- * range clamps, `.passthrough()` for forward keys. Re-stating it here would give the remote
- * boundary and the on-disk boundary two rules that could drift apart, so this imports it. The
- * resulting import cycle (schema.ts also imports this module, for `parseItineraryPayload`) is
- * safe by construction: neither side touches the other at module-init time, only inside a
- * function body.
+ * THE RULE IS THE VAULT'S OWN, NOT A SECOND ONE. `itineraryItemSchema`
+ * (core/vault/item-schema.ts) is already the declared lenient read contract for an item —
+ * `category` a plain string, `.passthrough()` for forward keys, and a coordinate degraded to
+ * absent rather than a row dropped. Re-stating it here would give the remote boundary and the
+ * on-disk boundary two rules that could drift apart, so this imports it. It imports the LEAF
+ * module, not `core/vault/schema.ts`: that file imports this one (for `parseItineraryPayload`),
+ * and the two used to be a runtime import cycle whose safety rested on nobody dereferencing
+ * across it at module-eval time.
  *
  * LENIENT, and deliberately so: dropping a good row is a worse bug than the one this fixes.
  * Nothing is coerced, nothing absent is defaulted, unknown forward keys survive, and rows are
@@ -25,7 +26,7 @@
  */
 
 import type { ItineraryItem } from '@/lib/trip-data';
-import { itineraryItemSchema } from '@/core/vault/schema';
+import { itineraryItemSchema } from '@/core/vault/item-schema';
 
 /**
  * Narrow one untrusted value into an `ItineraryItem`, or `null` when it is unsalvageable:

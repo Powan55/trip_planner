@@ -54,13 +54,22 @@ git switch lax && git merge dev
 Five jobs, in `.github/workflows/ci.yml`: Checks, Firestore rules, E2E, Visual
 regression and Release gate.
 
-**Checks** (about 5 minutes) runs on every push to `lax`, `uttam` and `dev`, on
-every pull request into `dev` or `main`, and again on the push to `main` that
-deploys:
+**Checks** (about 5 minutes) runs on every push to every branch except `main`,
+on every pull request into `dev` or `main`, and again on the push to `main` that
+deploys.
 
-- repository hygiene (see below)
+Six of its steps need no dependencies, so they run before the install and answer
+in seconds:
+
+- `node scripts/marker-check.mjs --self-test` (the marker set still lines up with its own cases)
+- `node scripts/marker-check.mjs` (repository hygiene — see below)
 - `node scripts/contrast-tokens.mjs` (design-token contrast against the pinned palette)
 - `node scripts/motion-loops.mjs` (ambient-loop floor: no sub-6s loop outside the allowlist, and every loop needs a reduced-motion stop)
+- `node scripts/token-wrappers.mjs --self-test` (same reason as the marker set's)
+- `node scripts/token-wrappers.mjs` (no bare `var(--x)` in a colour position)
+
+Then the install, and the four that need it:
+
 - `npx tsc --noEmit`
 - `npm run lint`
 - `npm test` (Vitest)
@@ -89,11 +98,19 @@ is installed. It fails if:
 
 - `trip/package.json`'s version already carries a `v<version>` tag, meaning it has
   been deployed before
+- no `v*.*.*` tags are visible at all, so it cannot tell whether the version went up
+  (that is the shallow-checkout state — both call sites pin `fetch-depth: 0`)
+- the version is not a plain `N.N.N`, so it cannot be ordered
+- the version is not *above* the newest deploy tag
 - `trip/docs/RELEASES.md` has no `## v<version> ` entry
+- that entry's heading carries a hold marker (`NOT DEPLOYED`, `NOT SHIPPED`, `⛔`)
+- `trip/docs/RELEASES.md`'s preamble names some version other than the newest deploy
+  tag as the newest live app
 - the pull request came from a branch other than `dev`
 
-The first two are the two things you were already told to do before shipping. See
-"Versions and deploys".
+Every one of them is reported on the same run — none is skipped because an earlier
+one failed. The release-notes ones are the thing you were already told to do
+before shipping. See "Versions and deploys".
 
 Pushing to your own branch gives you the fast half. The full suite runs when you
 open the pull request, which is where it matters. Expect to wait.

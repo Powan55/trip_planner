@@ -5,6 +5,7 @@ import { Download, Check, AlertTriangle } from 'lucide-react';
 import { signOut } from '@/lib/token-auth';
 import { downloadTripBackup } from '@/lib/trip-backup';
 import { defaultBlobStore } from '@/core/photos/blob-store';
+import { removeKey, STORAGE_KEYS } from '@/core/storage/gateway';
 import {
   AlertDialog,
   AlertDialogTrigger,
@@ -30,9 +31,12 @@ import {
  * stay available.
  *
  * `forgetDevice` escalates to ALSO clear every locally
- * stored photo blob (IndexedDB, app-scoped) via `defaultBlobStore.clear()` before signing out —
- * strictly more destructive than a plain sign-out, which deliberately leaves photos alone (a photo
- * is expensive to re-acquire and is not identity-linked).
+ * stored photo blob (IndexedDB, app-scoped) via `defaultBlobStore.clear()`, and the three
+ * lifetime-scoped keys (`lifetimeVisits`, `visitConfirmations`, `passportStamps`) that
+ * `wipeAllTripData()` deliberately leaves behind — D-314 names THIS path, and only this path, as
+ * where a handed-down device stops carrying the previous traveller's travel history. Strictly more
+ * destructive than a plain sign-out, which leaves photos and that history alone (a photo is
+ * expensive to re-acquire and is not identity-linked; the history outlives every trip).
  *
  * Reload after teardown (Ruling 3): the local domain stores (`hooks/create-reactive-store.ts`) only
  * re-read on their own event or a cross-tab `storage` event, which never fires in the tab that made
@@ -68,7 +72,14 @@ export default function SignOutConfirm({
 
   const handleConfirm = () => {
     void (async () => {
-      if (forgetDevice) await defaultBlobStore.clear();
+      if (forgetDevice) {
+        await defaultBlobStore.clear();
+        // The three lifetime-scoped keys stay out of `wipeAllTripData()` on purpose (D-314/D-320);
+        // this path is the one clearing surface D-314 names for a handed-down device.
+        removeKey('local', STORAGE_KEYS.lifetimeVisits);
+        removeKey('local', STORAGE_KEYS.visitConfirmations);
+        removeKey('local', STORAGE_KEYS.passportStamps);
+      }
       signOut();
       // Reload after teardown (Ruling 3) — every mounted local store re-hydrates fresh; precedent.
       window.location.reload();
@@ -90,7 +101,7 @@ export default function SignOutConfirm({
           <AlertDialogTitle>{forgetDevice ? 'Forget this device?' : 'Sign out of this device?'}</AlertDialogTitle>
           <AlertDialogDescription className="text-[color:var(--text-mid)]">
             {forgetDevice
-              ? "This does everything signing out does, and also permanently deletes every photo stored on this device. Your key still gets you back into your account, but neither the plan nor these photos come back unless the trip was synced elsewhere first."
+              ? "This does everything signing out does, and also permanently deletes every photo stored on this device and your travel history — the cities and countries you've recorded visiting, and their passport stamps. Your key still gets you back into your account. The plan and the photos come back only if the trip was synced elsewhere first; the travel history is kept only here, so it is gone for good."
               : "This removes this trip's data from this device. Your key gets you back into your account, but the plan itself won't come back unless it's synced to another device."}
           </AlertDialogDescription>
         </AlertDialogHeader>

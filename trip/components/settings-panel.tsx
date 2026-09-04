@@ -36,7 +36,7 @@ import {
   identityStore,
 } from '@/core/storage/gateway';
 import SignOutConfirm from '@/components/sign-out-confirm';
-import { joinTrip } from '@/core/trips/registry';
+import { joinTrip, JOIN_REFUSAL_COPY } from '@/core/trips/registry';
 import { getTripId, isRemoteConfigured } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
 import { useBudget } from '@/hooks/use-budget';
@@ -309,14 +309,16 @@ function IdentityGroup({ name }: { name: string | null }) {
       {/* (Q3) — claim the items you stamped under a name you used to go by. */}
       {name && <ClaimOldName current={name} />}
       {/* "Forget this device" — settings-only, strictly more destructive than sign-out: ALSO
-          deletes every locally-stored photo (IndexedDB, app-scoped). Gated on `name` like Rename
-          above (meaningless when not signed in). */}
+          deletes every locally-stored photo (IndexedDB, app-scoped) AND the three lifetime-scoped
+          travel-history keys (D-314/D-320), which no other surface clears. Gated on `name` like
+          Rename above (meaningless when not signed in). */}
       {name && (
         <div className="border-hair border-border bg-surface-raised px-gut py-4">
           <h3 className="pr pr--l text-ink-hi">Forget this device</h3>
           <p className="mt-1 max-w-2xl text-t-body text-ink-mid">
-            Signs out and permanently deletes every photo stored on this device. Use this before
-            handing the device to someone else or giving it away.
+            Signs out and permanently deletes every photo stored on this device, plus your travel
+            history &mdash; the cities and countries you&rsquo;ve recorded visiting, and their
+            passport stamps. Use this before handing the device to someone else or giving it away.
           </p>
           <SignOutConfirm testId="settings-forget-device" forgetDevice>
             <button
@@ -947,6 +949,8 @@ function ClaimOldName({ current }: { current: string }) {
 function TripGroup() {
   const [tripKey, setTripKey] = useState<string | null>(null);
   const [joinValue, setJoinValue] = useState('');
+  /** The join form's one refusal message, or null. Same shape as the /trips form. */
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [copied, setCopied] = useState<'key' | 'link' | null>(null);
   // True once mounted iff the browser is on a non-default (shared/created) pack — drives the
   // "Switch to my main trip" affordance. SSR-false so the button never flashes on the
@@ -977,8 +981,14 @@ function TripGroup() {
   const join = (e: React.FormEvent) => {
     e.preventDefault();
     const id = joinValue.trim();
-    if (!id) return; // non-empty is the only possible/needed validation
-    joinTrip(id, 'Shared trip');
+    if (!id) return;
+    // Same refusal, same words as the /trips form — a refusal the user cannot see reads as
+    // "wrong token" and gets pasted again.
+    const joined = joinTrip(id, 'Shared trip');
+    if (!joined.ok) {
+      setJoinError(JOIN_REFUSAL_COPY[joined.reason]);
+      return;
+    }
     window.location.reload();
   };
 
@@ -1100,12 +1110,17 @@ function TripGroup() {
           <input
             id="settings-trip-join"
             value={joinValue}
-            onChange={(e) => setJoinValue(e.target.value)}
+            onChange={(e) => {
+              setJoinValue(e.target.value);
+              setJoinError(null);
+            }}
             placeholder="Paste a Trip Token"
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
             data-testid="settings-trip-join-input"
+            aria-invalid={joinError ? true : undefined}
+            aria-describedby={joinError ? 'settings-trip-join-error' : undefined}
             className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
           />
           <button
@@ -1117,6 +1132,16 @@ function TripGroup() {
             Add trip
           </button>
         </div>
+        {joinError && (
+          <p
+            id="settings-trip-join-error"
+            role="alert"
+            data-testid="settings-trip-join-error"
+            className="err mt-2 text-t-sm"
+          >
+            {joinError}
+          </p>
+        )}
       </form>
 
       {/* Settings stays the secondary surface — the full list/rename/switch UX lives on

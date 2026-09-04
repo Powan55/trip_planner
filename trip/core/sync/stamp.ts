@@ -115,7 +115,7 @@ export function stampSyncDeleted(item: ItineraryItem, physicalNow: number, actor
  *
  * Array position is not a merge-visible fact. `mergeItems` re-sorts every merged row-set by
  * `ord ?? hlc` ascending, and that sort runs at BOTH sync boundaries (`pushDayMerged` →
- * `mergeDay(remoteNow, localDay)`, and the server-acked snapshot → `mergeDays`). So a reorder
+ * `mergeDay(localDay, remoteNow)`, and the server-acked snapshot → `mergeDays`). So a reorder
  * that leaves the order key alone is silently reverted by the very next merge — including a
  * self-merge of a snapshot the device produced itself. Making the new order ascend in `ord` is
  * what makes it survive, WITHOUT touching the sort rule that four other synced domains share.

@@ -122,12 +122,20 @@ function isMigratableDay(day: unknown): boolean {
  *
  * Returns the migrated payload (still `unknown` — the caller validates it against the
  * current Zod schema before trusting it).
+ *
+ * `dropUnmigratableRows` is the read-vs-import split D-364 draws, applied to the CHAIN rather
+ * than to the parse that follows it. Default `true` is the on-disk read's partial-beats-nothing
+ * rule (#123). `false` is the import/restore boundary: the row stays in, the step throws on it,
+ * and the caller quarantines the file — because dropping it here deletes rows BEFORE
+ * `parseItineraryPayloadStrict` can see them, so the strict gate passes on the survivors and a
+ * truncated file overwrites a live trip while reporting success.
  */
 export function runItineraryMigrations(
   payload: unknown,
   fromVersion: number,
   migrations: Migration[] = itineraryMigrations,
   targetVersion: number = CURRENT_ITINERARY_VERSION,
+  dropUnmigratableRows = true,
 ): unknown {
   let version = fromVersion;
   let current = payload;
@@ -144,7 +152,7 @@ export function runItineraryMigrations(
     // day. Dropping those rows here (not per-step) is what makes every current and future step
     // inherit the rule; the survivors are still re-validated by `parseItineraryPayload`, which
     // reports the drop through its existing "dropped N malformed row(s)" warn.
-    if (Array.isArray(current)) current = current.filter(isMigratableDay);
+    if (dropUnmigratableRows && Array.isArray(current)) current = current.filter(isMigratableDay);
     current = step.migrate(current);
     version = step.to;
   }

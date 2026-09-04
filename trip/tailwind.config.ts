@@ -13,7 +13,6 @@ const config: Config = {
   content: {
     transform: { DEFAULT: stripJsNegation },
     files: [
-    './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     // 🔴 — `lib/` IS a class-name source and must stay scanned. DO NOT prune this as an
@@ -40,15 +39,21 @@ const config: Config = {
         // loaded with `preload:false` (layout.tsx) — that flag is what makes the
         // second face affordable and must not be removed.
         //
-        // The flip is gated on the font audit, which resolved REPAIR-THEN-FLIP:
-        // there are 80 live `font-display` sites (NOT the 85 this comment used to
-        // claim, and not the plan's 84 — reconciled by two independent audits), of
+        // The flip resolved REPAIR-THEN-FLIP. At the time it landed there were 80
+        // live `font-display` sites (not the 85 an earlier version of this comment
+        // claimed, and not the plan's 84), of
         // which 4 were leaks where `font-display` had been reached for to get WEIGHT
-        // on a data VALUE. Those four are repaired in the same commit as this flip
+        // on a data VALUE. Those four were repaired in the same commit as the flip
         // (token-gate/budget-panel -> font-mono; weather-card/flight-journey-card ->
         // dropped). Inheritance was walked across all 30 container sites: no
         // `font-display` sits on a page/section/card wrapper, so the serif cannot
         // leak onto descendants.
+        //
+        // THE 80 ABOVE IS HISTORY, NOT A LIVE COUNT, and the gap is the point: four
+        // `className` uses survive today (app/passport/page.tsx, home-chapters.tsx,
+        // landing-page.tsx twice). The sweeps since replaced most of them with the
+        // `text-display-*` / `text-editorial-*` scales, which is why the second face
+        // stays affordable. Do not re-derive the 80 — it dates the decision.
         //
         // STANDING RULE: `font-display` is for HEADINGS, never for a value.
         // A value that must align or be read for precision takes `font-mono`.
@@ -262,13 +267,11 @@ const config: Config = {
         //                  six ruled lips use, so this lands the missing lip on the
         //                  same rule rather than by eye.
         //
-        // MEASURED on the D-334 page field, because these are used as text and not
-        // only as fills: gold-400 12.25, gold-500 8.79, gold-600 6.07 · sakura-300
-        // 11.62, sakura-400 9.28, sakura-500 8.23, sakura-600 4.85 · himalaya-400
-        // 8.30, himalaya-500 6.50, himalaya-600 4.96. Every step clears AA as text on
-        // the canvas, including the frozen ones. NONE OF THESE NINE HEXES MOVED in
-        // D-334 — only the chrome accent and the surface ramp did, and these three
-        // families are neither. The numbers changed because the FIELD under them did.
+        // MEASURED AS TEXT ON THE PAGE FIELD, in scripts/contrast-tokens.mjs — all ten
+        // ratios live in its published-ratios table, which fails the run when one goes
+        // stale. They used to be written out here and all ten drifted silently when the
+        // field was re-cast, which is why they are under a runner now and not in a
+        // comment. Every step clears AA as text on the canvas, including the frozen ones.
         //
         // THE COST OF FREEZING, named rather than left to be discovered: about 10
         // gold-500 sites now pair a retired-gold wash with marigold text — the

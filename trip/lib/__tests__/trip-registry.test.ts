@@ -17,6 +17,7 @@ import {
   DEFAULT_TRIP_ID,
   setActiveTripId,
   getActiveTripId,
+  setSyncCode,
 } from '@/core/storage/gateway';
 import {
   listKnownTrips,
@@ -169,6 +170,55 @@ describe('trip registry (S238)', () => {
     joinTrip('abc-123', 'Named once');
     joinTrip('abc-123', 'Shared trip'); // e.g. re-opening the same share link
     expect(listKnownTrips().find((t) => t.id === 'abc-123')?.name).toBe('Named once');
+  });
+
+  // ── the two-token invariant: the account credential is never a trip ────────
+  //
+  // A trip row IS a shareable capability (the id is the Trip Token, and /trips renders copy
+  // affordances for it), so the account key must never become one. `joinTrip` is the single entry
+  // point every join/switch surface routes through, which is why the check lives there and not in
+  // four forms.
+  describe('joinTrip refuses the account credential', () => {
+    const ACCOUNT = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d';
+
+    it('the value getSyncCode() returns is refused, named, and writes NOTHING', () => {
+      setSyncCode(ACCOUNT);
+      joinTrip('real-trip', 'A real trip'); // a normal join first, so "unchanged" means something
+      const listBefore = window.localStorage.getItem(KEY);
+
+      expect(joinTrip(ACCOUNT, 'Looks like a trip')).toEqual({
+        ok: false,
+        reason: 'own-account-token',
+      });
+      expect(getActiveTripId()).toBe('real-trip'); // pointer never moved
+      expect(window.localStorage.getItem(KEY)).toBe(listBefore); // no row, no rewrite
+      expect(listKnownTrips().some((t) => t.id === ACCOUNT)).toBe(false);
+    });
+
+    it('refused however it was pasted — surrounding space and a different case are the same key', () => {
+      setSyncCode(ACCOUNT);
+      expect(joinTrip(`  ${ACCOUNT}  `)).toEqual({ ok: false, reason: 'own-account-token' });
+      expect(joinTrip(ACCOUNT.toUpperCase())).toEqual({ ok: false, reason: 'own-account-token' });
+      expect(listKnownTrips()).toEqual([
+        { id: DEFAULT_TRIP_ID, name: 'Nepal × Japan', joinedAt: 0 },
+      ]);
+    });
+
+    it('any OTHER non-empty id still joins, with an account set', () => {
+      setSyncCode(ACCOUNT);
+      expect(joinTrip('friends-trip', 'Friends trip')).toEqual({ ok: true });
+      expect(getActiveTripId()).toBe('friends-trip');
+      expect(listKnownTrips().find((t) => t.id === 'friends-trip')?.name).toBe('Friends trip');
+    });
+
+    it('no account on this device ⇒ nothing to compare against, so joins are unaffected', () => {
+      expect(joinTrip('friends-trip', 'Friends trip')).toEqual({ ok: true });
+      expect(getActiveTripId()).toBe('friends-trip');
+    });
+
+    it('an empty id is refused by its own name, not silently', () => {
+      expect(joinTrip('')).toEqual({ ok: false, reason: 'empty' });
+    });
   });
 
   // ── removeKnownTrip sweeps the trip's local data (A-10 / #100) ─────────────

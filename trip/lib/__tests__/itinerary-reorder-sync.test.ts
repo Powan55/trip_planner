@@ -4,7 +4,7 @@
 //
 // The chain under test is the real one, composed exactly as production composes it:
 //   1. `useItinerary().reorderItems` writes the new order to localStorage (the real hook).
-//   2. `pushDayMerged` (lib/itinerary-remote.ts) writes `mergeDay(remoteNow, localDay)`.
+//   2. `pushDayMerged` (lib/itinerary-remote.ts) writes `mergeDay(localDay, remoteNow)`.
 //   3. the server-acked snapshot reaches `applyRemoteMerged`, which persists
 //      `mergeDays(loadPlans(), remoteDays)`.
 // Steps 2 and 3 are the REAL `mergeDay`/`mergeDays`, called with the same arguments those two
@@ -147,14 +147,42 @@ describe('drag-to-reorder inside a day survives the sync round trip', () => {
     // Local state is what the user sees immediately.
     expect(ids(dayOf(h.current.plans).items)).toEqual(['c', 'a', 'b']);
 
-    // 2. what pushDayMerged writes to Firestore: mergeDay(remoteNow, localDay).
+    // 2. what pushDayMerged writes to Firestore: mergeDay(localDay, remoteNow).
     const localDay = dayOf(loadPlans());
-    const written = mergeDay(remoteNow, localDay);
+    const written = mergeDay(localDay, remoteNow);
     expect(ids(written.items)).toEqual(['c', 'a', 'b']);
 
     // 3. the server-acked snapshot: applyRemoteMerged persists mergeDays(loadPlans(), remoteDays).
     const applied = mergeDays(loadPlans(), [written]);
     expect(ids(dayOf(applied).items)).toEqual(['c', 'a', 'b']);
+  });
+
+  // DOCUMENTATION, NOT A PIN. Every other case in this file passes in either argument order
+  // because `mergeItems` is commutative; this one shows what the order actually decides —
+  // `mergeDay` resolves day metadata to its FIRST argument, and all three production call sites
+  // pass the local day, so a stale value on the remote doc is corrected by this device's push.
+  // It spells that order in its OWN body and never calls `pushDayMerged`, so flipping the
+  // production call leaves this GREEN — only the two lines below can turn it red. The real pin
+  // is `itinerary-remote-sync.test.ts` → "day metadata resolves to LOCAL on the push, matching
+  // the snapshot merge", which drives the real `pushDayMerged` against a fake Firestore and
+  // reads the written doc back. Change the order there, not here, to see a failure.
+  it('composes the day-metadata precedence both boundaries use (the item merge hides it elsewhere)', async () => {
+    const h = await seedThreeItems();
+    // The remote doc was written by an older build: coerced leg id, stale city.
+    const remoteNow: DayPlan = { ...dayOf(loadPlans()), city: 'Kathmandu', country: 'nepal' };
+
+    state.nowMs += 1000;
+    await h.run((s) => s.reorderItems(DATE, ['c', 'a', 'b']));
+    const localDay: DayPlan = { ...dayOf(loadPlans()), city: 'New York', country: 'main' };
+
+    const written = mergeDay(localDay, remoteNow); // 2. pushDayMerged
+    expect(written.country).toBe('main');
+    expect(written.city).toBe('New York');
+    expect(ids(written.items)).toEqual(['c', 'a', 'b']); // the item merge is unchanged
+
+    const applied = dayOf(mergeDays([localDay], [remoteNow])); // 3. applyRemoteMerged
+    expect(applied.country).toBe('main');
+    expect(applied.city).toBe('New York');
   });
 
   it('a pending tombstone still propagates and is not restamped by the reorder', async () => {
@@ -184,7 +212,7 @@ describe('drag-to-reorder inside a day survives the sync round trip', () => {
     await h.run((s) => s.updateItem(DATE, 'a', { done: true }));
     expect(ids(dayOf(h.current.plans).items)).toEqual(['a', 'b', 'c']);
 
-    const written = mergeDay(remoteNow, dayOf(loadPlans()));
+    const written = mergeDay(dayOf(loadPlans()), remoteNow);
     expect(ids(written.items)).toEqual(['a', 'b', 'c']);
     expect(written.items.find((i) => i.id === 'a')!.done).toBe(true);
 
@@ -210,7 +238,7 @@ describe('drag-to-reorder inside a day survives the sync round trip', () => {
     state.nowMs += 5000;
     await h.run((s) => s.reorderItems(DATE, ['c', 'a', 'b']));
 
-    const written = mergeDay(remoteAfterPeer, dayOf(loadPlans()));
+    const written = mergeDay(dayOf(loadPlans()), remoteAfterPeer);
     expect(ids(written.items)).toEqual(['c', 'a', 'b']); // the drag lands
     expect(written.items.find((i) => i.id === 'b')!.notes).toBe('peer note'); // and costs nothing
   });

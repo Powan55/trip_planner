@@ -142,6 +142,52 @@ export const photoSpotSchema = z
   })
   .strict();
 
+// ── Interactive map (lib/map-data.ts — MapMarker) ──────────────────────────────────────────
+// The largest content table in the repo and the last one outside this layer: it was never
+// enrolled when the validator was built (D-135's onboarding rule covers NEW domains, and this
+// one predates it), so it had none of the three guards its siblings inherit while it went from
+// 73 to 156 rows and 24 to 89 photographs in a single commit.
+//
+// The 7 categories are re-declared here rather than imported: `core/` must not depend on
+// `lib/`, and this is an authoring schema, not a re-export. The two lists agreeing is itself a
+// cross-content invariant, checked in the validate:content suite — if they ever diverge, a
+// marker parses fine here and then vanishes from the map's filter UI.
+export const markerCategories = [
+  'Attraction',
+  'Restaurant',
+  'Hotel',
+  'Photo Spot',
+  'Day Trip',
+  'Shopping',
+  'Cultural',
+] as const;
+
+// `country` is z.enum here while `MapMarker.country` is a plain string, and that is the strict/
+// lenient split again rather than a mismatch: the RUNTIME type has to hold a custom trip's own
+// destinations label (or '' for a bare world-search point), while this schema only ever parses
+// the AUTHORED table, which is a two-country product's seed content.
+//
+// lng/lat carry real ranges because they are the source of truth for placement: maplibre's
+// LngLat constructor throws above 90/-90, and the map island's error boundary turns that into a
+// dead map pane rather than a visible authoring error.
+export const mapMarkerSchema = z
+  .object({
+    id: z.string().min(1),
+    name: z.string().min(1),
+    category: z.enum(markerCategories),
+    country: z.enum(['Nepal', 'Japan']),
+    area: z.string().min(1),
+    description: z.string().min(1),
+    lng: z.number().min(-180).max(180),
+    lat: z.number().min(-90).max(90),
+    // Legacy 0-100 % positions on the retired mock panel — unused, kept harmless, bounded so
+    // they stay recognisable as what they are.
+    x: z.number().min(0).max(100),
+    y: z.number().min(0).max(100),
+    image: imagePath.optional(),
+  })
+  .strict();
+
 // ── Travel tips (lib/travel-tips-data.ts) ──────────────────────────────────────────────────
 export const featuredDestinationSchema = z
   .object({

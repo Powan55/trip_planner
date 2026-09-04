@@ -18,6 +18,7 @@ import {
   setKnownTripsRaw,
   getRemovedTripsRaw,
   setRemovedTripsRaw,
+  getSyncCode,
   wipeTripData,
   keyForTrip,
   readJson,
@@ -139,7 +140,13 @@ export function sanitizeTripConfig(raw: unknown): TripConfigBlock | undefined {
 
 /** Validate a raw `cityCoords` map: drop any entry whose key is empty or whose coordinate isn't a
  *  finite, in-range lat/lng. `undefined` when nothing survives, so an empty/malformed map never
- *  adds a bare `{}` to the sanitized block. TOTAL, never throws. */
+ *  adds a bare `{}` to the sanitized block. TOTAL, never throws.
+ *
+ *  The bounds arithmetic is the same as `ranged` (core/vault/item-schema.ts), but the RULE is not,
+ *  and merging them would be a bug: `ranged` blanks ONE OPTIONAL field and keeps its row, whereas
+ *  `CityCoord` has no optional half — blanking a latitude here hands `lib/weather.ts` a coordinate
+ *  with one side missing. So a bad number takes its whole city entry with it, and the other cities
+ *  survive. */
 function sanitizeCityCoords(raw: unknown): Record<string, CityCoord> | undefined {
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const out: Record<string, CityCoord> = {};
@@ -359,13 +366,73 @@ export function renameKnownTrip(id: string, name: string): void {
 }
 
 /**
+ * Why `joinTrip` refused. `own-account-token` names the two-token invariant: the account credential
+ * (`getSyncCode()`) is not a trip capability, so it can never become a registry row.
+ */
+export type JoinRefusal = 'empty' | 'own-account-token';
+
+export type JoinTripResult = { ok: true } | { ok: false; reason: JoinRefusal };
+
+/**
+ * What each refusal says to whoever pasted the value. Exported for the same reason `SHARED_NAME`
+ * is: more than one surface renders it, and they must not end up telling the user two different
+ * stories about the same refusal.
+ *
+ * EIGHT call sites reach `joinTrip`, and they do NOT all need this. Enumerated, because the count
+ * was wrong twice and each wrong count left a surface unguarded:
+ *
+ * Renders this copy - takes a value from OUTSIDE and can speak:
+ *   components/trips-hub.tsx         the /trips join form
+ *   components/settings-panel.tsx    the Settings join form
+ *   components/trip-join-handshake   the `?trip=` confirm. Its storage-failure tier is a DIFFERENT
+ *                                    sentence: a refusal is not a write that did not stick.
+ * Takes an outside value but CANNOT speak:
+ *   components/token-gate.tsx        the held `?trip=` invitation. `finish()` calls
+ *                                    `location.replace` on the same tick, so anything it set dies
+ *                                    with the page. It changes its LANDING instead, falling
+ *                                    through to /trips/ rather than asserting Home.
+ * Passes an id already in the registry - the user cannot correct it, so the action just stops:
+ *   components/home-trip-strip.tsx   chip switch: no reload unless the pointer moved
+ *   components/trips-hub.tsx         row switch: no navigation unless the pointer moved
+ *   components/settings-panel.tsx    switchToMain - DEFAULT_TRIP_ID, a constant
+ * Safe by construction, do NOT guard:
+ *   components/trips-hub.tsx         create, with a freshly minted `crypto.randomUUID()`. It cannot
+ *                                    equal the account key, and a guard there would be dead code
+ *                                    that reads as though creating a trip can be refused.
+ *
+ * Count them before assuming a surface is covered; undercounting is how the two stories start.
+ *
+ * The `own-account-token` line names the value as the user's OWN key and says what to ask for
+ * instead. It deliberately does not read as "that trip was not found", which is the phrasing that
+ * sends someone back to paste the same value again.
+ */
+export const JOIN_REFUSAL_COPY: Record<JoinRefusal, string> = {
+  'own-account-token':
+    'That’s your own key — it signs you in, and it can’t be added as a trip. Ask whoever owns the trip for its Trip Token.',
+  empty: 'That Trip Token could not be added. Check it and try again.',
+};
+
+/** Trimmed + case-folded, for COMPARISON only — a joined id is always stored verbatim. */
+const tokenKey = (t: string): string => t.trim().toLowerCase();
+
+/**
  * THE shared switch primitive: register the trip, then write the active-trip pointer.
  * Does NOT reload — the caller performs the full page reload.
+ *
+ * The two-token invariant is enforced HERE, not at each surface: this is the one entry point they
+ * all route through, and the account credential is already on the device, so the check costs no
+ * network. It REPORTS its refusal rather than returning void — a caller that took the value from a
+ * paste field has to be able to say what happened instead of looking like it dropped the input.
  */
-export function joinTrip(id: string, name?: string): void {
-  if (!id) return;
+export function joinTrip(id: string, name?: string): JoinTripResult {
+  if (!id) return { ok: false, reason: 'empty' };
+  const account = getSyncCode();
+  if (account && tokenKey(id) === tokenKey(account)) {
+    return { ok: false, reason: 'own-account-token' };
+  }
   upsertKnownTrip(id, name);
   setActiveTripId(id);
+  return { ok: true };
 }
 
 /**

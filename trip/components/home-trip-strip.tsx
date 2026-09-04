@@ -45,9 +45,12 @@ export default function HomeTripStrip() {
   if (!traveler || trips === null) return null;
 
   // switch = register + write the active-trip pointer, then a FULL reload
-  // so the whole pack re-hydrates against the new trip.
+  // so the whole pack re-hydrates against the new trip. The reload is conditional on the pointer
+  // having actually moved: a list written before `joinTrip` could refuse can still hold a row it
+  // now refuses, and reloading anyway repaints the same trip, which reads as a switch that
+  // silently undid itself.
   const switchTo = (id: string) => {
-    joinTrip(id);
+    if (!joinTrip(id).ok) return;
     window.location.reload();
   };
 

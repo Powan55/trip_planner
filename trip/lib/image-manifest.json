@@ -499,26 +499,6 @@
       }
     ]
   },
-  "/images/japan/ja25.png": {
-    "avif": "/images/japan/ja25.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRqAAAABXRUJQVlA4IJQAAAAwBACdASoUAA8APu1iqU2ppaOiMAgBMB2JQBYdu4AgXwKV2svp16jt4AAA/uzhn90wAFj/IHBjlfZngDfDLGCYkwuTxNyhcDGSgyLT9RXntchrIpYiahgWVk1AynamPI1gAs+/MV7EhvaYcqtJiV4epSRCvwqxAXTznd2Hu7ikEZEFE45wHn30DkHhCDA1DlIiwAAA",
-    "width": 1280,
-    "height": 960,
-    "variants": [
-      {
-        "width": 640,
-        "avif": "/images/japan/ja25-640w.avif"
-      },
-      {
-        "width": 1024,
-        "avif": "/images/japan/ja25-1024w.avif"
-      },
-      {
-        "width": 1280,
-        "avif": "/images/japan/ja25.avif"
-      }
-    ]
-  },
   "/images/japan/ja26.jpg": {
     "avif": "/images/japan/ja26.avif",
     "blurDataURL": "data:image/webp;base64,UklGRp4AAABXRUJQVlA4IJIAAABQBACdASoUAA8APu1iqU2ppaOiMAgBMB2JQBadMYxcDXnY3xEMrXby2zvAAP7ypBcqT0uZOIcMUxYW/1HJkGg18c8iDRN3MS4V47FIBEW9UxEHuUrulzb4mTjzVxcG2rI2ZlRs5O0cWZYL8KHne16jcJvLc5KvFSOSztRPotNcOGT7hBUcjpfFLh0gRIHjTMAAAA==",
@@ -556,18 +536,6 @@
       {
         "width": 1200,
         "avif": "/images/japan/ja27.avif"
-      }
-    ]
-  },
-  "/images/japan/ja28.png": {
-    "avif": "/images/japan/ja28.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRoQAAABXRUJQVlA4IHgAAACQBACdASoUAAsAPu1iqU2ppaOiMAgBMB2JZwBUhOf7b/FrcpuCv1gwEzRf7gAA/vOAkwZ82MlMY2rcWkMhoZXqAxY/4e7p6pU2vCOrLjRGpm4lGP9PWi+5Hj/19D6MD9j9uedgEmOlwWtJvXluJyDeB0VDJA/nAAA=",
-    "width": 419,
-    "height": 238,
-    "variants": [
-      {
-        "width": 419,
-        "avif": "/images/japan/ja28.avif"
       }
     ]
   },
@@ -1207,26 +1175,6 @@
       }
     ]
   },
-  "/images/japan/ja6.png": {
-    "avif": "/images/japan/ja6.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRqAAAABXRUJQVlA4IJQAAAAwBACdASoUAA8APu1iqU2ppaOiMAgBMB2JQBYdu4AgXwKV2svp16jt4AAA/uzhn90wAFj/IHBjlfZngDfDLGCYkwuTxNyhcDGSgyLT9RXntchrIpYiahgWVk1AynamPI1gAs+/MV7EhvaYcqtJiV4epSRCvwqxAXTznd2Hu7ikEZEFE45wHn30DkHhCDA1DlIiwAAA",
-    "width": 1280,
-    "height": 960,
-    "variants": [
-      {
-        "width": 640,
-        "avif": "/images/japan/ja6-640w.avif"
-      },
-      {
-        "width": 1024,
-        "avif": "/images/japan/ja6-1024w.avif"
-      },
-      {
-        "width": 1280,
-        "avif": "/images/japan/ja6.avif"
-      }
-    ]
-  },
   "/images/japan/ja60.jpg": {
     "avif": "/images/japan/ja60.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoQAAABXRUJQVlA4IHgAAADwAwCdASoUAA8APu1iqU2ppaOiMAgBMB2JYwDCgBKz/svOUHf/2T+gAP6D5GRURxRoiLU19iidKy55juEKQBGJSFZtMmFvSrIIBjejPWd2CxVtaNNWvTQtVQBi770IJEvr9WORmOn4mppdD5sy3MOC7RLstYBWAAA=",
@@ -1555,26 +1503,6 @@
       }
     ]
   },
-  "/images/map/jp-akihabara.png": {
-    "avif": "/images/map/jp-akihabara.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRqAAAABXRUJQVlA4IJQAAAAwBACdASoUAA8APu1iqU2ppaOiMAgBMB2JQBYdu4AgXwKV2svp16jt4AAA/uzhn90wAFj/IHBjlfZngDfDLGCYkwuTxNyhcDGSgyLT9RXntchrIpYiahgWVk1AynamPI1gAs+/MV7EhvaYcqtJiV4epSRCvwqxAXTznd2Hu7ikEZEFE45wHn30DkHhCDA1DlIiwAAA",
-    "width": 1280,
-    "height": 960,
-    "variants": [
-      {
-        "width": 640,
-        "avif": "/images/map/jp-akihabara-640w.avif"
-      },
-      {
-        "width": 1024,
-        "avif": "/images/map/jp-akihabara-1024w.avif"
-      },
-      {
-        "width": 1280,
-        "avif": "/images/map/jp-akihabara.avif"
-      }
-    ]
-  },
   "/images/map/jp-ameyoko.jpg": {
     "avif": "/images/map/jp-ameyoko.avif",
     "blurDataURL": "data:image/webp;base64,UklGRoQAAABXRUJQVlA4IHgAAAAQBACdASoUAAsAPu1iqU2ppaOiMAgBMB2JYwC7ACBj6fCpmc8Pc7QAKAD2oyBnvlrYdtoRaTmbcbant2xRG8jcE2AhepG6eg78RPAmCDegiYOFt5+Fpibr3umlPfB+sBkLD1EG+qN8i2AC+Qp5/altYAsNQBgAAAA=",
@@ -1884,18 +1812,6 @@
       {
         "width": 1280,
         "avif": "/images/map/jp-himeji-castle.avif"
-      }
-    ]
-  },
-  "/images/map/jp-ichiran-shibuya.png": {
-    "avif": "/images/map/jp-ichiran-shibuya.avif",
-    "blurDataURL": "data:image/webp;base64,UklGRsABAABXRUJQVlA4WAoAAAAQAAAAEwAAEwAAQUxQSMYAAAABgFvbtmpln4u7Q0w77m6ZS0QFUMEfPyRyKMChCHd3h1DvvWdH771fQkRMAACD9MbZo5+/s6WOLBgBIEmoOKSSpPKiBUYAwSTprSe9dcqYETGYoHUMdJZxGNTSKUOqZS/St+kY2vOysImeER37pumiLR9QoyhfvplA/U3IMTWK8n2BLornRmc0x9GcY/pwyvsytNNqGLUchkGM1gf5f85AREyc6pySdE45lQqBGHTdUUlS+TxeLgJADPL7Vt+VX1tjhXkN2RBWUDgg1AAAAFAFAJ0BKhQAFAA+7WyqUamlo6KoCqkwHYlsAKwhRqDACf03Li23J+Eh34a6J6qoStCBAAD+28OPwBn19kVZcW5tX9NWsk1sDBseiRF1K1plypon8X9GouZ+xV7/dmC65nE6sHgZMHsHpdyan5enLE17wqgm9hpPWVWVTRzBB+pdLzG9Cv/dmgyRLnohGN6mCW75is9gslLKDD/F98T7L26uMefi/LyHauGeYj9xzFEjAa4FsEPTQqavs7r+X2kTnGY3firI/S0lpPPgp22lnxVIAAAA",
-    "width": 200,
-    "height": 200,
-    "variants": [
-      {
-        "width": 200,
-        "avif": "/images/map/jp-ichiran-shibuya.avif"
       }
     ]
   },

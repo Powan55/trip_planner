@@ -27,7 +27,7 @@ import { minutesToHHMM, formatDurationText } from '@/lib/time-picker-format';
 import { describeItemTime } from '@/lib/item-time-display';
 import TimePicker, { DurationField } from '@/components/time-picker';
 import { overlayPanelMotion } from '@/lib/motion';
-import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
+import { useModalKeys } from '@/hooks/use-modal-keys';
 
 // Back-compat re-export: `buildMapsSearchUrl`/`buildMapsPlaceUrl` were hoisted to the pure,
 // React-free `@/lib/maps-link` module (so eager consumers like the calendar can use them without
@@ -48,8 +48,8 @@ export { buildMapsSearchUrl, buildMapsPlaceUrl };
  *
  * A11y / focus reuses the EXACT contract that `ItemEditor` uses:
  * - role="dialog" aria-modal aria-labelledby
- * - document-level Esc via an `onCloseRef` (latest-closure, bound once)
- * - a lightweight Tab-trap inside the panel
+ * - document-level Esc and the panel Tab-trap, from `hooks/use-modal-keys.ts` (shared with
+ * `expense-dialog.tsx`, which used to carry a character-identical copy of both)
  * - autofocus the first field on open
  * - parent-owned focus-return: the invoking button captures the trigger and
  * refocuses it on `<AnimatePresence onExitComplete>` — NOT in this dialog's
@@ -128,11 +128,6 @@ export default function AddToItineraryDialog({
   // untouched on the server and to keep tsc/SSR honest.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-
-  // Live ref to the latest onClose so the once-registered Esc listener always
-  // calls the current closure without re-binding every render.
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
 
   // Form state. Default the date to the first placement (modify mode) else the
   // preset/first trip date (add mode). Category/time/duration/notes prefill from the
@@ -431,50 +426,11 @@ export default function AddToItineraryDialog({
     return () => clearTimeout(timer);
   }, [isCustom]);
 
-  // body[data-dialog-open] flag (cross-lane seam): the quick-add FAB hides while it is set, so the
-  // FAB never floats over an open dialog's scrim. The shared hook ref-counts it, so this dialog
-  // opening on top of a sheet — and closing again — leaves the sheet's own hold intact.
-  useDialogOpenFlag();
-
-  // Esc closes at the document level so it fires wherever focus sits. onClose only
-  // flips parent state; the parent returns focus once the exit animation completes.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onCloseRef.current();
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, []);
-
-  // Lightweight Tab-trap inside the panel (no new deps), identical to ItemEditor.
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Tab') return;
-    const panel = panelRef.current;
-    if (!panel) return;
-    const focusable = Array.from(
-      panel.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ),
-    ).filter((el) => el.offsetParent !== null || el === document.activeElement);
-
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement as HTMLElement;
-
-    if (e.shiftKey) {
-      if (active === first || !panel.contains(active)) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else if (active === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
+  // Document-level Esc + the panel's Tab-trap + the `body[data-dialog-open]` flag, from the one
+  // shared hook. The flag is what the quick-add FAB hides on, and it is also how this dialog
+  // announces itself to the sheet it may have opened over — that sheet drops its own Escape
+  // while this one is up, so a single press closes only this layer (D-527).
+  const handleKeyDown = useModalKeys(panelRef, onClose);
 
   // Don't render the overlay during the prerender / before the client mounts — the
   // portal target (`document.body`) doesn't exist on the server. Returning null here is

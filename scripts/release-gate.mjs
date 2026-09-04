@@ -137,10 +137,18 @@ if (!heading) {
   fail(`trip/docs/RELEASES.md has no "## ${tag}" heading. Every deploy says what it changed.`);
 } else if (HOLD_MARKER.test(heading.clean)) {
   fail(`trip/docs/RELEASES.md marks ${tag} as held, so it must not ship: ${heading.line.trim()}`);
-} else if (newestTag && preambleVersion !== newestTag) {
-  fail(`trip/docs/RELEASES.md preamble says the newest live app is v${preambleVersion || 'unknown'}, but the newest deploy tag is v${newestTag}. Update the preamble to: The newest live app is \`v${newestTag}\`.`);
 } else {
-  pass(`trip/docs/RELEASES.md documents ${tag} with no hold marker, and preamble is current.`);
+  pass(`trip/docs/RELEASES.md documents ${tag} with no hold marker.`);
+}
+
+// 2b. Separate `if`, NOT an `else if` on the chain above: the preamble reads the newest TAG and
+//     has no dependency on the pending version's heading, so chaining it meant a missing or held
+//     heading hid a stale preamble until the next push — the rediscovery loop line 30 exists to
+//     prevent.
+if (newestTag && preambleVersion !== newestTag) {
+  fail(`trip/docs/RELEASES.md preamble says the newest live app is v${preambleVersion || 'unknown'}, but the newest deploy tag is v${newestTag}. Update the preamble to: The newest live app is \`v${newestTag}\`.`);
+} else if (newestTag) {
+  pass(`trip/docs/RELEASES.md preamble names the newest deploy tag v${newestTag}.`);
 }
 
 // 3. Came through `dev`. Set only on the pull-request path; absent on a push, where there

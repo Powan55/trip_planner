@@ -137,6 +137,24 @@ describe('sanitizeTripConfig — cityCoords (#250)', () => {
     expect(bad!.cityCoords).toBeUndefined(); // nothing survived → no bare {}
   });
 
+  // The bounds arithmetic here matches `ranged` (core/vault/item-schema.ts), but the rule does
+  // not: `ranged` blanks one optional field and keeps its row. A CityCoord has no optional half,
+  // so a bad number takes the whole city with it. This case is what goes red if the two are ever
+  // merged into one helper.
+  it('a bad coordinate drops its CITY whole — never a half-pair — and spares the good ones', () => {
+    const out = sanitizeTripConfig({
+      ...GOOD,
+      cityCoords: {
+        Bali: { latitude: -8.34, longitude: 115.09 },
+        Lombok: { latitude: -8.65, longitude: 500 }, // longitude out of range
+        Gili: { latitude: Infinity, longitude: 116.03 }, // non-finite latitude
+      },
+    })!.cityCoords;
+
+    expect(out).toEqual({ Bali: { latitude: -8.34, longitude: 115.09 } });
+    expect(Object.keys(out!)).toEqual(['Bali']); // the bad cities are GONE, not blanked
+  });
+
   it('a malformed cityCoords shape (array/string) is dropped, the rest of the config survives', () => {
     expect(sanitizeTripConfig({ ...GOOD, cityCoords: ['not', 'a', 'map'] })!.cityCoords).toBeUndefined();
     expect(sanitizeTripConfig({ ...GOOD, cityCoords: 'nope' })!.cityCoords).toBeUndefined();

@@ -8,15 +8,26 @@
 // principles (WCAG 2.x relative luminance) so a token edit that breaks a pairing
 // fails here with the pair named, instead of on someone's phone in daylight.
 //
-// It has NO dependencies and reads nothing — it is a pinned mirror of the token
-// values, which means IT MUST BE EDITED IN THE SAME COMMIT AS THE TOKENS. That is
-// deliberate: a harness that parsed globals.css could only ever prove the file agrees
-// with itself, whereas this one makes a value change a two-file decision.
+// It has NO dependencies, and every ratio it prints is derived from a pinned mirror of
+// the token values, which means IT MUST BE EDITED IN THE SAME COMMIT AS THE TOKENS. That
+// is deliberate: a harness that DERIVED its ratios from globals.css could only ever prove
+// the file agrees with itself, whereas this one makes a value change a two-file decision.
+//
+// The accuracy of the mirror is the one thing that stance cannot check, so the tail of this
+// file now does exactly that and nothing more (see THE MIRROR IS NOW CHECKED, below): it
+// reads globals.css and tailwind.config.ts and asserts each mirrored key still declares the
+// pinned value. No ratio is derived from what it reads, and nothing else in here parses.
 //
 // WORST-CASE-PIXEL RULE for text over photography: the duotone grade ends with a
 // `mix-blend-mode:darken` layer of --duo-*-high, which caps EVERY channel of EVERY
 // pixel at that colour. So the brightest possible pixel under a scrim is
 // over(--scrim-ink, --duo-*-high, alpha) — a knowable number, not an average.
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
+
+const APP_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
 const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
 const lin = c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
 const L = h => { const [r, g, b] = hex(h).map(lin); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
@@ -95,7 +106,17 @@ const C = {
   // they need a guard like anything else. himalaya600 at 5.05 is the tightest of the SOLID
   // pairs (12% over the floor; only the two screened tints below sit closer), which is
   // exactly why it is here rather than asserted in a comment.
-  gold600: '#C08400', sakura300: '#FFB1D8', himalaya600: '#C2692E',
+  // ALL NINE STEPS ARE HERE NOW, not the three that happened to be needed: the family's ten
+  // ratios were published as MEASURED in a comment in tailwind.config.ts, and all ten were
+  // stale by exactly one field re-cast — they reproduce against the retired #0E0920 and not
+  // against the field the app paints. A number nothing runs drifts silently, so those ten
+  // live in the PUBLISHED RATIOS table below instead, and the comment that carried them is
+  // gone. The 400s are deliberately absent from this block: they ARE marigold, --jp-a and
+  // --np-a to the bit, and a fourth copy of a hex is the drift this file exists to catch
+  // (the mirror pass at the tail asserts that identity against tailwind.config.ts).
+  gold500: '#d4a843', gold600: '#C08400',
+  sakura300: '#FFB1D8', sakura500: '#e88fa2', sakura600: '#C25C90',
+  himalaya500: '#e67635', himalaya600: '#C2692E',
   // ---- stamp inks on paper (D-294 values, NOT the pre-D-294 #B3123C/#2B4B9B/#0F6E5C) ----
   inkNepal: '#8E0E30', inkJapan: '#223C7C', inkGreen: '#0C5849',
   // ---- TRAVEL MODE, outdoor high-legibility (`html[data-tm-legibility='high']`) ----
@@ -747,6 +768,196 @@ const guards = [
   ['volt focus ring on parchment (=> use --ink-nepal)', C.volt, C.paper, 3],
 ];
 
+// ---- PUBLISHED RATIOS, ASSERTED RATHER THAN WRITTEN DOWN ----------------------------
+// [label, fg, bg, published ratio]. Every pairing above asserts a FLOOR ("at least 4.5");
+// these ten assert the NUMBER, which is a different obligation. tailwind.config.ts used to
+// publish them in a comment marked MEASURED, and all ten were stale by exactly one field
+// re-cast: each reproduces to two decimals against the retired #0E0920 and not against the
+// #0A0818 the app paints. Every error was in the conservative direction — the real ratios
+// are higher — so it was a documentation defect and nothing was ever failing.
+//
+// They are recomputed here from the same first principles as everything else in this file,
+// which is the whole point: a number in a comment has no runner and drifts the next time
+// the field moves; a number in this table fails the run and prints the new value. If one
+// fires after a token change, read the printed ratio and update the row deliberately.
+const MEASURED_DP = 2;
+const measured = [
+  ['gold-400 on bg (= marigold)', C.marigold, C.bg, 12.46],
+  ['gold-500 on bg (frozen step)', C.gold500, C.bg, 8.94],
+  ['gold-600 on bg', C.gold600, C.bg, 6.17],
+  ['sakura-300 on bg', C.sakura300, C.bg, 11.81],
+  ['sakura-400 on bg (= --jp-a)', C.jpA, C.bg, 9.43],
+  ['sakura-500 on bg (frozen step)', C.sakura500, C.bg, 8.37],
+  ['sakura-600 on bg (= --lip-pink)', C.sakura600, C.bg, 4.93],
+  ['himalaya-400 on bg (= --np-a)', C.npA, C.bg, 8.44],
+  ['himalaya-500 on bg (frozen step)', C.himalaya500, C.bg, 6.61],
+  ['himalaya-600 on bg', C.himalaya600, C.bg, 5.05],
+];
+
+// ---- THE MIRROR IS NOW CHECKED, NOT ASSUMED ----------------------------------------
+// Every ratio above is derived from a pinned hex, and the argument for pinning them is in
+// the header. What pinning cannot do is notice that a pin has stopped being what the app
+// paints: a token edit that skips this file leaves every number here measuring a colour
+// nothing renders, and the run still prints ALL PAIRINGS PASS. That is the one assertion
+// the design could not make about itself, so it is the only thing this section does — it
+// derives no ratio from what it reads, and a mismatch names both values and stops.
+//
+// TOLERANCE IS ONE CHANNEL, and it is not slack. globals.css declares the shadcn tokens as
+// HSL triplets rounded to whole degrees and percents (`--primary: 192 100% 62%`), which
+// renders up to 1/255 away from the hex the same line is annotated with. That rounding
+// ships today and 1/255 cannot move any ratio in the tables above. Anything larger is a
+// real token change and fails here.
+const CHANNEL_TOLERANCE = 1;
+
+/** Custom-property declarations per selector. Innermost blocks only, so an at-rule wrapper
+ *  (`@layer base`) contributes its inner `:root` and never its own prelude. */
+function declarations(css) {
+  const bySelector = new Map();
+  for (const m of css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]*)\{([^{}]*)\}/g)) {
+    const selector = m[1].replace(/\s+/g, ' ').trim();
+    if (selector === '' || selector.startsWith('@')) continue;
+    for (const d of m[2].matchAll(/(--[\w-]+)\s*:\s*([^;{}]+);/g)) {
+      if (!bySelector.has(selector)) bySelector.set(selector, new Map());
+      const bag = bySelector.get(selector);
+      bag.set(d[1], [...(bag.get(d[1]) ?? []), d[2].trim()]);
+    }
+  }
+  return bySelector;
+}
+
+const DECLS = declarations(readFileSync(resolve(APP_ROOT, 'app/globals.css'), 'utf8'));
+const TW_SRC = readFileSync(resolve(APP_ROOT, 'tailwind.config.ts'), 'utf8')
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/^\s*\/\/.*$/gm, '');
+
+/** A `family: { step: '#hex' }` entry from the Tailwind theme, or null. */
+function twColor(family, step) {
+  const fam = TW_SRC.match(new RegExp(`(?:^|[\\s{,])${family}:\\s*\\{([^}]*)\\}`));
+  const one = fam?.[1].match(new RegExp(`(?:^|[\\s{,])${step}:\\s*'([^']+)'`));
+  return one?.[1] ?? null;
+}
+
+/** sRGB channels of an `H S% L%` triplet, or null when the value is not one. */
+function hslChannels(value) {
+  const m = value.match(/^([\d.]+)\s+([\d.]+)%\s+([\d.]+)%$/);
+  if (!m) return null;
+  const [h, s, l] = [+m[1], +m[2] / 100, +m[3] / 100];
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const [r, g, b] = [[c, x, 0], [x, c, 0], [0, c, x], [0, x, c], [x, 0, c], [c, 0, x]][Math.floor((h % 360) / 60)];
+  return [r, g, b].map(v => Math.round((v + l - c / 2) * 255));
+}
+
+// Three declaration forms, because globals.css writes the same colour three ways: hex for
+// the palette tokens, an HSL triplet for the shadcn keys, and bare RGB channels for the
+// --navy-* ramp and its travel-mode override. All three are compared as CHANNELS.
+const FORM = {
+  hex: v => (/^#[0-9a-f]{6}$/i.test(v) ? ch(v) : null),
+  hsl: hslChannels,
+  rgb: v => (/^\d+\s+\d+\s+\d+$/.test(v) ? v.split(/\s+/).map(Number) : null),
+};
+
+const TM_SCOPE = "html[data-tm-legibility='high']";
+// [scope, declaration, pinned key, form]. `scope` is the selector the value must be
+// declared on: travel mode re-declares --text-mid and --surface-* with different values,
+// so a scope-blind lookup would compare the wrong pair and pass by accident.
+const MIRROR = [
+  [':root', '--background', 'bg', 'hsl'], [':root', '--navy-900', 'bg', 'rgb'],
+  [':root', '--secondary', 'surface1', 'hsl'], [':root', '--navy-850', 'surface1', 'rgb'],
+  [':root', '--card', 'surface2', 'hsl'], [':root', '--popover', 'surface2', 'hsl'],
+  [':root', '--navy-800', 'surface2', 'rgb'],
+  [':root', '--muted', 'surface3', 'hsl'], [':root', '--navy-700', 'surface3', 'rgb'],
+  [':root', '--foreground', 'textHi', 'hsl'], [':root', '--text-hi', 'textHi', 'hex'],
+  [':root', '--text-mid', 'textMid', 'hex'],
+  [':root', '--text-lo', 'textLo', 'hex'], [':root', '--muted-foreground', 'textLo', 'hsl'],
+  [':root', '--on-accent', 'onAccent', 'hex'], [':root', '--primary-foreground', 'onAccent', 'hsl'],
+  [':root', '--accent-foreground', 'onAccent', 'hsl'],
+  [':root', '--primary', 'volt', 'hsl'], [':root', '--accent', 'volt', 'hsl'],
+  [':root', '--ring', 'volt', 'hsl'], [':root', '--volt', 'volt', 'hex'],
+  [':root', '--destructive', 'destructive', 'hsl'],
+  [':root', '--border', 'border', 'hsl'], [':root', '--input', 'border', 'hsl'],
+  [':root', '--border-ui', 'borderUI', 'hex'],
+  [':root', '--marigold', 'marigold', 'hex'], [':root', '--coral', 'coral', 'hex'],
+  [':root', '--mint', 'mint', 'hex'], [':root', '--violet', 'violet', 'hex'],
+  [':root', '--pink', 'pink', 'hex'], [':root', '--lip-pink', 'sakura600', 'hex'],
+  [':root', '--lip-volt', 'lipVolt', 'hex'],
+  [':root', '--cta-a', 'ctaA', 'hex'], [':root', '--cta-b', 'ctaB', 'hex'],
+  [':root', '--np-a', 'npA', 'hex'], [':root', '--np-b', 'npB', 'hex'],
+  [':root', '--jp-a', 'jpA', 'hex'], [':root', '--jp-b', 'jpB', 'hex'],
+  // The three Tailwind family aliases, which say in CSS what tailwind.config.ts says in
+  // prose: `gold` IS marigold, `sakura` IS the Japan stop, `himalaya` IS the Nepal stop.
+  [':root', '--gold', 'marigold', 'hsl'], [':root', '--sakura', 'jpA', 'hsl'],
+  [':root', '--himalaya', 'npA', 'hsl'],
+  [':root', '--paper', 'paper', 'hex'], [':root', '--on-paper', 'onPaper', 'hex'],
+  [':root', '--paper-mid', 'paperMid', 'hex'], [':root', '--paper-lo', 'paperLo', 'hex'],
+  [':root', '--ink-nepal', 'inkNepal', 'hex'], [':root', '--ink-japan', 'inkJapan', 'hex'],
+  [':root', '--ink-green', 'inkGreen', 'hex'],
+  [':root', '--duo-np-high', 'duoNpHigh', 'hex'], [':root', '--duo-jp-high', 'duoJpHigh', 'hex'],
+  [':root', '--duo-np-shadow', 'duoNpShadow', 'hex'],
+  [':root', '--scrim-ink', 'scrimInk', 'hex'], [':root', '--scrim-ink-rgb', 'scrimInk', 'rgb'],
+  // Travel mode. The four surfaces are that block's "FOUR STEPS, FOUR VALUES" rule and the
+  // two inks its "THREE TIERS, THREE VALUES" one; both are hardcoded copies of the base
+  // ramp, which is exactly the drift this section exists to catch.
+  [TM_SCOPE, '--surface', 'tmSurface', 'rgb'], [TM_SCOPE, '--surface-low', 'tmLow', 'rgb'],
+  [TM_SCOPE, '--surface-raised', 'tmRaised', 'rgb'], [TM_SCOPE, '--surface-overlay', 'tmOverlay', 'rgb'],
+  [TM_SCOPE, '--text-mid', 'tmMid', 'hex'], [TM_SCOPE, '--text-lo', 'tmLo', 'hex'],
+  [TM_SCOPE, '--foreground', 'textHi', 'hsl'], [TM_SCOPE, '--border', 'borderUI', 'hsl'],
+];
+
+// tailwind.config.ts is the other half of the mirror: these ten are rendered as text
+// (`text-gold-400` and friends), lib/token-auth.ts hashes traveller accents into two of
+// them, and the ten published ratios above are measured on exactly these hexes.
+const TW_MIRROR = [
+  ['gold', 400, 'marigold'], ['gold', 500, 'gold500'], ['gold', 600, 'gold600'],
+  ['sakura', 300, 'sakura300'], ['sakura', 400, 'jpA'],
+  ['sakura', 500, 'sakura500'], ['sakura', 600, 'sakura600'],
+  ['himalaya', 400, 'npA'], ['himalaya', 500, 'himalaya500'], ['himalaya', 600, 'himalaya600'],
+];
+
+const mirrorProblems = [];
+let mirrored = 0;
+for (const [scope, name, key, form] of MIRROR) {
+  const declared = DECLS.get(scope)?.get(name);
+  const want = ch(C[key]);
+  if (!declared) {
+    mirrorProblems.push(`${scope} { ${name} } is gone — ${key} ${C[key]} is pinned against a token that no longer exists`);
+    continue;
+  }
+  if (declared.length > 1) {
+    mirrorProblems.push(`${scope} { ${name} } is declared ${declared.length} times (${declared.join(' / ')}) — which one is the mirror?`);
+    continue;
+  }
+  const got = FORM[form](declared[0]);
+  if (!got) {
+    mirrorProblems.push(`${scope} { ${name}: ${declared[0]} } is no longer a ${form} value — ${key} cannot be checked against it`);
+    continue;
+  }
+  const drift = Math.max(...got.map((v, i) => Math.abs(v - want[i])));
+  if (drift > CHANNEL_TOLERANCE) {
+    mirrorProblems.push(`${scope} { ${name}: ${declared[0]} } renders rgb(${got.join(' ')}) but C.${key} is pinned at ${C[key]} = rgb(${want.join(' ')}) — off by ${drift}/255`);
+    continue;
+  }
+  mirrored++;
+}
+for (const [family, step, key] of TW_MIRROR) {
+  const declared = twColor(family, step);
+  if (!declared) {
+    mirrorProblems.push(`tailwind.config.ts ${family}-${step} is gone — C.${key} ${C[key]} is pinned against it`);
+    continue;
+  }
+  if (declared.toUpperCase() !== C[key].toUpperCase()) {
+    mirrorProblems.push(`tailwind.config.ts ${family}-${step} is ${declared} but C.${key} is pinned at ${C[key]}`);
+    continue;
+  }
+  mirrored++;
+}
+// FAILS CLOSED. Zero parsed declarations means the file moved or the parser stopped
+// matching, at which point every row above passed vacuously — the failure mode a green run
+// hides, and the reason this is a count and not a boolean.
+if ((DECLS.get(':root')?.size ?? 0) === 0) {
+  mirrorProblems.push('no :root custom properties parsed out of app/globals.css — the mirror pass proves nothing');
+}
+
 let fail = 0;
 console.log('pair'.padEnd(40), 'fg'.padEnd(9), 'bg'.padEnd(9), ' ratio  target  verdict');
 for (const [label, fg, bg, target] of pairs) {
@@ -756,6 +967,15 @@ for (const [label, fg, bg, target] of pairs) {
   console.log(label.padEnd(40), fg.padEnd(9), bg.padEnd(9),
     r.toFixed(2).padStart(6), '  ', String(target).padEnd(6), ok ? 'PASS' : '*** FAIL ***');
 }
+console.log(`\npublished ratios (each MUST still measure the number this repo publishes, to ${MEASURED_DP} dp):`);
+for (const [label, fg, bg, published] of measured) {
+  const r = ratio(fg, bg);
+  const ok = r.toFixed(MEASURED_DP) === published.toFixed(MEASURED_DP);
+  if (!ok) fail++;
+  console.log(('  ' + label).padEnd(42), fg.padEnd(9), r.toFixed(2).padStart(6), ` was ${published.toFixed(2)}  `,
+    ok ? 'as published' : '*** FAIL (the published number is stale — republish it) ***');
+}
+
 console.log('\nguards (each MUST stay below its threshold, proving the rule is load-bearing):');
 for (const [label, fg, bg, t] of guards) {
   const r = ratio(fg, bg), ok = r < t;
@@ -798,5 +1018,12 @@ for (const k of ['npScrim72', 'npScrim82', 'jpScrim72', 'jpScrim82', 'rowHover',
   console.log('  ' + k.padEnd(11), C[k]);
 console.log('\nhex -> hsl (the form the shadcn tokens in globals.css take):');
 for (const k of Object.keys(C)) console.log('  ' + k.padEnd(11), C[k], ' hsl(' + hsl(C[k]) + ')');
-console.log(fail ? `\n${fail} PROBLEM(S)` : '\nALL PAIRINGS PASS, ALL GUARDS HOLD');
+fail += mirrorProblems.length;
+console.log(
+  `\nmirror identity (every pin above must still be what app/globals.css and tailwind.config.ts declare, +/-${CHANNEL_TOLERANCE}/255):`,
+);
+if (mirrorProblems.length) for (const p of mirrorProblems) console.log('  *** MIRROR BROKEN *** ' + p);
+else console.log(`  ${mirrored} declaration(s) checked across ${DECLS.get(':root').size} :root properties — every mirrored token still matches`);
+
+console.log(fail ? `\n${fail} PROBLEM(S)` : '\nALL PAIRINGS PASS, ALL GUARDS HOLD, THE MIRROR IS INTACT');
 process.exit(fail ? 1 : 0);

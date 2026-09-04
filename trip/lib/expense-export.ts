@@ -50,8 +50,9 @@ function quarantine(raw: string): void {
 
 /**
  * Validate a whole-expenses-store JSON string WITHOUT writing. Fails safe: a parse error, an
- * unrecognized envelope shape, or a payload row `sanitizeExpenses` could not salvage rejects the
- * whole file (and quarantines the raw text).
+ * envelope whose `schemaVersion` is not exactly `EXPENSE_EXPORT_VERSION`, an empty payload, or a
+ * payload row `sanitizeExpenses` could not salvage rejects the whole file (and quarantines the
+ * raw text).
  *
  * ALL-OR-NOTHING, and that is D-098 (`core/vault/schema.ts#parseItineraryPayloadStrict`) expressed
  * on the expense path — the two boundaries have identical failure economics. On disk there is no
@@ -62,6 +63,11 @@ function quarantine(raw: string): void {
  * which sits in the same Downloads folder and is offered by the same file picker: none of its rows
  * is an `Expense`, so it parsed to `[]`, wiped every logged expense everywhere, and reported
  * success. Rejecting costs one failed import with the bytes quarantined.
+ *
+ * The version is compared for EQUALITY, not merely for being a number — that is what makes the
+ * gate reject a sibling envelope (the itinerary export is `schemaVersion: 5`) instead of leaning
+ * on the row check to notice afterwards, and what turns a future v2 expenses file into a clean
+ * refusal on an old build rather than a partial read.
  */
 export function parseExpenseBackup(rawText: string): ExpenseParseResult {
   let parsed: unknown;
@@ -75,7 +81,7 @@ export function parseExpenseBackup(rawText: string): ExpenseParseResult {
   if (
     typeof parsed !== 'object' ||
     parsed === null ||
-    typeof (parsed as { schemaVersion?: unknown }).schemaVersion !== 'number' ||
+    (parsed as { schemaVersion?: unknown }).schemaVersion !== EXPENSE_EXPORT_VERSION ||
     !Array.isArray((parsed as { payload?: unknown }).payload)
   ) {
     quarantine(rawText);
@@ -86,6 +92,16 @@ export function parseExpenseBackup(rawText: string): ExpenseParseResult {
   }
 
   const payload = (parsed as { payload: unknown[] }).payload;
+  // An empty payload is the one file the all-or-nothing guard below cannot see: `0 !== 0` is
+  // false, so it passed, and the caller's tombstone-replace then deleted every logged expense on
+  // every device and reported success. Restoring nothing has no outcome except that deletion.
+  if (payload.length === 0) {
+    quarantine(rawText);
+    return {
+      ok: false,
+      error: 'That file has no expenses in it. No changes were made to your expenses.',
+    };
+  }
   const expenses = sanitizeExpenses(payload);
   if (expenses.length !== payload.length) {
     quarantine(rawText);

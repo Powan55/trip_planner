@@ -453,10 +453,9 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
   // `DayPlan.countryLabel` is what makes the Dec-9 header read "New York, USA" instead of
   // "New York, Nepal". The write side was always fine (`sanitizeDayForWrite` is a JSON clone),
   // but BOTH read-shaped constructions dropped it: `docToDayPlan`'s four-field literal, and
-  // `pushDayMerged`'s absent-remote fallback — and since `mergeDay(remoteNow, localDay)` takes
-  // day-level fields from its FIRST argument, that fallback erased the label on the very first
-  // push. Without these two cases the whole S407 fix silently reverts on any synced device
-  // while every other test on the machine stays green.
+  // `pushDayMerged`'s absent-remote fallback, which erased the label on the very first push.
+  // Without these two cases the whole S407 fix silently reverts on any synced device while
+  // every other test on the machine stays green.
   it('S407: a per-day countryLabel survives docToDayPlan, and stays ABSENT when the doc has none', () => {
     const withLabel = docToDayPlan('2026-12-09', {
       date: '2026-12-09',
@@ -531,6 +530,43 @@ describe('MERGE-AWARE PUSH composes (transactional read-merge-write, option A)',
     const persisted = loadPlans().find((d) => d.date === '2026-12-09') as FutureDay;
     expect(persisted.weatherNote).toBe('monsoon');
     expect(persisted.items.map((i) => i.id).sort()).toEqual(['A', 'B']); // and the peer's item still merged
+  });
+
+  // ── Day metadata must resolve the SAME WAY on both directions ─────────────────────────────
+  // `mergeDay` takes day-level fields from its FIRST argument. The snapshot passes the local day
+  // first; the push used to pass `remoteNow` first, so local's metadata could never be overwritten
+  // by remote on either path and remote's could never be overwritten by local on the push —
+  // write-once on both sides, free to disagree forever, and the reason D-303's coerced 'nepal'
+  // stayed in Firestore after the mapper was fixed. Both call sites are local-first now.
+  it('day metadata resolves to LOCAL on the push, matching the snapshot merge', async () => {
+    const dayPath = `trips/${TRIP_ID}/days/2026-12-09`;
+    // A doc written by an older build: the leg id was coerced and the city is stale.
+    fake.setDocData(dayPath, {
+      date: '2026-12-09',
+      city: 'Kathmandu',
+      country: 'nepal',
+      countryLabel: 'Nepal',
+      items: [item('B', { hlc: hlc(2000, 'friend'), rev: 1 })],
+    });
+
+    const localDay: DayPlan = {
+      ...day('2026-12-09', [item('A', { hlc: hlc(3000, 'me'), rev: 1 })]),
+      city: 'New York',
+      country: 'main',
+      countryLabel: 'USA',
+    };
+    await pushDayMerged(fake as unknown as Firestore, fs, localDay);
+
+    const written = fake.docs.get(dayPath) as unknown as DayPlan;
+    expect(written.country).toBe('main'); // the correction reaches the server
+    expect(written.city).toBe('New York');
+    expect(written.countryLabel).toBe('USA');
+    expect(written.items.map((i) => i.id).sort()).toEqual(['A', 'B']); // items still union-merge
+
+    // The snapshot side of the same pair resolves identically.
+    expect(mergeDay(localDay, docToDayPlan('2026-12-09', written as unknown as Record<string, unknown>)).country).toBe(
+      'main',
+    );
   });
 
   it('#42: a field only the PEER knows about lands locally without a reload', () => {

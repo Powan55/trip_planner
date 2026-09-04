@@ -212,11 +212,23 @@ for (const { where, selector, seconds, guarded } of utilityLoops) {
   console.log(where.padEnd(44), selector.padEnd(16), `${seconds}s`.padEnd(8), verdict);
 }
 
-// FAILS CLOSED, twice. An empty scan means the roots moved and every verdict above is vacuous;
-// and the universal reduce rule is the ONLY thing that stops a generated loop for a user who
-// has reduced motion on and hits a call site that predates its guard.
+// FAILS CLOSED, THREE TIMES. An empty scan means the roots moved and every verdict above is
+// vacuous; a scan that finds no utility loop AT ALL means the class stopped matching, which
+// reads identically to "there are none" in the green line below; and the universal reduce rule
+// is the ONLY thing that stops a generated loop for a user who has reduced motion on and hits
+// a call site that predates its guard.
+//
+// The middle one is the gap D-418 left open. filesScanned counts up before the regex runs, the
+// reduce-block check is about the CSS, and the allowlist-matched-nothing check below is
+// satisfied entirely by pass 1 — both STATE_INDICATORS keys are authored loops — so nothing
+// noticed if `animate-(pulse|spin|bounce|ping)` stopped matching. A Tailwind class rename or a
+// new loop utility would print "0 UTILITY INFINITE LOOP(S) ... ALL HARD-STOPPED" in green,
+// which is the state A11Y-5 was filed for. Two live sites is the floor; if the last one is ever
+// genuinely removed, delete this guard in the commit that removes it and say so there.
 if (filesScanned === 0) {
   problems.push(`utility pass scanned 0 files under ${SOURCE_ROOTS.join('/')} — the roots moved and this pass proves nothing`);
+} else if (utilityLoops.length === 0) {
+  problems.push(`utility pass found no animate-${Object.keys(UTILITY_LOOP_SECONDS).join('/')} site in ${filesScanned} files — the class list or the regex stopped matching and this pass proves nothing`);
 }
 if (!/animation-iteration-count\s*:\s*1\b/.test(rmBlock)) {
   problems.push(

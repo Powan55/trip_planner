@@ -335,9 +335,8 @@ export function ItineraryProvider({ children }: { children: React.ReactNode }) {
   // reactively on `IDENTITY_CHANGED_EVENT` (D-240: sign-out fires it without a reload, so a
   // mount-once subscription would keep syncing a signed-out session), `online`/tab-return just
   // flush. Each call is the same shape (D-378, `useDomainSync`), gated through its own
-  // `SyncPort.isConfigured()` — itinerary/expenses/budget/docs gate on `isRemoteConfigured()`,
-  // places gates on the stricter per-trip `isTripRemoteConfigured()` (it is the only domain
-  // whose writes compose `trips/{getTripId()}/…`; the default sample pack has no remote trip id).
+  // `SyncPort.isConfigured()` — all five on the per-trip `isTripRemoteConfigured()`, because all
+  // five remotes compose `trips/{getTripId()}/…` and the default sample pack has no remote trip id.
   useDomainSync(itineraryOutboxSync, itineraryStoragePort, itinerarySyncPort);
   useDomainSync(expensesOutboxSync, expensesStoragePort, expensesSyncPort);
   useDomainSync(budgetOutboxSync, budgetStoragePort, budgetSyncPort);

@@ -363,6 +363,46 @@ describe('static assets: the _rsc cache-buster does not multiply cache entries',
     expect(fetches).toBe(0);
   });
 
+  // The export writes a full segment tree under every route, so the ROOT-LAYOUT payload
+  // `__next._index.txt` is emitted once per route — 20 files, one md5. Only the root copy is
+  // precached; the other 19 URLs are rewritten onto it here, which is what makes dropping them
+  // from the install list safe. Off by one line and those 19 prefetches miss offline instead.
+  it("serves every route's __next._index.txt from the single precached root entry", async () => {
+    const { caches, put } = makeCaches({ [PRECACHE]: { '/__next._index.txt': 'ROOT_LAYOUT_PAYLOAD' } });
+    let fetches = 0;
+    const handlers = instantiate(caches, async () => {
+      fetches++;
+      throw new TypeError('Failed to fetch'); // offline: only the cache can answer
+    });
+
+    for (const url of [
+      '/plan/__next._index.txt',
+      '/travel/__next._index.txt?_rsc=aaa111',
+      '/_not-found/__next._index.txt',
+      '/__next._index.txt',
+    ]) {
+      const res = await runFetch(handlers, makeRequest(url));
+      expect(res?.body).toBe('ROOT_LAYOUT_PAYLOAD');
+    }
+    expect(fetches).toBe(0);
+    expect(put).toEqual([]); // and no second copy is written back under a per-route key
+  });
+
+  // The sibling segment payloads are per-route and all differ, so they keep their own keys.
+  it('does not rewrite the per-route _tree / __PAGE__ payloads', async () => {
+    const { caches, put } = makeCaches({ [PRECACHE]: {} });
+    const handlers = instantiate(
+      caches,
+      async () => new FakeResponse('SEGMENT', { contentType: 'text/x-component' })
+    );
+    await runFetch(handlers, makeRequest('/plan/__next._tree.txt?_rsc=aaa111'));
+    await runFetch(handlers, makeRequest('/plan/__next.plan.__PAGE__.txt'));
+    expect(put.map((p) => p.key)).toEqual([
+      '/plan/__next._tree.txt',
+      '/plan/__next.plan.__PAGE__.txt',
+    ]);
+  });
+
   // The scoping is the other half of the contract: dropping every param is sound ONLY
   // for a static export's .txt, whose bytes are prerendered per route and cannot vary by
   // query. `/api/thing?page=2` keeps its page — a param there selects the bytes.

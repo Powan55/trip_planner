@@ -199,6 +199,37 @@ describe('settle — largest-remainder rounding keeps balances summing to 0 (D-3
   });
 });
 
+describe('settle — a traveller named after an Object.prototype key is an id like any other', () => {
+  const PROTO_NAMES = ['constructor', '__proto__', 'toString'];
+
+  for (const name of PROTO_NAMES) {
+    it(`"${name}" nets to a real number and its debt is emitted as a transfer`, () => {
+      const [s] = settle(
+        [exp({ paidBy: 'Powan', split: ['Powan', name], amount: 300 })],
+        ['Powan', name],
+      );
+      expect(Object.keys(s.balances).sort()).toEqual(['Powan', name].sort());
+      expect(s.balances['Powan']).toBe(150);
+      expect(s.balances[name]).toBe(-150);
+      expect(s.transfers).toEqual([{ from: name, to: 'Powan', amount: 150 }]);
+    });
+  }
+
+  it('all three in one split: balances sum to 0 and the transfers clear every one of them', () => {
+    const members = ['Powan', ...PROTO_NAMES];
+    const [s] = settle([exp({ paidBy: 'Powan', split: members, amount: 400 })], members);
+    expect(Object.keys(s.balances).sort()).toEqual([...members].sort());
+    expect(Object.values(s.balances).reduce((a, b) => a + b, 0)).toBe(0);
+    for (const [id, net] of Object.entries(s.balances)) {
+      const moved = s.transfers.reduce(
+        (sum, t) => sum + (t.to === id ? t.amount : 0) - (t.from === id ? t.amount : 0),
+        0,
+      );
+      expect(moved).toBeCloseTo(net, 6);
+    }
+  });
+});
+
 describe('paidBy/split — sanitize passthrough + mergeItems row merge (S142, no new sync code)', () => {
   it('sanitizeExpense passes paidBy + split through; a no-split expense is byte-identical', () => {
     const withSplit = sanitizeExpense({

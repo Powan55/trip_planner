@@ -90,8 +90,8 @@ function quarantineImport(raw: string): void {
  * Pipeline (fails safe at every step — on ANY failure the main key is NOT written):
  * 1. JSON.parse(rawText) — parse error ⇒ reject + quarantine.
  * 2. detectVersion — unrecognized shape ⇒ reject + quarantine.
- * 3. runItineraryMigrations — a v2/older export migrates to current; a
- * throwing/gap migration ⇒ reject + quarantine.
+ * 3. runItineraryMigrations, with row-dropping OFF — a v2/older export migrates to current; a
+ * throwing/gap migration, or any row a step cannot be applied to, ⇒ reject + quarantine.
  * A version GREATER than current is accepted
  * leniently —
  * its payload is validated as-is, not migrated.
@@ -130,7 +130,16 @@ export function parseBackup(rawText: string): ParseResult {
     payload = extractPayload(parsed, detected);
   } else {
     try {
-      payload = runItineraryMigrations(extractPayload(parsed, detected), detected);
+      // Row-dropping OFF: the chain's #123 filter deletes un-migratable days BEFORE the strict
+      // parse below, which then passes on the survivors — a silent truncation on the one path
+      // D-364 keeps strict. Here the step throws on the row and the file is quarantined instead.
+      payload = runItineraryMigrations(
+        extractPayload(parsed, detected),
+        detected,
+        undefined,
+        undefined,
+        false,
+      );
     } catch {
       quarantineImport(rawText);
       return {

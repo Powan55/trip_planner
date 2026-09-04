@@ -50,7 +50,6 @@ const eslintConfig = [
       "test-results/**",
       "playwright-report/**",
       "graphify-out/**",
-      "public/sw.js",
       "next-env.d.ts",
     ],
   },
@@ -63,11 +62,11 @@ const eslintConfig = [
 
       // eslint-plugin-react-hooks v7 (pulled in by the eslint-config-next@16 bump)
       // expanded "recommended" from 2 rules to 16: React Compiler readiness
-      // diagnostics, most set to "error". Four of them fire 91 times across ~20
-      // files on patterns this codebase uses throughout on purpose — the
-      // SSR-safe `useEffect(() => setMounted(true), [])` hydration idiom,
-      // stable-callback refs assigned during render, and a `Date.now()` read in
-      // a presence hook. Fixing those means restructuring hook usage repo-wide
+      // diagnostics, most set to "error". The ones off below fire on patterns
+      // this codebase uses throughout on purpose — the SSR-safe
+      // `useEffect(() => setMounted(true), [])` hydration idiom, stable-callback
+      // refs assigned during render, and a `Date.now()` read in a presence hook.
+      // Fixing those means restructuring hook usage repo-wide
       // for React Compiler compatibility, which nothing here opts into — that's
       // a separate initiative, not a lint-version bump. Off until that's scoped;
       // everything else in the new recommended set (static-components,
@@ -78,6 +77,23 @@ const eslintConfig = [
       "react-hooks/use-memo": "off",
       "react-hooks/immutability": "off",
       "react-hooks/purity": "off",
+    },
+  },
+  {
+    // A zero-argument `toLocale*` formats in the DEVICE's locale, so an FX rate renders
+    // `152,7` on a de-DE phone beside money from a pinned 'en-US' formatter. Three manual
+    // sweeps have each missed a site; this is what stops the fourth being needed.
+    files: ["app/**", "components/**", "hooks/**", "lib/**", "core/**"],
+    ignores: ["**/__tests__/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "CallExpression[callee.property.name=/^toLocale/][arguments.length=0]",
+          message:
+            "Pass an explicit locale — toLocale*() with no argument formats in the device's locale, not the app's. Use 'en-US'.",
+        },
+      ],
     },
   },
   {

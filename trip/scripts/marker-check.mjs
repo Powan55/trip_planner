@@ -91,28 +91,41 @@ const PATTERNS = [
 
 // Every entry is a named, understood exception. Widening this list to make the
 // check pass is how the check stops working, so each line needs a reason.
+//
+// EACH ENTRY IS KEYED TO THE ONE RULE IT EXEMPTS, and that is the whole shape of
+// this list. It used to be a bare regex tested before the rule loop ran, so an
+// exemption written for one rule silenced all thirteen on that line — including
+// `trip-id`, whose docstring below calls a hit a live leak. The exemption a line
+// needs is knowable when it is written; granting the other twelve is never what
+// anyone meant. The rule names are checked against PATTERNS in the self-test, so
+// a typo here fails loudly rather than exempting nothing quietly.
 const ALLOWED_LINES = [
   // "reverse-engineer" is a normal verb, not one of the role names above.
-  /reverse-engineer/i,
+  ['role-word', /reverse-engineer/i],
   // Real place names and UI copy, not the review-gate sense of "gate".
-  /Thunder Gate|torii gate|length gate/i,
+  ['gate-word', /Thunder Gate|torii gate|length gate/i],
   // The deployed Worker hostname is a public endpoint the app has to call, and
   // it already ships inside lib/concierge-config.ts. It is not a private
   // address, even though it contains the account handle.
-  /trip-planner-concierge\.official-shadowverse\.workers\.dev/,
+  ['owner-pii', /trip-planner-concierge\.official-shadowverse\.workers\.dev/],
   // The site credit in components/footer.tsx is deliberate, and it is JSX text
   // rather than a comment. Kept narrow so any OTHER use of the name still fails.
-  /getFullYear\(\)\} Lax/,
+  ['owner-name', /getFullYear\(\)\} Lax/],
   // SVG keyword and the npm package name, neither related to work-slicing.
-  /xMidYMax slice|prototype\.slice/,
+  ['process-prose', /xMidYMax slice|prototype\.slice/],
   // Cloudflare Worker deploy "Version ID"s (RELEASES.md, DECISIONS.md,
   // V-FINAL-DEVPLAN.md) are UUID-shaped but name a `wrangler` deploy, not a
   // Firestore trip — a different namespace entirely, recorded on purpose.
-  /version id `/i,
+  ['trip-id', /version id `/i],
   // trip-key-migration.md's own instructions show the UUID SHAPE as a worked
   // example ("a v4 UUID, e.g. `...`"), not a real trip's id.
-  /UUID, e\.g\. `/,
+  ['trip-id', /UUID, e\.g\. `/],
 ];
+
+/** Is this line exempt from THIS rule? Never from any other one. */
+function allowed(rule, line) {
+  return ALLOWED_LINES.some(([r, re]) => r === rule && re.test(line));
+}
 
 // Two files legitimately contain the very strings this script looks for: the
 // ignore rules have to name the private files in order to exclude them, and
@@ -123,13 +136,34 @@ const EXEMPT_FILES = new Set([
   'trip/scripts/marker-check.mjs',
 ]);
 
+// Above the cap a file is reported `unscanned` and the run exits 1 — so the cap is
+// not a performance knob, it is a hard stop for this check and for the first step of
+// CI on every branch. One tracked file grows monotonically (DECISIONS.md is
+// append-only, ~7 KB a day) and the rest are two orders of magnitude away, so the day
+// it crosses, every branch goes red at once and the fastest unblock is widening the
+// cap — the exact move the failure message below warns against. The warning buys the
+// months needed to split the file on a calm day instead.
+const READ_CAP_BYTES = 2_000_000;
+const CAP_WARN_AT = 0.8;
+
+/** A warning string once a tracked file is within 20% of the cap, else null. */
+function capWarning(bytes, relPath) {
+  if (bytes <= READ_CAP_BYTES * CAP_WARN_AT || bytes > READ_CAP_BYTES) return null;
+  const pct = Math.round((bytes / READ_CAP_BYTES) * 100);
+  return (
+    `${relPath} is ${bytes} bytes, ${pct}% of the ${READ_CAP_BYTES}-byte read cap. ` +
+    'Over the cap it is reported unscanned and this check EXITS 1. Split it now.\n' +
+    '    An archive must not be named DECISIONS-archive*.md: the `private-doc` rule ' +
+    'matches that name, so every reference to the new file would fail this check.'
+  );
+}
+
 function scanText(text, relPath) {
   const hits = [];
   text.split('\n').forEach((line, idx) => {
-    if (ALLOWED_LINES.some((re) => re.test(line))) return;
     for (const [rule, re] of PATTERNS) {
       re.lastIndex = 0;
-      if (re.test(line)) {
+      if (re.test(line) && !allowed(rule, line)) {
         hits.push({ file: relPath, line: idx + 1, rule, text: line.trim().slice(0, 120) });
       }
     }
@@ -155,7 +189,7 @@ function scanDocRefs(text, relPath, repoRoot) {
   // list of the punctuation that may does.
   const re = /(?<![\w./-])((?:[\w.-]+\/)*[\w.-]+\.md)\b/g;
   text.split('\n').forEach((line, idx) => {
-    if (ALLOWED_LINES.some((r) => r.test(line))) return;
+    if (allowed('dangling-doc-ref', line)) return;
     let m;
     re.lastIndex = 0;
     while ((m = re.exec(line)) !== null) {
@@ -191,7 +225,7 @@ function scanTripIds(text, relPath) {
   const hits = [];
   const re = /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi;
   text.split('\n').forEach((line, idx) => {
-    if (ALLOWED_LINES.some((r) => r.test(line))) return;
+    if (allowed('trip-id', line)) return;
     re.lastIndex = 0;
     if (re.test(line)) {
       hits.push({ file: relPath, line: idx + 1, rule: 'trip-id', text: line.trim().slice(0, 120) });
@@ -246,6 +280,22 @@ function selfTest() {
   // Punctuation: a marker glued to a typographic apostrophe is the same marker.
   assert.deepEqual(t('// the brief’s deadline'), ['process-prose']);
 
+  // Every allowlist entry names a rule that exists. A typo'd key exempts nothing,
+  // which is loud rather than silent — but it also means the false positive the
+  // entry was written for is still failing, and the author would be reading the
+  // wrong line to work out why.
+  const ruleNames = new Set([...PATTERNS.map(([rule]) => rule), 'dangling-doc-ref', 'trip-id']);
+  for (const [rule, re] of ALLOWED_LINES) {
+    assert.ok(ruleNames.has(rule), `ALLOWED_LINES entry ${re} names no such rule: ${rule}`);
+  }
+
+  // AN EXEMPTION IS PER-RULE. Both halves are asserted, because the whole point is
+  // that the first one no longer buys the second: the allowlisted phrase still
+  // silences the rule it was written for, and no longer silences any other rule on
+  // the same line.
+  assert.deepEqual(t('// reverse-engineer per the brief'), ['process-prose']);
+  assert.deepEqual(t('// Thunder Gate, and Apex agreed'), ['role-word']);
+
   // Leaves alone what it must. These are the regressions that matter: a check
   // that fires on ordinary content gets switched off.
   assert.deepEqual(t('// S219 and D-097 are ticket refs'), []);
@@ -280,6 +330,17 @@ function selfTest() {
     tripIds('Copy the result (a v4 UUID, e.g. `e1a9c2f4-7b3d-4c1a-9e2b-6f8a1d4c7b90`).'),
     [],
   );
+  // The Worker hostname is exempt from `owner-pii` and from nothing else. Its one
+  // real site (docs/RELEASES.md) also carries a deploy UUID, which stays exempt on
+  // its own merits — the "Version ID" entry above — and not as a side effect of this one.
+  assert.deepEqual(tripIds('https://trip-planner-concierge.official-shadowverse.workers.dev '
+    + '`157ed2e0-2cfb-4044-af3e-ea80bc1b4ce6`'), ['trip-id']);
+
+  // The read cap warns before it bites, and only in the band where it is still true
+  // that nothing was missed.
+  assert.equal(capWarning(1_195_583, 'DECISIONS.md'), null);
+  assert.match(capWarning(1_700_000, 'DECISIONS.md'), /85% of the 2000000-byte read cap/);
+  assert.equal(capWarning(2_400_000, 'DECISIONS.md'), null); // over the cap: a hit, not a warning
 
   console.log('self-test: all assertions passed');
 }
@@ -291,6 +352,7 @@ function main() {
     .filter(Boolean);
 
   const hits = [];
+  const warnings = [];
   let scanned = 0;
   for (const rel of files) {
     if (EXEMPT_FILES.has(rel)) continue;
@@ -310,15 +372,17 @@ function main() {
     // Skip binaries by content, not by extension, so an unknown text extension
     // is still scanned rather than silently ignored.
     if (buf.includes(0)) continue;
-    if (buf.length > 2_000_000) {
+    if (buf.length > READ_CAP_BYTES) {
       hits.push({
         file: rel,
         line: 0,
         rule: 'unscanned',
-        text: `${buf.length} bytes, over the 2 MB read cap — nothing was scanned`,
+        text: `${buf.length} bytes, over the ${READ_CAP_BYTES}-byte read cap — nothing was scanned`,
       });
       continue;
     }
+    const nearCap = capWarning(buf.length, rel);
+    if (nearCap) warnings.push(nearCap);
     const ext = path.extname(rel).toLowerCase();
 
     const text = buf.toString('utf-8');
@@ -341,6 +405,10 @@ function main() {
     });
   }
 
+  // Warnings never fail the run: this one is about a file that is still scanned
+  // fine today, and turning it red would BE the outage it exists to give notice of.
+  for (const w of warnings) console.warn(`marker-check: WARNING — ${w}`);
+
   if (hits.length === 0) {
     console.log(`marker-check: clean (${scanned} files scanned)`);
     return;
@@ -352,8 +420,9 @@ function main() {
   }
   console.error(
     '\nRewrite the offending lines. If a hit is genuinely a false positive, add a' +
-      '\nnarrow pattern to ALLOWED_LINES in scripts/marker-check.mjs with a comment' +
-      '\nsaying why. Do not widen it just to go green.',
+      '\n[rule, pattern] entry to ALLOWED_LINES in scripts/marker-check.mjs with a' +
+      '\ncomment saying why — the rule name is the one in brackets above, and the' +
+      '\nentry exempts that rule and no other. Do not widen it just to go green.',
   );
   process.exit(1);
 }

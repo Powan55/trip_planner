@@ -43,7 +43,7 @@ vi.mock('@/lib/budget-remote', () => ({ pushBudgetChunk: () => Promise.reject(ne
 vi.mock('@/lib/docs-remote', () => ({ pushDocsChunk: () => Promise.reject(new Error('offline')) }));
 vi.mock('@/lib/places-remote', () => ({ pushPlacesChunk: () => Promise.reject(new Error('offline')) }));
 
-import { exportTripBackup, importTripBackup } from '@/lib/trip-backup';
+import { exportTripBackup, importTripBackup, BACKUP_VERSION } from '@/lib/trip-backup';
 import { outboxDirty } from '@/core/sync/outbox';
 import { supportsCompression } from '@/core/vault/compression';
 import { makeInMemoryBlobStore, type BlobStorePort } from '@/core/photos/blob-store';
@@ -757,5 +757,69 @@ describe('restoring a SYNCED domain marks it dirty, so the next snapshot merges 
     expect(outboxDirty('budget')).toEqual(['model']);
     expect(outboxDirty('docs')).toEqual(['checklist']);
     expect(outboxDirty('places')).toEqual(['list']);
+  });
+});
+
+// ── The container version is READ, not just stamped ─────────────────────────────────────────────
+describe('a backup from a newer container version is refused, not read as if it were this one', () => {
+  /** The exact envelope `exportTripBackup` writes, with `version` swapped. Domains carry real,
+   *  sanitized data, so a silent accept would visibly overwrite the live trip. */
+  function containerAtVersion(version: number, tripId = 'nepal-japan-2026') {
+    return new Blob(
+      [
+        JSON.stringify({
+          format: 'nepal-japan-trip-backup',
+          version,
+          exportedAt: '2026-07-10T00:00:00.000Z',
+          tripId,
+          domains: { journal: sanitizeEntries([{ date: '2026-12-11', text: 'From the future', createdAt: '', updatedAt: '' }]) },
+          photos: { meta: [], blobs: {} },
+        }),
+      ],
+      { type: 'application/json' },
+    );
+  }
+
+  it('refuses version > BACKUP_VERSION and writes nothing', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+    const beforeJournal = localStorage.getItem(STORAGE_KEYS.journal);
+
+    const res = await importTripBackup(containerAtVersion(BACKUP_VERSION + 1), store);
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    // NEWER, not corrupt: the two send the user hunting different things and only one exists.
+    expect(res.error).toMatch(/newer version/i);
+    expect(res.error).not.toMatch(/corrupt|malformed|not a recognized/i);
+    // Zero writes have happened at this point, so the copy can promise this and does.
+    expect(res.error).toMatch(/no changes were made/i);
+    expect(localStorage.getItem(STORAGE_KEYS.journal)).toBe(beforeJournal);
+    expect(loadPlans()).toEqual(SEED_PLANS);
+  });
+
+  it('the SAME container at the current version still imports (the gate is `>`, not a blanket refusal)', async () => {
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+
+    const res = await importTripBackup(containerAtVersion(BACKUP_VERSION), store);
+
+    expect(res.ok).toBe(true);
+    if (!res.ok) return;
+    expect(res.restored).toContain('journal');
+  });
+
+  it('reports the VERSION, not the trip, when a newer container is also from another trip', async () => {
+    // Ordering is deliberate: a format this build cannot claim to understand is not one whose
+    // `tripId` it should be reading, and "wrong trip" would be a wrong diagnosis.
+    const store = makeInMemoryBlobStore();
+    await seedAll(store);
+
+    const res = await importTripBackup(containerAtVersion(BACKUP_VERSION + 1, 'some-other-trip'), store);
+
+    expect(res.ok).toBe(false);
+    if (res.ok) return;
+    expect(res.error).toMatch(/newer version/i);
+    expect(res.error).not.toMatch(/different trip/i);
   });
 });

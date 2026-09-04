@@ -71,7 +71,7 @@ function orderBy(balances: Record<string, number>, order: readonly string[]): Re
     const i = order.indexOf(id);
     return i === -1 ? order.length : i;
   };
-  const out: Record<string, number> = {};
+  const out: Record<string, number> = Object.create(null);
   for (const id of Object.keys(balances).sort((a, b) => rank(a) - rank(b))) out[id] = balances[id];
   return out;
 }
@@ -93,7 +93,7 @@ function roundBalances(balances: Record<string, number>, unit: number): Record<s
   const order = ids.map((_, i) => i).sort((a, b) => remainders[b] - remainders[a]);
   const rounded = [...floors];
   for (let k = 0; k < deficit && k < order.length; k++) rounded[order[k]] += 1;
-  const out: Record<string, number> = {};
+  const out: Record<string, number> = Object.create(null);
   ids.forEach((id, i) => { out[id] = rounded[i] * unit; });
   return out;
 }
@@ -114,7 +114,9 @@ export function settle(
   const out: LegSettlement[] = [];
 
   for (const leg of LEGS) {
-    const balances: Record<string, number> = {};
+    // Null-prototype throughout this module: a traveller may be named `constructor` or `__proto__`,
+    // and on a `{}` those pass the `in` test below and are silently dropped by the `out[id]` writes.
+    const balances: Record<string, number> = Object.create(null);
     const ensure = (id: string) => {
       if (!(id in balances)) balances[id] = 0;
     };

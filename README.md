@@ -118,8 +118,8 @@ release without warning. If you ever hotfix there, land the same change in this 
 after.
 
 Nothing unproven ships: the `rules-check` job in `.github/workflows/ci.yml` validates the rules
-against the real rules engine in a local emulator, on every pull request, on pushes to `lax`,
-`uttam` and `dev`, and again on the push to `main` that deploys. Run the same check yourself
+against the real rules engine in a local emulator, on every pull request, on a push to any branch
+except `main`, and again on the push to `main` that deploys. Run the same check yourself
 (needs Java and the `firebase` CLI; run from the repo root):
 
 ```bash

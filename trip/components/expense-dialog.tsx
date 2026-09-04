@@ -18,7 +18,7 @@ import { overlayPanelMotion } from '@/lib/motion';
 import type { Expense } from '@/core/budget/expenses';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { rosterForActiveTrip, rosterAccent } from '@/lib/token-auth';
-import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
+import { useModalKeys } from '@/hooks/use-modal-keys';
 
 /**
  * Fast expense-log dialog. A NEW, lightweight modal, deliberately
@@ -31,10 +31,11 @@ import { useDialogOpenFlag } from '@/hooks/use-dialog-open-flag';
  * numeric keypad on mobile) → tap a one-tap category chip → the leg is PRESET (usually correct,
  * no tap) → Save (Enter also saves). Amount + category are the only required fields.
  *
- * MODAL CONTRACT (mirrors AddToItineraryDialog exactly): portal to `document.body`,
- * document-level Esc + Tab-trap + first-field autofocus + parent-owned focus-return (the host's
- * `AnimatePresence onExitComplete`), pinned action footer, and the `body[data-dialog-open]`
- * flag while open. Reduced-motion is honored by framer via the global reduced-motion CSS.
+ * MODAL CONTRACT (mirrors AddToItineraryDialog exactly): portal to `document.body`, first-field
+ * autofocus + parent-owned focus-return (the host's `AnimatePresence onExitComplete`), pinned
+ * action footer, and — from `hooks/use-modal-keys.ts`, shared with that dialog — the
+ * document-level Esc, the Tab-trap and the `body[data-dialog-open]` flag while open.
+ * Reduced-motion is honored by framer via the global reduced-motion CSS.
  *
  * EDIT MODE: pass an `expense` and the fields preset from it; Save calls `updateExpense`. Delete
  * lives in the budget panel's list (not here) — this dialog is add/edit only.
@@ -73,11 +74,6 @@ export default function ExpenseDialog({
   // is satisfied immediately on open; it keeps `document` untouched on the server.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-
-  // Live ref to the latest onClose so the once-registered Esc listener always calls the current
-  // closure without re-binding every render.
-  const onCloseRef = useRef(onClose);
-  onCloseRef.current = onClose;
 
   // Form state. Amount is a raw string (controlled) so a mid-edit blank is possible; the store
   // sanitizes on write. Leg/category preset from the edit target else the props.
@@ -192,48 +188,10 @@ export default function ExpenseDialog({
     return () => clearTimeout(timer);
   }, []);
 
-  // body[data-dialog-open] flag (cross-lane seam): the itinerary FAB hides while it is set, so the
-  // FAB never floats over this dialog's scrim. Ref-counted by the shared hook.
-  useDialogOpenFlag();
-
-  // Esc closes at the document level so it fires wherever focus sits.
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onCloseRef.current();
-      }
-    };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, []);
-
-  // Lightweight Tab-trap inside the panel (no new deps), identical to AddToItineraryDialog.
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key !== 'Tab') return;
-    const panel = panelRef.current;
-    if (!panel) return;
-    const focusable = Array.from(
-      panel.querySelectorAll<HTMLElement>(
-        'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])',
-      ),
-    ).filter((el) => el.offsetParent !== null || el === document.activeElement);
-
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    const active = document.activeElement as HTMLElement;
-
-    if (e.shiftKey) {
-      if (active === first || !panel.contains(active)) {
-        e.preventDefault();
-        last.focus();
-      }
-    } else if (active === last) {
-      e.preventDefault();
-      first.focus();
-    }
-  };
+  // Document-level Esc + the panel's Tab-trap + the `body[data-dialog-open]` flag the itinerary
+  // FAB hides on, from the one shared hook. Registering there is also what makes a single
+  // Escape close only this dialog when it is open over a sheet (D-527).
+  const handleKeyDown = useModalKeys(panelRef, onClose);
 
   if (!mounted) return null;
 

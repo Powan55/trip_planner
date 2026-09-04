@@ -137,7 +137,7 @@ export default function RootLayout({
       // time, and take every `font-family: var(--font-machine)` in the file down with it.
       className={`dark ${geist.variable} ${plexMono.variable}`}
       // `--font-display` is re-pointed at the sans stack rather than deleted: the Tailwind
-      // `display` key still resolves through it and 70+ `font-display` sites read it, so
+      // `display` key still resolves through it and four `font-display` sites read it, so
       // dropping it would land all of them on Georgia mid-flight. Geist is a real variable
       // weight axis, which also retires the synthesised bold those sites were rendering.
       style={{ '--font-display': 'var(--font-sans)' } as React.CSSProperties}

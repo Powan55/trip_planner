@@ -252,7 +252,7 @@ export const MAP_MARKERS: MapMarker[] = [
     x: 0, y: 0,
   },
   {
-    id: 'np-kailashnath-mahadev',
+    id: 'np-kailashnath-mahadev', image: '/images/map/np-kailashnath.jpg',
     name: 'Kailashnath Mahadev Statue',
     category: 'Day Trip',
     country: 'Nepal',
@@ -307,7 +307,7 @@ export const MAP_MARKERS: MapMarker[] = [
     x: 0, y: 0,
   },
   {
-    id: 'np-vajrayogini-sankhu',
+    id: 'np-vajrayogini-sankhu', image: '/images/map/np-sankhu.jpg',
     name: 'Vajrayogini Temple, Sankhu',
     category: 'Day Trip',
     country: 'Nepal',
@@ -340,7 +340,7 @@ export const MAP_MARKERS: MapMarker[] = [
     x: 0, y: 0,
   },
   {
-    id: 'np-tu-cricket-ground',
+    id: 'np-tu-cricket-ground', image: '/images/map/np-tu-cricket.jpg',
     name: 'TU International Cricket Ground',
     category: 'Attraction',
     country: 'Nepal',
@@ -561,7 +561,7 @@ export const MAP_MARKERS: MapMarker[] = [
     x: 0, y: 0,
   },
   {
-    id: 'np-pharping-asura',
+    id: 'np-pharping-asura', image: '/images/map/np-pharping.jpg',
     name: 'Pharping & Asura Cave',
     category: 'Day Trip',
     country: 'Nepal',
@@ -572,7 +572,7 @@ export const MAP_MARKERS: MapMarker[] = [
     x: 0, y: 0,
   },
   {
-    id: 'np-chobhar-gorge',
+    id: 'np-chobhar-gorge', image: '/images/map/np-chobhar.jpg',
     name: 'Chobhar Gorge',
     category: 'Attraction',
     country: 'Nepal',
@@ -1534,7 +1534,7 @@ export const MAP_MARKERS: MapMarker[] = [
     x: 0, y: 0,
   },
   {
-    id: 'jp-ichiran-shibuya', image: '/images/map/jp-ichiran-shibuya.png',
+    id: 'jp-ichiran-shibuya', image: '/images/map/jp-ichiran.jpg',
     name: 'Ichiran Shibuya',
     category: 'Restaurant',
     country: 'Japan',

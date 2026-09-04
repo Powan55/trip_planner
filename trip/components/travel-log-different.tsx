@@ -12,7 +12,7 @@ import { useItineraryContext } from '@/components/itinerary-provider';
 import QuickAddInput from '@/components/quick-add-input';
 
 /**
- * — "Log something different" inline quick-add (Lane T, T3). Fills the slot
+ * "Log something different" — the Travel Mode inline quick-add. Fills the slot
  * (`data-testid="travel-quick-add-slot"`) directly under the /travel checklist.
  *
  * The capture for "we skipped the museum and found a market": a minimal ≤2-field inline add

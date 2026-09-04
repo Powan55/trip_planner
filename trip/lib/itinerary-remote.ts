@@ -95,7 +95,7 @@ export function docToDayPlan(id: string, data: Record<string, unknown>): DayPlan
   // is a LEG ID (lib/trip-data.ts), not a nepal/japan union — a custom trip's single leg is
   // 'main' (core/trips/custom.ts). The old coercion rewrote a synced custom trip's leg id to
   // 'nepal' on every authoritative first snapshot AND wrote it back to Firestore, because
-  // `pushDayMerged` takes day-level fields from the REMOTE side of `mergeDay`. The rule here is
+  // `pushDayMerged` then took day-level fields from the REMOTE side of `mergeDay`. The rule here is
   // now the Vault read schema's own (`z.string().min(1)`, core/vault/schema.ts): any non-empty
   // string passes through; missing/blank/wrong-typed still defaults to 'nepal'. Still a pure
   // shape-mapper — the default fills ABSENT input, it never rewrites input that is present. D-303.
@@ -188,7 +188,7 @@ export function dayEquals(a: DayPlan | undefined, b: DayPlan | undefined): boole
  * changed day is written inside a `runTransaction`:
  * 1. read the CURRENT remote day-doc,
  * 2. default its v1 items on read (`docToDayPlan`) so it is a valid mergeable DayPlan,
- * 3. `mergeDay(remoteNow, localDay)` — item-level merge inside the day,
+ * 3. `mergeDay(localDay, remoteNow)` — item-level merge inside the day,
  * 4. write the merged doc.
  * A concurrent peer write to the same doc between the transaction's read and write forces
  * Firestore to RETRY the transaction, which re-reads the peer's now-committed state and
@@ -267,17 +267,22 @@ export async function pushDayMerged(
     const remoteNow: DayPlan = snap.exists()
       ? defaultDayForMerge(docToDayPlan(localDay.date, snap.data() as Record<string, unknown>))
       // was a four-field literal that silently dropped every day-level field it did not
-      // name — including the new `countryLabel`, which `mergeDay(remoteNow, localDay)` then took
-      // from THIS object (mergeDay's day-level fields come from its FIRST argument), so the
-      // label was erased on the very first push against an absent remote doc. Spreading the
-      // local day is the same value for the four named fields and cannot drift again.
+      // name — including the new `countryLabel`. Spreading the local day is the same value for
+      // the four named fields and cannot drift again.
       : { ...localDay, items: [] };
     // GC BOUNDARY ①: prune past-horizon, unreferenced tombstones from the
     // MERGED result before writing — never in the hot merge path, never as its own write (the
     // GC'd doc ships on THIS genuine edit). Structurally cannot drop a live or recent-tombstone
     // item (gcTombstones' first guard). `nowPt` via `realClock` — the `?today=` override would set
     // the horizon months ahead and drop live-elsewhere tombstones out of a doc we then write back.
-    const merged = gcTombstones(mergeDay(remoteNow, localDay), realClock.now().getTime());
+    // LOCAL FIRST, matching the snapshot path's `mergeDays(loadPlans(), remoteDays)`. `mergeDay`
+    // resolves day metadata to its first argument, so passing `remoteNow` there made the two
+    // directions disagree: local's `date`/`city`/`country`/`countryLabel` could never be
+    // overwritten by remote on either path, and remote's could never be overwritten by local on
+    // the push — write-once on both sides, and free to disagree forever. That is what left
+    // D-303's coerced leg id sitting uncorrectable in Firestore. Items are unaffected: the
+    // `mergeItems` join is commutative, so only the metadata precedence moves.
+    const merged = gcTombstones(mergeDay(localDay, remoteNow), realClock.now().getTime());
     tx.set(ref, sanitizeDayForWrite(merged));
   });
 }

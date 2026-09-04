@@ -11,7 +11,7 @@ import type { StoragePort, SyncPort } from '@/core/ports';
 import type { Expense } from '@/core/budget/expenses';
 import { expensesStoragePort } from '@/core/budget/storage';
 import { LEGS, type Leg } from '@/core/budget/model';
-import { isRemoteConfigured } from './firebase-config';
+import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { withOutbox, type ChunkSync } from '@/core/sync/outbox';
 
 /** Rows for one leg, in stable insertion order (for the prev/next chunk-diff compare). */
@@ -81,8 +81,12 @@ export const expensesSyncPort: SyncPort<Expense[]> = {
     };
   },
 
+  // The PER-TRIP gate, matching `places-ports.ts` and the remote this port fronts: every path in
+  // `*-remote.ts` composes `trips/{getTripId()}/…` and re-gates on `isTripRemoteConfigured()`, so the
+  // looser `isRemoteConfigured()` here answered yes on the default pack (no remote trip id) and had
+  // `useDomainSync` dynamic-import a remote chunk that then no-ops.
   isConfigured() {
-    return isRemoteConfigured();
+    return isTripRemoteConfigured();
   },
 };
 

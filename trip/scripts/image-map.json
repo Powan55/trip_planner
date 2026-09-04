@@ -109,6 +109,17 @@
     "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c9/View_of_Bhaktapur_Durbar_Square.jpg/1280px-View_of_Bhaktapur_Durbar_Square.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     "ext": ".jpg"
   },
+  "na7": {
+    "path": "/images/nepal/na7.jpg",
+    "alt": "Garden of Dreams (Nepal)",
+    "title": "Garden of Dreams (Nepal)",
+    "artist": "calflier001",
+    "license": "CC BY-SA 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/2.0",
+    "credit": "",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/b2/GARDEN_OF_DREAMS_KATHMANDU_NEPAL_FEB_2013_%288570556975%29.jpg/1280px-GARDEN_OF_DREAMS_KATHMANDU_NEPAL_FEB_2013_%288570556975%29.jpg",
+    "ext": ".jpg"
+  },
   "na8": {
     "path": "/images/nepal/na8.jpg",
     "alt": "Asan, Kathmandu",
@@ -175,6 +186,17 @@
     "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/1/14/Kopan_01.JPG/1280px-Kopan_01.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     "ext": ".jpg"
   },
+  "na16": {
+    "path": "/images/nepal/na16.jpg",
+    "alt": "Phulchowki",
+    "title": "Phulchowki",
+    "artist": "Shadow Ayush",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "credit": "",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Phulchowki_Hill_and_Rainbow.jpg/1280px-Phulchowki_Hill_and_Rainbow.jpg",
+    "ext": ".jpg"
+  },
   "na17": {
     "path": "/images/nepal/na17.jpg",
     "alt": "Nagarkot",
@@ -184,6 +206,17 @@
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
     "credit": "Own work",
     "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/66/2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg/1280px-2015-03-18_Nagarkot_Hotel_Galaxy_DSCF2094.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "ext": ".jpg"
+  },
+  "na18": {
+    "path": "/images/nepal/na18.jpg",
+    "alt": "Chandragiri, Kathmandu",
+    "title": "Chandragiri, Kathmandu",
+    "artist": "Khemsang",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "credit": "",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/Chandragiri_Cable_Car_Hills.jpg/1280px-Chandragiri_Cable_Car_Hills.jpg",
     "ext": ".jpg"
   },
   "na19": {
@@ -341,7 +374,7 @@
     "ext": ".jpg"
   },
   "ja6": {
-    "path": "/images/japan/ja6.png",
+    "path": "/images/japan/ja6.jpg",
     "alt": "Akihabara",
     "title": "Akihabara",
     "artist": "Phineyes",
@@ -349,7 +382,7 @@
     "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
     "credit": "Own work",
     "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/60/Sotokanda%2C_Akihabara_Electric_Town_at_night_20231114.png/1280px-Sotokanda%2C_Akihabara_Electric_Town_at_night_20231114.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
-    "ext": ".png"
+    "ext": ".jpg"
   },
   "ja7": {
     "path": "/images/japan/ja7.jpg",
@@ -360,6 +393,17 @@
     "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
     "credit": "Own work",
     "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/0/0f/Golden_Pavilion_Kinkaku-ji_water_mirror_2024.jpg/1280px-Golden_Pavilion_Kinkaku-ji_water_mirror_2024.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "ext": ".jpg"
+  },
+  "ja8": {
+    "path": "/images/japan/ja8.jpg",
+    "alt": "teamLab",
+    "title": "teamLab",
+    "artist": "DannyWithLove",
+    "license": "CC BY-SA 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/4.0",
+    "credit": "",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/TeamLab_Borderless_Azabudai_Hills.jpg/1280px-TeamLab_Borderless_Azabudai_Hills.jpg",
     "ext": ".jpg"
   },
   "ja9": {
@@ -426,6 +470,17 @@
     "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
     "credit": "Picture 075 | Flickr - Photo Sharing!",
     "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/8d/G2_Street_20090626_2.jpg/1280px-G2_Street_20090626_2.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
+    "ext": ".jpg"
+  },
+  "ja15": {
+    "path": "/images/japan/ja15.jpg",
+    "alt": "Omoide Yokochō",
+    "title": "Omoide Yokochō",
+    "artist": "Stephen Kelly",
+    "license": "CC BY 2.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/2.0",
+    "credit": "",
+    "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/17/Nighttime_in_Omoide_Yokocho%2C_Shinjuku_%2811919542164%29.jpg/1280px-Nighttime_in_Omoide_Yokocho%2C_Shinjuku_%2811919542164%29.jpg",
     "ext": ".jpg"
   },
   "ja16": {
@@ -528,7 +583,7 @@
     "ext": ".jpg"
   },
   "ja25": {
-    "path": "/images/japan/ja25.png",
+    "path": "/images/japan/ja25.jpg",
     "alt": "Akihabara",
     "title": "Akihabara",
     "artist": "Phineyes",
@@ -536,7 +591,7 @@
     "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
     "credit": "Own work",
     "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/60/Sotokanda%2C_Akihabara_Electric_Town_at_night_20231114.png/1280px-Sotokanda%2C_Akihabara_Electric_Town_at_night_20231114.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
-    "ext": ".png"
+    "ext": ".jpg"
   },
   "ja26": {
     "path": "/images/japan/ja26.jpg",
@@ -968,7 +1023,7 @@
     "ext": ".jpg"
   },
   "jp-akihabara": {
-    "path": "/images/map/jp-akihabara.png",
+    "path": "/images/map/jp-akihabara.jpg",
     "alt": "Akihabara",
     "title": "Akihabara",
     "artist": "Phineyes",
@@ -976,7 +1031,7 @@
     "licenseUrl": "http://creativecommons.org/publicdomain/zero/1.0/deed.en",
     "credit": "Own work",
     "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/6/60/Sotokanda%2C_Akihabara_Electric_Town_at_night_20231114.png/1280px-Sotokanda%2C_Akihabara_Electric_Town_at_night_20231114.png?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
-    "ext": ".png"
+    "ext": ".jpg"
   },
   "jp-ichiran": {
     "path": "/images/map/jp-ichiran.jpg",
@@ -1329,17 +1384,6 @@
     "credit": "Own work",
     "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/4/4b/Kyoto-STA_Central.jpg/1280px-Kyoto-STA_Central.jpg?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     "ext": ".jpg"
-  },
-  "ja28": {
-    "path": "/images/japan/ja28.png",
-    "alt": "Universal Studios Japan",
-    "title": "Universal Studios Japan",
-    "artist": "",
-    "license": "Fair use",
-    "licenseUrl": "//en.wikipedia.org/wiki/File:USJLogo2024.png",
-    "credit": "https://ucw.jp/shop/detail/45/",
-    "sourceUrl": "https://upload.wikimedia.org/wikipedia/en/5/54/USJLogo2024.png?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
-    "ext": ".png"
   },
   "ja29": {
     "path": "/images/japan/ja29.jpg",
@@ -1923,17 +1967,6 @@
     "credit": "Own work",
     "sourceUrl": "https://thumb.wikimedia.org/wikipedia/commons/thumb/f/f3/Gala-Yuzawa_Station.JPG/1280px-Gala-Yuzawa_Station.JPG?utm_source=commons.wikimedia.org&utm_campaign=imageinfo&utm_content=thumbnail",
     "ext": ".jpg"
-  },
-  "jp-ichiran-shibuya": {
-    "path": "/images/map/jp-ichiran-shibuya.png",
-    "alt": "Ichiran",
-    "title": "Ichiran",
-    "artist": "",
-    "license": "Fair use",
-    "licenseUrl": "//en.wikipedia.org/wiki/File:Ichiran_logo.png",
-    "credit": "https://www.ichiranusa.com/about/",
-    "sourceUrl": "https://upload.wikimedia.org/wikipedia/en/3/3a/Ichiran_logo.png?utm_source=en.wikipedia.org&utm_campaign=imageinfo&utm_content=thumbnail_unscaled",
-    "ext": ".png"
   },
   "jp-monja-kondo": {
     "path": "/images/map/jp-monja-kondo.jpg",

@@ -36,6 +36,7 @@ vi.mock('@/lib/trip-backup', () => ({
 }));
 
 import BackupRestore from '@/components/backup-restore';
+import { importTripBackup } from '@/lib/trip-backup';
 
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -177,5 +178,73 @@ describe('BackupRestore — the confirm dialog owns the modal contract', () => {
     act(() => must('backup-confirm-cancel').click());
     await flush();
     expect(document.body.dataset.dialogOpen).toBeUndefined();
+  });
+});
+
+// `importTripBackup` drops any domain that fails its validate gate and names the survivors in
+// `restored`. The panel used to read only `photosSkipped`, so a restore that dropped EVERYTHING
+// rendered the same fixed "itinerary, journal, photos and more are back" as one that dropped
+// nothing — on the surface a user reaches when something has already gone wrong.
+describe('BackupRestore — the outcome reports what was actually restored', () => {
+  const reload = vi.fn();
+
+  beforeEach(() => {
+    reload.mockClear();
+    // jsdom's real `reload()` throws "Not implemented"; the success path schedules one.
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { ...window.location, reload },
+    });
+  });
+
+  /** Confirm the import and let the awaited `importTripBackup` settle (no timers involved). */
+  async function confirmAndSettle(): Promise<void> {
+    act(() => must('backup-confirm-import').click());
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  }
+
+  it('an empty `restored` is a FAILURE — no success copy, and no reload', async () => {
+    vi.mocked(importTripBackup).mockResolvedValueOnce({ ok: true, restored: [], photosSkipped: 0 });
+    await openConfirm();
+    await confirmAndSettle();
+
+    expect(q('backup-status'), 'no success line').toBeNull();
+    expect(must('backup-error').textContent).toContain('Nothing in that file could be restored');
+    expect(must('backup-error').getAttribute('role')).toBe('alert');
+    expect(reload).not.toHaveBeenCalled();
+  });
+
+  it('names the domains that came back, in a readable list', async () => {
+    vi.mocked(importTripBackup).mockResolvedValueOnce({
+      ok: true,
+      restored: ['itinerary', 'journal', 'photos'],
+      photosSkipped: 0,
+    });
+    await openConfirm();
+    await confirmAndSettle();
+
+    expect(must('backup-status').textContent).toContain(
+      'Trip restored — itinerary, journal and photos are back.',
+    );
+  });
+
+  it('a partial restore says so, and the photo-skip count still rides along', async () => {
+    // Nine of eleven domains failed `spec.validate` and were dropped. That used to read exactly
+    // like a clean restore.
+    vi.mocked(importTripBackup).mockResolvedValueOnce({
+      ok: true,
+      restored: ['expenses', 'docsChecklist'],
+      photosSkipped: 2,
+    });
+    await openConfirm();
+    await confirmAndSettle();
+
+    const text = must('backup-status').textContent ?? '';
+    expect(text).toContain('Trip restored — expenses and documents checklist are back.');
+    expect(text).toContain('2 photos could not be restored');
+    expect(text).not.toContain('itinerary');
   });
 });

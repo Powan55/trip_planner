@@ -8,7 +8,7 @@ import { useExpenses } from '@/hooks/use-expenses';
 import { BUDGET_CATEGORIES, legCurrency, currencySymbol, formatMoney, type Leg } from '@/core/budget/model';
 
 /**
- * #260 — inline expense quick-add for Travel Mode (Lane T). Fills the same "log without leaving
+ * #260 — inline expense quick-add for Travel Mode. Fills the same "log without leaving
  * the checklist" gap S318/`TravelLogDifferent` fills for itinerary items, one slot below it.
  *
  * TM-9: INLINE only — no modal, no portal. Lives inside the Travel Mode root (mounted by

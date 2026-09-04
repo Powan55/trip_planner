@@ -8,6 +8,7 @@ import {
   renameKnownTrip,
   removeKnownTrip,
   joinTrip,
+  JOIN_REFUSAL_COPY,
   setTripConfig,
   getKnownTrip,
   TRIP_DAYS_MAX,
@@ -140,6 +141,8 @@ export default function TripsHub() {
   const [creating, setCreating] = useState(false);
   const [joinKey, setJoinKey] = useState('');
   const [joinName, setJoinName] = useState('');
+  /** The join form's one refusal message, or null. Mirrors `createError`'s shared `role="alert"`. */
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [forgetId, setForgetId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -268,8 +271,11 @@ export default function TripsHub() {
 
   // switch primitive: register + write the pointer, then a FULL navigation to Home so the
   // pack re-hydrates fresh and the switcher lands oriented (same target as the ?trip= handshake).
+  // The navigation is conditional on the pointer having actually moved (same guard as the Home
+  // chip strip, and it matters more here: navigating rather than reloading makes a refused switch
+  // look like a completed one). A row can predate the guard, or arrive from a device that does.
   const switchTo = (id: string) => {
-    joinTrip(id);
+    if (!joinTrip(id).ok) return;
     window.location.assign(withBasePath('/'));
   };
 
@@ -372,8 +378,14 @@ export default function TripsHub() {
   const join = (e: React.FormEvent) => {
     e.preventDefault();
     const id = joinKey.trim();
-    if (!id) return; // non-empty is the only possible/needed validation
-    joinTrip(id, joinName.trim() || undefined);
+    if (!id) return;
+    // A Trip Token cannot be verified in advance (the copy below says so); the ONE thing this form
+    // can know is that the registry refused it, and why.
+    const joined = joinTrip(id, joinName.trim() || undefined);
+    if (!joined.ok) {
+      setJoinError(JOIN_REFUSAL_COPY[joined.reason]);
+      return;
+    }
     // same unawaited-push-then-navigate shape as create was, but NOT the defect —
     // the trip-list push self-heals on the next load (subscribeTripList re-pushes local extras),
     // and no peer depends on it. Left fire-and-forget deliberately; revisit only if that
@@ -756,13 +768,28 @@ export default function TripsHub() {
               id="trips-hub-join-key"
               data-testid="trips-hub-join-key"
               value={joinKey}
-              onChange={(e) => setJoinKey(e.target.value)}
+              onChange={(e) => {
+                setJoinKey(e.target.value);
+                setJoinError(null);
+              }}
               placeholder="Paste a Trip Token"
               autoComplete="off"
               autoCapitalize="off"
               spellCheck={false}
+              aria-invalid={joinError ? true : undefined}
+              aria-describedby={joinError ? 'trips-hub-join-error' : undefined}
               className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-raised px-3 py-2.5 font-machine text-t-body text-ink-hi placeholder:font-sans placeholder:text-ink-lo focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
             />
+            {joinError && (
+              <p
+                id="trips-hub-join-error"
+                role="alert"
+                data-testid="trips-hub-join-error"
+                className="err text-t-sm"
+              >
+                {joinError}
+              </p>
+            )}
             <div className="flex flex-col gap-2 sm:flex-row">
               <label htmlFor="trips-hub-join-name" className="sr-only">
                 Optional name for this trip

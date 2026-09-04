@@ -10,6 +10,7 @@ import { joinTrip } from '@/core/trips/registry';
 import { useActiveTraveler } from '@/hooks/use-active-traveler';
 import { withBasePath } from '@/lib/utils';
 import { TRIP_START } from '@/lib/trip-data';
+import { getNow } from '@/lib/trip-now';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import UserTokenShowOnce from '@/components/user-token-show-once';
 import LandingPage from '@/components/landing-page';
@@ -216,7 +217,7 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
    */
   const seedRef = useRef<Promise<unknown> | null>(null);
 
-  // body[data-dialog-open] seam flag while open (Lane-M FAB hides on it). Same hook as the
+  // body[data-dialog-open] while open — the quick-add FAB hides on it (D-369). Same hook as the
   // other four modals; the wall has no `open` prop because mounting IS open (B-6).
   useDialogOpenFlag();
 
@@ -303,8 +304,13 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
    */
   const finish = () => {
     const go = () => {
-      if (pendingTrip) {
-        joinTrip(pendingTrip);
+      // Home is the right landing ONLY if the invitation was actually adopted — it is the "join IS
+      // the selection" claim above, and landing there after a refused join says the selection
+      // happened when it did not. A refusal falls through to `/trips/`, the same landing as
+      // arriving with no invitation at all, where the trip list shows what this account really has.
+      // The refusal is not spoken here: this navigates on the same tick, so any state it set
+      // would die with the page before it could be read.
+      if (pendingTrip && joinTrip(pendingTrip).ok) {
         window.location.replace(withBasePath('/'));
         return;
       }
@@ -826,14 +832,16 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
 
 /**
  * Compact live countdown for the boarding pass. Ticks once a second so HH:MM:SS stays truthful; the
- * math is the shared pure helper vs TRIP_START. Mount-gated so SSR and first client paint
+ * math is the shared pure helper vs TRIP_START, against the app's ONE clock (D-075 — no surface
+ * reads `new Date()` for trip-day logic, and this one is the sign-in wall, so a countdown
+ * regression here was invisible to every `?today=` run). Mount-gated so SSR and first client paint
  * agree (no hydration mismatch — value starts null).
  */
 function CompactCountdown() {
   const [cd, setCd] = useState<Countdown | null>(null);
 
   useEffect(() => {
-    const tick = () => setCd(computeCountdown(TRIP_START, new Date()));
+    const tick = () => setCd(computeCountdown(TRIP_START, getNow()));
     tick();
     const id = window.setInterval(tick, 1000);
     return () => window.clearInterval(id);

@@ -35,6 +35,11 @@ const MIN_BYTES = 8 * 1024; // ~8 KB sanity floor
 const POLITE_DELAY_MS = 350; // between distinct subjects (be gentle with the API)
 const MAX_RETRIES = 5; // retry transient throttling (400/429/5xx) with backoff
 
+// The licence allowlist. A `-SA` or a digit has to follow `CC BY`, which is what rejects
+// the CC BY-NC / CC BY-ND variants; anything non-free ("Fair use") fails outright.
+const LICENCE_ALLOWED =
+  /^(?:CC0|Public domain|CC BY(?:-SA)?[\s\d]|Unsplash License|Pexels License)/i;
+
 // ── Manifest ────────────────────────────────────────────────────────────────
 // Each entry: { id, area, title, width?, alt? }. width defaults per area.
 /** @type {{id:string, area:string, title:string, width?:number, alt?:string}[]} */
@@ -419,8 +424,130 @@ async function downloadBytes(url) {
   return buf;
 }
 
+// ── Credits ─────────────────────────────────────────────────────────────────
+// `--credits` rebuilds public/images/CREDITS.md from image-map.json and touches no
+// network. The tables are generated; the prose below is the hand-written part and is
+// the only thing in that file anyone edits by hand.
+
+const CREDITS_INTRO = `# Image Credits
+
+Almost every image bundled under \`public/images/\` is freely licensed (Public Domain / CC0 / CC BY / CC BY-SA) per decision D-015, sourced from Wikimedia Commons / Wikipedia via \`scripts/fetch-images.mjs\` and hosted locally (no hotlinking). Attribution in the tables below is captured automatically from each file's Wikimedia \`extmetadata\`.
+
+**The exception is \`public/images/landing/\` — see the last section. Those three are self-generated, not sourced, and no Wikimedia attribution applies to them.**`;
+
+const CREDITS_GROUPING_TAIL = `Grouping is by upstream file, not by bytes: a group is normally the same photograph fetched at the width each surface needs (\`scripts/fetch-images.mjs\`, \`CARD_WIDTH = 1200\` with a per-entry override), so collapsing one would either soften the large surface or bloat the small one. **The four Nagarkot copies (\`nepal/na17\`, \`photography/ps1\`, \`featured/nagarkot\`, \`map/np-nagarkot\`) are the exception**: all four are byte-identical at 1200×800, sha256 \`62dba067e92dfe15…\`, so that justification does not apply to them and they could be collapsed to one path if anyone wants the 3 × 276 KiB back.`;
+
+const CREDITS_HERO_NOTE = `There are TWO heroes because the hero photograph follows the trip leg: \`hero.jpg\` carries the Nepal leg and every day outside the trip window, \`hero-japan.jpg\` takes over for the Japan leg. See \`lib/hero-image.ts\`.
+
+**\`/images/hero/hero-japan.jpg\` and \`/images/map/jp-park-hyatt.jpg\` are the same upstream Wikimedia file** — \`Skyscrapers_of_Shinjuku_2009_January.jpg\` by Morio — bundled twice at two different widths: 1920×1023 for the hero (\`HERO_WIDTH\`) and 1200×639 for the map card (\`CARD_WIDTH\`, fetched from the 1280px Commons thumb). Confirmed by pixel comparison: greyscale RMS difference 7.5/255 at a common 1200×639, which is rescaling and JPEG noise on the building edges, not a different frame.
+
+**This duplication is deliberate and must not be "deduped".** The hero is the app's one full-bleed surface and the only place the extra pixels are actually spent; repointing it at the 1200px copy would visibly soften it on any desktop. Repointing the map card at the 1920px copy would put a 533 KiB raster behind a thumbnail.`;
+
+const CREDITS_LANDING = `## Landing screenshots
+
+These three are screenshots of **this app**, produced by \`e2e/landing-shots.spec.ts\` against a
+purpose-built **fictional** trip and fed through \`npm run gen:images\` like every other raster. No
+third party holds any right in them, so there is nothing to attribute and "freely licensed,
+Wikimedia-sourced" statement does not describe them.
+
+Two things worth knowing before regenerating them:
+
+- **The seeded trip must stay fictional.** They render on the PUBLIC logged-out landing page. The
+  itinerary, the expenses and the three names (Sam / Alex / Rina — deliberately *not* the \`TRAVELERS\`
+  roster) are authored inside the shoot spec. Re-shooting against real trip data would publish it to
+  every visitor, and **no test, lint or grep in this repo can read text inside a PNG** — every check
+  would stay green. \`lib/sample-itinerary.ts\` is *not* a demo fixture; it re-exports the real content
+  pack. Do not seed from it.
+- **One basemap frame carries third-party map data.** \`shot-3-map.png\` contains CARTO dark-matter
+  raster tiles rendered from OpenStreetMap data. The required attribution ("© OpenStreetMap
+  contributors © CARTO") is visible **inside the image**, as it is in the live map — that is the
+  attribution, and cropping it out would break the licence.
+
+| Local path | Subject | Author | License | Source |
+|---|---|---|---|---|
+| \`/images/landing/shot-1-day-planner.png\` | The day planner, a fictional morning in Kathmandu | This project | Own work | \`e2e/landing-shots.spec.ts\` |
+| \`/images/landing/shot-2-expenses.png\` | The shared expense list, a fictional split dinner | This project | Own work | \`e2e/landing-shots.spec.ts\` |
+| \`/images/landing/shot-3-map.png\` | The trip map, fictional stops pinned over CARTO/OSM tiles | This project; basemap © OpenStreetMap contributors © CARTO | Own work; basemap ODbL / CC BY | \`e2e/landing-shots.spec.ts\` |`;
+
+const CREDITS_SECTIONS = [
+  ['hero', 'Hero', CREDITS_HERO_NOTE],
+  ['nepal', 'Nepal (attractions & food)', ''],
+  ['japan', 'Japan (attractions & food)', ''],
+  ['photography', 'Photography guide', ''],
+  ['featured', 'Featured destinations', ''],
+  ['map', 'Map markers', ''],
+];
+
+const LANDING_PATHS = 3;
+const TABLE_HEAD = '| Local path | Subject | Author | License | Source |\n|---|---|---|---|---|';
+const cell = (s) => String(s ?? '').replace(/\|/g, '\\|').trim();
+
+async function writeCredits() {
+  const map = JSON.parse(await readFile(path.join(__dirname, 'image-map.json'), 'utf8'));
+  const entries = Object.values(map);
+
+  const offList = entries.filter((e) => !LICENCE_ALLOWED.test(e.license));
+  for (const e of offList) {
+    console.error(`  LICENCE  ${e.path} — "${e.license}" is not on the allowlist`);
+  }
+
+  const upstream = new Map();
+  for (const e of entries) {
+    const key = parseFileRef(e.sourceUrl || '').fileName ?? e.path;
+    if (!upstream.has(key)) upstream.set(key, []);
+    upstream.get(key).push(e.path);
+  }
+  const groups = [...upstream.values()].filter((paths) => paths.length > 1);
+  const shared = groups.reduce((n, paths) => n + paths.length, 0);
+  const biggest = groups.slice().sort((a, b) => b.length - a.length)[0] ?? [];
+  const example = biggest
+    .map((p) => '`' + p.replace('/images/', '').replace(/\.\w+$/, '') + '`')
+    .join(', ');
+
+  const out = [CREDITS_INTRO];
+  out.push(
+    `Total assets: **${entries.length + LANDING_PATHS} paths / ${upstream.size + LANDING_PATHS} distinct images** — ${entries.length} Wikimedia-sourced paths (tabulated below) resolving to **${upstream.size} distinct upstream files**, plus ${LANDING_PATHS} self-generated landing screenshots.`,
+  );
+  out.push(
+    `Paths outnumber photographs because the same upstream file is deliberately bundled more than once at different widths for different surfaces — **${shared} of the ${entries.length} entries below share an upstream file with at least one other**, falling into ${groups.length} shared groups (the largest is ${example}). The remaining ${entries.length - shared} entries are one-of-a-kind, and ${shared} + ${entries.length - shared} = ${entries.length} rows just as ${groups.length} + ${entries.length - shared} = ${upstream.size} distinct upstream files. ${CREDITS_GROUPING_TAIL}`,
+  );
+
+  for (const [area, heading, note] of CREDITS_SECTIONS) {
+    const rows = entries.filter((e) => e.path.startsWith(`/images/${area}/`));
+    if (!rows.length) continue;
+    out.push(`## ${heading}`);
+    out.push(
+      [
+        TABLE_HEAD,
+        ...rows.map((e) => {
+          const licence = e.licenseUrl
+            ? `[${cell(e.license)}](${e.licenseUrl})`
+            : cell(e.license);
+          // thumb.wikimedia.org and upload.wikimedia.org serve the same thumb paths; the
+          // reader-facing link stays on the canonical host, minus the API's utm params.
+          const href = (e.sourceUrl || '')
+            .split('?')[0]
+            .replace('://thumb.wikimedia.org/', '://upload.wikimedia.org/');
+          const source = href ? `[file](${href})` : '—';
+          return `| \`${e.path}\` | ${cell(e.title) || '—'} | ${cell(e.artist) || 'Unknown'} | ${licence || '—'} | ${source} |`;
+        }),
+      ].join('\n'),
+    );
+    if (note) out.push(note);
+  }
+  out.push(CREDITS_LANDING);
+
+  await writeFile(path.join(IMAGES_DIR, 'CREDITS.md'), out.join('\n\n') + '\n', 'utf8');
+  console.log(
+    `  Wrote public/images/CREDITS.md — ${entries.length + LANDING_PATHS} paths, ${upstream.size + LANDING_PATHS} distinct images`,
+  );
+  if (offList.length) process.exitCode = 1;
+}
+
 // ── Main ────────────────────────────────────────────────────────────────────
 async function main() {
+  if (process.argv.includes('--credits')) return writeCredits();
+
   await mkdir(IMAGES_DIR, { recursive: true });
 
   // `--only=id1,id2` re-fetches JUST those manifest ids and MERGES the result into the existing
@@ -463,6 +590,9 @@ async function main() {
       if (!cached) {
         await sleep(POLITE_DELAY_MS);
         const { downloadUrl, attribution, ext } = await resolveSubject(title, width);
+        if (!LICENCE_ALLOWED.test(attribution.license)) {
+          throw new Error(`licence not allowed: ${attribution.license || '(none)'}`);
+        }
         const buf = await downloadBytes(downloadUrl);
         cached = { buf, ext, sourceUrl: downloadUrl, attribution };
         cache.set(title, cached);
