@@ -515,7 +515,10 @@ function readCache(city: string): WeatherNow | null {
     feelsLikeC: cached.feelsLikeC ?? null,
     visibilityM: cached.visibilityM ?? null,
     stale: true,
-    forecast: forecast ?? null,
+    // Same unchecked-cast guard as getCachedForecastForDate (#450). This one does not throw here
+    // -- it launders a corrupt value into a field TYPED as ForecastDay[], which then reaches
+    // whichever consumer maps over it. Normalise at the boundary instead.
+    forecast: Array.isArray(forecast) ? forecast : null,
   };
 }
 
@@ -543,7 +546,13 @@ function readAqiCache(city: string): AirQualityNow | null {
  */
 export function getCachedForecastForDate(city: string, date: string): ForecastDay | null {
   const forecast = weatherCache.get<ForecastDay[]>(forecastCacheKey(city));
-  if (!forecast) return null;
+  // Array.isArray, not just a truthiness check (#450). `weatherCache.get<T>` hands back
+  // `map[city]` cast to `T` without validating it, and `readJson`'s shape gate stops one level
+  // short: it proves the CONTAINER parsed to an object, never the per-city value. So a slot
+  // holding `{"Kathmandu": "corrupt"}` — devtools, another script on the origin, a half-written
+  // profile — survives every gate above and reaches `.find()`, which throws a TypeError. This
+  // one is on Home's render path, so the throw is a blank page rather than a missing forecast.
+  if (!Array.isArray(forecast)) return null;
   return forecast.find((day) => day.date === date) ?? null;
 }
 
