@@ -87,13 +87,32 @@ function notifyChanged(): void {
 
 function loadSlot(): OutboxSlot {
   const raw = readJson<OutboxSlot | null>('local', keyFor('syncOutbox'), null);
-  if (!raw || typeof raw !== 'object' || raw.version !== 1 || typeof raw.dirty !== 'object') {
+  if (!raw || typeof raw !== 'object') return { version: 1, dirty: {} };
+  // A version we do not understand is discarded rather than guessed at, but it is NOT discarded
+  // silently (#439): dropping every pending chunk is exactly the kind of data-shaped event that
+  // should leave a trace, or a future migration bug looks like "sync just stopped".
+  if (raw.version !== 1) {
+    console.warn('[outbox] discarding a slot written at version', raw.version, '— expected 1');
     return { version: 1, dirty: {} };
+  }
+  if (typeof raw.dirty !== 'object' || raw.dirty === null) return { version: 1, dirty: {} };
+  // Per-DOMAIN validation (#439). The object check above proved `dirty` is an object; it proved
+  // nothing about its values. A corrupt slot whose domain value is a string or a number used to
+  // reach `for (const chunk of dirty[domain])` in outboxBlocked and `arr.filter` in ack, and throw
+  // out of both — out of an async caller, past this module's never-throw contract. Keep only
+  // arrays, and only the string entries inside them, so every consumer below is handed the shape
+  // it already assumes.
+  const dirty: OutboxSlot['dirty'] = {};
+  for (const key of Object.keys(raw.dirty) as SyncDomain[]) {
+    const value = (raw.dirty as Record<string, unknown>)[key];
+    if (!Array.isArray(value)) continue;
+    const chunks = value.filter((c): c is string => typeof c === 'string');
+    if (chunks.length > 0) dirty[key] = chunks;
   }
   // tolerate an old slot that simply lacks `lastAckAt`, or a structurally-bad
   // value on it — never throw, just treat it as "no ack yet recorded".
   const lastAckAt = typeof raw.lastAckAt === 'string' ? raw.lastAckAt : undefined;
-  return { version: 1, dirty: raw.dirty, lastAckAt };
+  return { version: 1, dirty, lastAckAt };
 }
 
 function saveSlot(dirty: OutboxSlot['dirty'], lastAckAt?: string): void {
