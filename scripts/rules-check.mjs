@@ -297,6 +297,13 @@ await expect('LIST /trips (enumerate every capability token)', 'DENIED', () => g
 await expect('collectionGroup("days") across all trips', 'DENIED', () => getDocs(collectionGroup(db, 'days')));
 await expect('GET /trips/{knownId} by direct id', 'ALLOWED', () => getDoc(doc(db, 'trips', TRIP)));
 await expect('LIST /trips/{knownId}/days (subcollection query)', 'ALLOWED', () => getDocs(collection(db, 'trips', TRIP, 'days')));
+// The OTHER two collection listeners in the client (#450). `days` was the only one asserted, so
+// a rules change that narrowed `list` on the subcollection wildcard would have been caught for
+// the itinerary and missed for these two — both of which open an onSnapshot on a COLLECTION:
+// expenses-remote.ts:205 and presence.ts:312. They pass today for the same reason days does,
+// which is exactly why the assertion belongs here rather than being assumed.
+await expect('LIST /trips/{knownId}/expenses (expenses-remote.ts:205)', 'ALLOWED', () => getDocs(collection(db, 'trips', TRIP, 'expenses')));
+await expect('LIST /trips/{knownId}/presence (presence.ts:312)', 'ALLOWED', () => getDocs(collection(db, 'trips', TRIP, 'presence')));
 
 console.log('\n  -- 3b. REAL PAYLOADS (every write call site) must be ALLOWED --');
 await expect('trips/{id}                       {schemaVersion,createdAt,seededFrom}', 'ALLOWED',
@@ -323,6 +330,12 @@ await expect('trips/{id}/profile/tripList      {version,trips[50],removed[50]}',
   () => setDoc(doc(db, 'trips', TRIP, 'profile', 'tripList'), { version: 1, trips: bigList(50), removed: bigList(50) }));
 await expect('trips/{id}/presence/{dev}        {name,lastSeen} setDoc(merge)', 'ALLOWED',
   () => setDoc(doc(db, 'trips', TRIP, 'presence', 'dev-1'), { name: 'Powan', lastSeen: new Date() }, { merge: true }));
+// places/list was missing from a phase labelled "every write call site" (#450). Same
+// {version, items} container as docs/checklist, written at places-remote.ts:89.
+await expect('trips/{id}/places/list           {version,items[200]}', 'ALLOWED',
+  () => runTransaction(db, async (tx) => {
+    tx.set(doc(db, 'trips', TRIP, 'places', 'list'), { version: 1, items: bigList(200) });
+  }));
 
 console.log('\n  -- 3c. DELETES (kept out of every request.resource guard — it is null there) --');
 await expect('deleteDoc days/{date}            (itinerary-remote.ts:241)', 'ALLOWED',
