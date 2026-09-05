@@ -53,9 +53,12 @@ const LegacyHashRedirect = dynamic(() => import('@/components/legacy-hash-redire
 // no loading slot that gap renders NOTHING, so the reserved box collapses to 0 and then
 // re-expands when the chunk arrives. For an ABOVE-THE-FOLD island that is two shifts of the
 // whole page. Keep each of these two heights identical to its LazyVisible `minHeight`.
+/** Reserved height of the section-nav strip. Declared ONCE — the same rule as TRIP_STRIP_H:
+ *  the skeleton and the LazyVisible `minHeight` must move together (#450). */
+const SECTION_NAV_H = '56px';
 const HomeSectionNav = dynamic(() => import('@/components/home-section-nav'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="56px" />,
+  loading: () => <SectionSkeleton height={SECTION_NAV_H} />,
 });
 // — the compact "Your trips" chip strip (multi-trip on first paint; null when signed out).
 // Same lazy-island recipe as HomeSectionNav above: Home's First Load JS has ~zero
@@ -213,10 +216,12 @@ const HomeChapters = dynamic(() => import('@/components/home-chapters'), {
 // A plain px value, not a `clamp(_, vh, _)`: the driver is width, and no vh expression can
 // track that or survive the cliff at the breakpoint.
 // Both copies of this value — here and the `<LazyVisible minHeight>` at the call site — must
-// move together, the same rule the named constants above carry.
+// move together, the same rule the named constants above carry. It is a NAMED constant now
+// (#450) so that rule is enforced by the compiler rather than by this paragraph.
+const INSPIRATION_H = '3833px';
 const TravelInspiration = dynamic(() => import('@/components/travel-inspiration'), {
   ssr: false,
-  loading: () => <SectionSkeleton height="3833px" />,
+  loading: () => <SectionSkeleton height={INSPIRATION_H} />,
 });
 
 // — the user's imported "My places" for a CUSTOM trip's home (custom trips have no guide pages;
@@ -279,7 +284,7 @@ export default function HomePage() {
           line — so it goes here, OUTSIDE the 100svh column. Inside it, it would have eaten
           the hero's flex-1 space and pushed the hero's own CTA down (D-311). */}
       <LazyVisible component={HomeStatRow} minHeight={STAT_ROW_H} />
-      <LazyVisible component={HomeSectionNav} minHeight="56px" />
+      <LazyVisible component={HomeSectionNav} minHeight={SECTION_NAV_H} />
       {/* The journey bar and the chapter bands are both SIBLINGS of the hero, never children
           of it, for the same reason the stat band above is: inside the 100svh column they
           would eat the hero's flex-1 and push its CTA down (D-311). Below it they cost the
@@ -294,7 +299,7 @@ export default function HomePage() {
           landmarks and a sixth would change a shipped control. */}
       <LazyVisible component={HomeReadiness} minHeight={READINESS_H} />
       <LazyVisible component={GatedHomeChapters} minHeight={CHAPTERS_H} />
-      <LazyVisible component={GatedTravelInspiration} minHeight="3833px" />
+      <LazyVisible component={GatedTravelInspiration} minHeight={INSPIRATION_H} />
       {/* Custom-trip-only "My places" (renders null on the default pack). minHeight 0 so the
           default pack reserves no visible box while the gate resolves. */}
       <LazyVisible component={CustomTripMyPlaces} minHeight="0px" />
