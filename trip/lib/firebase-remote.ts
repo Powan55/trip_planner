@@ -104,7 +104,13 @@ export function getRemote(): Promise<RemoteHandle> {
 
 /**
  * This device's Firebase ID token, or `null` — for the Worker's `Authorization: Bearer …`
- * (issue #10; the Worker verifies membership by reading the trip doc AS this user).
+ * (issue #10).
+ *
+ * THE HEADER IS NOT A GATE. Worker 1.9.0 was to verify the caller by reading the trip doc from
+ * the Firestore REST API AS this user, but 1.9.0 is not what is live — the running Worker
+ * verifies nothing. Sending this token buys no access control on its own, and no amount of
+ * client-side gating can supply any; the check has to land on the Worker first. See the NOT A
+ * BOUNDARY note in `lib/worker-auth.ts`, which owns this policy.
  *
  * TOTAL: `null` when remote is unconfigured (the dormant build and every e2e run) and on ANY
  * failure, so a caller can only ever attach a header it actually has. The token is minted by
