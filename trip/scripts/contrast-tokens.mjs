@@ -257,9 +257,9 @@ C.jpHdrRest = hdr(C.duoJpHigh, 0.86, 0.78);
 // split-4% and 0.88 at split+8% and the line always lands 4/12 of the way between them:
 //   .plate                      56% -> stops 34/52/64/80 -> 0.69 + (4/12) * 0.19 = 0.753
 //   .plate--band / .plate--wide 42% -> stops 20/38/50/66 -> 0.69 + (4/12) * 0.19 = 0.753
-// Both rows below therefore measure the same composite BY CONSTRUCTION, and they are both
-// kept because that is the property being asserted — a stop that stopped tracking the split
-// would move one of them and not the other.
+// Both rows below model the same composite BY CONSTRUCTION; this arithmetic cannot detect
+// a CSS stop that stops tracking the split. lib/__tests__/plate-ramp-frame.test.ts guards
+// the compiled recipe's relative stops and alphas so the model cannot silently drift.
 // The row TOP is the highest any glyph can sit and `.lay` is flex-end, whose overflow
 // goes upward out of the row — so these are the best case for the pairs below, not a
 // pessimistic one. There is no duotone cap on `.plate` (the caps are `.photo-header__duo-*`

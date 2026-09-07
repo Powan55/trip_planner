@@ -5,7 +5,7 @@
  * revision), `hlc` (the merge CONFLICT key) and `ord` (the day ORDER key — split off `hlc` so
  * that advancing one does not move the row). It rides ALONGSIDE the existing
  * attribution stamping (`lib/attribution.ts` sets `createdBy`/`updatedBy`/`updatedAt`) —
- * this sets the two NEW ordering/version fields, keeping "one stamping concern, one module"
+ * this sets the sync ordering/version fields, keeping "one stamping concern, one module"
  * per side. Attribution stays in `lib/` (it takes a name source); the ordering stamp is pure
  * `core/` because it only needs an injected clock + uid.
  *
@@ -13,17 +13,15 @@
  * `physicalNow` (ms) and `actor` (uid) are INJECTED. No clock read, no firebase, no window.
  * Imports only the domain type and the pure HLC helpers. Testable in isolation.
  *
- * ── STATUS: PROVIDED + UNIT-TESTED, NOT YET WIRED ────────────────────────
- * These helpers are complete and covered, but does NOT call them from the store — the
- * store mutators stay untouched this change.
+ * ── STORE INTEGRATION ──────────────────────────────────────────────────
+ * `hooks/use-itinerary.ts` calls these helpers on create, update, delete and reorder.
+ * Content edits advance `rev`/`hlc`; reorders advance only `ord`.
  *
- * ── DORMANT-GATE DECISION for ──────
- * RECOMMENDED: at gate `hlc` stamping on the caller's `isRemoteConfigured()` — i.e.
- * only stamp `rev`/`hlc` on a local edit when remote sync is actually configured. Dormant
- * (no-Firebase) items then receive `rev`/`hlc` ONLY at the migration / `docToDayPlan`
- * defaulting boundary, so the dormant portfolio build stays byte-for-byte identical.
- * The helpers below are gate-agnostic (pure); the GATE is the caller's responsibility at
- * Confirmed at.
+ * ── DORMANT GATE ────────────────────────────────────────────────────────
+ * The store's `syncEnabled()` delegates to `isTripRemoteConfigured()`: local mutations
+ * stamp sync fields only when the active trip has remote sync configured. A no-Firebase
+ * build or local-only sample pack skips this path; legacy `rev`/`hlc` defaults still belong
+ * to the migration / `docToDayPlan` read boundary. These pure helpers do not own the gate.
  */
 
 import type { ItineraryItem } from '@/lib/trip-data';

@@ -23,7 +23,7 @@
  */
 import type { DayPlan } from '@/lib/trip-data';
 import { loadPlans } from './storage';
-import { keyFor } from '@/core/storage/gateway';
+import { keyFor, hasKey, writeString } from '@/core/storage/gateway';
 import { makeEnvelope } from './envelope';
 import { parseItineraryPayloadStrict } from './schema';
 import { CURRENT_ITINERARY_VERSION, runItineraryMigrations } from './migrations';
@@ -65,20 +65,37 @@ export function exportItinerary(): string {
  * safe. This does NOT touch the main itinerary key — the live trip is untouched by a failed
  * import.
  */
+/**
+ * How much of a rejected import is preserved (#411). The slot exists so a human can SEE why a
+ * file was rejected, and the shape is visible in the first few KB — a version marker, a wrong
+ * top-level key, a truncated brace. It is not an archive.
+ *
+ * Uncapped it was one: a whole-trip backup that lost its `domains` key carries every embedded
+ * base64 photo, so a mid-size file that fits could sit on most of the ~5 MB localStorage budget
+ * indefinitely. The worst case self-limited only because a file too big to store threw a quota
+ * error into a swallowing catch, which is luck, not a design.
+ */
+const QUARANTINE_MAX_CHARS = 4096;
+
 function quarantineImport(raw: string): void {
   if (typeof window === 'undefined') return;
   const quarantineKey = keyFor('itineraryCorrupt');
-  try {
-    if (window.localStorage.getItem(quarantineKey) === null) {
-      window.localStorage.setItem(quarantineKey, raw);
-    }
-    console.warn(
-      '[trip-vault] rejected itinerary import; original preserved at',
-      quarantineKey,
-    );
-  } catch {
-    /* ignore (quota / disabled storage) — never throw from a preserve attempt */
+  // First rejection wins: an existing slot is the ORIGINAL failure and is more useful than the
+  // most recent one, so it is never overwritten.
+  if (hasKey('local', quarantineKey)) {
+    console.warn('[trip-vault] rejected itinerary import; an earlier one is already preserved at', quarantineKey);
+    return;
   }
+  // The original length is kept because it is diagnostic in its own right — it is how you tell a
+  // truncated 2 KB file apart from a 4 MB photo backup that lost its envelope.
+  const preserved =
+    raw.length <= QUARANTINE_MAX_CHARS
+      ? raw
+      : raw.slice(0, QUARANTINE_MAX_CHARS) + '\n… [truncated by trip-vault: ' + raw.length + ' chars total]';
+  // Through the gateway, not a raw setItem: writeString is what raises `trip:quota-exceeded`, and
+  // the old direct call meant a quarantine write that failed on quota did so completely silently.
+  writeString('local', quarantineKey, preserved);
+  console.warn('[trip-vault] rejected itinerary import; original preserved at', quarantineKey);
 }
 
 /**

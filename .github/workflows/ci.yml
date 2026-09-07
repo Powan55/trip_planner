@@ -117,6 +117,15 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # issue #424 — the ROOT scripts/ harness gets no static checking from the step above:
+      # this job runs with working-directory: trip, and ESLint refuses to lint outside its base
+      # path, so those three files (the ruleset harness included) were never checked at all.
+      # Run from the repo root with trip's installed binary, against scripts/eslint.config.mjs —
+      # a separate two-rule config, so these files never join the app's project graph.
+      - name: Lint root scripts/
+        working-directory: .
+        run: ./trip/node_modules/.bin/eslint --no-config-lookup --config scripts/eslint.config.mjs scripts/*.mjs
+
       - name: Unit tests
         run: npm test
 

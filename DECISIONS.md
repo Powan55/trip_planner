@@ -5297,3 +5297,19 @@ Checked and not a cost: axe resolves `header`'s implicit role as `banner` only w
 **The tripwire is the part worth keeping.** `lib/__tests__/motion-budget.test.ts` still asserts `entranceFor === prerenderEntranceFor` under prerender conditions — no `matchMedia`, empty ledger — for every tiered surface, and still pins the pathname-only property. Nothing calls `prerenderEntranceFor` in the app, so the pin measures the gap rather than a live path. If a reveal ever does reach the exported HTML, the two answers have to be reconciled BEFORE paint: the answer then is `useLayoutEffect`, never a state-deferred correction, which is what this entry removes.
 
 **Changes if:** the provider gate stops holding — a route rendered outside `<ItineraryProvider>`, or the gate relaxed so an unidentified visitor gets routed markup — at which point the export really does contain `data-entrance`, the file count above is the check to re-run, and Part 2 returns in its `useLayoutEffect` form.
+
+### D-496 · LOCKED (amends D-096) · (issue #411, 2026-08-18) · The quarantine slot preserves a capped leading slice plus the original length, not the raw string verbatim
+
+D-096 rules that a rejected import is preserved **verbatim**. That is amended here: the slot now stores at most `QUARANTINE_MAX_CHARS` (4096) of the original, and when it truncates it appends the original character count.
+
+**Why.** The slot exists so a human can see *why* a file was rejected, and that is visible in the first few KB — a version marker, a wrong top-level key, a truncated brace. Verbatim made it an archive instead. A whole-trip backup that lost its `domains` key carries every embedded base64 photo, so a mid-size file that fits could hold most of the ~5 MB localStorage budget indefinitely. The worst case only self-limited because a file too big to store threw a quota error into a swallowing catch — luck, not design.
+
+The original length is kept because it is diagnostic in its own right: it is how a truncated 2 KB file is told apart from a 4 MB photo backup that lost its envelope.
+
+**What D-096 keeps.** Don't-clobber-first-capture is unchanged (an existing slot is the original failure and is never overwritten), the preserve attempt still never throws, and preserve-before-fallback ordering is untouched — so D-031 non-destructiveness still holds.
+
+**Also changed:** the write goes through the gateway's `writeString` rather than a raw `localStorage.setItem`. That is what raises `trip:quota-exceeded` (D-097 makes the gateway the only place raw web storage is touched), so a quarantine write that fails on quota is no longer completely silent.
+
+**Separately, the read side:** `decompressBlobOrText` now rejects a file over `MAX_IMPORT_BYTES` (64 MB) before reading it into memory. Stored photos are downscaled to a 1600px long edge at JPEG q0.8, so ~200–400 KB each and ~33% more as base64 — 64 MB still admits well over a hundred photos. It is a memory guard, not a policy on backup contents. A gzip file is measured compressed, so a crafted archive can still expand past it; the cap bounds the read, not the expansion.
+
+**Changes if:** a recovery UI is built that consumes the quarantine key (it would need the full bytes, which this no longer stores — that is the trade, and D-096's own "changes if" already anticipated a consumer), or a real backup ever trips the 64 MB cap.

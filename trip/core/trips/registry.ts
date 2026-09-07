@@ -144,6 +144,11 @@ function sanitizeCityCoords(raw: unknown): Record<string, CityCoord> | undefined
   if (raw === null || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
   const out: Record<string, CityCoord> = {};
   for (const [city, v] of Object.entries(raw as Record<string, unknown>)) {
+    // `__proto__` arrives as a real own property out of `JSON.parse`, but assigning it hits the
+    // `Object.prototype` setter instead of defining a key, so a well-formed coord under that name
+    // would REPLACE the prototype of the map we return. Same skip, and the same reason, as the two
+    // loops in `core/budget/model.ts` (D-307 family) — this one was missing it (#439).
+    if (city === '__proto__') continue;
     if (!city.trim() || v === null || typeof v !== 'object') continue;
     const { latitude, longitude } = v as Record<string, unknown>;
     if (

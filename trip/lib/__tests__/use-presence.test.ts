@@ -13,7 +13,7 @@
 // resolves).
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { createElement } from 'react';
+import { createElement, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { act } from 'react-dom/test-utils';
 
@@ -221,6 +221,90 @@ describe('usePresence (S54/D-057)', () => {
     expect(h.current).toEqual([]); // cleared immediately, no new subscribe re-opened
     expect(presenceCtl.calls).toBe(1); // re-activate short-circuited (guest again)
 
+    h.unmount();
+  });
+});
+
+// ── #439 — the hook's result must keep its identity between real changes ──────────────────────
+//
+// The derive used to run in the render body and return a fresh array every render, so the value
+// had a new identity each time even when nothing had changed. The current consumer only maps over
+// it, which is why nothing looks broken — but any downstream `useEffect`/`useMemo` taking this
+// array as a dependency would re-run forever. These pin the memo so that trap stays closed.
+describe('#439 — stable identity across re-renders', () => {
+  /** Renders the hook inside a parent we can force to re-render, recording every value returned. */
+  function renderRecording() {
+    const container = document.createElement('div');
+    document.body.appendChild(container);
+    const root: Root = createRoot(container);
+    const seen: ActivePresence[][] = [];
+    let bump: () => void = () => {};
+
+    function Probe() {
+      seen.push(usePresence());
+      return null;
+    }
+    function Parent() {
+      const [, setN] = useState(0);
+      bump = () => setN((n) => n + 1);
+      return createElement(Probe);
+    }
+
+    act(() => {
+      root.render(createElement(Parent));
+    });
+    return {
+      seen,
+      rerender: () => act(() => bump()),
+      unmount: () => {
+        act(() => root.unmount());
+        container.remove();
+      },
+    };
+  }
+
+  beforeEach(() => {
+    gate.remoteOn = true;
+    gate.traveler = ALINA;
+    presenceCtl.calls = 0;
+    presenceCtl.cb = null;
+    presenceCtl.unsubCalls = 0;
+  });
+
+  it('a re-render with no new snapshot returns the SAME array instance', async () => {
+    const h = renderRecording();
+    await flush();
+    act(() => {
+      presenceCtl.cb?.([{ uid: 'u2', name: 'Powan', lastSeen: Date.now() }]);
+    });
+    const afterSnapshot = h.seen[h.seen.length - 1];
+    expect(afterSnapshot.map((p) => p.name)).toEqual(['Powan']);
+
+    h.rerender();
+    const afterRerender = h.seen[h.seen.length - 1];
+    // Identity, not just equality — this is the whole point.
+    expect(afterRerender).toBe(afterSnapshot);
+    h.unmount();
+  });
+
+  it('a NEW snapshot still produces a new value (the memo does not over-cache)', async () => {
+    const h = renderRecording();
+    await flush();
+    act(() => {
+      presenceCtl.cb?.([{ uid: 'u2', name: 'Powan', lastSeen: Date.now() }]);
+    });
+    const first = h.seen[h.seen.length - 1];
+
+    act(() => {
+      presenceCtl.cb?.([
+        { uid: 'u2', name: 'Powan', lastSeen: Date.now() },
+        { uid: 'u3', name: 'Sushil', lastSeen: Date.now() },
+      ]);
+    });
+    const second = h.seen[h.seen.length - 1];
+
+    expect(second).not.toBe(first);
+    expect(second.map((p) => p.name).sort()).toEqual(['Powan', 'Sushil']);
     h.unmount();
   });
 });

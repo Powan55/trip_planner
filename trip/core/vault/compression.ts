@@ -58,8 +58,28 @@ export async function compressToBlob(text: string): Promise<Blob> {
  * returned as-is (already text). Throws only when the file IS gzip-magic but this browser
  * lacks `DecompressionStream` — the caller should show that as a normal import error.
  */
+/**
+ * Largest file the restore path will read into memory (#411). See the note at the check itself
+ * for how the number was chosen. A gzip file is measured COMPRESSED, so a crafted archive can
+ * still expand past this -- the cap bounds the read, not the expansion.
+ */
+export const MAX_IMPORT_BYTES = 64 * 1024 * 1024;
+
 export async function decompressBlobOrText(input: Blob | string): Promise<string> {
   if (typeof input === 'string') return input;
+
+  // Size-check the FILE before it is read (#411). Blob.size is metadata, so this costs nothing
+  // and, unlike a check after the read, it actually prevents the allocation.
+  //
+  // WHY 64 MB. Stored photos are downscaled to a 1600px long edge at JPEG q0.8 (core/photos/
+  // downscale.ts), so roughly 200-400 KB each, and base64 in a JSON backup inflates that by ~33%
+  // -- call it 550 KB per photo at the top end. 64 MB therefore still admits a backup with well
+  // over a hundred photos, which is far past any real trip, while bounding a pathological read.
+  // It is a memory guard, not a policy on what a legitimate backup may contain; raise it if a
+  // real backup ever trips it.
+  if (input.size > MAX_IMPORT_BYTES) {
+    throw new Error('That file is too large to open (over ' + Math.round(MAX_IMPORT_BYTES / (1024 * 1024)) + ' MB).');
+  }
 
   const bytes = new Uint8Array(await input.arrayBuffer());
   const isGzip = bytes.length >= 2 && bytes[0] === GZIP_MAGIC_0 && bytes[1] === GZIP_MAGIC_1;

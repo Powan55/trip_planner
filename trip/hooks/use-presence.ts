@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { isRemoteConfigured } from '@/lib/firebase-config';
 import { getActiveTraveler, IDENTITY_CHANGED_EVENT, TRAVELERS } from '@/lib/token-auth';
 import type { PresenceRecord } from '@/lib/presence';
@@ -62,7 +62,11 @@ export function usePresence(): ActivePresence[] {
   const [records, setRecords] = useState<PresenceRecord[]>([]);
   // A monotonically-increasing tick that forces a re-filter so stale travelers age off the
   // bar even without a new snapshot. Stored as state so a change re-renders + re-derives.
-  const [, setTick] = useState(0);
+  //
+  // The VALUE is read now (#439): it is the memo key for the derive at the bottom, which reads
+  // `Date.now()`. Keying on it is what lets the result be memoised at all — the aging-off is a
+  // function of time, so something has to represent "time moved", and this tick already did.
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -108,6 +112,10 @@ export function usePresence(): ActivePresence[] {
     const onIdentityChanged = () => {
       teardown();
       activate();
+      // Bump the tick too: the derive below reads `getActiveTraveler()` to exclude the viewer's
+      // own heartbeat, and that read is not covered by `records`. Without this, signing in as a
+      // different traveler with an unchanged snapshot would keep the memo's previous answer.
+      setTick((t) => t + 1);
     };
     if (typeof window !== 'undefined') {
       window.addEventListener(IDENTITY_CHANGED_EVENT, onIdentityChanged);
@@ -123,6 +131,20 @@ export function usePresence(): ActivePresence[] {
   }, []);
 
   // Derive the active OTHERS: active window + exclude self + named, enriched with accent.
+  //
+  // MEMOISED (#439). This ran in the render body and returned a fresh array every render, so the
+  // hook's result had a new identity each time even when nothing had changed. The one current
+  // consumer only maps over it, which is why nothing is visibly broken today — but any
+  // `useEffect`/`useMemo` downstream that takes this array as a dependency would re-run forever,
+  // and that is a trap laid for the next caller rather than a bug they caused.
+  //
+  // `Date.now()` stays inside: the memo re-runs on `tick`, which is exactly the signal that time
+  // has moved far enough for the active window to matter.
+  return useMemo<ActivePresence[]>(() => {
+  // `tick` is a real dependency even though it is not read: it stands for "time moved", which
+  // is what `Date.now()` below is sensitive to. Referenced explicitly so exhaustive-deps agrees
+  // rather than being silenced. Same `void` idiom as the discarded destructure in use-expenses.
+  void tick;
   const me = getActiveTraveler();
   const now = Date.now();
   const active: ActivePresence[] = [];
@@ -145,4 +167,5 @@ export function usePresence(): ActivePresence[] {
     }
   }
   return Array.from(byName.values());
+  }, [records, tick]);
 }

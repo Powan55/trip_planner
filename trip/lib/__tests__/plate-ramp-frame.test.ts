@@ -1,7 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { beforeAll, describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import ts from 'typescript';
+import postcss from 'postcss';
+import tailwindcss from 'tailwindcss';
+import tailwindConfig from '../../tailwind.config';
 
 /**
  * The `.plate` ramp is the legibility scrim over photography, and it only has a size because
@@ -90,5 +93,49 @@ describe('.plate ramp — the scrim only has a height inside a .frame', () => {
   it('every ramp has a .frame ancestor', () => {
     const orphans = sites.filter((s) => !s.framed).map((s) => `${s.file}:${s.line}`);
     expect(orphans).toEqual([]);
+  });
+});
+
+describe('.plate ramp — every interior stop tracks the caption split (#382)', () => {
+  let stops: string[];
+
+  beforeAll(async () => {
+    // Compile the real recipe with its real token config. Do not inspect comments or
+    // copy the gradient into the test: neither would detect a hardcoded stop in the CSS.
+    const from = resolve(ROOT, 'app/globals.css');
+    const result = await postcss([
+      tailwindcss({
+        ...tailwindConfig,
+        content: [{ raw: '<div class="plate plate--band plate--wide frame ramp lay"></div>' }],
+      }),
+    ]).process(readFileSync(from, 'utf8'), { from });
+    const gradients: string[] = [];
+    result.root.walkRules('.plate .ramp', (rule) => {
+      rule.walkDecls('background', (decl) => { gradients.push(decl.value); });
+    });
+    // Fail closed if the selector or declaration disappears from the compiled output.
+    expect(gradients).toHaveLength(1);
+    expect(gradients[0]).toMatch(/^linear-gradient\([\s\S]*\)$/);
+    stops = postcss.list.comma(gradients[0].slice('linear-gradient('.length, -1))
+      .map((stop) => stop.replace(/\s+/g, ' ').trim());
+    expect(stops).toHaveLength(7); // direction + six colour stops, including both endpoints
+  });
+
+  it('keeps the fixed endpoints at 0% and 100%', () => {
+    expect(stops[0]).toBe('to bottom');
+    expect(stops[1]).toBe('rgb(var(--scrim-ink-rgb) / 0) 0%');
+    expect(stops[6]).toBe('rgb(var(--surface)) 100%');
+  });
+
+  it.each([
+    [2, '0', '- 22%'],
+    [3, '0.69', '- 4%'],
+    [4, '0.88', '+ 8%'],
+    [5, '0.97', '+ 24%'],
+  ])('stop %i stays relative to --plate-split', (index, alpha, offset) => {
+    // Pin alpha AND offset: contrast-tokens models these exact bracketing values.
+    expect(stops[index]).toBe(
+      `rgb(var(--scrim-ink-rgb) / ${alpha}) calc(var(--plate-split, 56%) ${offset})`,
+    );
   });
 });

@@ -26,8 +26,12 @@ export function buildFlightTrackerUrl(flightNumber: string): string | null {
   if (lastSpace < 0) return null;
   const airline = trimmed.slice(0, lastSpace);
   const number = trimmed.slice(lastSpace + 1).trim();
+  // typeof, not just truthiness (#439). A bare index reaches INHERITED keys: `AIRLINE_IATA
+  // ['toString']` is a function and `['__proto__']` is Object.prototype, both truthy, and the
+  // `.toLowerCase()` below then throws out of a function whose docblock promises it never does.
+  // Verified: an airline of 'toString', '__proto__' or 'constructor' threw before this guard.
   const iata = AIRLINE_IATA[airline];
-  if (!iata || !/^[0-9]+$/.test(number)) return null;
+  if (typeof iata !== 'string' || !/^[0-9]+$/.test(number)) return null;
   return `https://www.flightradar24.com/data/flights/${iata.toLowerCase()}${number}`;
 }
 
