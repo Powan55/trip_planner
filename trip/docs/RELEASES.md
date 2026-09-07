@@ -12,6 +12,39 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v7.1.1 (app) · 2026-09-06 · worker stays at v1.10.0
+
+The tail of the v7.1.0 audit, plus the tooling the rules publish in #263 was waiting on. Patch:
+three behavioural fixes, none of which touches a persisted shape, the sync merge or the worker.
+
+**Three promises the code did not keep.** `usePresence` built its result in the render body, so the
+hook handed back a new array identity on every render. Nothing is visibly broken today — the one
+current consumer only maps over it — but any `useEffect` or `useMemo` downstream taking that array
+as a dependency would re-run forever, which is a trap laid for the next caller rather than a bug
+they wrote. It is memoised now, keyed on a tick that also covers the `getActiveTraveler()` read the
+snapshot does not. Separately, three paths documented as never throwing could throw, in the outbox,
+the trips registry and the flight deep links, each called from somewhere with no catch (#439).
+
+**The quarantined import is bounded.** A vault import read the whole file before deciding anything
+about it, so an oversized archive was already in memory by the time it was rejected. Size is checked
+before the read, and the quarantine slot now keeps a capped leading slice plus the original length
+rather than the raw string (#411, D-496 amending D-096).
+
+**Rules publish tooling.** `scripts/roster-inspect.mjs` reads the live member rosters and flags the
+trips where publishing `firestore.rules` would lock a traveller out — the precondition at
+`deploy.yml:212-216`, which until now had no tool behind it and was a console eyeball. Read-only,
+no new dependency, and it refuses to run if `isOpen()` drifts from the reading its buckets derive
+from. Building it turned up #453: on the current ruleset a trip whose `members` map is empty, or
+whose entries carry any value other than `owner` or `member`, is closed to everyone including its
+creator, with no route back and not even a delete. Filed, not fixed here. #263 stays open — the
+roster inspection and arming `FIREBASE_SERVICE_ACCOUNT` are both owner steps (#449).
+
+**Tests and tooling.** The root `scripts/` harness gets static checking for the first time: `eslint .`
+runs with `working-directory: trip` and refuses to lint outside its base path, so the ruleset harness
+had none (#424). `rules-check` gains assertions for the two collection listeners and the places write
+it silently omitted (#450). Plate ramp stops are guarded against hardcoding (#382). Dependency bumps:
+jsdom 29.1.1 to 30.0.1, plus the npm minor-and-patch group.
+
 ## v7.1.0 (app) · 2026-09-01 · worker stays at v1.10.0
 
 A read of the whole app against its own documented invariants, off the back of the v7.0.1
