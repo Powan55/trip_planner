@@ -263,12 +263,12 @@ after the blueprint was written.
 
 ```
 cd trip
-npm ci --legacy-peer-deps
+npm ci
 npm run dev
 ```
 
-`--legacy-peer-deps` is required, not optional: `@types/node` is pinned at
-20.6.2 and `vite@8` (via `vitest`) wants `^20.19.0 || >=22.12.0`.
+Use npm's normal peer-dependency validation. The conflicts that once required
+`--legacy-peer-deps` are resolved; restoring that bypass would hide future incompatibilities.
 
 Tests:
 

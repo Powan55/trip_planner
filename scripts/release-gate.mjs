@@ -19,6 +19,7 @@
 
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { findReleaseHeadingIndex } from './release-heading.mjs';
 
 const version = JSON.parse(readFileSync('trip/package.json', 'utf-8')).version;
 const tag = `v${version}`;
@@ -121,12 +122,11 @@ try {
 //    "this is live" claim into the docs before the version shipped.
 const releases = readFileSync('trip/docs/RELEASES.md', 'utf-8');
 const HOLD_MARKER = /NOT DEPLOYED|NOT SHIPPED|⛔/;
-const tagToken = new RegExp(`(^|[^0-9A-Za-z.-])${tag.replace(/\./g, '\\.')}([^0-9A-Za-z.-]|$)`);
-const heading = releases
-  .split('\n')
-  .filter((line) => line.startsWith('## '))
-  .map((line) => ({ line, clean: line.replace(/\*\*/g, '') }))
-  .find(({ clean }) => tagToken.test(clean));
+const releaseLines = releases.split('\n');
+const headingIndex = findReleaseHeadingIndex(releaseLines, tag);
+const heading = headingIndex === -1
+  ? undefined
+  : { line: releaseLines[headingIndex], clean: releaseLines[headingIndex].replace(/\*\*/g, '') };
 
 // Extract preamble version for assertion 2.
 const preamble = releases.split('\n').slice(0, 20).join('\n');

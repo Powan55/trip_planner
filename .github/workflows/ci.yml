@@ -101,10 +101,8 @@ jobs:
           cache: npm
           cache-dependency-path: trip/package-lock.json
 
-      # --legacy-peer-deps is required, not optional: @types/node is pinned at
-      # 20.6.2 and vite@8 (via vitest) wants ^20.19.0 || >=22.12.0.
       - name: Install
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       # next.config.js has typescript.ignoreBuildErrors: false, so this also
       # runs during the build. Running it first gives a clearer failure.
@@ -188,7 +186,7 @@ jobs:
       # Do not "fix" the odd path by adding a package.json at the root.
       - name: Install (the harness reads trip/node_modules/firebase)
         working-directory: trip
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       # THE SENTINEL FILE IS LOAD-BEARING. `firebase emulators:exec` returns exit code 2 even
       # when the inner script exits 0 — measured twice locally, including with a trivial
@@ -269,7 +267,7 @@ jobs:
           cache-dependency-path: trip/package-lock.json
 
       - name: Install
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       # playwright.config.ts serves the static export from out/ and does not
       # build it. Without this step every spec fails at server startup.
@@ -332,7 +330,7 @@ jobs:
           cache-dependency-path: trip/package-lock.json
 
       - name: Install
-        run: npm ci --legacy-peer-deps
+        run: npm ci
 
       - name: Build the static export
         env:

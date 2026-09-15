@@ -53,6 +53,7 @@ const fake = vi.hoisted(() => ({
   denied: new Set<string>(),
   writes: [] as { op: 'set' | 'update' | 'delete'; path: string; data: Record<string, unknown> }[],
   serverReads: 0,
+  serverReadPaths: [] as string[],
 }));
 
 /** The exact rejection Firestore raises when the rules refuse an operation. */
@@ -83,6 +84,7 @@ vi.mock('firebase/firestore', () => ({
   },
   getDocFromServer: async (ref: { path: string }) => {
     fake.serverReads += 1;
+    fake.serverReadPaths.push(ref.path);
     if (fake.denied.has(ref.path)) throw permissionDenied();
     const data = fake.docs.get(ref.path);
     return { exists: () => data !== undefined, data: () => data };
@@ -92,11 +94,13 @@ vi.mock('firebase/firestore', () => ({
 import {
   createTripDoc,
   ensureMembership,
+  ensureKnownTripMemberships,
   TRIP_ACCESS_PENDING_EVENT,
 } from '@/lib/trips-remote';
 import { startPresence, stopPresence, HEARTBEAT_MS } from '@/lib/presence';
 import { signIn } from '@/lib/token-auth';
 import { deviceStore } from '@/core/storage/gateway';
+import { upsertKnownTrip } from '@/core/trips/registry';
 
 const TRIP = 'trip-abc';
 const TRIP_PATH = `trips/${TRIP}`;
@@ -110,6 +114,7 @@ beforeEach(() => {
   fake.denied.clear();
   fake.writes.length = 0;
   fake.serverReads = 0;
+  fake.serverReadPaths.length = 0;
   gate.on = true;
   gate.tripId = TRIP;
   window.localStorage.clear();
@@ -203,6 +208,25 @@ describe('ensureMembership — four branches, one read (#10)', () => {
   it('no-ops with NO read when the trip is not remote (the local-only sample)', async () => {
     gate.tripId = '';
     await ensureMembership('');
+    expect(fake.serverReads).toBe(0);
+  });
+});
+
+describe('Google identity adoption repairs every known remote trip (#450)', () => {
+  it('enrols all known custom trips even while the local-only sample is active', async () => {
+    gate.tripId = ''; // the active pack is the local-only sample
+    upsertKnownTrip('trip-one', 'One');
+    upsertKnownTrip('trip-two', 'Two');
+
+    await ensureKnownTripMemberships();
+
+    expect(fake.serverReadPaths.sort()).toEqual(['trips/trip-one', 'trips/trip-two']);
+  });
+
+  it('does no reads when Firebase is dormant', async () => {
+    upsertKnownTrip('trip-one', 'One');
+    gate.on = false;
+    await ensureKnownTripMemberships();
     expect(fake.serverReads).toBe(0);
   });
 });

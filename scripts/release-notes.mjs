@@ -1,9 +1,9 @@
 // Extracts one version's RELEASES.md entry body, for the GitHub Release deploy.yml creates
-// right after tagging. Heading match mirrors scripts/release-gate.mjs exactly, so "which
-// entry is this version's" can never disagree between the gate and what ships as the
-// release's own notes.
+// right after tagging. Both scripts import the same heading matcher, so "which entry is this
+// version's" cannot drift between the gate and the release's own notes.
 
 import { readFileSync } from 'node:fs';
+import { findReleaseHeadingIndex } from './release-heading.mjs';
 
 const tag = process.argv[2];
 if (!tag) {
@@ -12,9 +12,8 @@ if (!tag) {
 }
 
 const releases = readFileSync('trip/docs/RELEASES.md', 'utf-8');
-const tagToken = new RegExp(`(^|[^0-9A-Za-z.-])${tag.replace(/\./g, '\\.')}([^0-9A-Za-z.-]|$)`);
 const lines = releases.split('\n');
-const start = lines.findIndex((line) => line.startsWith('## ') && tagToken.test(line.replace(/\*\*/g, '')));
+const start = findReleaseHeadingIndex(lines, tag);
 
 if (start === -1) {
   console.error(`No "## " heading carries ${tag} as a whole token in trip/docs/RELEASES.md.`);

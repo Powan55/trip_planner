@@ -437,10 +437,10 @@ function LinkGoogleIdentity() {
       } else if (result === 'adopted') {
         setLinked(true);
         setStatus('Signed in with that Google account on this device.');
-        // Adopting changes this device's identity, so re-run enrolment for the active trip —
-        // otherwise the adopted identity is not in this trip's roster until the next page load.
-        const { ensureMembership } = await import('@/lib/trips-remote');
-        await ensureMembership(getTripId());
+        // Adopting changes this device's identity. Repair every known remote trip, not only the
+        // active one; inactive trips do not get another enrolment opportunity on this page.
+        const { ensureKnownTripMemberships } = await import('@/lib/trips-remote');
+        await ensureKnownTripMemberships();
       } else if (result === 'popup-blocked') {
         setError('Allow pop-ups for this site and try again.');
       } else {

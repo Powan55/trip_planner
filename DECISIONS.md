@@ -5313,3 +5313,19 @@ The original length is kept because it is diagnostic in its own right: it is how
 **Separately, the read side:** `decompressBlobOrText` now rejects a file over `MAX_IMPORT_BYTES` (64 MB) before reading it into memory. Stored photos are downscaled to a 1600px long edge at JPEG q0.8, so ~200–400 KB each and ~33% more as base64 — 64 MB still admits well over a hundred photos. It is a memory guard, not a policy on backup contents. A gzip file is measured compressed, so a crafted archive can still expand past it; the cap bounds the read, not the expansion.
 
 **Changes if:** a recovery UI is built that consumes the quarantine key (it would need the full bytes, which this no longer stores — that is the trade, and D-096's own "changes if" already anticipated a consumer), or a real backup ever trips the 64 MB cap.
+
+### D-497 · Amends D-264 and D-351 · (issue #450, 2026-09-14) · npm peer validation is restored
+
+**Decision.** Install with plain `npm ci`. The project `.npmrc` and every explicit
+`--legacy-peer-deps` bypass are gone, so npm checks the peer graph in local setup and in every CI
+job. README and `rule.md` name that current contract; older decision entries remain as the record
+of why the bypass once existed.
+
+**Why the old constraint no longer holds.** The three React-18 peer pins named by D-264 were
+upgraded, then the last conflict named by D-351 was removed when `@types/node` moved from 20.6.2
+to 20.19.0. A clean install with peer validation enabled now resolves from the committed lockfile.
+Keeping the flag after that point would preserve the broad bypass while its only known reason had
+expired, hiding the next incompatible peer range instead of failing the install.
+
+**Changes if:** a future dependency introduces a real peer conflict. Fix or pin that dependency;
+do not restore a repository-wide bypass without recording the exact conflict and an exit condition.

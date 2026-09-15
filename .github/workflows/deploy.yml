@@ -81,7 +81,7 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: trip/package-lock.json
-      - run: npm ci --legacy-peer-deps
+      - run: npm ci
       - name: Build static export (basePath + site URL derived from the repo)
         env:
           NEXT_PUBLIC_BASE_PATH: /${{ github.event.repository.name }}
