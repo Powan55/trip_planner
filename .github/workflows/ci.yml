@@ -114,6 +114,12 @@ jobs:
       - name: Asset byte budgets
         run: node scripts/asset-budget.mjs
 
+      # --credits is offline: it only regenerates CREDITS.md from scripts/image-map.json.
+      - name: Image credits
+        run: |
+          node scripts/fetch-images.mjs --credits
+          git diff --exit-code -- public/images/CREDITS.md
+
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
