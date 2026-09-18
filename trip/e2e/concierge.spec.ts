@@ -227,7 +227,7 @@ test.describe('S350 · concierge panel — starter chips, list rendering, ops ch
 });
 
 test.describe('S363 · model visibility (R1-R4) + the disclosure copy (R6)', () => {
-  test('the panel description discloses a third-party AI, never search, and scopes the storage claim to "here"', async ({
+  test('the panel description discloses a third-party AI, never search, and says the chat stays on this device', async ({
     page,
   }) => {
     // No stubChat — the description is static header chrome, rendered on open with no turn sent.
@@ -243,16 +243,15 @@ test.describe('S363 · model visibility (R1-R4) + the disclosure copy (R6)', () 
     // key binding and wrangler entry outright (D-275), so re-arming it now needs a code change and
     // the disclosure would be describing a capability the Worker no longer has.
     await expect(panel).toContainText('a third-party AI provider');
-    // The plural went too, and for a second independent reason: the ladder is ONE provider
-    // (two of its models — worker/src/providers.ts GROQ_MODELS), so "services" was its own
-    // small untruth once the search vendor was gone.
+    // The plural went too. D-535 adds a second provider, but the copy names both by name
+    // (Groq, and NVIDIA first when Kimi is picked) rather than reaching for "services".
     await expect(panel).not.toContainText('services');
     // ⚖️ The assertion that makes the reword mean something. If the word ever comes back to this
     // panel — copy, placeholder, a new feature — this goes red and someone re-reads the ruling.
     await expect(panel).not.toContainText('search');
-    // "here" — the actual repair to the old sentence, scoping the storage claim to this panel
-    // rather than reading as a claim about the whole data path. Unchanged and still load-bearing.
-    await expect(panel).toContainText('stored here');
+    // D-536: the thread is kept, and only on this device. The claim is scoped to the device, not
+    // the whole data path, which the provider sentence above already covers.
+    await expect(panel).toContainText('saved on this device only');
     // S355 retired "User Token" → "your key" and shipped this exact guard pack-wide; this copy is
     // about AI providers and should come nowhere near the term (model-visibility rule R5).
     await expect(panel).not.toContainText('User Token');
@@ -270,7 +269,7 @@ test.describe('S363 · model visibility (R1-R4) + the disclosure copy (R6)', () 
 
     const note = page.getByTestId('concierge-privacy-note');
     await expect(note).toBeVisible();
-    await expect(note).toHaveText('Sent to a third-party AI — nothing stored here.');
+    await expect(note).toHaveText('Sent to a third-party AI — saved on this device only.');
 
     // ⚖️ THE POINT OF THIS TEST. The header disclosure is a Radix `SheetDescription`, wired by
     // Radix to the DIALOG via aria-describedby; a second paragraph inherits NOTHING from that. So
@@ -279,7 +278,7 @@ test.describe('S363 · model visibility (R1-R4) + the disclosure copy (R6)', () 
     const describedBy = await page.getByTestId('concierge-input').getAttribute('aria-describedby');
     expect(describedBy).toBe('concierge-privacy-note');
     await expect(page.locator(`#${describedBy}`)).toHaveCount(1);
-    await expect(page.locator(`#${describedBy}`)).toHaveText('Sent to a third-party AI — nothing stored here.');
+    await expect(page.locator(`#${describedBy}`)).toHaveText('Sent to a third-party AI — saved on this device only.');
 
     // No horizontal overflow at 390px — the label wraps inside the panel instead of widening it.
     const overflow = await page.evaluate(() => {

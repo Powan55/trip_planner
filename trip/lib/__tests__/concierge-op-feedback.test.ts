@@ -104,6 +104,7 @@ async function drive(ops: unknown[]) {
 
 describe('S342 — silent-drop feedback in the concierge panel', () => {
   beforeEach(() => {
+    localStorage.clear(); // the thread persists now (D-536), so a prior test's turns would restore
     localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(SEED));
   });
   afterEach(() => {
@@ -275,6 +276,7 @@ describe('S342 — silent-drop feedback in the concierge panel', () => {
  */
 describe('S341 — the concierge input never loses focus across sends', () => {
   beforeEach(() => {
+    localStorage.clear(); // the thread persists now (D-536), so a prior test's turns would restore
     localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(SEED));
   });
   afterEach(() => {
@@ -362,6 +364,7 @@ describe('S389-C — offline copy + the Try again control', () => {
     Object.defineProperty(window.navigator, 'onLine', { value, writable: true, configurable: true });
 
   beforeEach(() => {
+    localStorage.clear(); // the thread persists now (D-536), so a prior test's turns would restore
     localStorage.setItem(ITINERARY_STORAGE_KEY, JSON.stringify(SEED));
     setOnLine(true);
   });

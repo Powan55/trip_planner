@@ -505,6 +505,18 @@ export const STORAGE_KEYS = {
    * to land. Check for a fresher collision before reusing any of these numbers again.
    */
   backupPromptLeg: 'nepal_japan_backup_prompt_leg',
+  /**
+   * localStorage — JSON `{ role, content, model? }[]`, the concierge thread, last 50 turns
+   * (concierge-chat, key 43; D-536). TRIP-SCOPED, so trips never share a thread and sign-out or
+   * forgetting a trip wipes it. On this device only: no sync path reads it and the backup export
+   * leaves it out. Proposals (ops) are never stored. Shape owned by `hooks/use-concierge-chat.ts`.
+   */
+  conciergeChat: 'nepal_japan_concierge_chat',
+  /**
+   * localStorage — plain string, `'kimi'` to try Kimi K3 first, anything else or absent means the
+   * Groq default (concierge-provider, key 44; D-535). APP-SCOPED device preference, not trip data.
+   */
+  conciergeProvider: 'nepal_japan_concierge_provider',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -607,7 +619,8 @@ export type TripScopedSlot =
   | 'shareInbox'
   | 'myPlaces'
   | 'expensesCorrupt'
-  | 'backupPromptLeg';
+  | 'backupPromptLeg'
+  | 'conciergeChat';
 
 /**
  * Every `TripScopedSlot` domain, as a runtime array — the ONE canonical list
@@ -635,6 +648,7 @@ const ALL_TRIP_SCOPED_SLOTS = [
   'myPlaces',
   'expensesCorrupt',
   'backupPromptLeg',
+  'conciergeChat',
 ] as const satisfies readonly TripScopedSlot[];
 type _ExhaustiveTripScopedSlots = [TripScopedSlot] extends [(typeof ALL_TRIP_SCOPED_SLOTS)[number]]
   ? true
@@ -1413,6 +1427,9 @@ export const backupPromptStore = {
     writeString('local', keyFor('backupPromptLeg'), leg);
   },
 } as const;
+
+// NOTE: the concierge accessors for keys 43/44 live in `core/storage/concierge-store.ts`, for the
+// same bundle reason as the two notes below: only the lazy concierge chunk reads them.
 
 // NOTE: the my-places accessor for key 31 (`myPlacesStore`) does NOT live here — it is in
 // `core/storage/my-places-store.ts`, for the SAME bundle reason as the Travel Mode accessors below:
