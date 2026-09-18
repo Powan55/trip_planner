@@ -235,7 +235,7 @@ export async function probeAccountIdentity(code: string): Promise<AccountProbeRe
 
 // ── #10 — the opt-in member lock ────────────────────────────────────────────────────────────
 //
-// A trip doc MAY carry `members: { <uid>: 'owner' | 'member' }`. Its PRESENCE is what switches
+// A trip doc MAY carry `members: { <uid>: 'owner' | 'member' }`. A map naming an owner switches
 // that trip from the grandfathered capability model (whoever holds the unguessable tripId can
 // read+write it) to membership. That is deliberate and is spelled out at length in
 // `firestore.rules`: a rules deploy is instant and global, so a mandatory members map would
@@ -268,10 +268,14 @@ export type TripRole = 'owner' | 'member';
  */
 export const TRIP_ACCESS_PENDING_EVENT = 'trip:access-pending';
 
-/** The members map off a raw trip doc, or `undefined` for a members-less (capability) trip. */
+/**
+ * The members map off a raw trip doc, or `undefined` when the rules' `isOpen()` reads the trip as
+ * open: no map, not a map, or no value equal to 'owner' (#453). Must stay in step with isOpen().
+ */
 function readMembers(data: Record<string, unknown> | undefined): Record<string, string> | undefined {
   const raw = data?.members;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return undefined;
+  if (!Object.values(raw).includes('owner')) return undefined;
   return raw as Record<string, string>;
 }
 
@@ -310,9 +314,10 @@ export async function createTripDoc(tripId: string): Promise<void> {
  *   writes the doc, and this device enrols on a later load.
  * - already in `members` ⇒ return, with no write at all. This is the common case on every load
  *   after the first, so it must cost one read and nothing else.
- * - members map ABSENT (a grandfathered capability trip) ⇒ the first device to enrol takes
- *   `'owner'`. Somebody has to be able to manage the roster, and on a members-less trip the rules
- *   let any signed-in holder of the tripId write one — so the first mover is the only available
+ * - members map ABSENT (a grandfathered capability trip), or one the rules read as open because
+ *   it names no owner (`readMembers`) ⇒ the first device to enrol takes `'owner'`. Somebody has
+ *   to be able to manage the roster, and on a members-less trip the rules let any signed-in
+ *   holder of the tripId write one — so the first mover is the only available
  *   answer. It is also the right one: the first device to open a trip it created before the lock
  *   existed is overwhelmingly the creator's.
  * - anyone else ⇒ `'member'`.
