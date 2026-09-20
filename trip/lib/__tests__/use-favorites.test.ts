@@ -7,6 +7,8 @@
 // reload (unmount+remount) survives, cross-instance sync via the CustomEvent fan-out (two
 // sections on one page stay in lockstep — the same guarantee `use-expenses`/`use-journal` give
 // the budget panel + expense dialog), and a corrupt/non-array persisted slot degrades to [].
+// Cross-TAB liveness is covered too: `createReactiveStore` resolves its key set at event time,
+// so a `storage` event for the favorites key re-reads from disk and an unrelated key does not.
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createElement } from 'react';
@@ -145,6 +147,33 @@ describe('useFavorites (S149)', () => {
     const h = renderFavorites();
     await h.run(() => {});
     expect(h.current.favorites).toEqual(['na1']);
+    h.unmount();
+  });
+
+  it('cross-tab: a `storage` event for the favorites key re-reads from disk', async () => {
+    const h = renderFavorites();
+    await h.run(() => {});
+    // Another tab's write: it lands on disk without this tab's CustomEvent ever firing.
+    window.localStorage.setItem(KEY, JSON.stringify(['na1']));
+    await h.run(() => {
+      window.dispatchEvent(new StorageEvent('storage', { key: KEY }));
+    });
+    expect(h.current.favorites).toEqual(['na1']);
+    h.unmount();
+  });
+
+  it('cross-tab: an unrelated key is ignored; a whole-store clear (key === null) is not', async () => {
+    const h = renderFavorites();
+    await h.run((store) => store.toggle('na1'));
+    window.localStorage.setItem(KEY, JSON.stringify(['ja3']));
+    await h.run(() => {
+      window.dispatchEvent(new StorageEvent('storage', { key: 'unrelated_key' }));
+    });
+    expect(h.current.favorites).toEqual(['na1']);
+    await h.run(() => {
+      window.dispatchEvent(new StorageEvent('storage', { key: null }));
+    });
+    expect(h.current.favorites).toEqual(['ja3']);
     h.unmount();
   });
 

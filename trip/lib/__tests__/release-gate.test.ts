@@ -22,6 +22,7 @@ import { join, resolve } from 'node:path';
 // lib/__tests__ -> trip/ -> repo root. Same `resolve(__dirname, ...)` shape the other
 // disk-reading specs here use (text-tier-sweep, motion-budget).
 const SCRIPT = resolve(__dirname, '../../../scripts/release-gate.mjs');
+const NOTES_SCRIPT = resolve(__dirname, '../../../scripts/release-notes.mjs');
 
 const VERSION = '6.0.0';
 
@@ -47,6 +48,24 @@ function runGate(heading: string): string {
       const e = err as { stdout?: string; stderr?: string };
       return `${e.stdout ?? ''}${e.stderr ?? ''}`;
     }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+/** Runs the real notes extractor against the same heading shape the gate receives. */
+function runNotes(heading: string): string {
+  const dir = mkdtempSync(join(tmpdir(), 'release-notes-'));
+  try {
+    mkdirSync(join(dir, 'trip', 'docs'), { recursive: true });
+    writeFileSync(
+      join(dir, 'trip', 'docs', 'RELEASES.md'),
+      `# Releases\n\n## v6.0.1 Next\n\nOther.\n\n---\n\n${heading}\n\nWhat shipped.\n`,
+    );
+    return execFileSync(process.execPath, [NOTES_SCRIPT, `v${VERSION}`], {
+      cwd: dir,
+      encoding: 'utf-8',
+    });
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -81,5 +100,13 @@ describe('release-gate refuses a held release', () => {
     const out = runGate('## v6.0.01 (app) · 2026-08-16');
     expect(out).not.toMatch(HELD);
     expect(out).toContain('::error::trip/docs/RELEASES.md has no "## v6.0.0" heading');
+  });
+});
+
+describe('release heading matching is shared by the gate and notes extractor (#450)', () => {
+  it('extracts the same emphasized whole-token heading that the gate classifies', () => {
+    const heading = '## **v6.0.0** (app) · NOT DEPLOYED';
+    expect(runGate(heading)).toMatch(HELD);
+    expect(runNotes(heading)).toBe(`${heading}\n\nWhat shipped.\n`);
   });
 });

@@ -5376,3 +5376,12 @@ The original length is kept because it is diagnostic in its own right: it is how
 **Cost.** Joining replaces whatever is on the device, which is the documented first-snapshot semantic and is why the dialog says so and points at the backup. One trip id per device, minted locally, so two devices that both mint are two different trips — the code is how they converge.
 
 **Changes if:** the `?trip=` handshake is rewired to set the share id instead of switching packs, which would make the link and the code the same thing.
+### D-545 · Amends D-297 · (issue #450, 2026-09-20) · `ensureMembership` gates on its argument, not on the active pack
+
+**Decision.** `ensureMembership(tripId)` gates on `isRemoteConfigured() && tripId && tripId !== DEFAULT_TRIP_ID` rather than on `isTripRemoteConfigured()`. A new `ensureKnownTripMemberships()` calls it once per known trip, and `settings-panel.tsx` uses that on the Google `credential-already-in-use` (adopted) path instead of re-enrolling only the active trip.
+
+**Why the active-pack gate was the wrong one here.** `isTripRemoteConfigured()` resolves the ACTIVE pack — `getTripId()` is `''` on the default sample — so asking to enrol a NAMED trip while the sample was active returned early and enrolled nothing. Adoption changes this device's uid, and an inactive trip gets no second enrolment opportunity on that page: the page-load caller only ever passes the active id. The new gate is the same pair of checks `runTripMembership()` already ran immediately before calling, moved inside the function, beside the id it actually writes to.
+
+**Scoped exception to D-297, and it makes the module self-consistent.** D-297 binds modules composing `trips/{getTripId()}/…`; `ensureMembership` composes `doc(db, 'trips', tripId)` from its argument and never reads the active pack. Its neighbour `createTripDoc(tripId)` — same shape, same argument — already gated on `isRemoteConfigured() && tripId`, so `ensureMembership` was the outlier rather than the rule. The two functions here that DO resolve the active pack keep `isTripRemoteConfigured()`.
+
+**Changes if:** a caller ever needs to enrol in the default sample pack (it has no members map today, by D-297), or `isTripRemoteConfigured()` stops meaning "the active pack" — every syncing domain depends on that reading and it must not be widened to fix a per-function gate.
