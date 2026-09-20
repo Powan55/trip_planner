@@ -12,6 +12,38 @@ Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists
 
 ---
 
+## v7.3.0 (app) · 2026-09-20 · worker stays at v1.11.0
+
+Two travellers were locked out of the live app and a third thought sync was broken. Both turned out
+to be defects the app could not report, so neither had ever surfaced as an error. Minor rather than
+patch: one new local storage key, and `getTripId()` answers for the default pack where it used to
+return `''`.
+
+**The front door rejected accounts it had minted itself (D-541).** Login validation is one server
+read of `trips/{key}/profile/identity`. Two grandfathered mint paths — `trips-hub`'s "Finish setting
+up your account" and Settings' reveal/mint — wrote only `profile/tripList`, so every key they ever
+produced was refused on any device but the one that minted it, with "This user does not exist."
+The minting device never noticed: a device holding the key skips the probe entirely and logs in
+offline. Both sites now seed both documents, and an absent identity doc is no longer sufficient
+evidence of an invented key — the probe falls back to `profile/tripList` and, finding one, admits
+and backfills the missing half. A key with neither document is still rejected, which is the whole of
+what the validation buys. Sign-out also stops promising that a key still works while deleting the
+only copy of it: it now shows the key, behind the existing "I've saved my key" tick, before the wipe.
+
+**The default pack could never sync, and said nothing about it (D-542).** `getTripId()` returned
+`''` for the built-in trip, which switched off the outbox, the subscribe and the push — and left
+the sync badge rendering nothing at all, so a traveller editing the sample had no way to learn the
+edits were device-local. The pack can now mint a share id on the device and sync under it. Nothing
+moves: storage keys, leg offsets and guide content are untouched, so there is no migration and the
+per-leg Nepal/Japan clocks survive, which converting to a custom trip would have destroyed. The
+badge gains an honest fourth state that offers the conversion.
+
+The trip doc is deliberately left absent until the seed runs. Minting it first makes
+`reconcileFirstSnapshot`'s `tripExists && localWasPersisted` true against an empty remote, which
+takes the apply-remote branch and would save an empty itinerary over the traveller's own.
+
+---
+
 ## v7.2.0 (app) · 2026-09-17 · worker at v1.11.0
 
 Two concierge features. Minor rather than patch: two new local storage keys and a new optional
