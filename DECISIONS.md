@@ -5335,3 +5335,15 @@ The original length is kept because it is diagnostic in its own right: it is how
 **Replaces** the in-memory-only stance the hook documented, where the chat cleared on reload. The panel's disclosure and input note said nothing was stored; both now say chats are saved on this device only.
 
 **Changes if:** cross-device chat history is asked for, which would make this a synced domain with its own merge rule and a privacy review of what the provider already sees.
+
+### D-540 · (2026-09-18) · A members roster that names no owner reads as open, and can no longer be written (#453)
+
+**Decision.** `isOpen()` in `firestore.rules` is now also true when `members` is not a map, or is a map with no value equal to `'owner'` (empty, all `'member'`, a `'viewer'`, a mis-cased `'Owner'`). A new `rosterIsWellFormed()` on trip-doc updates refuses any write that leaves `members` present without being a map that names an owner, and `claimsSelfAsOwner()` tests `is map` before calling `.get()`. Before this, each of those shapes left `isOwner()` false for everyone; the empty, non-map and viewer-only shapes also answered "not a member" to every uid, delete included, so the trip was locked for everyone, creator too, with no route back through the rules. Same-doc `get()` calls count once in the rules engine (emulator: 20 same-doc gets allowed, 11 distinct docs denied), so the extra `roster()` reads cost nothing.
+
+**Open, not closed.** Reading a malformed roster as open is the only choice with a repair: any signed-in holder of the trip id can read the trip and overwrite the roster, which is the capability model every members-less trip already has (D-205). The cost is that an owner-less roster of real members (say two `'member'` entries) stops keeping strangers out until someone opens the trip and enrols as owner. Under the old reading that trip kept its gate but nobody could remove a member or delete it, and the empty, non-map and all-viewer shapes were bricked outright.
+
+**No new way for a gated trip to open.** The shapes that now read open cannot be written. A create must name the creator owner, an update must leave a map naming an owner, and a member's add-only edit cannot remove or re-role one. They can only exist through data written before this ruleset was ever published (#263) or a console edit. The owner's existing ways to un-gate a trip, dropping `members` or deleting the doc, are unchanged.
+
+**Client mirror.** `readMembers()` in `lib/trips-remote.ts` returns `undefined` for the same shapes. Without that, `ensureMembership` would see a truthy roster, try to enrol as `'member'`, be refused by `rosterIsWellFormed()`, and show the access-pending toast on a trip the rules treat as open. With it, the first device enrols as owner and the trip is gated from then on. `scripts/roster-inspect.mjs` drops its LOCKOUT_ALL and NO_OWNER buckets, which can no longer occur, and refuses to run if `isOpen()` loses either guard.
+
+**Changes if:** roles move to a `members/{uid}` subcollection (the ceiling in the rules header), where "has an owner" stops being a map test.

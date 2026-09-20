@@ -6,9 +6,11 @@ rules_version = '2';
 // SECURITY MODEL — TWO MODES LIVE IN THIS ONE FILE, and which one applies is a property
 // of the trip DOCUMENT, not of the rules:
 //
-//   · MEMBER-GATED — the trip doc HAS a `members` map, `{ "<uid>": "owner" | "member" }`.
-//     Only a uid named in that map may read or write the trip's content.
-//   · CAPABILITY (the original model, grandfathered) — the trip doc has NO `members` map.
+//   · MEMBER-GATED — the trip doc HAS a `members` map naming an owner,
+//     `{ "<uid>": "owner" | "member" }`. Only a uid named in that map may read or write the
+//     trip's content.
+//   · CAPABILITY (the original model, grandfathered) — the trip doc has no usable `members`
+//     map (absent, or naming no owner, #453).
 //     Whoever HOLDS the tripId — a high-entropy, unguessable secret (crypto.randomUUID(),
 //     minted client-side at trip-creation time, see
 //     docs/blueprints/S231-capability-token-trips.md) — keeps full read+write on that
@@ -37,7 +39,8 @@ rules_version = '2';
 // holding the project id — which ships in the public bundle, D-248 — must at least mint a
 // session first.
 //
-// ROLES. `owner` = the creator: may remove members, change roles, and delete the trip.
+// ROLES. `owner` = the creator: may remove members, change roles (short of leaving no
+// owner), and delete the trip.
 // `member` = full content read+write, and may ADD other members (add-only; a member can
 // never remove or re-role an existing entry). `viewer` (read, no write) is the named
 // upgrade path and is deliberately NOT built: it needs a second predicate on every write
@@ -162,7 +165,7 @@ service cloud.firestore {
     match /trips/{tripId} {
 
       // ── membership helpers ────────────────────────────────────────────────────
-      // All five read the STORED trip doc (never request.resource), so they are safe on
+      // The first six read the STORED trip doc (never request.resource), so they are safe on
       // `delete`. They are used from the subtree blocks too, which is why they resolve
       // the trip doc by path rather than leaning on `resource`: under
       // /trips/{tripId}/days/{date}, `resource` is the DAY doc, not the trip doc.
@@ -170,17 +173,27 @@ service cloud.firestore {
         return /databases/$(database)/documents/trips/$(tripId);
       }
 
+      // The stored roster. Read only behind isOpen()'s `is map` test, or once isOpen() is false.
+      function roster() {
+        return get(tripPath()).data.members;
+      }
+
       // TRUE for a trip with no members map — including one that does not exist yet, which
       // is what lets `create` and the first write of a brand-new trip through. This is the
       // opt-in lock: `isOpen()` is the grandfather clause for every pre-membership trip.
+      // A roster that is not a map, or names no 'owner', reads as open too (#453): gating on
+      // it would deny everyone forever, delete included. rosterIsWellFormed() refuses writing one.
       function isOpen() {
-        return !exists(tripPath()) || !('members' in get(tripPath()).data);
+        return !exists(tripPath())
+          || !('members' in get(tripPath()).data)
+          || !(roster() is map)
+          || !roster().values().hasAny(['owner']);
       }
 
       // '' for a signed-in non-member. Only ever called after isOpen() is known false, so
-      // the members map is present.
+      // the members map is present, is a map, and names an owner.
       function role() {
-        return get(tripPath()).data.members.get(request.auth.uid, '');
+        return roster().get(request.auth.uid, '');
       }
 
       function isMember() {
@@ -195,7 +208,16 @@ service cloud.firestore {
       // members map is the legacy/capability shape and stays legal.
       function claimsSelfAsOwner() {
         return !('members' in request.resource.data)
-          || request.resource.data.members.get(request.auth.uid, '') == 'owner';
+          || (request.resource.data.members is map
+            && request.resource.data.members.get(request.auth.uid, '') == 'owner');
+      }
+
+      // A roster is written as a map naming at least one 'owner', or not at all (#453). The
+      // other half of isOpen(): the shapes that read open there can never be written.
+      function rosterIsWellFormed() {
+        return !('members' in request.resource.data)
+          || (request.resource.data.members is map
+            && request.resource.data.members.values().hasAny(['owner']));
       }
 
       // A non-owner member may ADD members and touch nothing else. See the CEILING note in
@@ -210,7 +232,7 @@ service cloud.firestore {
       // `list` is granted by NOTHING, here or anywhere below (D-219).
       allow get: if isMember();
       allow create: if request.auth != null && boundedWrite() && claimsSelfAsOwner();
-      allow update: if boundedWrite() && (
+      allow update: if boundedWrite() && rosterIsWellFormed() && (
         (isOpen() && request.auth != null)   // grandfathered capability trip
         || isOwner()                         // owner: anything, incl. removing members
         || (isMember() && addsMembersOnly()) // member: may add members, nothing else

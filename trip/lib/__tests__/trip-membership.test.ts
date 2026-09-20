@@ -200,6 +200,20 @@ describe('ensureMembership — four branches, one read (#10)', () => {
     expect(writesTo(TRIP_PATH)[0].data).toEqual({ [`members.${UID}`]: 'owner' });
   });
 
+  // #453: the rules read a roster naming no owner as OPEN and refuse any write that leaves it
+  // owner-less, so enrolling as 'member' here would be denied and show access-pending wrongly.
+  it.each([
+    ['an EMPTY map', {}],
+    ['an all-member map', { a: 'member', b: 'member' }],
+    ['a map already listing this uid, but no owner', { [UID]: 'member', other: 'Owner' }],
+  ])('%s reads as open ⇒ enrols as owner', async (_label, members) => {
+    fake.docs.set(TRIP_PATH, { schemaVersion: 1, members });
+    await ensureMembership(TRIP);
+    const writes = writesTo(TRIP_PATH);
+    expect(writes).toHaveLength(1);
+    expect(writes[0].data).toEqual({ [`members.${UID}`]: 'owner' });
+  });
+
   it('no-ops with NO read when the trip is not remote (the local-only sample)', async () => {
     gate.tripId = '';
     await ensureMembership('');
