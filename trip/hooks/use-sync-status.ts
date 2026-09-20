@@ -1,9 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { keyFor } from '@/core/storage/gateway';
+import {
+  keyFor,
+  getActiveTripId,
+  getDefaultTripShareId,
+  DEFAULT_TRIP_ID,
+} from '@/core/storage/gateway';
 import { outboxBlocked, outboxSnapshot, SYNC_OUTBOX_CHANGED_EVENT } from '@/core/sync/outbox';
 import { isReadDenied } from '@/core/sync/read-denied';
+import { isRemoteConfigured } from '@/lib/firebase-config';
 
 /**
  * Reactive read over the offline-push outbox — the data behind
@@ -41,9 +47,28 @@ export interface SyncStatus {
    */
   readBlocked: boolean;
   lastAckAt: string | null;
+  /**
+   * D-542 — this device is on the DEFAULT pack, the build CAN sync (firebase web config present),
+   * and no share id has been minted, so every edit is device-only and nothing will ever upload.
+   *
+   * This is the state that previously rendered as complete silence: the outbox is gated off, so
+   * it reads the neutral `{pending:0, blocked:0, lastAckAt:null}` shape — indistinguishable from
+   * "everything is synced" and from "this is a dormant build". Telling the three apart is the
+   * whole point of this flag.
+   *
+   * `isRemoteConfigured()` is part of it on purpose: on a dormant build (a fork with no firebase
+   * env) sharing is not merely off, it is impossible, so offering it would be a dead end.
+   */
+  localOnly: boolean;
 }
 
-const SSR_DEFAULT: SyncStatus = { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null };
+const SSR_DEFAULT: SyncStatus = {
+  pending: 0,
+  blocked: 0,
+  readBlocked: false,
+  lastAckAt: null,
+  localOnly: false,
+};
 
 function readStatus(): SyncStatus {
   const { dirty, lastAckAt } = outboxSnapshot();
@@ -51,7 +76,16 @@ function readStatus(): SyncStatus {
   // Read off the same `SYNC_OUTBOX_CHANGED_EVENT` tick as everything else — `markDenied` (and
   // #271's `setReadDenied`) dispatch it, so a refusal re-renders the badge without a reload,
   // exactly like an enqueue or an ack.
-  return { pending, blocked: outboxBlocked(), readBlocked: isReadDenied(), lastAckAt };
+  return {
+    pending,
+    blocked: outboxBlocked(),
+    readBlocked: isReadDenied(),
+    lastAckAt,
+    localOnly:
+      isRemoteConfigured() &&
+      getActiveTripId() === DEFAULT_TRIP_ID &&
+      getDefaultTripShareId() === '',
+  };
 }
 
 export function useSyncStatus(): SyncStatus {
