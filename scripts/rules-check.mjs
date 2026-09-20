@@ -69,7 +69,9 @@
  *   7. MEMBERSHIP, negative — a stranger reaches nothing; a member cannot remove or re-role the
  *                     owner, cannot delete the trip, and cannot create a trip owning nobody; an
  *                     UNAUTHENTICATED client reaches nothing at all (the new floor); and D-219
- *                     still holds under auth (no /trips list, no collection group).
+ *                     still holds under auth (no /trips list, no collection group). A roster
+ *                     naming no owner is refused at the write, and one already stored reads
+ *                     open so it can be repaired (#453).
  *   8. GRANDFATHER  — a trip with NO members map keeps capability semantics for any signed-in
  *                     holder of the tripId. This is the opt-in lock: it is what stops a rules
  *                     deploy (instant, global) bricking every legacy trip and every ?trip= link.
@@ -111,6 +113,7 @@ const L = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';      // phases 6-10: the membe
 const K = 'ffffffff-0000-1111-2222-333333333333';      // phase 8: a legacy, members-less trip
 const ACCT = '99999999-8888-7777-6666-555555555555';   // phase 9: a User Token — never a trip
 const THIRD = 'third-friend-uid-000000000000';         // a uid that is only ever a map key
+const BRICK = '00000000-1111-2222-3333-444444444444';  // phase 7f: a trip carrying a malformed roster
 
 let pass = 0, fail = 0;
 let results = [];
@@ -489,6 +492,43 @@ console.log('\n  -- 7e. KNOWN CEILING (documented in firestore.rules, NOT fixabl
 // subcollection), this assertion fails and the header comment gets corrected with it.
 await expect('member M adds a third uid as "owner" (cannot police the value)', 'ALLOWED',
   () => updateDoc(doc(dbM, 'trips', L), { [`members.${THIRD}`]: 'owner' }));
+
+console.log('\n  -- 7f. a roster that names no owner is refused at the write... (#453) --');
+// O is the owner and each payload passes boundedWrite() (`.size()` on a string is a character
+// count), so rosterIsWellFormed() is the only thing left that can refuse these.
+await expect('O writes members as a STRING', 'DENIED',
+  () => setDoc(doc(db, 'trips', L), { members: 'x' }, { merge: true }));
+await expect('O empties the members map', 'DENIED',
+  () => setDoc(doc(db, 'trips', L), { members: {} }, { merge: true }));
+await expect('O rewrites the roster with nobody as owner', 'DENIED',
+  () => setDoc(doc(db, 'trips', L), { schemaVersion: 1, members: { [O]: 'member', [M]: 'member' } }));
+
+console.log('\n  -- ...and a trip that ALREADY carries one reads open, so it is repairable --');
+// Planted with the rules under test having no say, because no write path produces these.
+const BRICK_DAY = { date: '2026-12-15', city: 'Pokhara', country: 'nepal', items: bigList(2) };
+await seed(['trips', BRICK], { schemaVersion: 1, members: 'x' });
+await expect('authed reads a trip whose stored members is a STRING', 'ALLOWED', () => getDoc(doc(dbS, 'trips', BRICK)));
+await expect('...writes its content', 'ALLOWED', () => setDoc(doc(dbS, 'trips', BRICK, 'days', '2026-12-15'), BRICK_DAY));
+await expect('...and overwrites the roster with a valid one (the repair)', 'ALLOWED',
+  () => setDoc(doc(dbS, 'trips', BRICK), { schemaVersion: 1, members: { [S]: 'owner' } }));
+await seed(['trips', BRICK], { schemaVersion: 1, members: 'x' });
+await expect('...or self-enrols as owner by field path (ensureMembership)', 'ALLOWED',
+  () => updateDoc(doc(dbS, 'trips', BRICK), { [`members.${S}`]: 'owner' }));
+await seed(['trips', BRICK], { schemaVersion: 1, members: {} });
+await expect('authed reads a trip whose stored members map is EMPTY', 'ALLOWED', () => getDoc(doc(dbS, 'trips', BRICK)));
+await expect('...and can delete it (the last repair the rules can reach)', 'ALLOWED', () => deleteDoc(doc(dbS, 'trips', BRICK)));
+// The residual shape: keys present, values fine at a glance, and no owner among them.
+const NO_OWNER = { schemaVersion: 1, members: { [O]: 'member', [M]: 'viewer' } };
+await seed(['trips', BRICK], NO_OWNER);
+await expect('authed reads a trip whose roster names NO owner', 'ALLOWED', () => getDoc(doc(dbS, 'trips', BRICK)));
+await expect('...writes its content', 'ALLOWED', () => setDoc(doc(dbS, 'trips', BRICK, 'days', '2026-12-15'), BRICK_DAY));
+await expect('...but self-enrolling as "member" still names no owner', 'DENIED',
+  () => updateDoc(doc(dbS, 'trips', BRICK), { [`members.${S}`]: 'member' }));
+await expect('...self-enrols as owner by field path (ensureMembership)', 'ALLOWED',
+  () => updateDoc(doc(dbS, 'trips', BRICK), { [`members.${S}`]: 'owner' }));
+await seed(['trips', BRICK], NO_OWNER);
+await expect('...or overwrites the roster with a valid one (the repair)', 'ALLOWED',
+  () => setDoc(doc(dbS, 'trips', BRICK), { schemaVersion: 1, members: { [S]: 'owner' } }));
 const phase7 = flush('PHASE 7 (membership, negative)');
 
 // ── 8. THE GRANDFATHER CLAUSE ────────────────────────────────────────────────
@@ -549,7 +589,9 @@ const phase9 = flush('PHASE 9 (the door + the account path)');
 // ── 10. NEGATIVE CONTROL for membership ──────────────────────────────────────
 console.log('\n\n=== 10. NEGATIVE CONTROL: same member denials, MEMBERSHIP REMOVED ===');
 let membersOff = shipped;
-for (const fn of ['isMember', 'isOwner', 'claimsSelfAsOwner']) {
+// rosterIsWellFormed() too: two of the denials (M removes the owner, M re-roles the owner) leave
+// no owner, so the roster guard also refuses them and they would stay DENIED here (#453).
+for (const fn of ['isMember', 'isOwner', 'claimsSelfAsOwner', 'rosterIsWellFormed']) {
   membersOff = neuter(membersOff, fn, 'return request.auth != null;',
     'without a working phase 10 the suite cannot distinguish member gating from a bare auth floor.');
 }

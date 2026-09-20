@@ -35,66 +35,52 @@
  * access token, and call the REST API with fetch. That is the entire cost of the no-dependency
  * rule here, and it is cheaper than it looks.
  *
- * ── THE FIVE BUCKETS, AND WHY THEY ARE THESE FIVE ──────────────────────────────────────────────
+ * ── THE THREE BUCKETS, AND WHY THEY ARE THESE THREE ────────────────────────────────────────────
  *
  * Everything below is derived from ONE function in firestore.rules, and it is worth quoting
- * because the classification is meaningless without it (firestore.rules:176-178):
+ * because the classification is meaningless without it (firestore.rules:186-191):
  *
  *     function isOpen() {
- *       return !exists(tripPath()) || !('members' in get(tripPath()).data);
+ *       return !exists(tripPath())
+ *         || !('members' in get(tripPath()).data)
+ *         || !(roster() is map)
+ *         || !roster().values().hasAny(['owner']);
  *     }
  *
- * Read that carefully. It tests KEY PRESENCE and nothing else. It does not test that `members` is
- * a map, and it does not test that the map is non-empty. Everything else in the rules hangs off
- * it: `isMember()` is `isOpen() || role() in ['owner','member']`, and `role()` is
- * `...data.members.get(request.auth.uid, '')`. So:
+ * A trip is gated only when `members` is a map naming at least one 'owner'. Every other shape —
+ * no key, a scalar, a list, null, an empty map, a map of 'member's or 'viewer's or a mis-cased
+ * 'Owner' — reads OPEN (#453), and `rosterIsWellFormed()` refuses any write that would leave one.
+ * So a gated trip always has an owner, and the total-lockout and no-owner shapes this script used
+ * to screen for cannot occur.
  *
- * EFFECTIVE, NOT LISTED. Everything below counts the entries whose VALUE is exactly 'owner' or
- * 'member', because that is the only thing `isMember()` honours (firestore.rules:187):
+ * EFFECTIVE, NOT LISTED. On a gated trip, everything below counts the entries whose VALUE is
+ * exactly 'owner' or 'member', because that is the only thing `isMember()` honours
+ * (firestore.rules:200):
  *
  *     return request.auth != null && (isOpen() || role() in ['owner', 'member']);
  *
- * A uid mapped to 'viewer' — a role named in the header at firestore.rules:42 and never built —
+ * A uid mapped to 'viewer' — a role named in the header at firestore.rules:45 and never built —
  * or to 'Owner', or to '', is LISTED but names nobody: `role()` returns a string that is in
  * neither arm, so that uid is refused exactly like a stranger. Counting listed keys instead would
- * make an all-'viewer' roster look like a populated one. It is not; it is a lockout, and no rule
- * anywhere polices the value (firestore.rules:46-55 records that ceiling as accepted), so this
- * is a shape the live data can genuinely hold.
+ * make an owner plus three 'viewer's look like four people. No rule polices an added value
+ * (firestore.rules:49-58 records that ceiling as accepted), so this is a shape the live data can
+ * genuinely hold.
  *
- *   OPEN         no trip doc at all, or a trip doc with NO `members` key. `isOpen()` is true, so
- *                `isMember()` is true for anyone signed in who holds the trip id — the
- *                grandfathered capability model, unchanged. Publishing changes NOTHING here.
- *                This is expected to be the common case and it is entirely benign.
+ *   OPEN         no trip doc, no `members` key, or a roster naming no owner. `isOpen()` is true,
+ *                so `isMember()` is true for anyone signed in who holds the trip id — the
+ *                grandfathered capability model. Publishing changes NOTHING here. For the
+ *                malformed-roster shapes the note names the shape: the first device to open one
+ *                self-enrols as owner (`ensureMembership`), which gates it from then on.
  *
- *   GATED_OK     an effective roster, with an owner, at least as large as the set of distinct
- *                human names observed in the trip. Publishing narrows this trip to its roster,
- *                and the roster looks big enough to hold everyone.
+ *   GATED_OK     an effective roster at least as large as the set of distinct human names
+ *                observed in the trip. Publishing narrows this trip to its roster, and the roster
+ *                looks big enough to hold everyone.
  *
- *   NO_OWNER     an effective roster with NO value equal to 'owner'. Every effective uid still
- *                reads and writes (`role()` returns 'member' for them, which `isMember()`
- *                honours), but `isOwner()` is false for everyone forever, so nobody can remove a
- *                member, change a role, or delete the trip, and the doc is stuck at member
- *                add-only edits. Something wrote a roster shape the create path cannot produce
- *                (`claimsSelfAsOwner()` refuses it), so it is worth an eyeball.
+ *   AT_RISK      MORE distinct human names were observed in the trip's own data than the roster
+ *                has EFFECTIVE entries. This is the bucket the whole script exists for: publishing
+ *                can lock one of those people out. Heuristic — see the ceiling.
  *
- *   AT_RISK      an effective roster, but MORE distinct human names were observed in the trip's
- *                own data than the roster has EFFECTIVE entries. This is the bucket the whole
- *                script exists for: publishing can lock one of those people out. Heuristic — see
- *                the ceiling.
- *
- *   LOCKOUT_ALL  a `members` key that is present but names NOBODY the rules would honour: empty
- *                (`{}`), not a map at all, or every entry holding a value outside
- *                {'owner','member'}. `isOpen()` is FALSE (the key is present), and `role()` then
- *                returns a non-matching string for every uid, or errors on a non-map — either way
- *                `isMember()` is false for EVERYONE. Publishing bricks the trip for every human
- *                including its creator, with no route back. This is the most severe bucket and
- *                the one easiest to misread as harmless, because "empty roster" sounds like "no
- *                roster" and "two viewers" sounds like two people. An absent key is open; a
- *                present key that matches nobody is closed to all.
- *
- * A trip lands in exactly one bucket, by severity: LOCKOUT_ALL > AT_RISK > NO_OWNER > GATED_OK >
- * OPEN. The no-owner condition is also reported as a separate flag on the line, so a trip that is
- * both owner-less and at risk does not lose half its diagnosis to the bucket it sorted into.
+ * A trip lands in exactly one bucket. Only AT_RISK fails the run.
  *
  * ── WHERE THE "OBSERVED NAMES" COME FROM ───────────────────────────────────────────────────────
  *
@@ -139,7 +125,7 @@
  * display name alongside the role at write time, which is a data-model change, not a script.
  *
  * One more reason the count is soft in the safe direction: `ensureMembership`
- * (lib/trips-remote.ts:327) self-enrols the current device on every trip load
+ * (lib/trips-remote.ts:332) self-enrols the current device on every trip load
  * (components/itinerary-provider.tsx:308), and under the CURRENT permissive live rules that write
  * succeeds for anyone. Rosters have therefore been self-healing since 2026-08-10. The real
  * exposure is exactly the set of devices that have NOT opened the app since then, which is why
@@ -183,13 +169,11 @@ const NAME_SOURCES = ['presence', 'days', 'expenses', 'docs'];
 const NAME_FIELDS = new Set(['name', 'createdBy', 'updatedBy', 'doneBy', 'paidBy']);
 
 const BUCKETS = {
-  OPEN: 'no members map — publishing changes nothing for these',
+  OPEN: 'no members map, or one naming no owner — publishing changes nothing for these',
   GATED_OK: 'effective roster is at least as large as the names observed in the trip',
-  NO_OWNER: 'roster has no owner — reachable, but nobody can administer it',
   AT_RISK: 'MORE names observed than EFFECTIVE roster entries — someone can be locked out',
-  LOCKOUT_ALL: 'members key present but matches nobody — publishing locks out EVERYONE',
 };
-const SEVERE = ['AT_RISK', 'LOCKOUT_ALL'];
+const SEVERE = ['AT_RISK'];
 
 // ── Firestore REST typed values ────────────────────────────────────────────────────────────────
 
@@ -265,27 +249,21 @@ function harvestNames(node, into) {
 function classifyTrip(doc, names) {
   const exists = Boolean(doc.createTime);
   const observed = [...names.values()];
-  const base = {
-    exists, observed, rosterSize: 0, effectiveSize: 0, roles: {}, noOwner: false, note: '',
-  };
+  const base = { exists, observed, rosterSize: 0, effectiveSize: 0, roles: {}, note: '' };
 
-  // `!exists(tripPath())` — the first half of isOpen(). No doc, no members key, nothing to gate.
+  // `!exists(tripPath())` — the first arm of isOpen(). No doc, no members key, nothing to gate.
   if (!exists) return { ...base, bucket: 'OPEN', note: 'no trip doc' };
 
   const membersRaw = doc.fields?.members;
   if (membersRaw === undefined) return { ...base, bucket: 'OPEN', note: 'no members key' };
 
-  // The key IS present, so isOpen() is already false. Everything from here is gated, and the only
-  // question left is whether role() can return 'owner'/'member' for anybody.
+  // The last two arms of isOpen(): a roster that is not a map, or names no owner, reads open.
+  const heals = ' — reads open; the first device to open it self-enrols as owner';
   if (!membersRaw.mapValue) {
-    return { ...base, bucket: 'LOCKOUT_ALL', note: 'members is present but is not a map' };
+    return { ...base, bucket: 'OPEN', note: `members is not a map${heals}` };
   }
   const roster = decodeFields(membersRaw.mapValue.fields);
   const uids = Object.keys(roster);
-  if (uids.length === 0) {
-    return { ...base, bucket: 'LOCKOUT_ALL', note: 'members is an empty map' };
-  }
-
   const roles = {};
   for (const uid of uids) {
     const role = String(roster[uid]);
@@ -294,16 +272,11 @@ function classifyTrip(doc, names) {
   // The entries that actually name somebody. `rosterSize` stays the LISTED count so the printout
   // shows the gap; every access question below is asked of `effective`.
   const effective = uids.filter((uid) => roster[uid] === 'owner' || roster[uid] === 'member');
-  const noOwner = !uids.some((uid) => roster[uid] === 'owner');
-  const full = { ...base, rosterSize: uids.length, effectiveSize: effective.length, roles, noOwner };
+  const full = { ...base, rosterSize: uids.length, effectiveSize: effective.length, roles };
 
-  if (effective.length === 0) {
-    return {
-      ...full,
-      bucket: 'LOCKOUT_ALL',
-      note: `${uids.length} entries listed, but no value is 'owner' or 'member' — role() matches`
-        + ' nobody',
-    };
+  if (!uids.some((uid) => roster[uid] === 'owner')) {
+    const shape = uids.length ? `${uids.length} entries, none 'owner'` : 'members is an empty map';
+    return { ...full, bucket: 'OPEN', note: `${shape}${heals}` };
   }
   if (observed.length > effective.length) {
     return {
@@ -313,7 +286,6 @@ function classifyTrip(doc, names) {
         + `${effective.length === uids.length ? '' : ` (of ${uids.length} listed)`}`,
     };
   }
-  if (noOwner) return { ...full, bucket: 'NO_OWNER', note: 'no entry has the role owner' };
   return { ...full, bucket: 'GATED_OK', note: '' };
 }
 
@@ -470,11 +442,10 @@ function docId(name) {
  * Refuse to run against a firestore.rules whose `isOpen()` no longer matches the one these buckets
  * were derived from.
  *
- * LOCKOUT_ALL exists only because the shipping `isOpen()` tests key presence alone, so an empty or
- * non-map `members` is CLOSED to everyone. A ruleset that adds `!(roster() is map)` or
- * `roster().size() == 0` to that disjunction inverts exactly those cases to OPEN — and this script
- * would then block a publish for a non-reason, and explain it with a sentence that is no longer
- * true. Stale and loud beats stale and silent: this dies rather than reporting.
+ * The buckets file a non-map or owner-less roster under OPEN only because isOpen() carries the
+ * `is map` and `hasAny(['owner'])` guards (#453). Drop either and those shapes are CLOSED to every
+ * uid again, and this script would print an all-clear over a trip that publishing bricks. Stale
+ * and loud beats stale and silent: this dies rather than reporting.
  *
  * Read relative to THIS FILE, like .firebaserc, so it cannot pick up a different checkout's rules.
  */
@@ -485,23 +456,28 @@ function assertRulesMatchBuckets() {
   } catch {
     return die('could not read firestore.rules next to this script — run from a full checkout.');
   }
-  const body = rules.match(/function isOpen\(\)\s*\{([^}]*)\}/)?.[1];
-  if (!body) {
+  const missing = missingIsOpenGuards(rules);
+  if (!missing) {
     return die('could not find isOpen() in firestore.rules. The buckets in this script are derived'
       + ' from it, so they cannot be trusted until it is found and re-read.');
   }
-  const drifted = [
-    ['`roster() is map`', /\bis\s+map\b/],
-    ['`roster().size() == 0`', /\.size\(\)\s*==\s*0/],
-  ].filter(([, re]) => re.test(body)).map(([label]) => label);
-  if (drifted.length) {
-    return die('firestore.rules has changed since these buckets were written: isOpen() now'
-      + ` guards on ${drifted.join(' and ')}.\n`
-      + '  That INVERTS the LOCKOUT_ALL bucket — under those guards an empty or non-map\n'
-      + '  members map reads as OPEN, and publishing is safe for exactly the trips this run\n'
-      + '  would fail over. Re-derive LOCKOUT_ALL against the new isOpen() before trusting\n'
-      + '  a run.');
+  if (missing.length) {
+    return die('firestore.rules has changed since these buckets were written: isOpen() no longer'
+      + ` guards on ${missing.join(' and ')}.\n`
+      + '  Without the guard a non-map or owner-less roster is CLOSED to every uid, and this\n'
+      + '  run would still call those trips OPEN — an all-clear over a lockout. Re-derive the\n'
+      + '  buckets against the new isOpen() before trusting a run.');
   }
+}
+
+/** The isOpen() guards the buckets depend on that `rules` lacks; `null` when isOpen() is absent. */
+function missingIsOpenGuards(rules) {
+  const body = rules.match(/function isOpen\(\)\s*\{([^}]*)\}/)?.[1];
+  if (!body) return null;
+  return [
+    ['`roster() is map`', /\bis\s+map\b/],
+    ["`hasAny(['owner'])`", /\.hasAny\(\s*\[\s*'owner'\s*\]\s*\)/],
+  ].filter(([, re]) => !re.test(body)).map(([label]) => label);
 }
 
 // ── report ─────────────────────────────────────────────────────────────────────────────────────
@@ -586,12 +562,6 @@ async function main(keyPath) {
   console.log(`  ${'trips seen'.padEnd(13)} ${String(trips.length).padStart(4)}`);
   console.log('────────────────────────────────────────────────────────────────────────────');
 
-  const noOwnerAlso = results.filter(([, r]) => r.noOwner && r.bucket !== 'NO_OWNER').length;
-  if (noOwnerAlso) {
-    console.log(`  note: ${noOwnerAlso} further trip(s) also have no owner in the roster, and`
-      + ' sorted into a more severe bucket above.');
-  }
-
   if (trips.length === 0) {
     console.log('\nINCONCLUSIVE: the trips collection came back empty. That is not an all-clear —');
     console.log('it means this run proved nothing. Check the project and the key\'s access.\n');
@@ -614,14 +584,12 @@ async function main(keyPath) {
   for (const [id, r] of severe) {
     console.log(`\n  ${id}   ${r.bucket}`);
     console.log(`    roster       ${r.rosterSize} listed, ${r.effectiveSize} effective`
-      + `  [${rolesLabel(r.roles)}]${r.noOwner && r.rosterSize ? '  (and no owner)' : ''}`);
+      + `  [${rolesLabel(r.roles)}]`);
     console.log(`    observed     ${r.observed.length} distinct names: `
       + `${r.observed.join(', ') || '(none)'}`);
     console.log(`    why          ${r.note}`);
-    console.log(r.bucket === 'LOCKOUT_ALL'
-      ? '    effect       isOpen() is false and role() matches nobody: EVERY human loses access.'
-      : '    effect       a device not in the roster loses access, and only a member can add it'
-        + ' back.');
+    console.log('    effect       a device not in the roster loses access, and only a member can add it'
+      + ' back.');
   }
   console.log('\n  Do not arm FIREBASE_SERVICE_ACCOUNT until each of these is resolved — after the');
   console.log('  publish there is no self-service route back in, and no rollback.\n');
@@ -710,46 +678,36 @@ function selfTest() {
     'a trip doc with no members key is open however many people are on it',
   );
 
-  // LOCKOUT_ALL — the two shapes that read as "no roster" and are in fact closed to everyone.
-  assert.equal(
-    bucketOf(trip({ members: { mapValue: {} } }), nameSet('Ana')),
-    'LOCKOUT_ALL',
-    'an EMPTY members map is present, so isOpen() is false and role() returns \'\' for all',
-  );
-  assert.equal(
-    bucketOf(trip({ members: { stringValue: 'ana' } }), nameSet('Ana')),
-    'LOCKOUT_ALL',
-    'members present but not a map: role() errors on .get(), which denies',
-  );
-  assert.equal(
-    bucketOf(trip({ members: { arrayValue: { values: [{ stringValue: 'uid-a' }] } } }), nameSet()),
-    'LOCKOUT_ALL',
-    'an array is not a map either',
-  );
-  assert.equal(
-    bucketOf(trip({ members: { nullValue: null } }), nameSet()),
-    'LOCKOUT_ALL',
-    'an explicit null still satisfies `\'members\' in data`',
-  );
-
-  // LOCKOUT_ALL by EFFECTIVE count — the defect this section exists for. `isMember()` honours
-  // only 'owner'/'member' (firestore.rules:187), so a roster of two 'viewer's lists two uids and
-  // names nobody. Counting listed keys called this NO_OWNER, non-severe, exit 0 — an all-clear
-  // printed over a total lockout, on the one operation with no rollback.
+  // OPEN — a roster naming no owner, whatever its shape, reads open under isOpen() (#453). Each
+  // note names the shape, however many people were observed.
+  for (const [raw, shape, why] of [
+    [{ mapValue: {} }, /empty map/, 'an EMPTY members map names no owner'],
+    [{ stringValue: 'ana' }, /not a map/, 'a scalar is not a map'],
+    [{ arrayValue: { values: [{ stringValue: 'uid-a' }] } }, /not a map/, 'nor is an array'],
+    [{ nullValue: null }, /not a map/, 'nor is an explicit null'],
+  ]) {
+    const r = classifyTrip(trip({ members: raw }), nameSet('Ana', 'Ben'));
+    assert.equal(r.bucket, 'OPEN', why);
+    assert.match(r.note, shape);
+    assert.match(r.note, /self-enrols as owner/);
+  }
   const viewers = classifyTrip(trip(members({ 'uid-a': 'viewer', 'uid-b': 'viewer' })),
     nameSet('Ana'));
-  assert.equal(viewers.bucket, 'LOCKOUT_ALL', 'two viewers name nobody the rules would honour');
+  assert.equal(viewers.bucket, 'OPEN', 'two viewers name no owner');
   assert.equal(viewers.rosterSize, 2, 'the LISTED count stays visible in the printout');
   assert.equal(viewers.effectiveSize, 0);
-  assert.match(viewers.note, /2 entries listed/);
-  // Same for the near-misses that are not the literal strings the rules test.
+  assert.match(viewers.note, /2 entries, none 'owner'/);
+  assert.equal(
+    bucketOf(trip(members({ 'uid-a': 'member', 'uid-b': 'member' })), nameSet('Ana', 'Ben', 'Cara')),
+    'OPEN',
+    'an all-member roster names no owner, so it is open however many people were seen',
+  );
   assert.equal(
     bucketOf(trip(members({ 'uid-a': 'Owner', 'uid-b': 'MEMBER' })), nameSet('Ana')),
-    'LOCKOUT_ALL',
-    "role() is compared to lowercase 'owner'/'member' — casing is not normalised anywhere",
+    'OPEN',
+    "hasAny(['owner']) is case-sensitive — 'Owner' is not an owner",
   );
-  assert.equal(bucketOf(trip(members({ 'uid-a': '' })), nameSet()), 'LOCKOUT_ALL',
-    "'' is exactly what role() returns for a stranger");
+  assert.equal(bucketOf(trip(members({ 'uid-a': '' })), nameSet()), 'OPEN');
 
   // A mixed roster counts only the effective half: 1 effective vs 2 names is AT_RISK, where the
   // listed count (2) would have said GATED_OK.
@@ -759,14 +717,6 @@ function selfTest() {
   assert.equal(mixed.rosterSize, 2);
   assert.equal(mixed.effectiveSize, 1);
   assert.equal(mixed.note, '2 names vs 1 effective roster entries (of 2 listed)');
-
-  // NO_OWNER — gated and reachable, but nobody can administer it.
-  const noOwner = classifyTrip(trip(members({ 'uid-a': 'member', 'uid-b': 'member' })),
-    nameSet('Ana'));
-  assert.equal(noOwner.bucket, 'NO_OWNER');
-  assert.equal(noOwner.noOwner, true);
-  assert.equal(noOwner.effectiveSize, 2, "'member' is effective; only 'owner' is what is missing");
-  assert.deepEqual(noOwner.roles, { member: 2 });
 
   // GATED_OK — roster is at least as large as the observed name set.
   const ok = classifyTrip(trip(members({ 'uid-a': 'owner', 'uid-b': 'member' })),
@@ -793,15 +743,21 @@ function selfTest() {
   assert.deepEqual(risk.observed, ['Ana', 'Ben']);
   assert.equal(risk.note, '2 names vs 1 effective roster entries');
 
-  // Severity ordering: at-risk AND owner-less sorts to AT_RISK, and does not lose the other half
-  // of its diagnosis — the report reads `noOwner` back off the result.
-  const both = classifyTrip(trip(members({ 'uid-a': 'member' })), nameSet('Ana', 'Ben', 'Cara'));
-  assert.equal(both.bucket, 'AT_RISK');
-  assert.equal(both.noOwner, true);
+  // Only AT_RISK is allowed to fail the run.
+  assert.deepEqual(SEVERE, ['AT_RISK']);
+  assert.deepEqual(Object.keys(BUCKETS), ['OPEN', 'GATED_OK', 'AT_RISK']);
 
-  // Only the two severe buckets are allowed to fail the run.
-  assert.deepEqual(SEVERE, ['AT_RISK', 'LOCKOUT_ALL']);
-  assert.ok(Object.keys(BUCKETS).every((b) => b in BUCKETS));
+  // The rules guard: this checkout's isOpen() carries both guards, and the pre-#453 body, which
+  // tested key presence alone, is caught missing both.
+  assert.deepEqual(
+    missingIsOpenGuards(readFileSync(new URL('../firestore.rules', import.meta.url), 'utf-8')),
+    [],
+  );
+  assert.deepEqual(
+    missingIsOpenGuards("function isOpen() {\n  return !exists(tripPath()) || !('members' in get(tripPath()).data);\n}"),
+    ['`roster() is map`', "`hasAny(['owner'])`"],
+  );
+  assert.equal(missingIsOpenGuards('function isMember() { return true; }'), null);
 
   console.log('roster-inspect self-test: all assertions passed');
 }

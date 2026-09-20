@@ -331,7 +331,8 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
   const { traveler } = useActiveTraveler();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState('');
-  const { messages, status, error, send, retry } = useConciergeChat();
+  const { messages, status, error, send, retry, reset, provider, setProvider } = useConciergeChat();
+  const busy = status === 'streaming';
   // The app-wide offline banner is `fixed` at z-40 and this panel's overlay is z-50, so while the
   // sheet is open that banner is behind it and invisible — this surface has to state the condition
   // itself. Same reading as the banner (`useOnline`), not a second signal.
@@ -405,9 +406,18 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
     resolve(key, 'applied', label);
   };
 
+  // Receipts and refusals are keyed by turn index, so they go with the thread.
+  const clearChat = () => {
+    reset();
+    setResolvedOps({});
+    setClashByOp({});
+    // The button disables itself once the thread is empty, which would drop focus out of the modal.
+    inputRef.current?.focus();
+  };
+
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (!draft.trim() || status === 'streaming') return;
+    if (!draft.trim() || busy) return;
     const toSend = draft;
     setDraft('');
     void send(toSend);
@@ -444,18 +454,39 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
               Proposes · you apply
             </span>
           </div>
-          {/* (owner ruling Q5): the web-search leg is DELETED, so the old
-              "AI and search services" is no longer true — and neither is the plural: the ladder
-              is one provider (two of its models, `worker/src/providers.ts` GROQ_MODELS), so
-              "services" would have been a second false note. "here" stays: it scopes the storage
-              claim to this panel rather than reading as a claim about the whole data path
-              */}
+          {/* Names both providers the Worker can use (D-535) and where the thread is kept (D-536). */}
           <SheetDescription className="text-t-sm">
             Ask about the Nepal &amp; Japan itinerary. Your messages and trip details go to a
-            third-party AI provider that may retain and review them on free plans — the model
-            that answers is named under each reply. Nothing is stored here; the chat clears on
-            reload.
+            third-party AI provider (Groq; picking Kimi sends them to NVIDIA first, with Groq as the
+            fallback) that may retain and review them on free plans; the model that answers is
+            named under each reply. Chats are saved on this
+            device only. Clear chat removes them.
           </SheetDescription>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <label htmlFor="concierge-model" className="pr pr--lo">
+              Model
+            </label>
+            <select
+              id="concierge-model"
+              data-testid="concierge-model"
+              value={provider}
+              onChange={(e) => setProvider(e.target.value === 'kimi' ? 'kimi' : 'groq')}
+              disabled={busy}
+              className="min-h-tap rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface-low))] px-2 text-t-sm text-ink-hi outline-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:text-ink-lo"
+            >
+              <option value="groq">Groq (fast)</option>
+              <option value="kimi">Kimi K3 (slow, up to 3 min)</option>
+            </select>
+            <button
+              type="button"
+              data-testid="concierge-clear"
+              onClick={clearChat}
+              disabled={busy || messages.length === 0}
+              className="btn btn--2 ml-auto px-3 text-t-sm"
+            >
+              Clear chat
+            </button>
+          </div>
         </SheetHeader>
 
         {/* The app-wide offline banner is `fixed` under this sheet's own overlay, so it cannot be
@@ -576,7 +607,9 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
                         data-testid="concierge-thinking"
                         className="load pr pr--lo inline-flex bg-[rgb(var(--surface-overlay))] px-2 py-1"
                       >
-                        Waiting for the first words…
+                        {provider === 'kimi'
+                          ? 'Waiting for Kimi K3. A reply can take 2–3 minutes…'
+                          : 'Waiting for the first words…'}
                       </span>
                     ) : null
                   ) : (
@@ -802,14 +835,14 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
             // `SheetDescription`, which Radix wires to the DIALOG via `aria-describedby`; a
             // second paragraph inherits NOTHING from that, so the label below is pointed at the
             // one control the user is actually typing into. Screen-reader order becomes:
-            // "Message the concierge, edit text, Sent to a third-party AI — nothing stored here."
+            // "Message the concierge, edit text, Sent to a third-party AI — saved on this device only."
             aria-describedby={PRIVACY_NOTE_ID}
             className="min-h-tap min-w-0 flex-1 rounded-r1 border-hair border-[color:var(--border-ui)] bg-[rgb(var(--surface-low))] px-3 text-t-body text-ink-hi outline-none placeholder:text-ink-lo focus-visible:ring-2 focus-visible:ring-ring"
           />
           <button
             type="submit"
             data-testid="concierge-send"
-            disabled={!draft.trim() || status === 'streaming'}
+            disabled={!draft.trim() || busy}
             aria-label="Send message"
             className="btn min-w-tap shrink-0 px-3"
           >
@@ -827,7 +860,7 @@ export function ConciergeChat({ side = 'right' }: { side?: 'right' | 'bottom' })
           data-testid="concierge-privacy-note"
           className="shrink-0 px-gut pb-[max(env(safe-area-inset-bottom),0.75rem)] text-t-micro text-ink-mid"
         >
-          Sent to a third-party AI — nothing stored here.
+          Sent to a third-party AI — saved on this device only.
         </p>
       </SheetContent>
     </Sheet>

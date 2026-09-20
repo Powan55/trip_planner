@@ -2,15 +2,35 @@
 
 Every live deployment gets an entry: version, date, what shipped, deploy targets. Newest first.
 
-Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v7.1.0`, deployed 2026-09-01. The newest live worker is `v1.10.0`, deployed 2026-08-23: the Firestore membership gate and the rate limiter are both live together now, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
+Not every entry is live. An entry headed **NOT DEPLOYED** is a build that exists in the repo and has never run anywhere, and **LIVE** on an older entry means that version was in production while it was current, not that it still is. The newest live app is `v7.1.1`, deployed 2026-09-06. The newest live worker is `v1.11.0`, deployed 2026-09-17: v1.10.0's membership gate and rate limiter plus the opt-in Kimi K3 leg (see v7.2.0). The gate and limiter went live together in `v1.10.0`, verified against real requests — see the `v1.10.0 (worker)` entry below. Worker `v1.9.0` must still never deploy standalone: it carries the membership gate but not the `SAMPLE_TRIP_ID` carve-out, and shipping it alone would 403 every first-time visitor on the built-in sample pack, which has no Firestore document to check membership against. Read the heading before assuming a version is in production.
 
-**`v7.1.0` shipped on 2026-09-01.** Tag `v7.1.0` is `974f960`, that commit is `origin/main`'s head, and its deploy run (`33501267415`) succeeded — verified against the tag and the run, not against this paragraph. The live CSS carries `--plate-split` and no longer carries `railwrap`, which is the served-bytes half of that check. `v7.0.1` shipped earlier the same day as `fa2f497`, run `33476633246`. That gap is the drift this paragraph keeps falling into — it named `v6.1.0` for a day after `v7.0.0` went live, and then `v7.0.0` after `v7.0.1` did. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
+**`v7.1.1` shipped on 2026-09-06.** Tag `v7.1.1` is `0f39f3e`, that commit is `origin/main`'s head, and its deploy run (`34078213707`) succeeded — verified against the tag and the run, not against this paragraph. `v7.1.0` shipped on 2026-09-01 as `974f960`, run `33501267415`. The live CSS carries `--plate-split` and no longer carries `railwrap`, which is the served-bytes half of that check. `v7.0.1` shipped earlier the same day as `fa2f497`, run `33476633246`. That gap is the drift this paragraph keeps falling into — it named `v6.1.0` for a day after `v7.0.0` went live, and then `v7.0.0` after `v7.0.1` did. `v6.0.1` and `v6.0.2` are recorded below and neither was ever tagged: both were prepared and their contents shipped inside `v6.0.3`. Check the tag, not the topmost heading: this file gains an entry when a version is prepared, not when it ships. `v5.14.1` never shipped standalone either: like `v5.13.0` inside `v5.14.0`, its workflow changes rode inside `v5.14.2` when that deployed. **`v5.15.0` is the same case** — it was prepared, never tagged, and its contents shipped inside `v6.0.0`. Its entry is kept below because the detail in it is the record of that work; it is not a version that will ever exist on its own.
 
 > **This paragraph was wrong for two days, which is why the sentence above says to check the tag.** It claimed `v5.14.4` was "recorded below and not yet deployed" and that `main` was at `v5.14.3`. Both were false: tag `v5.14.4` is commit `203cfc0`, that commit **is** `origin/main`'s head, `origin/main`'s `package.json` reads `5.14.4`, and its deploy run succeeded on 2026-08-14. The doc has now overstated what is live twice (`v5.14.0` was claimed about an hour early). The failure mode is always the same: this heading is edited when a release is *prepared* and nobody comes back to it when the release *ships*. Verify against `git tag` and the deploy run, never against this paragraph.
 
 > After any merge intended for users, verify the deployment with `git ls-remote` plus a grep of the live artifact for a string only the new code contains. A push succeeding is not the same as the served artifact changing, and only the second half catches a push that targeted the wrong commit. (Lesson of `v5.9.2`: for 40 minutes a merged, green build was assumed live while the mirror had actually been pushed from an earlier commit.)
 
 ---
+
+## v7.2.0 (app) · 2026-09-17 · worker at v1.11.0
+
+Two concierge features. Minor rather than patch: two new local storage keys and a new optional
+field on the chat request.
+
+**A model picker (D-535).** The concierge header gets a labelled select: Groq stays the default,
+and Kimi K3 on NVIDIA's free endpoint is an opt-in. Picking Kimi adds `provider: 'kimi'` to the
+request; the default body is byte-identical to before, so the measured worst case against the
+Worker's 16 KB cap does not move. Kimi is slow on the free queue, 81–89s for a short reply and 135s
+with a full plan, so its turns get a 215s client ceiling (Groq keeps 45s) and the wait copy says
+so. The pick is remembered on the device (key 44). A Worker that does not know the field ignores
+it and answers from Groq, and the model stamp under the reply shows which one answered.
+
+**Chat memory on this device (D-536).** The thread now survives closing the app. It is saved per
+trip (key 43), capped at the last 50 turns, and restored when the panel mounts. Restored replies
+keep their text and model stamp but not their proposals, because those were checked against a
+plan that may have changed since. The thread never syncs, is left out of the backup export, and is
+wiped on sign-out and when a trip is forgotten. A new Clear chat control in the header removes it.
+The disclosure and the note under the input said nothing was stored; both are rewritten.
 
 ## v7.1.1 (app) · 2026-09-06 · worker stays at v1.10.0
 

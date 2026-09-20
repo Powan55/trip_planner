@@ -5313,3 +5313,37 @@ The original length is kept because it is diagnostic in its own right: it is how
 **Separately, the read side:** `decompressBlobOrText` now rejects a file over `MAX_IMPORT_BYTES` (64 MB) before reading it into memory. Stored photos are downscaled to a 1600px long edge at JPEG q0.8, so ~200–400 KB each and ~33% more as base64 — 64 MB still admits well over a hundred photos. It is a memory guard, not a policy on backup contents. A gzip file is measured compressed, so a crafted archive can still expand past it; the cap bounds the read, not the expansion.
 
 **Changes if:** a recovery UI is built that consumes the quarantine key (it would need the full bytes, which this no longer stores — that is the trade, and D-096's own "changes if" already anticipated a consumer), or a real backup ever trips the 64 MB cap.
+
+### D-535 · (2026-09-17) · Kimi K3 is an opt-in concierge model on NVIDIA's free endpoint; Groq stays the default
+
+**Decision.** The concierge header carries a model picker. Groq is the default. Picking Kimi K3 adds `provider: 'kimi'` to the request body, and the Worker then tries Kimi first with a 170s leg timeout before falling back to its Groq 120b → 20b ladder. Without the field the Worker behaves exactly as before, and the default body stays byte-identical, so the measured ~14.1 KB worst case against the 16 KB cap does not move. The pick is a device preference in key 44, not trip data.
+
+**Why Groq stays the default.** Kimi on the free queue measured 81–89s for a short reply and 135s with a full 32-day plan in context. Groq answers in seconds. A picker that defaults to the slow model would make every first question feel broken.
+
+**Timeouts.** The client abort is 215s for a Kimi turn, the Worker's 170s leg plus the 45s a Groq fallback normally gets, and stays 45s for Groq. The option label and the pending copy both say a Kimi reply can take up to 3 minutes.
+
+**Changes if:** Kimi's free-tier latency drops to Groq's range, or NVIDIA's endpoint stops being free.
+
+### D-536 · (2026-09-17) · The concierge thread is kept on this device, per trip, and nowhere else
+
+**Decision.** The chat survives closing the app. Key 43 holds the last 50 turns per trip as `{ role, content, model? }`, trip-scoped through `keyFor` like every other trip slot. It is hydrated in an effect on mount, appended after each completed turn, and wiped by the panel's Clear chat control. Restored turns feed the next request's `history`, still bounded by `capHistory`, so the body is no larger than it was.
+
+**Local only, on purpose.** No sync path reads the key and the backup export leaves it out (it sits in the backup module's exclusion bucket beside `weatherCache`). Being a trip-scoped slot puts it in `wipeAllTripData()` and `wipeTripData()`, so sign-out and forgetting a trip both remove it and a shared phone does not show the last person's chat. The provider pick (key 44, D-535) is a device preference and survives sign-out.
+
+**Proposals are not restored.** Ops were validated against the plan as it stood when the reply arrived. They are never written to storage and are stripped on read, so a restored reply shows its text and model stamp but no Apply chip.
+
+**Replaces** the in-memory-only stance the hook documented, where the chat cleared on reload. The panel's disclosure and input note said nothing was stored; both now say chats are saved on this device only.
+
+**Changes if:** cross-device chat history is asked for, which would make this a synced domain with its own merge rule and a privacy review of what the provider already sees.
+
+### D-540 · (2026-09-18) · A members roster that names no owner reads as open, and can no longer be written (#453)
+
+**Decision.** `isOpen()` in `firestore.rules` is now also true when `members` is not a map, or is a map with no value equal to `'owner'` (empty, all `'member'`, a `'viewer'`, a mis-cased `'Owner'`). A new `rosterIsWellFormed()` on trip-doc updates refuses any write that leaves `members` present without being a map that names an owner, and `claimsSelfAsOwner()` tests `is map` before calling `.get()`. Before this, each of those shapes left `isOwner()` false for everyone; the empty, non-map and viewer-only shapes also answered "not a member" to every uid, delete included, so the trip was locked for everyone, creator too, with no route back through the rules. Same-doc `get()` calls count once in the rules engine (emulator: 20 same-doc gets allowed, 11 distinct docs denied), so the extra `roster()` reads cost nothing.
+
+**Open, not closed.** Reading a malformed roster as open is the only choice with a repair: any signed-in holder of the trip id can read the trip and overwrite the roster, which is the capability model every members-less trip already has (D-205). The cost is that an owner-less roster of real members (say two `'member'` entries) stops keeping strangers out until someone opens the trip and enrols as owner. Under the old reading that trip kept its gate but nobody could remove a member or delete it, and the empty, non-map and all-viewer shapes were bricked outright.
+
+**No new way for a gated trip to open.** The shapes that now read open cannot be written. A create must name the creator owner, an update must leave a map naming an owner, and a member's add-only edit cannot remove or re-role one. They can only exist through data written before this ruleset was ever published (#263) or a console edit. The owner's existing ways to un-gate a trip, dropping `members` or deleting the doc, are unchanged.
+
+**Client mirror.** `readMembers()` in `lib/trips-remote.ts` returns `undefined` for the same shapes. Without that, `ensureMembership` would see a truthy roster, try to enrol as `'member'`, be refused by `rosterIsWellFormed()`, and show the access-pending toast on a trip the rules treat as open. With it, the first device enrols as owner and the trip is gated from then on. `scripts/roster-inspect.mjs` drops its LOCKOUT_ALL and NO_OWNER buckets, which can no longer occur, and refuses to run if `isOpen()` loses either guard.
+
+**Changes if:** roles move to a `members/{uid}` subcollection (the ceiling in the rules header), where "has an owner" stops being a map test.
