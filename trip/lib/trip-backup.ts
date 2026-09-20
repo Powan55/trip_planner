@@ -266,7 +266,9 @@ type _ExhaustiveBackupDomains = [TripScopedSlot] extends
     | 'expensesCorrupt'
     // #330 — a device fact (which leg the backup nudge already fired for), not user content;
     // same bucket as weatherCache/syncOutbox above.
-    | 'backupPromptLeg',
+    | 'backupPromptLeg'
+    // D-536 — the concierge thread stays on the device that had it.
+    | 'conciergeChat',
   ]
   ? true
   : never;

@@ -5313,3 +5313,25 @@ The original length is kept because it is diagnostic in its own right: it is how
 **Separately, the read side:** `decompressBlobOrText` now rejects a file over `MAX_IMPORT_BYTES` (64 MB) before reading it into memory. Stored photos are downscaled to a 1600px long edge at JPEG q0.8, so ~200–400 KB each and ~33% more as base64 — 64 MB still admits well over a hundred photos. It is a memory guard, not a policy on backup contents. A gzip file is measured compressed, so a crafted archive can still expand past it; the cap bounds the read, not the expansion.
 
 **Changes if:** a recovery UI is built that consumes the quarantine key (it would need the full bytes, which this no longer stores — that is the trade, and D-096's own "changes if" already anticipated a consumer), or a real backup ever trips the 64 MB cap.
+
+### D-535 · (2026-09-17) · Kimi K3 is an opt-in concierge model on NVIDIA's free endpoint; Groq stays the default
+
+**Decision.** The concierge header carries a model picker. Groq is the default. Picking Kimi K3 adds `provider: 'kimi'` to the request body, and the Worker then tries Kimi first with a 170s leg timeout before falling back to its Groq 120b → 20b ladder. Without the field the Worker behaves exactly as before, and the default body stays byte-identical, so the measured ~14.1 KB worst case against the 16 KB cap does not move. The pick is a device preference in key 44, not trip data.
+
+**Why Groq stays the default.** Kimi on the free queue measured 81–89s for a short reply and 135s with a full 32-day plan in context. Groq answers in seconds. A picker that defaults to the slow model would make every first question feel broken.
+
+**Timeouts.** The client abort is 215s for a Kimi turn, the Worker's 170s leg plus the 45s a Groq fallback normally gets, and stays 45s for Groq. The option label and the pending copy both say a Kimi reply can take up to 3 minutes.
+
+**Changes if:** Kimi's free-tier latency drops to Groq's range, or NVIDIA's endpoint stops being free.
+
+### D-536 · (2026-09-17) · The concierge thread is kept on this device, per trip, and nowhere else
+
+**Decision.** The chat survives closing the app. Key 43 holds the last 50 turns per trip as `{ role, content, model? }`, trip-scoped through `keyFor` like every other trip slot. It is hydrated in an effect on mount, appended after each completed turn, and wiped by the panel's Clear chat control. Restored turns feed the next request's `history`, still bounded by `capHistory`, so the body is no larger than it was.
+
+**Local only, on purpose.** No sync path reads the key and the backup export leaves it out (it sits in the backup module's exclusion bucket beside `weatherCache`). Being a trip-scoped slot puts it in `wipeAllTripData()` and `wipeTripData()`, so sign-out and forgetting a trip both remove it and a shared phone does not show the last person's chat. The provider pick (key 44, D-535) is a device preference and survives sign-out.
+
+**Proposals are not restored.** Ops were validated against the plan as it stood when the reply arrived. They are never written to storage and are stripped on read, so a restored reply shows its text and model stamp but no Apply chip.
+
+**Replaces** the in-memory-only stance the hook documented, where the chat cleared on reload. The panel's disclosure and input note said nothing was stored; both now say chats are saved on this device only.
+
+**Changes if:** cross-device chat history is asked for, which would make this a synced domain with its own merge rule and a privacy review of what the provider already sees.

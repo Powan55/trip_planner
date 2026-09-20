@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useOnline } from '@/hooks/use-online';
 import { getActiveTripId } from '@/core/storage/gateway';
+import { conciergeChatStore, conciergeProviderStore } from '@/core/storage/concierge-store';
 import { getActiveTrip, isDefaultTrip } from '@/core/trips';
 import { getKnownTrip } from '@/core/trips/registry';
 import { CONCIERGE_URL } from '@/lib/concierge-config';
@@ -89,14 +90,17 @@ const DIGEST_CAP = 9500;
 const HISTORY_CAP = 12;
 const HISTORY_CHAR_CAP = 3000;
 
-// Abort ceiling for the chat POST. The sibling `lib/place-resolve.ts` uses AbortSignal.timeout
-// (8s) for a link resolve; this call is NOT comparable — it waits on a language model, and the
-// Worker's fallback ladder (worker/src/providers.ts: Gemini → Groq 120b → Groq 20b) can try three
-// providers SEQUENTIALLY with no per-leg timeout of its own, so this client abort is the only
-// bound on the whole ladder. 45s ≈ three ~15s legs: a legitimately slow full fall-through still
-// completes, and anything past it is genuinely hung. Without it a hung upstream pinned the UI in
-// its (misnamed) 'streaming' state forever with no way out.
+// Abort ceiling for the whole turn, the only client bound on the Worker's Groq 120b → 20b ladder.
+// Kimi gets 215s: its free queue measured 81–89s for a short reply and 135s with a full plan, and
+// the Worker allows it 170s before falling back to Groq, which then keeps its usual 45s. Without a
+// ceiling a hung upstream pinned the UI in 'streaming' forever.
 const CHAT_TIMEOUT_MS = 45_000;
+const KIMI_TIMEOUT_MS = 215_000;
+
+// Stored turns per trip. Storage only: what gets SENT is still bounded by `capHistory`.
+const STORED_TURN_CAP = 50;
+
+export type ConciergeProvider = 'groq' | 'kimi';
 
 // ── / owner ruling Q6 — the trip descriptor on the wire ─────────────────────────────────
 //
@@ -260,6 +264,21 @@ export function capHistory(turns: ChatTurn[]): ChatTurn[] {
   return out;
 }
 
+/**
+ * A stored thread back into turns: anything malformed is skipped, and ops are dropped because they
+ * were validated against a plan that may have changed since.
+ */
+export function restoreTurns(raw: unknown): ChatTurn[] {
+  if (!Array.isArray(raw)) return [];
+  const out: ChatTurn[] = [];
+  for (const t of raw as Partial<ChatTurn>[]) {
+    if (!t || (t.role !== 'user' && t.role !== 'assistant') || typeof t.content !== 'string') continue;
+    const model = t.role === 'assistant' && typeof t.model === 'string' && t.model.trim() !== '' ? t.model : undefined;
+    out.push(model ? { role: t.role, content: t.content, model } : { role: t.role, content: t.content });
+  }
+  return out.slice(-STORED_TURN_CAP);
+}
+
 export type ChatStatus = 'idle' | 'streaming' | 'error';
 
 /**
@@ -291,13 +310,7 @@ function statusMessage(status: number): string {
 /**
  * Drives one concierge turn against the deployed Worker.
  *
- * SESSION-ONLY HISTORY: messages live in component state
- * only, cleared on reload. says the Worker never
- * persists or logs chat content, and there's no product ask for cross-device history, so adding
- * a new gateway/sync-domain key for this would be scope deliberately avoided
- * absent a real need. The in-flight turn's own history (this session's prior turns) IS sent as
- * `ChatRequestBody.history` on each call, so the model has conversational context within a
- * session — that's a pure in-memory pass-through, not persistence.
+ * The thread is saved per trip on this device only (key 43, D-536) and restored on mount without its ops.
  *
  * `fetchImpl` is injectable (mirrors `lib/currency-rate.ts`'s `fetchCurrencyRate`) so tests
  * drive the network + stream deterministically — no live call is ever made in a test.
@@ -318,6 +331,25 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
   // the SAME stale `status` closure value and both slip past a state-only check. A ref mutates
   // immediately, so the second call in the same tick is reliably rejected.
   const sendingRef = useRef(false);
+  const [provider, setProviderState] = useState<ConciergeProvider>('groq');
+  // Switching trips is a full reload today, so this is mount in practice; keyed anyway so a thread
+  // can never be shown under the wrong trip.
+  const tripId = getActiveTripId();
+
+  useEffect(() => {
+    const turns = restoreTurns(conciergeChatStore.get(tripId));
+    historyRef.current = turns.map(({ role, content }) => ({ role, content }));
+    setMessages(turns);
+  }, [tripId]);
+
+  useEffect(() => {
+    if (conciergeProviderStore.get() === 'kimi') setProviderState('kimi');
+  }, []);
+
+  const setProvider = useCallback((next: ConciergeProvider) => {
+    setProviderState(next);
+    conciergeProviderStore.set(next);
+  }, []);
 
   const send = useCallback(
     async (message: string) => {
@@ -387,7 +419,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         // `error` still null so no "Try again" row ever mounts, and only a reload recovers. That is
         // the exact state CHAT_TIMEOUT_MS exists to prevent, on the exact connection (captive
         // portal, dead cell handoff) this file's other comments already treat as the normal case.
-        const signal = AbortSignal.timeout(CHAT_TIMEOUT_MS);
+        const signal = AbortSignal.timeout(provider === 'kimi' ? KIMI_TIMEOUT_MS : CHAT_TIMEOUT_MS);
         const context = buildTripDigest();
         const trip = buildTripDescriptor();
         // #10 — a Firebase ID token when there is a session to attach, nothing when there is not:
@@ -418,6 +450,8 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
             history: capHistory(history),
             context,
             ...(trip ? { trip } : {}),
+            // Same rule as `trip`: absent on the Groq default, so that body stays byte-identical.
+            ...(provider === 'kimi' ? { provider } : {}),
           }),
           // The POST stays at the BARE origin with no path suffix — the Worker accepts `POST /`
           // specifically because of this. Do not "tidy" it into `${CONCIERGE_URL}/chat`.
@@ -484,6 +518,14 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         });
         // History carries the reply text only.
         historyRef.current = [...history, userTurn, { role: 'assistant', content: reply }];
+        // Appended to what is on disk rather than written from memory, so a turn that finished in
+        // an unmounted panel (navbar → /travel swaps mounts) is not overwritten by the next one.
+        const saved: ChatTurn[] = [
+          ...restoreTurns(conciergeChatStore.get(tripId)),
+          userTurn,
+          { role: 'assistant', content: reply, model },
+        ];
+        conciergeChatStore.set(tripId, saved.slice(-STORED_TURN_CAP));
         setStatus('idle');
       } catch (err) {
         // A CHAT_TIMEOUT_MS abort surfaces as a DOMException whose raw message ("signal timed out")
@@ -510,7 +552,7 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
         sendingRef.current = false;
       }
     },
-    [fetchImpl, online],
+    [fetchImpl, online, provider, tripId],
   );
 
   // ONE retry control: re-send the last turn the user tried. Deliberately not a backoff
@@ -522,10 +564,11 @@ export function useConciergeChat(fetchImpl: typeof fetch = fetch) {
   const reset = useCallback(() => {
     historyRef.current = [];
     lastMessageRef.current = '';
+    conciergeChatStore.clear(tripId);
     setMessages([]);
     setStatus('idle');
     setError(null);
-  }, []);
+  }, [tripId]);
 
-  return { messages, status, error, send, retry, reset };
+  return { messages, status, error, send, retry, reset, provider, setProvider };
 }

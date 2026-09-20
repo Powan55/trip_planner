@@ -52,8 +52,14 @@ vi.mock('@/lib/worker-auth', () => ({
   },
 }));
 
-import { useConciergeChat, buildTripDescriptor, type ChatTurn, type ChatStatus } from '@/hooks/use-concierge-chat';
-import { setActiveTripId } from '@/core/storage/gateway';
+import {
+  useConciergeChat,
+  buildTripDescriptor,
+  type ChatTurn,
+  type ChatStatus,
+  type ConciergeProvider,
+} from '@/hooks/use-concierge-chat';
+import { setActiveTripId, STORAGE_KEYS } from '@/core/storage/gateway';
 import { setTripConfig, renameKnownTrip } from '@/core/trips/registry';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -77,6 +83,9 @@ interface Handle {
   retry: () => Promise<void>;
   goOnline: () => Promise<void>;
   sendConcurrent: (a: string, b: string) => Promise<void>;
+  provider: ConciergeProvider;
+  setProvider: (p: ConciergeProvider) => void;
+  reset: () => void;
   unmount: () => void;
 }
 
@@ -127,6 +136,15 @@ function renderConciergeChat(fetchImpl: typeof fetch): Handle {
         const p2 = ref.current!.send(b);
         await Promise.all([p1, p2]);
       });
+    },
+    get provider() {
+      return ref.current!.provider;
+    },
+    setProvider(p: ConciergeProvider) {
+      act(() => ref.current!.setProvider(p));
+    },
+    reset() {
+      act(() => ref.current!.reset());
     },
     unmount() {
       act(() => root.unmount());
@@ -681,6 +699,252 @@ describe('S395 — the trip descriptor on the POST body', () => {
     const trip = bodyOf(fetchImpl).trip as { label: string };
     expect(trip.label).toHaveLength(120);
     expect(trip.label).toBe('Z'.repeat(120));
+    h.unmount();
+  });
+});
+
+// ── D-535 — the model picker ─────────────────────────────────────────────────────────────────
+describe('D-535 — Groq by default, Kimi K3 as an opt-in', () => {
+  const ok = () => vi.fn(async () => jsonResponse({ reply: 'ok', ops: [] })) as unknown as typeof fetch;
+  const bodyAt = (fetchImpl: unknown, n: number) => {
+    const [, init] = (fetchImpl as ReturnType<typeof vi.fn>).mock.calls[n] as [string, RequestInit];
+    return JSON.parse(init.body as string) as Record<string, unknown>;
+  };
+
+  beforeEach(() => {
+    localStorage.clear();
+    gate.url = 'https://concierge.example.workers.dev';
+    setNavigatorOnLine(true);
+  });
+
+  it('sends no `provider` key by default and `provider: "kimi"` only once Kimi is picked', async () => {
+    const fetchImpl = ok();
+    const h = renderConciergeChat(fetchImpl);
+    expect(h.provider).toBe('groq');
+
+    await h.send('first');
+    expect(Object.keys(bodyAt(fetchImpl, 0)).sort()).toEqual(['context', 'history', 'message']);
+
+    h.setProvider('kimi');
+    await h.send('second');
+    expect(bodyAt(fetchImpl, 1).provider).toBe('kimi');
+
+    h.setProvider('groq');
+    await h.send('third');
+    expect('provider' in bodyAt(fetchImpl, 2)).toBe(false);
+    h.unmount();
+  });
+
+  it('times Groq out at 45s and Kimi at 215s', async () => {
+    const timeoutSpy = vi.spyOn(AbortSignal, 'timeout');
+    const h = renderConciergeChat(ok());
+
+    await h.send('groq turn');
+    expect(timeoutSpy).toHaveBeenLastCalledWith(45_000);
+
+    h.setProvider('kimi');
+    await h.send('kimi turn');
+    expect(timeoutSpy).toHaveBeenLastCalledWith(215_000);
+
+    timeoutSpy.mockRestore();
+    h.unmount();
+  });
+
+  it('the pick survives a remount, and anything but "kimi" on disk reads as Groq', () => {
+    const h1 = renderConciergeChat(ok());
+    h1.setProvider('kimi');
+    expect(localStorage.getItem(STORAGE_KEYS.conciergeProvider)).toBe('kimi');
+    h1.unmount();
+
+    const h2 = renderConciergeChat(ok());
+    expect(h2.provider).toBe('kimi');
+    h2.unmount();
+
+    localStorage.setItem(STORAGE_KEYS.conciergeProvider, 'gemini');
+    const h3 = renderConciergeChat(ok());
+    expect(h3.provider).toBe('groq');
+    h3.unmount();
+  });
+});
+
+// ── D-536 — chat memory, on this device only ─────────────────────────────────────────────────
+describe('D-536 — the thread is saved per trip and restored on mount', () => {
+  const CUSTOM_ID = 'custom-iceland';
+  const DEFAULT_KEY = STORAGE_KEYS.conciergeChat;
+  const CUSTOM_KEY = `trip:${CUSTOM_ID}:conciergeChat`;
+  const stored = (key: string) => JSON.parse(localStorage.getItem(key) ?? 'null') as ChatTurn[] | null;
+
+  function useCustomTrip() {
+    setTripConfig(CUSTOM_ID, {
+      start: '2027-03-01',
+      end: '2027-03-05',
+      destinations: ['Reykjavik'],
+      vibe: 'mountain',
+      currency: 'ISK',
+      updatedAt: 1000,
+    });
+    renameKnownTrip(CUSTOM_ID, 'Iceland');
+    setActiveTripId(CUSTOM_ID);
+  }
+
+  const reply = (text: string, extra: Record<string, unknown> = {}) =>
+    vi.fn(async () => jsonResponse({ reply: text, ops: [], ...extra })) as unknown as typeof fetch;
+
+  beforeEach(() => {
+    localStorage.clear();
+    gate.url = 'https://concierge.example.workers.dev';
+    setNavigatorOnLine(true);
+  });
+
+  it('restores text and model stamp after a remount, and feeds them back as history', async () => {
+    const h1 = renderConciergeChat(reply('Try Ichiran.', { model: 'openai/gpt-oss-120b' }));
+    await h1.send('ramen?');
+    h1.unmount();
+
+    const fetchImpl = reply('It opens at 10.');
+    const h2 = renderConciergeChat(fetchImpl);
+    expect(h2.messages).toEqual([
+      { role: 'user', content: 'ramen?' },
+      { role: 'assistant', content: 'Try Ichiran.', model: 'openai/gpt-oss-120b' },
+    ]);
+
+    await h2.send('when does it open?');
+    const [, init] = (fetchImpl as unknown as ReturnType<typeof vi.fn>).mock.calls[0] as [string, RequestInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    // Same shape as an in-memory history: role + content, no model, no ops, no new body keys.
+    expect(body.history).toEqual([
+      { role: 'user', content: 'ramen?' },
+      { role: 'assistant', content: 'Try Ichiran.' },
+    ]);
+    expect(Object.keys(body).sort()).toEqual(['context', 'history', 'message']);
+    expect(stored(DEFAULT_KEY)).toHaveLength(4);
+    h2.unmount();
+  });
+
+  it('restored turns carry no ops, even when the stored thread has them', async () => {
+    const op = { type: 'addItem', date: '2026-12-20', title: 'Ramen', category: 'food' };
+    const h1 = renderConciergeChat(
+      vi.fn(async () => jsonResponse({ reply: 'Here you go.', ops: [op] })) as unknown as typeof fetch,
+    );
+    await h1.send('add ramen');
+    expect(h1.messages[1].ops).toEqual([op]); // live turn: the chip is offered
+    expect(stored(DEFAULT_KEY)![1]).not.toHaveProperty('ops'); // never written
+    h1.unmount();
+
+    // …and a thread written by anything else is stripped on the way back in.
+    localStorage.setItem(
+      DEFAULT_KEY,
+      JSON.stringify([{ role: 'user', content: 'add ramen' }, { role: 'assistant', content: 'ok', ops: [op] }]),
+    );
+    const h2 = renderConciergeChat(reply('x'));
+    expect(h2.messages[1]).toEqual({ role: 'assistant', content: 'ok' });
+    h2.unmount();
+  });
+
+  it('keeps each trip to its own thread', async () => {
+    const h1 = renderConciergeChat(reply('default reply'));
+    await h1.send('default question');
+    h1.unmount();
+
+    useCustomTrip();
+    const h2 = renderConciergeChat(reply('iceland reply'));
+    expect(h2.messages).toEqual([]);
+    await h2.send('iceland question');
+    h2.unmount();
+    expect(stored(CUSTOM_KEY)!.map((t) => t.content)).toEqual(['iceland question', 'iceland reply']);
+
+    setActiveTripId('nepal-japan-2026');
+    const h3 = renderConciergeChat(reply('x'));
+    expect(h3.messages.map((t) => t.content)).toEqual(['default question', 'default reply']);
+    h3.unmount();
+  });
+
+  it('reset wipes the stored thread for that trip only', async () => {
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify([{ role: 'user', content: 'keep me' }]));
+    const h1 = renderConciergeChat(reply('ok'));
+    await h1.send('hello');
+    expect(stored(DEFAULT_KEY)).toHaveLength(2);
+
+    h1.reset();
+    expect(h1.messages).toEqual([]);
+    expect(localStorage.getItem(DEFAULT_KEY)).toBeNull();
+    expect(stored(CUSTOM_KEY)).toEqual([{ role: 'user', content: 'keep me' }]);
+    h1.unmount();
+
+    const h2 = renderConciergeChat(reply('x'));
+    expect(h2.messages).toEqual([]);
+    h2.unmount();
+  });
+
+  it('corrupt JSON, a wrong shape and malformed rows all start empty without throwing', () => {
+    for (const raw of ['not json {', '{"role":"user"}', '5', 'null']) {
+      localStorage.setItem(DEFAULT_KEY, raw);
+      const h = renderConciergeChat(reply('x'));
+      expect(h.messages).toEqual([]);
+      h.unmount();
+    }
+
+    localStorage.setItem(
+      DEFAULT_KEY,
+      JSON.stringify([null, 5, { role: 'system', content: 'x' }, { role: 'user' }, { role: 'user', content: 'kept' }]),
+    );
+    const h = renderConciergeChat(reply('x'));
+    expect(h.messages).toEqual([{ role: 'user', content: 'kept' }]);
+    h.unmount();
+  });
+
+  it('storage that throws (private mode, quota) still gives a working chat', async () => {
+    const get = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    const set = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('full', 'QuotaExceededError');
+    });
+
+    const h = renderConciergeChat(reply('still here'));
+    expect(h.messages).toEqual([]);
+    await h.send('hello');
+    expect(h.status).toBe('idle');
+    expect(h.messages[1].content).toBe('still here');
+
+    get.mockRestore();
+    set.mockRestore();
+    h.unmount();
+  });
+
+  it('stays out of the backup export, and goes with sign-out in both trip namespaces', async () => {
+    localStorage.setItem(DEFAULT_KEY, JSON.stringify([{ role: 'user', content: 'private-default' }]));
+    localStorage.setItem(CUSTOM_KEY, JSON.stringify([{ role: 'user', content: 'private-custom' }]));
+    const { exportTripBackup } = await import('@/lib/trip-backup');
+    const { decompressBlobOrText } = await import('@/core/vault/compression');
+    const { makeInMemoryBlobStore } = await import('@/core/photos/blob-store');
+
+    const exported = await decompressBlobOrText(await exportTripBackup(makeInMemoryBlobStore()));
+    expect(exported).toContain('"domains"'); // it really is the export, not an empty string
+    expect(exported).not.toContain('private-default');
+
+    const { signOut } = await import('@/lib/token-auth');
+    signOut();
+    expect(localStorage.getItem(DEFAULT_KEY)).toBeNull();
+    expect(localStorage.getItem(CUSTOM_KEY)).toBeNull();
+  });
+
+  it('keeps the last 50 turns per trip', async () => {
+    const seed = Array.from({ length: 60 }, (_, i) => ({
+      role: i % 2 === 0 ? 'user' : 'assistant',
+      content: `t${i}`,
+    }));
+    localStorage.setItem(DEFAULT_KEY, JSON.stringify(seed));
+
+    const h = renderConciergeChat(reply('newest'));
+    expect(h.messages).toHaveLength(50);
+    expect(h.messages[0].content).toBe('t10');
+
+    await h.send('ask');
+    const after = stored(DEFAULT_KEY)!;
+    expect(after).toHaveLength(50);
+    expect(after.slice(-2).map((t) => t.content)).toEqual(['ask', 'newest']);
+    expect(after[0].content).toBe('t12');
     h.unmount();
   });
 });
