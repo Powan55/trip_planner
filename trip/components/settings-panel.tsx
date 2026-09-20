@@ -1155,6 +1155,7 @@ function TripGroup() {
  * configured.
  */
 function SyncGroup() {
+  const { traveler } = useActiveTraveler();
   const [code, setCode] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1166,10 +1167,13 @@ function SyncGroup() {
     if (!c) {
       c = crypto.randomUUID();
       setSyncCode(c);
-      // Best-effort: seed the remote list with this device's trips so the code is usable at once.
-      // Dynamically imported so /settings never pulls firebase eagerly; self-gates dormant.
+      // Best-effort: seed BOTH account docs so the key is usable at once — identity included.
+      // Seeding only the list is what made a key minted here get rejected by the front door on
+      // every other device (see `seedAccountDocs`). Dynamically imported so /settings never pulls
+      // firebase eagerly; self-gates dormant, and filters the display-name placeholder itself.
       const minted = c;
-      void import('@/lib/trips-remote').then(({ pushTripList }) => pushTripList(minted));
+      const who = traveler?.name;
+      void import('@/lib/trips-remote').then(({ seedAccountDocs }) => seedAccountDocs(minted, who));
     }
     setCode(c);
     setRevealed(true);

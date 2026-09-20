@@ -147,8 +147,13 @@ test.describe('S338B — Your User Token card', () => {
     expect(minted).toMatch(/^[0-9a-f-]{36}$/);
 
     // S352 (D-249): sign-out is now a confirm-gated full teardown, not a bare one-click action.
+    // And because a key IS stored here, the confirm advances to the show-once step first — the
+    // teardown erases key 28, so the dialog owes the user one last look at it before it goes.
     await page.getByTestId('settings-sign-out').click();
     await page.getByTestId('settings-sign-out-confirm').click();
+    await expect(page.getByTestId('settings-sign-out-key-value')).toHaveText(minted ?? '');
+    await page.getByTestId('settings-sign-out-key-ack').check();
+    await page.getByTestId('settings-sign-out-key-confirm').click();
 
     // The wall returns in place, and it is the two-token door (User Token only), not a name prompt.
     await expect(page.locator('[role="dialog"]')).toHaveCount(1, { timeout: 15_000 });

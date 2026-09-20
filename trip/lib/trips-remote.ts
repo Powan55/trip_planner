@@ -51,6 +51,7 @@ import {
   type RemovedTrip,
 } from '@/core/trips/registry';
 import { getActiveTripId } from '@/core/storage/gateway';
+import { DEFAULT_TRAVELER_NAME } from './token-auth';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { getRemote, isPermissionDenied } from './firebase-remote';
 
@@ -143,12 +144,56 @@ export async function pushAccountIdentity(code: string, name: string): Promise<v
   const trimmed = name.trim().slice(0, 24);
   if (!trimmed) return;
   try {
-    const { db, fs } = await getRemote();
-    const { doc, setDoc } = fs;
-    await setDoc(doc(db, 'trips', code, 'profile', 'identity'), { version: 1, name: trimmed });
+    await writeIdentityDoc(code, trimmed);
   } catch (err) {
     console.warn('[trips-remote] account identity push failed, staying local-only:', err);
   }
+}
+
+/**
+ * The identity doc's ONE writer — `trips/{code}/profile/identity`. Omitting `name` writes
+ * `{ version: 1 }`: the account EXISTS and knows no name, which is precisely the state
+ * `readIdentityName` already answers `undefined` for and the probe already reports as
+ * `'exists'` with no name. That nameless form is what lets the two callers below create an
+ * account WITHOUT publishing `DEFAULT_TRAVELER_NAME` — publishing the placeholder would
+ * overwrite the real name on every other device (see its comment in lib/token-auth).
+ *
+ * Rejects on a transport failure; every caller wraps it, because none of them may fail loudly.
+ */
+async function writeIdentityDoc(code: string, name?: string): Promise<void> {
+  const { db, fs } = await getRemote();
+  const { doc, setDoc } = fs;
+  await setDoc(
+    doc(db, 'trips', code, 'profile', 'identity'),
+    name ? { version: 1, name } : { version: 1 },
+  );
+}
+
+/**
+ * BOTH account documents for a freshly minted key — `profile/identity` and `profile/tripList`,
+ * the same pair the door's create path writes (components/token-gate).
+ *
+ * The two grandfathered mint sites — trips-hub's "Finish setting up your account" and Settings'
+ * "Create my key" — used to seed only the trip list. A key minted from either therefore had no
+ * identity doc, which is the one document the door probes, so the account was rejected on every
+ * OTHER device, permanently. The minting device never noticed: it holds the key, so the door
+ * skips the probe entirely for it. Seeding both here is the root fix; the legacy-tripList
+ * fallback in `probeAccountIdentity` is what rescues the keys minted before it.
+ *
+ * `name` is this device's stored display name, and the placeholder filter lives HERE rather than
+ * at either call site — one rule, no drift. Best-effort throughout: a failed identity write is
+ * swallowed, and the next login's fallback backfills it anyway.
+ */
+export async function seedAccountDocs(code: string, name?: string | null): Promise<void> {
+  if (!isRemoteConfigured() || !code) return;
+  const trimmed = name?.trim().slice(0, 24);
+  const publishable = trimmed && trimmed !== DEFAULT_TRAVELER_NAME ? trimmed : undefined;
+  await Promise.all([
+    writeIdentityDoc(code, publishable).catch((err) =>
+      console.warn('[trips-remote] account identity seed failed, staying local-only:', err),
+    ),
+    pushTripList(code),
+  ]);
 }
 
 /**
@@ -212,25 +257,64 @@ function readIdentityName(data: Record<string, unknown> | undefined): string | u
  * absence rejecting a REAL user is the one wrong the fail-open design cannot tolerate. A rules
  * change that denies this read (code 'permission-denied') is logged loudly, because it silently
  * turns validation off for every login while everything else keeps working.
+ *
+ * The 8s budget now wraps the WHOLE call, `getRemote()`'s lazy firebase load included, rather than
+ * only the read — the legacy fallback below can add a second read and a write, and all of it has
+ * to stay inside the one budget the door was sized for.
  */
 export async function probeAccountIdentity(code: string): Promise<AccountProbeResult> {
   if (!isRemoteConfigured() || !code) return { verdict: 'unavailable' };
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    const { db, fs } = await getRemote();
-    const { doc, getDocFromServer } = fs;
-    const snap = await Promise.race([
-      getDocFromServer(doc(db, 'trips', code, 'profile', 'identity')),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), PROBE_TIMEOUT_MS)),
+    return await Promise.race([
+      readAccountVerdict(code),
+      // Timer wins ⇒ admit rather than hang the door.
+      new Promise<AccountProbeResult>((resolve) => {
+        timer = setTimeout(() => resolve({ verdict: 'unavailable' }), PROBE_TIMEOUT_MS);
+      }),
     ]);
-    if (snap === null) return { verdict: 'unavailable' }; // timer won — admit rather than hang the door
-    if (!snap.exists()) return { verdict: 'missing' };
-    return { verdict: 'exists', name: readIdentityName(snap.data() as Record<string, unknown>) };
   } catch (err) {
     if ((err as { code?: unknown } | null)?.code === 'permission-denied') {
       console.warn('[door] rules deny the identity probe — token validation is inoperative');
     }
     return { verdict: 'unavailable' }; // offline/error must admit — never lock a real user out
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+/**
+ * The probe's actual reads, unraced — `probeAccountIdentity` owns the budget and the catch.
+ *
+ * THE LEGACY FALLBACK. An absent identity doc is NOT sufficient evidence that the key is invented:
+ * the two grandfathered mint sites shipped for months writing `profile/tripList` and nothing else
+ * (see `seedAccountDocs`), so the travellers this feature exists for hold keys that the absence
+ * test rejects. A second server read of `profile/tripList` distinguishes the two cases on POSITIVE
+ * evidence — a document nothing but a deliberate account write creates. No document, no admit: an
+ * invented or mistyped key is still 'missing', which is the whole of what the validation buys.
+ *
+ * Then backfill the identity doc, so an account pays for the extra read exactly once. The backfill
+ * is best-effort by construction — its failure is swallowed and the verdict is already decided, so
+ * it can never turn an admit into a reject.
+ *
+ * COST: one extra document read against the Spark free tier's 50k/day, and only on the path that
+ * was about to reject, which is rare by definition. The admit path is unchanged at one read.
+ */
+async function readAccountVerdict(code: string): Promise<AccountProbeResult> {
+  const { db, fs } = await getRemote();
+  const { doc, getDocFromServer } = fs;
+  const snap = await getDocFromServer(doc(db, 'trips', code, 'profile', 'identity'));
+  if (snap.exists()) {
+    return { verdict: 'exists', name: readIdentityName(snap.data() as Record<string, unknown>) };
+  }
+  const list = await getDocFromServer(doc(db, 'trips', code, 'profile', 'tripList'));
+  if (!list.exists()) return { verdict: 'missing' };
+  await writeIdentityDoc(code).catch((err) =>
+    console.warn('[trips-remote] legacy identity backfill failed, retries next login:', err),
+  );
+  // No name: the account never had one server-side. The door falls back to this device's stored
+  // name, then to the placeholder + the rename nudge — the same as any account that knows none.
+  return { verdict: 'exists' };
 }
 
 // ── #10 — the opt-in member lock ────────────────────────────────────────────────────────────

@@ -257,13 +257,19 @@ export default function TripsHub() {
    * locked out. Minting touches ONLY key 28 — identity slots, `knownTrips`, the active-trip pointer
    * and every trip-scoped byte are untouched by construction, so all local data survives. Shown
    * once via the shared `UserTokenShowOnce`; no reload needed (the next boot's subscribe seeds the
-   * remote list, and the best-effort push below does it immediately in a synced build).
+   * remote list, and the best-effort seed below does it immediately in a synced build).
+   *
+   * `seedAccountDocs`, not a bare `pushTripList`: this used to write the trip list ONLY, so the key
+   * it handed over had no `profile/identity` doc and the front door rejected it on every other
+   * device — exactly the travellers this affordance exists for. It filters the display-name
+   * placeholder itself, so passing the stored name raw is correct here.
    */
   const finishAccount = () => {
     const token = crypto.randomUUID();
     setSyncCode(token);
     setMintedUserToken(token);
-    void import('@/lib/trips-remote').then(({ pushTripList }) => pushTripList(token));
+    const who = traveler?.name;
+    void import('@/lib/trips-remote').then(({ seedAccountDocs }) => seedAccountDocs(token, who));
   };
 
   // switch primitive: register + write the pointer, then a FULL navigation to Home so the
