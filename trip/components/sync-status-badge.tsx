@@ -1,10 +1,12 @@
 'use client';
 
+import { useState } from 'react';
 import { m } from 'framer-motion';
-import { AlertTriangle, Check, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Check, RefreshCw, MonitorSmartphone } from 'lucide-react';
 import { useSyncStatus } from '@/hooks/use-sync-status';
 import { useOnline } from '@/hooks/use-online';
 import { formatRelativeTime } from '@/lib/relative-time';
+import ShareDefaultTripDialog from '@/components/share-default-trip';
 
 /**
  * App-wide sync-status affordance — a passive, live "pending N / synced Xm ago" pill over
@@ -29,6 +31,14 @@ import { formatRelativeTime } from '@/lib/relative-time';
  * behind that same gate (a denied READ can be the very first thing that ever happens on a
  * device), so `show` carries its own `isBlocked` clause rather than folding into pending/lastAckAt.
  *
+ * FOUR STATES since D-542. The fourth is `localOnly` — on the default pack with no share id, every
+ * edit is device-only and nothing will EVER upload. That state used to render as complete silence:
+ * the outbox is gated off, so it reads the same neutral `{pending:0, lastAckAt:null}` shape as
+ * "everything is synced", and the pill showed nothing at all. Silence was the bug report ("I update
+ * the itinerary but it is not syncing") — the app was working exactly as designed and said so
+ * nowhere. It renders LAST in the precedence chain below: a real pending/blocked count is a live
+ * fact about a trip that IS shared, and must not be masked by the invitation to share one.
+ *
  * THREE STATES, not two (#267, widened by #271). "pending" tells a traveler their edits will land
  * on their own; for a change (or a read) the security rules REFUSED that is false and no amount of
  * waiting fixes it, so a refusal gets its own wording and its own `data-state`. `blocked` is a
@@ -42,7 +52,8 @@ import { formatRelativeTime } from '@/lib/relative-time';
  * three; never covers the navbar (`z-50`) or the token gate (`z-[70]`).
  */
 export function SyncStatusBadge() {
-  const { pending, blocked, readBlocked, lastAckAt } = useSyncStatus();
+  const { pending, blocked, readBlocked, lastAckAt, localOnly } = useSyncStatus();
+  const [shareOpen, setShareOpen] = useState(false);
   // OfflineBanner owns top-center at the same `top-20`, and at 360-414px its centred pill
   // overlaps this right-anchored one — which is exactly when both are showing (offline with
   // unsynced edits). Drop a row while it is up (#129).
@@ -59,8 +70,12 @@ export function SyncStatusBadge() {
   // on its very FIRST read (never synced: pending:0, lastAckAt:null) must still show — that is
   // the #271 case this pill exists for — so `isBlocked` gets its own clause rather than folding
   // into the pending/lastAckAt check above.
-  const show = pending !== 0 || lastAckAt !== null || isBlocked;
+  const show = pending !== 0 || lastAckAt !== null || isBlocked || localOnly;
   const isPending = pending > 0;
+  // D-542 — LAST in precedence. `localOnly` and a pending/blocked count are mutually exclusive in
+  // practice (a local-only device has a gated-off outbox, so it can never accumulate either), but
+  // ordering it last means that if they ever do co-occur the live fact wins over the invitation.
+  const isLocalOnly = localOnly && !isBlocked && !isPending;
   // The same amber the pre-flight rows already use for 'attention' (with the same AlertTriangle),
   // so the two surfaces reading this one outbox agree on what a refusal looks like.
   const tone = isBlocked ? 'text-amber-300' : 'text-ink-mid';
@@ -71,51 +86,80 @@ export function SyncStatusBadge() {
       : 'Not syncing'
     : isPending
       ? `${pending} pending`
-      : `Synced ${relative ?? 'recently'}`;
+      : isLocalOnly
+        ? 'This device only'
+        : `Synced ${relative ?? 'recently'}`;
+  const localOnlySummary =
+    'Your plan is saved on this device only. Nothing you change here reaches anyone else, and it is not backed up anywhere. Activate to share it.';
   const summary = isBlocked
     ? blocked > 0
       ? `The shared trip refused ${blocked} change${blocked === 1 ? '' : 's'}, so ${blocked === 1 ? 'it is' : 'they are'} saved on this device only and will not upload on their own. If you were just added to this trip, reload the page; otherwise ask a member to add this device in Settings, under Trip access.`
       : `The shared trip refused to send this device its latest data. If you were just added to this trip, reload the page; otherwise ask a member to add this device in Settings, under Trip access.`
     : isPending
       ? `${pending} change${pending === 1 ? '' : 's'} ${pending === 1 ? 'is' : 'are'} waiting to sync to the shared trip. This will clear automatically once the connection confirms.`
-      : `All changes are synced to the shared trip${relative ? `, last confirmed ${relative}` : ''}.`;
+      : isLocalOnly
+        ? localOnlySummary
+        : `All changes are synced to the shared trip${relative ? `, last confirmed ${relative}` : ''}.`;
+
+  // The local-only pill is the ONE interactive state: it is an offer, not a report, so it is a real
+  // <button> (focusable, Enter/Space, a named action) rather than a pill with a click handler. The
+  // other three stay inert <div>s — nothing to do about a pending count but wait.
+  const Chip = isLocalOnly ? 'button' : 'div';
+  const chipProps = isLocalOnly
+    ? ({
+        type: 'button' as const,
+        onClick: () => setShareOpen(true),
+        'aria-haspopup': 'dialog' as const,
+        'data-testid': 'sync-status-share-cta',
+      })
+    : {};
 
   return (
-    <div role="status" aria-live="polite" aria-label={show ? label : undefined}>
-      {show && (
-        <m.div
-          initial={{ opacity: 0, y: -8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, ease: 'easeOut' }}
-          data-testid="sync-status-badge"
-          data-state={isBlocked ? 'blocked' : isPending ? 'pending' : 'synced'}
-          className={`fixed ${online ? 'top-20' : 'top-32'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
-        >
-          {/* Printed stock, not glass. The FILL grammar carries the state: a struck
-              (solid) rule when synced, a hollow dashed one when the sync has not
-              landed. The word always says which — colour is never the only carrier. */}
-          <div
-            className={`flex items-center gap-2 bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1 border-2 ${
-              isBlocked || isPending
-                ? 'border-dashed border-[color:var(--text-lo)]'
-                : 'border-[hsl(var(--border))]'
-            } ${tone}`}
+    <>
+      <div role="status" aria-live="polite" aria-label={show ? label : undefined}>
+        {show && (
+          <m.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: 'easeOut' }}
+            data-testid="sync-status-badge"
+            data-state={
+              isBlocked ? 'blocked' : isPending ? 'pending' : isLocalOnly ? 'local-only' : 'synced'
+            }
+            className={`fixed ${online ? 'top-20' : 'top-32'} right-4 z-40 max-w-[calc(100vw-2rem)]`}
           >
-            {isBlocked ? (
-              <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
-            ) : isPending ? (
-              <RefreshCw className="h-3 w-3 shrink-0" aria-hidden="true" />
-            ) : (
-              <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
-            )}
-            <span data-testid="sync-status-text" className={`pr ${tone}`}>
-              {label}
-            </span>
-            <span className="sr-only">{summary}</span>
-          </div>
-        </m.div>
-      )}
-    </div>
+            {/* Printed stock, not glass. The FILL grammar carries the state: a struck
+                (solid) rule when synced, a hollow dashed one when the sync has not
+                landed. The word always says which — colour is never the only carrier. */}
+            <Chip
+              {...chipProps}
+              className={`flex items-center gap-2 bg-[rgb(var(--surface-low))] px-2.5 py-1.5 rounded-r1 border-2 ${
+                isBlocked || isPending || isLocalOnly
+                  ? 'border-dashed border-[color:var(--text-lo)]'
+                  : 'border-[hsl(var(--border))]'
+              } ${tone} ${isLocalOnly ? 'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[hsl(var(--ring))]' : ''}`}
+            >
+              {isBlocked ? (
+                <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden="true" />
+              ) : isPending ? (
+                <RefreshCw className="h-3 w-3 shrink-0" aria-hidden="true" />
+              ) : isLocalOnly ? (
+                <MonitorSmartphone className="h-3 w-3 shrink-0" aria-hidden="true" />
+              ) : (
+                <Check className="h-3 w-3 shrink-0" aria-hidden="true" />
+              )}
+              <span data-testid="sync-status-text" className={`pr ${tone}`}>
+                {label}
+              </span>
+              <span className="sr-only">{summary}</span>
+            </Chip>
+          </m.div>
+        )}
+      </div>
+      {/* Mounted only once the offer has been taken up — the dialog pulls in radix + token-auth, and
+          the badge is in the root layout on every route. */}
+      {shareOpen && <ShareDefaultTripDialog open={shareOpen} onOpenChange={setShareOpen} />}
+    </>
   );
 }
 

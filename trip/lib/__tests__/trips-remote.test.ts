@@ -86,9 +86,30 @@ vi.mock('firebase/firestore', () => ({
     const data = fake.docs.get(ref.path);
     return { exists: () => data !== undefined, data: () => data };
   },
+  // `pushTripList` is transactional, so `seedAccountDocs` needs this to write anything at all.
+  // One in-memory attempt, no contention — enough to prove which paths get written.
+  runTransaction: async (_db: unknown, fn: (tx: unknown) => Promise<void>) => {
+    await fn({
+      get: async (ref: { path: string }) => {
+        const data = fake.docs.get(ref.path);
+        return { exists: () => data !== undefined, data: () => data };
+      },
+      set: (ref: { path: string }, data: DocData) => {
+        if (fake.failWrites) throw new Error('transport down');
+        writeLog.push({ path: ref.path, data });
+        fake.setDocData(ref.path, data);
+      },
+    });
+  },
 }));
 
-import { pushTripMeta, fetchTripMeta, probeAccountIdentity } from '@/lib/trips-remote';
+import {
+  pushTripMeta,
+  fetchTripMeta,
+  probeAccountIdentity,
+  seedAccountDocs,
+} from '@/lib/trips-remote';
+import { DEFAULT_TRAVELER_NAME } from '@/lib/token-auth';
 
 const TRIP_ID = 'custom-trip-abc';
 const DOC_PATH = `trips/${TRIP_ID}/meta/info`;
@@ -209,9 +230,11 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
     expect((await probeAccountIdentity(CODE)).name).toBe('P'.repeat(24));
   });
 
-  it("server answers and the doc is absent ⇒ 'missing' (an invented key), with no name", async () => {
+  it("server answers and BOTH account docs are absent ⇒ 'missing' (an invented key), no name", async () => {
     expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'missing' });
-    expect(getDocFromServerCalls).toBe(1);
+    // TWO reads now, not one: an absent identity doc alone is no longer sufficient evidence —
+    // see the legacy-account block below for why, and for the cost note.
+    expect(getDocFromServerCalls).toBe(2);
   });
 
   it("read rejects ⇒ 'unavailable' (offline/error must admit, never lock a real user out)", async () => {
@@ -263,5 +286,140 @@ describe('probeAccountIdentity — one server read of trips/{code}/profile/ident
     isRemoteConfiguredMock.mockReturnValue(true);
     expect(await probeAccountIdentity('')).toEqual({ verdict: 'unavailable' });
     expect(getDocFromServerCalls).toBe(0);
+  });
+
+  // ── the legacy-account fallback ───────────────────────────────────────────────────────────
+  // The two grandfathered mint sites shipped for months writing `profile/tripList` and no
+  // identity doc, so the absence test above rejected the very travellers accounts were added
+  // for. The fallback admits on the POSITIVE evidence of a tripList doc — and only that.
+  describe('an account minted before seedAccountDocs (tripList, no identity)', () => {
+    const LIST_PATH = `trips/${CODE}/profile/tripList`;
+
+    it("is ADMITTED as 'exists' — not rejected — on the strength of its tripList doc", async () => {
+      fake.setDocData(LIST_PATH, { version: 1, trips: [{ id: 't1', name: 'Nepal' }] });
+      expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists' });
+      expect(getDocFromServerCalls).toBe(2); // identity (absent) then tripList — the stated cost
+      expect(getDocCalls).toBe(0); // still never the cached read, on either document
+    });
+
+    it('BACKFILLS the identity doc, so the second read is paid exactly once per account', async () => {
+      fake.setDocData(LIST_PATH, { version: 1, trips: [] });
+      await probeAccountIdentity(CODE);
+      expect(writeLog).toEqual([{ path: IDENTITY_PATH, data: { version: 1 } }]);
+      // …and the next login takes the one-read path, with no second read and no second write.
+      getDocFromServerCalls = 0;
+      writeLog.length = 0;
+      expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists', name: undefined });
+      expect(getDocFromServerCalls).toBe(1);
+      expect(writeLog).toHaveLength(0);
+    });
+
+    it('backfills WITHOUT a name — the placeholder is never published as the account name', async () => {
+      fake.setDocData(LIST_PATH, { version: 1, trips: [] });
+      await probeAccountIdentity(CODE);
+      expect(writeLog[0].data).not.toHaveProperty('name');
+    });
+
+    it('a FAILED backfill still admits — best-effort, and never turns an admit into a reject', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      fake.setDocData(LIST_PATH, { version: 1, trips: [] });
+      fake.failWrites = true;
+      expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists' });
+      expect(warn).toHaveBeenCalled();
+      fake.failWrites = false;
+      warn.mockRestore();
+    });
+
+    // THE SECURITY ASSERTION. Everything above must not become a general admit: an invented or
+    // mistyped key has neither document and is still rejected. If this one goes, #10 bought nothing.
+    it('NEITHER document ⇒ still REJECTED — an invented key must not be admitted', async () => {
+      expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'missing' });
+      expect(getDocFromServerCalls).toBe(2);
+      expect(writeLog).toHaveLength(0); // nothing is created for a key that does not exist
+    });
+
+    it('the 8s budget still bounds the WHOLE thing when the fallback read hangs', async () => {
+      vi.useFakeTimers();
+      try {
+        serverRead.impl = (ref) =>
+          ref.path.endsWith('/identity')
+            ? Promise.resolve({ exists: () => false, data: () => undefined })
+            : new Promise(() => {}); // the tripList read never answers
+        const probe = probeAccountIdentity(CODE);
+        await vi.advanceTimersByTimeAsync(0); // flush getRemote's dynamic imports
+        await vi.advanceTimersByTimeAsync(8_001);
+        expect(await probe).toEqual({ verdict: 'unavailable' }); // admits, never hangs the door
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+});
+
+// ── the grandfathered mint's seed ──────────────────────────────────────────────────────────────
+// `finishAccount` (trips-hub) and `SyncGroup.reveal` (settings-panel) both route through this.
+// Writing only `profile/tripList` here is what minted the locked-out accounts in the first place.
+describe('seedAccountDocs — BOTH account docs for a freshly minted key', () => {
+  const CODE = 'eeee5555-ffff-4666-8777-aaaa8888bbbb';
+  const IDENTITY_PATH = `trips/${CODE}/profile/identity`;
+  const LIST_PATH = `trips/${CODE}/profile/tripList`;
+
+  const pathsWritten = () => writeLog.map((w) => w.path).sort();
+
+  it('writes profile/identity AND profile/tripList — the same pair the door mints', async () => {
+    await seedAccountDocs(CODE, 'Uttam');
+    expect(pathsWritten()).toEqual([IDENTITY_PATH, LIST_PATH].sort());
+    expect(writeLog.find((w) => w.path === IDENTITY_PATH)?.data).toEqual({
+      version: 1,
+      name: 'Uttam',
+    });
+  });
+
+  it('the seeded account is then ADMITTED by the door on another device', async () => {
+    await seedAccountDocs(CODE, 'Uttam');
+    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists', name: 'Uttam' });
+  });
+
+  it('NEVER publishes the placeholder as the account name — writes the doc nameless instead', async () => {
+    await seedAccountDocs(CODE, DEFAULT_TRAVELER_NAME);
+    const identity = writeLog.find((w) => w.path === IDENTITY_PATH);
+    expect(identity?.data).toEqual({ version: 1 });
+    // The account still EXISTS, which is the whole point: a nameless doc still admits.
+    expect(await probeAccountIdentity(CODE)).toEqual({ verdict: 'exists', name: undefined });
+  });
+
+  it('a blank / missing name also writes the doc nameless, never an empty name field', async () => {
+    for (const name of [undefined, null, '', '   ']) {
+      writeLog.length = 0;
+      fake.docs.clear();
+      await seedAccountDocs(CODE, name);
+      expect(writeLog.find((w) => w.path === IDENTITY_PATH)?.data).toEqual({ version: 1 });
+    }
+  });
+
+  it('sanitises the name the same way the rename input does (trim, cap 24)', async () => {
+    await seedAccountDocs(CODE, `  ${'U'.repeat(40)}  `);
+    expect(writeLog.find((w) => w.path === IDENTITY_PATH)?.data).toEqual({
+      version: 1,
+      name: 'U'.repeat(24),
+    });
+  });
+
+  it('no-ops (no Firestore call) when dormant or the code is blank', async () => {
+    isRemoteConfiguredMock.mockReturnValue(false);
+    await seedAccountDocs(CODE, 'Uttam');
+    isRemoteConfiguredMock.mockReturnValue(true);
+    await seedAccountDocs('', 'Uttam');
+    expect(writeLog).toHaveLength(0);
+  });
+
+  it('never rejects when the transport is down — both writes stay best-effort', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    fake.failWrites = true;
+    await expect(seedAccountDocs(CODE, 'Uttam')).resolves.toBeUndefined();
+    expect(writeLog).toHaveLength(0);
+    expect(warn).toHaveBeenCalled();
+    fake.failWrites = false;
+    warn.mockRestore();
   });
 });

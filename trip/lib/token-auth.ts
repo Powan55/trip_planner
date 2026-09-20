@@ -1,20 +1,22 @@
-// Nickname sign-in — a free-text display name a traveler types to identify themselves.
+// The DISPLAY-NAME pipeline. Not the credential, and not the gate.
 //
-// This is *soft* identity (display-only, intentionally spoofable). item 3
-// retired the fixed 3-name roster: `resolveToken` now accepts ANY non-empty trimmed name
-//, for every pack including the
-// default. On sign-in we reuse the existing display-name pipeline (`setUserName` from
-// /identity) so attribution (createdBy / updatedBy stamping, "last edited by X") needs
-// zero changes. The name itself is persisted separately (the identity "token" slot) so
-// the gate can recognise a returning traveler.
+// This header used to describe sign-in as free-text nickname auth with `resolveToken` as the
+// door's check. D-239 (2026-07-30) ended that: the door asks for a User Token (key 28, a
+// `crypto.randomUUID()` minted per account) and validates it against Firestore — see
+// `probeAccountIdentity` in lib/trips-remote and components/token-gate. Nothing here gates
+// anything. Two sweeps mis-diagnosed a lockout by trusting the old text, which is why the
+// correction is spelled out rather than quietly deleted.
 //
-// NAMING: the capability secret is the "Trip Key" (settings-panel / handshake);
-// this personal identity is a plain "nickname" — the two must never both be called a
-// "token" in UI copy.
+// What this module actually owns: a *soft*, display-only identity (intentionally spoofable) used
+// for attribution — createdBy / updatedBy stamping, "last edited by X", the traveller filter and
+// the expense-split roster. `signIn(name)` is the ONE writer of both identity slots (name +
+// token), so a rename is just a re-sign-in; `signOut()` is the full local teardown.
 //
-// This module is firebase-free and carries no auth credential — the unspoofable
-// security id (anonymous-auth uid) is a separate, backend-greenlight-only concern and
-// is NOT handled here.
+// NAMING: the ACCOUNT credential is "your key" / User Token, and a single trip's capability is a
+// Trip Token. The name here is neither — never call it a token in UI copy.
+//
+// Firebase-free, and carries no auth credential: the anonymous-auth uid is DEVICE identity and
+// lives in lib/firebase-remote.
 //
 // SSR-safe: every localStorage / window access is guarded by a `typeof window` check so
 // these helpers are inert during static export / server render (return null / no-op).
@@ -236,6 +238,10 @@ export function getActiveTraveler(): Traveler | null {
  * 2. Every trip-scoped domain in BOTH namespaces + the app-scoped pointers/lists + `travelMode`
  * (`wipeAllTripData()` — see `core/storage/gateway.ts` for the full list and the reasoning).
  * 3. The reactive signal (step 4 below).
+ *
+ * ⚠ `wipeAllTripData()` clears key 28 — the User Token, this device's ONLY copy of the account
+ * credential, which nothing can re-issue. `<SignOutConfirm>` therefore shows the key and makes the
+ * user acknowledge saving it before calling this. Any NEW caller owes the user the same.
  *
  * ORDERING IS LOAD-BEARING: the wipe runs BETWEEN `clearIdentity()` and `emitIdentityChanged()`.
  * Emitting first would re-render every listener (the gate, the chip, the remote-subscribe teardown)

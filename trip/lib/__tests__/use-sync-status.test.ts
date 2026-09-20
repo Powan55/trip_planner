@@ -74,7 +74,7 @@ function renderSyncStatus(): HookHandle {
   document.body.appendChild(container);
   const root: Root = createRoot(container);
   const ref: { current: SyncStatus } = {
-    current: { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null },
+    current: { pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: false },
   };
 
   function Probe() {
@@ -111,7 +111,11 @@ describe('useSyncStatus (S229)', () => {
 
   it('starts at the SSR-safe default {pending:0, lastAckAt:null} and confirms it on mount when nothing is dirty', () => {
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null });
+    // `localOnly` is TRUE here, and that is the harness being honest rather than a regression:
+    // `remoteOn` is true (a configured build), localStorage is cleared so the active pack is the
+    // default one, and no D-542 share id has been minted — which is exactly "this device only".
+    // The outbox fields, which is what this test is actually about, still read neutral.
+    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: true });
     h.unmount();
   });
 
@@ -197,7 +201,7 @@ describe('useSyncStatus (S229)', () => {
 
     gate.remoteOn = false;
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null });
+    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: false });
     h.unmount();
   });
 
@@ -208,7 +212,10 @@ describe('useSyncStatus (S229)', () => {
     );
     gate.traveler = null;
     const h = renderSyncStatus();
-    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null });
+    // `localOnly` is independent of identity (a guest on the default pack is still device-only), so
+    // it reads true here for the same reason as the mount test above; the D-055 point — that real
+    // dirty bytes on disk stay invisible to a guest — is carried by the outbox fields.
+    expect(h.current).toEqual({ pending: 0, blocked: 0, readBlocked: false, lastAckAt: null, localOnly: true });
     h.unmount();
   });
 
