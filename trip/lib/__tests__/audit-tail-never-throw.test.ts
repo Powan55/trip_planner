@@ -30,6 +30,26 @@ describe('#439 — outbox loadSlot validates each domain, not just the container
     expect(outboxDirty('expenses')).toEqual([]);
   });
 
+  it('dropping a non-array domain warns and names the domain, and keeps the good ones', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    localStorage.setItem(
+      keyFor('syncOutbox'),
+      JSON.stringify({ version: 1, dirty: { expenses: 'not-an-array', itinerary: ['d1'] } }),
+    );
+    expect(outboxDirty('itinerary')).toEqual(['d1']);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]).toContain('expenses');
+    expect(warn.mock.calls[0]).toContain('string');
+  });
+
+  it('a dirty map that is not an object discards the slot WITH a warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    localStorage.setItem(keyFor('syncOutbox'), JSON.stringify({ version: 1, dirty: null }));
+    expect(outboxDirty('expenses')).toEqual([]);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn.mock.calls[0]).toContain('null');
+  });
+
   it('keeps the string chunks and drops the junk inside an array', () => {
     localStorage.setItem(
       keyFor('syncOutbox'),
@@ -38,12 +58,14 @@ describe('#439 — outbox loadSlot validates each domain, not just the container
     expect(outboxDirty('expenses')).toEqual(['main', 'nepal']);
   });
 
-  it('a good slot is still read unchanged', () => {
+  it('a good slot is still read unchanged, and silently', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     localStorage.setItem(
       keyFor('syncOutbox'),
       JSON.stringify({ version: 1, dirty: { expenses: ['main'] } }),
     );
     expect(outboxDirty('expenses')).toEqual(['main']);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('an unknown version is discarded WITH a warning, not silently', () => {

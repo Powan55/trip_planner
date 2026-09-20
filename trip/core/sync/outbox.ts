@@ -95,7 +95,11 @@ function loadSlot(): OutboxSlot {
     console.warn('[outbox] discarding a slot written at version', raw.version, '— expected 1');
     return { version: 1, dirty: {} };
   }
-  if (typeof raw.dirty !== 'object' || raw.dirty === null) return { version: 1, dirty: {} };
+  if (typeof raw.dirty !== 'object' || raw.dirty === null) {
+    const got = raw.dirty === null ? 'null' : typeof raw.dirty;
+    console.warn('[outbox] discarding a slot whose dirty map is', got, '— expected an object');
+    return { version: 1, dirty: {} };
+  }
   // Per-DOMAIN validation (#439). The object check above proved `dirty` is an object; it proved
   // nothing about its values. A corrupt slot whose domain value is a string or a number used to
   // reach `for (const chunk of dirty[domain])` in outboxBlocked and `arr.filter` in ack, and throw
@@ -105,7 +109,11 @@ function loadSlot(): OutboxSlot {
   const dirty: OutboxSlot['dirty'] = {};
   for (const key of Object.keys(raw.dirty) as SyncDomain[]) {
     const value = (raw.dirty as Record<string, unknown>)[key];
-    if (!Array.isArray(value)) continue;
+    if (!Array.isArray(value)) {
+      const got = value === null ? 'null' : typeof value;
+      console.warn('[outbox] dropping the queued', key, 'chunks — expected an array, got', got);
+      continue;
+    }
     const chunks = value.filter((c): c is string => typeof c === 'string');
     if (chunks.length > 0) dirty[key] = chunks;
   }
