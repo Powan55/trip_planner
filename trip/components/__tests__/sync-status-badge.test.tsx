@@ -53,6 +53,10 @@ beforeEach(() => {
   localStorage.clear();
   gate.remoteOn = true;
   gate.traveler = { name: 'Powan' };
+  // D-542: every case below is about a trip that IS shared, so give the default pack a share id.
+  // Without one the badge is in its `localOnly` state and never reaches the synced/pending/blocked
+  // wording these assert. The local-only state has its own describe block at the bottom.
+  localStorage.setItem(STORAGE_KEYS.defaultTripShare, 'a-shared-trip-id');
 });
 
 afterEach(() => {
@@ -117,5 +121,59 @@ describe('#271 — SyncStatusBadge reflects a permission-denied read, not just a
     });
     expect(state()).toBe('blocked');
     expect(text()).toBe('Not syncing');
+  });
+});
+
+/**
+ * D-542 — the state that used to be silence. On the default pack with no share id the outbox is
+ * gated off, so every field reads neutral and the badge rendered NOTHING: identical to "all
+ * synced". That silence is the whole bug report, so these assert the pill is present, says which,
+ * and offers the way out.
+ */
+describe('D-542 — the local-only state is visible and actionable', () => {
+  it('says "This device only" when the default pack has no share id', async () => {
+    localStorage.removeItem(STORAGE_KEYS.defaultTripShare);
+    const c = await mount();
+    const badge = c.querySelector('[data-testid="sync-status-badge"]');
+    expect(badge).not.toBeNull();
+    expect(badge?.getAttribute('data-state')).toBe('local-only');
+    expect(c.querySelector('[data-testid="sync-status-text"]')?.textContent).toBe(
+      'This device only',
+    );
+  });
+
+  it('is a real button that opens the share dialog — keyboard reachable, not a clickable div', async () => {
+    localStorage.removeItem(STORAGE_KEYS.defaultTripShare);
+    const c = await mount();
+    const cta = c.querySelector('[data-testid="sync-status-share-cta"]');
+    expect(cta).not.toBeNull();
+    expect(cta?.tagName).toBe('BUTTON');
+    expect(cta?.getAttribute('aria-haspopup')).toBe('dialog');
+  });
+
+  it('goes quiet again the moment a share id exists — the offer is not permanent nagging', async () => {
+    const c = await mount(); // beforeEach already set a share id
+    expect(c.querySelector('[data-testid="sync-status-badge"]')).toBeNull();
+  });
+
+  it('stays quiet on a DORMANT build — sharing is impossible there, so offering it is a dead end', async () => {
+    localStorage.removeItem(STORAGE_KEYS.defaultTripShare);
+    gate.remoteOn = false;
+    const c = await mount();
+    expect(c.querySelector('[data-testid="sync-status-badge"]')).toBeNull();
+  });
+
+  it('a real pending count WINS over the offer to share', async () => {
+    // Belt-and-braces on the precedence chain: `localOnly` is last, so a live fact about a trip
+    // that is already shared can never be masked by the invitation to share one.
+    localStorage.removeItem(STORAGE_KEYS.defaultTripShare);
+    localStorage.setItem(
+      STORAGE_KEYS.syncOutbox,
+      JSON.stringify({ version: 1, dirty: { itinerary: ['2026-12-09'] } }),
+    );
+    const c = await mount();
+    expect(c.querySelector('[data-testid="sync-status-badge"]')?.getAttribute('data-state')).toBe(
+      'pending',
+    );
   });
 });

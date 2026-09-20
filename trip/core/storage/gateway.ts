@@ -517,6 +517,26 @@ export const STORAGE_KEYS = {
    * Groq default (concierge-provider, key 44; D-535). APP-SCOPED device preference, not trip data.
    */
   conciergeProvider: 'nepal_japan_concierge_provider',
+  /**
+   * localStorage — plain string, the REMOTE trip id the DEFAULT pack syncs to, or absent for
+   * "this device only" (default-trip-share, key 45; D-542). APP-SCOPED, and deliberately NOT a
+   * `TripScopedSlot`: it does not namespace anything, it only answers "does the sample pack have
+   * a Firestore path yet". Absent ⇒ `getTripId()` returns `''` exactly as #10 left it, so every
+   * build that never opts in is byte-identical.
+   *
+   * This is the ONE thing that was missing after #10 retired `NEXT_PUBLIC_TRIP_ID`. That retirement
+   * was right — a `NEXT_PUBLIC_*` value inlines into the public bundle, so the "secret" trip id
+   * shipped to every visitor — but it left the default pack with NO way to ever sync, and no way
+   * to say so. The id here is minted per device by `crypto.randomUUID()` and stored locally, so it
+   * is a real capability token that was never in the bundle.
+   *
+   * Storage keys are UNAFFECTED: `keyFor` namespaces on `getActiveTripId()` (the PACK id, still
+   * `DEFAULT_TRIP_ID`), never on this. That separation is the whole point — the trip keeps its
+   * legacy on-disk bytes, its NPT/JST leg offsets and its guide content, and only gains a remote
+   * path. NOTE: key 44 (`conciergeProvider`) was the highest when this was written; parallel
+   * slices have collided on "next free key" before, so re-check before reusing 45.
+   */
+  defaultTripShare: 'nepal_japan_default_trip_share',
 } as const;
 
 // ── Active-trip pointer + trip-scoped key namespacing ──
@@ -544,6 +564,30 @@ export function getActiveTripId(): string {
  */
 export function setActiveTripId(id: string): void {
   writeString('local', STORAGE_KEYS.activeTrip, id);
+}
+
+/**
+ * Read the REMOTE trip id the DEFAULT pack syncs to, or `''` when this device has never opted in
+ * (D-542). `''` is the #10 behaviour verbatim — local-only, no Firestore path — so an untouched
+ * device is byte-identical to before this existed.
+ *
+ * Trimmed on read because the value can arrive from a human paste (the "join a shared plan" box),
+ * and a stray space would compose into `trips/ abc/days` — a different, silently-empty trip.
+ * TOTAL, never-throws, SSR-safe (both inherited from `readString`).
+ */
+export function getDefaultTripShareId(): string {
+  return (readString('local', STORAGE_KEYS.defaultTripShare) ?? '').trim();
+}
+
+/**
+ * Point the default pack at a remote trip id, or clear it with `''`. Write-ONLY — the CALLER
+ * performs the full page reload, mirroring `setActiveTripId`. The reload is not optional: the
+ * remote subscribe is established once per boot, so nothing syncs until the next load.
+ */
+export function setDefaultTripShareId(id: string): void {
+  const trimmed = id.trim();
+  if (trimmed === '') removeKey('local', STORAGE_KEYS.defaultTripShare);
+  else writeString('local', STORAGE_KEYS.defaultTripShare, trimmed);
 }
 
 /**
@@ -739,6 +783,10 @@ export function wipeAllTripData(): void {
   removeKey('local', STORAGE_KEYS.removedTrips);
   removeKey('local', STORAGE_KEYS.syncCode);
   removeKey('local', STORAGE_KEYS.travelMode);
+  // D-542 — the default pack's remote trip id is a capability token for the previous traveler's
+  // SHARED plan, so a sign-out that left it behind would silently sync the next person on this
+  // device straight into that trip. Same reasoning as `syncCode` two lines up.
+  removeKey('local', STORAGE_KEYS.defaultTripShare);
 }
 
 /**
