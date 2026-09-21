@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { keyFor, favoritesStore } from '@/core/storage/gateway';
+import { useCallback } from 'react';
+import { keyFor, favoritesStore, hasKey } from '@/core/storage/gateway';
+import { createReactiveStore } from '@/hooks/create-reactive-store';
 
 /**
  * Reactive favorites store. A THIN React adapter over
@@ -11,14 +12,11 @@ import { keyFor, favoritesStore } from '@/core/storage/gateway';
  * no sync fan-out, no attribution).
  *
  * Reactivity:
- * - `toggle` writes via `favoritesStore.set()` AND dispatches a same-tab CustomEvent
- * (`FAVORITES_CHANGED_EVENT`) on `window`, so every card + the "Saved" chip (both read this
- * hook, one instance per `RecommendationSection`) update live.
- * - The hook listens for that CustomEvent (same-tab liveness) AND the cross-tab `storage`
- * event, re-reading from storage on either — via the exported key constant, never a literal.
+ * - `createReactiveStore` owns hydration, same-tab and cross-tab listeners, and the one commit
+ * path, exactly as it does for expenses and journal.
  *
- * SSR-safe + hydrated gate (mirrors `use-expenses.ts`): the list starts `[]` (matching the
- * server render), hydrates from storage in a mount effect, and `toggle` reads the FRESHEST
+ * SSR-safe + hydrated gate (mirrors `use-expenses.ts`): the shared factory seeds from its
+ * storage port (`[]` under SSR), re-reads storage on mount, and makes `toggle` use the FRESHEST
  * persisted state as its base (not a stale React closure). `hydrated` is exposed so a consumer
  * (the favorite toggle button) can defer rendering until post-hydration — no SSR/first-paint
  * mismatch.
@@ -49,6 +47,16 @@ function saveFavorites(ids: string[]): void {
   favoritesStore.set<string[]>(sanitizeIds(ids));
 }
 
+const useFavoritesStore = createReactiveStore<string[]>({
+  eventName: FAVORITES_CHANGED_EVENT,
+  storageKeys: () => [keyFor('favorites')],
+  storage: {
+    load: loadFavorites,
+    save: saveFavorites,
+    has: () => hasKey('local', keyFor('favorites')),
+  },
+});
+
 export interface FavoritesStoreApi {
   favorites: string[];
   hydrated: boolean;
@@ -57,48 +65,7 @@ export interface FavoritesStoreApi {
 }
 
 export function useFavorites(): FavoritesStoreApi {
-  const [favorites, setFavorites] = useState<string[]>([]);
-  const [hydrated, setHydrated] = useState(false);
-  const hydratedRef = useRef(false);
-
-  // Load from localStorage on mount. SSR-safe: matches the server's [] first paint; the real
-  // read happens here after mount.
-  useEffect(() => {
-    setFavorites(loadFavorites());
-    setHydrated(true);
-    hydratedRef.current = true;
-  }, []);
-
-  // Re-read on a same-tab CustomEvent OR a cross-tab `storage` event, so every store instance
-  // (every RecommendationSection on the page) stays in sync within and across tabs.
-  useEffect(() => {
-    const reread = () => {
-      if (!hydratedRef.current) return;
-      setFavorites(loadFavorites());
-    };
-    const onCustom = () => reread();
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === keyFor('favorites') || e.key === null) reread();
-    };
-    window.addEventListener(FAVORITES_CHANGED_EVENT, onCustom);
-    window.addEventListener('storage', onStorage);
-    return () => {
-      window.removeEventListener(FAVORITES_CHANGED_EVENT, onCustom);
-      window.removeEventListener('storage', onStorage);
-    };
-  }, []);
-
-  // Single commit path: derive `next` from the freshest persisted state, write through
-  // `saveFavorites`, update React state, then dispatch the same-tab CustomEvent so other store
-  // instances re-read. Gated on `hydrated` so the first-render [] can't clobber a saved list.
-  const commit = useCallback((compute: (current: string[]) => string[]) => {
-    if (!hydratedRef.current) return;
-    const prev = loadFavorites();
-    const next = compute(prev);
-    saveFavorites(next);
-    setFavorites(next);
-    window.dispatchEvent(new CustomEvent(FAVORITES_CHANGED_EVENT));
-  }, []);
+  const { value: favorites, hydrated, commit } = useFavoritesStore();
 
   const isFavorite = useCallback((id: string) => favorites.includes(id), [favorites]);
 

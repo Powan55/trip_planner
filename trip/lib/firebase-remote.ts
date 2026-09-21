@@ -155,7 +155,7 @@ export type LinkResult = 'linked' | 'adopted' | 'popup-blocked' | 'failed';
  * linked it on their other device. Adopting it here (`signInWithCredential`) is exactly right: the
  * device takes on the identity that already holds the memberships, which is the lost-device
  * recovery path. It CHANGES the uid, so the cached handle is dropped and the caller must re-run
- * `ensureMembership`.
+ * `ensureKnownTripMemberships`.
  */
 export async function linkGoogleAccount(): Promise<LinkResult> {
   if (!isRemoteConfigured()) return 'failed';
