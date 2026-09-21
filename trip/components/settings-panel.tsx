@@ -36,7 +36,7 @@ import {
   identityStore,
 } from '@/core/storage/gateway';
 import SignOutConfirm from '@/components/sign-out-confirm';
-import { joinTrip } from '@/core/trips/registry';
+import { joinTrip, formatShareToken } from '@/core/trips/registry';
 import { getTripId, isRemoteConfigured } from '@/lib/firebase-config';
 import { withBasePath } from '@/lib/utils';
 import { useBudget } from '@/hooks/use-budget';
@@ -946,7 +946,15 @@ function ClaimOldName({ current }: { current: string }) {
  */
 function TripGroup() {
   const [tripKey, setTripKey] = useState<string | null>(null);
+  /**
+   * D-546 — the WIRE form of `tripKey`: what actually goes on the clipboard and into the link.
+   * On the default pack a bare share id is indistinguishable from a custom trip's pack id, and
+   * whoever received it landed in a single-leg trip with no Nepal/Japan offsets and no guides.
+   * `formatShareToken` prefixes it so the receiving end knows which namespace it is.
+   */
+  const [shareToken, setShareToken] = useState<string>('');
   const [joinValue, setJoinValue] = useState('');
+  const [joinError, setJoinError] = useState<string | null>(null);
   const [copied, setCopied] = useState<'key' | 'link' | null>(null);
   // True once mounted iff the browser is on a non-default (shared/created) pack — drives the
   // "Switch to my main trip" affordance. SSR-false so the button never flashes on the
@@ -955,13 +963,16 @@ function TripGroup() {
 
   // Read the active trip's remote token + pack identity after mount (client-only; ssr:false island).
   useEffect(() => {
-    setTripKey(getTripId());
-    setOnSharedTrip(getActiveTripId() !== DEFAULT_TRIP_ID);
+    const active = getActiveTripId();
+    const remote = getTripId();
+    setTripKey(remote);
+    setShareToken(formatShareToken(active, remote));
+    setOnSharedTrip(active !== DEFAULT_TRIP_ID);
   }, []);
 
   const shareLink =
-    tripKey !== null && typeof window !== 'undefined'
-      ? `${window.location.origin}${withBasePath('/')}?trip=${encodeURIComponent(tripKey)}`
+    shareToken !== '' && typeof window !== 'undefined'
+      ? `${window.location.origin}${withBasePath('/')}?trip=${encodeURIComponent(shareToken)}`
       : '';
 
   const copy = async (text: string, which: 'key' | 'link') => {
@@ -977,8 +988,16 @@ function TripGroup() {
   const join = (e: React.FormEvent) => {
     e.preventDefault();
     const id = joinValue.trim();
-    if (!id) return; // non-empty is the only possible/needed validation
-    joinTrip(id, 'Shared trip');
+    if (!id) return;
+    // D-546 — `joinTrip` refuses a token it cannot use and reports whether the pointer landed
+    // (storage writes are swallowed by contract). Reloading regardless used to look like the
+    // paste had worked while leaving the browser exactly where it was.
+    if (!joinTrip(id, 'Shared trip')) {
+      setJoinError(
+        'That code can’t be used. Check it was copied whole — chat apps often cut long codes short.',
+      );
+      return;
+    }
     window.location.reload();
   };
 
@@ -1043,13 +1062,13 @@ function TripGroup() {
             data-testid="settings-trip-key"
             className="min-h-tap min-w-0 flex-1 truncate rounded-r1 border-hair border-[color:var(--border-ui)] bg-surface-overlay px-3 py-2.5 font-machine text-t-body leading-[1.6] text-ink-hi"
           >
-            {tripKey ?? '…'}
+            {shareToken || '…'}
           </code>
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => tripKey && copy(tripKey, 'key')}
-              disabled={!tripKey}
+              onClick={() => shareToken && copy(shareToken, 'key')}
+              disabled={!shareToken}
               data-testid="settings-trip-key-copy"
               className="btn btn--2 px-4"
             >
@@ -1100,7 +1119,12 @@ function TripGroup() {
           <input
             id="settings-trip-join"
             value={joinValue}
-            onChange={(e) => setJoinValue(e.target.value)}
+            onChange={(e) => {
+              setJoinValue(e.target.value);
+              setJoinError(null);
+            }}
+            aria-invalid={joinError !== null || undefined}
+            aria-describedby={joinError ? 'settings-trip-join-error' : undefined}
             placeholder="Paste a Trip Token"
             autoComplete="off"
             autoCapitalize="off"
@@ -1117,6 +1141,16 @@ function TripGroup() {
             Add trip
           </button>
         </div>
+        {joinError && (
+          <p
+            id="settings-trip-join-error"
+            role="alert"
+            data-testid="settings-trip-join-error"
+            className="mt-2 max-w-2xl text-t-body text-amber-300"
+          >
+            {joinError}
+          </p>
+        )}
       </form>
 
       {/* Settings stays the secondary surface — the full list/rename/switch UX lives on

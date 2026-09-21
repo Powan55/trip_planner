@@ -303,8 +303,11 @@ function TokenGateWall({ onHold }: { onHold: () => void }) {
    */
   const finish = () => {
     const go = () => {
-      if (pendingTrip) {
-        joinTrip(pendingTrip);
+      // D-546 — `joinTrip` now resolves which namespace the held token names (a `pack:` share id
+      // keeps the joiner on the default pack; anything else is a custom trip) and reports whether
+      // the switch landed. A token that could not be used falls through to the normal `/trips/`
+      // landing rather than dropping them Home on a trip they never joined.
+      if (pendingTrip && joinTrip(pendingTrip)) {
         window.location.replace(withBasePath('/'));
         return;
       }
