@@ -5376,3 +5376,11 @@ The original length is kept because it is diagnostic in its own right: it is how
 **Cost.** Joining replaces whatever is on the device, which is the documented first-snapshot semantic and is why the dialog says so and points at the backup. One trip id per device, minted locally, so two devices that both mint are two different trips — the code is how they converge.
 
 **Changes if:** the `?trip=` handshake is rewired to set the share id instead of switching packs, which would make the link and the code the same thing.
+
+### D-543 · (2026-09-20) · Calendar colour derives from one module, keyed on leg id and by-date city
+
+**Decision.** All calendar colour comes from `trip/lib/city-palette.ts`. One hue per leg, cities take shades in first-visit order. A city with one day in its leg is a day trip and inherits the shade of the nearest preceding base city. A leg change, or a first-day departure from outside the trip, is a transit day and renders as a split cell. Nothing may key colour off `DayPlan.countryLabel`.
+
+**Cost.** A run of one-day cities that is not a round trip (Paris, Rome, then a week in Berlin) would be read as day trips of Berlin. Unreachable with the default pack or single-city custom trips. Print drops colour (the print sheet forces a grey border), so it carries border style plus text.
+
+**Changes if:** a pack needs explicit city colours, or the one-day rule needs to be bracketed by the same base on both sides.

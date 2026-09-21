@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { m, useScroll, useTransform, useReducedMotion } from 'framer-motion';
 import { Calendar, Compass, ChevronDown, Plane } from 'lucide-react';
 import { TRIP_START, TRIP_DATE_LABEL, formatDateLong } from '@/lib/trip-data';
+import { dayShade } from '@/lib/city-palette';
 import { computeCountdown, type Countdown } from '@/lib/countdown';
 import { FADE_FLOOR } from '@/lib/motion';
 import { ringFraction } from '@/lib/countdown-ring';
@@ -594,7 +595,7 @@ export default function HeroSection() {
                 Nepal's stop through the whole Japan fortnight. */}
             <div
               data-testid="hero-travel-mode"
-              style={{ ['--now']: todayInTrip.country.toLowerCase() === 'japan' ? 'var(--jp-a)' : 'var(--np-a)' } as CSSProperties}
+              style={{ ['--now']: dayShade(todayInTrip.date).color } as CSSProperties}
               className="inline-flex flex-col items-center gap-2 glass-card rounded-r2 px-6 sm:px-10 py-5 sm:py-6 max-w-full"
             >
               <div className="text-display-xl text-ink-hi">
