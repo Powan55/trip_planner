@@ -77,6 +77,13 @@ they wrote. It is memoised now, keyed on a tick that also covers the `getActiveT
 snapshot does not. Separately, three paths documented as never throwing could throw, in the outbox,
 the trips registry and the flight deep links, each called from somewhere with no catch (#439).
 
+**A corrupt weather cache no longer takes Home down.** `weatherCache.get<T>` returned `map[city]` as
+`T` with no validation, and `readJson`'s shape gate only proves the container is an object, not the
+per-city value — so a stored `{"Kathmandu": "corrupt"}` walked past the `!forecast` guard and threw a
+TypeError on Home's render path. The cast is guarded now. Same change names the two bare pixel
+heights in `page.tsx` that sat next to six named siblings, one of which carries a must-move-together
+rule that had no enforcement (#450, #451).
+
 **The quarantined import is bounded.** A vault import read the whole file before deciding anything
 about it, so an oversized archive was already in memory by the time it was rejected. Size is checked
 before the read, and the quarantine slot now keeps a capped leading slice plus the original length
