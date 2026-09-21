@@ -1206,7 +1206,7 @@ const TripMap = forwardRef<TripMapHandle, TripMapProps>(function TripMap(
 
       {/* Popup content portal: stays in this React tree so context flows
           to AddToPlanButton, while its DOM lives inside the MapLibre Popup.
-          a popup opened on a marker that is NOT one of the 27 curated places is an
+          a popup opened on a marker that is NOT one of the 73 curated places is an
           ITINERARY STOP — a synthesized pin or a derived position — so it gets the stop
           popup instead of the curated one (which would offer Directions to a city centroid
           and "add this place to your plan" for a plan that already exists). */}
