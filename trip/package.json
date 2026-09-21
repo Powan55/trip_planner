@@ -20,7 +20,8 @@
     "contrast-check": "node scripts/contrast-tokens.mjs",
     "loop-check": "node scripts/motion-loops.mjs",
     "marker-check": "node scripts/marker-check.mjs",
-    "token-check": "node scripts/token-wrappers.mjs"
+    "token-check": "node scripts/token-wrappers.mjs",
+    "budget-check": "node scripts/asset-budget.mjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
