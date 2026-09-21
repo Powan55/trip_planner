@@ -270,8 +270,8 @@ const SEED_DURATIONS = TRIP_ITINERARY.flatMap((d) =>
 );
 
 describe('D-316 — parseDurationText derives the span from the text the data already holds', () => {
-  it('every seed `duration` string parses to positive minutes (all 158 of them)', () => {
-    expect(SEED_DURATIONS.length).toBe(158); // the premise: the strings exist and are all here
+  it('every seed `duration` string parses to positive minutes (all 164 of them)', () => {
+    expect(SEED_DURATIONS.length).toBe(164); // the premise: the strings exist and are all here
     const failed = SEED_DURATIONS.filter((s) => {
       const v = parseDurationText(s);
       return typeof v !== 'number' || !Number.isInteger(v) || v <= 0;
@@ -483,11 +483,21 @@ describe('D-316 — the shipped seed content under the now-live predicate', () =
   const seedItem = (date: string, id: string): ItineraryItem =>
     TRIP_ITINERARY.find((d) => d.date === date)!.items.find((i) => i.id === id)!;
 
-  it('#18: the shipped seed is CLEAN — not one day holds an overlap of any kind', () => {
+  // The owner's own added items overlap on two days; the plan is the source of truth, so these
+  // are allowed rather than edited away. Any OTHER overlap still fails.
+  const OWNER_OVERLAPS = [
+    '2026-12-21/abb96be5-1a57-474e-96ff-09a0b0589f51',
+    '2026-12-21/e48f2b2c-660f-433c-a270-b786ac7f5720',
+    '2027-01-04/75095786-a40a-494c-b1fa-229d089346e1',
+    '2027-01-04/j17-2',
+  ];
+  const notOwner = (date: string) => (id: string) => !OWNER_OVERLAPS.includes(`${date}/${id}`);
+
+  it('#18: the shipped seed has no overlap beyond the owner-added ones', () => {
     const all = TRIP_ITINERARY.flatMap((day) =>
       [...clashingItemIds(day.items, day.date, offsetForCountry(day.country))].map((id) => `${day.date}/${id}`),
     ).sort();
-    expect(all).toEqual([]);
+    expect(all).toEqual([...OWNER_OVERLAPS].sort());
   });
 
   it('#18: the three former containments were un-nested by SHORTENING the container, so each pair TOUCHES', () => {
@@ -506,7 +516,7 @@ describe('D-316 — the shipped seed content under the now-live predicate', () =
         effectiveStartMinutes(a)! + effectiveDurationMinutes(a)!,
         `${date} ${container} must end exactly when ${nested} starts`,
       ).toBe(effectiveStartMinutes(b)!);
-      expect(clashesOn(date), date).toEqual([]);
+      expect(clashesOn(date).filter(notOwner(date)), date).toEqual([]);
     }
   });
 
@@ -516,7 +526,7 @@ describe('D-316 — the shipped seed content under the now-live predicate', () =
     const day = TRIP_ITINERARY.find((d) => d.date === '2026-12-21')!;
     const offset = offsetForCountry(day.country);
     const nested = mk('nested', { time: '10:00', duration: '1h' });
-    expect([...clashingItemIds([...day.items, nested], day.date, offset)].sort()).toEqual(['j3-1', 'nested']);
+    expect([...clashingItemIds([...day.items, nested], day.date, offset)].filter(notOwner(day.date)).sort()).toEqual(['j3-1', 'nested']);
     expect(firstClashWith(nested, day.items, day.date, offset)?.id).toBe('j3-1');
   });
 
