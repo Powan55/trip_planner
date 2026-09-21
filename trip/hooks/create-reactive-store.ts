@@ -6,16 +6,15 @@ import type { StoragePort, SyncPort } from '@/core/ports';
 /**
  * `createReactiveStore<T>` — the ONE reactive-store skeleton.
  *
- * The hydrate / listen / commit code was triplicated near-verbatim across
- * `hooks/use-itinerary.ts`, `hooks/use-expenses.ts`, and `hooks/use-journal.ts` (and budget
- * had no hook at all). This factory extracts EXACTLY that proven skeleton — nothing more. It
+ * The hydrate / listen / commit code was once triplicated near-verbatim across domain hooks.
+ * This factory extracts EXACTLY that proven skeleton — nothing more. It
  * owns only React state + the mount-load, the dual-layer reactivity listeners, and the
  * single `commit()` write choke-point. Every
  * domain-specific concern — mutators, attribution/sync stamping, tombstone
  * filters, selectors, id generation, timestamp injection — STAYS in the domain hook that wraps
  * this. The factory knows nothing about items, ids, or tombstones.
  *
- * It is NOT a plugin framework: the config is precisely the four things the three hooks
+ * It is NOT a plugin framework: the config is precisely the four things the hooks
  * differed in — the frozen same-tab event name, the on-disk keys the cross-tab listener
  * matches, the domain's `StoragePort`, and (for the one synced domain, itinerary) an optional
  * `SyncPort`. `coreOps` is deliberately dropped — mutators differ in arity/semantics and stay
@@ -41,7 +40,8 @@ import type { StoragePort, SyncPort } from '@/core/ports';
 
 export interface ReactiveStoreConfig<T> {
   /** Same-tab CustomEvent name. BYTE-FROZEN per domain:
-   * 'itinerary:changed' · 'expenses:changed' · 'journal:changed' · 'budget:changed'. */
+   * 'itinerary:changed' · 'expenses:changed' · 'journal:changed' · 'budget:changed' ·
+   * 'favorites:changed' (plus the other domains listed in core/storage/events.ts). */
   eventName: string;
   /** On-disk key literals the cross-tab `storage` listener matches
    * (`e.key === one of these || e.key === null`). Always the exported constants

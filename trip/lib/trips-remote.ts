@@ -50,7 +50,7 @@ import {
   type TripMeta,
   type RemovedTrip,
 } from '@/core/trips/registry';
-import { getActiveTripId } from '@/core/storage/gateway';
+import { DEFAULT_TRIP_ID, getActiveTripId } from '@/core/storage/gateway';
 import { DEFAULT_TRAVELER_NAME } from './token-auth';
 import { isRemoteConfigured, isTripRemoteConfigured } from './firebase-config';
 import { getRemote, isPermissionDenied } from './firebase-remote';
@@ -391,7 +391,7 @@ export async function createTripDoc(tripId: string): Promise<void> {
 }
 
 /**
- * Enrol THIS device in the active trip, once per page load (#10). TOTAL — never rejects.
+ * Enrol THIS device in the caller-supplied trip (#10). TOTAL — never rejects.
  *
  * Four outcomes, and each is a deliberate no-drama branch:
  * - trip doc ABSENT ⇒ return. There is nothing to join yet; the creator (or the legacy seed path)
@@ -406,6 +406,10 @@ export async function createTripDoc(tripId: string): Promise<void> {
  *   existed is overwhelmingly the creator's.
  * - anyone else ⇒ `'member'`.
  *
+ * The explicit target is intentional: the normal page-load caller passes the active trip, while
+ * Google-account adoption calls this once for every known remote trip even if the local-only
+ * sample is active.
+ *
  * The write is a FIELD PATH (`members.<uid>`), never a whole-document `setDoc`: rules allow a
  * non-owner exactly one shape of edit — a diff that touches only `members` and only ADDS keys.
  *
@@ -414,7 +418,9 @@ export async function createTripDoc(tripId: string): Promise<void> {
  * throwing. That is not an error state: it is the "ask a member to add your device code" flow.
  */
 export async function ensureMembership(tripId: string): Promise<void> {
-  if (!isTripRemoteConfigured() || !tripId) return;
+  // This function also repairs every known trip after Google-account adoption, when the
+  // active pack may be the local-only sample. Gate the explicit target, not the active pack.
+  if (!isRemoteConfigured() || !tripId || tripId === DEFAULT_TRIP_ID) return;
   try {
     const { db, fs, uid } = await getRemote();
     const { doc, getDocFromServer, updateDoc } = fs;
@@ -435,6 +441,15 @@ export async function ensureMembership(tripId: string): Promise<void> {
     }
     console.warn('[trips-remote] membership enrolment failed:', err);
   }
+}
+
+/** Re-enrol an adopted Firebase identity in every remotely-backed trip known on this device. */
+export async function ensureKnownTripMemberships(): Promise<void> {
+  await Promise.all(
+    listKnownTrips()
+      .filter((trip) => trip.id !== DEFAULT_TRIP_ID)
+      .map((trip) => ensureMembership(trip.id)),
+  );
 }
 
 /**
