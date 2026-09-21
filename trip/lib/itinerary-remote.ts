@@ -46,6 +46,10 @@ import { sanitizeItineraryItems } from '@/core/itinerary/model';
 import { mergeDay, mergeDays, gcTombstones } from '@/core/sync/merge-day';
 import { seedHlcFromLegacy } from '@/core/sync/hlc';
 import { outboxDirty } from '@/core/sync/outbox';
+// D-544 — the seed pushes through the outbox-decorated port. Safe direction for the dormant
+// gate: itinerary-ports is firebase-free, and ITS edge back to this module is a dynamic
+// `import()` inside pushChunk, so this static import adds no module-init cycle.
+import { itinerarySyncPort } from './itinerary-ports';
 import { isPermissionDenied } from '@/core/sync/denied';
 import { setReadDenied } from '@/core/sync/read-denied';
 import { realClock } from './trip-now';
@@ -393,7 +397,20 @@ export function subscribeRemote(): () => void {
   // reflects empty and STAYS empty after reload" true: a deliberately-emptied
   // shared plan is a real state, NOT a trigger to reseed, and must NOT be merged against the
   // local items (which would resurrect them). Used ONLY on the first, marker-gated snapshot.
-  const applyRemoteAuthoritative = (plans: DayPlan[]) => {
+  //
+  // RETURNS whether the snapshot was HANDLED. `false` means it REFUSED (see the floor below) and
+  // the caller still owns the decision — `reconcileFirstSnapshot` falls through to its seed branch.
+  const applyRemoteAuthoritative = (plans: DayPlan[]): boolean => {
+    // D-544 — THE NEVER-WIPE FLOOR, and the one place every verbatim apply routes through.
+    // A remote reporting ZERO day docs is NOT evidence that the plan was emptied: emptying
+    // keeps the day (`clearDay`/`removeItem` leave `items: []`, D-091) and whole-day removal is
+    // not a user-reachable op, so a deliberately-emptied plan always arrives as N docs with
+    // empty items — which is `plans.length > 0` and still applies verbatim below. Zero docs can
+    // only mean the content was never pushed, and the trip-doc marker does not distinguish the
+    // two because it is a DIFFERENT document from the content: a seed whose marker write landed
+    // and whose day pushes did not leaves exactly this shape, and reading it as "emptied" saved
+    // `[]` over the user's real itinerary on the next load.
+    if (plans.length === 0 && loadPlans().length > 0) return false;
     // THE DIRTY-CHUNK MERGE EXCEPTION. If the offline
     // outbox still holds unpushed local day-edits (flush-then-subscribe may not have completed
     // before this first server snapshot arrives), those dirty dates must NOT be overwritten
@@ -409,7 +426,7 @@ export function subscribeRemote(): () => void {
       // NOT merge — remote is authoritative here, verbatim incl. empty. An empty
       // remote defaults to empty (no items to seed), so delete-all-stays-empty is preserved.
       persistAndDispatch(plans.map(defaultDayForMerge));
-      return;
+      return true;
     }
     // Some dates are dirty: apply remote authoritatively for NON-dirty dates, and merge the
     // dirty dates against the current local view (exactly the steady-state item-level merge, so
@@ -427,6 +444,7 @@ export function subscribeRemote(): () => void {
       else if (remoteDay) result.push(remoteDay); // no local copy → remote as-is
     }
     persistAndDispatch(result);
+    return true;
   };
 
   // STEADY-STATE apply.
@@ -507,9 +525,10 @@ export function subscribeRemote(): () => void {
                 await reconcileFirstSnapshot(
                   remoteDays,
                   { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid },
-                  (plans) => {
-                    if (!cancelled) applyRemoteAuthoritative(plans);
-                  },
+                  // Answers "handled — do not fall through to the seed" (D-544). A CANCELLED
+                  // reconcile is handled by definition: it must write nothing AND seed nothing,
+                  // so it answers true without applying.
+                  (plans) => (cancelled ? true : applyRemoteAuthoritative(plans)),
                 );
                 return;
               }
@@ -609,7 +628,10 @@ async function reconcileFirstSnapshot(
   // remote is taken verbatim incl. empty. Merging here
   // would resurrect local items over a deliberately-emptied shared plan — so the first
   // snapshot deliberately does NOT merge. Steady-state (later snapshots) does merge.
-  applyRemote: (plans: DayPlan[]) => void,
+  //
+  // Answers HANDLED, not "applied" (D-544): false means it refused to persist this remote (its
+  // never-wipe floor) and the seed below should run instead. A cancelled reconcile answers true.
+  applyRemote: (plans: DayPlan[]) => boolean,
 ): Promise<void> {
   const { db, doc, getDoc, getDocFromServer, setDoc, serverTimestamp, uid } = ctx;
   const tripRef = doc(db, 'trips', getTripId());
@@ -639,11 +661,14 @@ async function reconcileFirstSnapshot(
 
   const localWasPersisted = hasStoredPlans(); // present ⇒ user edits; absent ⇒ the built shells/sample
 
-  if (tripExists && (remoteDays.length > 0 || localWasPersisted)) {
+  // D-544 adds the `applyRemote(...)` conjunct and nothing else: the applier REFUSES an empty
+  // remote over a non-empty local (its never-wipe floor) and answers `false`, in which case this
+  // falls through to the seed below — which re-pushes the local plan and HEALS the remote, rather
+  // than refusing forever. Every other combination answers `true` and returns exactly as before.
+  if (tripExists && (remoteDays.length > 0 || localWasPersisted) && applyRemote(remoteDays)) {
     // Group synced before → remote authoritative, apply INCLUDING empty.
     // This is what makes "A deletes everything → B reflects empty and STAYS empty after
     // reload" true: an emptied shared plan is a real state, not a trigger to reseed.
-    applyRemote(remoteDays);
     return;
   }
 
@@ -691,9 +716,15 @@ async function reconcileFirstSnapshot(
       });
     }
 
-    // Push every local day up via the per-day write path (reuse pushPlans with an empty
-    // prev so every present day is written; no day is "removed").
-    await pushPlans([], localPlans);
+    // Push every local day up through the OUTBOX-DECORATED port, not the bare `pushPlans`
+    // (D-544). Same per-day merge-aware writes, with an empty `prev` so every present day is
+    // written and no day is "removed" — but now write-ahead recorded: the dates are enqueued
+    // BEFORE any network, so a push that fails stays dirty, retries on the next ordinary flush
+    // (`online` / visible / app-start), and survives a reload. That makes the seed the same kind
+    // of write as every other one in the app instead of the only fire-and-forget one, and it
+    // arms the first-snapshot dirty-chunk merge exception above for exactly these dates, so a
+    // half-landed seed can no longer be read back as "the group emptied the plan".
+    await itinerarySyncPort.push([], localPlans);
   } catch (err) {
     console.warn('[itinerary-remote] first-snapshot seed failed, staying local-only:', err);
   }

@@ -721,10 +721,19 @@
     "country": "japan",
     "items": [
       {
+        "id": "92702e56-ab9a-4955-a5bf-10ba06e0d4b7",
+        "title": "ICHIRAN Dotonbori -South Building",
+        "category": "food",
+        "time": "09:01",
+        "duration": "2h",
+        "notes": "\nInformal ramen restaurant with a specialty for tonkotsu ramen in a pork bone broth.",
+        "location": "1 Chome-4-16 Dotonbori, Chuo Ward, Osaka, 542-0071, Japan"
+      },
+      {
         "id": "j2-1",
         "title": "Osaka Castle & grounds",
         "category": "sightseeing",
-        "time": "09:30",
+        "time": "12:30",
         "duration": "2h",
         "notes": "Reconstructed keep with a museum and skyline views; the moat and plum grove are crisp and quiet in winter",
         "location": "Chuo, Osaka",
@@ -734,7 +743,7 @@
         "id": "j2-2",
         "title": "Lunch near Namba",
         "category": "food",
-        "time": "12:00",
+        "time": "14:30",
         "duration": "1h",
         "notes": "Casual bite before the afternoon shopping run",
         "location": "Namba, Osaka"
@@ -743,8 +752,8 @@
         "id": "j2-3",
         "title": "Shinsaibashi shopping & Amerikamura",
         "category": "shopping",
-        "time": "13:30",
-        "duration": "2.5h",
+        "time": "16:00",
+        "duration": "2h 30m",
         "notes": "The long covered Shinsaibashi-suji arcade for shopping, then Amerikamura's streetwear blocks and casual cafes next door",
         "location": "Shinsaibashi & Amerikamura, Osaka",
         "sourceId": "ja27"
@@ -753,8 +762,8 @@
         "id": "j2-4",
         "title": "Dotonbori dinner",
         "category": "food",
-        "time": "18:00",
-        "duration": "1.5h",
+        "time": "19:30",
+        "duration": "1h 30m",
         "notes": "Takoyaki, okonomiyaki and the canal-front neon before the night out",
         "location": "Dotonbori, Osaka",
         "sourceId": "ja12"
@@ -763,7 +772,7 @@
         "id": "j2-5",
         "title": "Shinsaibashi/Amerikamura party night",
         "category": "nightlife",
-        "time": "21:00",
+        "time": "22:00",
         "duration": "3h",
         "notes": "The first big party night — try Club Bambi (young, cheap, hip-hop-inclusive) or GHOST Ultra Lounge tonight — or Club Joule/Giraffe for a change of room (verify hours/cover before going); agree the cover charge and any drink minimum before going in. Cap the night with Kinryu Ramen Dotonbori (24h). Last train ~00:00, first ~05:00 — taxi or stay out till first train.",
         "location": "Shinsaibashi/Amerikamura, Osaka"
@@ -779,20 +788,33 @@
         "id": "j3-1",
         "title": "Universal Studios Japan — Super Nintendo World",
         "category": "sightseeing",
-        "time": "09:00",
-        "duration": "4h",
+        "time": "10:00",
+        "duration": "3h",
         "notes": "The morning half of a full USJ day, up to the lunch break; prioritize Super Nintendo World and an Express Pass if available — check current anime/game collaborations closer to the date",
         "location": "Universal Studios Japan, Konohana, Osaka",
         "sourceId": "ja28"
       },
       {
         "id": "j3-2",
-        "title": "Lunch inside the park, then the afternoon rides",
-        "category": "food",
+        "title": "Rest @Hotel",
+        "category": "free",
         "time": "13:00",
-        "duration": "4h",
-        "notes": "Quick refuel between rides, then back in for the afternoon half of the park day — out around 5pm",
+        "duration": "2h",
         "location": "Universal Studios Japan, Osaka"
+      },
+      {
+        "id": "e48f2b2c-660f-433c-a270-b786ac7f5720",
+        "title": "Den Den Town / Nipponbashi anime shopping",
+        "category": "shopping",
+        "time": "15:00",
+        "duration": "2h"
+      },
+      {
+        "id": "abb96be5-1a57-474e-96ff-09a0b0589f51",
+        "title": "Free Time (Wink)",
+        "category": "free",
+        "time": "16:00",
+        "duration": "1h"
       },
       {
         "id": "j3-3",
@@ -820,23 +842,25 @@
     "country": "japan",
     "items": [
       {
-        "id": "j4-1",
-        "title": "Den Den Town / Nipponbashi anime shopping",
-        "category": "shopping",
-        "time": "10:30",
-        "duration": "3h",
-        "notes": "Osaka's anime and electronics district — hunt for One Piece, Naruto and Dragon Ball Z figures and collectibles across the arcade's specialty shops",
-        "location": "Nipponbashi, Osaka",
-        "sourceId": "ja29"
+        "id": "603e7505-110a-4f80-91e4-6a77a9f3ce0f",
+        "title": "Kaiyukan Aquarium",
+        "category": "sightseeing",
+        "time": "10:00",
+        "duration": "1h"
       },
       {
-        "id": "j4-2",
-        "title": "Lunch in Nipponbashi",
+        "id": "1b9691a3-1b33-4c32-a976-8125901bff06",
+        "title": "Kushikatsu at Daruma",
         "category": "food",
         "time": "13:30",
-        "duration": "1h",
-        "notes": "Casual lunch between the figure shops",
-        "location": "Nipponbashi, Osaka"
+        "duration": "1h"
+      },
+      {
+        "id": "fcb46954-4703-4ee8-90d4-7e31543fae27",
+        "title": "Umeda Sky Building Floating Garden Observatory",
+        "category": "sightseeing",
+        "time": "15:00",
+        "duration": "1h"
       },
       {
         "id": "j4-3",
@@ -868,8 +892,8 @@
         "id": "j5-1",
         "title": "Shinsekai & Spa World flex day",
         "category": "sightseeing",
-        "time": "10:30",
-        "duration": "2.5h",
+        "time": "12:30",
+        "duration": "2h 30m",
         "notes": "The retro Shinsekai district under Tsutenkaku Tower and its old-Osaka atmosphere, up to the kushikatsu lunch at 1pm; the Spa World bathhouse soak then fills the open afternoon after it — a relaxed recovery day before the last Osaka night",
         "location": "Shinsekai, Osaka"
       },
@@ -877,17 +901,24 @@
         "id": "j5-2",
         "title": "Lunch — kushikatsu in Shinsekai",
         "category": "food",
-        "time": "13:00",
+        "time": "15:00",
         "duration": "1h",
         "notes": "Deep-fried skewers, Osaka's other signature street food; the rule is no double-dipping the sauce",
         "location": "Shinsekai, Osaka"
       },
       {
+        "id": "0edeff70-8054-47d9-a70c-b6c920aa97a8",
+        "title": "Happy Life",
+        "category": "free",
+        "time": "16:00",
+        "duration": "3h"
+      },
+      {
         "id": "j5-3",
         "title": "Dinner before the final Osaka night",
         "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
+        "time": "20:30",
+        "duration": "1h 30m",
         "notes": "Fuel up before the biggest party night of the Osaka leg",
         "location": "Namba, Osaka"
       },
@@ -895,8 +926,8 @@
         "id": "j5-4",
         "title": "Biggest Osaka party night",
         "category": "nightlife",
-        "time": "21:30",
-        "duration": "3.5h",
+        "time": "22:30",
+        "duration": "3h 30m",
         "notes": "The final and biggest Osaka night out — try GHOST Ultra Lounge or Club Bambi across Shinsaibashi, Amerikamura and Namba before the move to Kyoto (verify hours/cover before going); pace the group for tomorrow's checkout. One more round of Kinryu Ramen Dotonbori (24h) before calling it. Last train ~00:00, first ~05:00 — taxi or stay out till first train.",
         "location": "Shinsaibashi/Amerikamura/Namba, Osaka"
       }
@@ -1083,7 +1114,7 @@
         "title": "Kyoto → Tokyo by Shinkansen",
         "category": "transportation",
         "time": "12:30",
-        "duration": "2.5h",
+        "duration": "4h",
         "notes": "Tokaido Shinkansen from Kyoto Station to Tokyo/Shinagawa; book seats ahead — this is New Year travel season. Right-side seats for a Mt Fuji glimpse past Shizuoka",
         "location": "Kyoto → Tokyo"
       },
@@ -1091,7 +1122,7 @@
         "id": "j9-3",
         "title": "Check in to Tokyo hotel (Shinjuku/Kabukicho edge)",
         "category": "hotel",
-        "time": "15:30",
+        "time": "16:30",
         "duration": "1h",
         "notes": "Not yet booked at itinerary-writing time — target the Shinjuku/Kabukicho edge (Higashi-Shinjuku, Seibu-Shinjuku or Shinjuku-sanchome) for easy walking access to nightlife; one room, same hotel (see the to-book list)",
         "location": "Shinjuku, Tokyo"
@@ -1176,23 +1207,22 @@
     "country": "japan",
     "items": [
       {
-        "id": "j11-1",
-        "title": "Akihabara anime/figures/games/arcades",
-        "category": "shopping",
-        "time": "10:00",
-        "duration": "4h",
-        "notes": "Multi-floor arcades, manga shops and figure stores — hunt for One Piece, Naruto, DBZ figures and Jump merch. Super Potato for retro games",
-        "location": "Akihabara, Tokyo",
-        "sourceId": "ja6"
-      },
-      {
         "id": "j11-2",
         "title": "Lunch in Akihabara",
         "category": "food",
-        "time": "14:00",
+        "time": "11:30",
         "duration": "1h",
         "notes": "Quick curry or a themed anime cafe between the figure shops",
         "location": "Akihabara, Tokyo"
+      },
+      {
+        "id": "a582be6c-7062-4306-b488-5bd08e909b17",
+        "title": "Koenji thrift & streetwear (optional)",
+        "category": "free",
+        "time": "13:30",
+        "duration": "1h 30m",
+        "notes": "An optional afternoon detour nearby for thrift shops, streetwear and low-key bar culture",
+        "location": "Koenji, Tokyo"
       },
       {
         "id": "j11-3",
@@ -1205,19 +1235,20 @@
         "sourceId": "ja25"
       },
       {
-        "id": "j11-4",
-        "title": "Dinner in Shinjuku",
-        "category": "food",
-        "time": "18:30",
-        "duration": "1.5h",
-        "notes": "Reset before the night out",
-        "location": "Shinjuku, Tokyo"
+        "id": "j11-1",
+        "title": "Akihabara anime/figures/games/arcades and DINNER",
+        "category": "shopping",
+        "time": "17:00",
+        "duration": "4h",
+        "notes": "Multi-floor arcades, manga shops and figure stores — hunt for One Piece, Naruto, DBZ figures and Jump merch. Super Potato for retro games",
+        "location": "Akihabara, Tokyo",
+        "sourceId": "ja6"
       },
       {
         "id": "j11-5",
         "title": "Shinjuku/Kabukicho bars & nightlife",
         "category": "nightlife",
-        "time": "21:00",
+        "time": "23:00",
         "duration": "3h",
         "notes": "Another round through the Shinjuku/Kabukicho base — try WARP Shinjuku (Kabukicho mega-club, EDM/hip-hop, a 5-min walk from the hotel zone) — or T2 Shinjuku/Zero Tokyo for a different room in the same area (verify hours/cover before going). Last train ~00:00-00:50, first ~05:00 — taxi or stay out till first train.",
         "location": "Shinjuku/Kabukicho, Tokyo"
@@ -1229,6 +1260,13 @@
     "city": "Tokyo",
     "country": "japan",
     "items": [
+      {
+        "id": "b7cb34d5-d38a-40e9-8085-912a165003eb",
+        "title": "Starbucks Reserve® Roastery Tokyo",
+        "category": "food",
+        "time": "08:00",
+        "duration": "1h"
+      },
       {
         "id": "j12-1",
         "title": "Shibuya Crossing & Shibuya Sky",
@@ -1248,6 +1286,13 @@
         "notes": "Youth-fashion chaos on Takeshita-dori, then the tree-lined Omotesando; check for anime pop-ups and Jump-related events along the way",
         "location": "Harajuku, Tokyo",
         "sourceId": "ps27"
+      },
+      {
+        "id": "00779f5b-f10d-41a5-b32a-69a36f118203",
+        "title": "Shibuya Crossing & Shibuya Sky",
+        "category": "sightseeing",
+        "time": "17:00",
+        "duration": "1h"
       },
       {
         "id": "j12-3",
@@ -1406,31 +1451,13 @@
     "items": [
       {
         "id": "j16-1",
-        "title": "Nakano Broadway collectors' run",
+        "title": "NARUTO×BORUTO FUJI HIDDEN VILLAGE OF KONOHA",
         "category": "shopping",
         "time": "10:30",
-        "duration": "2.5h",
+        "duration": "8h 20m",
         "notes": "Retro multi-floor mall — the original Mandarake, vintage manga, cels and rare Dragon Ball/Naruto/One Piece figures; quieter than Akihabara",
         "location": "Nakano, Tokyo",
         "sourceId": "ja22"
-      },
-      {
-        "id": "j16-2",
-        "title": "Koenji thrift & streetwear (optional)",
-        "category": "free",
-        "time": "13:30",
-        "duration": "1.5h",
-        "notes": "An optional afternoon detour nearby for thrift shops, streetwear and low-key bar culture",
-        "location": "Koenji, Tokyo"
-      },
-      {
-        "id": "j16-3",
-        "title": "Omoide Yokocho dinner",
-        "category": "food",
-        "time": "18:00",
-        "duration": "1.5h",
-        "notes": "A second round of yakitori-alley food before the last stretch of nights",
-        "location": "Shinjuku, Tokyo"
       },
       {
         "id": "j16-4",
@@ -1452,7 +1479,7 @@
         "id": "j17-1",
         "title": "Tokyo Tower & Roppongi Hills/Mori",
         "category": "sightseeing",
-        "time": "10:30",
+        "time": "12:00",
         "duration": "3h",
         "notes": "Daytime look at the 333m Tokyo Tower and the Roppongi Hills/Mori area ahead of tonight's nightlife focus",
         "location": "Roppongi/Minato, Tokyo"
@@ -1461,10 +1488,17 @@
         "id": "j17-2",
         "title": "Lunch near Roppongi",
         "category": "food",
-        "time": "14:00",
+        "time": "15:00",
         "duration": "1h",
         "notes": "Casual lunch before the afternoon wind-down",
         "location": "Roppongi, Tokyo"
+      },
+      {
+        "id": "75095786-a40a-494c-b1fa-229d089346e1",
+        "title": "MANGA and Other Shopping",
+        "category": "shopping",
+        "time": "15:30",
+        "duration": "1h"
       },
       {
         "id": "j17-3",
